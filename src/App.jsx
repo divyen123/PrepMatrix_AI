@@ -18,7 +18,7 @@ import {
   X,
   Settings as SettingsIcon
 } from "lucide-react";
-import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Notification from "./components/Notification";
 import Chatbot from "./components/Chatbot";
 import api from "./utils/apiClient";
@@ -566,10 +566,10 @@ function App() {
       {userProfile && !isAuthRoute && (
         <aside className={`app-sidebar ${sidebarOpen ? "open" : ""}`}>
           <div className="sidebar-header">
-            <div className="workspace-logo-wrap" aria-label="PrepMatrix" tabIndex={0}>
+            <Link to="/dashboard" className="workspace-logo-wrap" aria-label="PrepMatrix">
               <span className="workspace-logo-mark" aria-hidden="true">P</span>
               <h1 className="workspace-logo-title">PrepMatrix</h1>
-            </div>
+            </Link>
             <button
               className="sidebar-close-btn"
               onClick={() => setSidebarOpen(false)}

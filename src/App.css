@@ -4515,13 +4515,14 @@ body.dark .entry-splash-loader {
 
 .workspace-logo-wrap {
   align-items: center;
-  cursor: default;
+  cursor: pointer;
   display: inline-flex;
   gap: 14px;
   isolation: isolate;
   min-height: 76px;
   outline: none;
   position: relative;
+  text-decoration: none;
   width: max-content;
 }
 
