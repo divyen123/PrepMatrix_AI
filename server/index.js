@@ -1,6 +1,7 @@
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
 import dotenv from "dotenv";
 import express from "express";
+import cors from "cors";
 import { MongoClient, ObjectId } from "mongodb";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +16,8 @@ const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || process.env.OPENAI_CHAT_M
 const GROQ_TRANSCRIPTION_MODEL = process.env.GROQ_TRANSCRIPTION_MODEL || "whisper-large-v3-turbo";
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_DB = process.env.MONGODB_DB || "prepmatrix";
+const FRONTEND_URL = process.env.FRONTEND_URL || "";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const SESSION_COOKIE = "prepmatrix_session";
 
 let mongoClient;
@@ -47,17 +50,21 @@ function parseCookies(cookieHeader = "") {
   }, {});
 }
 
+function cookieOptions() {
+  return IS_PRODUCTION
+    ? { httpOnly: true, sameSite: "none", secure: true }
+    : { httpOnly: true, sameSite: "lax", secure: false };
+}
+
 function setSessionCookie(res, token) {
   res.cookie(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: false,
+    ...cookieOptions(),
     maxAge: 1000 * 60 * 60 * 24 * 7,
   });
 }
 
 function clearSessionCookie(res) {
-  res.clearCookie(SESSION_COOKIE, { httpOnly: true, sameSite: "lax", secure: false });
+  res.clearCookie(SESSION_COOKIE, cookieOptions());
 }
 
 function hashPassword(password) {
@@ -233,6 +240,20 @@ function getGroqConfigStatus() {
   }
   return { available: false, apiKey: null, message: "GROQ_API_KEY is not configured on the server.", keySource: null };
 }
+
+// CORS: allow Vercel frontend in production
+const allowedOrigins = FRONTEND_URL ? FRONTEND_URL.split(",").map(o => o.trim()) : [];
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. same-origin, Postman) or matching origins
+    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
+  credentials: true,
+}));
 
 app.use(express.json({ limit: "25mb" }));
 
