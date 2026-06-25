@@ -16,7 +16,8 @@ import {
   Library,
   Menu,
   X,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Info
 } from "lucide-react";
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Notification from "./components/Notification";
@@ -39,6 +40,7 @@ const ReportPage = lazy(() => import("./pages/ReportPage"));
 const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
 const SubjectsPage = lazy(() => import("./pages/SubjectsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const AboutPage = lazy(() => import("./pages/AboutPage"));
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", helper: "Overview and momentum", icon: LayoutDashboard },
@@ -171,7 +173,11 @@ function App() {
 
   const isAuthRoute = location.pathname === "/login" || location.pathname === "/register";
   const activeRoute = NAV_ITEMS.find((item) => location.pathname.startsWith(item.to));
-  const titleLabel = activeRoute?.label || (location.pathname.startsWith("/settings") ? "Settings" : location.pathname.includes("register") ? "Register" : "Login");
+  const titleLabel = activeRoute?.label || (
+    location.pathname.startsWith("/settings") ? "Settings" :
+    location.pathname.startsWith("/about") ? "About" :
+    location.pathname.includes("register") ? "Register" : "Login"
+  );
 
   const applyWorkspace = (workspace = {}, profile = null) => {
     setSubjects(workspace.subjects || []);
@@ -615,6 +621,14 @@ function App() {
                 />
               </div>
             </Suspense>
+            <Link
+              to="/about"
+              className="about-info-btn"
+              title="About application"
+              aria-label="About application"
+            >
+              <Info size={16} />
+            </Link>
           </div>
 
           <div className="sidebar-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
@@ -924,6 +938,12 @@ function App() {
                           />
                         }
                         path="/settings"
+                      />
+                      <Route
+                        element={
+                          <AboutPage />
+                        }
+                        path="/about"
                       />
                       <Route element={<Navigate replace to="/dashboard" />} path="*" />
                     </>

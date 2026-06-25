@@ -9427,3 +9427,42 @@ body.dark .sidebar-widgets .chat-toggle-btn:hover {
     to { opacity: 1; }
   }
 }
+
+/* About Info Button styling */
+.about-info-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  text-decoration: none;
+}
+
+body.dark .about-info-btn {
+  background: var(--surface);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--text);
+}
+
+.about-info-btn:hover {
+  transform: translateY(-1px);
+  background: var(--surface-strong);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: var(--accent);
+}
+
+body.dark .about-info-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--accent);
+}
