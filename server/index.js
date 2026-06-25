@@ -815,7 +815,7 @@ const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, "../dist")));
 
 // SPA Router fallback: serve index.html for all non-API paths
-app.get("*", (req, res, next) => {
+app.get("/{*splat}", (req, res, next) => {
   if (req.path.startsWith("/api")) {
     return next();
   }
