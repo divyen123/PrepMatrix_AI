@@ -161,7 +161,7 @@ function App() {
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [notification, setNotification] = useState("");
   const [completionReward, setCompletionReward] = useState(null);
-  const [entrySplash, setEntrySplash] = useState(false);
+  const [entrySplash, setEntrySplash] = useState(true);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -346,6 +346,7 @@ function App() {
         if (!isMounted) return;
         setUserProfile(null);
         setWorkspaceLoaded(false);
+        setEntrySplash(false);
       })
       .finally(() => {
         if (isMounted) setAuthLoading(false);
@@ -791,13 +792,7 @@ function App() {
 
         <main className="workspace-main">
           <div className="route-stage" key={location.pathname}>
-            {authLoading ? (
-              <section className="card loading-card">
-                <span className="section-tag">Loading</span>
-                <h2>Connecting to PrepMatrix database...</h2>
-                <p className="card-subtext">Checking your secure session and MongoDB workspace.</p>
-              </section>
-            ) : (
+            {authLoading ? null : (
               <Suspense fallback={<RouteLoading />}>
                 <Routes>
                   <Route element={<AuthPage mode="login" onLogin={handleLogin} />} path="/login" />
