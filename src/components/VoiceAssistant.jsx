@@ -7,6 +7,8 @@ import {
   resolveLocalAssistantCommand,
 } from "../utils/assistantCommands";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 const TRANSCRIPTION_PROMPT =
   "Transcribe spoken study-planner commands accurately. Preserve subject names, chapter numbers, timer durations, and short task phrases.";
 
@@ -331,7 +333,7 @@ function VoiceAssistant({ onReset, schedule = [], completed = [], setDarkMode })
     try {
       const audio = await blobToBase64(blob);
 
-      const response = await fetch("/api/voice-assistant/transcribe", {
+      const response = await fetch(`${API_BASE}/api/voice-assistant/transcribe`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -464,7 +466,7 @@ function VoiceAssistant({ onReset, schedule = [], completed = [], setDarkMode })
   useEffect(() => {
     const checkAssistantStatus = async () => {
       try {
-        const response = await fetch("/api/voice-assistant/status");
+        const response = await fetch(`${API_BASE}/api/voice-assistant/status`);
         const payload = await response.json();
 
         if (!response.ok) {

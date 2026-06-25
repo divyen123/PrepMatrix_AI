@@ -19,6 +19,8 @@ import {
   Send
 } from "lucide-react";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 const SUGGESTED_PROMPTS = [
   "Summarize my study progress",
   "What should I focus on today?",
@@ -265,7 +267,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       setLoading(true);
 
       try {
-        const response = await fetch("/api/study-assistant/chat", {
+        const response = await fetch(`${API_BASE}/api/study-assistant/chat`, {
           method: "POST",
           credentials: "include",
           headers: {
@@ -345,7 +347,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   useEffect(() => {
     const getStatus = async () => {
       try {
-        const response = await fetch("/api/study-assistant/status");
+        const response = await fetch(`${API_BASE}/api/study-assistant/status`);
         const payload = await response.json();
 
         if (!response.ok) {
