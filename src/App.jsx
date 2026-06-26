@@ -546,9 +546,11 @@ function App() {
         document.body.classList.add("has-bg-image");
         document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
         document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
-        document.documentElement.style.setProperty("--bg-overlay-opacity", bgOvOp);
-        document.body.style.setProperty("--bg-overlay-opacity", bgOvOp);
-        const bgBrightness = Math.pow(Math.max(0, 1 - parseFloat(bgOvOp)), 4.5);
+        const parsedOvOp = parseFloat(bgOvOp);
+        const mappedOverlay = (parsedOvOp * 0.5).toString();
+        document.documentElement.style.setProperty("--bg-overlay-opacity", mappedOverlay);
+        document.body.style.setProperty("--bg-overlay-opacity", mappedOverlay);
+        const bgBrightness = Math.pow(Math.max(0, 1 - parsedOvOp * 0.5), 4.5);
         document.documentElement.style.setProperty("--bg-brightness", bgBrightness.toString());
         document.body.style.setProperty("--bg-brightness", bgBrightness.toString());
         // Override accent with image-derived theme colour
