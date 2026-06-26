@@ -532,6 +532,11 @@ function App() {
     document.documentElement.style.setProperty("--font-weight-title", titleWeight);
     document.body.style.setProperty("--font-weight-title", titleWeight);
 
+    // Glass opacity
+    const glassOp = localStorage.getItem("prepmatrix_glass_opacity") || "0.6";
+    document.documentElement.style.setProperty("--glass-opacity", glassOp);
+    document.body.style.setProperty("--glass-opacity", glassOp);
+
     // Background image
     const bgImgId = localStorage.getItem("prepmatrix_bg_image_id") || "";
     const bgOvOp = localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55";

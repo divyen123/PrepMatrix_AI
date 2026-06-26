@@ -131,6 +131,9 @@ function SettingsPage({
   const [bgOverlayOpacity, setBgOverlayOpacity] = useState(
     parseFloat(localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55")
   );
+  const [glassOpacity, setGlassOpacity] = useState(
+    parseFloat(localStorage.getItem("prepmatrix_glass_opacity") || "0.6")
+  );
 
   // Color Palette state
   const [customColorLight, setCustomColorLight] = useState("#078f78");
@@ -241,6 +244,7 @@ function SettingsPage({
     fontWeight: localStorage.getItem("prepmatrix_font_weight") || "regular",
     bgImageId: localStorage.getItem("prepmatrix_bg_image_id") || "",
     bgOverlayOpacity: parseFloat(localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55"),
+    glassOpacity: parseFloat(localStorage.getItem("prepmatrix_glass_opacity") || "0.6"),
   });
 
   // 1. Real-time preview of style options on change
@@ -327,9 +331,12 @@ function SettingsPage({
       document.body.style.removeProperty("--bg-overlay-opacity");
     }
 
+    document.documentElement.style.setProperty("--glass-opacity", glassOpacity.toString());
+    document.body.style.setProperty("--glass-opacity", glassOpacity.toString());
+
   }, [
     darkMode, accentRgbLight, accentRgbDark, transparency, contrast, fontSize, cardSize,
-    bgLight, bgDark, glassyCards, glassyButtons, fontFamilyStyle, fontWeightStyle, bgImageId, bgOverlayOpacity
+    bgLight, bgDark, glassyCards, glassyButtons, fontFamilyStyle, fontWeightStyle, bgImageId, bgOverlayOpacity, glassOpacity
   ]);
 
   // 2. Revert styles on unmount if changes were not saved
@@ -420,6 +427,10 @@ function SettingsPage({
           document.documentElement.style.removeProperty("--bg-overlay-opacity");
           document.body.style.removeProperty("--bg-overlay-opacity");
         }
+
+        // Revert glass opacity
+        document.documentElement.style.setProperty("--glass-opacity", init.glassOpacity.toString());
+        document.body.style.setProperty("--glass-opacity", init.glassOpacity.toString());
       }
     };
   }, [setDarkMode]);
@@ -602,7 +613,7 @@ function SettingsPage({
   };
 
   // Apply appearance styles to DOM
-  const applyAppearanceStyles = (theme, font, card, rgbLight, rgbDark, opacity, borderOp, bgL, bgD, glassC, glassB, fontS, fontW, bgImgId, bgOvOpacity) => {
+  const applyAppearanceStyles = (theme, font, card, rgbLight, rgbDark, opacity, borderOp, bgL, bgD, glassC, glassB, fontS, fontW, bgImgId, bgOvOpacity, glassOp) => {
     // 1. Theme
     localStorage.setItem("prepmatrix_default_theme", theme);
     
@@ -678,9 +689,12 @@ function SettingsPage({
     applyFontFamilyVars(fontS);
     applyFontWeightVars(fontW);
 
-    // 9. Background Image
     localStorage.setItem("prepmatrix_bg_image_id", bgImgId || "");
     localStorage.setItem("prepmatrix_bg_overlay_opacity", String(bgOvOpacity));
+    localStorage.setItem("prepmatrix_glass_opacity", String(glassOp));
+    document.documentElement.style.setProperty("--glass-opacity", String(glassOp));
+    document.body.style.setProperty("--glass-opacity", String(glassOp));
+
     if (bgImgId) {
       const imgPreset = BACKGROUND_PRESETS.find(p => p.id === bgImgId);
       if (imgPreset) {
@@ -722,7 +736,8 @@ function SettingsPage({
       fontFamilyStyle,
       fontWeightStyle,
       bgImageId,
-      bgOverlayOpacity
+      bgOverlayOpacity,
+      glassOpacity
     );
 
 
@@ -1057,11 +1072,11 @@ function SettingsPage({
                   <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Dim</span>
                   <input
                     type="range"
-                    min="0.05"
-                    max="0.85"
-                    step="0.05"
-                    value={bgOverlayOpacity}
-                    onChange={(e) => setBgOverlayOpacity(parseFloat(e.target.value))}
+                    min="0.02"
+                    max="1.00"
+                    step="0.02"
+                    value={1 - bgOverlayOpacity}
+                    onChange={(e) => setBgOverlayOpacity(1 - parseFloat(e.target.value))}
                     style={{
                       flex: 1,
                       accentColor: "rgb(var(--accent-rgb))",
@@ -1136,6 +1151,36 @@ function SettingsPage({
                     <option value="bold">Bold</option>
                   </select>
                 </label>
+              </div>
+
+              {/* Glass Card Transparency Slider */}
+              <div style={{ marginTop: "14px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text)" }}>Glass Panel Opacity</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+                    {Math.round(glassOpacity * 100)}%
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Transparent</span>
+                  <input
+                    type="range"
+                    min="0.10"
+                    max="0.90"
+                    step="0.05"
+                    value={glassOpacity}
+                    disabled={!glassyCards}
+                    onChange={(e) => setGlassOpacity(parseFloat(e.target.value))}
+                    style={{
+                      flex: 1,
+                      accentColor: "rgb(var(--accent-rgb))",
+                      height: "6px",
+                      cursor: glassyCards ? "pointer" : "not-allowed",
+                      opacity: glassyCards ? 1 : 0.4,
+                    }}
+                  />
+                  <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Opaque</span>
+                </div>
               </div>
             </div>
 

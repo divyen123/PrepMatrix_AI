@@ -9534,7 +9534,7 @@ body.has-bg-image .theme-icon-btn {
 
 /* ── Sidebar glassmorphism ── */
 body.has-bg-image:not(.no-glass-cards) .app-sidebar {
-  background: rgba(var(--bg-surface-rgb), 0.78) !important;
+  background: rgba(var(--bg-surface-rgb), calc(var(--glass-opacity, 0.6) + 0.18)) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
   border-right-color: rgba(255, 255, 255, 0.08) !important;
@@ -9578,7 +9578,7 @@ body.has-bg-image .sidebar-widgets {
 
 /* ── Topbar glassmorphism ── */
 body.has-bg-image:not(.no-glass-cards) .workspace-topbar {
-  background: rgba(var(--bg-surface-rgb), 0.68) !important;
+  background: rgba(var(--bg-surface-rgb), calc(var(--glass-opacity, 0.6) + 0.08)) !important;
   backdrop-filter: blur(22px) saturate(170%) !important;
   -webkit-backdrop-filter: blur(22px) saturate(170%) !important;
   border-bottom-color: rgba(255, 255, 255, 0.08) !important;
@@ -9604,7 +9604,7 @@ body.has-bg-image .page-header-info span {
 
 /* ── Cards glassmorphism ── */
 body.has-bg-image:not(.no-glass-cards) .card {
-  background: rgba(var(--bg-surface-rgb), 0.6) !important;
+  background: rgba(var(--bg-surface-rgb), var(--glass-opacity, 0.6)) !important;
   backdrop-filter: blur(20px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
@@ -9706,7 +9706,7 @@ body.has-bg-image .status-warning {
 
 /* ── Chat / floating widgets ── */
 body.has-bg-image:not(.no-glass-cards) .sidebar-widget-cell {
-  background: rgba(var(--bg-surface-rgb), 0.45);
+  background: rgba(var(--bg-surface-rgb), calc(var(--glass-opacity, 0.6) - 0.15)) !important;
   border-color: rgba(255, 255, 255, 0.08);
 }
 body.has-bg-image.no-glass-cards .sidebar-widget-cell {
