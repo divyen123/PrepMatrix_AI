@@ -974,11 +974,11 @@ function SettingsPage({
               <button
                 onClick={() => setBgImageId("")}
                 type="button"
+                className="bg-palette-thumbnail-btn"
                 style={{
                   aspectRatio: "16 / 10",
                   border: bgImageId === "" ? "2.5px solid var(--accent)" : "1.5px solid var(--border)",
                   borderRadius: "12px",
-                  background: "linear-gradient(135deg, var(--surface), var(--surface-strong))",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -1004,13 +1004,12 @@ function SettingsPage({
                     key={preset.id}
                     onClick={() => setBgImageId(preset.id)}
                     type="button"
+                    className="bg-preset-thumbnail-btn"
                     style={{
+                      '--thumbnail-bg': `url(${preset.file})`,
                       aspectRatio: "16 / 10",
                       border: isActive ? `2.5px solid rgb(${preset.accentRgb})` : "1.5px solid var(--border)",
                       borderRadius: "12px",
-                      backgroundImage: `url(${preset.file})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
                       cursor: "pointer",
                       position: "relative",
                       overflow: "hidden",
@@ -1025,7 +1024,7 @@ function SettingsPage({
                       left: 0,
                       right: 0,
                       padding: "16px 8px 5px",
-                      background: "linear-gradient(transparent, rgba(0,0,0,0.65))",
+                      background: "transparent",
                       color: "#fff",
                       fontSize: "0.72rem",
                       fontWeight: 600,

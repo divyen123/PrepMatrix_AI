@@ -9749,3 +9749,31 @@ body.has-bg-image .auth-layout {
     background: rgba(var(--bg-surface-rgb), 0.98) !important;
   }
 }
+
+/* ── Background Preset & Palette Option Buttons (Settings Appearance) ── */
+button.bg-preset-thumbnail-btn {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.25) 60%, rgba(0, 0, 0, 0.05) 100%), var(--thumbnail-bg) !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+button.bg-preset-thumbnail-btn:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  filter: brightness(1.1) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+button.bg-palette-thumbnail-btn {
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.25) 0%, rgba(var(--bg-surface-rgb), 0.65) 100%), var(--surface) !important;
+  backdrop-filter: blur(12px) saturate(1.1) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.1) !important;
+}
+
+button.bg-palette-thumbnail-btn:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.35) 0%, rgba(var(--bg-surface-rgb), 0.75) 100%), var(--surface-strong) !important;
+}
+
