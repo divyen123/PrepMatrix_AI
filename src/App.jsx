@@ -548,6 +548,9 @@ function App() {
         document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
         document.documentElement.style.setProperty("--bg-overlay-opacity", bgOvOp);
         document.body.style.setProperty("--bg-overlay-opacity", bgOvOp);
+        const bgBrightness = Math.pow(Math.max(0, 1 - parseFloat(bgOvOp)), 4.5);
+        document.documentElement.style.setProperty("--bg-brightness", bgBrightness.toString());
+        document.body.style.setProperty("--bg-brightness", bgBrightness.toString());
         // Override accent with image-derived theme colour
         document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
@@ -560,6 +563,8 @@ function App() {
       document.documentElement.style.removeProperty("--bg-surface-rgb");
       document.documentElement.style.removeProperty("--bg-overlay-opacity");
       document.body.style.removeProperty("--bg-overlay-opacity");
+      document.documentElement.style.removeProperty("--bg-brightness");
+      document.body.style.removeProperty("--bg-brightness");
     }
   }, [darkMode]);
 

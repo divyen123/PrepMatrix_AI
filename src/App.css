@@ -9504,6 +9504,8 @@ body.has-bg-image::after {
   background-attachment: fixed;
   background-repeat: no-repeat;
   pointer-events: none;
+  filter: brightness(var(--bg-brightness, 1));
+  transition: filter 0.3s ease;
 }
 
 /* Dark overlay to control background brightness — sits above image, below content */

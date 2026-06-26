@@ -318,6 +318,9 @@ function SettingsPage({
         document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
         document.documentElement.style.setProperty("--bg-overlay-opacity", bgOverlayOpacity.toString());
         document.body.style.setProperty("--bg-overlay-opacity", bgOverlayOpacity.toString());
+        const bgBrightness = Math.pow(Math.max(0, 1 - bgOverlayOpacity), 4.5);
+        document.documentElement.style.setProperty("--bg-brightness", bgBrightness.toString());
+        document.body.style.setProperty("--bg-brightness", bgBrightness.toString());
         document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
@@ -329,6 +332,8 @@ function SettingsPage({
       document.documentElement.style.removeProperty("--bg-surface-rgb");
       document.documentElement.style.removeProperty("--bg-overlay-opacity");
       document.body.style.removeProperty("--bg-overlay-opacity");
+      document.documentElement.style.removeProperty("--bg-brightness");
+      document.body.style.removeProperty("--bg-brightness");
     }
 
     document.documentElement.style.setProperty("--glass-opacity", glassOpacity.toString());
@@ -415,6 +420,9 @@ function SettingsPage({
             document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
             document.documentElement.style.setProperty("--bg-overlay-opacity", init.bgOverlayOpacity.toString());
             document.body.style.setProperty("--bg-overlay-opacity", init.bgOverlayOpacity.toString());
+            const initBrightness = Math.pow(Math.max(0, 1 - init.bgOverlayOpacity), 4.5);
+            document.documentElement.style.setProperty("--bg-brightness", initBrightness.toString());
+            document.body.style.setProperty("--bg-brightness", initBrightness.toString());
             document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
             document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
             document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
@@ -426,6 +434,8 @@ function SettingsPage({
           document.documentElement.style.removeProperty("--bg-surface-rgb");
           document.documentElement.style.removeProperty("--bg-overlay-opacity");
           document.body.style.removeProperty("--bg-overlay-opacity");
+          document.documentElement.style.removeProperty("--bg-brightness");
+          document.body.style.removeProperty("--bg-brightness");
         }
 
         // Revert glass opacity
@@ -703,6 +713,9 @@ function SettingsPage({
         document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
         document.documentElement.style.setProperty("--bg-overlay-opacity", String(bgOvOpacity));
         document.body.style.setProperty("--bg-overlay-opacity", String(bgOvOpacity));
+        const saveBrightness = Math.pow(Math.max(0, 1 - bgOvOpacity), 4.5);
+        document.documentElement.style.setProperty("--bg-brightness", saveBrightness.toString());
+        document.body.style.setProperty("--bg-brightness", saveBrightness.toString());
         document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
@@ -714,6 +727,8 @@ function SettingsPage({
       document.documentElement.style.removeProperty("--bg-surface-rgb");
       document.documentElement.style.removeProperty("--bg-overlay-opacity");
       document.body.style.removeProperty("--bg-overlay-opacity");
+      document.documentElement.style.removeProperty("--bg-brightness");
+      document.body.style.removeProperty("--bg-brightness");
     }
   };
 
