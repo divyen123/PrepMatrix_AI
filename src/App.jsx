@@ -474,9 +474,24 @@ function App() {
     if (fontS === "clean") {
       baseFamily = '"Inter", sans-serif';
       displayFamily = '"Outfit", sans-serif';
+    } else if (fontS === "rounded") {
+      baseFamily = '"Nunito", sans-serif';
+      displayFamily = '"Quicksand", sans-serif';
+    } else if (fontS === "geometric") {
+      baseFamily = '"Poppins", sans-serif';
+      displayFamily = '"Raleway", sans-serif';
+    } else if (fontS === "humanist") {
+      baseFamily = '"Source Sans 3", sans-serif';
+      displayFamily = '"DM Sans", sans-serif';
+    } else if (fontS === "editorial") {
+      baseFamily = '"Plus Jakarta Sans", sans-serif';
+      displayFamily = '"Raleway", sans-serif';
     } else if (fontS === "serif") {
       baseFamily = '"Lora", serif';
       displayFamily = '"Playfair Display", serif';
+    } else if (fontS === "classic") {
+      baseFamily = '"Merriweather", serif';
+      displayFamily = '"Crimson Text", serif';
     } else if (fontS === "mono") {
       baseFamily = '"Fira Code", monospace';
       displayFamily = '"Space Mono", monospace';
@@ -519,12 +534,14 @@ function App() {
 
     // Background image
     const bgImgId = localStorage.getItem("prepmatrix_bg_image_id") || "";
+    const bgOvOp = localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55";
     if (bgImgId) {
       const imgPreset = BACKGROUND_PRESETS.find(p => p.id === bgImgId);
       if (imgPreset) {
         document.body.classList.add("has-bg-image");
         document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
         document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
+        document.documentElement.style.setProperty("--bg-overlay-opacity", bgOvOp);
         // Override accent with image-derived theme colour
         document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
@@ -535,6 +552,7 @@ function App() {
       document.body.classList.remove("has-bg-image");
       document.documentElement.style.removeProperty("--bg-image");
       document.documentElement.style.removeProperty("--bg-surface-rgb");
+      document.documentElement.style.removeProperty("--bg-overlay-opacity");
     }
   }, [darkMode]);
 

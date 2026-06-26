@@ -128,6 +128,9 @@ function SettingsPage({
   const [bgImageId, setBgImageId] = useState(
     localStorage.getItem("prepmatrix_bg_image_id") || ""
   );
+  const [bgOverlayOpacity, setBgOverlayOpacity] = useState(
+    parseFloat(localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55")
+  );
 
   // Color Palette state
   const [customColorLight, setCustomColorLight] = useState("#078f78");
@@ -156,9 +159,24 @@ function SettingsPage({
     if (style === "clean") {
       base = '"Inter", sans-serif';
       display = '"Outfit", sans-serif';
+    } else if (style === "rounded") {
+      base = '"Nunito", sans-serif';
+      display = '"Quicksand", sans-serif';
+    } else if (style === "geometric") {
+      base = '"Poppins", sans-serif';
+      display = '"Raleway", sans-serif';
+    } else if (style === "humanist") {
+      base = '"Source Sans 3", sans-serif';
+      display = '"DM Sans", sans-serif';
+    } else if (style === "editorial") {
+      base = '"Plus Jakarta Sans", sans-serif';
+      display = '"Raleway", sans-serif';
     } else if (style === "serif") {
       base = '"Lora", serif';
       display = '"Playfair Display", serif';
+    } else if (style === "classic") {
+      base = '"Merriweather", serif';
+      display = '"Crimson Text", serif';
     } else if (style === "mono") {
       base = '"Fira Code", monospace';
       display = '"Space Mono", monospace';
@@ -222,6 +240,7 @@ function SettingsPage({
     fontStyle: localStorage.getItem("prepmatrix_font_style") || "sans",
     fontWeight: localStorage.getItem("prepmatrix_font_weight") || "regular",
     bgImageId: localStorage.getItem("prepmatrix_bg_image_id") || "",
+    bgOverlayOpacity: parseFloat(localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55"),
   });
 
   // 1. Real-time preview of style options on change
@@ -293,6 +312,7 @@ function SettingsPage({
         document.body.classList.add("has-bg-image");
         document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
         document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
+        document.documentElement.style.setProperty("--bg-overlay-opacity", bgOverlayOpacity.toString());
         document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
@@ -302,11 +322,12 @@ function SettingsPage({
       document.body.classList.remove("has-bg-image");
       document.documentElement.style.removeProperty("--bg-image");
       document.documentElement.style.removeProperty("--bg-surface-rgb");
+      document.documentElement.style.removeProperty("--bg-overlay-opacity");
     }
 
   }, [
     darkMode, accentRgbLight, accentRgbDark, transparency, contrast, fontSize, cardSize,
-    bgLight, bgDark, glassyCards, glassyButtons, fontFamilyStyle, fontWeightStyle, bgImageId
+    bgLight, bgDark, glassyCards, glassyButtons, fontFamilyStyle, fontWeightStyle, bgImageId, bgOverlayOpacity
   ]);
 
   // 2. Revert styles on unmount if changes were not saved
@@ -383,6 +404,7 @@ function SettingsPage({
             document.body.classList.add("has-bg-image");
             document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
             document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
+            document.documentElement.style.setProperty("--bg-overlay-opacity", init.bgOverlayOpacity.toString());
             document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
             document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
             document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
@@ -392,6 +414,7 @@ function SettingsPage({
           document.body.classList.remove("has-bg-image");
           document.documentElement.style.removeProperty("--bg-image");
           document.documentElement.style.removeProperty("--bg-surface-rgb");
+          document.documentElement.style.removeProperty("--bg-overlay-opacity");
         }
       }
     };
@@ -575,7 +598,7 @@ function SettingsPage({
   };
 
   // Apply appearance styles to DOM
-  const applyAppearanceStyles = (theme, font, card, rgbLight, rgbDark, opacity, borderOp, bgL, bgD, glassC, glassB, fontS, fontW, bgImgId) => {
+  const applyAppearanceStyles = (theme, font, card, rgbLight, rgbDark, opacity, borderOp, bgL, bgD, glassC, glassB, fontS, fontW, bgImgId, bgOvOpacity) => {
     // 1. Theme
     localStorage.setItem("prepmatrix_default_theme", theme);
     
@@ -653,12 +676,14 @@ function SettingsPage({
 
     // 9. Background Image
     localStorage.setItem("prepmatrix_bg_image_id", bgImgId || "");
+    localStorage.setItem("prepmatrix_bg_overlay_opacity", String(bgOvOpacity));
     if (bgImgId) {
       const imgPreset = BACKGROUND_PRESETS.find(p => p.id === bgImgId);
       if (imgPreset) {
         document.body.classList.add("has-bg-image");
         document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
         document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
+        document.documentElement.style.setProperty("--bg-overlay-opacity", String(bgOvOpacity));
         document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
@@ -668,6 +693,7 @@ function SettingsPage({
       document.body.classList.remove("has-bg-image");
       document.documentElement.style.removeProperty("--bg-image");
       document.documentElement.style.removeProperty("--bg-surface-rgb");
+      document.documentElement.style.removeProperty("--bg-overlay-opacity");
     }
   };
 
@@ -689,7 +715,8 @@ function SettingsPage({
       glassyButtons,
       fontFamilyStyle,
       fontWeightStyle,
-      bgImageId
+      bgImageId,
+      bgOverlayOpacity
     );
 
 
@@ -1012,6 +1039,36 @@ function SettingsPage({
                 );
               })}
             </div>
+
+            {/* Brightness/Dimness Slider — only visible when an image bg is selected */}
+            {bgImageId && (
+              <div style={{ marginTop: "14px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text)" }}>Background Brightness</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+                    {Math.round((1 - bgOverlayOpacity) * 100)}%
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Dim</span>
+                  <input
+                    type="range"
+                    min="0.05"
+                    max="0.85"
+                    step="0.05"
+                    value={bgOverlayOpacity}
+                    onChange={(e) => setBgOverlayOpacity(parseFloat(e.target.value))}
+                    style={{
+                      flex: 1,
+                      accentColor: "rgb(var(--accent-rgb))",
+                      height: "6px",
+                      cursor: "pointer",
+                    }}
+                  />
+                  <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Bright</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="workspace-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
@@ -1053,7 +1110,12 @@ function SettingsPage({
                   >
                     <option value="sans">Modern Sans (Manrope / Space Grotesk)</option>
                     <option value="clean">Sleek Clean (Inter / Outfit)</option>
+                    <option value="rounded">Rounded Friendly (Nunito / Quicksand)</option>
+                    <option value="geometric">Geometric Modern (Poppins / Raleway)</option>
+                    <option value="humanist">Humanist Neutral (Source Sans 3 / DM Sans)</option>
+                    <option value="editorial">Editorial Sharp (Plus Jakarta Sans / Raleway)</option>
                     <option value="serif">Elegant Serif (Lora / Playfair Display)</option>
+                    <option value="classic">Classic Serif (Merriweather / Crimson Text)</option>
                     <option value="mono">Tech Mono (Fira Code / Space Mono)</option>
                   </select>
                 </label>
