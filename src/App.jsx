@@ -542,6 +542,7 @@ function App() {
         document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
         document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
         document.documentElement.style.setProperty("--bg-overlay-opacity", bgOvOp);
+        document.body.style.setProperty("--bg-overlay-opacity", bgOvOp);
         // Override accent with image-derived theme colour
         document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
@@ -553,6 +554,7 @@ function App() {
       document.documentElement.style.removeProperty("--bg-image");
       document.documentElement.style.removeProperty("--bg-surface-rgb");
       document.documentElement.style.removeProperty("--bg-overlay-opacity");
+      document.body.style.removeProperty("--bg-overlay-opacity");
     }
   }, [darkMode]);
 

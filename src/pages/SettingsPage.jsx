@@ -313,6 +313,7 @@ function SettingsPage({
         document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
         document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
         document.documentElement.style.setProperty("--bg-overlay-opacity", bgOverlayOpacity.toString());
+        document.body.style.setProperty("--bg-overlay-opacity", bgOverlayOpacity.toString());
         document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
@@ -323,6 +324,7 @@ function SettingsPage({
       document.documentElement.style.removeProperty("--bg-image");
       document.documentElement.style.removeProperty("--bg-surface-rgb");
       document.documentElement.style.removeProperty("--bg-overlay-opacity");
+      document.body.style.removeProperty("--bg-overlay-opacity");
     }
 
   }, [
@@ -405,6 +407,7 @@ function SettingsPage({
             document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
             document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
             document.documentElement.style.setProperty("--bg-overlay-opacity", init.bgOverlayOpacity.toString());
+            document.body.style.setProperty("--bg-overlay-opacity", init.bgOverlayOpacity.toString());
             document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
             document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
             document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
@@ -415,6 +418,7 @@ function SettingsPage({
           document.documentElement.style.removeProperty("--bg-image");
           document.documentElement.style.removeProperty("--bg-surface-rgb");
           document.documentElement.style.removeProperty("--bg-overlay-opacity");
+          document.body.style.removeProperty("--bg-overlay-opacity");
         }
       }
     };
@@ -684,6 +688,7 @@ function SettingsPage({
         document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
         document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
         document.documentElement.style.setProperty("--bg-overlay-opacity", String(bgOvOpacity));
+        document.body.style.setProperty("--bg-overlay-opacity", String(bgOvOpacity));
         document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
         document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
@@ -694,6 +699,7 @@ function SettingsPage({
       document.documentElement.style.removeProperty("--bg-image");
       document.documentElement.style.removeProperty("--bg-surface-rgb");
       document.documentElement.style.removeProperty("--bg-overlay-opacity");
+      document.body.style.removeProperty("--bg-overlay-opacity");
     }
   };
 
@@ -1004,9 +1010,8 @@ function SettingsPage({
                     key={preset.id}
                     onClick={() => setBgImageId(preset.id)}
                     type="button"
-                    className="bg-preset-thumbnail-btn"
+                    className={`bg-preset-thumbnail-btn bg-preset-${preset.id}`}
                     style={{
-                      '--thumbnail-bg': `url(${preset.file})`,
                       aspectRatio: "16 / 10",
                       border: isActive ? `2.5px solid rgb(${preset.accentRgb})` : "1.5px solid var(--border)",
                       borderRadius: "12px",

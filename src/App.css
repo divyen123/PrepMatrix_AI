@@ -9485,7 +9485,6 @@ body.has-bg-image {
 
   /* Override the CSS-variable palette so every element that uses
      var(--text), var(--surface) etc. automatically adapts. */
-  --bg-overlay-opacity: 0.55;
   --text: #f0f0f5 !important;
   --text-muted: rgba(230, 232, 240, 0.6) !important;
   --text-secondary: rgba(230, 232, 240, 0.72) !important;
@@ -9502,7 +9501,7 @@ body.has-bg-image::before {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: rgba(0, 0, 0, var(--bg-overlay-opacity));
+  background: rgba(0, 0, 0, var(--bg-overlay-opacity, 0.55));
   pointer-events: none;
   transition: background 0.3s ease;
 }
@@ -9752,7 +9751,6 @@ body.has-bg-image .auth-layout {
 
 /* ── Background Preset & Palette Option Buttons (Settings Appearance) ── */
 button.bg-preset-thumbnail-btn {
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.25) 60%, rgba(0, 0, 0, 0.05) 100%), var(--thumbnail-bg) !important;
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
@@ -9764,6 +9762,37 @@ button.bg-preset-thumbnail-btn:hover {
   transform: translateY(-2px) scale(1.02) !important;
   filter: brightness(1.1) !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+button.bg-preset-sunset-valley {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.25) 60%, rgba(0, 0, 0, 0.05) 100%), url("/backgrounds/pexels-israelpinapol-11991514.jpg") !important;
+  background-size: cover !important;
+  background-position: center !important;
+}
+button.bg-preset-crescent-moon {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.25) 60%, rgba(0, 0, 0, 0.05) 100%), url("/backgrounds/pexels-mag-photography-1501456-5266990.jpg") !important;
+  background-size: cover !important;
+  background-position: center !important;
+}
+button.bg-preset-rain-droplets {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.25) 60%, rgba(0, 0, 0, 0.05) 100%), url("/backgrounds/pexels-matheusnatan-3394939.jpg") !important;
+  background-size: cover !important;
+  background-position: center !important;
+}
+button.bg-preset-morning-dew {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.25) 60%, rgba(0, 0, 0, 0.05) 100%), url("/backgrounds/pexels-nikola-tomasic-58494762-24712964.jpg") !important;
+  background-size: cover !important;
+  background-position: center !important;
+}
+button.bg-preset-code-screen {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.25) 60%, rgba(0, 0, 0, 0.05) 100%), url("/backgrounds/pexels-simonptr-33607952.jpg") !important;
+  background-size: cover !important;
+  background-position: center !important;
+}
+button.bg-preset-garden-oasis {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.25) 60%, rgba(0, 0, 0, 0.05) 100%), url("/backgrounds/pexels-slaishram-271160.jpg") !important;
+  background-size: cover !important;
+  background-position: center !important;
 }
 
 button.bg-palette-thumbnail-btn {
