@@ -7943,6 +7943,59 @@ button:hover,
   min-height: 168px;
 }
 
+/* ── Overview card individual color themes ── */
+.route-overview-grid > .overview-card:nth-child(1) { --ov-r: var(--accent-rgb); --ov-c: var(--accent); --ov-c2: #00a6c8; }
+.route-overview-grid > .overview-card:nth-child(2) { --ov-r: 0, 166, 200; --ov-c: #00a6c8; --ov-c2: #0e7490; }
+.route-overview-grid > .overview-card:nth-child(3) { --ov-r: 243, 182, 63; --ov-c: #f3b63f; --ov-c2: #ea580c; }
+.route-overview-grid > .overview-card:nth-child(4) { --ov-r: 109, 93, 252; --ov-c: #6d5dfc; --ov-c2: #a78bfa; }
+
+body.dark .route-overview-grid > .overview-card:nth-child(1) { --ov-c: #24c7b1; --ov-c2: #22d3ee; }
+body.dark .route-overview-grid > .overview-card:nth-child(2) { --ov-c: #22d3ee; --ov-c2: #67e8f9; }
+body.dark .route-overview-grid > .overview-card:nth-child(3) { --ov-c: #fbbf24; --ov-c2: #fb923c; }
+body.dark .route-overview-grid > .overview-card:nth-child(4) { --ov-c: #a78bfa; --ov-c2: #c4b5fd; }
+
+.route-overview-grid > .overview-card {
+  border: 1px solid transparent !important;
+  background:
+    linear-gradient(135deg, var(--surface), rgba(var(--ov-r), 0.035)) padding-box,
+    linear-gradient(135deg, rgba(var(--ov-r), 0.4), rgba(var(--ov-r), 0.12)) border-box !important;
+}
+
+.route-overview-grid > .overview-card:hover {
+  background:
+    linear-gradient(135deg, var(--surface-strong), rgba(var(--ov-r), 0.065)) padding-box,
+    linear-gradient(135deg, rgba(var(--ov-r), 0.55), rgba(var(--ov-r), 0.22)) border-box !important;
+  box-shadow: 0 20px 40px -12px rgba(var(--ov-r), 0.18) !important;
+}
+
+.route-overview-grid > .overview-card::before {
+  background:
+    linear-gradient(115deg, transparent 0 24%, rgba(255, 255, 255, 0.24) 34%, transparent 46%),
+    radial-gradient(circle at 0 0, rgba(var(--ov-r), 0.2), transparent 32%) !important;
+}
+
+.route-overview-grid > .overview-card .overview-value {
+  background: linear-gradient(135deg, var(--ov-c), var(--ov-c2)) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+}
+
+.route-overview-grid > .overview-card .overview-label {
+  color: var(--ov-c) !important;
+  border-color: rgba(var(--ov-r), 0.22) !important;
+  background: linear-gradient(135deg, rgba(var(--ov-r), 0.14), rgba(var(--ov-r), 0.04)) !important;
+}
+
+/* Per-card accent border in bg-image glassmorphism mode */
+body.has-bg-image:not(.no-glass-cards) .route-overview-grid > .overview-card {
+  border-color: rgba(var(--ov-r), 0.22) !important;
+}
+
+body.has-bg-image:not(.no-glass-cards) .route-overview-grid > .overview-card:hover {
+  border-color: rgba(var(--ov-r), 0.35) !important;
+}
+
 .overview-label,
 .section-tag,
 .panel-label,
@@ -9615,7 +9668,8 @@ body.has-bg-image .page-header-info span {
 }
 
 /* ── Cards glassmorphism ── */
-body.has-bg-image:not(.no-glass-cards) .card {
+body.has-bg-image:not(.no-glass-cards) .card,
+body.has-bg-image:not(.no-glass-cards) .overview-card {
   background: rgba(var(--bg-surface-rgb), var(--glass-opacity, 0.6)) !important;
   backdrop-filter: blur(20px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
@@ -9624,7 +9678,8 @@ body.has-bg-image:not(.no-glass-cards) .card {
 }
 
 /* Solid cards when glass is OFF with bg image */
-body.has-bg-image.no-glass-cards .card {
+body.has-bg-image.no-glass-cards .card,
+body.has-bg-image.no-glass-cards .overview-card {
   background: rgba(var(--bg-surface-rgb), 0.92) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -9635,7 +9690,10 @@ body.has-bg-image.no-glass-cards .card {
 /* Headings inside cards */
 body.has-bg-image .card h3,
 body.has-bg-image .card h4,
-body.has-bg-image .card strong {
+body.has-bg-image .card strong,
+body.has-bg-image .overview-card h3,
+body.has-bg-image .overview-card h4,
+body.has-bg-image .overview-card strong {
   color: #f0f0f5;
 }
 
