@@ -9466,3 +9466,244 @@ body.dark .about-info-btn:hover {
   border-color: rgba(255, 255, 255, 0.25);
   color: var(--accent);
 }
+
+/* ================================================================
+   BACKGROUND IMAGE MODE
+   Applied when body has class "has-bg-image".
+   Provides glassmorphism, text-readability overrides, and
+   hides the dark/light toggle (the image dictates the palette).
+   ================================================================ */
+
+body.has-bg-image {
+  background-image: var(--bg-image) !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-attachment: fixed !important;
+  background-repeat: no-repeat !important;
+
+  /* Override the CSS-variable palette so every element that uses
+     var(--text), var(--surface) etc. automatically adapts. */
+  --text: #f0f0f5 !important;
+  --text-muted: rgba(230, 232, 240, 0.6) !important;
+  --text-secondary: rgba(230, 232, 240, 0.72) !important;
+  --surface: rgba(var(--bg-surface-rgb), 0.52) !important;
+  --surface-strong: rgba(var(--bg-surface-rgb), 0.72) !important;
+  --surface-muted: rgba(var(--bg-surface-rgb), 0.28) !important;
+  --border: rgba(255, 255, 255, 0.11) !important;
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Remove radial-gradient background from body when image is set */
+body.has-bg-image,
+body.has-bg-image.dark {
+  background-color: transparent;
+}
+
+/* Hide decorative glows and motion beams */
+body.has-bg-image .page-glow,
+body.has-bg-image .page-glow-left,
+body.has-bg-image .page-glow-right,
+body.has-bg-image .motion-stage {
+  display: none !important;
+}
+
+/* Transparent main layout */
+body.has-bg-image .app-container,
+body.has-bg-image .app-main-content,
+body.has-bg-image .route-stage {
+  background: transparent !important;
+}
+
+/* Hide dark/light toggle when image background is active */
+body.has-bg-image .theme-icon-btn {
+  display: none !important;
+}
+
+/* ── Sidebar glassmorphism ── */
+body.has-bg-image .app-sidebar {
+  background: rgba(var(--bg-surface-rgb), 0.78) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border-right-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+body.has-bg-image .sidebar-link {
+  color: rgba(240, 240, 245, 0.85);
+}
+body.has-bg-image .sidebar-link:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #f0f0f5;
+}
+body.has-bg-image .sidebar-link.active {
+  background: rgba(var(--accent-rgb), 0.18);
+  color: rgb(var(--accent-rgb));
+}
+body.has-bg-image .sidebar-link-icon {
+  color: inherit;
+}
+body.has-bg-image .workspace-logo-title {
+  color: #f0f0f5;
+}
+body.has-bg-image .workspace-logo-mark {
+  color: #f0f0f5;
+}
+body.has-bg-image .profile-details strong {
+  color: rgba(240, 240, 245, 0.92);
+}
+body.has-bg-image .profile-details span {
+  color: rgba(240, 240, 245, 0.55);
+}
+body.has-bg-image .sidebar-widgets {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Topbar glassmorphism ── */
+body.has-bg-image .workspace-topbar {
+  background: rgba(var(--bg-surface-rgb), 0.68) !important;
+  backdrop-filter: blur(22px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(170%) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+body.has-bg-image .icon-shell-btn {
+  color: rgba(240, 240, 245, 0.85);
+}
+body.has-bg-image .icon-shell-btn:hover {
+  color: #f0f0f5;
+  background: rgba(255, 255, 255, 0.08);
+}
+body.has-bg-image .page-header-info h2,
+body.has-bg-image .page-header-info span {
+  color: #f0f0f5;
+}
+
+/* ── Cards glassmorphism ── */
+body.has-bg-image .card {
+  background: rgba(var(--bg-surface-rgb), 0.6) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #f0f0f5;
+}
+
+/* Headings inside cards */
+body.has-bg-image .card h3,
+body.has-bg-image .card h4,
+body.has-bg-image .card strong {
+  color: #f0f0f5;
+}
+
+/* Subtext */
+body.has-bg-image .card-subtext {
+  color: rgba(230, 232, 240, 0.6) !important;
+}
+
+/* Section tags */
+body.has-bg-image .section-tag {
+  color: rgba(var(--accent-rgb), 0.85);
+}
+
+/* ── Form controls ── */
+body.has-bg-image input,
+body.has-bg-image select,
+body.has-bg-image textarea {
+  background: rgba(var(--bg-surface-rgb), 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f0f0f5 !important;
+}
+
+body.has-bg-image input::placeholder,
+body.has-bg-image textarea::placeholder {
+  color: rgba(230, 232, 240, 0.38) !important;
+}
+
+body.has-bg-image select option {
+  background: rgb(var(--bg-surface-rgb));
+  color: #f0f0f5;
+}
+
+/* ── Buttons ── */
+body.has-bg-image button {
+  color: #f0f0f5;
+}
+
+body.has-bg-image .secondary-btn {
+  background: rgba(var(--bg-surface-rgb), 0.5);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(240, 240, 245, 0.8);
+}
+
+/* ── Dashboard specific ── */
+body.has-bg-image .compact-intro h2 {
+  color: #f0f0f5;
+}
+
+/* ── Scrollbar for dark image backgrounds ── */
+body.has-bg-image ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+body.has-bg-image ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+/* ── About info button ── */
+body.has-bg-image .about-info-btn {
+  background: rgba(var(--bg-surface-rgb), 0.5);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(240, 240, 245, 0.8);
+}
+body.has-bg-image .about-info-btn:hover {
+  background: rgba(var(--bg-surface-rgb), 0.7);
+  color: rgb(var(--accent-rgb));
+}
+
+/* ── Toggle switch ── */
+body.has-bg-image .toggle-row strong {
+  color: #f0f0f5;
+}
+
+/* ── Status colours stay visible ── */
+body.has-bg-image .status-success {
+  color: rgb(var(--accent-rgb));
+}
+body.has-bg-image .status-warning {
+  color: #f59e0b;
+}
+
+/* ── Chat / floating widgets ── */
+body.has-bg-image .sidebar-widget-cell {
+  background: rgba(var(--bg-surface-rgb), 0.45);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Settings icon button ── */
+body.has-bg-image .settings-icon-btn {
+  color: rgba(240, 240, 245, 0.7);
+}
+body.has-bg-image .settings-icon-btn:hover,
+body.has-bg-image .settings-icon-btn.active {
+  color: rgb(var(--accent-rgb));
+}
+
+/* ── Profile avatar ── */
+body.has-bg-image .profile-avatar {
+  background: rgba(var(--accent-rgb), 0.15);
+  color: rgb(var(--accent-rgb));
+}
+
+/* ── Recharts (Analytics) ── */
+body.has-bg-image .recharts-text {
+  fill: rgba(240, 240, 245, 0.6) !important;
+}
+
+/* ── Auth page shouldn't use bg image ── */
+body.has-bg-image .auth-layout {
+  background: transparent;
+}
+
+/* ── Responsive: mobile sidebar overlay ── */
+@media (max-width: 900px) {
+  body.has-bg-image .app-sidebar.open {
+    background: rgba(var(--bg-surface-rgb), 0.92) !important;
+  }
+}

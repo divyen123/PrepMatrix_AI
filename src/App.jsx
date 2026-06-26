@@ -23,6 +23,7 @@ import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-route
 import Notification from "./components/Notification";
 import Chatbot from "./components/Chatbot";
 import api from "./utils/apiClient";
+import BACKGROUND_PRESETS from "./utils/backgroundPresets";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
 import "./App.css";
 import { ToastContainer } from "react-toastify";
@@ -515,6 +516,26 @@ function App() {
     document.body.style.setProperty("--font-weight-bold", boldWeight);
     document.documentElement.style.setProperty("--font-weight-title", titleWeight);
     document.body.style.setProperty("--font-weight-title", titleWeight);
+
+    // Background image
+    const bgImgId = localStorage.getItem("prepmatrix_bg_image_id") || "";
+    if (bgImgId) {
+      const imgPreset = BACKGROUND_PRESETS.find(p => p.id === bgImgId);
+      if (imgPreset) {
+        document.body.classList.add("has-bg-image");
+        document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
+        document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
+        // Override accent with image-derived theme colour
+        document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+        document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+        document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
+        document.body.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
+      }
+    } else {
+      document.body.classList.remove("has-bg-image");
+      document.documentElement.style.removeProperty("--bg-image");
+      document.documentElement.style.removeProperty("--bg-surface-rgb");
+    }
   }, [darkMode]);
 
   useEffect(() => {

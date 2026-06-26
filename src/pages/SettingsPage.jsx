@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, Shield, Palette, User, Check, Settings2, Target, Download, Upload, Trash2, Volume2, Mic } from "lucide-react";
+import { Save, Shield, Palette, User, Check, Settings2, Target, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon } from "lucide-react";
 import api from "../utils/apiClient";
+import BACKGROUND_PRESETS from "../utils/backgroundPresets";
 import { toast } from "react-toastify";
 
 const COLOR_PRESETS = [
@@ -124,6 +125,9 @@ function SettingsPage({
   const [fontWeightStyle, setFontWeightStyle] = useState(
     localStorage.getItem("prepmatrix_font_weight") || "regular"
   );
+  const [bgImageId, setBgImageId] = useState(
+    localStorage.getItem("prepmatrix_bg_image_id") || ""
+  );
 
   // Color Palette state
   const [customColorLight, setCustomColorLight] = useState("#078f78");
@@ -217,6 +221,7 @@ function SettingsPage({
     glassyButtons: localStorage.getItem("prepmatrix_glassy_buttons") !== "false",
     fontStyle: localStorage.getItem("prepmatrix_font_style") || "sans",
     fontWeight: localStorage.getItem("prepmatrix_font_weight") || "regular",
+    bgImageId: localStorage.getItem("prepmatrix_bg_image_id") || "",
   });
 
   // 1. Real-time preview of style options on change
@@ -281,9 +286,27 @@ function SettingsPage({
     applyFontFamilyVars(fontFamilyStyle);
     applyFontWeightVars(fontWeightStyle);
 
+    // Background image live-preview
+    if (bgImageId) {
+      const imgPreset = BACKGROUND_PRESETS.find(p => p.id === bgImageId);
+      if (imgPreset) {
+        document.body.classList.add("has-bg-image");
+        document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
+        document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
+        document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+        document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+        document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
+        document.body.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
+      }
+    } else {
+      document.body.classList.remove("has-bg-image");
+      document.documentElement.style.removeProperty("--bg-image");
+      document.documentElement.style.removeProperty("--bg-surface-rgb");
+    }
+
   }, [
     darkMode, accentRgbLight, accentRgbDark, transparency, contrast, fontSize, cardSize,
-    bgLight, bgDark, glassyCards, glassyButtons, fontFamilyStyle, fontWeightStyle
+    bgLight, bgDark, glassyCards, glassyButtons, fontFamilyStyle, fontWeightStyle, bgImageId
   ]);
 
   // 2. Revert styles on unmount if changes were not saved
@@ -352,6 +375,24 @@ function SettingsPage({
         // Revert typography choices
         applyFontFamilyVars(init.fontStyle);
         applyFontWeightVars(init.fontWeight);
+
+        // Revert background image
+        if (init.bgImageId) {
+          const imgPreset = BACKGROUND_PRESETS.find(p => p.id === init.bgImageId);
+          if (imgPreset) {
+            document.body.classList.add("has-bg-image");
+            document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
+            document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
+            document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+            document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+            document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
+            document.body.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
+          }
+        } else {
+          document.body.classList.remove("has-bg-image");
+          document.documentElement.style.removeProperty("--bg-image");
+          document.documentElement.style.removeProperty("--bg-surface-rgb");
+        }
       }
     };
   }, [setDarkMode]);
@@ -534,7 +575,7 @@ function SettingsPage({
   };
 
   // Apply appearance styles to DOM
-  const applyAppearanceStyles = (theme, font, card, rgbLight, rgbDark, opacity, borderOp, bgL, bgD, glassC, glassB, fontS, fontW) => {
+  const applyAppearanceStyles = (theme, font, card, rgbLight, rgbDark, opacity, borderOp, bgL, bgD, glassC, glassB, fontS, fontW, bgImgId) => {
     // 1. Theme
     localStorage.setItem("prepmatrix_default_theme", theme);
     
@@ -609,6 +650,25 @@ function SettingsPage({
     localStorage.setItem("prepmatrix_font_weight", fontW);
     applyFontFamilyVars(fontS);
     applyFontWeightVars(fontW);
+
+    // 9. Background Image
+    localStorage.setItem("prepmatrix_bg_image_id", bgImgId || "");
+    if (bgImgId) {
+      const imgPreset = BACKGROUND_PRESETS.find(p => p.id === bgImgId);
+      if (imgPreset) {
+        document.body.classList.add("has-bg-image");
+        document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
+        document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
+        document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+        document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+        document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
+        document.body.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
+      }
+    } else {
+      document.body.classList.remove("has-bg-image");
+      document.documentElement.style.removeProperty("--bg-image");
+      document.documentElement.style.removeProperty("--bg-surface-rgb");
+    }
   };
 
   // Save appearance settings
@@ -628,7 +688,8 @@ function SettingsPage({
       glassyCards,
       glassyButtons,
       fontFamilyStyle,
-      fontWeightStyle
+      fontWeightStyle,
+      bgImageId
     );
 
 
@@ -871,6 +932,86 @@ function SettingsPage({
               <Palette size={20} className="status-success" /> Custom Color Palette & Layout
             </h3>
             <p className="card-subtext">Change default startup theme, font/card scales, and set color values with transparency & contrast controls.</p>
+          </div>
+
+          {/* Background Image Picker */}
+          <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "18px" }}>
+            <span className="card-subtext" style={{ fontSize: "0.8rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+              <ImageIcon size={14} /> Background Theme
+            </span>
+            <p className="card-subtext" style={{ marginBottom: "12px", fontSize: "0.82rem" }}>
+              Choose an image background or use the color palette theme. Image backgrounds automatically set matching theme colours.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "10px" }}>
+              {/* None / Color Palette option */}
+              <button
+                onClick={() => setBgImageId("")}
+                type="button"
+                style={{
+                  aspectRatio: "16 / 10",
+                  border: bgImageId === "" ? "2.5px solid var(--accent)" : "1.5px solid var(--border)",
+                  borderRadius: "12px",
+                  background: "linear-gradient(135deg, var(--surface), var(--surface-strong))",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  position: "relative",
+                  overflow: "hidden",
+                  fontSize: "0.78rem",
+                  color: "var(--text)",
+                  fontWeight: 600,
+                  gap: "5px",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <Palette size={15} /> Color Palette
+                {bgImageId === "" && <Check size={12} style={{ position: "absolute", top: "5px", right: "5px", color: "var(--accent)" }} />}
+              </button>
+
+              {/* Image thumbnails */}
+              {BACKGROUND_PRESETS.map((preset) => {
+                const isActive = bgImageId === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => setBgImageId(preset.id)}
+                    type="button"
+                    style={{
+                      aspectRatio: "16 / 10",
+                      border: isActive ? `2.5px solid rgb(${preset.accentRgb})` : "1.5px solid var(--border)",
+                      borderRadius: "12px",
+                      backgroundImage: `url(${preset.file})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      cursor: "pointer",
+                      position: "relative",
+                      overflow: "hidden",
+                      padding: 0,
+                      transition: "all 0.2s ease",
+                      boxShadow: isActive ? `0 0 0 1px rgb(${preset.accentRgb}), 0 4px 12px rgba(${preset.accentRgb}, 0.25)` : "none",
+                    }}
+                  >
+                    <span style={{
+                      position: "absolute",
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      padding: "16px 8px 5px",
+                      background: "linear-gradient(transparent, rgba(0,0,0,0.65))",
+                      color: "#fff",
+                      fontSize: "0.72rem",
+                      fontWeight: 600,
+                      textAlign: "left",
+                      letterSpacing: "0.02em",
+                    }}>
+                      {preset.name}
+                    </span>
+                    {isActive && <Check size={13} style={{ position: "absolute", top: "5px", right: "5px", color: "#fff", filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.6))" }} />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="workspace-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
