@@ -7531,7 +7531,7 @@ body.dark .auth-orb {
   --gradient-primary: linear-gradient(135deg, #0f766e 0%, #00a6c8 44%, #6d5dfc 100%);
   --gradient-hot: linear-gradient(135deg, #f9735b 0%, #f3b63f 100%);
   --gradient-card: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
-  --gradient-border: linear-gradient(135deg, rgba(var(--accent-rgb), 0.4), rgba(109, 93, 252, 0.28), rgba(249, 115, 91, 0.22));
+  --gradient-border: linear-gradient(135deg, rgba(var(--accent-rgb), 0.42), rgba(var(--accent-rgb), 0.12));
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -7830,7 +7830,7 @@ body.dark .workspace-topbar {
   position: absolute;
   inset: 0;
   opacity: 0;
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.16), rgba(109, 93, 252, 0.14));
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.16), rgba(var(--accent-rgb), 0.04));
   transition: opacity 0.28s ease;
 }
 
@@ -7876,7 +7876,7 @@ button,
 .settings-icon-btn {
   border: 1px solid rgba(var(--accent-rgb), 0.18) !important;
   background:
-    linear-gradient(135deg, rgba(var(--accent-rgb), 0.14), rgba(109, 93, 252, 0.09)) !important;
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.14), rgba(var(--accent-rgb), 0.03)) !important;
   color: var(--text) !important;
   box-shadow: 0 10px 24px rgba(20, 33, 58, 0.08) !important;
 }
@@ -7894,7 +7894,7 @@ button:hover,
 .hamburger-btn:hover,
 .settings-icon-btn:hover {
   background:
-    linear-gradient(135deg, rgba(var(--accent-rgb), 0.22), rgba(109, 93, 252, 0.16)) !important;
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.22), rgba(var(--accent-rgb), 0.06)) !important;
   border-color: rgba(var(--accent-rgb), 0.32) !important;
   transform: translateY(-2px) !important;
   box-shadow: 0 16px 34px rgba(var(--accent-rgb), 0.18) !important;
@@ -8730,7 +8730,7 @@ body.dark .completion-reward-popup {
   min-height: 46px !important;
   border-radius: 12px !important;
   background:
-    linear-gradient(135deg, rgba(var(--accent-rgb), 0.78), rgba(93, 113, 238, 0.78)) !important;
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.88), rgba(var(--accent-rgb), 0.65)) !important;
   border-color: rgba(255, 255, 255, 0.24) !important;
   box-shadow: 0 10px 24px rgba(65, 76, 160, 0.13) !important;
   color: #ffffff !important;
@@ -8740,7 +8740,7 @@ body.dark .completion-reward-popup {
 .sidebar-widgets .floating-analytics-btn:hover,
 .sidebar-widgets .chat-toggle-btn:hover {
   background:
-    linear-gradient(135deg, rgba(var(--accent-rgb), 0.86), rgba(93, 113, 238, 0.84)) !important;
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.95), rgba(var(--accent-rgb), 0.75)) !important;
   box-shadow: 0 12px 26px rgba(65, 76, 160, 0.18) !important;
 }
 
@@ -9971,7 +9971,7 @@ body .topbar-right .icon-shell-btn {
   min-height: 38px !important;
   border-radius: 50% !important;
   background:
-    linear-gradient(135deg, rgba(var(--accent-rgb), 0.78), rgba(93, 113, 238, 0.78)) !important;
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.88), rgba(var(--accent-rgb), 0.65)) !important;
   border: 1px solid rgba(255, 255, 255, 0.24) !important;
   box-shadow: 0 4px 10px rgba(65, 76, 160, 0.08) !important;
   color: #ffffff !important;
@@ -9980,7 +9980,7 @@ body .topbar-right .icon-shell-btn {
 
 body .topbar-right .icon-shell-btn:hover {
   background:
-    linear-gradient(135deg, rgba(var(--accent-rgb), 0.86), rgba(93, 113, 238, 0.84)) !important;
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.95), rgba(var(--accent-rgb), 0.75)) !important;
   border-color: rgba(255, 255, 255, 0.32) !important;
   box-shadow: 0 6px 14px rgba(65, 76, 160, 0.12) !important;
   color: #ffffff !important;

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../utils/apiClient";
 
 const QUIZ_HISTORY_PER_PAGE = 6;
@@ -171,7 +171,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
 
         {saveError && <p className="auth-message">{saveError}</p>}
 
-        <button disabled={isGenerating} onClick={startQuiz} type="button">
+        <button className="action-btn" disabled={isGenerating} onClick={startQuiz} type="button">
           {isGenerating ? "Generating topic quiz..." : "Generate AI quiz"}
         </button>
       </section>
