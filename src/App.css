@@ -9941,3 +9941,63 @@ button.bg-palette-thumbnail-btn:hover {
   background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.35) 0%, rgba(var(--bg-surface-rgb), 0.75) 100%), var(--surface-strong) !important;
 }
 
+/* ==========================================================================
+   Popup Backdrops & Blur-overlay Custom Enhancements
+   ========================================================================== */
+
+/* Blur and dim the background elements when modals or chat is open */
+body.modal-open .workspace-main,
+body.modal-open .app-sidebar,
+body.modal-open .workspace-topbar,
+body.chat-open .workspace-main,
+body.chat-open .app-sidebar,
+body.chat-open .workspace-topbar {
+  filter: blur(8px) brightness(0.7) !important;
+  pointer-events: none;
+}
+
+/* Ensure smooth transition for the blur effect */
+.workspace-main,
+.app-sidebar,
+.workspace-topbar {
+  transition: filter 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease, border-color 0.3s ease !important;
+}
+
+/* Topbar right buttons styling to match bottom buttons with reduced glow */
+body .topbar-right .icon-shell-btn {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  border-radius: 50% !important;
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.78), rgba(93, 113, 238, 0.78)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  box-shadow: 0 4px 10px rgba(65, 76, 160, 0.08) !important;
+  color: #ffffff !important;
+  transform: none !important;
+}
+
+body .topbar-right .icon-shell-btn:hover {
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.86), rgba(93, 113, 238, 0.84)) !important;
+  border-color: rgba(255, 255, 255, 0.32) !important;
+  box-shadow: 0 6px 14px rgba(65, 76, 160, 0.12) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+}
+
+body.dark .topbar-right .icon-shell-btn {
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.28), rgba(255, 255, 255, 0.04)) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+  color: #ffffff !important;
+}
+
+body.dark .topbar-right .icon-shell-btn:hover {
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.38), rgba(255, 255, 255, 0.06)) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4) !important;
+  color: #ffffff !important;
+}
+

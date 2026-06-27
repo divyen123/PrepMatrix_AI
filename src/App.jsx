@@ -405,6 +405,17 @@ function App() {
   }, [darkMode]);
 
   useEffect(() => {
+    if (logoutConfirmOpen || resetConfirmOpen) {
+      document.body.classList.add("modal-open");
+    } else {
+      document.body.classList.remove("modal-open");
+    }
+    return () => {
+      document.body.classList.remove("modal-open");
+    };
+  }, [logoutConfirmOpen, resetConfirmOpen]);
+
+  useEffect(() => {
     // Font scale
     const font = localStorage.getItem("prepmatrix_font_size") || "medium";
     document.documentElement.style.setProperty(

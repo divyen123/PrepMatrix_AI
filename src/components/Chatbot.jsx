@@ -151,6 +151,17 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     }
   }, [open, fetchSessions]);
 
+  useEffect(() => {
+    if (open) {
+      document.body.classList.add("chat-open");
+    } else {
+      document.body.classList.remove("chat-open");
+    }
+    return () => {
+      document.body.classList.remove("chat-open");
+    };
+  }, [open]);
+
   // Select a session to load details
   const handleSelectSession = useCallback(async (sessionId) => {
     setLoading(true);
