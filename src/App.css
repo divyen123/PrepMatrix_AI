@@ -382,6 +382,8 @@ body.dark .header {
 .action-btn {
   min-width: 170px;
   justify-content: center;
+  align-self: flex-start;
+  width: fit-content;
 }
 
 .subject-row {
