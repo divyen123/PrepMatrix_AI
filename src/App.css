@@ -10001,3 +10001,94 @@ body.dark .topbar-right .icon-shell-btn:hover {
   color: #ffffff !important;
 }
 
+/* ==========================================================================
+   Opaque Popups & Theme Aligned Modals Customizations
+   ========================================================================== */
+
+/* 1. Reset Workspace Confirmation Popover */
+.reset-confirm-popover {
+  background: var(--surface-strong) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-lg) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.reset-confirm-popover::before {
+  background: var(--surface-strong) !important;
+  border-top: 1px solid var(--border) !important;
+  border-left: 1px solid var(--border) !important;
+}
+
+body.has-bg-image .reset-confirm-popover {
+  background: rgb(var(--bg-surface-rgb)) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+body.has-bg-image .reset-confirm-popover::before {
+  background: rgb(var(--bg-surface-rgb)) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* 2. Delete Account Confirmation Popover */
+.delete-confirm-popover {
+  background: var(--surface-strong) !important;
+  border: 1px solid rgba(239, 68, 68, 0.45) !important;
+  box-shadow: var(--shadow-lg) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.has-bg-image .delete-confirm-popover {
+  background: rgb(var(--bg-surface-rgb)) !important;
+}
+
+/* 3. Daily Streak Completion Reward Popup */
+.completion-reward-popup {
+  background: var(--surface-strong) !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.35) !important;
+  box-shadow: var(--shadow-lg) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.dark .completion-reward-popup {
+  background: var(--surface-strong) !important;
+}
+
+body.has-bg-image .completion-reward-popup {
+  background: rgb(var(--bg-surface-rgb)) !important;
+}
+
+/* Completion Reward Popup text colors */
+.completion-reward-popup span {
+  color: var(--accent) !important;
+}
+
+.completion-reward-popup strong {
+  color: var(--text) !important;
+}
+
+.completion-reward-popup p {
+  color: var(--text-muted) !important;
+}
+
+/* Completion Reward Popup close button */
+.completion-reward-popup button {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+}
+
+.completion-reward-popup button:hover {
+  background: var(--surface-strong) !important;
+  color: var(--text) !important;
+}
+
+/* Blur and dim the background elements when popover is open (leaving topbar unblurred) */
+body.popover-open .workspace-main,
+body.popover-open .app-sidebar {
+  filter: blur(8px) brightness(0.7) !important;
+  pointer-events: none;
+}
+

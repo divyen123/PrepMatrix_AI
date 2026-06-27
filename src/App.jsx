@@ -405,7 +405,7 @@ function App() {
   }, [darkMode]);
 
   useEffect(() => {
-    if (logoutConfirmOpen || resetConfirmOpen) {
+    if (logoutConfirmOpen) {
       document.body.classList.add("modal-open");
     } else {
       document.body.classList.remove("modal-open");
@@ -413,7 +413,18 @@ function App() {
     return () => {
       document.body.classList.remove("modal-open");
     };
-  }, [logoutConfirmOpen, resetConfirmOpen]);
+  }, [logoutConfirmOpen]);
+
+  useEffect(() => {
+    if (resetConfirmOpen) {
+      document.body.classList.add("popover-open");
+    } else {
+      document.body.classList.remove("popover-open");
+    }
+    return () => {
+      document.body.classList.remove("popover-open");
+    };
+  }, [resetConfirmOpen]);
 
   useEffect(() => {
     // Font scale
