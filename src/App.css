@@ -6629,6 +6629,35 @@ body.dark .icon-shell-btn {
   min-width: 38px !important;
   min-height: 38px !important;
   border-radius: 50% !important;
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.78), rgba(93, 113, 238, 0.78)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  box-shadow: 0 4px 10px rgba(65, 76, 160, 0.08) !important;
+  color: #ffffff !important;
+  transform: none !important;
+}
+
+.topbar-right .icon-shell-btn:hover {
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.86), rgba(93, 113, 238, 0.84)) !important;
+  border-color: rgba(255, 255, 255, 0.32) !important;
+  box-shadow: 0 6px 14px rgba(65, 76, 160, 0.12) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+}
+
+body.dark .topbar-right .icon-shell-btn {
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.28), rgba(255, 255, 255, 0.04)) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+  color: #ffffff !important;
+}
+
+body.dark .topbar-right .icon-shell-btn:hover {
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.38), rgba(255, 255, 255, 0.06)) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4) !important;
+  color: #ffffff !important;
 }
 
 .icon-shell-btn:hover {
@@ -8822,7 +8851,17 @@ body.dark .completion-reward-popup {
   }
 }
 
-/* Shared confirmation dialogs */
+/* Shared confirmation dialogs & chat backdrop */
+.chat-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1150;
+  background: rgba(10, 15, 28, 0.58) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  animation: fadeInGlobal 0.25s var(--ease-out-expo) both;
+}
+
 .confirm-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -8830,9 +8869,15 @@ body.dark .completion-reward-popup {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(10, 15, 28, 0.42);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(10, 15, 28, 0.58) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  animation: fadeInGlobal 0.25s var(--ease-out-expo) both;
+}
+
+@keyframes fadeInGlobal {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .confirm-modal {
@@ -8844,7 +8889,7 @@ body.dark .completion-reward-popup {
   border-radius: 22px;
   background:
     linear-gradient(var(--surface-strong), var(--surface-strong)) padding-box,
-    linear-gradient(135deg, rgba(var(--accent-rgb), 0.42), rgba(109, 93, 252, 0.28)) border-box;
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.42), rgba(var(--accent-rgb), 0.12)) border-box;
   box-shadow: 0 28px 90px rgba(8, 12, 24, 0.35);
 }
 
@@ -9669,7 +9714,9 @@ body.has-bg-image .page-header-info span {
 
 /* ── Cards glassmorphism ── */
 body.has-bg-image:not(.no-glass-cards) .card,
-body.has-bg-image:not(.no-glass-cards) .overview-card {
+body.has-bg-image:not(.no-glass-cards) .overview-card,
+body.has-bg-image:not(.no-glass-cards) .confirm-modal,
+body.has-bg-image:not(.no-glass-cards) .chat-box {
   background: rgba(var(--bg-surface-rgb), var(--glass-opacity, 0.6)) !important;
   backdrop-filter: blur(20px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
@@ -9677,9 +9724,22 @@ body.has-bg-image:not(.no-glass-cards) .overview-card {
   color: #f0f0f5;
 }
 
+/* Chat history sidebar in bg-image modes */
+body.has-bg-image:not(.no-glass-cards) .chat-history-sidebar {
+  background: rgba(var(--bg-surface-rgb), calc(var(--glass-opacity, 0.6) - 0.25)) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+body.has-bg-image.no-glass-cards .chat-history-sidebar {
+  background: rgba(var(--bg-surface-rgb), 0.8) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
 /* Solid cards when glass is OFF with bg image */
 body.has-bg-image.no-glass-cards .card,
-body.has-bg-image.no-glass-cards .overview-card {
+body.has-bg-image.no-glass-cards .overview-card,
+body.has-bg-image.no-glass-cards .confirm-modal,
+body.has-bg-image.no-glass-cards .chat-box {
   background: rgba(var(--bg-surface-rgb), 0.92) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -9693,7 +9753,12 @@ body.has-bg-image .card h4,
 body.has-bg-image .card strong,
 body.has-bg-image .overview-card h3,
 body.has-bg-image .overview-card h4,
-body.has-bg-image .overview-card strong {
+body.has-bg-image .overview-card strong,
+body.has-bg-image .confirm-modal h2,
+body.has-bg-image .confirm-modal h3,
+body.has-bg-image .confirm-modal strong,
+body.has-bg-image .chat-box h3,
+body.has-bg-image .chat-box strong {
   color: #f0f0f5;
 }
 

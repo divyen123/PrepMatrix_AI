@@ -404,8 +404,10 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       </button>
 
       {open ? createPortal(
-        <section className="chatbot sidebar-chatbot-portal">
-          <div className="chat-box">
+        <>
+          <div className="chat-modal-backdrop" onClick={() => setOpen(false)} role="presentation" />
+          <section className="chatbot sidebar-chatbot-portal">
+            <div className="chat-box">
             
             {/* Sliding Backdrop on Mobile */}
             {historyOpen && window.innerWidth <= 768 && (
@@ -578,9 +580,9 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                 </button>
               </div>
             </div>
-            
-          </div>
-        </section>,
+            </div>
+          </section>
+        </>,
         document.body
       ) : null}
     </>
