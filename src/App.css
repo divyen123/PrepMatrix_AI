@@ -2946,8 +2946,8 @@ body.dark select option:hover {
 }
 
 .weekly-review-output {
-  background: linear-gradient(135deg, rgba(11, 143, 116, 0.12), rgba(255, 255, 255, 0.58));
-  border: 1px solid rgba(11, 143, 116, 0.16);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.14), rgba(255, 255, 255, 0.58));
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
   border-radius: 26px;
   color: var(--text);
   display: grid;
@@ -3029,7 +3029,8 @@ body.dark select option:hover {
 }
 
 body.dark .weekly-review-output {
-  background: linear-gradient(135deg, rgba(11, 143, 116, 0.16), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.16), rgba(255, 255, 255, 0.04));
+  border-color: rgba(var(--accent-rgb), 0.2) !important;
 }
 
 body.dark .weekly-review-highlights article,
