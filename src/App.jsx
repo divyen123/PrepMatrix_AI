@@ -348,6 +348,7 @@ function App() {
         setUserProfile(null);
         setWorkspaceLoaded(false);
         setEntrySplash(false);
+        setNotification("Backend server connection offline. Please start local backend server or check VITE_API_URL.");
       })
       .finally(() => {
         if (isMounted) setAuthLoading(false);

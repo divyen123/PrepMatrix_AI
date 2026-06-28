@@ -1,22 +1,33 @@
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    ...options,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-  const payload = await response.json().catch(() => ({}));
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+      signal: controller.signal,
+      ...options,
+    });
 
-  if (!response.ok) {
-    throw new Error(payload.error || "Request failed.");
+    clearTimeout(timeoutId);
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Request failed.");
+    }
+
+    return payload;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
   }
-
-  return payload;
 }
 
 const api = {
