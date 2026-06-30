@@ -646,6 +646,10 @@ function App() {
       </div>
       {entrySplash && <EntrySplash />}
 
+      {userProfile && !isAuthRoute && sidebarOpen && (
+        <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
+      )}
+
       {userProfile && !isAuthRoute && (
         <aside className={`app-sidebar ${sidebarOpen ? "open" : ""}`}>
           <div className="sidebar-header">

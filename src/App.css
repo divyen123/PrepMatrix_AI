@@ -10095,3 +10095,93 @@ body.popover-open .app-sidebar {
   pointer-events: none;
 }
 
+/* ==========================================================================
+   Mobile Performance & Alignment Polishes (max-width: 991.98px)
+   ========================================================================== */
+
+@media (max-width: 991.98px) {
+  /* 1. Prevent mobile lag by replacing expensive CPU blurs with GPU-friendly dimming/solid surfaces */
+  body.modal-open .workspace-main,
+  body.modal-open .app-sidebar,
+  body.modal-open .workspace-topbar,
+  body.chat-open .workspace-main,
+  body.chat-open .app-sidebar,
+  body.chat-open .workspace-topbar,
+  body.popover-open .workspace-main,
+  body.popover-open .app-sidebar {
+    filter: brightness(0.62) !important; /* GPU-friendly brightness dimming instead of CPU-heavy blur! */
+  }
+
+  .workspace-topbar,
+  .app-sidebar,
+  .sidebar-widgets .chat-box,
+  .floating-analytics-popup,
+  .auth-card,
+  .card,
+  .utility-card,
+  .overview-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Slightly more opaque backgrounds on mobile to maintain perfect readability and premium contrast without blur */
+  .workspace-topbar {
+    background: rgba(255, 255, 255, 0.96) !important;
+  }
+  body.dark .workspace-topbar {
+    background: rgba(15, 24, 42, 0.98) !important;
+  }
+  .app-sidebar {
+    background: var(--surface-strong) !important;
+  }
+  body.dark .app-sidebar {
+    background: var(--surface-strong) !important;
+  }
+  .sidebar-widgets .chat-box {
+    background: var(--surface-strong) !important;
+  }
+  body.dark .sidebar-widgets .chat-box {
+    background: var(--surface-strong) !important;
+  }
+
+  /* 2. Mobile Sidebar Overlay Backdrop */
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 95; /* Sits directly beneath mobile sidebar drawer (100) */
+    animation: sidebarFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* 3. Mobile Grid & Alignment Adjustments */
+  .overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important; /* 2 columns on tablet/mobile instead of 4 squished */
+    gap: 14px !important;
+  }
+}
+
+@keyframes sidebarFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 520px) {
+  /* 4. Extra-compact mobile adjustments */
+  .overview-grid {
+    grid-template-columns: 1fr !important; /* Single column on narrow mobile */
+  }
+  
+  .page-subtitle {
+    display: none !important; /* Hide subtitle to fit header + buttons inside tight topbar */
+  }
+  
+  .page-title {
+    font-size: 1.15rem !important;
+  }
+  
+  .workspace-topbar {
+    padding-inline: 12px !important;
+  }
+}
+
+
