@@ -10535,16 +10535,39 @@ body.popover-open .app-sidebar {
 }
 
 .worktree-container.fullscreen-modal-mode {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  width: 100vw;
-  height: 100vh;
-  border-radius: 0;
-  background: rgba(11, 15, 25, 0.98);
-  backdrop-filter: blur(20px);
-  padding: 24px;
+  position: fixed !important;
+  top: 2.5vh !important;
+  left: 2.5vw !important;
+  width: 95vw !important;
+  height: 95vh !important;
+  z-index: 99999 !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
+  background: rgba(13, 20, 35, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  padding: 24px !important;
   overflow-y: auto;
+  animation: worktreeScaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes worktreeScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+body.worktree-fullscreen-active .workspace-main,
+body.worktree-fullscreen-active .app-sidebar,
+body.worktree-fullscreen-active .workspace-topbar {
+  filter: blur(8px) brightness(0.5) !important;
+  pointer-events: none !important;
+  transition: filter 0.3s ease !important;
 }
 
 .worktree-header {
@@ -10564,21 +10587,27 @@ body.popover-open .app-sidebar {
 }
 
 .worktree-name-input {
-  background: transparent;
-  border: none;
-  border-bottom: 1px dashed rgba(var(--accent-rgb), 0.3);
-  color: var(--text);
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1.5px dashed rgba(var(--accent-rgb), 0.3) !important;
+  box-shadow: none !important;
+  height: auto !important;
+  min-height: auto !important;
+  padding: 2px 4px !important;
+  color: var(--text) !important;
   font-family: "Space Grotesk", sans-serif;
   font-weight: 700;
   font-size: 1.25rem;
-  padding: 2px 4px;
-  width: 260px;
+  width: auto !important;
+  max-width: 320px !important;
   transition: border-color 0.2s;
 }
 
 .worktree-name-input:focus {
-  outline: none;
-  border-bottom-color: rgb(var(--accent-rgb));
+  outline: none !important;
+  border-bottom-color: rgb(var(--accent-rgb)) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .worktree-subtitle {
@@ -10602,20 +10631,21 @@ body.popover-open .app-sidebar {
 
 .tab-pill {
   border: none;
-  background: transparent;
-  color: var(--text-muted);
+  background: transparent !important;
+  color: var(--text-muted) !important;
   font-size: 0.8rem;
   font-weight: 600;
   padding: 6px 14px;
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.2s ease;
+  border: 1px solid transparent !important;
 }
 
 .tab-pill.active {
-  background: var(--surface-strong);
-  color: rgb(var(--accent-rgb));
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background: rgb(var(--accent-rgb)) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.2) !important;
 }
 
 .builder-controls-panel {
@@ -10635,6 +10665,22 @@ body.popover-open .app-sidebar {
   gap: 16px;
 }
 
+.builder-form input[type="text"],
+.builder-form select {
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 6px 10px !important;
+  font-size: 0.82rem !important;
+  box-shadow: none !important;
+}
+
+.builder-form button {
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 4px 12px !important;
+  font-size: 0.8rem !important;
+}
+
 .builder-btn-group {
   display: flex;
   gap: 8px;
@@ -10651,20 +10697,22 @@ body.popover-open .app-sidebar {
 }
 
 .node-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 12px;
-  background: var(--surface-strong);
-  border: 1px solid var(--border);
-  font-size: 0.76rem;
-  color: var(--text);
+  display: inline-flex !important;
+  align-items: center !important;
+  align-self: center !important;
+  gap: 6px !important;
+  padding: 4px 10px !important;
+  border-radius: 12px !important;
+  background: var(--surface-strong) !important;
+  border: 1px solid var(--border) !important;
+  font-size: 0.76rem !important;
+  color: var(--text) !important;
+  box-sizing: border-box !important;
 }
 
 .node-badge.completed {
-  border-color: #10b981;
-  background: rgba(16, 185, 129, 0.05);
+  border-color: #10b981 !important;
+  background: rgba(16, 185, 129, 0.05) !important;
 }
 
 .badge-check {
@@ -10695,15 +10743,22 @@ body.popover-open .app-sidebar {
 }
 
 .badge-action-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  padding: 0;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: var(--text-muted) !important;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.15s;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  border-radius: 6px !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  align-self: center !important;
+  transition: all 0.15s;
 }
 
 .badge-action-btn:hover {

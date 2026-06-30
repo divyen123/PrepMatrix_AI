@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { 
   Maximize2, 
   Minimize2, 
   Plus, 
+  Minus,
   Save, 
   Trash2, 
   Lock, 
@@ -106,6 +108,17 @@ function WorktreeMapper() {
   useEffect(() => {
     loadHistory();
   }, []);
+
+  useEffect(() => {
+    if (isFullscreen) {
+      document.body.classList.add("worktree-fullscreen-active");
+    } else {
+      document.body.classList.remove("worktree-fullscreen-active");
+    }
+    return () => {
+      document.body.classList.remove("worktree-fullscreen-active");
+    };
+  }, [isFullscreen]);
 
   // Set default parent dropdown value when nodes update
   useEffect(() => {
@@ -366,7 +379,7 @@ function WorktreeMapper() {
     }
   };
 
-  return (
+  const renderContent = () => (
     <div className={`worktree-container card ${isFullscreen ? "fullscreen-modal-mode" : ""}`}>
       {/* Header bar */}
       <div className="worktree-header">
@@ -542,10 +555,10 @@ function WorktreeMapper() {
         {/* Viewport controls (absolute-positioned) */}
         <div className="canvas-zoom-controls">
           <button className="control-btn" onClick={() => setZoom(Math.min(zoom + 0.1, 2))} title="Zoom In">
-            <ZoomIn size={16} />
+            <Plus size={16} />
           </button>
           <button className="control-btn" onClick={() => setZoom(Math.max(zoom - 0.1, 0.4))} title="Zoom Out">
-            <ZoomOut size={16} />
+            <Minus size={16} />
           </button>
           <button className="control-btn" onClick={() => setIsLocked(!isLocked)} title={isLocked ? "Unlock Viewport" : "Lock Viewport"}>
             {isLocked ? <Lock size={16} /> : <Unlock size={16} />}
@@ -715,6 +728,8 @@ function WorktreeMapper() {
       )}
     </div>
   );
+
+  return isFullscreen ? createPortal(renderContent(), document.body) : renderContent();
 }
 
 export default WorktreeMapper;
