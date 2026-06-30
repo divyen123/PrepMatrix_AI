@@ -10458,11 +10458,15 @@ body.popover-open .app-sidebar {
   .timetable-actions {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 8px !important;
+    gap: 12px !important;
     margin-top: 10px !important;
   }
   .timetable-actions button {
     width: 100% !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    font-size: 0.78rem !important;
+    padding: 4px 10px !important;
     margin: 0 !important;
   }
   .day-card {
@@ -11031,18 +11035,50 @@ body.worktree-fullscreen-active .workspace-topbar {
   .builder-form {
     grid-template-columns: 1fr !important;
     gap: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .builder-form input[type="text"],
+  .builder-form select {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
   .builder-btn-group {
     display: flex !important;
-    justify-content: space-between !important;
+    justify-content: center !important;
+    gap: 12px !important;
     width: 100% !important;
   }
   .builder-btn-group button {
-    flex: 1 !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: none !important;
+  }
+  .builder-btn-group button .btn-text {
+    display: none !important;
   }
   .presets-select-bar {
     grid-template-columns: 1fr !important;
     gap: 8px !important;
+  }
+  .control-btn {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+  }
+  .fullscreen-modal-mode .worktree-canvas-container {
+    height: 480px !important;
   }
 }
 

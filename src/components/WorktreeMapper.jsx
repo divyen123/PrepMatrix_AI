@@ -107,6 +107,10 @@ function WorktreeMapper() {
 
   useEffect(() => {
     loadHistory();
+    if (window.innerWidth < 768) {
+      setZoom(0.65);
+      setPan({ x: -100, y: 15 });
+    }
   }, []);
 
   useEffect(() => {
@@ -173,8 +177,13 @@ function WorktreeMapper() {
     setNodes(preset.nodes);
     setWorktreeName(preset.name);
     setActiveWorktreeId(null);
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+    if (window.innerWidth < 768) {
+      setZoom(0.65);
+      setPan({ x: -100, y: 15 });
+    } else {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+    }
   };
 
   // Add new node in Builder mode
@@ -335,8 +344,13 @@ function WorktreeMapper() {
 
   // Reset Zoom & Pan
   const handleResetViewport = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+    if (window.innerWidth < 768) {
+      setZoom(0.65);
+      setPan({ x: -100, y: 15 });
+    } else {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+    }
   };
 
   // Export mind map as PDF
@@ -459,17 +473,17 @@ function WorktreeMapper() {
             <div className="builder-btn-group">
               <button className="action-btn" type="submit">
                 <PlusCircle size={16} />
-                Add Node
+                <span className="btn-text">Add Node</span>
               </button>
               
               <button className="secondary-btn" onClick={handleSaveWorktree} type="button">
                 <Save size={16} />
-                Save Plan
+                <span className="btn-text">Save Plan</span>
               </button>
 
               <button className="secondary-btn" onClick={handleCreateNew} type="button">
                 <Plus size={16} />
-                New Slate
+                <span className="btn-text">New Slate</span>
               </button>
             </div>
           </form>
