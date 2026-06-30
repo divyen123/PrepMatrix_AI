@@ -555,16 +555,13 @@ function WorktreeMapper() {
         {/* Viewport controls (absolute-positioned) */}
         <div className="canvas-zoom-controls">
           <button className="control-btn" onClick={() => setZoom(Math.min(zoom + 0.1, 2))} title="Zoom In">
-            <Plus size={12} />
-            <span>Zoom In</span>
+            <Plus size={14} />
           </button>
           <button className="control-btn" onClick={() => setZoom(Math.max(zoom - 0.1, 0.4))} title="Zoom Out">
-            <Minus size={12} />
-            <span>Zoom Out</span>
+            <Minus size={14} />
           </button>
           <button className="control-btn" onClick={() => setIsLocked(!isLocked)} title={isLocked ? "Unlock Viewport" : "Lock Viewport"}>
-            {isLocked ? <Lock size={12} /> : <Unlock size={12} />}
-            <span>{isLocked ? "Unlock View" : "Lock View"}</span>
+            {isLocked ? <Lock size={14} /> : <Unlock size={14} />}
           </button>
         </div>
 
