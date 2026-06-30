@@ -1216,13 +1216,14 @@ function SettingsPage({
 
               <div className="field-stack">
                 <span>Preset Accent Color Palette</span>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px", marginTop: "8px" }}>
+                <div className="preset-palette-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px", marginTop: "8px" }}>
                   {COLOR_PRESETS.map((preset) => {
                     const isActive = accentRgbLight === preset.light;
                     return (
                       <button
                         key={preset.name}
                         onClick={() => handleSelectPreset(preset)}
+                        className="preset-color-btn"
                         type="button"
                         style={{
                           minHeight: "40px",
@@ -1234,12 +1235,24 @@ function SettingsPage({
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          gap: "4px",
+                          gap: "6px",
                           borderRadius: "8px"
                         }}
+                        title={preset.name}
                       >
-                        {preset.name}
-                        {isActive && <Check size={12} />}
+                        <span
+                          className="preset-color-dot"
+                          style={{
+                            width: "12px",
+                            height: "12px",
+                            borderRadius: "50%",
+                            backgroundColor: `rgb(${preset.light})`,
+                            display: "inline-block",
+                            flexShrink: 0
+                          }}
+                        />
+                        <span className="preset-name-text">{preset.name}</span>
+                        {isActive && <Check size={12} style={{ flexShrink: 0 }} />}
                       </button>
                     );
                   })}

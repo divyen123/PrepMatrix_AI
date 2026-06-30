@@ -10100,7 +10100,7 @@ body.popover-open .app-sidebar {
    ========================================================================== */
 
 @media (max-width: 991.98px) {
-  /* 1. Prevent mobile lag by replacing expensive CPU blurs with GPU-friendly dimming/solid surfaces */
+  /* 1. Prevent mobile lag by replacing animated filters with instant/static blurs on modals */
   body.modal-open .workspace-main,
   body.modal-open .app-sidebar,
   body.modal-open .workspace-topbar,
@@ -10109,10 +10109,15 @@ body.popover-open .app-sidebar {
   body.chat-open .workspace-topbar,
   body.popover-open .workspace-main,
   body.popover-open .app-sidebar {
-    filter: brightness(0.62) !important; /* GPU-friendly brightness dimming instead of CPU-heavy blur! */
+    filter: blur(5px) brightness(0.65) !important; /* Blur is applied instantly on mobile (static render)! */
   }
 
-  .workspace-topbar,
+  .workspace-main,
+  .app-sidebar,
+  .workspace-topbar {
+    transition: filter 0s, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease !important;
+  }
+
   .app-sidebar,
   .sidebar-widgets .chat-box,
   .floating-analytics-popup,
@@ -10124,13 +10129,18 @@ body.popover-open .app-sidebar {
     -webkit-backdrop-filter: none !important;
   }
 
-  /* Slightly more opaque backgrounds on mobile to maintain perfect readability and premium contrast without blur */
+  /* 2. Translucent top bar with glass blur effect on mobile */
   .workspace-topbar {
-    background: rgba(255, 255, 255, 0.96) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    background: rgba(255, 255, 255, 0.76) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
   }
   body.dark .workspace-topbar {
-    background: rgba(15, 24, 42, 0.98) !important;
+    background: rgba(13, 20, 35, 0.78) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
   }
+
   .app-sidebar {
     background: var(--surface-strong) !important;
   }
@@ -10144,18 +10154,171 @@ body.popover-open .app-sidebar {
     background: var(--surface-strong) !important;
   }
 
-  /* 2. Mobile Sidebar Overlay Backdrop */
+  /* 3. Mobile Sidebar Overlay Backdrop */
   .sidebar-backdrop {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
-    z-index: 95; /* Sits directly beneath mobile sidebar drawer (100) */
+    z-index: 95;
     animation: sidebarFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  /* 3. Mobile Grid & Alignment Adjustments */
+  /* 4. Compact 2x2 grids for Planner Report / Needs Recovery stats on mobile */
+  .report-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .report-stat-grid div {
+    padding: 10px !important;
+    border-radius: 12px !important;
+  }
+  .report-stat-grid strong {
+    font-size: 1.35rem !important;
+  }
+
+  /* Compact 1-row chips for Progressbar & Gamification */
+  .completion-stat-chips {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+  .completion-stat-chip {
+    padding: 8px 4px !important;
+    border-radius: 10px !important;
+  }
+  .completion-stat-chip strong {
+    font-size: 1.15rem !important;
+  }
+  .completion-stat-chip span {
+    font-size: 0.68rem !important;
+  }
+
+  .momentum-stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+  .momentum-stats-grid article {
+    padding: 8px 4px !important;
+    border-radius: 10px !important;
+  }
+  .momentum-stats-grid strong {
+    font-size: 1.15rem !important;
+  }
+  .momentum-stats-grid span {
+    font-size: 0.68rem !important;
+  }
+
+  /* 5. Topic progress lanes timeline card scrolling / side peek on mobile */
+  .topic-carousel-arrow {
+    display: none !important;
+  }
+  .topic-carousel-shell {
+    padding: 0 !important;
+  }
+  .topic-carousel-shell .topic-timeline-grid {
+    overflow-x: auto !important;
+    scroll-padding: 12px;
+    padding-inline: 12px;
+    -webkit-overflow-scrolling: touch;
+    gap: 12px !important;
+  }
+  .topic-carousel-shell .topic-lane-card {
+    flex-basis: 78vw !important;
+    padding: 12px !important;
+    border-radius: 14px !important;
+  }
+  .topic-lane-top strong {
+    font-size: 0.9rem !important;
+  }
+  .topic-lane-dots span {
+    width: 6px !important;
+    height: 6px !important;
+  }
+
+  /* 6. Clean row stack instead of squished columns for Weekly Review highlights */
+  .weekly-review-highlights {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .weekly-review-highlights article {
+    padding: 10px 14px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+  .weekly-review-highlights article span {
+    font-size: 0.8rem !important;
+    margin-bottom: 0 !important;
+  }
+  .weekly-review-highlights article strong {
+    font-size: 0.95rem !important;
+    text-align: right !important;
+  }
+
+  /* 7. Settings preset accent palette: Circular icons in a row instead of squished text labels */
+  .preset-palette-grid {
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 6px !important;
+  }
+  .preset-name-text {
+    display: none !important;
+  }
+  .preset-color-btn {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    position: relative;
+    justify-content: center !important;
+  }
+  .preset-color-dot {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  .preset-color-btn svg {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    color: #ffffff !important;
+    z-index: 2;
+  }
+
+  /* 8. Larger range slider touch targets and compact inputs/buttons */
+  .field-stack input[type="range"],
+  input[type="range"] {
+    height: 16px !important;
+    padding: 12px 0 !important;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  select,
+  textarea {
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 8px 12px !important;
+    font-size: 0.88rem !important;
+  }
+
+  .action-btn,
+  .secondary-btn,
+  .sidebar-widgets .chat-input button,
+  button[type="submit"] {
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 6px 14px !important;
+    font-size: 0.85rem !important;
+  }
+
   .overview-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important; /* 2 columns on tablet/mobile instead of 4 squished */
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 14px !important;
   }
 }
@@ -10166,13 +10329,12 @@ body.popover-open .app-sidebar {
 }
 
 @media (max-width: 520px) {
-  /* 4. Extra-compact mobile adjustments */
   .overview-grid {
-    grid-template-columns: 1fr !important; /* Single column on narrow mobile */
+    grid-template-columns: 1fr !important;
   }
   
   .page-subtitle {
-    display: none !important; /* Hide subtitle to fit header + buttons inside tight topbar */
+    display: none !important;
   }
   
   .page-title {
