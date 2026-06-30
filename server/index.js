@@ -475,6 +475,88 @@ app.put("/api/notes", requireAuth(async (req, res) => {
   res.json({ notes });
 }));
 
+app.get("/api/worktrees", requireAuth(async (req, res) => {
+  try {
+    const db = await getDb();
+    const list = await db.collection("worktrees")
+      .find({ userId: req.user._id })
+      .sort({ updatedAt: -1 })
+      .toArray();
+    res.json({
+      worktrees: list.map(({ _id, ...wt }) => ({
+        id: _id.toString(),
+        ...wt,
+        userId: wt.userId.toString()
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}));
+
+app.post("/api/worktrees", requireAuth(async (req, res) => {
+  try {
+    const db = await getDb();
+    const { name, nodes } = req.body;
+    if (!name || !Array.isArray(nodes)) {
+      return res.status(400).json({ error: "Missing name or nodes" });
+    }
+    const doc = {
+      userId: req.user._id,
+      name,
+      nodes,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const result = await db.collection("worktrees").insertOne(doc);
+    res.status(201).json({
+      id: result.insertedId.toString(),
+      name,
+      nodes,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}));
+
+app.put("/api/worktrees/:id", requireAuth(async (req, res) => {
+  try {
+    const db = await getDb();
+    const { name, nodes } = req.body;
+    if (!name || !Array.isArray(nodes)) {
+      return res.status(400).json({ error: "Missing name or nodes" });
+    }
+    const result = await db.collection("worktrees").updateOne(
+      { _id: new ObjectId(req.params.id), userId: req.user._id },
+      { $set: { name, nodes, updatedAt: new Date() } }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "Worktree not found" });
+    }
+    res.json({ id: req.params.id, name, nodes });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}));
+
+app.delete("/api/worktrees/:id", requireAuth(async (req, res) => {
+  try {
+    const db = await getDb();
+    const result = await db.collection("worktrees").deleteOne({
+      _id: new ObjectId(req.params.id),
+      userId: req.user._id
+    });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Worktree not found" });
+    }
+    res.json({ success: true, id: req.params.id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}));
+
 app.get("/api/quizzes", requireAuth(async (req, res) => {
   const db = await getDb();
   const attempts = await db.collection("quizAttempts").find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(50).toArray();

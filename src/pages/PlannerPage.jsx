@@ -3,6 +3,8 @@ import Reminder from "../components/Reminder";
 import SmartSuggestion from "../components/SmartSuggestion";
 import Timetable from "../components/Timetable";
 
+import WorktreeMapper from "../components/WorktreeMapper";
+
 function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted }) {
   return (
     <section className="page-stack planner-route-page">
@@ -10,6 +12,8 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted 
         <span className="section-tag">Planner</span>
         <h2>Generate, adjust, and recover your schedule</h2>
       </div>
+
+      <WorktreeMapper />
 
       <div className="planner-support-strip">
         <SmartSuggestion completed={completed} schedule={schedule} />
