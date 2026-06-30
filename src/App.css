@@ -10816,6 +10816,7 @@ body.worktree-fullscreen-active .workspace-topbar {
   border-radius: var(--radius-md);
   overflow: hidden;
   position: relative;
+  touch-action: none;
 }
 
 .fullscreen-modal-mode .worktree-canvas-container {

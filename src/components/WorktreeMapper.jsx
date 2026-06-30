@@ -163,12 +163,61 @@ function WorktreeMapper() {
     setDraggedNodeId(null);
   };
 
+  // Touch Handlers for Mobile Devices
+  const handleTouchStart = (e) => {
+    if (isLocked || e.touches.length === 0) return;
+    const touch = e.touches[0];
+    if (e.target.classList.contains("worktree-canvas-viewport") || e.target.tagName === "svg" || e.target.tagName === "path") {
+      isDraggingCanvas.current = true;
+      dragStart.current = { x: touch.clientX - pan.x, y: touch.clientY - pan.y };
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches.length === 0) return;
+    const touch = e.touches[0];
+
+    if (draggedNodeId && !isLocked) {
+      if (e.cancelable) e.preventDefault();
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = Math.round((touch.clientX - rect.left) / zoom);
+      const y = Math.round((touch.clientY - rect.top) / zoom);
+      setNodes((prev) =>
+        prev.map((node) => (node.id === draggedNodeId ? { ...node, x, y } : node))
+      );
+    } else if (isDraggingCanvas.current) {
+      if (e.cancelable) e.preventDefault();
+      setPan({
+        x: touch.clientX - dragStart.current.x,
+        y: touch.clientY - dragStart.current.y
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    isDraggingCanvas.current = false;
+    setDraggedNodeId(null);
+  };
+
+  // Zoom compensation logic to keep map centered
+  const handleZoomChange = (factor) => {
+    setZoom((prevZoom) => {
+      const nextZoom = Math.max(0.4, Math.min(2, prevZoom + factor));
+      const centerX = window.innerWidth < 768 ? 200 : 350;
+      const centerY = 150;
+      setPan((prevPan) => ({
+        x: prevPan.x - centerX * (nextZoom - prevZoom),
+        y: prevPan.y - centerY * (nextZoom - prevZoom)
+      }));
+      return nextZoom;
+    });
+  };
+
   const handleWheel = (e) => {
     if (isLocked) return;
     e.preventDefault();
-    const zoomFactor = 0.05;
-    const nextZoom = e.deltaY < 0 ? Math.min(zoom + zoomFactor, 2) : Math.max(zoom - zoomFactor, 0.4);
-    setZoom(nextZoom);
+    const factor = e.deltaY < 0 ? 0.05 : -0.05;
+    handleZoomChange(factor);
   };
 
   // Preset trigger
@@ -195,12 +244,14 @@ function WorktreeMapper() {
     }
 
     const parent = nodes.find((n) => n.id === newNodeParentId);
-    let x = 300;
+    const isMobile = window.innerWidth < 768;
+    let x = isMobile ? 140 : 300;
     let y = 100;
 
     if (parent) {
       const siblings = nodes.filter((n) => n.parentId === parent.id);
-      const offset = (siblings.length - (siblings.length / 2)) * 160;
+      const spread = isMobile ? 120 : 160;
+      const offset = (siblings.length - (siblings.length / 2)) * spread;
       x = parent.x + offset;
       y = parent.y + 120;
     }
@@ -270,13 +321,19 @@ function WorktreeMapper() {
 
   // Create clean slate Custom map
   const handleCreateNew = () => {
+    const isMobile = window.innerWidth < 768;
     setNodes([
-      { id: "root", label: "🎯 Custom Mind Map", x: 420, y: 50, parentId: null, completed: false, isRoot: true }
+      { id: "root", label: "🎯 Custom Mind Map", x: isMobile ? 200 : 420, y: 50, parentId: null, completed: false, isRoot: true }
     ]);
     setWorktreeName("New Custom Mind Map");
     setActiveWorktreeId(null);
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+    if (isMobile) {
+      setZoom(0.65);
+      setPan({ x: -50, y: 15 });
+    } else {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+    }
     toast.info("Created new custom plan");
   };
 
@@ -319,8 +376,13 @@ function WorktreeMapper() {
     setWorktreeName(wt.name);
     setActiveWorktreeId(wt.id);
     setActiveTab("builder");
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+    if (window.innerWidth < 768) {
+      setZoom(0.65);
+      setPan({ x: -100, y: 15 });
+    } else {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+    }
     toast.success(`Loaded "${wt.name}"`);
   };
 
@@ -355,36 +417,66 @@ function WorktreeMapper() {
 
   // Export mind map as PDF
   const handleExportPDF = async () => {
-    const element = containerRef.current;
-    if (!element) return;
+    const viewportEl = canvasRef.current;
+    if (!viewportEl) return;
     toast.info("Preparing PDF download...");
 
     try {
-      // Force render scale at 1 for clean PDF exports
-      const originalZoom = zoom;
-      const originalPan = pan;
+      // Calculate bounding box of all nodes
+      const padding = 80;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      nodes.forEach((n) => {
+        if (n.x < minX) minX = n.x;
+        if (n.y < minY) minY = n.y;
+        if (n.x > maxX) maxX = n.x;
+        if (n.y > maxY) maxY = n.y;
+      });
+      const treeWidth = maxX - minX + 250 + padding * 2;
+      const treeHeight = maxY - minY + 80 + padding * 2;
+
+      // Save originals
+      const origZoom = zoom;
+      const origPan = pan;
+      const origStyle = viewportEl.parentElement.style.cssText;
+
+      // Temporarily set viewport to fit all nodes for export
       setZoom(1);
-      setPan({ x: 0, y: 0 });
+      setPan({ x: -minX + padding, y: -minY + padding });
 
-      // Wait a fraction of a second for rendering styles to settle
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      // Temporarily expand container for capture
+      viewportEl.parentElement.style.width = `${treeWidth}px`;
+      viewportEl.parentElement.style.height = `${treeHeight}px`;
+      viewportEl.parentElement.style.overflow = "visible";
 
-      const canvas = await html2canvas(element, {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
+      const canvas = await html2canvas(viewportEl.parentElement, {
         useCORS: true,
         backgroundColor: "#0b0f19",
-        scale: 2 // High res
+        scale: 2,
+        width: treeWidth,
+        height: treeHeight,
       });
 
-      // Restore viewport configurations
-      setZoom(originalZoom);
-      setPan(originalPan);
+      // Restore originals
+      viewportEl.parentElement.style.cssText = origStyle;
+      setZoom(origZoom);
+      setPan(origPan);
 
       const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("l", "mm", "a4");
-      const width = pdf.internal.pageSize.getWidth();
-      const height = pdf.internal.pageSize.getHeight();
+      const isLandscape = treeWidth > treeHeight;
+      const pdf = new jsPDF(isLandscape ? "l" : "p", "mm", "a4");
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
       
-      pdf.addImage(imgData, "PNG", 0, 0, width, height);
+      // Scale image to fit PDF page with aspect ratio
+      const ratio = Math.min(pageW / treeWidth, pageH / treeHeight);
+      const imgW = treeWidth * ratio;
+      const imgH = treeHeight * ratio;
+      const offsetX = (pageW - imgW) / 2;
+      const offsetY = (pageH - imgH) / 2;
+
+      pdf.addImage(imgData, "PNG", offsetX, offsetY, imgW, imgH);
       pdf.save(`${worktreeName.replace(/\s+/g, "_")}.pdf`);
       toast.success("PDF exported successfully!");
     } catch (err) {
@@ -562,16 +654,20 @@ function WorktreeMapper() {
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
         {/* Canvas background grid */}
         <div className="canvas-grid-overlay" />
 
         {/* Viewport controls (absolute-positioned) */}
         <div className="canvas-zoom-controls">
-          <button className="control-btn" onClick={() => setZoom(Math.min(zoom + 0.1, 2))} title="Zoom In">
+          <button className="control-btn" onClick={() => handleZoomChange(0.1)} title="Zoom In">
             <Plus size={14} />
           </button>
-          <button className="control-btn" onClick={() => setZoom(Math.max(zoom - 0.1, 0.4))} title="Zoom Out">
+          <button className="control-btn" onClick={() => handleZoomChange(-0.1)} title="Zoom Out">
             <Minus size={14} />
           </button>
           <button className="control-btn" onClick={() => setIsLocked(!isLocked)} title={isLocked ? "Unlock Viewport" : "Lock Viewport"}>
@@ -682,6 +778,11 @@ function WorktreeMapper() {
                     handleDoubleClickNode(node);
                     return;
                   }
+                  e.stopPropagation();
+                  setDraggedNodeId(node.id);
+                }}
+                onTouchStart={(e) => {
+                  if (isLocked) return;
                   e.stopPropagation();
                   setDraggedNodeId(node.id);
                 }}

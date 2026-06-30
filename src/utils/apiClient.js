@@ -2,7 +2,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 
 async function request(path, options = {}) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4000);
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
     const response = await fetch(`${API_BASE}${path}`, {
@@ -50,6 +50,10 @@ const api = {
   createChatSession: (body) => request("/api/chat-sessions", { method: "POST", body: JSON.stringify(body) }),
   deleteChatSession: (id) => request(`/api/chat-sessions/${id}`, { method: "DELETE" }),
   renameChatSession: (id, title) => request(`/api/chat-sessions/${id}`, { method: "PUT", body: JSON.stringify({ title }) }),
+  get: (path) => request(path),
+  post: (path, body) => request(path, { method: "POST", body: JSON.stringify(body) }),
+  put: (path, body) => request(path, { method: "PUT", body: JSON.stringify(body) }),
+  delete: (path) => request(path, { method: "DELETE" }),
 };
 
 export default api;
