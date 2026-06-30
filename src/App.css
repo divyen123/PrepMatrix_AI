@@ -31,6 +31,13 @@ body {
   transition: background 0.3s ease, color 0.3s ease;
 }
 
+.mobile-only-text {
+  display: none !important;
+}
+.desktop-only-text {
+  display: inline !important;
+}
+
 body.dark {
   color-scheme: dark;
   --bg: #0f151a;
@@ -3493,7 +3500,8 @@ body.dark .bookmark-btn {
 }
 
 .report-panel h3 {
-  min-height: 58px;
+  min-height: auto;
+  margin-bottom: 12px;
 }
 
 .report-stat-grid {
