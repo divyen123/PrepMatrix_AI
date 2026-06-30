@@ -1,4 +1,4 @@
-﻿import { getPlannerMetrics } from "../utils/plannerMetrics";
+import { getPlannerMetrics } from "../utils/plannerMetrics";
 
 function SmartSuggestion({ academicLevel = "College", academicTrack = "General", schedule, completed }) {
   const metrics = getPlannerMetrics(schedule, completed);
@@ -22,13 +22,7 @@ function SmartSuggestion({ academicLevel = "College", academicTrack = "General",
           : "Start with the earliest pending item before adding extra work."
         : "Pick a future date so PrepMatrix can distribute chapters.",
     },
-    {
-      label: "Level fit",
-      title: `${academicLevel} - ${academicTrack}`, 
-      detail: isSchoolLevel
-        ? "Materials will prefer class-friendly explanations, syllabus terms, and guided practice for this stream."
-        : "Materials will prefer deeper references, practical examples, and self-study resources for this stream.",
-    },
+
     {
       label: "Recovery",
       title: `${metrics.remainingTasks} tasks remaining`,
