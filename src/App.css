@@ -10317,9 +10317,177 @@ body.popover-open .app-sidebar {
     font-size: 0.85rem !important;
   }
 
+  /* 9. Dashboard Card Grid Force 2x2 & Hide Description */
   .overview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 14px !important;
+    gap: 12px !important;
+  }
+  .overview-detail {
+    display: none !important;
+  }
+  .overview-card {
+    min-height: auto !important;
+    height: auto !important;
+    padding: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+  .overview-value {
+    margin: 4px 0 0 !important;
+    font-size: 1.6rem !important;
+  }
+
+  /* 10. Translucent Glassy Blurred Topbar on Mobile */
+  body .workspace-topbar,
+  body.has-bg-image .workspace-topbar,
+  body.no-glass-cards .workspace-topbar,
+  body.has-bg-image.no-glass-cards .workspace-topbar {
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    background: rgba(255, 255, 255, 0.76) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  }
+  
+  body.dark .workspace-topbar,
+  body.dark.has-bg-image .workspace-topbar,
+  body.dark.no-glass-cards .workspace-topbar,
+  body.dark.has-bg-image.no-glass-cards .workspace-topbar {
+    background: rgba(13, 20, 35, 0.78) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+  
+  body.has-bg-image .workspace-topbar {
+    background: rgba(var(--bg-surface-rgb), 0.75) !important;
+  }
+
+  /* 11. Subjects Page circle metric row list */
+  .desktop-only-text {
+    display: none !important;
+  }
+  .mobile-only-text {
+    display: inline-block !important;
+  }
+
+  .subject-overview-card .metric-list {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 12px 0 0 !important;
+  }
+  
+  .subject-overview-card .metric-list li {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    aspect-ratio: 1 / 1 !important;
+    width: 100% !important;
+    max-width: 80px !important;
+    margin: 0 auto !important;
+    border-radius: 50% !important;
+    border: 1px solid var(--border) !important;
+    background: rgba(var(--accent-rgb), 0.06) !important;
+    padding: 8px !important;
+    gap: 2px !important;
+    box-sizing: border-box !important;
+  }
+  
+  .subject-overview-card .metric-list li strong {
+    font-size: 1.25rem !important;
+    line-height: 1.1 !important;
+    margin: 0 !important;
+  }
+  
+  .subject-overview-card .metric-list li span {
+    font-size: 0.65rem !important;
+    line-height: 1.1 !important;
+    margin: 0 !important;
+    text-align: center !important;
+  }
+
+  /* 12. Notes Page circle metric row list */
+  .notes-summary-card .notes-stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin: 12px 0 0 !important;
+  }
+
+  .notes-summary-card .notes-stat-grid > div {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    aspect-ratio: 1 / 1 !important;
+    width: 100% !important;
+    max-width: 80px !important;
+    margin: 0 auto !important;
+    border-radius: 50% !important;
+    border: 1px solid var(--border) !important;
+    background: rgba(var(--accent-rgb), 0.06) !important;
+    padding: 8px !important;
+    gap: 2px !important;
+    box-sizing: border-box !important;
+  }
+
+  .notes-summary-card .notes-stat-grid strong {
+    font-size: 1.25rem !important;
+    line-height: 1.1 !important;
+    margin: 0 !important;
+  }
+
+  .notes-summary-card .notes-stat-grid span {
+    font-size: 0.65rem !important;
+    line-height: 1.1 !important;
+    margin: 0 !important;
+    text-align: center !important;
+  }
+
+  /* 13. Planner Page: buttons grid (2 columns) & compact cards */
+  .timetable-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-top: 10px !important;
+  }
+  .timetable-actions button {
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  .day-card {
+    padding: 12px !important;
+    min-height: auto !important;
+    border-radius: 14px !important;
+  }
+  .day-title {
+    margin-bottom: 8px !important;
+    font-size: 0.95rem !important;
+  }
+  .task-row {
+    padding: 6px 0 8px !important;
+    gap: 8px !important;
+    grid-template-columns: 24px 80px minmax(0, 1fr) !important;
+  }
+  .task-row input[type="checkbox"] {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* 14. Settings Page Grid layout stack for wide sliders & wrapped color swatches */
+  .settings-page .workspace-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .preset-palette-grid {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    grid-template-columns: none !important;
+    gap: 10px !important;
+    justify-content: flex-start !important;
+    margin-top: 8px !important;
   }
 }
 
@@ -10329,10 +10497,6 @@ body.popover-open .app-sidebar {
 }
 
 @media (max-width: 520px) {
-  .overview-grid {
-    grid-template-columns: 1fr !important;
-  }
-  
   .page-subtitle {
     display: none !important;
   }

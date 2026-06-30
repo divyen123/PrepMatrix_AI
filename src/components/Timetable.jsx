@@ -210,13 +210,28 @@ function Timetable({
 
         <div className="timetable-actions">
           <button className="action-btn" disabled={loading} onClick={generate} type="button">
-            {loading ? <span className="spinner" /> : "Generate schedule"}
+            {loading ? (
+              <span className="spinner" />
+            ) : (
+              <>
+                <span className="desktop-only-text">Generate schedule</span>
+                <span className="mobile-only-text">Generate</span>
+              </>
+            )}
           </button>
           {schedule.length > 0 && (
             <>
-              <button className="secondary-btn action-btn" onClick={downloadPDF} type="button">Export PDF</button>
-              <button className="secondary-btn action-btn" onClick={rebalanceSchedule} type="button">Rebalance</button>
-              <button className="secondary-btn action-btn" onClick={handleMissedTasks} type="button">Recover backlog</button>
+              <button className="secondary-btn action-btn" onClick={downloadPDF} type="button">
+                <span className="desktop-only-text">Export PDF</span>
+                <span className="mobile-only-text">Export</span>
+              </button>
+              <button className="secondary-btn action-btn" onClick={rebalanceSchedule} type="button">
+                Rebalance
+              </button>
+              <button className="secondary-btn action-btn" onClick={handleMissedTasks} type="button">
+                <span className="desktop-only-text">Recover backlog</span>
+                <span className="mobile-only-text">Recover</span>
+              </button>
             </>
           )}
         </div>

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../utils/apiClient";
 
 const NOTES_PER_PAGE = 6;
@@ -246,9 +246,21 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
           <article className="card notes-summary-card">
             <span className="section-tag">Board status</span>
             <div className="notes-stat-grid">
-              <div><strong>{openCount}</strong><span>Open doubts</span></div>
-              <div><strong>{resolvedCount}</strong><span>Resolved</span></div>
-              <div><strong>{leftTopicCount}</strong><span>Topics left</span></div>
+              <div>
+                <strong>{openCount}</strong>
+                <span className="desktop-only-text">Open doubts</span>
+                <span className="mobile-only-text">doubts</span>
+              </div>
+              <div>
+                <strong>{resolvedCount}</strong>
+                <span className="desktop-only-text">Resolved</span>
+                <span className="mobile-only-text">resolved</span>
+              </div>
+              <div>
+                <strong>{leftTopicCount}</strong>
+                <span className="desktop-only-text">Topics left</span>
+                <span className="mobile-only-text">remaining</span>
+              </div>
             </div>
           </article>
 

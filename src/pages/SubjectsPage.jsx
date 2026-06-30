@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import AddSubject from "../components/AddSubject";
 import SubjectList from "../components/SubjectList";
 
@@ -79,9 +79,21 @@ function SubjectsPage({
             <span className="section-tag">Overview</span>
             <h3>Subject load snapshot</h3>
             <ul className="metric-list">
-              <li><strong>{subjects.length}</strong><span>Total subjects</span></li>
-              <li><strong>{totalChapters}</strong><span>Total chapters</span></li>
-              <li><strong>{hardSubjects}</strong><span>Hard-priority subjects</span></li>
+              <li>
+                <strong>{subjects.length}</strong>
+                <span className="desktop-only-text">Total subjects</span>
+                <span className="mobile-only-text">Subjects</span>
+              </li>
+              <li>
+                <strong>{totalChapters}</strong>
+                <span className="desktop-only-text">Total chapters</span>
+                <span className="mobile-only-text">Chapters</span>
+              </li>
+              <li>
+                <strong>{hardSubjects}</strong>
+                <span className="desktop-only-text">Hard-priority subjects</span>
+                <span className="mobile-only-text">Hard</span>
+              </li>
             </ul>
           </article>
 
