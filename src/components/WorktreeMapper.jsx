@@ -32,11 +32,11 @@ const MOOD_PRESETS = [
     name: "Unwind & Calm Plan",
     description: "Click nodes to mark complete",
     nodes: [
-      { id: "root", label: "🧘 Calm Ritual Start", x: 300, y: 40, parentId: null, completed: false, isRoot: true },
-      { id: "n1", label: "1. 4 7 8 Breathing", x: 180, y: 160, parentId: "root", completed: false },
-      { id: "n2", label: "2. Shoulder Stretch", x: 420, y: 160, parentId: "root", completed: false },
-      { id: "n3", label: "3. Warm Hydration", x: 300, y: 280, parentId: "n1", completed: false },
-      { id: "n4", label: "🍀 Fully Relaxed!", x: 300, y: 400, parentId: "n3", completed: false }
+      { id: "root", label: "🧘 Calm Ritual Start", x: 420, y: 40, parentId: null, completed: false, isRoot: true },
+      { id: "n1", label: "1. 4 7 8 Breathing", x: 300, y: 160, parentId: "root", completed: false },
+      { id: "n2", label: "2. Shoulder Stretch", x: 540, y: 160, parentId: "root", completed: false },
+      { id: "n3", label: "3. Warm Hydration", x: 420, y: 280, parentId: "n1", completed: false },
+      { id: "n4", label: "🍀 Fully Relaxed!", x: 420, y: 400, parentId: "n3", completed: false }
     ]
   },
   {
@@ -44,11 +44,11 @@ const MOOD_PRESETS = [
     name: "Focus Booster Plan",
     description: "Build deep attention channels",
     nodes: [
-      { id: "root", label: "⚡ Deep Work Session", x: 300, y: 40, parentId: null, completed: false, isRoot: true },
-      { id: "n1", label: "1. Notifications to Zero", x: 180, y: 160, parentId: "root", completed: false },
-      { id: "n2", label: "2. 25m Focus Sprint", x: 420, y: 160, parentId: "root", completed: false },
-      { id: "n3", label: "3. Quick Stretching", x: 300, y: 280, parentId: "n1", completed: false },
-      { id: "n4", label: "🔥 Flow State Achieved!", x: 300, y: 400, parentId: "n3", completed: false }
+      { id: "root", label: "⚡ Deep Work Session", x: 420, y: 40, parentId: null, completed: false, isRoot: true },
+      { id: "n1", label: "1. Notifications to Zero", x: 300, y: 160, parentId: "root", completed: false },
+      { id: "n2", label: "2. 25m Focus Sprint", x: 540, y: 160, parentId: "root", completed: false },
+      { id: "n3", label: "3. Quick Stretching", x: 420, y: 280, parentId: "n1", completed: false },
+      { id: "n4", label: "🔥 Flow State Achieved!", x: 420, y: 400, parentId: "n3", completed: false }
     ]
   },
   {
@@ -56,11 +56,11 @@ const MOOD_PRESETS = [
     name: "Revision Sprint",
     description: "Structure key concept reviews",
     nodes: [
-      { id: "root", label: "📚 Revision Sprint Start", x: 300, y: 40, parentId: null, completed: false, isRoot: true },
-      { id: "n1", label: "1. Active Recall Session", x: 180, y: 160, parentId: "root", completed: false },
-      { id: "n2", label: "2. Weak Spot Review", x: 420, y: 160, parentId: "root", completed: false },
-      { id: "n3", label: "3. Flashcard Drill", x: 300, y: 280, parentId: "n1", completed: false },
-      { id: "n4", label: "🎯 Subject Mastered!", x: 300, y: 400, parentId: "n3", completed: false }
+      { id: "root", label: "📚 Revision Sprint Start", x: 420, y: 40, parentId: null, completed: false, isRoot: true },
+      { id: "n1", label: "1. Active Recall Session", x: 300, y: 160, parentId: "root", completed: false },
+      { id: "n2", label: "2. Weak Spot Review", x: 540, y: 160, parentId: "root", completed: false },
+      { id: "n3", label: "3. Flashcard Drill", x: 420, y: 280, parentId: "n1", completed: false },
+      { id: "n4", label: "🎯 Subject Mastered!", x: 420, y: 400, parentId: "n3", completed: false }
     ]
   }
 ];
@@ -262,7 +262,7 @@ function WorktreeMapper() {
   // Create clean slate Custom map
   const handleCreateNew = () => {
     setNodes([
-      { id: "root", label: "🎯 Custom Mind Map", x: 300, y: 50, parentId: null, completed: false, isRoot: true }
+      { id: "root", label: "🎯 Custom Mind Map", x: 420, y: 50, parentId: null, completed: false, isRoot: true }
     ]);
     setWorktreeName("New Custom Mind Map");
     setActiveWorktreeId(null);
@@ -555,13 +555,16 @@ function WorktreeMapper() {
         {/* Viewport controls (absolute-positioned) */}
         <div className="canvas-zoom-controls">
           <button className="control-btn" onClick={() => setZoom(Math.min(zoom + 0.1, 2))} title="Zoom In">
-            <Plus size={16} />
+            <Plus size={12} />
+            <span>Zoom In</span>
           </button>
           <button className="control-btn" onClick={() => setZoom(Math.max(zoom - 0.1, 0.4))} title="Zoom Out">
-            <Minus size={16} />
+            <Minus size={12} />
+            <span>Zoom Out</span>
           </button>
           <button className="control-btn" onClick={() => setIsLocked(!isLocked)} title={isLocked ? "Unlock Viewport" : "Lock Viewport"}>
-            {isLocked ? <Lock size={16} /> : <Unlock size={16} />}
+            {isLocked ? <Lock size={12} /> : <Unlock size={12} />}
+            <span>{isLocked ? "Unlock View" : "Lock View"}</span>
           </button>
         </div>
 

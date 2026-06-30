@@ -10643,9 +10643,10 @@ body.worktree-fullscreen-active .workspace-topbar {
 }
 
 .tab-pill.active {
-  background: rgb(var(--accent-rgb)) !important;
-  color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.2) !important;
+  background: rgba(var(--accent-rgb), 0.15) !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.3) !important;
+  color: rgb(var(--accent-rgb)) !important;
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.08) !important;
 }
 
 .builder-controls-panel {
@@ -10826,33 +10827,43 @@ body.worktree-fullscreen-active .workspace-topbar {
   background-size: 20px 20px;
 }
 
+.worktree-container button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  vertical-align: middle !important;
+}
+
 .canvas-zoom-controls {
   position: absolute;
-  bottom: 16px;
-  left: 16px;
+  bottom: 12px;
+  left: 12px;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  gap: 8px;
   z-index: 100;
 }
 
 .control-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: 26px !important;
+  padding: 0 10px !important;
+  border-radius: 6px !important;
+  background: rgba(15, 23, 42, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  font-size: 0.72rem !important;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .control-btn:hover {
-  background: rgba(var(--accent-rgb), 0.9);
-  border-color: rgba(var(--accent-rgb), 0.9);
+  background: rgba(var(--accent-rgb), 0.9) !important;
+  border-color: rgba(var(--accent-rgb), 0.9) !important;
 }
 
 .worktree-canvas-viewport {
