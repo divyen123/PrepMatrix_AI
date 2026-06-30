@@ -1,5 +1,6 @@
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 
+// SmartSuggestion component renders curated dynamic recommendations.
 function SmartSuggestion({ academicLevel = "College", academicTrack = "General", schedule, completed }) {
   const metrics = getPlannerMetrics(schedule, completed);
   const weakest = metrics.weakSubject;
