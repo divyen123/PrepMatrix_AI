@@ -328,13 +328,25 @@ app.post("/api/auth/logout", requireAuth(async (req, res) => {
 }));
 
 app.delete("/api/auth/account", requireAuth(async (req, res) => {
+  const { password = "" } = req.body ?? {};
+  if (!password.trim()) {
+    return res.status(400).json({ error: "Password is required to delete your account." });
+  }
+
   const db = await getDb();
   const userId = req.user._id;
+
+  // Verify the password against stored hash
+  if (!verifyPassword(password, req.user.passwordHash)) {
+    return res.status(401).json({ error: "Incorrect password. Account was not deleted." });
+  }
 
   await Promise.all([
     db.collection("workspaces").deleteMany({ userId }),
     db.collection("notes").deleteMany({ userId }),
     db.collection("quizAttempts").deleteMany({ userId }),
+    db.collection("worktrees").deleteMany({ userId }),
+    db.collection("chatSessions").deleteMany({ userId }),
     db.collection("sessions").deleteMany({ userId }),
     db.collection("users").deleteOne({ _id: userId }),
   ]);

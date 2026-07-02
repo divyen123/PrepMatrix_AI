@@ -10054,6 +10054,38 @@ body.has-bg-image .delete-confirm-popover {
   background: rgb(var(--bg-surface-rgb)) !important;
 }
 
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.delete-confirm-popover .text-input {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-strong);
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.delete-confirm-popover .text-input:focus {
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.delete-confirm-popover .text-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
 /* 3. Daily Streak Completion Reward Popup */
 .completion-reward-popup {
   background: var(--surface-strong) !important;

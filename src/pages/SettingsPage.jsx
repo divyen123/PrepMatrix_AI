@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, Shield, Palette, User, Check, Settings2, Target, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon } from "lucide-react";
+import { Save, Shield, Palette, User, Check, Settings2, Target, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff } from "lucide-react";
 import api from "../utils/apiClient";
 import BACKGROUND_PRESETS from "../utils/backgroundPresets";
 import { toast } from "react-toastify";
@@ -90,6 +90,10 @@ function SettingsPage({
   // Data Management state
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [showPasswordStep, setShowPasswordStep] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deletePasswordError, setDeletePasswordError] = useState("");
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Appearance state
@@ -457,19 +461,25 @@ function SettingsPage({
   }, [voiceReplies]);
 
   useEffect(() => {
-    if (!confirmDeleteAccount) {
+    if (!confirmDeleteAccount && !showPasswordStep) {
       return undefined;
     }
 
     const handlePointerDown = (event) => {
       if (deleteConfirmRef.current && !deleteConfirmRef.current.contains(event.target)) {
         setConfirmDeleteAccount(false);
+        setShowPasswordStep(false);
+        setDeletePassword("");
+        setDeletePasswordError("");
       }
     };
 
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         setConfirmDeleteAccount(false);
+        setShowPasswordStep(false);
+        setDeletePassword("");
+        setDeletePasswordError("");
       }
     };
 
@@ -480,7 +490,7 @@ function SettingsPage({
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [confirmDeleteAccount]);
+  }, [confirmDeleteAccount, showPasswordStep]);
 
   // Save profile & account settings (with loading guard and proper error handling)
   const handleSaveAccount = async () => {
@@ -605,11 +615,19 @@ function SettingsPage({
 
   const handleDeleteAccount = async () => {
     if (deletingAccount) return;
+    if (!deletePassword.trim()) {
+      setDeletePasswordError("Please enter your password.");
+      return;
+    }
+    setDeletePasswordError("");
     setDeletingAccount(true);
 
     try {
-      await api.deleteAccount();
+      await api.deleteAccount(deletePassword);
       setConfirmDeleteAccount(false);
+      setShowPasswordStep(false);
+      setDeletePassword("");
+      setDeletePasswordError("");
       setSubjects([]);
       setSchedule([]);
       setCompleted([]);
@@ -618,7 +636,8 @@ function SettingsPage({
       onAccountDeleted?.();
       toast.success("Account deleted successfully.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not delete account.");
+      const msg = error instanceof Error ? error.message : "Could not delete account.";
+      setDeletePasswordError(msg);
     } finally {
       setDeletingAccount(false);
     }
@@ -1351,14 +1370,15 @@ function SettingsPage({
               </p>
               <button
                 className="confirm-danger-btn"
-                onClick={() => setConfirmDeleteAccount(true)}
+                onClick={() => { setConfirmDeleteAccount(true); setShowPasswordStep(false); setDeletePassword(""); setDeletePasswordError(""); setShowDeletePassword(false); }}
                 style={{ display: "flex", alignItems: "center", gap: "8px", width: "fit-content" }}
                 type="button"
               >
                 <Trash2 size={16} /> Delete Account
               </button>
 
-              {confirmDeleteAccount && (
+              {/* Step 1: Confirmation popup */}
+              {confirmDeleteAccount && !showPasswordStep && (
                 <div
                   className="delete-confirm-popover"
                   ref={deleteConfirmRef}
@@ -1366,13 +1386,14 @@ function SettingsPage({
                     position: "absolute",
                     bottom: "55px",
                     left: "0",
-                    width: "320px",
-                    padding: "16px",
+                    width: "340px",
+                    padding: "18px",
                     borderRadius: "12px",
                     zIndex: 10,
                     display: "flex",
                     flexDirection: "column",
-                    gap: "12px"
+                    gap: "12px",
+                    animation: "fadeSlideUp 0.2s ease"
                   }}
                 >
                   <div style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
@@ -1380,32 +1401,131 @@ function SettingsPage({
                     <div>
                       <strong style={{ fontSize: "0.95rem", color: "var(--text-strong)", display: "block", marginBottom: "4px" }}>Delete Account?</strong>
                       <p className="card-subtext" style={{ margin: 0, fontSize: "0.82rem", lineHeight: "1.4" }}>
-                        This permanently removes all your workspace data, profile, and active sessions. This cannot be undone.
+                        This permanently removes all your workspace data, profile, mind maps, and active sessions. This action <strong>cannot be undone</strong>.
                       </p>
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "4px" }}>
                     <button
                       className="secondary-btn"
-                      disabled={deletingAccount}
                       onClick={() => setConfirmDeleteAccount(false)}
-                      style={{ padding: "6px 12px", fontSize: "0.82rem" }}
+                      style={{ padding: "6px 14px", fontSize: "0.82rem" }}
                       type="button"
                     >
                       Cancel
                     </button>
                     <button
                       className="confirm-danger-btn"
-                      disabled={deletingAccount}
-                      onClick={handleDeleteAccount}
+                      onClick={() => setShowPasswordStep(true)}
                       style={{
-                        padding: "6px 12px", fontSize: "0.82rem",
+                        padding: "6px 14px", fontSize: "0.82rem",
                         background: "rgba(239, 68, 68, 0.15)", color: "#ef4444",
                         border: "1px solid rgba(239, 68, 68, 0.4)", fontWeight: 600
                       }}
                       type="button"
                     >
-                      {deletingAccount ? "Deleting..." : "Delete"}
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Password verification popup */}
+              {showPasswordStep && (
+                <div
+                  className="delete-confirm-popover"
+                  ref={deleteConfirmRef}
+                  style={{
+                    position: "absolute",
+                    bottom: "55px",
+                    left: "0",
+                    width: "340px",
+                    padding: "18px",
+                    borderRadius: "12px",
+                    zIndex: 10,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "14px",
+                    animation: "fadeSlideUp 0.2s ease"
+                  }}
+                >
+                  <div style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                    <Lock size={18} style={{ color: "#ef4444", marginTop: "2px", flexShrink: 0 }} />
+                    <div>
+                      <strong style={{ fontSize: "0.95rem", color: "var(--text-strong)", display: "block", marginBottom: "4px" }}>Confirm Your Password</strong>
+                      <p className="card-subtext" style={{ margin: 0, fontSize: "0.82rem", lineHeight: "1.4" }}>
+                        Enter your login password to permanently delete your account.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ position: "relative" }}>
+                    <input
+                      autoFocus
+                      type={showDeletePassword ? "text" : "password"}
+                      className="text-input"
+                      value={deletePassword}
+                      onChange={(e) => { setDeletePassword(e.target.value); setDeletePasswordError(""); }}
+                      onKeyDown={(e) => e.key === "Enter" && handleDeleteAccount()}
+                      placeholder="Enter your password..."
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        paddingRight: "38px",
+                        border: deletePasswordError ? "1px solid #ef4444" : undefined
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDeletePassword(!showDeletePassword)}
+                      style={{
+                        position: "absolute",
+                        right: "8px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                        padding: "2px",
+                        display: "inline-flex"
+                      }}
+                      tabIndex={-1}
+                    >
+                      {showDeletePassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+
+                  {deletePasswordError && (
+                    <p style={{ margin: 0, fontSize: "0.78rem", color: "#ef4444", lineHeight: "1.3" }}>
+                      {deletePasswordError}
+                    </p>
+                  )}
+
+                  <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                    <button
+                      className="secondary-btn"
+                      disabled={deletingAccount}
+                      onClick={() => { setShowPasswordStep(false); setConfirmDeleteAccount(false); setDeletePassword(""); setDeletePasswordError(""); setShowDeletePassword(false); }}
+                      style={{ padding: "6px 14px", fontSize: "0.82rem" }}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="confirm-danger-btn"
+                      disabled={deletingAccount || !deletePassword.trim()}
+                      onClick={handleDeleteAccount}
+                      style={{
+                        padding: "6px 14px", fontSize: "0.82rem",
+                        background: deletePassword.trim() ? "rgba(239, 68, 68, 0.2)" : "rgba(239, 68, 68, 0.08)",
+                        color: deletePassword.trim() ? "#ef4444" : "rgba(239, 68, 68, 0.4)",
+                        border: "1px solid rgba(239, 68, 68, 0.4)", fontWeight: 600,
+                        transition: "all 0.2s ease"
+                      }}
+                      type="button"
+                    >
+                      {deletingAccount ? "Deleting..." : "Confirm Delete"}
                     </button>
                   </div>
                 </div>
