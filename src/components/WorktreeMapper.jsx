@@ -17,7 +17,8 @@ import {
   Check, 
   Download, 
   PlusCircle, 
-  Folder 
+  Folder,
+  AlertTriangle 
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import html2canvas from "html2canvas";
@@ -87,6 +88,7 @@ function WorktreeMapper() {
   const [draggedNodeId, setDraggedNodeId] = useState(null);
   const [editingNodeId, setEditingNodeId] = useState(null);
   const [editingText, setEditingText] = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -390,8 +392,12 @@ function WorktreeMapper() {
   // Delete from history list
   const handleDeleteHistory = async (e, wtId) => {
     e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this Mind Map from history?")) return;
+    setDeleteConfirmId(wtId);
+  };
 
+  const confirmDeleteHistory = async () => {
+    const wtId = deleteConfirmId;
+    setDeleteConfirmId(null);
     try {
       await apiClient.delete(`/api/worktrees/${wtId}`);
       toast.success("Mind Map deleted");
@@ -610,7 +616,9 @@ function WorktreeMapper() {
 
                 <button 
                   className="badge-action-btn edit"
-                  onClick={() => handleDoubleClickNode(node)}
+                  onClick={(e) => { e.stopPropagation(); handleDoubleClickNode(node); }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   title="Rename"
                 >
                   <Edit2 size={11} />
@@ -840,6 +848,35 @@ function WorktreeMapper() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteConfirmId && (
+        <div className="confirm-modal-backdrop" onClick={() => setDeleteConfirmId(null)}>
+          <section
+            className="confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="confirm-modal-icon warning" aria-hidden="true">
+              <AlertTriangle size={22} strokeWidth={2.5} />
+            </div>
+            <div className="confirm-modal-copy">
+              <span className="section-tag">Confirm</span>
+              <h2>Delete Mind Map?</h2>
+              <p>This will permanently remove this saved mind map from your history. This action cannot be undone.</p>
+            </div>
+            <div className="confirm-modal-actions">
+              <button className="secondary-btn" onClick={() => setDeleteConfirmId(null)} type="button">
+                Cancel
+              </button>
+              <button className="confirm-danger-btn" onClick={confirmDeleteHistory} type="button">
+                Delete
+              </button>
+            </div>
+          </section>
         </div>
       )}
     </div>
