@@ -374,6 +374,7 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
       email,
       password,
       confirmPassword,
+      currentPassword,
       age,
       schoolType,
       institutionName,
@@ -402,6 +403,12 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
     }
 
     if (password) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: "Current password is required to set a new password." });
+      }
+      if (!verifyPassword(currentPassword, req.user.passwordHash)) {
+        return res.status(401).json({ error: "Current password is incorrect." });
+      }
       if (password !== confirmPassword) {
         return res.status(400).json({ error: "Passwords do not match." });
       }

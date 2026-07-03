@@ -8986,10 +8986,15 @@ body.dark .completion-reward-popup {
 
   .confirm-modal-actions {
     flex-direction: column-reverse;
+    gap: 8px;
   }
 
   .confirm-modal-actions button {
     width: 100%;
+    padding: 10px 16px !important;
+    font-size: 0.88rem !important;
+    min-height: 40px;
+    box-sizing: border-box;
   }
 }
 
@@ -10086,6 +10091,32 @@ body.has-bg-image .delete-confirm-popover {
   opacity: 0.6;
 }
 
+.delete-confirm-popover .eye-toggle-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.delete-confirm-popover .eye-toggle-btn:hover {
+  background: var(--surface-strong);
+  color: var(--text-strong);
+}
+
 /* 3. Daily Streak Completion Reward Popup */
 .completion-reward-popup {
   background: var(--surface-strong) !important;
@@ -10490,16 +10521,17 @@ body.popover-open .app-sidebar {
   .timetable-actions {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 12px !important;
+    gap: 8px !important;
     margin-top: 10px !important;
   }
   .timetable-actions button {
     width: 100% !important;
-    height: 36px !important;
-    min-height: 36px !important;
-    font-size: 0.78rem !important;
-    padding: 4px 10px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    font-size: 0.72rem !important;
+    padding: 2px 6px !important;
     margin: 0 !important;
+    border-radius: 8px !important;
   }
   .day-card {
     padding: 12px !important;
@@ -11112,6 +11144,47 @@ body.worktree-fullscreen-active .workspace-topbar {
   }
   .fullscreen-modal-mode .worktree-canvas-container {
     height: 480px !important;
+  }
+}
+
+/* Mobile popup button alignment fixes */
+@media (max-width: 768px) {
+  .delete-confirm-popover,
+  .logout-confirm-overlay .card,
+  .reset-confirm-popover {
+    width: calc(100vw - 40px) !important;
+    max-width: 340px !important;
+  }
+  .delete-confirm-popover button,
+  .logout-confirm-overlay button,
+  .reset-confirm-actions button {
+    flex: 1 !important;
+    min-width: 0 !important;
+    padding: 8px 12px !important;
+    font-size: 0.82rem !important;
+    min-height: 36px !important;
+    box-sizing: border-box !important;
+  }
+  .day-card {
+    padding: 14px !important;
+    overflow: hidden !important;
+  }
+  .task-row {
+    grid-template-columns: 24px 1fr !important;
+    gap: 8px !important;
+  }
+  .task-chip {
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    white-space: normal !important;
+  }
+  .time-slot {
+    min-width: auto !important;
+    font-size: 0.76rem !important;
+    padding: 0.35rem 0.6rem !important;
   }
 }
 

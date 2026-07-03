@@ -66,6 +66,7 @@ function SettingsPage({
 
   // Security state
   const [email, setEmail] = useState(userProfile?.email || "");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -526,6 +527,10 @@ function SettingsPage({
   // Save security settings
   const handleSaveSecurity = async () => {
     try {
+      if (password && !currentPassword) {
+        toast.error("Please enter your current password first.");
+        return;
+      }
       if (password && password !== confirmPassword) {
         toast.error("Passwords do not match.");
         return;
@@ -533,12 +538,14 @@ function SettingsPage({
 
       const payload = { email };
       if (password) {
+        payload.currentPassword = currentPassword;
         payload.password = password;
         payload.confirmPassword = confirmPassword;
       }
 
       const response = await api.updateProfile(payload);
       setUserProfile(response.user);
+      setCurrentPassword("");
       setPassword("");
       setConfirmPassword("");
       toast.success("Security credentials updated successfully!");
@@ -913,12 +920,23 @@ function SettingsPage({
 
           <div className="form-grid">
             <label className="field-stack">
+              <span>Current Password</span>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </label>
+            <label className="field-stack">
               <span>New Password</span>
               <input
                 type="password"
                 value={password}
+                disabled={!currentPassword}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                style={{ opacity: currentPassword ? 1 : 0.5, cursor: currentPassword ? 'text' : 'not-allowed' }}
               />
             </label>
             <label className="field-stack">
@@ -926,8 +944,10 @@ function SettingsPage({
               <input
                 type="password"
                 value={confirmPassword}
+                disabled={!currentPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
+                style={{ opacity: currentPassword ? 1 : 0.5, cursor: currentPassword ? 'text' : 'not-allowed' }}
               />
             </label>
           </div>
@@ -1340,7 +1360,7 @@ function SettingsPage({
                   <Trash2 size={16} /> Reset Workspace
                 </button>
               ) : (
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <div className="reset-confirm-actions" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                   <button
                     onClick={handleResetWorkspace}
                     style={{
@@ -1477,22 +1497,11 @@ function SettingsPage({
                     />
                     <button
                       type="button"
+                      className="eye-toggle-btn"
                       onClick={() => setShowDeletePassword(!showDeletePassword)}
-                      style={{
-                        position: "absolute",
-                        right: "8px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "transparent",
-                        border: "none",
-                        color: "var(--text-muted)",
-                        cursor: "pointer",
-                        padding: "2px",
-                        display: "inline-flex"
-                      }}
                       tabIndex={-1}
                     >
-                      {showDeletePassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showDeletePassword ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                   </div>
 

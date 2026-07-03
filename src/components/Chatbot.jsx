@@ -135,7 +135,22 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     setSessionsLoading(true);
     try {
       const data = await api.getChatSessions();
-      setSessions(data.sessions || []);
+      const loadedSessions = data.sessions || [];
+      setSessions(loadedSessions);
+      // On mobile, if sessions came back empty, retry once after a short delay
+      // (handles delayed cookie transmission on cold requests)
+      if (loadedSessions.length === 0 && window.innerWidth <= 768) {
+        setTimeout(async () => {
+          try {
+            const retry = await api.getChatSessions();
+            if (retry.sessions?.length > 0) {
+              setSessions(retry.sessions);
+            }
+          } catch (retryErr) {
+            // Silent retry failure
+          }
+        }, 1500);
+      }
     } catch (err) {
       console.error("Failed to load chat history:", err);
     } finally {

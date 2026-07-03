@@ -365,8 +365,9 @@ function WorktreeMapper() {
       }
       loadHistory();
     } catch (err) {
-      toast.error("Failed to save mind map");
-      console.error(err);
+      const msg = err instanceof Error ? err.message : "Failed to save mind map";
+      toast.error(msg);
+      console.error("Save worktree error:", err);
     }
   };
 
