@@ -11067,17 +11067,27 @@ body.worktree-fullscreen-active .workspace-topbar {
 }
 
 .delete-history-btn {
-  background: transparent;
-  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-muted);
   cursor: pointer;
   padding: 0;
   display: inline-flex;
-  transition: color 0.15s;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .delete-history-btn:hover {
-  color: var(--danger);
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 /* Scrollbar styling for saved history */
