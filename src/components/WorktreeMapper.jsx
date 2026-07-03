@@ -853,7 +853,24 @@ function WorktreeMapper() {
 
       {/* Delete confirmation modal */}
       {deleteConfirmId && createPortal(
-        <div className="confirm-modal-backdrop" onClick={() => setDeleteConfirmId(null)}>
+        <div 
+          className="confirm-modal-backdrop" 
+          onClick={() => setDeleteConfirmId(null)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(10, 15, 28, 0.75)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            zIndex: 999999,
+            display: "grid",
+            placeItems: "center",
+            animation: "none"
+          }}
+        >
           <section
             className="confirm-modal"
             role="dialog"
