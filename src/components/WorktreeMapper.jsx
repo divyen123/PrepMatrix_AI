@@ -852,7 +852,7 @@ function WorktreeMapper() {
       )}
 
       {/* Delete confirmation modal */}
-      {deleteConfirmId && (
+      {deleteConfirmId && createPortal(
         <div className="confirm-modal-backdrop" onClick={() => setDeleteConfirmId(null)}>
           <section
             className="confirm-modal"
@@ -877,7 +877,8 @@ function WorktreeMapper() {
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
