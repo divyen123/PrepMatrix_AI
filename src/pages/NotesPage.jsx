@@ -311,9 +311,6 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
                     <span className={`note-priority ${note.priority.toLowerCase()}`}>{note.priority}</span>
                     <h4>{note.topic}</h4>
                   </div>
-                  <span className={note.status === "Open" ? "note-status open" : "note-status resolved"}>
-                    {note.status}
-                  </span>
                 </div>
 
                 {note.details ? <p>{note.details}</p> : null}

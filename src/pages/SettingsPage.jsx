@@ -69,6 +69,8 @@ function SettingsPage({
   const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [showOtpInput, setShowOtpInput] = useState(false);
 
   // System Preferences state
   const [soundEnabled, setSoundEnabled] = useState(() => {
@@ -524,11 +526,26 @@ function SettingsPage({
     }
   };
 
+  // Send OTP for forgot password
+  const handleSendOtp = async () => {
+    try {
+      const response = await api.post("/api/auth/send-otp");
+      setShowOtpInput(true);
+      toast.success(`OTP sent successfully to your registered email! (Mock Code: ${response.otp})`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to send OTP.");
+    }
+  };
+
   // Save security settings
   const handleSaveSecurity = async () => {
     try {
-      if (password && !currentPassword) {
+      if (password && !showOtpInput && !currentPassword) {
         toast.error("Please enter your current password first.");
+        return;
+      }
+      if (password && showOtpInput && !otp) {
+        toast.error("Please enter the OTP sent to your email.");
         return;
       }
       if (password && password !== confirmPassword) {
@@ -538,7 +555,11 @@ function SettingsPage({
 
       const payload = { email };
       if (password) {
-        payload.currentPassword = currentPassword;
+        if (showOtpInput) {
+          payload.otp = otp;
+        } else {
+          payload.currentPassword = currentPassword;
+        }
         payload.password = password;
         payload.confirmPassword = confirmPassword;
       }
@@ -546,6 +567,8 @@ function SettingsPage({
       const response = await api.updateProfile(payload);
       setUserProfile(response.user);
       setCurrentPassword("");
+      setOtp("");
+      setShowOtpInput(false);
       setPassword("");
       setConfirmPassword("");
       toast.success("Security credentials updated successfully!");
@@ -919,26 +942,57 @@ function SettingsPage({
           </label>
 
           <div className="form-grid">
-            <label className="field-stack">
-              <span>Current Password</span>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="new-password"
-              />
-            </label>
+            {showOtpInput ? (
+              <label className="field-stack">
+                <span>Enter OTP code</span>
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="e.g. 123456"
+                  maxLength={6}
+                />
+              </label>
+            ) : (
+              <label className="field-stack">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>Current Password</span>
+                  <button 
+                    type="button" 
+                    onClick={handleSendOtp} 
+                    style={{ 
+                      background: "none", 
+                      border: "none", 
+                      color: "var(--accent)", 
+                      cursor: "pointer", 
+                      fontSize: "0.8rem", 
+                      padding: 0,
+                      fontWeight: 600,
+                      textDecoration: "underline"
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                />
+              </label>
+            )}
             <label className="field-stack">
               <span>New Password</span>
               <input
                 type="password"
                 value={password}
-                disabled={!currentPassword}
+                disabled={!currentPassword && !showOtpInput}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="new-password"
-                style={{ opacity: currentPassword ? 1 : 0.5, cursor: currentPassword ? 'text' : 'not-allowed' }}
+                style={{ opacity: (currentPassword || showOtpInput) ? 1 : 0.5, cursor: (currentPassword || showOtpInput) ? 'text' : 'not-allowed' }}
               />
             </label>
             <label className="field-stack">
@@ -946,11 +1000,11 @@ function SettingsPage({
               <input
                 type="password"
                 value={confirmPassword}
-                disabled={!currentPassword}
+                disabled={!currentPassword && !showOtpInput}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="new-password"
-                style={{ opacity: currentPassword ? 1 : 0.5, cursor: currentPassword ? 'text' : 'not-allowed' }}
+                style={{ opacity: (currentPassword || showOtpInput) ? 1 : 0.5, cursor: (currentPassword || showOtpInput) ? 'text' : 'not-allowed' }}
               />
             </label>
           </div>

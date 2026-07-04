@@ -382,6 +382,21 @@ app.get("/api/auth/me", async (req, res) => {
   }
 });
 
+app.post("/api/auth/send-otp", requireAuth(async (req, res) => {
+  try {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const db = await getDb();
+    await db.collection("users").updateOne(
+      { _id: req.user._id },
+      { $set: { currentOtp: otp, otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000) } }
+    );
+    console.log(`[OTP Verification] Code for ${req.user.email}: ${otp}`);
+    return res.json({ success: true, email: req.user.email, otp });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Failed to send OTP." });
+  }
+}));
+
 app.put("/api/auth/profile", requireAuth(async (req, res) => {
   try {
     const {
@@ -390,6 +405,7 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
       password,
       confirmPassword,
       currentPassword,
+      otp,
       age,
       schoolType,
       institutionName,
@@ -418,11 +434,22 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
     }
 
     if (password) {
-      if (!currentPassword) {
-        return res.status(400).json({ error: "Current password is required to set a new password." });
-      }
-      if (!verifyPassword(currentPassword, req.user.passwordHash)) {
-        return res.status(401).json({ error: "Current password is incorrect." });
+      if (otp) {
+        if (!req.user.currentOtp || req.user.currentOtp !== otp) {
+          return res.status(400).json({ error: "Invalid OTP code." });
+        }
+        if (req.user.otpExpiresAt && new Date() > new Date(req.user.otpExpiresAt)) {
+          return res.status(400).json({ error: "OTP code has expired." });
+        }
+        update.currentOtp = null;
+        update.otpExpiresAt = null;
+      } else {
+        if (!currentPassword) {
+          return res.status(400).json({ error: "Current password is required to set a new password." });
+        }
+        if (!verifyPassword(currentPassword, req.user.passwordHash)) {
+          return res.status(401).json({ error: "Current password is incorrect." });
+        }
       }
       if (password !== confirmPassword) {
         return res.status(400).json({ error: "Passwords do not match." });

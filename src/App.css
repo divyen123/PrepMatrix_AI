@@ -2565,7 +2565,8 @@ body.dark .theme-icon-btn:hover {
   cursor: pointer;
   font: inherit;
   font-weight: 800;
-  padding: 0.66rem 0.9rem;
+  padding: 0.42rem 0.78rem;
+  font-size: 0.76rem !important;
 }
 
 .note-card-actions .danger-text {

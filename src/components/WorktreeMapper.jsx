@@ -89,6 +89,7 @@ function WorktreeMapper() {
   const [renamingNode, setRenamingNode] = useState(null);
   const [editingText, setEditingText] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -527,7 +528,7 @@ function WorktreeMapper() {
             </button>
           </div>
 
-          <button className="secondary-btn" onClick={handleResetViewport} title="Reset zoom/pan">
+          <button className="secondary-btn" onClick={() => setShowResetConfirm(true)} title="Reset zoom/pan">
             <RotateCcw size={16} />
           </button>
           
@@ -933,6 +934,54 @@ function WorktreeMapper() {
               </button>
               <button className="action-btn" onClick={handleSaveRename} type="button">
                 Save
+              </button>
+            </div>
+          </section>
+        </div>,
+        document.body
+      )}
+
+      {/* Reset viewport confirmation modal */}
+      {showResetConfirm && createPortal(
+        <div 
+          className="confirm-modal-backdrop" 
+          onClick={() => setShowResetConfirm(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(10, 15, 28, 0.75)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            zIndex: 999999,
+            display: "grid",
+            placeItems: "center",
+            animation: "none"
+          }}
+        >
+          <section
+            className="confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "min(360px, 90vw)" }}
+          >
+            <div className="confirm-modal-icon warning" aria-hidden="true" style={{ background: "rgba(var(--accent-rgb), 0.15)", color: "var(--accent)" }}>
+              <RotateCcw size={20} />
+            </div>
+            <div className="confirm-modal-copy">
+              <span className="section-tag">Reset</span>
+              <h2>Reset Plan View?</h2>
+              <p>This will reset the canvas zoom and pan position to their default centered coordinates.</p>
+            </div>
+            <div className="confirm-modal-actions" style={{ marginTop: "8px" }}>
+              <button className="secondary-btn" onClick={() => setShowResetConfirm(false)} type="button">
+                Cancel
+              </button>
+              <button className="action-btn" onClick={() => { handleResetViewport(); setShowResetConfirm(false); }} type="button">
+                Reset
               </button>
             </div>
           </section>
