@@ -324,11 +324,61 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
                 {note.planned ? <span className="planned-chip">Added to planner</span> : null}
 
                 <div className="note-card-actions">
-                  <button onClick={() => planNote(note)} type="button">Plan tomorrow morning</button>
-                  <button onClick={() => toggleStatus(note.id)} type="button">
+                  <button 
+                    onClick={() => planNote(note)} 
+                    type="button"
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "0.72rem",
+                      height: "26px",
+                      minHeight: "26px",
+                      borderRadius: "999px",
+                      boxSizing: "border-box",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%"
+                    }}
+                  >
+                    Plan tomorrow morning
+                  </button>
+                  <button 
+                    onClick={() => toggleStatus(note.id)} 
+                    type="button"
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "0.72rem",
+                      height: "26px",
+                      minHeight: "26px",
+                      borderRadius: "999px",
+                      boxSizing: "border-box",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%"
+                    }}
+                  >
                     {note.status === "Open" ? "Mark resolved" : "Reopen"}
                   </button>
-                  <button className="danger-text" onClick={() => deleteNote(note.id)} type="button">Delete</button>
+                  <button 
+                    className="danger-text" 
+                    onClick={() => deleteNote(note.id)} 
+                    type="button"
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "0.72rem",
+                      height: "26px",
+                      minHeight: "26px",
+                      borderRadius: "999px",
+                      boxSizing: "border-box",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%"
+                    }}
+                  >
+                    Delete
+                  </button>
                 </div>
               </article>
             ))}
