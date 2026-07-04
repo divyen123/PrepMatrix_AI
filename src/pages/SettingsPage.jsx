@@ -73,6 +73,7 @@ function SettingsPage({
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [isOtpVerified, setIsOtpVerified] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
+  const [isOtpLimitReached, setIsOtpLimitReached] = useState(false);
 
   useEffect(() => {
     if (otpCountdown <= 0 || isOtpVerified) return;
@@ -549,18 +550,28 @@ function SettingsPage({
       const response = await api.post("/api/auth/send-otp");
       setShowOtpInput(true);
       setIsOtpVerified(false);
+      setIsOtpLimitReached(false);
       setOtp("");
       setOtpCountdown(120); // Start 2-minute countdown
       toast.success("OTP sent successfully to your registered email! Please check your inbox.");
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "";
+      if (errMsg.includes("Too many OTP requests") || errMsg.includes("limit") || errMsg.includes("429")) {
+        setIsOtpLimitReached(true);
+        setOtpCountdown(0);
+      }
       toast.error(error instanceof Error ? error.message : "Failed to send OTP.");
     }
   };
 
   // Verify OTP for forgot password
   const handleVerifyOtp = async () => {
-    if (otpCountdown === 0) {
+    if (otpCountdown === 0 && !isOtpLimitReached) {
       toast.error("OTP has expired. Please click Resend OTP to request a new one.");
+      return;
+    }
+    if (isOtpLimitReached) {
+      toast.error("OTP limit reached. Please wait for the lockout window to end.");
       return;
     }
     try {
@@ -609,6 +620,7 @@ function SettingsPage({
       setCurrentPassword("");
       setOtp("");
       setIsOtpVerified(false);
+      setIsOtpLimitReached(false);
       setShowOtpInput(false);
       setOtpCountdown(0);
       setPassword("");
@@ -1046,11 +1058,14 @@ function SettingsPage({
                       </span>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        <span style={{ color: "var(--danger)", fontWeight: 600 }}>OTP has expired.</span>
+                        <span style={{ color: "var(--danger)", fontWeight: 600 }}>
+                          {isOtpLimitReached ? "OTP limit reached (5 requests/24 hours limit)." : "OTP has expired."}
+                        </span>
                         <button
                           type="button"
                           className="secondary-btn"
                           onClick={handleSendOtp}
+                          disabled={isOtpLimitReached}
                           style={{
                             fontSize: "0.76rem",
                             padding: "4px 8px",
@@ -1060,7 +1075,9 @@ function SettingsPage({
                             minHeight: "26px",
                             display: "inline-flex",
                             alignItems: "center",
-                            justifyContent: "center"
+                            justifyContent: "center",
+                            opacity: isOtpLimitReached ? 0.4 : 1,
+                            cursor: isOtpLimitReached ? "not-allowed" : "pointer"
                           }}
                         >
                           Resend OTP
