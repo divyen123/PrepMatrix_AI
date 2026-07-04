@@ -926,6 +926,7 @@ function SettingsPage({
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="••••••••"
+                autoComplete="new-password"
               />
             </label>
             <label className="field-stack">
@@ -936,6 +937,7 @@ function SettingsPage({
                 disabled={!currentPassword}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                autoComplete="new-password"
                 style={{ opacity: currentPassword ? 1 : 0.5, cursor: currentPassword ? 'text' : 'not-allowed' }}
               />
             </label>
@@ -947,6 +949,7 @@ function SettingsPage({
                 disabled={!currentPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
+                autoComplete="new-password"
                 style={{ opacity: currentPassword ? 1 : 0.5, cursor: currentPassword ? 'text' : 'not-allowed' }}
               />
             </label>

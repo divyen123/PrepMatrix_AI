@@ -10893,7 +10893,8 @@ body.worktree-fullscreen-active .workspace-topbar {
 }
 
 .fullscreen-modal-mode .worktree-canvas-container {
-  height: 650px !important;
+  height: 85vh !important;
+  min-height: 800px !important;
 }
 
 .canvas-grid-overlay {
@@ -11162,7 +11163,7 @@ body.worktree-fullscreen-active .workspace-topbar {
     padding: 0 !important;
   }
   .fullscreen-modal-mode .worktree-canvas-container {
-    height: 520px !important;
+    height: 620px !important;
   }
 }
 
