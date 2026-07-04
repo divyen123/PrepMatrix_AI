@@ -10523,6 +10523,7 @@ body.popover-open .app-sidebar {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px !important;
     margin-top: 10px !important;
+    width: 100% !important;
   }
   .timetable-actions button {
     width: 100% !important;
@@ -11165,7 +11166,12 @@ body.worktree-fullscreen-active .workspace-topbar {
 
 /* Mobile popup button alignment fixes */
 @media (max-width: 768px) {
-  .delete-confirm-popover,
+  .delete-confirm-popover {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: calc(100vw - 48px) !important;
+    max-width: 340px !important;
+  }
   .logout-confirm-overlay .card,
   .reset-confirm-popover {
     width: calc(100vw - 40px) !important;

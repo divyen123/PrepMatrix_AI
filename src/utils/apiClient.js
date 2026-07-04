@@ -4,20 +4,34 @@ async function request(path, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
+  const token = localStorage.getItem("prepmatrix_auth_token");
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   try {
     const response = await fetch(`${API_BASE}${path}`, {
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
+      headers,
       signal: controller.signal,
       ...options,
     });
 
     clearTimeout(timeoutId);
 
+    if (response.status === 401 || path === "/api/auth/logout") {
+      localStorage.removeItem("prepmatrix_auth_token");
+    }
+
     const payload = await response.json().catch(() => ({}));
+
+    if (payload.token) {
+      localStorage.setItem("prepmatrix_auth_token", payload.token);
+    }
 
     if (!response.ok) {
       throw new Error(payload.error || "Request failed.");

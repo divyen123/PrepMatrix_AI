@@ -86,7 +86,7 @@ function WorktreeMapper() {
 
   // Interaction states
   const [draggedNodeId, setDraggedNodeId] = useState(null);
-  const [editingNodeId, setEditingNodeId] = useState(null);
+  const [renamingNode, setRenamingNode] = useState(null);
   const [editingText, setEditingText] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   
@@ -290,19 +290,19 @@ function WorktreeMapper() {
     });
   };
 
-  // Inline rename
-  const handleDoubleClickNode = (node) => {
-    setEditingNodeId(node.id);
+  // Rename node modal triggers
+  const handleStartRename = (node) => {
+    setRenamingNode(node);
     setEditingText(node.label);
   };
 
-  const handleSaveRename = (nodeId) => {
-    if (editingText.trim()) {
+  const handleSaveRename = () => {
+    if (renamingNode && editingText.trim()) {
       setNodes((prev) =>
-        prev.map((n) => (n.id === nodeId ? { ...n, label: editingText.trim() } : n))
+        prev.map((n) => (n.id === renamingNode.id ? { ...n, label: editingText.trim() } : n))
       );
     }
-    setEditingNodeId(null);
+    setRenamingNode(null);
   };
 
   // Delete node from custom list
@@ -599,24 +599,13 @@ function WorktreeMapper() {
                   {node.completed ? "✓" : "○"}
                 </span>
                 
-                {editingNodeId === node.id ? (
-                  <input
-                    autoFocus
-                    className="badge-edit-input"
-                    value={editingText}
-                    onChange={(e) => setEditingText(e.target.value)}
-                    onBlur={() => handleSaveRename(node.id)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSaveRename(node.id)}
-                  />
-                ) : (
-                  <span className="badge-label" onDoubleClick={() => handleDoubleClickNode(node)}>
-                    {node.label}
-                  </span>
-                )}
+                <span className="badge-label" onDoubleClick={() => handleStartRename(node)}>
+                  {node.label}
+                </span>
 
                 <button 
                   className="badge-action-btn edit"
-                  onClick={(e) => { e.stopPropagation(); handleDoubleClickNode(node); }}
+                  onClick={(e) => { e.stopPropagation(); handleStartRename(node); }}
                   onMouseDown={(e) => e.stopPropagation()}
                   onTouchStart={(e) => e.stopPropagation()}
                   title="Rename"
@@ -784,7 +773,7 @@ function WorktreeMapper() {
                   if (isLocked) return;
                   // If double clicking, do rename rather than drag trigger
                   if (e.detail === 2) {
-                    handleDoubleClickNode(node);
+                    handleStartRename(node);
                     return;
                   }
                   e.stopPropagation();
@@ -800,20 +789,7 @@ function WorktreeMapper() {
               >
                 {node.completed && <Check size={14} className="node-check-icon" />}
                 
-                {editingNodeId === node.id ? (
-                  <input
-                    autoFocus
-                    className="node-rename-input"
-                    value={editingText}
-                    onChange={(e) => setEditingText(e.target.value)}
-                    onBlur={() => handleSaveRename(node.id)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSaveRename(node.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <span>{node.label}</span>
-                )}
+                <span>{node.label}</span>
               </div>
             );
           })}
@@ -891,6 +867,72 @@ function WorktreeMapper() {
               </button>
               <button className="confirm-danger-btn" onClick={confirmDeleteHistory} type="button">
                 Delete
+              </button>
+            </div>
+          </section>
+        </div>,
+        document.body
+      )}
+
+      {/* Rename confirmation modal */}
+      {renamingNode && createPortal(
+        <div 
+          className="confirm-modal-backdrop" 
+          onClick={() => setRenamingNode(null)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(10, 15, 28, 0.75)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            zIndex: 999999,
+            display: "grid",
+            placeItems: "center",
+            animation: "none"
+          }}
+        >
+          <section
+            className="confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "min(360px, 90vw)" }}
+          >
+            <div className="confirm-modal-icon warning" aria-hidden="true" style={{ background: "rgba(var(--accent-rgb), 0.15)", color: "var(--accent)" }}>
+              <Edit2 size={20} />
+            </div>
+            <div className="confirm-modal-copy">
+              <span className="section-tag">Rename</span>
+              <h2>Rename Node</h2>
+              <div style={{ marginTop: "12px" }}>
+                <input
+                  autoFocus
+                  type="text"
+                  className="text-input"
+                  value={editingText}
+                  onChange={(e) => setEditingText(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveRename()}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "8px 12px",
+                    background: "var(--surface-muted)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "8px",
+                    color: "var(--text)"
+                  }}
+                />
+              </div>
+            </div>
+            <div className="confirm-modal-actions" style={{ marginTop: "8px" }}>
+              <button className="secondary-btn" onClick={() => setRenamingNode(null)} type="button">
+                Cancel
+              </button>
+              <button className="action-btn" onClick={handleSaveRename} type="button">
+                Save
               </button>
             </div>
           </section>

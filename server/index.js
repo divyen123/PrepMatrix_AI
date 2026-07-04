@@ -145,7 +145,13 @@ async function createSession(userId) {
 }
 
 async function getAuthenticatedUser(req) {
-  const token = parseCookies(req.headers.cookie || "")[SESSION_COOKIE];
+  let token = parseCookies(req.headers.cookie || "")[SESSION_COOKIE];
+  if (!token && req.headers.authorization) {
+    const parts = req.headers.authorization.split(" ");
+    if (parts.length === 2 && parts[0] === "Bearer") {
+      token = parts[1];
+    }
+  }
   if (!token) return null;
   const db = await getDb();
   const session = await db.collection("sessions").findOne({ token, expiresAt: { $gt: new Date() } });
@@ -296,7 +302,7 @@ app.post("/api/auth/register", async (req, res) => {
     await db.collection("notes").insertOne({ userId: user._id, notes: [], updatedAt: new Date() });
     const token = await createSession(user._id);
     setSessionCookie(res, token);
-    return res.status(201).json({ user: sanitizeUser(user), workspace: normalizeWorkspace(null, user) });
+    return res.status(201).json({ token, user: sanitizeUser(user), workspace: normalizeWorkspace(null, user) });
   } catch (error) {
     if (error?.code === 11000) return res.status(409).json({ error: "A user with this email already exists." });
     return res.status(500).json({ error: error instanceof Error ? error.message : "Registration failed." });
@@ -314,7 +320,7 @@ app.post("/api/auth/login", async (req, res) => {
     const token = await createSession(user._id);
     setSessionCookie(res, token);
     const workspace = await db.collection("workspaces").findOne({ userId: user._id });
-    return res.json({ user: sanitizeUser(user), workspace: normalizeWorkspace(workspace, user) });
+    return res.json({ token, user: sanitizeUser(user), workspace: normalizeWorkspace(workspace, user) });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Login failed." });
   }
@@ -361,7 +367,16 @@ app.get("/api/auth/me", async (req, res) => {
     if (!user) return res.status(401).json({ error: "Login required." });
     const db = await getDb();
     const workspace = await db.collection("workspaces").findOne({ userId: user._id });
-    return res.json({ user: sanitizeUser(user), workspace: normalizeWorkspace(workspace, user) });
+    
+    let token = parseCookies(req.headers.cookie || "")[SESSION_COOKIE];
+    if (!token && req.headers.authorization) {
+      const parts = req.headers.authorization.split(" ");
+      if (parts.length === 2 && parts[0] === "Bearer") {
+        token = parts[1];
+      }
+    }
+    
+    return res.json({ token, user: sanitizeUser(user), workspace: normalizeWorkspace(workspace, user) });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Could not load profile." });
   }
