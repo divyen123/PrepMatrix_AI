@@ -72,6 +72,15 @@ function SettingsPage({
   const [otp, setOtp] = useState("");
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [isOtpVerified, setIsOtpVerified] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+
+  useEffect(() => {
+    if (otpCountdown <= 0 || isOtpVerified) return;
+    const interval = setInterval(() => {
+      setOtpCountdown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [otpCountdown, isOtpVerified]);
 
   // System Preferences state
   const [soundEnabled, setSoundEnabled] = useState(() => {
@@ -527,6 +536,13 @@ function SettingsPage({
     }
   };
 
+  // Helper to format countdown timer (MM:SS)
+  const formatCountdown = (seconds) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
   // Send OTP for forgot password
   const handleSendOtp = async () => {
     try {
@@ -534,6 +550,7 @@ function SettingsPage({
       setShowOtpInput(true);
       setIsOtpVerified(false);
       setOtp("");
+      setOtpCountdown(120); // Start 2-minute countdown
       toast.success("OTP sent successfully to your registered email! Please check your inbox.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to send OTP.");
@@ -542,6 +559,10 @@ function SettingsPage({
 
   // Verify OTP for forgot password
   const handleVerifyOtp = async () => {
+    if (otpCountdown === 0) {
+      toast.error("OTP has expired. Please click Resend OTP to request a new one.");
+      return;
+    }
     try {
       if (!otp.trim()) {
         toast.error("Please enter the OTP code first.");
@@ -589,6 +610,7 @@ function SettingsPage({
       setOtp("");
       setIsOtpVerified(false);
       setShowOtpInput(false);
+      setOtpCountdown(0);
       setPassword("");
       setConfirmPassword("");
       toast.success("Security credentials updated successfully!");
@@ -1016,6 +1038,37 @@ function SettingsPage({
                     </span>
                   )}
                 </div>
+                {!isOtpVerified && (
+                  <div style={{ marginTop: "4px", fontSize: "0.78rem" }}>
+                    {otpCountdown > 0 ? (
+                      <span style={{ color: "var(--text-muted)" }}>
+                        OTP expires in <strong style={{ color: "var(--accent)" }}>{formatCountdown(otpCountdown)}</strong>
+                      </span>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <span style={{ color: "var(--danger)", fontWeight: 600 }}>OTP has expired.</span>
+                        <button
+                          type="button"
+                          className="secondary-btn"
+                          onClick={handleSendOtp}
+                          style={{
+                            fontSize: "0.76rem",
+                            padding: "4px 8px",
+                            width: "fit-content",
+                            borderRadius: "8px",
+                            height: "26px",
+                            minHeight: "26px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center"
+                          }}
+                        >
+                          Resend OTP
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </label>
             ) : (
               <label className="field-stack">

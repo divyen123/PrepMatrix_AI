@@ -429,7 +429,7 @@ app.post("/api/auth/send-otp", requireAuth(async (req, res) => {
     const db = await getDb();
     await db.collection("users").updateOne(
       { _id: req.user._id },
-      { $set: { currentOtp: otp, otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000) } }
+      { $set: { currentOtp: otp, otpExpiresAt: new Date(Date.now() + 2 * 60 * 1000) } }
     );
     console.log(`[OTP Verification] Code for ${req.user.email}: ${otp}`);
 
