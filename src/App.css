@@ -10533,6 +10533,12 @@ body.popover-open .app-sidebar {
     margin: 0 !important;
     border-radius: 8px !important;
   }
+  .timetable-actions button:only-child {
+    grid-column: span 2 !important;
+  }
+  .timetable-actions button.new-schedule-btn:nth-child(5) {
+    grid-column: span 2 !important;
+  }
   .day-card {
     padding: 12px !important;
     min-height: auto !important;
@@ -11196,6 +11202,18 @@ body.worktree-fullscreen-active .workspace-topbar {
     font-size: 0.76rem !important;
     padding: 0.35rem 0.6rem !important;
   }
+}
+
+/* Undo button styling for study assistant / planner actions */
+.undo-btn {
+  background: rgba(var(--accent-rgb), 0.12) !important;
+  border-color: rgba(var(--accent-rgb), 0.28) !important;
+  color: var(--accent) !important;
+}
+.undo-btn:hover {
+  background: rgba(var(--accent-rgb), 0.22) !important;
+  border-color: rgba(var(--accent-rgb), 0.45) !important;
+  color: var(--accent) !important;
 }
 
 

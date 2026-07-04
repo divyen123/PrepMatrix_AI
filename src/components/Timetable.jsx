@@ -15,6 +15,14 @@ function Timetable({
   const [examDate, setExamDate] = useState("");
   const [planMode, setPlanMode] = useState("balanced");
   const [loading, setLoading] = useState(false);
+  const [previousSchedule, setPreviousSchedule] = useState(null);
+  const [showGenerateForm, setShowGenerateForm] = useState(schedule.length === 0);
+
+  useEffect(() => {
+    if (schedule.length === 0) {
+      setShowGenerateForm(true);
+    }
+  }, [schedule.length]);
 
   const getBacklogTasks = useCallback(() => {
     const backlog = [];
@@ -66,6 +74,8 @@ function Timetable({
 
       setSchedule(result);
       setLoading(false);
+      setPreviousSchedule(null);
+      setShowGenerateForm(false);
       toast.success("Timetable generated.", {
         toastId: "planner-generated",
       });
@@ -130,7 +140,8 @@ function Timetable({
   };
 
   const handleMissedTasks = () => {
-    const updatedSchedule = [...schedule];
+    setPreviousSchedule(structuredClone(schedule));
+    const updatedSchedule = structuredClone(schedule);
 
     for (let index = 0; index < updatedSchedule.length - 1; index += 1) {
       const currentDay = updatedSchedule[index];
@@ -162,7 +173,8 @@ function Timetable({
   };
 
   const rebalanceSchedule = () => {
-    const updated = [...schedule];
+    setPreviousSchedule(structuredClone(schedule));
+    const updated = structuredClone(schedule);
 
     updated.forEach((day) => {
       if (day.tasks?.length > 4) {
@@ -179,6 +191,16 @@ function Timetable({
     });
   };
 
+  const handleUndo = () => {
+    if (previousSchedule) {
+      setSchedule(previousSchedule);
+      setPreviousSchedule(null);
+      toast.success("Changes undone successfully.", {
+        toastId: "planner-undone",
+      });
+    }
+  };
+
   return (
     <section className="card schedule-card">
       <div className="schedule-card-header">
@@ -191,50 +213,71 @@ function Timetable({
       </div>
 
       <div className="timetable-topbar">
-        <div className="form-grid planner-target-grid">
-          <label className="field-stack compact-field">
-            Exam date
-            <input onChange={(event) => setExamDate(event.target.value)} type="date" value={examDate} />
-          </label>
+        {showGenerateForm ? (
+          <>
+            <div className="form-grid planner-target-grid">
+              <label className="field-stack compact-field">
+                Exam date
+                <input onChange={(event) => setExamDate(event.target.value)} type="date" value={examDate} />
+              </label>
 
-          <label className="field-stack compact-field">
-            Exam strategy
-            <select onChange={(event) => setPlanMode(event.target.value)} value={planMode}>
-              <option value="balanced">Balanced coverage</option>
-              <option value="high-priority">High priority first</option>
-              <option value="revision-heavy">Revision-heavy</option>
-              <option value="rapid">Rapid coverage</option>
-            </select>
-          </label>
-        </div>
+              <label className="field-stack compact-field">
+                Exam strategy
+                <select onChange={(event) => setPlanMode(event.target.value)} value={planMode}>
+                  <option value="balanced">Balanced coverage</option>
+                  <option value="high-priority">High priority first</option>
+                  <option value="revision-heavy">Revision-heavy</option>
+                  <option value="rapid">Rapid coverage</option>
+                </select>
+              </label>
+            </div>
 
-        <div className="timetable-actions">
-          <button className="action-btn" disabled={loading} onClick={generate} type="button">
-            {loading ? (
-              <span className="spinner" />
-            ) : (
-              <>
-                <span className="desktop-only-text">Generate schedule</span>
-                <span className="mobile-only-text">Generate</span>
-              </>
+            <div className="timetable-actions">
+              <button className="action-btn" disabled={loading} onClick={generate} type="button">
+                {loading ? (
+                  <span className="spinner" />
+                ) : (
+                  <>
+                    <span className="desktop-only-text">Generate schedule</span>
+                    <span className="mobile-only-text">Generate</span>
+                  </>
+                )}
+              </button>
+              {schedule.length > 0 && (
+                <button
+                  className="secondary-btn action-btn"
+                  onClick={() => setShowGenerateForm(false)}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="timetable-actions">
+            <button className="secondary-btn action-btn" onClick={downloadPDF} type="button">
+              <span className="desktop-only-text">Export PDF</span>
+              <span className="mobile-only-text">Export</span>
+            </button>
+            <button className="secondary-btn action-btn" onClick={rebalanceSchedule} type="button">
+              Rebalance
+            </button>
+            <button className="secondary-btn action-btn" onClick={handleMissedTasks} type="button">
+              <span className="desktop-only-text">Recover backlog</span>
+              <span className="mobile-only-text">Recover</span>
+            </button>
+            {previousSchedule && (
+              <button className="secondary-btn action-btn undo-btn" onClick={handleUndo} type="button">
+                Undo
+              </button>
             )}
-          </button>
-          {schedule.length > 0 && (
-            <>
-              <button className="secondary-btn action-btn" onClick={downloadPDF} type="button">
-                <span className="desktop-only-text">Export PDF</span>
-                <span className="mobile-only-text">Export</span>
-              </button>
-              <button className="secondary-btn action-btn" onClick={rebalanceSchedule} type="button">
-                Rebalance
-              </button>
-              <button className="secondary-btn action-btn" onClick={handleMissedTasks} type="button">
-                <span className="desktop-only-text">Recover backlog</span>
-                <span className="mobile-only-text">Recover</span>
-              </button>
-            </>
-          )}
-        </div>
+            <button className="action-btn new-schedule-btn" onClick={() => setShowGenerateForm(true)} type="button">
+              <span className="desktop-only-text">New schedule</span>
+              <span className="mobile-only-text">New schedule</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div
