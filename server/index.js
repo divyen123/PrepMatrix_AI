@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import { MongoClient, ObjectId } from "mongodb";
+import nodemailer from "nodemailer";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -157,6 +158,46 @@ async function getAuthenticatedUser(req) {
   const session = await db.collection("sessions").findOne({ token, expiresAt: { $gt: new Date() } });
   if (!session) return null;
   return db.collection("users").findOne({ _id: session.userId });
+}
+
+async function sendOtpEmail(toEmail, otp) {
+  const host = process.env.SMTP_HOST || "smtp.gmail.com";
+  const port = Number(process.env.SMTP_PORT) || 465;
+  const secure = port === 465;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!user || !pass) {
+    throw new Error("SMTP credentials (SMTP_USER and SMTP_PASS) are not configured in .env file.");
+  }
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: {
+      user,
+      pass,
+    },
+  });
+
+  const mailOptions = {
+    from: `"PrepMatrix AI" <${user}>`,
+    to: toEmail,
+    subject: "PrepMatrix AI OTP Code",
+    text: `Your security verification OTP code is: ${otp}. It will expire in 10 minutes.`,
+    html: `<div style="font-family: sans-serif; padding: 20px; max-width: 500px; border: 1px solid #eaeaea; border-radius: 8px;">
+      <h2>PrepMatrix AI Security Code</h2>
+      <p>A request was made to update your credentials using forgot password OTP verification.</p>
+      <p>Your security verification code is:</p>
+      <div style="background: #f4f5f6; padding: 14px; font-size: 1.5rem; font-weight: bold; letter-spacing: 2px; text-align: center; border-radius: 6px; color: #0a0f1c; margin: 20px 0;">
+        ${otp}
+      </div>
+      <p>This code will expire in 10 minutes. If you did not request this, please change your password immediately.</p>
+    </div>`,
+  };
+
+  await transporter.sendMail(mailOptions);
 }
 
 function requireAuth(handler) {
@@ -391,9 +432,38 @@ app.post("/api/auth/send-otp", requireAuth(async (req, res) => {
       { $set: { currentOtp: otp, otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000) } }
     );
     console.log(`[OTP Verification] Code for ${req.user.email}: ${otp}`);
-    return res.json({ success: true, email: req.user.email, otp });
+
+    try {
+      await sendOtpEmail(req.user.email, otp);
+      return res.json({ success: true, email: req.user.email });
+    } catch (mailError) {
+      console.error("Nodemailer failed to send email:", mailError);
+      return res.status(500).json({ error: `Could not send email: ${mailError.message}. Please configure SMTP credentials in your .env file.` });
+    }
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Failed to send OTP." });
+  }
+}));
+
+app.post("/api/auth/verify-otp", requireAuth(async (req, res) => {
+  try {
+    const { otp } = req.body ?? {};
+    if (!otp) return res.status(400).json({ error: "OTP code is required." });
+    
+    const db = await getDb();
+    const user = await db.collection("users").findOne({ _id: req.user._id });
+    
+    if (!user.currentOtp || user.currentOtp !== otp.trim()) {
+      return res.status(400).json({ error: "Invalid OTP code." });
+    }
+    
+    if (user.otpExpiresAt && new Date() > new Date(user.otpExpiresAt)) {
+      return res.status(400).json({ error: "OTP code has expired." });
+    }
+    
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Verification failed." });
   }
 }));
 

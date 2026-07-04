@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, Shield, Palette, User, Check, Settings2, Target, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff } from "lucide-react";
+import { Save, Shield, Palette, User, Check, Settings2, Target, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import api from "../utils/apiClient";
 import BACKGROUND_PRESETS from "../utils/backgroundPresets";
 import { toast } from "react-toastify";
@@ -71,6 +71,7 @@ function SettingsPage({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [showOtpInput, setShowOtpInput] = useState(false);
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
 
   // System Preferences state
   const [soundEnabled, setSoundEnabled] = useState(() => {
@@ -531,9 +532,27 @@ function SettingsPage({
     try {
       const response = await api.post("/api/auth/send-otp");
       setShowOtpInput(true);
-      toast.success(`OTP sent successfully to your registered email! (Mock Code: ${response.otp})`);
+      setIsOtpVerified(false);
+      setOtp("");
+      toast.success("OTP sent successfully to your registered email! Please check your inbox.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to send OTP.");
+    }
+  };
+
+  // Verify OTP for forgot password
+  const handleVerifyOtp = async () => {
+    try {
+      if (!otp.trim()) {
+        toast.error("Please enter the OTP code first.");
+        return;
+      }
+      await api.post("/api/auth/verify-otp", { otp: otp.trim() });
+      setIsOtpVerified(true);
+      toast.success("OTP verified successfully! You can now type your new password.");
+    } catch (error) {
+      setIsOtpVerified(false);
+      toast.error(error instanceof Error ? error.message : "Invalid OTP code.");
     }
   };
 
@@ -544,8 +563,8 @@ function SettingsPage({
         toast.error("Please enter your current password first.");
         return;
       }
-      if (password && showOtpInput && !otp) {
-        toast.error("Please enter the OTP sent to your email.");
+      if (password && showOtpInput && !isOtpVerified) {
+        toast.error("Please verify the OTP sent to your email first.");
         return;
       }
       if (password && password !== confirmPassword) {
@@ -568,6 +587,7 @@ function SettingsPage({
       setUserProfile(response.user);
       setCurrentPassword("");
       setOtp("");
+      setIsOtpVerified(false);
       setShowOtpInput(false);
       setPassword("");
       setConfirmPassword("");
@@ -943,37 +963,63 @@ function SettingsPage({
 
           <div className="form-grid">
             {showOtpInput ? (
-              <label className="field-stack">
+              <label className="field-stack" style={{ position: "relative" }}>
                 <span>Enter OTP code</span>
-                <input
-                  type="text"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  placeholder="e.g. 123456"
-                  maxLength={6}
-                />
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
+                    placeholder="e.g. 123456"
+                    maxLength={6}
+                    disabled={isOtpVerified}
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      paddingRight: "40px",
+                      borderColor: isOtpVerified ? "var(--success)" : undefined,
+                      background: isOtpVerified ? "rgba(34, 197, 94, 0.05)" : undefined
+                    }}
+                  />
+                  {!isOtpVerified && (
+                    <button
+                      type="button"
+                      onClick={handleVerifyOtp}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        background: "none",
+                        border: "none",
+                        color: "var(--accent)",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 0
+                      }}
+                    >
+                      <ArrowRight size={18} />
+                    </button>
+                  )}
+                  {isOtpVerified && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        right: "12px",
+                        color: "var(--success)",
+                        fontSize: "0.8rem",
+                        fontWeight: 700
+                      }}
+                    >
+                      ✓ Verified
+                    </span>
+                  )}
+                </div>
               </label>
             ) : (
               <label className="field-stack">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span>Current Password</span>
-                  <button 
-                    type="button" 
-                    onClick={handleSendOtp} 
-                    style={{ 
-                      background: "none", 
-                      border: "none", 
-                      color: "var(--accent)", 
-                      cursor: "pointer", 
-                      fontSize: "0.8rem", 
-                      padding: 0,
-                      fontWeight: 600,
-                      textDecoration: "underline"
-                    }}
-                  >
-                    Forgot password?
-                  </button>
-                </div>
+                <span>Current Password</span>
                 <input
                   type="password"
                   value={currentPassword}
@@ -988,11 +1034,11 @@ function SettingsPage({
               <input
                 type="password"
                 value={password}
-                disabled={!currentPassword && !showOtpInput}
+                disabled={!currentPassword && !isOtpVerified}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="new-password"
-                style={{ opacity: (currentPassword || showOtpInput) ? 1 : 0.5, cursor: (currentPassword || showOtpInput) ? 'text' : 'not-allowed' }}
+                style={{ opacity: (currentPassword || isOtpVerified) ? 1 : 0.5, cursor: (currentPassword || isOtpVerified) ? 'text' : 'not-allowed' }}
               />
             </label>
             <label className="field-stack">
@@ -1000,21 +1046,33 @@ function SettingsPage({
               <input
                 type="password"
                 value={confirmPassword}
-                disabled={!currentPassword && !showOtpInput}
+                disabled={!currentPassword && !isOtpVerified}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="new-password"
-                style={{ opacity: (currentPassword || showOtpInput) ? 1 : 0.5, cursor: (currentPassword || showOtpInput) ? 'text' : 'not-allowed' }}
+                style={{ opacity: (currentPassword || isOtpVerified) ? 1 : 0.5, cursor: (currentPassword || isOtpVerified) ? 'text' : 'not-allowed' }}
               />
             </label>
           </div>
 
-          <button
-            onClick={handleSaveSecurity}
-            style={{ alignSelf: "flex-end", display: "flex", alignItems: "center", gap: "8px" }}
-          >
-            <Save size={16} /> Update Credentials
-          </button>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", alignItems: "center", marginTop: "8px" }}>
+            {!showOtpInput && (
+              <button 
+                type="button" 
+                className="secondary-btn"
+                onClick={handleSendOtp}
+                style={{ fontSize: "0.85rem", padding: "8px 16px" }}
+              >
+                Forgot password?
+              </button>
+            )}
+            <button
+              onClick={handleSaveSecurity}
+              style={{ display: "flex", alignItems: "center", gap: "8px" }}
+            >
+              <Save size={16} /> Update Credentials
+            </button>
+          </div>
         </div>
 
         {/* System Preferences & Toggles */}
