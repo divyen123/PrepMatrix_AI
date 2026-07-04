@@ -10764,18 +10764,20 @@ body.worktree-fullscreen-active .workspace-topbar {
 
 .builder-nodes-badges {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap !important;
   gap: 6px;
   margin-top: 6px;
-  max-height: 110px;
-  overflow-y: auto;
-  padding-right: 4px;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
 }
 
 .node-badge {
   display: inline-flex !important;
   align-items: center !important;
   align-self: center !important;
+  flex-shrink: 0 !important;
   gap: 6px !important;
   padding: 4px 10px !important;
   border-radius: 12px !important;
@@ -10891,7 +10893,7 @@ body.worktree-fullscreen-active .workspace-topbar {
 }
 
 .fullscreen-modal-mode .worktree-canvas-container {
-  height: calc(100vh - 190px);
+  height: 650px !important;
 }
 
 .canvas-grid-overlay {
@@ -11160,7 +11162,7 @@ body.worktree-fullscreen-active .workspace-topbar {
     padding: 0 !important;
   }
   .fullscreen-modal-mode .worktree-canvas-container {
-    height: 480px !important;
+    height: 520px !important;
   }
 }
 
@@ -11220,6 +11222,21 @@ body.worktree-fullscreen-active .workspace-topbar {
   background: rgba(var(--accent-rgb), 0.22) !important;
   border-color: rgba(var(--accent-rgb), 0.45) !important;
   color: var(--accent) !important;
+}
+
+/* Thinner scrollbar styles for custom nodes list & saved history scroll */
+.builder-nodes-badges::-webkit-scrollbar,
+.saved-history-scroll::-webkit-scrollbar {
+  height: 4px !important;
+}
+.builder-nodes-badges::-webkit-scrollbar-thumb,
+.saved-history-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 4px !important;
+}
+.builder-nodes-badges::-webkit-scrollbar-track,
+.saved-history-scroll::-webkit-scrollbar-track {
+  background: transparent !important;
 }
 
 
