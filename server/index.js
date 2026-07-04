@@ -179,6 +179,9 @@ async function sendOtpEmail(toEmail, otp) {
       user,
       pass,
     },
+    connectionTimeout: 6000,
+    greetingTimeout: 6000,
+    socketTimeout: 6000,
   });
 
   const mailOptions = {
