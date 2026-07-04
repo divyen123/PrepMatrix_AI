@@ -5,7 +5,7 @@ const QUIZ_HISTORY_PER_PAGE = 6;
 
 function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
   const [topic, setTopic] = useState("");
-  const [subjectName, setSubjectName] = useState(subjects[0]?.name || "");
+  const [subjectName, setSubjectName] = useState("");
   const [questionLimit, setQuestionLimit] = useState(5);
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
@@ -16,7 +16,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
   const [quizMeta, setQuizMeta] = useState(null);
   const [historyPage, setHistoryPage] = useState(1);
 
-  const [searchQuery, setSearchQuery] = useState(subjects[0]?.name || "");
+  const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
@@ -43,11 +43,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (!subjectName && subjects[0]?.name) {
-      setSubjectName(subjects[0].name);
-    }
-  }, [subjectName, subjects]);
+
 
   const selectedSubject = subjectName || subjects[0]?.name || "General study";
   const cleanTopic = topic.trim();
@@ -169,7 +165,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
                 placeholder="Type to search or select subject..."
                 style={{ width: "100%", boxSizing: "border-box" }}
               />
-              {showDropdown && (
+              {showDropdown && searchQuery.trim() !== "" && (
                 <div 
                   className="autocomplete-dropdown"
                   style={{
