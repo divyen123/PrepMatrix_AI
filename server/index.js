@@ -425,17 +425,49 @@ app.get("/api/auth/me", async (req, res) => {
 
 app.post("/api/auth/send-otp", requireAuth(async (req, res) => {
   try {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const db = await getDb();
+    const user = await db.collection("users").findOne({ _id: req.user._id });
+    
+    const now = new Date();
+    const WINDOW_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+    const MAX_REQUESTS = 5;
+
+    let otpRequestCount = user.otpRequestCount || 0;
+    let otpFirstRequestAt = user.otpFirstRequestAt ? new Date(user.otpFirstRequestAt) : null;
+
+    if (otpFirstRequestAt && (now.getTime() - otpFirstRequestAt.getTime() < WINDOW_DURATION)) {
+      if (otpRequestCount >= MAX_REQUESTS) {
+        const timeRemaining = WINDOW_DURATION - (now.getTime() - otpFirstRequestAt.getTime());
+        const hours = Math.floor(timeRemaining / (60 * 60 * 1000));
+        const minutes = Math.floor((timeRemaining % (60 * 60 * 1000)) / (60 * 1000));
+        return res.status(429).json({
+          error: `Too many OTP requests. Limit is 5 per 24 hours. Please try again in ${hours} hour(s) and ${minutes} minute(s).`
+        });
+      }
+      otpRequestCount += 1;
+    } else {
+      otpFirstRequestAt = now;
+      otpRequestCount = 1;
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
     await db.collection("users").updateOne(
       { _id: req.user._id },
-      { $set: { currentOtp: otp, otpExpiresAt: new Date(Date.now() + 2 * 60 * 1000) } }
+      { 
+        $set: { 
+          currentOtp: otp, 
+          otpExpiresAt: new Date(now.getTime() + 2 * 60 * 1000),
+          otpRequestCount,
+          otpFirstRequestAt
+        } 
+      }
     );
-    console.log(`[OTP Verification] Code for ${req.user.email}: ${otp}`);
+    console.log(`[OTP Verification] Code for ${req.user.email}: ${otp} (Request ${otpRequestCount}/${MAX_REQUESTS} in window)`);
 
     try {
       await sendOtpEmail(req.user.email, otp);
-      return res.json({ success: true, email: req.user.email });
+      return res.json({ success: true, email: req.user.email, requestCount: otpRequestCount });
     } catch (mailError) {
       console.error("Nodemailer failed to send email:", mailError);
       return res.status(500).json({ error: `Could not send email: ${mailError.message}. Please configure SMTP credentials in your .env file.` });
@@ -513,6 +545,8 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
         }
         update.currentOtp = null;
         update.otpExpiresAt = null;
+        update.otpRequestCount = 0;
+        update.otpFirstRequestAt = null;
       } else {
         if (!currentPassword) {
           return res.status(400).json({ error: "Current password is required to set a new password." });
