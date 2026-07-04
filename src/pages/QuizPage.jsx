@@ -16,6 +16,17 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
   const [quizMeta, setQuizMeta] = useState(null);
   const [historyPage, setHistoryPage] = useState(1);
 
+  const [searchQuery, setSearchQuery] = useState(subjects[0]?.name || "");
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  useEffect(() => {
+    setSearchQuery(subjectName);
+  }, [subjectName]);
+
+  const filteredSubjects = subjects.filter((subject) =>
+    subject.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   useEffect(() => {
     let isMounted = true;
 
@@ -140,12 +151,80 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
         <div className="quiz-builder-grid">
           <label className="field-stack">
             Subject
-            <select onChange={(event) => setSubjectName(event.target.value)} value={subjectName}>
-              {subjects.length === 0 && <option value="">General study</option>}
-              {subjects.map((subject) => (
-                <option key={subject.id} value={subject.name}>{subject.name}</option>
-              ))}
-            </select>
+            <div className="autocomplete-container" style={{ position: "relative" }}>
+              <input
+                type="text"
+                className="text-input"
+                value={searchQuery}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  setSearchQuery(val);
+                  setSubjectName(val);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                onBlur={() => {
+                  setTimeout(() => setShowDropdown(false), 200);
+                }}
+                placeholder="Type to search or select subject..."
+                style={{ width: "100%", boxSizing: "border-box" }}
+              />
+              {showDropdown && (
+                <div 
+                  className="autocomplete-dropdown"
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    right: 0,
+                    backgroundColor: "var(--surface-strong)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "12px",
+                    zIndex: 100,
+                    maxHeight: "180px",
+                    overflowY: "auto",
+                    marginTop: "6px",
+                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.4)",
+                    backdropFilter: "blur(12px)",
+                    WebkitBackdropFilter: "blur(12px)"
+                  }}
+                >
+                  {filteredSubjects.length === 0 ? (
+                    <div 
+                      style={{ padding: "10px 14px", fontSize: "0.85rem", color: "var(--text-muted)", cursor: "pointer" }}
+                      onMouseDown={() => {
+                        setSubjectName(searchQuery);
+                        setShowDropdown(false);
+                      }}
+                    >
+                      Use "{searchQuery || "General study"}"
+                    </div>
+                  ) : (
+                    filteredSubjects.map((subject) => (
+                      <div
+                        className="autocomplete-item"
+                        key={subject.id}
+                        style={{
+                          padding: "10px 14px",
+                          cursor: "pointer",
+                          fontSize: "0.88rem",
+                          color: "var(--text)",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.03)",
+                          transition: "background 0.2s"
+                        }}
+                        onMouseDown={() => {
+                          setSubjectName(subject.name);
+                          setSearchQuery(subject.name);
+                          setShowDropdown(false);
+                        }}
+                      >
+                        {subject.name}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </label>
 
           <label className="field-stack">

@@ -11239,4 +11239,79 @@ body.worktree-fullscreen-active .workspace-topbar {
   background: transparent !important;
 }
 
+/* Autocomplete suggestion item hover state */
+.autocomplete-item:hover {
+  background: rgba(var(--accent-rgb), 0.14) !important;
+  color: var(--accent) !important;
+}
+
+/* Desktop-only square style & horizontal scrolling for bookmarks saved library */
+@media (min-width: 992px) {
+  .bookmark-grid {
+    display: flex !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    flex-wrap: nowrap !important;
+    gap: 12px !important;
+    padding-bottom: 8px !important;
+    scrollbar-width: thin;
+  }
+  
+  .bookmark-grid::-webkit-scrollbar {
+    height: 4px !important;
+  }
+  .bookmark-grid::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-radius: 4px !important;
+  }
+  .bookmark-grid::-webkit-scrollbar-track {
+    background: transparent !important;
+  }
+
+  .bookmark-card {
+    flex: 0 0 170px !important;
+    height: 170px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    padding: 14px !important;
+    gap: 4px !important;
+  }
+  
+  .bookmark-card strong {
+    font-size: 0.85rem !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    line-height: 1.25 !important;
+    margin-bottom: auto !important;
+  }
+  
+  .bookmark-card p {
+    font-size: 0.72rem !important;
+    margin: 4px 0 0 !important;
+  }
+  
+  .bookmark-actions {
+    margin-top: 4px !important;
+    gap: 6px !important;
+  }
+  
+  .bookmark-actions a,
+  .bookmark-actions button {
+    flex: 1 !important;
+    padding: 4px 8px !important;
+    font-size: 0.72rem !important;
+    min-height: 26px !important;
+    height: 26px !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+}
+
 
