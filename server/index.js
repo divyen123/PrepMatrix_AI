@@ -1,5 +1,6 @@
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
 import dotenv from "dotenv";
+import dns from "node:dns";
 import express from "express";
 import cors from "cors";
 import { MongoClient, ObjectId } from "mongodb";
@@ -171,13 +172,31 @@ async function sendOtpEmail(toEmail, otp) {
     throw new Error("SMTP credentials (SMTP_USER and SMTP_PASS) are not configured in .env file.");
   }
 
+  let resolvedIp = host;
+  if (!/^[0-9.]+$/.test(host)) {
+    try {
+      resolvedIp = await new Promise((resolve, reject) => {
+        dns.lookup(host, { family: 4 }, (err, address) => {
+          if (err) return reject(err);
+          resolve(address);
+        });
+      });
+    } catch (dnsErr) {
+      console.warn(`DNS lookup failed for ${host}:`, dnsErr);
+    }
+  }
+
   const transporter = nodemailer.createTransport({
-    host,
+    host: resolvedIp,
     port,
     secure,
     auth: {
       user,
       pass,
+    },
+    tls: {
+      servername: host,
+      rejectUnauthorized: false
     },
     connectionTimeout: 6000,
     greetingTimeout: 6000,
