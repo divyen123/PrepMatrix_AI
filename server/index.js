@@ -224,8 +224,9 @@ async function sendOtpEmail(toEmail, otp) {
 
 async function sendEmailViaResend(toEmail, otp, apiKey) {
   const url = "https://api.resend.com/emails";
+  const fromEmail = process.env.MAIL_FROM || "PrepMatrix AI <onboarding@resend.dev>";
   const body = {
-    from: "PrepMatrix AI <onboarding@resend.dev>",
+    from: fromEmail,
     to: toEmail,
     subject: "PrepMatrix AI OTP Code",
     html: `<div style="font-family: sans-serif; padding: 20px; max-width: 500px; border: 1px solid #eaeaea; border-radius: 8px;">
