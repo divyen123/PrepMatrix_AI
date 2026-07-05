@@ -11429,4 +11429,29 @@ body.worktree-fullscreen-active .workspace-topbar {
   }
 }
 
+/* Compact circle styling for settings OTP verify arrow button */
+.otp-arrow-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: none !important;
+  color: var(--accent) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  min-height: 26px !important;
+  border-radius: 50% !important;
+  transition: all 0.2s ease-in-out !important;
+  box-sizing: border-box !important;
+}
+
+.otp-arrow-btn:hover {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+}
+
+
 

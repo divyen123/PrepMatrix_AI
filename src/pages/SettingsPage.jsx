@@ -1018,22 +1018,17 @@ function SettingsPage({
                   />
                   {!isOtpVerified && (
                     <button
+                      className="otp-arrow-btn"
                       type="button"
                       onClick={handleVerifyOtp}
                       style={{
                         position: "absolute",
-                        right: "10px",
-                        background: "none",
-                        border: "none",
-                        color: "var(--accent)",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: 0
+                        right: "6px",
+                        top: "50%",
+                        transform: "translateY(-50%)"
                       }}
                     >
-                      <ArrowRight size={18} />
+                      <ArrowRight size={16} />
                     </button>
                   )}
                   {isOtpVerified && (
