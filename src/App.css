@@ -11748,6 +11748,50 @@ body.worktree-fullscreen-active .workspace-topbar {
   color: var(--accent) !important;
 }
 
+.worktree-icon-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+}
+
+@media (max-width: 991.98px) {
+  /* Ensure RotateCcw, Download and Fullscreen buttons are identical compact size and style on mobile */
+  .worktree-icon-btn {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+  .worktree-icon-btn span {
+    display: none !important;
+  }
+  
+  /* Ensure horizontal scroll bar is clearly present and touchable in saved history on mobile */
+  .saved-history-scroll {
+    overflow-x: scroll !important;
+    padding-bottom: 12px !important;
+  }
+  .saved-history-scroll::-webkit-scrollbar {
+    height: 6px !important;
+    display: block !important;
+  }
+  .saved-history-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.35) !important;
+    border-radius: 3px !important;
+  }
+  .saved-history-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-radius: 3px !important;
+  }
+}
+
 
 
 

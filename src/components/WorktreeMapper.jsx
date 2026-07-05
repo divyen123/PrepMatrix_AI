@@ -528,16 +528,16 @@ function WorktreeMapper() {
             </button>
           </div>
 
-          <button className="secondary-btn" onClick={() => setShowResetConfirm(true)} title="Reset zoom/pan">
+          <button className="secondary-btn worktree-icon-btn" onClick={() => setShowResetConfirm(true)} title="Reset zoom/pan">
             <RotateCcw size={16} />
           </button>
           
-          <button className="secondary-btn" onClick={handleExportPDF} title="Export as PDF" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+          <button className="secondary-btn worktree-icon-btn" onClick={handleExportPDF} title="Export as PDF">
             <Download size={16} />
             <span>Export</span>
           </button>
 
-          <button className="secondary-btn" onClick={() => setIsFullscreen(!isFullscreen)}>
+          <button className="secondary-btn worktree-icon-btn" onClick={() => setIsFullscreen(!isFullscreen)}>
             {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
         </div>
