@@ -57,7 +57,7 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
       <WorktreeMapper />
 
       {showPermissionBanner && (
-        <article className="card info-card" style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "20px", border: "1px solid rgba(var(--accent-rgb), 0.3)", background: "rgba(var(--accent-rgb), 0.08)" }}>
+        <article className="card info-card reminders-banner">
           <div style={{ flex: 1 }}>
             <h4 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>Enable Study Reminders</h4>
             <p className="card-subtext" style={{ margin: 0, fontSize: "0.82rem" }}>
