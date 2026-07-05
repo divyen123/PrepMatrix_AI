@@ -198,9 +198,9 @@ async function sendOtpEmail(toEmail, otp) {
       servername: host,
       rejectUnauthorized: false
     },
-    connectionTimeout: 6000,
-    greetingTimeout: 6000,
-    socketTimeout: 6000,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
   });
 
   const mailOptions = {
