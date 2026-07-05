@@ -902,6 +902,16 @@ function SettingsPage({
     }
   };
 
+  const isButtonDisabled = (() => {
+    if (password || confirmPassword) {
+      return !password || !confirmPassword || password !== confirmPassword;
+    }
+    if (email !== userProfile?.email) {
+      return false;
+    }
+    return true;
+  })();
+
   return (
     <section className="settings-page route-stage">
       <div className="compact-intro">
@@ -1152,7 +1162,14 @@ function SettingsPage({
             <button
               className="update-cred-btn"
               onClick={handleSaveSecurity}
-              style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              disabled={isButtonDisabled}
+              style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "8px",
+                opacity: isButtonDisabled ? 0.55 : 1,
+                cursor: isButtonDisabled ? "not-allowed" : "pointer"
+              }}
             >
               <Save size={16} /> Update Credentials
             </button>
