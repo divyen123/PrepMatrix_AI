@@ -591,6 +591,24 @@ app.post("/api/auth/verify-otp", requireAuth(async (req, res) => {
   }
 }));
 
+app.post("/api/auth/check-password", requireAuth(async (req, res) => {
+  try {
+    const { password } = req.body ?? {};
+    if (!password) {
+      return res.status(400).json({ error: "Password is required." });
+    }
+    const db = await getDb();
+    const user = await db.collection("users").findOne({ _id: req.user._id });
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+    const isCorrect = verifyPassword(password, user.passwordHash);
+    return res.json({ correct: isCorrect });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Password check failed." });
+  }
+}));
+
 app.put("/api/auth/profile", requireAuth(async (req, res) => {
   try {
     const {

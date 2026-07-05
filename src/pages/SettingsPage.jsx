@@ -67,6 +67,7 @@ function SettingsPage({
   // Security state
   const [email, setEmail] = useState(userProfile?.email || "");
   const [currentPassword, setCurrentPassword] = useState("");
+  const [isCurrentPasswordCorrect, setIsCurrentPasswordCorrect] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState("");
@@ -74,6 +75,31 @@ function SettingsPage({
   const [isOtpVerified, setIsOtpVerified] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [isOtpLimitReached, setIsOtpLimitReached] = useState(false);
+
+  useEffect(() => {
+    if (!currentPassword) {
+      setIsCurrentPasswordCorrect(false);
+      return undefined;
+    }
+
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/auth/check-password", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ password: currentPassword })
+        });
+        const data = await response.json();
+        setIsCurrentPasswordCorrect(!!data.correct);
+      } catch (err) {
+        setIsCurrentPasswordCorrect(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(delayDebounce);
+  }, [currentPassword]);
 
   useEffect(() => {
     if (otpCountdown <= 0 || isOtpVerified) return;
@@ -1099,11 +1125,11 @@ function SettingsPage({
               <input
                 type="password"
                 value={password}
-                disabled={!currentPassword && !isOtpVerified}
+                disabled={!isCurrentPasswordCorrect && !isOtpVerified}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="new-password"
-                style={{ opacity: (currentPassword || isOtpVerified) ? 1 : 0.5, cursor: (currentPassword || isOtpVerified) ? 'text' : 'not-allowed' }}
+                style={{ opacity: (isCurrentPasswordCorrect || isOtpVerified) ? 1 : 0.5, cursor: (isCurrentPasswordCorrect || isOtpVerified) ? 'text' : 'not-allowed' }}
               />
             </label>
             <label className="field-stack">
@@ -1111,11 +1137,11 @@ function SettingsPage({
               <input
                 type="password"
                 value={confirmPassword}
-                disabled={!currentPassword && !isOtpVerified}
+                disabled={!isCurrentPasswordCorrect && !isOtpVerified}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="new-password"
-                style={{ opacity: (currentPassword || isOtpVerified) ? 1 : 0.5, cursor: (currentPassword || isOtpVerified) ? 'text' : 'not-allowed' }}
+                style={{ opacity: (isCurrentPasswordCorrect || isOtpVerified) ? 1 : 0.5, cursor: (isCurrentPasswordCorrect || isOtpVerified) ? 'text' : 'not-allowed' }}
               />
             </label>
           </div>
