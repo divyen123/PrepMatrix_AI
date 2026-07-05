@@ -162,7 +162,7 @@ async function getAuthenticatedUser(req) {
 
 async function sendOtpEmail(toEmail, otp) {
   const host = process.env.SMTP_HOST || "smtp.gmail.com";
-  const port = Number(process.env.SMTP_PORT) || 465;
+  const port = Number(process.env.SMTP_PORT) || 587;
   const secure = port === 465;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
