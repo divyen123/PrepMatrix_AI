@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { Download } from "lucide-react";
 import { toast } from "react-toastify";
 import successSound from "../assets/success.mp3";
 import { generateSchedule } from "../utils/scheduleGenerator";
@@ -258,9 +259,9 @@ function Timetable({
           </>
         ) : (
           <div className="timetable-actions">
-            <button className="secondary-btn action-btn" onClick={downloadPDF} type="button">
-              <span className="desktop-only-text">Export PDF</span>
-              <span className="mobile-only-text">Export</span>
+            <button className="secondary-btn action-btn" onClick={downloadPDF} type="button" title="Export PDF" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+              <Download size={14} />
+              <span>Export</span>
             </button>
             <button className="secondary-btn action-btn" onClick={rebalanceSchedule} type="button">
               Rebalance

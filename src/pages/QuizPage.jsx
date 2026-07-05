@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
-import { Download } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 import api from "../utils/apiClient";
 
 const QUIZ_HISTORY_PER_PAGE = 6;
@@ -462,8 +462,14 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
             <h3>Recent attempts</h3>
           </div>
           {attempts.length > 0 && (
-            <button className="clear-history-btn" onClick={clearHistory} title="Clear quiz history" type="button">
-              🗑 Clear history
+            <button 
+              className="clear-history-btn" 
+              onClick={clearHistory} 
+              title="Clear quiz history" 
+              type="button"
+              style={{ width: "32px", height: "32px", minWidth: "32px", minHeight: "32px", padding: 0, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(239, 68, 68, 0.2)", background: "rgba(239, 68, 68, 0.08)", color: "#ef4444" }}
+            >
+              <Trash2 size={16} />
             </button>
           )}
         </div>
