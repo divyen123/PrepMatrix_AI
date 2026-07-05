@@ -1120,18 +1120,18 @@ function SettingsPage({
             </label>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", alignItems: "center", marginTop: "8px" }}>
+          <div className="security-action-row" style={{ display: "flex", justifyContent: "flex-end", gap: "12px", alignItems: "center", marginTop: "8px" }}>
             {!showOtpInput && (
               <button 
                 type="button" 
-                className="secondary-btn"
+                className="secondary-btn forgot-pw-btn"
                 onClick={handleSendOtp}
-                style={{ fontSize: "0.85rem", padding: "8px 16px" }}
               >
                 Forgot password?
               </button>
             )}
             <button
+              className="update-cred-btn"
               onClick={handleSaveSecurity}
               style={{ display: "flex", alignItems: "center", gap: "8px" }}
             >

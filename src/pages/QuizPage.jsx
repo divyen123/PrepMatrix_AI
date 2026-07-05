@@ -291,7 +291,20 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
                     );
                   })}
                 </div>
-                {result && <p className="quiz-explanation">{question.explanation}</p>}
+                {result && (
+                  <div style={{ marginTop: "12px" }}>
+                    {answers[question.id] !== question.answerIndex ? (
+                      <p style={{ color: "#ef4444", fontSize: "0.88rem", fontWeight: 700, margin: "0 0 6px" }}>
+                        ✕ Incorrect. The correct answer is: {question.options[question.answerIndex]}
+                      </p>
+                    ) : (
+                      <p style={{ color: "#22c55e", fontSize: "0.88rem", fontWeight: 700, margin: "0 0 6px" }}>
+                        ✓ Correct!
+                      </p>
+                    )}
+                    <p className="quiz-explanation"><strong>Explanation:</strong> {question.explanation}</p>
+                  </div>
+                )}
               </article>
             ))}
           </div>
