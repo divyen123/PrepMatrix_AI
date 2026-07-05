@@ -222,6 +222,38 @@ async function sendOtpEmail(toEmail, otp) {
   await transporter.sendMail(mailOptions);
 }
 
+async function sendEmailViaResend(toEmail, otp, apiKey) {
+  const url = "https://api.resend.com/emails";
+  const body = {
+    from: "PrepMatrix AI <onboarding@resend.dev>",
+    to: toEmail,
+    subject: "PrepMatrix AI OTP Code",
+    html: `<div style="font-family: sans-serif; padding: 20px; max-width: 500px; border: 1px solid #eaeaea; border-radius: 8px;">
+      <h2>PrepMatrix AI Security Code</h2>
+      <p>A request was made to update your credentials using forgot password OTP verification.</p>
+      <p>Your security verification code is:</p>
+      <div style="background: #f4f5f6; padding: 14px; font-size: 1.5rem; font-weight: bold; letter-spacing: 2px; text-align: center; border-radius: 6px; color: #0a0f1c; margin: 20px 0;">
+        ${otp}
+      </div>
+      <p>This code will expire in 2 minutes. If you did not request this, please change your password immediately.</p>
+    </div>`,
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Resend API failed: ${response.status} - ${errText}`);
+  }
+}
+
 function requireAuth(handler) {
   return async (req, res) => {
     try {
@@ -488,11 +520,15 @@ app.post("/api/auth/send-otp", requireAuth(async (req, res) => {
     console.log(`[OTP Verification] Code for ${req.user.email}: ${otp} (Request ${otpRequestCount}/${MAX_REQUESTS} in window)`);
 
     try {
-      await sendOtpEmail(req.user.email, otp);
+      if (process.env.RESEND_API_KEY) {
+        await sendEmailViaResend(req.user.email, otp, process.env.RESEND_API_KEY);
+      } else {
+        await sendOtpEmail(req.user.email, otp);
+      }
       return res.json({ success: true, email: req.user.email, requestCount: otpRequestCount });
     } catch (mailError) {
-      console.error("Nodemailer failed to send email:", mailError);
-      return res.status(500).json({ error: `Could not send email: ${mailError.message}. Please configure SMTP credentials in your .env file.` });
+      console.error("Email dispatch failed:", mailError);
+      return res.status(500).json({ error: `Could not send email: ${mailError.message}. Please configure SMTP or Resend credentials in your .env/Render settings.` });
     }
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Failed to send OTP." });
