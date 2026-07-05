@@ -282,7 +282,7 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
           </div>
 
           <div className="notes-actions">
-            {["All", "Open", "Resolved"].map((item) => (
+            {["All", "Resolved"].map((item) => (
               <button
                 className={filter === item ? "filter-pill active" : "filter-pill"}
                 key={item}
