@@ -111,6 +111,63 @@ function SettingsPage({
     const stored = localStorage.getItem("prepmatrix_voice_replies");
     return stored === null ? true : stored === "true";
   });
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    const stored = localStorage.getItem("prepmatrix_notifications_enabled");
+    return stored === "true";
+  });
+
+  const toggleNotifications = async () => {
+    const nextVal = !notificationsEnabled;
+    
+    if (nextVal) {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === "granted") {
+          const response = await fetch("/api/notifications/vapid-key");
+          const { publicKey } = await response.json();
+          if (publicKey) {
+            const padding = "=".repeat((4 - (publicKey.length % 4)) % 4);
+            const base64 = (publicKey + padding).replace(/\-/g, "+").replace(/_/g, "/");
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+              outputArray[i] = rawData.charCodeAt(i);
+            }
+
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: outputArray,
+            });
+
+            const timezoneOffset = new Date().getTimezoneOffset();
+            await fetch("/api/notifications/subscribe", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ subscription, timezoneOffset }),
+            });
+          }
+
+          localStorage.setItem("prepmatrix_notifications_enabled", "true");
+          setNotificationsEnabled(true);
+          toast.success("Study reminders enabled!");
+        } else {
+          localStorage.setItem("prepmatrix_notifications_enabled", "false");
+          setNotificationsEnabled(false);
+          toast.error("Notification permission denied. Please enable them in your browser settings.");
+        }
+      } catch (err) {
+        console.error(err);
+        localStorage.setItem("prepmatrix_notifications_enabled", "false");
+        setNotificationsEnabled(false);
+        toast.error("Failed to enable study reminders.");
+      }
+    } else {
+      localStorage.setItem("prepmatrix_notifications_enabled", "false");
+      setNotificationsEnabled(false);
+      toast.success("Study reminders disabled.");
+    }
+  };
 
   // Study Target Goals state
   const [dailyTarget, setDailyTarget] = useState(() => {
@@ -1198,6 +1255,13 @@ function SettingsPage({
             onChange={() => setVoiceReplies((prev) => !prev)}
             label="AI Voice Replies"
             subtitle="Enable spoken feedback from the AI study companion"
+          />
+
+          <ToggleSwitch
+            checked={notificationsEnabled}
+            onChange={toggleNotifications}
+            label="Study Reminders (Push Notifications)"
+            subtitle="Receive desktop push notifications around 6:00 PM if no tasks are completed"
           />
         </div>
 

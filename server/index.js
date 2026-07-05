@@ -963,6 +963,8 @@ app.post("/api/quizzes", requireAuth(async (req, res) => {
     topic: req.body?.topic || "General revision",
     total: Number(req.body?.total || 0),
     score: Number(req.body?.score || 0),
+    questions: req.body?.questions || [],
+    answers: req.body?.answers || {},
     createdAt: new Date(),
   };
   const result = await db.collection("quizAttempts").insertOne(attempt);

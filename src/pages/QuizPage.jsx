@@ -83,6 +83,93 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
     }
   };
 
+  const exportOldQuizPDF = async (attempt) => {
+    if (!attempt.questions || attempt.questions.length === 0) {
+      toast.info("Questions were not saved for this older attempt.");
+      return;
+    }
+
+    const tempContainer = document.createElement("div");
+    tempContainer.style.position = "absolute";
+    tempContainer.style.left = "-9999px";
+    tempContainer.style.width = "800px";
+    tempContainer.style.padding = "24px";
+    tempContainer.style.backgroundColor = "#0d151c";
+    tempContainer.style.color = "#f8fafc";
+    tempContainer.style.fontFamily = "sans-serif";
+
+    tempContainer.innerHTML = `
+      <div style="margin-bottom: 24px; border-bottom: 2px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px;">
+        <span style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; font-weight: bold;">Quiz History Export</span>
+        <h2 style="margin: 6px 0 2px; font-size: 1.5rem;">${attempt.topic}</h2>
+        <p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">Subject: ${attempt.subjectName} | Score: ${attempt.score}/${attempt.total}</p>
+      </div>
+      <div id="temp-questions-list"></div>
+    `;
+
+    const listContainer = tempContainer.querySelector("#temp-questions-list");
+
+    attempt.questions.forEach((q, idx) => {
+      const selectedOpt = attempt.answers[q.id];
+      const isCorrect = q.answerIndex === selectedOpt;
+
+      const questionBlock = document.createElement("div");
+      questionBlock.style.marginBottom = "20px";
+      questionBlock.style.padding = "14px";
+      questionBlock.style.backgroundColor = "rgba(255, 255, 255, 0.03)";
+      questionBlock.style.borderRadius = "12px";
+      questionBlock.style.border = "1px solid rgba(255, 255, 255, 0.05)";
+
+      let optionsHtml = "";
+      q.options.forEach((opt, optIdx) => {
+        let optStyle = "padding: 8px 12px; margin: 4px 0; border-radius: 6px; font-size: 0.9rem; border: 1px solid rgba(255, 255, 255, 0.05);";
+        if (optIdx === q.answerIndex) {
+          optStyle += " background-color: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); color: #4ade80;";
+        } else if (optIdx === selectedOpt && !isCorrect) {
+          optStyle += " background-color: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); color: #f87171;";
+        }
+
+        optionsHtml += `
+          <div style="${optStyle}">
+            ${opt} ${optIdx === q.answerIndex ? "✓" : (optIdx === selectedOpt ? "✕" : "")}
+          </div>
+        `;
+      });
+
+      questionBlock.innerHTML = `
+        <h4 style="margin: 0 0 10px; font-size: 1rem;">${idx + 1}. ${q.question}</h4>
+        <div>${optionsHtml}</div>
+        <div style="margin-top: 8px; font-size: 0.85rem; color: #94a3b8;">
+          <p style="margin: 0;"><strong>Explanation:</strong> ${q.explanation}</p>
+        </div>
+      `;
+
+      listContainer.appendChild(questionBlock);
+    });
+
+    document.body.appendChild(tempContainer);
+
+    try {
+      const canvas = await html2canvas(tempContainer, {
+        backgroundColor: "#0d151c",
+        scale: 2
+      });
+      const imageData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imageWidth = 190;
+      const imageHeight = (canvas.height * imageWidth) / canvas.width;
+
+      pdf.addImage(imageData, "PNG", 10, 10, imageWidth, imageHeight);
+      pdf.save(`Quiz_Attempt_${attempt.topic.replace(/\s+/g, "_")}.pdf`);
+      toast.success("Attempt PDF exported.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export PDF.");
+    } finally {
+      document.body.removeChild(tempContainer);
+    }
+  };
+
   const startQuiz = async () => {
     if (!cleanTopic) {
       setSaveError("Enter the exact topic first, for example: Travelling salesman problem.");
@@ -131,6 +218,8 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
         topic: cleanTopic,
         total: questions.length,
         score,
+        questions,
+        answers,
       });
 
       setResult(payload.attempt);
@@ -386,7 +475,22 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
               <article className="quiz-history-item" key={attempt.id}>
                 <strong>{attempt.topic}</strong>
                 <span>{attempt.subjectName}</span>
-                <b>{attempt.score}/{attempt.total}</b>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginTop: "auto" }}>
+                  <b style={{ fontSize: "0.95rem", color: "var(--accent)", margin: 0 }}>{attempt.score}/{attempt.total}</b>
+                  {attempt.questions && attempt.questions.length > 0 && (
+                    <button 
+                      className="secondary-btn" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        exportOldQuizPDF(attempt);
+                      }}
+                      title="Export PDF"
+                      style={{ width: "24px", height: "24px", minWidth: "24px", minHeight: "24px", padding: 0, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      <Download size={12} />
+                    </button>
+                  )}
+                </div>
               </article>
             ))
           )}

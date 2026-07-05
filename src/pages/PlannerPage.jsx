@@ -7,7 +7,7 @@ import WorktreeMapper from "../components/WorktreeMapper";
 
 function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted, scheduleStartDate, setScheduleStartDate }) {
   const [showPermissionBanner, setShowPermissionBanner] = useState(() => {
-    return typeof window !== "undefined" && "Notification" in window && Notification.permission === "default";
+    return typeof window !== "undefined" && "Notification" in window && localStorage.getItem("prepmatrix_notifications_enabled") !== "true";
   });
 
   const subscribeUserToPush = async () => {
@@ -71,7 +71,11 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
                 const permission = await Notification.requestPermission();
                 if (permission === "granted") {
                   await subscribeUserToPush();
+                  localStorage.setItem("prepmatrix_notifications_enabled", "true");
                   toast.success("Study reminders enabled!");
+                } else {
+                  localStorage.setItem("prepmatrix_notifications_enabled", "false");
+                  toast.error("Notification permission denied. Please enable them in your browser settings.");
                 }
                 setShowPermissionBanner(false);
               }}
