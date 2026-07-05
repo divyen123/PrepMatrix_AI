@@ -3350,7 +3350,21 @@ body.dark .bookmark-btn {
 }
 
 .quiz-history-grid {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  display: flex !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  flex-wrap: nowrap !important;
+  gap: 12px !important;
+  padding-bottom: 8px !important;
+  scrollbar-width: thin !important;
+}
+
+.quiz-history-grid::-webkit-scrollbar {
+  height: 4px !important;
+}
+.quiz-history-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 4px !important;
 }
 
 .quiz-history-item,
@@ -3363,18 +3377,37 @@ body.dark .bookmark-btn {
 }
 
 .quiz-history-item {
-  display: grid;
-  gap: 6px;
-  padding: 16px;
+  flex: 0 0 170px !important;
+  height: 120px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  padding: 12px !important;
+  gap: 4px !important;
+}
+
+.quiz-history-item strong {
+  font-size: 0.82rem !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  line-height: 1.25 !important;
 }
 
 .quiz-history-item span {
-  color: var(--text-muted);
+  font-size: 0.68rem !important;
+  color: var(--text-muted) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 .quiz-history-item b {
-  color: var(--accent);
-  font-size: 1.3rem;
+  font-size: 0.95rem !important;
+  color: var(--accent) !important;
+  margin-top: auto !important;
 }
 
 .topic-timeline-grid {

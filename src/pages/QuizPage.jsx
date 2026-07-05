@@ -382,7 +382,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
           {attempts.length === 0 ? (
             <p className="card-subtext">No quiz attempts yet. Generate your first topic quiz.</p>
           ) : (
-            paginatedAttempts.map((attempt) => (
+            attempts.map((attempt) => (
               <article className="quiz-history-item" key={attempt.id}>
                 <strong>{attempt.topic}</strong>
                 <span>{attempt.subjectName}</span>
@@ -391,18 +391,6 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
             ))
           )}
         </div>
-
-        {attempts.length > QUIZ_HISTORY_PER_PAGE && (
-          <div className="pagination-bar">
-            <button disabled={historyPage === 1} onClick={() => setHistoryPage((current) => current - 1)} type="button">
-              Previous
-            </button>
-            <span>Page {historyPage} of {historyTotalPages}</span>
-            <button disabled={historyPage === historyTotalPages} onClick={() => setHistoryPage((current) => current + 1)} type="button">
-              Next
-            </button>
-          </div>
-        )}
       </section>
     </section>
   );
