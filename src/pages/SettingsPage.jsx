@@ -84,14 +84,7 @@ function SettingsPage({
 
     const delayDebounce = setTimeout(async () => {
       try {
-        const response = await fetch("/api/auth/check-password", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ password: currentPassword })
-        });
-        const data = await response.json();
+        const data = await api.post("/api/auth/check-password", { password: currentPassword });
         setIsCurrentPasswordCorrect(!!data.correct);
       } catch (err) {
         setIsCurrentPasswordCorrect(false);
