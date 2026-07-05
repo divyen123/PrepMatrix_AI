@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
-import { Download, Trash2 } from "lucide-react";
+import { Download, Trash2, Check, X } from "lucide-react";
 import api from "../utils/apiClient";
 
 const QUIZ_HISTORY_PER_PAGE = 6;
@@ -471,17 +471,19 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
                       clearHistory();
                       setShowClearConfirm(false);
                     }}
-                    style={{ border: "none", background: "#ef4444", color: "#fff", fontSize: "0.74rem", padding: "2px 8px", borderRadius: "12px", cursor: "pointer", fontWeight: 700 }}
+                    className="inline-confirm-btn yes-btn"
+                    title="Yes, clear history"
                     type="button"
                   >
-                    Yes
+                    <Check size={12} />
                   </button>
                   <button 
                     onClick={() => setShowClearConfirm(false)}
-                    style={{ border: "none", background: "rgba(255,255,255,0.08)", color: "#94a3b8", fontSize: "0.74rem", padding: "2px 8px", borderRadius: "12px", cursor: "pointer" }}
+                    className="inline-confirm-btn no-btn"
+                    title="Cancel"
                     type="button"
                   >
-                    No
+                    <X size={12} />
                   </button>
                 </div>
               ) : (
@@ -510,13 +512,12 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
                   <b style={{ fontSize: "0.95rem", color: "var(--accent)", margin: 0 }}>{attempt.score}/{attempt.total}</b>
                   {attempt.questions && attempt.questions.length > 0 && (
                     <button 
-                      className="secondary-btn" 
+                      className="history-export-btn" 
                       onClick={(e) => {
                         e.stopPropagation();
                         exportOldQuizPDF(attempt);
                       }}
                       title="Export PDF"
-                      style={{ width: "24px", height: "24px", minWidth: "24px", minHeight: "24px", padding: 0, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
                     >
                       <Download size={12} />
                     </button>
