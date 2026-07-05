@@ -19,6 +19,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [quizMeta, setQuizMeta] = useState(null);
   const [historyPage, setHistoryPage] = useState(1);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -231,7 +232,6 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
 
   const clearHistory = async () => {
     if (attempts.length === 0) return;
-    if (!window.confirm("Clear all quiz history for this account?")) return;
 
     try {
       setSaveError("");
@@ -462,15 +462,40 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
             <h3>Recent attempts</h3>
           </div>
           {attempts.length > 0 && (
-            <button 
-              className="clear-history-btn" 
-              onClick={clearHistory} 
-              title="Clear quiz history" 
-              type="button"
-              style={{ width: "32px", height: "32px", minWidth: "32px", minHeight: "32px", padding: 0, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(239, 68, 68, 0.2)", background: "rgba(239, 68, 68, 0.08)", color: "#ef4444" }}
-            >
-              <Trash2 size={16} />
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {showClearConfirm ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.15)", borderRadius: "20px", padding: "2px 8px 2px 12px", height: "32px", boxSizing: "border-box" }}>
+                  <span style={{ fontSize: "0.78rem", color: "#f87171", fontWeight: 600 }}>Clear all?</span>
+                  <button 
+                    onClick={() => {
+                      clearHistory();
+                      setShowClearConfirm(false);
+                    }}
+                    style={{ border: "none", background: "#ef4444", color: "#fff", fontSize: "0.74rem", padding: "2px 8px", borderRadius: "12px", cursor: "pointer", fontWeight: 700 }}
+                    type="button"
+                  >
+                    Yes
+                  </button>
+                  <button 
+                    onClick={() => setShowClearConfirm(false)}
+                    style={{ border: "none", background: "rgba(255,255,255,0.08)", color: "#94a3b8", fontSize: "0.74rem", padding: "2px 8px", borderRadius: "12px", cursor: "pointer" }}
+                    type="button"
+                  >
+                    No
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  className="clear-history-btn" 
+                  onClick={() => setShowClearConfirm(true)} 
+                  title="Clear quiz history" 
+                  type="button"
+                  style={{ width: "32px", height: "32px", minWidth: "32px", minHeight: "32px", padding: 0, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(239, 68, 68, 0.2)", background: "rgba(239, 68, 68, 0.08)", color: "#ef4444" }}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
           )}
         </div>
         <div className="quiz-history-grid">
