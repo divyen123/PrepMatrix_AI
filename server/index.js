@@ -34,7 +34,7 @@ if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
 }
 
 if (vapidKeys.publicKey && vapidKeys.privateKey) {
-  webpush.setVAPIDDetails(
+  webpush.setVapidDetails(
     "mailto:divyen624@gmail.com",
     vapidKeys.publicKey,
     vapidKeys.privateKey
@@ -740,7 +740,7 @@ app.post("/api/notifications/subscribe", requireAuth(async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : "Subscription failed." });
   }
-});
+}));
 
 app.get("/api/notes", requireAuth(async (req, res) => {
   const db = await getDb();
