@@ -26,7 +26,7 @@ import api from "./utils/apiClient";
 import BACKGROUND_PRESETS from "./utils/backgroundPresets";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
 import "./App.css";
-import { ToastContainer } from "react-toastify";
+import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const FloatingAnalytics = lazy(() => import("./components/FloatingAnalytics"));
@@ -149,6 +149,7 @@ function App() {
   const [subjects, setSubjects] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [completed, setCompleted] = useState([]);
+  const [scheduleStartDate, setScheduleStartDate] = useState(null);
   const [academicLevel, setAcademicLevel] = useState("College");
   const [academicTrack, setAcademicTrack] = useState("General");
   const [materialBookmarks, setMaterialBookmarks] = useState([]);
@@ -188,12 +189,14 @@ function App() {
     setAcademicTrack(workspace.academicTrack || profile?.academicTrack || "General");
     setMaterialBookmarks(workspace.materialBookmarks || []);
     setDarkMode(Boolean(workspace.darkMode));
+    setScheduleStartDate(workspace.scheduleStartDate || null);
   };
 
   const updateSubjects = (nextSubjects) => {
     setSubjects(nextSubjects);
     setSchedule([]);
     setCompleted([]);
+    setScheduleStartDate(null);
   };
 
   const handleLogin = (profile, workspace) => {
@@ -377,6 +380,7 @@ function App() {
         academicTrack,
         materialBookmarks,
         darkMode,
+        scheduleStartDate,
       }).catch((error) => {
         setNotification(error instanceof Error ? error.message : "Could not save workspace.");
       });
@@ -387,7 +391,7 @@ function App() {
         window.clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [academicLevel, academicTrack, completed, darkMode, materialBookmarks, schedule, subjects, userProfile, workspaceLoaded]);
+  }, [academicLevel, academicTrack, completed, darkMode, materialBookmarks, schedule, subjects, userProfile, workspaceLoaded, scheduleStartDate]);
 
   useEffect(() => {
     document.body.classList.toggle("dark", darkMode);
@@ -404,6 +408,41 @@ function App() {
     document.documentElement.style.setProperty("--accent", `rgb(${activeRgb})`);
     document.body.style.setProperty("--accent", `rgb(${activeRgb})`);
   }, [darkMode]);
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js")
+        .then((reg) => {
+          console.log("Service Worker registered successfully with scope:", reg.scope);
+        })
+        .catch((err) => {
+          console.warn("Service Worker registration failed:", err);
+        });
+    }
+
+    const handleSWMessage = (event) => {
+      if (event.data && event.data.type === "SHOW_TOAST") {
+        toast.info(event.data.message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          toastId: "daily-reminder-push-toast"
+        });
+      }
+    };
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", handleSWMessage);
+    }
+    return () => {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.removeEventListener("message", handleSWMessage);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (logoutConfirmOpen) {
@@ -915,6 +954,8 @@ function App() {
                             setCompleted={updateCompletedWithRewards}
                             setSchedule={setSchedule}
                             subjects={subjects}
+                            scheduleStartDate={scheduleStartDate}
+                            setScheduleStartDate={setScheduleStartDate}
                           />
                         }
                         path="/planner"

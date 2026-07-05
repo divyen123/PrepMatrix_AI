@@ -11,6 +11,7 @@ function Timetable({
   setSchedule,
   completed,
   setCompleted,
+  setScheduleStartDate,
 }) {
   const [examDate, setExamDate] = useState("");
   const [planMode, setPlanMode] = useState("balanced");
@@ -73,6 +74,7 @@ function Timetable({
       const result = generateSchedule(subjects, days, backlog, { planMode });
 
       setSchedule(result);
+      setScheduleStartDate?.(new Date().toISOString());
       setLoading(false);
       setPreviousSchedule(null);
       setShowGenerateForm(false);

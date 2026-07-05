@@ -5,10 +5,41 @@ import express from "express";
 import cors from "cors";
 import { MongoClient, ObjectId } from "mongodb";
 import nodemailer from "nodemailer";
+import webpush from "web-push";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 dotenv.config();
+
+// Web Push VAPID Configurations
+let vapidKeys = {
+  publicKey: process.env.VAPID_PUBLIC_KEY,
+  privateKey: process.env.VAPID_PRIVATE_KEY
+};
+
+if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
+  try {
+    const generated = webpush.generateVAPIDKeys();
+    vapidKeys.publicKey = vapidKeys.publicKey || generated.publicKey;
+    vapidKeys.privateKey = vapidKeys.privateKey || generated.privateKey;
+    console.log("==================================================");
+    console.log("Generated VAPID Keys for Web Push Notifications:");
+    console.log("VAPID_PUBLIC_KEY=" + vapidKeys.publicKey);
+    console.log("VAPID_PRIVATE_KEY=" + vapidKeys.privateKey);
+    console.log("Please save these in your .env / Render variables!");
+    console.log("==================================================");
+  } catch (err) {
+    console.error("VAPID key generation failed:", err);
+  }
+}
+
+if (vapidKeys.publicKey && vapidKeys.privateKey) {
+  webpush.setVAPIDDetails(
+    "mailto:divyen624@gmail.com",
+    vapidKeys.publicKey,
+    vapidKeys.privateKey
+  );
+}
 
 const app = express();
 const PORT = Number(process.env.PORT || 8787);
@@ -123,6 +154,7 @@ function defaultWorkspace(user) {
     academicTrack: user.academicTrack || "General",
     materialBookmarks: [],
     darkMode: false,
+    scheduleStartDate: null,
     updatedAt: new Date(),
   };
 }
@@ -136,6 +168,7 @@ function normalizeWorkspace(doc, user) {
     academicTrack: doc?.academicTrack || user?.academicTrack || "General",
     materialBookmarks: doc?.materialBookmarks || [],
     darkMode: Boolean(doc?.darkMode),
+    scheduleStartDate: doc?.scheduleStartDate || null,
   };
 }
 async function createSession(userId) {
@@ -648,7 +681,7 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
 
 app.put("/api/workspace", requireAuth(async (req, res) => {
   const db = await getDb();
-  const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "darkMode"];
+  const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "darkMode", "scheduleStartDate"];
   const update = allowed.reduce((next, key) => {
     if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
     return next;
@@ -665,7 +698,7 @@ app.put("/api/workspace", requireAuth(async (req, res) => {
 app.post("/api/workspace/import", requireAuth(async (req, res) => {
   try {
     const db = await getDb();
-    const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "darkMode"];
+    const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "darkMode", "scheduleStartDate"];
     const update = allowed.reduce((next, key) => {
       if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
       return next;
@@ -681,6 +714,33 @@ app.post("/api/workspace/import", requireAuth(async (req, res) => {
     res.status(500).json({ error: error instanceof Error ? error.message : "Workspace import failed." });
   }
 }));
+
+app.get("/api/notifications/vapid-key", (req, res) => {
+  res.json({ publicKey: vapidKeys.publicKey || null });
+});
+
+app.post("/api/notifications/subscribe", requireAuth(async (req, res) => {
+  const { subscription, timezoneOffset } = req.body ?? {};
+  if (!subscription) {
+    return res.status(400).json({ error: "Push subscription is required." });
+  }
+
+  try {
+    const db = await getDb();
+    await db.collection("users").updateOne(
+      { _id: req.user._id },
+      { 
+        $set: { 
+          pushSubscription: subscription,
+          timezoneOffset: typeof timezoneOffset === "number" ? timezoneOffset : 0
+        } 
+      }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Subscription failed." });
+  }
+});
 
 app.get("/api/notes", requireAuth(async (req, res) => {
   const db = await getDb();
@@ -1113,6 +1173,87 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Unexpected chat error." });
   }
 }));
+async function checkAndSendDailyReminders() {
+  try {
+    const db = await getDb();
+    const users = await db.collection("users").find({ pushSubscription: { $exists: true, $ne: null } }).toArray();
+    
+    for (const user of users) {
+      const utcTime = new Date();
+      // user.timezoneOffset is in minutes, representing client-side getTimezoneOffset()
+      const localTime = new Date(utcTime.getTime() - (user.timezoneOffset || 0) * 60 * 1000);
+      const localHour = localTime.getUTCHours();
+      
+      // We check for the 6 PM hour (18:00 - 18:59)
+      if (localHour === 18) {
+        const localDateString = `${localTime.getUTCFullYear()}-${String(localTime.getUTCMonth() + 1).padStart(2, '0')}-${String(localTime.getUTCDate()).padStart(2, '0')}`;
+        
+        // Prevent duplicate sending on the same local calendar day
+        if (user.lastReminderSentDate === localDateString) {
+          continue;
+        }
+
+        // Fetch user's workspace
+        const workspace = await db.collection("workspaces").findOne({ userId: user._id });
+        if (!workspace || !workspace.schedule || workspace.schedule.length === 0 || !workspace.scheduleStartDate) {
+          continue;
+        }
+
+        // Calculate schedule day index
+        const startDate = new Date(workspace.scheduleStartDate);
+        // Start dates at midnight UTC/Local
+        const startDateStart = Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate());
+        const localDateStart = Date.UTC(localTime.getUTCFullYear(), localTime.getUTCMonth(), localTime.getUTCDate());
+        
+        const diffDays = Math.floor((localDateStart - startDateStart) / (1000 * 60 * 60 * 24));
+        const dayIndex = diffDays + 1;
+
+        const currentDaySchedule = workspace.schedule.find(item => item.day === dayIndex);
+        
+        // Check if there are tasks for today, and if any are completed
+        if (currentDaySchedule && currentDaySchedule.tasks && currentDaySchedule.tasks.length > 0) {
+          const completedList = workspace.completed || [];
+          const anyCompleted = currentDaySchedule.tasks.some(task => completedList.includes(task.task));
+          
+          if (!anyCompleted) {
+            // Send Push Notification!
+            const payload = JSON.stringify({
+              title: "PrepMatrix AI Reminder",
+              body: `You haven't completed any of today's Day ${dayIndex} tasks yet! Start preparing now to keep your momentum strong.`
+            });
+
+            try {
+              await webpush.sendNotification(user.pushSubscription, payload);
+              console.log(`[Push Notification] Sent daily reminder to ${user.email} for Day ${dayIndex}`);
+            } catch (pushErr) {
+              console.error(`[Push Notification] Failed to send to ${user.email}:`, pushErr);
+              // If the subscription is expired/invalid, remove it to clean up db
+              if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+                await db.collection("users").updateOne(
+                  { _id: user._id },
+                  { $set: { pushSubscription: null } }
+                );
+              }
+            }
+          }
+        }
+
+        // Mark as sent for today
+        await db.collection("users").updateOne(
+          { _id: user._id },
+          { $set: { lastReminderSentDate: localDateString } }
+        );
+      }
+    }
+  } catch (err) {
+    console.error("Daily reminder checker error:", err);
+  }
+}
+
+// Start checker interval (every 15 minutes)
+setInterval(checkAndSendDailyReminders, 15 * 60 * 1000);
+// Also run once shortly after startup
+setTimeout(checkAndSendDailyReminders, 10000);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
