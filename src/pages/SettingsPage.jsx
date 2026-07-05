@@ -123,8 +123,7 @@ function SettingsPage({
       try {
         const permission = await Notification.requestPermission();
         if (permission === "granted") {
-          const response = await fetch("/api/notifications/vapid-key");
-          const { publicKey } = await response.json();
+          const { publicKey } = await api.get("/api/notifications/vapid-key");
           if (publicKey) {
             const padding = "=".repeat((4 - (publicKey.length % 4)) % 4);
             const base64 = (publicKey + padding).replace(/\-/g, "+").replace(/_/g, "/");
@@ -141,11 +140,7 @@ function SettingsPage({
             });
 
             const timezoneOffset = new Date().getTimezoneOffset();
-            await fetch("/api/notifications/subscribe", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ subscription, timezoneOffset }),
-            });
+            await api.post("/api/notifications/subscribe", { subscription, timezoneOffset });
           }
 
           localStorage.setItem("prepmatrix_notifications_enabled", "true");

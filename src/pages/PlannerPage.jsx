@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
+import api from "../utils/apiClient";
 import Reminder from "../components/Reminder";
 import SmartSuggestion from "../components/SmartSuggestion";
 import Timetable from "../components/Timetable";
@@ -12,8 +13,7 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
 
   const subscribeUserToPush = async () => {
     try {
-      const response = await fetch("/api/notifications/vapid-key");
-      const { publicKey } = await response.json();
+      const { publicKey } = await api.get("/api/notifications/vapid-key");
       if (!publicKey) {
         console.warn("No public VAPID key returned from server.");
         return;
@@ -36,11 +36,7 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
 
       // Send to server
       const timezoneOffset = new Date().getTimezoneOffset(); // e.g. -330 for UTC+5:30
-      await fetch("/api/notifications/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscription, timezoneOffset }),
-      });
+      await api.post("/api/notifications/subscribe", { subscription, timezoneOffset });
       console.log("Successfully subscribed user to Web Push!");
     } catch (err) {
       console.error("Subscription failed:", err);
