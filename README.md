@@ -22,12 +22,12 @@ Live Backend: [https://prepmatrix-ai.onrender.com](https://prepmatrix-ai.onrende
 
 ## 🛠️ Technology Stack
 
-*   **Frontend:** React (Vite), React Router, Lucide Icons, CSS3 (Glassmorphism & animations)
-*   **Backend:** Node.js, Express 5 (wildcard routing support)
-*   **Database:** MongoDB Atlas (Cloud) & MongoDB Native Node.js Driver
-*   **AI Models (via Groq Cloud):**
-    *   **Chat/Quiz Generation:** `llama-3.3-70b-versatile`
-    *   **Voice Transcription:** `whisper-large-v3-turbo`
+*   **Frontend:** Built with **React (Vite)** for a lightning-fast single-page application experience. Uses **React Router** for clean page navigation, **Lucide Icons** for modern iconography, and custom **CSS3** utilizing glassmorphism, responsive mobile layouts, and subtle animations.
+*   **Backend:** Powered by a **Node.js** server utilizing **Express 5** to serve secure APIs, manage push notification subscriptions, and support dynamic routing configurations.
+*   **Database:** Utilizes **MongoDB Atlas** (cloud database) paired with the **MongoDB Native Node.js Driver** for high-performance document storage, allowing seamless logging of study schedules, notes, and quiz histories.
+*   **AI Inference (via Groq Cloud):**
+    *   **Chat & Quiz Generation:** Powered by **`llama-3.3-70b-versatile`** to handle complex user queries, clarify academic doubts, map study paths, and generate custom topic-level quizzes on demand.
+    *   **Voice Transcription:** Powered by **`whisper-large-v3-turbo`** to provide real-time, low-latency speech-to-text processing for hands-free voice operations.
 
 ---
 
