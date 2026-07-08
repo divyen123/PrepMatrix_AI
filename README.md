@@ -7,7 +7,7 @@ Live Backend: [https://prepmatrix-ai.onrender.com](https://prepmatrix-ai.onrende
 
 ---
 
-## 🚀 Key Features
+## 📅 Features
 
 *   📅 **Smart Planner & Scheduler:** Automatically distributes study workloads, balances daily tasks based on difficulty, and offers active recovery strategies for missed milestones.
 *   🤖 **AI Study Assistant:** Interactive study chatbot tailored to your academic level. Clarifies doubts, outlines topics, and retrieves planner metrics directly in conversation.
@@ -20,14 +20,41 @@ Live Backend: [https://prepmatrix-ai.onrender.com](https://prepmatrix-ai.onrende
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ Tech Stack
 
-*   **Frontend:** Built with **React (Vite)** for a lightning-fast single-page application experience. Uses **React Router** for clean page navigation, **Lucide Icons** for modern iconography, and custom **CSS3** utilizing glassmorphism, responsive mobile layouts, and subtle animations.
-*   **Backend:** Powered by a **Node.js** server utilizing **Express 5** to serve secure APIs, manage push notification subscriptions, and support dynamic routing configurations.
-*   **Database:** Utilizes **MongoDB Atlas** (cloud database) paired with the **MongoDB Native Node.js Driver** for high-performance document storage, allowing seamless logging of study schedules, notes, and quiz histories.
-*   **AI Inference (via Groq Cloud):**
-    *   **Chat & Quiz Generation:** Powered by **`llama-3.3-70b-versatile`** to handle complex user queries, clarify academic doubts, map study paths, and generate custom topic-level quizzes on demand.
-    *   **Voice Transcription:** Powered by **`whisper-large-v3-turbo`** to provide real-time, low-latency speech-to-text processing for hands-free voice operations.
+| Layer | Technology | Role / Description |
+| :--- | :--- | :--- |
+| **Frontend** | React (Vite), React Router, Lucide Icons, CSS3 | Single-page application utilizing glassmorphism aesthetics, fluid animations, and highly responsive viewports. |
+| **Backend** | Node.js, Express 5 | Serves robust REST APIs, processes push notifications, and manages dynamic auth routes. |
+| **Database** | MongoDB Atlas, MongoDB Node Driver | Schema-less high-performance cloud storage for study schedules, user profiles, notes, and quiz histories. |
+| **AI Inference** | Groq Cloud, Llama 3.3 (70B), Whisper (Turbo) | Performs sub-second AI chat response generation, quiz crafting, and hands-free voice transcription. |
+
+---
+
+## 🏗️ Architecture
+
+PrepMatrix AI is designed around a modern decoupled client-server architecture:
+
+```mermaid
+graph TD
+    A[Vite/React Client] -->|Secure HTTP Requests| B[Node.js / Express 5 API Server]
+    B -->|Database Driver Queries| C[MongoDB Atlas Cloud Database]
+    B -->|Inference APIs| D[Groq Cloud AI Models]
+```
+
+*   **Client Layer:** Built with React (Vite) as a Single Page Application (SPA). It maintains local states and triggers asynchronous requests to the backend API via a centralized and authorized HTTP client.
+*   **Server Layer:** An Express API server that acts as a secure intermediary. It implements routing protocols, routes queries, handles scheduling computations, and orchestrates calls to external systems.
+*   **Database & Storage:** MongoDB Atlas acts as the cloud document store. The native MongoDB Node driver is used to query collections securely.
+*   **AI Integrations:** External APIs (Groq Cloud) are called server-side to hide credentials and deliver secure model generation.
+
+---
+
+## ✨ Key Highlights
+
+*   **Dynamic Workload Rebalancing:** Intelligent algorithms distribute study workloads based on subject difficulty and automatically adapt to missed milestones to keep students on track.
+*   **Premium Glassmorphism Design:** Curated dark themes, custom micro-interactions, responsive grids, and visual typography optimized for both desktop and mobile viewports.
+*   **Low-Latency AI Operations:** Offers instant AI quiz generation and voice command interfaces powered by sub-second model response latency.
+*   **Data Integrity & Backups:** Includes built-in mechanisms to export, import, and backup your entire study workspace data safely in JSON format.
 
 ---
 
