@@ -31,56 +31,6 @@ Live Backend: [https://prepmatrix-ai.onrender.com](https://prepmatrix-ai.onrende
 
 ---
 
-## 📦 Getting Started (Local Development)
-
-### Prerequisites
-*   Node.js (v18 or higher)
-*   MongoDB installed locally or a MongoDB Atlas connection string
-*   Groq API Key (from [console.groq.com](https://console.groq.com/keys))
-
-### Installation
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/divyen123/PrepMatrix_AI.git
-    cd PrepMatrix_AI
-    ```
-
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
-
-3.  **Configure environment variables:**
-    Create a `.env` file in the root directory (refer to `.env.example`):
-    ```env
-    # Server configuration
-    PORT=8787
-    NODE_ENV=development
-
-    # MongoDB configurations
-    MONGODB_URI=mongodb://127.0.0.1:27017
-    MONGODB_DB=prepmatrix
-
-    # AI Configurations (Groq API)
-    GROQ_API_KEY=your-groq-api-key-here
-    GROQ_CHAT_MODEL=llama-3.3-70b-versatile
-    GROQ_TRANSCRIPTION_MODEL=whisper-large-v3-turbo
-
-    # CORS configuration
-    FRONTEND_URL=http://localhost:5173
-    ```
-
-4.  **Run the application:**
-    To start both the Express backend and the Vite dev server concurrently:
-    ```bash
-    npm run dev
-    ```
-    *   Frontend dev server: `http://localhost:5173`
-    *   Backend API server: `http://localhost:8787`
-
----
-
 ## 📄 License
 
 This project is licensed under the MIT License. Developed for Divyen R M.
