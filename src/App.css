@@ -11907,14 +11907,25 @@ body.worktree-fullscreen-active {
   min-width: 0;
 }
 
+/* When a node is selected, tint the input text with accent colour */
+.worktree-parent-search-input.has-selection {
+  color: var(--accent) !important;
+  font-weight: 500 !important;
+}
+
+/* Ensure the parent field-stack container floats above the canvas */
+.builder-form .field-stack {
+  position: relative;
+  z-index: 100;
+}
+
+.builder-form .field-stack:nth-child(2) {
+  /* The Link From (Parent) field specifically — needs highest stacking context */
+  z-index: 9998;
+}
+
 .parent-selected-label {
-  font-size: 0.75rem;
-  color: var(--accent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 90px;
-  flex-shrink: 0;
+  display: none; /* Node name is now shown as the input value instead */
 }
 
 .worktree-parent-dropdown {
@@ -11927,8 +11938,9 @@ body.worktree-fullscreen-active {
   border-radius: 10px;
   max-height: 180px;
   overflow-y: auto;
-  z-index: 200;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  /* Raise above canvas and all builder UI */
+  z-index: 9999;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
   padding: 4px;
 }
 

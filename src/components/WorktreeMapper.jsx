@@ -602,17 +602,32 @@ function WorktreeMapper() {
                 <Search size={13} className="parent-search-icon" />
                 <input
                   type="text"
-                  className="worktree-parent-search-input"
+                  className={`worktree-parent-search-input${newNodeParentId && !parentSearch ? " has-selection" : ""}`}
                   placeholder="Search parent node..."
-                  value={parentSearch}
-                  onChange={(e) => { setParentSearch(e.target.value); setParentDropdownOpen(true); }}
-                  onFocus={() => setParentDropdownOpen(true)}
+                  value={
+                    // When a node is selected and user hasn't started typing, show its name
+                    newNodeParentId && !parentSearch
+                      ? (nodes.find(n => n.id === newNodeParentId)?.label || "")
+                      : parentSearch
+                  }
+                  onChange={(e) => {
+                    setParentSearch(e.target.value);
+                    // If user starts typing, clear the selection display
+                    if (newNodeParentId) setNewNodeParentId("");
+                    setParentDropdownOpen(true);
+                  }}
+                  onFocus={() => {
+                    // On focus, if a node is selected, clear the display so user can search fresh
+                    if (newNodeParentId) {
+                      setParentSearch("");
+                    }
+                    setParentDropdownOpen(true);
+                  }}
+                  onBlur={() => {
+                    // On blur, restore the selected node name if nothing new was typed
+                    if (!parentSearch) setParentDropdownOpen(false);
+                  }}
                 />
-                {newNodeParentId && (
-                  <span className="parent-selected-label">
-                    {nodes.find(n => n.id === newNodeParentId)?.label || ""}
-                  </span>
-                )}
               </div>
               {parentDropdownOpen && (
                 <div className="worktree-parent-dropdown">
