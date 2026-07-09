@@ -252,6 +252,18 @@ function App() {
     setNotification("Account deleted successfully.");
   };
 
+  const clearAuthenticatedUi = (message = "Please log in again to continue.") => {
+    if (splashTimeoutRef.current) {
+      window.clearTimeout(splashTimeoutRef.current);
+    }
+
+    setEntrySplash(false);
+    setUserProfile(null);
+    setWorkspaceLoaded(false);
+    applyWorkspace({}, null);
+    setNotification(message);
+  };
+
   const saveMaterialBookmark = (bookmark) => {
     const exists = materialBookmarks.some((item) => item.href === bookmark.href);
 
@@ -353,11 +365,21 @@ function App() {
           setEntrySplash(false);
         }, 2400);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!isMounted) return;
         setUserProfile(null);
         setWorkspaceLoaded(false);
         setEntrySplash(false);
+
+        if (error?.code === "PASSWORD_CHANGED") {
+          setNotification("Your password was changed. Please log in again.");
+          return;
+        }
+
+        if (error?.status === 401) {
+          return;
+        }
+
         setNotification("Backend server connection offline. Please start local backend server or check VITE_API_URL.");
       })
       .finally(() => {
@@ -367,6 +389,15 @@ function App() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const handleSessionEnded = (event) => {
+      clearAuthenticatedUi(event.detail?.message || "Please log in again to continue.");
+    };
+
+    window.addEventListener("prepmatrixAuthSessionEnded", handleSessionEnded);
+    return () => window.removeEventListener("prepmatrixAuthSessionEnded", handleSessionEnded);
   }, []);
 
   useEffect(() => {

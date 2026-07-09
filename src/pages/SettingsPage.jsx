@@ -704,7 +704,7 @@ function SettingsPage({
       setOtpCountdown(0);
       setPassword("");
       setConfirmPassword("");
-      toast.success("Security credentials updated successfully!");
+      toast.success(response.passwordChanged ? "Password updated. Other devices were signed out." : "Security credentials updated successfully!");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update security credentials.");
     }

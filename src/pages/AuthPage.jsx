@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   CLASS_OPTIONS,
   DEPARTMENT_OPTIONS,
@@ -18,6 +18,7 @@ const emptyProfile = {
 
 function AuthPage({ mode = "login", onLogin }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState(emptyProfile);
   const [message, setMessage] = useState("");
   const isRegister = mode === "register";
@@ -26,6 +27,14 @@ function AuthPage({ mode = "login", onLogin }) {
     () => (isRegister ? "Create account" : "Login"),
     [isRegister]
   );
+
+  useEffect(() => {
+    const notice = window.sessionStorage.getItem("prepmatrix_auth_notice");
+    if (notice) {
+      setMessage(notice);
+      window.sessionStorage.removeItem("prepmatrix_auth_notice");
+    }
+  }, [location.pathname]);
 
   const updateField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));

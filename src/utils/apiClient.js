@@ -1,4 +1,12 @@
 const API_BASE = import.meta.env.VITE_API_URL || "";
+const AUTH_NOTICE_KEY = "prepmatrix_auth_notice";
+
+function notifySessionEnded(message) {
+  if (typeof window === "undefined") return;
+  const notice = message || "Please log in again to continue.";
+  window.sessionStorage.setItem(AUTH_NOTICE_KEY, notice);
+  window.dispatchEvent(new CustomEvent("prepmatrixAuthSessionEnded", { detail: { message: notice } }));
+}
 
 async function request(path, options = {}) {
   const controller = new AbortController();
@@ -23,18 +31,28 @@ async function request(path, options = {}) {
 
     clearTimeout(timeoutId);
 
-    if (response.status === 401 || path === "/api/auth/logout") {
+    const payload = await response.json().catch(() => ({}));
+
+    if (response.status === 401) {
       localStorage.removeItem("prepmatrix_auth_token");
+      if (payload.code === "PASSWORD_CHANGED") {
+        notifySessionEnded(payload.error || "Your password was changed. Please log in again.");
+      }
     }
 
-    const payload = await response.json().catch(() => ({}));
+    if (path === "/api/auth/logout") {
+      localStorage.removeItem("prepmatrix_auth_token");
+    }
 
     if (payload.token) {
       localStorage.setItem("prepmatrix_auth_token", payload.token);
     }
 
     if (!response.ok) {
-      throw new Error(payload.error || "Request failed.");
+      const error = new Error(payload.error || "Request failed.");
+      error.status = response.status;
+      error.code = payload.code;
+      throw error;
     }
 
     return payload;
@@ -71,5 +89,3 @@ const api = {
 };
 
 export default api;
-
-

@@ -51,6 +51,7 @@ const MONGODB_DB = process.env.MONGODB_DB || "prepmatrix";
 const FRONTEND_URL = process.env.FRONTEND_URL || "";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const SESSION_COOKIE = "prepmatrix_session";
+const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
 
 let mongoClient;
 let mongoDb;
@@ -91,7 +92,7 @@ function cookieOptions() {
 function setSessionCookie(res, token) {
   res.cookie(SESSION_COOKIE, token, {
     ...cookieOptions(),
-    maxAge: 1000 * 60 * 60 * 24 * 7,
+    maxAge: SESSION_DURATION_MS,
   });
 }
 
@@ -178,7 +179,7 @@ async function createSession(userId) {
   return token;
 }
 
-async function getAuthenticatedUser(req) {
+function getRequestToken(req) {
   let token = parseCookies(req.headers.cookie || "")[SESSION_COOKIE];
   if (!token && req.headers.authorization) {
     const parts = req.headers.authorization.split(" ");
@@ -186,11 +187,36 @@ async function getAuthenticatedUser(req) {
       token = parts[1];
     }
   }
-  if (!token) return null;
+  return token || null;
+}
+
+async function getAuthenticatedSession(req) {
+  const token = getRequestToken(req);
+  if (!token) return { user: null, token: null, session: null, reason: "missing" };
+
   const db = await getDb();
   const session = await db.collection("sessions").findOne({ token, expiresAt: { $gt: new Date() } });
-  if (!session) return null;
-  return db.collection("users").findOne({ _id: session.userId });
+  if (!session) return { user: null, token, session: null, reason: "expired" };
+
+  const user = await db.collection("users").findOne({ _id: session.userId });
+  if (!user) return { user: null, token, session, reason: "missing_user" };
+
+  if (user.passwordChangedAt && session.createdAt && new Date(session.createdAt) < new Date(user.passwordChangedAt)) {
+    return { user: null, token, session, reason: "password_changed" };
+  }
+
+  const now = new Date();
+  await db.collection("sessions").updateOne(
+    { _id: session._id },
+    { $set: { lastSeenAt: now, expiresAt: new Date(now.getTime() + SESSION_DURATION_MS) } }
+  );
+
+  return { user, token, session, reason: null };
+}
+
+async function getAuthenticatedUser(req) {
+  const auth = await getAuthenticatedSession(req);
+  return auth.user;
 }
 
 async function sendOtpEmail(toEmail, otp) {
@@ -290,9 +316,18 @@ async function sendEmailViaResend(toEmail, otp, apiKey) {
 function requireAuth(handler) {
   return async (req, res) => {
     try {
-      const user = await getAuthenticatedUser(req);
-      if (!user) return res.status(401).json({ error: "Login required." });
-      req.user = user;
+      const auth = await getAuthenticatedSession(req);
+      if (!auth.user) {
+        if (auth.reason === "password_changed") {
+          clearSessionCookie(res);
+          return res.status(401).json({ code: "PASSWORD_CHANGED", error: "Your password was changed. Please log in again." });
+        }
+        return res.status(401).json({ error: "Login required." });
+      }
+      req.user = auth.user;
+      req.sessionToken = auth.token;
+      req.session = auth.session;
+      setSessionCookie(res, auth.token);
       return handler(req, res);
     } catch (error) {
       return res.status(500).json({ error: error instanceof Error ? error.message : "Server error." });
@@ -491,20 +526,19 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
 
 app.get("/api/auth/me", async (req, res) => {
   try {
-    const user = await getAuthenticatedUser(req);
-    if (!user) return res.status(401).json({ error: "Login required." });
-    const db = await getDb();
-    const workspace = await db.collection("workspaces").findOne({ userId: user._id });
-    
-    let token = parseCookies(req.headers.cookie || "")[SESSION_COOKIE];
-    if (!token && req.headers.authorization) {
-      const parts = req.headers.authorization.split(" ");
-      if (parts.length === 2 && parts[0] === "Bearer") {
-        token = parts[1];
+    const auth = await getAuthenticatedSession(req);
+    if (!auth.user) {
+      if (auth.reason === "password_changed") {
+        clearSessionCookie(res);
+        return res.status(401).json({ code: "PASSWORD_CHANGED", error: "Your password was changed. Please log in again." });
       }
+      return res.status(401).json({ error: "Login required." });
     }
-    
-    return res.json({ token, user: sanitizeUser(user), workspace: normalizeWorkspace(workspace, user) });
+
+    setSessionCookie(res, auth.token);
+    const db = await getDb();
+    const workspace = await db.collection("workspaces").findOne({ userId: auth.user._id });
+    return res.json({ token: auth.token, user: sanitizeUser(auth.user), workspace: normalizeWorkspace(workspace, auth.user) });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Could not load profile." });
   }
@@ -690,6 +724,13 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
     );
 
     const updatedUser = await db.collection("users").findOne({ _id: req.user._id });
+
+    if (password) {
+      const token = await createSession(req.user._id);
+      setSessionCookie(res, token);
+      return res.json({ token, user: sanitizeUser(updatedUser), passwordChanged: true });
+    }
+
     res.json({ user: sanitizeUser(updatedUser) });
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : "Profile update failed." });
