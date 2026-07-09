@@ -142,12 +142,22 @@ export default function useVoiceAssistant({
   const [reply, setReply] = useState("");
   const [error, setError] = useState("");
   const [supported, setSupported] = useState(() => typeof window !== "undefined" && Boolean(getRecognitionConstructor()));
-  const [voiceStatus, setVoiceStatus] = useState("idle");
+  const [voiceStatus, setVoiceStatusState] = useState("idle");
+  const voiceStatusRef = useRef("idle");
+  const setVoiceStatus = useCallback((status) => {
+    voiceStatusRef.current = status;
+    setVoiceStatusState(status);
+  }, []);
+
   const [lastText, setLastText] = useState("");
 
   const speak = useCallback((text) => {
     if (!text || !speakingEnabledRef.current || !("speechSynthesis" in window)) {
       setVoiceStatus("idle");
+      // Resume wake listening immediately if wake mode is on and speech is skipped/disabled
+      if (wakeModeRef.current) {
+        startWakeListeningRef.current?.();
+      }
       return;
     }
 
@@ -162,10 +172,18 @@ export default function useVoiceAssistant({
 
     utterance.onend = () => {
       setVoiceStatus("idle");
+      // Resume wake listening once the speech completes
+      if (wakeModeRef.current) {
+        startWakeListeningRef.current?.();
+      }
     };
 
     utterance.onerror = () => {
       setVoiceStatus("idle");
+      // Resume wake listening if speaking fails
+      if (wakeModeRef.current) {
+        startWakeListeningRef.current?.();
+      }
     };
 
     window.speechSynthesis.speak(utterance);
@@ -290,6 +308,9 @@ export default function useVoiceAssistant({
 
     // Briefly stop the wake recognition so it doesn't fight the command session
     if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
+      recognitionRef.current.onerror = null;
+      recognitionRef.current.onresult = null;
       try { recognitionRef.current.stop(); } catch { /* already stopped */ }
       recognitionRef.current = null;
     }
@@ -321,17 +342,17 @@ export default function useVoiceAssistant({
         setError(`Voice recognition error: ${event.error}.`);
       }
       setVoiceStatus("idle");
-      // Restart wake listening after error
-      if (wakeModeRef.current) {
-        window.setTimeout(() => startWakeListeningRef.current?.(), 400);
-      }
     };
 
     cmdRecognition.onend = () => {
       setIsListening(false);
-      // Resume wake listening once command session ends
-      if (wakeModeRef.current && wakeRestartRef.current) {
-        window.setTimeout(() => startWakeListeningRef.current?.(), 400);
+      // Resume wake listening once command session ends, ONLY if we didn't transition to a processing/speaking state
+      if (wakeModeRef.current && (voiceStatusRef.current === "idle" || voiceStatusRef.current === "listening")) {
+        window.setTimeout(() => {
+          if (wakeModeRef.current && (voiceStatusRef.current === "idle" || voiceStatusRef.current === "listening")) {
+            startWakeListeningRef.current?.();
+          }
+        }, 400);
       }
     };
 
@@ -483,6 +504,14 @@ export default function useVoiceAssistant({
     recognition.onend = () => {
       setIsListening(false);
       recognitionRef.current = null;
+      // Resume wake listening once manual session ends, ONLY if we didn't transition to a processing/speaking state
+      if (wakeModeRef.current && (voiceStatusRef.current === "idle" || voiceStatusRef.current === "listening")) {
+        window.setTimeout(() => {
+          if (wakeModeRef.current && (voiceStatusRef.current === "idle" || voiceStatusRef.current === "listening")) {
+            startWakeListeningRef.current?.();
+          }
+        }, 400);
+      }
     };
 
     try {
