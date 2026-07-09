@@ -11850,6 +11850,14 @@ body.worktree-fullscreen-active .workspace-topbar {
   text-align: left !important;
 }
 
+.subject-left {
+  align-items: flex-start !important;
+}
+
+.subject-meta-row {
+  justify-content: flex-start !important;
+}
+
 /* ===================================================
    Worktree — background scroll / zoom isolation
    (body class is added by WorktreeMapper useEffect)
