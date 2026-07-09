@@ -31,7 +31,7 @@ function VoiceAssistantOverlay({
   };
 
   return (
-    <div className={`voice-overlay-backdrop active ${voiceStatus}`}>
+    <div className={`voice-overlay-backdrop active ${voiceStatus}`} onClick={onClose}>
       <div className="voice-overlay-content">
         <button
           className="voice-overlay-close-btn"
