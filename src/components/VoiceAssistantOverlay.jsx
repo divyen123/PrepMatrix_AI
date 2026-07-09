@@ -6,6 +6,7 @@ function VoiceAssistantOverlay({
   voiceStatus = "idle",
   lastText = "",
   error = "",
+  reply = "",
   onClose,
 }) {
   if (voiceStatus === "idle") {
@@ -73,6 +74,12 @@ function VoiceAssistantOverlay({
             </p>
           )}
         </div>
+
+        {reply && (
+          <div className="voice-overlay-reply" aria-live="polite">
+            {reply}
+          </div>
+        )}
       </div>
     </div>
   );

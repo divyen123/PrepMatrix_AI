@@ -1352,7 +1352,7 @@ function SettingsPage({
             <p className="card-subtext" style={{ marginBottom: "12px", fontSize: "0.82rem" }}>
               Choose an image background or use the color palette theme. Image backgrounds automatically set matching theme colours.
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "10px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(140px, 1fr))", gap: "10px", overflowX: "auto", paddingBottom: "6px" }}>
               {/* None / Color Palette option */}
               <button
                 onClick={() => setBgImageId("")}
@@ -1854,4 +1854,3 @@ function SettingsPage({
 }
 
 export default SettingsPage;
-

@@ -82,6 +82,8 @@ function formatMessageText(text) {
 function Chatbot({ academicLevel = "College", academicTrack = "General", schedule = [], completed = [], setDarkMode, onReset }) {
   const navigate = useNavigate();
   const scrollRef = useRef(null);
+  const chatRecognitionRef = useRef(null);
+  const resumeWakeAfterChatMicRef = useRef(false);
 
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
@@ -258,7 +260,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   }, [renameTitle, activeSessionId]);
 
   const sendMessage = useCallback(
-    async (message = input) => {
+    async (message = input, options = {}) => {
       const finalMessage = message.trim();
 
       if (!finalMessage) {
@@ -272,7 +274,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       };
 
       setMessages((current) => [...current, userMessage]);
-      setInput("");
+      setInput(options.keepInput ? finalMessage : "");
 
       const localCommand = resolveLocalAssistantCommand(finalMessage, {
         metrics,
@@ -429,7 +431,96 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   }, []);
 
   const handleMicClick = () => {
-    window.studyVoiceAssistant?.toggleRecording?.();
+    const activeRecognition = chatRecognitionRef.current;
+    if (activeRecognition) {
+      try {
+        activeRecognition.stop();
+      } catch {
+        // Recognition may already be stopped by the browser.
+      }
+      chatRecognitionRef.current = null;
+      setIsVoiceRecording(false);
+      if (resumeWakeAfterChatMicRef.current) {
+        window.studyVoiceAssistant?.setWakeMode?.(true);
+        resumeWakeAfterChatMicRef.current = false;
+      }
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setInput("Voice recognition is not supported in this browser.");
+      return;
+    }
+
+    resumeWakeAfterChatMicRef.current = localStorage.getItem("prepmatrix_wake_mode") === "true";
+    if (resumeWakeAfterChatMicRef.current) {
+      window.studyVoiceAssistant?.setWakeMode?.(false);
+    } else {
+      window.studyVoiceAssistant?.stopWakeListening?.();
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 5;
+    recognition.lang = "en-IN";
+    chatRecognitionRef.current = recognition;
+
+    let finalTranscript = "";
+    let heardSpeech = false;
+
+    recognition.onstart = () => {
+      setIsVoiceRecording(true);
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0]?.transcript || "")
+        .join(" ")
+        .trim();
+
+      if (transcript) {
+        heardSpeech = true;
+        finalTranscript = transcript;
+        setInput(transcript);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error !== "aborted" && event.error !== "no-speech") {
+        setInput(`Voice recognition error: ${event.error}.`);
+      }
+    };
+
+    recognition.onend = () => {
+      chatRecognitionRef.current = null;
+      setIsVoiceRecording(false);
+
+      const spokenText = finalTranscript.trim();
+      if (heardSpeech && spokenText) {
+        setInput(spokenText);
+        sendMessage(spokenText, { keepInput: true });
+      }
+
+      if (resumeWakeAfterChatMicRef.current) {
+        window.setTimeout(() => {
+          window.studyVoiceAssistant?.setWakeMode?.(true);
+          resumeWakeAfterChatMicRef.current = false;
+        }, 350);
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      chatRecognitionRef.current = null;
+      setIsVoiceRecording(false);
+      if (resumeWakeAfterChatMicRef.current) {
+        window.studyVoiceAssistant?.setWakeMode?.(true);
+        resumeWakeAfterChatMicRef.current = false;
+      }
+    }
   };
 
   return (

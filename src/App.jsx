@@ -1084,6 +1084,7 @@ function App() {
           voiceStatus={voiceAssistant.voiceStatus}
           lastText={voiceAssistant.lastText}
           error={voiceAssistant.error}
+          reply={voiceAssistant.overlayReply}
           onClose={voiceAssistant.stopListening}
         />
       )}
@@ -1103,7 +1104,3 @@ function App() {
 }
 
 export default App;
-
-
-
-

@@ -6,6 +6,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 const WAKE_MODE_KEY = "prepmatrix_wake_mode";
 const VOICE_REPLIES_KEY = "prepmatrix_voice_replies";
 const UNSUPPORTED_MESSAGE = "Voice recognition is not supported in this browser. Please try Chrome or Edge.";
+const LISTENING_TIMEOUT_MS = 8500;
 
 // Primary wake words + phonetic near-matches that speech engines commonly return
 const WAKE_WORDS = [
@@ -82,6 +83,30 @@ function buildPlannerContext({ academicLevel, academicTrack, metrics }) {
   };
 }
 
+function resolveQuickVoiceAnswer(spokenText = "") {
+  const normalized = normalizeVoiceText(spokenText);
+  const now = new Date();
+
+  if (/\b(what'?s|what is|tell me|current)\s+(the\s+)?time\b/.test(normalized) || /\btime now\b/.test(normalized)) {
+    return `The time is ${now.toLocaleTimeString("en-IN", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })}.`;
+  }
+
+  if (/\b(what'?s|what is|tell me|current)\s+(the\s+)?date\b/.test(normalized) || /\btoday'?s date\b/.test(normalized)) {
+    return `Today is ${now.toLocaleDateString("en-IN", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })}.`;
+  }
+
+  return "";
+}
+
 function resolvePageCommand(spokenText = "") {
   const normalized = normalizeVoiceText(spokenText);
 
@@ -128,6 +153,7 @@ export default function useVoiceAssistant({
   const processingRef = useRef(false);
   const speakingEnabledRef = useRef(readStoredSpeaking());
   const wakeModeRef = useRef(readStoredWakeMode());
+  const commandTimeoutRef = useRef(null);
 
   const metrics = useMemo(() => getPlannerMetrics(schedule, completed), [schedule, completed]);
   const plannerContext = useMemo(
@@ -150,6 +176,14 @@ export default function useVoiceAssistant({
   }, []);
 
   const [lastText, setLastText] = useState("");
+  const [overlayReply, setOverlayReply] = useState("");
+
+  const clearCommandTimeout = useCallback(() => {
+    if (commandTimeoutRef.current) {
+      window.clearTimeout(commandTimeoutRef.current);
+      commandTimeoutRef.current = null;
+    }
+  }, []);
 
   const speak = useCallback((text) => {
     if (!text || !speakingEnabledRef.current || !("speechSynthesis" in window)) {
@@ -191,6 +225,7 @@ export default function useVoiceAssistant({
 
   const stopListening = useCallback(() => {
     wakeRestartRef.current = false;
+    clearCommandTimeout();
     setIsListening(false);
     setVoiceStatus("idle");
 
@@ -209,7 +244,7 @@ export default function useVoiceAssistant({
       }
       recognitionRef.current = null;
     }
-  }, []);
+  }, [clearCommandTimeout]);
 
   const setWakeMode = useCallback((enabled) => {
     wakeModeRef.current = enabled;
@@ -244,6 +279,7 @@ export default function useVoiceAssistant({
     setIsProcessing(true);
     setTranscript(cleanText);
     setLastText(cleanText);
+    setOverlayReply("");
     setVoiceStatus("processing");
     setError("");
 
@@ -253,6 +289,7 @@ export default function useVoiceAssistant({
       if (pageCommand?.type === "navigate") {
         navigate(pageCommand.route);
         setReply(pageCommand.response);
+        setOverlayReply(pageCommand.response);
         speak(pageCommand.response);
         return;
       }
@@ -260,18 +297,21 @@ export default function useVoiceAssistant({
       if (pageCommand?.type === "scroll") {
         window.scrollBy({ top: pageCommand.top, behavior: "smooth" });
         setReply(pageCommand.response);
+        setOverlayReply(pageCommand.response);
         speak(pageCommand.response);
         return;
       }
 
-      const answer = await sendQuestionToAssistant(cleanText);
+      const quickAnswer = resolveQuickVoiceAnswer(cleanText);
+      const answer = quickAnswer || await sendQuestionToAssistant(cleanText);
       setReply(answer);
+      setOverlayReply(answer);
       speak(answer);
-      window.openStudyAssistant?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to complete that voice request.";
       setError(message);
       setReply(message);
+      setOverlayReply(message);
       setVoiceStatus("error");
       speak(message);
     } finally {
@@ -323,8 +363,25 @@ export default function useVoiceAssistant({
 
     setVoiceStatus("listening");
     setLastText("");
+    setOverlayReply("");
+
+    clearCommandTimeout();
+    commandTimeoutRef.current = window.setTimeout(() => {
+      try {
+        cmdRecognition.stop();
+      } catch {
+        // The browser may have already closed this session.
+      }
+      if (voiceStatusRef.current === "listening") {
+        const prompt = "I did not catch that. Please try again.";
+        setLastText(prompt);
+        setOverlayReply(prompt);
+        speak(prompt);
+      }
+    }, LISTENING_TIMEOUT_MS);
 
     cmdRecognition.onresult = (event) => {
+      clearCommandTimeout();
       const spokenText = Array.from(event.results)
         .map((r) => r[0]?.transcript || "")
         .join(" ")
@@ -333,18 +390,29 @@ export default function useVoiceAssistant({
       if (spokenText) {
         processSpokenText(spokenText);
       } else {
+        if (event.error === "no-speech") {
+          setOverlayReply("I did not catch that. Please try again.");
+        }
         setVoiceStatus("idle");
       }
     };
 
     cmdRecognition.onerror = (event) => {
+      clearCommandTimeout();
       if (event.error !== "no-speech" && event.error !== "aborted") {
         setError(`Voice recognition error: ${event.error}.`);
+      } else if (event.error === "no-speech") {
+        const prompt = "I did not catch that. Please try again.";
+        setLastText(prompt);
+        setOverlayReply(prompt);
+        speak(prompt);
+        return;
       }
       setVoiceStatus("idle");
     };
 
     cmdRecognition.onend = () => {
+      clearCommandTimeout();
       setIsListening(false);
       // Resume wake listening once command session ends, ONLY if we didn't transition to a processing/speaking state
       if (wakeModeRef.current && (voiceStatusRef.current === "idle" || voiceStatusRef.current === "listening")) {
@@ -365,7 +433,7 @@ export default function useVoiceAssistant({
         window.setTimeout(() => startWakeListeningRef.current?.(), 400);
       }
     }
-  }, [processSpokenText]);
+  }, [clearCommandTimeout, processSpokenText, speak]);
 
   // Stable ref so startCommandListening can call startWakeListening without circular dependency
   const startWakeListeningRef = useRef(null);
@@ -399,6 +467,7 @@ export default function useVoiceAssistant({
 
         if (matchedCommand) {
           setVoiceStatus("awake");
+          setOverlayReply("");
           if (matchedCommand.command) {
             // Wake word + inline command (e.g. "Hey Prep, what's my progress?")
             processSpokenText(matchedCommand.command);
@@ -465,6 +534,7 @@ export default function useVoiceAssistant({
     recognitionRef.current = recognition;
     setTranscript("");
     setReply("");
+    setOverlayReply("");
     setError("");
     setVoiceStatus("listening");
 
@@ -474,6 +544,7 @@ export default function useVoiceAssistant({
     };
 
     recognition.onresult = (event) => {
+      clearCommandTimeout();
       const spokenText = Array.from(event.results)
         .map((result) => result[0]?.transcript || "")
         .join(" ")
@@ -482,6 +553,9 @@ export default function useVoiceAssistant({
       if (spokenText) {
         processSpokenText(spokenText);
       } else {
+        if (event.error === "no-speech") {
+          setOverlayReply("I did not catch that. Please try again.");
+        }
         setVoiceStatus("idle");
       }
     };
@@ -497,11 +571,15 @@ export default function useVoiceAssistant({
         setError(`Voice recognition error: ${event.error}.`);
         setVoiceStatus("error");
       } else {
+        if (event.error === "no-speech") {
+          setOverlayReply("I did not catch that. Please try again.");
+        }
         setVoiceStatus("idle");
       }
     };
 
     recognition.onend = () => {
+      clearCommandTimeout();
       setIsListening(false);
       recognitionRef.current = null;
       // Resume wake listening once manual session ends, ONLY if we didn't transition to a processing/speaking state
@@ -517,12 +595,20 @@ export default function useVoiceAssistant({
     try {
       recognition.start();
       setIsListening(true);
+      clearCommandTimeout();
+      commandTimeoutRef.current = window.setTimeout(() => {
+        try {
+          recognition.stop();
+        } catch {
+          // The browser may have already closed this session.
+        }
+      }, LISTENING_TIMEOUT_MS);
     } catch {
       setError("Microphone permission is required for voice recognition.");
       setVoiceStatus("error");
       setIsListening(false);
     }
-  }, [createRecognition, processSpokenText, speak, stopListening]);
+  }, [clearCommandTimeout, createRecognition, processSpokenText, speak, stopListening]);
 
   useEffect(() => {
     const nextSupported = Boolean(getRecognitionConstructor());
@@ -602,6 +688,7 @@ export default function useVoiceAssistant({
     isListening,
     isProcessing,
     reply,
+    overlayReply,
     setSpeakingEnabled: (enabled) => {
       window.dispatchEvent(new CustomEvent("prepmatrixVoiceRepliesChange", { detail: { enabled } }));
     },

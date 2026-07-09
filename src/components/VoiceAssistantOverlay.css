@@ -55,7 +55,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  max-width: 600px;
+  max-width: 720px;
   width: 90%;
   padding: 40px;
   position: relative;
@@ -435,5 +435,54 @@
     right: 20px;
     width: 44px;
     height: 44px;
+  }
+}
+
+.voice-overlay-reply {
+  position: fixed;
+  left: 50%;
+  bottom: clamp(24px, 5vh, 56px);
+  transform: translateX(-50%);
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(34vh, 280px);
+  overflow-y: auto;
+  padding: 18px 22px;
+  border-radius: 22px;
+  text-align: left;
+  color: #f8fbff;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(6, 182, 212, 0.24), transparent 36%),
+    linear-gradient(135deg, rgba(12, 18, 33, 0.98), rgba(24, 28, 46, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: voiceReplyRise 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.voice-overlay-reply::-webkit-scrollbar {
+  width: 6px;
+}
+
+.voice-overlay-reply::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+}
+
+@keyframes voiceReplyRise {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (max-width: 500px) {
+  .voice-overlay-reply {
+    bottom: 18px;
+    padding: 15px 16px;
+    border-radius: 18px;
+    font-size: 0.94rem;
+    max-height: 32vh;
   }
 }

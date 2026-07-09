@@ -532,7 +532,7 @@ function WorktreeMapper() {
           newestOnTop
           pauseOnFocusLoss={false}
           toastClassName="prepmatrix-toast"
-          style={{ zIndex: 99999, position: "absolute", top: "16px", left: "50%", transform: "translateX(-50%)", width: "340px" }}
+          style={{ zIndex: 99999, position: "absolute", top: "18px", left: "24px", width: "min(420px, calc(100vw - 48px))" }}
         />
       )}
       {/* Header bar */}
