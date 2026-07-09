@@ -8637,9 +8637,17 @@ body.dark .completion-reward-popup {
 }
 
 .sidebar-widgets .chat-input button {
-  min-width: 74px;
-  min-height: 46px;
-  padding-inline: 14px;
+  /* Do NOT override icon button shape — handled by .chat-icon-btn */
+  min-width: unset !important;
+  min-height: unset !important;
+  padding: 0 !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 @media (max-width: 991.98px) {
@@ -8665,8 +8673,12 @@ body.dark .completion-reward-popup {
     grid-template-columns: 1fr;
   }
 
-  .sidebar-widgets .chat-input button {
-    width: 100%;
+  /* Keep icon buttons compact on mobile too */
+  .sidebar-widgets .chat-input .chat-icon-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
   }
 }
 
@@ -8825,7 +8837,9 @@ body.dark .completion-reward-popup {
 }
 
 .sidebar-widgets .chat-input {
-  grid-template-columns: minmax(0, 1fr) 96px !important;
+  grid-template-columns: minmax(0, 1fr) auto auto !important;
+  gap: 6px !important;
+  align-items: center !important;
 }
 
 .app-container.auth-layout {
@@ -10420,7 +10434,6 @@ body.popover-open .app-sidebar {
 
   .action-btn,
   .secondary-btn,
-  .sidebar-widgets .chat-input button,
   button[type="submit"] {
     height: 38px !important;
     min-height: 38px !important;
@@ -12049,18 +12062,26 @@ body.worktree-fullscreen-active {
   50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
 }
 
-/* Override old sidebar chat button sizing now that we use icons */
+/* Override old sidebar chat button sizing — force compact icon circles */
 .sidebar-widgets .chat-input {
   display: flex !important;
   grid-template-columns: unset !important;
-  gap: 6px;
-  align-items: center;
-  padding: 10px 14px 14px;
+  gap: 6px !important;
+  align-items: center !important;
+  padding: 10px 14px 14px !important;
 }
 
-.sidebar-widgets .chat-input button {
-  min-width: unset;
-  min-height: unset;
+.sidebar-widgets .chat-input .chat-icon-btn {
+  min-width: 36px !important;
+  min-height: 36px !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
 }
 
 /* Timetable undo button */

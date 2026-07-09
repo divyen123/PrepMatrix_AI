@@ -6,7 +6,23 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 const WAKE_MODE_KEY = "prepmatrix_wake_mode";
 const VOICE_REPLIES_KEY = "prepmatrix_voice_replies";
 const UNSUPPORTED_MESSAGE = "Voice recognition is not supported in this browser. Please try Chrome or Edge.";
-const WAKE_WORDS = ["hey prep", "prep matrix", "hey prepmatrix"];
+
+// Primary wake words + phonetic near-matches that speech engines commonly return
+const WAKE_WORDS = [
+  "hey prep",
+  "prep matrix",
+  "hey prepmatrix",
+  "hey prep matrix",
+  // phonetic variations browsers commonly output
+  "a prep",
+  "hey preb",
+  "he prep",
+  "hey preps",
+  "hay prep",
+  "a prep matrix",
+  "prep matrices",
+  "prep mattress",
+];
 
 function getRecognitionConstructor() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
@@ -15,6 +31,8 @@ function getRecognitionConstructor() {
 function normalizeVoiceText(text = "") {
   return text
     .toLowerCase()
+    // strip filler sounds um / uh / hmm
+    .replace(/\b(um|uh|hmm|ah|oh)\b/g, "")
     .replace(/[^\w\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -255,7 +273,10 @@ export default function useVoiceAssistant({
     setSupported(true);
     const recognition = new SpeechRecognition();
     recognition.continuous = continuous;
+    // Interim results only for wake-mode so we can react faster
     recognition.interimResults = false;
+    recognition.maxAlternatives = 5;
+    // Try device locale first, fall back to en-US for better accuracy on Indian accents
     recognition.lang = "en-IN";
     return recognition;
   }, []);
@@ -276,12 +297,20 @@ export default function useVoiceAssistant({
         const result = event.results[index];
         if (!result.isFinal) continue;
 
-        const spokenText = result[0]?.transcript?.trim() || "";
-        const wakeCommand = getWakeCommand(spokenText);
+        // Check every alternative transcript the engine produced
+        let matchedCommand = null;
+        for (let altIdx = 0; altIdx < result.length; altIdx += 1) {
+          const spokenText = result[altIdx]?.transcript?.trim() || "";
+          const wakeCommand = getWakeCommand(spokenText);
+          if (wakeCommand.matched) {
+            matchedCommand = wakeCommand;
+            break;
+          }
+        }
 
-        if (wakeCommand.matched) {
+        if (matchedCommand) {
           setVoiceStatus("awake");
-          processSpokenText(wakeCommand.command);
+          processSpokenText(matchedCommand.command);
         }
       }
     };
