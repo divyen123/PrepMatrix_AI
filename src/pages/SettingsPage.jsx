@@ -1299,7 +1299,7 @@ function SettingsPage({
             <p className="card-subtext">Set daily study hours and weekly review frequency targets.</p>
           </div>
 
-          <div className="form-grid">
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
             <label className="field-stack">
               <span>Daily Study Target (hours)</span>
               <input
@@ -1327,11 +1327,12 @@ function SettingsPage({
 
           <button
             onClick={handleSaveStudyTargets}
-            style={{ alignSelf: "flex-end", display: "flex", alignItems: "center", gap: "8px" }}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
           >
             <Save size={16} /> Save Study Targets
           </button>
         </div>
+
 
         {/* Appearance Configuration */}
         <div className="card dashboard-full-span" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
