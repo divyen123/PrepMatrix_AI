@@ -8,8 +8,10 @@ function VoiceAssistant({
   completed = [],
   schedule = [],
   hidden = false,
+  assistant: propAssistant,
 }) {
-  const assistant = useVoiceAssistant({ academicLevel, academicTrack, schedule, completed });
+  const localAssistant = useVoiceAssistant({ academicLevel, academicTrack, schedule, completed });
+  const assistant = propAssistant || localAssistant;
 
   useEffect(() => {
     window.studyVoiceAssistant = {

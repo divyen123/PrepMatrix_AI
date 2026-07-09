@@ -22,6 +22,8 @@ import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-route
 import Notification from "./components/Notification";
 import Chatbot from "./components/Chatbot";
 import VoiceAssistant from "./components/VoiceAssistant";
+import VoiceAssistantOverlay from "./components/VoiceAssistantOverlay";
+import useVoiceAssistant from "./hooks/useVoiceAssistant";
 import api from "./utils/apiClient";
 import BACKGROUND_PRESETS from "./utils/backgroundPresets";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
@@ -165,6 +167,13 @@ function App() {
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const voiceAssistant = useVoiceAssistant({
+    academicLevel,
+    academicTrack,
+    schedule,
+    completed,
+  });
 
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
@@ -812,6 +821,7 @@ function App() {
                 completed={completed}
                 schedule={schedule}
                 hidden
+                assistant={voiceAssistant}
               />
 
               <button
@@ -1068,6 +1078,15 @@ function App() {
         </main>
       </div>
 
+
+      {voiceAssistant.voiceStatus !== "idle" && (
+        <VoiceAssistantOverlay
+          voiceStatus={voiceAssistant.voiceStatus}
+          lastText={voiceAssistant.lastText}
+          error={voiceAssistant.error}
+          onClose={voiceAssistant.stopListening}
+        />
+      )}
 
       <ToastContainer
         autoClose={2200}

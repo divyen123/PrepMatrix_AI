@@ -122,9 +122,12 @@ export default function useVoiceAssistant({
   const [reply, setReply] = useState("");
   const [error, setError] = useState("");
   const [supported, setSupported] = useState(() => typeof window !== "undefined" && Boolean(getRecognitionConstructor()));
+  const [voiceStatus, setVoiceStatus] = useState("idle");
+  const [lastText, setLastText] = useState("");
 
   const speak = useCallback((text) => {
     if (!text || !speakingEnabledRef.current || !("speechSynthesis" in window)) {
+      setVoiceStatus("idle");
       return;
     }
 
@@ -132,12 +135,30 @@ export default function useVoiceAssistant({
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "en-IN";
     utterance.rate = 0.96;
+
+    utterance.onstart = () => {
+      setVoiceStatus("speaking");
+    };
+
+    utterance.onend = () => {
+      setVoiceStatus("idle");
+    };
+
+    utterance.onerror = () => {
+      setVoiceStatus("idle");
+    };
+
     window.speechSynthesis.speak(utterance);
   }, []);
 
   const stopListening = useCallback(() => {
     wakeRestartRef.current = false;
     setIsListening(false);
+    setVoiceStatus("idle");
+
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
 
     if (recognitionRef.current) {
       recognitionRef.current.onend = null;
@@ -184,6 +205,8 @@ export default function useVoiceAssistant({
     processingRef.current = true;
     setIsProcessing(true);
     setTranscript(cleanText);
+    setLastText(cleanText);
+    setVoiceStatus("processing");
     setError("");
 
     try {
@@ -211,6 +234,7 @@ export default function useVoiceAssistant({
       const message = err instanceof Error ? err.message : "Unable to complete that voice request.";
       setError(message);
       setReply(message);
+      setVoiceStatus("error");
       speak(message);
     } finally {
       processingRef.current = false;
@@ -224,6 +248,7 @@ export default function useVoiceAssistant({
     if (!SpeechRecognition) {
       setSupported(false);
       setError(UNSUPPORTED_MESSAGE);
+      setVoiceStatus("error");
       return null;
     }
 
@@ -255,6 +280,7 @@ export default function useVoiceAssistant({
         const wakeCommand = getWakeCommand(spokenText);
 
         if (wakeCommand.matched) {
+          setVoiceStatus("awake");
           processSpokenText(wakeCommand.command);
         }
       }
@@ -306,6 +332,7 @@ export default function useVoiceAssistant({
 
     if (!recognition) {
       speak(UNSUPPORTED_MESSAGE);
+      setVoiceStatus("error");
       return;
     }
 
@@ -314,6 +341,12 @@ export default function useVoiceAssistant({
     setTranscript("");
     setReply("");
     setError("");
+    setVoiceStatus("listening");
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setVoiceStatus("listening");
+    };
 
     recognition.onresult = (event) => {
       const spokenText = Array.from(event.results)
@@ -323,17 +356,23 @@ export default function useVoiceAssistant({
 
       if (spokenText) {
         processSpokenText(spokenText);
+      } else {
+        setVoiceStatus("idle");
       }
     };
 
     recognition.onerror = (event) => {
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         setError("Microphone permission is required for voice recognition.");
+        setVoiceStatus("error");
         return;
       }
 
       if (event.error !== "no-speech" && event.error !== "aborted") {
         setError(`Voice recognition error: ${event.error}.`);
+        setVoiceStatus("error");
+      } else {
+        setVoiceStatus("idle");
       }
     };
 
@@ -347,6 +386,7 @@ export default function useVoiceAssistant({
       setIsListening(true);
     } catch {
       setError("Microphone permission is required for voice recognition.");
+      setVoiceStatus("error");
       setIsListening(false);
     }
   }, [createRecognition, processSpokenText, speak, stopListening]);
@@ -421,6 +461,8 @@ export default function useVoiceAssistant({
     }
   }, [stopListening]);
 
+  const isAwake = voiceStatus === "awake" || voiceStatus === "processing" || voiceStatus === "speaking";
+
   return {
     askWithVoice,
     error,
@@ -434,5 +476,9 @@ export default function useVoiceAssistant({
     supported,
     transcript,
     wakeMode,
+    voiceStatus,
+    lastText,
+    isAwake,
+    stopListening,
   };
 }
