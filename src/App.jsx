@@ -739,14 +739,6 @@ function App() {
                 />
               </div>
             </Suspense>
-            {/* Global browser VoiceAssistant service */}
-            <VoiceAssistant
-              academicLevel={academicLevel}
-              academicTrack={academicTrack}
-              completed={completed}
-              schedule={schedule}
-              hidden
-            />
             <Link
               to="/about"
               className="about-info-btn"
@@ -813,6 +805,15 @@ function App() {
             </div>
 
             <div className="topbar-right">
+              {/* Global browser VoiceAssistant service */}
+              <VoiceAssistant
+                academicLevel={academicLevel}
+                academicTrack={academicTrack}
+                completed={completed}
+                schedule={schedule}
+                hidden
+              />
+
               <button
                 aria-label="Reset planner"
                 aria-expanded={resetConfirmOpen}

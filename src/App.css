@@ -12072,3 +12072,22 @@ body.worktree-fullscreen-active {
 .undo-btn:hover {
   background: rgba(var(--accent-rgb), 0.18) !important;
 }
+
+/* Voice assistant icon button recording state styling */
+.topbar-right .voice-icon-btn.recording {
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  color: #ffffff !important;
+  animation: voice-pulse 1.2s ease-in-out infinite !important;
+}
+
+.topbar-right .voice-icon-btn.recording:disabled {
+  opacity: 1 !important;
+  cursor: default !important;
+}
+
+@keyframes voice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+

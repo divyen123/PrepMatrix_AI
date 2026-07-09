@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Mic } from "lucide-react";
 import useVoiceAssistant from "../hooks/useVoiceAssistant";
 
 function VoiceAssistant({
@@ -34,12 +35,14 @@ function VoiceAssistant({
 
     return (
       <button
-        className="secondary-btn"
+        aria-label={assistant.isListening ? "Listening - Click to stop" : "Ask with Voice"}
+        className={`icon-shell-btn voice-icon-btn ${assistant.isListening ? "recording" : ""}`}
         disabled={assistant.isListening || assistant.isProcessing}
         onClick={assistant.askWithVoice}
+        title={assistant.isListening ? "Listening..." : "Ask with Voice"}
         type="button"
       >
-        {assistant.isListening ? "Listening..." : "Ask with Voice"}
+        <Mic aria-hidden="true" size={20} strokeWidth={2.4} />
       </button>
     );
   }
