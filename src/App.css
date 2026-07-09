@@ -1087,9 +1087,26 @@ body.dark .task-chip {
 }
 
 .chat-close-btn {
-  padding: 0.65rem 0.95rem;
-  background: var(--surface-muted);
-  color: var(--text);
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  border: 1px solid rgba(239, 68, 68, 0.22) !important;
+  color: #ef4444 !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chat-close-btn:hover {
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  transform: scale(1.08) !important;
 }
 
 .chat-messages {
@@ -8591,8 +8608,10 @@ body.dark .completion-reward-popup {
 
 .sidebar-widgets .chat-close-btn {
   flex: 0 0 auto;
-  min-height: 38px;
-  padding: 0 14px;
+  min-width: unset;
+  min-height: unset;
+  padding: 0;
+  border-radius: 50% !important;
 }
 
 .sidebar-widgets .chat-prompts {
@@ -8653,7 +8672,7 @@ body.dark .completion-reward-popup {
   }
 
   .sidebar-widgets .chat-close-btn {
-    width: 100%;
+    width: 32px !important;
   }
 
   .sidebar-widgets .chat-input {
@@ -10772,6 +10791,8 @@ body.worktree-fullscreen-active .workspace-topbar {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 14px;
+  position: relative;
+  z-index: 10;
 }
 
 .builder-form {
@@ -10930,6 +10951,7 @@ body.worktree-fullscreen-active .workspace-topbar {
   overflow: hidden;
   position: relative;
   touch-action: none;
+  z-index: 1;
 }
 
 .fullscreen-modal-mode .worktree-canvas-container {

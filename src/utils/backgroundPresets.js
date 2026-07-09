@@ -39,13 +39,6 @@ const BACKGROUND_PRESETS = [
     accentRgb: "52, 176, 228",
     surfaceRgb: "5, 10, 20",
   },
-  {
-    id: "garden-oasis",
-    name: "Garden Oasis",
-    file: "/backgrounds/pexels-slaishram-271160.jpg",
-    accentRgb: "72, 160, 78",
-    surfaceRgb: "14, 32, 16",
-  },
 ];
 
 export default BACKGROUND_PRESETS;

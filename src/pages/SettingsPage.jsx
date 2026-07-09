@@ -1327,7 +1327,7 @@ function SettingsPage({
 
           <button
             onClick={handleSaveStudyTargets}
-            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
+            style={{ alignSelf: "flex-end", display: "flex", alignItems: "center", gap: "8px", width: "fit-content", marginTop: "8px" }}
           >
             <Save size={16} /> Save Study Targets
           </button>

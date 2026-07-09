@@ -566,7 +566,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                 </div>
 
                 <button aria-label="Close study assistant chat" className="chat-close-btn" onClick={() => setOpen(false)} type="button">
-                  Close
+                  <X size={16} />
                 </button>
               </div>
 
