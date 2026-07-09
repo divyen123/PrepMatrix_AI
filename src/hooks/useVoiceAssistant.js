@@ -55,11 +55,13 @@ function getWakeCommand(rawText = "") {
     return { matched: false, command: "" };
   }
 
+  // Strip everything up to and including the wake word, keep only the command that follows
   const command = normalized
     .replace(new RegExp(`^.*?\\b${wakeWord.replace(/\s+/g, "\\s+")}\\b`), "")
     .trim();
 
-  return { matched: true, command: command || normalized };
+  // Return empty command if only the wake word was said — caller should prompt for command
+  return { matched: true, command };
 }
 
 function buildPlannerContext({ academicLevel, academicTrack, metrics }) {
@@ -281,6 +283,72 @@ export default function useVoiceAssistant({
     return recognition;
   }, []);
 
+  const startCommandListening = useCallback(() => {
+    // After wake word fires, start a dedicated one-shot command recognition session
+    const SpeechRecognition = getRecognitionConstructor();
+    if (!SpeechRecognition) return;
+
+    // Briefly stop the wake recognition so it doesn't fight the command session
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch { /* already stopped */ }
+      recognitionRef.current = null;
+    }
+
+    const cmdRecognition = new SpeechRecognition();
+    cmdRecognition.continuous = false;
+    cmdRecognition.interimResults = false;
+    cmdRecognition.maxAlternatives = 3;
+    cmdRecognition.lang = "en-IN";
+
+    setVoiceStatus("listening");
+    setLastText("");
+
+    cmdRecognition.onresult = (event) => {
+      const spokenText = Array.from(event.results)
+        .map((r) => r[0]?.transcript || "")
+        .join(" ")
+        .trim();
+
+      if (spokenText) {
+        processSpokenText(spokenText);
+      } else {
+        setVoiceStatus("idle");
+      }
+    };
+
+    cmdRecognition.onerror = (event) => {
+      if (event.error !== "no-speech" && event.error !== "aborted") {
+        setError(`Voice recognition error: ${event.error}.`);
+      }
+      setVoiceStatus("idle");
+      // Restart wake listening after error
+      if (wakeModeRef.current) {
+        window.setTimeout(() => startWakeListeningRef.current?.(), 400);
+      }
+    };
+
+    cmdRecognition.onend = () => {
+      setIsListening(false);
+      // Resume wake listening once command session ends
+      if (wakeModeRef.current && wakeRestartRef.current) {
+        window.setTimeout(() => startWakeListeningRef.current?.(), 400);
+      }
+    };
+
+    try {
+      cmdRecognition.start();
+      setIsListening(true);
+    } catch {
+      setVoiceStatus("idle");
+      if (wakeModeRef.current) {
+        window.setTimeout(() => startWakeListeningRef.current?.(), 400);
+      }
+    }
+  }, [processSpokenText]);
+
+  // Stable ref so startCommandListening can call startWakeListening without circular dependency
+  const startWakeListeningRef = useRef(null);
+
   const startWakeListening = useCallback(() => {
     stopListening();
     const recognition = createRecognition(true);
@@ -310,7 +378,13 @@ export default function useVoiceAssistant({
 
         if (matchedCommand) {
           setVoiceStatus("awake");
-          processSpokenText(matchedCommand.command);
+          if (matchedCommand.command) {
+            // Wake word + inline command (e.g. "Hey Prep, what's my progress?")
+            processSpokenText(matchedCommand.command);
+          } else {
+            // Wake word only (e.g. just "Hey Prep") → wait for command
+            startCommandListening();
+          }
         }
       }
     };
@@ -341,19 +415,20 @@ export default function useVoiceAssistant({
         } catch {
           setError("Voice recognition could not restart. Toggle Wake Mode off and on to try again.");
         }
-      }, 250);
+      }, 300);
     };
 
     try {
       recognition.start();
       setIsListening(true);
       setError("");
+      startWakeListeningRef.current = startWakeListening;
     } catch {
       setError("Microphone permission is required for voice recognition.");
       setWakeMode(false);
       stopListening();
     }
-  }, [createRecognition, processSpokenText, setWakeMode, stopListening]);
+  }, [createRecognition, processSpokenText, setWakeMode, startCommandListening, stopListening]);
 
   const askWithVoice = useCallback(() => {
     stopListening();

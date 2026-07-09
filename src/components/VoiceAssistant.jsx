@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { Mic } from "lucide-react";
-import useVoiceAssistant from "../hooks/useVoiceAssistant";
 
 function VoiceAssistant({
   academicLevel = "College",
@@ -8,10 +7,8 @@ function VoiceAssistant({
   completed = [],
   schedule = [],
   hidden = false,
-  assistant: propAssistant,
+  assistant,
 }) {
-  const localAssistant = useVoiceAssistant({ academicLevel, academicTrack, schedule, completed });
-  const assistant = propAssistant || localAssistant;
 
   useEffect(() => {
     window.studyVoiceAssistant = {
