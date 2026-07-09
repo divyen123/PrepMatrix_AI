@@ -10,7 +10,6 @@ const NAVIGATION_TARGETS = [
   { label: "Subjects", route: "/subjects", aliases: ["subjects", "subject", "subject library"] },
   { label: "Planner", route: "/planner", aliases: ["planner", "schedule", "study schedule", "timetable", "time table"] },
   { label: "Analytics", route: "/analytics", aliases: ["analytics", "performance", "signals", "patterns"] },
-  { label: "Assistant", route: "/assistant", aliases: ["assistant", "voice assistant", "study assistant", "jarvis"] },
   { label: "Notes", route: "/notes", aliases: ["notes", "note", "doubts", "doubt board", "left topics"] },
   { label: "Materials", route: "/resources", aliases: ["materials", "resources", "learning materials", "study materials"] },
 ];
@@ -261,6 +260,7 @@ export function buildFallbackReply(message, metrics) {
     "The AI chat service is unavailable right now, but your planner data is still available locally."
   );
 }
+
 
 
 

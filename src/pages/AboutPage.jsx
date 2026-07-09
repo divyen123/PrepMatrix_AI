@@ -37,7 +37,7 @@ function AboutPage() {
     {
       icon: Mic,
       title: "Voice-Command Assistant",
-      desc: "Provides hands-free voice controls. Use 'Hey Jarvis' to ask about your study status, log completions, or get voice status checks."
+      desc: "Provides free browser-based voice controls with Wake Mode. Say 'Hey Prep', 'Prep Matrix', or 'Hey PrepMatrix' to open pages, scroll, or ask study questions."
     },
     {
       icon: Trophy,
@@ -137,3 +137,4 @@ function AboutPage() {
 }
 
 export default AboutPage;
+

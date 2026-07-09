@@ -12,7 +12,7 @@ Live Backend: [https://prepmatrix-ai.onrender.com](https://prepmatrix-ai.onrende
 *   📅 **Smart Planner & Scheduler:** Automatically distributes study workloads, balances daily tasks based on difficulty, and offers active recovery strategies for missed milestones.
 *   🤖 **AI Study Assistant:** Interactive study chatbot tailored to your academic level. Clarifies doubts, outlines topics, and retrieves planner metrics directly in conversation.
 *   📊 **Telemetry & Analytics:** Visualizes task completion progress, daily task distribution, exam readiness projections, and weekly study velocity signals.
-*   🎙️ **Voice-Command Assistant:** Hands-free voice controls. Use "Hey Jarvis" to ask about your study status, log completions, or get voice status checks.
+*   🎙️ **Voice-Command Assistant:** Hands-free voice controls. Use "Hey Prep", "Prep Matrix", or "Hey PrepMatrix" to open pages, scroll, or ask study questions.
 *   🏆 **Interactive Quizzes:** Generates custom topic-level quizzes powered by AI, keeping track of scores and difficulty progressions.
 *   📝 **Interactive Study Notes:** Save chapter summaries, document custom doubts, and keep track of left-over topics per subject.
 *   📚 **Curated Study Materials:** Suggests chapter-wise online reference articles, videos, and lets you bookmark your favorite resource links.
@@ -27,7 +27,7 @@ Live Backend: [https://prepmatrix-ai.onrender.com](https://prepmatrix-ai.onrende
 | **Frontend** | React (Vite), React Router, Lucide Icons, CSS3 | Single-page application utilizing glassmorphism aesthetics, fluid animations, and highly responsive viewports. |
 | **Backend** | Node.js, Express 5 | Serves robust REST APIs, processes push notifications, and manages dynamic auth routes. |
 | **Database** | MongoDB Atlas, MongoDB Node Driver | Schema-less high-performance cloud storage for study schedules, user profiles, notes, and quiz histories. |
-| **AI Inference** | Groq Cloud, Llama 3.3 (70B), Whisper (Turbo) | Performs sub-second AI chat response generation, quiz crafting, and hands-free voice transcription. |
+| **AI Inference** | Groq Cloud, Llama 3.3 (70B), Web Speech API | Performs sub-second AI chat response generation, quiz crafting, and browser-based speech recognition. |
 
 ---
 
@@ -61,3 +61,4 @@ graph TD
 ## 📄 License
 
 This project is licensed under the MIT License. Developed for Divyen R M.
+

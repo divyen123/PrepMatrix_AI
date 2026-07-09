@@ -116,6 +116,22 @@ function SettingsPage({
     return stored === "true";
   });
 
+  const [wakeMode, setWakeMode] = useState(() =>
+    localStorage.getItem("prepmatrix_wake_mode") === "true"
+  );
+
+  const toggleWakeMode = () => {
+    const next = !wakeMode;
+    setWakeMode(next);
+    localStorage.setItem("prepmatrix_wake_mode", next ? "true" : "false");
+    if (next) {
+      window.studyVoiceAssistant?.startWakeListening?.();
+    } else {
+      window.studyVoiceAssistant?.stopWakeListening?.();
+    }
+    toast.success(next ? "Wake mode enabled. Say Hey Prep, Prep Matrix, or Hey PrepMatrix." : "Wake mode disabled.");
+  };
+
   const toggleNotifications = async () => {
     const nextVal = !notificationsEnabled;
     
@@ -1247,9 +1263,22 @@ function SettingsPage({
 
           <ToggleSwitch
             checked={voiceReplies}
-            onChange={() => setVoiceReplies((prev) => !prev)}
+            onChange={() => {
+              const next = !voiceReplies;
+              setVoiceReplies(next);
+              // Immediately sync with the global VoiceAssistant service
+              // so the ref updates and any in-flight speech is cancelled right away
+              window.studyVoiceAssistant?.setSpeaking?.(next);
+            }}
             label="AI Voice Replies"
             subtitle="Enable spoken feedback from the AI study companion"
+          />
+
+          <ToggleSwitch
+            checked={wakeMode}
+            onChange={toggleWakeMode}
+            label="Wake Mode (Hands-Free)"
+            subtitle='Keep wake mode on while the app is open. Say Hey Prep, Prep Matrix, or Hey PrepMatrix followed by a command or question.'
           />
 
           <ToggleSwitch
@@ -1824,3 +1853,4 @@ function SettingsPage({
 }
 
 export default SettingsPage;
+

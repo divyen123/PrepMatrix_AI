@@ -46,7 +46,6 @@ const PORT = Number(process.env.PORT || 8787);
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const LEGACY_OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || process.env.OPENAI_CHAT_MODEL || "llama-3.1-8b-instant";
-const GROQ_TRANSCRIPTION_MODEL = process.env.GROQ_TRANSCRIPTION_MODEL || "whisper-large-v3-turbo";
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_DB = process.env.MONGODB_DB || "prepmatrix";
 const FRONTEND_URL = process.env.FRONTEND_URL || "";
@@ -973,45 +972,11 @@ app.post("/api/quizzes", requireAuth(async (req, res) => {
   res.status(201).json({ attempt: { id: result.insertedId.toString(), ...safeAttempt } });
 }));
 
-app.get("/api/voice-assistant/status", (_req, res) => {
-  const config = getGroqConfigStatus();
-  res.json({ available: config.available, model: GROQ_TRANSCRIPTION_MODEL, message: config.message, keySource: config.keySource });
-});
-
 app.get("/api/study-assistant/status", (_req, res) => {
   const config = getGroqConfigStatus();
   res.json({ available: config.available, model: GROQ_CHAT_MODEL, message: config.message, keySource: config.keySource });
 });
 
-app.post("/api/voice-assistant/transcribe", async (req, res) => {
-  try {
-    const config = getGroqConfigStatus();
-    if (!config.available) return res.status(500).json({ error: config.message });
-    const { audio, mimeType = "audio/webm", language = "en", prompt = "" } = req.body ?? {};
-    if (!audio) return res.status(400).json({ error: "Audio payload is required." });
-    const buffer = Buffer.from(audio, "base64");
-    if (!buffer.length) return res.status(400).json({ error: "Audio payload could not be decoded." });
-    const extension = mimeType.includes("wav") ? "wav" : mimeType.includes("mp4") ? "mp4" : mimeType.includes("mpeg") ? "mp3" : "webm";
-    const file = new File([buffer], `voice-command.${extension}`, { type: mimeType });
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("model", GROQ_TRANSCRIPTION_MODEL);
-    formData.append("language", language);
-    formData.append("response_format", "verbose_json");
-    formData.append("temperature", "0");
-    if (prompt) formData.append("prompt", prompt);
-    const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${config.apiKey}` },
-      body: formData,
-    });
-    const payload = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: payload?.error?.message || "Groq transcription request failed." });
-    return res.json({ text: payload.text || "", duration: payload.duration ?? null, language: payload.language || language, segments: payload.segments || [] });
-  } catch (error) {
-    return res.status(500).json({ error: error instanceof Error ? error.message : "Unexpected transcription error." });
-  }
-});
 // Chat History Endpoints
 app.get("/api/chat-sessions", requireAuth(async (req, res) => {
   const db = await getDb();
@@ -1297,6 +1262,8 @@ app.listen(PORT, async () => {
     console.warn(error instanceof Error ? error.message : "MongoDB connection failed.");
   }
 });
+
+
 
 
 

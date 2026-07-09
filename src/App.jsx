@@ -9,7 +9,6 @@ import {
   BookOpen,
   Calendar,
   TrendingUp,
-  Bot,
   StickyNote,
   Trophy,
   ClipboardList,
@@ -22,6 +21,7 @@ import {
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Notification from "./components/Notification";
 import Chatbot from "./components/Chatbot";
+import VoiceAssistant from "./components/VoiceAssistant";
 import api from "./utils/apiClient";
 import BACKGROUND_PRESETS from "./utils/backgroundPresets";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
@@ -30,7 +30,6 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const FloatingAnalytics = lazy(() => import("./components/FloatingAnalytics"));
-const AssistantPage = lazy(() => import("./pages/AssistantPage"));
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -48,7 +47,6 @@ const NAV_ITEMS = [
   { to: "/subjects", label: "Subjects", helper: "Manage chapters and load", icon: BookOpen },
   { to: "/planner", label: "Planner", helper: "Generate and rebalance work", icon: Calendar },
   { to: "/analytics", label: "Analytics", helper: "Progress, readiness, patterns", icon: TrendingUp },
-  { to: "/assistant", label: "Assistant", helper: "Voice and AI actions", icon: Bot },
   { to: "/notes", label: "Notes", helper: "Doubts and left topics", icon: StickyNote },
   { to: "/quiz", label: "Quiz", helper: "Topic-level checks", icon: Trophy },
   { to: "/report", label: "Report", helper: "Planner intelligence", icon: ClipboardList },
@@ -741,6 +739,14 @@ function App() {
                 />
               </div>
             </Suspense>
+            {/* Global browser VoiceAssistant service */}
+            <VoiceAssistant
+              academicLevel={academicLevel}
+              academicTrack={academicTrack}
+              completed={completed}
+              schedule={schedule}
+              hidden
+            />
             <Link
               to="/about"
               className="about-info-btn"
@@ -972,18 +978,6 @@ function App() {
                       />
                       <Route
                         element={
-                          <AssistantPage
-                            academicLevel={academicLevel}
-                            completed={completed}
-                            onReset={resetPlanner}
-                            schedule={schedule}
-                            setDarkMode={setDarkMode}
-                          />
-                        }
-                        path="/assistant"
-                      />
-                      <Route
-                        element={
                           <NotesPage
                             schedule={schedule}
                             setNotification={setNotification}
@@ -1089,3 +1083,7 @@ function App() {
 }
 
 export default App;
+
+
+
+
