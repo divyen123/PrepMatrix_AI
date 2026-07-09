@@ -1085,7 +1085,7 @@ function App() {
           lastText={voiceAssistant.lastText}
           error={voiceAssistant.error}
           reply={voiceAssistant.overlayReply}
-          onClose={voiceAssistant.stopListening}
+          onClose={voiceAssistant.dismissOverlay}
         />
       )}
 

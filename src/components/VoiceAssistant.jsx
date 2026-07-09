@@ -16,7 +16,6 @@ function VoiceAssistant({
       startRecording: assistant.askWithVoice,
       toggleRecording: assistant.askWithVoice,
       stopRecording: () => {},
-      setSpeaking: assistant.setSpeakingEnabled,
       setWakeMode: assistant.setWakeMode,
       startWakeListening: () => assistant.setWakeMode(true),
       stopWakeListening: () => assistant.setWakeMode(false),
@@ -25,7 +24,7 @@ function VoiceAssistant({
     return () => {
       delete window.studyVoiceAssistant;
     };
-  }, [assistant.askWithVoice, assistant.setSpeakingEnabled, assistant.setWakeMode]);
+  }, [assistant.askWithVoice, assistant.setWakeMode]);
 
   if (hidden) {
     if (assistant.wakeMode) {

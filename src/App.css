@@ -12143,6 +12143,18 @@ body.has-bg-image .worktree-parent-dropdown {
   background: rgba(var(--accent-rgb), 0.35) !important;
 }
 
+.sidebar-chatbot-portal .chat-input .chat-mic-btn.recording {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.96), rgba(185, 28, 28, 0.96)) !important;
+  border-color: rgba(255, 180, 180, 0.72) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.16), 0 10px 24px rgba(185, 28, 28, 0.3) !important;
+  animation: mic-pulse 1.2s ease-in-out infinite !important;
+}
+
+.sidebar-chatbot-portal .chat-input .chat-mic-btn.recording:hover {
+  background: linear-gradient(135deg, rgba(248, 113, 113, 1), rgba(220, 38, 38, 1)) !important;
+}
+
 .sidebar-chatbot-portal .chat-input .chat-icon-btn svg {
   display: block !important;
   flex-shrink: 0 !important;

@@ -107,10 +107,6 @@ function SettingsPage({
     const stored = localStorage.getItem("prepmatrix_sound_enabled");
     return stored === null ? true : stored === "true";
   });
-  const [voiceReplies, setVoiceReplies] = useState(() => {
-    const stored = localStorage.getItem("prepmatrix_voice_replies");
-    return stored === null ? true : stored === "true";
-  });
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
     const stored = localStorage.getItem("prepmatrix_notifications_enabled");
     return stored === "true";
@@ -556,10 +552,6 @@ function SettingsPage({
   useEffect(() => {
     localStorage.setItem("prepmatrix_sound_enabled", String(soundEnabled));
   }, [soundEnabled]);
-
-  useEffect(() => {
-    localStorage.setItem("prepmatrix_voice_replies", String(voiceReplies));
-  }, [voiceReplies]);
 
   useEffect(() => {
     if (!confirmDeleteAccount && !showPasswordStep) {
@@ -1251,7 +1243,7 @@ function SettingsPage({
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
               <Settings2 size={20} className="status-success" /> System Preferences & Toggles
             </h3>
-            <p className="card-subtext">Configure audio feedback and AI companion voice settings.</p>
+            <p className="card-subtext">Configure study sounds, wake mode, and notification preferences.</p>
           </div>
 
           <ToggleSwitch
@@ -1261,18 +1253,6 @@ function SettingsPage({
             subtitle="Play audio chimes when clearing scheduled days or unlocking streaks"
           />
 
-          <ToggleSwitch
-            checked={voiceReplies}
-            onChange={() => {
-              const next = !voiceReplies;
-              setVoiceReplies(next);
-              // Immediately sync with the global VoiceAssistant service
-              // so the ref updates and any in-flight speech is cancelled right away
-              window.studyVoiceAssistant?.setSpeaking?.(next);
-            }}
-            label="AI Voice Replies"
-            subtitle="Enable spoken feedback from the AI study companion"
-          />
 
           <ToggleSwitch
             checked={wakeMode}
