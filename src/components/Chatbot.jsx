@@ -621,7 +621,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                   title={isVoiceRecording ? "Stop recording" : "Start voice recording"}
                   aria-label={isVoiceRecording ? "Stop recording" : "Start voice recording"}
                 >
-                  {isVoiceRecording ? <Square size={14} /> : <Mic size={14} />}
+                  {isVoiceRecording ? <Square size={16} /> : <Mic size={16} />}
                 </button>
                 <button
                   className="chat-icon-btn chat-send-btn"
@@ -630,7 +630,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                   title="Send message"
                   aria-label="Send message"
                 >
-                  <Send size={14} />
+                  <Send size={16} />
                 </button>
               </div>
             </div>

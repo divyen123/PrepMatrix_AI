@@ -8626,28 +8626,15 @@ body.dark .completion-reward-popup {
 }
 
 .sidebar-widgets .chat-input {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
   padding: 14px 16px 16px;
+  gap: 6px;
 }
 
 .sidebar-widgets .chat-input input {
   min-width: 0;
-}
-
-.sidebar-widgets .chat-input button {
-  /* Do NOT override icon button shape — handled by .chat-icon-btn */
-  min-width: unset !important;
-  min-height: unset !important;
-  padding: 0 !important;
-  width: 36px !important;
-  height: 36px !important;
-  border-radius: 50% !important;
-  flex-shrink: 0 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  flex: 1;
 }
 
 @media (max-width: 991.98px) {
@@ -8836,10 +8823,13 @@ body.dark .completion-reward-popup {
   max-width: min(76%, 760px) !important;
 }
 
-.sidebar-widgets .chat-input {
+/* Portal chat-input: flex row with icon-circle buttons */
+.sidebar-chatbot-portal .chat-input {
   grid-template-columns: minmax(0, 1fr) auto auto !important;
-  gap: 6px !important;
+  gap: 8px !important;
   align-items: center !important;
+  display: flex !important;
+  padding: 10px 16px 14px !important;
 }
 
 .app-container.auth-layout {
@@ -12062,26 +12052,58 @@ body.worktree-fullscreen-active {
   50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
 }
 
-/* Override old sidebar chat button sizing — force compact icon circles */
-.sidebar-widgets .chat-input {
+/* Portal chat icon buttons — correct selector (portal is on document.body, not inside .sidebar-widgets) */
+.sidebar-chatbot-portal .chat-input {
   display: flex !important;
-  grid-template-columns: unset !important;
-  gap: 6px !important;
+  flex-direction: row !important;
   align-items: center !important;
-  padding: 10px 14px 14px !important;
+  gap: 8px !important;
+  padding: 10px 16px 14px !important;
 }
 
-.sidebar-widgets .chat-input .chat-icon-btn {
-  min-width: 36px !important;
-  min-height: 36px !important;
-  width: 36px !important;
-  height: 36px !important;
+.sidebar-chatbot-portal .chat-input .chat-input-field {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+.sidebar-chatbot-portal .chat-input .chat-icon-btn {
+  flex-shrink: 0 !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
   border-radius: 50% !important;
   padding: 0 !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
+  border: 1.5px solid rgba(var(--accent-rgb), 0.3) !important;
+  background: rgba(var(--accent-rgb), 0.1) !important;
+  color: var(--text) !important;
+  cursor: pointer !important;
+  transition: background 0.18s, transform 0.12s !important;
+}
+
+.sidebar-chatbot-portal .chat-input .chat-icon-btn:hover {
+  background: rgba(var(--accent-rgb), 0.22) !important;
+  transform: scale(1.07) !important;
+}
+
+.sidebar-chatbot-portal .chat-input .chat-send-btn {
+  background: rgba(var(--accent-rgb), 0.2) !important;
+  color: var(--accent) !important;
+  border-color: rgba(var(--accent-rgb), 0.4) !important;
+}
+
+.sidebar-chatbot-portal .chat-input .chat-send-btn:hover {
+  background: rgba(var(--accent-rgb), 0.35) !important;
+}
+
+.sidebar-chatbot-portal .chat-input .chat-icon-btn svg {
+  display: block !important;
   flex-shrink: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
 }
 
 /* Timetable undo button */
