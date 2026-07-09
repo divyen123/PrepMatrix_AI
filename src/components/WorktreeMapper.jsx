@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { 
   Maximize2, 
@@ -18,13 +18,14 @@ import {
   Download, 
   PlusCircle, 
   Folder,
-  AlertTriangle 
+  AlertTriangle,
+  Search
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import apiClient from "../utils/apiClient";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 
 // Default curated templates
 const MOOD_PRESETS = [
@@ -77,12 +78,15 @@ function WorktreeMapper() {
   // Form states for builder
   const [newNodeLabel, setNewNodeLabel] = useState("");
   const [newNodeParentId, setNewNodeParentId] = useState("");
+  const [parentSearch, setParentSearch] = useState("");
+  const [parentDropdownOpen, setParentDropdownOpen] = useState(false);
 
   // Viewport zoom & pan
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isLocked, setIsLocked] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const isFullscreenRef = useRef(false);
 
   // Interaction states
   const [draggedNodeId, setDraggedNodeId] = useState(null);
@@ -93,8 +97,32 @@ function WorktreeMapper() {
   
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+  const parentDropdownRef = useRef(null);
   const isDraggingCanvas = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
+
+  // Keep isFullscreenRef in sync for use in event callbacks
+  useEffect(() => { isFullscreenRef.current = isFullscreen; }, [isFullscreen]);
+
+  // Toast helper — routes to fullscreen container when in fullscreen mode
+  const showToast = useCallback((type, msg, opts = {}) => {
+    const options = isFullscreenRef.current
+      ? { ...opts, containerId: "worktree-fs-toast" }
+      : opts;
+    toast[type](msg, options);
+  }, []);
+
+  // Close parent dropdown when clicking outside
+  useEffect(() => {
+    if (!parentDropdownOpen) return undefined;
+    const handler = (e) => {
+      if (parentDropdownRef.current && !parentDropdownRef.current.contains(e.target)) {
+        setParentDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [parentDropdownOpen]);
 
   // Load saved history
   const loadHistory = async () => {
@@ -137,8 +165,8 @@ function WorktreeMapper() {
   // Canvas Pan Handlers
   const handleMouseDown = (e) => {
     if (isLocked) return;
-    // Only pan if clicking empty canvas space or path SVG
     if (e.target.classList.contains("worktree-canvas-viewport") || e.target.tagName === "svg" || e.target.tagName === "path") {
+      e.stopPropagation();
       isDraggingCanvas.current = true;
       dragStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
     }
@@ -146,14 +174,15 @@ function WorktreeMapper() {
 
   const handleMouseMove = (e) => {
     if (draggedNodeId && !isLocked) {
+      e.stopPropagation();
       const rect = canvasRef.current.getBoundingClientRect();
-      // Calculate normalized coordinates based on active zoom and client bounds
       const x = Math.round((e.clientX - rect.left) / zoom);
       const y = Math.round((e.clientY - rect.top) / zoom);
       setNodes((prev) =>
         prev.map((node) => (node.id === draggedNodeId ? { ...node, x, y } : node))
       );
     } else if (isDraggingCanvas.current) {
+      e.stopPropagation();
       setPan({
         x: e.clientX - dragStart.current.x,
         y: e.clientY - dragStart.current.y
@@ -171,6 +200,7 @@ function WorktreeMapper() {
     if (isLocked || e.touches.length === 0) return;
     const touch = e.touches[0];
     if (e.target.classList.contains("worktree-canvas-viewport") || e.target.tagName === "svg" || e.target.tagName === "path") {
+      e.stopPropagation();
       isDraggingCanvas.current = true;
       dragStart.current = { x: touch.clientX - pan.x, y: touch.clientY - pan.y };
     }
@@ -182,6 +212,7 @@ function WorktreeMapper() {
 
     if (draggedNodeId && !isLocked) {
       if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
       const rect = canvasRef.current.getBoundingClientRect();
       const x = Math.round((touch.clientX - rect.left) / zoom);
       const y = Math.round((touch.clientY - rect.top) / zoom);
@@ -190,6 +221,7 @@ function WorktreeMapper() {
       );
     } else if (isDraggingCanvas.current) {
       if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
       setPan({
         x: touch.clientX - dragStart.current.x,
         y: touch.clientY - dragStart.current.y
@@ -219,6 +251,7 @@ function WorktreeMapper() {
   const handleWheel = (e) => {
     if (isLocked) return;
     e.preventDefault();
+    e.stopPropagation();
     const factor = e.deltaY < 0 ? 0.05 : -0.05;
     handleZoomChange(factor);
   };
@@ -242,7 +275,7 @@ function WorktreeMapper() {
   const handleAddNode = (e) => {
     e.preventDefault();
     if (!newNodeLabel.trim()) {
-      toast.warning("Please enter a node label");
+      showToast("warning", "Please enter a node label");
       return;
     }
 
@@ -270,7 +303,7 @@ function WorktreeMapper() {
 
     setNodes((prev) => [...prev, newNode]);
     setNewNodeLabel("");
-    toast.success(`Node "${newNode.label}" added!`);
+    showToast("success", `Node "${newNode.label}" added!`);
   };
 
   // Toggle completion & confetti trigger on final leaf node
@@ -337,39 +370,37 @@ function WorktreeMapper() {
       setZoom(1);
       setPan({ x: 0, y: 0 });
     }
-    toast.info("Created new custom plan");
+    showToast("info", "Created new custom plan");
   };
 
   // Save/Update Worktree in database
   const handleSaveWorktree = async () => {
     if (!worktreeName.trim()) {
-      toast.warning("Please specify a name for the Mind Map");
+      showToast("warning", "Please specify a name for the Mind Map");
       return;
     }
 
     try {
       if (activeWorktreeId) {
-        // Update
         await apiClient.put(`/api/worktrees/${activeWorktreeId}`, {
           name: worktreeName.trim(),
           nodes
         });
-        toast.success("Mind Map updated successfully!");
+        showToast("success", "Mind Map updated successfully!");
       } else {
-        // Save as new
         const res = await apiClient.post("/api/worktrees", {
           name: worktreeName.trim(),
           nodes
         });
         if (res?.id) {
           setActiveWorktreeId(res.id);
-          toast.success("Mind Map saved successfully!");
+          showToast("success", "Mind Map saved successfully!");
         }
       }
       loadHistory();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save mind map";
-      toast.error(msg);
+      showToast("error", msg);
       console.error("Save worktree error:", err);
     }
   };
@@ -387,7 +418,7 @@ function WorktreeMapper() {
       setZoom(1);
       setPan({ x: 0, y: 0 });
     }
-    toast.success(`Loaded "${wt.name}"`);
+    showToast("success", `Loaded "${wt.name}"`);
   };
 
   // Delete from history list
@@ -401,13 +432,13 @@ function WorktreeMapper() {
     setDeleteConfirmId(null);
     try {
       await apiClient.delete(`/api/worktrees/${wtId}`);
-      toast.success("Mind Map deleted");
+      showToast("success", "Mind Map deleted");
       if (activeWorktreeId === wtId) {
         setActiveWorktreeId(null);
       }
       loadHistory();
     } catch (err) {
-      toast.error("Failed to delete records");
+      showToast("error", "Failed to delete records");
       console.error(err);
     }
   };
@@ -427,10 +458,9 @@ function WorktreeMapper() {
   const handleExportPDF = async () => {
     const viewportEl = canvasRef.current;
     if (!viewportEl) return;
-    toast.info("Preparing PDF download...");
+    showToast("info", "Preparing PDF download...");
 
     try {
-      // Calculate bounding box of all nodes
       const padding = 80;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       nodes.forEach((n) => {
@@ -442,16 +472,13 @@ function WorktreeMapper() {
       const treeWidth = maxX - minX + 250 + padding * 2;
       const treeHeight = maxY - minY + 80 + padding * 2;
 
-      // Save originals
       const origZoom = zoom;
       const origPan = pan;
       const origStyle = viewportEl.parentElement.style.cssText;
 
-      // Temporarily set viewport to fit all nodes for export
       setZoom(1);
       setPan({ x: -minX + padding, y: -minY + padding });
 
-      // Temporarily expand container for capture
       viewportEl.parentElement.style.width = `${treeWidth}px`;
       viewportEl.parentElement.style.height = `${treeHeight}px`;
       viewportEl.parentElement.style.overflow = "visible";
@@ -460,13 +487,12 @@ function WorktreeMapper() {
 
       const canvas = await html2canvas(viewportEl.parentElement, {
         useCORS: true,
-        backgroundColor: "#0b0f19",
+        backgroundColor: getComputedStyle(viewportEl.parentElement).backgroundColor || "#0b0f19",
         scale: 2,
         width: treeWidth,
         height: treeHeight,
       });
 
-      // Restore originals
       viewportEl.parentElement.style.cssText = origStyle;
       setZoom(origZoom);
       setPan(origPan);
@@ -477,7 +503,6 @@ function WorktreeMapper() {
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
       
-      // Scale image to fit PDF page with aspect ratio
       const ratio = Math.min(pageW / treeWidth, pageH / treeHeight);
       const imgW = treeWidth * ratio;
       const imgH = treeHeight * ratio;
@@ -486,15 +511,30 @@ function WorktreeMapper() {
 
       pdf.addImage(imgData, "PNG", offsetX, offsetY, imgW, imgH);
       pdf.save(`${worktreeName.replace(/\s+/g, "_")}.pdf`);
-      toast.success("PDF exported successfully!");
+      showToast("success", "PDF exported successfully!");
     } catch (err) {
-      toast.error("Failed to export PDF");
+      showToast("error", "Failed to export PDF");
       console.error(err);
     }
   };
 
   const renderContent = () => (
-    <div className={`worktree-container card ${isFullscreen ? "fullscreen-modal-mode" : ""}`}>
+    <div className={`worktree-container card ${isFullscreen ? "fullscreen-modal-mode" : ""}`} onWheel={(e) => { if (isFullscreen) e.stopPropagation(); }}>
+      {/* Scoped toast container for fullscreen mode */}
+      {isFullscreen && (
+        <ToastContainer
+          containerId="worktree-fs-toast"
+          position="top-center"
+          autoClose={2200}
+          closeOnClick
+          draggable={false}
+          limit={3}
+          newestOnTop
+          pauseOnFocusLoss={false}
+          toastClassName="prepmatrix-toast"
+          style={{ zIndex: 99999, position: "absolute", top: "16px", left: "50%", transform: "translateX(-50%)", width: "340px" }}
+        />
+      )}
       {/* Header bar */}
       <div className="worktree-header">
         <div className="worktree-title-block">
@@ -556,18 +596,49 @@ function WorktreeMapper() {
                 placeholder="e.g. Learn React Hooks, Write unit tests..."
               />
             </div>
-            <div className="field-stack">
+            <div className="field-stack" style={{ position: "relative" }} ref={parentDropdownRef}>
               <span>Link From (Parent)</span>
-              <select 
-                value={newNodeParentId} 
-                onChange={(e) => setNewNodeParentId(e.target.value)}
-              >
-                {nodes.map((node) => (
-                  <option key={node.id} value={node.id}>
-                    {node.label}
-                  </option>
-                ))}
-              </select>
+              <div className="worktree-parent-search-wrap">
+                <Search size={13} className="parent-search-icon" />
+                <input
+                  type="text"
+                  className="worktree-parent-search-input"
+                  placeholder="Search parent node..."
+                  value={parentSearch}
+                  onChange={(e) => { setParentSearch(e.target.value); setParentDropdownOpen(true); }}
+                  onFocus={() => setParentDropdownOpen(true)}
+                />
+                {newNodeParentId && (
+                  <span className="parent-selected-label">
+                    {nodes.find(n => n.id === newNodeParentId)?.label || ""}
+                  </span>
+                )}
+              </div>
+              {parentDropdownOpen && (
+                <div className="worktree-parent-dropdown">
+                  {nodes
+                    .filter(n => n.label.toLowerCase().includes(parentSearch.toLowerCase()))
+                    .map(node => (
+                      <div
+                        key={node.id}
+                        className={`parent-dropdown-item${newNodeParentId === node.id ? " selected" : ""}`}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setNewNodeParentId(node.id);
+                          setParentSearch("");
+                          setParentDropdownOpen(false);
+                        }}
+                      >
+                        <span className="parent-item-label">{node.label}</span>
+                        {node.isRoot && <span className="parent-item-badge">root</span>}
+                      </div>
+                    ))
+                  }
+                  {nodes.filter(n => n.label.toLowerCase().includes(parentSearch.toLowerCase())).length === 0 && (
+                    <div className="parent-dropdown-empty">No nodes match</div>
+                  )}
+                </div>
+              )}
             </div>
             
             <div className="builder-btn-group">

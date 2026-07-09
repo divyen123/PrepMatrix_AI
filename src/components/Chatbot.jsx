@@ -16,7 +16,9 @@ import {
   X,
   Check,
   Loader2,
-  Send
+  Send,
+  Mic,
+  Square
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -109,6 +111,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
   
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -418,6 +421,17 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     });
   }, [messages, loading]);
 
+  // Sync mic recording state from VoiceAssistant via custom event
+  useEffect(() => {
+    const handler = (e) => setIsVoiceRecording(e.detail.isRecording);
+    window.addEventListener("voiceRecordingChange", handler);
+    return () => window.removeEventListener("voiceRecordingChange", handler);
+  }, []);
+
+  const handleMicClick = () => {
+    window.studyVoiceAssistant?.toggleRecording?.();
+  };
+
   return (
     <>
       <button
@@ -596,13 +610,27 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                       sendMessage();
                     }
                   }}
-                  placeholder="Ask for study strategy, summaries, or next steps"
+                  placeholder="Ask anything..."
                   value={input}
+                  className="chat-input-field"
                 />
-
-                <button onClick={() => sendMessage()} type="button">
-                  <Send size={16} />
-                  <span>Send</span>
+                <button
+                  className={`chat-icon-btn chat-mic-btn${isVoiceRecording ? " recording" : ""}`}
+                  onClick={handleMicClick}
+                  type="button"
+                  title={isVoiceRecording ? "Stop recording" : "Start voice recording"}
+                  aria-label={isVoiceRecording ? "Stop recording" : "Start voice recording"}
+                >
+                  {isVoiceRecording ? <Square size={14} /> : <Mic size={14} />}
+                </button>
+                <button
+                  className="chat-icon-btn chat-send-btn"
+                  onClick={() => sendMessage()}
+                  type="button"
+                  title="Send message"
+                  aria-label="Send message"
+                >
+                  <Send size={14} />
                 </button>
               </div>
             </div>

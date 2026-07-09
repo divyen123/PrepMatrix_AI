@@ -10655,9 +10655,9 @@ body.popover-open .app-sidebar {
   z-index: 99999 !important;
   border-radius: var(--radius-lg) !important;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
-  background: rgba(13, 20, 35, 0.95) !important;
+  background: var(--surface) !important;
   backdrop-filter: blur(20px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid var(--border) !important;
   padding: 24px !important;
   overflow-y: auto;
   animation: worktreeScaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -10921,7 +10921,7 @@ body.worktree-fullscreen-active .workspace-topbar {
 
 .worktree-canvas-container {
   height: 440px;
-  background: #090e18;
+  background: var(--bg-secondary, var(--bg));
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -10939,7 +10939,7 @@ body.worktree-fullscreen-active .workspace-topbar {
   inset: 0;
   pointer-events: none;
   background-image: 
-    radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    radial-gradient(circle, rgba(var(--accent-rgb), 0.07) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
@@ -10967,9 +10967,9 @@ body.worktree-fullscreen-active .workspace-topbar {
   min-width: 28px !important;
   min-height: 28px !important;
   border-radius: 50% !important;
-  background: rgba(15, 23, 42, 0.85) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: #fff !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -10981,6 +10981,7 @@ body.worktree-fullscreen-active .workspace-topbar {
 .control-btn:hover {
   background: rgba(var(--accent-rgb), 0.9) !important;
   border-color: rgba(var(--accent-rgb), 0.9) !important;
+  color: #fff !important;
 }
 
 .worktree-canvas-viewport {
@@ -11837,6 +11838,229 @@ body.worktree-fullscreen-active .workspace-topbar {
   }
 }
 
+/* ===================================================
+   Subject card text alignment fix
+   =================================================== */
+.subject-row,
+.subject-name,
+.subject-meta-row,
+.chapter-count,
+.difficulty-badge,
+.subject-left {
+  text-align: left !important;
+}
 
+/* ===================================================
+   Worktree — background scroll / zoom isolation
+   (body class is added by WorktreeMapper useEffect)
+   =================================================== */
+body.worktree-fullscreen-active {
+  overflow: hidden !important;
+  touch-action: none !important;
+}
 
+/* ===================================================
+   Worktree — parent node search + dropdown
+   =================================================== */
+.worktree-parent-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 10px;
+  transition: border-color 0.18s;
+}
 
+.worktree-parent-search-wrap:focus-within {
+  border-color: rgba(var(--accent-rgb), 0.6);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.12);
+}
+
+.parent-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.worktree-parent-search-input {
+  flex: 1;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 8px 0 !important;
+  font-size: 0.82rem !important;
+  color: var(--text) !important;
+  min-width: 0;
+}
+
+.parent-selected-label {
+  font-size: 0.75rem;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+  flex-shrink: 0;
+}
+
+.worktree-parent-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  padding: 4px;
+}
+
+/* Visible, styled scrollbar for parent dropdown */
+.worktree-parent-dropdown::-webkit-scrollbar {
+  width: 5px;
+}
+.worktree-parent-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+.worktree-parent-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.45);
+  border-radius: 99px;
+}
+.worktree-parent-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.7);
+}
+
+.parent-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s;
+  gap: 8px;
+}
+
+.parent-dropdown-item:hover {
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.parent-dropdown-item.selected {
+  background: rgba(var(--accent-rgb), 0.15);
+}
+
+.parent-item-label {
+  font-size: 0.82rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.parent-item-badge {
+  font-size: 0.68rem;
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent);
+  padding: 1px 6px;
+  border-radius: 99px;
+  flex-shrink: 0;
+}
+
+.parent-dropdown-empty {
+  padding: 10px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ===================================================
+   Chat input — compact icon-only send + mic buttons
+   =================================================== */
+.chat-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-input-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-icon-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(var(--accent-rgb), 0.08);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, transform 0.12s;
+}
+
+.chat-icon-btn:hover {
+  background: rgba(var(--accent-rgb), 0.18);
+  border-color: rgba(var(--accent-rgb), 0.4);
+  transform: scale(1.07);
+}
+
+.chat-icon-btn:active {
+  transform: scale(0.95);
+}
+
+.chat-send-btn {
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.25);
+}
+
+.chat-send-btn:hover {
+  background: rgba(var(--accent-rgb), 0.28);
+}
+
+.chat-mic-btn.recording {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #ef4444;
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+/* Override old sidebar chat button sizing now that we use icons */
+.sidebar-widgets .chat-input {
+  display: flex !important;
+  grid-template-columns: unset !important;
+  gap: 6px;
+  align-items: center;
+  padding: 10px 14px 14px;
+}
+
+.sidebar-widgets .chat-input button {
+  min-width: unset;
+  min-height: unset;
+}
+
+/* Timetable undo button */
+.undo-btn {
+  background: rgba(var(--accent-rgb), 0.08) !important;
+  border-color: rgba(var(--accent-rgb), 0.25) !important;
+  color: var(--accent) !important;
+}
+.undo-btn:hover {
+  background: rgba(var(--accent-rgb), 0.18) !important;
+}

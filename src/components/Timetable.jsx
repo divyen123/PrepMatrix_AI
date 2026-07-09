@@ -18,6 +18,7 @@ function Timetable({
   const [planMode, setPlanMode] = useState("balanced");
   const [loading, setLoading] = useState(false);
   const [previousSchedule, setPreviousSchedule] = useState(null);
+  const [lastAction, setLastAction] = useState(null); // "rebalance" | "backlog"
   const [showGenerateForm, setShowGenerateForm] = useState(schedule.length === 0);
 
   useEffect(() => {
@@ -144,6 +145,7 @@ function Timetable({
 
   const handleMissedTasks = () => {
     setPreviousSchedule(structuredClone(schedule));
+    setLastAction("backlog");
     const updatedSchedule = structuredClone(schedule);
 
     for (let index = 0; index < updatedSchedule.length - 1; index += 1) {
@@ -177,6 +179,7 @@ function Timetable({
 
   const rebalanceSchedule = () => {
     setPreviousSchedule(structuredClone(schedule));
+    setLastAction("rebalance");
     const updated = structuredClone(schedule);
 
     updated.forEach((day) => {
@@ -198,6 +201,7 @@ function Timetable({
     if (previousSchedule) {
       setSchedule(previousSchedule);
       setPreviousSchedule(null);
+      setLastAction(null);
       toast.success("Changes undone successfully.", {
         toastId: "planner-undone",
       });
@@ -266,13 +270,18 @@ function Timetable({
             <button className="secondary-btn action-btn" onClick={rebalanceSchedule} type="button">
               Rebalance
             </button>
+            {previousSchedule && lastAction === "rebalance" && (
+              <button className="secondary-btn action-btn undo-btn" onClick={handleUndo} type="button" title="Undo rebalance">
+                ↩ Undo
+              </button>
+            )}
             <button className="secondary-btn action-btn" onClick={handleMissedTasks} type="button">
               <span className="desktop-only-text">Recover backlog</span>
               <span className="mobile-only-text">Recover</span>
             </button>
-            {previousSchedule && (
-              <button className="secondary-btn action-btn undo-btn" onClick={handleUndo} type="button">
-                Undo
+            {previousSchedule && lastAction === "backlog" && (
+              <button className="secondary-btn action-btn undo-btn" onClick={handleUndo} type="button" title="Undo backlog recovery">
+                ↩ Undo
               </button>
             )}
             <button className="action-btn new-schedule-btn" onClick={() => setShowGenerateForm(true)} type="button">
