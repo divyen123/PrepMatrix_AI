@@ -11009,6 +11009,19 @@ body.worktree-fullscreen-active .workspace-topbar {
   color: #fff !important;
 }
 
+.reset-view-confirm-btn {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(185, 28, 28, 0.11)) !important;
+  border: 1px solid rgba(248, 113, 113, 0.42) !important;
+  color: #fca5a5 !important;
+  box-shadow: 0 10px 24px rgba(185, 28, 28, 0.14) !important;
+}
+
+.reset-view-confirm-btn:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.28), rgba(185, 28, 28, 0.18)) !important;
+  border-color: rgba(248, 113, 113, 0.62) !important;
+  color: #fee2e2 !important;
+}
+
 .worktree-canvas-viewport {
   transform-origin: 0 0;
   transition: none;

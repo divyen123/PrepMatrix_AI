@@ -97,6 +97,20 @@ function resolveQuickVoiceAnswer(spokenText = "") {
   return "";
 }
 
+function cleanAssistantTextForSpeech(text = "") {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s*[-*•]\s+/gm, "")
+    .replace(/^\s*(\d+)\.\s*/gm, "$1. ")
+    .replace(/[*_#>~]/g, "")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function resolvePageCommand(spokenText = "") {
   const normalized = normalizeVoiceText(spokenText);
 
@@ -346,7 +360,7 @@ export default function useVoiceAssistant({
         setReply(pageCommand.response);
         setOverlayReply(pageCommand.response);
         if (speakReply) {
-          speakWakeReply(pageCommand.response, { closeOverlay: true, resumeWake: true });
+          speakWakeReply(cleanAssistantTextForSpeech(pageCommand.response), { closeOverlay: true, resumeWake: true });
         } else {
           hideOverlay();
           scheduleWakeRestart();
@@ -359,7 +373,7 @@ export default function useVoiceAssistant({
         setReply(pageCommand.response);
         setOverlayReply(pageCommand.response);
         if (speakReply) {
-          speakWakeReply(pageCommand.response, { closeOverlay: true, resumeWake: true });
+          speakWakeReply(cleanAssistantTextForSpeech(pageCommand.response), { closeOverlay: true, resumeWake: true });
         } else {
           hideOverlay();
           scheduleWakeRestart();
@@ -372,7 +386,7 @@ export default function useVoiceAssistant({
       setReply(answer);
       setOverlayReply(answer);
       if (speakReply) {
-        speakWakeReply(answer, { closeOverlay: false, resumeWake: true });
+        speakWakeReply(cleanAssistantTextForSpeech(answer), { closeOverlay: false, resumeWake: true });
       } else {
         setVoiceStatus("idle");
         scheduleWakeRestart();
@@ -383,7 +397,7 @@ export default function useVoiceAssistant({
       setReply(message);
       setOverlayReply(message);
       if (speakReply) {
-        speakWakeReply(message, { closeOverlay: false, resumeWake: true });
+        speakWakeReply(cleanAssistantTextForSpeech(message), { closeOverlay: false, resumeWake: true });
       } else {
         setVoiceStatus("error");
         scheduleWakeRestart(1200);

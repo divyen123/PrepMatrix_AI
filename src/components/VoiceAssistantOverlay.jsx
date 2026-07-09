@@ -2,6 +2,57 @@ import React from "react";
 import { X } from "lucide-react";
 import "./VoiceAssistantOverlay.css";
 
+function renderInlineFormatting(text = "") {
+  const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`)/g).filter(Boolean);
+
+  return parts.map((part, index) => {
+    if ((part.startsWith("**") && part.endsWith("**")) || (part.startsWith("__") && part.endsWith("__"))) {
+      return <strong key={`${part}-${index}`}>{part.slice(2, -2).trim()}</strong>;
+    }
+
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return <code key={`${part}-${index}`}>{part.slice(1, -1)}</code>;
+    }
+
+    return part;
+  });
+}
+
+function formatReplyBlocks(text = "") {
+  return text
+    .replace(/\r\n/g, "\n")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const numbered = line.match(/^(\d+)\.\s*(.*)$/);
+      if (numbered) {
+        return (
+          <div className="voice-reply-line numbered" key={`${line}-${index}`}>
+            <span className="voice-reply-marker">{numbered[1]}.</span>
+            <span>{renderInlineFormatting(numbered[2])}</span>
+          </div>
+        );
+      }
+
+      const bullet = line.match(/^[-*•]\s+(.*)$/);
+      if (bullet) {
+        return (
+          <div className="voice-reply-line bullet" key={`${line}-${index}`}>
+            <span className="voice-reply-marker">•</span>
+            <span>{renderInlineFormatting(bullet[1])}</span>
+          </div>
+        );
+      }
+
+      return (
+        <p className="voice-reply-paragraph" key={`${line}-${index}`}>
+          {renderInlineFormatting(line)}
+        </p>
+      );
+    });
+}
+
 function VoiceAssistantOverlay({
   voiceStatus = "idle",
   lastText = "",
@@ -13,7 +64,8 @@ function VoiceAssistantOverlay({
     return null;
   }
 
-  // Get status text
+  const orbVisualStatus = voiceStatus === "awake" ? "idle" : voiceStatus;
+
   const getStatusText = () => {
     switch (voiceStatus) {
       case "listening":
@@ -45,19 +97,16 @@ function VoiceAssistantOverlay({
         </button>
 
         <div className="voice-assistant-visuals">
-          {/* Animated pulse rings */}
           <div className="voice-pulse-ring ring-one" />
           <div className="voice-pulse-ring ring-two" />
           <div className="voice-pulse-ring ring-three" />
 
-          {/* Centered glowing AI orb */}
-          <div className={`voice-ai-orb ${voiceStatus}`}>
+          <div className={`voice-ai-orb ${orbVisualStatus}`}>
             <div className="orb-inner" />
-            <div className="orb-glow" />
+            <span className="orb-label" aria-hidden="true">Prep</span>
           </div>
         </div>
 
-        {/* Animated Waveform Bars */}
         <div className={`voice-waveform-container ${voiceStatus}`}>
           <div className="voice-wave-bar bar-1" />
           <div className="voice-wave-bar bar-2" />
@@ -77,7 +126,7 @@ function VoiceAssistantOverlay({
 
         {reply && (
           <div className="voice-overlay-reply" aria-live="polite">
-            {reply}
+            {formatReplyBlocks(reply)}
           </div>
         )}
       </div>

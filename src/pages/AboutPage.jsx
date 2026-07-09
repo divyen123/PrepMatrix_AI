@@ -8,7 +8,10 @@ import {
   Trophy,
   StickyNote,
   Library,
-  ClipboardList
+  ClipboardList,
+  Network,
+  Palette,
+  Bell
 } from "lucide-react";
 
 function AboutPage() {
@@ -22,42 +25,62 @@ function AboutPage() {
     {
       icon: Calendar,
       title: "Smart Planner & Scheduler",
-      desc: "Automatically distributes study workloads, balances daily tasks based on difficulty, and offers active recovery strategies for missed milestones."
+      desc: "Distributes study workloads, balances daily tasks by difficulty, and keeps missed work organized with recovery-friendly planning."
     },
     {
       icon: Bot,
       title: "AI Study Assistant",
-      desc: "Interactive study chatbot tailored to your academic level. Clarifies doubts, outlines topics, and retrieves planner metrics directly in conversation."
+      desc: "A focused study chatbot for doubts, summaries, topic outlines, planner-aware advice, and crisp text-based responses."
     },
     {
       icon: TrendingUp,
       title: "Comprehensive Analytics",
-      desc: "Visualizes task completion progress, daily task distribution, exam readiness projections, and weekly study velocity signals."
+      desc: "Shows completion progress, task distribution, exam readiness signals, and weekly study momentum in one place."
     },
     {
       icon: Mic,
-      title: "Voice-Command Assistant",
-      desc: "Provides free browser-based voice controls with Wake Mode. Say 'Hey Prep', 'Prep Matrix', or 'Hey PrepMatrix' to open pages, scroll, or ask study questions."
+      title: "Wake Assistant",
+      desc: "Hands-free Wake Mode listens for Hey Prep, answers inside the overlay with clean text and voice, handles page commands, and resumes wake listening automatically."
+    },
+    {
+      icon: Mic,
+      title: "Separate Chatbox Recording",
+      desc: "The chat mic works independently from Wake Mode, pauses background wake listening while recording, fills your spoken prompt, and uses a clear red recording state."
+    },
+    {
+      icon: Network,
+      title: "Worktree Mind Map",
+      desc: "Build visual study trees with parent linking, opaque matching dropdowns, mood presets, fullscreen controls, centered toast feedback, and polished reset confirmations."
     },
     {
       icon: Trophy,
       title: "Interactive Quizzes",
-      desc: "Generates custom topic-level quizzes powered by AI, keeping track of scores and difficulty progressions."
+      desc: "Generates topic-level quizzes with score tracking and difficulty-aware practice flow."
     },
     {
       icon: StickyNote,
       title: "Interactive Study Notes",
-      desc: "Save chapter summaries, document custom doubts, and keep track of left-over topics per subject."
+      desc: "Save chapter summaries, document doubts, and track left-over topics per subject."
     },
     {
       icon: Library,
       title: "Curated Study Materials",
-      desc: "Suggests chapter-wise online reference articles, videos, and lets you bookmark your favorite resource links."
+      desc: "Organize chapter-wise resource links, articles, videos, and bookmarked references for quick revision."
     },
     {
       icon: ClipboardList,
       title: "PDF Report Generation",
-      desc: "Generates detailed PDF intelligence reports highlighting task completion metrics, subject breakdowns, and productivity trends."
+      desc: "Creates PDF reports with task metrics, subject breakdowns, and productivity trends."
+    },
+    {
+      icon: Palette,
+      title: "Appearance Customization",
+      desc: "Choose matching background themes, tune brightness, adjust layout scale, and keep theme cards aligned in a clean single-row layout where space allows."
+    },
+    {
+      icon: Bell,
+      title: "Silent App Reminders",
+      desc: "Keeps reminder and toast feedback visual-first, with non-wake voice replies removed so only the Wake Assistant speaks."
     }
   ];
 
@@ -94,7 +117,7 @@ function AboutPage() {
         <div style={{ position: "relative", zIndex: 2 }}>
           <h3 style={{ fontSize: "1.4rem", marginBottom: "10px", color: "var(--text)" }}>Empowering Smarter Study Planning</h3>
           <p style={{ color: "var(--text-secondary)", lineHeight: "1.6", maxWidth: "800px", margin: 0 }}>
-            PrepMatrix AI is a comprehensive study management and cognitive learning companion. It integrates state-of-the-art AI assistance, dynamic task rebalancing, hands-free voice operations, and deep study telemetry to help students organize their academic tracks, assess their progress, and unlock their highest potential.
+            PrepMatrix AI is a study management and learning companion with planner-aware AI, reliable hands-free wake assistance, visual worktree mapping, analytics, notes, quizzes, reports, and customizable themes. It is built to keep study planning calm, fast, and focused.
           </p>
         </div>
       </div>
@@ -137,4 +160,3 @@ function AboutPage() {
 }
 
 export default AboutPage;
-

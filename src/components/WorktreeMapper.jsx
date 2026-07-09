@@ -1066,7 +1066,7 @@ function WorktreeMapper() {
               <button className="secondary-btn" onClick={() => setShowResetConfirm(false)} type="button">
                 Cancel
               </button>
-              <button className="action-btn" onClick={() => { handleResetViewport(); setShowResetConfirm(false); }} type="button">
+              <button className="action-btn reset-view-confirm-btn" onClick={() => { handleResetViewport(); setShowResetConfirm(false); }} type="button">
                 Reset
               </button>
             </div>
