@@ -146,6 +146,7 @@ function App() {
   const rewardTimeoutRef = useRef(null);
   const splashTimeoutRef = useRef(null);
   const resetConfirmRef = useRef(null);
+  const profilePreviewTimerRef = useRef(null);
   const [subjects, setSubjects] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [completed, setCompleted] = useState([]);
@@ -167,6 +168,8 @@ function App() {
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
+  const [profilePreviewSide, setProfilePreviewSide] = useState("logo");
 
   const voiceAssistant = useVoiceAssistant({
     academicLevel,
@@ -187,6 +190,41 @@ function App() {
     location.pathname.startsWith("/about") ? "About" :
     location.pathname.includes("register") ? "Register" : "Login"
   );
+  const profileInitial = (userProfile?.username || userProfile?.email || "P").trim().charAt(0).toUpperCase() || "P";
+
+  const closeProfilePreview = () => {
+    if (profilePreviewTimerRef.current) {
+      window.clearTimeout(profilePreviewTimerRef.current);
+      profilePreviewTimerRef.current = null;
+    }
+    setProfilePreviewOpen(false);
+  };
+
+  const openProfilePreview = () => {
+    if (!userProfile) return;
+    if (profilePreviewTimerRef.current) {
+      window.clearTimeout(profilePreviewTimerRef.current);
+    }
+    setProfilePreviewSide("logo");
+    setProfilePreviewOpen(true);
+
+    if (userProfile.profileImage) {
+      profilePreviewTimerRef.current = window.setTimeout(() => {
+        setProfilePreviewSide("photo");
+        profilePreviewTimerRef.current = null;
+      }, 1500);
+    }
+  };
+
+  const toggleProfilePreviewSide = (event) => {
+    event.stopPropagation();
+    if (!userProfile?.profileImage) return;
+    if (profilePreviewTimerRef.current) {
+      window.clearTimeout(profilePreviewTimerRef.current);
+      profilePreviewTimerRef.current = null;
+    }
+    setProfilePreviewSide((side) => (side === "photo" ? "logo" : "photo"));
+  };
 
   const applyWorkspace = (workspace = {}, profile = null) => {
     setSubjects(workspace.subjects || []);
@@ -725,6 +763,10 @@ function App() {
     if (splashTimeoutRef.current) {
       window.clearTimeout(splashTimeoutRef.current);
     }
+
+    if (profilePreviewTimerRef.current) {
+      window.clearTimeout(profilePreviewTimerRef.current);
+    }
   }, []);
 
   return (
@@ -808,13 +850,19 @@ function App() {
 
           <div className="sidebar-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
             <div className="profile-chip-vertical" title={userProfile.institutionName} style={{ flex: 1, minWidth: 0 }}>
-              <div className={`profile-avatar${userProfile.profileImage ? " has-image" : ""}`}>
+              <button
+                aria-label="Open profile picture preview"
+                className={`profile-avatar profile-avatar-button${userProfile.profileImage ? " has-image" : ""}`}
+                onClick={openProfilePreview}
+                title="Open profile picture preview"
+                type="button"
+              >
                 {userProfile.profileImage ? (
                   <img alt="Profile" src={userProfile.profileImage} />
                 ) : (
                   <UserRound size={18} />
                 )}
-              </div>
+              </button>
               <div className="profile-details">
                 <strong>{userProfile.username}</strong>
                 <span>{userProfile.academicLevel}</span>
@@ -1130,6 +1178,40 @@ function App() {
         </main>
       </div>
 
+
+      {profilePreviewOpen && userProfile && (
+        <div
+          aria-label="Profile picture preview"
+          className="profile-preview-backdrop"
+          onClick={closeProfilePreview}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+              closeProfilePreview();
+            }
+          }}
+        >
+          <button
+            aria-label="Flip profile preview"
+            className={`profile-preview-flip ${profilePreviewSide === "photo" ? "show-photo" : "show-logo"}`}
+            onClick={toggleProfilePreviewSide}
+            type="button"
+          >
+            <span className="profile-preview-face profile-preview-logo-face" aria-hidden={profilePreviewSide === "photo"}>
+              <span className="profile-preview-brand-mark">{profileInitial}</span>
+              <span className="profile-preview-brand-name">PrepMatrix</span>
+            </span>
+            <span className="profile-preview-face profile-preview-photo-face" aria-hidden={profilePreviewSide !== "photo"}>
+              {userProfile.profileImage ? (
+                <img alt={`${userProfile.username || "User"} profile`} src={userProfile.profileImage} />
+              ) : (
+                <span className="profile-preview-brand-mark">{profileInitial}</span>
+              )}
+            </span>
+          </button>
+        </div>
+      )}
 
       {voiceAssistant.voiceStatus !== "idle" && (
         <VoiceAssistantOverlay

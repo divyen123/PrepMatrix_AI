@@ -18,7 +18,8 @@ import {
   Loader2,
   Send,
   Mic,
-  Square
+  Square,
+  Copy
 } from "lucide-react";
 
 function formatMessageText(text) {

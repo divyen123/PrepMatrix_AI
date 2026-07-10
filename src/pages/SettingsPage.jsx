@@ -1065,7 +1065,7 @@ function SettingsPage({
                 title={profileImage ? "Remove profile picture" : "Upload profile picture"}
                 type="button"
               >
-                {profileImage ? <Trash2 size={12} /> : <Pencil size={12} />}
+                {profileImage ? <Trash2 size={10} strokeWidth={2.4} /> : <Pencil size={10} strokeWidth={2.4} />}
               </button>
             </div>
           </div>
