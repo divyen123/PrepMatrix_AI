@@ -1,5 +1,20 @@
-﻿import { getPlannerMetrics } from "../utils/plannerMetrics";
+import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
+import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { buildSubjectMaterials } from "../utils/materialRecommendations";
+
+function rankSearchMatch(fields, query) {
+  const cleanQuery = query.trim().toLowerCase();
+  if (!cleanQuery) return 0;
+
+  return fields.reduce((best, field) => {
+    const value = String(field || "").toLowerCase();
+    if (!value.includes(cleanQuery)) return best;
+    if (value === cleanQuery) return Math.max(best, 4);
+    if (value.startsWith(cleanQuery)) return Math.max(best, 3);
+    return Math.max(best, 2);
+  }, 0);
+}
 
 function ResourcesHub({
   academicLevel = "College",
@@ -11,12 +26,29 @@ function ResourcesHub({
   schedule = [],
   subjects = [],
 }) {
+  const [bookmarkSearchQuery, setBookmarkSearchQuery] = useState("");
   const metrics = getPlannerMetrics(schedule, completed);
   const materials = subjects.map((subject) =>
     buildSubjectMaterials(subject, metrics.subjectStats[subject.name], academicLevel, academicTrack)
   );
 
   const savedLinks = new Set(materialBookmarks.map((bookmark) => bookmark.href));
+  const filteredMaterialBookmarks = useMemo(() => {
+    if (!bookmarkSearchQuery.trim()) return materialBookmarks;
+
+    return materialBookmarks
+      .map((bookmark, index) => ({
+        bookmark,
+        index,
+        rank: rankSearchMatch(
+          [bookmark.subject, bookmark.title, bookmark.provider, bookmark.description, bookmark.href],
+          bookmarkSearchQuery
+        ),
+      }))
+      .filter((item) => item.rank > 0)
+      .sort((a, b) => b.rank - a.rank || a.index - b.index)
+      .map((item) => item.bookmark);
+  }, [bookmarkSearchQuery, materialBookmarks]);
 
   if (subjects.length === 0) {
     return (
@@ -57,19 +89,34 @@ function ResourcesHub({
             <span>{materialBookmarks.length} saved</span>
           </div>
 
-          <div className="bookmark-grid">
-            {materialBookmarks.map((bookmark) => (
-              <article className="bookmark-card" key={bookmark.id}>
-                <span>{bookmark.subject}</span>
-                <strong>{bookmark.title}</strong>
-                <p>{bookmark.provider}</p>
-                <div className="bookmark-actions">
-                  <a href={bookmark.href} rel="noreferrer" target="_blank">Open</a>
-                  <button onClick={() => onRemoveBookmark?.(bookmark.id)} type="button">Remove</button>
-                </div>
-              </article>
-            ))}
-          </div>
+          <label className="stored-search-field">
+            <Search size={16} />
+            <input
+              aria-label="Search saved materials"
+              onChange={(event) => setBookmarkSearchQuery(event.target.value)}
+              placeholder="Search by subject, title, provider, or link"
+              type="search"
+              value={bookmarkSearchQuery}
+            />
+          </label>
+
+          {filteredMaterialBookmarks.length === 0 ? (
+            <p className="empty-state">No saved materials match your search.</p>
+          ) : (
+            <div className="bookmark-grid">
+              {filteredMaterialBookmarks.map((bookmark) => (
+                <article className="bookmark-card" key={bookmark.id}>
+                  <span>{bookmark.subject}</span>
+                  <strong>{bookmark.title}</strong>
+                  <p>{bookmark.provider}</p>
+                  <div className="bookmark-actions">
+                    <a href={bookmark.href} rel="noreferrer" target="_blank">Open</a>
+                    <button onClick={() => onRemoveBookmark?.(bookmark.id)} type="button">Remove</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       ) : null}
 
@@ -136,4 +183,3 @@ function ResourcesHub({
 }
 
 export default ResourcesHub;
-

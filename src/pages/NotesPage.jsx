@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import api from "../utils/apiClient";
 
 const NOTES_PER_PAGE = 6;
@@ -18,6 +19,19 @@ function buildRevisionTask(note) {
   return `Revise ${note.topic} doubt${leftTopicText}`;
 }
 
+function rankSearchMatch(fields, query) {
+  const cleanQuery = query.trim().toLowerCase();
+  if (!cleanQuery) return 0;
+
+  return fields.reduce((best, field) => {
+    const value = String(field || "").toLowerCase();
+    if (!value.includes(cleanQuery)) return best;
+    if (value === cleanQuery) return Math.max(best, 4);
+    if (value.startsWith(cleanQuery)) return Math.max(best, 3);
+    return Math.max(best, 2);
+  }, 0);
+}
+
 function NotesPage({ schedule = [], setSchedule, setNotification }) {
   const [notes, setNotes] = useState([]);
   const [topic, setTopic] = useState("");
@@ -26,6 +40,7 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
   const [priority, setPriority] = useState("Medium");
   const [filter, setFilter] = useState("All");
   const [notesPage, setNotesPage] = useState(1);
+  const [notesSearchQuery, setNotesSearchQuery] = useState("");
 
   const saveNotes = (nextNotes) => {
     setNotes(nextNotes);
@@ -156,9 +171,22 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
   }, [setNotification]);
 
   const filteredNotes = useMemo(() => {
-    if (filter === "All") return notes;
-    return notes.filter((note) => note.status === filter);
-  }, [filter, notes]);
+    const statusFiltered = filter === "All" ? notes : notes.filter((note) => note.status === filter);
+    if (!notesSearchQuery.trim()) return statusFiltered;
+
+    return statusFiltered
+      .map((note, index) => ({
+        note,
+        index,
+        rank: rankSearchMatch(
+          [note.topic, note.details, note.priority, note.status, ...(note.leftTopics || [])],
+          notesSearchQuery
+        ),
+      }))
+      .filter((item) => item.rank > 0)
+      .sort((a, b) => b.rank - a.rank || a.index - b.index)
+      .map((item) => item.note);
+  }, [filter, notes, notesSearchQuery]);
 
   const notesTotalPages = Math.max(1, Math.ceil(filteredNotes.length / NOTES_PER_PAGE));
   const notesStart = (notesPage - 1) * NOTES_PER_PAGE;
@@ -166,7 +194,7 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
 
   useEffect(() => {
     setNotesPage(1);
-  }, [filter]);
+  }, [filter, notesSearchQuery]);
 
   useEffect(() => {
     setNotesPage((current) => Math.min(current, notesTotalPages));
@@ -298,9 +326,24 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
           </div>
         </div>
 
+        {notes.length > 0 && (
+          <label className="stored-search-field">
+            <Search size={16} />
+            <input
+              aria-label="Search stored notes"
+              onChange={(event) => setNotesSearchQuery(event.target.value)}
+              placeholder="Search by topic, details, priority, or left topic"
+              type="search"
+              value={notesSearchQuery}
+            />
+          </label>
+        )}
+
         {filteredNotes.length === 0 ? (
           <p className="empty-state">
-            No notes here yet. Add a doubt or left-out topic to start your revision queue.
+            {notes.length === 0
+              ? "No notes here yet. Add a doubt or left-out topic to start your revision queue."
+              : "No stored notes match your search."}
           </p>
         ) : (
           <div className="notes-list-grid">

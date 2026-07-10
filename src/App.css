@@ -2897,6 +2897,43 @@ body.dark select option:hover {
   font-weight: 800;
 }
 
+.stored-search-field {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(20, 31, 49, 0.09);
+  border-radius: 18px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 10px;
+  padding: 0 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  width: min(100%, 520px);
+}
+
+.stored-search-field:focus-within {
+  border-color: rgba(11, 143, 116, 0.45);
+  box-shadow: 0 0 0 4px rgba(11, 143, 116, 0.1);
+  transform: translateY(-1px);
+}
+
+.stored-search-field input {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  flex: 1;
+  font: inherit;
+  font-weight: 700;
+  min-height: 44px;
+  min-width: 0;
+  outline: 0;
+  padding: 0;
+}
+
+.stored-search-field input::placeholder {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
 .bookmark-grid {
   display: grid;
   gap: 14px;

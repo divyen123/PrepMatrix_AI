@@ -2,10 +2,23 @@ import { useEffect, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
-import { Download, Trash2, Check, X } from "lucide-react";
+import { Download, Search, Trash2, Check, X } from "lucide-react";
 import api from "../utils/apiClient";
 
 const QUIZ_HISTORY_PER_PAGE = 6;
+
+function rankSearchMatch(fields, query) {
+  const cleanQuery = query.trim().toLowerCase();
+  if (!cleanQuery) return 0;
+
+  return fields.reduce((best, field) => {
+    const value = String(field || "").toLowerCase();
+    if (!value.includes(cleanQuery)) return best;
+    if (value === cleanQuery) return Math.max(best, 4);
+    if (value.startsWith(cleanQuery)) return Math.max(best, 3);
+    return Math.max(best, 2);
+  }, 0);
+}
 
 function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
   const [topic, setTopic] = useState("");
@@ -20,6 +33,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
   const [quizMeta, setQuizMeta] = useState(null);
   const [historyPage, setHistoryPage] = useState(1);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -53,13 +67,32 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
   const selectedSubject = subjectName || subjects[0]?.name || "General study";
   const cleanTopic = topic.trim();
 
-  const historyTotalPages = Math.max(1, Math.ceil(attempts.length / QUIZ_HISTORY_PER_PAGE));
+  const filteredAttempts = historySearchQuery.trim()
+    ? attempts
+      .map((attempt, index) => ({
+        attempt,
+        index,
+        rank: rankSearchMatch(
+          [attempt.topic, attempt.subjectName, attempt.score, attempt.total],
+          historySearchQuery
+        ),
+      }))
+      .filter((item) => item.rank > 0)
+      .sort((a, b) => b.rank - a.rank || a.index - b.index)
+      .map((item) => item.attempt)
+    : attempts;
+
+  const historyTotalPages = Math.max(1, Math.ceil(filteredAttempts.length / QUIZ_HISTORY_PER_PAGE));
   const historyStart = (historyPage - 1) * QUIZ_HISTORY_PER_PAGE;
-  const paginatedAttempts = attempts.slice(historyStart, historyStart + QUIZ_HISTORY_PER_PAGE);
+  const paginatedAttempts = filteredAttempts.slice(historyStart, historyStart + QUIZ_HISTORY_PER_PAGE);
 
   useEffect(() => {
     setHistoryPage((current) => Math.min(current, historyTotalPages));
   }, [historyTotalPages]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historySearchQuery]);
 
   const downloadQuizPDF = async () => {
     const element = document.getElementById("quiz-export-container");
@@ -500,11 +533,25 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
             </div>
           )}
         </div>
+        {attempts.length > 0 && (
+          <label className="stored-search-field">
+            <Search size={16} />
+            <input
+              aria-label="Search quiz history"
+              onChange={(event) => setHistorySearchQuery(event.target.value)}
+              placeholder="Search by topic, subject, or score"
+              type="search"
+              value={historySearchQuery}
+            />
+          </label>
+        )}
         <div className="quiz-history-grid">
           {attempts.length === 0 ? (
             <p className="card-subtext">No quiz attempts yet. Generate your first topic quiz.</p>
+          ) : filteredAttempts.length === 0 ? (
+            <p className="card-subtext">No quiz attempts match your search.</p>
           ) : (
-            attempts.map((attempt) => (
+            paginatedAttempts.map((attempt) => (
               <article className="quiz-history-item" key={attempt.id}>
                 <strong>{attempt.topic}</strong>
                 <span>{attempt.subjectName}</span>
@@ -527,6 +574,17 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
             ))
           )}
         </div>
+        {filteredAttempts.length > QUIZ_HISTORY_PER_PAGE && (
+          <div className="pagination-bar">
+            <button disabled={historyPage === 1} onClick={() => setHistoryPage((current) => current - 1)} type="button">
+              Previous
+            </button>
+            <span>Page {historyPage} of {historyTotalPages}</span>
+            <button disabled={historyPage === historyTotalPages} onClick={() => setHistoryPage((current) => current + 1)} type="button">
+              Next
+            </button>
+          </div>
+        )}
       </section>
     </section>
   );
