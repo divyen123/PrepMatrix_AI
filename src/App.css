@@ -13422,3 +13422,60 @@ body.dark .auth-submit-btn:active,
   .custom-cursor-dot, .custom-cursor-ring { display: none !important; }
 }
 
+/* Chat History Clear All Inline Confirmation Box */
+.chat-clear-confirm-inline {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 10px;
+  padding: 4px 8px;
+  height: 34px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.chat-clear-confirm-inline .confirm-text {
+  font-size: 0.75rem;
+  color: #f87171;
+  font-weight: 600;
+}
+
+.chat-clear-confirm-inline button {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.chat-clear-confirm-inline .confirm-yes-btn {
+  background: #ef4444 !important;
+  color: #fff !important;
+}
+
+.chat-clear-confirm-inline .confirm-yes-btn:hover {
+  background: #dc2626 !important;
+}
+
+.chat-clear-confirm-inline .confirm-no-btn {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: var(--text-muted) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.chat-clear-confirm-inline .confirm-no-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: var(--text) !important;
+}
+

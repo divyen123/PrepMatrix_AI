@@ -106,6 +106,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   const [loading, setLoading] = useState(false);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [clearingSessions, setClearingSessions] = useState(false);
+  const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
   
   const [sessions, setSessions] = useState([]);
@@ -253,13 +254,13 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
 
   const handleClearAllChats = useCallback(async () => {
     if (sessions.length === 0 || clearingSessions) return;
-    if (!window.confirm("Delete all chat history? This cannot be undone.")) return;
 
     setClearingSessions(true);
     try {
       await api.clearChatSessions();
       setSessions([]);
       handleNewChat();
+      setShowClearHistoryConfirm(false);
     } catch (err) {
       console.error("Failed to clear chat history:", err);
     } finally {
@@ -592,25 +593,51 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
               <div className="sidebar-history-header">
                 <h3>Chat History</h3>
                 <div className="history-header-actions">
-                  <button
-                    className="new-chat-btn"
-                    onClick={handleNewChat}
-                    title="New conversation"
-                    type="button"
-                  >
-                    <Plus size={14} />
-                    <span>New</span>
-                  </button>
-                  <button
-                    className="clear-all-chats-btn"
-                    disabled={sessions.length === 0 || clearingSessions}
-                    onClick={handleClearAllChats}
-                    title="Clear all chats"
-                    type="button"
-                  >
-                    {clearingSessions ? <Loader2 size={14} className="spinner" /> : <Trash2 size={14} />}
-                    <span>Clear all</span>
-                  </button>
+                  {showClearHistoryConfirm ? (
+                    <div className="chat-clear-confirm-inline">
+                      <span className="confirm-text">Clear all?</span>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button
+                          className="confirm-yes-btn"
+                          onClick={handleClearAllChats}
+                          title="Yes, clear all"
+                          type="button"
+                        >
+                          <Check size={12} />
+                        </button>
+                        <button
+                          className="confirm-no-btn"
+                          onClick={() => setShowClearHistoryConfirm(false)}
+                          title="Cancel"
+                          type="button"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        className="new-chat-btn"
+                        onClick={handleNewChat}
+                        title="New conversation"
+                        type="button"
+                      >
+                        <Plus size={14} />
+                        <span>New</span>
+                      </button>
+                      <button
+                        className="clear-all-chats-btn"
+                        disabled={sessions.length === 0 || clearingSessions}
+                        onClick={() => setShowClearHistoryConfirm(true)}
+                        title="Clear all chats"
+                        type="button"
+                      >
+                        {clearingSessions ? <Loader2 size={14} className="spinner" /> : <Trash2 size={14} />}
+                        <span>Clear all</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
