@@ -6,6 +6,7 @@ import {
   TRACK_OPTIONS,
 } from "../utils/userStore";
 import api from "../utils/apiClient";
+import Antigravity from "../components/Antigravity";
 
 const emptyProfile = {
   email: "",
@@ -73,6 +74,30 @@ function AuthPage({ mode = "login", onLogin }) {
 
   return (
     <section className="auth-page">
+      {/* Antigravity particle background */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+        aria-hidden="true"
+      >
+        <Antigravity
+          count={300}
+          magnetRadius={6}
+          ringRadius={7}
+          waveSpeed={0.4}
+          waveAmplitude={1}
+          particleSize={1.5}
+          lerpSpeed={0.05}
+          color={"#FF9FFC"}
+          autoAnimate={true}
+          particleVariance={1}
+        />
+      </div>
+
       <div className="auth-bg-orbs" aria-hidden="true">
         <div className="auth-orb auth-orb-1" />
         <div className="auth-orb auth-orb-2" />

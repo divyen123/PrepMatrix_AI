@@ -12651,3 +12651,17 @@ button.bg-palette-thumbnail-btn:hover {
   box-shadow: none !important;
   filter: none !important;
 }
+
+/* =====================================================
+   Antigravity Particle Layer – Auth Page Stacking
+   ===================================================== */
+.auth-page {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-brand-lockup,
+.auth-card {
+  position: relative;
+  z-index: 2;
+}
