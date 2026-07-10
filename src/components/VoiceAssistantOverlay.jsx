@@ -186,6 +186,15 @@ function VoiceAssistantOverlay({
             </div>
           </div>
 
+          {/* Waveform bars */}
+          <div className={`voice-waveform-container ${voiceStatus}`}>
+            <div className="voice-wave-bar bar-1" />
+            <div className="voice-wave-bar bar-2" />
+            <div className="voice-wave-bar bar-3" />
+            <div className="voice-wave-bar bar-4" />
+            <div className="voice-wave-bar bar-5" />
+          </div>
+
           {/* Status + transcript */}
           <div className="voice-overlay-status-box">
             <span className={`voice-overlay-status-label voice-status--${voiceStatus}`}>
@@ -196,15 +205,6 @@ function VoiceAssistantOverlay({
                 &ldquo;{lastText}&rdquo;
               </p>
             )}
-          </div>
-
-          {/* Waveform bars */}
-          <div className={`voice-waveform-container ${voiceStatus}`}>
-            <div className="voice-wave-bar bar-1" />
-            <div className="voice-wave-bar bar-2" />
-            <div className="voice-wave-bar bar-3" />
-            <div className="voice-wave-bar bar-4" />
-            <div className="voice-wave-bar bar-5" />
           </div>
         </div>
 
