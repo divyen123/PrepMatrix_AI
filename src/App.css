@@ -9686,6 +9686,16 @@ body.dark .sidebar-widgets .chat-toggle-btn:hover {
     transform: translateX(-100%);
     width: 250px;
     z-index: 200;
+    background: var(--bg-secondary) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  body.has-bg-image:not(.no-glass-cards) .chat-history-sidebar,
+  body.has-bg-image.no-glass-cards .chat-history-sidebar {
+    background: rgb(var(--bg-surface-rgb)) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   .chat-history-sidebar.open {
@@ -13283,6 +13293,18 @@ body.has-bg-image .stored-search-field:focus-within {
     display: flex !important;
     align-self: center;
     margin-bottom: 12px;
+  }
+
+  /* Align badge & header text to left on mobile */
+  .resources-bookmark-header,
+  .notes-list-header,
+  .quiz-history-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    text-align: left !important;
+  }
+  .notes-actions {
+    justify-content: flex-start !important;
   }
 
   /* Register page: enable scrolling with hidden scrollbar */
