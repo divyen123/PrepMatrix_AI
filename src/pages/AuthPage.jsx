@@ -73,17 +73,12 @@ function AuthPage({ mode = "login", onLogin }) {
   };
 
   return (
-    <section className="auth-page">
-      {/* Antigravity particle background */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 0,
-          pointerEvents: "none",
-        }}
-        aria-hidden="true"
-      >
+    <section className="auth-page auth-page--isolated">
+      {/* Fixed dark background — always overrides any app theme */}
+      <div className="auth-fixed-bg" aria-hidden="true" />
+
+      {/* Antigravity particle animation */}
+      <div className="auth-particle-layer" aria-hidden="true">
         <Antigravity
           count={300}
           magnetRadius={6}
@@ -98,51 +93,56 @@ function AuthPage({ mode = "login", onLogin }) {
         />
       </div>
 
-      <div className="auth-bg-orbs" aria-hidden="true">
-        <div className="auth-orb auth-orb-1" />
-        <div className="auth-orb auth-orb-2" />
-        <div className="auth-orb auth-orb-3" />
-      </div>
+      {/* Subtle radial glow accents */}
+      <div className="auth-glow auth-glow-top" aria-hidden="true" />
+      <div className="auth-glow auth-glow-bottom" aria-hidden="true" />
 
+      {/* Brand lockup */}
       <div className="auth-brand-lockup" aria-label="PrepMatrix">
         <span className="auth-logo-mark" aria-hidden="true">P</span>
         <h1>PrepMatrix</h1>
       </div>
 
-      <article className="auth-card">
+      {/* Card — expands to 2-col for register */}
+      <article className={`auth-card auth-card--v2${isRegister ? " auth-card--register" : ""}`}>
         <div className="auth-copy">
           <h2>{isRegister ? "Create your study profile" : "Welcome back"}</h2>
           <p>
-            Save your class, institution, and learning path so quizzes, reports,
-            materials, and planner suggestions can adapt to your level.
+            {isRegister
+              ? "Set up your institution, class, and learning path to get personalised quizzes and plans."
+              : "Sign in to continue your personalised study journey."}
           </p>
         </div>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="field-stack">
-            Email address
-            <input
-              autoComplete="email"
-              onChange={(event) => updateField("email", event.target.value)}
-              placeholder="Example: student@example.com"
-              type="email"
-              value={form.email}
-            />
-          </label>
+        <form className="auth-form auth-form--v2" onSubmit={handleSubmit}>
+          {/* ── Login fields (always shown, stacked single-column) ── */}
+          <div className="auth-fields-base">
+            <label className="field-stack">
+              Email address
+              <input
+                autoComplete="email"
+                onChange={(event) => updateField("email", event.target.value)}
+                placeholder="student@example.com"
+                type="email"
+                value={form.email}
+              />
+            </label>
 
-          <label className="field-stack">
-            Password
-            <input
-              onChange={(event) => updateField("password", event.target.value)}
-              placeholder="Enter password"
-              type="password"
-              value={form.password}
-            />
-          </label>
+            <label className="field-stack">
+              Password
+              <input
+                onChange={(event) => updateField("password", event.target.value)}
+                placeholder="Enter password"
+                type="password"
+                value={form.password}
+              />
+            </label>
+          </div>
 
+          {/* ── Register-only fields (2-column grid, animated in) ── */}
           {isRegister && (
-            <>
-              <label className="field-stack">
+            <div className="auth-fields-register">
+              <label className="field-stack auth-field-full">
                 Institution name
                 <input
                   onChange={(event) => updateField("institutionName", event.target.value)}
@@ -151,34 +151,32 @@ function AuthPage({ mode = "login", onLogin }) {
                 />
               </label>
 
-              <div className="auth-grid">
-                <label className="field-stack">
-                  Class / level
-                  <select
-                    onChange={(event) => updateField("academicLevel", event.target.value)}
-                    value={form.academicLevel}
-                  >
-                    {CLASS_OPTIONS.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                </label>
+              <label className="field-stack">
+                Class / level
+                <select
+                  onChange={(event) => updateField("academicLevel", event.target.value)}
+                  value={form.academicLevel}
+                >
+                  {CLASS_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
 
-                <label className="field-stack">
-                  Board / stream
-                  <select
-                    onChange={(event) => updateField("academicTrack", event.target.value)}
-                    value={form.academicTrack}
-                  >
-                    {TRACK_OPTIONS.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+              <label className="field-stack">
+                Board / stream
+                <select
+                  onChange={(event) => updateField("academicTrack", event.target.value)}
+                  value={form.academicTrack}
+                >
+                  {TRACK_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
 
               {form.academicLevel === "College" && (
-                <label className="field-stack">
+                <label className="field-stack auth-field-full">
                   Department
                   <select
                     onChange={(event) => updateField("department", event.target.value)}
@@ -190,12 +188,12 @@ function AuthPage({ mode = "login", onLogin }) {
                   </select>
                 </label>
               )}
-            </>
+            </div>
           )}
 
           {message && <p className="auth-message">{message}</p>}
 
-          <button type="submit">{submitLabel}</button>
+          <button type="submit" className="auth-submit-btn">{submitLabel}</button>
         </form>
 
         <div className="auth-switch">
@@ -211,13 +209,3 @@ function AuthPage({ mode = "login", onLogin }) {
 }
 
 export default AuthPage;
-
-
-
-
-
-
-
-
-
-

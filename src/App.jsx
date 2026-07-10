@@ -691,10 +691,10 @@ function App() {
     document.documentElement.style.setProperty("--glass-opacity", glassOp);
     document.body.style.setProperty("--glass-opacity", glassOp);
 
-    // Background image
+    // Background image — suppressed entirely on auth routes
     const bgImgId = localStorage.getItem("prepmatrix_bg_image_id") || "";
     const bgOvOp = localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55";
-    if (bgImgId) {
+    if (bgImgId && !isAuthRoute) {
       const imgPreset = BACKGROUND_PRESETS.find(p => p.id === bgImgId);
       if (imgPreset) {
         document.body.classList.add("has-bg-image");
@@ -722,7 +722,7 @@ function App() {
       document.documentElement.style.removeProperty("--bg-brightness");
       document.body.style.removeProperty("--bg-brightness");
     }
-  }, [darkMode]);
+  }, [darkMode, isAuthRoute]);
 
   useEffect(() => {
     document.title = `PrepMatrix | ${titleLabel}`;

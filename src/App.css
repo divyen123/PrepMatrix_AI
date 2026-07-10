@@ -12652,16 +12652,320 @@ button.bg-palette-thumbnail-btn:hover {
   filter: none !important;
 }
 
-/* =====================================================
-   Antigravity Particle Layer – Auth Page Stacking
-   ===================================================== */
-.auth-page {
+/* =====================================================================================
+   AUTH PAGE — ISOLATED DARK THEME
+   These rules are intentionally strong (!important where needed) to ensure
+   the login/register page is NEVER affected by user-set backgrounds, themes,
+   or any other app-level CSS variable overrides.
+   ===================================================================================== */
+
+/* ── Fixed opaque background — always wins ── */
+.auth-page--isolated {
   position: relative;
-  z-index: 1;
+  isolation: isolate;
+  min-height: 100dvh;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 3vw, 32px);
+  overflow: hidden;
+  /* Reset any inherited padding from the old .auth-page rule */
+  box-sizing: border-box !important;
 }
 
-.auth-brand-lockup,
-.auth-card {
+/* The true background — deep dark, independent of all body classes */
+.auth-fixed-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background: #09090f;
+  pointer-events: none;
+}
+
+/* Make sure the body bg image pseudo-elements cannot show through on auth routes */
+.auth-page--isolated ~ *,
+.auth-layout .auth-page--isolated {
+  isolation: isolate;
+}
+
+/* Particle canvas layer */
+.auth-particle-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* Soft radial glows that complement the pink particles */
+.auth-glow {
+  position: fixed;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.18;
+  z-index: -1;
+}
+.auth-glow-top {
+  width: 520px;
+  height: 520px;
+  top: -160px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, #bf6fff 0%, transparent 70%);
+}
+.auth-glow-bottom {
+  width: 400px;
+  height: 400px;
+  bottom: -120px;
+  right: 10%;
+  background: radial-gradient(circle, #ff9ffc 0%, transparent 70%);
+}
+
+/* ── Brand lockup ── */
+.auth-page--isolated .auth-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
   position: relative;
   z-index: 2;
+}
+
+.auth-page--isolated .auth-brand-lockup h1 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.auth-page--isolated .auth-logo-mark {
+  background: linear-gradient(135deg, #bf6fff, #ff9ffc);
+  color: #fff;
+  border-radius: 16px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  font-weight: 900;
+  font-family: "Space Grotesk", sans-serif;
+  letter-spacing: -0.06em;
+  box-shadow: 0 8px 24px rgba(191, 111, 255, 0.35);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.auth-page--isolated .auth-logo-mark::after {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  top: 11px;
+  right: 11px;
+}
+
+/* ── Card — base (login, compact) ── */
+.auth-card--v2 {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 420px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 24px;
+  padding: clamp(24px, 4vw, 36px);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  box-shadow:
+    0 0 0 1px rgba(191, 111, 255, 0.08),
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  /* Smooth width/max-width transition for register expansion */
+  transition: max-width 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Card — register mode (wider to accommodate 2-col) ── */
+.auth-card--v2.auth-card--register {
+  max-width: 680px;
+}
+
+/* ── Copy block ── */
+.auth-card--v2 .auth-copy {
+  margin-bottom: 22px;
+  text-align: center;
+}
+
+.auth-card--v2 .auth-copy h2 {
+  font-size: clamp(1.15rem, 2.5vw, 1.45rem);
+  font-weight: 700;
+  color: #f0f0fa;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+}
+
+.auth-card--v2 .auth-copy p {
+  font-size: 0.875rem;
+  color: rgba(200, 200, 220, 0.65);
+  margin: 0;
+  line-height: 1.55;
+}
+
+/* ── Form ── */
+.auth-form--v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Base fields — always stacked single column */
+.auth-fields-base {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+/* Register-only fields — 2-column grid, animated in */
+.auth-fields-register {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+  animation: authFieldsReveal 0.38s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.auth-field-full {
+  grid-column: 1 / -1;
+}
+
+@keyframes authFieldsReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Field-stack labels ── */
+.auth-form--v2 .field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(200, 200, 220, 0.7);
+  letter-spacing: 0.01em;
+}
+
+.auth-form--v2 .field-stack input,
+.auth-form--v2 .field-stack select {
+  background: rgba(255, 255, 255, 0.055) !important;
+  border: 1px solid rgba(255, 255, 255, 0.11) !important;
+  border-radius: 10px !important;
+  color: #f0f0fa !important;
+  font-size: 0.9rem !important;
+  padding: 10px 13px !important;
+  outline: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.auth-form--v2 .field-stack input::placeholder {
+  color: rgba(180, 180, 210, 0.35) !important;
+}
+
+.auth-form--v2 .field-stack input:focus,
+.auth-form--v2 .field-stack select:focus {
+  border-color: rgba(191, 111, 255, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(191, 111, 255, 0.14) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.auth-form--v2 .field-stack select option {
+  background: #1a1a2e;
+  color: #f0f0fa;
+}
+
+/* ── Submit button ── */
+.auth-submit-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 6px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #bf6fff, #ff9ffc);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(191, 111, 255, 0.35);
+  transition: transform 0.18s, box-shadow 0.18s, opacity 0.18s;
+}
+
+.auth-submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(191, 111, 255, 0.45);
+}
+
+.auth-submit-btn:active {
+  transform: translateY(0);
+  opacity: 0.9;
+}
+
+/* ── Error / info message ── */
+.auth-card--v2 .auth-message {
+  font-size: 0.82rem;
+  color: #ff9ffc;
+  background: rgba(255, 159, 252, 0.1);
+  border: 1px solid rgba(255, 159, 252, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0 0 10px 0;
+  text-align: center;
+}
+
+/* ── Switch link ── */
+.auth-card--v2 .auth-switch {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 0.83rem;
+  color: rgba(200, 200, 220, 0.55);
+}
+
+.auth-card--v2 .auth-switch a {
+  color: #c97fff;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.auth-card--v2 .auth-switch a:hover {
+  color: #ff9ffc;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .auth-fields-register {
+    grid-template-columns: 1fr;
+  }
+  .auth-field-full {
+    grid-column: 1;
+  }
+  .auth-card--v2.auth-card--register {
+    max-width: 100%;
+  }
 }
