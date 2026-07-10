@@ -13015,12 +13015,6 @@ button.bg-palette-thumbnail-btn:hover {
     justify-content: flex-start !important;
     align-items: center !important;
     padding-top: clamp(16px, 5vh, 32px) !important;
-    overflow-y: auto !important;
-    -ms-overflow-style: none !important;
-    scrollbar-width: none !important;
-  }
-  .auth-page--isolated::-webkit-scrollbar {
-    display: none !important;
   }
 }
 
@@ -13117,7 +13111,7 @@ body.has-bg-image .stored-search-field:focus-within {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 /* Filter pills — compact */
@@ -13135,8 +13129,22 @@ body.has-bg-image .stored-search-field:focus-within {
   transition: background 0.18s, transform 0.18s;
 }
 
-/* Stored notes search bar styling — visible and aligned to right on desktop */
-.notes-list-card > .stored-search-field {
+/* Circle shape for "All" filter pill */
+.filter-pill.circle {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+/* ── Notes: desktop search sits INSIDE .notes-actions; mobile version sits below ── */
+.notes-desktop-search {
+  display: flex;
+}
+.notes-mobile-search {
+  display: none;
+}
+.notes-list-card > .notes-mobile-search {
   margin-bottom: 14px;
   margin-left: auto;
 }
@@ -13157,10 +13165,16 @@ body.has-bg-image .stored-search-field:focus-within {
   flex-wrap: wrap;
   margin-bottom: 10px;
 }
-/* The standalone search is the NEXT sibling after the header div */
-.quiz-history-card > .stored-search-field {
+/* Desktop: search inline in header; Mobile: search below header */
+.quiz-history-desktop-search {
+  display: flex;
+}
+.quiz-history-mobile-search {
+  display: none;
+}
+.quiz-history-card > .quiz-history-mobile-search {
   margin-bottom: 14px;
-  align-self: flex-end;
+  align-self: center;
 }
 
 /* ── Materials: search sits in the bookmark header, right of the "N saved" text ── */
@@ -13177,10 +13191,60 @@ body.has-bg-image .stored-search-field:focus-within {
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
-/* The standalone search is the next sibling — align it to the right */
-.bookmark-library-card > .stored-search-field {
+/* Desktop: search inline in header next to "N saved"; Mobile: search below header */
+.bookmark-desktop-search {
+  display: flex;
+}
+.bookmark-mobile-search {
+  display: none;
+}
+.bookmark-library-card > .bookmark-mobile-search {
   margin-bottom: 12px;
-  align-self: flex-end;
+  align-self: center;
+}
+
+/* ── Mobile overrides (≤ 991.98px): hide desktop inline searches, show mobile ones ── */
+@media (max-width: 991.98px) {
+  /* Notes */
+  .notes-desktop-search {
+    display: none !important;
+  }
+  .notes-mobile-search {
+    display: flex !important;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 14px;
+  }
+
+  /* Quiz history */
+  .quiz-history-desktop-search {
+    display: none !important;
+  }
+  .quiz-history-mobile-search {
+    display: flex !important;
+    align-self: center;
+    margin-bottom: 14px;
+  }
+
+  /* Saved library */
+  .bookmark-desktop-search {
+    display: none !important;
+  }
+  .bookmark-mobile-search {
+    display: flex !important;
+    align-self: center;
+    margin-bottom: 12px;
+  }
+
+  /* Register page: enable scrolling with hidden scrollbar */
+  .auth-page--isolated {
+    overflow-y: auto !important;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+  .auth-page--isolated::-webkit-scrollbar {
+    display: none !important;
+  }
 }
 
 /* Auth Submit Button Text Color and Glow removal overrides */

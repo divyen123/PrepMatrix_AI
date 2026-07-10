@@ -496,6 +496,16 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
           </div>
           {attempts.length > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <label className="stored-search-field quiz-history-desktop-search">
+                <Search size={16} />
+                <input
+                  aria-label="Search quiz history"
+                  onChange={(event) => setHistorySearchQuery(event.target.value)}
+                  placeholder="Search by topic, subject, or score"
+                  type="search"
+                  value={historySearchQuery}
+                />
+              </label>
               {showClearConfirm ? (
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.15)", borderRadius: "20px", padding: "2px 8px 2px 12px", height: "32px", boxSizing: "border-box" }}>
                   <span style={{ fontSize: "0.78rem", color: "#f87171", fontWeight: 600 }}>Clear all?</span>
@@ -534,7 +544,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
           )}
         </div>
         {attempts.length > 0 && (
-          <label className="stored-search-field">
+          <label className="stored-search-field quiz-history-mobile-search">
             <Search size={16} />
             <input
               aria-label="Search quiz history"

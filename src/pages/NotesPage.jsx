@@ -310,9 +310,21 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
           </div>
 
           <div className="notes-actions">
+            {notes.length > 0 && (
+              <label className="stored-search-field notes-desktop-search">
+                <Search size={16} />
+                <input
+                  aria-label="Search stored notes"
+                  onChange={(event) => setNotesSearchQuery(event.target.value)}
+                  placeholder="Search by topic, details, priority, or left topic"
+                  type="search"
+                  value={notesSearchQuery}
+                />
+              </label>
+            )}
             {["All", "Resolved"].map((item) => (
               <button
-                className={filter === item ? "filter-pill active" : "filter-pill"}
+                className={`filter-pill${filter === item ? " active" : ""}${item === "All" ? " circle" : ""}`}
                 key={item}
                 onClick={() => setFilter(item)}
                 type="button"
@@ -327,7 +339,7 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
         </div>
 
         {notes.length > 0 && (
-          <label className="stored-search-field">
+          <label className="stored-search-field notes-mobile-search">
             <Search size={16} />
             <input
               aria-label="Search stored notes"

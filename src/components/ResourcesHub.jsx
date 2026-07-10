@@ -86,10 +86,22 @@ function ResourcesHub({
               <span className="section-tag">Saved library</span>
               <h3>Material bookmarks</h3>
             </div>
-            <span>{materialBookmarks.length} saved</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <label className="stored-search-field bookmark-desktop-search">
+                <Search size={16} />
+                <input
+                  aria-label="Search saved materials"
+                  onChange={(event) => setBookmarkSearchQuery(event.target.value)}
+                  placeholder="Search by subject, title, provider, or link"
+                  type="search"
+                  value={bookmarkSearchQuery}
+                />
+              </label>
+              <span>{materialBookmarks.length} saved</span>
+            </div>
           </div>
 
-          <label className="stored-search-field">
+          <label className="stored-search-field bookmark-mobile-search">
             <Search size={16} />
             <input
               aria-label="Search saved materials"
