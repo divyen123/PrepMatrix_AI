@@ -12414,8 +12414,8 @@ button.bg-palette-thumbnail-btn:hover {
 
 .profile-avatar-button:hover,
 .profile-avatar-button:focus-visible {
-  transform: translateY(-1px) scale(1.03);
-  border-color: rgba(var(--accent-rgb), 0.85);
+  transform: none;
+  border-color: rgba(20, 31, 49, 0.12);
   outline: none;
 }
 
@@ -12531,13 +12531,11 @@ button.bg-palette-thumbnail-btn:hover {
     border-radius: 24px;
   }
 }
-/* Minimal profile preview: dark blurred backdrop with only the logo/photo visual. */
+/* Minimal profile preview: plain dim backdrop with only the logo/photo visual. */
 .profile-preview-backdrop {
-  background:
-    radial-gradient(circle at 50% 42%, rgba(20, 184, 166, 0.18), transparent 34%),
-    linear-gradient(135deg, rgba(2, 6, 23, 0.82), rgba(8, 13, 28, 0.9) 52%, rgba(3, 7, 18, 0.86)) !important;
-  backdrop-filter: blur(20px) brightness(0.72) !important;
-  -webkit-backdrop-filter: blur(20px) brightness(0.72) !important;
+  background: rgba(3, 7, 18, 0.78) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .profile-preview-flip {
