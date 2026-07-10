@@ -17,12 +17,13 @@ const emptyProfile = {
   department: "Computer Science",
 };
 
-function AuthPage({ mode = "login", onLogin }) {
+function AuthPage({ onLogin }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [form, setForm] = useState(emptyProfile);
   const [message, setMessage] = useState("");
-  const isRegister = mode === "register";
+  // Derive mode from the current URL path — no prop needed
+  const isRegister = location.pathname === "/register";
 
   const submitLabel = useMemo(
     () => (isRegister ? "Create account" : "Login"),

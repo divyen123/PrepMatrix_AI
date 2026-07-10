@@ -1026,154 +1026,161 @@ function App() {
         )}
 
         <main className="workspace-main">
-          <div className="route-stage" key={location.pathname}>
-            {authLoading ? null : (
+          {/* Auth pages rendered OUTSIDE Routes so the component instance is
+              shared between /login and /register — no flash on route change */}
+          {isAuthRoute ? (
+            authLoading ? null : (
               <Suspense fallback={<RouteLoading />}>
-                <Routes>
-                  <Route element={<AuthPage mode="login" onLogin={handleLogin} />} path="/login" />
-                  <Route element={<AuthPage mode="register" onLogin={handleLogin} />} path="/register" />
-
-                  {userProfile ? (
-                    <>
-                      <Route
-                        element={
-                          <DashboardPage
-                            academicLevel={academicLevel}
-                            academicTrack={academicTrack}
-                            completed={completed}
-                            metrics={metrics}
-                            overviewCards={overviewCards}
-                            schedule={schedule}
-                          />
-                        }
-                        path="/dashboard"
-                      />
-                      <Route
-                        element={
-                          <SubjectsPage
-                            academicLevel={academicLevel}
-                            academicTrack={academicTrack}
-                            setAcademicLevel={setAcademicLevel}
-                            setAcademicTrack={setAcademicTrack}
-                            setSubjects={updateSubjects}
-                            subjects={subjects}
-                            userProfile={userProfile}
-                          />
-                        }
-                        path="/subjects"
-                      />
-                      <Route
-                        element={
-                          <PlannerPage
-                            completed={completed}
-                            schedule={schedule}
-                            setCompleted={updateCompletedWithRewards}
-                            setSchedule={setSchedule}
-                            subjects={subjects}
-                            scheduleStartDate={scheduleStartDate}
-                            setScheduleStartDate={setScheduleStartDate}
-                          />
-                        }
-                        path="/planner"
-                      />
-                      <Route
-                        element={
-                          <AnalyticsPage
-                            completed={completed}
-                            schedule={schedule}
-                            subjects={subjects}
-                          />
-                        }
-                        path="/analytics"
-                      />
-                      <Route
-                        element={
-                          <NotesPage
-                            schedule={schedule}
-                            setNotification={setNotification}
-                            setSchedule={setSchedule}
-                          />
-                        }
-                        path="/notes"
-                      />
-                      <Route
-                        element={
-                          <QuizPage
-                            academicLevel={academicLevel}
-                            academicTrack={academicTrack}
-                            subjects={subjects}
-                            userProfile={userProfile}
-                          />
-                        }
-                        path="/quiz"
-                      />
-                      <Route
-                        element={
-                          <ReportPage
-                            completed={completed}
-                            materialBookmarks={materialBookmarks}
-                            schedule={schedule}
-                            subjects={subjects}
-                            userProfile={userProfile}
-                          />
-                        }
-                        path="/report"
-                      />
-                      <Route
-                        element={
-                          <ResourcesPage
-                            academicLevel={academicLevel}
-                            academicTrack={academicTrack}
-                            completed={completed}
-                            materialBookmarks={materialBookmarks}
-                            onRemoveBookmark={removeMaterialBookmark}
-                            onSaveBookmark={saveMaterialBookmark}
-                            schedule={schedule}
-                            subjects={subjects}
-                          />
-                        }
-                        path="/resources"
-                      />
-                      <Route
-                        element={
-                          <SettingsPage
-                            userProfile={userProfile}
-                            setUserProfile={setUserProfile}
-                            setAcademicLevel={setAcademicLevel}
-                            setAcademicTrack={setAcademicTrack}
-                            darkMode={darkMode}
-                            setDarkMode={setDarkMode}
-                            subjects={subjects}
-                            schedule={schedule}
-                            completed={completed}
-                            materialBookmarks={materialBookmarks}
-                            academicLevel={academicLevel}
-                            academicTrack={academicTrack}
-                            setSubjects={updateSubjects}
-                            setSchedule={setSchedule}
-                            setCompleted={setCompleted}
-                            setMaterialBookmarks={setMaterialBookmarks}
-                            setNotification={setNotification}
-                            onAccountDeleted={handleAccountDeleted}
-                          />
-                        }
-                        path="/settings"
-                      />
-                      <Route
-                        element={
-                          <AboutPage />
-                        }
-                        path="/about"
-                      />
-                      <Route element={<Navigate replace to="/dashboard" />} path="*" />
-                    </>
-                  ) : (
-                    <Route element={<Navigate replace to="/login" />} path="*" />
-                  )}
-                </Routes>
+                <AuthPage onLogin={handleLogin} />
               </Suspense>
-            )}
-          </div>
+            )
+          ) : (
+            <div className="route-stage" key={location.pathname}>
+              {authLoading ? null : (
+                <Suspense fallback={<RouteLoading />}>
+                  <Routes>
+                    {userProfile ? (
+                      <>
+                        <Route
+                          element={
+                            <DashboardPage
+                              academicLevel={academicLevel}
+                              academicTrack={academicTrack}
+                              completed={completed}
+                              metrics={metrics}
+                              overviewCards={overviewCards}
+                              schedule={schedule}
+                            />
+                          }
+                          path="/dashboard"
+                        />
+                        <Route
+                          element={
+                            <SubjectsPage
+                              academicLevel={academicLevel}
+                              academicTrack={academicTrack}
+                              setAcademicLevel={setAcademicLevel}
+                              setAcademicTrack={setAcademicTrack}
+                              setSubjects={updateSubjects}
+                              subjects={subjects}
+                              userProfile={userProfile}
+                            />
+                          }
+                          path="/subjects"
+                        />
+                        <Route
+                          element={
+                            <PlannerPage
+                              completed={completed}
+                              schedule={schedule}
+                              setCompleted={updateCompletedWithRewards}
+                              setSchedule={setSchedule}
+                              subjects={subjects}
+                              scheduleStartDate={scheduleStartDate}
+                              setScheduleStartDate={setScheduleStartDate}
+                            />
+                          }
+                          path="/planner"
+                        />
+                        <Route
+                          element={
+                            <AnalyticsPage
+                              completed={completed}
+                              schedule={schedule}
+                              subjects={subjects}
+                            />
+                          }
+                          path="/analytics"
+                        />
+                        <Route
+                          element={
+                            <NotesPage
+                              schedule={schedule}
+                              setNotification={setNotification}
+                              setSchedule={setSchedule}
+                            />
+                          }
+                          path="/notes"
+                        />
+                        <Route
+                          element={
+                            <QuizPage
+                              academicLevel={academicLevel}
+                              academicTrack={academicTrack}
+                              subjects={subjects}
+                              userProfile={userProfile}
+                            />
+                          }
+                          path="/quiz"
+                        />
+                        <Route
+                          element={
+                            <ReportPage
+                              completed={completed}
+                              materialBookmarks={materialBookmarks}
+                              schedule={schedule}
+                              subjects={subjects}
+                              userProfile={userProfile}
+                            />
+                          }
+                          path="/report"
+                        />
+                        <Route
+                          element={
+                            <ResourcesPage
+                              academicLevel={academicLevel}
+                              academicTrack={academicTrack}
+                              completed={completed}
+                              materialBookmarks={materialBookmarks}
+                              onRemoveBookmark={removeMaterialBookmark}
+                              onSaveBookmark={saveMaterialBookmark}
+                              schedule={schedule}
+                              subjects={subjects}
+                            />
+                          }
+                          path="/resources"
+                        />
+                        <Route
+                          element={
+                            <SettingsPage
+                              userProfile={userProfile}
+                              setUserProfile={setUserProfile}
+                              setAcademicLevel={setAcademicLevel}
+                              setAcademicTrack={setAcademicTrack}
+                              darkMode={darkMode}
+                              setDarkMode={setDarkMode}
+                              subjects={subjects}
+                              schedule={schedule}
+                              completed={completed}
+                              materialBookmarks={materialBookmarks}
+                              academicLevel={academicLevel}
+                              academicTrack={academicTrack}
+                              setSubjects={updateSubjects}
+                              setSchedule={setSchedule}
+                              setCompleted={setCompleted}
+                              setMaterialBookmarks={setMaterialBookmarks}
+                              setNotification={setNotification}
+                              onAccountDeleted={handleAccountDeleted}
+                            />
+                          }
+                          path="/settings"
+                        />
+                        <Route
+                          element={
+                            <AboutPage />
+                          }
+                          path="/about"
+                        />
+                        <Route element={<Navigate replace to="/dashboard" />} path="*" />
+                      </>
+                    ) : (
+                      <Route element={<Navigate replace to="/login" />} path="*" />
+                    )}
+                  </Routes>
+                </Suspense>
+              )}
+            </div>
+          )}
         </main>
       </div>
 
