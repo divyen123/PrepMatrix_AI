@@ -170,7 +170,7 @@ function App() {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
-  const [profilePreviewSide, setProfilePreviewSide] = useState("logo");
+  const [profilePreviewSide, setProfilePreviewSide] = useState("photo");
   const [cursorStyle, setCursorStyle] = useState(
     () => localStorage.getItem("prepmatrix_cursor_style") || "app-cursor"
   );
@@ -210,7 +210,7 @@ function App() {
       window.clearTimeout(profilePreviewTimerRef.current);
       profilePreviewTimerRef.current = null;
     }
-    setProfilePreviewSide("logo");
+    setProfilePreviewSide("photo");
     setProfilePreviewOpen(true);
   };
 

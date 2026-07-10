@@ -1574,40 +1574,8 @@ function SettingsPage({
                 </label>
               </div>
 
-              {/* Glass Card Transparency Slider */}
-              <div style={{ marginTop: "14px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text)" }}>Glass Panel Opacity</span>
-                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
-                    {Math.round(glassOpacity * 100)}%
-                  </span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Transparent</span>
-                  <input
-                    type="range"
-                    min="0.10"
-                    max="0.90"
-                    step="0.05"
-                    value={glassOpacity}
-                    disabled={!glassyCards}
-                    onChange={(e) => setGlassOpacity(parseFloat(e.target.value))}
-                    style={{
-                      flex: 1,
-                      accentColor: "rgb(var(--accent-rgb))",
-                      height: "6px",
-                      cursor: glassyCards ? "pointer" : "not-allowed",
-                      opacity: glassyCards ? 1 : 0.4,
-                    }}
-                  />
-                  <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Opaque</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column: Customization Presets & Glassmorphism */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "14px" }}>
+              {/* Glassmorphism Customization Section */}
+              <div style={{ marginTop: "18px", borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
                 <span className="card-subtext" style={{ fontSize: "0.8rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>Glassmorphism Customization</span>
                 <ToggleSwitch
                   checked={glassyCards}
@@ -1615,7 +1583,41 @@ function SettingsPage({
                   label="Glassy Cards & Panels"
                   subtitle="Apply glass blur and transparency to containers"
                 />
+
+                {/* Glass Card Transparency Slider */}
+                <div style={{ marginTop: "14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                    <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text)" }}>Glass Panel Opacity</span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+                      {Math.round(glassOpacity * 100)}%
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Transparent</span>
+                    <input
+                      type="range"
+                      min="0.10"
+                      max="0.90"
+                      step="0.05"
+                      value={glassOpacity}
+                      disabled={!glassyCards}
+                      onChange={(e) => setGlassOpacity(parseFloat(e.target.value))}
+                      style={{
+                        flex: 1,
+                        accentColor: "rgb(var(--accent-rgb))",
+                        height: "6px",
+                        cursor: glassyCards ? "pointer" : "not-allowed",
+                        opacity: glassyCards ? 1 : 0.4,
+                      }}
+                    />
+                    <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Opaque</span>
+                  </div>
+                </div>
               </div>
+            </div>
+
+            {/* Right Column: Customization Presets & Mouse Settings */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
 
               {/* Cursor Style Selector — hidden on mobile via CSS */}
               <div className="settings-cursor-selector" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "14px" }}>

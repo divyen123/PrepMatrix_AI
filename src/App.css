@@ -13584,39 +13584,39 @@ html[data-cursor-mode="neon-cursor"] body {
 
 /* Neon Cursor Mode Styles */
 .custom-cursor-dot.cursor-neon-dot {
-  width: 8px;
-  height: 8px;
-  margin-left: -4px;
-  margin-top: -4px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  margin-top: -2.5px;
   background: #00f3ff;
-  box-shadow: 0 0 8px #00f3ff, 0 0 16px rgba(0, 243, 255, 0.8);
+  box-shadow: 0 0 6px #00f3ff, 0 0 12px rgba(0, 243, 255, 0.8);
   animation: neonColorCycleDot 3s infinite alternate ease-in-out;
 }
 
 .custom-cursor-ring.cursor-neon-ring {
-  width: 26px;
-  height: 26px;
-  margin-left: -13px;
-  margin-top: -13px;
-  border: 2px solid #ff007f;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  margin-top: -9px;
+  border: 1.5px solid #ff007f;
   background: rgba(255, 0, 127, 0.03);
-  box-shadow: 0 0 10px rgba(255, 0, 127, 0.4), inset 0 0 6px rgba(255, 0, 127, 0.2);
+  box-shadow: 0 0 8px rgba(255, 0, 127, 0.4), inset 0 0 4px rgba(255, 0, 127, 0.2);
   animation: neonColorCycleRing 3s infinite alternate ease-in-out;
 }
 
 /* Hover State for Neon Cursor */
 .custom-cursor-dot.cursor-neon-dot.cursor-dot--hover {
-  width: 12px;
-  height: 12px;
-  margin-left: -6px;
-  margin-top: -6px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  margin-top: -4px;
 }
 
 .custom-cursor-ring.cursor-neon-ring.cursor-ring--hover {
-  width: 40px;
-  height: 40px;
-  margin-left: -20px;
-  margin-top: -20px;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  margin-top: -14px;
 }
 
 @keyframes neonColorCycleDot {

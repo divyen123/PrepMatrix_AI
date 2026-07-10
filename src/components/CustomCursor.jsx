@@ -43,6 +43,7 @@ export default function CustomCursor({ mode = "app-cursor" }) {
     const onMouseMove = (e) => {
       mouseX = e.clientX;
       mouseY = e.clientY;
+      dot.style.transform = `translate(${mouseX}px, ${mouseY}px)`;
     };
 
     /* ── Detect interactive elements ── */
@@ -80,8 +81,6 @@ export default function CustomCursor({ mode = "app-cursor" }) {
 
     /* ── Animation loop ── */
     const animate = () => {
-      dot.style.transform  = `translate(${mouseX}px, ${mouseY}px)`;
-
       ringX += (mouseX - ringX) * LERP;
       ringY += (mouseY - ringY) * LERP;
       ring.style.transform = `translate(${ringX}px, ${ringY}px)`;
