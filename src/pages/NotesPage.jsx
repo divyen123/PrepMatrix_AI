@@ -328,19 +328,21 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
                 />
               </label>
             )}
-            {["All", "Resolved"].map((item) => (
-              <button
-                className={`filter-pill${filter === item ? " active" : ""}${item === "All" ? " circle" : ""}`}
-                key={item}
-                onClick={() => setFilter(item)}
-                type="button"
-              >
-                {item}
-              </button>
-            ))}
-            <button className="filter-pill danger" onClick={clearResolved} type="button">
-              Clear resolved
-            </button>
+            <select
+              className="notes-filter-select"
+              value={filter}
+              onChange={(e) => {
+                if (e.target.value === "clear") {
+                  clearResolved();
+                } else {
+                  setFilter(e.target.value);
+                }
+              }}
+            >
+              <option value="All">All Notes</option>
+              <option value="Resolved">Resolved</option>
+              <option value="clear">Clear Resolved</option>
+            </select>
           </div>
         </div>
 
@@ -356,6 +358,7 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
             />
           </label>
         )}
+
 
         {isNotesLoading ? (
           <p className="empty-state">Loading stored notes...</p>
