@@ -8,10 +8,12 @@
   inset: 0;
   width: 100vw;
   height: 100vh;
+  min-height: 100dvh;
   z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
@@ -19,6 +21,8 @@
   background: rgba(5, 5, 16, 0.88);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .voice-overlay-backdrop.active {
@@ -77,8 +81,21 @@
   justify-content: center;
   gap: 32px;
   width: min(680px, 92vw);
+  max-height: calc(100dvh - max(32px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
   padding: 0 24px 24px;
   box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.voice-overlay-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.voice-overlay-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
 }
 
 /* ── Top section (orb + status + waveform) ── */
@@ -225,6 +242,8 @@
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  width: 100%;
 }
 
 .voice-overlay-status-label {
@@ -249,7 +268,7 @@
   font-size: 0.975rem;
   font-weight: 500;
   color: rgba(240, 240, 255, 0.65);
-  max-width: 480px;
+  max-width: min(480px, 100%);
   line-height: 1.55;
   margin: 0;
   padding: 8px 18px;
@@ -257,6 +276,7 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
   text-align: center;
+  overflow-wrap: anywhere;
   animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -410,6 +430,7 @@
   line-height: 1.65;
   color: rgba(235, 237, 255, 0.88);
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .voice-reply-body::-webkit-scrollbar {
@@ -464,32 +485,89 @@
    RESPONSIVE
    ========================================================================== */
 @media (max-width: 500px) {
+  .voice-overlay-backdrop {
+    align-items: flex-start;
+    justify-content: center;
+    padding: calc(env(safe-area-inset-top) + 14px) 12px calc(env(safe-area-inset-bottom) + 14px);
+  }
+
+  .voice-overlay-top {
+    gap: 14px;
+    width: 100%;
+  }
+
   .voice-assistant-visuals {
-    width: 150px;
-    height: 150px;
+    width: min(132px, 42vw);
+    height: min(132px, 42vw);
   }
+
+  .voice-pulse-ring.ring-one  { width: 72px; height: 72px; }
+  .voice-pulse-ring.ring-two  { width: 100px; height: 100px; }
+  .voice-pulse-ring.ring-three{ width: 128px; height: 128px; }
+
   .voice-ai-orb {
-    width: 82px;
-    height: 82px;
+    width: 74px;
+    height: 74px;
   }
+
   .orb-label {
-    font-size: 1.3rem;
+    font-size: 1.1rem;
+    letter-spacing: 0;
   }
+
   .voice-overlay-status-label {
     font-size: 1.15rem;
+    text-align: center;
   }
+
   .voice-overlay-content {
-    padding: 0 16px 16px;
-    gap: 22px;
+    width: 100%;
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 28px);
+    padding: 50px 4px 0;
+    gap: 16px;
+    justify-content: flex-start;
   }
+
+  .voice-overlay-transcript {
+    width: 100%;
+    border-radius: 14px;
+    padding: 8px 12px;
+    font-size: 0.88rem;
+    box-sizing: border-box;
+  }
+
+  .voice-waveform-container {
+    height: 28px;
+  }
+
+  .voice-overlay-reply {
+    max-width: 100%;
+    border-radius: 16px;
+  }
+
+  .voice-reply-header {
+    padding: 12px 14px 0;
+  }
+
   .voice-reply-body {
-    font-size: 0.92rem;
-    max-height: 30vh;
+    padding: 10px 14px 14px;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    max-height: min(46dvh, 360px);
   }
+
+  .voice-reply-line {
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 6px;
+  }
+
   .voice-overlay-close-btn {
-    top: 18px;
-    right: 18px;
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 14px);
+    right: 14px;
     width: 40px;
     height: 40px;
   }
 }
+
+
