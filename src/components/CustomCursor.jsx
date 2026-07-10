@@ -22,7 +22,7 @@ export default function CustomCursor() {
     let rafId  = null;
     let isHovering = false;
 
-    const LERP = 0.13; // ring lag — lower = more lag
+    const LERP = 0.20; // ring lag — lower = more lag
 
     /* ── Track real mouse position ── */
     const onMouseMove = (e) => {
