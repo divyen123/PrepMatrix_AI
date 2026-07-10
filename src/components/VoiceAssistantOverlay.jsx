@@ -1,5 +1,6 @@
 import React from "react";
 import { X } from "lucide-react";
+import Strands from "./Strands";
 import "./VoiceAssistantOverlay.css";
 
 function renderInlineFormatting(text = "") {
@@ -53,6 +54,50 @@ function formatReplyBlocks(text = "") {
     });
 }
 
+/* Strand color palettes per voice state */
+const STATE_STRAND_PROPS = {
+  listening: {
+    colors: ["#06B6D4", "#3B82F6", "#8B5CF6"],
+    speed: 0.55,
+    amplitude: 1.2,
+    glow: 2.8,
+    intensity: 0.7,
+    thickness: 0.8,
+  },
+  awake: {
+    colors: ["#A855F7", "#EC4899", "#F97316"],
+    speed: 0.35,
+    amplitude: 0.7,
+    glow: 2.4,
+    intensity: 0.55,
+    thickness: 0.65,
+  },
+  processing: {
+    colors: ["#EC4899", "#8B5CF6", "#06B6D4"],
+    speed: 0.9,
+    amplitude: 0.9,
+    glow: 3.0,
+    intensity: 0.75,
+    thickness: 0.75,
+  },
+  speaking: {
+    colors: ["#10B981", "#06B6D4", "#3B82F6"],
+    speed: 0.7,
+    amplitude: 1.0,
+    glow: 2.6,
+    intensity: 0.65,
+    thickness: 0.72,
+  },
+  error: {
+    colors: ["#EF4444", "#F97316", "#FB7185"],
+    speed: 0.4,
+    amplitude: 0.5,
+    glow: 2.2,
+    intensity: 0.5,
+    thickness: 0.6,
+  },
+};
+
 function VoiceAssistantOverlay({
   voiceStatus = "idle",
   lastText = "",
@@ -83,9 +128,39 @@ function VoiceAssistantOverlay({
     }
   };
 
+  const strandProps = STATE_STRAND_PROPS[voiceStatus] || STATE_STRAND_PROPS.awake;
+  const hasReply = Boolean(reply);
+
   return (
-    <div className={`voice-overlay-backdrop active ${voiceStatus}`} onClick={onClose}>
-      <div className="voice-overlay-content">
+    <div
+      className={`voice-overlay-backdrop active ${voiceStatus}`}
+      onClick={onClose}
+    >
+      {/* Strands background animation — full backdrop */}
+      <div className="voice-strands-bg" aria-hidden="true">
+        <Strands
+          colors={strandProps.colors}
+          count={3}
+          speed={strandProps.speed}
+          amplitude={strandProps.amplitude}
+          waviness={1}
+          thickness={strandProps.thickness}
+          glow={strandProps.glow}
+          taper={3}
+          spread={1.2}
+          hueShift={0}
+          intensity={strandProps.intensity}
+          saturation={1.4}
+          opacity={0.85}
+          scale={1.6}
+          glass={false}
+        />
+      </div>
+
+      <div
+        className="voice-overlay-content"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           className="voice-overlay-close-btn"
           onClick={onClose}
@@ -93,40 +168,53 @@ function VoiceAssistantOverlay({
           title="Close"
           type="button"
         >
-          <X size={24} />
+          <X size={20} />
         </button>
 
-        <div className="voice-assistant-visuals">
-          <div className="voice-pulse-ring ring-one" />
-          <div className="voice-pulse-ring ring-two" />
-          <div className="voice-pulse-ring ring-three" />
+        {/* Top section: orb + status */}
+        <div className="voice-overlay-top">
+          {/* Orb */}
+          <div className="voice-assistant-visuals">
+            <div className="voice-pulse-ring ring-one" />
+            <div className="voice-pulse-ring ring-two" />
+            <div className="voice-pulse-ring ring-three" />
+            <div className={`voice-ai-orb ${orbVisualStatus}`}>
+              <div className="orb-inner" />
+              <span className="orb-label" aria-hidden="true">Prep</span>
+            </div>
+          </div>
 
-          <div className={`voice-ai-orb ${orbVisualStatus}`}>
-            <div className="orb-inner" />
-            <span className="orb-label" aria-hidden="true">Prep</span>
+          {/* Status + transcript */}
+          <div className="voice-overlay-status-box">
+            <span className={`voice-overlay-status-label voice-status--${voiceStatus}`}>
+              {getStatusText()}
+            </span>
+            {lastText && (
+              <p className="voice-overlay-transcript">
+                &ldquo;{lastText}&rdquo;
+              </p>
+            )}
+          </div>
+
+          {/* Waveform bars */}
+          <div className={`voice-waveform-container ${voiceStatus}`}>
+            <div className="voice-wave-bar bar-1" />
+            <div className="voice-wave-bar bar-2" />
+            <div className="voice-wave-bar bar-3" />
+            <div className="voice-wave-bar bar-4" />
+            <div className="voice-wave-bar bar-5" />
           </div>
         </div>
 
-        <div className={`voice-waveform-container ${voiceStatus}`}>
-          <div className="voice-wave-bar bar-1" />
-          <div className="voice-wave-bar bar-2" />
-          <div className="voice-wave-bar bar-3" />
-          <div className="voice-wave-bar bar-4" />
-          <div className="voice-wave-bar bar-5" />
-        </div>
-
-        <div className="voice-overlay-status-box">
-          <span className="voice-overlay-status-label">{getStatusText()}</span>
-          {lastText && (
-            <p className="voice-overlay-transcript">
-              &ldquo;{lastText}&rdquo;
-            </p>
-          )}
-        </div>
-
-        {reply && (
+        {/* Reply panel — slides up when answer arrives */}
+        {hasReply && (
           <div className="voice-overlay-reply" aria-live="polite">
-            {formatReplyBlocks(reply)}
+            <div className="voice-reply-header">
+              <span className="voice-reply-badge">PrepMatrix AI</span>
+            </div>
+            <div className="voice-reply-body">
+              {formatReplyBlocks(reply)}
+            </div>
           </div>
         )}
       </div>
