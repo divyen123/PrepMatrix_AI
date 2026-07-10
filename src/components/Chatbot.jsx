@@ -105,6 +105,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [clearingSessions, setClearingSessions] = useState(false);
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
   
   const [sessions, setSessions] = useState([]);
@@ -250,6 +251,22 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     }
   }, [activeSessionId, handleNewChat]);
 
+  const handleClearAllChats = useCallback(async () => {
+    if (sessions.length === 0 || clearingSessions) return;
+    if (!window.confirm("Delete all chat history? This cannot be undone.")) return;
+
+    setClearingSessions(true);
+    try {
+      await api.clearChatSessions();
+      setSessions([]);
+      handleNewChat();
+    } catch (err) {
+      console.error("Failed to clear chat history:", err);
+    } finally {
+      setClearingSessions(false);
+    }
+  }, [clearingSessions, handleNewChat, sessions.length]);
+
   // Edit titles
   const handleStartRename = useCallback((e, session) => {
     e.stopPropagation();
@@ -314,24 +331,11 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       setLoading(true);
 
       try {
-        const response = await fetch(`${API_BASE}/api/study-assistant/chat`, {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: finalMessage,
-            sessionId: activeSessionId,
-            plannerContext,
-          }),
+        const payload = await api.post("/api/study-assistant/chat", {
+          message: finalMessage,
+          sessionId: activeSessionId,
+          plannerContext,
         });
-
-        const payload = await response.json();
-
-        if (!response.ok) {
-          throw new Error(payload?.error || "Unable to reach the AI assistant.");
-        }
 
         const reply = payload.reply?.trim() || "I couldn't generate a response for that request.";
 
@@ -587,15 +591,27 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
             <aside className={`chat-history-sidebar ${historyOpen ? "open" : "collapsed"}`}>
               <div className="sidebar-history-header">
                 <h3>Chat History</h3>
-                <button
-                  className="new-chat-btn"
-                  onClick={handleNewChat}
-                  title="New conversation"
-                  type="button"
-                >
-                  <Plus size={16} />
-                  <span>New Chat</span>
-                </button>
+                <div className="history-header-actions">
+                  <button
+                    className="new-chat-btn"
+                    onClick={handleNewChat}
+                    title="New conversation"
+                    type="button"
+                  >
+                    <Plus size={14} />
+                    <span>New</span>
+                  </button>
+                  <button
+                    className="clear-all-chats-btn"
+                    disabled={sessions.length === 0 || clearingSessions}
+                    onClick={handleClearAllChats}
+                    title="Clear all chats"
+                    type="button"
+                  >
+                    {clearingSessions ? <Loader2 size={14} className="spinner" /> : <Trash2 size={14} />}
+                    <span>Clear all</span>
+                  </button>
+                </div>
               </div>
 
               <div className="history-sessions-list">
@@ -766,3 +782,5 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
 }
 
 export default Chatbot;
+
+

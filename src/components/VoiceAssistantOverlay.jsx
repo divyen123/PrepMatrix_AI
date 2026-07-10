@@ -121,6 +121,8 @@ function VoiceAssistantOverlay({
         return "Thinking...";
       case "speaking":
         return "Speaking...";
+      case "answered":
+        return "Answer ready";
       case "error":
         return error || "Speech assistant error";
       default:
@@ -223,3 +225,4 @@ function VoiceAssistantOverlay({
 }
 
 export default VoiceAssistantOverlay;
+

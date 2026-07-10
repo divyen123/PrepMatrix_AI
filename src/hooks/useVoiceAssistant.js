@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
-import { API_BASE } from "../utils/apiClient";
+import api from "../utils/apiClient";
 
 const WAKE_MODE_KEY = "prepmatrix_wake_mode";
 const UNSUPPORTED_MESSAGE = "Voice recognition is not supported in this browser. Please try Chrome or Edge.";
@@ -337,18 +337,7 @@ export default function useVoiceAssistant({
   }, []);
 
   const sendQuestionToAssistant = useCallback(async (question) => {
-    const response = await fetch(`${API_BASE}/api/study-assistant/chat`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: question, plannerContext }),
-    });
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      throw new Error(payload?.error || "Unable to reach the AI assistant.");
-    }
-
+    const payload = await api.post("/api/study-assistant/chat", { message: question, plannerContext });
     return payload.reply?.trim() || "I could not generate an answer for that question.";
   }, [plannerContext]);
 
@@ -400,7 +389,7 @@ export default function useVoiceAssistant({
       if (speakReply) {
         speakWakeReply(cleanAssistantTextForSpeech(answer), { closeOverlay: false, resumeWake: true });
       } else {
-        setVoiceStatus("idle");
+        setVoiceStatus("answered");
         scheduleWakeRestart();
       }
     } catch (err) {
@@ -731,7 +720,7 @@ export default function useVoiceAssistant({
     }
   }, [clearWakeRestartTimer, pauseWakeRecognition, stopCommandRecognition]);
 
-  const isAwake = voiceStatus === "awake" || voiceStatus === "listening" || voiceStatus === "processing" || voiceStatus === "speaking";
+  const isAwake = voiceStatus === "awake" || voiceStatus === "listening" || voiceStatus === "processing" || voiceStatus === "speaking" || voiceStatus === "answered";
 
   return {
     askWithVoice,
@@ -752,3 +741,4 @@ export default function useVoiceAssistant({
     stopListening,
   };
 }
+

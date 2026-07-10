@@ -85,6 +85,7 @@ const api = {
   getChatSession: (id) => request(`/api/chat-sessions/${id}`),
   createChatSession: (body) => request("/api/chat-sessions", { method: "POST", body: JSON.stringify(body) }),
   deleteChatSession: (id) => request(`/api/chat-sessions/${id}`, { method: "DELETE" }),
+  clearChatSessions: () => request("/api/chat-sessions", { method: "DELETE" }),
   renameChatSession: (id, title) => request(`/api/chat-sessions/${id}`, { method: "PUT", body: JSON.stringify({ title }) }),
   get: (path) => request(path),
   post: (path, body) => request(path, { method: "POST", body: JSON.stringify(body) }),
@@ -93,3 +94,4 @@ const api = {
 };
 
 export default api;
+

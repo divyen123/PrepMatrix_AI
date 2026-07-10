@@ -1099,6 +1099,11 @@ app.put("/api/chat-sessions/:id", requireAuth(async (req, res) => {
   }
 }));
 
+app.delete("/api/chat-sessions", requireAuth(async (req, res) => {
+  const db = await getDb();
+  const result = await db.collection("chatSessions").deleteMany({ userId: req.user._id });
+  res.json({ ok: true, deletedCount: result.deletedCount });
+}));
 app.delete("/api/chat-sessions/:id", requireAuth(async (req, res) => {
   try {
     const db = await getDb();
@@ -1317,6 +1322,7 @@ app.listen(PORT, async () => {
     console.warn(error instanceof Error ? error.message : "MongoDB connection failed.");
   }
 });
+
 
 
 
