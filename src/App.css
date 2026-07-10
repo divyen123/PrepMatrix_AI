@@ -12811,37 +12811,37 @@ button.bg-palette-thumbnail-btn:hover {
   display: block !important;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Card Ã¢â‚¬â€ base: compact, dark glass Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ── Card — base: compact, dark glass ── */
 .auth-card--v2 {
   position: relative !important;
   z-index: 2 !important;
   width: 100% !important;
   max-width: 420px !important;
-  /* True dark glass Ã¢â‚¬â€ the backdrop blurs the dark bg, not a white one */
-  background: rgba(18, 14, 32, 0.72) !important;
-  border: 1px solid rgba(255,255,255,0.11) !important;
+  /* 50% transparent dark glass */
+  background: rgba(18, 14, 32, 0.50) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
   border-radius: 24px !important;
-  padding: clamp(24px, 4vw, 36px) !important;
-  backdrop-filter: blur(32px) saturate(1.6) !important;
-  -webkit-backdrop-filter: blur(32px) saturate(1.6) !important;
+  padding: clamp(22px, 3.5vw, 30px) !important;
+  backdrop-filter: blur(28px) saturate(1.4) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.4) !important;
   box-shadow:
-    0 0 0 1px rgba(191,111,255,0.10),
-    0 32px 72px rgba(0,0,0,0.65),
-    inset 0 1px 0 rgba(255,255,255,0.08) !important;
+    0 0 0 1px rgba(191,111,255,0.08),
+    0 24px 56px rgba(0,0,0,0.55),
+    inset 0 1px 0 rgba(255,255,255,0.06) !important;
   overflow: visible !important;        /* never clip the register fields */
   max-height: none !important;         /* beat the old calc(100dvh - 126px) rule */
-  /* Smooth width expansion when switching login Ã¢â€ â€ register */
+  /* Smooth width expansion when switching login ↤↦ register */
   transition:
     max-width 0.42s cubic-bezier(0.4, 0, 0.2, 1),
     padding   0.42s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Card Ã¢â‚¬â€ register: expand width for 2-col grid Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ── Card — register: slightly compact width ── */
 .auth-card--v2.auth-card--register {
-  max-width: 660px !important;
+  max-width: 580px !important;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Copy block (heading + subtitle) Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ── Copy block (heading + subtitle) ── */
 .auth-card--v2 .auth-copy {
   margin-bottom: 20px !important;
   text-align: center !important;
@@ -12863,14 +12863,14 @@ button.bg-palette-thumbnail-btn:hover {
   line-height: 1.6 !important;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Form layout Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ── Form layout ── */
 .auth-form--v2 {
   display: flex !important;
   flex-direction: column !important;
   gap: 0 !important;
 }
 
-/* Email + Password Ã¢â‚¬â€ always single column */
+/* Email + Password — always single column */
 .auth-fields-base {
   display: flex !important;
   flex-direction: column !important;
@@ -12878,7 +12878,7 @@ button.bg-palette-thumbnail-btn:hover {
   margin-bottom: 13px !important;
 }
 
-/* Register extra fields Ã¢â‚¬â€ 2-col grid, slides in */
+/* Register extra fields — 2-col grid, slides in */
 .auth-fields-register {
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
@@ -12897,7 +12897,7 @@ button.bg-palette-thumbnail-btn:hover {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Field-stack labels Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ── Field-stack labels ── */
 .auth-form--v2 .field-stack {
   display: flex !important;
   flex-direction: column !important;
@@ -12909,7 +12909,7 @@ button.bg-palette-thumbnail-btn:hover {
   text-transform: none !important;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Inputs & selects Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ── Inputs & selects ── */
 .auth-form--v2 .field-stack input,
 .auth-form--v2 .field-stack select {
   background: rgba(255,255,255,0.07) !important;
@@ -13130,11 +13130,12 @@ body.has-bg-image .stored-search-field:focus-within {
 }
 
 /* Circle shape for "All" filter pill */
+/* "All" pill: auto-width oval, same height as siblings */
 .filter-pill.circle {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: 50%;
+  width: auto;
+  min-width: unset;
+  padding: 0 10px;
+  border-radius: 999px;
 }
 
 /* ── Notes: desktop search sits INSIDE .notes-actions; mobile version sits below ── */

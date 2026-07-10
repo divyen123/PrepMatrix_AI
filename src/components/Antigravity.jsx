@@ -170,7 +170,11 @@ const AntigravityInner = ({
 
 const Antigravity = (props) => {
   return (
-    <Canvas camera={{ position: [0, 0, 50], fov: 35 }}>
+    <Canvas
+      camera={{ position: [0, 0, 50], fov: 35 }}
+      gl={{ alpha: true }}
+      style={{ background: 'transparent' }}
+    >
       <AntigravityInner {...props} />
     </Canvas>
   );
