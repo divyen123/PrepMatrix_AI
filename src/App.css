@@ -8930,8 +8930,7 @@ body.dark .completion-reward-popup {
 .app-container.auth-layout .motion-stage,
 .app-container.auth-layout .page-glow,
 .app-container.auth-layout .auth-glow,
-.app-container.auth-layout .auth-fixed-bg,
-.app-container.auth-layout .auth-particle-layer {
+.app-container.auth-layout .auth-fixed-bg {
   display: none !important;
 }
 
@@ -9306,7 +9305,7 @@ body:has(.app-container.auth-layout) {
 
 /* Ensure liquid glass UI backgrounds remain clean */
 .page-glow, .auth-bg-orbs, .auth-orb,
-.auth-glow, .auth-fixed-bg, .auth-particle-layer {
+.auth-glow, .auth-fixed-bg {
   display: none !important;
 }
 
