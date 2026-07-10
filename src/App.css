@@ -1394,18 +1394,18 @@ body.dark .task-chip {
 }
 
 .route-stage {
-  animation: routeFade 0.32s ease;
+  animation: routeFade 0.38s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes routeFade {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(12px) scale(0.99);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -6412,7 +6412,12 @@ body.dark .sidebar-header {
   border-radius: var(--radius-sm);
   font-weight: 600;
   font-size: 0.95rem;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    color        0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    background   0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    transform    0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow   0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar-link:hover {
@@ -6431,7 +6436,7 @@ body.dark .sidebar-link:hover {
   background: rgba(var(--accent-rgb), var(--accent-opacity));
   border: 1px solid rgba(var(--accent-rgb), var(--border-opacity));
   font-weight: 700;
-  box-shadow: 0 4px 16px -4px rgba(var(--accent-rgb), 0.12);
+  box-shadow: none;
   backdrop-filter: blur(12px);
 }
 
@@ -6439,7 +6444,7 @@ body.dark .sidebar-link.active {
   background: rgba(var(--accent-rgb), var(--accent-opacity));
   border-color: rgba(var(--accent-rgb), var(--border-opacity));
   color: var(--accent);
-  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .sidebar-link-icon {
@@ -7329,7 +7334,7 @@ button:hover,
   border-color: rgba(var(--accent-rgb), calc(var(--border-opacity) * 1.35)) !important;
   color: var(--accent-strong) !important;
   font-weight: 700 !important;
-  box-shadow: 0 8px 24px -6px rgba(var(--accent-rgb), var(--accent-opacity)) !important;
+  box-shadow: none !important;
 }
 
 body.dark .sidebar-link.active,
@@ -7957,7 +7962,8 @@ body.dark .workspace-topbar {
   inset: 0;
   opacity: 0;
   background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.16), rgba(var(--accent-rgb), 0.04));
-  transition: opacity 0.28s ease;
+  transition: opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 14px;
 }
 
 .sidebar-link:hover::before,
@@ -7973,7 +7979,7 @@ body.dark .workspace-topbar {
 }
 
 .sidebar-link.active {
-  box-shadow: 0 12px 26px rgba(var(--accent-rgb), 0.12) !important;
+  box-shadow: none !important;
 }
 
 .sidebar-link-icon,
