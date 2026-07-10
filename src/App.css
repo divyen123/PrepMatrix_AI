@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   color-scheme: light;
   --bg: #f3f0e8;
   --bg-secondary: #efe8dc;
@@ -2926,9 +2926,14 @@ body.dark select option:hover {
   box-shadow: 0 0 0 3px rgba(11, 143, 116, 0.10);
 }
 
-.stored-search-field input {
-  background: transparent;
-  border: 0;
+.stored-search-field input,
+.stored-search-field input:focus {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  outline: none !important;
   color: var(--text);
   flex: 1;
   font: inherit;
@@ -2938,7 +2943,6 @@ body.dark select option:hover {
   height: 100%;
   min-width: 60px;
   max-width: 200px;
-  outline: 0;
   padding: 0;
 }
 
@@ -10686,6 +10690,21 @@ body.popover-open .app-sidebar {
     justify-content: flex-start !important;
     margin-top: 8px !important;
   }
+
+  /* Center search bars on mobile view */
+  .notes-list-card > .stored-search-field {
+    margin-left: auto !important;
+    margin-right: auto !important;
+    margin-bottom: 14px !important;
+  }
+  .quiz-history-card > .stored-search-field {
+    align-self: center !important;
+    margin-bottom: 14px !important;
+  }
+  .bookmark-library-card > .stored-search-field {
+    align-self: center !important;
+    margin-bottom: 12px !important;
+  }
 }
 
 @keyframes sidebarFadeIn {
@@ -11986,21 +12005,13 @@ body.worktree-fullscreen-active {
 }
 
 .worktree-parent-search-input {
-  flex: 1;
-  background: transparent !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  padding: 8px 0 !important;
-  font-size: 0.82rem !important;
-  color: var(--text) !important;
-  min-width: 0;
+  width: 100%;
 }
 
 /* When a node is selected, tint the input text with accent colour */
 .worktree-parent-search-input.has-selection {
   color: var(--accent) !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
 }
 
 /* Ensure the parent field-stack container floats above the canvas */
@@ -12267,6 +12278,18 @@ button.bg-palette-thumbnail-btn {
 button.bg-preset-thumbnail-btn:hover,
 button.bg-palette-thumbnail-btn:hover {
   transform: none !important;
+}
+
+/* Responsive grid columns for Settings background presets selection */
+@media (max-width: 767px) {
+  .settings-bg-presets-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 480px) {
+  .settings-bg-presets-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
 }
 /* Profile picture controls in Settings account card */
 .settings-account-header {
@@ -12990,7 +13013,14 @@ button.bg-palette-thumbnail-btn:hover {
   }
   .auth-page--isolated {
     justify-content: flex-start !important;
+    align-items: center !important;
     padding-top: clamp(16px, 5vh, 32px) !important;
+    overflow-y: auto !important;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+  .auth-page--isolated::-webkit-scrollbar {
+    display: none !important;
   }
 }
 
@@ -13024,9 +13054,14 @@ button.bg-palette-thumbnail-btn:hover {
   box-shadow: 0 0 0 3px rgba(11,143,116,0.10);
 }
 
-.stored-search-field input {
-  background: transparent;
-  border: 0;
+.stored-search-field input,
+.stored-search-field input:focus {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  outline: none !important;
   color: var(--text);
   flex: 1;
   font: inherit;
@@ -13036,7 +13071,6 @@ button.bg-palette-thumbnail-btn:hover {
   height: 100%;
   min-width: 60px;
   max-width: 180px;
-  outline: 0;
   padding: 0;
 }
 
@@ -13101,10 +13135,10 @@ body.has-bg-image .stored-search-field:focus-within {
   transition: background 0.18s, transform 0.18s;
 }
 
-/* Hide the STANDALONE search bar that lives below the header in the DOM —
-   the search is already inside .notes-actions per the JSX */
+/* Stored notes search bar styling — visible and aligned to right on desktop */
 .notes-list-card > .stored-search-field {
-  display: none !important;
+  margin-bottom: 14px;
+  margin-left: auto;
 }
 
 /* ── Quiz: header is flex; search sits inline next to the trash icon ──
@@ -13147,5 +13181,27 @@ body.has-bg-image .stored-search-field:focus-within {
 .bookmark-library-card > .stored-search-field {
   margin-bottom: 12px;
   align-self: flex-end;
+}
+
+/* Auth Submit Button Text Color and Glow removal overrides */
+body.dark .auth-submit-btn,
+.auth-submit-btn {
+  color: #ffffff !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+body.dark .auth-submit-btn:hover,
+.auth-submit-btn:hover {
+  color: #ffffff !important;
+  box-shadow: none !important;
+  transform: translateY(-1px) !important;
+}
+
+body.dark .auth-submit-btn:active,
+.auth-submit-btn:active {
+  color: #ffffff !important;
+  box-shadow: none !important;
+  transform: translateY(0) !important;
 }
 

@@ -598,8 +598,6 @@ function WorktreeMapper() {
             </div>
             <div className="field-stack" style={{ position: "relative" }} ref={parentDropdownRef}>
               <span>Link From (Parent)</span>
-              <div className="worktree-parent-search-wrap">
-                <Search size={13} className="parent-search-icon" />
                 <input
                   type="text"
                   className={`worktree-parent-search-input${newNodeParentId && !parentSearch ? " has-selection" : ""}`}
@@ -628,7 +626,6 @@ function WorktreeMapper() {
                     if (!parentSearch) setParentDropdownOpen(false);
                   }}
                 />
-              </div>
               {parentDropdownOpen && (
                 <div className="worktree-parent-dropdown">
                   {nodes
