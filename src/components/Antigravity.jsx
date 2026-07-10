@@ -172,7 +172,10 @@ const Antigravity = (props) => {
   return (
     <Canvas
       camera={{ position: [0, 0, 50], fov: 35 }}
-      gl={{ alpha: true }}
+      gl={{ alpha: true, antialias: true }}
+      onCreated={({ gl }) => {
+        gl.setClearColor(0x000000, 0); // fully transparent background
+      }}
       style={{ background: 'transparent' }}
     >
       <AntigravityInner {...props} />
