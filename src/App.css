@@ -13240,11 +13240,16 @@ body.has-bg-image .stored-search-field:focus-within {
   align-items: center;
   gap: 6px;
   flex-wrap: nowrap;
+  width: fit-content;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* ── Notes filter select — matches stored-search-field exactly ── */
 .notes-filter-select {
   height: 32px;
+  width: fit-content;
+  max-width: 140px;
   padding: 0 28px 0 12px;
   font-size: 0.78rem;
   font-weight: 500;
