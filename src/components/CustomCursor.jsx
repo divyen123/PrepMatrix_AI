@@ -3,9 +3,9 @@ import { createPortal } from "react-dom";
 
 /**
  * CustomCursor — supports three cursor modes:
- *   • "default"    → OS default cursor (component renders nothing)
- *   • "app-cursor" → purple dot + lagging ring (original app cursor)
- *   • "neon-cursor"→ animated neon glow trail cursor
+ *   • "default"     → OS default cursor (component renders nothing)
+ *   • "app-cursor"  → purple dot + lagging ring (original app cursor)
+ *   • "blob-cursor" → soft morphing blob that follows with organic fluid lag
  *
  * Rendered via createPortal directly into document.body so it sits ABOVE
  * every modal, drawer, overlay and stacking context in the app.
@@ -37,12 +37,15 @@ export default function CustomCursor({ mode = "app-cursor" }) {
     let rafId  = null;
     let isHovering = false;
 
-    const LERP = mode === "neon-cursor" ? 0.45 : 0.55;
+    // Blob gets a slightly slower lerp for the organic lag feel,
+    // but still very fast so it doesn't feel sluggish
+    const LERP = mode === "blob-cursor" ? 0.30 : 0.55;
 
     /* ── Track real mouse position ── */
     const onMouseMove = (e) => {
       mouseX = e.clientX;
       mouseY = e.clientY;
+      // Dot (small center indicator) snaps instantly
       dot.style.transform = `translate(${mouseX}px, ${mouseY}px)`;
     };
 
@@ -108,18 +111,18 @@ export default function CustomCursor({ mode = "app-cursor" }) {
   // "default" mode — no cursor elements, OS takes over
   if (mode === "default") return null;
 
-  const isNeon = mode === "neon-cursor";
+  const isBlob = mode === "blob-cursor";
 
   /* Portal into body — escapes every React stacking context */
   return createPortal(
     <>
       <div
-        className={`custom-cursor-ring${isNeon ? " cursor-neon-ring" : ""}`}
+        className={`custom-cursor-ring${isBlob ? " cursor-blob-body" : ""}`}
         ref={ringRef}
         aria-hidden="true"
       />
       <div
-        className={`custom-cursor-dot${isNeon ? " cursor-neon-dot" : ""}`}
+        className={`custom-cursor-dot${isBlob ? " cursor-blob-dot" : ""}`}
         ref={dotRef}
         aria-hidden="true"
       />

@@ -1658,21 +1658,21 @@ function SettingsPage({
                     <span className="cursor-card-sub">Purple dot + ring</span>
                   </button>
 
-                  {/* Neon Cursor */}
+                  {/* Blob Cursor */}
                   <button
                     type="button"
-                    className={`cursor-style-card ${parentCursorStyle === "neon-cursor" ? "active" : ""}`}
+                    className={`cursor-style-card ${parentCursorStyle === "blob-cursor" ? "active" : ""}`}
                     onClick={() => {
-                      if (setParentCursorStyle) setParentCursorStyle("neon-cursor");
-                      localStorage.setItem("prepmatrix_cursor_style", "neon-cursor");
+                      if (setParentCursorStyle) setParentCursorStyle("blob-cursor");
+                      localStorage.setItem("prepmatrix_cursor_style", "blob-cursor");
                     }}
                   >
-                    <div className="cursor-card-preview cursor-preview-neon">
-                      <div className="ccp-neon-ring" />
-                      <div className="ccp-neon-dot" />
+                    <div className="cursor-card-preview cursor-preview-blob">
+                      <div className="ccp-blob-body" />
+                      <div className="ccp-blob-dot" />
                     </div>
-                    <span className="cursor-card-label">Neon</span>
-                    <span className="cursor-card-sub">Animated trail</span>
+                    <span className="cursor-card-label">Blob</span>
+                    <span className="cursor-card-sub">Morphing fluid</span>
                   </button>
                 </div>
               </div>

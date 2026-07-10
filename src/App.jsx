@@ -171,9 +171,15 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
   const [profilePreviewSide, setProfilePreviewSide] = useState("photo");
-  const [cursorStyle, setCursorStyle] = useState(
-    () => localStorage.getItem("prepmatrix_cursor_style") || "app-cursor"
-  );
+  const [cursorStyle, setCursorStyle] = useState(() => {
+    const saved = localStorage.getItem("prepmatrix_cursor_style") || "app-cursor";
+    // Migrate old neon-cursor preference to blob-cursor
+    if (saved === "neon-cursor") {
+      localStorage.setItem("prepmatrix_cursor_style", "blob-cursor");
+      return "blob-cursor";
+    }
+    return saved;
+  });
 
   const voiceAssistant = useVoiceAssistant({
     academicLevel,
