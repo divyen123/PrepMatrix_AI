@@ -190,6 +190,10 @@ export default function useVoiceAssistant({
   const [lastText, setLastText] = useState("");
   const voiceStatusRef = useRef("idle");
 
+  const emitVoiceRecordingChange = useCallback((isRecording) => {
+    window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: Boolean(isRecording), source: "voiceAssistant" } }));
+  }, []);
+
   const setVoiceStatus = useCallback((status) => {
     voiceStatusRef.current = status;
     setVoiceStatusState(status);
@@ -232,14 +236,17 @@ export default function useVoiceAssistant({
     wakeRecognitionRef.current = null;
     detachAndStopRecognition(recognition);
     setIsListening(false);
-  }, [clearWakeRestartTimer, detachAndStopRecognition]);
+    emitVoiceRecordingChange(false);
+  }, [clearWakeRestartTimer, detachAndStopRecognition, emitVoiceRecordingChange]);
 
   const stopCommandRecognition = useCallback(() => {
     clearCommandTimeout();
     const recognition = commandRecognitionRef.current;
     commandRecognitionRef.current = null;
     detachAndStopRecognition(recognition);
-  }, [clearCommandTimeout, detachAndStopRecognition]);
+    setIsListening(false);
+    emitVoiceRecordingChange(false);
+  }, [clearCommandTimeout, detachAndStopRecognition, emitVoiceRecordingChange]);
 
   const scheduleWakeRestart = useCallback((delay = WAKE_RESTART_DELAY_MS) => {
     clearWakeRestartTimer();
@@ -254,7 +261,9 @@ export default function useVoiceAssistant({
     setOverlayReply("");
     setLastText("");
     setError("");
-  }, [setVoiceStatus]);
+    setIsListening(false);
+    emitVoiceRecordingChange(false);
+  }, [emitVoiceRecordingChange, setVoiceStatus]);
 
   const speakWakeReply = useCallback((text, { closeOverlay = false, resumeWake = true } = {}) => {
     if (!text || !("speechSynthesis" in window)) {
@@ -447,6 +456,8 @@ export default function useVoiceAssistant({
       const activeRecognition = commandRecognitionRef.current;
       commandRecognitionRef.current = null;
       detachAndStopRecognition(activeRecognition);
+      setIsListening(false);
+      emitVoiceRecordingChange(false);
       if (!captured) {
         hideOverlay();
         scheduleWakeRestart();
@@ -467,6 +478,8 @@ export default function useVoiceAssistant({
       if (spokenText) {
         captured = true;
         commandRecognitionRef.current = null;
+        setIsListening(false);
+        emitVoiceRecordingChange(false);
         processSpokenText(spokenText, { speakReply: true });
       }
     };
@@ -475,6 +488,7 @@ export default function useVoiceAssistant({
       clearCommandTimeout();
       commandRecognitionRef.current = null;
       setIsListening(false);
+      emitVoiceRecordingChange(false);
       if (event.error !== "aborted" && event.error !== "no-speech") {
         setError(`Voice recognition error: ${event.error}.`);
       }
@@ -486,6 +500,7 @@ export default function useVoiceAssistant({
       clearCommandTimeout();
       commandRecognitionRef.current = null;
       setIsListening(false);
+      emitVoiceRecordingChange(false);
       if (!captured && !processingRef.current) {
         hideOverlay();
         scheduleWakeRestart();
@@ -497,10 +512,11 @@ export default function useVoiceAssistant({
     } catch {
       commandRecognitionRef.current = null;
       setIsListening(false);
+      emitVoiceRecordingChange(false);
       hideOverlay();
       scheduleWakeRestart();
     }
-  }, [clearCommandTimeout, createRecognition, detachAndStopRecognition, hideOverlay, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
+  }, [clearCommandTimeout, createRecognition, detachAndStopRecognition, emitVoiceRecordingChange, hideOverlay, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
 
   const startWakeListening = useCallback(() => {
     if (!wakeModeRef.current) return;
@@ -610,6 +626,8 @@ export default function useVoiceAssistant({
 
       if (spokenText) {
         commandRecognitionRef.current = null;
+        setIsListening(false);
+        emitVoiceRecordingChange(false);
         processSpokenText(spokenText, { speakReply: false });
       }
     };
@@ -646,7 +664,7 @@ export default function useVoiceAssistant({
       setVoiceStatus("error");
       scheduleWakeRestart();
     }
-  }, [createRecognition, hideOverlay, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
+  }, [createRecognition, emitVoiceRecordingChange, hideOverlay, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
 
   useEffect(() => {
     const nextSupported = Boolean(getRecognitionConstructor());
@@ -708,8 +726,9 @@ export default function useVoiceAssistant({
   }, [clearWakeRestartTimer, hideOverlay, pauseWakeRecognition, scheduleWakeRestart, stopCommandRecognition, wakeMode]);
 
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: isListening && !wakeMode } }));
-  }, [isListening, wakeMode]);
+    const isUserCommandRecording = isListening && !wakeMode && (voiceStatus === "listening" || voiceStatus === "awake");
+    emitVoiceRecordingChange(isUserCommandRecording);
+  }, [emitVoiceRecordingChange, isListening, voiceStatus, wakeMode]);
 
   useEffect(() => () => {
     clearWakeRestartTimer();
@@ -741,4 +760,6 @@ export default function useVoiceAssistant({
     stopListening,
   };
 }
+
+
 

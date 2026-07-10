@@ -184,6 +184,9 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
 
   useEffect(() => {
     if (open) {
+      if (!chatRecognitionRef.current) {
+        setIsVoiceRecording(false);
+      }
       fetchSessions();
       // Set responsive history state default based on screen size
       setHistoryOpen(window.innerWidth > 768);
@@ -457,7 +460,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       chatRecognitionRef.current = null;
     }
     resumeWakeAfterChatMicRef.current = false;
-    window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
+    window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false, source: "chatbot" } }));
   }, []);
 
   useEffect(() => {
@@ -469,7 +472,10 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
 
   // Sync mic recording state from VoiceAssistant via custom event
   useEffect(() => {
-    const handler = (e) => setIsVoiceRecording(e.detail.isRecording);
+    const handler = (e) => {
+      if (chatRecognitionRef.current) return;
+      setIsVoiceRecording(Boolean(e.detail?.isRecording));
+    };
     window.addEventListener("voiceRecordingChange", handler);
     return () => window.removeEventListener("voiceRecordingChange", handler);
   }, []);
@@ -484,6 +490,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       }
       chatRecognitionRef.current = null;
       setIsVoiceRecording(false);
+      window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false, source: "chatbot" } }));
       if (resumeWakeAfterChatMicRef.current) {
         window.studyVoiceAssistant?.setWakeMode?.(true);
         resumeWakeAfterChatMicRef.current = false;
@@ -516,6 +523,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
 
     recognition.onstart = () => {
       setIsVoiceRecording(true);
+      window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: true, source: "chatbot" } }));
     };
 
     recognition.onresult = (event) => {
@@ -540,6 +548,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     recognition.onend = () => {
       chatRecognitionRef.current = null;
       setIsVoiceRecording(false);
+      window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false, source: "chatbot" } }));
 
       const spokenText = finalTranscript.trim();
       if (heardSpeech && spokenText) {
@@ -560,6 +569,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     } catch {
       chatRecognitionRef.current = null;
       setIsVoiceRecording(false);
+      window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false, source: "chatbot" } }));
       if (resumeWakeAfterChatMicRef.current) {
         window.studyVoiceAssistant?.setWakeMode?.(true);
         resumeWakeAfterChatMicRef.current = false;
@@ -835,5 +845,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
 }
 
 export default Chatbot;
+
+
 
 
