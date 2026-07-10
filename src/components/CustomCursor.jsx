@@ -37,7 +37,7 @@ export default function CustomCursor({ mode = "app-cursor" }) {
     let rafId  = null;
     let isHovering = false;
 
-    const LERP = mode === "neon-cursor" ? 0.18 : 0.30;
+    const LERP = mode === "neon-cursor" ? 0.45 : 0.55;
 
     /* ── Track real mouse position ── */
     const onMouseMove = (e) => {

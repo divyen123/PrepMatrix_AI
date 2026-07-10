@@ -13426,7 +13426,6 @@ html[data-cursor-mode="neon-cursor"] body {
   margin-top: -11px;
   border: 1.5px solid rgba(191,111,255,0.55);
   background: rgba(191,111,255,0.06);
-  backdrop-filter: blur(2px);
   transition: width .28s cubic-bezier(.34,1.56,.64,1), height .28s cubic-bezier(.34,1.56,.64,1), margin .28s cubic-bezier(.34,1.56,.64,1), border-color .2s ease, background .2s ease;
 }
 

@@ -1619,52 +1619,20 @@ function SettingsPage({
 
               {/* Cursor Style Selector — hidden on mobile via CSS */}
               <div className="settings-cursor-selector" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "14px" }}>
-                <span className="card-subtext" style={{ fontSize: "0.8rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>Mouse Cursor Style</span>
-                <p className="card-subtext" style={{ fontSize: "0.78rem", marginBottom: "12px" }}>Choose your preferred cursor style. Changes apply immediately.</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  {[
-                    { value: "default", label: "Default Cursor", desc: "Standard OS mouse pointer" },
-                    { value: "app-cursor", label: "App Cursor", desc: "Purple dot + trailing ring" },
-                    { value: "neon-cursor", label: "Neon Cursor", desc: "Animated multi-glow neon trail" },
-                  ].map((opt) => {
-                    const active = (parentCursorStyle || "app-cursor") === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => {
-                          if (setParentCursorStyle) setParentCursorStyle(opt.value);
-                          localStorage.setItem("prepmatrix_cursor_style", opt.value);
-                        }}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          padding: "10px 14px",
-                          borderRadius: "10px",
-                          border: active ? "2px solid var(--accent)" : "1px solid var(--border)",
-                          background: active ? "rgba(var(--accent-rgb),0.10)" : "var(--surface-muted)",
-                          color: "var(--text)",
-                          textAlign: "left",
-                          width: "100%",
-                          transition: "border 0.2s, background 0.2s",
-                        }}
-                      >
-                        <span style={{
-                          width: "18px", height: "18px", borderRadius: "50%",
-                          border: active ? "2px solid var(--accent)" : "2px solid var(--border)",
-                          background: active ? "var(--accent)" : "transparent",
-                          flexShrink: 0, transition: "all 0.2s"
-                        }} />
-                        <span>
-                          <span style={{ fontWeight: 700, fontSize: "0.88rem", display: "block" }}>{opt.label}</span>
-                          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{opt.desc}</span>
-                        </span>
-                        {active && <Check size={14} style={{ marginLeft: "auto", color: "var(--accent)" }} />}
-                      </button>
-                    );
-                  })}
-                </div>
+                <label className="field-stack">
+                  <span>Mouse Cursor Style</span>
+                  <select
+                    value={parentCursorStyle || "app-cursor"}
+                    onChange={(e) => {
+                      if (setParentCursorStyle) setParentCursorStyle(e.target.value);
+                      localStorage.setItem("prepmatrix_cursor_style", e.target.value);
+                    }}
+                  >
+                    <option value="default">Default Cursor (Standard OS)</option>
+                    <option value="app-cursor">App Cursor (Purple dot + trailing ring)</option>
+                    <option value="neon-cursor">Neon Cursor (Animated neon trail)</option>
+                  </select>
+                </label>
               </div>
 
               <div className="field-stack">
