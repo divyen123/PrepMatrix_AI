@@ -13234,37 +13234,51 @@ body.has-bg-image .stored-search-field:focus-within {
   border-radius: 999px;
 }
 
-/* ── Notes filter select dropdown ── */
+/* ── Notes: search + filter sit side by side ── */
+.notes-search-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+/* ── Notes filter select — matches stored-search-field exactly ── */
 .notes-filter-select {
   height: 32px;
-  padding: 0 28px 0 10px;
-  font-size: 0.76rem;
-  font-weight: 600;
+  padding: 0 28px 0 12px;
+  font-size: 0.78rem;
+  font-weight: 500;
   font-family: inherit;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1.5px solid var(--border, rgba(255, 255, 255, 0.12));
+  color: var(--text-muted, rgba(255, 255, 255, 0.7));
+  background-color: var(--surface, rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(20, 31, 49, 0.09);
   border-radius: 999px;
   cursor: pointer;
   outline: none;
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(255,255,255,0.5)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(100,100,120,0.7)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
-  transition: border-color 0.2s, background 0.2s;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
+body.dark .notes-filter-select {
+  color: rgba(255, 255, 255, 0.75);
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(255,255,255,0.45)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
 .notes-filter-select:hover {
-  border-color: var(--accent, rgba(168, 85, 247, 0.6));
-  background-color: rgba(255, 255, 255, 0.09);
+  border-color: rgba(11, 143, 116, 0.45);
 }
 
 .notes-filter-select:focus {
-  border-color: var(--accent, #a855f7);
-  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.18);
+  border-color: rgba(11, 143, 116, 0.45);
+  box-shadow: 0 0 0 3px rgba(11, 143, 116, 0.10);
 }
 
 .notes-filter-select option {

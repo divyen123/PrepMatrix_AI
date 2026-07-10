@@ -316,33 +316,35 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
           </div>
 
           <div className="notes-actions">
-            {notes.length > 0 && (
-              <label className="stored-search-field notes-desktop-search">
-                <Search size={16} />
-                <input
-                  aria-label="Search stored notes"
-                  onChange={(event) => setNotesSearchQuery(event.target.value)}
-                  placeholder="Search by topic, details, priority, or left topic"
-                  type="search"
-                  value={notesSearchQuery}
-                />
-              </label>
-            )}
-            <select
-              className="notes-filter-select"
-              value={filter}
-              onChange={(e) => {
-                if (e.target.value === "clear") {
-                  clearResolved();
-                } else {
-                  setFilter(e.target.value);
-                }
-              }}
-            >
-              <option value="All">All Notes</option>
-              <option value="Resolved">Resolved</option>
-              <option value="clear">Clear Resolved</option>
-            </select>
+            <div className="notes-search-filter-row">
+              {notes.length > 0 && (
+                <label className="stored-search-field notes-desktop-search">
+                  <Search size={16} />
+                  <input
+                    aria-label="Search stored notes"
+                    onChange={(event) => setNotesSearchQuery(event.target.value)}
+                    placeholder="Search by topic, details, priority, or left topic"
+                    type="search"
+                    value={notesSearchQuery}
+                  />
+                </label>
+              )}
+              <select
+                className="notes-filter-select"
+                value={filter}
+                onChange={(e) => {
+                  if (e.target.value === "clear") {
+                    clearResolved();
+                  } else {
+                    setFilter(e.target.value);
+                  }
+                }}
+              >
+                <option value="All">All Notes</option>
+                <option value="Resolved">Resolved</option>
+                <option value="clear">Clear Resolved</option>
+              </select>
+            </div>
           </div>
         </div>
 
