@@ -12494,3 +12494,101 @@ button.bg-palette-thumbnail-btn:hover {
     border-radius: 24px;
   }
 }
+/* Minimal profile preview: dark blurred backdrop with only the logo/photo visual. */
+.profile-preview-backdrop {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(20, 184, 166, 0.18), transparent 34%),
+    linear-gradient(135deg, rgba(2, 6, 23, 0.82), rgba(8, 13, 28, 0.9) 52%, rgba(3, 7, 18, 0.86)) !important;
+  backdrop-filter: blur(20px) brightness(0.72) !important;
+  -webkit-backdrop-filter: blur(20px) brightness(0.72) !important;
+}
+
+.profile-preview-flip {
+  width: clamp(150px, 20vw, 230px) !important;
+  border-radius: 28% !important;
+  background: transparent !important;
+  border: 0 !important;
+  overflow: visible !important;
+  animation: none !important;
+  transition: transform 0.18s ease !important;
+}
+
+.profile-preview-flip:hover,
+.profile-preview-flip:focus-visible {
+  transform: none !important;
+  outline: none;
+}
+
+.profile-preview-visual {
+  width: 100%;
+  aspect-ratio: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 28%;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  box-shadow: none !important;
+  filter: none !important;
+  animation: profilePreviewClickRotate 0.68s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.profile-preview-visual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: inherit;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.profile-preview-visual .profile-preview-brand-mark {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.profile-preview-brand-name,
+.profile-preview-face {
+  display: none !important;
+}
+
+@keyframes profilePreviewClickRotate {
+  0% {
+    opacity: 0.65;
+    transform: rotateY(-88deg) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateY(0deg) scale(1);
+  }
+}
+.sidebar-chatbot-portal .chat-message-copy-btn,
+.sidebar-chatbot-portal .chat-message-copy-btn:hover,
+.sidebar-chatbot-portal .chat-message-copy-btn:focus,
+.sidebar-chatbot-portal .chat-message-copy-btn:focus-visible,
+.sidebar-chatbot-portal .chat-message-copy-btn:active {
+  width: 15px !important;
+  height: 15px !important;
+  min-width: 15px !important;
+  min-height: 15px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.sidebar-chatbot-portal .chat-message-copy-btn svg {
+  display: block;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}

@@ -59,6 +59,11 @@ function AuthPage({ mode = "login", onLogin }) {
         ? await api.register(form)
         : await api.login({ email: form.email, password: form.password });
 
+      if (isRegister) {
+        localStorage.setItem("prepmatrix_wake_mode", "false");
+        window.dispatchEvent(new CustomEvent("prepmatrixWakeModeChange", { detail: { enabled: false } }));
+      }
+
       onLogin(result.user, result.workspace);
       navigate("/dashboard", { replace: true });
     } catch (error) {

@@ -204,16 +204,10 @@ function App() {
     if (!userProfile) return;
     if (profilePreviewTimerRef.current) {
       window.clearTimeout(profilePreviewTimerRef.current);
+      profilePreviewTimerRef.current = null;
     }
     setProfilePreviewSide("logo");
     setProfilePreviewOpen(true);
-
-    if (userProfile.profileImage) {
-      profilePreviewTimerRef.current = window.setTimeout(() => {
-        setProfilePreviewSide("photo");
-        profilePreviewTimerRef.current = null;
-      }, 1500);
-    }
   };
 
   const toggleProfilePreviewSide = (event) => {
@@ -250,6 +244,10 @@ function App() {
     setWorkspaceLoaded(true);
     setNotification(`Welcome, ${profile.username}.`);
 
+    if (localStorage.getItem("prepmatrix_wake_mode") === "true") {
+      voiceAssistant.setWakeMode(true);
+    }
+
     if (splashTimeoutRef.current) {
       window.clearTimeout(splashTimeoutRef.current);
     }
@@ -261,10 +259,8 @@ function App() {
   };
 
   const handleLogout = async () => {
-    voiceAssistant.setWakeMode(false);
-    voiceAssistant.stopListening?.();
-    window.studyVoiceAssistant?.setWakeMode?.(false);
-    window.studyVoiceAssistant?.stopWakeListening?.();
+    voiceAssistant.pauseWakeMode?.();
+    window.studyVoiceAssistant?.pauseWakeListening?.();
     window.speechSynthesis?.cancel?.();
     window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
 
@@ -286,6 +282,11 @@ function App() {
   };
 
   const handleAccountDeleted = () => {
+    voiceAssistant.pauseWakeMode?.();
+    window.studyVoiceAssistant?.pauseWakeListening?.();
+    window.speechSynthesis?.cancel?.();
+    window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
+
     if (splashTimeoutRef.current) {
       window.clearTimeout(splashTimeoutRef.current);
     }
@@ -298,10 +299,8 @@ function App() {
   };
 
   const clearAuthenticatedUi = (message = "Please log in again to continue.") => {
-    voiceAssistant.setWakeMode(false);
-    voiceAssistant.stopListening?.();
-    window.studyVoiceAssistant?.setWakeMode?.(false);
-    window.studyVoiceAssistant?.stopWakeListening?.();
+    voiceAssistant.pauseWakeMode?.();
+    window.studyVoiceAssistant?.pauseWakeListening?.();
     window.speechSynthesis?.cancel?.();
     window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
 
@@ -1193,17 +1192,13 @@ function App() {
           }}
         >
           <button
-            aria-label="Flip profile preview"
-            className={`profile-preview-flip ${profilePreviewSide === "photo" ? "show-photo" : "show-logo"}`}
+            aria-label="Rotate profile preview"
+            className="profile-preview-flip"
             onClick={toggleProfilePreviewSide}
             type="button"
           >
-            <span className="profile-preview-face profile-preview-logo-face" aria-hidden={profilePreviewSide === "photo"}>
-              <span className="profile-preview-brand-mark">{profileInitial}</span>
-              <span className="profile-preview-brand-name">PrepMatrix</span>
-            </span>
-            <span className="profile-preview-face profile-preview-photo-face" aria-hidden={profilePreviewSide !== "photo"}>
-              {userProfile.profileImage ? (
+            <span className="profile-preview-visual" key={profilePreviewSide}>
+              {profilePreviewSide === "photo" && userProfile.profileImage ? (
                 <img alt={`${userProfile.username || "User"} profile`} src={userProfile.profileImage} />
               ) : (
                 <span className="profile-preview-brand-mark">{profileInitial}</span>

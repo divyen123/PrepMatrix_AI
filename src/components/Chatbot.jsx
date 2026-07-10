@@ -493,7 +493,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
 
     resumeWakeAfterChatMicRef.current = localStorage.getItem("prepmatrix_wake_mode") === "true";
     if (resumeWakeAfterChatMicRef.current) {
-      window.studyVoiceAssistant?.setWakeMode?.(false);
+      window.studyVoiceAssistant?.pauseWakeListening?.();
     } else {
       window.studyVoiceAssistant?.stopWakeListening?.();
     }

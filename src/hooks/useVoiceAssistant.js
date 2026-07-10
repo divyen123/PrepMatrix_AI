@@ -304,6 +304,18 @@ export default function useVoiceAssistant({
     }
   }, [hideOverlay, scheduleWakeRestart, stopCommandRecognition]);
 
+  const pauseWakeMode = useCallback(() => {
+    wakeModeRef.current = false;
+    setWakeModeState(false);
+    clearWakeRestartTimer();
+    stopCommandRecognition();
+    pauseWakeRecognition();
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    hideOverlay();
+  }, [clearWakeRestartTimer, hideOverlay, pauseWakeRecognition, stopCommandRecognition]);
+
   const stopListening = useCallback(() => {
     wakeModeRef.current = false;
     localStorage.setItem(WAKE_MODE_KEY, "false");
@@ -729,6 +741,7 @@ export default function useVoiceAssistant({
     isProcessing,
     reply,
     overlayReply,
+    pauseWakeMode,
     setWakeMode,
     supported,
     transcript,
