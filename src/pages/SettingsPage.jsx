@@ -62,7 +62,9 @@ function SettingsPage({
   const [institutionName, setInstitutionName] = useState(userProfile?.institutionName || "");
   const [grade, setGrade] = useState(userProfile?.grade || "");
   const [degree, setDegree] = useState(userProfile?.degree || "");
+  const [profileImage, setProfileImage] = useState(userProfile?.profileImage || "");
   const [savingProfile, setSavingProfile] = useState(false);
+  const profileImageInputRef = useRef(null);
 
   // Security state
   const [email, setEmail] = useState(userProfile?.email || "");
