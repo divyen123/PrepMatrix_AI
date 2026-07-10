@@ -12898,6 +12898,45 @@ button.bg-palette-thumbnail-btn:hover {
 .auth-card--v2.auth-card--register {
   max-width: 580px !important;
 }
+/* Register mode is taller, so keep the same layout with tighter vertical spacing. */
+.auth-card--v2.auth-card--register {
+  padding: clamp(18px, 2.8vw, 24px) !important;
+}
+
+.auth-card--v2.auth-card--register .auth-copy {
+  margin-bottom: 14px !important;
+}
+
+.auth-card--v2.auth-card--register .auth-fields-base,
+.auth-card--v2.auth-card--register .auth-fields-register {
+  gap: 10px !important;
+  margin-bottom: 10px !important;
+}
+
+.auth-card--v2.auth-card--register .field-stack {
+  gap: 4px !important;
+}
+
+.auth-card--v2.auth-card--register .field-stack input,
+.auth-card--v2.auth-card--register .field-stack select {
+  padding: 8px 12px !important;
+}
+
+.auth-card--v2.auth-card--register .auth-submit-btn {
+  margin-top: 4px !important;
+  padding: 10px !important;
+}
+
+.auth-card--v2.auth-card--register .auth-switch {
+  margin-top: 12px !important;
+}
+
+/* Remove inherited card shine that spills left of the auth container. */
+.auth-card--v2::before {
+  content: none !important;
+  display: none !important;
+}
+
 
 /* ── Copy block (heading + subtitle) ── */
 .auth-card--v2 .auth-copy {
@@ -13478,4 +13517,7 @@ body.dark .auth-submit-btn:active,
   background: rgba(255, 255, 255, 0.2) !important;
   color: var(--text) !important;
 }
+
+
+
 
