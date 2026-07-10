@@ -28,8 +28,6 @@ import api, { HAS_CONFIGURED_API } from "./utils/apiClient";
 import BACKGROUND_PRESETS from "./utils/backgroundPresets";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
 import CustomCursor from "./components/CustomCursor";
-import Antigravity from "./components/Antigravity";
-import { createPortal } from "react-dom";
 import "./App.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -774,24 +772,6 @@ function App() {
   return (
     <div className={`app-container app-shell-layout ${userProfile && !isAuthRoute ? "has-sidebar" : "auth-layout"}`}>
       <CustomCursor />
-      {/* Antigravity particle layer — portalled into body so it escapes isolation:isolate */}
-      {isAuthRoute && createPortal(
-        <div className="auth-particle-layer" aria-hidden="true">
-          <Antigravity
-            count={300}
-            magnetRadius={6}
-            ringRadius={7}
-            waveSpeed={0.4}
-            waveAmplitude={1}
-            particleSize={1.5}
-            lerpSpeed={0.05}
-            color={"#FF9FFC"}
-            autoAnimate={true}
-            particleVariance={1}
-          />
-        </div>,
-        document.body
-      )}
       <div className="page-glow page-glow-left" />
       <div className="page-glow page-glow-right" />
       <div className="motion-stage" aria-hidden="true">

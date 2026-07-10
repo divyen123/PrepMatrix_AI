@@ -8926,12 +8926,20 @@ body.dark .completion-reward-popup {
     linear-gradient(135deg, var(--bg), var(--bg-secondary)) !important;
 }
 
+.app-container.auth-layout::before,
 .app-container.auth-layout::after,
 .app-container.auth-layout .motion-stage,
 .app-container.auth-layout .page-glow,
 .app-container.auth-layout .auth-glow,
 .app-container.auth-layout .auth-fixed-bg {
   display: none !important;
+}
+
+/* In auth-layout, release fixed-pos children from the stacking context */
+.app-container.auth-layout {
+  isolation: auto !important;
+  overflow-x: unset !important;
+  overflow: unset !important;
 }
 
 .app-container.auth-layout .app-main-content {
