@@ -41,6 +41,7 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
   const [filter, setFilter] = useState("All");
   const [notesPage, setNotesPage] = useState(1);
   const [notesSearchQuery, setNotesSearchQuery] = useState("");
+  const [isNotesLoading, setIsNotesLoading] = useState(true);
 
   const saveNotes = (nextNotes) => {
     setNotes(nextNotes);
@@ -157,12 +158,17 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
   useEffect(() => {
     let isMounted = true;
 
+    setIsNotesLoading(true);
+
     api.getNotes()
       .then((payload) => {
         if (isMounted) setNotes(payload.notes || []);
       })
       .catch((error) => {
         setNotification?.(error instanceof Error ? error.message : "Could not load notes.");
+      })
+      .finally(() => {
+        if (isMounted) setIsNotesLoading(false);
       });
 
     return () => {
@@ -351,7 +357,9 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
           </label>
         )}
 
-        {filteredNotes.length === 0 ? (
+        {isNotesLoading ? (
+          <p className="empty-state">Loading stored notes...</p>
+        ) : filteredNotes.length === 0 ? (
           <p className="empty-state">
             {notes.length === 0
               ? "No notes here yet. Add a doubt or left-out topic to start your revision queue."
@@ -457,6 +465,9 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
 }
 
 export default NotesPage;
+
+
+
 
 
 

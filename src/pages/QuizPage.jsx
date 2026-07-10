@@ -34,6 +34,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
   const [historyPage, setHistoryPage] = useState(1);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -49,12 +50,17 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
   useEffect(() => {
     let isMounted = true;
 
+    setIsHistoryLoading(true);
+
     api.getQuizzes()
       .then((payload) => {
         if (isMounted) setAttempts(payload.attempts || []);
       })
       .catch((error) => {
         setSaveError(error instanceof Error ? error.message : "Could not load quiz history.");
+      })
+      .finally(() => {
+        if (isMounted) setIsHistoryLoading(false);
       });
 
     return () => {
@@ -556,7 +562,9 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
           </label>
         )}
         <div className="quiz-history-grid">
-          {attempts.length === 0 ? (
+          {isHistoryLoading ? (
+            <p className="card-subtext">Loading quiz history...</p>
+          ) : attempts.length === 0 ? (
             <p className="card-subtext">No quiz attempts yet. Generate your first topic quiz.</p>
           ) : filteredAttempts.length === 0 ? (
             <p className="card-subtext">No quiz attempts match your search.</p>
@@ -601,6 +609,9 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
 }
 
 export default QuizPage;
+
+
+
 
 
 
