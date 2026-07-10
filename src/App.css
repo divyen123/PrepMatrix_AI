@@ -12202,3 +12202,159 @@ body.has-bg-image .worktree-parent-dropdown {
   0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
   50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
 }
+
+/* Keep settings background theme thumbnails from creating hover overflow. */
+button.bg-preset-thumbnail-btn,
+button.bg-palette-thumbnail-btn {
+  min-width: 0 !important;
+}
+
+button.bg-preset-thumbnail-btn:hover,
+button.bg-palette-thumbnail-btn:hover {
+  transform: none !important;
+}
+/* Profile picture controls in Settings account card */
+.settings-account-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.settings-account-copy {
+  flex: 1;
+  min-width: 0;
+  margin-left: -4px;
+}
+
+.account-card-description {
+  margin-left: -2px;
+}
+
+.profile-photo-control {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.profile-photo-input {
+  display: none;
+}
+
+.profile-photo-circle {
+  width: 62px;
+  height: 62px;
+  min-height: 62px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 1.5px solid rgba(var(--accent-rgb), 0.35);
+  box-shadow: none !important;
+  cursor: pointer;
+}
+
+.profile-photo-circle img,
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-photo-mini-action {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+
+.profile-photo-mini-action.edit {
+  background: linear-gradient(135deg, #18c7a5, #0f9f8c);
+}
+
+.profile-photo-mini-action.delete {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+
+.profile-avatar.has-image {
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  color: transparent;
+  border-color: rgba(var(--accent-rgb), 0.45);
+}
+
+@media (max-width: 640px) {
+  .settings-account-header {
+    align-items: center;
+  }
+
+  .profile-photo-control {
+    width: 54px;
+    height: 54px;
+  }
+
+  .profile-photo-circle {
+    width: 54px;
+    height: 54px;
+    min-height: 54px;
+  }
+}
+/* Hover-only copy action for individual chat messages. */
+.chat-message {
+  position: relative;
+  padding-bottom: 24px;
+}
+
+.chat-message-copy-btn {
+  position: absolute;
+  right: 10px;
+  bottom: 7px;
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  color: currentColor;
+  opacity: 0;
+  transform: translateY(2px);
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: opacity 0.16s ease, transform 0.16s ease, color 0.16s ease;
+}
+
+.chat-message:hover .chat-message-copy-btn,
+.chat-message:focus-within .chat-message-copy-btn {
+  opacity: 0.68;
+  transform: translateY(0);
+}
+
+.chat-message-copy-btn:hover,
+.chat-message-copy-btn:focus-visible {
+  opacity: 1 !important;
+  color: var(--accent);
+  outline: none;
+}

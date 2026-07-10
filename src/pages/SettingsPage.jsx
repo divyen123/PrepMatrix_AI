@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, Shield, Palette, User, Check, Settings2, Target, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Save, Shield, Palette, User, Check, Settings2, Target, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil } from "lucide-react";
 import api from "../utils/apiClient";
 import BACKGROUND_PRESETS from "../utils/backgroundPresets";
 import { toast } from "react-toastify";
@@ -599,6 +599,7 @@ function SettingsPage({
         academicTrack: schoolType === "school" ? "School Board" : "General",
         grade: schoolType === "school" ? grade : "",
         degree: schoolType === "college" ? degree : "",
+        profileImage,
       };
 
       const response = await api.updateProfile(payload);
@@ -614,6 +615,46 @@ function SettingsPage({
     } finally {
       setSavingProfile(false);
     }
+  };
+
+  const persistProfileImage = async (nextImage) => {
+    const previousImage = profileImage;
+    setProfileImage(nextImage);
+
+    try {
+      const response = await api.updateProfile({ profileImage: nextImage });
+      setUserProfile(response.user);
+      toast.success(nextImage ? "Profile picture updated." : "Profile picture removed.");
+    } catch (error) {
+      setProfileImage(previousImage);
+      toast.error(error?.message || "Failed to update profile picture.");
+    }
+  };
+
+  const handleProfileImageChange = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Profile picture must be under 2 MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      persistProfileImage(String(reader.result || ""));
+    };
+    reader.onerror = () => toast.error("Could not read that image file.");
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveProfileImage = () => {
+    persistProfileImage("");
   };
 
   // Helper to format countdown timer (MM:SS)
@@ -984,12 +1025,47 @@ function SettingsPage({
         
         {/* Profile Card */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <span className="section-tag" style={{ marginBottom: '12px' }}>ACCOUNT</span>
-            <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-              <User size={20} className="status-success" /> Profile & Institution
-            </h3>
-            <p className="card-subtext">Update your personal details and academic institution properties.</p>
+          <div className="settings-account-header">
+            <div className="settings-account-copy">
+              <span className="section-tag" style={{ marginBottom: '12px' }}>ACCOUNT</span>
+              <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                <User size={20} className="status-success" /> Profile & Institution
+              </h3>
+              <p className="card-subtext account-card-description">Update your personal details and academic institution properties.</p>
+            </div>
+
+            <div className="profile-photo-control">
+              <input
+                accept="image/*"
+                aria-label="Upload profile picture"
+                className="profile-photo-input"
+                onChange={handleProfileImageChange}
+                ref={profileImageInputRef}
+                type="file"
+              />
+              <button
+                aria-label={profileImage ? "Change profile picture" : "Upload profile picture"}
+                className={`profile-photo-circle${profileImage ? " has-image" : ""}`}
+                onClick={() => profileImageInputRef.current?.click()}
+                title={profileImage ? "Change profile picture" : "Upload profile picture"}
+                type="button"
+              >
+                {profileImage ? (
+                  <img alt="Profile" src={profileImage} />
+                ) : (
+                  <User size={22} aria-hidden="true" />
+                )}
+              </button>
+              <button
+                aria-label={profileImage ? "Remove profile picture" : "Upload profile picture"}
+                className={`profile-photo-mini-action${profileImage ? " delete" : " edit"}`}
+                onClick={profileImage ? handleRemoveProfileImage : () => profileImageInputRef.current?.click()}
+                title={profileImage ? "Remove profile picture" : "Upload profile picture"}
+                type="button"
+              >
+                {profileImage ? <Trash2 size={12} /> : <Pencil size={12} />}
+              </button>
+            </div>
           </div>
           
           <div className="form-grid">
@@ -1332,7 +1408,7 @@ function SettingsPage({
             <p className="card-subtext" style={{ marginBottom: "12px", fontSize: "0.82rem" }}>
               Choose an image background or use the color palette theme. Image backgrounds automatically set matching theme colours.
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(140px, 1fr))", gap: "10px", overflowX: "auto", paddingBottom: "6px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: "10px", overflowX: "hidden", padding: "0 2px 6px", minWidth: 0 }}>
               {/* None / Color Palette option */}
               <button
                 onClick={() => setBgImageId("")}

@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_URL || "";
+export const API_BASE = (import.meta.env.VITE_API_URL || "").trim().replace(/\/+$/, "");
+export const HAS_CONFIGURED_API = Boolean(API_BASE);
+export const AUTH_RECOVERY_TIMEOUT_MS = 65000;
 const AUTH_NOTICE_KEY = "prepmatrix_auth_notice";
 
 function notifySessionEnded(message) {
@@ -10,8 +12,10 @@ function notifySessionEnded(message) {
 
 async function request(path, options = {}) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutMs = options.timeoutMs || 15000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+  const { timeoutMs: _timeoutMs, ...fetchOptions } = options;
   const token = localStorage.getItem("prepmatrix_auth_token");
   const headers = {
     "Content-Type": "application/json",
@@ -26,7 +30,7 @@ async function request(path, options = {}) {
       credentials: "include",
       headers,
       signal: controller.signal,
-      ...options,
+      ...fetchOptions,
     });
 
     clearTimeout(timeoutId);
@@ -63,7 +67,7 @@ async function request(path, options = {}) {
 }
 
 const api = {
-  me: () => request("/api/auth/me"),
+  me: (options = {}) => request("/api/auth/me", { timeoutMs: AUTH_RECOVERY_TIMEOUT_MS, ...options }),
   login: (body) => request("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
   register: (body) => request("/api/auth/register", { method: "POST", body: JSON.stringify(body) }),
   logout: () => request("/api/auth/logout", { method: "POST", body: JSON.stringify({}) }),

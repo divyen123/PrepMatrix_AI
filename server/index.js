@@ -140,6 +140,7 @@ function sanitizeUser(user) {
     schoolType: user.schoolType || (user.academicLevel === "School" ? "school" : "college"),
     grade: user.grade || "",
     degree: user.degree || "",
+    profileImage: user.profileImage || "",
     createdAt: user.createdAt,
   };
 }
@@ -658,7 +659,8 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
       academicTrack,
       department,
       grade,
-      degree
+      degree,
+      profileImage
     } = req.body ?? {};
 
     const db = await getDb();
@@ -715,6 +717,18 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
     if (department !== undefined) update.department = department;
     if (grade !== undefined) update.grade = grade;
     if (degree !== undefined) update.degree = degree;
+    if (profileImage !== undefined) {
+      if (typeof profileImage !== "string") {
+        return res.status(400).json({ error: "Profile image must be a valid image string." });
+      }
+      if (profileImage && !profileImage.startsWith("data:image/")) {
+        return res.status(400).json({ error: "Profile image must be an image file." });
+      }
+      if (profileImage.length > 3_000_000) {
+        return res.status(400).json({ error: "Profile image is too large." });
+      }
+      update.profileImage = profileImage;
+    }
 
     update.updatedAt = new Date();
 

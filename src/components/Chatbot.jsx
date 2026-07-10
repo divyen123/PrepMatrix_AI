@@ -6,7 +6,7 @@ import {
   buildFallbackReply,
   resolveLocalAssistantCommand,
 } from "../utils/assistantCommands";
-import api from "../utils/apiClient";
+import api, { API_BASE } from "../utils/apiClient";
 import {
   MessageSquare,
   Plus,
@@ -20,15 +20,6 @@ import {
   Mic,
   Square
 } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_URL || "";
-
-const SUGGESTED_PROMPTS = [
-  "Summarize my study progress",
-  "What should I focus on today?",
-  "Give me a short recovery plan for unfinished tasks",
-  "Motivate me for the next study session",
-];
 
 function formatMessageText(text) {
   if (!text) return "";
@@ -134,6 +125,30 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       text: "Study assistant is ready. Ask for strategy, summaries, or planner-based advice.",
     },
   ]);
+
+  const handleCopyMessage = useCallback(async (text = "") => {
+    const copyText = text.trim();
+    if (!copyText) return;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(copyText);
+        return;
+      }
+
+      const textarea = document.createElement("textarea");
+      textarea.value = copyText;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    } catch (error) {
+      console.error("Failed to copy chat message:", error);
+    }
+  }, []);
 
   // Load session list from backend
   const fetchSessions = useCallback(async () => {
@@ -416,6 +431,28 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     };
   }, [sendMessage]);
 
+  useEffect(() => () => {
+    const activeRecognition = chatRecognitionRef.current;
+    if (activeRecognition) {
+      activeRecognition.onstart = null;
+      activeRecognition.onresult = null;
+      activeRecognition.onerror = null;
+      activeRecognition.onend = null;
+      try {
+        activeRecognition.abort?.();
+      } catch {
+        try {
+          activeRecognition.stop?.();
+        } catch {
+          // Browser recognition may already be stopped.
+        }
+      }
+      chatRecognitionRef.current = null;
+    }
+    resumeWakeAfterChatMicRef.current = false;
+    window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
+  }, []);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
@@ -661,26 +698,19 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                 </button>
               </div>
 
-              {/* Suggested prompts ONLY on empty/initial chats */}
-              {messages.length <= 1 && (
-                <div className="chat-prompts">
-                  {SUGGESTED_PROMPTS.map((prompt) => (
-                    <button
-                      className="chat-prompt-chip"
-                      key={prompt}
-                      onClick={() => sendMessage(prompt)}
-                      type="button"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
-              )}
-
               <div className="chat-messages" ref={scrollRef}>
                 {messages.map((message) => (
                   <div className={`chat-message ${message.role}`} key={message.id}>
                     {formatMessageText(message.text)}
+                    <button
+                      aria-label="Copy chat message"
+                      className="chat-message-copy-btn"
+                      onClick={() => handleCopyMessage(message.text)}
+                      title="Copy"
+                      type="button"
+                    >
+                      <Copy size={13} strokeWidth={2.2} />
+                    </button>
                   </div>
                 ))}
 

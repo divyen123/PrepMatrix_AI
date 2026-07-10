@@ -24,7 +24,7 @@ import Chatbot from "./components/Chatbot";
 import VoiceAssistant from "./components/VoiceAssistant";
 import VoiceAssistantOverlay from "./components/VoiceAssistantOverlay";
 import useVoiceAssistant from "./hooks/useVoiceAssistant";
-import api from "./utils/apiClient";
+import api, { HAS_CONFIGURED_API } from "./utils/apiClient";
 import BACKGROUND_PRESETS from "./utils/backgroundPresets";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
 import "./App.css";
@@ -223,6 +223,13 @@ function App() {
   };
 
   const handleLogout = async () => {
+    voiceAssistant.setWakeMode(false);
+    voiceAssistant.stopListening?.();
+    window.studyVoiceAssistant?.setWakeMode?.(false);
+    window.studyVoiceAssistant?.stopWakeListening?.();
+    window.speechSynthesis?.cancel?.();
+    window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
+
     try {
       await api.logout();
     } catch {
@@ -253,6 +260,13 @@ function App() {
   };
 
   const clearAuthenticatedUi = (message = "Please log in again to continue.") => {
+    voiceAssistant.setWakeMode(false);
+    voiceAssistant.stopListening?.();
+    window.studyVoiceAssistant?.setWakeMode?.(false);
+    window.studyVoiceAssistant?.stopWakeListening?.();
+    window.speechSynthesis?.cancel?.();
+    window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
+
     if (splashTimeoutRef.current) {
       window.clearTimeout(splashTimeoutRef.current);
     }
@@ -380,7 +394,10 @@ function App() {
           return;
         }
 
-        setNotification("Backend server connection offline. Please start local backend server or check VITE_API_URL.");
+        setNotification(HAS_CONFIGURED_API
+          ? "Backend is waking up or temporarily offline. Please wait a moment and refresh."
+          : "Backend URL is not configured. Set VITE_API_URL in Vercel to keep login sessions active."
+        );
       })
       .finally(() => {
         if (isMounted) setAuthLoading(false);
@@ -791,8 +808,12 @@ function App() {
 
           <div className="sidebar-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
             <div className="profile-chip-vertical" title={userProfile.institutionName} style={{ flex: 1, minWidth: 0 }}>
-              <div className="profile-avatar">
-                <UserRound size={18} />
+              <div className={`profile-avatar${userProfile.profileImage ? " has-image" : ""}`}>
+                {userProfile.profileImage ? (
+                  <img alt="Profile" src={userProfile.profileImage} />
+                ) : (
+                  <UserRound size={18} />
+                )}
               </div>
               <div className="profile-details">
                 <strong>{userProfile.username}</strong>

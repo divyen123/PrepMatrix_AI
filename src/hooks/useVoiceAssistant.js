@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
+import { API_BASE } from "../utils/apiClient";
 
-const API_BASE = import.meta.env.VITE_API_URL || "";
 const WAKE_MODE_KEY = "prepmatrix_wake_mode";
 const UNSUPPORTED_MESSAGE = "Voice recognition is not supported in this browser. Please try Chrome or Edge.";
 const COMMAND_TIMEOUT_MS = 8500;
