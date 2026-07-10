@@ -12590,6 +12590,30 @@ button.bg-palette-thumbnail-btn:hover {
   display: none !important;
 }
 
+
+.profile-avatar-button,
+.profile-avatar-button:hover,
+.profile-avatar-button:focus-visible,
+.profile-preview-flip,
+.profile-preview-flip:hover,
+.profile-preview-flip:focus-visible {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.profile-avatar-button::after,
+.profile-avatar-button:hover::after,
+.profile-preview-flip::after,
+.profile-preview-flip:hover::after {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  background: transparent !important;
+  transform: none !important;
+}
 @keyframes profilePreviewClickRotate {
   0% {
     opacity: 0.65;
