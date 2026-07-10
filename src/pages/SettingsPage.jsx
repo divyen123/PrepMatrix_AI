@@ -1621,21 +1621,62 @@ function SettingsPage({
 
               {/* Cursor Style Selector — hidden on mobile via CSS */}
               <div className="settings-cursor-selector" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "14px" }}>
-                <label className="field-stack">
-                  <span>Mouse Cursor Style</span>
-                  <select
-                    value={parentCursorStyle || "app-cursor"}
-                    onChange={(e) => {
-                      if (setParentCursorStyle) setParentCursorStyle(e.target.value);
-                      localStorage.setItem("prepmatrix_cursor_style", e.target.value);
+                <span className="field-stack"><span>Mouse Cursor Style</span></span>
+                <div className="cursor-style-cards">
+                  {/* Default OS Cursor */}
+                  <button
+                    type="button"
+                    className={`cursor-style-card ${(parentCursorStyle === "default" || !parentCursorStyle) ? "active" : ""}`}
+                    onClick={() => {
+                      if (setParentCursorStyle) setParentCursorStyle("default");
+                      localStorage.setItem("prepmatrix_cursor_style", "default");
                     }}
                   >
-                    <option value="default">Default Cursor (Standard OS)</option>
-                    <option value="app-cursor">App Cursor (Purple dot + trailing ring)</option>
-                    <option value="neon-cursor">Neon Cursor (Animated neon trail)</option>
-                  </select>
-                </label>
+                    <div className="cursor-card-preview cursor-preview-default">
+                      <svg width="18" height="22" viewBox="0 0 18 22" fill="none">
+                        <path d="M1 1L1 17L5.5 13L8 20L10 19L7.5 12H13L1 1Z" fill="white" stroke="rgba(255,255,255,0.3)" strokeWidth="1"/>
+                      </svg>
+                    </div>
+                    <span className="cursor-card-label">Default</span>
+                    <span className="cursor-card-sub">OS Pointer</span>
+                  </button>
+
+                  {/* App Cursor */}
+                  <button
+                    type="button"
+                    className={`cursor-style-card ${parentCursorStyle === "app-cursor" ? "active" : ""}`}
+                    onClick={() => {
+                      if (setParentCursorStyle) setParentCursorStyle("app-cursor");
+                      localStorage.setItem("prepmatrix_cursor_style", "app-cursor");
+                    }}
+                  >
+                    <div className="cursor-card-preview cursor-preview-app">
+                      <div className="ccp-app-ring" />
+                      <div className="ccp-app-dot" />
+                    </div>
+                    <span className="cursor-card-label">App</span>
+                    <span className="cursor-card-sub">Purple dot + ring</span>
+                  </button>
+
+                  {/* Neon Cursor */}
+                  <button
+                    type="button"
+                    className={`cursor-style-card ${parentCursorStyle === "neon-cursor" ? "active" : ""}`}
+                    onClick={() => {
+                      if (setParentCursorStyle) setParentCursorStyle("neon-cursor");
+                      localStorage.setItem("prepmatrix_cursor_style", "neon-cursor");
+                    }}
+                  >
+                    <div className="cursor-card-preview cursor-preview-neon">
+                      <div className="ccp-neon-ring" />
+                      <div className="ccp-neon-dot" />
+                    </div>
+                    <span className="cursor-card-label">Neon</span>
+                    <span className="cursor-card-sub">Animated trail</span>
+                  </button>
+                </div>
               </div>
+
 
               <div className="field-stack">
                 <span>Preset Accent Color Palette</span>
