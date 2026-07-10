@@ -27,6 +27,7 @@ import useVoiceAssistant from "./hooks/useVoiceAssistant";
 import api, { HAS_CONFIGURED_API } from "./utils/apiClient";
 import BACKGROUND_PRESETS from "./utils/backgroundPresets";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
+import CustomCursor from "./components/CustomCursor";
 import "./App.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -770,6 +771,7 @@ function App() {
 
   return (
     <div className={`app-container app-shell-layout ${userProfile && !isAuthRoute ? "has-sidebar" : "auth-layout"}`}>
+      <CustomCursor />
       <div className="page-glow page-glow-left" />
       <div className="page-glow page-glow-right" />
       <div className="motion-stage" aria-hidden="true">

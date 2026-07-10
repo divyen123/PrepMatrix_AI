@@ -29,6 +29,7 @@ body {
     radial-gradient(circle at top right, rgba(184, 121, 31, 0.18), transparent 26%),
     linear-gradient(180deg, var(--bg), var(--bg-secondary));
   transition: background 0.3s ease, color 0.3s ease;
+  cursor: none;
 }
 
 .mobile-only-text {
@@ -13270,3 +13271,84 @@ body.dark .auth-submit-btn:active,
   transform: translateY(0) !important;
 }
 
+
+/* ==========================================================================
+   CUSTOM CURSOR
+   ========================================================================== */
+
+*, *::before, *::after { cursor: none !important; }
+
+.custom-cursor-dot,
+.custom-cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 999999;
+  will-change: transform;
+  border-radius: 50%;
+}
+
+.custom-cursor-dot {
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  margin-top: -3.5px;
+  background: #bf6fff;
+  box-shadow: 0 0 6px rgba(191,111,255,0.8);
+  transition: width .18s ease, height .18s ease, margin .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.custom-cursor-ring {
+  width: 32px;
+  height: 32px;
+  margin-left: -16px;
+  margin-top: -16px;
+  border: 1.5px solid rgba(191,111,255,0.55);
+  background: rgba(191,111,255,0.06);
+  backdrop-filter: blur(2px);
+  transition: width .28s cubic-bezier(.34,1.56,.64,1), height .28s cubic-bezier(.34,1.56,.64,1), margin .28s cubic-bezier(.34,1.56,.64,1), border-color .2s ease, background .2s ease;
+}
+
+.custom-cursor-dot.cursor-dot--hover {
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  margin-top: -2.5px;
+  background: #ff9ffc;
+  box-shadow: 0 0 10px rgba(255,159,252,0.9);
+}
+
+.custom-cursor-ring.cursor-ring--hover {
+  width: 46px;
+  height: 46px;
+  margin-left: -23px;
+  margin-top: -23px;
+  border-color: rgba(255,159,252,0.7);
+  background: rgba(255,159,252,0.08);
+}
+
+.custom-cursor-dot.cursor-dot--click {
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  margin-top: -5px;
+  background: #ffffff;
+  box-shadow: 0 0 14px rgba(255,255,255,0.9);
+}
+
+.custom-cursor-ring.cursor-ring--click {
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  border-color: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.1);
+}
+
+@media (pointer: coarse) {
+  *, *::before, *::after { cursor: auto !important; }
+  input, textarea, select { cursor: text !important; }
+  a, button, [role='button'] { cursor: pointer !important; }
+  .custom-cursor-dot, .custom-cursor-ring { display: none !important; }
+}
