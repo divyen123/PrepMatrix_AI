@@ -29,7 +29,6 @@ body {
     radial-gradient(circle at top right, rgba(184, 121, 31, 0.18), transparent 26%),
     linear-gradient(180deg, var(--bg), var(--bg-secondary));
   transition: background 0.3s ease, color 0.3s ease;
-  cursor: none;
 }
 
 .mobile-only-text {
@@ -13384,7 +13383,20 @@ body.dark .auth-submit-btn:active,
    CUSTOM CURSOR
    ========================================================================== */
 
-*, *::before, *::after { cursor: none !important; }
+/* Hide OS cursor only when custom cursor mode is active */
+html[data-cursor-mode="app-cursor"] *,
+html[data-cursor-mode="app-cursor"] *::before,
+html[data-cursor-mode="app-cursor"] *::after,
+html[data-cursor-mode="neon-cursor"] *,
+html[data-cursor-mode="neon-cursor"] *::before,
+html[data-cursor-mode="neon-cursor"] *::after {
+  cursor: none !important;
+}
+
+html[data-cursor-mode="app-cursor"] body,
+html[data-cursor-mode="neon-cursor"] body {
+  cursor: none !important;
+}
 
 .custom-cursor-dot,
 .custom-cursor-ring {
@@ -13565,6 +13577,101 @@ body.dark .auth-submit-btn:active,
 .delete-confirm-wrap .delete-no-btn:hover {
   background: rgba(255, 255, 255, 0.2) !important;
   color: var(--text) !important;
+}
+
+/* ==========================================================================
+   NEON CURSOR STYLES & MOBILE OVERRIDES
+   ========================================================================== */
+
+/* Neon Cursor Mode Styles */
+.custom-cursor-dot.cursor-neon-dot {
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  margin-top: -4px;
+  background: #00f3ff;
+  box-shadow: 0 0 8px #00f3ff, 0 0 16px rgba(0, 243, 255, 0.8);
+  animation: neonColorCycleDot 3s infinite alternate ease-in-out;
+}
+
+.custom-cursor-ring.cursor-neon-ring {
+  width: 26px;
+  height: 26px;
+  margin-left: -13px;
+  margin-top: -13px;
+  border: 2px solid #ff007f;
+  background: rgba(255, 0, 127, 0.03);
+  box-shadow: 0 0 10px rgba(255, 0, 127, 0.4), inset 0 0 6px rgba(255, 0, 127, 0.2);
+  animation: neonColorCycleRing 3s infinite alternate ease-in-out;
+}
+
+/* Hover State for Neon Cursor */
+.custom-cursor-dot.cursor-neon-dot.cursor-dot--hover {
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  margin-top: -6px;
+}
+
+.custom-cursor-ring.cursor-neon-ring.cursor-ring--hover {
+  width: 40px;
+  height: 40px;
+  margin-left: -20px;
+  margin-top: -20px;
+}
+
+@keyframes neonColorCycleDot {
+  0% {
+    background: #00f3ff;
+    box-shadow: 0 0 8px #00f3ff, 0 0 16px rgba(0, 243, 255, 0.8);
+  }
+  50% {
+    background: #ff007f;
+    box-shadow: 0 0 8px #ff007f, 0 0 16px rgba(255, 0, 127, 0.8);
+  }
+  100% {
+    background: #39ff14;
+    box-shadow: 0 0 8px #39ff14, 0 0 16px rgba(57, 255, 20, 0.8);
+  }
+}
+
+@keyframes neonColorCycleRing {
+  0% {
+    border-color: #ff007f;
+    background: rgba(255, 0, 127, 0.03);
+    box-shadow: 0 0 10px rgba(255, 0, 127, 0.4), inset 0 0 6px rgba(255, 0, 127, 0.2);
+  }
+  50% {
+    border-color: #39ff14;
+    background: rgba(57, 255, 20, 0.03);
+    box-shadow: 0 0 10px rgba(57, 255, 20, 0.4), inset 0 0 6px rgba(57, 255, 20, 0.2);
+  }
+  100% {
+    border-color: #00f3ff;
+    background: rgba(0, 243, 255, 0.03);
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.4), inset 0 0 6px rgba(0, 243, 255, 0.2);
+  }
+}
+
+/* Mobile Neglect Cursor Selection in Settings */
+@media (max-width: 991.98px) {
+  .settings-cursor-selector {
+    display: none !important;
+  }
+}
+
+/* Fix search input fields: remove inner container border/background */
+.stored-search-field input,
+.stored-search-field input:focus,
+.stored-search-field input[type="search"],
+.stored-search-field input[type="search"]:focus {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 

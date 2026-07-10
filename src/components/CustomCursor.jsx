@@ -2,21 +2,32 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 /**
- * CustomCursor — replaces the OS cursor with:
- *   • a small solid dot that tracks exactly
- *   • a larger translucent ring that lerps behind it
- *   • hover state: ring expands + blends color on interactive elements
+ * CustomCursor — supports three cursor modes:
+ *   • "default"    → OS default cursor (component renders nothing)
+ *   • "app-cursor" → purple dot + lagging ring (original app cursor)
+ *   • "neon-cursor"→ animated neon glow trail cursor
  *
  * Rendered via createPortal directly into document.body so it sits ABOVE
  * every modal, drawer, overlay and stacking context in the app.
  */
-export default function CustomCursor() {
+export default function CustomCursor({ mode = "app-cursor" }) {
   const dotRef  = useRef(null);
   const ringRef = useRef(null);
 
   useEffect(() => {
     const dot  = dotRef.current;
     const ring = ringRef.current;
+
+    // "default" mode: restore OS cursor and stop
+    if (mode === "default") {
+      document.documentElement.setAttribute("data-cursor-mode", "default");
+      return () => {
+        document.documentElement.removeAttribute("data-cursor-mode");
+      };
+    }
+
+    // custom cursor modes
+    document.documentElement.setAttribute("data-cursor-mode", mode);
     if (!dot || !ring) return;
 
     let mouseX = window.innerWidth  / 2;
@@ -26,7 +37,7 @@ export default function CustomCursor() {
     let rafId  = null;
     let isHovering = false;
 
-    const LERP = 0.30; // ring lag — lower = more lag
+    const LERP = mode === "neon-cursor" ? 0.18 : 0.30;
 
     /* ── Track real mouse position ── */
     const onMouseMove = (e) => {
@@ -91,14 +102,28 @@ export default function CustomCursor() {
       document.removeEventListener("mouseover",  onMouseOver);
       document.removeEventListener("mouseout",   onMouseOut);
       document.removeEventListener("mousedown",  onClick);
+      document.documentElement.removeAttribute("data-cursor-mode");
     };
-  }, []);
+  }, [mode]);
+
+  // "default" mode — no cursor elements, OS takes over
+  if (mode === "default") return null;
+
+  const isNeon = mode === "neon-cursor";
 
   /* Portal into body — escapes every React stacking context */
   return createPortal(
     <>
-      <div className="custom-cursor-ring" ref={ringRef} aria-hidden="true" />
-      <div className="custom-cursor-dot"  ref={dotRef}  aria-hidden="true" />
+      <div
+        className={`custom-cursor-ring${isNeon ? " cursor-neon-ring" : ""}`}
+        ref={ringRef}
+        aria-hidden="true"
+      />
+      <div
+        className={`custom-cursor-dot${isNeon ? " cursor-neon-dot" : ""}`}
+        ref={dotRef}
+        aria-hidden="true"
+      />
     </>,
     document.body
   );

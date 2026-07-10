@@ -171,6 +171,9 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
   const [profilePreviewSide, setProfilePreviewSide] = useState("logo");
+  const [cursorStyle, setCursorStyle] = useState(
+    () => localStorage.getItem("prepmatrix_cursor_style") || "app-cursor"
+  );
 
   const voiceAssistant = useVoiceAssistant({
     academicLevel,
@@ -770,8 +773,8 @@ function App() {
   }, []);
 
   return (
-    <div className={`app-container app-shell-layout ${userProfile && !isAuthRoute ? "has-sidebar" : "auth-layout"}`}>
-      <CustomCursor />
+    <div className={`app-container app-shell-layout ${userProfile && !isAuthRoute ? "has-sidebar" : "auth-layout"} cursor-mode--${cursorStyle}`}>
+      <CustomCursor mode={cursorStyle} />
       <div className="page-glow page-glow-left" />
       <div className="page-glow page-glow-right" />
       <div className="motion-stage" aria-hidden="true">
@@ -1163,6 +1166,8 @@ function App() {
                               setMaterialBookmarks={setMaterialBookmarks}
                               setNotification={setNotification}
                               onAccountDeleted={handleAccountDeleted}
+                              cursorStyle={cursorStyle}
+                              setCursorStyle={setCursorStyle}
                             />
                           }
                           path="/settings"
