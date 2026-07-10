@@ -6642,16 +6642,16 @@ body.dark .sidebar-footer {
   align-items: center;
   justify-content: space-between;
   padding: 0 40px;
-  background: rgba(var(--bg-surface-rgb, 14, 14, 28), 0.55);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 24px rgba(0, 0, 0, 0.12);
+  background: rgba(10, 10, 22, 0.62) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 24px rgba(0, 0, 0, 0.18) !important;
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 90;
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
   transition: background 0.3s ease, border-color 0.3s ease;
 }
 
@@ -6662,8 +6662,8 @@ body.dark .sidebar-footer {
 }
 
 body.dark .workspace-topbar {
-  background: rgba(8, 8, 20, 0.52);
-  border-bottom-color: rgba(255, 255, 255, 0.07);
+  background: rgba(6, 6, 18, 0.65) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.07) !important;
 }
 
 @media (max-width: 768px) {
@@ -7624,9 +7624,13 @@ body.dark .auth-orb {
 }
 
 /* Sidebar and Topbar backgrounds dynamic color override */
-.app-sidebar,
-.workspace-topbar {
+.app-sidebar {
   background: var(--bg) !important;
+}
+.workspace-topbar {
+  background: rgba(10, 10, 22, 0.62) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
 }
 
 /* ==========================================================================
@@ -7872,18 +7876,26 @@ body.dark .app-container::after {
   -webkit-backdrop-filter: blur(22px) saturate(1.18) !important;
 }
 
-.app-sidebar,
-.workspace-topbar {
+.app-sidebar {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.52)) padding-box,
     var(--gradient-border) border-box !important;
 }
+.workspace-topbar {
+  background: rgba(10, 10, 22, 0.62) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+}
 
-body.dark .app-sidebar,
-body.dark .workspace-topbar {
+body.dark .app-sidebar {
   background:
     linear-gradient(145deg, rgba(16, 25, 43, 0.9), rgba(8, 12, 22, 0.68)) padding-box,
     var(--gradient-border) border-box !important;
+}
+body.dark .workspace-topbar {
+  background: rgba(6, 6, 16, 0.68) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
 }
 
 .app-sidebar {
