@@ -1,10 +1,14 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * CustomCursor — replaces the OS cursor with:
  *   • a small solid dot that tracks exactly
  *   • a larger translucent ring that lerps behind it
  *   • hover state: ring expands + blends color on interactive elements
+ *
+ * Rendered via createPortal directly into document.body so it sits ABOVE
+ * every modal, drawer, overlay and stacking context in the app.
  */
 export default function CustomCursor() {
   const dotRef  = useRef(null);
@@ -65,10 +69,8 @@ export default function CustomCursor() {
 
     /* ── Animation loop ── */
     const animate = () => {
-      // Dot snaps instantly
       dot.style.transform  = `translate(${mouseX}px, ${mouseY}px)`;
 
-      // Ring lerps
       ringX += (mouseX - ringX) * LERP;
       ringY += (mouseY - ringY) * LERP;
       ring.style.transform = `translate(${ringX}px, ${ringY}px)`;
@@ -92,12 +94,12 @@ export default function CustomCursor() {
     };
   }, []);
 
-  return (
+  /* Portal into body — escapes every React stacking context */
+  return createPortal(
     <>
-      {/* Outer ring */}
       <div className="custom-cursor-ring" ref={ringRef} aria-hidden="true" />
-      {/* Center dot */}
       <div className="custom-cursor-dot"  ref={dotRef}  aria-hidden="true" />
-    </>
+    </>,
+    document.body
   );
 }
