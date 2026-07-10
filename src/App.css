@@ -13518,6 +13518,55 @@ body.dark .auth-submit-btn:active,
   color: var(--text) !important;
 }
 
+/* Chat History Single Chat Delete Inline Confirmation Box */
+.delete-confirm-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.delete-confirm-text {
+  font-size: 0.75rem;
+  color: #f87171;
+  font-weight: 600;
+}
+
+.delete-confirm-wrap button {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.delete-confirm-wrap .delete-yes-btn {
+  background: #ef4444 !important;
+  color: #fff !important;
+}
+
+.delete-confirm-wrap .delete-yes-btn:hover {
+  background: #dc2626 !important;
+}
+
+.delete-confirm-wrap .delete-no-btn {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: var(--text-muted) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.delete-confirm-wrap .delete-no-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: var(--text) !important;
+}
+
 
 
 

@@ -114,6 +114,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   const [activeSessionTitle, setActiveSessionTitle] = useState("New Chat");
   const [historyOpen, setHistoryOpen] = useState(true);
   const [editingSessionId, setEditingSessionId] = useState(null);
+  const [deletingSessionId, setDeletingSessionId] = useState(null);
   const [renameTitle, setRenameTitle] = useState("");
 
   const [assistantStatus, setAssistantStatus] = useState({
@@ -240,13 +241,13 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   // Delete a session
   const handleDeleteSession = useCallback(async (e, sessionId) => {
     e.stopPropagation();
-    if (!window.confirm("Delete this conversation?")) return;
     try {
       await api.deleteChatSession(sessionId);
       setSessions((current) => current.filter((s) => s._id !== sessionId));
       if (activeSessionId === sessionId) {
         handleNewChat();
       }
+      setDeletingSessionId(null);
     } catch (err) {
       console.error("Failed to delete session:", err);
     }
@@ -663,7 +664,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                     <div
                       key={s._id}
                       className={`history-session-item ${isActive ? "active" : ""}`}
-                      onClick={() => !isEditing && handleSelectSession(s._id)}
+                      onClick={() => !isEditing && deletingSessionId !== s._id && handleSelectSession(s._id)}
                     >
                       <MessageSquare size={14} className="session-icon" />
 
@@ -686,6 +687,28 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                             <X size={12} />
                           </button>
                         </div>
+                      ) : deletingSessionId === s._id ? (
+                        <div className="delete-confirm-wrap" onClick={(e) => e.stopPropagation()}>
+                          <span className="delete-confirm-text">Delete?</span>
+                          <div style={{ display: "flex", gap: "4px" }}>
+                            <button
+                              className="delete-yes-btn"
+                              onClick={(e) => handleDeleteSession(e, s._id)}
+                              title="Yes, delete"
+                              type="button"
+                            >
+                              <Check size={12} />
+                            </button>
+                            <button
+                              className="delete-no-btn"
+                              onClick={() => setDeletingSessionId(null)}
+                              title="Cancel"
+                              type="button"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        </div>
                       ) : (
                         <>
                           <span className="session-title" title={s.title}>
@@ -701,7 +724,10 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                             </button>
                             <button
                               aria-label="Delete conversation"
-                              onClick={(e) => handleDeleteSession(e, s._id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletingSessionId(s._id);
+                              }}
                               type="button"
                             >
                               <Trash2 size={12} />
