@@ -2457,21 +2457,27 @@ body.dark .theme-icon-btn:hover {
 .notes-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
+  align-items: center;
   justify-content: flex-end;
 }
 
 .filter-pill {
-  background: rgba(20, 31, 49, 0.05);
-  border: 1px solid rgba(20, 31, 49, 0.08);
+  background: rgba(20, 31, 49, 0.06);
+  border: 1px solid rgba(20, 31, 49, 0.1);
   border-radius: 999px;
   color: var(--text);
   cursor: pointer;
   font: inherit;
-  font-weight: 800;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.76rem;
-  transition: transform 0.2s ease, background 0.2s ease;
+  font-weight: 700;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.73rem;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.18s ease, background 0.18s ease;
+  white-space: nowrap;
 }
 
 .filter-pill:hover {
@@ -2899,21 +2905,25 @@ body.dark select option:hover {
 
 .stored-search-field {
   align-items: center;
-  background: rgba(255, 255, 255, 0.68);
+  /* Theme-aware background: uses CSS surface variable so it adapts to any background */
+  background: var(--surface, rgba(255,255,255,0.72));
   border: 1px solid rgba(20, 31, 49, 0.09);
-  border-radius: 18px;
+  border-radius: 999px;
   color: var(--text-muted);
   display: flex;
-  gap: 10px;
-  padding: 0 14px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-  width: min(100%, 520px);
+  gap: 8px;
+  padding: 0 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  /* Compact: auto width, not a full-width block */
+  width: auto;
+  max-width: 260px;
+  height: 32px;
+  flex-shrink: 1;
 }
 
 .stored-search-field:focus-within {
   border-color: rgba(11, 143, 116, 0.45);
-  box-shadow: 0 0 0 4px rgba(11, 143, 116, 0.1);
-  transform: translateY(-1px);
+  box-shadow: 0 0 0 3px rgba(11, 143, 116, 0.10);
 }
 
 .stored-search-field input {
@@ -2922,16 +2932,24 @@ body.dark select option:hover {
   color: var(--text);
   flex: 1;
   font: inherit;
-  font-weight: 700;
-  min-height: 44px;
-  min-width: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  min-height: 0;
+  height: 100%;
+  min-width: 60px;
+  max-width: 200px;
   outline: 0;
   padding: 0;
 }
 
 .stored-search-field input::placeholder {
   color: var(--text-muted);
-  font-weight: 700;
+  font-weight: 500;
+}
+
+body.dark .stored-search-field {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.10);
 }
 
 .bookmark-grid {
@@ -8075,7 +8093,7 @@ button:hover,
   min-height: 168px;
 }
 
-/* â”€â”€ Overview card individual color themes â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Overview card individual color themes Ã¢â€â‚¬Ã¢â€â‚¬ */
 .route-overview-grid > .overview-card:nth-child(1) { --ov-r: var(--accent-rgb); --ov-c: var(--accent); --ov-c2: #00a6c8; }
 .route-overview-grid > .overview-card:nth-child(2) { --ov-r: 0, 166, 200; --ov-c: #00a6c8; --ov-c2: #0e7490; }
 .route-overview-grid > .overview-card:nth-child(3) { --ov-r: 243, 182, 63; --ov-c: #f3b63f; --ov-c2: #ea580c; }
@@ -9706,7 +9724,7 @@ body.has-bg-image {
   --shadow: 0 20px 50px rgba(0, 0, 0, 0.3) !important;
 }
 
-/* Background image layer â€” sits behind everything */
+/* Background image layer Ã¢â‚¬â€ sits behind everything */
 body.has-bg-image::after {
   content: "";
   position: fixed;
@@ -9722,7 +9740,7 @@ body.has-bg-image::after {
   transition: filter 0.3s ease;
 }
 
-/* Dark overlay to control background brightness â€” sits above image, below content */
+/* Dark overlay to control background brightness Ã¢â‚¬â€ sits above image, below content */
 body.has-bg-image::before {
   content: "";
   position: fixed;
@@ -9758,7 +9776,7 @@ body.has-bg-image .theme-icon-btn {
   display: none !important;
 }
 
-/* â”€â”€ Sidebar glassmorphism â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Sidebar glassmorphism Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image:not(.no-glass-cards) .app-sidebar {
   background: rgba(var(--bg-surface-rgb), calc(var(--glass-opacity, 0.6) + 0.18)) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
@@ -9802,7 +9820,7 @@ body.has-bg-image .sidebar-widgets {
   border-color: rgba(255, 255, 255, 0.08);
 }
 
-/* â”€â”€ Topbar glassmorphism â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Topbar glassmorphism Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image:not(.no-glass-cards) .workspace-topbar {
   background: rgba(var(--bg-surface-rgb), calc(var(--glass-opacity, 0.6) + 0.08)) !important;
   backdrop-filter: blur(22px) saturate(170%) !important;
@@ -9828,7 +9846,7 @@ body.has-bg-image .page-header-info span {
   color: #f0f0f5;
 }
 
-/* â”€â”€ Cards glassmorphism â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Cards glassmorphism Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image:not(.no-glass-cards) .card,
 body.has-bg-image:not(.no-glass-cards) .overview-card,
 body.has-bg-image:not(.no-glass-cards) .confirm-modal,
@@ -9888,7 +9906,7 @@ body.has-bg-image .section-tag {
   color: rgba(var(--accent-rgb), 0.85);
 }
 
-/* â”€â”€ Form controls â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Form controls Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image input,
 body.has-bg-image select,
 body.has-bg-image textarea {
@@ -9907,7 +9925,7 @@ body.has-bg-image select option {
   color: #f0f0f5;
 }
 
-/* â”€â”€ Buttons â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Buttons Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image button {
   color: #f0f0f5;
 }
@@ -9918,12 +9936,12 @@ body.has-bg-image .secondary-btn {
   color: rgba(240, 240, 245, 0.8);
 }
 
-/* â”€â”€ Dashboard specific â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Dashboard specific Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image .compact-intro h2 {
   color: #f0f0f5;
 }
 
-/* â”€â”€ Scrollbar for dark image backgrounds â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Scrollbar for dark image backgrounds Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
 }
@@ -9931,7 +9949,7 @@ body.has-bg-image ::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.15);
 }
 
-/* â”€â”€ About info button â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ About info button Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image .about-info-btn {
   background: rgba(var(--bg-surface-rgb), 0.5);
   border-color: rgba(255, 255, 255, 0.12);
@@ -9942,12 +9960,12 @@ body.has-bg-image .about-info-btn:hover {
   color: rgb(var(--accent-rgb));
 }
 
-/* â”€â”€ Toggle switch â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Toggle switch Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image .toggle-row strong {
   color: #f0f0f5;
 }
 
-/* â”€â”€ Status colours stay visible â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Status colours stay visible Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image .status-success {
   color: rgb(var(--accent-rgb));
 }
@@ -9955,7 +9973,7 @@ body.has-bg-image .status-warning {
   color: #f59e0b;
 }
 
-/* â”€â”€ Chat / floating widgets â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Chat / floating widgets Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image:not(.no-glass-cards) .sidebar-widget-cell {
   background: rgba(var(--bg-surface-rgb), calc(var(--glass-opacity, 0.6) - 0.15)) !important;
   border-color: rgba(255, 255, 255, 0.08);
@@ -9965,7 +9983,7 @@ body.has-bg-image.no-glass-cards .sidebar-widget-cell {
   border-color: rgba(255, 255, 255, 0.06);
 }
 
-/* â”€â”€ Settings icon button â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Settings icon button Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image .settings-icon-btn {
   color: rgba(240, 240, 245, 0.7);
 }
@@ -9974,23 +9992,23 @@ body.has-bg-image .settings-icon-btn.active {
   color: rgb(var(--accent-rgb));
 }
 
-/* â”€â”€ Profile avatar â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Profile avatar Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image .profile-avatar {
   background: rgba(var(--accent-rgb), 0.15);
   color: rgb(var(--accent-rgb));
 }
 
-/* â”€â”€ Recharts (Analytics) â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Recharts (Analytics) Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image .recharts-text {
   fill: rgba(240, 240, 245, 0.6) !important;
 }
 
-/* â”€â”€ Auth page shouldn't use bg image â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Auth page shouldn't use bg image Ã¢â€â‚¬Ã¢â€â‚¬ */
 body.has-bg-image .auth-layout {
   background: transparent;
 }
 
-/* â”€â”€ Responsive: mobile sidebar overlay â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Responsive: mobile sidebar overlay Ã¢â€â‚¬Ã¢â€â‚¬ */
 @media (max-width: 900px) {
   body.has-bg-image:not(.no-glass-cards) .app-sidebar.open {
     background: rgba(var(--bg-surface-rgb), 0.92) !important;
@@ -10000,7 +10018,7 @@ body.has-bg-image .auth-layout {
   }
 }
 
-/* â”€â”€ Background Preset & Palette Option Buttons (Settings Appearance) â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Background Preset & Palette Option Buttons (Settings Appearance) Ã¢â€â‚¬Ã¢â€â‚¬ */
 button.bg-preset-thumbnail-btn {
   background-size: cover !important;
   background-position: center !important;
@@ -11934,7 +11952,7 @@ body.worktree-fullscreen-active .workspace-topbar {
 }
 
 /* ===================================================
-   Worktree â€” background scroll / zoom isolation
+   Worktree Ã¢â‚¬â€ background scroll / zoom isolation
    (body class is added by WorktreeMapper useEffect)
    =================================================== */
 body.worktree-fullscreen-active {
@@ -11943,7 +11961,7 @@ body.worktree-fullscreen-active {
 }
 
 /* ===================================================
-   Worktree â€” parent node search + dropdown
+   Worktree Ã¢â‚¬â€ parent node search + dropdown
    =================================================== */
 .worktree-parent-search-wrap {
   position: relative;
@@ -11992,7 +12010,7 @@ body.worktree-fullscreen-active {
 }
 
 .builder-form .field-stack:nth-child(2) {
-  /* The Link From (Parent) field specifically â€” needs highest stacking context */
+  /* The Link From (Parent) field specifically Ã¢â‚¬â€ needs highest stacking context */
   z-index: 9998;
 }
 
@@ -12086,7 +12104,7 @@ body.has-bg-image .worktree-parent-dropdown {
 }
 
 /* ===================================================
-   Chat input â€” compact icon-only send + mic buttons
+   Chat input Ã¢â‚¬â€ compact icon-only send + mic buttons
    =================================================== */
 .chat-input {
   display: flex;
@@ -12146,7 +12164,7 @@ body.has-bg-image .worktree-parent-dropdown {
   50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
 }
 
-/* Portal chat icon buttons â€” correct selector (portal is on document.body, not inside .sidebar-widgets) */
+/* Portal chat icon buttons Ã¢â‚¬â€ correct selector (portal is on document.body, not inside .sidebar-widgets) */
 .sidebar-chatbot-portal .chat-input {
   display: flex !important;
   flex-direction: row !important;
@@ -12653,17 +12671,17 @@ button.bg-palette-thumbnail-btn:hover {
 }
 
 /* =====================================================================================
-   AUTH PAGE â€” DARK ISOLATED THEME (final overrides, always last in file)
+   AUTH PAGE Ã¢â‚¬â€ DARK ISOLATED THEME (final overrides, always last in file)
    Everything here uses !important to beat the many earlier .auth-page blocks
    that apply white/light gradients.
    ===================================================================================== */
 
-/* â”€â”€ Force the whole auth-layout shell to be dark â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Force the whole auth-layout shell to be dark Ã¢â€â‚¬Ã¢â€â‚¬ */
 .app-container.auth-layout {
   background: #09090f !important;
 }
 
-/* â”€â”€ The auth page section: dark base, full-screen, centered, NO overflow clipping â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ The auth page section: dark base, full-screen, centered, NO overflow clipping Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-page--isolated {
   position: fixed !important;
   inset: 0 !important;
@@ -12680,7 +12698,7 @@ button.bg-palette-thumbnail-btn:hover {
   padding: clamp(24px, 4vh, 48px) clamp(16px, 4vw, 32px) !important;
   box-sizing: border-box !important;
   gap: 0 !important;
-  /* DARK background â€” beats every earlier white/gradient rule */
+  /* DARK background Ã¢â‚¬â€ beats every earlier white/gradient rule */
   background: #09090f !important;
   background-image: none !important;
   /* Isolate so that the particle canvas z-indices work correctly */
@@ -12688,7 +12706,7 @@ button.bg-palette-thumbnail-btn:hover {
   z-index: 0;
 }
 
-/* â”€â”€ Particle canvas: full-screen behind everything â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Particle canvas: full-screen behind everything Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-particle-layer {
   position: fixed !important;
   inset: 0 !important;
@@ -12696,7 +12714,7 @@ button.bg-palette-thumbnail-btn:hover {
   pointer-events: none !important;
 }
 
-/* â”€â”€ Soft background glows â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Soft background glows Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-glow {
   position: fixed !important;
   pointer-events: none !important;
@@ -12720,7 +12738,7 @@ button.bg-palette-thumbnail-btn:hover {
   background: radial-gradient(circle, rgba(255,159,252,0.18) 0%, transparent 70%);
 }
 
-/* â”€â”€ Brand lockup â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Brand lockup Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-page--isolated .auth-brand-lockup {
   display: flex !important;
   align-items: center !important;
@@ -12770,13 +12788,13 @@ button.bg-palette-thumbnail-btn:hover {
   display: block !important;
 }
 
-/* â”€â”€ Card â€” base: compact, dark glass â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Card Ã¢â‚¬â€ base: compact, dark glass Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-card--v2 {
   position: relative !important;
   z-index: 2 !important;
   width: 100% !important;
   max-width: 420px !important;
-  /* True dark glass â€” the backdrop blurs the dark bg, not a white one */
+  /* True dark glass Ã¢â‚¬â€ the backdrop blurs the dark bg, not a white one */
   background: rgba(18, 14, 32, 0.72) !important;
   border: 1px solid rgba(255,255,255,0.11) !important;
   border-radius: 24px !important;
@@ -12789,18 +12807,18 @@ button.bg-palette-thumbnail-btn:hover {
     inset 0 1px 0 rgba(255,255,255,0.08) !important;
   overflow: visible !important;        /* never clip the register fields */
   max-height: none !important;         /* beat the old calc(100dvh - 126px) rule */
-  /* Smooth width expansion when switching login â†” register */
+  /* Smooth width expansion when switching login Ã¢â€ â€ register */
   transition:
     max-width 0.42s cubic-bezier(0.4, 0, 0.2, 1),
     padding   0.42s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-/* â”€â”€ Card â€” register: expand width for 2-col grid â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Card Ã¢â‚¬â€ register: expand width for 2-col grid Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-card--v2.auth-card--register {
   max-width: 660px !important;
 }
 
-/* â”€â”€ Copy block (heading + subtitle) â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Copy block (heading + subtitle) Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-card--v2 .auth-copy {
   margin-bottom: 20px !important;
   text-align: center !important;
@@ -12822,14 +12840,14 @@ button.bg-palette-thumbnail-btn:hover {
   line-height: 1.6 !important;
 }
 
-/* â”€â”€ Form layout â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Form layout Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-form--v2 {
   display: flex !important;
   flex-direction: column !important;
   gap: 0 !important;
 }
 
-/* Email + Password â€” always single column */
+/* Email + Password Ã¢â‚¬â€ always single column */
 .auth-fields-base {
   display: flex !important;
   flex-direction: column !important;
@@ -12837,7 +12855,7 @@ button.bg-palette-thumbnail-btn:hover {
   margin-bottom: 13px !important;
 }
 
-/* Register extra fields â€” 2-col grid, slides in */
+/* Register extra fields Ã¢â‚¬â€ 2-col grid, slides in */
 .auth-fields-register {
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
@@ -12856,7 +12874,7 @@ button.bg-palette-thumbnail-btn:hover {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* â”€â”€ Field-stack labels â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Field-stack labels Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-form--v2 .field-stack {
   display: flex !important;
   flex-direction: column !important;
@@ -12868,7 +12886,7 @@ button.bg-palette-thumbnail-btn:hover {
   text-transform: none !important;
 }
 
-/* â”€â”€ Inputs & selects â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Inputs & selects Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-form--v2 .field-stack input,
 .auth-form--v2 .field-stack select {
   background: rgba(255,255,255,0.07) !important;
@@ -12901,7 +12919,7 @@ button.bg-palette-thumbnail-btn:hover {
   color: #f0eeff !important;
 }
 
-/* â”€â”€ Submit button â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Submit button Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-submit-btn {
   width: 100% !important;
   padding: 11px !important;
@@ -12928,7 +12946,7 @@ button.bg-palette-thumbnail-btn:hover {
   opacity: 0.88 !important;
 }
 
-/* â”€â”€ Error / info message â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Error / info message Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-card--v2 .auth-message {
   font-size: 0.82rem !important;
   color: #ff9ffc !important;
@@ -12940,7 +12958,7 @@ button.bg-palette-thumbnail-btn:hover {
   text-align: center !important;
 }
 
-/* â”€â”€ Switch link â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Switch link Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-card--v2 .auth-switch {
   margin-top: 18px !important;
   text-align: center !important;
@@ -12959,7 +12977,7 @@ button.bg-palette-thumbnail-btn:hover {
   color: #ff9ffc !important;
 }
 
-/* â”€â”€ Responsive: collapse to 1-col on small screens â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Responsive: collapse to 1-col on small screens Ã¢â€â‚¬Ã¢â€â‚¬ */
 @media (max-width: 580px) {
   .auth-fields-register {
     grid-template-columns: 1fr !important;
@@ -12977,4 +12995,157 @@ button.bg-palette-thumbnail-btn:hover {
 }
 
 
+
 /* end of stylesheet */
+
+/* ==========================================================================
+   COMPACT SEARCH BARS — Notes / Quiz History / Materials
+   ========================================================================== */
+
+/* ── Shared search bar: compact pill, theme-aware ── */
+.stored-search-field {
+  align-items: center;
+  background: var(--surface, rgba(255,255,255,0.72));
+  border: 1px solid rgba(20,31,49,0.09);
+  border-radius: 999px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 8px;
+  padding: 0 12px;
+  height: 32px;
+  width: auto;
+  max-width: 240px;
+  flex-shrink: 1;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stored-search-field:focus-within {
+  border-color: rgba(11,143,116,0.45);
+  box-shadow: 0 0 0 3px rgba(11,143,116,0.10);
+}
+
+.stored-search-field input {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  flex: 1;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  min-height: 0;
+  height: 100%;
+  min-width: 60px;
+  max-width: 180px;
+  outline: 0;
+  padding: 0;
+}
+
+.stored-search-field input::placeholder {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Dark mode */
+body.dark .stored-search-field {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.10);
+}
+
+/* Background image mode */
+body.has-bg-image .stored-search-field {
+  background: rgba(0,0,0,0.32);
+  border-color: rgba(255,255,255,0.15);
+}
+body.has-bg-image .stored-search-field input {
+  color: rgba(255,255,255,0.9);
+}
+body.has-bg-image .stored-search-field input::placeholder {
+  color: rgba(255,255,255,0.4);
+}
+body.has-bg-image .stored-search-field:focus-within {
+  border-color: rgba(11,143,116,0.65);
+  box-shadow: 0 0 0 3px rgba(11,143,116,0.20);
+}
+
+/* ── Notes: header is a flex row — search bar sits inside .notes-actions ── */
+.notes-list-card {
+  display: block;
+}
+.notes-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.notes-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+/* Filter pills — compact */
+.filter-pill {
+  border-radius: 999px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.18s;
+}
+
+/* Hide the STANDALONE search bar that lives below the header in the DOM —
+   the search is already inside .notes-actions per the JSX */
+.notes-list-card > .stored-search-field {
+  display: none !important;
+}
+
+/* ── Quiz: header is flex; search sits inline next to the trash icon ──
+   The standalone search below the header stays visible as it's already
+   a sibling of the header. Make the card flex so we can align it. */
+.quiz-history-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.quiz-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+/* The standalone search is the NEXT sibling after the header div */
+.quiz-history-card > .stored-search-field {
+  margin-bottom: 14px;
+  align-self: flex-end;
+}
+
+/* ── Materials: search sits in the bookmark header, right of the "N saved" text ── */
+.bookmark-library-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.resources-bookmark-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+/* The standalone search is the next sibling — align it to the right */
+.bookmark-library-card > .stored-search-field {
+  margin-bottom: 12px;
+  align-self: flex-end;
+}
+
