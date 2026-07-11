@@ -4,14 +4,14 @@ import { getPlannerMetrics } from "../utils/plannerMetrics";
 import SubjectProgressModal from "./SubjectProgressModal";
 
 function getSubjectProgress(subjects, schedule, completed) {
-  const completedSet = new Set(completed);
+  const completedSet = new Set(completed || []);
 
-  return subjects.map((subject) => {
-    const subjectTasks = schedule.flatMap((day) =>
-      (day.tasks || []).filter((task) => task.task.startsWith(`${subject.name} -`))
+  return (subjects || []).map((subject) => {
+    const subjectTasks = (schedule || []).flatMap((day) =>
+      (day.tasks || []).filter((task) => task.task && task.task.startsWith(`${subject?.name || ''} -`))
     );
     const done = subjectTasks.filter((task) => completedSet.has(task.task)).length;
-    const total = subjectTasks.length || subject.chapters;
+    const total = subjectTasks.length || subject?.chapters || 0;
     const percent = total ? Math.round((done / total) * 100) : 0;
 
     return {
@@ -23,7 +23,7 @@ function getSubjectProgress(subjects, schedule, completed) {
   });
 }
 
-function TopicTimeline({ subjects, schedule, completed }) {
+function TopicTimeline({ subjects = [], schedule = [], completed = [] }) {
   const laneRef = useRef(null);
   const dragStateRef = useRef({ dragging: false, pointerId: null, startX: 0, scrollLeft: 0 });
   const preventClickRef = useRef(false);

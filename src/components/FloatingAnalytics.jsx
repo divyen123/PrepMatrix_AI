@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import MiniProgressChart from "./MiniProgressChart";
 import ProgressModal from "./ProgressModal";
 
-function FloatingAnalytics({ schedule, completed }) {
+function FloatingAnalytics({ schedule = [], completed = [] }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isModalActive, setIsModalActive] = useState(false);

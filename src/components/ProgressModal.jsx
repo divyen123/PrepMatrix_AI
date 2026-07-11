@@ -10,7 +10,7 @@ import {
   Area
 } from "recharts";
 
-function ProgressModal({ isOpen, isActive, onClose, schedule, completed }) {
+function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [] }) {
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (e) => {

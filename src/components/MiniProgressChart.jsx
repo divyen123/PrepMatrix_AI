@@ -8,7 +8,7 @@ import {
   YAxis,
 } from "recharts";
 
-function MiniProgressChart({ schedule, completed }) {
+function MiniProgressChart({ schedule = [], completed = [] }) {
   let completedCount = 0;
 
   const data = schedule.map((day, index) => {

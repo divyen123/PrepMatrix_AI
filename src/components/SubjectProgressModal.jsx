@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, BookOpen, PenTool, Sparkles, Target, CheckCircle2 } from "lucide-react";
 
-function SubjectProgressModal({ subject, onClose, schedule, completed }) {
+function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] }) {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
 
