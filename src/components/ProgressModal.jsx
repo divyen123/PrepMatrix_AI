@@ -126,10 +126,10 @@ function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [
         <button
           className="trend-modal-close-btn"
           onClick={onClose}
-          aria-label="Close modal"
+          aria-label="Close progress analytics"
           type="button"
         >
-          <X size={16} />
+          <X aria-hidden="true" size={14} strokeWidth={2.8} />
         </button>
 
         <div className="trend-modal-header">

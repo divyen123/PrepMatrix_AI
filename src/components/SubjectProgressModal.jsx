@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { X, BookOpen, PenTool, Sparkles, Target, CheckCircle2 } from "lucide-react";
 
@@ -10,7 +11,18 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
 
   useEffect(() => {
     setIsVisible(true);
-  }, []);
+    document.body.classList.add("modal-open");
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.classList.remove("modal-open");
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [onClose]);
 
   const handleClose = () => {
     setIsVisible(false);
@@ -59,18 +71,21 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
     );
   };
 
-  return (
+  return createPortal(
     <div className={`subject-modal-overlay ${isVisible ? "open" : ""}`} onClick={handleClose}>
       <div 
+        aria-labelledby="subject-progress-title"
+        aria-modal="true"
         className={`subject-modal-content card ${isVisible ? "open" : ""}`} 
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
       >
-        <button className="subject-modal-close" onClick={handleClose}>
+        <button aria-label="Close subject progress" className="subject-modal-close" onClick={handleClose} type="button">
           <X size={16} />
         </button>
 
         <div className="subject-modal-header">
-          <h2 className="subject-modal-title">{subject} Progress</h2>
+          <h2 className="subject-modal-title" id="subject-progress-title">{subject} Progress</h2>
         </div>
 
         <div className="subject-modal-grid">
@@ -140,7 +155,8 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

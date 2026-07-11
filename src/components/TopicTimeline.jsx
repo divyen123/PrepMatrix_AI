@@ -50,14 +50,13 @@ function TopicTimeline({ subjects = [], schedule = [], completed = [] }) {
     const lane = laneRef.current;
     if (!lane) return;
 
+    preventClickRef.current = false;
     dragStateRef.current = {
       dragging: true,
       pointerId: event.pointerId,
       startX: event.clientX,
       scrollLeft: lane.scrollLeft,
     };
-    lane.classList.add("dragging");
-    lane.setPointerCapture?.(event.pointerId);
   };
 
   const dragLane = (event) => {
@@ -65,11 +64,16 @@ function TopicTimeline({ subjects = [], schedule = [], completed = [] }) {
     const dragState = dragStateRef.current;
     if (!lane || !dragState.dragging) return;
 
-    event.preventDefault();
     const distance = event.clientX - dragState.startX;
-    if (Math.abs(distance) > 5) {
+    if (Math.abs(distance) <= 5) return;
+
+    if (!preventClickRef.current) {
       preventClickRef.current = true;
+      lane.classList.add("dragging");
+      lane.setPointerCapture?.(event.pointerId);
     }
+
+    event.preventDefault();
     lane.scrollLeft = dragState.scrollLeft - distance;
   };
 
@@ -78,15 +82,18 @@ function TopicTimeline({ subjects = [], schedule = [], completed = [] }) {
     const dragState = dragStateRef.current;
     if (!lane || !dragState.dragging) return;
 
+    const didDrag = preventClickRef.current;
     lane.classList.remove("dragging");
-    if (dragState.pointerId !== null) {
-      lane.releasePointerCapture?.(dragState.pointerId);
+    if (dragState.pointerId !== null && lane.hasPointerCapture?.(dragState.pointerId)) {
+      lane.releasePointerCapture(dragState.pointerId);
     }
     dragStateRef.current = { dragging: false, pointerId: null, startX: 0, scrollLeft: 0 };
-    
-    setTimeout(() => {
-      preventClickRef.current = false;
-    }, 50);
+
+    if (didDrag) {
+      setTimeout(() => {
+        preventClickRef.current = false;
+      }, 50);
+    }
   };
 
   return (
@@ -129,10 +136,19 @@ function TopicTimeline({ subjects = [], schedule = [], completed = [] }) {
                 className="topic-lane-card clickable-lane-card"
                 key={subject.id}
                 style={{ animationDelay: `${index * 70}ms` }}
+                aria-label={`Open ${subject.name} progress details`}
                 onClick={() => {
                   if (preventClickRef.current) return;
                   setSelectedSubject(subject.name);
                 }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedSubject(subject.name);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
               >
                 <div className="topic-lane-top">
                   <strong>{subject.name}</strong>
