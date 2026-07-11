@@ -50,8 +50,6 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
         <h2>Generate, adjust, and recover your schedule</h2>
       </div>
 
-      <WorktreeMapper />
-
       {showPermissionBanner && (
         <article className="card info-card reminders-banner">
           <div style={{ flex: 1 }}>
@@ -103,8 +101,11 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
         subjects={subjects}
         setScheduleStartDate={setScheduleStartDate}
       />
+
+      <WorktreeMapper />
     </section>
   );
 }
 
 export default PlannerPage;
+

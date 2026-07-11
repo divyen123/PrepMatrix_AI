@@ -19,6 +19,44 @@ function buildRevisionTask(note) {
   return `Revise ${note.topic} doubt${leftTopicText}`;
 }
 
+function isNoteRevisionTask(taskName = "") {
+  return /^Revise .+ doubt(?::|$)/i.test(taskName.trim());
+}
+
+function getCoreTasks(day) {
+  return (day.tasks || []).filter((task) => !isNoteRevisionTask(task.task));
+}
+
+function isCoreDayComplete(day, completedTasks) {
+  const coreTasks = getCoreTasks(day);
+  return coreTasks.length > 0 && coreTasks.every((task) => completedTasks.has(task.task));
+}
+
+function getPlanTargetIndex(schedule, completed = [], preferredDay = "tomorrow") {
+  const completedTasks = new Set(completed);
+  const preferredIndex = preferredDay === "tomorrow" ? 1 : 0;
+  let progressIndex = 0;
+
+  while (progressIndex < schedule.length) {
+    const day = schedule[progressIndex];
+    const coreTasks = getCoreTasks(day);
+
+    if (coreTasks.length === 0 || isCoreDayComplete(day, completedTasks)) {
+      progressIndex += 1;
+      continue;
+    }
+
+    break;
+  }
+
+  const searchStart = Math.max(preferredIndex, progressIndex);
+  const nextStudyDayIndex = schedule.findIndex((day, index) => (
+    index >= searchStart && getCoreTasks(day).length > 0
+  ));
+
+  return nextStudyDayIndex >= 0 ? nextStudyDayIndex : schedule.length - 1;
+}
+
 function rankSearchMatch(fields, query) {
   const cleanQuery = query.trim().toLowerCase();
   if (!cleanQuery) return 0;
@@ -32,7 +70,7 @@ function rankSearchMatch(fields, query) {
   }, 0);
 }
 
-function NotesPage({ schedule = [], setSchedule, setNotification }) {
+function NotesPage({ completed = [], schedule = [], setSchedule, setNotification }) {
   const [notes, setNotes] = useState([]);
   const [topic, setTopic] = useState("");
   const [leftTopics, setLeftTopics] = useState("");
@@ -100,7 +138,7 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
   const planNote = (note, preferredDay = "tomorrow") => {
     const taskName = buildRevisionTask(note);
     const nextSchedule = schedule.length ? structuredClone(schedule) : [{ day: 1, tasks: [] }];
-    const targetIndex = preferredDay === "tomorrow" && nextSchedule.length > 1 ? 1 : 0;
+    const targetIndex = getPlanTargetIndex(nextSchedule, completed, preferredDay);
     const targetDay = nextSchedule[targetIndex] || nextSchedule[0];
 
     targetDay.tasks = targetDay.tasks || [];
@@ -379,6 +417,7 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
                     <span className={`note-priority ${note.priority.toLowerCase()}`}>{note.priority}</span>
                     <h4>{note.topic}</h4>
                   </div>
+                  {note.planned ? <span className="planned-chip">Added to planner</span> : null}
                 </div>
 
                 {note.details ? <p>{note.details}</p> : null}
@@ -388,8 +427,6 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
                     {note.leftTopics.map((item) => <span key={`${note.id}-${item}`}>{item}</span>)}
                   </div>
                 ) : null}
-
-                {note.planned ? <span className="planned-chip">Added to planner</span> : null}
 
                 <div className="note-card-actions">
                   <button 
@@ -470,18 +507,4 @@ function NotesPage({ schedule = [], setSchedule, setNotification }) {
 }
 
 export default NotesPage;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

@@ -1,4 +1,4 @@
-﻿import Analytics from "../components/Analytics";
+import Analytics from "../components/Analytics";
 import FocusLandscape from "../components/FocusLandscape";
 import Gamification from "../components/Gamification";
 import GoalTracker from "../components/GoalTracker";
@@ -24,7 +24,7 @@ function AnalyticsPage({ subjects, schedule, completed }) {
       <div className="analytics-support-grid">
         <Gamification completed={completed} schedule={schedule} />
         <ProgressBar1 completed={completed} schedule={schedule} />
-        <GoalTracker completed={completed} schedule={schedule} />
+        <GoalTracker completed={completed} schedule={schedule} subjects={subjects} />
       </div>
 
       <TopicTimeline completed={completed} schedule={schedule} subjects={subjects} />
@@ -34,3 +34,4 @@ function AnalyticsPage({ subjects, schedule, completed }) {
 }
 
 export default AnalyticsPage;
+

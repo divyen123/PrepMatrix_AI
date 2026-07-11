@@ -1106,6 +1106,7 @@ function App() {
                         <Route
                           element={
                             <NotesPage
+                              completed={completed}
                               schedule={schedule}
                               setNotification={setNotification}
                               setSchedule={setSchedule}
@@ -1253,3 +1254,4 @@ function App() {
 }
 
 export default App;
+

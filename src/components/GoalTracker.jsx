@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-function GoalTracker({ schedule, completed }) {
+function GoalTracker({ completed, schedule, subjects = [] }) {
   const [goal, setGoal] = useState("");
   const [days, setDays] = useState(5);
 
@@ -14,6 +14,18 @@ function GoalTracker({ schedule, completed }) {
   );
 
   const totalGoalTasks = goalTasks.length;
+  const normalizedGoal = goal.trim().toLowerCase();
+  const matchedSubjects = normalizedGoal
+    ? subjects.filter((subject) => subject.name.toLowerCase().includes(normalizedGoal))
+    : [];
+  const matchedSubjectNames = [
+    ...new Set(
+      (matchedSubjects.length
+        ? matchedSubjects.map((subject) => subject.name)
+        : goalTasks.map((task) => task.task.split(" - Chapter ")[0]).filter(Boolean)
+      )
+    ),
+  ];
   const completedGoalTasks = goalTasks.filter((task) =>
     completed.includes(task.task)
   ).length;
@@ -89,6 +101,15 @@ function GoalTracker({ schedule, completed }) {
               value={days}
             />
           </label>
+
+          {goal ? (
+            <div className="goal-match-summary" aria-live="polite">
+              <span>Matched subject</span>
+              <strong>
+                {matchedSubjectNames.length ? matchedSubjectNames.join(", ") : "No subject found"}
+              </strong>
+            </div>
+          ) : null}
         </div>
 
         <div className="goal-progress-panel">
@@ -129,3 +150,4 @@ function GoalTracker({ schedule, completed }) {
 }
 
 export default GoalTracker;
+
