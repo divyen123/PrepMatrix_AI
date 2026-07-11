@@ -1,25 +1,33 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import MiniProgressChart from "./MiniProgressChart";
+import ProgressModal from "./ProgressModal";
 
 function FloatingAnalytics({ schedule, completed }) {
-  const [isClicked, setIsClicked] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalActive, setIsModalActive] = useState(false);
   const containerRef = useRef(null);
 
-  useEffect(() => {
-    if (!isClicked) return undefined;
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
+    // Request animation frames to ensure element is rendered in DOM before starting animation
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsModalActive(true);
+      });
+    });
+  };
 
-    const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
-        setIsClicked(false);
-      }
-    };
+  const handleCloseModal = () => {
+    setIsModalActive(false);
+    // Wait for transition duration (300ms) before unmounting
+    setTimeout(() => {
+      setIsModalOpen(false);
+    }, 300);
+  };
 
-    document.addEventListener("pointerdown", handleClickOutside);
-    return () => document.removeEventListener("pointerdown", handleClickOutside);
-  }, [isClicked]);
-
-  const show = isClicked || isHovered;
+  // Hover popup only shown if modal is not open
+  const showHoverPopup = isHovered && !isModalOpen;
 
   return (
     <div
@@ -29,22 +37,31 @@ function FloatingAnalytics({ schedule, completed }) {
       onMouseLeave={() => setIsHovered(false)}
     >
       <button
-        aria-expanded={show}
+        aria-expanded={isModalOpen}
         aria-haspopup="dialog"
         className="floating-analytics-btn"
-        onClick={() => setIsClicked((value) => !value)}
+        onClick={handleOpenModal}
         type="button"
       >
         Trend 📊
       </button>
 
-      {show ? (
+      {showHoverPopup ? (
         <div className="floating-analytics-popup" role="dialog">
           <MiniProgressChart completed={completed} schedule={schedule} />
         </div>
       ) : null}
+
+      <ProgressModal
+        isOpen={isModalOpen}
+        isActive={isModalActive}
+        onClose={handleCloseModal}
+        schedule={schedule}
+        completed={completed}
+      />
     </div>
   );
 }
 
 export default FloatingAnalytics;
+

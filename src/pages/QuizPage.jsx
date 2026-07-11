@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
@@ -38,6 +39,15 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const querySubject = searchParams.get("subject");
+    if (querySubject && !subjectName) {
+      setSubjectName(querySubject);
+    }
+  }, [searchParams, subjectName]);
 
   useEffect(() => {
     setSearchQuery(subjectName);

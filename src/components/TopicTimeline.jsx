@@ -1,6 +1,7 @@
-﻿import { useRef } from "react";
+import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
+import SubjectProgressModal from "./SubjectProgressModal";
 
 function getSubjectProgress(subjects, schedule, completed) {
   const completedSet = new Set(completed);
@@ -25,6 +26,8 @@ function getSubjectProgress(subjects, schedule, completed) {
 function TopicTimeline({ subjects, schedule, completed }) {
   const laneRef = useRef(null);
   const dragStateRef = useRef({ dragging: false, pointerId: null, startX: 0, scrollLeft: 0 });
+  const preventClickRef = useRef(false);
+  const [selectedSubject, setSelectedSubject] = useState(null);
   const metrics = getPlannerMetrics(schedule, completed);
   const progress = getSubjectProgress(subjects, schedule, completed);
 
@@ -64,10 +67,13 @@ function TopicTimeline({ subjects, schedule, completed }) {
 
     event.preventDefault();
     const distance = event.clientX - dragState.startX;
+    if (Math.abs(distance) > 5) {
+      preventClickRef.current = true;
+    }
     lane.scrollLeft = dragState.scrollLeft - distance;
   };
 
-  const stopDrag = (event) => {
+  const stopDrag = () => {
     const lane = laneRef.current;
     const dragState = dragStateRef.current;
     if (!lane || !dragState.dragging) return;
@@ -77,7 +83,10 @@ function TopicTimeline({ subjects, schedule, completed }) {
       lane.releasePointerCapture?.(dragState.pointerId);
     }
     dragStateRef.current = { dragging: false, pointerId: null, startX: 0, scrollLeft: 0 };
-    event?.preventDefault?.();
+    
+    setTimeout(() => {
+      preventClickRef.current = false;
+    }, 50);
   };
 
   return (
@@ -117,9 +126,13 @@ function TopicTimeline({ subjects, schedule, completed }) {
           >
             {progress.map((subject, index) => (
               <article
-                className="topic-lane-card"
+                className="topic-lane-card clickable-lane-card"
                 key={subject.id}
                 style={{ animationDelay: `${index * 70}ms` }}
+                onClick={() => {
+                  if (preventClickRef.current) return;
+                  setSelectedSubject(subject.name);
+                }}
               >
                 <div className="topic-lane-top">
                   <strong>{subject.name}</strong>
@@ -151,6 +164,15 @@ function TopicTimeline({ subjects, schedule, completed }) {
             <ChevronRight aria-hidden="true" size={24} strokeWidth={2.6} />
           </button>
         </div>
+      )}
+      
+      {selectedSubject && (
+        <SubjectProgressModal
+          subject={selectedSubject}
+          onClose={() => setSelectedSubject(null)}
+          schedule={schedule}
+          completed={completed}
+        />
       )}
     </section>
   );

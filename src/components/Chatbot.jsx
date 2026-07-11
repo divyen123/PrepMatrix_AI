@@ -204,6 +204,20 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     };
   }, [open]);
 
+  useEffect(() => {
+    const handleOpenChat = (event) => {
+      setOpen(true);
+      if (event.detail?.createNewChat) {
+        handleNewChat();
+      }
+      if (event.detail?.message) {
+        setInput(event.detail.message);
+      }
+    };
+    window.addEventListener("openPrepMatrixAIChat", handleOpenChat);
+    return () => window.removeEventListener("openPrepMatrixAIChat", handleOpenChat);
+  }, [handleNewChat]);
+
   // Select a session to load details
   const handleSelectSession = useCallback(async (sessionId) => {
     setLoading(true);

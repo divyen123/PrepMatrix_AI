@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { buildSubjectMaterials } from "../utils/materialRecommendations";
@@ -49,6 +50,22 @@ function ResourcesHub({
       .sort((a, b) => b.rank - a.rank || a.index - b.index)
       .map((item) => item.bookmark);
   }, [bookmarkSearchQuery, materialBookmarks]);
+
+  const [searchParams] = useSearchParams();
+  const targetSubject = searchParams.get("subject");
+  useEffect(() => {
+    if (targetSubject && materials.length > 0) {
+      const element = document.getElementById(`subject-${targetSubject.replace(/\s+/g, "-")}`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        element.classList.add("highlighted-card");
+        const timer = setTimeout(() => {
+          element.classList.remove("highlighted-card");
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [targetSubject, materials]);
 
   if (subjects.length === 0) {
     return (
@@ -134,7 +151,7 @@ function ResourcesHub({
 
       <div className="resources-grid">
         {materials.map((resource) => (
-          <article className="card resource-card" key={resource.subject}>
+          <article className="card resource-card" key={resource.subject} id={`subject-${resource.subject.replace(/\s+/g, "-")}`}>
             <div className="resource-card-header">
               <div>
                 <span className="section-tag">{resource.trackLabel}</span>
