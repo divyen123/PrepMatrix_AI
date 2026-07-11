@@ -16249,7 +16249,7 @@ body .history-toggle-btn:focus-visible svg {
 .sidebar-chatbot-portal > .chat-pet-rail {
   position: absolute;
   top: 50%;
-  right: calc(100% + 18px);
+  right: calc(100% + 28px);
   z-index: 20;
   display: flex;
   width: 180px;
@@ -16372,14 +16372,14 @@ body .sidebar-pet-button {
 }
 
 .chat-study-pet .study-pet-sprite {
-  width: 92px;
+  width: 116px;
 }
 
 body .chat-study-pet .study-pet-button {
-  width: 100px;
-  height: 108px;
-  min-width: 100px;
-  min-height: 108px;
+  width: 124px;
+  height: 136px;
+  min-width: 124px;
+  min-height: 136px;
 }
 
 body .study-pet-button::after,
@@ -17475,22 +17475,26 @@ body.has-bg-image .subject-ai-field textarea::placeholder {
 .guide-dialog-close {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
   padding: 0;
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface-muted);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.09);
+  box-shadow: none;
   cursor: pointer;
 }
 
 .guide-dialog-close:hover,
 .guide-dialog-close:focus-visible {
-  color: var(--text);
+  color: #fecaca;
   outline: none;
-  border-color: rgba(var(--accent-rgb), 0.4);
-  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(239, 68, 68, 0.18);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.12);
 }
 
 .guide-dialog-progress {
