@@ -9,6 +9,7 @@ const PAPER_TOTALS = new Set([30, 40, 50, 60, 70, 80, 90, 100]);
 const PAPER_MARKS = new Set([1, 3, 4, 5, 10, 15]);
 const DIFFICULTIES = new Set(["easy", "medium", "hard"]);
 const PAPER_DIFFICULTIES = new Set(["easy", "medium", "hard", "balanced"]);
+const GROQ_RETRYABLE_STATUSES = new Set([408, 429, 498, 500, 502, 503, 504]);
 
 function cleanText(value, fallback = "") {
   return String(value ?? fallback).trim();
@@ -193,6 +194,35 @@ function resultSummary(attempt, exam, includeReview = false) {
   return releasedResult;
 }
 
+function parseGroqDelay(value) {
+  const text = cleanText(value).toLowerCase();
+  if (!text) return 0;
+  if (/^\d+(?:\.\d+)?$/.test(text)) return Number(text) * 1000;
+  const units = { ms: 1, s: 1000, m: 60000, h: 3600000 };
+  return [...text.matchAll(/(\d+(?:\.\d+)?)(ms|s|m|h)/g)]
+    .reduce((total, match) => total + Number(match[1]) * units[match[2]], 0);
+}
+
+function groqRetryDelay(response, attempt) {
+  const retryAfter = parseGroqDelay(response?.headers?.get?.("retry-after"));
+  const tokenReset = parseGroqDelay(response?.headers?.get?.("x-ratelimit-reset-tokens"));
+  const advertised = Math.max(retryAfter, tokenReset);
+  const fallback = 1500 * (2 ** attempt);
+  return Math.min(30000, Math.max(1000, advertised || fallback) + 250);
+}
+
+function groqRequestError(result) {
+  const status = Number(result?.response?.status || 0);
+  const sourceMessage = cleanText(result?.payload?.error?.message, "AI generation request failed.");
+  const message = status === 429
+    ? "The AI service is temporarily rate-limited. PrepMatrix waited and retried, but the limit is still active. Please try again shortly."
+    : sourceMessage;
+  const error = new Error(message);
+  error.status = status;
+  error.retryable = GROQ_RETRYABLE_STATUSES.has(status);
+  return error;
+}
+
 async function requestGroqJson(config, model, { system, prompt, maxTokens = 5000, temperature = 0.18 }) {
   const baseBody = {
     model,
@@ -206,16 +236,41 @@ async function requestGroqJson(config, model, { system, prompt, maxTokens = 5000
   async function send(body) {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
+      headers: { Authorization: "Bearer " + config.apiKey, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     const payload = await response.json().catch(() => ({}));
     return { response, payload };
   }
-  let result = await send({ ...baseBody, response_format: { type: "json_object" } });
-  if (!result.response.ok && result.payload?.error?.code === "failed_generation") result = await send(baseBody);
-  if (!result.response.ok) throw new Error(result.payload?.error?.message || "AI generation request failed.");
-  return parseJsonObject(result.payload?.choices?.[0]?.message?.content || "");
+
+  let useJsonMode = true;
+  let lastError = null;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    let result;
+    try {
+      result = await send(useJsonMode ? { ...baseBody, response_format: { type: "json_object" } } : baseBody);
+      if (!result.response.ok && result.payload?.error?.code === "failed_generation" && useJsonMode) {
+        useJsonMode = false;
+        result = await send(baseBody);
+      }
+    } catch (error) {
+      lastError = error;
+      if (attempt === 3) {
+        const networkError = new Error("The AI service could not be reached after several attempts. Please try again shortly.");
+        networkError.status = 503;
+        networkError.retryable = true;
+        throw networkError;
+      }
+      await new Promise((resolve) => setTimeout(resolve, Math.min(12000, 1500 * (2 ** attempt))));
+      continue;
+    }
+
+    if (result.response.ok) return parseJsonObject(result.payload?.choices?.[0]?.message?.content || "");
+    lastError = groqRequestError(result);
+    if (!lastError.retryable || attempt === 3) throw lastError;
+    await new Promise((resolve) => setTimeout(resolve, groqRetryDelay(result.response, attempt)));
+  }
+  throw lastError || new Error("AI generation request failed.");
 }
 
 async function generateExamQuestions(config, model, context) {
@@ -251,7 +306,8 @@ async function generateExamQuestions(config, model, context) {
           return key && !seen.has(key);
         });
         if (unique.length === 10) accepted = unique;
-      } catch {
+      } catch (error) {
+        if (error?.status || error?.retryable) throw error;
         // Retry once when the model response is unavailable or malformed.
       }
     }
@@ -377,19 +433,22 @@ async function generatePaperSection(config, model, context, row, sectionIndex, e
       context.scopeText ? `Scope or syllabus: ${context.scopeText}` : "Scope: broad subject coverage",
       `Difficulty: ${context.difficulty}`,
       `Question style: ${context.questionStyle}`,
-      `Create exactly ${count} questions worth ${row.marks} marks each for ${title}.`,
+      `Create up to ${count} questions worth ${row.marks} marks each for ${title}.`,
       context.codingHeavy
         ? "This is coding-heavy: target about 60 percent of the paper marks for code writing, output prediction, debugging, algorithms, implementation, and complexity reasoning while retaining essential theory."
         : "Use a suitable mix of conceptual, numerical, application, and reasoning questions.",
       context.programmingLanguage ? `Preferred programming language: ${context.programmingLanguage}` : "",
       context.internalChoice ? "Some longer questions may include a clearly labelled internal OR choice within the same mark value." : "",
       existingQuestions.length ? `Avoid repeating these questions: ${JSON.stringify(existingQuestions.slice(-25))}` : "",
+      "Keep model answers concise and marking schemes to one short sentence so the complete paper fits within service limits.",
       "Return only JSON: {\"questions\":[{\"question\":\"...\",\"type\":\"...\",\"topic\":\"...\",\"options\":[\"optional\",\"optional\",\"optional\",\"optional\"],\"modelAnswer\":\"...\",\"markingScheme\":\"...\"}]}",
     ].filter(Boolean).join("\n");
     const accepted = [];
     for (let attempt = 0; attempt < 5 && accepted.length < count; attempt += 1) {
+      const missing = count - accepted.length;
       const retryPrompt = [
         prompt,
+        `Return exactly ${missing} new questions for this pass; do not return questions already accepted.`,
         accepted.length ? `Do not repeat these questions already accepted for this batch: ${JSON.stringify(accepted.map((question) => question.question))}` : "",
         `Variation pass ${attempt + 1}: use different concepts, scenarios, wording, and problem structures.`,
       ].filter(Boolean).join("\n");
@@ -397,10 +456,10 @@ async function generatePaperSection(config, model, context, row, sectionIndex, e
         const parsed = await requestGroqJson(config, model, {
           system: "You are an expert examination paper setter. Return only valid JSON and make each question match its exact mark value.",
           prompt: retryPrompt,
-          maxTokens: row.marks >= 10 ? 6000 : 4800,
+          maxTokens: Math.min(row.marks >= 10 ? 5200 : 3600, Math.max(1000, missing * (row.marks >= 10 ? 850 : 520))),
           temperature: Math.min(0.65, 0.25 + attempt * 0.1),
         });
-        const normalized = normalizePaperQuestions(parsed.questions, count, row.marks, title);
+        const normalized = normalizePaperQuestions(parsed.questions ?? parsed.questionPaper?.questions, missing, row.marks, title);
         const existing = new Set([
           ...existingQuestions,
           ...questions.map((question) => question.question),
@@ -413,7 +472,13 @@ async function generatePaperSection(config, model, context, row, sectionIndex, e
           accepted.push(question);
           if (accepted.length === count) break;
         }
-      } catch {
+      } catch (error) {
+        if (error?.status || error?.retryable) throw error;
+        console.warn("Paper variation response was unusable.", {
+          section: title,
+          pass: attempt + 1,
+          message: error instanceof Error ? error.message : "Unknown AI response error",
+        });
         // Keep accepted questions and regenerate only the missing portion.
       }
     }
