@@ -341,9 +341,9 @@ function recommendedPaperTime(totalMarks, codingHeavy) {
   return Math.min(180, Math.ceil((totalMarks * 1.5 * (codingHeavy ? 1.2 : 1)) / 5) * 5);
 }
 
-function normalizePaperQuestions(rawQuestions, expectedCount, marks, sectionTitle) {
+function normalizePaperQuestions(rawQuestions, maximumCount, marks, sectionTitle) {
   if (!Array.isArray(rawQuestions)) throw new Error("AI response did not include paper questions.");
-  const questions = rawQuestions.slice(0, expectedCount).map((item) => {
+  const questions = rawQuestions.slice(0, maximumCount).map((item) => {
     const question = cleanText(item?.question || item?.text);
     if (!question) throw new Error("AI returned an empty paper question.");
     const options = Array.isArray(item?.options) ? item.options.map((option) => cleanText(option)).filter(Boolean).slice(0, 4) : [];
@@ -359,11 +359,7 @@ function normalizePaperQuestions(rawQuestions, expectedCount, marks, sectionTitl
       markingScheme: cleanText(item?.markingScheme, `Award up to ${marks} marks for correctness, method, and clarity.`),
     };
   });
-  if (questions.length !== expectedCount) throw new Error(`AI generated ${questions.length} paper questions; expected ${expectedCount}.`);
-  const uniqueQuestions = new Set(questions.map((question) => normalizeQuestionKey(question.question)));
-  if (uniqueQuestions.size !== questions.length) {
-    throw new Error("AI returned duplicate question-paper items.");
-  }
+  if (!questions.length) throw new Error("AI did not generate any usable paper questions.");
   return questions;
 }
 
@@ -390,24 +386,38 @@ async function generatePaperSection(config, model, context, row, sectionIndex, e
       existingQuestions.length ? `Avoid repeating these questions: ${JSON.stringify(existingQuestions.slice(-25))}` : "",
       "Return only JSON: {\"questions\":[{\"question\":\"...\",\"type\":\"...\",\"topic\":\"...\",\"options\":[\"optional\",\"optional\",\"optional\",\"optional\"],\"modelAnswer\":\"...\",\"markingScheme\":\"...\"}]}",
     ].filter(Boolean).join("\n");
-    let accepted = null;
-    for (let attempt = 0; attempt < 2 && !accepted; attempt += 1) {
+    const accepted = [];
+    for (let attempt = 0; attempt < 5 && accepted.length < count; attempt += 1) {
+      const retryPrompt = [
+        prompt,
+        accepted.length ? `Do not repeat these questions already accepted for this batch: ${JSON.stringify(accepted.map((question) => question.question))}` : "",
+        `Variation pass ${attempt + 1}: use different concepts, scenarios, wording, and problem structures.`,
+      ].filter(Boolean).join("\n");
       try {
         const parsed = await requestGroqJson(config, model, {
           system: "You are an expert examination paper setter. Return only valid JSON and make each question match its exact mark value.",
-          prompt,
+          prompt: retryPrompt,
           maxTokens: row.marks >= 10 ? 6000 : 4800,
-          temperature: 0.2,
+          temperature: Math.min(0.65, 0.25 + attempt * 0.1),
         });
         const normalized = normalizePaperQuestions(parsed.questions, count, row.marks, title);
-        const existing = new Set([...existingQuestions, ...questions.map((question) => question.question)].map(normalizeQuestionKey));
-        const unique = normalized.filter((question) => !existing.has(normalizeQuestionKey(question.question)));
-        if (unique.length === count) accepted = unique;
+        const existing = new Set([
+          ...existingQuestions,
+          ...questions.map((question) => question.question),
+          ...accepted.map((question) => question.question),
+        ].map(normalizeQuestionKey));
+        for (const question of normalized) {
+          const key = normalizeQuestionKey(question.question);
+          if (!key || existing.has(key)) continue;
+          existing.add(key);
+          accepted.push(question);
+          if (accepted.length === count) break;
+        }
       } catch {
-        // Retry once when the model response is unavailable or malformed.
+        // Keep accepted questions and regenerate only the missing portion.
       }
     }
-    if (!accepted) throw new Error(`Could not generate unique questions for ${title}.`);
+    if (accepted.length !== count) throw new Error(`Could not complete ${title} after several variation passes. Please generate the paper again.`);
     questions.push(...accepted);
   }
   return { title, marksPerQuestion: row.marks, count: row.count, questions };

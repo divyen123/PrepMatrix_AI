@@ -42,6 +42,16 @@ import "./ExamPage.css";
 
 const TOTAL_MARK_OPTIONS = [30, 40, 50, 60, 70, 80, 90, 100];
 const MARK_TYPES = [1, 3, 4, 5, 10, 15];
+const DEFAULT_MARK_BLUEPRINTS = {
+  30: { 1: 5, 3: 2, 4: 1, 5: 1, 10: 1, 15: 0 },
+  40: { 1: 5, 3: 2, 4: 1, 5: 1, 10: 2, 15: 0 },
+  50: { 1: 5, 3: 2, 4: 1, 5: 2, 10: 1, 15: 1 },
+  60: { 1: 5, 3: 2, 4: 1, 5: 2, 10: 2, 15: 1 },
+  70: { 1: 5, 3: 2, 4: 1, 5: 2, 10: 3, 15: 1 },
+  80: { 1: 5, 3: 2, 4: 1, 5: 2, 10: 4, 15: 1 },
+  90: { 1: 5, 3: 2, 4: 1, 5: 2, 10: 5, 15: 1 },
+  100: { 1: 5, 3: 2, 4: 1, 5: 2, 10: 6, 15: 1 },
+};
 const ACTIVE_ATTEMPT_KEY = "prepmatrix_active_exam_attempt";
 const TIMER_STORAGE_KEY = "prepmatrix_exam_timer_v1";
 
@@ -149,8 +159,8 @@ function subjectNames(subjects) {
 }
 
 function defaultBlueprint(totalMarks) {
-  const oneMarkCount = totalMarks >= 30 ? 10 : 0;
-  return { 1: oneMarkCount, 3: 0, 4: 0, 5: (totalMarks - oneMarkCount) / 5, 10: 0, 15: 0 };
+  const preset = DEFAULT_MARK_BLUEPRINTS[Number(totalMarks)] || DEFAULT_MARK_BLUEPRINTS[50];
+  return { ...preset };
 }
 
 function recommendedDuration(totalMarks, codingHeavy) {
