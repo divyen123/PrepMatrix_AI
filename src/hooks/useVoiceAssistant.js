@@ -310,7 +310,7 @@ export default function useVoiceAssistant({
       if (closeOverlay) {
         hideOverlay();
       } else {
-        setVoiceStatus("idle");
+        setVoiceStatus("answered");
       }
       if (resumeWake) scheduleWakeRestart();
     };
@@ -319,7 +319,7 @@ export default function useVoiceAssistant({
       if (closeOverlay) {
         hideOverlay();
       } else {
-        setVoiceStatus("idle");
+        setVoiceStatus("answered");
       }
       if (resumeWake) scheduleWakeRestart();
     };
