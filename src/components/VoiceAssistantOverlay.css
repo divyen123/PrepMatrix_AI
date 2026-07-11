@@ -412,25 +412,25 @@
 
 .voice-reply-chat-btn {
   appearance: none !important;
-  border: 1px solid rgba(103, 232, 249, 0.18) !important;
-  background: rgba(103, 232, 249, 0.055) !important;
+  border: 0 !important;
+  background: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
-  color: rgba(224, 251, 255, 0.86) !important;
-  min-width: 0 !important;
-  height: 16px !important;
-  padding: 0 6px !important;
-  border-radius: 8px !important;
+  color: rgba(235, 237, 255, 0.74) !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  aspect-ratio: 1 / 1;
+  padding: 0 !important;
+  border-radius: 50% !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Outfit', 'Inter', sans-serif;
-  font-size: 0.58rem;
-  font-weight: 650;
-  line-height: 1;
-  white-space: nowrap;
   cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  flex: 0 0 24px;
+  line-height: 0;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
 .voice-reply-chat-btn::after {
@@ -440,8 +440,7 @@
 
 .voice-reply-chat-btn:hover,
 .voice-reply-chat-btn:focus-visible {
-  border-color: rgba(103, 232, 249, 0.36) !important;
-  background: rgba(103, 232, 249, 0.075) !important;
+  background: transparent !important;
   box-shadow: none !important;
   color: #ffffff !important;
   transform: translateY(-1px);

@@ -1,5 +1,5 @@
 import React from "react";
-import { Copy } from "lucide-react";
+import { Copy, MessageSquare } from "lucide-react";
 import Strands from "./Strands";
 import "./VoiceAssistantOverlay.css";
 
@@ -199,12 +199,14 @@ function VoiceAssistantOverlay({
                   <button
                     className="voice-reply-chat-btn"
                     type="button"
+                    aria-label="Go to chat"
+                    title="Go to chat"
                     onClick={(event) => {
                       event.stopPropagation();
                       onGoToChat?.();
                     }}
                   >
-                    Go to chat
+                    <MessageSquare size={16} strokeWidth={2} />
                   </button>
                 )}
                 <button
