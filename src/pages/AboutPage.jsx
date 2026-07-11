@@ -1,4 +1,5 @@
 import { createElement, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Bot, Calendar,
@@ -186,7 +187,7 @@ function AboutPage() {
 
       <footer className="about-footer">&copy; 2026 PrepMatrix AI &bull; All rights reserved &bull; Tailored for Divyen R M</footer>
 
-      {guideOpen && (
+      {guideOpen && createPortal(
         <div className="guide-dialog-backdrop" onMouseDown={(event) => {
           if (event.target === event.currentTarget) setGuideOpen(false);
         }} role="presentation">
@@ -238,7 +239,8 @@ function AboutPage() {
               </div>
             </footer>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );

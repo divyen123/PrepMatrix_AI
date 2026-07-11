@@ -17413,7 +17413,8 @@ body.has-bg-image .subject-ai-field textarea::placeholder {
 .guide-dialog-backdrop {
   position: fixed;
   z-index: 1200;
-  inset: 0;
+  --guide-frame-top: 72px;
+  inset: var(--guide-frame-top) 0 0 280px;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -17426,7 +17427,7 @@ body.has-bg-image .subject-ai-field textarea::placeholder {
   display: grid;
   grid-template-rows: auto 3px minmax(0, 1fr) auto;
   width: min(1040px, 100%);
-  height: min(720px, calc(100dvh - 48px));
+  height: min(720px, calc(100dvh - var(--guide-frame-top) - 48px));
   overflow: hidden;
   color: var(--text);
   border: 1px solid rgba(var(--accent-rgb), 0.25);
@@ -17842,6 +17843,13 @@ body.has-bg-image .guide-dialog {
   }
 }
 
+@media (max-width: 991.98px) {
+  .guide-dialog-backdrop {
+    --guide-frame-top: 56px;
+    inset: var(--guide-frame-top) 0 0;
+  }
+}
+
 @media (max-width: 620px) {
   .about-hero-card {
     min-height: 0;
@@ -17858,12 +17866,14 @@ body.has-bg-image .guide-dialog {
   }
 
   .guide-dialog-backdrop {
+    --guide-frame-top: 52px;
     align-items: start;
+    inset: var(--guide-frame-top) 0 0;
     padding: 8px;
   }
 
   .guide-dialog {
-    height: calc(100dvh - 16px);
+    height: calc(100dvh - var(--guide-frame-top) - 16px);
     border-radius: 17px;
   }
 
