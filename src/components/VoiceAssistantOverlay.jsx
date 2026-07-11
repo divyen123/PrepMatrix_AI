@@ -109,8 +109,6 @@ function VoiceAssistantOverlay({
     return null;
   }
 
-  const orbVisualStatus = voiceStatus === "awake" ? "idle" : voiceStatus;
-
   const getStatusText = () => {
     switch (voiceStatus) {
       case "listening":
@@ -173,30 +171,16 @@ function VoiceAssistantOverlay({
           <X size={20} />
         </button>
 
-        {/* Top section: orb + status */}
+        {/* Status */}
         <div className="voice-overlay-top">
-          {/* Orb */}
-          <div className="voice-assistant-visuals">
-            <div className="voice-pulse-ring ring-one" />
-            <div className="voice-pulse-ring ring-two" />
-            <div className="voice-pulse-ring ring-three" />
-            <div className={`voice-ai-orb ${orbVisualStatus}`}>
-              <div className="orb-inner" />
-              <span className="orb-label" aria-hidden="true">Prep</span>
-            </div>
-          </div>
-
-          {/* Waveform bars */}
-          <div className={`voice-waveform-container ${voiceStatus}`}>
-            <div className="voice-wave-bar bar-1" />
-            <div className="voice-wave-bar bar-2" />
-            <div className="voice-wave-bar bar-3" />
-            <div className="voice-wave-bar bar-4" />
-            <div className="voice-wave-bar bar-5" />
-          </div>
-
-          {/* Status + transcript */}
           <div className="voice-overlay-status-box">
+            <div className={`voice-waveform-container ${voiceStatus}`} aria-hidden="true">
+              <div className="voice-wave-bar bar-1" />
+              <div className="voice-wave-bar bar-2" />
+              <div className="voice-wave-bar bar-3" />
+              <div className="voice-wave-bar bar-4" />
+              <div className="voice-wave-bar bar-5" />
+            </div>
             <span className={`voice-overlay-status-label voice-status--${voiceStatus}`}>
               {getStatusText()}
             </span>
