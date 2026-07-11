@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { EyeOff, PanelLeft, Pin, X } from "lucide-react";
+import { EyeOff, Pin, X } from "lucide-react";
 
 const PET_VISIBILITY_KEY = "prepmatrix_sidebar_pet_visible";
 const PET_VISIBILITY_EVENT = "prepmatrixPetVisibilityChange";
@@ -88,7 +88,7 @@ export function ChatStudyPet({ message, state = "idle" }) {
           </div>
           <button onClick={toggleNavbarPet} role="menuitem" type="button">
             {navbarVisible ? <EyeOff size={14} /> : <Pin size={14} />}
-            <span>{navbarVisible ? "Hide pet from navbar" : "Keep pet in navbar"}</span>
+            <span>{navbarVisible ? "Hide pet" : "Keep pet in navbar"}</span>
           </button>
         </div>
       )}
@@ -97,21 +97,12 @@ export function ChatStudyPet({ message, state = "idle" }) {
 }
 
 export function SidebarStudyPet() {
-  const rootRef = useRef(null);
-  const [visible, setVisible] = usePetVisibility();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [status, setStatus] = useState({
-    message: "A small study session today keeps the backlog away.",
-    state: "idle",
-  });
-  useOutsideClose(rootRef, () => setMenuOpen(false));
+  const [visible] = usePetVisibility();
+  const [statusState, setStatusState] = useState("idle");
 
   useEffect(() => {
     const handleStatus = (event) => {
-      setStatus({
-        message: event.detail?.message || "Ready for a focused study session.",
-        state: event.detail?.state || "idle",
-      });
+      setStatusState(event.detail?.state || "idle");
     };
     window.addEventListener(PET_STATUS_EVENT, handleStatus);
     return () => window.removeEventListener(PET_STATUS_EVENT, handleStatus);
@@ -120,35 +111,16 @@ export function SidebarStudyPet() {
   if (!visible) return null;
 
   return (
-    <div className="sidebar-study-pet" ref={rootRef}>
-      <div className="sidebar-pet-speech">{status.message}</div>
+    <div className="sidebar-study-pet">
       <button
-        aria-expanded={menuOpen}
-        aria-haspopup="menu"
-        aria-label="Open navbar companion options"
+        aria-label="Open AI Chat with companion"
         className="sidebar-pet-button"
-        onClick={() => setMenuOpen((open) => !open)}
-        title="Companion options"
+        onClick={() => window.dispatchEvent(new CustomEvent("openPrepMatrixAIChat"))}
+        title="Open AI Chat"
         type="button"
       >
-        <PetSprite size="sidebar" state={status.state} />
+        <PetSprite size="sidebar" state={statusState} />
       </button>
-      {menuOpen && (
-        <div className="sidebar-pet-menu" role="menu">
-          <button
-            onClick={() => {
-              setVisible(false);
-              setMenuOpen(false);
-            }}
-            role="menuitem"
-            type="button"
-          >
-            <EyeOff size={13} />
-            <span>Hide pet</span>
-          </button>
-          <span><PanelLeft size={12} /> Still available in AI Chat</span>
-        </div>
-      )}
     </div>
   );
 }

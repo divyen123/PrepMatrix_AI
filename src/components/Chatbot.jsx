@@ -648,6 +648,9 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
         <>
           <div className="chat-modal-backdrop" onClick={() => setOpen(false)} role="presentation" />
           <section className="chatbot sidebar-chatbot-portal">
+            <div className="chat-pet-rail">
+              <ChatStudyPet message={companionStatus.message} state={companionStatus.state} />
+            </div>
             <div className="chat-box">
             
             {/* Sliding backdrop remains mounted so both open and close can animate. */}
@@ -832,7 +835,6 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                       <PanelLeftOpen aria-hidden="true" size={17} strokeWidth={2.3} />
                     )}
                   </button>
-                  <ChatStudyPet message={companionStatus.message} state={companionStatus.state} />
                   <div className="chat-heading-copy">
                     <strong>{activeSessionId ? activeSessionTitle : "Study assistant"}</strong>
                     <span>Planner-aware study support</span>
