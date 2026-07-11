@@ -25,6 +25,7 @@ import VoiceAssistant from "./components/VoiceAssistant";
 import VoiceAssistantOverlay from "./components/VoiceAssistantOverlay";
 import useVoiceAssistant from "./hooks/useVoiceAssistant";
 import api, { HAS_CONFIGURED_API } from "./utils/apiClient";
+import { reconcileStudyReminders } from "./utils/pushNotifications";
 import BACKGROUND_PRESETS from "./utils/backgroundPresets";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
 import CustomCursor from "./components/CustomCursor";
@@ -559,6 +560,27 @@ function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!userProfile || localStorage.getItem("prepmatrix_notifications_enabled") !== "true") {
+      return undefined;
+    }
+
+    let isActive = true;
+    reconcileStudyReminders()
+      .then((subscription) => {
+        if (isActive && !subscription) {
+          localStorage.setItem("prepmatrix_notifications_enabled", "false");
+        }
+      })
+      .catch((error) => {
+        console.warn("Push notification reconciliation failed:", error);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [userProfile]);
 
   useEffect(() => {
     if (logoutConfirmOpen) {

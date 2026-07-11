@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
-import api from "../utils/apiClient";
+import {
+  enableStudyReminders,
+  getPushNotificationErrorMessage,
+  isPushNotificationSupported,
+} from "../utils/pushNotifications";
 import Reminder from "../components/Reminder";
 import SmartSuggestion from "../components/SmartSuggestion";
 import Timetable from "../components/Timetable";
@@ -8,38 +12,25 @@ import WorktreeMapper from "../components/WorktreeMapper";
 
 function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted, scheduleStartDate, setScheduleStartDate }) {
   const [showPermissionBanner, setShowPermissionBanner] = useState(() => {
-    return typeof window !== "undefined" && "Notification" in window && localStorage.getItem("prepmatrix_notifications_enabled") !== "true";
+    return isPushNotificationSupported() && localStorage.getItem("prepmatrix_notifications_enabled") !== "true";
   });
+  const [enablingReminders, setEnablingReminders] = useState(false);
 
-  const subscribeUserToPush = async () => {
+  const handleEnableReminders = async () => {
+    if (enablingReminders) return;
+    setEnablingReminders(true);
+
     try {
-      const { publicKey } = await api.get("/api/notifications/vapid-key");
-      if (!publicKey) {
-        console.warn("No public VAPID key returned from server.");
-        return;
-      }
-
-      // Convert VAPID key from base64url to Uint8Array
-      const padding = "=".repeat((4 - (publicKey.length % 4)) % 4);
-      const base64 = (publicKey + padding).replace(/\-/g, "+").replace(/_/g, "/");
-      const rawData = window.atob(base64);
-      const outputArray = new Uint8Array(rawData.length);
-      for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-      }
-
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: outputArray,
-      });
-
-      // Send to server
-      const timezoneOffset = new Date().getTimezoneOffset(); // e.g. -330 for UTC+5:30
-      await api.post("/api/notifications/subscribe", { subscription, timezoneOffset });
-      console.log("Successfully subscribed user to Web Push!");
-    } catch (err) {
-      console.error("Subscription failed:", err);
+      await enableStudyReminders();
+      localStorage.setItem("prepmatrix_notifications_enabled", "true");
+      toast.success("Study reminders enabled!");
+      setShowPermissionBanner(false);
+    } catch (error) {
+      console.error("Push notification setup failed:", error);
+      localStorage.setItem("prepmatrix_notifications_enabled", "false");
+      toast.error(getPushNotificationErrorMessage(error));
+    } finally {
+      setEnablingReminders(false);
     }
   };
 
@@ -61,21 +52,11 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
           <div style={{ display: "flex", gap: "10px" }}>
             <button 
               className="action-btn" 
-              onClick={async () => {
-                const permission = await Notification.requestPermission();
-                if (permission === "granted") {
-                  await subscribeUserToPush();
-                  localStorage.setItem("prepmatrix_notifications_enabled", "true");
-                  toast.success("Study reminders enabled!");
-                } else {
-                  localStorage.setItem("prepmatrix_notifications_enabled", "false");
-                  toast.error("Notification permission denied. Please enable them in your browser settings.");
-                }
-                setShowPermissionBanner(false);
-              }}
+              onClick={handleEnableReminders}
+              disabled={enablingReminders}
               style={{ padding: "6px 14px", fontSize: "0.78rem", minHeight: "30px", height: "30px" }}
             >
-              Enable
+              {enablingReminders ? "Enabling..." : "Enable"}
             </button>
             <button 
               className="secondary-btn" 

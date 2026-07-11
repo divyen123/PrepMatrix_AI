@@ -2,6 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { Save, Shield, Palette, User, Check, Settings2, Target, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil } from "lucide-react";
 import api from "../utils/apiClient";
 import BACKGROUND_PRESETS from "../utils/backgroundPresets";
+import {
+  disableStudyReminders,
+  enableStudyReminders,
+  getPushNotificationErrorMessage,
+} from "../utils/pushNotifications";
 import { toast } from "react-toastify";
 
 const COLOR_PRESETS = [
@@ -21,15 +26,15 @@ function hexToRgb(hex) {
     : null;
 }
 
-function ToggleSwitch({ checked, onChange, label, subtitle }) {
+function ToggleSwitch({ checked, onChange, label, subtitle, disabled = false }) {
   return (
     <div className="toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid var(--border)' }}>
       <div style={{ flex: 1 }}>
         <strong style={{ fontSize: '0.95rem' }}>{label}</strong>
         {subtitle && <p className="card-subtext" style={{ margin: '4px 0 0', fontSize: '0.82rem' }}>{subtitle}</p>}
       </div>
-      <label className="toggle-switch-label" style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', cursor: 'pointer' }}>
-        <input type="checkbox" checked={checked} onChange={onChange} style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} />
+      <label className="toggle-switch-label" style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.65 : 1 }}>
+        <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} />
         <span style={{
           position: 'absolute', inset: 0, borderRadius: '999px',
           background: checked ? 'rgba(var(--accent-rgb), 0.6)' : 'var(--surface-muted)',
@@ -114,6 +119,7 @@ function SettingsPage({
     const stored = localStorage.getItem("prepmatrix_notifications_enabled");
     return stored === "true";
   });
+  const [notificationsBusy, setNotificationsBusy] = useState(false);
 
   const [wakeMode, setWakeMode] = useState(() =>
     localStorage.getItem("prepmatrix_wake_mode") === "true"
@@ -132,53 +138,38 @@ function SettingsPage({
   };
 
   const toggleNotifications = async () => {
+    if (notificationsBusy) return;
     const nextVal = !notificationsEnabled;
-    
-    if (nextVal) {
+    setNotificationsBusy(true);
+
+    try {
+      if (nextVal) {
+        await enableStudyReminders();
+        localStorage.setItem("prepmatrix_notifications_enabled", "true");
+        setNotificationsEnabled(true);
+        toast.success("Study reminders enabled!");
+        return;
+      }
+
       try {
-        const permission = await Notification.requestPermission();
-        if (permission === "granted") {
-          const { publicKey } = await api.get("/api/notifications/vapid-key");
-          if (publicKey) {
-            const padding = "=".repeat((4 - (publicKey.length % 4)) % 4);
-            const base64 = (publicKey + padding).replace(/\-/g, "+").replace(/_/g, "/");
-            const rawData = window.atob(base64);
-            const outputArray = new Uint8Array(rawData.length);
-            for (let i = 0; i < rawData.length; ++i) {
-              outputArray[i] = rawData.charCodeAt(i);
-            }
-
-            const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: outputArray,
-            });
-
-            const timezoneOffset = new Date().getTimezoneOffset();
-            await api.post("/api/notifications/subscribe", { subscription, timezoneOffset });
-          }
-
-          localStorage.setItem("prepmatrix_notifications_enabled", "true");
-          setNotificationsEnabled(true);
-          toast.success("Study reminders enabled!");
-        } else {
-          localStorage.setItem("prepmatrix_notifications_enabled", "false");
-          setNotificationsEnabled(false);
-          toast.error("Notification permission denied. Please enable them in your browser settings.");
-        }
-      } catch (err) {
-        console.error(err);
+        await disableStudyReminders();
+        toast.success("Study reminders disabled.");
+      } catch (error) {
+        console.error("Push notification cleanup failed:", error);
+        toast.warn(getPushNotificationErrorMessage(error));
+      } finally {
         localStorage.setItem("prepmatrix_notifications_enabled", "false");
         setNotificationsEnabled(false);
-        toast.error("Failed to enable study reminders.");
       }
-    } else {
+    } catch (error) {
+      console.error("Push notification setup failed:", error);
       localStorage.setItem("prepmatrix_notifications_enabled", "false");
       setNotificationsEnabled(false);
-      toast.success("Study reminders disabled.");
+      toast.error(getPushNotificationErrorMessage(error));
+    } finally {
+      setNotificationsBusy(false);
     }
   };
-
   // Study Target Goals state
   const [dailyTarget, setDailyTarget] = useState(() => {
     return parseFloat(localStorage.getItem("prepmatrix_daily_target") || "4");
@@ -1343,8 +1334,9 @@ function SettingsPage({
           <ToggleSwitch
             checked={notificationsEnabled}
             onChange={toggleNotifications}
+            disabled={notificationsBusy}
             label="Study Reminders (Push Notifications)"
-            subtitle="Receive desktop push notifications around 6:00 PM if no tasks are completed"
+            subtitle={notificationsBusy ? "Updating notification settings..." : "Receive desktop push notifications around 6:00 PM if no tasks are completed"}
           />
         </div>
 

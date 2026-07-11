@@ -11,36 +11,71 @@ import { fileURLToPath } from "node:url";
 
 dotenv.config();
 
-// Web Push VAPID Configurations
-let vapidKeys = {
-  publicKey: process.env.VAPID_PUBLIC_KEY,
-  privateKey: process.env.VAPID_PRIVATE_KEY
+// Web Push VAPID configuration. Environment secrets are preferred. When they
+// are not configured, a single fallback keypair is persisted in MongoDB so
+// browser subscriptions survive backend restarts and deployments.
+const VAPID_CONFIG_ID = "web-push-vapid";
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:divyen624@gmail.com";
+const environmentVapidKeys = {
+  publicKey: process.env.VAPID_PUBLIC_KEY?.trim() || "",
+  privateKey: process.env.VAPID_PRIVATE_KEY?.trim() || "",
 };
+let vapidKeys = null;
+let vapidInitializationPromise = null;
 
-if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
-  try {
-    const generated = webpush.generateVAPIDKeys();
-    vapidKeys.publicKey = vapidKeys.publicKey || generated.publicKey;
-    vapidKeys.privateKey = vapidKeys.privateKey || generated.privateKey;
-    console.log("==================================================");
-    console.log("Generated VAPID Keys for Web Push Notifications:");
-    console.log("VAPID_PUBLIC_KEY=" + vapidKeys.publicKey);
-    console.log("VAPID_PRIVATE_KEY=" + vapidKeys.privateKey);
-    console.log("Please save these in your .env / Render variables!");
-    console.log("==================================================");
-  } catch (err) {
-    console.error("VAPID key generation failed:", err);
+function activateVapidKeys(keys, source) {
+  if (!keys?.publicKey || !keys?.privateKey) {
+    throw new Error("A complete VAPID public/private keypair is required.");
   }
+
+  webpush.setVapidDetails(VAPID_SUBJECT, keys.publicKey, keys.privateKey);
+  vapidKeys = { publicKey: keys.publicKey, privateKey: keys.privateKey };
+  console.log(`[Web Push] VAPID keys loaded from ${source}.`);
+  return vapidKeys;
 }
 
-if (vapidKeys.publicKey && vapidKeys.privateKey) {
-  webpush.setVapidDetails(
-    "mailto:divyen624@gmail.com",
-    vapidKeys.publicKey,
-    vapidKeys.privateKey
-  );
+if (environmentVapidKeys.publicKey && environmentVapidKeys.privateKey) {
+  activateVapidKeys(environmentVapidKeys, "environment variables");
+} else if (environmentVapidKeys.publicKey || environmentVapidKeys.privateKey) {
+  console.warn("[Web Push] Ignoring an incomplete VAPID environment keypair; both keys must be configured together.");
 }
 
+async function ensureVapidConfigured() {
+  if (vapidKeys) return vapidKeys;
+  if (vapidInitializationPromise) return vapidInitializationPromise;
+
+  vapidInitializationPromise = (async () => {
+    const db = await getDb();
+    const configCollection = db.collection("appConfig");
+    let storedKeys = await configCollection.findOne({ _id: VAPID_CONFIG_ID });
+
+    if (!storedKeys?.publicKey || !storedKeys?.privateKey) {
+      const generatedKeys = webpush.generateVAPIDKeys();
+      const keyDocument = {
+        _id: VAPID_CONFIG_ID,
+        publicKey: generatedKeys.publicKey,
+        privateKey: generatedKeys.privateKey,
+        createdAt: new Date(),
+      };
+
+      try {
+        await configCollection.insertOne(keyDocument);
+        storedKeys = keyDocument;
+        console.log("[Web Push] Created the persistent fallback VAPID keypair.");
+      } catch (error) {
+        if (error?.code !== 11000) throw error;
+        storedKeys = await configCollection.findOne({ _id: VAPID_CONFIG_ID });
+      }
+    }
+
+    return activateVapidKeys(storedKeys, "persistent application configuration");
+  })().catch((error) => {
+    vapidInitializationPromise = null;
+    throw error;
+  });
+
+  return vapidInitializationPromise;
+}
 const app = express();
 const PORT = Number(process.env.PORT || 8787);
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
@@ -793,33 +828,74 @@ app.post("/api/workspace/import", requireAuth(async (req, res) => {
   }
 }));
 
-app.get("/api/notifications/vapid-key", (req, res) => {
-  res.json({ publicKey: vapidKeys.publicKey || null });
+app.get("/api/notifications/vapid-key", async (_req, res) => {
+  try {
+    const keys = await ensureVapidConfigured();
+    res.json({ publicKey: keys.publicKey, configured: true });
+  } catch (error) {
+    console.error("[Web Push] VAPID initialization failed:", error);
+    res.status(503).json({
+      error: "Study reminders are temporarily unavailable. Please try again shortly.",
+      code: "PUSH_NOT_CONFIGURED",
+      configured: false,
+    });
+  }
 });
 
 app.post("/api/notifications/subscribe", requireAuth(async (req, res) => {
   const { subscription, timezoneOffset } = req.body ?? {};
-  if (!subscription) {
-    return res.status(400).json({ error: "Push subscription is required." });
+  const isValidSubscription = Boolean(
+    subscription?.endpoint &&
+    subscription?.keys?.p256dh &&
+    subscription?.keys?.auth
+  );
+
+  if (!isValidSubscription) {
+    return res.status(400).json({
+      error: "A valid push subscription is required.",
+      code: "INVALID_PUSH_SUBSCRIPTION",
+    });
   }
 
   try {
+    await ensureVapidConfigured();
     const db = await getDb();
     await db.collection("users").updateOne(
       { _id: req.user._id },
-      { 
-        $set: { 
+      {
+        $set: {
           pushSubscription: subscription,
-          timezoneOffset: typeof timezoneOffset === "number" ? timezoneOffset : 0
-        } 
+          timezoneOffset: Number.isFinite(timezoneOffset) ? timezoneOffset : 0,
+        },
+        $unset: { lastReminderSentDate: "" },
       }
     );
     res.json({ success: true });
   } catch (error) {
+    console.error(`[Web Push] Failed to save subscription for ${req.user._id}:`, error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Subscription failed." });
   }
 }));
 
+app.delete("/api/notifications/subscribe", requireAuth(async (req, res) => {
+  try {
+    const db = await getDb();
+    await db.collection("users").updateOne(
+      { _id: req.user._id },
+      {
+        $unset: {
+          pushSubscription: "",
+          timezoneOffset: "",
+          lastReminderSentDate: "",
+        },
+      }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error(`[Web Push] Failed to remove subscription for ${req.user._id}:`, error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Unsubscribe failed." });
+  }
+}));
 app.get("/api/notes", requireAuth(async (req, res) => {
   const db = await getDb();
   const doc = await db.collection("notes").findOne({ userId: req.user._id });
@@ -1237,6 +1313,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
 }));
 async function checkAndSendDailyReminders() {
   try {
+    await ensureVapidConfigured();
     const db = await getDb();
     const users = await db.collection("users").find({ pushSubscription: { $exists: true, $ne: null } }).toArray();
     
@@ -1288,14 +1365,22 @@ async function checkAndSendDailyReminders() {
               await webpush.sendNotification(user.pushSubscription, payload);
               console.log(`[Push Notification] Sent daily reminder to ${user.email} for Day ${dayIndex}`);
             } catch (pushErr) {
-              console.error(`[Push Notification] Failed to send to ${user.email}:`, pushErr);
-              // If the subscription is expired/invalid, remove it to clean up db
-              if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+              const statusCode = Number(pushErr?.statusCode || 0);
+              console.error(`[Push Notification] Failed to send to ${user.email}:`, {
+                statusCode,
+                message: pushErr instanceof Error ? pushErr.message : "Unknown push delivery error",
+              });
+
+              if ([400, 401, 403, 404, 410].includes(statusCode)) {
                 await db.collection("users").updateOne(
                   { _id: user._id },
-                  { $set: { pushSubscription: null } }
+                  { $unset: { pushSubscription: "", lastReminderSentDate: "" } }
                 );
               }
+
+              // Do not mark a failed delivery as sent; transient failures can
+              // retry during the next scheduler pass in the reminder hour.
+              continue;
             }
           }
         }

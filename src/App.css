@@ -15826,6 +15826,116 @@ body.has-bg-image.no-glass-cards .trend-modal-content {
   background: rgba(var(--bg-surface-rgb), 0.985);
 }
 
+/* Compact desktop trend view: keep all content visible without an inner scrollbar. */
+@media (min-width: 769px) {
+  .trend-modal-backdrop {
+    padding: 12px;
+    box-sizing: border-box;
+  }
+
+  .trend-modal-content {
+    width: min(820px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    padding: 20px 22px 16px;
+    overflow-x: hidden;
+    border-radius: 20px;
+    box-sizing: border-box;
+  }
+
+  .trend-modal-header {
+    margin-bottom: 14px;
+    padding-right: 36px;
+  }
+
+  .trend-modal-title-row {
+    gap: 8px;
+  }
+
+  .trend-modal-title-row h2 {
+    font-size: 1.4rem;
+  }
+
+  .trend-modal-subtitle {
+    margin-top: 4px;
+    font-size: 0.82rem;
+  }
+
+  .trend-status-badge {
+    padding: 3px 10px;
+    font-size: 0.72rem;
+  }
+
+  .trend-modal-grid {
+    gap: 20px;
+  }
+
+  .trend-chart-card {
+    padding: 12px 10px 8px 4px;
+    border-radius: 14px;
+  }
+
+  .trend-plot-explanation {
+    margin-top: 12px;
+  }
+
+  .trend-plot-explanation h3,
+  .trend-insights-box h3,
+  .trend-recommendations-box h3 {
+    margin-bottom: 6px;
+    font-size: 0.94rem;
+  }
+
+  .trend-plot-explanation p,
+  .trend-insights-box p {
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+
+  .trend-metrics-grid {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .trend-metric-card {
+    gap: 8px;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .trend-metric-icon-wrap {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+
+  .trend-metric-val {
+    font-size: 1.08rem;
+  }
+
+  .trend-metric-lbl {
+    font-size: 0.66rem;
+  }
+
+  .trend-insights-box,
+  .trend-recommendations-box {
+    padding: 13px;
+    border-radius: 13px;
+  }
+
+  .trend-insights-box {
+    margin-bottom: 10px;
+  }
+
+  .trend-recommendations-box li {
+    margin-bottom: 5px;
+    font-size: 0.76rem;
+    line-height: 1.35;
+  }
+
+
+}
+
+
 .trend-modal-footer {
   display: flex;
   align-items: center;
@@ -15882,6 +15992,20 @@ body.has-bg-image .trend-modal-footer {
     height: 34px;
     min-height: 34px;
     padding-inline: 11px;
+  }
+}
+
+@media (min-width: 769px) {
+  .trend-modal-footer {
+    margin-top: 12px;
+    padding-top: 10px;
+  }
+
+  body .trend-view-plan-btn {
+    height: 32px;
+    min-height: 32px;
+    padding-inline: 10px;
+    font-size: 0.7rem;
   }
 }
 /* Smooth chat history drawer toggle */
@@ -16045,7 +16169,7 @@ body .history-toggle-btn:focus-visible svg {
 /* Monochrome Companion: approved v2 pet atlas */
 .study-pet-sprite {
   display: block;
-  width: 52px;
+  width: 72px;
   aspect-ratio: 192 / 208;
   background-image: url("/pets/monochrome-companion/spritesheet.webp");
   background-repeat: no-repeat;
@@ -16058,7 +16182,7 @@ body .history-toggle-btn:focus-visible svg {
 }
 
 .study-pet-sprite.size-sidebar {
-  width: 44px;
+  width: 52px;
 }
 
 .study-pet-sprite.state-idle {
@@ -16118,7 +16242,7 @@ body .history-toggle-btn:focus-visible svg {
   right: calc(100% + 18px);
   z-index: 20;
   display: flex;
-  width: 150px;
+  width: 180px;
   align-items: center;
   justify-content: center;
   overflow: visible;
@@ -16150,17 +16274,19 @@ body .history-toggle-btn:focus-visible svg {
   position: relative;
   z-index: 12;
   display: flex;
-  flex: 0 0 150px;
-  width: 150px;
+  flex: 0 0 180px;
+  width: 180px;
   flex-direction: column;
   align-items: center;
 }
 
 .study-pet-speech {
-  position: relative;
-  width: 150px;
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  width: 180px;
   min-height: 34px;
-  margin-bottom: 5px;
+  margin-bottom: 0;
   padding: 7px 9px;
   overflow: hidden;
   color: var(--text);
@@ -16175,6 +16301,20 @@ body .history-toggle-btn:focus-visible svg {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(7px) scale(0.96);
+  transform-origin: bottom center;
+  transition:
+    opacity 170ms ease,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chat-study-pet:hover .study-pet-speech,
+.chat-study-pet:focus-within .study-pet-speech {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  transition-delay: 0s;
 }
 
 .study-pet-speech::after {
@@ -16205,10 +16345,10 @@ body .study-pet-button,
 body .sidebar-pet-button {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 58px;
-  min-width: 56px;
-  min-height: 58px;
+  width: 80px;
+  height: 84px;
+  min-width: 80px;
+  min-height: 84px;
   padding: 0;
   overflow: visible;
   color: var(--text);
@@ -16313,7 +16453,7 @@ body .sidebar-pet-menu > button:hover {
   display: flex;
   flex: 0 0 100%;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   min-width: 0;
   padding: 0;
   background: transparent !important;
@@ -16327,12 +16467,21 @@ body .sidebar-pet-menu > button:hover {
   flex-wrap: wrap;
 }
 
+.sidebar-widgets > .sidebar-widget-cell {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.sidebar-widgets > .about-info-btn {
+  flex: 0 0 42px;
+}
+
 
 body .sidebar-pet-button {
-  width: 48px;
-  height: 50px;
-  min-width: 48px;
-  min-height: 50px;
+  width: 60px;
+  height: 62px;
+  min-width: 60px;
+  min-height: 62px;
   border-radius: 0;
 }
 
@@ -16415,6 +16564,17 @@ body.has-bg-image .sidebar-pet-menu > span {
     font-size: 0.58rem;
   }
 
+  body .chat-study-pet .study-pet-button {
+    width: 70px;
+    height: 76px;
+    min-width: 70px;
+    min-height: 76px;
+  }
+
+  .chat-study-pet .study-pet-sprite {
+    width: 64px;
+  }
+
   .chat-header .study-pet-sprite {
     display: block !important;
   }
@@ -16436,7 +16596,27 @@ body.has-bg-image .sidebar-pet-menu > span {
 
   .sidebar-chatbot-portal > .chat-pet-rail {
     right: calc(100% + 10px);
-    width: 122px;
+    width: 132px;
+  }
+
+  .chat-study-pet {
+    flex-basis: 132px;
+    width: 132px;
+  }
+
+  .chat-study-pet .study-pet-speech {
+    width: 136px;
+  }
+
+  body .chat-study-pet .study-pet-button {
+    width: 74px;
+    height: 80px;
+    min-width: 74px;
+    min-height: 80px;
+  }
+
+  .chat-study-pet .study-pet-sprite {
+    width: 67px;
   }
 }
 
