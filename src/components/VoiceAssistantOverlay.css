@@ -418,14 +418,14 @@
   box-shadow: none !important;
   color: rgba(224, 251, 255, 0.86) !important;
   min-width: 0 !important;
-  height: 20px !important;
-  padding: 0 7px !important;
-  border-radius: 999px !important;
+  height: 16px !important;
+  padding: 0 6px !important;
+  border-radius: 8px !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-family: 'Outfit', 'Inter', sans-serif;
-  font-size: 0.64rem;
+  font-size: 0.58rem;
   font-weight: 650;
   line-height: 1;
   white-space: nowrap;
