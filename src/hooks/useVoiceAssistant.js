@@ -73,6 +73,31 @@ function buildPlannerContext({ academicLevel, academicTrack, metrics }) {
   };
 }
 
+const VOICE_TOPIC_REPLACEMENTS = [
+  [/\bcatch\s+memory\b/g, "cache memory"],
+  [/\bcash\s+memory\b/g, "cache memory"],
+  [/\bcatching\s+memory\b/g, "cache memory"],
+  [/\bcashe\s+memory\b/g, "cache memory"],
+  [/\bcatch\s+cpu\b/g, "cache cpu"],
+  [/\bc\s*p\s*u\b/g, "cpu"],
+  [/\bo\s*s\b/g, "operating system"],
+  [/\bd\s*b\s*m\s*s\b/g, "dbms"],
+  [/\boops\b/g, "object oriented programming"],
+  [/\bdata\s+base\b/g, "database"],
+  [/\bmongo\s+db\b/g, "mongodb"],
+];
+
+function normalizeNoisyStudyQuestion(spokenText = "") {
+  let normalized = normalizeVoiceText(spokenText)
+    .replace(/\b(please|kindly|can you|could you|tell me|explain me|explain about|what about)\b/g, " ")
+    .replace(/\b(the|a|an)\s+(meaning|definition)\s+of\b/g, "definition of");
+
+  VOICE_TOPIC_REPLACEMENTS.forEach(([pattern, replacement]) => {
+    normalized = normalized.replace(pattern, replacement);
+  });
+
+  return normalized.replace(/\s+/g, " ").trim();
+}
 function resolveQuickVoiceAnswer(spokenText = "") {
   const normalized = normalizeVoiceText(spokenText);
   const now = new Date();
@@ -346,7 +371,13 @@ export default function useVoiceAssistant({
   }, []);
 
   const sendQuestionToAssistant = useCallback(async (question) => {
-    const payload = await api.post("/api/study-assistant/chat", { message: question, plannerContext });
+    const normalizedMessage = normalizeNoisyStudyQuestion(question);
+    const payload = await api.post("/api/study-assistant/chat", {
+      message: question,
+      normalizedMessage,
+      source: "voice",
+      plannerContext,
+    });
     return payload.reply?.trim() || "I could not generate an answer for that question.";
   }, [plannerContext]);
 
@@ -402,7 +433,10 @@ export default function useVoiceAssistant({
         scheduleWakeRestart();
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to complete that voice request.";
+      const rawMessage = err instanceof Error ? err.message : "Unable to complete that voice request.";
+      const message = /failed to fetch|network|abort/i.test(rawMessage)
+        ? "I could not reach the AI service right now. Please check the server or internet connection and try again."
+        : rawMessage;
       setError(message);
       setReply(message);
       setOverlayReply(message);

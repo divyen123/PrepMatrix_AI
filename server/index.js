@@ -1124,7 +1124,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
   try {
     const config = getGroqConfigStatus();
     if (!config.available) return res.status(500).json({ error: config.message });
-    const { message = "", sessionId = null, plannerContext = {} } = req.body ?? {};
+    const { message = "", normalizedMessage = "", source = "chat", sessionId = null, plannerContext = {} } = req.body ?? {};
     if (!message.trim()) return res.status(400).json({ error: "Message is required." });
     const db = await getDb();
     let session = null;
@@ -1167,6 +1167,17 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
       .filter((item) => item && typeof item.text === "string" && typeof item.role === "string" && (item.role === "user" || item.role === "assistant"))
       .slice(-8)
       .map((item) => ({ role: item.role, content: item.text }));
+    const cleanMessage = message.trim();
+    const cleanNormalizedMessage = typeof normalizedMessage === "string" ? normalizedMessage.trim() : "";
+    const isVoiceRequest = source === "voice";
+    const userContent = isVoiceRequest
+      ? [
+          "This is a spoken voice transcript. It may contain speech-recognition mistakes, filler words, or slightly wrong terms.",
+          `Raw transcript: ${cleanMessage}`,
+          cleanNormalizedMessage && cleanNormalizedMessage !== cleanMessage.toLowerCase() ? `Likely intended wording/key topic: ${cleanNormalizedMessage}` : "",
+          "Answer the most likely academic question from the key topic. If a term sounds wrong but has a close academic match, briefly proceed with that interpretation instead of refusing. Ask for clarification only if there is no plausible academic topic.",
+        ].filter(Boolean).join("\n")
+      : cleanMessage;
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
@@ -1177,11 +1188,11 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
         messages: [
           {
             role: "system",
-            content: "You are an AI study planner assistant. Give concise, practical, encouraging answers. Use the planner context accurately. Adapt explanations, resource suggestions, and study strategy to the academic level. Prefer actionable guidance over generic motivation. If the user asks about study status, refer to the provided planner data rather than inventing numbers. IMPORTANT: Always structure lists, key topics, steps, and points using clean bullet points (* Item) or numbered lists (1. Item) on new lines, with proper line breaks between points for pointwise readability. Never write lists inline as a single paragraph.",
+            content: "You are an AI study planner assistant. Give concise, practical, encouraging answers. Use the planner context accurately. Adapt explanations, resource suggestions, and study strategy to the academic level. Prefer actionable guidance over generic motivation. Be noise robust for voice input: infer the likely academic topic from imperfect wording, ASR mistakes, filler words, or near-miss terms. For example, if the transcript says catch memory, infer cache memory when that is the closest academic concept. Briefly answer the inferred topic without scolding the user. Ask for clarification only when there is no plausible academic intent. If the user asks about study status, refer to the provided planner data rather than inventing numbers. IMPORTANT: Always structure lists, key topics, steps, and points using clean bullet points (* Item) or numbered lists (1. Item) on new lines, with proper line breaks between points for pointwise readability. Never write lists inline as a single paragraph.",
           },
           { role: "system", content: `Current planner context:\n${contextSummary}` },
           ...safeHistory,
-          { role: "user", content: message.trim() },
+          { role: "user", content: userContent },
         ],
       }),
     });
