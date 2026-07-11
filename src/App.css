@@ -14247,4 +14247,9 @@ body.dark .notes-clear-all-btn {
     margin-top: auto !important;
   }
 }
+.goal-metric-card .goal-eta-value {
+  font-size: clamp(0.9rem, 1.45vw, 1.15rem) !important;
+  line-height: 1.22 !important;
+  overflow-wrap: normal;
+}
 

@@ -138,7 +138,7 @@ function GoalTracker({ completed, schedule, subjects = [] }) {
             </div>
             <div className="goal-metric-card">
               <span>ETA</span>
-              <strong>{estimatedDays}</strong>
+              <strong className="goal-eta-value">{estimatedDays}</strong>
             </div>
           </div>
 
