@@ -170,7 +170,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
             if (retry.sessions?.length > 0) {
               setSessions(retry.sessions);
             }
-          } catch (retryErr) {
+          } catch {
             // Silent retry failure
           }
         }, 1500);
@@ -204,19 +204,6 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     };
   }, [open]);
 
-  useEffect(() => {
-    const handleOpenChat = (event) => {
-      setOpen(true);
-      if (event.detail?.createNewChat) {
-        handleNewChat();
-      }
-      if (event.detail?.message) {
-        setInput(event.detail.message);
-      }
-    };
-    window.addEventListener("openPrepMatrixAIChat", handleOpenChat);
-    return () => window.removeEventListener("openPrepMatrixAIChat", handleOpenChat);
-  }, [handleNewChat]);
 
   // Select a session to load details
   const handleSelectSession = useCallback(async (sessionId) => {
@@ -254,6 +241,20 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       setHistoryOpen(false);
     }
   }, []);
+
+  useEffect(() => {
+    const handleOpenChat = (event) => {
+      setOpen(true);
+      if (event.detail?.createNewChat) {
+        handleNewChat();
+      }
+      if (event.detail?.message) {
+        setInput(event.detail.message);
+      }
+    };
+    window.addEventListener("openPrepMatrixAIChat", handleOpenChat);
+    return () => window.removeEventListener("openPrepMatrixAIChat", handleOpenChat);
+  }, [handleNewChat]);
 
   // Delete a session
   const handleDeleteSession = useCallback(async (e, sessionId) => {
