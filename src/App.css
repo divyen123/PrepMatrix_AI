@@ -14252,4 +14252,15 @@ body.dark .notes-clear-all-btn {
   line-height: 1.22 !important;
   overflow-wrap: normal;
 }
+/* Center board status metric labels inside each card */
+.notes-summary-card .notes-stat-grid > div {
+  align-items: center !important;
+  justify-items: center !important;
+  text-align: center !important;
+}
+
+.notes-summary-card .notes-stat-grid span,
+.notes-summary-card .notes-stat-grid strong {
+  text-align: center !important;
+}
 
