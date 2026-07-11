@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import api from "../utils/apiClient";
 
 const NOTES_PER_PAGE = 6;
@@ -131,8 +131,12 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
     saveNotes(notes.filter((note) => note.id !== id));
   };
 
-  const clearResolved = () => {
-    saveNotes(notes.filter((note) => note.status !== "Resolved"));
+  const clearAllNotes = () => {
+    if (notes.length === 0) return;
+    saveNotes([]);
+    setFilter("All");
+    setNotesSearchQuery("");
+    setNotification?.("Stored notes cleared.");
   };
 
   const planNote = (note, preferredDay = "tomorrow") => {
@@ -370,18 +374,22 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
               <select
                 className="notes-filter-select"
                 value={filter}
-                onChange={(e) => {
-                  if (e.target.value === "clear") {
-                    clearResolved();
-                  } else {
-                    setFilter(e.target.value);
-                  }
-                }}
+                onChange={(e) => setFilter(e.target.value)}
               >
                 <option value="All">All Notes</option>
                 <option value="Resolved">Resolved</option>
-                <option value="clear">Clear Resolved</option>
               </select>
+              {notes.length > 0 && (
+                <button
+                  aria-label="Clear all stored notes"
+                  className="notes-clear-all-btn"
+                  onClick={clearAllNotes}
+                  title="Clear all stored notes"
+                  type="button"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
             </div>
           </div>
         </div>

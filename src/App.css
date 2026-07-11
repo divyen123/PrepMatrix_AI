@@ -14151,4 +14151,100 @@ html[data-cursor-mode="blob-cursor"] [type="radio"] {
     -webkit-backdrop-filter: blur(12px) !important;
   }
 }
+/* Stored notes clear-all control and uniform mobile note cards */
+.notes-list-card {
+  position: relative;
+}
+
+.notes-clear-all-btn {
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  box-shadow: none;
+}
+
+.notes-clear-all-btn:hover {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
+
+body.dark .notes-clear-all-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.22);
+  color: #f87171;
+}
+
+@media (max-width: 991.98px) {
+  .notes-list-card .notes-search-filter-row {
+    align-items: center !important;
+    gap: 10px !important;
+  }
+
+  .notes-list-card .notes-clear-all-btn {
+    position: absolute !important;
+    top: 24px !important;
+    right: 24px !important;
+    z-index: 3 !important;
+  }
+
+  .notes-list-card .notes-list-header {
+    padding-right: 52px !important;
+  }
+
+  .notes-list-grid {
+    align-items: stretch !important;
+  }
+
+  .notes-list-grid .note-card {
+    flex: 0 0 240px !important;
+    width: 240px !important;
+    max-width: 240px !important;
+    height: 240px !important;
+    min-height: 240px !important;
+    max-height: 240px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    overflow: hidden !important;
+  }
+
+  .notes-list-grid .note-card-top {
+    min-height: 72px !important;
+  }
+
+  .notes-list-grid .note-card h4 {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 3 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
+  .notes-list-grid .note-card p {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
+  .notes-list-grid .left-topic-wrap {
+    flex: 0 0 28px !important;
+    max-height: 28px !important;
+    overflow: hidden !important;
+  }
+
+  .notes-list-grid .note-card-actions {
+    flex: 0 0 auto !important;
+    margin-top: auto !important;
+  }
+}
 
