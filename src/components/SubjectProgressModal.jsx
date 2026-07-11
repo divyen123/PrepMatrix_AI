@@ -16,7 +16,7 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
   };
 
   // Compute stats
-  const subjectTasks = schedule.flatMap((day) => {
+  const subjectTasks = (schedule || []).flatMap((day) => {
     return (day.tasks || [])
       .filter((task) => task.task.startsWith(`${subject} -`))
       .map((task) => ({
@@ -28,7 +28,7 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
   const totalChapters = subjectTasks.length;
   
   const completedChapters = subjectTasks
-    .filter((task) => completed.includes(task.id))
+    .filter((task) => (completed || []).includes(task.id))
     .sort((a, b) => new Date(a.date) - new Date(b.date));
     
   const completionPercentage = totalChapters === 0 ? 0 : Math.round((completedChapters.length / totalChapters) * 100);

@@ -25,9 +25,9 @@ function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [
   if (!isOpen) return null;
 
   let completedCount = 0;
-  const data = schedule.map((day, index) => {
+  const data = (schedule || []).map((day, index) => {
     day.tasks?.forEach((task) => {
-      if (completed.includes(task.task)) {
+      if ((completed || []).includes(task.task)) {
         completedCount += 1;
       }
     });
@@ -38,13 +38,13 @@ function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [
     };
   });
 
-  const totalTasks = schedule.reduce(
+  const totalTasks = (schedule || []).reduce(
     (count, day) => count + (day.tasks ? day.tasks.length : 0),
     0
   );
 
-  const progress = totalTasks === 0 ? 0 : (completed.length / totalTasks) * 100;
-  const velocity = completed.length / Math.max(schedule.length, 1);
+  const progress = totalTasks === 0 ? 0 : ((completed || []).length / totalTasks) * 100;
+  const velocity = (completed || []).length / Math.max((schedule || []).length, 1);
 
   let statusText = "Needs Focus ⚠️";
   let colorTheme = {

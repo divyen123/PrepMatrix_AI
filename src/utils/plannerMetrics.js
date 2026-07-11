@@ -13,7 +13,7 @@ export function normalizeTimeSlot(timeLabel = "") {
 }
 
 export function getPlannerMetrics(schedule = [], completed = []) {
-  const completedSet = new Set(completed);
+  const completedSet = new Set(completed || []);
   const subjectStats = {};
 
   let totalTasks = 0;
@@ -21,7 +21,7 @@ export function getPlannerMetrics(schedule = [], completed = []) {
   let eveningCompleted = 0;
   let firstPendingTask = null;
 
-  schedule.forEach((day) => {
+  (schedule || []).forEach((day) => {
     day.tasks?.forEach((task) => {
       totalTasks += 1;
 

@@ -11,9 +11,9 @@ import {
 function MiniProgressChart({ schedule = [], completed = [] }) {
   let completedCount = 0;
 
-  const data = schedule.map((day, index) => {
+  const data = (schedule || []).map((day, index) => {
     day.tasks?.forEach((task) => {
-      if (completed.includes(task.task)) {
+      if ((completed || []).includes(task.task)) {
         completedCount += 1;
       }
     });
@@ -24,7 +24,7 @@ function MiniProgressChart({ schedule = [], completed = [] }) {
     };
   });
 
-  const totalTasks = schedule.reduce(
+  const totalTasks = (schedule || []).reduce(
     (count, day) => count + (day.tasks ? day.tasks.length : 0),
     0
   );

@@ -7,7 +7,7 @@ import { getPlannerMetrics } from "../utils/plannerMetrics";
 function ProgressBar1({ schedule, completed }) {
   const metrics = getPlannerMetrics(schedule, completed);
   const progress = metrics.completionRate;
-  const completedSet = new Set(completed);
+  const completedSet = new Set(completed || []);
   const todayCompleted = metrics.todayTasks.filter((task) =>
     completedSet.has(task.task)
   ).length;
