@@ -28,6 +28,7 @@ import api, { HAS_CONFIGURED_API } from "./utils/apiClient";
 import BACKGROUND_PRESETS from "./utils/backgroundPresets";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
 import CustomCursor from "./components/CustomCursor";
+import { SidebarStudyPet } from "./components/StudyPet";
 import "./App.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -846,6 +847,7 @@ function App() {
           </nav>
           
           <div className="sidebar-widgets">
+            <SidebarStudyPet />
             <Suspense fallback={null}>
               <div className="sidebar-widget-cell">
                 <FloatingAnalytics completed={completed} schedule={schedule} />

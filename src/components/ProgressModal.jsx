@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { X, TrendingUp, CheckCircle2, Award, CalendarRange } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ArrowRight, X, TrendingUp, CheckCircle2, Award, CalendarRange } from "lucide-react";
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -11,6 +12,7 @@ import {
 } from "recharts";
 
 function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [] }) {
+  const navigate = useNavigate();
   const safeSchedule = Array.isArray(schedule) ? schedule : [];
   const safeCompleted = Array.isArray(completed) ? completed : [];
   useEffect(() => {
@@ -109,6 +111,11 @@ function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [
       "Review study insights to fine-tune your peak performance times."
     ];
   }
+
+  const handleViewPlan = () => {
+    onClose();
+    navigate("/planner");
+  };
 
   return (
     <div
@@ -251,6 +258,14 @@ function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [
             </div>
           </div>
         </div>
+
+        <footer className="trend-modal-footer">
+          <button className="trend-view-plan-btn" onClick={handleViewPlan} type="button">
+            <CalendarRange aria-hidden="true" size={15} strokeWidth={2.4} />
+            <span>View Plan</span>
+            <ArrowRight aria-hidden="true" size={14} strokeWidth={2.4} />
+          </button>
+        </footer>
       </div>
     </div>
   );

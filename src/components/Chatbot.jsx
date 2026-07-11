@@ -7,12 +7,14 @@ import {
   resolveLocalAssistantCommand,
 } from "../utils/assistantCommands";
 import api, { API_BASE } from "../utils/apiClient";
+import { ChatStudyPet } from "./StudyPet";
 import {
   MessageSquare,
   Plus,
   Trash2,
   Edit2,
-  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   X,
   Check,
   Loader2,
@@ -603,6 +605,34 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     }
   };
 
+  const companionStatus = useMemo(() => {
+    if (isVoiceRecording) {
+      return { message: "I’m listening. Tell me what you want to study.", state: "thinking" };
+    }
+    if (loading) {
+      return { message: "Thinking through your question…", state: "thinking" };
+    }
+    if (input.trim()) {
+      return { message: "Your question is ready. Send it when you are ready.", state: "idle" };
+    }
+
+    const latestMessage = messages[messages.length - 1];
+    if (latestMessage?.role === "assistant" && latestMessage.id !== "intro") {
+      return { message: "Answer ready. Review it, then try one example yourself.", state: "answer" };
+    }
+    if (latestMessage?.role === "user") {
+      return { message: "Question received. I’m getting it into focus.", state: "thinking" };
+    }
+
+    return { message: "One focused topic today is real progress.", state: "idle" };
+  }, [input, isVoiceRecording, loading, messages]);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("prepmatrixPetStatusChange", {
+      detail: { message: companionStatus.message, state: companionStatus.state },
+    }));
+  }, [companionStatus]);
+
   return (
     <>
       <button
@@ -620,13 +650,19 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
           <section className="chatbot sidebar-chatbot-portal">
             <div className="chat-box">
             
-            {/* Sliding Backdrop on Mobile */}
-            {historyOpen && window.innerWidth <= 768 && (
-              <div className="chat-history-backdrop" onClick={() => setHistoryOpen(false)} />
-            )}
+            {/* Sliding backdrop remains mounted so both open and close can animate. */}
+            <div
+              aria-hidden={!historyOpen}
+              className={`chat-history-backdrop ${historyOpen ? "open" : ""}`}
+              onClick={() => setHistoryOpen(false)}
+            />
 
             {/* Left Panel: Chat History */}
-            <aside className={`chat-history-sidebar ${historyOpen ? "open" : "collapsed"}`}>
+            <aside
+              aria-hidden={!historyOpen}
+              className={`chat-history-sidebar ${historyOpen ? "open" : "collapsed"}`}
+              id="chat-history-drawer"
+            >
               <div className="sidebar-history-header">
                 <h3>Chat History</h3>
                 <div className="history-header-actions">
@@ -782,15 +818,24 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
               <div className="chat-header">
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   <button
-                    aria-label="Toggle chat history"
-                    className="history-toggle-btn"
-                    onClick={() => setHistoryOpen(!historyOpen)}
+                    aria-controls="chat-history-drawer"
+                    aria-expanded={historyOpen}
+                    aria-label={historyOpen ? "Close chat history" : "Open chat history"}
+                    className={`history-toggle-btn ${historyOpen ? "is-open" : ""}`}
+                    onClick={() => setHistoryOpen((current) => !current)}
+                    title={historyOpen ? "Hide chat history" : "Show chat history"}
                     type="button"
                   >
-                    <Menu size={20} />
+                    {historyOpen ? (
+                      <PanelLeftClose aria-hidden="true" size={17} strokeWidth={2.3} />
+                    ) : (
+                      <PanelLeftOpen aria-hidden="true" size={17} strokeWidth={2.3} />
+                    )}
                   </button>
-                  <div>
+                  <ChatStudyPet message={companionStatus.message} state={companionStatus.state} />
+                  <div className="chat-heading-copy">
                     <strong>{activeSessionId ? activeSessionTitle : "Study assistant"}</strong>
+                    <span>Planner-aware study support</span>
                   </div>
                 </div>
 
