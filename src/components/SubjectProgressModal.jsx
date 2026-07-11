@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { X, BookOpen, PenTool, Sparkles, Target, CheckCircle2 } from "lucide-react";
 
 function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] }) {
+  const safeSchedule = Array.isArray(schedule) ? schedule : [];
+  const safeCompleted = Array.isArray(completed) ? completed : [];
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
 
@@ -16,9 +18,10 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
   };
 
   // Compute stats
-  const subjectTasks = (schedule || []).flatMap((day) => {
-    return (day.tasks || [])
-      .filter((task) => task.task.startsWith(`${subject} -`))
+  const subjectTasks = safeSchedule.flatMap((day) => {
+    const tasks = Array.isArray(day?.tasks) ? day.tasks : [];
+    return tasks
+      .filter((task) => typeof task?.task === "string" && task.task.startsWith(`${subject} -`))
       .map((task) => ({
         id: task.task,
         topic: task.task.replace(`${subject} - `, ""),
@@ -28,7 +31,7 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
   const totalChapters = subjectTasks.length;
   
   const completedChapters = subjectTasks
-    .filter((task) => (completed || []).includes(task.id))
+    .filter((task) => safeCompleted.includes(task.id))
     .sort((a, b) => new Date(a.date) - new Date(b.date));
     
   const completionPercentage = totalChapters === 0 ? 0 : Math.round((completedChapters.length / totalChapters) * 100);

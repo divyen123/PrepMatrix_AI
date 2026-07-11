@@ -9,11 +9,14 @@ import {
 } from "recharts";
 
 function MiniProgressChart({ schedule = [], completed = [] }) {
+  const safeSchedule = Array.isArray(schedule) ? schedule : [];
+  const safeCompleted = Array.isArray(completed) ? completed : [];
   let completedCount = 0;
 
-  const data = (schedule || []).map((day, index) => {
-    day.tasks?.forEach((task) => {
-      if ((completed || []).includes(task.task)) {
+  const data = safeSchedule.map((day, index) => {
+    const tasks = Array.isArray(day?.tasks) ? day.tasks : [];
+    tasks.forEach((task) => {
+      if (task && safeCompleted.includes(task.task)) {
         completedCount += 1;
       }
     });
@@ -24,13 +27,13 @@ function MiniProgressChart({ schedule = [], completed = [] }) {
     };
   });
 
-  const totalTasks = (schedule || []).reduce(
-    (count, day) => count + (day.tasks ? day.tasks.length : 0),
+  const totalTasks = safeSchedule.reduce(
+    (count, day) => count + (Array.isArray(day?.tasks) ? day.tasks.length : 0),
     0
   );
 
   const progress =
-    totalTasks === 0 ? 0 : (completed.length / totalTasks) * 100;
+    totalTasks === 0 ? 0 : (safeCompleted.length / totalTasks) * 100;
 
   let lineColor = "#b8324b";
   if (progress > 40) lineColor = "#b7791f";

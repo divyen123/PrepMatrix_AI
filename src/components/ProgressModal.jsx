@@ -11,6 +11,8 @@ import {
 } from "recharts";
 
 function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [] }) {
+  const safeSchedule = Array.isArray(schedule) ? schedule : [];
+  const safeCompleted = Array.isArray(completed) ? completed : [];
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (e) => {
@@ -25,9 +27,10 @@ function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [
   if (!isOpen) return null;
 
   let completedCount = 0;
-  const data = (schedule || []).map((day, index) => {
-    day.tasks?.forEach((task) => {
-      if ((completed || []).includes(task.task)) {
+  const data = safeSchedule.map((day, index) => {
+    const tasks = Array.isArray(day?.tasks) ? day.tasks : [];
+    tasks.forEach((task) => {
+      if (task && safeCompleted.includes(task.task)) {
         completedCount += 1;
       }
     });
@@ -38,13 +41,13 @@ function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [
     };
   });
 
-  const totalTasks = (schedule || []).reduce(
-    (count, day) => count + (day.tasks ? day.tasks.length : 0),
+  const totalTasks = safeSchedule.reduce(
+    (count, day) => count + (Array.isArray(day?.tasks) ? day.tasks.length : 0),
     0
   );
 
-  const progress = totalTasks === 0 ? 0 : ((completed || []).length / totalTasks) * 100;
-  const velocity = (completed || []).length / Math.max((schedule || []).length, 1);
+  const progress = totalTasks === 0 ? 0 : (safeCompleted.length / totalTasks) * 100;
+  const velocity = safeCompleted.length / Math.max(safeSchedule.length, 1);
 
   let statusText = "Needs Focus ⚠️";
   let colorTheme = {
@@ -207,7 +210,7 @@ function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [
                   <CheckCircle2 size={18} className="text-blue" />
                 </div>
                 <div className="trend-metric-info">
-                  <span className="trend-metric-val">{completed.length} / {totalTasks}</span>
+                  <span className="trend-metric-val">{safeCompleted.length} / {totalTasks}</span>
                   <span className="trend-metric-lbl">Completed Tasks</span>
                 </div>
               </div>
@@ -227,7 +230,7 @@ function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [
                   <Award size={18} className="text-orange" />
                 </div>
                 <div className="trend-metric-info">
-                  <span className="trend-metric-val">{schedule.length}</span>
+                  <span className="trend-metric-val">{safeSchedule.length}</span>
                   <span className="trend-metric-lbl">Total Days</span>
                 </div>
               </div>

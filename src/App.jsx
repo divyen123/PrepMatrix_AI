@@ -231,18 +231,31 @@ function App() {
   };
 
   const applyWorkspace = (workspace = {}, profile = null) => {
-    setSubjects(workspace.subjects || []);
-    setSchedule(workspace.schedule || []);
-    setCompleted(workspace.completed || []);
+    const nextSubjects = Array.isArray(workspace?.subjects)
+      ? workspace.subjects.filter((subject) => subject && typeof subject === "object")
+      : [];
+    const nextSchedule = Array.isArray(workspace?.schedule)
+      ? workspace.schedule
+        .filter((day) => day && typeof day === "object")
+        .map((day) => ({
+          ...day,
+          tasks: Array.isArray(day.tasks)
+            ? day.tasks.filter((task) => task && typeof task === "object")
+            : [],
+        }))
+      : [];
+    setSubjects(nextSubjects);
+    setSchedule(nextSchedule);
+    setCompleted(Array.isArray(workspace?.completed) ? workspace.completed : []);
     setAcademicLevel(workspace.academicLevel || profile?.academicLevel || "College");
     setAcademicTrack(workspace.academicTrack || profile?.academicTrack || "General");
-    setMaterialBookmarks(workspace.materialBookmarks || []);
+    setMaterialBookmarks(Array.isArray(workspace?.materialBookmarks) ? workspace.materialBookmarks : []);
     setDarkMode(Boolean(workspace.darkMode));
     setScheduleStartDate(workspace.scheduleStartDate || null);
   };
 
   const updateSubjects = (nextSubjects) => {
-    setSubjects(nextSubjects);
+    setSubjects(Array.isArray(nextSubjects) ? nextSubjects : []);
     setSchedule([]);
     setCompleted([]);
     setScheduleStartDate(null);

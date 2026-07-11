@@ -162,12 +162,12 @@ function defaultWorkspace(user) {
 
 function normalizeWorkspace(doc, user) {
   return {
-    subjects: doc?.subjects || [],
-    schedule: doc?.schedule || [],
-    completed: doc?.completed || [],
+    subjects: Array.isArray(doc?.subjects) ? doc.subjects : [],
+    schedule: Array.isArray(doc?.schedule) ? doc.schedule : [],
+    completed: Array.isArray(doc?.completed) ? doc.completed : [],
     academicLevel: doc?.academicLevel || user?.academicLevel || "College",
     academicTrack: doc?.academicTrack || user?.academicTrack || "General",
-    materialBookmarks: doc?.materialBookmarks || [],
+    materialBookmarks: Array.isArray(doc?.materialBookmarks) ? doc.materialBookmarks : [],
     darkMode: Boolean(doc?.darkMode),
     scheduleStartDate: doc?.scheduleStartDate || null,
   };
@@ -758,6 +758,9 @@ app.put("/api/workspace", requireAuth(async (req, res) => {
     if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
     return next;
   }, { updatedAt: new Date() });
+  for (const key of ["subjects", "schedule", "completed", "materialBookmarks"]) {
+    if (key in update && !Array.isArray(update[key])) update[key] = [];
+  }
   await db.collection("workspaces").updateOne(
     { userId: req.user._id },
     { $set: update, $setOnInsert: { userId: req.user._id } },
@@ -775,6 +778,9 @@ app.post("/api/workspace/import", requireAuth(async (req, res) => {
       if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
       return next;
     }, { updatedAt: new Date() });
+    for (const key of ["subjects", "schedule", "completed", "materialBookmarks"]) {
+      if (key in update && !Array.isArray(update[key])) update[key] = [];
+    }
     await db.collection("workspaces").updateOne(
       { userId: req.user._id },
       { $set: update, $setOnInsert: { userId: req.user._id } },

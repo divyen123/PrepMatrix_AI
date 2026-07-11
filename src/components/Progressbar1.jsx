@@ -5,9 +5,11 @@ import successSound from "../assets/success.mp3";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 
 function ProgressBar1({ schedule, completed }) {
+  const safeSchedule = useMemo(() => (Array.isArray(schedule) ? schedule : []), [schedule]);
+  const safeCompleted = Array.isArray(completed) ? completed : [];
   const metrics = getPlannerMetrics(schedule, completed);
   const progress = metrics.completionRate;
-  const completedSet = new Set(completed || []);
+  const completedSet = new Set(safeCompleted);
   const todayCompleted = metrics.todayTasks.filter((task) =>
     completedSet.has(task.task)
   ).length;
@@ -32,13 +34,13 @@ function ProgressBar1({ schedule, completed }) {
         ? "Every planned task is complete. Strong finish."
         : `${tasksNeeded} more ${tasksNeeded === 1 ? "task" : "tasks"} needed`;
   const completionCelebrationKey = useMemo(() => {
-    const taskNames = schedule
-      .flatMap((day) => day.tasks?.map((task) => task.task) || [])
+    const taskNames = safeSchedule
+      .flatMap((day) => (Array.isArray(day?.tasks) ? day.tasks.map((task) => task?.task).filter(Boolean) : []))
       .sort()
       .join("|");
 
     return `prepmatrix-plan-completed:${metrics.totalTasks}:${taskNames}`;
-  }, [metrics.totalTasks, schedule]);
+  }, [metrics.totalTasks, safeSchedule]);
 
   useEffect(() => {
     if (progress === 100 && metrics.totalTasks > 0) {

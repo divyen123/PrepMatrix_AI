@@ -3,7 +3,7 @@ export function extractSubjectFromTask(taskName = "") {
 }
 
 export function normalizeTimeSlot(timeLabel = "") {
-  const normalized = timeLabel.toLowerCase();
+  const normalized = String(timeLabel ?? "").toLowerCase();
 
   if (normalized.includes("morning")) return "morning";
   if (normalized.includes("evening")) return "evening";
@@ -13,7 +13,9 @@ export function normalizeTimeSlot(timeLabel = "") {
 }
 
 export function getPlannerMetrics(schedule = [], completed = []) {
-  const completedSet = new Set(completed || []);
+  const safeSchedule = Array.isArray(schedule) ? schedule : [];
+  const safeCompleted = Array.isArray(completed) ? completed : [];
+  const completedSet = new Set(safeCompleted);
   const subjectStats = {};
 
   let totalTasks = 0;
@@ -21,8 +23,10 @@ export function getPlannerMetrics(schedule = [], completed = []) {
   let eveningCompleted = 0;
   let firstPendingTask = null;
 
-  (schedule || []).forEach((day) => {
-    day.tasks?.forEach((task) => {
+  safeSchedule.forEach((day) => {
+    const tasks = Array.isArray(day?.tasks) ? day.tasks : [];
+    tasks.forEach((task) => {
+      if (!task || typeof task.task !== "string") return;
       totalTasks += 1;
 
       const taskName = task.task;
@@ -61,7 +65,7 @@ export function getPlannerMetrics(schedule = [], completed = []) {
     .sort(([, left], [, right]) => right.pending - left.pending || left.done - right.done)
     .map(([subjectName]) => subjectName)[0] || null;
 
-  const todayTasks = schedule[0]?.tasks || [];
+  const todayTasks = Array.isArray(safeSchedule[0]?.tasks) ? safeSchedule[0].tasks : [];
 
   return {
     totalTasks,
