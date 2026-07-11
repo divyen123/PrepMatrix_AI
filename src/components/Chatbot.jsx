@@ -635,14 +635,6 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
 
   return (
     <>
-      <button
-        aria-label={open ? "Close study assistant chat" : "Open study assistant chat"}
-        className={`chat-toggle-btn ${open ? "active" : ""}`}
-        onClick={() => setOpen(!open)}
-        type="button"
-      >
-        AI Chat
-      </button>
 
       {open ? createPortal(
         <>

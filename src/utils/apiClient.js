@@ -87,10 +87,10 @@ const api = {
   deleteChatSession: (id) => request(`/api/chat-sessions/${id}`, { method: "DELETE" }),
   clearChatSessions: () => request("/api/chat-sessions", { method: "DELETE" }),
   renameChatSession: (id, title) => request(`/api/chat-sessions/${id}`, { method: "PUT", body: JSON.stringify({ title }) }),
-  get: (path) => request(path),
-  post: (path, body) => request(path, { method: "POST", body: JSON.stringify(body) }),
-  put: (path, body) => request(path, { method: "PUT", body: JSON.stringify(body) }),
-  delete: (path) => request(path, { method: "DELETE" }),
+  get: (path, options = {}) => request(path, options),
+  post: (path, body, options = {}) => request(path, { ...options, method: "POST", body: JSON.stringify(body) }),
+  put: (path, body, options = {}) => request(path, { ...options, method: "PUT", body: JSON.stringify(body) }),
+  delete: (path, options = {}) => request(path, { ...options, method: "DELETE" }),
 };
 
 export default api;

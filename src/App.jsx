@@ -46,6 +46,7 @@ const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
 const SubjectsPage = lazy(() => import("./pages/SubjectsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
+const ExamPage = lazy(() => import("./pages/ExamPage"));
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", helper: "Overview and momentum", icon: LayoutDashboard },
@@ -198,6 +199,7 @@ function App() {
   const isAuthRoute = location.pathname === "/login" || location.pathname === "/register";
   const activeRoute = NAV_ITEMS.find((item) => location.pathname.startsWith(item.to));
   const titleLabel = activeRoute?.label || (
+    location.pathname.startsWith("/exam") ? "Exam" :
     location.pathname.startsWith("/settings") ? "Settings" :
     location.pathname.startsWith("/about") ? "About" :
     location.pathname.includes("register") ? "Register" : "Login"
@@ -874,17 +876,27 @@ function App() {
               <div className="sidebar-widget-cell">
                 <FloatingAnalytics completed={completed} schedule={schedule} />
               </div>
-              <div className="sidebar-widget-cell sidebar-chat-widget">
-                <Chatbot
-                  academicLevel={academicLevel}
-                  academicTrack={academicTrack}
-                  completed={completed}
-                  onReset={resetPlanner}
-                  schedule={schedule}
-                  setDarkMode={setDarkMode}
-                />
-              </div>
             </Suspense>
+            <div className="sidebar-widget-cell sidebar-exam-widget">
+                <NavLink
+                  aria-label="Open exam workspace"
+                  className={({ isActive }) => `exam-widget-btn${isActive ? " active" : ""}`}
+                  onClick={() => setSidebarOpen(false)}
+                  title="Exam workspace"
+                  to="/exam"
+                >
+                  <ClipboardList aria-hidden="true" size={15} strokeWidth={2.25} />
+                  <span>Exam</span>
+                </NavLink>
+              </div>
+              <Chatbot
+                academicLevel={academicLevel}
+                academicTrack={academicTrack}
+                completed={completed}
+                onReset={resetPlanner}
+                schedule={schedule}
+                setDarkMode={setDarkMode}
+              />
             <Link
               to="/about"
               className="about-info-btn"
@@ -955,7 +967,9 @@ function App() {
                 <p className="page-subtitle">
                   {location.pathname.startsWith("/settings")
                     ? "Manage profile, update credentials, and customize appearance"
-                    : activeRoute?.helper || "Study planning platform"}
+                    : location.pathname.startsWith("/exam")
+                      ? "Attend exams, generate question papers, and review results"
+                      : activeRoute?.helper || "Study planning platform"}
                 </p>
               </div>
             </div>
@@ -1161,6 +1175,17 @@ function App() {
                             />
                           }
                           path="/quiz"
+                        />
+                        <Route
+                          element={
+                            <ExamPage
+                              academicLevel={academicLevel}
+                              academicTrack={academicTrack}
+                              subjects={subjects}
+                              userProfile={userProfile}
+                            />
+                          }
+                          path="/exam"
                         />
                         <Route
                           element={

@@ -8,6 +8,7 @@ import nodemailer from "nodemailer";
 import webpush from "web-push";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import registerExamRoutes from "./examRoutes.js";
 
 dotenv.config();
 
@@ -105,6 +106,11 @@ async function getDb() {
     mongoDb.collection("notes").createIndex({ userId: 1 }, { unique: true }),
     mongoDb.collection("quizAttempts").createIndex({ userId: 1, createdAt: -1 }),
     mongoDb.collection("chatSessions").createIndex({ userId: 1, updatedAt: -1 }),
+    mongoDb.collection("exams").createIndex({ userId: 1, createdAt: -1 }),
+    mongoDb.collection("examAttempts").createIndex({ userId: 1, updatedAt: -1 }),
+    mongoDb.collection("examAttempts").createIndex({ userId: 1, examId: 1 }, { unique: true }),
+    mongoDb.collection("examAttempts").createIndex({ userId: 1, resultAvailableAt: -1 }),
+    mongoDb.collection("questionPapers").createIndex({ userId: 1, createdAt: -1 }),
   ]);
   console.log(`MongoDB connected: ${MONGODB_URI}/${MONGODB_DB}`);
   return mongoDb;
@@ -250,7 +256,7 @@ async function getAuthenticatedSession(req) {
   return { user, token, session, reason: null };
 }
 
-async function getAuthenticatedUser(req) {
+async function _getAuthenticatedUser(req) {
   const auth = await getAuthenticatedSession(req);
   return auth.user;
 }
@@ -552,6 +558,9 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
     db.collection("quizAttempts").deleteMany({ userId }),
     db.collection("worktrees").deleteMany({ userId }),
     db.collection("chatSessions").deleteMany({ userId }),
+    db.collection("exams").deleteMany({ userId }),
+    db.collection("examAttempts").deleteMany({ userId }),
+    db.collection("questionPapers").deleteMany({ userId }),
     db.collection("sessions").deleteMany({ userId }),
     db.collection("users").deleteOne({ _id: userId }),
   ]);
@@ -1134,7 +1143,7 @@ app.get("/api/chat-sessions/:id", requireAuth(async (req, res) => {
     });
     if (!session) return res.status(404).json({ error: "Chat session not found." });
     res.json({ session });
-  } catch (error) {
+  } catch {
     res.status(400).json({ error: "Invalid session ID." });
   }
 }));
@@ -1176,7 +1185,7 @@ app.put("/api/chat-sessions/:id", requireAuth(async (req, res) => {
       return res.status(404).json({ error: "Chat session not found or unauthorized." });
     }
     res.json({ message: "Chat session updated successfully." });
-  } catch (error) {
+  } catch {
     res.status(400).json({ error: "Invalid session ID." });
   }
 }));
@@ -1197,7 +1206,7 @@ app.delete("/api/chat-sessions/:id", requireAuth(async (req, res) => {
       return res.status(404).json({ error: "Chat session not found or unauthorized." });
     }
     res.json({ message: "Chat session deleted successfully." });
-  } catch (error) {
+  } catch {
     res.status(400).json({ error: "Invalid session ID." });
   }
 }));
@@ -1217,7 +1226,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
           _id: new ObjectId(sessionId),
           userId: req.user._id
         });
-      } catch (e) {
+      } catch {
         // invalid ObjectId
       }
     }
@@ -1404,6 +1413,13 @@ setTimeout(checkAndSendDailyReminders, 10000);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+registerExamRoutes(app, {
+  getDb,
+  requireAuth,
+  getGroqConfigStatus,
+  groqModel: GROQ_CHAT_MODEL,
+});
 
 // Serve static assets from Vite build in production
 app.use(express.static(path.join(__dirname, "../dist")));

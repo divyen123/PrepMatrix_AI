@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Bot, Calendar,
-  CheckCircle2, ClipboardList, Library, Lightbulb, Mic, Network, Palette,
+  CheckCircle2, ClipboardList, GraduationCap, Library, Lightbulb, Mic, Network, Palette,
   PlayCircle, Sparkles, StickyNote, Target, TrendingUp, Trophy, X,
 } from "lucide-react";
 
@@ -78,7 +78,7 @@ const GUIDE_STEPS = [
       "Use Notes to save chapter summaries, doubts, and topics that still need attention.",
       "Open Quiz for topic-level practice and use the result to identify weak areas.",
       "Use Materials for syllabus-aware videos, articles, and references; bookmark useful resources for revision.",
-      "Ask the AI Chat for explanations, outlines, or planner-aware study advice whenever you are stuck.",
+      "Select the sidebar pet to open the AI study companion for explanations, outlines, or planner-aware advice.",
     ],
     tip: "Keep one short note for each difficult topic, then quiz yourself after revising it.",
   },
@@ -106,6 +106,7 @@ const FEATURES = [
   { icon: Mic, title: "Wake Assistant", desc: "Provides hands-free voice help and page commands through the focused assistant overlay." },
   { icon: Network, title: "Worktree Mind Map", desc: "Builds visual study trees with parent links, presets, and fullscreen controls." },
   { icon: Trophy, title: "Interactive Quizzes", desc: "Generates topic-level quizzes with score tracking and difficulty-aware practice." },
+  { icon: GraduationCap, title: "Secure Exam Workspace", desc: "Runs fullscreen exams, releases results after 72 hours, and creates exportable question papers." },
   { icon: StickyNote, title: "Interactive Study Notes", desc: "Saves chapter summaries, doubts, and left-over topics for every subject." },
   { icon: Library, title: "Curated Study Materials", desc: "Organizes useful videos, articles, links, and bookmarked references." },
   { icon: ClipboardList, title: "PDF Report Generation", desc: "Creates reports with task metrics, subject breakdowns, and productivity trends." },
