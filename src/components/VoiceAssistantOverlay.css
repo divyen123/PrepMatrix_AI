@@ -412,21 +412,21 @@
 
 .voice-reply-chat-btn {
   appearance: none !important;
-  border: 1px solid rgba(103, 232, 249, 0.22) !important;
-  background: rgba(103, 232, 249, 0.08) !important;
+  border: 1px solid rgba(103, 232, 249, 0.18) !important;
+  background: rgba(103, 232, 249, 0.055) !important;
   background-image: none !important;
   box-shadow: none !important;
   color: rgba(224, 251, 255, 0.86) !important;
   min-width: 0 !important;
-  height: 26px !important;
-  padding: 0 10px !important;
+  height: 20px !important;
+  padding: 0 7px !important;
   border-radius: 999px !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-family: 'Outfit', 'Inter', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.64rem;
+  font-weight: 650;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
@@ -440,8 +440,8 @@
 
 .voice-reply-chat-btn:hover,
 .voice-reply-chat-btn:focus-visible {
-  border-color: rgba(103, 232, 249, 0.45) !important;
-  background: rgba(103, 232, 249, 0.1) !important;
+  border-color: rgba(103, 232, 249, 0.36) !important;
+  background: rgba(103, 232, 249, 0.075) !important;
   box-shadow: none !important;
   color: #ffffff !important;
   transform: translateY(-1px);
