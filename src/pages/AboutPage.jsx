@@ -1,160 +1,245 @@
+import { createElement, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
-  Calendar,
-  Bot,
-  TrendingUp,
-  Mic,
-  Trophy,
-  StickyNote,
-  Library,
-  ClipboardList,
-  Network,
-  Palette,
-  Bell
+  ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Bot, Calendar,
+  CheckCircle2, ClipboardList, Library, Lightbulb, Mic, Network, Palette,
+  PlayCircle, Sparkles, StickyNote, Target, TrendingUp, Trophy, X,
 } from "lucide-react";
+
+const GUIDE_STEPS = [
+  {
+    icon: Target,
+    label: "Set your profile",
+    title: "Choose the right learning profile",
+    route: "/subjects",
+    action: "Open Subjects",
+    summary: "Start by telling PrepMatrix what and how you study so its suggestions stay relevant.",
+    instructions: [
+      "Open Subjects from the sidebar.",
+      "Choose your student class and board or stream in the Class profile card.",
+      "Use the profile that matches your current syllabus; materials and AI suggestions use it as context.",
+    ],
+    tip: "You can update the learning profile later without recreating your account.",
+  },
+  {
+    icon: BookOpen,
+    label: "Add subjects",
+    title: "Build your complete subject list",
+    route: "/subjects",
+    action: "Add Subjects",
+    summary: "Add every subject that should appear in the study schedule before generating a plan.",
+    instructions: [
+      "Enter a clear subject name, such as Mathematics or Data Structures.",
+      "Add the total number of chapters or study units you need to cover.",
+      "Set the difficulty to Easy, Medium, or Hard so the planner can balance the workload.",
+      "Select Add subject and repeat for the rest of your syllabus. Review or edit entries in Subject library.",
+    ],
+    tip: "Accurate chapter counts and difficulty levels produce a more useful timetable.",
+  },
+  {
+    icon: Calendar,
+    label: "Plan your exam",
+    title: "Set the exam date and study strategy",
+    route: "/planner",
+    action: "Open Planner",
+    summary: "Turn your subject list into a focused schedule based on the time available before the exam.",
+    instructions: [
+      "Open Planner after you have added at least one subject.",
+      "Choose a future Exam date.",
+      "Select an Exam strategy: Balanced coverage, High priority first, Revision-heavy, or Rapid coverage.",
+      "Select Generate schedule. Plans are limited to 30 days to keep the daily view focused.",
+    ],
+    tip: "Balanced coverage is a reliable starting point; use Revision-heavy when the exam is close and most topics are familiar.",
+  },
+  {
+    icon: CheckCircle2,
+    label: "Follow the plan",
+    title: "Complete daily tasks and recover missed work",
+    route: "/planner",
+    action: "View Schedule",
+    summary: "Use the generated timetable as your daily checklist and keep it accurate as you study.",
+    instructions: [
+      "Work through each Day card and mark a task complete only after finishing it.",
+      "Use Recover backlog to move incomplete work forward when a day does not go as planned.",
+      "Use Rebalance to smooth overloaded days, and Undo if you want to restore the previous layout.",
+      "Create a New schedule when your exam date or priorities change; export the plan when you need a PDF copy.",
+    ],
+    tip: "Update task completion daily—Dashboard readiness and Analytics depend on this progress.",
+  },
+  {
+    icon: StickyNote,
+    label: "Study & revise",
+    title: "Use notes, quizzes, and materials together",
+    route: "/notes",
+    action: "Open Notes",
+    summary: "Support the timetable with focused learning tools instead of keeping study information in separate places.",
+    instructions: [
+      "Use Notes to save chapter summaries, doubts, and topics that still need attention.",
+      "Open Quiz for topic-level practice and use the result to identify weak areas.",
+      "Use Materials for syllabus-aware videos, articles, and references; bookmark useful resources for revision.",
+      "Ask the AI Chat for explanations, outlines, or planner-aware study advice whenever you are stuck.",
+    ],
+    tip: "Keep one short note for each difficult topic, then quiz yourself after revising it.",
+  },
+  {
+    icon: BarChart3,
+    label: "Review progress",
+    title: "Measure progress and adjust the next week",
+    route: "/analytics",
+    action: "View Analytics",
+    summary: "Use your completion data to decide what needs attention rather than relying on guesswork.",
+    instructions: [
+      "Check Dashboard for the current overview, momentum, and upcoming work.",
+      "Open Analytics to review completion patterns, workload distribution, and exam readiness.",
+      "Use Report for a detailed subject breakdown and exportable PDF summary.",
+      "Return to Planner to rebalance or create a new schedule when the data shows a workload problem.",
+    ],
+    tip: "Review Analytics at least once a week and adjust the plan before unfinished work becomes a backlog.",
+  },
+];
+
+const FEATURES = [
+  { icon: Calendar, title: "Smart Planner & Scheduler", desc: "Distributes study workloads, balances daily tasks by difficulty, and keeps missed work organized." },
+  { icon: Bot, title: "AI Study Assistant", desc: "Answers doubts, creates summaries and outlines, and provides planner-aware study advice." },
+  { icon: TrendingUp, title: "Comprehensive Analytics", desc: "Shows completion progress, task distribution, readiness signals, and weekly momentum." },
+  { icon: Mic, title: "Wake Assistant", desc: "Provides hands-free voice help and page commands through the focused assistant overlay." },
+  { icon: Network, title: "Worktree Mind Map", desc: "Builds visual study trees with parent links, presets, and fullscreen controls." },
+  { icon: Trophy, title: "Interactive Quizzes", desc: "Generates topic-level quizzes with score tracking and difficulty-aware practice." },
+  { icon: StickyNote, title: "Interactive Study Notes", desc: "Saves chapter summaries, doubts, and left-over topics for every subject." },
+  { icon: Library, title: "Curated Study Materials", desc: "Organizes useful videos, articles, links, and bookmarked references." },
+  { icon: ClipboardList, title: "PDF Report Generation", desc: "Creates reports with task metrics, subject breakdowns, and productivity trends." },
+  { icon: Palette, title: "Appearance Customization", desc: "Adjusts backgrounds, brightness, layout scale, and the overall workspace theme." },
+  { icon: Bell, title: "Silent App Reminders", desc: "Keeps study reminders and toast feedback clear, timely, and visual-first." },
+];
 
 function AboutPage() {
   const navigate = useNavigate();
+  const closeButtonRef = useRef(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
+  const step = GUIDE_STEPS[activeStep];
 
-  const handleBack = () => {
-    navigate(-1);
+  useEffect(() => {
+    if (!guideOpen) return undefined;
+    closeButtonRef.current?.focus();
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setGuideOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [guideOpen]);
+
+  const openGuide = () => {
+    setActiveStep(0);
+    setGuideOpen(true);
   };
 
-  const features = [
-    {
-      icon: Calendar,
-      title: "Smart Planner & Scheduler",
-      desc: "Distributes study workloads, balances daily tasks by difficulty, and keeps missed work organized with recovery-friendly planning."
-    },
-    {
-      icon: Bot,
-      title: "AI Study Assistant",
-      desc: "A focused study chatbot for doubts, summaries, topic outlines, planner-aware advice, and crisp text-based responses."
-    },
-    {
-      icon: TrendingUp,
-      title: "Comprehensive Analytics",
-      desc: "Shows completion progress, task distribution, exam readiness signals, and weekly study momentum in one place."
-    },
-    {
-      icon: Mic,
-      title: "Wake Assistant",
-      desc: "Hands-free Wake Mode listens for Hey Prep, answers inside the overlay with clean text and voice, handles page commands, and resumes wake listening automatically."
-    },
-    {
-      icon: Mic,
-      title: "Separate Chatbox Recording",
-      desc: "The chat mic works independently from Wake Mode, pauses background wake listening while recording, fills your spoken prompt, and uses a clear red recording state."
-    },
-    {
-      icon: Network,
-      title: "Worktree Mind Map",
-      desc: "Build visual study trees with parent linking, opaque matching dropdowns, mood presets, fullscreen controls, centered toast feedback, and polished reset confirmations."
-    },
-    {
-      icon: Trophy,
-      title: "Interactive Quizzes",
-      desc: "Generates topic-level quizzes with score tracking and difficulty-aware practice flow."
-    },
-    {
-      icon: StickyNote,
-      title: "Interactive Study Notes",
-      desc: "Save chapter summaries, document doubts, and track left-over topics per subject."
-    },
-    {
-      icon: Library,
-      title: "Curated Study Materials",
-      desc: "Organize chapter-wise resource links, articles, videos, and bookmarked references for quick revision."
-    },
-    {
-      icon: ClipboardList,
-      title: "PDF Report Generation",
-      desc: "Creates PDF reports with task metrics, subject breakdowns, and productivity trends."
-    },
-    {
-      icon: Palette,
-      title: "Appearance Customization",
-      desc: "Choose matching background themes, tune brightness, adjust layout scale, and keep theme cards aligned in a clean single-row layout where space allows."
-    },
-    {
-      icon: Bell,
-      title: "Silent App Reminders",
-      desc: "Keeps reminder and toast feedback visual-first, with non-wake voice replies removed so only the Wake Assistant speaks."
-    }
-  ];
+  const goToStepPage = () => {
+    setGuideOpen(false);
+    navigate(step.route);
+  };
 
   return (
-    <section className="page-stack about-page-route" style={{ animation: "fadeIn 0.3s ease" }}>
-      <div className="about-header-nav" style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
-        <button
-          onClick={handleBack}
-          className="icon-shell-btn back-nav-btn"
-          title="Go back"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "38px",
-            height: "38px",
-            borderRadius: "50%",
-            background: "var(--surface)",
-            border: "1px solid rgba(255, 255, 255, 0.15)",
-            color: "var(--text)",
-            cursor: "pointer",
-            transition: "all 0.2s"
-          }}
-        >
+    <section className="page-stack about-page-route">
+      <div className="about-header-nav">
+        <button aria-label="Go back" className="icon-shell-btn back-nav-btn" onClick={() => navigate(-1)} title="Go back" type="button">
           <ArrowLeft size={18} />
         </button>
         <div>
-          <span className="section-tag" style={{ textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "1.5px" }}>About Application</span>
-          <h2 style={{ fontSize: "1.75rem", fontWeight: "700", margin: 0, color: "var(--text)" }}>PrepMatrix AI</h2>
+          <span className="section-tag">About application</span>
+          <h2>PrepMatrix AI</h2>
         </div>
       </div>
 
-      <div className="card about-hero-card" style={{ padding: "30px", marginBottom: "24px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "relative", zIndex: 2 }}>
-          <h3 style={{ fontSize: "1.4rem", marginBottom: "10px", color: "var(--text)" }}>Empowering Smarter Study Planning</h3>
-          <p style={{ color: "var(--text-secondary)", lineHeight: "1.6", maxWidth: "800px", margin: 0 }}>
-            PrepMatrix AI is a study management and learning companion with planner-aware AI, reliable hands-free wake assistance, visual worktree mapping, analytics, notes, quizzes, reports, and customizable themes. It is built to keep study planning calm, fast, and focused.
+      <section className="card about-hero-card">
+        <div className="about-hero-copy">
+          <span className="about-hero-kicker"><Sparkles size={14} /> Plan clearly. Study confidently.</span>
+          <h3>Everything you need to move from syllabus to exam-ready.</h3>
+          <p>
+            PrepMatrix AI brings planning, daily execution, learning support, and progress review into one calm workspace.
+            If you are new, the guided walkthrough shows the best order to use every essential tool.
           </p>
+          <button className="about-guide-trigger" onClick={openGuide} type="button">
+            <PlayCircle size={17} /> View guide <ArrowRight size={15} />
+          </button>
         </div>
+        <div className="about-hero-flow" aria-label="Recommended workflow">
+          <span><strong>01</strong> Add subjects</span>
+          <span><strong>02</strong> Build plan</span>
+          <span><strong>03</strong> Track progress</span>
+        </div>
+      </section>
+
+      <div className="about-section-heading">
+        <div><span className="section-tag">Built for focused study</span><h3>Core system features</h3></div>
+        <button className="about-guide-secondary" onClick={openGuide} type="button">How to use PrepMatrix <ArrowRight size={14} /></button>
       </div>
 
-      <h3 style={{ fontSize: "1.25rem", fontWeight: "600", marginBottom: "16px", color: "var(--text)" }}>Core System Features</h3>
-      
-      <div className="about-features-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "16px" }}>
-        {features.map((feature, idx) => {
-          const Icon = feature.icon;
-          return (
-            <article className="card feature-info-card" key={idx} style={{ padding: "20px", display: "flex", gap: "16px", alignItems: "flex-start", transition: "transform 0.2s" }}>
-              <div className="feature-icon-wrapper" style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "44px",
-                height: "44px",
-                borderRadius: "12px",
-                background: "rgba(var(--accent-rgb), 0.16)",
-                border: "1px solid rgba(var(--accent-rgb), 0.25)",
-                color: "var(--accent)",
-                flexShrink: 0
-              }}>
-                <Icon size={20} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <h4 style={{ fontSize: "1.05rem", fontWeight: "600", margin: "0 0 6px 0", color: "var(--text)" }}>{feature.title}</h4>
-                <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", lineHeight: "1.5", margin: 0 }}>{feature.desc}</p>
-              </div>
-            </article>
-          );
-        })}
+      <div className="about-features-grid">
+        {FEATURES.map(({ icon: Icon, title, desc }) => (
+          <article className="card feature-info-card" key={title}>
+            <div className="feature-icon-wrapper">{createElement(Icon, { size: 20 })}</div>
+            <div><h4>{title}</h4><p>{desc}</p></div>
+          </article>
+        ))}
       </div>
 
-      <div style={{ textAlign: "center", marginTop: "32px", padding: "16px", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-        <p>© 2026 PrepMatrix AI • All rights reserved • Tailored for Divyen R M</p>
-      </div>
+      <footer className="about-footer">&copy; 2026 PrepMatrix AI &bull; All rights reserved &bull; Tailored for Divyen R M</footer>
+
+      {guideOpen && (
+        <div className="guide-dialog-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setGuideOpen(false);
+        }} role="presentation">
+          <section aria-labelledby="guide-dialog-title" aria-modal="true" className="guide-dialog" role="dialog">
+            <header className="guide-dialog-header">
+              <div className="guide-dialog-mark"><Sparkles size={20} /></div>
+              <div>
+                <span className="section-tag">Quick start guide</span>
+                <h2 id="guide-dialog-title">How to use PrepMatrix AI</h2>
+                <p>Follow these six steps from first setup to weekly progress review.</p>
+              </div>
+              <button aria-label="Close guide" className="guide-dialog-close" onClick={() => setGuideOpen(false)} ref={closeButtonRef} type="button"><X size={18} /></button>
+            </header>
+
+            <div className="guide-dialog-progress" aria-hidden="true"><span style={{ width: `${((activeStep + 1) / GUIDE_STEPS.length) * 100}%` }} /></div>
+
+            <div className="guide-dialog-body">
+              <nav aria-label="Guide steps" className="guide-step-nav">
+                {GUIDE_STEPS.map(({ icon: Icon, label }, index) => (
+                  <button aria-current={activeStep === index ? "step" : undefined} className={activeStep === index ? "active" : ""} key={label} onClick={() => setActiveStep(index)} type="button">
+                    <span className="guide-step-number">{activeStep > index ? <CheckCircle2 size={15} /> : index + 1}</span>
+                    <span className="guide-step-icon">{createElement(Icon, { size: 16 })}</span>
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </nav>
+
+              <article className="guide-step-content" key={step.label}>
+                <div className="guide-step-eyebrow"><span>Step {activeStep + 1} of {GUIDE_STEPS.length}</span><span>{step.label}</span></div>
+                <h3>{step.title}</h3>
+                <p className="guide-step-summary">{step.summary}</p>
+                <ol className="guide-instruction-list">
+                  {step.instructions.map((instruction, index) => <li key={instruction}><span>{index + 1}</span><p>{instruction}</p></li>)}
+                </ol>
+                <div className="guide-tip"><Lightbulb size={17} /><p><strong>Helpful tip</strong>{step.tip}</p></div>
+              </article>
+            </div>
+
+            <footer className="guide-dialog-actions">
+              <button className="guide-compact-btn secondary" disabled={activeStep === 0} onClick={() => setActiveStep((value) => value - 1)} type="button"><ArrowLeft size={14} /> Previous</button>
+              <span>{activeStep + 1} / {GUIDE_STEPS.length}</span>
+              <div>
+                <button className="guide-compact-btn route" onClick={goToStepPage} type="button">{step.action}</button>
+                {activeStep < GUIDE_STEPS.length - 1 ? (
+                  <button className="guide-compact-btn primary" onClick={() => setActiveStep((value) => value + 1)} type="button">Next step <ArrowRight size={14} /></button>
+                ) : (
+                  <button className="guide-compact-btn primary" onClick={() => setGuideOpen(false)} type="button">Finish guide <CheckCircle2 size={14} /></button>
+                )}
+              </div>
+            </footer>
+          </section>
+        </div>
+      )}
     </section>
   );
 }

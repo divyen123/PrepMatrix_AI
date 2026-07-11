@@ -297,7 +297,7 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
                     style={{ "--timeline-delay": `${index * 65}ms` }}
                   >
                     <div className="subject-timeline-rail" aria-hidden="true">
-                      <span>{task.isComplete ? <Check size={13} strokeWidth={3} /> : index + 1}</span>
+                      <span>{task.isComplete ? <Check size={13} strokeWidth={2.5} /> : index + 1}</span>
                       {index < subjectTasks.length - 1 && <i />}
                     </div>
                     <div className="subject-timeline-copy">

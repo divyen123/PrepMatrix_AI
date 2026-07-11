@@ -43,7 +43,7 @@ function FloatingAnalytics({ schedule = [], completed = [] }) {
         onClick={handleOpenModal}
         type="button"
       >
-        Trend 📊
+        Trend
       </button>
 
       {showHoverPopup ? (
