@@ -8,7 +8,7 @@ function getSubjectProgress(subjects, schedule, completed) {
 
   return subjects.map((subject) => {
     const subjectTasks = schedule.flatMap((day) =>
-      day.tasks.filter((task) => task.task.startsWith(`${subject.name} -`))
+      (day.tasks || []).filter((task) => task.task.startsWith(`${subject.name} -`))
     );
     const done = subjectTasks.filter((task) => completedSet.has(task.task)).length;
     const total = subjectTasks.length || subject.chapters;

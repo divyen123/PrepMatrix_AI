@@ -16,12 +16,20 @@ function SubjectProgressModal({ subject, onClose, schedule, completed }) {
   };
 
   // Compute stats
-  const subjectTasks = schedule.filter((task) => task.subject === subject);
+  const subjectTasks = schedule.flatMap((day) => {
+    return (day.tasks || [])
+      .filter((task) => task.task.startsWith(`${subject} -`))
+      .map((task) => ({
+        id: task.task,
+        topic: task.task.replace(`${subject} - `, ""),
+        date: day.date || new Date().toISOString(),
+      }));
+  });
   const totalChapters = subjectTasks.length;
   
   const completedChapters = subjectTasks
     .filter((task) => completed.includes(task.id))
-    .sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
     
   const completionPercentage = totalChapters === 0 ? 0 : Math.round((completedChapters.length / totalChapters) * 100);
 
@@ -77,7 +85,7 @@ function SubjectProgressModal({ subject, onClose, schedule, completed }) {
                     <div className="compact-timeline-content">
                       <p className="chapter-title">{chapter.topic}</p>
                       <span className="chapter-date">
-                        {new Date(chapter.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        {new Date(chapter.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </span>
                     </div>
                   </div>
