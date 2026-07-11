@@ -403,6 +403,50 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.voice-reply-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.voice-reply-chat-btn {
+  appearance: none !important;
+  border: 1px solid rgba(103, 232, 249, 0.22) !important;
+  background: rgba(103, 232, 249, 0.08) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: rgba(224, 251, 255, 0.86) !important;
+  min-width: 0 !important;
+  height: 26px !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.voice-reply-chat-btn::after {
+  content: none !important;
+  display: none !important;
+}
+
+.voice-reply-chat-btn:hover,
+.voice-reply-chat-btn:focus-visible {
+  border-color: rgba(103, 232, 249, 0.45) !important;
+  background: rgba(103, 232, 249, 0.1) !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  outline: none;
+}
 .voice-reply-copy-btn {
   appearance: none !important;
   border: 0 !important;

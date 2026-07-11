@@ -1235,6 +1235,8 @@ function App() {
           lastText={voiceAssistant.lastText}
           error={voiceAssistant.error}
           reply={voiceAssistant.overlayReply}
+          chatSessionId={voiceAssistant.latestChatSessionId}
+          onGoToChat={voiceAssistant.openLatestAnswerInChat}
           onClose={voiceAssistant.dismissOverlay}
         />
       )}

@@ -103,6 +103,8 @@ function VoiceAssistantOverlay({
   lastText = "",
   error = "",
   reply = "",
+  chatSessionId = null,
+  onGoToChat,
   onClose,
 }) {
   if (voiceStatus === "idle") {
@@ -192,18 +194,32 @@ function VoiceAssistantOverlay({
           <div className="voice-overlay-reply" aria-live="polite">
             <div className="voice-reply-header">
               <span className="voice-reply-badge">PrepMatrix AI</span>
-              <button
-                className="voice-reply-copy-btn"
-                type="button"
-                aria-label="Copy answer"
-                title="Copy answer"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  navigator.clipboard?.writeText(reply);
-                }}
-              >
-                <Copy size={16} strokeWidth={2} />
-              </button>
+              <div className="voice-reply-actions">
+                {chatSessionId && (
+                  <button
+                    className="voice-reply-chat-btn"
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onGoToChat?.();
+                    }}
+                  >
+                    Go to chat
+                  </button>
+                )}
+                <button
+                  className="voice-reply-copy-btn"
+                  type="button"
+                  aria-label="Copy answer"
+                  title="Copy answer"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    navigator.clipboard?.writeText(reply);
+                  }}
+                >
+                  <Copy size={16} strokeWidth={2} />
+                </button>
+              </div>
             </div>
             <div className="voice-reply-body">
               {formatReplyBlocks(reply)}

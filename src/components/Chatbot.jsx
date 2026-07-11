@@ -428,18 +428,29 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   }, []);
 
   useEffect(() => {
+    const openChatSession = (event) => {
+      const sessionId = event.detail?.sessionId;
+      setOpen(true);
+      if (sessionId) {
+        fetchSessions();
+        handleSelectSession(sessionId);
+      }
+    };
+
     window.sendToChatbot = (voiceText) => {
       setOpen(true);
       sendMessage(voiceText);
     };
 
     window.openStudyAssistant = () => setOpen(true);
+    window.addEventListener("prepmatrixOpenChatSession", openChatSession);
 
     return () => {
+      window.removeEventListener("prepmatrixOpenChatSession", openChatSession);
       delete window.sendToChatbot;
       delete window.openStudyAssistant;
     };
-  }, [sendMessage]);
+  }, [fetchSessions, handleSelectSession, sendMessage]);
 
   useEffect(() => () => {
     const activeRecognition = chatRecognitionRef.current;

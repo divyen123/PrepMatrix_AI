@@ -209,6 +209,7 @@ export default function useVoiceAssistant({
   const [transcript, setTranscript] = useState("");
   const [reply, setReply] = useState("");
   const [overlayReply, setOverlayReply] = useState("");
+  const [latestChatSessionId, setLatestChatSessionId] = useState(null);
   const [error, setError] = useState("");
   const [supported, setSupported] = useState(() => typeof window !== "undefined" && Boolean(getRecognitionConstructor()));
   const [voiceStatus, setVoiceStatusState] = useState("idle");
@@ -284,6 +285,7 @@ export default function useVoiceAssistant({
   const hideOverlay = useCallback(() => {
     setVoiceStatus("idle");
     setOverlayReply("");
+    setLatestChatSessionId(null);
     setLastText("");
     setError("");
     setIsListening(false);
@@ -337,6 +339,11 @@ export default function useVoiceAssistant({
       scheduleWakeRestart(120);
     }
   }, [hideOverlay, scheduleWakeRestart, stopCommandRecognition]);
+  const openLatestAnswerInChat = useCallback(() => {
+    if (!latestChatSessionId) return;
+    window.dispatchEvent(new CustomEvent("prepmatrixOpenChatSession", { detail: { sessionId: latestChatSessionId } }));
+    dismissOverlay();
+  }, [dismissOverlay, latestChatSessionId]);
 
   const pauseWakeMode = useCallback(() => {
     wakeModeRef.current = false;
@@ -378,7 +385,10 @@ export default function useVoiceAssistant({
       source: "voice",
       plannerContext,
     });
-    return payload.reply?.trim() || "I could not generate an answer for that question.";
+    return {
+      reply: payload.reply?.trim() || "I could not generate an answer for that question.",
+      sessionId: payload.sessionId || null,
+    };
   }, [plannerContext]);
 
   const processSpokenText = useCallback(async (spokenText, { speakReply = true } = {}) => {
@@ -423,7 +433,11 @@ export default function useVoiceAssistant({
       }
 
       const quickAnswer = resolveQuickVoiceAnswer(cleanText);
-      const answer = quickAnswer || await sendQuestionToAssistant(cleanText);
+      const assistantResult = quickAnswer
+        ? { reply: quickAnswer, sessionId: null }
+        : await sendQuestionToAssistant(cleanText);
+      const answer = assistantResult.reply;
+      setLatestChatSessionId(assistantResult.sessionId);
       setReply(answer);
       setOverlayReply(answer);
       if (speakReply) {
@@ -783,6 +797,8 @@ export default function useVoiceAssistant({
     isProcessing,
     reply,
     overlayReply,
+    latestChatSessionId,
+    openLatestAnswerInChat,
     pauseWakeMode,
     setWakeMode,
     supported,
