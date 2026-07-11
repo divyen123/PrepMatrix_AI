@@ -45,32 +45,6 @@
   to   { opacity: 1; }
 }
 
-/* ── Close button ── */
-.voice-overlay-close-btn {
-  position: absolute;
-  top: 24px;
-  right: 24px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  color: rgba(255, 255, 255, 0.75);
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.25s, border-color 0.25s, color 0.25s, transform 0.25s;
-  z-index: 10;
-}
-
-.voice-overlay-close-btn:hover {
-  background: rgba(239, 68, 68, 0.18);
-  border-color: rgba(239, 68, 68, 0.35);
-  color: #ef4444;
-  transform: scale(1.08) rotate(90deg);
-}
-
 /* ── Main content wrapper ── */
 .voice-overlay-content {
   position: relative;
@@ -82,6 +56,7 @@
   gap: 24px;
   min-height: 100%;
   width: min(680px, 92vw);
+  transition: width 0.45s cubic-bezier(0.16, 1, 0.3, 1), gap 0.45s cubic-bezier(0.16, 1, 0.3, 1), padding 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   max-height: calc(100dvh - max(32px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
   padding: 0 24px 24px;
   box-sizing: border-box;
@@ -99,6 +74,13 @@
   border-radius: 999px;
 }
 
+.voice-overlay-content.has-reply {
+  justify-content: flex-start;
+  gap: 18px;
+  width: min(760px, 94vw);
+  padding-top: clamp(36px, 7vh, 80px);
+}
+
 /* ── Top section (orb + status + waveform) ── */
 .voice-overlay-top {
   display: flex;
@@ -110,11 +92,18 @@
   width: 100%;
   padding: 0 0 clamp(48px, 8vh, 92px);
   animation: voiceTopIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: flex 0.45s cubic-bezier(0.16, 1, 0.3, 1), padding 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes voiceTopIn {
   from { opacity: 0; transform: translateY(-16px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+.voice-overlay-content.has-reply .voice-overlay-top {
+  flex: 0;
+  padding: 0;
+  transform: translateY(0);
 }
 
 /* ── Orb & rings ── */
@@ -327,6 +316,10 @@
   background: #f43f5e;
   height: 2px;
 }
+.voice-waveform-container.answered .voice-wave-bar {
+  background: #d8b4fe;
+  animation: wave-processing 1.35s ease-in-out infinite;
+}
 
 .voice-waveform-container.listening .bar-1 { animation-delay: 0.0s; }
 .voice-waveform-container.listening .bar-2 { animation-delay: 0.2s; }
@@ -364,7 +357,7 @@
    ========================================================================== */
 .voice-overlay-reply {
   width: 100%;
-  max-width: min(680px, 92vw);
+  max-width: min(760px, 94vw);
   border-radius: 20px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.10);
@@ -427,7 +420,7 @@
 /* Reply body */
 .voice-reply-body {
   padding: 12px 20px 18px;
-  max-height: min(38vh, 320px);
+  max-height: min(44vh, 380px);
   overflow-y: auto;
   font-family: 'Inter', sans-serif;
   font-size: 0.975rem;
@@ -534,6 +527,12 @@
     justify-content: center;
   }
 
+  .voice-overlay-content.has-reply {
+    width: 100%;
+    gap: 12px;
+    padding-top: 44px;
+  }
+
   .voice-overlay-transcript {
     width: 100%;
     border-radius: 14px;
@@ -559,19 +558,11 @@
     padding: 10px 14px 14px;
     font-size: 0.9rem;
     line-height: 1.55;
-    max-height: min(46dvh, 360px);
+    max-height: min(52dvh, 420px);
   }
 
   .voice-reply-line {
     grid-template-columns: 18px minmax(0, 1fr);
     gap: 6px;
-  }
-
-  .voice-overlay-close-btn {
-    position: fixed;
-    top: calc(env(safe-area-inset-top) + 14px);
-    right: 14px;
-    width: 40px;
-    height: 40px;
   }
 }

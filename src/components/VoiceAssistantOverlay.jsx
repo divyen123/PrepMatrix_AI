@@ -1,5 +1,4 @@
 import React from "react";
-import { X } from "lucide-react";
 import Strands from "./Strands";
 import "./VoiceAssistantOverlay.css";
 
@@ -120,7 +119,7 @@ function VoiceAssistantOverlay({
       case "speaking":
         return "Speaking...";
       case "answered":
-        return "Answer ready";
+        return "";
       case "error":
         return error || "Speech assistant error";
       default:
@@ -130,6 +129,7 @@ function VoiceAssistantOverlay({
 
   const strandProps = STATE_STRAND_PROPS[voiceStatus] || STATE_STRAND_PROPS.awake;
   const hasReply = Boolean(reply);
+  const statusText = getStatusText();
 
   return (
     <div
@@ -158,18 +158,9 @@ function VoiceAssistantOverlay({
       </div>
 
       <div
-        className="voice-overlay-content"
+        className={`voice-overlay-content${hasReply ? " has-reply" : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          className="voice-overlay-close-btn"
-          onClick={onClose}
-          aria-label="Close voice assistant"
-          title="Close"
-          type="button"
-        >
-          <X size={20} />
-        </button>
 
         {/* Status */}
         <div className="voice-overlay-top">
@@ -181,9 +172,11 @@ function VoiceAssistantOverlay({
               <div className="voice-wave-bar bar-4" />
               <div className="voice-wave-bar bar-5" />
             </div>
-            <span className={`voice-overlay-status-label voice-status--${voiceStatus}`}>
-              {getStatusText()}
-            </span>
+            {statusText && (
+              <span className={`voice-overlay-status-label voice-status--${voiceStatus}`}>
+                {statusText}
+              </span>
+            )}
             {lastText && (
               <p className="voice-overlay-transcript">
                 &ldquo;{lastText}&rdquo;
