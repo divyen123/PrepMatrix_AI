@@ -13968,4 +13968,187 @@ html[data-cursor-mode="blob-cursor"] [type="radio"] {
   box-shadow: none !important;
   outline: none !important;
 }
+/* Mobile polish: auth compactness, chat close placement, notes chips, quiz history controls */
+@media (max-width: 580px) {
+  .auth-page--isolated {
+    justify-content: flex-start !important;
+    padding: 14px 14px 22px !important;
+  }
+
+  .auth-page--isolated .auth-brand-lockup {
+    margin-bottom: 12px !important;
+    gap: 9px !important;
+  }
+
+  .auth-page--isolated .auth-logo-mark {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    border-radius: 14px !important;
+    font-size: 1.18rem !important;
+  }
+
+  .auth-page--isolated .auth-brand-lockup h1 {
+    font-size: 1.55rem !important;
+  }
+
+  .auth-card--v2.auth-card--register {
+    width: min(100%, 390px) !important;
+    padding: 16px 18px !important;
+    border-radius: 22px !important;
+  }
+
+  .auth-card--v2.auth-card--register .auth-copy {
+    margin-bottom: 12px !important;
+    text-align: left !important;
+  }
+
+  .auth-card--v2.auth-card--register .auth-copy h2 {
+    font-size: 1.08rem !important;
+    margin-bottom: 0 !important;
+  }
+
+  .auth-card--v2.auth-card--register .auth-copy p {
+    display: none !important;
+  }
+
+  .auth-card--v2.auth-card--register .auth-fields-base,
+  .auth-card--v2.auth-card--register .auth-fields-register {
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .auth-card--v2.auth-card--register .field-stack {
+    gap: 3px !important;
+    font-size: 0.72rem !important;
+  }
+
+  .auth-card--v2.auth-card--register .field-stack input,
+  .auth-card--v2.auth-card--register .field-stack select {
+    min-height: 42px !important;
+    padding: 7px 11px !important;
+    border-radius: 10px !important;
+    font-size: 0.86rem !important;
+  }
+
+  .auth-card--v2.auth-card--register .auth-submit-btn {
+    min-height: 42px !important;
+    margin-top: 4px !important;
+    padding: 8px 10px !important;
+    border-radius: 12px !important;
+    font-size: 0.9rem !important;
+  }
+
+  .auth-card--v2.auth-card--register .auth-switch {
+    margin-top: 8px !important;
+    font-size: 0.74rem !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar-chatbot-portal .chat-box,
+  .chatbot .chat-box {
+    position: relative !important;
+  }
+
+  .sidebar-chatbot-portal .chat-header,
+  .chatbot .chat-header {
+    position: relative !important;
+    padding-right: 54px !important;
+    min-height: 92px !important;
+  }
+
+  .sidebar-chatbot-portal .chat-header > div:first-child,
+  .chatbot .chat-header > div:first-child {
+    align-items: flex-start !important;
+  }
+
+  .sidebar-chatbot-portal .chat-close-btn,
+  .chatbot .chat-close-btn {
+    position: absolute !important;
+    top: 18px !important;
+    right: 18px !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    margin: 0 !important;
+    z-index: 3 !important;
+  }
+
+  .sidebar-chatbot-portal .chat-header span,
+  .chatbot .chat-header span {
+    display: none !important;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .notes-list-grid .note-card {
+    position: relative !important;
+  }
+
+  .notes-list-grid .note-card .planned-chip {
+    position: absolute !important;
+    top: 16px !important;
+    right: 26px !important;
+    transform: translateX(-8px) !important;
+    max-width: 150px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    z-index: 2 !important;
+  }
+
+  .notes-list-grid .note-card-top > div {
+    padding-right: 132px !important;
+  }
+
+  .notes-list-grid .left-topic-wrap {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .notes-list-grid .left-topic-wrap span {
+    display: inline-block !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .quiz-history-card {
+    position: relative !important;
+  }
+
+  .quiz-history-card .quiz-history-header {
+    padding-right: 54px !important;
+  }
+
+  .quiz-history-card .quiz-history-controls {
+    position: absolute !important;
+    top: 24px !important;
+    right: 24px !important;
+    z-index: 2 !important;
+  }
+
+  .quiz-history-card .quiz-history-controls .quiz-history-desktop-search {
+    display: none !important;
+  }
+
+  .quiz-history-card .clear-history-btn {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+  }
+
+  .quiz-history-card .quiz-clear-confirm {
+    height: 34px !important;
+    padding: 2px 8px !important;
+    background: rgba(239, 68, 68, 0.12) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+  }
+}
 

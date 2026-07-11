@@ -501,7 +501,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
             <h3>Recent attempts</h3>
           </div>
           {attempts.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div className="quiz-history-controls" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <label className="stored-search-field quiz-history-desktop-search">
                 <Search size={16} />
                 <input
@@ -513,7 +513,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
                 />
               </label>
               {showClearConfirm ? (
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.15)", borderRadius: "20px", padding: "2px 8px 2px 12px", height: "32px", boxSizing: "border-box" }}>
+                <div className="quiz-clear-confirm" style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.15)", borderRadius: "20px", padding: "2px 8px 2px 12px", height: "32px", boxSizing: "border-box" }}>
                   <span style={{ fontSize: "0.78rem", color: "#f87171", fontWeight: 600 }}>Clear all?</span>
                   <button 
                     onClick={() => {
@@ -609,9 +609,4 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
 }
 
 export default QuizPage;
-
-
-
-
-
 

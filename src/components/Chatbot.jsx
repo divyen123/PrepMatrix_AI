@@ -765,11 +765,6 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                   </button>
                   <div>
                     <strong>{activeSessionId ? activeSessionTitle : "Study assistant"}</strong>
-                    <span>
-                      {assistantStatus.available
-                        ? `AI connected: ${assistantStatus.model}`
-                        : assistantStatus.message || "Fallback mode until the server is configured"}
-                    </span>
                   </div>
                 </div>
 
@@ -845,7 +840,4 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
 }
 
 export default Chatbot;
-
-
-
 
