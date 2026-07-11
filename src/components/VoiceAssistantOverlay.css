@@ -356,6 +356,7 @@
    REPLY PANEL — polished card that slides up from the bottom center
    ========================================================================== */
 .voice-overlay-reply {
+  position: relative;
   width: 100%;
   max-width: min(760px, 94vw);
   border-radius: 20px;
@@ -381,6 +382,7 @@
 .voice-reply-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   padding: 14px 20px 0;
 }
@@ -399,6 +401,29 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.voice-reply-copy-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(235, 237, 255, 0.74);
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.voice-reply-copy-btn:hover,
+.voice-reply-copy-btn:focus-visible {
+  color: #ffffff;
+  transform: translateY(-1px);
+  outline: none;
 }
 
 .voice-reply-badge::before {

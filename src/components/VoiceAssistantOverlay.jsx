@@ -1,4 +1,5 @@
 import React from "react";
+import { Copy } from "lucide-react";
 import Strands from "./Strands";
 import "./VoiceAssistantOverlay.css";
 
@@ -136,26 +137,27 @@ function VoiceAssistantOverlay({
       className={`voice-overlay-backdrop active ${voiceStatus}`}
       onClick={onClose}
     >
-      {/* Strands background animation — full backdrop */}
-      <div className="voice-strands-bg" aria-hidden="true">
-        <Strands
-          colors={strandProps.colors}
-          count={3}
-          speed={strandProps.speed}
-          amplitude={strandProps.amplitude}
-          waviness={1}
-          thickness={strandProps.thickness}
-          glow={strandProps.glow}
-          taper={3}
-          spread={1.2}
-          hueShift={0}
-          intensity={strandProps.intensity}
-          saturation={1.4}
-          opacity={0.85}
-          scale={1.6}
-          glass={false}
-        />
-      </div>
+      {!hasReply && (
+        <div className="voice-strands-bg" aria-hidden="true">
+          <Strands
+            colors={strandProps.colors}
+            count={3}
+            speed={strandProps.speed}
+            amplitude={strandProps.amplitude}
+            waviness={1}
+            thickness={strandProps.thickness}
+            glow={strandProps.glow}
+            taper={3}
+            spread={1.2}
+            hueShift={0}
+            intensity={strandProps.intensity}
+            saturation={1.4}
+            opacity={0.85}
+            scale={1.6}
+            glass={false}
+          />
+        </div>
+      )}
 
       <div
         className={`voice-overlay-content${hasReply ? " has-reply" : ""}`}
@@ -190,6 +192,18 @@ function VoiceAssistantOverlay({
           <div className="voice-overlay-reply" aria-live="polite">
             <div className="voice-reply-header">
               <span className="voice-reply-badge">PrepMatrix AI</span>
+              <button
+                className="voice-reply-copy-btn"
+                type="button"
+                aria-label="Copy answer"
+                title="Copy answer"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  navigator.clipboard?.writeText(reply);
+                }}
+              >
+                <Copy size={16} strokeWidth={2} />
+              </button>
             </div>
             <div className="voice-reply-body">
               {formatReplyBlocks(reply)}
