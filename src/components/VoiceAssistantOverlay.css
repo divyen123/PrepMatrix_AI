@@ -611,6 +611,7 @@
 
   .voice-overlay-content.has-reply {
     width: 100%;
+    min-height: 0;
     gap: 12px;
     padding-top: 44px;
   }

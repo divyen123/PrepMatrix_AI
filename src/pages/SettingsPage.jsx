@@ -1868,7 +1868,7 @@ function SettingsPage({
                 Permanently remove your account and all PrepMatrix data from the database.
               </p>
               <button
-                className="confirm-danger-btn"
+                className="confirm-danger-btn delete-account-trigger-btn"
                 onClick={() => { setConfirmDeleteAccount(true); setShowPasswordStep(false); setDeletePassword(""); setDeletePasswordError(""); setShowDeletePassword(false); }}
                 style={{ display: "flex", alignItems: "center", gap: "8px", width: "fit-content" }}
                 type="button"

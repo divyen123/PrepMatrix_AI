@@ -18332,3 +18332,36 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)):focus-visible 
   outline: 2px solid rgba(var(--accent-rgb), 0.8);
   outline-offset: 2px;
 }
+
+/* Keep route titles compact throughout the mobile shell without changing desktop. */
+@media (max-width: 991.98px) {
+  .page-title {
+    font-size: 1.15rem !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .page-title {
+    font-size: 1.1rem !important;
+  }
+}
+
+/* Preserve sidebar scrolling while keeping the navigation rail visually clean. */
+.sidebar-nav {
+  -ms-overflow-style: none;
+  scrollbar-width: none !important;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* The danger class has a global auto width; opt this desktop trigger out of grid stretching. */
+@media (min-width: 992px) {
+  .delete-account-trigger-btn {
+    width: fit-content !important;
+    justify-self: start;
+  }
+}
