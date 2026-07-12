@@ -12267,7 +12267,7 @@ body.worktree-fullscreen-active .workspace-topbar {
   overflow-wrap: break-word !important;
 }
 
-/* Compact Settings security actions without changing global button sizing. */
+/* Settings security actions use the shared compact action scale. */
 .settings-page .security-action-row {
   display: flex;
   align-items: center;
@@ -18194,4 +18194,141 @@ body.dark .sidebar-widgets .exam-widget-btn.active {
     grid-row: auto;
     justify-self: start;
   }
+}
+
+/* ==========================================
+   APP-WIDE COMPACT BUTTON SCALE
+   Trend and Exam sidebar launchers intentionally keep their current sizing.
+   ========================================== */
+
+:root {
+  --app-action-button-height: 36px;
+  --app-action-button-padding-x: 12px;
+  --app-action-button-radius: 10px;
+  --app-action-button-font-size: 0.78rem;
+  --app-icon-button-size: 36px;
+}
+
+/* Compact defaults for ordinary, unclassified buttons. More specific option,
+   card, navigation, avatar, and swatch rules retain their purpose-built layout. */
+button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)) {
+  min-height: var(--app-action-button-height);
+  padding: 0 var(--app-action-button-padding-x);
+  border-radius: var(--app-action-button-radius);
+  font-size: var(--app-action-button-font-size);
+  line-height: 1.1;
+}
+
+/* Text actions use one predictable compact footprint across every page. */
+:where(
+  .action-btn,
+  .primary-btn,
+  .secondary-btn,
+  .reset-btn,
+  .toggle-btn,
+  .compact-btn,
+  .route-link-btn,
+  .report-export-btn,
+  .clear-history-btn,
+  .assistant-clear-btn,
+  .auth-submit-btn,
+  .auth-form button[type="submit"],
+  .reset-confirm-actions button,
+  .confirm-modal-actions button,
+  .edit-row button,
+  .pagination-bar button,
+  .bookmark-btn,
+  .readiness-exam-btn,
+  .exam-eligibility-cta,
+  .report-exam-btn,
+  .about-guide-trigger,
+  .about-guide-secondary,
+  .guide-compact-btn,
+  .subject-ai-cancel,
+  .subject-ai-submit,
+  .trend-view-plan-btn,
+  .exam-guide-back,
+  .exam-guide-primary,
+  .exam-primary-btn,
+  .exam-secondary-btn,
+  .exam-compact-btn,
+  .exam-submit-btn,
+  .exam-about-btn,
+  .forgot-pw-btn,
+  .update-cred-btn,
+  .confirm-danger-btn,
+  .reset-confirm-danger,
+  .confirm-yes-btn,
+  .confirm-no-btn,
+  .delete-yes-btn,
+  .delete-no-btn,
+  .history-export-btn,
+  .notes-clear-all-btn,
+  .new-chat-btn,
+  .clear-all-chats-btn,
+  .delete-history-btn,
+  .voice-reply-chat-btn,
+  .voice-reply-copy-btn
+) {
+  display: inline-flex !important;
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 100%;
+  min-height: var(--app-action-button-height) !important;
+  padding: 0 var(--app-action-button-padding-x) !important;
+  border-radius: var(--app-action-button-radius) !important;
+  box-sizing: border-box;
+  font-size: var(--app-action-button-font-size) !important;
+  line-height: 1.1 !important;
+}
+
+/* Square icon actions share the same height without affecting embedded input,
+   avatar, pet, badge, color-swatch, or thumbnail controls. */
+:where(
+  .icon-action-btn,
+  .icon-shell-btn,
+  .hamburger-btn,
+  .sidebar-close-btn,
+  .reset-icon-btn,
+  .theme-icon-btn,
+  .logout-icon-btn,
+  .settings-icon-btn,
+  .chat-close-btn,
+  .exam-icon-btn,
+  .exam-close-btn,
+  .guide-dialog-close,
+  .subject-modal-close,
+  .subject-ai-dialog-close,
+  .trend-modal-close-btn,
+  .topic-carousel-arrow,
+  .control-btn,
+  .worktree-icon-btn,
+  .about-info-btn,
+  .schedule-timer-btn
+) {
+  display: inline-grid !important;
+  flex: 0 0 var(--app-icon-button-size) !important;
+  place-items: center !important;
+  width: var(--app-icon-button-size) !important;
+  min-width: var(--app-icon-button-size) !important;
+  height: var(--app-icon-button-size) !important;
+  min-height: var(--app-icon-button-size) !important;
+  padding: 0 !important;
+  border-radius: var(--app-action-button-radius) !important;
+}
+
+.sidebar-widgets .chat-toggle-btn {
+  min-height: var(--app-action-button-height) !important;
+  padding: 0 var(--app-action-button-padding-x) !important;
+  border-radius: var(--app-action-button-radius) !important;
+  font-size: var(--app-action-button-font-size) !important;
+}
+
+button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)):focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.8);
+  outline-offset: 2px;
 }

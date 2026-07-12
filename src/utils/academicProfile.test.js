@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   ACADEMIC_LEVEL_OPTIONS,
   SCHOOL_CLASS_OPTIONS,
+  TRACK_OPTIONS,
   academicProfilePayload,
   buildLearnerAcademicContext,
   isSchoolAcademicLevel,
@@ -11,7 +12,9 @@ import {
 
 test("exports the complete level and school-class taxonomies", () => {
   assert.equal(ACADEMIC_LEVEL_OPTIONS.length, 12);
+  assert.ok(ACADEMIC_LEVEL_OPTIONS.includes("Senior / Higher Secondary School"));
   assert.deepEqual(SCHOOL_CLASS_OPTIONS, Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`));
+  assert.ok(TRACK_OPTIONS.includes("State Board"));
 });
 
 test("migrates Class 3 to the primary-school band", () => {
@@ -26,16 +29,34 @@ test("migrates Class 3 to the primary-school band", () => {
   assert.equal(isSchoolAcademicLevel(profile), true);
 });
 
-test("classifies Class 10 as secondary and Class 12 as senior secondary", () => {
+test("classifies Class 10 as secondary and Class 12 as senior or higher secondary", () => {
   const classTen = normalizeAcademicProfile({ academicLevel: "Class 10" });
   const classTwelve = normalizeAcademicProfile({ academicLevel: "School", grade: "Grade 12" });
 
   assert.equal(classTen.academicLevel, "Secondary School");
   assert.equal(classTen.band, "secondary");
   assert.equal(classTen.grade, "Class 10");
-  assert.equal(classTwelve.academicLevel, "Senior Secondary School");
+  assert.equal(classTwelve.academicLevel, "Senior / Higher Secondary School");
   assert.equal(classTwelve.band, "senior");
   assert.equal(classTwelve.grade, "Class 12");
+});
+
+test("keeps legacy senior-secondary names compatible with State Board profiles", () => {
+  const profiles = ["Senior Secondary School", "Higher Secondary School"].map((academicLevel) => (
+    normalizeAcademicProfile({
+      academicLevel,
+      academicTrack: "State Board",
+      grade: "Class 12",
+    })
+  ));
+
+  profiles.forEach((profile) => {
+    assert.equal(profile.academicLevel, "Senior / Higher Secondary School");
+    assert.equal(profile.band, "senior");
+    assert.equal(profile.schoolType, "school");
+    assert.equal(profile.grade, "Class 12");
+    assert.equal(profile.academicTrack, "State Board");
+  });
 });
 
 test("migrates a legacy College BTech profile to undergraduate", () => {
