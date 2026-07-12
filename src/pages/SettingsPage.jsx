@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, Shield, Palette, User, Check, Settings2, Target, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil } from "lucide-react";
+import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil } from "lucide-react";
 import api from "../utils/apiClient";
+import GoalSettingsPanel from "../components/GoalSettingsPanel";
+import {
+  DEFAULT_GOAL_REMINDER_DATA,
+  DEFAULT_GOAL_REMINDER_SETTINGS,
+  normalizePlannerData,
+  normalizePlannerSettings,
+} from "../utils/goalReminderStore";
 import {
   ACADEMIC_LEVEL_OPTIONS,
   DEPARTMENT_OPTIONS,
@@ -66,8 +73,10 @@ function ToggleSwitch({ checked, onChange, label, subtitle, disabled = false }) 
 function SettingsPage({
   userProfile, setUserProfile, setAcademicLevel, setAcademicTrack,
   darkMode, setDarkMode, subjects, schedule, completed, materialBookmarks,
+  goalReminderData, goalReminderSettings,
   academicLevel, academicTrack, setSubjects, setSchedule, setCompleted,
-  setMaterialBookmarks, setNotification, onAccountDeleted,
+  setMaterialBookmarks, setGoalReminderData, setGoalReminderSettings,
+  setNotification, onAccountDeleted,
   onAcademicProfileChange,
   cursorStyle: parentCursorStyle, setCursorStyle: setParentCursorStyle
 }) {
@@ -202,11 +211,16 @@ function SettingsPage({
   };
   // Study Target Goals state
   const [dailyTarget, setDailyTarget] = useState(() => {
-    return parseFloat(localStorage.getItem("prepmatrix_daily_target") || "4");
+    return goalReminderSettings?.dailyStudyTarget || parseFloat(localStorage.getItem("prepmatrix_daily_target") || "4");
   });
   const [weeklyReview, setWeeklyReview] = useState(() => {
-    return localStorage.getItem("prepmatrix_weekly_review") || "2";
+    return goalReminderSettings?.weeklyReviewTarget || localStorage.getItem("prepmatrix_weekly_review") || "2";
   });
+
+  useEffect(() => {
+    setDailyTarget(goalReminderSettings?.dailyStudyTarget || 4);
+    setWeeklyReview(goalReminderSettings?.weeklyReviewTarget || "2");
+  }, [goalReminderSettings?.dailyStudyTarget, goalReminderSettings?.weeklyReviewTarget]);
 
   // Data Management state
   const [confirmReset, setConfirmReset] = useState(false);
@@ -786,6 +800,11 @@ function SettingsPage({
   const handleSaveStudyTargets = () => {
     localStorage.setItem("prepmatrix_daily_target", String(dailyTarget));
     localStorage.setItem("prepmatrix_weekly_review", weeklyReview);
+    setGoalReminderSettings(normalizePlannerSettings({
+      ...goalReminderSettings,
+      dailyStudyTarget: dailyTarget,
+      weeklyReviewTarget: weeklyReview,
+    }));
     toast.success("Study target goals saved!");
   };
 
@@ -796,6 +815,8 @@ function SettingsPage({
       schedule,
       completed,
       materialBookmarks,
+      goalReminderData,
+      goalReminderSettings,
       academicLevel,
       academicTrack,
       darkMode,
@@ -826,6 +847,8 @@ function SettingsPage({
         if (data.schedule) setSchedule(data.schedule);
         if (data.completed) setCompleted(data.completed);
         if (data.materialBookmarks) setMaterialBookmarks(data.materialBookmarks);
+        if (data.goalReminderData) setGoalReminderData(normalizePlannerData(data.goalReminderData));
+        if (data.goalReminderSettings) setGoalReminderSettings(normalizePlannerSettings(data.goalReminderSettings));
         if (data.academicLevel) setAcademicLevel(data.academicLevel);
         if (data.academicTrack) setAcademicTrack(data.academicTrack);
         if (typeof data.darkMode === "boolean") setDarkMode(data.darkMode);
@@ -844,6 +867,12 @@ function SettingsPage({
     setSchedule([]);
     setCompleted([]);
     setMaterialBookmarks([]);
+    setGoalReminderData(normalizePlannerData(DEFAULT_GOAL_REMINDER_DATA));
+    setGoalReminderSettings(normalizePlannerSettings(DEFAULT_GOAL_REMINDER_SETTINGS));
+    setDailyTarget(4);
+    setWeeklyReview("2");
+    localStorage.setItem("prepmatrix_daily_target", "4");
+    localStorage.setItem("prepmatrix_weekly_review", "2");
     setConfirmReset(false);
     toast.success("Workspace has been reset to defaults.");
   };
@@ -1402,49 +1431,16 @@ function SettingsPage({
           />
         </div>
 
-        {/* Study Target Goals */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <span className="section-tag" style={{ marginBottom: '12px' }}>GOALS</span>
-            <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-              <Target size={20} className="status-success" /> Study Target Goals
-            </h3>
-            <p className="card-subtext">Set daily study hours and weekly review frequency targets.</p>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            <label className="field-stack">
-              <span>Daily Study Target (hours)</span>
-              <input
-                type="number"
-                min="1"
-                max="16"
-                step="0.5"
-                value={dailyTarget}
-                onChange={(e) => setDailyTarget(parseFloat(e.target.value) || 1)}
-              />
-            </label>
-            <label className="field-stack">
-              <span>Weekly Review Target</span>
-              <select
-                value={weeklyReview}
-                onChange={(e) => setWeeklyReview(e.target.value)}
-              >
-                <option value="1">1 review/week</option>
-                <option value="2">2 reviews/week</option>
-                <option value="3">3 reviews/week</option>
-                <option value="daily">Daily reviews</option>
-              </select>
-            </label>
-          </div>
-
-          <button
-            onClick={handleSaveStudyTargets}
-            style={{ alignSelf: "flex-end", display: "flex", alignItems: "center", gap: "8px", width: "fit-content", marginTop: "8px" }}
-          >
-            <Save size={16} /> Save Study Targets
-          </button>
-        </div>
+        <GoalSettingsPanel
+          dailyTarget={dailyTarget}
+          onDailyTargetChange={setDailyTarget}
+          onPlannerSettingsChange={(next) => setGoalReminderSettings(normalizePlannerSettings(next))}
+          onSaveTargets={handleSaveStudyTargets}
+          onWeeklyReviewChange={setWeeklyReview}
+          plannerData={goalReminderData}
+          plannerSettings={goalReminderSettings}
+          weeklyReview={weeklyReview}
+        />
 
 
         {/* Appearance Configuration */}
@@ -1826,7 +1822,7 @@ function SettingsPage({
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
             <div className="field-stack">
               <span style={{ color: "var(--text-muted)" }}>Reset Entire Workspace</span>
-              <p className="card-subtext" style={{ marginBottom: "8px" }}>This will clear all subjects, schedules, completed items, and bookmarks. This action cannot be undone.</p>
+              <p className="card-subtext" style={{ marginBottom: "8px" }}>This clears subjects, schedules, progress, bookmarks, goals, reminders, and to-do tasks. This action cannot be undone.</p>
               {!confirmReset ? (
                 <button
                   onClick={() => setConfirmReset(true)}

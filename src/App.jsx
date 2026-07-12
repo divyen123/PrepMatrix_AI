@@ -32,9 +32,17 @@ import {
   academicProfilePayload,
   normalizeAcademicProfile,
 } from "./utils/academicProfile";
+import {
+  DEFAULT_GOAL_REMINDER_DATA,
+  DEFAULT_GOAL_REMINDER_SETTINGS,
+  normalizePlannerData,
+  normalizePlannerSettings,
+} from "./utils/goalReminderStore";
 import CustomCursor from "./components/CustomCursor";
 import { SidebarStudyPet } from "./components/StudyPet";
+import GoalReminderCenter from "./components/GoalReminderCenter";
 import "./App.css";
+import "./components/GoalReminderCenter.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -177,6 +185,8 @@ function App() {
   const [academicLevel, setAcademicLevel] = useState("College");
   const [academicTrack, setAcademicTrack] = useState("General");
   const [materialBookmarks, setMaterialBookmarks] = useState([]);
+  const [goalReminderData, setGoalReminderData] = useState(() => normalizePlannerData(DEFAULT_GOAL_REMINDER_DATA));
+  const [goalReminderSettings, setGoalReminderSettings] = useState(() => normalizePlannerSettings(DEFAULT_GOAL_REMINDER_SETTINGS));
   const [darkMode, setDarkMode] = useState(() => {
     const savedDefault = localStorage.getItem("prepmatrix_default_theme");
     if (savedDefault) return savedDefault === "dark";
@@ -287,6 +297,8 @@ function App() {
       setUserProfile((current) => ({ ...(current || profile), ...nextAcademicProfile }));
     }
     setMaterialBookmarks(Array.isArray(workspace?.materialBookmarks) ? workspace.materialBookmarks : []);
+    setGoalReminderData(normalizePlannerData(workspace?.goalReminderData || DEFAULT_GOAL_REMINDER_DATA));
+    setGoalReminderSettings(normalizePlannerSettings(workspace?.goalReminderSettings || DEFAULT_GOAL_REMINDER_SETTINGS));
     setDarkMode(Boolean(workspace.darkMode));
     setScheduleStartDate(workspace.scheduleStartDate || null);
   };
@@ -569,6 +581,8 @@ function App() {
         academicLevel,
         academicTrack,
         materialBookmarks,
+        goalReminderData,
+        goalReminderSettings,
         darkMode,
         scheduleStartDate,
       }).catch((error) => {
@@ -581,7 +595,7 @@ function App() {
         window.clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [academicLevel, academicTrack, completed, darkMode, materialBookmarks, schedule, subjects, userProfile, workspaceLoaded, scheduleStartDate]);
+  }, [academicLevel, academicTrack, completed, darkMode, goalReminderData, goalReminderSettings, materialBookmarks, schedule, subjects, userProfile, workspaceLoaded, scheduleStartDate]);
 
   useEffect(() => {
     document.body.classList.toggle("dark", darkMode);
@@ -942,7 +956,16 @@ function App() {
           </nav>
           
           <div className="sidebar-widgets">
-            <SidebarStudyPet />
+            <div className="sidebar-companion-row">
+              <SidebarStudyPet />
+              <GoalReminderCenter
+                data={goalReminderData}
+                onDataChange={setGoalReminderData}
+                onOpen={() => setSidebarOpen(false)}
+                onSettingsChange={setGoalReminderSettings}
+                settings={goalReminderSettings}
+              />
+            </div>
             <Suspense fallback={null}>
               <div className="sidebar-widget-cell">
                 <FloatingAnalytics completed={completed} schedule={schedule} />
@@ -1305,12 +1328,18 @@ function App() {
                               schedule={schedule}
                               completed={completed}
                               materialBookmarks={materialBookmarks}
+                              goalReminderData={goalReminderData}
+                              goalReminderSettings={goalReminderSettings}
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
+                              setAcademicLevel={setAcademicLevel}
+                              setAcademicTrack={setAcademicTrack}
                               setSubjects={updateSubjects}
                               setSchedule={setSchedule}
                               setCompleted={setCompleted}
                               setMaterialBookmarks={setMaterialBookmarks}
+                              setGoalReminderData={setGoalReminderData}
+                              setGoalReminderSettings={setGoalReminderSettings}
                               setNotification={setNotification}
                               onAccountDeleted={handleAccountDeleted}
                               cursorStyle={cursorStyle}

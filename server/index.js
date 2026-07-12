@@ -8,7 +8,11 @@ import nodemailer from "nodemailer";
 import webpush from "web-push";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import registerExamRoutes from "./examRoutes.js";
+import registerExamRoutes, { isGroqJsonGenerationFailure } from "./examRoutes.js";
+import {
+  normalizeGoalReminderData,
+  normalizeGoalReminderSettings,
+} from "./goalReminderWorkspace.js";
 import {
   academicProfilePayload,
   buildLearnerAcademicContext,
@@ -202,6 +206,8 @@ function defaultWorkspace(user) {
     academicLevel: academicProfile.academicLevel,
     academicTrack: academicProfile.academicTrack,
     materialBookmarks: [],
+    goalReminderData: normalizeGoalReminderData(),
+    goalReminderSettings: normalizeGoalReminderSettings(),
     darkMode: false,
     scheduleStartDate: null,
     updatedAt: new Date(),
@@ -226,6 +232,8 @@ function normalizeWorkspace(doc, user) {
     academicLevel: academicProfile.academicLevel,
     academicTrack: academicProfile.academicTrack,
     materialBookmarks: Array.isArray(doc?.materialBookmarks) ? doc.materialBookmarks : [],
+    goalReminderData: normalizeGoalReminderData(doc?.goalReminderData),
+    goalReminderSettings: normalizeGoalReminderSettings(doc?.goalReminderSettings),
     darkMode: Boolean(doc?.darkMode),
     scheduleStartDate: doc?.scheduleStartDate || null,
   };
@@ -852,7 +860,7 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
 
 app.put("/api/workspace", requireAuth(async (req, res) => {
   const db = await getDb();
-  const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "darkMode", "scheduleStartDate"];
+  const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "goalReminderData", "goalReminderSettings", "darkMode", "scheduleStartDate"];
   const update = allowed.reduce((next, key) => {
     if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
     return next;
@@ -860,6 +868,8 @@ app.put("/api/workspace", requireAuth(async (req, res) => {
   for (const key of ["subjects", "schedule", "completed", "materialBookmarks"]) {
     if (key in update && !Array.isArray(update[key])) update[key] = [];
   }
+  if ("goalReminderData" in update) update.goalReminderData = normalizeGoalReminderData(update.goalReminderData);
+  if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);
   await db.collection("workspaces").updateOne(
     { userId: req.user._id },
     { $set: update, $setOnInsert: { userId: req.user._id } },
@@ -873,7 +883,7 @@ app.put("/api/workspace", requireAuth(async (req, res) => {
 app.post("/api/workspace/import", requireAuth(async (req, res) => {
   try {
     const db = await getDb();
-    const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "darkMode", "scheduleStartDate"];
+    const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "goalReminderData", "goalReminderSettings", "darkMode", "scheduleStartDate"];
     const update = allowed.reduce((next, key) => {
       if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
       return next;
@@ -881,6 +891,8 @@ app.post("/api/workspace/import", requireAuth(async (req, res) => {
     for (const key of ["subjects", "schedule", "completed", "materialBookmarks"]) {
       if (key in update && !Array.isArray(update[key])) update[key] = [];
     }
+    if ("goalReminderData" in update) update.goalReminderData = normalizeGoalReminderData(update.goalReminderData);
+    if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);
     await db.collection("workspaces").updateOne(
       { userId: req.user._id },
       { $set: update, $setOnInsert: { userId: req.user._id } },
@@ -1134,17 +1146,34 @@ app.post("/api/quizzes/generate", requireAuth(async (req, res) => {
     response_format: { type: "json_object" },
   });
 
-  if (!response.ok && payload?.error?.code === "failed_generation") {
-    ({ response, payload } = await requestGroqQuiz(baseBody));
+  if (!response.ok && isGroqJsonGenerationFailure(payload)) {
+    ({ response, payload } = await requestGroqQuiz({
+      ...baseBody,
+      temperature: Math.min(0.1, baseBody.temperature),
+    }));
   }
 
   if (!response.ok) {
+    if (response.status === 400 && isGroqJsonGenerationFailure(payload)) {
+      return res.status(502).json({
+        code: "AI_OUTPUT_INVALID",
+        error: "The AI service returned invalid quiz data after an automatic retry. Please try again.",
+      });
+    }
     return res.status(response.status).json({ error: payload?.error?.message || "Groq quiz generation failed." });
   }
 
   const content = payload?.choices?.[0]?.message?.content || "";
-  const parsed = parseQuizJson(content);
-  const questions = normalizeGeneratedQuestions(parsed.questions, limit);
+  let questions;
+  try {
+    const parsed = parseQuizJson(content);
+    questions = normalizeGeneratedQuestions(parsed.questions, limit);
+  } catch {
+    return res.status(502).json({
+      code: "AI_OUTPUT_INVALID",
+      error: "The AI service returned invalid quiz data after an automatic retry. Please try again.",
+    });
+  }
 
   return res.json({ questions, limit, model: GROQ_CHAT_MODEL, topic, subjectName });
 }));

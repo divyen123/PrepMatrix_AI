@@ -22,6 +22,9 @@ const PAPER_MARKS = new Set([1, 3, 4, 5, 10, 15]);
 const DIFFICULTIES = new Set(["easy", "medium", "hard"]);
 const PAPER_DIFFICULTIES = new Set(["easy", "medium", "hard", "balanced"]);
 const GROQ_RETRYABLE_STATUSES = new Set([408, 429, 498, 500, 502, 503, 504]);
+const GROQ_JSON_FAILURE_CODES = new Set(["failed_generation", "json_validate_failed"]);
+const AI_OUTPUT_INVALID_CODE = "AI_OUTPUT_INVALID";
+const AI_OUTPUT_INVALID_MESSAGE = "The AI service returned invalid structured output after several automatic retries. Please try again.";
 
 function cleanText(value, fallback = "") {
   return String(value ?? fallback).trim();
@@ -361,19 +364,42 @@ function groqRetryDelay(response, attempt) {
   return Math.min(30000, Math.max(1000, advertised || fallback) + 250);
 }
 
-function groqRequestError(result) {
-  const status = Number(result?.response?.status || 0);
-  const sourceMessage = cleanText(result?.payload?.error?.message, "AI generation request failed.");
-  const message = status === 429
-    ? "The AI service is temporarily rate-limited. PrepMatrix waited and retried, but the limit is still active. Please try again shortly."
-    : sourceMessage;
-  const error = new Error(message);
-  error.status = status;
-  error.retryable = GROQ_RETRYABLE_STATUSES.has(status);
+export function isGroqJsonGenerationFailure(payload) {
+  const providerError = payload?.error;
+  const code = cleanText(providerError?.code).toLowerCase();
+  const message = cleanText(providerError?.message).toLowerCase();
+  return GROQ_JSON_FAILURE_CODES.has(code)
+    || (Boolean(providerError?.failed_generation) && /\bjson\b/u.test(message))
+    || /failed to (?:generate|validate) json/u.test(message);
+}
+
+function aiOutputInvalidError() {
+  const error = new Error(AI_OUTPUT_INVALID_MESSAGE);
+  error.status = 502;
+  error.code = AI_OUTPUT_INVALID_CODE;
+  error.retryable = false;
   return error;
 }
 
-async function requestGroqJson(config, model, { system, prompt, maxTokens = 5000, temperature = 0.18 }) {
+function groqRequestError(result) {
+  const providerStatus = Number(result?.response?.status || 0);
+  const sourceMessage = cleanText(result?.payload?.error?.message, "AI generation request failed.");
+  const outputInvalid = providerStatus === 400 && isGroqJsonGenerationFailure(result?.payload);
+  let message = sourceMessage;
+  if (providerStatus === 429) {
+    message = "The AI service is temporarily rate-limited. PrepMatrix waited and retried, but the limit is still active. Please try again shortly.";
+  } else if (outputInvalid) {
+    message = AI_OUTPUT_INVALID_MESSAGE;
+  }
+  const error = new Error(message);
+  error.status = outputInvalid ? 502 : providerStatus;
+  error.providerStatus = providerStatus;
+  error.code = outputInvalid ? AI_OUTPUT_INVALID_CODE : cleanText(result?.payload?.error?.code);
+  error.retryable = outputInvalid || GROQ_RETRYABLE_STATUSES.has(providerStatus);
+  return error;
+}
+
+export async function requestGroqJson(config, model, { system, prompt, maxTokens = 5000, temperature = 0.18 }) {
   const baseBody = {
     model,
     temperature,
@@ -382,6 +408,11 @@ async function requestGroqJson(config, model, { system, prompt, maxTokens = 5000
       { role: "system", content: system },
       { role: "user", content: prompt },
     ],
+  };
+  const numericTemperature = Number(temperature);
+  const fallbackBody = {
+    ...baseBody,
+    temperature: Math.min(0.1, Number.isFinite(numericTemperature) ? Math.max(0, numericTemperature) : 0.1),
   };
   async function send(body) {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -398,10 +429,10 @@ async function requestGroqJson(config, model, { system, prompt, maxTokens = 5000
   for (let attempt = 0; attempt < 4; attempt += 1) {
     let result;
     try {
-      result = await send(useJsonMode ? { ...baseBody, response_format: { type: "json_object" } } : baseBody);
-      if (!result.response.ok && result.payload?.error?.code === "failed_generation" && useJsonMode) {
+      result = await send(useJsonMode ? { ...baseBody, response_format: { type: "json_object" } } : fallbackBody);
+      if (!result.response.ok && isGroqJsonGenerationFailure(result.payload) && useJsonMode) {
         useJsonMode = false;
-        result = await send(baseBody);
+        result = await send(fallbackBody);
       }
     } catch (error) {
       lastError = error;
@@ -482,7 +513,7 @@ export async function generateExamQuestions(config, model, context) {
       }
     }
     if (accepted.length !== batchSize) {
-      throw new Error(`The AI service created ${accepted.length} of ${batchSize} valid unique questions for batch ${batch + 1} after ${maxVariationPasses} variation passes. Please prepare the exam again.`);
+      throw aiOutputInvalidError();
     }
     accepted.forEach((question) => {
       seen.add(normalizeQuestionKey(question.question));
@@ -490,7 +521,7 @@ export async function generateExamQuestions(config, model, context) {
     });
   }
 
-  if (allQuestions.length !== EXAM_QUESTION_COUNT) throw new Error("Exam generation did not produce exactly 40 questions.");
+  if (allQuestions.length !== EXAM_QUESTION_COUNT) throw aiOutputInvalidError();
   return allQuestions;
 }
 
@@ -701,7 +732,12 @@ export default function registerExamRoutes(app, dependencies) {
       exam._id = result.insertedId;
       return res.status(201).json({ exam: examMetadata(exam) });
     } catch (error) {
-      return res.status(500).json({ error: error instanceof Error ? error.message : "Exam generation failed." });
+      if (error?.code === AI_OUTPUT_INVALID_CODE) {
+        return res.status(502).json({ code: AI_OUTPUT_INVALID_CODE, error: AI_OUTPUT_INVALID_MESSAGE });
+      }
+      return res.status(error?.status === 429 ? 429 : 500).json({
+        error: error instanceof Error ? error.message : "Exam generation failed.",
+      });
     }
   }));
 
