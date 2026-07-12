@@ -1101,7 +1101,7 @@ function ExamPage({ subjects = [], academicLevel = "College", academicTrack = "G
     <section className="page-stack exam-page">
       <header className="exam-page__header">
         <div><span className="section-tag">Exam workspace</span><h2>Practice under pressure. Prepare with precision.</h2><p>Attend secure online exams, create exact question papers, and review results after release.</p></div>
-        <button className="exam-about-btn" onClick={() => navigate("/about")} title="About PrepMatrix" type="button"><Info size={16} /><span>About</span></button>
+        <button className="exam-about-btn" onClick={() => navigate("/exam/about")} title="How the Exam workspace works" type="button"><Info size={16} /><span>About</span></button>
       </header>
 
       <nav className="exam-page__tabs" aria-label="Exam workspace sections">

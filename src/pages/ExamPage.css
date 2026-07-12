@@ -722,7 +722,35 @@
 }
 .exam-paper-history-grid {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-height: clamp(230px, 34vh, 360px);
+  padding-right: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(var(--accent-rgb), 0.55) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.exam-paper-history-grid::-webkit-scrollbar {
+  width: 7px;
+}
+
+.exam-paper-history-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.exam-paper-history-grid::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.42);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.exam-paper-history-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.68);
+  background-clip: padding-box;
 }
 
 .exam-search {
@@ -759,6 +787,7 @@
 .exam-paper-history-grid > article > div:nth-child(2) {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .exam-paper-history-grid strong {
@@ -770,6 +799,18 @@
 .exam-paper-history-grid small {
   color: var(--text-secondary);
   font-size: 0.65rem;
+}
+
+.exam-paper-history-grid strong,
+.exam-paper-history-grid span,
+.exam-paper-history-grid small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-paper-history-grid > .exam-empty-inline {
+  grid-column: 1 / -1;
 }
 
 .exam-paper-history-grid article > div:last-child {
@@ -1591,6 +1632,10 @@ body.has-bg-image .exam-result-modal > section {
 
   .exam-paper-summary > button {
     grid-column: 1 / -1;
+  }
+
+  .exam-paper-history-grid {
+    grid-template-columns: 1fr;
   }
 
   .exam-runner__status .exam-save-state {

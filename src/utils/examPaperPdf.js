@@ -67,9 +67,12 @@ function createWriter(pdf) {
       gap = 2.5,
       lineHeight = 1.25,
     } = options;
-    pdf.setFont("helvetica", style);
-    pdf.setFontSize(size);
-    pdf.setTextColor(...color);
+    const applyTextStyle = () => {
+      pdf.setFont("helvetica", style);
+      pdf.setFontSize(size);
+      pdf.setTextColor(...color);
+    };
+    applyTextStyle();
     const lines = [...pdf.splitTextToSize(asText(value), usableWidth - indent)];
     const lineHeightMm = Math.max(size * 0.3528 * lineHeight, 3.2);
     while (lines.length) {
@@ -81,6 +84,7 @@ function createWriter(pdf) {
         maxLines = Math.max(1, Math.floor(available / lineHeightMm));
       }
       const pageLines = lines.splice(0, maxLines);
+      applyTextStyle();
       pdf.text(pageLines, PAGE.left + indent, y);
       y += pageLines.length * lineHeightMm + gap;
       if (lines.length) newPage();

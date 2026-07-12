@@ -47,6 +47,7 @@ const SubjectsPage = lazy(() => import("./pages/SubjectsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
 const ExamPage = lazy(() => import("./pages/ExamPage"));
+const ExamAboutPage = lazy(() => import("./pages/ExamAboutPage"));
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", helper: "Overview and momentum", icon: LayoutDashboard },
@@ -199,6 +200,7 @@ function App() {
   const isAuthRoute = location.pathname === "/login" || location.pathname === "/register";
   const activeRoute = NAV_ITEMS.find((item) => location.pathname.startsWith(item.to));
   const titleLabel = activeRoute?.label || (
+    location.pathname.startsWith("/exam/about") ? "Exam Guide" :
     location.pathname.startsWith("/exam") ? "Exam" :
     location.pathname.startsWith("/settings") ? "Settings" :
     location.pathname.startsWith("/about") ? "About" :
@@ -965,7 +967,9 @@ function App() {
               <div className="page-header-info">
                 <h2 className="page-title">{titleLabel}</h2>
                 <p className="page-subtitle">
-                  {location.pathname.startsWith("/settings")
+                  {location.pathname.startsWith("/exam/about")
+                    ? "Understand every exam tool, rule, and workflow"
+                    : location.pathname.startsWith("/settings")
                     ? "Manage profile, update credentials, and customize appearance"
                     : location.pathname.startsWith("/exam")
                       ? "Attend exams, generate question papers, and review results"
@@ -1175,6 +1179,10 @@ function App() {
                             />
                           }
                           path="/quiz"
+                        />
+                        <Route
+                          element={<ExamAboutPage />}
+                          path="/exam/about"
                         />
                         <Route
                           element={
