@@ -410,7 +410,8 @@
   flex-shrink: 0;
 }
 
-.voice-reply-chat-btn {
+.voice-reply-chat-btn,
+.voice-reply-mute-btn {
   appearance: none !important;
   border: 0 !important;
   background: transparent !important;
@@ -433,19 +434,38 @@
   transition: color 0.2s ease, transform 0.2s ease;
 }
 
-.voice-reply-chat-btn::after {
+.voice-reply-chat-btn::after,
+.voice-reply-mute-btn::after {
   content: none !important;
   display: none !important;
 }
 
 .voice-reply-chat-btn:hover,
-.voice-reply-chat-btn:focus-visible {
+.voice-reply-chat-btn:focus-visible,
+.voice-reply-mute-btn:hover:not(:disabled),
+.voice-reply-mute-btn:focus-visible:not(:disabled) {
   background: transparent !important;
   box-shadow: none !important;
   color: #ffffff !important;
   transform: translateY(-1px);
   outline: none;
 }
+
+.voice-reply-mute-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+  transform: none !important;
+}
+
+.voice-reply-mute-btn.is-muted {
+  color: #a7f3d0 !important;
+  opacity: 0.78;
+}
+
+.voice-reply-mute-btn.is-muted:disabled {
+  color: #a7f3d0 !important;
+}
+
 .voice-reply-copy-btn {
   appearance: none !important;
   border: 0 !important;

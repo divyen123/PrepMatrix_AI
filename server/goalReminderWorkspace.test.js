@@ -22,16 +22,19 @@ test("bounds planner settings and keeps supported preferences", () => {
   assert.deepEqual(normalizeGoalReminderSettings({
     dailyStudyTarget: 20,
     weeklyReviewTarget: "daily",
+    targetRemindersEnabled: true,
     nudgeEnabled: false,
     repeatSeconds: 30,
     showCompleted: false,
   }), {
     dailyStudyTarget: 16,
     weeklyReviewTarget: "daily",
+    targetRemindersEnabled: true,
     nudgeEnabled: false,
     repeatSeconds: 30,
     showCompleted: false,
   });
 
   assert.equal(normalizeGoalReminderSettings({ repeatSeconds: 10 }).repeatSeconds, 20);
+  assert.equal(normalizeGoalReminderSettings({}).targetRemindersEnabled, false);
 });

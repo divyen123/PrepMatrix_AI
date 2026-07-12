@@ -37,6 +37,7 @@ import {
   DEFAULT_GOAL_REMINDER_SETTINGS,
   normalizePlannerData,
   normalizePlannerSettings,
+  syncStudyTargetReminders,
 } from "./utils/goalReminderStore";
 import CustomCursor from "./components/CustomCursor";
 import { SidebarStudyPet } from "./components/StudyPet";
@@ -297,8 +298,10 @@ function App() {
       setUserProfile((current) => ({ ...(current || profile), ...nextAcademicProfile }));
     }
     setMaterialBookmarks(Array.isArray(workspace?.materialBookmarks) ? workspace.materialBookmarks : []);
-    setGoalReminderData(normalizePlannerData(workspace?.goalReminderData || DEFAULT_GOAL_REMINDER_DATA));
-    setGoalReminderSettings(normalizePlannerSettings(workspace?.goalReminderSettings || DEFAULT_GOAL_REMINDER_SETTINGS));
+    const nextGoalReminderSettings = normalizePlannerSettings(workspace?.goalReminderSettings || DEFAULT_GOAL_REMINDER_SETTINGS);
+    const nextGoalReminderData = syncStudyTargetReminders(workspace?.goalReminderData || DEFAULT_GOAL_REMINDER_DATA, nextGoalReminderSettings);
+    setGoalReminderData(nextGoalReminderData);
+    setGoalReminderSettings(nextGoalReminderSettings);
     setDarkMode(Boolean(workspace.darkMode));
     setScheduleStartDate(workspace.scheduleStartDate || null);
   };
@@ -1326,6 +1329,7 @@ function App() {
                               setDarkMode={setDarkMode}
                               subjects={subjects}
                               schedule={schedule}
+                              scheduleStartDate={scheduleStartDate}
                               completed={completed}
                               materialBookmarks={materialBookmarks}
                               goalReminderData={goalReminderData}
@@ -1406,7 +1410,9 @@ function App() {
           reply={voiceAssistant.overlayReply}
           chatSessionId={voiceAssistant.latestChatSessionId}
           onGoToChat={voiceAssistant.openLatestAnswerInChat}
+          onMute={voiceAssistant.muteCurrentReply}
           onClose={voiceAssistant.dismissOverlay}
+          speechState={voiceAssistant.replySpeechState}
         />
       )}
 

@@ -7,6 +7,7 @@ import {
   DEFAULT_GOAL_REMINDER_SETTINGS,
   normalizePlannerData,
   normalizePlannerSettings,
+  syncStudyTargetReminders,
 } from "../utils/goalReminderStore";
 import {
   ACADEMIC_LEVEL_OPTIONS,
@@ -72,7 +73,7 @@ function ToggleSwitch({ checked, onChange, label, subtitle, disabled = false }) 
 
 function SettingsPage({
   userProfile, setUserProfile, setAcademicLevel, setAcademicTrack,
-  darkMode, setDarkMode, subjects, schedule, completed, materialBookmarks,
+  darkMode, setDarkMode, subjects, schedule, scheduleStartDate, completed, materialBookmarks,
   goalReminderData, goalReminderSettings,
   academicLevel, academicTrack, setSubjects, setSchedule, setCompleted,
   setMaterialBookmarks, setGoalReminderData, setGoalReminderSettings,
@@ -796,16 +797,25 @@ function SettingsPage({
     }
   };
 
+  const handlePlannerSettingsChange = (value) => {
+    const nextSettings = normalizePlannerSettings(value);
+    setGoalReminderSettings(nextSettings);
+    setGoalReminderData(syncStudyTargetReminders(goalReminderData, nextSettings));
+  };
+
   // Save study target goals
   const handleSaveStudyTargets = () => {
     localStorage.setItem("prepmatrix_daily_target", String(dailyTarget));
     localStorage.setItem("prepmatrix_weekly_review", weeklyReview);
-    setGoalReminderSettings(normalizePlannerSettings({
+    const nextSettings = normalizePlannerSettings({
       ...goalReminderSettings,
       dailyStudyTarget: dailyTarget,
       weeklyReviewTarget: weeklyReview,
-    }));
-    toast.success("Study target goals saved!");
+      targetRemindersEnabled: true,
+    });
+    setGoalReminderSettings(nextSettings);
+    setGoalReminderData(syncStudyTargetReminders(goalReminderData, nextSettings));
+    toast.success("Study targets saved and reminder schedule refreshed!");
   };
 
   // Export backup
@@ -1432,13 +1442,16 @@ function SettingsPage({
         </div>
 
         <GoalSettingsPanel
+          completed={completed}
           dailyTarget={dailyTarget}
           onDailyTargetChange={setDailyTarget}
-          onPlannerSettingsChange={(next) => setGoalReminderSettings(normalizePlannerSettings(next))}
+          onPlannerSettingsChange={handlePlannerSettingsChange}
           onSaveTargets={handleSaveStudyTargets}
           onWeeklyReviewChange={setWeeklyReview}
           plannerData={goalReminderData}
           plannerSettings={goalReminderSettings}
+          schedule={schedule}
+          scheduleStartDate={scheduleStartDate}
           weeklyReview={weeklyReview}
         />
 

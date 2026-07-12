@@ -1,5 +1,5 @@
 import React from "react";
-import { Copy, MessageSquare } from "lucide-react";
+import { Copy, MessageSquare, Volume2, VolumeX } from "lucide-react";
 import Strands from "./Strands";
 import "./VoiceAssistantOverlay.css";
 
@@ -105,7 +105,9 @@ function VoiceAssistantOverlay({
   reply = "",
   chatSessionId = null,
   onGoToChat,
+  onMute,
   onClose,
+  speechState = "idle",
 }) {
   if (voiceStatus === "idle") {
     return null;
@@ -133,6 +135,9 @@ function VoiceAssistantOverlay({
   const strandProps = STATE_STRAND_PROPS[voiceStatus] || STATE_STRAND_PROPS.awake;
   const hasReply = Boolean(reply);
   const statusText = getStatusText();
+  const isSpeechPlaying = speechState === "playing";
+  const isSpeechMuted = speechState === "muted";
+  const muteLabel = isSpeechPlaying ? "Stop voice for this answer" : isSpeechMuted ? "Voice stopped for this answer" : "Voice playback finished";
 
   return (
     <div
@@ -209,6 +214,22 @@ function VoiceAssistantOverlay({
                     <MessageSquare size={16} strokeWidth={2} />
                   </button>
                 )}
+                <button
+                  aria-label={muteLabel}
+                  aria-pressed={isSpeechMuted}
+                  className={`voice-reply-mute-btn${isSpeechMuted ? " is-muted" : ""}`}
+                  disabled={!isSpeechPlaying}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onMute?.();
+                  }}
+                  title={muteLabel}
+                  type="button"
+                >
+                  {isSpeechMuted
+                    ? <VolumeX aria-hidden="true" size={16} strokeWidth={2} />
+                    : <Volume2 aria-hidden="true" size={16} strokeWidth={2} />}
+                </button>
                 <button
                   className="voice-reply-copy-btn"
                   type="button"

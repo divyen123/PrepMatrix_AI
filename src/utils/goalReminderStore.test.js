@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  calculateStudyTargetPerformance,
   getLocalDateKey,
+  getTargetReviewDateKeys,
   getTomorrowDateKey,
   normalizePlannerData,
   normalizePlannerSettings,
   postponeGoalToTomorrow,
   summarizePlannerData,
+  syncStudyTargetReminders,
 } from "./goalReminderStore.js";
 
 test("normalizes planner records and skips empty items", () => {
@@ -81,12 +84,14 @@ test("normalizes reminder nudge preferences to supported values", () => {
   assert.deepEqual(normalizePlannerSettings({
     dailyStudyTarget: 6.5,
     weeklyReviewTarget: "daily",
+    targetRemindersEnabled: true,
     nudgeEnabled: false,
     repeatSeconds: 20,
     showCompleted: false,
   }), {
     dailyStudyTarget: 6.5,
     weeklyReviewTarget: "daily",
+    targetRemindersEnabled: true,
     nudgeEnabled: false,
     repeatSeconds: 20,
     showCompleted: false,
@@ -95,4 +100,69 @@ test("normalizes reminder nudge preferences to supported values", () => {
   assert.equal(normalizePlannerSettings({ repeatSeconds: 4 }).repeatSeconds, 20);
   assert.equal(normalizePlannerSettings({ repeatSeconds: 10 }).repeatSeconds, 20);
   assert.equal(normalizePlannerSettings({ dailyStudyTarget: 99 }).dailyStudyTarget, 16);
+});
+
+test("creates deterministic daily and weekly target reminders without duplicates", () => {
+  const monday = new Date(2026, 6, 13, 10, 0, 0);
+  const settings = {
+    dailyStudyTarget: 4,
+    weeklyReviewTarget: "2",
+    targetRemindersEnabled: true,
+  };
+  const initial = {
+    reminders: [{ id: "manual", title: "Manual reminder", date: "2026-07-14" }],
+  };
+
+  assert.deepEqual(getTargetReviewDateKeys(settings, monday), ["2026-07-15", "2026-07-19"]);
+
+  const first = syncStudyTargetReminders(initial, settings, monday);
+  const second = syncStudyTargetReminders(first, settings, monday);
+
+  assert.equal(first.reminders.length, 4);
+  assert.equal(second.reminders.length, 4);
+  assert.equal(second.reminders.filter((item) => item.id === "study-target-daily-2026-07-13").length, 1);
+  assert.deepEqual(
+    second.reminders
+      .filter((item) => item.id.startsWith("study-target-review-"))
+      .map((item) => item.date)
+      .sort(),
+    ["2026-07-15", "2026-07-19"],
+  );
+
+  const disabled = syncStudyTargetReminders(second, {
+    ...settings,
+    targetRemindersEnabled: false,
+  }, monday);
+  assert.deepEqual(disabled.reminders.map((item) => item.id), ["manual"]);
+});
+
+test("calculates daily focused-hour and weekly review performance", () => {
+  const monday = new Date(2026, 6, 13, 12, 0, 0);
+  const settings = {
+    dailyStudyTarget: 4,
+    weeklyReviewTarget: "2",
+    targetRemindersEnabled: true,
+  };
+  const plannerData = syncStudyTargetReminders({}, settings, monday);
+  plannerData.reminders.find((item) => item.id.startsWith("study-target-review-")).completed = true;
+
+  const performance = calculateStudyTargetPerformance({
+    schedule: [{ day: 1, tasks: [{ task: "A" }, { task: "B" }, { task: "C" }] }],
+    completed: ["A", "C"],
+    plannerData,
+    settings,
+    scheduleStartDate: "2026-07-13T08:00:00.000Z",
+  }, monday);
+
+  assert.deepEqual(performance, {
+    scheduleMapped: true,
+    plannedHours: 3,
+    completedHours: 2,
+    dailyTargetHours: 4,
+    dailyRemainingHours: 2,
+    dailyProgress: 50,
+    completedReviews: 1,
+    weeklyReviewTarget: 2,
+    weeklyReviewProgress: 50,
+  });
 });

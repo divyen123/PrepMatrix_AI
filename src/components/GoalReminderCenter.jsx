@@ -370,6 +370,29 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
             )}
           </section>
 
+          <section className="planner-list-panel planner-todo-panel">
+            <div className="planner-panel-heading">
+              <div><span>Today</span><h3>Quick to-do</h3></div>
+              <strong>{openTodos} open</strong>
+            </div>
+            <form className="planner-todo-composer" onSubmit={createTodo}>
+              <input aria-label="New to-do task" maxLength="160" onChange={(event) => setTodoDraft(event.target.value)} placeholder="Add a small next task" value={todoDraft} />
+              <button aria-label="Add to-do task" disabled={!todoDraft.trim()} title="Add task" type="submit"><Plus size={15} /></button>
+            </form>
+            <div className="planner-todo-list">
+              {visibleTodos.length === 0 ? <span className="planner-todo-empty">No to-do tasks yet.</span> : visibleTodos.map((todo) => {
+                const deleteKey = `todo:${todo.id}`;
+                return (
+                  <div className={`planner-todo-row${todo.completed ? " is-complete" : ""}`} key={todo.id}>
+                    <PlannerCheckbox checked={todo.completed} label={todo.completed ? `Reopen ${todo.title}` : `Complete ${todo.title}`} onChange={() => toggleTodo(todo.id)} />
+                    <span>{todo.title}</span>
+                    {confirmDelete === deleteKey ? <DeleteConfirmation label={todo.title} onCancel={() => setConfirmDelete("")} onConfirm={() => deleteItem("todo", todo.id)} /> : <button aria-label={`Delete ${todo.title}`} className="planner-trash-btn" onClick={() => setConfirmDelete(deleteKey)} title="Delete task" type="button"><Trash2 size={13} /></button>}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
           <section className="planner-list-panel planner-goals-panel">
             <div className="planner-panel-heading"><div><span>Outcomes</span><h3>Goals</h3></div><strong>{activeGoals} active</strong></div>
             <div className="planner-scroll-list">
@@ -395,8 +418,7 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
           </section>
 
           <section className="planner-list-panel planner-reminder-panel">
-            <div className="planner-panel-heading"><div><span>Schedule</span><h3>Reminders & to-do</h3></div><strong>{todayReminders.length} today</strong></div>
-            <div className="planner-subsection-heading"><BellRing size={14} /><span>Reminders</span></div>
+            <div className="planner-panel-heading"><div><span>Schedule</span><h3>Reminders</h3></div><strong>{todayReminders.length} today</strong></div>
             <div className="planner-scroll-list planner-reminder-list">
               {visibleReminders.length === 0 ? <EmptyPlannerState detail="Add a dated reminder for an in-app nudge." icon={<BellRing aria-hidden="true" size={20} />} title="No reminders" /> : visibleReminders.map((reminder) => {
                 const tone = getDateTone(reminder.date, today, reminder.completed);
@@ -413,24 +435,6 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
                       {confirmDelete === deleteKey ? <DeleteConfirmation label={reminder.title} onCancel={() => setConfirmDelete("")} onConfirm={() => deleteItem("reminder", reminder.id)} /> : <button aria-label={`Delete ${reminder.title}`} className="planner-trash-btn" onClick={() => setConfirmDelete(deleteKey)} title="Delete reminder" type="button"><Trash2 size={14} /></button>}
                     </div>
                   </article>
-                );
-              })}
-            </div>
-
-            <div className="planner-subsection-heading planner-todo-heading"><ListTodo size={14} /><span>Quick to-do list</span></div>
-            <form className="planner-todo-composer" onSubmit={createTodo}>
-              <input aria-label="New to-do task" maxLength="160" onChange={(event) => setTodoDraft(event.target.value)} placeholder="Add a small next task" value={todoDraft} />
-              <button aria-label="Add to-do task" disabled={!todoDraft.trim()} title="Add task" type="submit"><Plus size={15} /></button>
-            </form>
-            <div className="planner-todo-list">
-              {visibleTodos.length === 0 ? <span className="planner-todo-empty">No to-do tasks yet.</span> : visibleTodos.map((todo) => {
-                const deleteKey = `todo:${todo.id}`;
-                return (
-                  <div className={`planner-todo-row${todo.completed ? " is-complete" : ""}`} key={todo.id}>
-                    <PlannerCheckbox checked={todo.completed} label={todo.completed ? `Reopen ${todo.title}` : `Complete ${todo.title}`} onChange={() => toggleTodo(todo.id)} />
-                    <span>{todo.title}</span>
-                    {confirmDelete === deleteKey ? <DeleteConfirmation label={todo.title} onCancel={() => setConfirmDelete("")} onConfirm={() => deleteItem("todo", todo.id)} /> : <button aria-label={`Delete ${todo.title}`} className="planner-trash-btn" onClick={() => setConfirmDelete(deleteKey)} title="Delete task" type="button"><Trash2 size={13} /></button>}
-                  </div>
                 );
               })}
             </div>
@@ -458,10 +462,8 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
         type="button"
       >
         <span className="goal-reminder-launcher-visual" aria-hidden="true">
-          <Target className="goal-reminder-target-icon" size={36} strokeWidth={1.8} />
-          <BellRing className="goal-reminder-bell-icon" size={17} strokeWidth={2.4} />
+          <Target className="goal-reminder-target-icon" size={42} strokeWidth={1.8} />
         </span>
-        {todayReminders.length > 0 && <span aria-hidden="true" className="goal-reminder-count">{Math.min(todayReminders.length, 9)}{todayReminders.length > 9 ? "+" : ""}</span>}
       </button>
       {typeof document !== "undefined" && dialog ? createPortal(dialog, document.body) : null}
     </div>

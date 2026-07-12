@@ -7,6 +7,7 @@ export const DEFAULT_GOAL_REMINDER_DATA = Object.freeze({
 export const DEFAULT_GOAL_REMINDER_SETTINGS = Object.freeze({
   dailyStudyTarget: 4,
   weeklyReviewTarget: "2",
+  targetRemindersEnabled: false,
   nudgeEnabled: true,
   repeatSeconds: 20,
   showCompleted: true,
@@ -44,6 +45,7 @@ export function normalizeGoalReminderSettings(value) {
   return {
     dailyStudyTarget,
     weeklyReviewTarget,
+    targetRemindersEnabled: source.targetRemindersEnabled === true,
     nudgeEnabled: source.nudgeEnabled !== false,
     repeatSeconds,
     showCompleted: source.showCompleted !== false,

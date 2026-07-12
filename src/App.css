@@ -18263,6 +18263,7 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)) {
   .clear-all-chats-btn,
   .delete-history-btn,
   .voice-reply-chat-btn,
+  .voice-reply-mute-btn,
   .voice-reply-copy-btn
 ) {
   display: inline-flex !important;
@@ -18314,6 +18315,13 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)) {
   min-height: var(--app-icon-button-size) !important;
   padding: 0 !important;
   border-radius: var(--app-action-button-radius) !important;
+}
+
+@media (min-width: 992px) {
+  .sidebar-close-btn,
+  .hamburger-btn {
+    display: none !important;
+  }
 }
 
 .sidebar-widgets .chat-toggle-btn {

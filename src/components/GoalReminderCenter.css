@@ -35,7 +35,7 @@ body .goal-reminder-launcher-button {
   min-height: 62px !important;
   padding: 0 !important;
   overflow: visible;
-  color: var(--accent) !important;
+  color: var(--text-muted) !important;
   background: transparent !important;
   border: 0 !important;
   border-radius: 0 !important;
@@ -47,7 +47,7 @@ body .goal-reminder-launcher-button {
 
 body .goal-reminder-launcher-button:hover,
 body .goal-reminder-launcher-button:focus-visible {
-  color: var(--accent) !important;
+  color: var(--text) !important;
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
@@ -65,23 +65,17 @@ body .goal-reminder-launcher-button:focus-visible {
   place-items: center;
   width: 52px;
   height: 52px;
-  color: var(--accent);
-  border: 1px solid rgba(var(--accent-rgb), 0.26);
-  border-radius: 17px;
-  background:
-    radial-gradient(circle at 72% 22%, rgba(109, 93, 252, 0.22), transparent 38%),
-    linear-gradient(145deg, rgba(var(--accent-rgb), 0.2), rgba(var(--accent-rgb), 0.06));
-  box-shadow: 0 9px 22px rgba(var(--accent-rgb), 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  color: inherit;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
 }
 
 .goal-reminder-launcher-visual::before,
 .goal-reminder-launcher-visual::after {
-  position: absolute;
-  content: "";
-  inset: 7px;
-  border: 1px solid rgba(var(--accent-rgb), 0.22);
-  border-radius: 50%;
-  opacity: 0.7;
+  display: none;
+  content: none;
 }
 
 .goal-reminder-launcher-visual::after {
@@ -94,7 +88,7 @@ body .goal-reminder-launcher-button:focus-visible {
 }
 
 .goal-reminder-target-icon {
-  filter: drop-shadow(0 3px 6px rgba(var(--accent-rgb), 0.2));
+  filter: none;
 }
 
 .goal-reminder-bell-icon {
@@ -381,8 +375,9 @@ body .planner-composer-tabs button {
 }
 
 body .planner-composer-tabs button.is-active {
-  color: #fff !important;
-  background: var(--gradient-primary) !important;
+  color: var(--text) !important;
+  background: var(--surface) !important;
+  box-shadow: inset 0 0 0 1px var(--border) !important;
 }
 
 .planner-entry-form {
@@ -440,13 +435,21 @@ body .goal-settings-save-btn {
   width: fit-content !important;
   min-height: 34px !important;
   padding: 0 12px !important;
-  color: #fff !important;
-  background: var(--gradient-primary) !important;
-  border: 1px solid rgba(var(--accent-rgb), 0.3) !important;
+  color: var(--text) !important;
+  background: var(--surface-muted) !important;
+  border: 1px solid var(--border) !important;
   border-radius: 10px !important;
-  box-shadow: 0 8px 18px rgba(var(--accent-rgb), 0.14) !important;
+  box-shadow: none !important;
   font-size: 0.7rem !important;
   white-space: nowrap;
+}
+
+body .planner-create-btn:hover,
+body .goal-settings-open-btn:hover,
+body .goal-settings-save-btn:hover {
+  color: var(--text) !important;
+  background: var(--surface) !important;
+  border-color: rgba(var(--accent-rgb), 0.28) !important;
 }
 
 .planner-scroll-list {
@@ -699,9 +702,9 @@ body .planner-tomorrow-btn {
 }
 
 body .planner-todo-composer button {
-  color: #fff !important;
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
+  color: var(--text) !important;
+  background: var(--surface-muted) !important;
+  border-color: var(--border) !important;
 }
 
 .planner-todo-list {
@@ -838,8 +841,109 @@ body .planner-todo-composer button {
 
 .goal-target-fields {
   display: grid;
+  grid-template-columns: minmax(150px, 190px) minmax(175px, 220px);
+  align-items: start;
+  justify-content: start;
+  gap: 12px;
+}
+
+.goal-target-field {
+  min-width: 0;
+  gap: 4px !important;
+}
+
+.goal-target-field > span {
+  color: var(--text);
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+
+.goal-target-field input,
+.goal-target-field select {
+  width: 100%;
+  height: 34px;
+  min-height: 34px;
+  padding: 5px 9px;
+  border-radius: 9px;
+  box-sizing: border-box;
+  font-size: 0.7rem;
+}
+
+.goal-target-field small {
+  color: var(--text-muted);
+  font-size: 0.56rem;
+  line-height: 1.35;
+}
+
+.goal-target-performance {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
+}
+
+.goal-target-performance-item {
+  min-width: 0;
+  padding: 10px 11px;
+  background: rgba(var(--accent-rgb), 0.04);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.goal-target-performance-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.goal-target-performance-heading > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 750;
+}
+
+.goal-target-performance-heading svg {
+  color: var(--accent);
+}
+
+.goal-target-performance-heading strong {
+  color: var(--text);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.goal-target-progress {
+  height: 5px;
+  margin-top: 8px;
+  overflow: hidden;
+  background: var(--surface-muted);
+  border-radius: 999px;
+}
+
+.goal-target-progress > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width 220ms ease;
+}
+
+.goal-target-performance-item p {
+  margin: 7px 0 0;
+  color: var(--text-muted);
+  font-size: 0.57rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .goal-target-fields,
+  .goal-target-performance {
+    grid-template-columns: 1fr;
+  }
 }
 
 .goal-reminder-preferences {
@@ -1003,6 +1107,127 @@ body.has-bg-image .goal-reminder-nudge {
 @keyframes goalReminderDialogIn {
   from { opacity: 0; transform: translateY(12px) scale(0.975); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (min-width: 781px) {
+  .goal-reminder-dialog {
+    width: min(1120px, calc(100vw - 24px));
+    height: min(820px, calc(100dvh - 24px));
+  }
+
+  .goal-reminder-dialog-body {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    grid-template-rows: 245px minmax(230px, 1fr);
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .planner-composer-panel {
+    grid-column: 1 / 7;
+    grid-row: 1;
+    padding: 12px;
+  }
+
+  .planner-todo-panel {
+    grid-column: 7 / -1;
+    grid-row: 1;
+  }
+
+  .planner-goals-panel {
+    grid-column: 1 / 6;
+    grid-row: 2;
+  }
+
+  .planner-reminder-panel {
+    grid-column: 6 / -1;
+    grid-row: 2;
+  }
+
+  .planner-todo-panel,
+  .planner-goals-panel,
+  .planner-reminder-panel {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .planner-composer-panel .planner-panel-heading,
+  .planner-todo-panel .planner-panel-heading {
+    margin-bottom: 8px;
+  }
+
+  .planner-entry-form {
+    gap: 7px 8px;
+  }
+
+  .planner-field {
+    gap: 3px;
+    font-size: 0.62rem;
+  }
+
+  .planner-field input,
+  .planner-field select,
+  .planner-field textarea,
+  .planner-todo-composer input {
+    min-height: 32px;
+    padding: 6px 9px;
+  }
+
+  .planner-field textarea {
+    height: 48px;
+    min-height: 48px;
+    resize: none;
+  }
+
+  body .planner-create-btn {
+    min-height: 32px !important;
+    padding-inline: 10px !important;
+  }
+
+  .planner-scroll-list,
+  .planner-todo-list {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-color: rgba(var(--accent-rgb), 0.38) transparent;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    overscroll-behavior: contain;
+  }
+
+  .planner-reminder-list {
+    max-height: none;
+  }
+
+  .planner-scroll-list > .planner-empty-state,
+  .planner-todo-empty {
+    flex: 1;
+  }
+
+  .planner-todo-empty {
+    display: grid;
+    min-height: 0;
+    place-items: center;
+  }
+
+  .planner-scroll-list::-webkit-scrollbar,
+  .planner-todo-list::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .planner-scroll-list::-webkit-scrollbar-track,
+  .planner-todo-list::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .planner-scroll-list::-webkit-scrollbar-thumb,
+  .planner-todo-list::-webkit-scrollbar-thumb {
+    background: rgba(var(--accent-rgb), 0.3);
+    border-radius: 999px;
+  }
 }
 
 @media (max-width: 780px) {

@@ -4,6 +4,9 @@ export const GOAL_REMINDER_DATA_EVENT = "prepmatrixGoalReminderDataChange";
 export const GOAL_REMINDER_SETTINGS_EVENT = "prepmatrixGoalReminderSettingsChange";
 export const OPEN_GOAL_REMINDER_EVENT = "openPrepMatrixGoalReminderCenter";
 
+const DAILY_TARGET_REMINDER_PREFIX = "study-target-daily-";
+const REVIEW_TARGET_REMINDER_PREFIX = "study-target-review-";
+
 export const DEFAULT_GOAL_REMINDER_DATA = Object.freeze({
   goals: [],
   reminders: [],
@@ -13,6 +16,7 @@ export const DEFAULT_GOAL_REMINDER_DATA = Object.freeze({
 export const DEFAULT_GOAL_REMINDER_SETTINGS = Object.freeze({
   dailyStudyTarget: 4,
   weeklyReviewTarget: "2",
+  targetRemindersEnabled: false,
   nudgeEnabled: true,
   repeatSeconds: 20,
   showCompleted: true,
@@ -139,6 +143,7 @@ export function normalizePlannerSettings(value) {
   return {
     dailyStudyTarget,
     weeklyReviewTarget,
+    targetRemindersEnabled: source.targetRemindersEnabled === true,
     nudgeEnabled: source.nudgeEnabled !== false,
     repeatSeconds,
     showCompleted: source.showCompleted !== false,
@@ -187,6 +192,149 @@ export function openGoalReminderCenter(eventTarget) {
   const target = eventTarget || (typeof window !== "undefined" ? window : null);
   if (!target?.dispatchEvent || typeof CustomEvent === "undefined") return;
   target.dispatchEvent(new CustomEvent(OPEN_GOAL_REMINDER_EVENT));
+}
+
+function addCalendarDays(date, amount) {
+  const next = new Date(date);
+  next.setHours(12, 0, 0, 0);
+  next.setDate(next.getDate() + amount);
+  return next;
+}
+
+function getWeekDateKeys(date = new Date()) {
+  const anchor = new Date(date);
+  anchor.setHours(12, 0, 0, 0);
+  const monday = addCalendarDays(anchor, -((anchor.getDay() + 6) % 7));
+  return Array.from({ length: 7 }, (_, index) => getLocalDateKey(addCalendarDays(monday, index)));
+}
+
+export function getWeeklyReviewTargetCount(value) {
+  if (String(value) === "daily") return 7;
+  return Math.min(3, Math.max(1, Number.parseInt(value, 10) || 2));
+}
+
+export function getTargetReviewDateKeys(settings, date = new Date()) {
+  const count = getWeeklyReviewTargetCount(normalizePlannerSettings(settings).weeklyReviewTarget);
+  const weekDates = getWeekDateKeys(date);
+  const offsets = count === 1
+    ? [6]
+    : count === 2
+      ? [2, 6]
+      : count === 3
+        ? [1, 3, 6]
+        : [0, 1, 2, 3, 4, 5, 6];
+  return offsets.map((offset) => weekDates[offset]);
+}
+
+function upsertGeneratedReminder(reminders, generated, createdAt) {
+  const existingIndex = reminders.findIndex((item) => item.id === generated.id);
+  const existing = existingIndex >= 0 ? reminders[existingIndex] : null;
+  const next = {
+    ...generated,
+    completed: Boolean(existing?.completed),
+    completedAt: existing?.completedAt || "",
+    createdAt: existing?.createdAt || createdAt,
+  };
+  if (existingIndex >= 0) reminders[existingIndex] = next;
+  else reminders.push(next);
+}
+
+export function syncStudyTargetReminders(value, settings, date = new Date()) {
+  const data = normalizePlannerData(value);
+  const normalizedSettings = normalizePlannerSettings(settings);
+  const today = getLocalDateKey(date);
+  const weekDateSet = new Set(getWeekDateKeys(date));
+  const reviewDates = normalizedSettings.targetRemindersEnabled
+    ? getTargetReviewDateKeys(normalizedSettings, date)
+    : [];
+  const reviewDateSet = new Set(reviewDates);
+
+  const reminders = data.reminders.filter((item) => {
+    if (item.completed) return true;
+    if (item.id.startsWith(DAILY_TARGET_REMINDER_PREFIX)) {
+      return normalizedSettings.targetRemindersEnabled || item.date < today;
+    }
+    if (item.id.startsWith(REVIEW_TARGET_REMINDER_PREFIX) && weekDateSet.has(item.date)) {
+      return normalizedSettings.targetRemindersEnabled && reviewDateSet.has(item.date);
+    }
+    return true;
+  });
+
+  if (!normalizedSettings.targetRemindersEnabled) {
+    return normalizePlannerData({ ...data, reminders });
+  }
+
+  const dailyTarget = normalizedSettings.dailyStudyTarget;
+  const dailyTargetLabel = Number.isInteger(dailyTarget) ? String(dailyTarget) : dailyTarget.toFixed(1);
+  const createdAt = date.toISOString();
+  upsertGeneratedReminder(reminders, {
+    id: `${DAILY_TARGET_REMINDER_PREFIX}${today}`,
+    title: `Daily study target · ${dailyTargetLabel}h`,
+    notes: `Complete ${dailyTargetLabel} focused study hours today. Each completed planner session counts as one focused hour.`,
+    date: today,
+    time: "18:00",
+    priority: "medium",
+  }, createdAt);
+
+  const weeklyTarget = getWeeklyReviewTargetCount(normalizedSettings.weeklyReviewTarget);
+  reviewDates.forEach((reviewDate, index) => {
+    upsertGeneratedReminder(reminders, {
+      id: `${REVIEW_TARGET_REMINDER_PREFIX}${reviewDate}`,
+      title: weeklyTarget === 7 ? "Daily knowledge review" : `Weekly review · ${index + 1} of ${weeklyTarget}`,
+      notes: `Scheduled from your ${weeklyTarget === 7 ? "daily" : `${weeklyTarget}-per-week`} review target. Recall key ideas, check weak areas, and adjust upcoming tasks.`,
+      date: reviewDate,
+      time: "19:00",
+      priority: "medium",
+    }, createdAt);
+  });
+
+  return normalizePlannerData({ ...data, reminders });
+}
+
+function getScheduleDayNumber(scheduleStartDate, date) {
+  const start = new Date(scheduleStartDate);
+  if (!scheduleStartDate || Number.isNaN(start.getTime())) return null;
+  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  const currentUtc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.floor((currentUtc - startUtc) / 86400000) + 1;
+}
+
+export function calculateStudyTargetPerformance({
+  schedule = [],
+  completed = [],
+  plannerData,
+  settings,
+  scheduleStartDate,
+} = {}, date = new Date()) {
+  const normalizedSettings = normalizePlannerSettings(settings);
+  const data = normalizePlannerData(plannerData);
+  const dayNumber = getScheduleDayNumber(scheduleStartDate, date);
+  const daySchedule = Number.isInteger(dayNumber)
+    ? schedule.find((item) => Number(item?.day) === dayNumber)
+    : null;
+  const todayTasks = Array.isArray(daySchedule?.tasks) ? daySchedule.tasks : [];
+  const completedSet = new Set(Array.isArray(completed) ? completed : []);
+  const completedHours = todayTasks.filter((task) => completedSet.has(String(task?.task || ""))).length;
+  const dailyTargetHours = normalizedSettings.dailyStudyTarget;
+  const weeklyReviewTarget = getWeeklyReviewTargetCount(normalizedSettings.weeklyReviewTarget);
+  const weekDateSet = new Set(getWeekDateKeys(date));
+  const completedReviews = data.reminders.filter((item) => (
+    item.id.startsWith(REVIEW_TARGET_REMINDER_PREFIX)
+    && item.completed
+    && weekDateSet.has(item.date)
+  )).length;
+
+  return {
+    scheduleMapped: Boolean(daySchedule),
+    plannedHours: todayTasks.length,
+    completedHours,
+    dailyTargetHours,
+    dailyRemainingHours: Math.max(0, dailyTargetHours - completedHours),
+    dailyProgress: Math.min(100, Math.round((completedHours / dailyTargetHours) * 100)),
+    completedReviews,
+    weeklyReviewTarget,
+    weeklyReviewProgress: Math.min(100, Math.round((completedReviews / weeklyReviewTarget) * 100)),
+  };
 }
 
 export function postponeGoalToTomorrow(goal, date = new Date()) {
