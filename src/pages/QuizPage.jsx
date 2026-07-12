@@ -5,6 +5,10 @@ import jsPDF from "jspdf";
 import { toast } from "react-toastify";
 import { Download, Search, Trash2, Check, X } from "lucide-react";
 import api from "../utils/apiClient";
+import {
+  academicProfilePayload,
+  buildLearnerAcademicContext,
+} from "../utils/academicProfile";
 
 const QUIZ_HISTORY_PER_PAGE = 6;
 
@@ -82,6 +86,11 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
 
   const selectedSubject = subjectName || subjects[0]?.name || "General study";
   const cleanTopic = topic.trim();
+  const learnerContext = buildLearnerAcademicContext({
+    ...userProfile,
+    academicLevel,
+    academicTrack,
+  });
 
   const filteredAttempts = historySearchQuery.trim()
     ? attempts
@@ -235,9 +244,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
       setQuizMeta(null);
 
       const payload = await api.generateQuiz({
-        academicLevel,
-        academicTrack,
-        department: userProfile?.department || "",
+        ...academicProfilePayload(learnerContext),
         subjectName: selectedSubject,
         topic: cleanTopic,
         limit: questionLimit,
@@ -261,9 +268,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
     try {
       setSaveError("");
       const payload = await api.saveQuizAttempt({
-        academicLevel,
-        academicTrack,
-        department: userProfile?.department || "",
+        ...academicProfilePayload(learnerContext),
         subjectName: selectedSubject,
         topic: cleanTopic,
         total: questions.length,
@@ -304,8 +309,10 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
           <span className="section-tag">Adaptive setup</span>
           <h3>Build a quiz from your exact topic</h3>
           <p className="card-subtext">
-            Level: {academicLevel}. Stream: {academicTrack}
-            {userProfile?.department ? `. Department: ${userProfile.department}` : ""}. Questions are generated from the topic, not from app features.
+            Stage: {learnerContext.academicLevel}. {learnerContext.grade ? `Class: ${learnerContext.grade}. ` : ""}
+            {learnerContext.degree ? `Qualification: ${learnerContext.degree}. ` : ""}
+            Pathway: {learnerContext.academicTrack}{learnerContext.department ? `. Specialization: ${learnerContext.department}` : ""}.
+            Questions stay inside this learner profile and the entered topic.
           </p>
         </div>
 

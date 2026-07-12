@@ -37,8 +37,18 @@ import {
   X,
 } from "lucide-react";
 import api from "../utils/apiClient";
-import { exportExamResultPdf, exportQuestionPaperPdf } from "../utils/examPaperPdf";
+import {
+  exportExamCertificatePdf,
+  exportExamResultPdf,
+  exportQuestionPaperPdf,
+} from "../utils/examPaperPdf";
+import {
+  formatExamPercentage,
+  getExamCertificate,
+  getExamCertificateId,
+} from "../utils/examCertificate";
 import { EXAM_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
+import { academicProfilePayload } from "../utils/academicProfile";
 import "./ExamPage.css";
 
 const TOTAL_MARK_OPTIONS = [30, 40, 50, 60, 70, 80, 90, 100];
@@ -665,14 +675,12 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
         questionStyle,
         programmingLanguage,
         paperTitle,
+        ...academicProfilePayload({ ...userProfile, academicLevel, academicTrack }),
         institutionName,
         instructions,
         internalChoice,
         shuffleQuestions,
         includeAnswerKey,
-        academicLevel,
-        academicTrack,
-        department: userProfile?.department || "",
       }, { timeoutMs: 240000 });
       const paper = unwrapOne(payload, ["paper"]);
       setGeneratedPaper(paper);
@@ -822,9 +830,107 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
   );
 }
 
-function ResultsPanel({ results, onRefresh }) {
+function certificateStudentName(userProfile) {
+  const profileName = userProfile?.username || userProfile?.fullName || userProfile?.name;
+  if (String(profileName || "").trim()) return String(profileName).trim();
+  const emailName = String(userProfile?.email || "").split("@")[0].replace(/[._-]+/g, " ").trim();
+  if (!emailName) return "PrepMatrix Student";
+  return emailName.replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function CertificateModal({ result, userProfile, onClose }) {
+  const certificate = getExamCertificate(result);
+  const studentName = certificateStudentName(userProfile);
+  const institutionName = userProfile?.institutionName || "PrepMatrix AI";
+
+  useEffect(() => {
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  if (!certificate) return null;
+
+  const subject = result?.subjectName || result?.subject || "Online Exam";
+  const examTitle = result?.title || result?.examTitle || `${subject} Online Exam`;
+  const score = result?.score ?? result?.correctCount ?? 0;
+  const total = result?.total ?? result?.totalQuestions ?? 40;
+  const percentage = formatExamPercentage(result);
+  const certificateId = getExamCertificateId(result);
+
+  const exportCertificate = () => {
+    try {
+      const exported = exportExamCertificatePdf(result, { studentName, institutionName });
+      if (exported) toast.success(`${certificate.label} certificate exported.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not export the certificate.");
+    }
+  };
+
+  return createPortal(
+    <div className="exam-certificate-modal" role="presentation" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
+      <section className={`exam-certificate-dialog is-${certificate.key}`} role="dialog" aria-modal="true" aria-labelledby="exam-certificate-title">
+        <header>
+          <div>
+            <span className="section-tag">Achievement unlocked</span>
+            <h2 id="exam-certificate-title">{certificate.label} certificate</h2>
+          </div>
+          <button className="exam-close-btn" aria-label="Close certificate" onClick={onClose} type="button"><X size={17} /></button>
+        </header>
+
+        <div className="exam-certificate-scroll">
+          <article className="exam-certificate-sheet">
+            <span className="exam-certificate-corner is-top" aria-hidden="true" />
+            <span className="exam-certificate-corner is-bottom" aria-hidden="true" />
+
+            <div className="exam-certificate-brand">
+              <span><Award size={23} /></span>
+              <div><strong>{institutionName}</strong><small>Powered by PrepMatrix AI</small></div>
+            </div>
+
+            <div className="exam-certificate-copy">
+              <span>{certificate.label} distinction</span>
+              <h2>Certificate <small>of Achievement</small></h2>
+              <p>This certificate is proudly presented to</p>
+              <h3>{studentName}</h3>
+              <p>for successfully completing the assessment</p>
+              <h4>{examTitle}</h4>
+              <p>with a score of <strong>{score}/{total} ({percentage}%)</strong>, earning the {certificate.label} achievement badge.</p>
+            </div>
+
+            <div className="exam-certificate-badge" aria-label={`${certificate.label} achievement badge`}>
+              <Award size={36} strokeWidth={1.5} />
+              <strong>{certificate.label}</strong>
+              <small>Achievement</small>
+            </div>
+
+            <dl className="exam-certificate-details">
+              <div><dt>Awarded for</dt><dd>{subject}</dd></div>
+              <div><dt>Completion date</dt><dd>{formatDate(result?.submittedAt, false)}</dd></div>
+              <div><dt>Certificate ID</dt><dd>{certificateId}</dd></div>
+            </dl>
+          </article>
+        </div>
+
+        <footer>
+          <span>The {certificate.label} badge is embedded in the exported PDF.</span>
+          <button className="exam-compact-btn is-primary" onClick={exportCertificate} type="button"><Download size={15} /> Export certificate</button>
+        </footer>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+function ResultsPanel({ results, onRefresh, userProfile }) {
   const [selectedResult, setSelectedResult] = useState(null);
+  const [selectedCertificate, setSelectedCertificate] = useState(null);
   const [loadingId, setLoadingId] = useState("");
+  const selectedResultCertificate = getExamCertificate(selectedResult);
 
   const openResult = async (item) => {
     const id = getId(item);
@@ -906,10 +1012,19 @@ function ResultsPanel({ results, onRefresh }) {
             </div>
             <footer>
               <span>Submission: {String(selectedResult.submissionReason || "manual").replaceAll("_", " ")}</span>
-              <button className="exam-compact-btn is-primary" onClick={() => exportExamResultPdf(selectedResult)} type="button"><Download size={15} /> Export result</button>
+              <div className="exam-result-footer-actions">
+                {selectedResultCertificate && (
+                  <button className={`exam-compact-btn is-certificate is-${selectedResultCertificate.key}`} onClick={() => setSelectedCertificate(selectedResult)} type="button"><Award size={15} /> View certificate</button>
+                )}
+                <button className="exam-compact-btn is-primary" onClick={() => exportExamResultPdf(selectedResult)} type="button"><Download size={15} /> Export result</button>
+              </div>
             </footer>
           </section>
         </div>
+      )}
+
+      {selectedCertificate && (
+        <CertificateModal onClose={() => setSelectedCertificate(null)} result={selectedCertificate} userProfile={userProfile} />
       )}
     </section>
   );
@@ -1077,9 +1192,7 @@ function ExamPage({
         subjectName,
         scopeText,
         difficulty,
-        academicLevel,
-        academicTrack,
-        department: userProfile?.department || "",
+        ...academicProfilePayload({ ...userProfile, academicLevel, academicTrack }),
       }, { timeoutMs: 240000 });
       setPreparedExam(unwrapOne(payload, ["exam"]));
       toast.success("Your secure 40-question exam is ready.");
@@ -1272,7 +1385,7 @@ function ExamPage({
         </>
       )}
 
-      {section === "results" && <ResultsPanel onRefresh={loadResults} results={results} />}
+      {section === "results" && <ResultsPanel onRefresh={loadResults} results={results} userProfile={userProfile} />}
 
       <OfflineExamTimer paperMinutes={paperMinutes} />
 

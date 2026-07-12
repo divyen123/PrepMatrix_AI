@@ -1,4 +1,9 @@
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
+import {
+  formatExamPercentage,
+  getExamCertificate,
+  getExamCertificateId,
+} from "./examCertificate.js";
 
 const PAGE = { width: 210, height: 297, left: 18, right: 18, top: 18, bottom: 18 };
 
@@ -220,4 +225,179 @@ export function exportExamResultPdf(result) {
 
   writer.finish();
   pdf.save(`${cleanFilename(subject, "Exam")}_Result.pdf`);
+}
+
+function formatCertificateDate(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "Date not available";
+  return new Intl.DateTimeFormat("en", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function drawCertificateBadge(pdf, certificate, centerX, centerY) {
+  const { primary, dark, light } = certificate.colors;
+
+  pdf.setFillColor(...dark);
+  pdf.triangle(centerX - 19, centerY + 17, centerX - 5, centerY + 13, centerX - 13, centerY + 44, "F");
+  pdf.triangle(centerX + 19, centerY + 17, centerX + 5, centerY + 13, centerX + 13, centerY + 44, "F");
+
+  pdf.setFillColor(...light);
+  pdf.setDrawColor(...primary);
+  pdf.setLineWidth(2.2);
+  pdf.circle(centerX, centerY, 27, "FD");
+  pdf.setFillColor(...primary);
+  pdf.setDrawColor(...dark);
+  pdf.setLineWidth(0.8);
+  pdf.circle(centerX, centerY, 21, "FD");
+  pdf.setDrawColor(255, 255, 255);
+  pdf.setLineWidth(0.45);
+  pdf.circle(centerX, centerY, 17, "S");
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(certificate.label.length > 6 ? 12 : 14);
+  pdf.text(certificate.label.toUpperCase(), centerX, centerY - 1.5, { align: "center" });
+  pdf.setFontSize(6.5);
+  pdf.text("ACHIEVEMENT", centerX, centerY + 7, { align: "center" });
+}
+
+export function createExamCertificatePdf(result, options = {}) {
+  const certificate = getExamCertificate(result);
+  if (!certificate) return null;
+
+  const studentName = asText(options.studentName, "PrepMatrix Student").trim() || "PrepMatrix Student";
+  const institutionName = asText(options.institutionName, "PrepMatrix AI").trim() || "PrepMatrix AI";
+  const subject = result?.subjectName || result?.subject || result?.exam?.subjectName || "Online Exam";
+  const examTitle = result?.title || result?.examTitle || `${subject} Online Exam`;
+  const score = Number(result?.score ?? result?.correctCount ?? 0);
+  const total = Number(result?.total ?? result?.totalQuestions ?? 40);
+  const percentage = formatExamPercentage(result);
+  const certificateId = getExamCertificateId(result);
+  const issuedDate = formatCertificateDate(result?.submittedAt);
+  const { primary, dark, light } = certificate.colors;
+
+  const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const contentLeft = 28;
+  const contentWidth = 185;
+  const badgeX = 249;
+
+  pdf.setProperties({
+    title: `${certificate.label} Certificate - ${studentName}`,
+    subject: `${examTitle} achievement certificate`,
+    author: "PrepMatrix AI",
+    creator: "PrepMatrix AI",
+  });
+
+  pdf.setFillColor(253, 252, 247);
+  pdf.rect(0, 0, pageWidth, pageHeight, "F");
+  pdf.setFillColor(...light);
+  pdf.rect(0, 0, 9, pageHeight, "F");
+  pdf.setFillColor(...primary);
+  pdf.rect(9, 0, 2.2, pageHeight, "F");
+
+  pdf.setDrawColor(...primary);
+  pdf.setLineWidth(1.5);
+  pdf.roundedRect(15, 13, pageWidth - 30, pageHeight - 26, 3, 3, "S");
+  pdf.setDrawColor(...dark);
+  pdf.setLineWidth(0.35);
+  pdf.roundedRect(19, 17, pageWidth - 38, pageHeight - 34, 2, 2, "S");
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(...dark);
+  pdf.setFontSize(10);
+  pdf.text(institutionName.toUpperCase(), contentLeft, 32);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(91, 101, 117);
+  pdf.setFontSize(7.5);
+  pdf.text("POWERED BY PREPMATRIX AI", contentLeft, 39);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(...dark);
+  pdf.setFontSize(28);
+  pdf.text("CERTIFICATE", contentLeft, 65);
+  pdf.setFontSize(14);
+  pdf.setTextColor(...primary);
+  pdf.text("OF ACHIEVEMENT", contentLeft, 76);
+
+  pdf.setDrawColor(...primary);
+  pdf.setLineWidth(0.8);
+  pdf.line(contentLeft, 83, contentLeft + 64, 83);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(91, 101, 117);
+  pdf.setFontSize(9);
+  pdf.text("This certificate is proudly presented to", contentLeft, 96);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(26, 34, 48);
+  pdf.setFontSize(studentName.length > 32 ? 21 : 25);
+  const studentLines = pdf.splitTextToSize(studentName, contentWidth);
+  pdf.text(studentLines.slice(0, 2), contentLeft, 110);
+  const nameBottom = 110 + Math.max(0, studentLines.slice(0, 2).length - 1) * 9;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(91, 101, 117);
+  pdf.setFontSize(9);
+  pdf.text("for successfully completing the assessment", contentLeft, nameBottom + 13);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(...dark);
+  pdf.setFontSize(13);
+  const titleLines = pdf.splitTextToSize(examTitle, contentWidth);
+  pdf.text(titleLines.slice(0, 2), contentLeft, nameBottom + 27);
+  const titleBottom = nameBottom + 27 + Math.max(0, titleLines.slice(0, 2).length - 1) * 5.5;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(76, 86, 102);
+  pdf.setFontSize(9);
+  pdf.text(
+    `with a score of ${score}/${total} (${percentage}%), earning the ${certificate.label} achievement badge.`,
+    contentLeft,
+    titleBottom + 12,
+  );
+
+  drawCertificateBadge(pdf, certificate, badgeX, 82);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(...dark);
+  pdf.setFontSize(12);
+  pdf.text(`${certificate.label} Certificate`, badgeX, 132, { align: "center" });
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(91, 101, 117);
+  pdf.setFontSize(8);
+  pdf.text(`${percentage}% achievement`, badgeX, 141, { align: "center" });
+
+  pdf.setDrawColor(208, 213, 221);
+  pdf.setLineWidth(0.35);
+  pdf.line(contentLeft, 171, pageWidth - 28, 171);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(91, 101, 117);
+  pdf.setFontSize(7.5);
+  pdf.text("AWARDED FOR", contentLeft, 180);
+  pdf.text("COMPLETION DATE", 111, 180);
+  pdf.text("CERTIFICATE ID", 198, 180);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(36, 46, 62);
+  pdf.setFontSize(8.5);
+  pdf.text(subject, contentLeft, 189, { maxWidth: 72 });
+  pdf.text(issuedDate, 111, 189);
+  pdf.text(certificateId, 198, 189);
+
+  return pdf;
+}
+
+export function exportExamCertificatePdf(result, options = {}) {
+  const certificate = getExamCertificate(result);
+  const pdf = createExamCertificatePdf(result, options);
+  if (!certificate || !pdf) return false;
+
+  const studentName = options.studentName || "PrepMatrix Student";
+  const subject = result?.subjectName || result?.subject || "Exam";
+  pdf.save(`${cleanFilename(studentName, "Student")}_${cleanFilename(subject, "Exam")}_${certificate.label}_Certificate.pdf`);
+  return true;
 }

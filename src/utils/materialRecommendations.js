@@ -1,4 +1,6 @@
-﻿const SUBJECT_PROFILES = [
+import { buildLearnerAcademicContext } from "./academicProfile.js";
+
+const SUBJECT_PROFILES = [
   {
     matchers: ["math", "daa", "ds", "algorithm", "calculus", "statistics"],
     trackLabel: "Problem-solving track",
@@ -90,10 +92,6 @@ const LEVEL_PROFILES = {
   },
 };
 
-function getClassNumber(academicLevel = "") {
-  const match = String(academicLevel).match(/class\s*(\d+)/i);
-  return match ? Number(match[1]) : null;
-}
 function toSearchUrl(query, provider = "google") {
   const encoded = encodeURIComponent(query);
 
@@ -105,25 +103,24 @@ function toSearchUrl(query, provider = "google") {
 }
 
 export function getLevelProfile(academicLevel = "College") {
-  const classNumber = getClassNumber(academicLevel);
+  const learner = buildLearnerAcademicContext({ academicLevel });
+  const schoolProfile = LEVEL_PROFILES[learner.band];
 
-  if (!classNumber) {
-    return LEVEL_PROFILES.college;
+  if (!schoolProfile) {
+    return {
+      ...LEVEL_PROFILES.college,
+      queryPrefix: learner.academicLevel.toLowerCase(),
+      label: `${learner.academicLevel} depth`,
+      guidance: `${learner.stageGuidance} Use precise references, applied examples, and practice appropriate to this qualification.`,
+    };
   }
 
-  const group =
-    classNumber <= 5
-      ? LEVEL_PROFILES.primary
-      : classNumber <= 8
-        ? LEVEL_PROFILES.middle
-        : classNumber <= 10
-          ? LEVEL_PROFILES.secondary
-          : LEVEL_PROFILES.senior;
-
   return {
-    ...group,
-    queryPrefix: `class ${classNumber}`,
-    label: `Class ${classNumber} ${group.labelSuffix}`,
+    ...schoolProfile,
+    queryPrefix: learner.classNumber ? `class ${learner.classNumber}` : learner.academicLevel.toLowerCase(),
+    label: learner.classNumber
+      ? `Class ${learner.classNumber} ${schoolProfile.labelSuffix}`
+      : `${learner.academicLevel} ${schoolProfile.labelSuffix}`,
   };
 }
 

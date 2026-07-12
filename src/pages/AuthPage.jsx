@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  CLASS_OPTIONS,
+  ACADEMIC_LEVEL_OPTIONS,
   DEPARTMENT_OPTIONS,
+  SCHOOL_CLASS_OPTIONS,
   TRACK_OPTIONS,
-} from "../utils/userStore";
+  academicProfilePayload,
+  isSchoolAcademicLevel,
+} from "../utils/academicProfile";
 import api from "../utils/apiClient";
 import Antigravity from "../components/Antigravity";
 
@@ -12,8 +15,10 @@ const emptyProfile = {
   email: "",
   password: "",
   institutionName: "",
-  academicLevel: "College",
+  academicLevel: "Undergraduate / Bachelor's",
   academicTrack: "General",
+  grade: "",
+  degree: "",
   department: "Computer Science",
 };
 
@@ -58,7 +63,11 @@ function AuthPage({ onLogin }) {
 
     try {
       const result = isRegister
-        ? await api.register(form)
+        ? await api.register({
+            ...form,
+            ...academicProfilePayload(form),
+            institutionName: form.institutionName.trim(),
+          })
         : await api.login({ email: form.email, password: form.password });
 
       if (isRegister) {
@@ -150,19 +159,19 @@ function AuthPage({ onLogin }) {
               </label>
 
               <label className="field-stack">
-                Class / level
+                Academic stage
                 <select
                   onChange={(event) => updateField("academicLevel", event.target.value)}
                   value={form.academicLevel}
                 >
-                  {CLASS_OPTIONS.map((option) => (
+                  {ACADEMIC_LEVEL_OPTIONS.map((option) => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
               </label>
 
               <label className="field-stack">
-                Board / stream
+                Board / curriculum / field
                 <select
                   onChange={(event) => updateField("academicTrack", event.target.value)}
                   value={form.academicTrack}
@@ -173,9 +182,30 @@ function AuthPage({ onLogin }) {
                 </select>
               </label>
 
-              {form.academicLevel === "College" && (
+              {isSchoolAcademicLevel(form.academicLevel) ? (
                 <label className="field-stack auth-field-full">
-                  Department
+                  Exact class
+                  <select onChange={(event) => updateField("grade", event.target.value)} value={form.grade}>
+                    <option value="">Choose class</option>
+                    {SCHOOL_CLASS_OPTIONS.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <label className="field-stack auth-field-full">
+                  Degree / qualification
+                  <input
+                    onChange={(event) => updateField("degree", event.target.value)}
+                    placeholder="e.g. B.Tech IT, MBBS, LLB, M.Sc"
+                    value={form.degree}
+                  />
+                </label>
+              )}
+
+              {!isSchoolAcademicLevel(form.academicLevel) && (
+                <label className="field-stack auth-field-full">
+                  Department / specialization
                   <select
                     onChange={(event) => updateField("department", event.target.value)}
                     value={form.department}

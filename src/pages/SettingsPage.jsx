@@ -1,6 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { Save, Shield, Palette, User, Check, Settings2, Target, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil } from "lucide-react";
 import api from "../utils/apiClient";
+import {
+  ACADEMIC_LEVEL_OPTIONS,
+  DEPARTMENT_OPTIONS,
+  SCHOOL_CLASS_OPTIONS,
+  TRACK_OPTIONS,
+  academicProfilePayload,
+  isSchoolAcademicLevel,
+  normalizeAcademicProfile,
+} from "../utils/academicProfile";
 import BACKGROUND_PRESETS from "../utils/backgroundPresets";
 import {
   disableStudyReminders,
@@ -59,18 +68,39 @@ function SettingsPage({
   darkMode, setDarkMode, subjects, schedule, completed, materialBookmarks,
   academicLevel, academicTrack, setSubjects, setSchedule, setCompleted,
   setMaterialBookmarks, setNotification, onAccountDeleted,
+  onAcademicProfileChange,
   cursorStyle: parentCursorStyle, setCursorStyle: setParentCursorStyle
 }) {
+  const initialAcademicProfile = normalizeAcademicProfile({
+    ...userProfile,
+    academicLevel: academicLevel || userProfile?.academicLevel,
+    academicTrack: academicTrack || userProfile?.academicTrack,
+  });
   // Account settings state
   const [username, setUsername] = useState(userProfile?.username || "");
   const [age, setAge] = useState(userProfile?.age || "");
-  const [schoolType, setSchoolType] = useState(userProfile?.schoolType || "college");
   const [institutionName, setInstitutionName] = useState(userProfile?.institutionName || "");
-  const [grade, setGrade] = useState(userProfile?.grade || "");
-  const [degree, setDegree] = useState(userProfile?.degree || "");
+  const [educationStage, setEducationStage] = useState(initialAcademicProfile.academicLevel);
+  const [profileTrack, setProfileTrack] = useState(initialAcademicProfile.academicTrack);
+  const [department, setDepartment] = useState(initialAcademicProfile.department);
+  const [grade, setGrade] = useState(initialAcademicProfile.grade);
+  const [degree, setDegree] = useState(initialAcademicProfile.degree);
   const [profileImage, setProfileImage] = useState(userProfile?.profileImage || "");
   const [savingProfile, setSavingProfile] = useState(false);
   const profileImageInputRef = useRef(null);
+
+  useEffect(() => {
+    const normalizedProfile = normalizeAcademicProfile({
+      ...userProfile,
+      academicLevel: academicLevel || userProfile?.academicLevel,
+      academicTrack: academicTrack || userProfile?.academicTrack,
+    });
+    setEducationStage(normalizedProfile.academicLevel);
+    setProfileTrack(normalizedProfile.academicTrack);
+    setDepartment(normalizedProfile.department);
+    setGrade(normalizedProfile.grade);
+    setDegree(normalizedProfile.degree);
+  }, [academicLevel, academicTrack, userProfile]);
 
   // Security state
   const [email, setEmail] = useState(userProfile?.email || "");
@@ -584,24 +614,31 @@ function SettingsPage({
     if (savingProfile) return;
     setSavingProfile(true);
     try {
+      const normalizedAcademic = normalizeAcademicProfile({
+        academicLevel: educationStage,
+        academicTrack: profileTrack,
+        department,
+        grade,
+        degree,
+        institutionName,
+      });
       const payload = {
         username,
         age: Number(age) || null,
-        schoolType,
-        institutionName,
-        academicLevel: schoolType === "school" ? "School" : "College",
-        academicTrack: schoolType === "school" ? "School Board" : "General",
-        grade: schoolType === "school" ? grade : "",
-        degree: schoolType === "college" ? degree : "",
+        ...academicProfilePayload(normalizedAcademic),
+        institutionName: institutionName.trim(),
         profileImage,
       };
 
       const response = await api.updateProfile(payload);
       setUserProfile(response.user);
 
-      // Update parent hooks
-      setAcademicLevel(response.user.academicLevel);
-      setAcademicTrack(response.user.academicTrack);
+      if (onAcademicProfileChange) {
+        onAcademicProfileChange(response.user, { persist: false });
+      } else {
+        setAcademicLevel?.(response.user.academicLevel);
+        setAcademicTrack?.(response.user.academicTrack);
+      }
 
       toast.success("Account profile updated successfully!");
     } catch (error) {
@@ -1084,13 +1121,14 @@ function SettingsPage({
 
           <div className="form-grid">
             <label className="field-stack">
-              <span>Education Level</span>
+              <span>Academic Stage</span>
               <select
-                value={schoolType}
-                onChange={(e) => setSchoolType(e.target.value)}
+                value={educationStage}
+                onChange={(e) => setEducationStage(e.target.value)}
               >
-                <option value="school">School</option>
-                <option value="college">College / University</option>
+                {[...new Set([educationStage, ...ACADEMIC_LEVEL_OPTIONS].filter(Boolean))].map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
               </select>
             </label>
             <label className="field-stack">
@@ -1103,15 +1141,19 @@ function SettingsPage({
             </label>
           </div>
 
-          <div>
-            {schoolType === "school" ? (
+          <div className="form-grid">
+            {isSchoolAcademicLevel(educationStage) ? (
               <label className="field-stack">
                 <span>Grade / Class</span>
-                <input
+                <select
                   value={grade}
                   onChange={(e) => setGrade(e.target.value)}
-                  placeholder="e.g. Grade 10, Class A"
-                />
+                >
+                  <option value="">Select class</option>
+                  {[...new Set([grade, ...SCHOOL_CLASS_OPTIONS].filter(Boolean))].map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
               </label>
             ) : (
               <label className="field-stack">
@@ -1119,11 +1161,34 @@ function SettingsPage({
                 <input
                   value={degree}
                   onChange={(e) => setDegree(e.target.value)}
-                  placeholder="e.g. B.S. Computer Science"
+                  placeholder="e.g. B.Tech IT, MBBS, LLB, M.Sc"
                 />
               </label>
             )}
+            <label className="field-stack">
+              <span>{isSchoolAcademicLevel(educationStage) ? "Board / Curriculum" : "Field / Stream"}</span>
+              <select value={profileTrack} onChange={(e) => setProfileTrack(e.target.value)}>
+                {[...new Set([profileTrack, ...TRACK_OPTIONS].filter(Boolean))].map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
           </div>
+
+          {!isSchoolAcademicLevel(educationStage) && (
+            <label className="field-stack">
+              <span>Specialization / Department</span>
+              <input
+                list="settings-department-options"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                placeholder="e.g. Information Technology, Cardiology, Constitutional Law"
+              />
+              <datalist id="settings-department-options">
+                {DEPARTMENT_OPTIONS.map((option) => <option key={option} value={option} />)}
+              </datalist>
+            </label>
+          )}
 
           <button
             onClick={handleSaveAccount}
@@ -1279,7 +1344,7 @@ function SettingsPage({
             </label>
           </div>
 
-          <div className="security-action-row" style={{ display: "flex", justifyContent: "flex-end", gap: "12px", alignItems: "center", marginTop: "8px" }}>
+          <div className="security-action-row">
             {!showOtpInput && (
               <button 
                 type="button" 
@@ -1294,14 +1359,11 @@ function SettingsPage({
               onClick={handleSaveSecurity}
               disabled={isButtonDisabled}
               style={{ 
-                display: "flex", 
-                alignItems: "center", 
-                gap: "8px",
                 opacity: isButtonDisabled ? 0.55 : 1,
                 cursor: isButtonDisabled ? "not-allowed" : "pointer"
               }}
             >
-              <Save size={16} /> Update Credentials
+              <Save size={14} /> Update Credentials
             </button>
           </div>
         </div>

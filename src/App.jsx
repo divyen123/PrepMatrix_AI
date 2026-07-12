@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LogOut,
   Moon,
@@ -28,6 +28,10 @@ import api, { HAS_CONFIGURED_API } from "./utils/apiClient";
 import { reconcileStudyReminders } from "./utils/pushNotifications";
 import BACKGROUND_PRESETS from "./utils/backgroundPresets";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
+import {
+  academicProfilePayload,
+  normalizeAcademicProfile,
+} from "./utils/academicProfile";
 import CustomCursor from "./components/CustomCursor";
 import { SidebarStudyPet } from "./components/StudyPet";
 import "./App.css";
@@ -160,6 +164,8 @@ function RouteLoading() {
 function App() {
   const location = useLocation();
   const saveTimeoutRef = useRef(null);
+  const academicProfileSaveRef = useRef(null);
+  const academicProfileRevisionRef = useRef(0);
   const rewardTimeoutRef = useRef(null);
   const splashTimeoutRef = useRef(null);
   const resetConfirmRef = useRef(null);
@@ -262,15 +268,66 @@ function App() {
             : [],
         }))
       : [];
+    const profileLevel = String(profile?.academicLevel || "").trim();
+    const workspaceLevel = String(workspace?.academicLevel || "").trim();
+    const profileTrack = String(profile?.academicTrack || "").trim();
+    const workspaceTrack = String(workspace?.academicTrack || "").trim();
+    const profileIsGeneric = !profileLevel || /^(school|college|college \/ university)$/i.test(profileLevel);
+    const nextAcademicProfile = normalizeAcademicProfile({
+      ...profile,
+      academicLevel: profileIsGeneric && workspaceLevel ? workspaceLevel : profileLevel || workspaceLevel,
+      academicTrack: profileTrack && profileTrack !== "General" ? profileTrack : workspaceTrack || profileTrack,
+    });
     setSubjects(nextSubjects);
     setSchedule(nextSchedule);
     setCompleted(Array.isArray(workspace?.completed) ? workspace.completed : []);
-    setAcademicLevel(workspace.academicLevel || profile?.academicLevel || "College");
-    setAcademicTrack(workspace.academicTrack || profile?.academicTrack || "General");
+    setAcademicLevel(nextAcademicProfile.academicLevel);
+    setAcademicTrack(nextAcademicProfile.academicTrack);
+    if (profile) {
+      setUserProfile((current) => ({ ...(current || profile), ...nextAcademicProfile }));
+    }
     setMaterialBookmarks(Array.isArray(workspace?.materialBookmarks) ? workspace.materialBookmarks : []);
     setDarkMode(Boolean(workspace.darkMode));
     setScheduleStartDate(workspace.scheduleStartDate || null);
   };
+
+  const updateAcademicProfile = useCallback((patch = {}, options = {}) => {
+    const normalized = normalizeAcademicProfile({
+      ...userProfile,
+      academicLevel,
+      academicTrack,
+      ...patch,
+    });
+
+    setAcademicLevel(normalized.academicLevel);
+    setAcademicTrack(normalized.academicTrack);
+    setUserProfile((current) => current ? { ...current, ...patch, ...normalized } : current);
+
+    if (options.persist === false || !userProfile) return normalized;
+
+    academicProfileRevisionRef.current += 1;
+    const revision = academicProfileRevisionRef.current;
+    if (academicProfileSaveRef.current) {
+      window.clearTimeout(academicProfileSaveRef.current);
+    }
+
+    academicProfileSaveRef.current = window.setTimeout(async () => {
+      try {
+        const response = await api.updateProfile(academicProfilePayload(normalized));
+        if (revision !== academicProfileRevisionRef.current) return;
+        const savedProfile = normalizeAcademicProfile(response.user);
+        setUserProfile((current) => current
+          ? { ...current, ...response.user, ...savedProfile }
+          : { ...response.user, ...savedProfile });
+      } catch (error) {
+        if (revision === academicProfileRevisionRef.current) {
+          setNotification(error instanceof Error ? error.message : "Could not sync the learner profile.");
+        }
+      }
+    }, 450);
+
+    return normalized;
+  }, [academicLevel, academicTrack, userProfile]);
 
   const updateSubjects = (nextSubjects) => {
     setSubjects(Array.isArray(nextSubjects) ? nextSubjects : []);
@@ -1137,8 +1194,7 @@ function App() {
                             <SubjectsPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
-                              setAcademicLevel={setAcademicLevel}
-                              setAcademicTrack={setAcademicTrack}
+                              onAcademicProfileChange={updateAcademicProfile}
                               setSubjects={updateSubjects}
                               subjects={subjects}
                               userProfile={userProfile}
@@ -1242,8 +1298,7 @@ function App() {
                             <SettingsPage
                               userProfile={userProfile}
                               setUserProfile={setUserProfile}
-                              setAcademicLevel={setAcademicLevel}
-                              setAcademicTrack={setAcademicTrack}
+                              onAcademicProfileChange={updateAcademicProfile}
                               darkMode={darkMode}
                               setDarkMode={setDarkMode}
                               subjects={subjects}
