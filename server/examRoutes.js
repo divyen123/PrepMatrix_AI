@@ -5,6 +5,13 @@ import {
   academicProfilePayload,
   buildLearnerAcademicContext,
 } from "../src/utils/academicProfile.js";
+import {
+  canManuallySubmitExam,
+  getExamMinimumSubmitAt,
+  getExamMinimumSubmitRemainingSeconds,
+  MINIMUM_EXAM_SUBMIT_MS,
+  MINIMUM_EXAM_SUBMIT_MINUTES,
+} from "../src/utils/examTiming.js";
 
 const EXAM_QUESTION_COUNT = 40;
 const EXAM_DURATION_MINUTES = 60;
@@ -174,6 +181,8 @@ function examMetadata(exam) {
 }
 
 function activeAttemptPayload(attempt, exam) {
+  const minimumSubmitAt = getExamMinimumSubmitAt(attempt);
+
   return {
     id: publicId(attempt),
     examId: publicId(exam),
@@ -185,6 +194,8 @@ function activeAttemptPayload(attempt, exam) {
     questionCount: exam.questionCount,
     durationMinutes: exam.durationMinutes,
     startedAt: attempt.startedAt,
+    minimumSubmitAt: minimumSubmitAt === null ? null : new Date(minimumSubmitAt),
+    minimumSubmitMinutes: MINIMUM_EXAM_SUBMIT_MINUTES,
     expiresAt: attempt.expiresAt,
     answers: attempt.answers || {},
     violationCount: Number(attempt.violationCount || 0),
@@ -605,6 +616,7 @@ export default function registerExamRoutes(app, dependencies) {
       examId,
       status: "in_progress",
       startedAt,
+      minimumSubmitAt: new Date(startedAt.getTime() + MINIMUM_EXAM_SUBMIT_MS),
       expiresAt: new Date(startedAt.getTime() + EXAM_DURATION_MINUTES * 60 * 1000),
       answers: {},
       violationCount: 0,
@@ -636,7 +648,18 @@ export default function registerExamRoutes(app, dependencies) {
       { _id: attempt._id, userId: req.user._id, status: "in_progress" },
       { $set: { answers, updatedAt } },
     );
-    return res.json({ attempt: { id: publicId(attempt), status: "in_progress", answers, expiresAt: attempt.expiresAt, violationCount: attempt.violationCount || 0 } });
+    const minimumSubmitAt = getExamMinimumSubmitAt(attempt);
+    return res.json({
+      attempt: {
+        id: publicId(attempt),
+        status: "in_progress",
+        answers,
+        expiresAt: attempt.expiresAt,
+        minimumSubmitAt: minimumSubmitAt === null ? null : new Date(minimumSubmitAt),
+        minimumSubmitMinutes: MINIMUM_EXAM_SUBMIT_MINUTES,
+        violationCount: attempt.violationCount || 0,
+      },
+    });
   }));
 
   app.post("/api/exam-attempts/:id/violations", requireAuth(async (req, res) => {
@@ -684,9 +707,41 @@ export default function registerExamRoutes(app, dependencies) {
 
   app.post("/api/exam-attempts/:id/submit", requireAuth(async (req, res) => {
     const db = await getDb();
-    let { attempt, exam } = await loadAttemptAndExam(db, req.user._id, req.params.id);
+    const { attempt: loadedAttempt, exam } = await loadAttemptAndExam(db, req.user._id, req.params.id);
+    let attempt = loadedAttempt;
     if (!attempt || !exam) return res.status(404).json({ error: "Exam attempt not found." });
-    if (attempt.status === "in_progress") attempt = await finalizeAttempt(db, attempt, exam, cleanText(req.body?.reason, "manual"), req.body?.answers);
+    if (attempt.status === "in_progress") {
+      const now = new Date();
+      const expiresAt = attempt.expiresAt ? new Date(attempt.expiresAt) : null;
+      const hasExpired = Boolean(
+        expiresAt
+        && !Number.isNaN(expiresAt.getTime())
+        && expiresAt.getTime() <= now.getTime()
+      );
+
+      if (hasExpired) {
+        attempt = await finalizeAttempt(db, attempt, exam, "time_expired", req.body?.answers);
+      } else {
+        const minimumSubmitAt = getExamMinimumSubmitAt(attempt);
+        if (minimumSubmitAt === null) {
+          return res.status(409).json({
+            code: "EXAM_START_TIME_UNAVAILABLE",
+            error: "The exam start time could not be verified. Refresh the attempt before submitting.",
+          });
+        }
+        if (!canManuallySubmitExam(attempt, now)) {
+          const remainingSeconds = getExamMinimumSubmitRemainingSeconds(attempt, now);
+          return res.status(409).json({
+            code: "EXAM_MINIMUM_DURATION",
+            error: `Submit will be available in ${remainingSeconds} second${remainingSeconds === 1 ? "" : "s"}. The minimum attempt time is ${MINIMUM_EXAM_SUBMIT_MINUTES} minutes.`,
+            minimumSubmitAt: new Date(minimumSubmitAt),
+            minimumSubmitMinutes: MINIMUM_EXAM_SUBMIT_MINUTES,
+            remainingSeconds,
+          });
+        }
+        attempt = await finalizeAttempt(db, attempt, exam, "manual", req.body?.answers);
+      }
+    }
     return res.json({ attempt: resultSummary(attempt, exam), result: resultSummary(attempt, exam) });
   }));
 

@@ -1740,6 +1740,32 @@
   font-weight: 760;
 }
 
+.exam-submit-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  color: #aab6c7;
+  border-color: rgba(156, 172, 194, 0.18);
+  background: rgba(156, 172, 194, 0.07);
+}
+
+.exam-submit-lock {
+  margin: 6px 0 0;
+  color: #fbbf24;
+  font-size: 0.64rem;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.exam-submit-lock.is-ready {
+  color: #86efac;
+}
+
+.exam-question-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .exam-runner__question {
   display: flex;
   min-width: 0;
@@ -2062,7 +2088,8 @@ body.has-bg-image .exam-result-modal > section {
     height: 31px;
   }
 
-  .exam-submit-btn {
+  .exam-submit-btn,
+  .exam-submit-lock {
     display: none;
   }
 

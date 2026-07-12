@@ -49,6 +49,10 @@ import {
 } from "../utils/examCertificate";
 import { EXAM_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 import { academicProfilePayload } from "../utils/academicProfile";
+import {
+  getExamMinimumSubmitRemainingSeconds,
+  MINIMUM_EXAM_SUBMIT_MINUTES,
+} from "../utils/examTiming";
 import "./ExamPage.css";
 
 const TOTAL_MARK_OPTIONS = [30, 40, 50, 60, 70, 80, 90, 100];
@@ -206,6 +210,9 @@ function ExamRunner({ initialAttempt, onFinished }) {
   const [flagged, setFlagged] = useState(() => new Set());
   const [questionIndex, setQuestionIndex] = useState(0);
   const [remaining, setRemaining] = useState(3600);
+  const [minimumSubmitRemaining, setMinimumSubmitRemaining] = useState(() => (
+    getExamMinimumSubmitRemainingSeconds(normalizeAttempt(initialAttempt))
+  ));
   const [fullscreenActive, setFullscreenActive] = useState(() => Boolean(document.fullscreenElement));
   const [warning, setWarning] = useState("");
   const [saveState, setSaveState] = useState("saved");
@@ -223,6 +230,11 @@ function ExamRunner({ initialAttempt, onFinished }) {
   const attemptId = getId(attempt);
 
   const submitExam = useCallback(async (reason = "manual") => {
+    const submitWaitSeconds = getExamMinimumSubmitRemainingSeconds(attempt);
+    if (reason === "manual" && submitWaitSeconds > 0) {
+      toast.info(`Submit unlocks in ${formatClock(submitWaitSeconds)}. The minimum attempt time is ${MINIMUM_EXAM_SUBMIT_MINUTES} minutes.`);
+      return;
+    }
     if (!attemptId || submittingRef.current) return;
     submittingRef.current = true;
     setIsSubmitting(true);
@@ -240,7 +252,7 @@ function ExamRunner({ initialAttempt, onFinished }) {
       setIsSubmitting(false);
       setConfirmSubmit(false);
     }
-  }, [answers, attemptId, onFinished]);
+  }, [answers, attempt, attemptId, onFinished]);
 
   const registerViolation = useCallback(async (type) => {
     const now = Date.now();
@@ -300,6 +312,7 @@ function ExamRunner({ initialAttempt, onFinished }) {
     const update = () => {
       const next = Math.max(0, Math.ceil((expiry - Date.now()) / 1000));
       setRemaining(next);
+      setMinimumSubmitRemaining(getExamMinimumSubmitRemainingSeconds(attempt));
       if (next === 0 && !timedSubmitRef.current) {
         timedSubmitRef.current = true;
         submitExam("time_expired");
@@ -308,7 +321,7 @@ function ExamRunner({ initialAttempt, onFinished }) {
     update();
     const timer = window.setInterval(update, 1000);
     return () => window.clearInterval(timer);
-  }, [attempt.endsAt, attempt.expiresAt, attempt.expiryAt, attempt.remainingSeconds, submitExam]);
+  }, [attempt, submitExam]);
 
   useEffect(() => {
     if (!autosaveReadyRef.current) {
@@ -334,6 +347,8 @@ function ExamRunner({ initialAttempt, onFinished }) {
   }, [answers, attemptId]);
 
   const answeredCount = questions.filter((question) => answers[question.id] !== undefined).length;
+  const manualSubmissionLocked = minimumSubmitRemaining > 0;
+  const manualSubmissionTitle = manualSubmissionLocked ? `Submit unlocks in ${formatClock(minimumSubmitRemaining)}` : "Submit exam";
 
   return createPortal(
     <div className="exam-runner" ref={runnerRef} role="dialog" aria-modal="true" aria-label="Online exam">
@@ -402,7 +417,14 @@ function ExamRunner({ initialAttempt, onFinished }) {
             <span><i className="is-current" /> Current</span>
             <span><i className="is-flagged" /> Flagged</span>
           </div>
-          <button className="exam-submit-btn" onClick={() => setConfirmSubmit(true)} type="button"><FileCheck2 size={17} /> Submit exam</button>
+          <button className="exam-submit-btn" disabled={manualSubmissionLocked} onClick={() => setConfirmSubmit(true)} title={manualSubmissionTitle} type="button">
+            <FileCheck2 size={17} /> {manualSubmissionLocked ? `Submit in ${formatClock(minimumSubmitRemaining)}` : "Submit exam"}
+          </button>
+          <p className={manualSubmissionLocked ? "exam-submit-lock" : "exam-submit-lock is-ready"} role="status">
+            {manualSubmissionLocked
+              ? `${MINIMUM_EXAM_SUBMIT_MINUTES}-minute minimum · ${formatClock(minimumSubmitRemaining)} remaining`
+              : "Minimum attempt time completed"}
+          </p>
         </aside>
 
         <main className="exam-runner__question">
@@ -440,7 +462,13 @@ function ExamRunner({ initialAttempt, onFinished }) {
                 {questionIndex < questions.length - 1 ? (
                   <button className="is-primary" onClick={() => setQuestionIndex((index) => index + 1)} type="button">Next question <ChevronRight size={17} /></button>
                 ) : (
-                  <button className="is-primary" onClick={() => setConfirmSubmit(true)} type="button">Review & submit <FileCheck2 size={17} /></button>
+                  <button
+                    className="is-primary"
+                    disabled={manualSubmissionLocked}
+                    onClick={() => setConfirmSubmit(true)}
+                    title={manualSubmissionTitle}
+                    type="button"
+                  >{manualSubmissionLocked ? `Submit in ${formatClock(minimumSubmitRemaining)}` : "Review & submit"} <FileCheck2 size={17} /></button>
                 )}
               </footer>
             </>
@@ -456,7 +484,7 @@ function ExamRunner({ initialAttempt, onFinished }) {
             <div className="exam-dialog-icon"><FileCheck2 size={22} /></div>
             <h2>Submit this exam?</h2>
             <p>You answered {answeredCount} of {questions.length} questions. Unanswered questions will be recorded as incorrect.</p>
-            <div><button onClick={() => setConfirmSubmit(false)} type="button">Continue exam</button><button className="is-primary" disabled={isSubmitting} onClick={() => submitExam("manual")} type="button">{isSubmitting ? "Submitting..." : "Submit now"}</button></div>
+            <div><button onClick={() => setConfirmSubmit(false)} type="button">Continue exam</button><button className="is-primary" disabled={isSubmitting || manualSubmissionLocked} onClick={() => submitExam("manual")} type="button">{isSubmitting ? "Submitting..." : manualSubmissionLocked ? `Submit in ${formatClock(minimumSubmitRemaining)}` : "Submit now"}</button></div>
           </div>
         </div>
       )}
