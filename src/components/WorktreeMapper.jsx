@@ -572,9 +572,14 @@ function WorktreeMapper() {
             <RotateCcw size={16} />
           </button>
           
-          <button className="secondary-btn worktree-icon-btn" onClick={handleExportPDF} title="Export as PDF">
-            <Download size={16} />
-            <span>Export</span>
+          <button
+            aria-label="Export worktree as PDF"
+            className="secondary-btn worktree-icon-btn"
+            onClick={handleExportPDF}
+            title="Export as PDF"
+            type="button"
+          >
+            <Download aria-hidden="true" size={16} />
           </button>
 
           <button className="secondary-btn worktree-icon-btn" onClick={() => setIsFullscreen(!isFullscreen)}>

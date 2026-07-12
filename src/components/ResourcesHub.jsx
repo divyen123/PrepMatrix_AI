@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search } from "lucide-react";
+import { Check, Search, X } from "lucide-react";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { buildSubjectMaterials } from "../utils/materialRecommendations";
 
@@ -28,6 +28,7 @@ function ResourcesHub({
   subjects = [],
 }) {
   const [bookmarkSearchQuery, setBookmarkSearchQuery] = useState("");
+  const [pendingBookmarkRemovalId, setPendingBookmarkRemovalId] = useState(null);
   const metrics = getPlannerMetrics(schedule, completed);
   const materials = subjects.map((subject) =>
     buildSubjectMaterials(subject, metrics.subjectStats[subject.name], academicLevel, academicTrack)
@@ -140,7 +141,39 @@ function ResourcesHub({
                   <p>{bookmark.provider}</p>
                   <div className="bookmark-actions">
                     <a href={bookmark.href} rel="noreferrer" target="_blank">Open</a>
-                    <button onClick={() => onRemoveBookmark?.(bookmark.id)} type="button">Remove</button>
+                    {pendingBookmarkRemovalId === bookmark.id ? (
+                      <div className="bookmark-remove-confirm" role="group" aria-label={`Confirm removing ${bookmark.title}`}>
+                        <button
+                          aria-label={`Confirm removing ${bookmark.title}`}
+                          className="compact-confirm-btn is-confirm"
+                          onClick={() => {
+                            onRemoveBookmark?.(bookmark.id);
+                            setPendingBookmarkRemovalId(null);
+                          }}
+                          title="Confirm remove"
+                          type="button"
+                        >
+                          <Check aria-hidden="true" size={13} />
+                        </button>
+                        <button
+                          aria-label={`Cancel removing ${bookmark.title}`}
+                          className="compact-confirm-btn is-cancel"
+                          onClick={() => setPendingBookmarkRemovalId(null)}
+                          title="Cancel"
+                          type="button"
+                        >
+                          <X aria-hidden="true" size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        aria-label={`Remove ${bookmark.title} from saved library`}
+                        onClick={() => setPendingBookmarkRemovalId(bookmark.id)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
                 </article>
               ))}

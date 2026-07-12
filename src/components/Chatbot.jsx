@@ -662,24 +662,27 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                 <h3>Chat History</h3>
                 <div className="history-header-actions">
                   {showClearHistoryConfirm ? (
-                    <div className="chat-clear-confirm-inline">
+                    <div className="chat-clear-confirm-inline inline-destructive-confirm">
                       <span className="confirm-text">Clear all?</span>
-                      <div style={{ display: "flex", gap: "6px" }}>
+                      <div className="compact-confirm-actions">
                         <button
-                          className="confirm-yes-btn"
+                          aria-label="Confirm clearing all conversations"
+                          className="compact-confirm-btn is-confirm confirm-yes-btn"
+                          disabled={clearingSessions}
                           onClick={handleClearAllChats}
                           title="Yes, clear all"
                           type="button"
                         >
-                          <Check size={12} />
+                          <Check aria-hidden="true" size={13} />
                         </button>
                         <button
-                          className="confirm-no-btn"
+                          aria-label="Cancel clearing conversations"
+                          className="compact-confirm-btn is-cancel confirm-no-btn"
                           onClick={() => setShowClearHistoryConfirm(false)}
                           title="Cancel"
                           type="button"
                         >
-                          <X size={12} />
+                          <X aria-hidden="true" size={13} />
                         </button>
                       </div>
                     </div>
@@ -757,22 +760,24 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                       ) : deletingSessionId === s._id ? (
                         <div className="delete-confirm-wrap" onClick={(e) => e.stopPropagation()}>
                           <span className="delete-confirm-text">Delete?</span>
-                          <div style={{ display: "flex", gap: "4px" }}>
+                          <div className="compact-confirm-actions">
                             <button
-                              className="delete-yes-btn"
+                              aria-label="Confirm deleting conversation"
+                              className="compact-confirm-btn is-confirm delete-yes-btn"
                               onClick={(e) => handleDeleteSession(e, s._id)}
                               title="Yes, delete"
                               type="button"
                             >
-                              <Check size={12} />
+                              <Check aria-hidden="true" size={13} />
                             </button>
                             <button
-                              className="delete-no-btn"
+                              aria-label="Cancel deleting conversation"
+                              className="compact-confirm-btn is-cancel delete-no-btn"
                               onClick={() => setDeletingSessionId(null)}
                               title="Cancel"
                               type="button"
                             >
-                              <X size={12} />
+                              <X aria-hidden="true" size={13} />
                             </button>
                           </div>
                         </div>

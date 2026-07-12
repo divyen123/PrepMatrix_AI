@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Trash2 } from "lucide-react";
+import { Check, Search, Trash2, X } from "lucide-react";
 import api from "../utils/apiClient";
 
 const NOTES_PER_PAGE = 6;
@@ -80,6 +80,7 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
   const [notesPage, setNotesPage] = useState(1);
   const [notesSearchQuery, setNotesSearchQuery] = useState("");
   const [isNotesLoading, setIsNotesLoading] = useState(true);
+  const [confirmClearNotes, setConfirmClearNotes] = useState(false);
 
   const saveNotes = (nextNotes) => {
     setNotes(nextNotes);
@@ -128,11 +129,14 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
   };
 
   const deleteNote = (id) => {
-    saveNotes(notes.filter((note) => note.id !== id));
+    const nextNotes = notes.filter((note) => note.id !== id);
+    saveNotes(nextNotes);
+    if (nextNotes.length === 0) setConfirmClearNotes(false);
   };
 
   const clearAllNotes = () => {
     if (notes.length === 0) return;
+    setConfirmClearNotes(false);
     saveNotes([]);
     setFilter("All");
     setNotesSearchQuery("");
@@ -350,7 +354,7 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
         </aside>
       </div>
 
-      <section className="card notes-list-card">
+      <section className={`card notes-list-card${confirmClearNotes ? " is-confirming-clear" : ""}`}>
         <div className="notes-list-header">
           <div>
             <span className="section-tag">Stored notes</span>
@@ -379,17 +383,41 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
                 <option value="All">All Notes</option>
                 <option value="Resolved">Resolved</option>
               </select>
-              {notes.length > 0 && (
+              {notes.length > 0 && (confirmClearNotes ? (
+                <div className="notes-clear-confirm-inline inline-destructive-confirm" role="group" aria-label="Confirm clearing all stored notes">
+                  <span className="compact-confirm-copy">Clear all?</span>
+                  <div className="compact-confirm-actions">
+                    <button
+                      aria-label="Confirm clearing all stored notes"
+                      className="compact-confirm-btn is-confirm"
+                      onClick={clearAllNotes}
+                      title="Confirm clear all"
+                      type="button"
+                    >
+                      <Check aria-hidden="true" size={13} />
+                    </button>
+                    <button
+                      aria-label="Cancel clearing stored notes"
+                      className="compact-confirm-btn is-cancel"
+                      onClick={() => setConfirmClearNotes(false)}
+                      title="Cancel"
+                      type="button"
+                    >
+                      <X aria-hidden="true" size={13} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
                 <button
                   aria-label="Clear all stored notes"
                   className="notes-clear-all-btn"
-                  onClick={clearAllNotes}
+                  onClick={() => setConfirmClearNotes(true)}
                   title="Clear all stored notes"
                   type="button"
                 >
-                  <Trash2 size={15} />
+                  <Trash2 aria-hidden="true" size={15} />
                 </button>
-              )}
+              ))}
             </div>
           </div>
         </div>

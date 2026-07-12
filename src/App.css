@@ -18258,12 +18258,7 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)) {
   .update-cred-btn,
   .confirm-danger-btn,
   .reset-confirm-danger,
-  .confirm-yes-btn,
-  .confirm-no-btn,
-  .delete-yes-btn,
-  .delete-no-btn,
   .history-export-btn,
-  .notes-clear-all-btn,
   .new-chat-btn,
   .clear-all-chats-btn,
   .delete-history-btn,
@@ -18331,6 +18326,140 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)) {
 button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)):focus-visible {
   outline: 2px solid rgba(var(--accent-rgb), 0.8);
   outline-offset: 2px;
+}
+
+/* Shared inline confirmation controls for destructive actions. */
+.compact-confirm-actions,
+.bookmark-remove-confirm {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.chat-clear-confirm-inline .compact-confirm-btn,
+.delete-confirm-wrap .compact-confirm-btn,
+.notes-clear-confirm-inline .compact-confirm-btn,
+.bookmark-actions .compact-confirm-btn {
+  display: inline-grid !important;
+  flex: 0 0 28px !important;
+  place-items: center !important;
+  width: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 50% !important;
+  box-sizing: border-box;
+  background: var(--surface-muted) !important;
+  color: var(--text-muted) !important;
+  box-shadow: none !important;
+  line-height: 1 !important;
+}
+
+.chat-clear-confirm-inline .compact-confirm-btn svg,
+.delete-confirm-wrap .compact-confirm-btn svg,
+.notes-clear-confirm-inline .compact-confirm-btn svg,
+.bookmark-actions .compact-confirm-btn svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+  flex: none;
+  stroke-width: 2.5;
+}
+
+.chat-clear-confirm-inline .compact-confirm-btn.is-confirm,
+.delete-confirm-wrap .compact-confirm-btn.is-confirm,
+.notes-clear-confirm-inline .compact-confirm-btn.is-confirm,
+.bookmark-actions .compact-confirm-btn.is-confirm {
+  color: var(--danger) !important;
+  border-color: color-mix(in srgb, var(--danger) 34%, transparent) !important;
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface)) !important;
+}
+
+.chat-clear-confirm-inline .compact-confirm-btn.is-confirm:hover,
+.delete-confirm-wrap .compact-confirm-btn.is-confirm:hover,
+.notes-clear-confirm-inline .compact-confirm-btn.is-confirm:hover,
+.bookmark-actions .compact-confirm-btn.is-confirm:hover {
+  color: #fff !important;
+  border-color: var(--danger) !important;
+  background: var(--danger) !important;
+  transform: translateY(-1px) !important;
+}
+
+.chat-clear-confirm-inline .compact-confirm-btn.is-cancel:hover,
+.delete-confirm-wrap .compact-confirm-btn.is-cancel:hover,
+.notes-clear-confirm-inline .compact-confirm-btn.is-cancel:hover,
+.bookmark-actions .compact-confirm-btn.is-cancel:hover {
+  color: var(--text) !important;
+  border-color: rgba(var(--accent-rgb), 0.32) !important;
+  background: var(--surface-strong) !important;
+  transform: translateY(-1px) !important;
+}
+
+.inline-destructive-confirm {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+  padding: 3px 6px 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border));
+  border-radius: 11px;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+  color: var(--text);
+  box-shadow: none;
+}
+
+.chat-clear-confirm-inline.inline-destructive-confirm {
+  width: 100%;
+  height: auto;
+}
+
+.compact-confirm-copy {
+  color: var(--danger);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.bookmark-remove-confirm {
+  min-width: 61px;
+}
+
+.bookmark-actions {
+  align-items: center;
+}
+
+.notes-clear-all-btn {
+  display: inline-grid !important;
+  flex: 0 0 34px !important;
+  place-items: center !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+}
+
+@media (max-width: 991.98px) {
+  .notes-list-card .notes-clear-confirm-inline {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    z-index: 3;
+  }
+
+  .notes-list-card.is-confirming-clear .notes-list-header {
+    padding-right: 156px !important;
+  }
 }
 
 /* Keep route titles compact throughout the mobile shell without changing desktop. */
