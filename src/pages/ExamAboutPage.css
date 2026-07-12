@@ -172,14 +172,25 @@
 
 .exam-guide-nav {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 11px;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  align-self: flex-start;
+  width: max-content;
+  max-width: 100%;
+  gap: 6px;
+  padding: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
 }
 
 .exam-guide-nav a {
-  flex: 1 1 150px;
-  min-height: 40px;
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 10px;
+  white-space: nowrap;
 }
 
 .exam-guide-workflow,
@@ -479,7 +490,5 @@ body.has-bg-image .exam-guide-page .card {
     grid-template-columns: 1fr;
   }
 
-  .exam-guide-nav a {
-    flex-basis: calc(50% - 4px);
-  }
+
 }

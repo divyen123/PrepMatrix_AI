@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../utils/apiClient";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 
@@ -61,6 +62,7 @@ function drawProgressBar(pdf, x, y, width, percent) {
 }
 
 function ReportPage({ completed, materialBookmarks, schedule, subjects, userProfile }) {
+  const navigate = useNavigate();
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
     [schedule, completed]
@@ -355,6 +357,19 @@ function ReportPage({ completed, materialBookmarks, schedule, subjects, userProf
           <div className="report-score-ring" style={{ "--report-progress": `${Math.min(Math.max(metrics.completionRate, 0), 100)}%` }}>
             <strong>{metrics.completionRate}%</strong>
           </div>
+          {metrics.isExamEligible && (
+            <div className="report-exam-achievement" role="status">
+              <strong>🏆 Exam-ready achievement</strong>
+              <p>You are now eligible to attend the exam</p>
+              <button
+                className="secondary-btn report-exam-btn"
+                onClick={() => navigate("/exam?section=attend")}
+                type="button"
+              >
+                Attend Exam
+              </button>
+            </div>
+          )}
         </section>
       </div>
 

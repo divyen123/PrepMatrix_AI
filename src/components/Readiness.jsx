@@ -1,6 +1,8 @@
+import { useNavigate } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 
 function Readiness({ schedule, completed }) {
+  const navigate = useNavigate();
   const metrics = getPlannerMetrics(schedule, completed);
   const percent = metrics.completionRate;
 
@@ -14,7 +16,8 @@ function Readiness({ schedule, completed }) {
 
   let message = "More practice is still needed.";
   if (percent >= 40 && percent < 70) message = "You are building good readiness.";
-  if (percent >= 70) message = "You are approaching exam-ready territory.";
+  if (percent >= 70 && !metrics.isExamEligible) message = "Complete 80% of your planner to unlock exam mode.";
+  if (metrics.isExamEligible) message = "You are now eligible to attend the exam";
 
   return (
     <section className="card centered-card">
@@ -49,6 +52,16 @@ function Readiness({ schedule, completed }) {
       </div>
 
       <p>{message}</p>
+
+      {metrics.isExamEligible && (
+        <button
+          className="secondary-btn readiness-exam-btn"
+          onClick={() => navigate("/exam?section=attend")}
+          type="button"
+        >
+          Attend Exam
+        </button>
+      )}
     </section>
   );
 }

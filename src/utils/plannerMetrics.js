@@ -12,6 +12,8 @@ export function normalizeTimeSlot(timeLabel = "") {
   return "other";
 }
 
+export const EXAM_ELIGIBILITY_THRESHOLD = 80;
+
 export function getPlannerMetrics(schedule = [], completed = []) {
   const safeSchedule = Array.isArray(schedule) ? schedule : [];
   const safeCompleted = Array.isArray(completed) ? completed : [];
@@ -19,6 +21,7 @@ export function getPlannerMetrics(schedule = [], completed = []) {
   const subjectStats = {};
 
   let totalTasks = 0;
+  let completedTasks = 0;
   let morningCompleted = 0;
   let eveningCompleted = 0;
   let firstPendingTask = null;
@@ -44,6 +47,7 @@ export function getPlannerMetrics(schedule = [], completed = []) {
       subjectStats[subject].total += 1;
 
       if (isDone) {
+        completedTasks += 1;
         subjectStats[subject].done += 1;
 
         const timeSlot = normalizeTimeSlot(task.time);
@@ -56,10 +60,16 @@ export function getPlannerMetrics(schedule = [], completed = []) {
     });
   });
 
-  const completedTasks = Math.min(completedSet.size, totalTasks);
   const remainingTasks = Math.max(totalTasks - completedTasks, 0);
   const completionRate =
     totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+  const requiredCompletedTasks = totalTasks === 0
+    ? 0
+    : Math.ceil((totalTasks * EXAM_ELIGIBILITY_THRESHOLD) / 100);
+  const isExamEligible =
+    totalTasks > 0
+    && completedTasks * 100 >= totalTasks * EXAM_ELIGIBILITY_THRESHOLD;
+  const tasksToExamEligibility = Math.max(requiredCompletedTasks - completedTasks, 0);
 
   const weakSubject = Object.entries(subjectStats)
     .sort(([, left], [, right]) => right.pending - left.pending || left.done - right.done)
@@ -72,6 +82,8 @@ export function getPlannerMetrics(schedule = [], completed = []) {
     completedTasks,
     remainingTasks,
     completionRate,
+    isExamEligible,
+    tasksToExamEligibility,
     firstPendingTask,
     weakSubject,
     todayTasks,

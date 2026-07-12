@@ -70,8 +70,20 @@ function getCompletionReward(schedule = [], previousCompleted = [], nextComplete
   const previousSet = new Set(previousCompleted);
   const nextSet = new Set(nextCompleted);
   const allTaskNames = getTaskNames(schedule);
+  const previousMetrics = getPlannerMetrics(schedule, previousCompleted);
+  const nextMetrics = getPlannerMetrics(schedule, nextCompleted);
   const planWasComplete = allTaskNames.length > 0 && allTaskNames.every((task) => previousSet.has(task));
   const planIsComplete = allTaskNames.length > 0 && allTaskNames.every((task) => nextSet.has(task));
+
+  if (!previousMetrics.isExamEligible && nextMetrics.isExamEligible) {
+    return {
+      icon: "80%",
+      eyebrow: "Exam mode unlocked",
+      title: "You are now eligible to attend the exam",
+      detail: `You completed ${nextMetrics.completedTasks} of ${nextMetrics.totalTasks} scheduled tasks. Secure exam mode is now available.`,
+      tone: "legendary",
+    };
+  }
 
   if (planIsComplete && !planWasComplete) {
     return {
@@ -1189,7 +1201,10 @@ function App() {
                             <ExamPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
+                              examReadiness={metrics.completionRate}
+                              isExamEligible={metrics.isExamEligible}
                               subjects={subjects}
+                              tasksToExamEligibility={metrics.tasksToExamEligibility}
                               userProfile={userProfile}
                             />
                           }

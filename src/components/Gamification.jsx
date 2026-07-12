@@ -1,4 +1,7 @@
-﻿const BADGE_META = {
+import { useNavigate } from "react-router-dom";
+import { getPlannerMetrics } from "../utils/plannerMetrics";
+
+const BADGE_META = {
   "Getting started": {
     icon: "🌱",
     title: "Getting started",
@@ -40,6 +43,8 @@ function getBadge(xp) {
 }
 
 function Gamification({ completed, schedule }) {
+  const navigate = useNavigate();
+  const metrics = getPlannerMetrics(schedule, completed);
   const xp = completed.length * 10;
   const level = Math.floor(xp / 100) + 1;
   const levelProgress = xp % 100;
@@ -84,6 +89,20 @@ function Gamification({ completed, schedule }) {
           <p>{badgeMeta.message}</p>
         </div>
       </div>
+
+      {metrics.isExamEligible && (
+        <div className="exam-eligibility-achievement" role="status">
+          <strong>🏆 Exam-ready achievement</strong>
+          <p>You are now eligible to attend the exam</p>
+          <button
+            className="secondary-btn exam-eligibility-cta"
+            onClick={() => navigate("/exam?section=attend")}
+            type="button"
+          >
+            Attend Exam
+          </button>
+        </div>
+      )}
 
       <div className="momentum-stats-grid">
         <article>

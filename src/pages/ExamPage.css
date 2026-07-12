@@ -1810,3 +1810,169 @@ body.has-bg-image .exam-result-modal > section {
     transition: none !important;
   }
 }
+
+/* Exam eligibility gate */
+.exam-eligibility-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(190px, 270px);
+  align-items: center;
+  gap: 14px;
+  padding: 13px 16px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.exam-eligibility-banner.is-locked {
+  border-color: color-mix(in srgb, var(--exam-warning) 32%, var(--border));
+  background: linear-gradient(105deg, color-mix(in srgb, var(--exam-warning) 8%, transparent), transparent 52%), var(--surface);
+}
+
+.exam-eligibility-banner.is-eligible {
+  border-color: color-mix(in srgb, var(--exam-success) 32%, var(--border));
+  background: linear-gradient(105deg, color-mix(in srgb, var(--exam-success) 9%, transparent), transparent 52%), var(--surface);
+}
+
+.exam-eligibility-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  background: color-mix(in srgb, currentColor 9%, transparent);
+}
+
+.exam-eligibility-banner.is-locked .exam-eligibility-icon {
+  color: var(--exam-warning);
+}
+
+.exam-eligibility-banner.is-eligible .exam-eligibility-icon {
+  color: var(--exam-success);
+}
+
+.exam-eligibility-copy {
+  min-width: 0;
+}
+
+.exam-eligibility-copy > span {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.exam-eligibility-copy strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.exam-eligibility-copy p {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  line-height: 1.42;
+}
+
+.exam-eligibility-progress {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.exam-eligibility-progress progress {
+  width: 100%;
+  height: 7px;
+  overflow: hidden;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--exam-warning);
+}
+
+.exam-eligibility-progress progress::-webkit-progress-bar {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-secondary) 15%, transparent);
+}
+
+.exam-eligibility-progress progress::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--exam-warning);
+}
+
+.exam-eligibility-progress progress::-moz-progress-bar {
+  border-radius: 999px;
+  background: var(--exam-warning);
+}
+
+.exam-eligibility-banner.is-eligible .exam-eligibility-progress progress {
+  color: var(--exam-success);
+}
+
+.exam-eligibility-banner.is-eligible .exam-eligibility-progress progress::-webkit-progress-value,
+.exam-eligibility-banner.is-eligible .exam-eligibility-progress progress::-moz-progress-bar {
+  background: var(--exam-success);
+}
+
+.exam-eligibility-progress strong {
+  min-width: 70px;
+  color: var(--text);
+  font-size: 0.76rem;
+  text-align: right;
+}
+
+.exam-eligibility-progress small {
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+}
+
+.exam-page__tabs button.is-locked:disabled,
+.exam-primary-btn:disabled,
+.exam-feature-card.is-locked:disabled {
+  cursor: not-allowed;
+  transform: none;
+}
+
+.exam-page__tabs button.is-locked:disabled {
+  color: var(--text-secondary);
+  border-color: transparent;
+  background: transparent;
+  opacity: 0.48;
+}
+
+.exam-feature-card.is-locked:disabled {
+  border-color: color-mix(in srgb, var(--exam-warning) 22%, var(--border));
+  opacity: 0.72;
+}
+
+.exam-feature-card.is-locked:disabled b {
+  color: var(--exam-warning);
+}
+
+@media (max-width: 760px) {
+  .exam-eligibility-banner {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .exam-eligibility-progress {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .exam-eligibility-banner {
+    padding: 12px;
+  }
+
+  .exam-eligibility-progress {
+    grid-template-columns: minmax(80px, 1fr) auto;
+  }
+}

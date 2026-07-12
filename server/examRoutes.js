@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { ObjectId } from "mongodb";
+import { EXAM_ELIGIBILITY_THRESHOLD, getPlannerMetrics } from "../src/utils/plannerMetrics.js";
 
 const EXAM_QUESTION_COUNT = 40;
 const EXAM_DURATION_MINUTES = 60;
@@ -13,6 +14,26 @@ const GROQ_RETRYABLE_STATUSES = new Set([408, 429, 498, 500, 502, 503, 504]);
 
 function cleanText(value, fallback = "") {
   return String(value ?? fallback).trim();
+}
+
+function getWorkspaceExamEligibility(workspace = {}) {
+  const metrics = getPlannerMetrics(workspace?.schedule, workspace?.completed);
+
+  return {
+    completionRate: metrics.completionRate,
+    completedTasks: metrics.completedTasks,
+    totalTasks: metrics.totalTasks,
+    tasksToExamEligibility: metrics.tasksToExamEligibility,
+    isExamEligible: metrics.isExamEligible,
+  };
+}
+
+function sendExamEligibilityError(res, eligibility) {
+  return res.status(403).json({
+    code: "EXAM_NOT_ELIGIBLE",
+    error: `Complete at least ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner schedule to attend an exam.`,
+    eligibility,
+  });
 }
 
 function stripJsonFences(content = "") {
@@ -497,6 +518,8 @@ export default function registerExamRoutes(app, dependencies) {
       if (!config.available) return res.status(500).json({ error: config.message });
       const db = await getDb();
       const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
+      const eligibility = getWorkspaceExamEligibility(workspace);
+      if (!eligibility.isExamEligible) return sendExamEligibilityError(res, eligibility);
       const requestedSubject = cleanText(req.body?.subjectName);
       const subject = (workspace?.subjects || []).find((item) => cleanText(item?.name).toLowerCase() === requestedSubject.toLowerCase());
       if (!subject) return res.status(400).json({ error: "Choose a subject saved in your Subjects page." });
@@ -553,6 +576,9 @@ export default function registerExamRoutes(app, dependencies) {
       if (attempt.status !== "in_progress") return res.status(409).json({ error: "This exam has already been submitted.", attempt: resultSummary(attempt, exam) });
       return res.json({ attempt: activeAttemptPayload(attempt, exam) });
     }
+    const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
+    const eligibility = getWorkspaceExamEligibility(workspace);
+    if (!eligibility.isExamEligible) return sendExamEligibilityError(res, eligibility);
     const startedAt = new Date();
     attempt = {
       userId: req.user._id,

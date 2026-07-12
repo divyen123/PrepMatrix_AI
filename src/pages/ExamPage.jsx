@@ -1,6 +1,6 @@
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   AlertTriangle,
@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import api from "../utils/apiClient";
 import { exportExamResultPdf, exportQuestionPaperPdf } from "../utils/examPaperPdf";
+import { EXAM_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 import "./ExamPage.css";
 
 const TOTAL_MARK_OPTIONS = [30, 40, 50, 60, 70, 80, 90, 100];
@@ -973,10 +974,27 @@ function PaperHistory({ papers, onRefresh, onPaperLoaded }) {
   );
 }
 
-function ExamPage({ subjects = [], academicLevel = "College", academicTrack = "General", userProfile = {} }) {
+function ExamPage({
+  subjects = [],
+  academicLevel = "College",
+  academicTrack = "General",
+  userProfile = {},
+  examReadiness = 0,
+  isExamEligible: examEligibilityOverride,
+  tasksToExamEligibility = 0,
+}) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const names = useMemo(() => subjectNames(subjects), [subjects]);
-  const [section, setSection] = useState("overview");
+  const readinessPercent = Math.max(0, Math.min(100, Math.round(Number(examReadiness) || 0)));
+  const isOnlineExamEligible = typeof examEligibilityOverride === "boolean"
+    ? examEligibilityOverride
+    : readinessPercent >= EXAM_ELIGIBILITY_THRESHOLD;
+  const requestedSection = searchParams.get("section");
+  const requestedAttendHandledRef = useRef(false);
+  const [section, setSection] = useState(() => (
+    requestedSection === "attend" && isOnlineExamEligible ? "attend" : "overview"
+  ));
   const [subjectName, setSubjectName] = useState(() => names[0] || "");
   const [scopeText, setScopeText] = useState("");
   const [difficulty, setDifficulty] = useState("medium");
@@ -991,6 +1009,19 @@ function ExamPage({ subjects = [], academicLevel = "College", academicTrack = "G
   useEffect(() => {
     if (!subjectName && names.length) setSubjectName(names[0]);
   }, [names, subjectName]);
+
+  useEffect(() => {
+    if (requestedSection !== "attend") {
+      requestedAttendHandledRef.current = false;
+    } else if (isOnlineExamEligible && !requestedAttendHandledRef.current) {
+      requestedAttendHandledRef.current = true;
+      setSection("attend");
+    }
+
+    if (!isOnlineExamEligible && section === "attend" && !activeAttempt) {
+      setSection("overview");
+    }
+  }, [activeAttempt, isOnlineExamEligible, requestedSection, section]);
 
   const loadResults = useCallback(async () => {
     try {
@@ -1032,6 +1063,10 @@ function ExamPage({ subjects = [], academicLevel = "College", academicTrack = "G
   }, [loadResults]);
 
   const prepareExam = async () => {
+    if (!isOnlineExamEligible) {
+      toast.error(`Complete at least ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner before attending an exam. Current readiness: ${readinessPercent}%.`);
+      return;
+    }
     if (!subjectName) {
       toast.error("Add and select a subject before preparing an exam.");
       return;
@@ -1056,6 +1091,10 @@ function ExamPage({ subjects = [], academicLevel = "College", academicTrack = "G
   };
 
   const startExam = async () => {
+    if (!isOnlineExamEligible) {
+      toast.error(`Attend Exam unlocks at ${EXAM_ELIGIBILITY_THRESHOLD}% planner completion. Current readiness: ${readinessPercent}%.`);
+      return;
+    }
     const examId = getId(preparedExam);
     if (!examId) return;
     setIsStarting(true);
@@ -1110,10 +1149,43 @@ function ExamPage({ subjects = [], academicLevel = "College", academicTrack = "G
           ["attend", "Attend Exam", ListChecks],
           ["paper", "Generate Paper", FilePlus2],
           ["results", "View Results", Trophy],
-        ].map(([id, label, Icon]) => (
-          <button className={section === id ? "active" : ""} key={id} onClick={() => setSection(id)} type="button">{createElement(Icon, { size: 16 })} {label}</button>
-        ))}
+        ].map(([id, label, Icon]) => {
+          const isLockedAttendTab = id === "attend" && !isOnlineExamEligible;
+          return (
+            <button
+              className={`${section === id ? "active" : ""}${isLockedAttendTab ? " is-locked" : ""}`}
+              disabled={isLockedAttendTab}
+              key={id}
+              onClick={() => setSection(id)}
+              title={isLockedAttendTab ? `Complete ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner to unlock Attend Exam (${readinessPercent}% complete)` : undefined}
+              type="button"
+            >
+              {createElement(Icon, { size: 16 })} {label}
+            </button>
+          );
+        })}
       </nav>
+
+      <section className={`exam-eligibility-banner ${isOnlineExamEligible ? "is-eligible" : "is-locked"}`} aria-live="polite">
+        <div className="exam-eligibility-icon" aria-hidden="true">
+          {isOnlineExamEligible ? <CheckCircle2 size={20} /> : <ShieldAlert size={20} />}
+        </div>
+        <div className="exam-eligibility-copy">
+          <span>Online exam eligibility</span>
+          <strong>{isOnlineExamEligible ? "Attend Exam is unlocked" : `${readinessPercent}% planner completion`}</strong>
+          <p>
+            {isOnlineExamEligible
+              ? "You are now eligible to attend the exam."
+              : tasksToExamEligibility > 0
+                ? `Complete ${tasksToExamEligibility} more planner task${tasksToExamEligibility === 1 ? "" : "s"} to reach the ${EXAM_ELIGIBILITY_THRESHOLD}% requirement.`
+                : `Complete at least ${EXAM_ELIGIBILITY_THRESHOLD}% of your scheduled planner tasks to unlock Attend Exam.`}
+          </p>
+        </div>
+        <div className="exam-eligibility-progress">
+          <progress aria-label={`${readinessPercent}% complete`} max={100} value={readinessPercent}>{readinessPercent}%</progress>
+          <strong>{readinessPercent}% <small>/ {EXAM_ELIGIBILITY_THRESHOLD}%</small></strong>
+        </div>
+      </section>
 
       {section === "overview" && (
         <>
@@ -1122,7 +1194,7 @@ function ExamPage({ subjects = [], academicLevel = "College", academicTrack = "G
               <span className="exam-hero-badge"><ShieldAlert size={14} /> Secure assessment workspace</span>
               <h2>From focused practice to a complete exam workflow.</h2>
               <p>Prepare a 40-question online assessment, generate printable papers with exact mark allocation, and keep every result or paper organized.</p>
-              <div><button className="exam-primary-btn" onClick={() => setSection("attend")} type="button"><ListChecks size={17} /> Attend exam</button><button className="exam-secondary-btn" onClick={() => setSection("paper")} type="button"><FilePlus2 size={17} /> Generate paper</button></div>
+              <div><button className="exam-primary-btn" disabled={!isOnlineExamEligible} onClick={() => setSection("attend")} title={!isOnlineExamEligible ? `Complete ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner to unlock Attend Exam` : undefined} type="button"><ListChecks size={17} /> {isOnlineExamEligible ? "Attend exam" : `Unlock at ${EXAM_ELIGIBILITY_THRESHOLD}%`}</button><button className="exam-secondary-btn" onClick={() => setSection("paper")} type="button"><FilePlus2 size={17} /> Generate paper</button></div>
             </div>
             <div className="exam-hero-stats">
               <div><strong>40</strong><span>MCQs</span></div>
@@ -1132,7 +1204,7 @@ function ExamPage({ subjects = [], academicLevel = "College", academicTrack = "G
           </section>
 
           <div className="exam-feature-grid">
-            <button className="card exam-feature-card" onClick={() => setSection("attend")} type="button"><span><ListChecks size={21} /></span><h3>Attend Exam</h3><p>Fullscreen MCQ exam with autosave, warnings, and server-side grading.</p><b>Start setup <ArrowRight size={14} /></b></button>
+            <button className={`card exam-feature-card${isOnlineExamEligible ? "" : " is-locked"}`} disabled={!isOnlineExamEligible} onClick={() => setSection("attend")} title={!isOnlineExamEligible ? `Complete ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner to unlock Attend Exam` : undefined} type="button"><span><ListChecks size={21} /></span><h3>Attend Exam</h3><p>{isOnlineExamEligible ? "Fullscreen MCQ exam with autosave, warnings, and server-side grading." : `Locked until your planner reaches ${EXAM_ELIGIBILITY_THRESHOLD}% completion. You are currently at ${readinessPercent}%.`}</p><b>{isOnlineExamEligible ? <>Start setup <ArrowRight size={14} /></> : "Planner progress required"}</b></button>
             <button className="card exam-feature-card" onClick={() => setSection("paper")} type="button"><span><FilePlus2 size={21} /></span><h3>Generate Question Paper</h3><p>Build a precise mark split, coding emphasis, answer key, and exportable PDF.</p><b>Design paper <ArrowRight size={14} /></b></button>
             <button className="card exam-feature-card" onClick={() => setSection("results")} type="button"><span><Trophy size={21} /></span><h3>View Results</h3><p>{pendingResults} pending and {releasedResults} released result{releasedResults === 1 ? "" : "s"}.</p><b>Open results <ArrowRight size={14} /></b></button>
           </div>
@@ -1165,7 +1237,7 @@ function ExamPage({ subjects = [], academicLevel = "College", academicTrack = "G
               </label>
             </div>
             <div className="exam-rule-strip"><span><Clock3 size={15} /> 60 minutes</span><span><ListChecks size={15} /> 40 MCQs</span><span><ShieldAlert size={15} /> 3 warnings allowed</span></div>
-            <button className="exam-primary-btn" disabled={isPreparing || !subjectName} onClick={prepareExam} type="button">
+            <button className="exam-primary-btn" disabled={!isOnlineExamEligible || isPreparing || !subjectName} onClick={prepareExam} type="button">
               {isPreparing ? <><LoaderCircle className="spin" size={17} /> Generating 4 secure batches...</> : <><Sparkles size={17} /> Prepare exam</>}
             </button>
 
@@ -1173,7 +1245,7 @@ function ExamPage({ subjects = [], academicLevel = "College", academicTrack = "G
               <div className="exam-prepared-card">
                 <div className="exam-ready-mark"><CheckCircle2 size={22} /></div>
                 <div><span>Exam ready</span><strong>{preparedExam.title}</strong><p>{preparedExam.questionCount || 40} questions | {preparedExam.durationMinutes || 60} minutes | {preparedExam.difficulty}</p></div>
-                <button className="exam-primary-btn" disabled={isStarting} onClick={startExam} type="button">{isStarting ? "Starting..." : <><Expand size={16} /> Enter fullscreen exam</>}</button>
+                <button className="exam-primary-btn" disabled={!isOnlineExamEligible || isStarting} onClick={startExam} type="button">{isStarting ? "Starting..." : <><Expand size={16} /> Enter fullscreen exam</>}</button>
               </div>
             )}
           </section>

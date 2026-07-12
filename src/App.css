@@ -17983,3 +17983,118 @@ body.dark .sidebar-widgets .exam-widget-btn.active {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(var(--accent-rgb), 0.42);
 }
+
+/* Planner-driven exam eligibility */
+.readiness-exam-btn,
+.exam-eligibility-cta,
+.report-exam-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.readiness-exam-btn {
+  align-self: center;
+}
+
+.exam-eligibility-achievement,
+.report-exam-achievement {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.13), transparent 68%),
+    var(--surface-muted);
+}
+
+.exam-eligibility-achievement {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px 12px;
+}
+
+.exam-eligibility-achievement strong,
+.report-exam-achievement strong {
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.86rem;
+}
+
+.exam-eligibility-achievement p,
+.report-exam-achievement p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.exam-eligibility-achievement .exam-eligibility-cta {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.report-exam-achievement {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  text-align: center;
+}
+
+.sidebar-widgets .floating-analytics-btn,
+.sidebar-widgets .exam-widget-btn {
+  min-height: 46px !important;
+  padding: 10px 14px !important;
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.88), rgba(var(--accent-rgb), 0.65)) !important;
+  box-shadow: 0 10px 24px rgba(65, 76, 160, 0.13) !important;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+}
+
+.sidebar-widgets .floating-analytics-btn:hover,
+.sidebar-widgets .exam-widget-btn:hover,
+.sidebar-widgets .exam-widget-btn.active {
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.95), rgba(var(--accent-rgb), 0.75)) !important;
+  box-shadow: 0 12px 26px rgba(65, 76, 160, 0.18) !important;
+}
+
+body.dark .sidebar-widgets .floating-analytics-btn,
+body.dark .sidebar-widgets .exam-widget-btn {
+  color: var(--text) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.28), rgba(255, 255, 255, 0.04)) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4) !important;
+}
+
+body.dark .sidebar-widgets .floating-analytics-btn:hover,
+body.dark .sidebar-widgets .exam-widget-btn:hover,
+body.dark .sidebar-widgets .exam-widget-btn.active {
+  color: var(--text) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.38), rgba(255, 255, 255, 0.06)) !important;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5) !important;
+}
+
+@media (max-width: 520px) {
+  .exam-eligibility-achievement {
+    grid-template-columns: 1fr;
+  }
+
+  .exam-eligibility-achievement .exam-eligibility-cta {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+}
