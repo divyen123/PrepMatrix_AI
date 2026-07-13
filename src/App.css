@@ -7480,6 +7480,12 @@ body.dark .subject-row:hover {
   gap: 8px;
 }
 
+.subject-delete-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Difficulty Badges classes style */
 .difficulty-badge {
   display: inline-flex;

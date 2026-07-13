@@ -1146,6 +1146,8 @@ function ResultsPanel({ results, onRefresh, userProfile }) {
 function PaperHistory({ papers, onRefresh, onPaperLoaded }) {
   const [search, setSearch] = useState("");
   const [loadingId, setLoadingId] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState("");
+  const [deletingId, setDeletingId] = useState("");
   const filtered = papers.filter((paper) =>
     [paper.title, paper.paperTitle, ...(paper.subjectNames || [])].join(" ").toLowerCase().includes(search.trim().toLowerCase()),
   );
@@ -1168,12 +1170,16 @@ function PaperHistory({ papers, onRefresh, onPaperLoaded }) {
 
   const removePaper = async (paper) => {
     const id = getId(paper);
+    setDeletingId(id);
     try {
       await api.delete("/api/question-papers/" + id);
+      setConfirmDeleteId("");
       toast.success("Question paper deleted.");
       onRefresh?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not delete the paper.");
+    } finally {
+      setDeletingId("");
     }
   };
 
@@ -1184,19 +1190,33 @@ function PaperHistory({ papers, onRefresh, onPaperLoaded }) {
         <label className="exam-search"><Search size={15} /><input onChange={(event) => setSearch(event.target.value)} placeholder="Search papers" type="search" value={search} /></label>
       </div>
       <div className="exam-paper-history-grid">
-        {filtered.length ? filtered.map((paper) => (
-          <article key={getId(paper)}>
-            <div className="exam-heading-icon"><FilePlus2 size={17} /></div>
-            <div><strong>{paper.paperTitle || paper.title}</strong><span>{(paper.subjectNames || []).join(", ")}</span><small>{paper.totalMarks} marks | {paper.recommendedTimeMinutes || paper.durationMinutes} min | {formatDate(paper.createdAt, false)}</small></div>
-            <div>
-              <button aria-label="Export paper" disabled={loadingId === getId(paper)} onClick={() => loadPaper(paper, "paper")} title="Export paper" type="button"><Download size={14} /></button>
-              {paper.includeAnswerKey !== false && (
-                <button aria-label="Export answer key" disabled={loadingId === getId(paper)} onClick={() => loadPaper(paper, "answer")} title="Export answer key" type="button"><FileCheck2 size={14} /></button>
-              )}
-              <button aria-label="Delete paper" className="is-danger" onClick={() => removePaper(paper)} title="Delete paper" type="button"><Trash2 size={14} /></button>
-            </div>
-          </article>
-        )) : <div className="exam-empty-inline">No saved question papers match this search.</div>}
+        {filtered.length ? filtered.map((paper) => {
+          const paperId = getId(paper);
+          const paperLabel = paper.paperTitle || paper.title || "question paper";
+          const isDeleting = deletingId === paperId;
+          return (
+            <article key={paperId}>
+              <div className="exam-heading-icon"><FilePlus2 size={17} /></div>
+              <div><strong>{paperLabel}</strong><span>{(paper.subjectNames || []).join(", ")}</span><small>{paper.totalMarks} marks | {paper.recommendedTimeMinutes || paper.durationMinutes} min | {formatDate(paper.createdAt, false)}</small></div>
+              <div>
+                <button aria-label="Export paper" disabled={loadingId === paperId || isDeleting} onClick={() => loadPaper(paper, "paper")} title="Export paper" type="button"><Download size={14} /></button>
+                {paper.includeAnswerKey !== false && (
+                  <button aria-label="Export answer key" disabled={loadingId === paperId || isDeleting} onClick={() => loadPaper(paper, "answer")} title="Export answer key" type="button"><FileCheck2 size={14} /></button>
+                )}
+                {confirmDeleteId === paperId ? (
+                  <div aria-label={`Confirm deleting ${paperLabel}`} className="exam-paper-delete-confirm" role="group">
+                    <button aria-label={`Confirm delete ${paperLabel}`} className="is-delete-confirm" disabled={isDeleting} onClick={() => removePaper(paper)} title="Confirm delete" type="button">
+                      {isDeleting ? <LoaderCircle className="spin" size={14} /> : <Check size={14} strokeWidth={3} />}
+                    </button>
+                    <button aria-label={`Cancel deleting ${paperLabel}`} className="is-delete-cancel" disabled={isDeleting} onClick={() => setConfirmDeleteId("")} title="Cancel delete" type="button"><X size={14} strokeWidth={3} /></button>
+                  </div>
+                ) : (
+                  <button aria-label={`Delete ${paperLabel}`} className="is-danger" disabled={Boolean(deletingId) || loadingId === paperId} onClick={() => setConfirmDeleteId(paperId)} title="Delete paper" type="button"><Trash2 size={14} /></button>
+                )}
+              </div>
+            </article>
+          );
+        }) : <div className="exam-empty-inline">No saved question papers match this search.</div>}
       </div>
     </section>
   );

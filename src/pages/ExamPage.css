@@ -1072,6 +1072,12 @@
   gap: 5px;
 }
 
+.exam-paper-delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .exam-paper-history-grid button {
   display: grid;
   place-items: center;
@@ -1095,6 +1101,29 @@
   color: #f87171;
   border-color: rgba(248, 113, 113, 0.3);
   background: rgba(239, 68, 68, 0.08);
+}
+
+.exam-paper-history-grid button.is-delete-confirm {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.exam-paper-history-grid button.is-delete-confirm:hover:not(:disabled) {
+  color: #fff;
+  border-color: #ef4444;
+  background: #ef4444;
+}
+
+.exam-paper-history-grid button.is-delete-cancel:hover:not(:disabled) {
+  color: var(--text);
+  border-color: rgba(var(--accent-rgb), 0.3);
+  background: var(--surface-strong);
+}
+
+.exam-paper-history-grid button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .exam-empty-inline {
