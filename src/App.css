@@ -16346,10 +16346,10 @@ body .history-toggle-btn:focus-visible svg {
 .sidebar-chatbot-portal > .chat-pet-rail {
   position: absolute;
   top: 50%;
-  right: calc(100% + 28px);
+  right: calc(100% + 40px);
   z-index: 20;
   display: flex;
-  width: 180px;
+  width: 196px;
   align-items: center;
   justify-content: center;
   overflow: visible;
@@ -16381,8 +16381,8 @@ body .history-toggle-btn:focus-visible svg {
   position: relative;
   z-index: 12;
   display: flex;
-  flex: 0 0 180px;
-  width: 180px;
+  flex: 0 0 196px;
+  width: 196px;
   flex-direction: column;
   align-items: center;
 }
@@ -16469,14 +16469,14 @@ body .sidebar-pet-button {
 }
 
 .chat-study-pet .study-pet-sprite {
-  width: 116px;
+  width: 128px;
 }
 
 body .chat-study-pet .study-pet-button {
-  width: 124px;
-  height: 136px;
-  min-width: 124px;
-  min-height: 136px;
+  width: 136px;
+  height: 148px;
+  min-width: 136px;
+  min-height: 148px;
 }
 
 body .study-pet-button::after,

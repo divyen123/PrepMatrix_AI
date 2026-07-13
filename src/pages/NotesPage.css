@@ -1,0 +1,241 @@
+.notes-page .notes-form-card {
+  gap: 14px !important;
+}
+
+.notes-page .notes-form-card .field-stack {
+  gap: 6px;
+}
+
+.notes-page .notes-form-card .field-stack input,
+.notes-page .notes-form-card .field-stack select {
+  min-height: 40px !important;
+  padding: 8px 11px !important;
+  border-radius: 12px !important;
+}
+
+.notes-page .notes-form-card .field-stack textarea {
+  min-height: 104px !important;
+  padding: 10px 11px !important;
+  border-radius: 12px !important;
+}
+
+.notes-page .notes-form-row {
+  gap: 10px;
+}
+
+.notes-page .notes-side-stack {
+  gap: 16px;
+}
+
+.notes-page .notes-stat-grid {
+  gap: 8px;
+}
+
+.notes-page .notes-stat-grid > div {
+  gap: 4px;
+  padding: 12px;
+  border-radius: 15px;
+}
+
+.notes-page .notes-stat-grid strong {
+  font-size: 1.55rem;
+}
+
+.notes-page .note-card {
+  position: relative;
+  align-content: start;
+  min-height: 188px;
+  gap: 9px !important;
+  padding: 14px !important;
+  border-radius: 18px !important;
+  overflow: hidden;
+}
+
+.notes-page .note-card.is-resolved {
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--border)) !important;
+}
+
+.notes-page .note-card.is-confirming-delete {
+  border-color: color-mix(in srgb, var(--danger) 36%, var(--border)) !important;
+}
+
+.notes-page .note-card-heading {
+  min-width: 0;
+}
+
+.notes-page .note-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.notes-page .note-priority,
+.notes-page .note-status {
+  padding: 3px 6px;
+  font-size: 0.58rem;
+  letter-spacing: 0.03em;
+}
+
+.notes-page .note-status.is-open {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.notes-page .note-status.is-resolved {
+  color: var(--text-muted);
+  background: var(--surface-muted);
+}
+
+.notes-page .note-card h4 {
+  margin-top: 5px;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.notes-page .note-card-details {
+  display: -webkit-box;
+  min-height: 2.7em;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.notes-page .note-card-details.is-empty {
+  font-style: italic;
+  opacity: 0.65;
+}
+.notes-page .note-legacy-topics {
+  display: grid;
+  gap: 5px;
+  padding: 7px 8px;
+  background: rgba(var(--accent-rgb), 0.045);
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
+  border-radius: 10px;
+}
+
+.notes-page .note-legacy-topics > span {
+  color: var(--text-muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.notes-page .note-legacy-topics > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.notes-page .note-legacy-topics > div > span {
+  padding: 3px 6px;
+  color: var(--text);
+  background: var(--surface-muted);
+  border-radius: 999px;
+  font-size: 0.61rem;
+  font-weight: 650;
+}
+
+.notes-page .notes-list-header h3:focus {
+  outline: 2px solid rgba(var(--accent-rgb), 0.5);
+  outline-offset: 3px;
+}
+
+.notes-page .note-card-actions {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 5px !important;
+  margin-top: auto;
+}
+
+.notes-page .note-card-actions .note-action-btn {
+  width: 100% !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 4px 7px !important;
+  border-radius: 9px !important;
+  font-size: 0.68rem !important;
+  line-height: 1 !important;
+}
+
+.notes-page .note-card-actions .note-plan-action {
+  grid-column: 1 / -1;
+}
+
+.notes-page .note-delete-confirm {
+  grid-column: 1 / -1;
+  display: flex;
+  min-height: 59px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, var(--border));
+  border-radius: 11px;
+}
+
+.notes-page .note-delete-confirm-copy {
+  color: var(--danger);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.notes-page .note-delete-confirm .compact-confirm-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.notes-page .note-delete-confirm .compact-confirm-btn {
+  display: inline-grid !important;
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  place-items: center !important;
+  padding: 0 !important;
+  color: var(--text-muted) !important;
+  background: var(--surface-muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+}
+
+.notes-page .note-delete-confirm .compact-confirm-btn.is-confirm {
+  color: var(--danger) !important;
+  border-color: color-mix(in srgb, var(--danger) 34%, transparent) !important;
+}
+
+.notes-page .note-delete-confirm .compact-confirm-btn.is-confirm:hover,
+.notes-page .note-delete-confirm .compact-confirm-btn.is-confirm:focus-visible {
+  color: #fff !important;
+  background: var(--danger) !important;
+  border-color: var(--danger) !important;
+}
+
+.notes-page .note-delete-confirm .compact-confirm-btn.is-cancel:hover,
+.notes-page .note-delete-confirm .compact-confirm-btn.is-cancel:focus-visible {
+  color: var(--text) !important;
+  background: var(--surface-strong) !important;
+  border-color: rgba(var(--accent-rgb), 0.3) !important;
+}
+
+@media (max-width: 640px) {
+  .notes-page .notes-form-card {
+    gap: 12px !important;
+  }
+
+  .notes-page .notes-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .notes-page .note-card {
+    min-height: 0;
+    padding: 12px !important;
+    border-radius: 15px !important;
+  }
+}

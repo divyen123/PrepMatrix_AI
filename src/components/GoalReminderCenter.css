@@ -45,6 +45,15 @@ body .goal-reminder-launcher-button {
   transform: none !important;
 }
 
+body .goal-reminder-launcher-button::after,
+body .goal-reminder-launcher-button:hover::after {
+  display: none !important;
+  content: none !important;
+  opacity: 0 !important;
+  background: none !important;
+  transform: none !important;
+}
+
 body .goal-reminder-launcher-button:hover,
 body .goal-reminder-launcher-button:focus-visible {
   color: var(--text) !important;
@@ -261,6 +270,14 @@ body .goal-reminder-launcher-button:focus-visible {
   top: 5px;
 }
 
+.goal-reminder-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+body .goal-reminder-about-btn,
+body .goal-reminder-about-close-btn,
 body .goal-reminder-close-btn {
   display: grid !important;
   flex: 0 0 34px !important;
@@ -275,6 +292,16 @@ body .goal-reminder-close-btn {
   border: 1px solid var(--border) !important;
   border-radius: 11px !important;
   box-shadow: none !important;
+  transform: none !important;
+}
+
+body .goal-reminder-about-btn:hover,
+body .goal-reminder-about-close-btn:hover,
+body .goal-reminder-close-btn:hover {
+  color: var(--text) !important;
+  background: var(--surface) !important;
+  border-color: rgba(var(--accent-rgb), 0.28) !important;
+  transform: none !important;
 }
 
 .goal-reminder-stats {
@@ -487,14 +514,18 @@ body .goal-settings-save-btn:hover {
   border-left-color: #00a6c8;
 }
 
-.planner-item-card.is-complete,
-.planner-todo-row.is-complete {
+.planner-item-card.is-complete {
   opacity: 0.62;
+}
+
+.planner-todo-row.is-complete {
+  background: rgba(var(--accent-rgb), 0.07);
+  border-color: rgba(var(--accent-rgb), 0.22);
 }
 
 .planner-item-card.is-complete .planner-item-copy > strong,
 .planner-item-card.is-complete .planner-item-title-row strong,
-.planner-todo-row.is-complete > span {
+.planner-todo-row.is-complete .planner-todo-title {
   text-decoration: line-through;
 }
 
@@ -618,6 +649,7 @@ body .goal-settings-save-btn:hover {
 }
 
 body .planner-trash-btn,
+body .planner-undo-btn,
 body .planner-confirm-btn,
 body .planner-todo-composer button {
   display: grid !important;
@@ -650,6 +682,12 @@ body .planner-confirm-btn.is-confirm {
 body .planner-confirm-btn.is-cancel:hover {
   color: var(--text) !important;
   background: var(--surface) !important;
+}
+
+body .planner-undo-btn:hover {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  border-color: rgba(var(--accent-rgb), 0.28) !important;
 }
 
 body .planner-tomorrow-btn {
@@ -716,8 +754,9 @@ body .planner-todo-composer button {
 }
 
 .planner-todo-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
   min-height: 38px;
@@ -725,13 +764,71 @@ body .planner-todo-composer button {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
 }
 
-.planner-todo-row > span {
+.planner-todo-title {
   overflow-wrap: anywhere;
   color: var(--text);
   font-size: 0.68rem;
   font-weight: 650;
+}
+.planner-todo-row {
+  cursor: default;
+}
+
+body .planner-todo-toggle {
+  display: flex !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 28px !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  padding: 3px 4px !important;
+  color: var(--text) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+  text-align: left;
+  transform: none !important;
+}
+
+body .planner-todo-toggle::after {
+  display: none !important;
+  content: none !important;
+}
+
+body .planner-todo-toggle:hover {
+  color: var(--text) !important;
+  background: rgba(var(--accent-rgb), 0.06) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .planner-todo-toggle:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.65);
+  outline-offset: 1px;
+}
+
+.planner-todo-row:hover {
+  background: rgba(var(--accent-rgb), 0.06);
+  border-color: rgba(var(--accent-rgb), 0.22);
+}
+
+.planner-todo-row:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.65);
+  outline-offset: 2px;
+}
+
+.planner-todo-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  cursor: default;
 }
 
 .planner-todo-empty,
@@ -1082,6 +1179,318 @@ body.has-bg-image .goal-reminder-nudge {
   border-color: rgba(255, 255, 255, 0.12);
 }
 
+body .goal-reminder-about-btn[aria-expanded="true"] {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  border-color: rgba(var(--accent-rgb), 0.3) !important;
+}
+
+.goal-reminder-about-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow: hidden;
+  background: rgba(5, 10, 20, 0.68);
+  border-radius: inherit;
+  backdrop-filter: blur(9px) saturate(115%);
+  -webkit-backdrop-filter: blur(9px) saturate(115%);
+  animation: goalReminderBackdropIn 160ms ease-out both;
+}
+
+.goal-reminder-about-dialog {
+  display: flex;
+  width: min(760px, 100%);
+  max-height: calc(100% - 24px);
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(var(--accent-rgb), 0.12), transparent 34%),
+    var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 26px 72px rgba(4, 9, 20, 0.42);
+  animation: goalReminderDialogIn 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.goal-reminder-about-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.goal-reminder-about-header > div {
+  min-width: 0;
+}
+
+.goal-reminder-about-header > div > span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--accent);
+  font-size: 0.58rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.goal-reminder-about-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.08rem;
+}
+
+.goal-reminder-about-header p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.goal-reminder-about-body {
+  display: grid;
+  min-height: 0;
+  gap: 12px;
+  padding: 14px 18px 17px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--accent-rgb), 0.36) transparent;
+}
+
+.goal-reminder-about-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.goal-reminder-about-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.goal-reminder-about-body::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.28);
+  border-radius: 999px;
+}
+
+.goal-reminder-about-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.goal-reminder-about-features article {
+  min-width: 0;
+  padding: 11px;
+  background: rgba(var(--accent-rgb), 0.055);
+  border: 1px solid rgba(var(--accent-rgb), 0.14);
+  border-radius: 13px;
+}
+
+.goal-reminder-about-features article > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.goal-reminder-about-features article svg {
+  color: var(--accent);
+}
+
+.goal-reminder-about-features article strong {
+  font-size: 0.72rem;
+}
+
+.goal-reminder-about-features article p {
+  margin: 7px 0 0;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  line-height: 1.48;
+}
+
+.goal-reminder-about-settings,
+.goal-reminder-about-workflow {
+  padding: 11px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+}
+
+.goal-reminder-about-settings h4,
+.goal-reminder-about-workflow h4 {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: 0.74rem;
+}
+
+.goal-reminder-about-settings dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin: 0;
+}
+
+.goal-reminder-about-settings dl > div {
+  min-width: 0;
+  padding: 7px 8px;
+  background: var(--surface-muted);
+  border: 1px solid rgba(var(--accent-rgb), 0.08);
+  border-radius: 9px;
+}
+
+.goal-reminder-about-settings dt {
+  color: var(--text);
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+
+.goal-reminder-about-settings dd {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 0.59rem;
+  line-height: 1.42;
+}
+
+.goal-reminder-about-workflow ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 20px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+}
+
+.goal-reminder-about-workflow li {
+  padding-left: 2px;
+  font-size: 0.61rem;
+  line-height: 1.45;
+}
+
+.goal-reminder-about-workflow li::marker {
+  color: var(--accent);
+  font-weight: 850;
+}
+
+.goal-reminder-about-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 18px;
+  color: var(--text-muted);
+  background: rgba(var(--accent-rgb), 0.035);
+  border-top: 1px solid var(--border);
+  font-size: 0.62rem;
+}
+
+.goal-reminder-about-footer > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+body .goal-reminder-about-done-btn {
+  min-height: 31px !important;
+  padding: 5px 11px !important;
+  color: var(--text) !important;
+  background: var(--surface-muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+  font-size: 0.65rem !important;
+  transform: none !important;
+}
+
+body .goal-reminder-about-done-btn:hover,
+body .goal-reminder-about-done-btn:focus-visible {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  border-color: rgba(var(--accent-rgb), 0.3) !important;
+  transform: none !important;
+}
+
+@media (max-width: 780px) {
+  .goal-reminder-about-backdrop {
+    padding: 8px;
+  }
+
+  .goal-reminder-about-dialog {
+    max-height: calc(100% - 8px);
+    border-radius: 17px;
+  }
+
+  .goal-reminder-about-header {
+    padding: 13px;
+  }
+
+  .goal-reminder-about-header p {
+    display: none;
+  }
+
+  .goal-reminder-about-body {
+    gap: 9px;
+    padding: 10px 12px 13px;
+  }
+
+  .goal-reminder-about-features {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-reminder-about-settings dl,
+  .goal-reminder-about-workflow ol {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-reminder-about-footer {
+    padding: 9px 12px;
+  }
+}
+
+@media (max-width: 520px) {
+  .goal-reminder-header-actions {
+    gap: 5px;
+  }
+
+  body .goal-reminder-about-btn,
+  body .goal-reminder-about-close-btn,
+  body .goal-reminder-close-btn {
+    flex-basis: 32px !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+
+  .goal-reminder-about-header h3 {
+    font-size: 0.92rem;
+  }
+
+  .goal-reminder-about-settings,
+  .goal-reminder-about-workflow {
+    padding: 9px;
+  }
+
+  .goal-reminder-about-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body .goal-reminder-about-done-btn {
+    width: 100% !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-reminder-about-backdrop,
+  .goal-reminder-about-dialog {
+    animation: none !important;
+  }
+}
 @keyframes goalReminderNudge {
   from { opacity: 0; transform: translateX(-50%) translateY(7px) scale(0.96); }
   to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }

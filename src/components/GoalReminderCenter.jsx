@@ -8,8 +8,10 @@ import {
   CheckCircle2,
   Clock3,
   Flag,
+  Info,
   ListTodo,
   Plus,
+  RotateCcw,
   Target,
   Trash2,
   X,
@@ -121,10 +123,14 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
   const [reminderDraft, setReminderDraft] = useState(createReminderDraft);
   const [todoDraft, setTodoDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState("");
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [showNudge, setShowNudge] = useState(false);
   const [today, setToday] = useState(getLocalDateKey);
   const closeButtonRef = useRef(null);
   const dialogRef = useRef(null);
+  const aboutButtonRef = useRef(null);
+  const aboutCloseButtonRef = useRef(null);
+  const aboutDialogRef = useRef(null);
 
   const plannerData = useMemo(() => normalizePlannerData(data), [data]);
   const plannerSettings = useMemo(() => normalizePlannerSettings(settings), [settings]);
@@ -152,13 +158,20 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
   const openCenter = () => {
     onOpen?.();
     setConfirmDelete("");
+    setAboutOpen(false);
     setOpen(true);
+  };
+
+  const closeCenter = () => {
+    setAboutOpen(false);
+    setOpen(false);
   };
 
   useEffect(() => {
     const handleOpen = () => {
       onOpen?.();
       setConfirmDelete("");
+      setAboutOpen(false);
       setOpen(true);
     };
     window.addEventListener(OPEN_GOAL_REMINDER_EVENT, handleOpen);
@@ -200,10 +213,13 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
 
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
+        if (aboutDialogRef.current) return;
+        setAboutOpen(false);
         setOpen(false);
         return;
       }
       if (event.key !== "Tab") return;
+      if (aboutDialogRef.current) return;
       const focusable = dialogRef.current?.querySelectorAll(
         'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
       );
@@ -226,6 +242,41 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
       previousFocus?.focus?.();
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!aboutOpen) return undefined;
+    const previousFocus = document.activeElement;
+    window.requestAnimationFrame(() => aboutCloseButtonRef.current?.focus());
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setAboutOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = aboutDialogRef.current?.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus?.();
+    };
+  }, [aboutOpen]);
 
   const createGoal = (event) => {
     event.preventDefault();
@@ -323,14 +374,35 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
     : `${todayReminders.length} reminders scheduled today`;
 
   const dialog = open ? (
-    <div className="goal-reminder-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setOpen(false)}>
-      <section aria-describedby="goal-reminder-center-description" aria-labelledby="goal-reminder-center-title" aria-modal="true" className="goal-reminder-dialog" ref={dialogRef} role="dialog">
+    <div className="goal-reminder-backdrop" onMouseDown={(event) => event.target === event.currentTarget && closeCenter()}>
+      <section
+        aria-describedby="goal-reminder-center-description"
+        aria-hidden={aboutOpen ? true : undefined}
+        aria-labelledby="goal-reminder-center-title"
+        aria-modal={aboutOpen ? undefined : true}
+        className="goal-reminder-dialog"
+        inert={aboutOpen}
+        ref={dialogRef}
+        role="dialog"
+      >
         <header className="goal-reminder-dialog-header">
           <div className="goal-reminder-dialog-title">
             <span className="goal-reminder-dialog-mark" aria-hidden="true"><Target size={22} /><BellRing size={13} /></span>
             <div><span>Personal productivity</span><h2 id="goal-reminder-center-title">Goal & Reminder Center</h2><p id="goal-reminder-center-description">Plan outcomes, schedule reminders, and clear compact daily tasks.</p></div>
           </div>
-          <button aria-label="Close goal and reminder center" className="goal-reminder-close-btn" onClick={() => setOpen(false)} ref={closeButtonRef} type="button"><X size={18} /></button>
+          <div className="goal-reminder-header-actions">
+            <button
+              aria-expanded={aboutOpen}
+              aria-haspopup="dialog"
+              aria-label="About goals and reminders"
+              className="goal-reminder-about-btn"
+              onClick={() => setAboutOpen(true)}
+              ref={aboutButtonRef}
+              title="How goals and reminders work"
+              type="button"
+            ><Info size={18} /></button>
+            <button aria-label="Close goal and reminder center" className="goal-reminder-close-btn" onClick={closeCenter} ref={closeButtonRef} type="button"><X size={18} /></button>
+          </div>
         </header>
 
         <div className="goal-reminder-stats">
@@ -384,9 +456,29 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
                 const deleteKey = `todo:${todo.id}`;
                 return (
                   <div className={`planner-todo-row${todo.completed ? " is-complete" : ""}`} key={todo.id}>
-                    <PlannerCheckbox checked={todo.completed} label={todo.completed ? `Reopen ${todo.title}` : `Complete ${todo.title}`} onChange={() => toggleTodo(todo.id)} />
-                    <span>{todo.title}</span>
-                    {confirmDelete === deleteKey ? <DeleteConfirmation label={todo.title} onCancel={() => setConfirmDelete("")} onConfirm={() => deleteItem("todo", todo.id)} /> : <button aria-label={`Delete ${todo.title}`} className="planner-trash-btn" onClick={() => setConfirmDelete(deleteKey)} title="Delete task" type="button"><Trash2 size={13} /></button>}
+                    <button
+                      aria-label={todo.completed ? `Mark task not done: ${todo.title}` : `Mark task done: ${todo.title}`}
+                      aria-pressed={todo.completed}
+                      className="planner-todo-toggle"
+                      onClick={() => toggleTodo(todo.id)}
+                      type="button"
+                    >
+                      <span className="planner-todo-title">{todo.title}</span>
+                    </button>
+                    <div className="planner-todo-actions">
+                      {todo.completed && (
+                        <button
+                          aria-label={`Undo completion for ${todo.title}`}
+                          className="planner-undo-btn"
+                          onClick={() => toggleTodo(todo.id)}
+                          title="Mark as not done"
+                          type="button"
+                        >
+                          <RotateCcw size={13} />
+                        </button>
+                      )}
+                      {confirmDelete === deleteKey ? <DeleteConfirmation label={todo.title} onCancel={() => setConfirmDelete("")} onConfirm={() => deleteItem("todo", todo.id)} /> : <button aria-label={`Delete ${todo.title}`} className="planner-trash-btn" onClick={() => setConfirmDelete(deleteKey)} title="Delete task" type="button"><Trash2 size={13} /></button>}
+                    </div>
                   </div>
                 );
               })}
@@ -446,6 +538,100 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
           <label><input checked={plannerSettings.showCompleted} onChange={(event) => persistSettings({ ...plannerSettings, showCompleted: event.target.checked })} type="checkbox" /> Show completed items</label>
         </footer>
       </section>
+
+        {aboutOpen && (
+          <div
+            className="goal-reminder-about-backdrop"
+            onMouseDown={(event) => {
+              event.stopPropagation();
+              if (event.target === event.currentTarget) setAboutOpen(false);
+            }}
+          >
+            <section
+              aria-describedby="goal-reminder-about-description"
+              aria-labelledby="goal-reminder-about-title"
+              aria-modal="true"
+              className="goal-reminder-about-dialog"
+              id="goal-reminder-about-dialog"
+              ref={aboutDialogRef}
+              role="dialog"
+            >
+              <header className="goal-reminder-about-header">
+                <div>
+                  <span>Center guide</span>
+                  <h3 id="goal-reminder-about-title">How goals and reminders work</h3>
+                  <p id="goal-reminder-about-description">A quick guide to planning, alerts, daily tasks, and the connected controls in Settings.</p>
+                </div>
+                <button
+                  aria-label="Close goals and reminders guide"
+                  className="goal-reminder-about-close-btn"
+                  onClick={() => setAboutOpen(false)}
+                  ref={aboutCloseButtonRef}
+                  title="Close guide"
+                  type="button"
+                ><X size={18} /></button>
+              </header>
+
+              <div className="goal-reminder-about-body">
+                <div className="goal-reminder-about-features" aria-label="Goal and reminder features">
+                  <article>
+                    <div><Target aria-hidden="true" size={17} /><strong>Goals</strong></div>
+                    <p>Create a dated outcome with priority, category, and details. Tick it when finished, or move an overdue goal to tomorrow.</p>
+                  </article>
+                  <article>
+                    <div><BellRing aria-hidden="true" size={17} /><strong>Reminders</strong></div>
+                    <p>Schedule an alert with a date, time, priority, and note. Today&apos;s reminders also appear in the center summary.</p>
+                  </article>
+                  <article>
+                    <div><ListTodo aria-hidden="true" size={17} /><strong>Quick to-do</strong></div>
+                    <p>Add a small next action, then click its card to mark it done. Use Undo to restore a finished task or Delete to remove it.</p>
+                  </article>
+                </div>
+
+                <section className="goal-reminder-about-settings" aria-labelledby="goal-reminder-about-settings-title">
+                  <h4 id="goal-reminder-about-settings-title">Goal controls in Settings</h4>
+                  <dl>
+                    <div>
+                      <dt>Daily target</dt>
+                      <dd>Sets focused study hours. Each completed planner session counts as one hour and updates Today&apos;s study pace.</dd>
+                    </div>
+                    <div>
+                      <dt>Weekly reviews</dt>
+                      <dd>Choose 1, 2, 3, or daily reviews. Completing generated review reminders updates the weekly score.</dd>
+                    </div>
+                    <div>
+                      <dt>Target-linked reminders</dt>
+                      <dd>Save your targets to refresh a 6:00 PM daily study reminder and spread 7:00 PM review reminders across the week.</dd>
+                    </div>
+                    <div>
+                      <dt>Animated nudge and repeat</dt>
+                      <dd>Shows a six-second message above the sidebar target icon; the repeat menu controls how often it returns.</dd>
+                    </div>
+                    <div>
+                      <dt>Show completed items</dt>
+                      <dd>Keeps finished goals, reminders, and to-dos visible so they can be reviewed or reopened.</dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section className="goal-reminder-about-workflow" aria-labelledby="goal-reminder-about-workflow-title">
+                  <h4 id="goal-reminder-about-workflow-title">A simple workflow</h4>
+                  <ol>
+                    <li>Choose Goal or Reminder, fill the compact form, and create it.</li>
+                    <li>Use Quick to-do for short actions that do not need a date.</li>
+                    <li>Mark items finished; enable Show completed items whenever you need to restore one.</li>
+                    <li>Set study targets in Settings and select Save study targets to generate or refresh the linked reminders.</li>
+                  </ol>
+                </section>
+              </div>
+
+              <footer className="goal-reminder-about-footer">
+                <span><CheckCircle2 aria-hidden="true" size={14} /> Center changes save automatically.</span>
+                <button className="goal-reminder-about-done-btn" onClick={() => setAboutOpen(false)} type="button">Got it</button>
+              </footer>
+            </section>
+          </div>
+        )}
     </div>
   ) : null;
 

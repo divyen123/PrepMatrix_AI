@@ -25,6 +25,7 @@ import {
   getPushNotificationErrorMessage,
 } from "../utils/pushNotifications";
 import { toast } from "react-toastify";
+import "./SettingsPage.css";
 
 const COLOR_PRESETS = [
   { name: "Teal (Default)", light: "7, 143, 120", dark: "36, 199, 177" },
@@ -1091,10 +1092,10 @@ function SettingsPage({
         <p className="card-subtext">Manage profile, update password, and customize application appearance.</p>
       </div>
 
-      <div className="dashboard-feature-grid" style={{ marginTop: "24px" }}>
+      <div className="dashboard-feature-grid settings-grid" style={{ marginTop: "24px" }}>
         
         {/* Profile Card */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="card settings-card settings-account-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="settings-account-header">
             <div className="settings-account-copy">
               <span className="section-tag" style={{ marginBottom: '12px' }}>ACCOUNT</span>
@@ -1239,7 +1240,7 @@ function SettingsPage({
         </div>
 
         {/* Security Credentials */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="card settings-card settings-security-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <span className="section-tag" style={{ marginBottom: '12px' }}>SECURITY</span>
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
@@ -1408,7 +1409,7 @@ function SettingsPage({
         </div>
 
         {/* System Preferences & Toggles */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="card settings-card settings-system-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <span className="section-tag" style={{ marginBottom: '12px' }}>SYSTEM</span>
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
@@ -1457,7 +1458,7 @@ function SettingsPage({
 
 
         {/* Appearance Configuration */}
-        <div className="card dashboard-full-span" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="card dashboard-full-span settings-card settings-appearance-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <span className="section-tag" style={{ marginBottom: '12px' }}>APPEARANCE</span>
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
@@ -1467,7 +1468,7 @@ function SettingsPage({
           </div>
 
           {/* Background Image Picker */}
-          <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "18px" }}>
+          <div className="settings-appearance-section" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "18px" }}>
             <span className="card-subtext" style={{ fontSize: "0.8rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
               <ImageIcon size={14} /> Background Theme
             </span>
@@ -1574,7 +1575,7 @@ function SettingsPage({
             )}
           </div>
 
-          <div className="workspace-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+          <div className="workspace-grid settings-appearance-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
             
             {/* Left Column: Layout & Typography */}
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -1638,7 +1639,7 @@ function SettingsPage({
               </div>
 
               {/* Glassmorphism Customization Section */}
-              <div style={{ marginTop: "18px", borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
+              <div className="settings-glass-section" style={{ marginTop: "18px", borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
                 <span className="card-subtext" style={{ fontSize: "0.8rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>Glassmorphism Customization</span>
                 <ToggleSwitch
                   checked={glassyCards}
@@ -1798,7 +1799,7 @@ function SettingsPage({
         </div>
 
         {/* Data Management & Danger Zone */}
-        <div className="card dashboard-full-span" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="card dashboard-full-span settings-card settings-data-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <span className="section-tag" style={{ marginBottom: '12px' }}>DATA</span>
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>

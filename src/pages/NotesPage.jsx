@@ -1,22 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Search, Trash2, X } from "lucide-react";
 import api from "../utils/apiClient";
+import "./NotesPage.css";
 
 const NOTES_PER_PAGE = 6;
 
-function splitTopics(value) {
-  return value
-    .split(/\n|,/)
-    .map((topic) => topic.trim())
-    .filter(Boolean);
-}
-
 function buildRevisionTask(note) {
-  const leftTopicText = note.leftTopics?.length
-    ? `: ${note.leftTopics.slice(0, 3).join(", ")}`
-    : "";
-
-  return `Revise ${note.topic} doubt${leftTopicText}`;
+  const legacyTopics = Array.isArray(note.leftTopics)
+    ? note.leftTopics.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 3)
+    : [];
+  const legacySuffix = legacyTopics.length ? `: ${legacyTopics.join(", ")}` : "";
+  return `Revise ${note.topic} doubt${legacySuffix}`;
 }
 
 function isNoteRevisionTask(taskName = "") {
@@ -73,7 +67,6 @@ function rankSearchMatch(fields, query) {
 function NotesPage({ completed = [], schedule = [], setSchedule, setNotification }) {
   const [notes, setNotes] = useState([]);
   const [topic, setTopic] = useState("");
-  const [leftTopics, setLeftTopics] = useState("");
   const [details, setDetails] = useState("");
   const [priority, setPriority] = useState("Medium");
   const [filter, setFilter] = useState("All");
@@ -81,6 +74,9 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
   const [notesSearchQuery, setNotesSearchQuery] = useState("");
   const [isNotesLoading, setIsNotesLoading] = useState(true);
   const [confirmClearNotes, setConfirmClearNotes] = useState(false);
+  const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState(null);
+  const deleteTriggerRefs = useRef(new Map());
+  const notesListHeadingRef = useRef(null);
 
   const saveNotes = (nextNotes) => {
     setNotes(nextNotes);
@@ -98,14 +94,13 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
 
     const cleanTopic = topic.trim();
     const cleanDetails = details.trim();
-    const topics = splitTopics(leftTopics);
 
-    if (!cleanTopic && !cleanDetails && topics.length === 0) return;
+    if (!cleanTopic && !cleanDetails) return;
 
     addNoteObject({
       id: crypto.randomUUID(),
       topic: cleanTopic || "Untitled doubt",
-      leftTopics: topics,
+      leftTopics: [],
       details: cleanDetails,
       priority,
       status: "Open",
@@ -113,7 +108,6 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
     });
 
     setTopic("");
-    setLeftTopics("");
     setDetails("");
     setPriority("Medium");
   };
@@ -128,15 +122,23 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
     );
   };
 
+  const cancelDeleteNote = (id) => {
+    setPendingDeleteNoteId(null);
+    window.requestAnimationFrame(() => deleteTriggerRefs.current.get(id)?.focus());
+  };
+
   const deleteNote = (id) => {
     const nextNotes = notes.filter((note) => note.id !== id);
     saveNotes(nextNotes);
+    setPendingDeleteNoteId(null);
     if (nextNotes.length === 0) setConfirmClearNotes(false);
+    window.requestAnimationFrame(() => notesListHeadingRef.current?.focus());
   };
 
   const clearAllNotes = () => {
     if (notes.length === 0) return;
     setConfirmClearNotes(false);
+    setPendingDeleteNoteId(null);
     saveNotes([]);
     setFilter("All");
     setNotesSearchQuery("");
@@ -231,7 +233,7 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
         note,
         index,
         rank: rankSearchMatch(
-          [note.topic, note.details, note.priority, note.status, ...(note.leftTopics || [])],
+          [note.topic, note.details, note.priority, note.status, ...(Array.isArray(note.leftTopics) ? note.leftTopics : [])],
           notesSearchQuery
         ),
       }))
@@ -254,16 +256,13 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
 
   const openCount = notes.filter((note) => note.status === "Open").length;
   const resolvedCount = notes.filter((note) => note.status === "Resolved").length;
-  const leftTopicCount = notes.reduce(
-    (total, note) => total + note.leftTopics.length,
-    0
-  );
+  const plannedCount = notes.filter((note) => note.planned).length;
 
   return (
     <section className="page-stack notes-page">
       <div className="section-intro">
         <span className="section-tag">Notes</span>
-        <h2>Doubt board and left-topic tracker</h2>
+        <h2>Doubt board</h2>
       </div>
 
       <div className="notes-grid">
@@ -272,7 +271,7 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
             <span className="section-tag">Capture</span>
             <h3>Add a study note</h3>
             <p className="card-desc">
-              Save doubts, skipped topics, and revision reminders before they disappear.
+              Save doubts, questions, and revision reminders before they disappear.
             </p>
           </div>
 
@@ -283,16 +282,6 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
               placeholder="Example: Bayes theorem, React hooks, deadlock"
               type="text"
               value={topic}
-            />
-          </label>
-
-          <label className="field-stack">
-            Topics left
-            <textarea
-              onChange={(event) => setLeftTopics(event.target.value)}
-              placeholder="Add topics separated by commas or new lines"
-              rows="4"
-              value={leftTopics}
             />
           </label>
 
@@ -337,9 +326,9 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
                 <span className="mobile-only-text">resolved</span>
               </div>
               <div>
-                <strong>{leftTopicCount}</strong>
-                <span className="desktop-only-text">Topics left</span>
-                <span className="mobile-only-text">remaining</span>
+                <strong>{plannedCount}</strong>
+                <span className="desktop-only-text">Planned</span>
+                <span className="mobile-only-text">planned</span>
               </div>
             </div>
           </article>
@@ -348,7 +337,7 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
             <span className="section-tag">Planner bridge</span>
             <h3>Notes to planner</h3>
             <p>
-              Turn any doubt into a morning revision task. Voice commands can also add doubts here automatically.
+              Turn any note into a morning revision task. Voice commands can also add doubts here automatically.
             </p>
           </article>
         </aside>
@@ -358,7 +347,7 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
         <div className="notes-list-header">
           <div>
             <span className="section-tag">Stored notes</span>
-            <h3>Your doubt queue</h3>
+            <h3 ref={notesListHeadingRef} tabIndex={-1}>Your doubt queue</h3>
           </div>
 
           <div className="notes-actions">
@@ -369,7 +358,7 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
                   <input
                     aria-label="Search stored notes"
                     onChange={(event) => setNotesSearchQuery(event.target.value)}
-                    placeholder="Search by topic, details, priority, or left topic"
+                    placeholder="Search by topic, details, or saved topic"
                     type="search"
                     value={notesSearchQuery}
                   />
@@ -381,6 +370,7 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
                 onChange={(e) => setFilter(e.target.value)}
               >
                 <option value="All">All Notes</option>
+                <option value="Open">Open</option>
                 <option value="Resolved">Resolved</option>
               </select>
               {notes.length > 0 && (confirmClearNotes ? (
@@ -428,7 +418,7 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
             <input
               aria-label="Search stored notes"
               onChange={(event) => setNotesSearchQuery(event.target.value)}
-              placeholder="Search by topic, details, priority, or left topic"
+              placeholder="Search by topic, details, or saved topic"
               type="search"
               value={notesSearchQuery}
             />
@@ -441,88 +431,105 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
         ) : filteredNotes.length === 0 ? (
           <p className="empty-state">
             {notes.length === 0
-              ? "No notes here yet. Add a doubt or left-out topic to start your revision queue."
+              ? "No notes here yet. Add a doubt to start your revision queue."
               : "No stored notes match your search."}
           </p>
         ) : (
           <div className="notes-list-grid">
-            {paginatedNotes.map((note) => (
-              <article className="note-card" key={note.id}>
-                <div className="note-card-top">
-                  <div>
-                    <span className={`note-priority ${note.priority.toLowerCase()}`}>{note.priority}</span>
-                    <h4>{note.topic}</h4>
+            {paginatedNotes.map((note) => {
+              const noteStatus = note.status === "Resolved" ? "Resolved" : "Open";
+              const notePriority = ["Low", "Medium", "High"].includes(note.priority) ? note.priority : "Medium";
+              const isConfirmingDelete = pendingDeleteNoteId === note.id;
+              const legacyTopics = Array.isArray(note.leftTopics) ? note.leftTopics.filter(Boolean) : [];
+
+              return (
+                <article
+                  className={`note-card is-${noteStatus.toLowerCase()}${isConfirmingDelete ? " is-confirming-delete" : ""}`}
+                  key={note.id}
+                >
+                  <div className="note-card-top">
+                    <div className="note-card-heading">
+                      <div className="note-card-chips">
+                        <span className={`note-priority ${notePriority.toLowerCase()}`}>{notePriority}</span>
+                        <span className={`note-status is-${noteStatus.toLowerCase()}`}>{noteStatus}</span>
+                      </div>
+                      <h4>{note.topic}</h4>
+                    </div>
+                    {note.planned ? <span className="planned-chip">Added to planner</span> : null}
                   </div>
-                  {note.planned ? <span className="planned-chip">Added to planner</span> : null}
-                </div>
 
-                {note.details ? <p>{note.details}</p> : null}
+                  <p className={`note-card-details${note.details ? "" : " is-empty"}`}>
+                    {note.details || "No extra details added."}
+                  </p>
 
-                {note.leftTopics.length > 0 ? (
-                  <div className="left-topic-wrap">
-                    {note.leftTopics.map((item) => <span key={`${note.id}-${item}`}>{item}</span>)}
+                  {legacyTopics.length > 0 ? (
+                    <div className="note-legacy-topics" aria-label="Previously saved topics">
+                      <span>Saved topics</span>
+                      <div>{legacyTopics.map((item) => <span key={`${note.id}-${item}`}>{item}</span>)}</div>
+                    </div>
+                  ) : null}
+
+                  <div className="note-card-actions">
+                    {isConfirmingDelete ? (
+                      <div
+                        aria-label={`Confirm deleting ${note.topic}`}
+                        className="note-delete-confirm"
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") {
+                            event.preventDefault();
+                            cancelDeleteNote(note.id);
+                          }
+                        }}
+                        role="group"
+                      >
+                        <span className="note-delete-confirm-copy">Delete this note?</span>
+                        <div className="compact-confirm-actions">
+                          <button
+                            aria-label={`Confirm deleting ${note.topic}`}
+                            autoFocus
+                            className="compact-confirm-btn is-confirm"
+                            onClick={() => deleteNote(note.id)}
+                            title="Confirm delete"
+                            type="button"
+                          >
+                            <Check aria-hidden="true" size={13} />
+                          </button>
+                          <button
+                            aria-label={`Cancel deleting ${note.topic}`}
+                            className="compact-confirm-btn is-cancel"
+                            onClick={() => cancelDeleteNote(note.id)}
+                            title="Cancel"
+                            type="button"
+                          >
+                            <X aria-hidden="true" size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <button className="note-action-btn note-plan-action" onClick={() => planNote(note)} type="button">
+                          Plan tomorrow morning
+                        </button>
+                        <button className="note-action-btn" onClick={() => toggleStatus(note.id)} type="button">
+                          {noteStatus === "Open" ? "Mark resolved" : "Reopen"}
+                        </button>
+                        <button
+                          className="note-action-btn danger-text"
+                          onClick={() => setPendingDeleteNoteId(note.id)}
+                          ref={(node) => {
+                            if (node) deleteTriggerRefs.current.set(note.id, node);
+                            else deleteTriggerRefs.current.delete(note.id);
+                          }}
+                          type="button"
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
                   </div>
-                ) : null}
-
-                <div className="note-card-actions">
-                  <button 
-                    onClick={() => planNote(note)} 
-                    type="button"
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: "0.72rem",
-                      height: "26px",
-                      minHeight: "26px",
-                      borderRadius: "999px",
-                      boxSizing: "border-box",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "100%"
-                    }}
-                  >
-                    Plan tomorrow morning
-                  </button>
-                  <button 
-                    onClick={() => toggleStatus(note.id)} 
-                    type="button"
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: "0.72rem",
-                      height: "26px",
-                      minHeight: "26px",
-                      borderRadius: "999px",
-                      boxSizing: "border-box",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "100%"
-                    }}
-                  >
-                    {note.status === "Open" ? "Mark resolved" : "Reopen"}
-                  </button>
-                  <button 
-                    className="danger-text" 
-                    onClick={() => deleteNote(note.id)} 
-                    type="button"
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: "0.72rem",
-                      height: "26px",
-                      minHeight: "26px",
-                      borderRadius: "999px",
-                      boxSizing: "border-box",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "100%"
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
 
