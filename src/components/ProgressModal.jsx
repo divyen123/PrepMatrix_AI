@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, X, TrendingUp, CheckCircle2, Award, CalendarRange } from "lucide-react";
+import { ArrowRight, X, TrendingUp, CheckCircle2, Award, CalendarRange, Plus } from "lucide-react";
+import { getTrendPlanAction } from "../utils/trendPlanAction";
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -11,10 +12,11 @@ import {
   Area
 } from "recharts";
 
-function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [] }) {
+function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [], subjects = [] }) {
   const navigate = useNavigate();
   const safeSchedule = Array.isArray(schedule) ? schedule : [];
   const safeCompleted = Array.isArray(completed) ? completed : [];
+  const planAction = getTrendPlanAction(subjects, safeSchedule);
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (e) => {
@@ -112,10 +114,11 @@ function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [
     ];
   }
 
-  const handleViewPlan = () => {
+  const handlePlanAction = () => {
     onClose();
-    navigate("/planner");
+    navigate(planAction.route);
   };
+  const PlanActionIcon = planAction.kind === "add-subject" ? Plus : CalendarRange;
 
   return (
     <div
@@ -260,9 +263,9 @@ function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [
         </div>
 
         <footer className="trend-modal-footer">
-          <button className="trend-view-plan-btn" onClick={handleViewPlan} type="button">
-            <CalendarRange aria-hidden="true" size={15} strokeWidth={2.4} />
-            <span>View Plan</span>
+          <button className="trend-view-plan-btn" onClick={handlePlanAction} type="button">
+            <PlanActionIcon aria-hidden="true" size={15} strokeWidth={2.4} />
+            <span>{planAction.label}</span>
             <ArrowRight aria-hidden="true" size={14} strokeWidth={2.4} />
           </button>
         </footer>

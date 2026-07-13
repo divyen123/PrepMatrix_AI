@@ -18366,6 +18366,7 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)):focus-visible 
 .chat-clear-confirm-inline .compact-confirm-btn,
 .delete-confirm-wrap .compact-confirm-btn,
 .notes-clear-confirm-inline .compact-confirm-btn,
+.bookmark-clear-confirm .compact-confirm-btn,
 .bookmark-actions .compact-confirm-btn {
   display: inline-grid !important;
   flex: 0 0 28px !important;
@@ -18388,6 +18389,7 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)):focus-visible 
 .chat-clear-confirm-inline .compact-confirm-btn svg,
 .delete-confirm-wrap .compact-confirm-btn svg,
 .notes-clear-confirm-inline .compact-confirm-btn svg,
+.bookmark-clear-confirm .compact-confirm-btn svg,
 .bookmark-actions .compact-confirm-btn svg {
   display: block;
   width: 13px;
@@ -18399,6 +18401,7 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)):focus-visible 
 .chat-clear-confirm-inline .compact-confirm-btn.is-confirm,
 .delete-confirm-wrap .compact-confirm-btn.is-confirm,
 .notes-clear-confirm-inline .compact-confirm-btn.is-confirm,
+.bookmark-clear-confirm .compact-confirm-btn.is-confirm,
 .bookmark-actions .compact-confirm-btn.is-confirm {
   color: var(--danger) !important;
   border-color: color-mix(in srgb, var(--danger) 34%, transparent) !important;
@@ -18408,6 +18411,7 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)):focus-visible 
 .chat-clear-confirm-inline .compact-confirm-btn.is-confirm:hover,
 .delete-confirm-wrap .compact-confirm-btn.is-confirm:hover,
 .notes-clear-confirm-inline .compact-confirm-btn.is-confirm:hover,
+.bookmark-clear-confirm .compact-confirm-btn.is-confirm:hover,
 .bookmark-actions .compact-confirm-btn.is-confirm:hover {
   color: #fff !important;
   border-color: var(--danger) !important;
@@ -18418,6 +18422,7 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)):focus-visible 
 .chat-clear-confirm-inline .compact-confirm-btn.is-cancel:hover,
 .delete-confirm-wrap .compact-confirm-btn.is-cancel:hover,
 .notes-clear-confirm-inline .compact-confirm-btn.is-cancel:hover,
+.bookmark-clear-confirm .compact-confirm-btn.is-cancel:hover,
 .bookmark-actions .compact-confirm-btn.is-cancel:hover {
   color: var(--text) !important;
   border-color: rgba(var(--accent-rgb), 0.32) !important;
@@ -18462,6 +18467,7 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)):focus-visible 
   align-items: center;
 }
 
+.bookmark-clear-all-btn,
 .notes-clear-all-btn {
   display: inline-grid !important;
   flex: 0 0 34px !important;
@@ -18790,4 +18796,48 @@ body .sidebar-chatbot-portal .chat-attachment-remove:disabled {
   min-height: 40px;
   padding: 8px 14px;
   gap: 12px;
+}
+
+/* Saved-library bulk clear controls. */
+.resources-bookmark-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.resources-bookmark-count {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+body .bookmark-clear-all-btn {
+  color: var(--danger) !important;
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface)) !important;
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent) !important;
+  box-shadow: none !important;
+}
+
+body .bookmark-clear-all-btn:hover,
+body .bookmark-clear-all-btn:focus-visible {
+  color: #fff !important;
+  background: var(--danger) !important;
+  border-color: var(--danger) !important;
+  transform: translateY(-1px) !important;
+}
+
+.bookmark-clear-confirm {
+  min-width: 132px;
+}
+
+@media (max-width: 991.98px) {
+  .resources-bookmark-tools {
+    align-self: stretch;
+    flex-wrap: wrap;
+    width: 100%;
+  }
 }

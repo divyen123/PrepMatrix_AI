@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, Search, X } from "lucide-react";
+import { Check, Search, Trash2, X } from "lucide-react";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { buildSubjectMaterials } from "../utils/materialRecommendations";
 
@@ -22,12 +22,14 @@ function ResourcesHub({
   academicTrack = "General",
   completed = [],
   materialBookmarks = [],
+  onClearBookmarks,
   onRemoveBookmark,
   onSaveBookmark,
   schedule = [],
   subjects = [],
 }) {
   const [bookmarkSearchQuery, setBookmarkSearchQuery] = useState("");
+  const [confirmClearAllBookmarks, setConfirmClearAllBookmarks] = useState(false);
   const [pendingBookmarkRemovalId, setPendingBookmarkRemovalId] = useState(null);
   const metrics = getPlannerMetrics(schedule, completed);
   const materials = subjects.map((subject) =>
@@ -91,7 +93,7 @@ function ResourcesHub({
               <span className="section-tag">Saved library</span>
               <h3>Material bookmarks</h3>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div className="resources-bookmark-tools">
               <label className="stored-search-field bookmark-desktop-search">
                 <Search size={16} />
                 <input
@@ -102,7 +104,46 @@ function ResourcesHub({
                   value={bookmarkSearchQuery}
                 />
               </label>
-              <span>{materialBookmarks.length} saved</span>
+              <span className="resources-bookmark-count">{materialBookmarks.length} saved</span>
+              {confirmClearAllBookmarks ? (
+                <div
+                  aria-label="Confirm clearing all saved materials"
+                  className="bookmark-clear-confirm compact-confirm-actions"
+                  role="group"
+                >
+                  <span className="compact-confirm-copy">Clear all?</span>
+                  <button
+                    aria-label="Confirm clearing all saved materials"
+                    className="compact-confirm-btn is-confirm"
+                    onClick={() => {
+                      setConfirmClearAllBookmarks(false);
+                      setPendingBookmarkRemovalId(null);
+                      setBookmarkSearchQuery("");
+                      onClearBookmarks?.();
+                    }}
+                    title="Confirm clear all"
+                    type="button"
+                  ><Check aria-hidden="true" size={13} /></button>
+                  <button
+                    aria-label="Cancel clearing all saved materials"
+                    className="compact-confirm-btn is-cancel"
+                    onClick={() => setConfirmClearAllBookmarks(false)}
+                    title="Cancel"
+                    type="button"
+                  ><X aria-hidden="true" size={13} /></button>
+                </div>
+              ) : (
+                <button
+                  aria-label="Clear all saved materials"
+                  className="bookmark-clear-all-btn"
+                  onClick={() => {
+                    setPendingBookmarkRemovalId(null);
+                    setConfirmClearAllBookmarks(true);
+                  }}
+                  title="Clear all saved materials"
+                  type="button"
+                ><Trash2 aria-hidden="true" size={15} /></button>
+              )}
             </div>
           </div>
 
@@ -155,7 +196,10 @@ function ResourcesHub({
                     ) : (
                       <button
                         aria-label={`Remove ${bookmark.title} from saved library`}
-                        onClick={() => setPendingBookmarkRemovalId(bookmark.id)}
+                        onClick={() => {
+                          setConfirmClearAllBookmarks(false);
+                          setPendingBookmarkRemovalId(bookmark.id);
+                        }}
                         type="button"
                       >
                         Remove

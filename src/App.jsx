@@ -452,6 +452,12 @@ function App() {
     setNotification("Bookmark removed.");
   };
 
+  const clearMaterialBookmarks = () => {
+    if (!materialBookmarks.length) return;
+    setMaterialBookmarks([]);
+    setNotification("Saved material library cleared.");
+  };
+
   const overviewCards = [
     {
       label: "Subjects",
@@ -971,7 +977,7 @@ function App() {
             </div>
             <Suspense fallback={null}>
               <div className="sidebar-widget-cell">
-                <FloatingAnalytics completed={completed} schedule={schedule} />
+                <FloatingAnalytics completed={completed} schedule={schedule} subjects={subjects} />
               </div>
             </Suspense>
             <div className="sidebar-widget-cell sidebar-exam-widget">
@@ -1311,6 +1317,7 @@ function App() {
                               academicTrack={academicTrack}
                               completed={completed}
                               materialBookmarks={materialBookmarks}
+                              onClearBookmarks={clearMaterialBookmarks}
                               onRemoveBookmark={removeMaterialBookmark}
                               onSaveBookmark={saveMaterialBookmark}
                               schedule={schedule}

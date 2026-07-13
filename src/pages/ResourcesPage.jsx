@@ -7,6 +7,7 @@ function ResourcesPage({
   schedule,
   completed,
   materialBookmarks,
+  onClearBookmarks,
   onSaveBookmark,
   onRemoveBookmark,
 }) {
@@ -22,6 +23,7 @@ function ResourcesPage({
         academicTrack={academicTrack}
         completed={completed}
         materialBookmarks={materialBookmarks}
+        onClearBookmarks={onClearBookmarks}
         onRemoveBookmark={onRemoveBookmark}
         onSaveBookmark={onSaveBookmark}
         schedule={schedule}
