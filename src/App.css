@@ -6364,6 +6364,13 @@ body.dark .metric-list li:hover {
   line-height: 1.5;
 }
 
+/* Match the desktop card box to the existing upward visual offset. */
+@media (min-width: 981px) {
+  .analytics-support-grid > .gamification-card .card-desc {
+    margin-bottom: -96px;
+  }
+}
+
 /* Mild gradient buttons: less glow, better text contrast. */
 :root {
   --brand-gradient: linear-gradient(135deg, #0c8d79 0%, #24bba9 58%, #8fb56b 115%);

@@ -442,9 +442,9 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
             )}
           </section>
 
-          <section className="planner-list-panel planner-todo-panel">
+          <section aria-labelledby="quick-todo-heading" className="planner-list-panel planner-todo-panel">
             <div className="planner-panel-heading">
-              <div><span>Today</span><h3>Quick to-do</h3></div>
+              <div><span id="quick-todo-heading">Quick to-do</span></div>
               <strong>{openTodos} open</strong>
             </div>
             <form className="planner-todo-composer" onSubmit={createTodo}>
