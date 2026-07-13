@@ -157,22 +157,24 @@ function GoalSettingsPanel({
 
         <PlannerSettingToggle
           checked={plannerSettings.nudgeEnabled}
-          label="Animated reminder nudge"
+          label="Centered reminder alerts"
           onChange={(value) => updatePlannerSettings({ nudgeEnabled: value })}
-          subtitle="Show a message above the sidebar goal icon for 6 seconds."
+          subtitle="Show a focused popup with Done and Remind later when a scheduled reminder is due."
         />
 
         <div className="goal-setting-select-row">
-          <div><Clock3 aria-hidden="true" size={15} /><span>Repeat nudge</span></div>
+          <div><Clock3 aria-hidden="true" size={15} /><span>Remind later</span></div>
           <select
-            aria-label="Reminder nudge repeat interval"
+            aria-label="Remind later duration"
             disabled={!plannerSettings.nudgeEnabled}
-            onChange={(event) => updatePlannerSettings({ repeatSeconds: Number(event.target.value) })}
-            value={plannerSettings.repeatSeconds}
+            onChange={(event) => updatePlannerSettings({ snoozeMinutes: Number(event.target.value) })}
+            value={plannerSettings.snoozeMinutes}
           >
-            <option value="20">Every 20 seconds</option>
-            <option value="30">Every 30 seconds</option>
-            <option value="60">Every 60 seconds</option>
+            <option value="5">5 minutes</option>
+            <option value="10">10 minutes</option>
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 hour</option>
           </select>
         </div>
 

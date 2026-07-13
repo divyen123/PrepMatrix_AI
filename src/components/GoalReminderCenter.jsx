@@ -23,7 +23,9 @@ import {
   OPEN_GOAL_REMINDER_EVENT,
   clearPlannerCollection,
   createPlannerId,
+  getDueReminders,
   getLocalDateKey,
+  getPlannerAttentionSummary,
   getTomorrowDateKey,
   normalizePlannerData,
   normalizePlannerSettings,
@@ -132,8 +134,7 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
   const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const [confirmBulkClear, setConfirmBulkClear] = useState("");
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [showNudge, setShowNudge] = useState(false);
-  const [today, setToday] = useState(getLocalDateKey);
+  const [now, setNow] = useState(() => new Date());
   const closeButtonRef = useRef(null);
   const dialogRef = useRef(null);
   const aboutButtonRef = useRef(null);
@@ -141,9 +142,13 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
   const bulkMenuButtonRef = useRef(null);
   const bulkMenuRef = useRef(null);
   const aboutDialogRef = useRef(null);
+  const reminderAlertRef = useRef(null);
+  const reminderDoneButtonRef = useRef(null);
+  const reminderSnoozeButtonRef = useRef(null);
 
   const plannerData = useMemo(() => normalizePlannerData(data), [data]);
   const plannerSettings = useMemo(() => normalizePlannerSettings(settings), [settings]);
+  const today = useMemo(() => getLocalDateKey(now), [now]);
   const visibleGoals = useMemo(() => sortPlannerItems(
     plannerSettings.showCompleted ? plannerData.goals : plannerData.goals.filter((item) => !item.completed),
     "targetDate"
@@ -158,6 +163,16 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
   const todayReminders = useMemo(() => plannerData.reminders
     .filter((item) => !item.completed && item.date === today)
     .sort((left, right) => (left.time || "00:00").localeCompare(right.time || "00:00")), [plannerData.reminders, today]);
+  const attentionSummary = useMemo(
+    () => getPlannerAttentionSummary(plannerData, now),
+    [now, plannerData],
+  );
+  const dueReminders = useMemo(
+    () => plannerSettings.nudgeEnabled ? getDueReminders(plannerData, now) : [],
+    [now, plannerData, plannerSettings.nudgeEnabled],
+  );
+  const activeReminder = dueReminders[0] || null;
+  const activeReminderId = activeReminder?.id;
 
   const activeGoals = plannerData.goals.filter((item) => !item.completed).length;
   const openTodos = plannerData.todos.filter((item) => !item.completed).length;
@@ -195,34 +210,59 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
   }, [onOpen]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => setToday(getLocalDateKey()), 60_000);
-    return () => window.clearInterval(interval);
+    const refreshClock = () => setNow(new Date());
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshClock();
+    };
+    const interval = window.setInterval(refreshClock, 15_000);
+    window.addEventListener("focus", refreshClock);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshClock);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
-    if (!plannerSettings.nudgeEnabled || todayReminders.length === 0 || open) {
-      setShowNudge(false);
-      return undefined;
-    }
+    if (!activeReminderId) return undefined;
+    const previousFocus = document.activeElement;
+    document.body.classList.add("goal-reminder-alert-open");
+    window.requestAnimationFrame(() => reminderDoneButtonRef.current?.focus());
 
-    let hideTimer = null;
-    const reveal = () => {
-      if (document.visibilityState === "hidden") return;
-      setShowNudge(true);
-      if (hideTimer) window.clearTimeout(hideTimer);
-      hideTimer = window.setTimeout(() => setShowNudge(false), 6_000);
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        reminderSnoozeButtonRef.current?.click();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = reminderAlertRef.current?.querySelectorAll(
+        'button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
 
-    reveal();
-    const interval = window.setInterval(reveal, plannerSettings.repeatSeconds * 1_000);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.clearInterval(interval);
-      if (hideTimer) window.clearTimeout(hideTimer);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.classList.remove("goal-reminder-alert-open");
+      if (previousFocus?.isConnected) previousFocus.focus?.();
     };
-  }, [open, plannerSettings.nudgeEnabled, plannerSettings.repeatSeconds, todayReminders]);
+  }, [activeReminderId]);
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || activeReminderId) return undefined;
     const previousFocus = document.activeElement;
     document.body.classList.add("goal-reminder-center-open");
     window.requestAnimationFrame(() => closeButtonRef.current?.focus());
@@ -264,7 +304,7 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
       document.body.classList.remove("goal-reminder-center-open");
       previousFocus?.focus?.();
     };
-  }, [open]);
+  }, [open, activeReminderId]);
 
   useEffect(() => {
     if (!bulkMenuOpen) return undefined;
@@ -283,7 +323,7 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
   }, [bulkMenuOpen]);
 
   useEffect(() => {
-    if (!aboutOpen) return undefined;
+    if (!aboutOpen || activeReminderId) return undefined;
     const previousFocus = document.activeElement;
     window.requestAnimationFrame(() => aboutCloseButtonRef.current?.focus());
 
@@ -315,7 +355,7 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
       document.removeEventListener("keydown", handleKeyDown);
       previousFocus?.focus?.();
     };
-  }, [aboutOpen]);
+  }, [aboutOpen, activeReminderId]);
 
   const createGoal = (event) => {
     event.preventDefault();
@@ -394,8 +434,40 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
       ...reminder,
       completed: !reminder.completed,
       completedAt: reminder.completed ? "" : new Date().toISOString(),
+      snoozedUntil: "",
     } : reminder),
   });
+
+  const completeActiveReminder = () => {
+    if (!activeReminder) return;
+    const completedAt = new Date().toISOString();
+    persistData({
+      ...plannerData,
+      reminders: plannerData.reminders.map((reminder) => reminder.id === activeReminder.id ? {
+        ...reminder,
+        completed: true,
+        completedAt,
+        snoozedUntil: "",
+      } : reminder),
+    });
+    setNow(new Date());
+    toast.success("Reminder completed.");
+  };
+
+  const snoozeActiveReminder = () => {
+    if (!activeReminder) return;
+    const snoozeMinutes = plannerSettings.snoozeMinutes;
+    const snoozedUntil = new Date(Date.now() + snoozeMinutes * 60_000).toISOString();
+    persistData({
+      ...plannerData,
+      reminders: plannerData.reminders.map((reminder) => reminder.id === activeReminder.id ? {
+        ...reminder,
+        snoozedUntil,
+      } : reminder),
+    });
+    setNow(new Date());
+    toast.info(`Reminder snoozed for ${snoozeMinutes} minute${snoozeMinutes === 1 ? "" : "s"}.`);
+  };
 
   const toggleTodo = (todoId) => persistData({
     ...plannerData,
@@ -425,19 +497,22 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
       : action.success);
   };
 
-  const nudgeText = todayReminders.length === 1
-    ? `${todayReminders[0].title}${todayReminders[0].time ? ` · ${todayReminders[0].time}` : ""}`
-    : `${todayReminders.length} reminders scheduled today`;
+  const dueGoalCount = attentionSummary.dueGoals.length;
+  const staleTodoCount = attentionSummary.staleTodos.length;
+  const attentionLabel = [
+    dueGoalCount ? `${dueGoalCount} due goal${dueGoalCount === 1 ? "" : "s"}` : "",
+    staleTodoCount ? `${staleTodoCount} to-do${staleTodoCount === 1 ? "" : "s"} open over 24 hours` : "",
+  ].filter(Boolean).join(" and ");
 
   const dialog = open ? (
     <div className="goal-reminder-backdrop" onMouseDown={(event) => event.target === event.currentTarget && closeCenter()}>
       <section
         aria-describedby="goal-reminder-center-description"
-        aria-hidden={aboutOpen ? true : undefined}
+        aria-hidden={aboutOpen || activeReminder ? true : undefined}
         aria-labelledby="goal-reminder-center-title"
-        aria-modal={aboutOpen ? undefined : true}
+        aria-modal={aboutOpen || activeReminder ? undefined : true}
         className="goal-reminder-dialog"
-        inert={aboutOpen}
+        inert={aboutOpen || Boolean(activeReminder)}
         ref={dialogRef}
         role="dialog"
       >
@@ -663,7 +738,7 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
 
       </section>
 
-        {aboutOpen && (
+        {aboutOpen && !activeReminder && (
           <div
             className="goal-reminder-about-backdrop"
             onMouseDown={(event) => {
@@ -728,8 +803,8 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
                       <dd>Save your targets to refresh a 6:00 PM daily study reminder and spread 7:00 PM review reminders across the week.</dd>
                     </div>
                     <div>
-                      <dt>Animated nudge and repeat</dt>
-                      <dd>Shows a six-second message above the sidebar target icon; the repeat menu controls how often it returns.</dd>
+                      <dt>Centered alerts and Remind later</dt>
+                      <dd>Opens a focused alert at the scheduled time. Choose Done or snooze it using the duration selected in Settings.</dd>
                     </div>
                     <div>
                       <dt>Show completed items</dt>
@@ -759,23 +834,67 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
     </div>
   ) : null;
 
+  const reminderAlert = activeReminder ? (
+    <div className="goal-reminder-alert-backdrop">
+      <section
+        aria-describedby="goal-reminder-alert-description"
+        aria-labelledby="goal-reminder-alert-title"
+        aria-modal="true"
+        className={`goal-reminder-alert priority-${activeReminder.priority}`}
+        ref={reminderAlertRef}
+        role="dialog"
+      >
+        <div className="goal-reminder-alert-icon" aria-hidden="true">
+          <AlarmClock size={25} strokeWidth={2.2} />
+        </div>
+        <div className="goal-reminder-alert-copy">
+          <span className="goal-reminder-alert-eyebrow">Reminder due</span>
+          <h2 id="goal-reminder-alert-title">{activeReminder.title}</h2>
+          <p className="goal-reminder-alert-time">
+            <CalendarClock aria-hidden="true" size={14} /> {formatDateLabel(activeReminder.date)}
+            <span aria-hidden="true">&bull;</span>
+            <Clock3 aria-hidden="true" size={14} /> {activeReminder.time || "All day"}
+          </p>
+          <p id="goal-reminder-alert-description">
+            {activeReminder.notes || "This reminder has reached its scheduled time."}
+          </p>
+        </div>
+        <div className="goal-reminder-alert-actions">
+          <button className="goal-reminder-alert-snooze" onClick={snoozeActiveReminder} ref={reminderSnoozeButtonRef} type="button">
+            <Clock3 aria-hidden="true" size={15} /> Remind in {plannerSettings.snoozeMinutes} min
+          </button>
+          <button className="goal-reminder-alert-done" onClick={completeActiveReminder} ref={reminderDoneButtonRef} type="button">
+            <CheckCircle2 aria-hidden="true" size={16} /> Done
+          </button>
+        </div>
+        {dueReminders.length > 1 && (
+          <span className="goal-reminder-alert-queue">{dueReminders.length - 1} more reminder{dueReminders.length === 2 ? "" : "s"} waiting</span>
+        )}
+      </section>
+    </div>
+  ) : null;
+
   return (
     <div className="goal-reminder-launcher">
-      {showNudge && <div aria-hidden="true" className="goal-reminder-nudge">{nudgeText}</div>}
       <button
         aria-expanded={open}
         aria-haspopup="dialog"
-        aria-label={todayReminders.length ? `Open Goal and Reminder Center. ${todayReminders.length} reminders today.` : "Open Goal and Reminder Center"}
-        className={`goal-reminder-launcher-button${todayReminders.length ? " has-today-reminders" : ""}`}
+        aria-label={attentionSummary.total ? `Open Goal and Reminder Center. Attention needed: ${attentionLabel}.` : "Open Goal and Reminder Center"}
+        className={`goal-reminder-launcher-button${attentionSummary.total ? " has-attention" : ""}`}
         onClick={openCenter}
         title="Goals, reminders, and to-do list"
         type="button"
       >
         <span className="goal-reminder-launcher-visual" aria-hidden="true">
           <Target className="goal-reminder-target-icon" size={42} strokeWidth={1.8} />
+          <BellRing className="goal-reminder-bell-icon" size={13} strokeWidth={2.4} />
+          {attentionSummary.total > 0 && (
+            <span className="goal-reminder-count">{attentionSummary.total > 99 ? "99+" : attentionSummary.total}</span>
+          )}
         </span>
       </button>
       {typeof document !== "undefined" && dialog ? createPortal(dialog, document.body) : null}
+      {typeof document !== "undefined" && reminderAlert ? createPortal(reminderAlert, document.body) : null}
     </div>
   );
 }

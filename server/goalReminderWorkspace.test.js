@@ -25,6 +25,7 @@ test("bounds planner settings and keeps supported preferences", () => {
     targetRemindersEnabled: true,
     nudgeEnabled: false,
     repeatSeconds: 30,
+    snoozeMinutes: 60,
     showCompleted: false,
   }), {
     dailyStudyTarget: 16,
@@ -32,9 +33,28 @@ test("bounds planner settings and keeps supported preferences", () => {
     targetRemindersEnabled: true,
     nudgeEnabled: false,
     repeatSeconds: 30,
+    snoozeMinutes: 60,
     showCompleted: false,
   });
 
   assert.equal(normalizeGoalReminderSettings({ repeatSeconds: 10 }).repeatSeconds, 20);
+  assert.equal(normalizeGoalReminderSettings({ snoozeMinutes: 5 }).snoozeMinutes, 5);
+  assert.equal(normalizeGoalReminderSettings({ snoozeMinutes: 20 }).snoozeMinutes, 10);
+  assert.equal(normalizeGoalReminderSettings({}).snoozeMinutes, 10);
   assert.equal(normalizeGoalReminderSettings({}).targetRemindersEnabled, false);
+});
+
+test('preserves valid reminder snooze timestamps and removes invalid values', () => {
+  const snoozedUntil = new Date(2026, 6, 13, 14, 30, 0).toISOString();
+  const data = normalizeGoalReminderData({
+    reminders: [
+      { id: 'valid', snoozedUntil },
+      { id: 'invalid', snoozedUntil: 'not-a-date' },
+    ],
+  });
+
+  assert.deepEqual(data.reminders, [
+    { id: 'valid', snoozedUntil },
+    { id: 'invalid' },
+  ]);
 });

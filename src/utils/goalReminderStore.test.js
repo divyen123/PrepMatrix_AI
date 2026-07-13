@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   clearPlannerCollection,
   calculateStudyTargetPerformance,
+  getDueReminders,
   getLocalDateKey,
+  getPlannerAttentionSummary,
   getTargetReviewDateKeys,
   getTomorrowDateKey,
   normalizePlannerData,
@@ -111,6 +113,7 @@ test("normalizes reminder nudge preferences to supported values", () => {
     targetRemindersEnabled: true,
     nudgeEnabled: false,
     repeatSeconds: 20,
+    snoozeMinutes: 30,
     showCompleted: false,
   }), {
     dailyStudyTarget: 6.5,
@@ -118,11 +121,15 @@ test("normalizes reminder nudge preferences to supported values", () => {
     targetRemindersEnabled: true,
     nudgeEnabled: false,
     repeatSeconds: 20,
+    snoozeMinutes: 30,
     showCompleted: false,
   });
 
   assert.equal(normalizePlannerSettings({ repeatSeconds: 4 }).repeatSeconds, 20);
   assert.equal(normalizePlannerSettings({ repeatSeconds: 10 }).repeatSeconds, 20);
+  assert.equal(normalizePlannerSettings({ snoozeMinutes: 15 }).snoozeMinutes, 15);
+  assert.equal(normalizePlannerSettings({ snoozeMinutes: 20 }).snoozeMinutes, 10);
+  assert.equal(normalizePlannerSettings({}).snoozeMinutes, 10);
   assert.equal(normalizePlannerSettings({ dailyStudyTarget: 99 }).dailyStudyTarget, 16);
 });
 
@@ -140,11 +147,17 @@ test("creates deterministic daily and weekly target reminders without duplicates
   assert.deepEqual(getTargetReviewDateKeys(settings, monday), ["2026-07-15", "2026-07-19"]);
 
   const first = syncStudyTargetReminders(initial, settings, monday);
+  const snoozedUntil = new Date(2026, 6, 13, 10, 30, 0).toISOString();
+  first.reminders.find((item) => item.id === "study-target-daily-2026-07-13").snoozedUntil = snoozedUntil;
   const second = syncStudyTargetReminders(first, settings, monday);
 
   assert.equal(first.reminders.length, 4);
   assert.equal(second.reminders.length, 4);
   assert.equal(second.reminders.filter((item) => item.id === "study-target-daily-2026-07-13").length, 1);
+  assert.equal(
+    second.reminders.find((item) => item.id === "study-target-daily-2026-07-13").snoozedUntil,
+    snoozedUntil,
+  );
   assert.deepEqual(
     second.reminders
       .filter((item) => item.id.startsWith("study-target-review-"))
@@ -189,4 +202,73 @@ test("calculates daily focused-hour and weekly review performance", () => {
     weeklyReviewTarget: 2,
     weeklyReviewProgress: 50,
   });
+});
+
+test('preserves valid reminder snooze timestamps and rejects invalid values', () => {
+  const snoozedUntil = new Date(2026, 6, 13, 14, 30, 0).toISOString();
+  const data = normalizePlannerData({
+    reminders: [
+      { id: 'valid', title: 'Valid snooze', date: '2026-07-13', snoozedUntil },
+      { id: 'invalid', title: 'Invalid snooze', date: '2026-07-13', snoozedUntil: 'not-a-date' },
+    ],
+  });
+
+  assert.equal(data.reminders[0].snoozedUntil, snoozedUntil);
+  assert.equal(data.reminders[1].snoozedUntil, '');
+});
+
+test('summarizes due goals and incomplete todos that are at least 24 hours old', () => {
+  const now = new Date(2026, 6, 13, 12, 0, 0, 0);
+  const exactBoundary = new Date(now.getTime() - (24 * 60 * 60 * 1_000)).toISOString();
+  const oneMillisecondFresh = new Date(now.getTime() - (24 * 60 * 60 * 1_000) + 1).toISOString();
+  const older = new Date(now.getTime() - (48 * 60 * 60 * 1_000)).toISOString();
+  const summary = getPlannerAttentionSummary({
+    goals: [
+      { id: 'past-goal', title: 'Past goal', targetDate: '2026-07-12' },
+      { id: 'today-goal', title: 'Today goal', targetDate: '2026-07-13' },
+      { id: 'future-goal', title: 'Future goal', targetDate: '2026-07-14' },
+      { id: 'done-goal', title: 'Done goal', targetDate: '2026-07-12', completed: true },
+    ],
+    todos: [
+      { id: 'boundary-todo', title: 'Exactly one day old', createdAt: exactBoundary },
+      { id: 'old-todo', title: 'Two days old', createdAt: older },
+      { id: 'fresh-todo', title: 'One millisecond too fresh', createdAt: oneMillisecondFresh },
+      { id: 'done-todo', title: 'Completed old task', createdAt: older, completed: true },
+      { id: 'invalid-todo', title: 'Invalid timestamp', createdAt: 'not-a-date' },
+    ],
+  }, now);
+
+  assert.deepEqual(summary.dueGoals.map((goal) => goal.id), ['past-goal', 'today-goal']);
+  assert.deepEqual(summary.staleTodos.map((todo) => todo.id), ['boundary-todo', 'old-todo']);
+  assert.equal(summary.total, 4);
+});
+
+test('returns due reminders in effective scheduled and snoozed order', () => {
+  const now = new Date(2026, 6, 13, 12, 0, 0, 0);
+  const at1045 = new Date(2026, 6, 13, 10, 45, 0, 0).toISOString();
+  const atNoon = new Date(2026, 6, 13, 12, 0, 0, 0).toISOString();
+  const afterNoon = new Date(2026, 6, 13, 12, 1, 0, 0).toISOString();
+  const due = getDueReminders({
+    reminders: [
+      { id: 'scheduled-at-boundary', title: 'Scheduled now', date: '2026-07-13', time: '12:00' },
+      { id: 'future', title: 'Future', date: '2026-07-13', time: '12:01' },
+      { id: 'mid-morning', title: 'Mid morning', date: '2026-07-13', time: '10:00' },
+      { id: 'snoozed-due', title: 'Snoozed due', date: '2026-07-13', time: '07:00', snoozedUntil: at1045 },
+      { id: 'snoozed-at-boundary', title: 'Snoozed until now', date: '2026-07-13', time: '06:00', snoozedUntil: atNoon },
+      { id: 'snoozed-future', title: 'Still snoozed', date: '2026-07-13', time: '05:00', snoozedUntil: afterNoon },
+      { id: 'all-day', title: 'All day', date: '2026-07-13', time: '' },
+      { id: 'morning', title: 'Morning', date: '2026-07-13', time: '08:00' },
+      { id: 'completed', title: 'Completed', date: '2026-07-13', time: '09:00', completed: true },
+      { id: 'invalid-calendar-date', title: 'Invalid date', date: '2026-02-31', time: '09:00' },
+    ],
+  }, now);
+
+  assert.deepEqual(due.map((reminder) => reminder.id), [
+    'all-day',
+    'morning',
+    'mid-morning',
+    'snoozed-due',
+    'snoozed-at-boundary',
+    'scheduled-at-boundary',
+  ]);
 });

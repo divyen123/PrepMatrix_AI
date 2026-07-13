@@ -19,8 +19,12 @@ export const DEFAULT_GOAL_REMINDER_SETTINGS = Object.freeze({
   targetRemindersEnabled: false,
   nudgeEnabled: true,
   repeatSeconds: 20,
+  snoozeMinutes: 10,
   showCompleted: true,
 });
+
+const SNOOZE_MINUTE_OPTIONS = Object.freeze([5, 10, 15, 30, 60]);
+const ONE_DAY_MS = 24 * 60 * 60 * 1_000;
 
 function safeText(value, maxLength = 500) {
   return String(value || "").trim().slice(0, maxLength);
@@ -34,6 +38,13 @@ function safeDateKey(value) {
 function safeTime(value) {
   const next = safeText(value, 5);
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(next) ? next : "";
+}
+
+function safeIsoDateTime(value) {
+  const next = safeText(value, 40);
+  if (!next) return '';
+  const timestamp = Date.parse(next);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : '';
 }
 
 function safePriority(value) {
@@ -113,6 +124,7 @@ export function normalizePlannerData(value) {
         completed: Boolean(item.completed),
         completedAt: safeText(item.completedAt, 40),
         createdAt: safeText(item.createdAt, 40) || new Date().toISOString(),
+        snoozedUntil: safeIsoDateTime(item.snoozedUntil),
       }))
     : [];
 
@@ -143,6 +155,8 @@ export function normalizePlannerSettings(value) {
   const source = value && typeof value === "object" ? value : {};
   const requestedRepeat = Number.parseInt(source.repeatSeconds, 10);
   const repeatSeconds = [20, 30, 60].includes(requestedRepeat) ? requestedRepeat : 20;
+  const requestedSnooze = Number.parseInt(source.snoozeMinutes, 10);
+  const snoozeMinutes = SNOOZE_MINUTE_OPTIONS.includes(requestedSnooze) ? requestedSnooze : 10;
   const requestedDailyTarget = Number.parseFloat(source.dailyStudyTarget);
   const dailyStudyTarget = Number.isFinite(requestedDailyTarget)
     ? Math.min(16, Math.max(1, requestedDailyTarget))
@@ -155,8 +169,79 @@ export function normalizePlannerSettings(value) {
     targetRemindersEnabled: source.targetRemindersEnabled === true,
     nudgeEnabled: source.nudgeEnabled !== false,
     repeatSeconds,
+    snoozeMinutes,
     showCompleted: source.showCompleted !== false,
   };
+}
+
+function resolveDate(value) {
+  const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function getLocalReminderTimestamp(reminder) {
+  if (!reminder?.date) return null;
+  const [year, month, day] = reminder.date.split('-').map(Number);
+  const [hour, minute] = (reminder.time || '00:00').split(':').map(Number);
+  const scheduled = new Date(year, month - 1, day, hour, minute, 0, 0);
+  if (
+    scheduled.getFullYear() !== year
+    || scheduled.getMonth() !== month - 1
+    || scheduled.getDate() !== day
+  ) return null;
+  return scheduled.getTime();
+}
+
+export function getPlannerAttentionSummary(value, now = new Date()) {
+  const plannerData = normalizePlannerData(value);
+  const current = resolveDate(now);
+  if (!current) return { dueGoals: [], staleTodos: [], total: 0 };
+
+  const today = getLocalDateKey(current);
+  const nowTimestamp = current.getTime();
+  const dueGoals = plannerData.goals.filter((goal) => (
+    !goal.completed && Boolean(goal.targetDate) && goal.targetDate <= today
+  ));
+  const staleTodos = plannerData.todos.filter((todo) => {
+    if (todo.completed) return false;
+    const createdTimestamp = Date.parse(todo.createdAt);
+    return Number.isFinite(createdTimestamp) && nowTimestamp - createdTimestamp >= ONE_DAY_MS;
+  });
+
+  return {
+    dueGoals,
+    staleTodos,
+    total: dueGoals.length + staleTodos.length,
+  };
+}
+
+export function getDueReminders(value, now = new Date()) {
+  const plannerData = normalizePlannerData(value);
+  const current = resolveDate(now);
+  if (!current) return [];
+  const nowTimestamp = current.getTime();
+
+  return plannerData.reminders
+    .map((reminder) => {
+      const scheduledTimestamp = getLocalReminderTimestamp(reminder);
+      const snoozedTimestamp = reminder.snoozedUntil ? Date.parse(reminder.snoozedUntil) : null;
+      const effectiveTimestamp = scheduledTimestamp === null
+        ? null
+        : Math.max(scheduledTimestamp, Number.isFinite(snoozedTimestamp) ? snoozedTimestamp : scheduledTimestamp);
+      return { effectiveTimestamp, reminder, scheduledTimestamp };
+    })
+    .filter(({ effectiveTimestamp, reminder }) => (
+      !reminder.completed
+      && effectiveTimestamp !== null
+      && effectiveTimestamp <= nowTimestamp
+    ))
+    .sort((left, right) => (
+      left.effectiveTimestamp - right.effectiveTimestamp
+      || left.scheduledTimestamp - right.scheduledTimestamp
+      || String(left.reminder.createdAt).localeCompare(String(right.reminder.createdAt))
+      || left.reminder.id.localeCompare(right.reminder.id)
+    ))
+    .map(({ reminder }) => reminder);
 }
 
 export function readPlannerData(storage) {
@@ -243,6 +328,7 @@ function upsertGeneratedReminder(reminders, generated, createdAt) {
     completed: Boolean(existing?.completed),
     completedAt: existing?.completedAt || "",
     createdAt: existing?.createdAt || createdAt,
+    snoozedUntil: existing?.snoozedUntil || "",
   };
   if (existingIndex >= 0) reminders[existingIndex] = next;
   else reminders.push(next);
