@@ -887,7 +887,6 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
       >
         <span className="goal-reminder-launcher-visual" aria-hidden="true">
           <Target className="goal-reminder-target-icon" size={42} strokeWidth={1.8} />
-          <BellRing className="goal-reminder-bell-icon" size={13} strokeWidth={2.4} />
           {attentionSummary.total > 0 && (
             <span className="goal-reminder-count">{attentionSummary.total > 99 ? "99+" : attentionSummary.total}</span>
           )}
