@@ -68,7 +68,11 @@ const DEFAULT_MARK_BLUEPRINTS = {
   100: { 1: 5, 3: 2, 4: 1, 5: 2, 10: 6, 15: 1 },
 };
 const ACTIVE_ATTEMPT_KEY = "prepmatrix_active_exam_attempt";
+const VISITED_QUESTIONS_KEY_PREFIX = "prepmatrix_exam_visited_";
 const TIMER_STORAGE_KEY = "prepmatrix_exam_timer_v1";
+const PREPARATION_CENTER_SECONDS = 8;
+const PREPARATION_ESTIMATE_MIN_SECONDS = 2 * 60;
+const PREPARATION_ESTIMATE_MAX_SECONDS = 3 * 60;
 
 function getId(resource) {
   return resource?.id || resource?._id || resource?.attemptId || resource?.examId || "";
@@ -112,6 +116,60 @@ function formatClock(totalSeconds) {
     return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0");
   }
   return String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0");
+}
+
+function visitedQuestionsStorageKey(attemptId) {
+  return VISITED_QUESTIONS_KEY_PREFIX + attemptId;
+}
+
+function readVisitedQuestions(resource) {
+  const attempt = normalizeAttempt(resource);
+  const visited = new Set();
+  if (typeof window !== "undefined" && attempt.id) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(visitedQuestionsStorageKey(attempt.id)) || "[]");
+      if (Array.isArray(saved)) saved.forEach((questionId) => visited.add(questionId));
+    } catch {
+      // Ignore invalid local navigation state and start with the visible question.
+    }
+  }
+  if (attempt.questions[0]?.id) visited.add(attempt.questions[0].id);
+  return visited;
+}
+
+function clearAttemptStorage(attemptId) {
+  localStorage.removeItem(ACTIVE_ATTEMPT_KEY);
+  if (attemptId) localStorage.removeItem(visitedQuestionsStorageKey(attemptId));
+}
+
+function preparationEstimate(elapsedSeconds) {
+  const earliest = Math.max(0, PREPARATION_ESTIMATE_MIN_SECONDS - elapsedSeconds);
+  const latest = Math.max(0, PREPARATION_ESTIMATE_MAX_SECONDS - elapsedSeconds);
+  if (latest === 0) return "Final checks - almost ready";
+  if (earliest === 0) return "Estimated wait: under " + formatClock(latest);
+  return "Estimated wait: " + formatClock(earliest) + " - " + formatClock(latest);
+}
+
+function normalizeExamStartLimit(resource = {}) {
+  const limit = Math.max(1, Number(resource.limit) || 2);
+  const attemptsUsed = Math.max(0, Math.min(limit, Number(resource.attemptsUsed) || 0));
+  const remaining = Math.max(0, Math.min(limit, Number.isFinite(Number(resource.remaining))
+    ? Number(resource.remaining)
+    : limit - attemptsUsed));
+  return {
+    limit,
+    windowHours: Math.max(1, Number(resource.windowHours) || 24),
+    attemptsUsed,
+    remaining,
+    reached: typeof resource.reached === "boolean" ? resource.reached : remaining === 0,
+    resetAt: resource.resetAt || null,
+    retryAfterSeconds: Math.max(0, Number(resource.retryAfterSeconds) || 0),
+  };
+}
+
+function examStartLimitFromError(error) {
+  if (error?.code !== "EXAM_START_LIMIT_REACHED") return null;
+  return normalizeExamStartLimit(error.details);
 }
 
 function formatCountdown(milliseconds) {
@@ -208,6 +266,7 @@ function ExamRunner({ initialAttempt, onFinished }) {
   const [attempt, setAttempt] = useState(() => normalizeAttempt(initialAttempt));
   const [answers, setAnswers] = useState(() => normalizeAttempt(initialAttempt).answers);
   const [flagged, setFlagged] = useState(() => new Set());
+  const [visited, setVisited] = useState(() => readVisitedQuestions(initialAttempt));
   const [questionIndex, setQuestionIndex] = useState(0);
   const [remaining, setRemaining] = useState(3600);
   const [minimumSubmitRemaining, setMinimumSubmitRemaining] = useState(() => (
@@ -229,6 +288,21 @@ function ExamRunner({ initialAttempt, onFinished }) {
   const current = questions[questionIndex];
   const attemptId = getId(attempt);
 
+  useEffect(() => {
+    if (!current?.id) return;
+    setVisited((currentVisited) => {
+      if (currentVisited.has(current.id)) return currentVisited;
+      const next = new Set(currentVisited);
+      next.add(current.id);
+      return next;
+    });
+  }, [current?.id]);
+
+  useEffect(() => {
+    if (!attemptId) return;
+    localStorage.setItem(visitedQuestionsStorageKey(attemptId), JSON.stringify([...visited]));
+  }, [attemptId, visited]);
+
   const submitExam = useCallback(async (reason = "manual") => {
     const submitWaitSeconds = getExamMinimumSubmitRemainingSeconds(attempt);
     if (reason === "manual" && submitWaitSeconds > 0) {
@@ -241,7 +315,7 @@ function ExamRunner({ initialAttempt, onFinished }) {
     try {
       const payload = await api.post("/api/exam-attempts/" + attemptId + "/submit", { answers, reason });
       const submitted = normalizeAttempt(unwrapOne(payload, ["attempt", "result"]));
-      localStorage.removeItem(ACTIVE_ATTEMPT_KEY);
+      clearAttemptStorage(attemptId);
       if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
       toast.success(reason === "manual" ? "Exam submitted successfully." : "Exam submitted automatically.");
       onFinished(submitted, reason);
@@ -268,7 +342,7 @@ function ExamRunner({ initialAttempt, onFinished }) {
       setWarning(payload?.warning || "Exam focus violation " + count + " of 3. A fourth violation submits the exam.");
       if (payload?.autoSubmitted) {
         const submitted = normalizeAttempt(payload?.attempt || attempt);
-        localStorage.removeItem(ACTIVE_ATTEMPT_KEY);
+        clearAttemptStorage(attemptId);
         if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
         onFinished(submitted, "violation_limit");
       }
@@ -396,24 +470,35 @@ function ExamRunner({ initialAttempt, onFinished }) {
           </div>
           <div className="exam-progress-track"><i style={{ width: ((answeredCount / Math.max(questions.length, 1)) * 100) + "%" }} /></div>
           <div className="exam-question-map" aria-label="Question navigation">
-            {questions.map((question, index) => (
-              <button
-                className={[
-                  index === questionIndex ? "is-current" : "",
-                  answers[question.id] !== undefined ? "is-answered" : "",
-                  flagged.has(question.id) ? "is-flagged" : "",
-                ].filter(Boolean).join(" ")}
-                key={question.id}
-                onClick={() => setQuestionIndex(index)}
-                type="button"
-              >
-                {index + 1}
-                {flagged.has(question.id) && <Flag size={8} fill="currentColor" />}
-              </button>
-            ))}
+            {questions.map((question, index) => {
+              const isAnswered = answers[question.id] !== undefined;
+              const visitLabel = isAnswered
+                ? ", answered"
+                : visited.has(question.id)
+                  ? ", visited and unanswered"
+                  : ", not visited";
+              return (
+                <button
+                  aria-label={"Question " + (index + 1) + visitLabel}
+                  className={[
+                    index === questionIndex ? "is-current" : "",
+                    isAnswered ? "is-answered" : "",
+                    visited.has(question.id) && !isAnswered ? "is-visited-unanswered" : "",
+                    flagged.has(question.id) ? "is-flagged" : "",
+                  ].filter(Boolean).join(" ")}
+                  key={question.id}
+                  onClick={() => setQuestionIndex(index)}
+                  type="button"
+                >
+                  {index + 1}
+                  {flagged.has(question.id) && <Flag size={8} fill="currentColor" />}
+                </button>
+              );
+            })}
           </div>
           <div className="exam-runner__legend">
             <span><i className="is-answered" /> Answered</span>
+            <span><i className="is-visited-unanswered" /> Visited, unanswered</span>
             <span><i className="is-current" /> Current</span>
             <span><i className="is-flagged" /> Flagged</span>
           </div>
@@ -1117,6 +1202,53 @@ function PaperHistory({ papers, onRefresh, onPaperLoaded }) {
   );
 }
 
+function ExamPreparationNotice({ subjectName }) {
+  const [startedAt] = useState(Date.now);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isDocked, setIsDocked] = useState(false);
+
+  useEffect(() => {
+    const updateElapsed = () => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    };
+    const elapsedTimer = window.setInterval(updateElapsed, 1000);
+    const dockTimer = window.setTimeout(() => setIsDocked(true), PREPARATION_CENTER_SECONDS * 1000);
+    return () => {
+      window.clearInterval(elapsedTimer);
+      window.clearTimeout(dockTimer);
+    };
+  }, [startedAt]);
+
+  return createPortal(
+    <div className={"exam-generation-layer " + (isDocked ? "is-docked" : "is-centered")}>
+      <p className="exam-generation-sr-only" role="status">
+        Preparing your secure exam. This usually takes two to three minutes. Keep this page open.
+      </p>
+      <section aria-label="Exam preparation progress" className="exam-generation-notice">
+        <div className="exam-generation-notice__icon"><LoaderCircle className="spin" size={23} /></div>
+        <div className="exam-generation-notice__copy">
+          <span>Secure exam preparation</span>
+          <strong>Creating your 40-question exam</strong>
+          <p>Generating and validating unique questions for {subjectName || "your subject"}.</p>
+        </div>
+        <div className="exam-generation-progress" aria-hidden="true"><i /></div>
+        <div aria-hidden="true" className="exam-generation-notice__timing">
+          <span><Clock3 size={14} /> {formatClock(elapsedSeconds)} elapsed</span>
+          <b>{preparationEstimate(elapsedSeconds)}</b>
+        </div>
+        <small>
+          {elapsedSeconds >= PREPARATION_ESTIMATE_MAX_SECONDS
+            ? "Still working - complex generations can take a little longer. Keep this page open."
+            : isDocked
+              ? "Keep this page open. The fullscreen entry button will appear as soon as the exam is ready."
+              : "Keep this page open. This notice moves aside in " + Math.max(0, PREPARATION_CENTER_SECONDS - elapsedSeconds) + " seconds."}
+        </small>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
 function ExamPage({
   subjects = [],
   academicLevel = "College",
@@ -1135,6 +1267,7 @@ function ExamPage({
     : readinessPercent >= EXAM_ELIGIBILITY_THRESHOLD;
   const requestedSection = searchParams.get("section");
   const requestedAttendHandledRef = useRef(false);
+  const preparingRef = useRef(false);
   const [section, setSection] = useState(() => (
     requestedSection === "attend" && isOnlineExamEligible ? "attend" : "overview"
   ));
@@ -1147,6 +1280,7 @@ function ExamPage({
   const [isStarting, setIsStarting] = useState(false);
   const [results, setResults] = useState([]);
   const [papers, setPapers] = useState([]);
+  const [examStartLimit, setExamStartLimit] = useState(null);
   const [paperMinutes, setPaperMinutes] = useState(60);
 
   useEffect(() => {
@@ -1184,10 +1318,20 @@ function ExamPage({
     }
   }, []);
 
+  const loadExamStartLimit = useCallback(async () => {
+    try {
+      const payload = await api.get("/api/exams/start-limit");
+      setExamStartLimit(normalizeExamStartLimit(payload));
+    } catch {
+      // Keep the last server-confirmed allowance when a refresh fails.
+    }
+  }, []);
+
   useEffect(() => {
     loadResults();
     loadPapers();
-  }, [loadPapers, loadResults]);
+    loadExamStartLimit();
+  }, [loadExamStartLimit, loadPapers, loadResults]);
 
   useEffect(() => {
     const attemptId = localStorage.getItem(ACTIVE_ATTEMPT_KEY);
@@ -1206,6 +1350,11 @@ function ExamPage({
   }, [loadResults]);
 
   const prepareExam = async () => {
+    if (preparingRef.current) return;
+    if (examStartLimit?.reached) {
+      toast.info("You have used both exam starts in the current 24-hour window.");
+      return;
+    }
     if (!isOnlineExamEligible) {
       toast.error(`Complete at least ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner before attending an exam. Current readiness: ${readinessPercent}%.`);
       return;
@@ -1214,6 +1363,8 @@ function ExamPage({
       toast.error("Add and select a subject before preparing an exam.");
       return;
     }
+    preparingRef.current = true;
+    setPreparedExam(null);
     setIsPreparing(true);
     try {
       const payload = await api.post("/api/exams/generate", {
@@ -1225,13 +1376,25 @@ function ExamPage({
       setPreparedExam(unwrapOne(payload, ["exam"]));
       toast.success("Your secure 40-question exam is ready.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not prepare the exam.");
+      const limitState = examStartLimitFromError(error);
+      if (limitState) setExamStartLimit(limitState);
+      const message = error?.name === "AbortError"
+        ? "Exam generation took longer than four minutes. Please try again."
+        : error instanceof Error
+          ? error.message
+          : "Could not prepare the exam.";
+      toast.error(message);
     } finally {
+      preparingRef.current = false;
       setIsPreparing(false);
     }
   };
 
   const startExam = async () => {
+    if (examStartLimit?.reached) {
+      toast.info("You have used both exam starts in the current 24-hour window.");
+      return;
+    }
     if (!isOnlineExamEligible) {
       toast.error(`Attend Exam unlocks at ${EXAM_ELIGIBILITY_THRESHOLD}% planner completion. Current readiness: ${readinessPercent}%.`);
       return;
@@ -1252,10 +1415,13 @@ function ExamPage({
       const attempt = normalizeAttempt(unwrapOne(payload, ["attempt"]));
       localStorage.setItem(ACTIVE_ATTEMPT_KEY, attempt.id);
       setActiveAttempt(attempt);
+      loadExamStartLimit();
     } catch (error) {
       if (enteredForStart && document.fullscreenElement) {
         await document.exitFullscreen().catch(() => undefined);
       }
+      const limitState = examStartLimitFromError(error);
+      if (limitState) setExamStartLimit(limitState);
       toast.error(error instanceof Error ? error.message : "Could not start the exam.");
     } finally {
       setIsStarting(false);
@@ -1267,7 +1433,8 @@ function ExamPage({
     setPreparedExam(null);
     setSection("results");
     loadResults();
-  }, [loadResults]);
+    loadExamStartLimit();
+  }, [loadExamStartLimit, loadResults]);
 
   const handlePaperLoaded = (paper) => {
     const minutes = Number(paper?.recommendedTimeMinutes || paper?.durationMinutes || 60);
@@ -1359,14 +1526,14 @@ function ExamPage({
             <div className="exam-form-grid">
               <label className="field-stack">
                 Subject
-                <select onChange={(event) => setSubjectName(event.target.value)} value={subjectName}>
+                <select disabled={isPreparing} onChange={(event) => setSubjectName(event.target.value)} value={subjectName}>
                   <option value="">Choose subject</option>
                   {names.map((name) => <option key={name} value={name}>{name}</option>)}
                 </select>
               </label>
               <label className="field-stack">
                 Difficulty
-                <select onChange={(event) => setDifficulty(event.target.value)} value={difficulty}>
+                <select disabled={isPreparing} onChange={(event) => setDifficulty(event.target.value)} value={difficulty}>
                   <option value="easy">Easy</option>
                   <option value="medium">Medium</option>
                   <option value="hard">Hard</option>
@@ -1374,19 +1541,52 @@ function ExamPage({
               </label>
               <label className="field-stack exam-field-wide">
                 Topic or chapter focus (optional)
-                <textarea onChange={(event) => setScopeText(event.target.value)} placeholder="Leave blank for broad subject coverage" rows={3} value={scopeText} />
+                <textarea disabled={isPreparing} onChange={(event) => setScopeText(event.target.value)} placeholder="Leave blank for broad subject coverage" rows={3} value={scopeText} />
               </label>
             </div>
+            {examStartLimit && (
+              <div className={"exam-start-limit " + (examStartLimit.reached ? "is-reached" : "is-available")}>
+                <div className="exam-start-limit__icon">
+                  {examStartLimit.reached ? <ShieldAlert size={19} /> : <Clock3 size={19} />}
+                </div>
+                <div className="exam-start-limit__copy">
+                  <span>Rolling 24-hour exam limit</span>
+                  <strong>
+                    {examStartLimit.reached
+                      ? "Two-exam limit reached"
+                      : examStartLimit.remaining + " exam start" + (examStartLimit.remaining === 1 ? "" : "s") + " available"}
+                  </strong>
+                  <p>
+                    {examStartLimit.reached
+                      ? examStartLimit.resetAt
+                        ? <>Next start unlocks in <Countdown onReachZero={loadExamStartLimit} until={examStartLimit.resetAt} /> ({formatDate(examStartLimit.resetAt)}).</>
+                        : "The next start unlocks when your rolling 24-hour window resets."
+                      : "You can start at most " + examStartLimit.limit + " exams in any rolling " + examStartLimit.windowHours + "-hour period."}
+                  </p>
+                </div>
+                <b className="exam-start-limit__count">{examStartLimit.attemptsUsed} / {examStartLimit.limit} used</b>
+              </div>
+            )}
             <div className="exam-rule-strip"><span><Clock3 size={15} /> 60 minutes</span><span><ListChecks size={15} /> 40 MCQs</span><span><ShieldAlert size={15} /> 3 warnings allowed</span></div>
-            <button className="exam-primary-btn" disabled={!isOnlineExamEligible || isPreparing || !subjectName} onClick={prepareExam} type="button">
-              {isPreparing ? <><LoaderCircle className="spin" size={17} /> Generating 4 secure batches...</> : <><Sparkles size={17} /> Prepare exam</>}
+            <button
+              className="exam-primary-btn"
+              disabled={!isOnlineExamEligible || isPreparing || !subjectName || examStartLimit?.reached}
+              onClick={prepareExam}
+              title={examStartLimit?.reached ? "Two exams have already been started in the current 24-hour window." : undefined}
+              type="button"
+            >
+              {isPreparing
+                ? <><LoaderCircle className="spin" size={17} /> Generating 4 secure batches...</>
+                : examStartLimit?.reached
+                  ? <><Clock3 size={17} /> Exam limit reached</>
+                  : <><Sparkles size={17} /> Prepare exam</>}
             </button>
 
             {preparedExam && (
               <div className="exam-prepared-card">
                 <div className="exam-ready-mark"><CheckCircle2 size={22} /></div>
                 <div><span>Exam ready</span><strong>{preparedExam.title}</strong><p>{preparedExam.questionCount || 40} questions | {preparedExam.durationMinutes || 60} minutes | {preparedExam.difficulty}</p></div>
-                <button className="exam-primary-btn" disabled={!isOnlineExamEligible || isStarting} onClick={startExam} type="button">{isStarting ? "Starting..." : <><Expand size={16} /> Enter fullscreen exam</>}</button>
+                <button className="exam-primary-btn" disabled={!isOnlineExamEligible || isStarting || examStartLimit?.reached} onClick={startExam} type="button">{isStarting ? "Starting..." : examStartLimit?.reached ? "Exam limit reached" : <><Expand size={16} /> Enter fullscreen exam</>}</button>
               </div>
             )}
           </section>
@@ -1417,6 +1617,7 @@ function ExamPage({
 
       <OfflineExamTimer paperMinutes={paperMinutes} />
 
+      {isPreparing && <ExamPreparationNotice subjectName={subjectName} />}
       {activeAttempt && <ExamRunner initialAttempt={activeAttempt} onFinished={finishExam} />}
     </section>
   );

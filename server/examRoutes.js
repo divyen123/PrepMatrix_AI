@@ -17,6 +17,12 @@ const EXAM_QUESTION_COUNT = 40;
 const EXAM_DURATION_MINUTES = 60;
 const RESULT_DELAY_MS = 72 * 60 * 60 * 1000;
 const MAX_VIOLATIONS = 3;
+const EXAM_START_LIMIT = 2;
+const EXAM_START_WINDOW_MS = 24 * 60 * 60 * 1000;
+const EXAM_START_LOCK_TTL_MS = 2 * 60 * 1000;
+const EXAM_START_LOCK_WAIT_MS = 5 * 1000;
+const EXAM_START_LOCK_RETRY_MS = 40;
+const EXAM_START_LIMIT_CODE = "EXAM_START_LIMIT_REACHED";
 const PAPER_TOTALS = new Set([30, 40, 50, 60, 70, 80, 90, 100]);
 const PAPER_MARKS = new Set([1, 3, 4, 5, 10, 15]);
 const DIFFICULTIES = new Set(["easy", "medium", "hard"]);
@@ -48,6 +54,127 @@ function sendExamEligibilityError(res, eligibility) {
     error: `Complete at least ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner schedule to attend an exam.`,
     eligibility,
   });
+}
+
+function timestampOf(value) {
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+export function summarizeExamStartLimit(attempts = [], now = new Date()) {
+  const nowTimestamp = timestampOf(now) ?? Date.now();
+  const cutoffTimestamp = nowTimestamp - EXAM_START_WINDOW_MS;
+  const recentStarts = attempts
+    .map((attempt) => timestampOf(attempt?.startedAt ?? attempt))
+    .filter((timestamp) => timestamp !== null && timestamp > cutoffTimestamp)
+    .sort((left, right) => right - left)
+    .slice(0, EXAM_START_LIMIT);
+  const attemptsUsed = recentStarts.length;
+  const reached = attemptsUsed >= EXAM_START_LIMIT;
+  const resetTimestamp = reached
+    ? recentStarts[EXAM_START_LIMIT - 1] + EXAM_START_WINDOW_MS
+    : null;
+
+  return {
+    code: EXAM_START_LIMIT_CODE,
+    limit: EXAM_START_LIMIT,
+    windowHours: EXAM_START_WINDOW_MS / (60 * 60 * 1000),
+    attemptsUsed,
+    remaining: Math.max(0, EXAM_START_LIMIT - attemptsUsed),
+    reached,
+    resetAt: resetTimestamp === null ? null : new Date(resetTimestamp),
+    retryAfterSeconds: resetTimestamp === null
+      ? 0
+      : Math.max(1, Math.ceil((resetTimestamp - nowTimestamp) / 1000)),
+  };
+}
+
+async function loadExamStartLimit(db, userId, now = new Date()) {
+  const cutoff = new Date(now.getTime() - EXAM_START_WINDOW_MS);
+  const attempts = await db.collection("examAttempts")
+    .find({ userId, startedAt: { $gt: cutoff } })
+    .project({ _id: 0, startedAt: 1 })
+    .sort({ startedAt: -1 })
+    .limit(EXAM_START_LIMIT)
+    .toArray();
+  return summarizeExamStartLimit(attempts, now);
+}
+
+function formatExamStartRetry(seconds) {
+  const totalMinutes = Math.max(1, Math.ceil(Number(seconds || 0) / 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (!hours) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  if (!minutes) return `${hours} hour${hours === 1 ? "" : "s"}`;
+  return `${hours} hour${hours === 1 ? "" : "s"} ${minutes} minute${minutes === 1 ? "" : "s"}`;
+}
+
+function sendExamStartLimitError(res, limitState) {
+  res.set("Retry-After", String(limitState.retryAfterSeconds));
+  return res.status(429).json({
+    code: limitState.code,
+    error: `You can start at most ${limitState.limit} exams in any ${limitState.windowHours}-hour period. Try again in ${formatExamStartRetry(limitState.retryAfterSeconds)}.`,
+    limit: limitState.limit,
+    windowHours: limitState.windowHours,
+    attemptsUsed: limitState.attemptsUsed,
+    remaining: limitState.remaining,
+    resetAt: limitState.resetAt,
+    retryAfterSeconds: limitState.retryAfterSeconds,
+  });
+}
+
+function examStartLockId(userId) {
+  return `exam-start:${userId?.toString?.() || String(userId)}`;
+}
+
+function wait(delayMs) {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+export async function acquireExamStartLock(db, userId, options = {}) {
+  const timeoutMs = Math.max(0, Number(options.timeoutMs ?? EXAM_START_LOCK_WAIT_MS));
+  const retryMs = Math.max(1, Number(options.retryMs ?? EXAM_START_LOCK_RETRY_MS));
+  const deadline = Date.now() + timeoutMs;
+  const lock = { id: examStartLockId(userId), token: randomUUID() };
+  const collection = db.collection("examStartLocks");
+
+  do {
+    const acquiredAt = new Date();
+    try {
+      const result = await collection.updateOne(
+        {
+          _id: lock.id,
+          $or: [
+            { expiresAt: { $lte: acquiredAt } },
+            { expiresAt: { $exists: false } },
+          ],
+        },
+        {
+          $set: {
+            token: lock.token,
+            userId,
+            expiresAt: new Date(acquiredAt.getTime() + EXAM_START_LOCK_TTL_MS),
+            updatedAt: acquiredAt,
+          },
+          $setOnInsert: { createdAt: acquiredAt },
+        },
+        { upsert: true },
+      );
+      if (result.upsertedCount || result.modifiedCount || result.matchedCount) return lock;
+    } catch (error) {
+      if (error?.code !== 11000) throw error;
+    }
+
+    if (Date.now() >= deadline) return null;
+    await wait(Math.min(retryMs, Math.max(1, deadline - Date.now())));
+  } while (Date.now() <= deadline);
+
+  return null;
+}
+
+export async function releaseExamStartLock(db, lock) {
+  if (!lock) return;
+  await db.collection("examStartLocks").deleteOne({ _id: lock.id, token: lock.token });
 }
 
 function stripJsonFences(content = "") {
@@ -696,6 +823,8 @@ export default function registerExamRoutes(app, dependencies) {
       const config = getGroqConfigStatus();
       if (!config.available) return res.status(500).json({ error: config.message });
       const db = await getDb();
+      const limitState = await loadExamStartLimit(db, req.user._id);
+      if (limitState.reached) return sendExamStartLimitError(res, limitState);
       const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
       const eligibility = getWorkspaceExamEligibility(workspace);
       if (!eligibility.isExamEligible) return sendExamEligibilityError(res, eligibility);
@@ -741,6 +870,20 @@ export default function registerExamRoutes(app, dependencies) {
     }
   }));
 
+  app.get("/api/exams/start-limit", requireAuth(async (req, res) => {
+    const db = await getDb();
+    const limitState = await loadExamStartLimit(db, req.user._id);
+    return res.json({
+      limit: limitState.limit,
+      windowHours: limitState.windowHours,
+      attemptsUsed: limitState.attemptsUsed,
+      remaining: limitState.remaining,
+      reached: limitState.reached,
+      resetAt: limitState.resetAt,
+      retryAfterSeconds: limitState.retryAfterSeconds,
+    });
+  }));
+
   app.get("/api/exams", requireAuth(async (req, res) => {
     const db = await getDb();
     const exams = await db.collection("exams").find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(30).toArray();
@@ -759,27 +902,55 @@ export default function registerExamRoutes(app, dependencies) {
       if (attempt.status !== "in_progress") return res.status(409).json({ error: "This exam has already been submitted.", attempt: resultSummary(attempt, exam) });
       return res.json({ attempt: activeAttemptPayload(attempt, exam) });
     }
-    const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
-    const eligibility = getWorkspaceExamEligibility(workspace);
-    if (!eligibility.isExamEligible) return sendExamEligibilityError(res, eligibility);
-    const startedAt = new Date();
-    attempt = {
-      userId: req.user._id,
-      examId,
-      status: "in_progress",
-      startedAt,
-      minimumSubmitAt: new Date(startedAt.getTime() + MINIMUM_EXAM_SUBMIT_MS),
-      expiresAt: new Date(startedAt.getTime() + EXAM_DURATION_MINUTES * 60 * 1000),
-      answers: {},
-      violationCount: 0,
-      violations: [],
-      createdAt: startedAt,
-      updatedAt: startedAt,
-    };
-    const result = await db.collection("examAttempts").insertOne(attempt);
-    attempt._id = result.insertedId;
-    await db.collection("exams").updateOne({ _id: examId, userId: req.user._id }, { $set: { status: "started", updatedAt: startedAt } });
-    return res.status(201).json({ attempt: activeAttemptPayload(attempt, exam) });
+
+    const lock = await acquireExamStartLock(db, req.user._id);
+    if (!lock) {
+      return res.status(503).json({
+        code: "EXAM_START_BUSY",
+        error: "Another exam start is being processed. Please try again in a few seconds.",
+      });
+    }
+
+    try {
+      // Recheck under the per-user lock so duplicate clicks are idempotent and
+      // concurrent requests for different exams cannot both pass the limit.
+      attempt = await db.collection("examAttempts").findOne({ userId: req.user._id, examId });
+      if (attempt) {
+        if (attempt.status === "in_progress" && new Date(attempt.expiresAt).getTime() <= Date.now()) attempt = await finalizeAttempt(db, attempt, exam, "time_expired");
+        if (attempt.status !== "in_progress") return res.status(409).json({ error: "This exam has already been submitted.", attempt: resultSummary(attempt, exam) });
+        return res.json({ attempt: activeAttemptPayload(attempt, exam) });
+      }
+
+      const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
+      const eligibility = getWorkspaceExamEligibility(workspace);
+      if (!eligibility.isExamEligible) return sendExamEligibilityError(res, eligibility);
+
+      const limitState = await loadExamStartLimit(db, req.user._id);
+      if (limitState.reached) return sendExamStartLimitError(res, limitState);
+
+      const startedAt = new Date();
+      attempt = {
+        userId: req.user._id,
+        examId,
+        status: "in_progress",
+        startedAt,
+        minimumSubmitAt: new Date(startedAt.getTime() + MINIMUM_EXAM_SUBMIT_MS),
+        expiresAt: new Date(startedAt.getTime() + EXAM_DURATION_MINUTES * 60 * 1000),
+        answers: {},
+        violationCount: 0,
+        violations: [],
+        createdAt: startedAt,
+        updatedAt: startedAt,
+      };
+      const result = await db.collection("examAttempts").insertOne(attempt);
+      attempt._id = result.insertedId;
+      await db.collection("exams").updateOne({ _id: examId, userId: req.user._id }, { $set: { status: "started", updatedAt: startedAt } });
+      return res.status(201).json({ attempt: activeAttemptPayload(attempt, exam) });
+    } finally {
+      await releaseExamStartLock(db, lock).catch((error) => {
+        console.warn("Could not release the exam-start lock; it will expire automatically.", error);
+      });
+    }
   }));
 
   app.get("/api/exam-attempts/:id", requireAuth(async (req, res) => {

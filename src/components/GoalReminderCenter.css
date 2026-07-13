@@ -1597,7 +1597,7 @@ body .goal-reminder-about-done-btn:focus-visible {
 
   .goal-reminder-dialog-body {
     grid-template-columns: repeat(10, minmax(0, 1fr));
-    grid-template-rows: 225px minmax(0, 1fr);
+    grid-template-rows: 250px minmax(0, 1fr);
     flex: 1;
     overflow: hidden;
   }

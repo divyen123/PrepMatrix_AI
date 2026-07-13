@@ -117,8 +117,10 @@ async function getDb() {
     mongoDb.collection("chatSessions").createIndex({ userId: 1, updatedAt: -1 }),
     mongoDb.collection("exams").createIndex({ userId: 1, createdAt: -1 }),
     mongoDb.collection("examAttempts").createIndex({ userId: 1, updatedAt: -1 }),
+    mongoDb.collection("examAttempts").createIndex({ userId: 1, startedAt: -1 }),
     mongoDb.collection("examAttempts").createIndex({ userId: 1, examId: 1 }, { unique: true }),
     mongoDb.collection("examAttempts").createIndex({ userId: 1, resultAvailableAt: -1 }),
+    mongoDb.collection("examStartLocks").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     mongoDb.collection("questionPapers").createIndex({ userId: 1, createdAt: -1 }),
   ]);
   console.log(`MongoDB connected: ${MONGODB_URI}/${MONGODB_DB}`);
@@ -614,6 +616,7 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
     db.collection("chatSessions").deleteMany({ userId }),
     db.collection("exams").deleteMany({ userId }),
     db.collection("examAttempts").deleteMany({ userId }),
+    db.collection("examStartLocks").deleteMany({ userId }),
     db.collection("questionPapers").deleteMany({ userId }),
     db.collection("sessions").deleteMany({ userId }),
     db.collection("users").deleteOne({ _id: userId }),

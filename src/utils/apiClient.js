@@ -56,6 +56,7 @@ async function request(path, options = {}) {
       const error = new Error(payload.error || "Request failed.");
       error.status = response.status;
       error.code = payload.code;
+      error.details = payload;
       throw error;
     }
 
