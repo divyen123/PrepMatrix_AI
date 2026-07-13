@@ -10,6 +10,7 @@ import {
   Flag,
   Info,
   ListTodo,
+  EllipsisVertical,
   Plus,
   RotateCcw,
   Target,
@@ -20,6 +21,7 @@ import { toast } from "react-toastify";
 
 import {
   OPEN_GOAL_REMINDER_EVENT,
+  clearPlannerCollection,
   createPlannerId,
   getLocalDateKey,
   getTomorrowDateKey,
@@ -30,6 +32,11 @@ import {
 
 const PRIORITY_LABELS = { low: "Low", medium: "Normal", high: "High" };
 const CATEGORY_LABELS = { study: "Study", exam: "Exam", project: "Project", personal: "Personal" };
+const BULK_CLEAR_ACTIONS = Object.freeze([
+  { key: "goals", label: "Clear all goals", success: "All goals cleared." },
+  { key: "reminders", label: "Clear all reminders", success: "All reminders cleared." },
+  { key: "todos", label: "Clear all to-do's", success: "All to-do's cleared." },
+]);
 
 function getSuggestedTime(date = new Date()) {
   const next = new Date(date);
@@ -122,6 +129,8 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
   const [reminderDraft, setReminderDraft] = useState(createReminderDraft);
   const [todoDraft, setTodoDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState("");
+  const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
+  const [confirmBulkClear, setConfirmBulkClear] = useState("");
   const [aboutOpen, setAboutOpen] = useState(false);
   const [showNudge, setShowNudge] = useState(false);
   const [today, setToday] = useState(getLocalDateKey);
@@ -129,6 +138,8 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
   const dialogRef = useRef(null);
   const aboutButtonRef = useRef(null);
   const aboutCloseButtonRef = useRef(null);
+  const bulkMenuButtonRef = useRef(null);
+  const bulkMenuRef = useRef(null);
   const aboutDialogRef = useRef(null);
 
   const plannerData = useMemo(() => normalizePlannerData(data), [data]);
@@ -157,11 +168,15 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
   const openCenter = () => {
     onOpen?.();
     setConfirmDelete("");
+    setConfirmBulkClear("");
+    setBulkMenuOpen(false);
     setAboutOpen(false);
     setOpen(true);
   };
 
   const closeCenter = () => {
+    setConfirmBulkClear("");
+    setBulkMenuOpen(false);
     setAboutOpen(false);
     setOpen(false);
   };
@@ -170,6 +185,8 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
     const handleOpen = () => {
       onOpen?.();
       setConfirmDelete("");
+      setConfirmBulkClear("");
+      setBulkMenuOpen(false);
       setAboutOpen(false);
       setOpen(true);
     };
@@ -213,6 +230,13 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         if (aboutDialogRef.current) return;
+        if (bulkMenuRef.current) {
+          event.preventDefault();
+          setConfirmBulkClear("");
+          setBulkMenuOpen(false);
+          window.requestAnimationFrame(() => bulkMenuButtonRef.current?.focus());
+          return;
+        }
         setAboutOpen(false);
         setOpen(false);
         return;
@@ -241,6 +265,22 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
       previousFocus?.focus?.();
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!bulkMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (
+        bulkMenuRef.current?.contains(event.target) ||
+        bulkMenuButtonRef.current?.contains(event.target)
+      ) return;
+      setConfirmBulkClear("");
+      setBulkMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [bulkMenuOpen]);
 
   useEffect(() => {
     if (!aboutOpen) return undefined;
@@ -368,6 +408,23 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
     setConfirmDelete("");
   };
 
+  const clearAllItems = (action) => {
+    if (!plannerData[action.key].length) return;
+
+    persistData(clearPlannerCollection(plannerData, action.key));
+    const disabledTargetReminders = action.key === "reminders" && plannerSettings.targetRemindersEnabled;
+    if (disabledTargetReminders) {
+      persistSettings({ ...plannerSettings, targetRemindersEnabled: false });
+    }
+    setConfirmDelete("");
+    setConfirmBulkClear("");
+    setBulkMenuOpen(false);
+    window.requestAnimationFrame(() => bulkMenuButtonRef.current?.focus());
+    toast.success(disabledTargetReminders
+      ? "All reminders cleared. Target-linked reminders were turned off."
+      : action.success);
+  };
+
   const nudgeText = todayReminders.length === 1
     ? `${todayReminders[0].title}${todayReminders[0].time ? ` · ${todayReminders[0].time}` : ""}`
     : `${todayReminders.length} reminders scheduled today`;
@@ -393,12 +450,80 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
             <span className="goal-reminder-save-status"><CheckCircle2 aria-hidden="true" size={13} /><span>Changes save automatically to your workspace.</span></span>
             <label className="goal-reminder-show-completed"><input checked={plannerSettings.showCompleted} onChange={(event) => persistSettings({ ...plannerSettings, showCompleted: event.target.checked })} type="checkbox" /> Show completed items</label>
             <div className="goal-reminder-header-actions">
+              <div className="goal-reminder-bulk-menu-wrap">
+                <button
+                  aria-controls="goal-reminder-bulk-menu"
+                  aria-expanded={bulkMenuOpen}
+                  aria-haspopup="menu"
+                  aria-label="Open clear-all menu"
+                  className="goal-reminder-more-btn"
+                  onClick={() => {
+                    setConfirmBulkClear("");
+                    setBulkMenuOpen((current) => !current);
+                  }}
+                  ref={bulkMenuButtonRef}
+                  title="Clear saved goals, reminders, or to-do's"
+                  type="button"
+                ><EllipsisVertical size={18} /></button>
+                {bulkMenuOpen && (
+                  <div
+                    aria-label="Clear saved goals, reminders, or to-do's"
+                    className="goal-reminder-bulk-menu"
+                    id="goal-reminder-bulk-menu"
+                    ref={bulkMenuRef}
+                    role="menu"
+                  >
+                    {BULK_CLEAR_ACTIONS.map((action) => {
+                      const count = plannerData[action.key].length;
+                      return confirmBulkClear === action.key ? (
+                        <div className="goal-reminder-bulk-confirm" key={action.key} role="none">
+                          <span>
+                            <strong>Clear all?</strong>
+                            {action.key === "reminders" && plannerSettings.targetRemindersEnabled
+                              ? <small>Turns off target-linked reminders.</small>
+                              : null}
+                          </span>
+                          <button
+                            aria-label={`Confirm ${action.label.toLowerCase()}`}
+                            className="planner-confirm-btn is-confirm"
+                            onClick={() => clearAllItems(action)}
+                            role="menuitem"
+                            title="Confirm clear all"
+                            type="button"
+                          ><Check size={13} strokeWidth={3} /></button>
+                          <button
+                            aria-label={`Cancel ${action.label.toLowerCase()}`}
+                            className="planner-confirm-btn is-cancel"
+                            onClick={() => setConfirmBulkClear("")}
+                            role="menuitem"
+                            title="Cancel"
+                            type="button"
+                          ><X size={13} strokeWidth={3} /></button>
+                        </div>
+                      ) : (
+                        <button
+                          className="goal-reminder-bulk-option"
+                          disabled={count === 0}
+                          key={action.key}
+                          onClick={() => setConfirmBulkClear(action.key)}
+                          role="menuitem"
+                          type="button"
+                        ><Trash2 aria-hidden="true" size={14} /><span>{action.label}</span><strong>{count}</strong></button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
               <button
                 aria-expanded={aboutOpen}
                 aria-haspopup="dialog"
                 aria-label="About goals and reminders"
                 className="goal-reminder-about-btn"
-                onClick={() => setAboutOpen(true)}
+                onClick={() => {
+                  setConfirmBulkClear("");
+                  setBulkMenuOpen(false);
+                  setAboutOpen(true);
+                }}
                 ref={aboutButtonRef}
                 title="How goals and reminders work"
                 type="button"

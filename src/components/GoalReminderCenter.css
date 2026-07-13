@@ -1921,3 +1921,170 @@ body .goal-reminder-about-done-btn:focus-visible {
     transition: none !important;
   }
 }
+
+/* Header bulk-clear menu for goals, reminders, and quick to-do items. */
+.goal-reminder-dialog-header {
+  position: relative;
+  z-index: 20;
+}
+
+.goal-reminder-bulk-menu-wrap {
+  position: relative;
+  display: grid;
+}
+
+body .goal-reminder-more-btn {
+  display: grid !important;
+  flex: 0 0 34px !important;
+  place-items: center !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  color: var(--text-muted) !important;
+  background: var(--surface-muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 11px !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .goal-reminder-more-btn:hover {
+  color: var(--text) !important;
+  background: var(--surface) !important;
+  border-color: rgba(var(--accent-rgb), 0.28) !important;
+  transform: none !important;
+}
+
+body .goal-reminder-more-btn[aria-expanded="true"] {
+  color: #ef476f !important;
+  background: rgba(239, 71, 111, 0.1) !important;
+  border-color: rgba(239, 71, 111, 0.32) !important;
+}
+
+.goal-reminder-bulk-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 70;
+  display: grid;
+  gap: 4px;
+  width: min(244px, calc(100vw - 40px));
+  padding: 6px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(4, 9, 20, 0.34), var(--shadow);
+  animation: goalReminderMenuIn 150ms ease-out both;
+}
+
+body .goal-reminder-bulk-option {
+  display: grid !important;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center !important;
+  gap: 7px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 38px !important;
+  padding: 6px 8px !important;
+  color: var(--text) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+  font-size: 0.67rem !important;
+  font-weight: 750 !important;
+  line-height: 1.2 !important;
+  text-align: left;
+  transform: none !important;
+}
+
+body .goal-reminder-bulk-option svg {
+  color: #ef476f;
+}
+
+body .goal-reminder-bulk-option > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body .goal-reminder-bulk-option > strong {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.56rem;
+}
+
+body .goal-reminder-bulk-option:hover:not(:disabled),
+body .goal-reminder-bulk-option:focus-visible:not(:disabled) {
+  color: #ef476f !important;
+  background: rgba(239, 71, 111, 0.08) !important;
+  border-color: rgba(239, 71, 111, 0.22) !important;
+}
+
+body .goal-reminder-bulk-option:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.goal-reminder-bulk-confirm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 5px;
+  min-height: 42px;
+  padding: 5px 6px 5px 8px;
+  color: #ef476f;
+  background: rgba(239, 71, 111, 0.08);
+  border: 1px solid rgba(239, 71, 111, 0.2);
+  border-radius: 9px;
+}
+
+.goal-reminder-bulk-confirm > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.goal-reminder-bulk-confirm > span > strong {
+  font-size: 0.64rem;
+  line-height: 1.1;
+}
+
+.goal-reminder-bulk-confirm > span > small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.52rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes goalReminderMenuIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 520px) {
+  body .goal-reminder-more-btn {
+    flex-basis: 32px !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-reminder-bulk-menu {
+    animation: none !important;
+  }
+}

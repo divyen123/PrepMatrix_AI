@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  clearPlannerCollection,
   calculateStudyTargetPerformance,
   getLocalDateKey,
   getTargetReviewDateKeys,
@@ -33,6 +34,29 @@ test("normalizes planner records and skips empty items", () => {
   assert.equal(data.reminders[1].time, "");
   assert.equal(data.todos.length, 1);
   assert.equal(data.todos[0].completed, true);
+});
+
+test("bulk clear removes only the selected planner collection", () => {
+  const plannerData = {
+    goals: [{ id: "g1", title: "Goal", completed: true }],
+    reminders: [{ id: "r1", title: "Reminder", completed: true }],
+    todos: [{ id: "t1", title: "To-do", completed: true }],
+  };
+
+  for (const collection of ["goals", "reminders", "todos"]) {
+    const cleared = clearPlannerCollection(plannerData, collection);
+    assert.deepEqual(cleared[collection], []);
+    for (const preservedCollection of ["goals", "reminders", "todos"].filter((key) => key !== collection)) {
+      assert.equal(cleared[preservedCollection].length, 1);
+      assert.equal(cleared[preservedCollection][0].id, plannerData[preservedCollection][0].id);
+    }
+  }
+});
+
+test("bulk clear ignores unsupported planner collections", () => {
+  const plannerData = { goals: [{ id: "g1", title: "Goal" }] };
+  const cleared = clearPlannerCollection(plannerData, "unknown");
+  assert.equal(cleared.goals.length, 1);
 });
 
 test("uses local calendar dates for today and tomorrow", () => {

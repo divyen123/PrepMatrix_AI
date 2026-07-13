@@ -130,6 +130,15 @@ export function normalizePlannerData(value) {
   return { goals, reminders, todos };
 }
 
+export function clearPlannerCollection(value, collection) {
+  const plannerData = normalizePlannerData(value);
+  if (!["goals", "reminders", "todos"].includes(collection)) return plannerData;
+  return {
+    ...plannerData,
+    [collection]: [],
+  };
+}
+
 export function normalizePlannerSettings(value) {
   const source = value && typeof value === "object" ? value : {};
   const requestedRepeat = Number.parseInt(source.repeatSeconds, 10);

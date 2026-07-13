@@ -18779,3 +18779,15 @@ body .sidebar-chatbot-portal .chat-attachment-remove:disabled {
     min-height: 36px !important;
   }
 }
+
+/* Keep every primary route visible without resizing the sidebar utilities. */
+.app-sidebar .sidebar-nav {
+  gap: 2px;
+  padding: 12px 16px;
+}
+
+.app-sidebar .sidebar-nav .sidebar-link {
+  min-height: 40px;
+  padding: 8px 14px;
+  gap: 12px;
+}
