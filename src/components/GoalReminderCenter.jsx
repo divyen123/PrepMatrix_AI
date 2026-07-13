@@ -386,21 +386,25 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
       >
         <header className="goal-reminder-dialog-header">
           <div className="goal-reminder-dialog-title">
-            <span className="goal-reminder-dialog-mark" aria-hidden="true"><Target size={22} /><BellRing size={13} /></span>
-            <div><span>Personal productivity</span><h2 id="goal-reminder-center-title">Goal & Reminder Center</h2><p id="goal-reminder-center-description">Plan outcomes, schedule reminders, and clear compact daily tasks.</p></div>
+            <span className="goal-reminder-dialog-mark" aria-hidden="true"><Target size={19} /><BellRing size={11} /></span>
+            <div><h2 id="goal-reminder-center-title">Goal & Reminder Center</h2><p id="goal-reminder-center-description">Plan outcomes, schedule reminders, and clear compact daily tasks.</p></div>
           </div>
-          <div className="goal-reminder-header-actions">
-            <button
-              aria-expanded={aboutOpen}
-              aria-haspopup="dialog"
-              aria-label="About goals and reminders"
-              className="goal-reminder-about-btn"
-              onClick={() => setAboutOpen(true)}
-              ref={aboutButtonRef}
-              title="How goals and reminders work"
-              type="button"
-            ><Info size={18} /></button>
-            <button aria-label="Close goal and reminder center" className="goal-reminder-close-btn" onClick={closeCenter} ref={closeButtonRef} type="button"><X size={18} /></button>
+          <div className="goal-reminder-header-controls">
+            <span className="goal-reminder-save-status"><CheckCircle2 aria-hidden="true" size={13} /><span>Changes save automatically to your workspace.</span></span>
+            <label className="goal-reminder-show-completed"><input checked={plannerSettings.showCompleted} onChange={(event) => persistSettings({ ...plannerSettings, showCompleted: event.target.checked })} type="checkbox" /> Show completed items</label>
+            <div className="goal-reminder-header-actions">
+              <button
+                aria-expanded={aboutOpen}
+                aria-haspopup="dialog"
+                aria-label="About goals and reminders"
+                className="goal-reminder-about-btn"
+                onClick={() => setAboutOpen(true)}
+                ref={aboutButtonRef}
+                title="How goals and reminders work"
+                type="button"
+              ><Info size={18} /></button>
+              <button aria-label="Close goal and reminder center" className="goal-reminder-close-btn" onClick={closeCenter} ref={closeButtonRef} type="button"><X size={18} /></button>
+            </div>
           </div>
         </header>
 
@@ -411,9 +415,9 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
         </div>
 
         <div className="goal-reminder-dialog-body">
-          <section className="planner-composer-panel">
+          <section aria-labelledby="planner-composer-heading" className="planner-composer-panel">
             <div className="planner-panel-heading">
-              <div><span>Create</span><h3>Plan the next action</h3></div>
+              <div><h3 className="planner-panel-label" id="planner-composer-heading">Plan the next action</h3></div>
               <div className="planner-composer-tabs" role="group" aria-label="Choose item type">
                 <button aria-pressed={composer === "goal"} className={composer === "goal" ? "is-active" : ""} onClick={() => setComposer("goal")} type="button"><Target size={14} /> Goal</button>
                 <button aria-pressed={composer === "reminder"} className={composer === "reminder" ? "is-active" : ""} onClick={() => setComposer("reminder")} type="button"><AlarmClock size={14} /> Reminder</button>
@@ -443,7 +447,7 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
 
           <section aria-labelledby="quick-todo-heading" className="planner-list-panel planner-todo-panel">
             <div className="planner-panel-heading">
-              <div><span id="quick-todo-heading">Quick to-do</span></div>
+              <div><h3 className="planner-panel-label" id="quick-todo-heading">Quick to-do</h3></div>
               <strong>{openTodos} open</strong>
             </div>
             <form className="planner-todo-composer" onSubmit={createTodo}>
@@ -484,8 +488,8 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
             </div>
           </section>
 
-          <section className="planner-list-panel planner-goals-panel">
-            <div className="planner-panel-heading"><div><span>Outcomes</span><h3>Goals</h3></div><strong>{activeGoals} active</strong></div>
+          <section aria-labelledby="planner-goals-heading" className="planner-list-panel planner-goals-panel">
+            <div className="planner-panel-heading"><div><h3 className="planner-panel-label" id="planner-goals-heading">Goals</h3></div><strong>{activeGoals} active</strong></div>
             <div className="planner-scroll-list">
               {visibleGoals.length === 0 ? <EmptyPlannerState detail="Create a dated outcome to start tracking progress." icon={<Target aria-hidden="true" size={20} />} title="No goals yet" /> : visibleGoals.map((goal) => {
                 const tone = getDateTone(goal.targetDate, today, goal.completed);
@@ -508,8 +512,8 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
             </div>
           </section>
 
-          <section className="planner-list-panel planner-reminder-panel">
-            <div className="planner-panel-heading"><div><span>Schedule</span><h3>Reminders</h3></div><strong>{todayReminders.length} today</strong></div>
+          <section aria-labelledby="planner-reminders-heading" className="planner-list-panel planner-reminder-panel">
+            <div className="planner-panel-heading"><div><h3 className="planner-panel-label" id="planner-reminders-heading">Reminders</h3></div><strong>{todayReminders.length} today</strong></div>
             <div className="planner-scroll-list planner-reminder-list">
               {visibleReminders.length === 0 ? <EmptyPlannerState detail="Add a dated reminder for an in-app nudge." icon={<BellRing aria-hidden="true" size={20} />} title="No reminders" /> : visibleReminders.map((reminder) => {
                 const tone = getDateTone(reminder.date, today, reminder.completed);
@@ -532,10 +536,6 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
           </section>
         </div>
 
-        <footer className="goal-reminder-dialog-footer">
-          <span><CheckCircle2 size={14} /> Changes save automatically to your workspace.</span>
-          <label><input checked={plannerSettings.showCompleted} onChange={(event) => persistSettings({ ...plannerSettings, showCompleted: event.target.checked })} type="checkbox" /> Show completed items</label>
-        </footer>
       </section>
 
         {aboutOpen && (
