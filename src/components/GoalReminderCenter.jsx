@@ -85,9 +85,8 @@ function sortPlannerItems(items, dateField) {
 function PlannerCheckbox({ checked, label, onChange }) {
   return (
     <label className="planner-item-checkbox" title={label}>
-      <input checked={checked} onChange={onChange} type="checkbox" />
+      <input aria-label={label} checked={checked} onChange={onChange} type="checkbox" />
       <span aria-hidden="true"><Check size={13} strokeWidth={3} /></span>
-      <span className="sr-only">{label}</span>
     </label>
   );
 }
