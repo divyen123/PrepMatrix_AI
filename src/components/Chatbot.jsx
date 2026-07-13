@@ -7,6 +7,15 @@ import {
   resolveLocalAssistantCommand,
 } from "../utils/assistantCommands";
 import api, { API_BASE } from "../utils/apiClient";
+import {
+  CHAT_ATTACHMENT_ACCEPT,
+  DEFAULT_ATTACHMENT_PROMPT,
+  MAX_CHAT_ATTACHMENTS,
+  chatAttachmentMetadata,
+  formatChatFileSize,
+  prepareChatAttachment,
+  validateChatAttachmentSelection,
+} from "../utils/chatAttachments";
 import { ChatStudyPet } from "./StudyPet";
 import {
   MessageSquare,
@@ -21,7 +30,10 @@ import {
   Send,
   Mic,
   Square,
-  Copy
+  Copy,
+  Paperclip,
+  FileText,
+  Image as ImageIcon
 } from "lucide-react";
 
 function formatMessageText(text) {
@@ -77,7 +89,14 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   const navigate = useNavigate();
   const scrollRef = useRef(null);
   const chatRecognitionRef = useRef(null);
+  const fileInputRef = useRef(null);
   const resumeWakeAfterChatMicRef = useRef(false);
+  const mountedRef = useRef(true);
+  const viewEpochRef = useRef(0);
+  const chatRequestSeqRef = useRef(0);
+  const attachmentPrepSeqRef = useRef(0);
+  const sessionLoadSeqRef = useRef(0);
+  const isSendingRef = useRef(false);
 
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
@@ -110,6 +129,9 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   const [clearingSessions, setClearingSessions] = useState(false);
   const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [attachmentError, setAttachmentError] = useState("");
+  const [preparingAttachments, setPreparingAttachments] = useState(false);
   
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -131,6 +153,18 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       text: "Study assistant is ready. Ask for strategy, summaries, or planner-based advice.",
     },
   ]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      viewEpochRef.current += 1;
+      chatRequestSeqRef.current += 1;
+      attachmentPrepSeqRef.current += 1;
+      sessionLoadSeqRef.current += 1;
+      isSendingRef.current = false;
+    };
+  }, []);
 
   const handleCopyMessage = useCallback(async (text = "") => {
     const copyText = text.trim();
@@ -207,11 +241,29 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   }, [open]);
 
 
+  const invalidateViewWork = useCallback(() => {
+    viewEpochRef.current += 1;
+    chatRequestSeqRef.current += 1;
+    attachmentPrepSeqRef.current += 1;
+    sessionLoadSeqRef.current += 1;
+    isSendingRef.current = false;
+    setPreparingAttachments(false);
+  }, []);
+
   // Select a session to load details
   const handleSelectSession = useCallback(async (sessionId) => {
+    invalidateViewWork();
+    const loadEpoch = viewEpochRef.current;
+    const loadId = ++sessionLoadSeqRef.current;
+    const isCurrentLoad = () => mountedRef.current
+      && viewEpochRef.current === loadEpoch
+      && sessionLoadSeqRef.current === loadId;
+    setAttachments([]);
+    setAttachmentError("");
     setLoading(true);
     try {
       const data = await api.getChatSession(sessionId);
+      if (!isCurrentLoad()) return;
       const session = data.session;
       if (session) {
         setActiveSessionId(session._id);
@@ -222,14 +274,19 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
         }
       }
     } catch (err) {
+      if (!isCurrentLoad()) return;
       console.error("Failed to load session details:", err);
     } finally {
-      setLoading(false);
+      if (isCurrentLoad()) setLoading(false);
     }
-  }, []);
+  }, [invalidateViewWork]);
 
   // Clear states to start a new chat
   const handleNewChat = useCallback(() => {
+    invalidateViewWork();
+    setLoading(false);
+    setAttachments([]);
+    setAttachmentError("");
     setActiveSessionId(null);
     setActiveSessionTitle("New Chat");
     setMessages([
@@ -242,7 +299,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     if (window.innerWidth <= 768) {
       setHistoryOpen(false);
     }
-  }, []);
+  }, [invalidateViewWork]);
 
   useEffect(() => {
     const handleOpenChat = (event) => {
@@ -314,29 +371,83 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     }
   }, [renameTitle, activeSessionId]);
 
+  const handleAttachmentFiles = useCallback(async (event) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!selectedFiles.length) return;
+
+    const validationMessage = validateChatAttachmentSelection(selectedFiles, attachments);
+    if (validationMessage) {
+      setAttachmentError(validationMessage);
+      return;
+    }
+
+    const preparationId = ++attachmentPrepSeqRef.current;
+    const preparationEpoch = viewEpochRef.current;
+    const isCurrentPreparation = () => mountedRef.current
+      && viewEpochRef.current === preparationEpoch
+      && attachmentPrepSeqRef.current === preparationId;
+    setAttachmentError("");
+    setPreparingAttachments(true);
+    try {
+      const prepared = await Promise.all(selectedFiles.map(prepareChatAttachment));
+      if (!isCurrentPreparation()) return;
+      const preparedValidationMessage = validateChatAttachmentSelection(
+        prepared.map(({ name, type, size }) => ({ name, type, size })),
+        attachments.map(({ name, type, size }) => ({ name, type, size })),
+      );
+      if (preparedValidationMessage) {
+        setAttachmentError(preparedValidationMessage);
+        return;
+      }
+      setAttachments((current) => [...current, ...prepared]);
+    } catch (error) {
+      if (!isCurrentPreparation()) return;
+      setAttachmentError(error instanceof Error ? error.message : "The selected file could not be prepared.");
+    } finally {
+      if (isCurrentPreparation()) setPreparingAttachments(false);
+    }
+  }, [attachments]);
+
+  const handleRemoveAttachment = useCallback((attachmentId) => {
+    setAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId));
+    setAttachmentError("");
+  }, []);
+
   const sendMessage = useCallback(
     async (message = input, options = {}) => {
-      const finalMessage = message.trim();
+      const selectedAttachments = Array.isArray(options.attachments) ? options.attachments : attachments;
+      const cleanMessage = typeof message === "string" ? message.trim() : "";
+      const finalMessage = cleanMessage || (selectedAttachments.length ? DEFAULT_ATTACHMENT_PROMPT : "");
 
-      if (!finalMessage) {
+      if (!finalMessage || loading || preparingAttachments || isSendingRef.current) {
         return;
       }
 
+      const messageAttachments = selectedAttachments.map((attachment) => ({
+        ...chatAttachmentMetadata(attachment),
+        ...(attachment.type.startsWith("image/") ? { dataUrl: attachment.dataUrl } : {}),
+      }));
       const userMessage = {
         id: `${Date.now()}-user`,
         role: "user",
         text: finalMessage,
+        ...(messageAttachments.length ? { attachments: messageAttachments } : {}),
       };
 
       setMessages((current) => [...current, userMessage]);
-      setInput(options.keepInput ? finalMessage : "");
+      setInput(options.keepInput ? cleanMessage : "");
+      setAttachments([]);
+      setAttachmentError("");
 
-      const localCommand = resolveLocalAssistantCommand(finalMessage, {
-        metrics,
-        onReset,
-        setDarkMode,
-        navigate,
-      });
+      const localCommand = selectedAttachments.length
+        ? null
+        : resolveLocalAssistantCommand(finalMessage, {
+            metrics,
+            onReset,
+            setDarkMode,
+            navigate,
+          });
 
       if (localCommand) {
         setMessages((current) => [
@@ -350,14 +461,30 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
         return;
       }
 
+      const requestId = ++chatRequestSeqRef.current;
+      const requestEpoch = viewEpochRef.current;
+      const originSessionId = activeSessionId;
+      const isCurrentRequest = () => mountedRef.current
+        && viewEpochRef.current === requestEpoch
+        && chatRequestSeqRef.current === requestId;
+      isSendingRef.current = true;
       setLoading(true);
 
       try {
         const payload = await api.post("/api/study-assistant/chat", {
           message: finalMessage,
-          sessionId: activeSessionId,
+          sessionId: originSessionId,
           plannerContext,
+          attachments: selectedAttachments.map(({ name, type, size, dataUrl }) => ({
+            name,
+            type,
+            size,
+            dataUrl,
+          })),
+        }, {
+          timeoutMs: selectedAttachments.length ? 105000 : 30000,
         });
+        if (!isCurrentRequest()) return;
 
         const reply = payload.reply?.trim() || "I couldn't generate a response for that request.";
 
@@ -371,7 +498,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
         ]);
 
         if (payload.sessionId) {
-          const isNew = !activeSessionId;
+          const isNew = !originSessionId;
           setActiveSessionId(payload.sessionId);
           if (payload.sessionTitle) {
             setActiveSessionTitle(payload.sessionTitle);
@@ -397,10 +524,19 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
           message: "",
         });
       } catch (err) {
+        if (!isCurrentRequest()) return;
         console.error("Study assistant error:", err);
         const errorMessage = err instanceof Error ? err.message : "Unable to reach the AI assistant.";
         const isApiError = err instanceof Error && err.message && err.message !== "Failed to fetch";
-        const replyText = isApiError ? `Error: ${errorMessage}` : buildFallbackReply(finalMessage, metrics);
+        if (selectedAttachments.length) {
+          setAttachments(selectedAttachments);
+          if (!options.keepInput) setInput(cleanMessage);
+        }
+        const replyText = isApiError
+          ? `Error: ${errorMessage}`
+          : selectedAttachments.length
+            ? "I couldn't reach the assistant to analyze that file. Your files are still attached below so you can retry."
+            : buildFallbackReply(finalMessage, metrics);
 
         setMessages((current) => [
           ...current,
@@ -411,10 +547,26 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
           },
         ]);
       } finally {
-        setLoading(false);
+        if (isCurrentRequest()) {
+          isSendingRef.current = false;
+          setLoading(false);
+        }
       }
     },
-    [activeSessionId, assistantStatus.model, fetchSessions, input, metrics, navigate, onReset, plannerContext, setDarkMode]
+    [
+      activeSessionId,
+      assistantStatus.model,
+      attachments,
+      fetchSessions,
+      input,
+      loading,
+      metrics,
+      navigate,
+      onReset,
+      plannerContext,
+      preparingAttachments,
+      setDarkMode,
+    ]
   );
 
   useEffect(() => {
@@ -612,6 +764,12 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     if (loading) {
       return { message: "Thinking through your question…", state: "thinking" };
     }
+    if (attachments.length) {
+      return {
+        message: `${attachments.length} file${attachments.length === 1 ? "" : "s"} ready. Add a question or send for an overview.`,
+        state: "idle",
+      };
+    }
     if (input.trim()) {
       return { message: "Your question is ready. Send it when you are ready.", state: "idle" };
     }
@@ -625,7 +783,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     }
 
     return { message: "One focused topic today is real progress.", state: "idle" };
-  }, [input, isVoiceRecording, loading, messages]);
+  }, [attachments.length, input, isVoiceRecording, loading, messages]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("prepmatrixPetStatusChange", {
@@ -846,6 +1004,33 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
               <div className="chat-messages" ref={scrollRef}>
                 {messages.map((message) => (
                   <div className={`chat-message ${message.role}`} key={message.id}>
+                    {Array.isArray(message.attachments) && message.attachments.length ? (
+                      <div className="chat-message-attachments">
+                        {message.attachments.map((attachment, index) => {
+                          const isImage = attachment.type?.startsWith("image/");
+                          return (
+                            <div
+                              className="chat-message-attachment"
+                              key={`${message.id}-${attachment.name}-${index}`}
+                            >
+                              <span className="chat-message-attachment-preview">
+                                {isImage && attachment.dataUrl ? (
+                                  <img alt="" aria-hidden="true" src={attachment.dataUrl} />
+                                ) : isImage ? (
+                                  <ImageIcon aria-hidden="true" size={15} />
+                                ) : (
+                                  <FileText aria-hidden="true" size={15} />
+                                )}
+                              </span>
+                              <span className="chat-message-attachment-copy">
+                                <strong title={attachment.name}>{attachment.name}</strong>
+                                <small>{formatChatFileSize(attachment.size)}</small>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null}
                     {formatMessageText(message.text)}
                     <button
                       aria-label="Copy chat message"
@@ -868,33 +1053,98 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
               </div>
 
               <div className="chat-input">
+                {attachmentError ? (
+                  <div className="chat-attachment-error" role="alert">
+                    {attachmentError}
+                  </div>
+                ) : null}
+
+                {attachments.length || preparingAttachments ? (
+                  <div aria-label="Selected attachments" className="chat-attachment-tray">
+                    {attachments.map((attachment) => (
+                      <div className="chat-attachment-chip" key={attachment.id}>
+                        <span className="chat-attachment-preview">
+                          {attachment.type.startsWith("image/") ? (
+                            <img alt="" aria-hidden="true" src={attachment.dataUrl} />
+                          ) : (
+                            <FileText aria-hidden="true" size={16} />
+                          )}
+                        </span>
+                        <span className="chat-attachment-copy">
+                          <strong title={attachment.name}>{attachment.name}</strong>
+                          <small>{formatChatFileSize(attachment.originalSize || attachment.size)}</small>
+                        </span>
+                        <button
+                          aria-label={`Remove ${attachment.name}`}
+                          className="chat-attachment-remove"
+                          disabled={preparingAttachments}
+                          onClick={() => handleRemoveAttachment(attachment.id)}
+                          title="Remove attachment"
+                          type="button"
+                        >
+                          <X aria-hidden="true" size={12} />
+                        </button>
+                      </div>
+                    ))}
+                    {preparingAttachments ? (
+                      <div className="chat-attachment-chip is-preparing" role="status">
+                        <Loader2 aria-hidden="true" className="spinner" size={15} />
+                        <span>Preparing file...</span>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <input
+                  accept={CHAT_ATTACHMENT_ACCEPT}
+                  className="chat-file-input"
+                  multiple
+                  onChange={handleAttachmentFiles}
+                  ref={fileInputRef}
+                  tabIndex={-1}
+                  type="file"
+                />
                 <input
                   aria-label="Message study assistant"
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
+                      event.preventDefault();
                       sendMessage();
                     }
                   }}
-                  placeholder="Ask anything..."
+                  placeholder={attachments.length ? "Ask about the attached file..." : "Ask anything..."}
                   value={input}
                   className="chat-input-field"
                 />
                 <button
+                  aria-label="Attach images or PDF files"
+                  className={`chat-icon-btn chat-upload-btn${attachments.length ? " has-attachments" : ""}`}
+                  disabled={loading || preparingAttachments || attachments.length >= MAX_CHAT_ATTACHMENTS}
+                  onClick={() => fileInputRef.current?.click()}
+                  type="button"
+                  title={attachments.length >= MAX_CHAT_ATTACHMENTS ? `Maximum ${MAX_CHAT_ATTACHMENTS} files attached` : "Attach images or PDF files"}
+                >
+                  {preparingAttachments ? <Loader2 aria-hidden="true" className="spinner" size={16} /> : <Paperclip aria-hidden="true" size={16} />}
+                  {attachments.length ? <span className="chat-upload-count">{attachments.length}</span> : null}
+                </button>
+                <button
+                  aria-label={isVoiceRecording ? "Stop recording" : "Start voice recording"}
                   className={`chat-icon-btn chat-mic-btn${isVoiceRecording ? " recording" : ""}`}
+                  disabled={loading || preparingAttachments}
                   onClick={handleMicClick}
                   type="button"
                   title={isVoiceRecording ? "Stop recording" : "Start voice recording"}
-                  aria-label={isVoiceRecording ? "Stop recording" : "Start voice recording"}
                 >
                   {isVoiceRecording ? <Square size={16} /> : <Mic size={16} />}
                 </button>
                 <button
+                  aria-label="Send message"
                   className="chat-icon-btn chat-send-btn"
+                  disabled={loading || preparingAttachments || (!input.trim() && !attachments.length)}
                   onClick={() => sendMessage()}
                   type="button"
                   title="Send message"
-                  aria-label="Send message"
                 >
                   <Send size={16} />
                 </button>
