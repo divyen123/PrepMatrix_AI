@@ -37,22 +37,23 @@ function ExamAboutPage() {
         </div>
         <div className="exam-guide-hero__content">
           <div>
-            <h2>Understand every part of the Exam workspace.</h2>
-            <p>Learn how PrepMatrix prepares secure online exams, builds exact question papers, protects assessment integrity, releases results, and supports offline practice.</p>
+            <h2>Know the rules before you start.</h2>
+            <p>Take a secure online exam, build printable AI papers, review delayed results, earn certificates, and practice with an offline timer.</p>
             <button className="exam-guide-primary" onClick={() => navigate("/exam")} type="button">
               Open Exam workspace <ArrowRight size={16} />
             </button>
           </div>
           <div className="exam-guide-stats" aria-label="Exam workspace key rules">
-            <div><strong>40</strong><span>MCQs per online exam</span></div>
-            <div><strong>60m</strong><span>Fixed online duration</span></div>
-            <div><strong>72h</strong><span>Result release delay</span></div>
-            <div><strong>4th</strong><span>Violation auto-submits</span></div>
+            <div><strong>80%</strong><span>Planner completion to unlock</span></div>
+            <div><strong>2 / 24h</strong><span>Rolling start limit</span></div>
+            <div><strong>40 / 60m</strong><span>Questions and duration</span></div>
+            <div><strong>72h</strong><span>Results unlock</span></div>
           </div>
         </div>
       </header>
 
       <nav className="card exam-guide-nav" aria-label="Exam guide sections">
+        <a href="#exam-guide-limits"><ShieldAlert size={15} /> Limits</a>
         <a href="#exam-guide-workflow"><Target size={15} /> Workflow</a>
         <a href="#exam-guide-attend"><ListChecks size={15} /> Attend Exam</a>
         <a href="#exam-guide-paper"><FilePlus2 size={15} /> Generate Paper</a>
@@ -60,17 +61,34 @@ function ExamAboutPage() {
         <a href="#exam-guide-timer"><TimerReset size={15} /> Offline Timer</a>
       </nav>
 
+      <section className="card exam-guide-limits" id="exam-guide-limits">
+        <div className="exam-guide-section-heading">
+          <span className="exam-guide-kicker"><ShieldAlert size={15} /> Online exam limits</span>
+          <h2>Everything enforced during an attempt</h2>
+          <p>These limits apply to Attend Exam. Printable question-paper limits are listed separately below.</p>
+        </div>
+        <div className="exam-guide-limit-grid">
+          <article><strong>80%</strong><span>Planner unlock</span><p>Complete at least 80% of scheduled planner tasks.</p></article>
+          <article><strong>2</strong><span>Starts per 24 hours</span><p>Start up to two new exams in any rolling 24-hour window.</p></article>
+          <article><strong>15m</strong><span>Submit lock</span><p>Manual submission unlocks 15 minutes after the server starts the attempt.</p></article>
+          <article><strong>40 / 60m</strong><span>Fixed attempt</span><p>Answer exactly 40 MCQs within the fixed 60-minute timer.</p></article>
+          <article><strong>3 + 1</strong><span>Integrity warnings</span><p>The first three violations warn you; the fourth auto-submits.</p></article>
+          <article><strong>72h</strong><span>Result delay</span><p>Scores, review, PDF, and certificates remain locked until release.</p></article>
+        </div>
+        <p className="exam-guide-limit-note"><Clock3 size={16} /> The start limit does not reset at midnight. A slot returns 24 hours after the older counted start. Refreshing or reconnecting resumes an active attempt; a submitted exam cannot be restarted.</p>
+      </section>
+
       <section className="card exam-guide-workflow" id="exam-guide-workflow">
         <div className="exam-guide-section-heading">
           <span className="exam-guide-kicker"><Target size={15} /> Recommended workflow</span>
-          <h2>From subject setup to final review</h2>
-          <p>Complete these steps in order for the most accurate exam and question-paper output.</p>
+          <h2>Set up, attempt, and review</h2>
+          <p>Use this order for accurate exams and question papers.</p>
         </div>
         <div className="exam-guide-steps">
-          <article><b>1</b><div><strong>Add subjects</strong><p>Create subjects and include useful chapter or syllabus details.</p></div></article>
-          <article><b>2</b><div><strong>Choose a mode</strong><p>Attend a secure online exam or design a printable question paper.</p></div></article>
-          <article><b>3</b><div><strong>Complete or export</strong><p>Answer the MCQs in fullscreen or download the generated paper and key.</p></div></article>
-          <article><b>4</b><div><strong>Review progress</strong><p>Return after the result countdown or use saved papers for offline practice.</p></div></article>
+          <article><b>1</b><div><strong>Add subjects</strong><p>Save subjects with useful chapter or syllabus details.</p></div></article>
+          <article><b>2</b><div><strong>Choose a mode</strong><p>Take an online exam or design a printable paper.</p></div></article>
+          <article><b>3</b><div><strong>Attempt or export</strong><p>Finish in fullscreen or download the paper and key.</p></div></article>
+          <article><b>4</b><div><strong>Review</strong><p>Open released results or reuse saved papers offline.</p></div></article>
         </div>
       </section>
 
@@ -80,13 +98,13 @@ function ExamAboutPage() {
             <span className="exam-guide-icon"><ListChecks size={21} /></span>
             <div><span className="exam-guide-kicker">Component 01</span><h2>Attend Exam</h2></div>
           </div>
-          <p className="exam-guide-lead">A focused, server-timed assessment with exactly 40 multiple-choice questions and a fixed 60-minute duration.</p>
+          <p className="exam-guide-lead">A fullscreen, server-timed assessment with autosave, flags, and secure grading.</p>
           <div className="exam-guide-detail-columns">
             <div className="exam-guide-detail-list">
-              <div><BookOpenCheck size={17} /><span><strong>Prepare the exam</strong>Select one of your saved subjects, optionally enter chapters or topics, and choose easy, medium, or hard difficulty.</span></div>
-              <div><Sparkles size={17} /><span><strong>AI question creation</strong>PrepMatrix builds four secure batches of ten questions and removes invalid or repeated items before the exam begins.</span></div>
-              <div><Maximize2 size={17} /><span><strong>Fullscreen start</strong>The server timer starts with the attempt. Fullscreen keeps the question palette, timer, flags, and answers inside one secure frame.</span></div>
-              <div><CheckCircle2 size={17} /><span><strong>Autosave and submission</strong>Every answer is queued and saved in order. Manual submission includes the latest answers, and time expiry submits automatically.</span></div>
+              <div><BookOpenCheck size={17} /><span><strong>Prepare</strong>Select a saved subject, optional topics, and easy, medium, or hard difficulty.</span></div>
+              <div><Sparkles size={17} /><span><strong>Generate</strong>PrepMatrix builds four validated batches of ten unique questions.</span></div>
+              <div><Maximize2 size={17} /><span><strong>Attempt</strong>Fullscreen keeps the timer, palette, flags, and answers in one secure frame.</span></div>
+              <div><CheckCircle2 size={17} /><span><strong>Save and submit</strong>Answers autosave in order. Time expiry submits the latest saved state automatically.</span></div>
             </div>
             <aside className="exam-guide-rule-panel">
               <ShieldAlert size={22} />
@@ -106,10 +124,11 @@ function ExamAboutPage() {
             <span className="exam-guide-icon"><FilePlus2 size={21} /></span>
             <div><span className="exam-guide-kicker">Component 02</span><h2>Generate Question Paper</h2></div>
           </div>
-          <p className="exam-guide-lead">Design a paper that matches your exact marks, subject, difficulty, and study scope.</p>
+          <p className="exam-guide-lead">Build a printable paper with an exact mark allocation and optional answer key.</p>
           <ul className="exam-guide-checklist">
-            <li><CheckCircle2 size={15} /> Choose totals from 30 to 100 marks.</li>
-            <li><CheckCircle2 size={15} /> Use the preloaded exact mark split or edit 1, 3, 4, 5, 10, and 15-mark counts.</li>
+            <li><CheckCircle2 size={15} /> Choose 30 to 100 marks in steps of 10.</li>
+            <li><CheckCircle2 size={15} /> Allocate only 1, 3, 4, 5, 10, or 15-mark questions and match the total exactly.</li>
+            <li><CheckCircle2 size={15} /> Keep the final paper to 100 questions or fewer.</li>
             <li><CheckCircle2 size={15} /> Select multiple saved subjects, topics, difficulty, and question style.</li>
             <li><Code2 size={15} /> Coding subjects automatically receive stronger code, debugging, algorithm, and output-prediction coverage.</li>
             <li><FileCheck2 size={15} /> Include internal choices, shuffling, institution details, instructions, and an answer key.</li>
@@ -121,12 +140,13 @@ function ExamAboutPage() {
             <span className="exam-guide-icon"><Trophy size={21} /></span>
             <div><span className="exam-guide-kicker">Component 03</span><h2>View Results</h2></div>
           </div>
-          <p className="exam-guide-lead">Results remain private for exactly 72 hours after submission or automatic time expiry.</p>
+          <p className="exam-guide-lead">Results unlock 72 hours after submission or automatic time expiry.</p>
           <ul className="exam-guide-checklist">
             <li><Clock3 size={15} /> A live countdown shows the precise release time.</li>
             <li><CheckCircle2 size={15} /> Released results show score, percentage, correct, incorrect, and unanswered counts.</li>
             <li><Flag size={15} /> Review each selected answer, correct answer, and explanation.</li>
             <li><Download size={15} /> Export the complete released result as a PDF.</li>
+            <li><Trophy size={15} /> Scores of 60%+ earn an exportable certificate: Bronze 60–&lt;75%, Silver 75–&lt;88%, Gold 88–96%, and Elite &gt;96%.</li>
           </ul>
         </article>
 

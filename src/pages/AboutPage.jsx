@@ -64,6 +64,7 @@ const GUIDE_STEPS = [
       "Use Recover backlog to move incomplete work forward when a day does not go as planned.",
       "Use Rebalance to smooth overloaded days, and Undo if you want to restore the previous layout.",
       "Create a New schedule when your exam date or priorities change; export the plan when you need a PDF copy.",
+      "Use the Goal & Reminder Center for dated goals, study nudges, and quick to-dos.",
     ],
     tip: "Update task completion daily—Dashboard readiness and Analytics depend on this progress.",
   },
@@ -79,6 +80,7 @@ const GUIDE_STEPS = [
       "Open Quiz for topic-level practice and use the result to identify weak areas.",
       "Use Materials for syllabus-aware videos, articles, and references; bookmark useful resources for revision.",
       "Select the sidebar pet to open the AI study companion for explanations, outlines, or planner-aware advice.",
+      "After reaching 80% planner completion, use Exam for a secure online attempt or a printable question paper.",
     ],
     tip: "Keep one short note for each difficult topic, then quiz yourself after revising it.",
   },
@@ -101,17 +103,17 @@ const GUIDE_STEPS = [
 
 const FEATURES = [
   { icon: Calendar, title: "Smart Planner & Scheduler", desc: "Distributes study workloads, balances daily tasks by difficulty, and keeps missed work organized." },
-  { icon: Bot, title: "AI Study Assistant", desc: "Answers doubts, creates summaries and outlines, and provides planner-aware study advice." },
-  { icon: TrendingUp, title: "Comprehensive Analytics", desc: "Shows completion progress, task distribution, readiness signals, and weekly momentum." },
-  { icon: Mic, title: "Wake Assistant", desc: "Provides hands-free voice help and page commands through the focused assistant overlay." },
-  { icon: Network, title: "Worktree Mind Map", desc: "Builds visual study trees with parent links, presets, and fullscreen controls." },
-  { icon: Trophy, title: "Interactive Quizzes", desc: "Generates topic-level quizzes with score tracking and difficulty-aware practice." },
-  { icon: GraduationCap, title: "Secure Exam Workspace", desc: "Runs fullscreen exams, releases results after 72 hours, and creates exportable question papers." },
+  { icon: Bell, title: "Goals, Reminders & To-Dos", desc: "Tracks dated goals, scheduled reminders, quick tasks, study targets, and review nudges." },
+  { icon: Bot, title: "AI Study Assistant", desc: "Explains doubts and uploaded images or PDFs, creates summaries, and uses planner context." },
   { icon: StickyNote, title: "Interactive Study Notes", desc: "Saves chapter summaries, doubts, and left-over topics for every subject." },
   { icon: Library, title: "Curated Study Materials", desc: "Organizes useful videos, articles, links, and bookmarked references." },
+  { icon: Trophy, title: "Interactive Quizzes", desc: "Generates topic-level quizzes with score tracking and difficulty-aware practice." },
+  { icon: GraduationCap, title: "Secure Exam Workspace", desc: "Runs secure 40-question exams, creates custom papers, and exports delayed results and achievement certificates." },
+  { icon: TrendingUp, title: "Comprehensive Analytics", desc: "Shows completion progress, task distribution, readiness signals, and weekly momentum." },
   { icon: ClipboardList, title: "PDF Report Generation", desc: "Creates reports with task metrics, subject breakdowns, and productivity trends." },
+  { icon: Network, title: "Worktree Mind Map", desc: "Builds visual study trees with parent links, presets, and fullscreen controls." },
+  { icon: Mic, title: "Wake Assistant", desc: "Provides hands-free voice help and page commands through the focused assistant overlay." },
   { icon: Palette, title: "Appearance Customization", desc: "Adjusts backgrounds, brightness, layout scale, and the overall workspace theme." },
-  { icon: Bell, title: "Silent App Reminders", desc: "Keeps study reminders and toast feedback clear, timely, and visual-first." },
 ];
 
 function AboutPage() {
@@ -156,24 +158,23 @@ function AboutPage() {
       <section className="card about-hero-card">
         <div className="about-hero-copy">
           <span className="about-hero-kicker"><Sparkles size={14} /> Plan clearly. Study confidently.</span>
-          <h3>Everything you need to move from syllabus to exam-ready.</h3>
+          <h3>Plan, study, practice, and measure progress in one workspace.</h3>
           <p>
-            PrepMatrix AI brings planning, daily execution, learning support, and progress review into one calm workspace.
-            If you are new, the guided walkthrough shows the best order to use every essential tool.
+            PrepMatrix AI connects subjects, schedules, goals, reminders, study tools, secure exams, and analytics around your learning profile.
           </p>
           <button className="about-guide-trigger" onClick={openGuide} type="button">
             <PlayCircle size={17} /> View guide <ArrowRight size={15} />
           </button>
         </div>
         <div className="about-hero-flow" aria-label="Recommended workflow">
-          <span><strong>01</strong> Add subjects</span>
-          <span><strong>02</strong> Build plan</span>
-          <span><strong>03</strong> Track progress</span>
+          <span><strong>01</strong> Set up</span>
+          <span><strong>02</strong> Stay on track</span>
+          <span><strong>03</strong> Practice & review</span>
         </div>
       </section>
 
       <div className="about-section-heading">
-        <div><span className="section-tag">Built for focused study</span><h3>Core system features</h3></div>
+        <div><span className="section-tag">One connected study system</span><h3>What PrepMatrix brings together</h3></div>
         <button className="about-guide-secondary" onClick={openGuide} type="button">How to use PrepMatrix <ArrowRight size={14} /></button>
       </div>
 

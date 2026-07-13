@@ -18516,8 +18516,24 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)):focus-visible 
 
 /* Study assistant image and PDF attachments */
 .sidebar-chatbot-portal .chat-input {
-  flex-wrap: wrap !important;
-  align-content: flex-end !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  flex-wrap: nowrap !important;
+  align-content: normal !important;
+}
+
+.sidebar-chatbot-portal .chat-composer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.sidebar-chatbot-portal .chat-composer-row .chat-input-field {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
 }
 
 .sidebar-chatbot-portal .chat-file-input {
@@ -18526,7 +18542,7 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)):focus-visible 
 
 .sidebar-chatbot-portal .chat-attachment-error,
 .sidebar-chatbot-portal .chat-attachment-tray {
-  flex: 1 0 100%;
+  flex: 0 0 auto;
   width: 100%;
   min-width: 0;
 }
@@ -18744,6 +18760,10 @@ body .sidebar-chatbot-portal .chat-attachment-remove:disabled {
 
   .sidebar-chatbot-portal .chat-attachment-chip {
     width: min(190px, 62vw);
+  }
+
+  .sidebar-chatbot-portal .chat-composer-row {
+    gap: 6px;
   }
 
   .sidebar-chatbot-portal .chat-input .chat-icon-btn {

@@ -194,12 +194,14 @@
 }
 
 .exam-guide-workflow,
+.exam-guide-limits,
 .exam-guide-component,
 .exam-guide-footer-cta {
   padding: clamp(21px, 3vw, 30px);
 }
 
 .exam-guide-workflow,
+.exam-guide-limits,
 .exam-guide-component {
   scroll-margin-top: 120px;
 }
@@ -216,6 +218,63 @@
   margin: 7px 0 0;
   color: var(--text-secondary);
   font-size: 0.76rem;
+}
+
+.exam-guide-limit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.exam-guide-limit-grid article {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-height: 128px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-muted);
+}
+
+.exam-guide-limit-grid strong {
+  color: var(--accent);
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.exam-guide-limit-grid span {
+  color: var(--text);
+  font-size: 0.74rem;
+  font-weight: 780;
+}
+
+.exam-guide-limit-grid p {
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.66rem;
+  line-height: 1.5;
+}
+
+.exam-guide-limit-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 11px 0 0;
+  padding: 11px 13px;
+  color: var(--text-secondary);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 11px;
+  background: rgba(var(--accent-rgb), 0.055);
+  font-size: 0.67rem;
+  line-height: 1.55;
+}
+
+.exam-guide-limit-note svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--accent);
 }
 
 .exam-guide-steps {
@@ -449,6 +508,10 @@ body.has-bg-image .exam-guide-page .card {
   .exam-guide-steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .exam-guide-limit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -459,6 +522,7 @@ body.has-bg-image .exam-guide-page .card {
   }
 
   .exam-guide-stats,
+  .exam-guide-limit-grid,
   .exam-guide-component-grid,
   .exam-guide-detail-list {
     grid-template-columns: 1fr;
@@ -479,6 +543,7 @@ body.has-bg-image .exam-guide-page .card {
 
 @media (max-width: 520px) {
   .exam-guide-hero,
+  .exam-guide-limits,
   .exam-guide-workflow,
   .exam-guide-component,
   .exam-guide-footer-cta {

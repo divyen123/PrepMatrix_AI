@@ -1104,6 +1104,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                   tabIndex={-1}
                   type="file"
                 />
+                <div className="chat-composer-row">
                 <input
                   aria-label="Message study assistant"
                   onChange={(event) => setInput(event.target.value)}
@@ -1148,6 +1149,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                 >
                   <Send size={16} />
                 </button>
+                </div>
               </div>
             </div>
             </div>
