@@ -13369,7 +13369,7 @@ button.bg-palette-thumbnail-btn:hover {
   z-index: 2 !important;
   width: 100% !important;
   max-width: 420px !important;
-  flex-shrink: 0 !important;
+  flex-shrink: 1 !important;
   /* 50% transparent dark glass */
   background: rgba(18, 14, 32, 0.50) !important;
   border: 1px solid rgba(255,255,255,0.09) !important;
@@ -13381,12 +13381,20 @@ button.bg-palette-thumbnail-btn:hover {
     0 0 0 1px rgba(191,111,255,0.08),
     0 24px 56px rgba(0,0,0,0.55),
     inset 0 1px 0 rgba(255,255,255,0.06) !important;
-  overflow: visible !important;        /* never clip the register fields */
-  max-height: none !important;         /* beat the old calc(100dvh - 126px) rule */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
   /* Smooth width expansion when switching login ↤↦ register */
   transition:
     max-width 0.42s cubic-bezier(0.4, 0, 0.2, 1),
     padding   0.42s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.auth-card--v2::-webkit-scrollbar {
+  display: none !important;
 }
 
 /* ── Card — register: slightly compact width ── */
