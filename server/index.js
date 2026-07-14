@@ -202,6 +202,7 @@ function sanitizeUser(user) {
     grade: academicProfile.grade,
     degree: academicProfile.degree,
     profileImage: user.profileImage || "",
+    needsOnboardingGuide: user.onboardingGuidePending === true,
     createdAt: user.createdAt,
   };
 }
@@ -562,6 +563,7 @@ app.post("/api/auth/register", async (req, res) => {
       passwordHash: hashPassword(password),
       institutionName: institutionName.trim(),
       ...academicProfilePayload(academicProfile),
+      onboardingGuidePending: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -600,6 +602,20 @@ app.post("/api/auth/logout", requireAuth(async (req, res) => {
   if (token) await db.collection("sessions").deleteOne({ token });
   clearSessionCookie(res);
   res.json({ ok: true });
+}));
+
+app.put("/api/auth/onboarding-guide", requireAuth(async (req, res) => {
+  try {
+    const db = await getDb();
+    const completedAt = new Date();
+    await db.collection("users").updateOne(
+      { _id: req.user._id },
+      { $set: { onboardingGuidePending: false, onboardingGuideCompletedAt: completedAt, updatedAt: completedAt } },
+    );
+    res.json({ ok: true, completedAt });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Could not save onboarding progress." });
+  }
 }));
 
 app.delete("/api/auth/account", requireAuth(async (req, res) => {

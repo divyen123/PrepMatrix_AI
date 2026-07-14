@@ -1,0 +1,137 @@
+.guide-dialog {
+  --text-secondary: var(--text-muted);
+}
+
+.guide-dialog-backdrop.guide-dialog-backdrop--onboarding {
+  --guide-frame-top: 0px;
+  inset: 0;
+  z-index: 10050;
+  place-items: center;
+  padding: clamp(18px, 3vw, 42px);
+  background:
+    radial-gradient(circle at 18% 16%, rgba(var(--accent-rgb), 0.2), transparent 30%),
+    radial-gradient(circle at 84% 84%, rgba(109, 93, 252, 0.18), transparent 32%),
+    rgba(5, 9, 18, 0.78);
+  backdrop-filter: blur(14px) saturate(0.86);
+  -webkit-backdrop-filter: blur(14px) saturate(0.86);
+}
+
+.guide-dialog-backdrop--onboarding .guide-dialog {
+  width: min(1120px, calc(100vw - 48px));
+  height: min(760px, calc(100dvh - 64px));
+  border-color: rgba(var(--accent-rgb), 0.34);
+  box-shadow:
+    0 36px 110px rgba(0, 0, 0, 0.52),
+    0 0 0 1px rgba(255, 255, 255, 0.035) inset;
+}
+
+.guide-dialog-header {
+  grid-template-columns: 46px minmax(0, 1fr) 36px;
+}
+
+body .guide-step-nav button {
+  color: var(--text-secondary) !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .guide-step-nav button:hover {
+  color: var(--text) !important;
+  border-color: transparent !important;
+  background: rgba(var(--accent-rgb), 0.06) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .guide-step-nav button.active,
+body .guide-step-nav button.active:hover {
+  color: var(--text) !important;
+  border-color: rgba(var(--accent-rgb), 0.3) !important;
+  background: rgba(var(--accent-rgb), 0.13) !important;
+  box-shadow: 0 8px 20px rgba(var(--accent-rgb), 0.08) !important;
+  transform: none !important;
+}
+
+body .guide-dialog-close {
+  color: #ef5b6c !important;
+  border-color: rgba(239, 91, 108, 0.32) !important;
+  background: rgba(239, 91, 108, 0.1) !important;
+  box-shadow: none !important;
+}
+
+body .guide-dialog-close:hover,
+body .guide-dialog-close:focus-visible {
+  color: #ffffff !important;
+  border-color: rgba(239, 91, 108, 0.7) !important;
+  background: #d14361 !important;
+  box-shadow: 0 9px 22px rgba(209, 67, 97, 0.24) !important;
+  transform: none !important;
+}
+
+body .guide-compact-btn.secondary {
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+  background: var(--surface-muted) !important;
+  box-shadow: none !important;
+}
+
+body .guide-compact-btn.route {
+  color: var(--accent) !important;
+  border-color: rgba(var(--accent-rgb), 0.28) !important;
+  background: rgba(var(--accent-rgb), 0.08) !important;
+  box-shadow: none !important;
+}
+
+body .guide-compact-btn.primary {
+  color: #ffffff !important;
+  border-color: rgba(var(--accent-rgb), 0.48) !important;
+  background: linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.72)) !important;
+  box-shadow: 0 10px 24px rgba(var(--accent-rgb), 0.2) !important;
+}
+
+body .guide-compact-btn:not(:disabled):hover,
+body .guide-compact-btn:not(:disabled):focus-visible {
+  filter: brightness(1.08);
+  transform: translateY(-1px) !important;
+}
+
+body .about-guide-trigger {
+  color: #ffffff !important;
+  border-color: rgba(var(--accent-rgb), 0.55) !important;
+  background: linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.72)) !important;
+  box-shadow: 0 10px 24px rgba(var(--accent-rgb), 0.2) !important;
+}
+
+body .about-guide-secondary {
+  color: var(--accent) !important;
+  border-color: rgba(var(--accent-rgb), 0.28) !important;
+  background: rgba(var(--accent-rgb), 0.08) !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 991.98px) {
+  .guide-dialog-backdrop.guide-dialog-backdrop--onboarding {
+    --guide-frame-top: 0px;
+    inset: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .guide-dialog-backdrop.guide-dialog-backdrop--onboarding {
+    --guide-frame-top: 0px;
+    inset: 0;
+    align-items: center;
+    padding: 8px;
+  }
+
+  .guide-dialog-backdrop--onboarding .guide-dialog {
+    width: 100%;
+    height: calc(100dvh - 16px);
+  }
+
+  .guide-dialog-header {
+    grid-template-columns: 39px minmax(0, 1fr) 36px;
+  }
+}
