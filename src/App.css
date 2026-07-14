@@ -9719,10 +9719,6 @@ body:has(.auth-layout) {
   .auth-card {
     padding: 20px !important;
   }
-
-  .auth-copy p {
-    display: none;
-  }
 }
 
 /* Auth route scrollbar lock */
@@ -13324,6 +13320,7 @@ button.bg-palette-thumbnail-btn:hover {
   position: relative !important;
   z-index: 2 !important;
   justify-content: center !important;
+  flex-shrink: 0 !important;
 }
 
 .auth-page--isolated .auth-brand-lockup h1 {
@@ -13372,6 +13369,7 @@ button.bg-palette-thumbnail-btn:hover {
   z-index: 2 !important;
   width: 100% !important;
   max-width: 420px !important;
+  flex-shrink: 0 !important;
   /* 50% transparent dark glass */
   background: rgba(18, 14, 32, 0.50) !important;
   border: 1px solid rgba(255,255,255,0.09) !important;
@@ -13393,7 +13391,7 @@ button.bg-palette-thumbnail-btn:hover {
 
 /* ── Card — register: slightly compact width ── */
 .auth-card--v2.auth-card--register {
-  max-width: 580px !important;
+  max-width: 540px !important;
 }
 /* Register mode is taller, so keep the same layout with tighter vertical spacing. */
 .auth-card--v2.auth-card--register {
@@ -14442,10 +14440,6 @@ html[data-cursor-mode="blob-cursor"] [type="radio"] {
   .auth-card--v2.auth-card--register .auth-copy h2 {
     font-size: 1.08rem !important;
     margin-bottom: 0 !important;
-  }
-
-  .auth-card--v2.auth-card--register .auth-copy p {
-    display: none !important;
   }
 
   .auth-card--v2.auth-card--register .auth-fields-base,
