@@ -13403,44 +13403,53 @@ button.bg-palette-thumbnail-btn:hover {
 }
 /* Register mode is taller, so keep the same layout with tighter vertical spacing. */
 .auth-card--v2.auth-card--register {
-  padding: clamp(12px, 2vw, 16px) !important;
+  padding: clamp(14px, 2.5vw, 18px) clamp(24px, 4vw, 36px) !important;
 }
 
 .auth-card--v2.auth-card--register .auth-copy {
-  margin-bottom: 10px !important;
+  margin-bottom: 8px !important;
 }
 
 .auth-card--v2.auth-card--register .auth-copy h2 {
   margin: 0 0 4px !important;
+  font-size: clamp(1.05rem, 2.5vw, 1.25rem) !important;
+}
+
+.auth-card--v2.auth-card--register .auth-copy p {
+  font-size: 0.78rem !important;
 }
 
 .auth-card--v2.auth-card--register .auth-fields-base,
 .auth-card--v2.auth-card--register .auth-fields-register {
-  gap: 8px !important;
-  margin-bottom: 8px !important;
+  gap: 6px !important;
+  margin-bottom: 6px !important;
 }
 
 .auth-card--v2.auth-card--register .field-stack {
   gap: 1px !important;
 }
 
+.auth-card--v2.auth-card--register .field-stack label {
+  font-size: 0.72rem !important;
+}
+
 .auth-card--v2.auth-card--register .field-stack input,
 .auth-card--v2.auth-card--register .field-stack select {
-  padding: 5px 8px !important;
-  font-size: 0.82rem !important;
-  min-height: 32px !important;
+  padding: 4px 8px !important;
+  font-size: 0.8rem !important;
+  min-height: 28px !important;
 }
 
 .auth-card--v2.auth-card--register .auth-submit-btn {
   margin-top: 2px !important;
-  padding: 6px 12px !important;
-  font-size: 0.88rem !important;
-  min-height: 36px !important;
+  padding: 5px 10px !important;
+  font-size: 0.85rem !important;
+  min-height: 32px !important;
 }
 
 .auth-card--v2.auth-card--register .auth-switch {
   margin-top: 6px !important;
-  font-size: 0.8rem !important;
+  font-size: 0.78rem !important;
 }
 
 /* Remove inherited card shine that spills left of the auth container. */
