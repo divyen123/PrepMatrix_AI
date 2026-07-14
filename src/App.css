@@ -13241,17 +13241,17 @@ button.bg-palette-thumbnail-btn:hover {
 }
 
 /* =====================================================================================
-   AUTH PAGE Ã¢â‚¬â€ DARK ISOLATED THEME (final overrides, always last in file)
+   AUTH PAGE — DARK ISOLATED THEME (final overrides, always last in file)
    Everything here uses !important to beat the many earlier .auth-page blocks
    that apply white/light gradients.
    ===================================================================================== */
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Force the whole auth-layout shell to be dark Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ── Force the whole auth-layout shell to be dark ── */
 .app-container.auth-layout {
   background: #09090f !important;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ The auth page section: dark base, full-screen, centered, NO overflow clipping Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ── The auth page section: dark base, full-screen, centered, NO overflow clipping ── */
 .auth-page--isolated {
   position: fixed !important;
   inset: 0 !important;
@@ -13264,19 +13264,25 @@ button.bg-palette-thumbnail-btn:hover {
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
-  justify-content: center !important;
-  padding: clamp(24px, 4vh, 48px) clamp(16px, 4vw, 32px) !important;
+  justify-content: flex-start !important;
+  padding: clamp(16px, 4vh, 32px) clamp(16px, 4vw, 32px) !important;
   box-sizing: border-box !important;
   gap: 0 !important;
-  /* DARK background Ã¢â‚¬â€ beats every earlier white/gradient rule */
+  /* DARK background — beats every earlier white/gradient rule */
   background: #09090f !important;
   background-image: none !important;
   /* Isolate so that the particle canvas z-indices work correctly */
   isolation: isolate;
   z-index: 0;
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Particle canvas: full-screen behind everything Ã¢â€â‚¬Ã¢â€â‚¬ */
+.auth-page--isolated::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* ── Particle canvas: full-screen behind everything ── */
 .auth-particle-layer {
   position: fixed !important;
   inset: 0 !important;
@@ -13284,7 +13290,7 @@ button.bg-palette-thumbnail-btn:hover {
   pointer-events: none !important;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Soft background glows Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ── Soft background glows ── */
 .auth-glow {
   position: fixed !important;
   pointer-events: none !important;
@@ -13310,10 +13316,11 @@ button.bg-palette-thumbnail-btn:hover {
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬ Brand lockup Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-page--isolated .auth-brand-lockup {
+  margin-top: auto !important;
   display: flex !important;
   align-items: center !important;
   gap: 12px !important;
-  margin-bottom: 28px !important;
+  margin-bottom: 16px !important;
   position: relative !important;
   z-index: 2 !important;
   justify-content: center !important;
@@ -13360,6 +13367,7 @@ button.bg-palette-thumbnail-btn:hover {
 
 /* ── Card — base: compact, dark glass ── */
 .auth-card--v2 {
+  margin-bottom: auto !important;
   position: relative !important;
   z-index: 2 !important;
   width: 100% !important;
@@ -13368,7 +13376,7 @@ button.bg-palette-thumbnail-btn:hover {
   background: rgba(18, 14, 32, 0.50) !important;
   border: 1px solid rgba(255,255,255,0.09) !important;
   border-radius: 24px !important;
-  padding: clamp(22px, 3.5vw, 30px) !important;
+  padding: clamp(16px, 3.5vw, 24px) !important;
   backdrop-filter: blur(28px) saturate(1.4) !important;
   -webkit-backdrop-filter: blur(28px) saturate(1.4) !important;
   box-shadow:
@@ -13389,35 +13397,39 @@ button.bg-palette-thumbnail-btn:hover {
 }
 /* Register mode is taller, so keep the same layout with tighter vertical spacing. */
 .auth-card--v2.auth-card--register {
-  padding: clamp(18px, 2.8vw, 24px) !important;
+  padding: clamp(12px, 2vw, 16px) !important;
 }
 
 .auth-card--v2.auth-card--register .auth-copy {
-  margin-bottom: 14px !important;
+  margin-bottom: 10px !important;
+}
+
+.auth-card--v2.auth-card--register .auth-copy h2 {
+  margin: 0 0 4px !important;
 }
 
 .auth-card--v2.auth-card--register .auth-fields-base,
 .auth-card--v2.auth-card--register .auth-fields-register {
-  gap: 10px !important;
-  margin-bottom: 10px !important;
+  gap: 8px !important;
+  margin-bottom: 8px !important;
 }
 
 .auth-card--v2.auth-card--register .field-stack {
-  gap: 4px !important;
+  gap: 2px !important;
 }
 
 .auth-card--v2.auth-card--register .field-stack input,
 .auth-card--v2.auth-card--register .field-stack select {
-  padding: 8px 12px !important;
+  padding: 6px 10px !important;
 }
 
 .auth-card--v2.auth-card--register .auth-submit-btn {
-  margin-top: 4px !important;
-  padding: 10px !important;
+  margin-top: 2px !important;
+  padding: 8px !important;
 }
 
 .auth-card--v2.auth-card--register .auth-switch {
-  margin-top: 12px !important;
+  margin-top: 8px !important;
 }
 
 /* Remove inherited card shine that spills left of the auth container. */
@@ -13893,15 +13905,7 @@ body.dark .notes-filter-select {
     justify-content: flex-start !important;
   }
 
-  /* Register page: enable scrolling with hidden scrollbar */
-  .auth-page--isolated {
-    overflow-y: auto !important;
-    -ms-overflow-style: none !important;
-    scrollbar-width: none !important;
-  }
-  .auth-page--isolated::-webkit-scrollbar {
-    display: none !important;
-  }
+
 }
 
 /* Auth Submit Button Text Color and Glow removal overrides */
