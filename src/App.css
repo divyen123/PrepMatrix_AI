@@ -13435,16 +13435,16 @@ button.bg-palette-thumbnail-btn:hover {
 
 .auth-card--v2.auth-card--register .field-stack input,
 .auth-card--v2.auth-card--register .field-stack select {
-  padding: 4px 8px !important;
-  font-size: 0.8rem !important;
-  min-height: 28px !important;
+  padding: 6px 10px !important;
+  font-size: 0.82rem !important;
+  min-height: 34px !important;
 }
 
 .auth-card--v2.auth-card--register .auth-submit-btn {
-  margin-top: 2px !important;
-  padding: 5px 10px !important;
-  font-size: 0.85rem !important;
-  min-height: 32px !important;
+  margin-top: 4px !important;
+  padding: 7px 12px !important;
+  font-size: 0.88rem !important;
+  min-height: 36px !important;
 }
 
 .auth-card--v2.auth-card--register .auth-switch {
@@ -13535,7 +13535,7 @@ button.bg-palette-thumbnail-btn:hover {
   border-radius: 10px !important;
   color: #f0eeff !important;
   font-size: 0.9rem !important;
-  padding: 10px 13px !important;
+  padding: 8px 12px !important;
   outline: none !important;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s !important;
   width: 100% !important;
