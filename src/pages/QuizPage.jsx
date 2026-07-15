@@ -38,6 +38,8 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
   const [quizMeta, setQuizMeta] = useState(null);
   const [historyPage, setHistoryPage] = useState(1);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [pendingDeleteAttemptId, setPendingDeleteAttemptId] = useState(null);
+  const [deletingAttemptId, setDeletingAttemptId] = useState(null);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
 
@@ -292,8 +294,25 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
       await api.clearQuizHistory();
       setAttempts([]);
       setHistoryPage(1);
+      setPendingDeleteAttemptId(null);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not clear quiz history.");
+    }
+  };
+
+  const deleteQuizAttempt = async (attemptId) => {
+    if (!attemptId || deletingAttemptId === attemptId) return;
+
+    try {
+      setSaveError("");
+      setDeletingAttemptId(attemptId);
+      await api.deleteQuizAttempt(attemptId);
+      setAttempts((current) => current.filter((attempt) => attempt.id !== attemptId));
+      setPendingDeleteAttemptId((current) => current === attemptId ? null : current);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not delete this quiz attempt.");
+    } finally {
+      setDeletingAttemptId((current) => current === attemptId ? null : current);
     }
   };
 
@@ -555,7 +574,10 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
               ) : (
                 <button 
                   className="clear-history-btn" 
-                  onClick={() => setShowClearConfirm(true)} 
+                  onClick={() => {
+                    setPendingDeleteAttemptId(null);
+                    setShowClearConfirm(true);
+                  }}
                   title="Clear quiz history" 
                   type="button"
                   style={{ width: "32px", height: "32px", minWidth: "32px", minHeight: "32px", padding: 0, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(239, 68, 68, 0.2)", background: "rgba(239, 68, 68, 0.08)", color: "#ef4444" }}
@@ -586,27 +608,87 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
           ) : filteredAttempts.length === 0 ? (
             <p className="card-subtext">No quiz attempts match your search.</p>
           ) : (
-            paginatedAttempts.map((attempt) => (
-              <article className="quiz-history-item" key={attempt.id}>
-                <strong>{attempt.topic}</strong>
-                <span>{attempt.subjectName}</span>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginTop: "auto" }}>
-                  <b style={{ fontSize: "0.95rem", color: "var(--accent)", margin: 0 }}>{attempt.score}/{attempt.total}</b>
-                  {attempt.questions && attempt.questions.length > 0 && (
-                    <button 
-                      className="history-export-btn" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        exportOldQuizPDF(attempt);
-                      }}
-                      title="Export PDF"
-                    >
-                      <Download size={12} />
-                    </button>
-                  )}
-                </div>
-              </article>
-            ))
+            paginatedAttempts.map((attempt) => {
+              const isConfirmingDelete = pendingDeleteAttemptId === attempt.id;
+              const isDeleting = deletingAttemptId === attempt.id;
+
+              return (
+                <article className="quiz-history-item" key={attempt.id}>
+                  <strong>{attempt.topic}</strong>
+                  <span>{attempt.subjectName}</span>
+                  <div className="quiz-history-item-footer">
+                    <b>{attempt.score}/{attempt.total}</b>
+                    <div className="quiz-history-item-actions">
+                      {attempt.questions && attempt.questions.length > 0 && (
+                        <button
+                          aria-label={`Export ${attempt.topic} quiz as PDF`}
+                          className="history-export-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            exportOldQuizPDF(attempt);
+                          }}
+                          title="Export PDF"
+                          type="button"
+                        >
+                          <Download aria-hidden="true" size={12} />
+                        </button>
+                      )}
+                      {isConfirmingDelete ? (
+                        <div
+                          aria-busy={isDeleting}
+                          aria-label={`Confirm deleting ${attempt.topic}`}
+                          className="quiz-history-delete-confirm"
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape" && !isDeleting) {
+                              event.preventDefault();
+                              setPendingDeleteAttemptId(null);
+                            }
+                          }}
+                          role="group"
+                        >
+                          <button
+                            aria-label={`Confirm deleting ${attempt.topic}`}
+                            autoFocus
+                            className="history-export-btn quiz-history-confirm-btn is-confirm"
+                            disabled={isDeleting}
+                            onClick={() => deleteQuizAttempt(attempt.id)}
+                            title="Confirm delete"
+                            type="button"
+                          >
+                            <Check aria-hidden="true" size={12} />
+                          </button>
+                          <button
+                            aria-label={`Cancel deleting ${attempt.topic}`}
+                            className="history-export-btn quiz-history-confirm-btn is-cancel"
+                            disabled={isDeleting}
+                            onClick={() => setPendingDeleteAttemptId(null)}
+                            title="Cancel delete"
+                            type="button"
+                          >
+                            <X aria-hidden="true" size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          aria-label={`Delete ${attempt.topic} quiz`}
+                          className="history-export-btn quiz-history-delete-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setShowClearConfirm(false);
+                            setPendingDeleteAttemptId(attempt.id);
+                          }}
+                          title="Delete quiz"
+                          type="button"
+                        >
+                          <Trash2 aria-hidden="true" size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })
           )}
         </div>
         {filteredAttempts.length > QUIZ_HISTORY_PER_PAGE && (

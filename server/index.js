@@ -1117,6 +1117,26 @@ app.delete("/api/quizzes", requireAuth(async (req, res) => {
   const result = await db.collection("quizAttempts").deleteMany({ userId: req.user._id });
   res.json({ ok: true, deletedCount: result.deletedCount });
 }));
+
+app.delete("/api/quizzes/:id", requireAuth(async (req, res) => {
+  const attemptId = String(req.params.id || "").trim();
+  if (!ObjectId.isValid(attemptId)) {
+    return res.status(400).json({ error: "Invalid quiz attempt id." });
+  }
+
+  const db = await getDb();
+  const result = await db.collection("quizAttempts").deleteOne({
+    _id: new ObjectId(attemptId),
+    userId: req.user._id,
+  });
+
+  if (result.deletedCount === 0) {
+    return res.status(404).json({ error: "Quiz attempt not found." });
+  }
+
+  return res.json({ ok: true, id: attemptId });
+}));
+
 app.post("/api/quizzes/generate", requireAuth(async (req, res) => {
   const config = getGroqConfigStatus();
   if (!config.available) return res.status(500).json({ error: config.message });

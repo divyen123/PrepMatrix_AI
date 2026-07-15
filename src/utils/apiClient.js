@@ -79,6 +79,7 @@ const api = {
   saveNotes: (notes) => request("/api/notes", { method: "PUT", body: JSON.stringify({ notes }) }),
   getQuizzes: () => request("/api/quizzes"),
   clearQuizHistory: () => request("/api/quizzes", { method: "DELETE" }),
+  deleteQuizAttempt: (id) => request(`/api/quizzes/${encodeURIComponent(id)}`, { method: "DELETE" }),
   generateQuiz: (body) => request("/api/quizzes/generate", { method: "POST", body: JSON.stringify(body) }),
   saveQuizAttempt: (body) => request("/api/quizzes", { method: "POST", body: JSON.stringify(body) }),
   updateProfile: (body) => request("/api/auth/profile", { method: "PUT", body: JSON.stringify(body) }),

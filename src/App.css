@@ -12404,6 +12404,43 @@ body.worktree-fullscreen-active .workspace-topbar {
   color: var(--accent) !important;
 }
 
+.quiz-history-item-footer {
+  display: flex;
+  width: 100%;
+  margin-top: auto;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quiz-history-item-actions,
+.quiz-history-delete-confirm {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.quiz-history-delete-btn,
+.quiz-history-confirm-btn.is-confirm {
+  color: var(--danger) !important;
+  border-color: color-mix(in srgb, var(--danger) 32%, transparent) !important;
+  background: color-mix(in srgb, var(--danger) 11%, var(--surface-muted)) !important;
+}
+
+.quiz-history-delete-btn:hover,
+.quiz-history-confirm-btn.is-confirm:hover {
+  color: #ffffff !important;
+  border-color: var(--danger) !important;
+  background: var(--danger) !important;
+}
+
+.quiz-history-confirm-btn.is-cancel:hover {
+  color: var(--text) !important;
+  border-color: rgba(var(--accent-rgb), 0.32) !important;
+  background: var(--surface-strong) !important;
+}
+
 .worktree-icon-btn {
   display: inline-flex !important;
   align-items: center !important;
