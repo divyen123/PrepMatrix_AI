@@ -288,13 +288,13 @@ body .goal-reminder-alert-actions button {
   border-radius: 12px !important;
   font-size: 0.72rem !important;
   font-weight: 820 !important;
-  box-shadow: none !important;
 }
 
 body .goal-reminder-alert-snooze {
   color: var(--text) !important;
   background: var(--surface-muted) !important;
   border: 1px solid var(--border) !important;
+  box-shadow: none !important;
 }
 
 body .goal-reminder-alert-snooze:hover,
@@ -302,21 +302,6 @@ body .goal-reminder-alert-snooze:focus-visible {
   color: var(--accent) !important;
   background: var(--accent-soft) !important;
   border-color: rgba(var(--accent-rgb), 0.35) !important;
-  transform: translateY(-1px);
-}
-
-body .goal-reminder-alert-actions .goal-reminder-alert-done {
-  color: var(--button-text-on-dark, #fff) !important;
-  background: var(--accent) !important;
-  border: 1px solid transparent !important;
-  -webkit-text-fill-color: var(--button-text-on-dark, #fff) !important;
-}
-
-body .goal-reminder-alert-actions .goal-reminder-alert-done:hover,
-body .goal-reminder-alert-actions .goal-reminder-alert-done:focus-visible {
-  color: var(--button-text-on-dark, #fff) !important;
-  -webkit-text-fill-color: var(--button-text-on-dark, #fff) !important;
-  filter: brightness(1.06);
   transform: translateY(-1px);
 }
 
