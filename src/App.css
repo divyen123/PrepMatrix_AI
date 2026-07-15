@@ -17403,11 +17403,7 @@ body.has-bg-image .subject-ai-field textarea::placeholder {
   min-height: 38px;
   margin-top: 20px;
   padding: 0 15px;
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.72));
-  border: 1px solid rgba(var(--accent-rgb), 0.55);
   border-radius: 11px;
-  box-shadow: 0 10px 24px rgba(var(--accent-rgb), 0.2);
   font-size: 0.78rem;
   font-weight: 760;
   transition: transform 160ms ease, box-shadow 160ms ease;
@@ -17896,19 +17892,6 @@ body.has-bg-image .subject-ai-field textarea::placeholder {
   color: var(--accent);
   border: 1px solid rgba(var(--accent-rgb), 0.26);
   background: rgba(var(--accent-rgb), 0.075);
-}
-
-.guide-compact-btn.primary {
-  color: #fff;
-  border: 1px solid rgba(var(--accent-rgb), 0.45);
-  background: linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.72));
-}
-
-.guide-compact-btn:not(:disabled):hover,
-.guide-compact-btn:not(:disabled):focus-visible {
-  outline: none;
-  filter: brightness(1.08);
-  transform: translateY(-1px);
 }
 
 body.has-bg-image .about-hero-flow,

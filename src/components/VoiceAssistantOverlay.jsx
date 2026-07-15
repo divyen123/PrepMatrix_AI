@@ -1,5 +1,5 @@
 import React from "react";
-import { Copy, MessageSquare, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Copy, MessageSquare, Volume2, VolumeX } from "lucide-react";
 import Strands from "./Strands";
 import "./VoiceAssistantOverlay.css";
 
@@ -144,6 +144,18 @@ function VoiceAssistantOverlay({
       className={`voice-overlay-backdrop active ${voiceStatus}`}
       onClick={onClose}
     >
+      <button
+        aria-label="Close voice assistant"
+        className="voice-overlay-mobile-close"
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose?.();
+        }}
+        type="button"
+      >
+        <ArrowLeft aria-hidden="true" size={17} strokeWidth={2.3} />
+        <span>Back</span>
+      </button>
       {!hasReply && (
         <div className="voice-strands-bg" aria-hidden="true">
           <Strands

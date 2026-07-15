@@ -27,6 +27,7 @@ import useVoiceAssistant from "./hooks/useVoiceAssistant";
 import api, { HAS_CONFIGURED_API } from "./utils/apiClient";
 import { reconcileStudyReminders } from "./utils/pushNotifications";
 import BACKGROUND_PRESETS from "./utils/backgroundPresets";
+import { resolveEffectiveDarkMode } from "./utils/appearanceTheme";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
 import {
   academicProfilePayload,
@@ -607,20 +608,24 @@ function App() {
   }, [academicLevel, academicTrack, completed, darkMode, goalReminderData, goalReminderSettings, materialBookmarks, schedule, subjects, userProfile, workspaceLoaded, scheduleStartDate]);
 
   useEffect(() => {
-    document.body.classList.toggle("dark", darkMode);
-    document.documentElement.classList.toggle("dark", darkMode);
+    const backgroundImageId = localStorage.getItem("prepmatrix_bg_image_id") || "";
+    const hasBackgroundImage = !isAuthRoute && BACKGROUND_PRESETS.some(({ id }) => id === backgroundImageId);
+    const effectiveDarkMode = resolveEffectiveDarkMode(darkMode, hasBackgroundImage);
+
+    document.body.classList.toggle("dark", effectiveDarkMode);
+    document.documentElement.classList.toggle("dark", effectiveDarkMode);
     localStorage.setItem("prepmatrix_default_theme", darkMode ? "dark" : "light");
     
     // Dynamically apply accent color according to theme
     const rgbLight = localStorage.getItem("prepmatrix_accent_rgb_light") || "7, 143, 120";
     const rgbDark = localStorage.getItem("prepmatrix_accent_rgb_dark") || "36, 199, 177";
-    const activeRgb = darkMode ? rgbDark : rgbLight;
+    const activeRgb = effectiveDarkMode ? rgbDark : rgbLight;
     document.documentElement.style.setProperty("--accent-rgb", activeRgb);
     document.body.style.setProperty("--accent-rgb", activeRgb);
     
     document.documentElement.style.setProperty("--accent", `rgb(${activeRgb})`);
     document.body.style.setProperty("--accent", `rgb(${activeRgb})`);
-  }, [darkMode]);
+  }, [darkMode, isAuthRoute]);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -701,6 +706,13 @@ function App() {
   }, [resetConfirmOpen]);
 
   useEffect(() => {
+    const bgImgId = localStorage.getItem("prepmatrix_bg_image_id") || "";
+    const imgPreset = !isAuthRoute ? BACKGROUND_PRESETS.find(({ id }) => id === bgImgId) : undefined;
+    const effectiveDarkMode = resolveEffectiveDarkMode(darkMode, Boolean(imgPreset));
+
+    document.body.classList.toggle("dark", effectiveDarkMode);
+    document.documentElement.classList.toggle("dark", effectiveDarkMode);
+
     // Font scale
     const font = localStorage.getItem("prepmatrix_font_size") || "medium";
     document.documentElement.style.setProperty(
@@ -742,7 +754,7 @@ function App() {
     // Accent colors
     const rgbLight = localStorage.getItem("prepmatrix_accent_rgb_light") || "7, 143, 120";
     const rgbDark = localStorage.getItem("prepmatrix_accent_rgb_dark") || "36, 199, 177";
-    const activeRgb = darkMode ? rgbDark : rgbLight;
+    const activeRgb = effectiveDarkMode ? rgbDark : rgbLight;
     document.documentElement.style.setProperty("--accent-rgb", activeRgb);
     document.body.style.setProperty("--accent-rgb", activeRgb);
     document.documentElement.style.setProperty("--accent", `rgb(${activeRgb})`);
@@ -751,7 +763,7 @@ function App() {
     // Canvas Background colors
     const bgLight = localStorage.getItem("prepmatrix_bg_light") || "#f8fafc";
     const bgDark = localStorage.getItem("prepmatrix_bg_dark") || "#090d16";
-    const activeBg = darkMode ? bgDark : bgLight;
+    const activeBg = effectiveDarkMode ? bgDark : bgLight;
     document.documentElement.style.setProperty("--bg", activeBg);
     document.body.style.setProperty("--bg", activeBg);
     document.documentElement.style.setProperty("--bg-secondary", activeBg);
@@ -834,27 +846,23 @@ function App() {
     document.body.style.setProperty("--glass-opacity", glassOp);
 
     // Background image — suppressed entirely on auth routes
-    const bgImgId = localStorage.getItem("prepmatrix_bg_image_id") || "";
     const bgOvOp = localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55";
-    if (bgImgId && !isAuthRoute) {
-      const imgPreset = BACKGROUND_PRESETS.find(p => p.id === bgImgId);
-      if (imgPreset) {
-        document.body.classList.add("has-bg-image");
-        document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
-        document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
-        const parsedOvOp = parseFloat(bgOvOp);
-        const mappedOverlay = (parsedOvOp * 0.5).toString();
-        document.documentElement.style.setProperty("--bg-overlay-opacity", mappedOverlay);
-        document.body.style.setProperty("--bg-overlay-opacity", mappedOverlay);
-        const bgBrightness = Math.pow(Math.max(0, 1 - parsedOvOp * 0.5), 4.5);
-        document.documentElement.style.setProperty("--bg-brightness", bgBrightness.toString());
-        document.body.style.setProperty("--bg-brightness", bgBrightness.toString());
-        // Override accent with image-derived theme colour
-        document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
-        document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
-        document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
-        document.body.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
-      }
+    if (imgPreset) {
+      document.body.classList.add("has-bg-image");
+      document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
+      document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
+      const parsedOvOp = parseFloat(bgOvOp);
+      const mappedOverlay = (parsedOvOp * 0.5).toString();
+      document.documentElement.style.setProperty("--bg-overlay-opacity", mappedOverlay);
+      document.body.style.setProperty("--bg-overlay-opacity", mappedOverlay);
+      const bgBrightness = Math.pow(Math.max(0, 1 - parsedOvOp * 0.5), 4.5);
+      document.documentElement.style.setProperty("--bg-brightness", bgBrightness.toString());
+      document.body.style.setProperty("--bg-brightness", bgBrightness.toString());
+      // Override accent with image-derived theme colour
+      document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+      document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+      document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
+      document.body.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
     } else {
       document.body.classList.remove("has-bg-image");
       document.documentElement.style.removeProperty("--bg-image");

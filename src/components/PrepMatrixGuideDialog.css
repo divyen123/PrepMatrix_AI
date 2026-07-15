@@ -84,26 +84,6 @@ body .guide-compact-btn.route {
   box-shadow: none !important;
 }
 
-body .guide-compact-btn.primary {
-  color: #ffffff !important;
-  border-color: rgba(var(--accent-rgb), 0.48) !important;
-  background: linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.72)) !important;
-  box-shadow: 0 10px 24px rgba(var(--accent-rgb), 0.2) !important;
-}
-
-body .guide-compact-btn:not(:disabled):hover,
-body .guide-compact-btn:not(:disabled):focus-visible {
-  filter: brightness(1.08);
-  transform: translateY(-1px) !important;
-}
-
-body .about-guide-trigger {
-  color: #ffffff !important;
-  border-color: rgba(var(--accent-rgb), 0.55) !important;
-  background: linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.72)) !important;
-  box-shadow: 0 10px 24px rgba(var(--accent-rgb), 0.2) !important;
-}
-
 body .about-guide-secondary {
   color: var(--accent) !important;
   border-color: rgba(var(--accent-rgb), 0.28) !important;

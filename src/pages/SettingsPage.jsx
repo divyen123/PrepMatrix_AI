@@ -19,6 +19,7 @@ import {
   normalizeAcademicProfile,
 } from "../utils/academicProfile";
 import BACKGROUND_PRESETS from "../utils/backgroundPresets";
+import { resolveEffectiveDarkMode } from "../utils/appearanceTheme";
 import {
   disableStudyReminders,
   enableStudyReminders,
@@ -112,6 +113,10 @@ function SettingsPage({
     setGrade(normalizedProfile.grade);
     setDegree(normalizedProfile.degree);
   }, [academicLevel, academicTrack, userProfile]);
+
+  useEffect(() => {
+    setInstitutionName(userProfile?.institutionName || "");
+  }, [userProfile?.institutionName]);
 
   // Security state
   const [email, setEmail] = useState(userProfile?.email || "");
@@ -390,7 +395,8 @@ function SettingsPage({
 
   // 1. Real-time preview of style options on change
   useEffect(() => {
-    const isDark = darkMode;
+    const imgPreset = BACKGROUND_PRESETS.find(({ id }) => id === bgImageId);
+    const isDark = resolveEffectiveDarkMode(darkMode, Boolean(imgPreset));
     document.body.classList.toggle("dark", isDark);
     document.documentElement.classList.toggle("dark", isDark);
 
@@ -451,23 +457,20 @@ function SettingsPage({
     applyFontWeightVars(fontWeightStyle);
 
     // Background image live-preview
-    if (bgImageId) {
-      const imgPreset = BACKGROUND_PRESETS.find(p => p.id === bgImageId);
-      if (imgPreset) {
-        document.body.classList.add("has-bg-image");
-        document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
-        document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
-        const mappedOverlay = (bgOverlayOpacity * 0.5).toString();
-        document.documentElement.style.setProperty("--bg-overlay-opacity", mappedOverlay);
-        document.body.style.setProperty("--bg-overlay-opacity", mappedOverlay);
-        const bgBrightness = Math.pow(Math.max(0, 1 - bgOverlayOpacity * 0.5), 4.5);
-        document.documentElement.style.setProperty("--bg-brightness", bgBrightness.toString());
-        document.body.style.setProperty("--bg-brightness", bgBrightness.toString());
-        document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
-        document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
-        document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
-        document.body.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
-      }
+    if (imgPreset) {
+      document.body.classList.add("has-bg-image");
+      document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
+      document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
+      const mappedOverlay = (bgOverlayOpacity * 0.5).toString();
+      document.documentElement.style.setProperty("--bg-overlay-opacity", mappedOverlay);
+      document.body.style.setProperty("--bg-overlay-opacity", mappedOverlay);
+      const bgBrightness = Math.pow(Math.max(0, 1 - bgOverlayOpacity * 0.5), 4.5);
+      document.documentElement.style.setProperty("--bg-brightness", bgBrightness.toString());
+      document.body.style.setProperty("--bg-brightness", bgBrightness.toString());
+      document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+      document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+      document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
+      document.body.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
     } else {
       document.body.classList.remove("has-bg-image");
       document.documentElement.style.removeProperty("--bg-image");
@@ -493,8 +496,9 @@ function SettingsPage({
     return () => {
       if (!savedRef.current) {
         const init = initialSnapshot;
-        const isDark = init.darkMode;
-        setDarkMode(isDark);
+        const imgPreset = BACKGROUND_PRESETS.find(({ id }) => id === init.bgImageId);
+        const isDark = resolveEffectiveDarkMode(init.darkMode, Boolean(imgPreset));
+        setDarkMode(init.darkMode);
         document.body.classList.toggle("dark", isDark);
         document.documentElement.classList.toggle("dark", isDark);
 
@@ -554,23 +558,20 @@ function SettingsPage({
         applyFontWeightVars(init.fontWeight);
 
         // Revert background image
-        if (init.bgImageId) {
-          const imgPreset = BACKGROUND_PRESETS.find(p => p.id === init.bgImageId);
-          if (imgPreset) {
-            document.body.classList.add("has-bg-image");
-            document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
-            document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
-            const initOverlay = (init.bgOverlayOpacity * 0.5).toString();
-            document.documentElement.style.setProperty("--bg-overlay-opacity", initOverlay);
-            document.body.style.setProperty("--bg-overlay-opacity", initOverlay);
-            const initBrightness = Math.pow(Math.max(0, 1 - init.bgOverlayOpacity * 0.5), 4.5);
-            document.documentElement.style.setProperty("--bg-brightness", initBrightness.toString());
-            document.body.style.setProperty("--bg-brightness", initBrightness.toString());
-            document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
-            document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
-            document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
-            document.body.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
-          }
+        if (imgPreset) {
+          document.body.classList.add("has-bg-image");
+          document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
+          document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
+          const initOverlay = (init.bgOverlayOpacity * 0.5).toString();
+          document.documentElement.style.setProperty("--bg-overlay-opacity", initOverlay);
+          document.body.style.setProperty("--bg-overlay-opacity", initOverlay);
+          const initBrightness = Math.pow(Math.max(0, 1 - init.bgOverlayOpacity * 0.5), 4.5);
+          document.documentElement.style.setProperty("--bg-brightness", initBrightness.toString());
+          document.body.style.setProperty("--bg-brightness", initBrightness.toString());
+          document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+          document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+          document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
+          document.body.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
         } else {
           document.body.classList.remove("has-bg-image");
           document.documentElement.style.removeProperty("--bg-image");
@@ -922,6 +923,11 @@ function SettingsPage({
   const applyAppearanceStyles = (theme, font, card, rgbLight, rgbDark, opacity, borderOp, bgL, bgD, glassC, glassB, fontS, fontW, bgImgId, bgOvOpacity, glassOp) => {
     // 1. Theme
     localStorage.setItem("prepmatrix_default_theme", theme);
+    const imgPreset = BACKGROUND_PRESETS.find(({ id }) => id === bgImgId);
+    const isDark = resolveEffectiveDarkMode(theme === "dark", Boolean(imgPreset));
+
+    document.body.classList.toggle("dark", isDark);
+    document.documentElement.classList.toggle("dark", isDark);
     
     // 2. Font Size
     localStorage.setItem("prepmatrix_font_size", font);
@@ -956,9 +962,6 @@ function SettingsPage({
     // 4. Accent Color
     localStorage.setItem("prepmatrix_accent_rgb_light", rgbLight);
     localStorage.setItem("prepmatrix_accent_rgb_dark", rgbDark);
-    
-    // Determine active rgb based on body class (dark/light)
-    const isDark = document.body.classList.contains("dark");
     const activeRgb = isDark ? rgbDark : rgbLight;
     document.documentElement.style.setProperty("--accent-rgb", activeRgb);
     document.body.style.setProperty("--accent-rgb", activeRgb);
@@ -995,29 +998,26 @@ function SettingsPage({
     applyFontFamilyVars(fontS);
     applyFontWeightVars(fontW);
 
-    localStorage.setItem("prepmatrix_bg_image_id", bgImgId || "");
+    localStorage.setItem("prepmatrix_bg_image_id", imgPreset ? bgImgId : "");
     localStorage.setItem("prepmatrix_bg_overlay_opacity", String(bgOvOpacity));
     localStorage.setItem("prepmatrix_glass_opacity", String(glassOp));
     document.documentElement.style.setProperty("--glass-opacity", String(glassOp));
     document.body.style.setProperty("--glass-opacity", String(glassOp));
 
-    if (bgImgId) {
-      const imgPreset = BACKGROUND_PRESETS.find(p => p.id === bgImgId);
-      if (imgPreset) {
-        document.body.classList.add("has-bg-image");
-        document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
-        document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
-        const saveOverlay = (bgOvOpacity * 0.5).toString();
-        document.documentElement.style.setProperty("--bg-overlay-opacity", saveOverlay);
-        document.body.style.setProperty("--bg-overlay-opacity", saveOverlay);
-        const saveBrightness = Math.pow(Math.max(0, 1 - bgOvOpacity * 0.5), 4.5);
-        document.documentElement.style.setProperty("--bg-brightness", saveBrightness.toString());
-        document.body.style.setProperty("--bg-brightness", saveBrightness.toString());
-        document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
-        document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
-        document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
-        document.body.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
-      }
+    if (imgPreset) {
+      document.body.classList.add("has-bg-image");
+      document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
+      document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
+      const saveOverlay = (bgOvOpacity * 0.5).toString();
+      document.documentElement.style.setProperty("--bg-overlay-opacity", saveOverlay);
+      document.body.style.setProperty("--bg-overlay-opacity", saveOverlay);
+      const saveBrightness = Math.pow(Math.max(0, 1 - bgOvOpacity * 0.5), 4.5);
+      document.documentElement.style.setProperty("--bg-brightness", saveBrightness.toString());
+      document.body.style.setProperty("--bg-brightness", saveBrightness.toString());
+      document.documentElement.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+      document.body.style.setProperty("--accent-rgb", imgPreset.accentRgb);
+      document.documentElement.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
+      document.body.style.setProperty("--accent", `rgb(${imgPreset.accentRgb})`);
     } else {
       document.body.classList.remove("has-bg-image");
       document.documentElement.style.removeProperty("--bg-image");
