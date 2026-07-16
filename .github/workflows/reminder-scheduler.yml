@@ -1,0 +1,71 @@
+name: PrepMatrix reminder scheduler
+
+on:
+  schedule:
+    # Offset from the start of each hour to reduce peak-time scheduling delays.
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+
+# This workflow only makes an outbound HTTPS request. It does not need repository access.
+permissions: {}
+
+concurrency:
+  group: prepmatrix-reminder-scheduler
+  cancel-in-progress: false
+
+jobs:
+  reminder-sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Call protected reminder endpoint
+        shell: bash
+        env:
+          CRON_SECRET: ${{ secrets.REMINDER_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${CRON_SECRET:-}" ]]; then
+            echo "::error::The REMINDER_CRON_SECRET repository secret is not configured."
+            exit 1
+          fi
+
+          url="https://prepmatrix-ai.onrender.com/api/internal/notifications/daily-reminders"
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+
+          for attempt in 1 2 3 4; do
+            http_code=""
+
+            if http_code="$(curl \
+              --silent \
+              --show-error \
+              --connect-timeout 20 \
+              --max-time 45 \
+              --request POST \
+              --header "Authorization: Bearer ${CRON_SECRET}" \
+              --header "Accept: application/json" \
+              --output "$response_file" \
+              --write-out "%{http_code}" \
+              "$url")"; then
+              if [[ "$http_code" == "200" ]] && grep -Eq '"success"[[:space:]]*:[[:space:]]*true' "$response_file"; then
+                cat "$response_file"
+                echo
+                exit 0
+              fi
+            fi
+
+            echo "Attempt ${attempt} failed (HTTP ${http_code:-no response})." >&2
+            if [[ -s "$response_file" ]]; then
+              head -c 1000 "$response_file" >&2
+              echo >&2
+            fi
+
+            if [[ "$attempt" -lt 4 ]]; then
+              sleep 20
+            fi
+          done
+
+          echo "::error::Reminder endpoint failed after four attempts."
+          exit 1
