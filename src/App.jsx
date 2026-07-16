@@ -25,7 +25,10 @@ import VoiceAssistant from "./components/VoiceAssistant";
 import VoiceAssistantOverlay from "./components/VoiceAssistantOverlay";
 import useVoiceAssistant from "./hooks/useVoiceAssistant";
 import api, { HAS_CONFIGURED_API } from "./utils/apiClient";
-import { reconcileStudyReminders } from "./utils/pushNotifications";
+import {
+  getPushNotificationDiagnostic,
+  reconcileStudyReminders,
+} from "./utils/pushNotifications";
 import BACKGROUND_PRESETS from "./utils/backgroundPresets";
 import { resolveEffectiveDarkMode } from "./utils/appearanceTheme";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
@@ -62,6 +65,31 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
 const ExamPage = lazy(() => import("./pages/ExamPage"));
 const ExamAboutPage = lazy(() => import("./pages/ExamAboutPage"));
+
+const NOTIFICATION_INTENT_KEY = "prepmatrix_notifications_enabled";
+const NOTIFICATION_RECONCILE_RETRY_DELAYS_MS = [4000, 15000];
+const DEFINITIVE_NOTIFICATION_ERROR_CODES = new Set([
+  "unsupported",
+  "insecure-context",
+  "permission-denied",
+  "not-subscribed",
+  "subscription-expired",
+]);
+
+function notificationStateIsDefinitivelyOff(state) {
+  return (
+    !state?.supported ||
+    !state?.secure ||
+    state?.permission === "denied" ||
+    !state?.subscribed
+  );
+}
+
+function notificationErrorIsDefinitive(error) {
+  const diagnostic = getPushNotificationDiagnostic(error);
+  if (DEFINITIVE_NOTIFICATION_ERROR_CODES.has(diagnostic.code)) return true;
+  return diagnostic.code === "server-config" && diagnostic.status !== 503;
+}
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", helper: "Overview and momentum", icon: LayoutDashboard },
@@ -663,23 +691,72 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!userProfile || localStorage.getItem("prepmatrix_notifications_enabled") !== "true") {
+    if (!userProfile || localStorage.getItem(NOTIFICATION_INTENT_KEY) !== "true") {
       return undefined;
     }
 
     let isActive = true;
-    reconcileStudyReminders()
-      .then((subscription) => {
-        if (isActive && !subscription) {
-          localStorage.setItem("prepmatrix_notifications_enabled", "false");
+    let reconcileInFlight = false;
+    let retryIndex = 0;
+    let retryTimeoutId = null;
+
+    const scheduleRetry = () => {
+      if (!isActive || retryIndex >= NOTIFICATION_RECONCILE_RETRY_DELAYS_MS.length) return;
+      const delay = NOTIFICATION_RECONCILE_RETRY_DELAYS_MS[retryIndex];
+      retryIndex += 1;
+      retryTimeoutId = window.setTimeout(runReconciliation, delay);
+    };
+
+    const runReconciliation = async () => {
+      if (
+        !isActive ||
+        reconcileInFlight ||
+        localStorage.getItem(NOTIFICATION_INTENT_KEY) !== "true"
+      ) {
+        return;
+      }
+
+      reconcileInFlight = true;
+      try {
+        const state = await reconcileStudyReminders();
+        if (!isActive) return;
+
+        if (notificationStateIsDefinitivelyOff(state)) {
+          localStorage.setItem(NOTIFICATION_INTENT_KEY, "false");
+          return;
         }
-      })
-      .catch((error) => {
-        console.warn("Push notification reconciliation failed:", error);
-      });
+
+        retryIndex = 0;
+      } catch (error) {
+        if (!isActive) return;
+
+        if (notificationErrorIsDefinitive(error)) {
+          localStorage.setItem(NOTIFICATION_INTENT_KEY, "false");
+          return;
+        }
+
+        console.warn("Push notification reconciliation failed:", getPushNotificationDiagnostic(error));
+        scheduleRetry();
+      } finally {
+        reconcileInFlight = false;
+      }
+    };
+
+    const retryWhenOnline = () => {
+      if (localStorage.getItem(NOTIFICATION_INTENT_KEY) !== "true") return;
+      if (retryTimeoutId !== null) window.clearTimeout(retryTimeoutId);
+      retryTimeoutId = null;
+      retryIndex = 0;
+      runReconciliation();
+    };
+
+    runReconciliation();
+    window.addEventListener("online", retryWhenOnline);
 
     return () => {
       isActive = false;
+      if (retryTimeoutId !== null) window.clearTimeout(retryTimeoutId);
+      window.removeEventListener("online", retryWhenOnline);
     };
   }, [userProfile]);
 

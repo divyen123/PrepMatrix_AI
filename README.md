@@ -64,6 +64,29 @@ graph TD
 * **Integrated AI Operations:** Connects profile-aware chat, image and PDF context, quiz generation, exams, question papers, and browser voice features through configurable services.
 * **Data Integrity & Backups:** Persists user-scoped study data and provides JSON export, import, workspace reset, and password-confirmed account deletion controls.
 
+## Push notification deployment
+
+Browser push subscriptions use the public VAPID key. Keep `VAPID_PRIVATE_KEY` and `REMINDER_CRON_SECRET` only in the backend environment; never expose them through `VITE_` variables or commit real values.
+
+Generate a stable VAPID pair once:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Configure `VAPID_SUBJECT`, `VAPID_PUBLIC_KEY`, and `VAPID_PRIVATE_KEY` in the backend secret manager and retain the same pair across deployments. Production fails closed when this configuration is missing or incomplete. Rotating the pair makes each browser reconnect with the new key.
+
+For reliable 6:00 PM delivery on a backend that can sleep, configure an external job to run every 15 minutes and call:
+
+```bash
+curl -fsS -X POST "$BACKEND_URL/api/internal/notifications/daily-reminders" \
+  -H "Authorization: Bearer $REMINDER_CRON_SECRET"
+```
+
+Use a random scheduler secret of at least 32 characters. After the external schedule is verified, set `ENABLE_IN_PROCESS_REMINDERS=false`; atomic per-device claims prevent duplicates during the transition and keep mobile and desktop subscriptions independent.
+
+The Settings page includes a rate-limited **Send test** action. It sends fixed, non-sensitive text only to the authenticated user's stored browser subscription.
+
 ---
 
 ## 📄 License

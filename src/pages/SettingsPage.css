@@ -104,6 +104,39 @@
   line-height: 1.4;
 }
 
+.settings-page .notification-setting {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.settings-page .notification-setting .toggle-row {
+  border-bottom: 0 !important;
+  padding-bottom: 6px !important;
+}
+
+.settings-page .notification-test-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.settings-page .notification-test-row .card-subtext {
+  flex: 1 1 220px;
+  margin: 0 !important;
+}
+
+.settings-page .notification-test-btn {
+  min-height: 32px !important;
+  padding: 5px 10px !important;
+  white-space: nowrap;
+}
+
+.settings-page .notification-test-btn svg {
+  flex: 0 0 auto;
+}
+
 .settings-page .toggle-switch-label {
   flex: 0 0 40px;
   width: 40px !important;
@@ -322,5 +355,9 @@
 
   .settings-page .goal-settings-card {
     max-height: 72dvh;
+  }
+
+  .settings-page .notification-test-btn {
+    width: 100% !important;
   }
 }

@@ -1,4 +1,4 @@
-export const API_BASE = (import.meta.env.VITE_API_URL || "").trim().replace(/\/+$/, "");
+export const API_BASE = (import.meta.env?.VITE_API_URL || "").trim().replace(/\/+$/, "");
 export const HAS_CONFIGURED_API = Boolean(API_BASE);
 export const AUTH_RECOVERY_TIMEOUT_MS = 65000;
 const AUTH_NOTICE_KEY = "prepmatrix_auth_notice";

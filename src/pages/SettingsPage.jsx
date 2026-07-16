@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil } from "lucide-react";
+import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing } from "lucide-react";
 import api from "../utils/apiClient";
 import GoalSettingsPanel from "../components/GoalSettingsPanel";
 import {
@@ -23,7 +23,11 @@ import { resolveEffectiveDarkMode } from "../utils/appearanceTheme";
 import {
   disableStudyReminders,
   enableStudyReminders,
+  getPushNotificationDiagnostic,
   getPushNotificationErrorMessage,
+  getStudyReminderState,
+  reconcileStudyReminders,
+  sendTestStudyReminder,
 } from "../utils/pushNotifications";
 import { toast } from "react-toastify";
 import "./SettingsPage.css";
@@ -36,6 +40,78 @@ const COLOR_PRESETS = [
   { name: "Orange", light: "194, 65, 12", dark: "249, 115, 22" },
   { name: "Rose", light: "190, 24, 74", dark: "244, 63, 94" },
 ];
+
+const NOTIFICATION_INTENT_KEY = "prepmatrix_notifications_enabled";
+const PUSH_DEVICE_ID_STORAGE_KEY = "prepmatrix_push_device_id";
+const PUSH_SUBSCRIPTION_VERSION_STORAGE_KEY = "prepmatrix_push_subscription_version";
+const NOTIFICATION_STATUS_RETRY_DELAYS_MS = [5000, 15000];
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/i;
+const DEFINITIVE_NOTIFICATION_ERROR_CODES = new Set([
+  "unsupported",
+  "insecure-context",
+  "permission-denied",
+  "not-subscribed",
+  "subscription-expired",
+]);
+
+function storeNotificationIntent(enabled) {
+  localStorage.setItem(NOTIFICATION_INTENT_KEY, enabled ? "true" : "false");
+}
+
+function hasStoredNotificationBinding() {
+  try {
+    const deviceId = localStorage.getItem(PUSH_DEVICE_ID_STORAGE_KEY) || "";
+    const subscriptionVersion = localStorage.getItem(PUSH_SUBSCRIPTION_VERSION_STORAGE_KEY) || "";
+    return (
+      UUID_V4_PATTERN.test(deviceId.trim()) &&
+      SHA256_PATTERN.test(subscriptionVersion.trim())
+    );
+  } catch {
+    return false;
+  }
+}
+
+function getNotificationStateDisposition(state, preferred) {
+  if (!state?.supported) return { clearIntent: true, enabled: false, status: "unsupported" };
+  if (!state?.secure) return { clearIntent: true, enabled: false, status: "insecure" };
+  if (state?.permission === "denied") {
+    return { clearIntent: true, enabled: false, status: "blocked" };
+  }
+  if (preferred && state?.subscribed) {
+    return { clearIntent: false, enabled: true, status: "connected" };
+  }
+  if (preferred) {
+    return { clearIntent: true, enabled: false, status: "reconnect-needed" };
+  }
+  return { clearIntent: false, enabled: false, status: "off" };
+}
+
+function getNotificationErrorDisposition(error) {
+  const diagnostic = getPushNotificationDiagnostic(error);
+  if (diagnostic.code === "unsupported") {
+    return { clearIntent: true, status: "unsupported" };
+  }
+  if (diagnostic.code === "insecure-context") {
+    return { clearIntent: true, status: "insecure" };
+  }
+  if (diagnostic.code === "permission-denied") {
+    return { clearIntent: true, status: "blocked" };
+  }
+  if (["not-subscribed", "subscription-expired"].includes(diagnostic.code)) {
+    return { clearIntent: true, status: "reconnect-needed" };
+  }
+  if (["browser-cleanup-failed", "subscription-refresh", "subscription-state", "unsubscribe-state"].includes(diagnostic.code)) {
+    return { clearIntent: false, status: "reconnect-needed" };
+  }
+  if (diagnostic.code === "server-config" && diagnostic.status !== 503) {
+    return { clearIntent: true, status: "reconnect-needed" };
+  }
+  return {
+    clearIntent: DEFINITIVE_NOTIFICATION_ERROR_CODES.has(diagnostic.code),
+    status: "error",
+  };
+}
 
 // Helper to convert hex to rgb string: "#0d9488" -> "13, 148, 136"
 function hexToRgb(hex) {
@@ -161,11 +237,104 @@ function SettingsPage({
     const stored = localStorage.getItem("prepmatrix_sound_enabled");
     return stored === null ? true : stored === "true";
   });
-  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
-    const stored = localStorage.getItem("prepmatrix_notifications_enabled");
-    return stored === "true";
-  });
-  const [notificationsBusy, setNotificationsBusy] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationsBusy, setNotificationsBusy] = useState(true);
+  const [notificationStatus, setNotificationStatus] = useState("checking");
+  const [notificationIntent, setNotificationIntent] = useState(() => (
+    localStorage.getItem(NOTIFICATION_INTENT_KEY) === "true"
+  ));
+  const [notificationTestBusy, setNotificationTestBusy] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+    let inspectionInFlight = false;
+    let retryIndex = 0;
+    let retryTimeoutId = null;
+
+    const scheduleInspectionRetry = () => {
+      if (!isActive || retryIndex >= NOTIFICATION_STATUS_RETRY_DELAYS_MS.length) return;
+      const delay = NOTIFICATION_STATUS_RETRY_DELAYS_MS[retryIndex];
+      retryIndex += 1;
+      retryTimeoutId = window.setTimeout(inspectNotifications, delay);
+    };
+
+    const inspectNotifications = async () => {
+      if (inspectionInFlight) return;
+      inspectionInFlight = true;
+      const preferred = localStorage.getItem(NOTIFICATION_INTENT_KEY) === "true";
+      if (isActive) {
+        setNotificationsBusy(true);
+        setNotificationStatus("checking");
+        setNotificationIntent(preferred);
+      }
+
+      try {
+        let state = preferred
+          ? await reconcileStudyReminders()
+          : await getStudyReminderState();
+        if (!preferred && isActive && (state.subscribed || hasStoredNotificationBinding())) {
+          await disableStudyReminders();
+          state = await getStudyReminderState();
+        }
+        if (!isActive) return;
+        const disposition = getNotificationStateDisposition(state, preferred);
+        if (disposition.clearIntent) {
+          storeNotificationIntent(false);
+          setNotificationIntent(false);
+        }
+        if (!disposition.clearIntent) retryIndex = 0;
+        setNotificationsEnabled(disposition.enabled);
+        setNotificationStatus(disposition.status);
+      } catch (error) {
+        if (!isActive) return;
+        const disposition = getNotificationErrorDisposition(error);
+        if (disposition.clearIntent) {
+          storeNotificationIntent(false);
+          setNotificationIntent(false);
+        }
+        if (!disposition.clearIntent) scheduleInspectionRetry();
+        setNotificationsEnabled(false);
+        setNotificationStatus(disposition.status);
+        console.warn("Push notification status check failed:", getPushNotificationDiagnostic(error));
+      } finally {
+        if (isActive) setNotificationsBusy(false);
+        inspectionInFlight = false;
+      }
+    };
+
+    const inspectWhenOnline = () => {
+      if (retryTimeoutId !== null) window.clearTimeout(retryTimeoutId);
+      retryTimeoutId = null;
+      retryIndex = 0;
+      inspectNotifications();
+    };
+    inspectNotifications();
+    window.addEventListener("online", inspectWhenOnline);
+    return () => {
+      isActive = false;
+      if (retryTimeoutId !== null) window.clearTimeout(retryTimeoutId);
+      window.removeEventListener("online", inspectWhenOnline);
+    };
+  }, []);
+
+  const notificationSubtitle = notificationsBusy
+    ? "Checking the browser notification connection..."
+    : notificationStatus === "connected"
+      ? "Connected securely. Reminders are delivered around 6:00 PM when today's tasks are incomplete."
+      : notificationStatus === "blocked"
+        ? "Notifications are blocked by the browser or operating system. Allow them in site settings first."
+        : notificationStatus === "unsupported"
+          ? "Push notifications are not supported by this browser."
+          : notificationStatus === "insecure"
+            ? "Push notifications require a secure HTTPS connection."
+            : notificationStatus === "reconnect-needed"
+              ? "This browser is no longer connected. Turn reminders on to reconnect it."
+              : notificationStatus === "error"
+                ? notificationIntent
+                  ? "The connection could not be verified. Your reminder preference is saved and the app will retry."
+                  : "Notification cleanup could not be confirmed. Try the switch again when you are online."
+                : "Reminders are off on this browser. Turn them on to receive the 6:00 PM study check.";
+  const notificationToggleDisabled = notificationsBusy || ["unsupported", "insecure"].includes(notificationStatus);
 
   const [wakeMode, setWakeMode] = useState(() =>
     localStorage.getItem("prepmatrix_wake_mode") === "true"
@@ -184,36 +353,85 @@ function SettingsPage({
   };
 
   const toggleNotifications = async () => {
-    if (notificationsBusy) return;
+    if (notificationToggleDisabled) return;
     const nextVal = !notificationsEnabled;
     setNotificationsBusy(true);
+    setNotificationStatus("checking");
+
+    if (nextVal) {
+      storeNotificationIntent(true);
+      setNotificationIntent(true);
+      try {
+        await enableStudyReminders();
+        setNotificationsEnabled(true);
+        setNotificationStatus("connected");
+        toast.success("Study reminders enabled!");
+      } catch (error) {
+        const disposition = getNotificationErrorDisposition(error);
+        console.warn("Push notification setup failed:", getPushNotificationDiagnostic(error));
+        if (disposition.clearIntent) {
+          storeNotificationIntent(false);
+          setNotificationIntent(false);
+        }
+        setNotificationsEnabled(false);
+        setNotificationStatus(disposition.status);
+        toast.error(getPushNotificationErrorMessage(error));
+      } finally {
+        setNotificationsBusy(false);
+      }
+      return;
+    }
 
     try {
-      if (nextVal) {
-        await enableStudyReminders();
-        localStorage.setItem("prepmatrix_notifications_enabled", "true");
-        setNotificationsEnabled(true);
-        toast.success("Study reminders enabled!");
-        return;
-      }
-
-      try {
-        await disableStudyReminders();
-        toast.success("Study reminders disabled.");
-      } catch (error) {
-        console.error("Push notification cleanup failed:", error);
-        toast.warn(getPushNotificationErrorMessage(error));
-      } finally {
-        localStorage.setItem("prepmatrix_notifications_enabled", "false");
-        setNotificationsEnabled(false);
-      }
-    } catch (error) {
-      console.error("Push notification setup failed:", error);
-      localStorage.setItem("prepmatrix_notifications_enabled", "false");
+      await disableStudyReminders();
+      storeNotificationIntent(false);
+      setNotificationIntent(false);
       setNotificationsEnabled(false);
-      toast.error(getPushNotificationErrorMessage(error));
+      setNotificationStatus("off");
+      toast.success("Study reminders disabled.");
+    } catch (error) {
+      const diagnostic = getPushNotificationDiagnostic(error);
+      console.warn("Push notification cleanup warning:", diagnostic);
+
+      if (diagnostic.code === "browser-cleanup-failed") {
+        storeNotificationIntent(false);
+        setNotificationIntent(false);
+        setNotificationsEnabled(false);
+        setNotificationStatus("reconnect-needed");
+      } else {
+        storeNotificationIntent(true);
+        setNotificationIntent(true);
+        setNotificationsEnabled(true);
+        setNotificationStatus("error");
+      }
+      toast.warn(getPushNotificationErrorMessage(error));
     } finally {
       setNotificationsBusy(false);
+    }
+  };
+
+  const sendTestNotification = async () => {
+    if (notificationTestBusy || notificationsBusy || !notificationsEnabled) return;
+    setNotificationTestBusy(true);
+    try {
+      await sendTestStudyReminder();
+      setNotificationStatus("connected");
+      toast.success("Test notification sent. It should appear shortly.");
+    } catch (error) {
+      const diagnostic = getPushNotificationDiagnostic(error);
+      const disposition = getNotificationErrorDisposition(error);
+      console.warn("Push notification test failed:", diagnostic);
+      if (disposition.clearIntent) {
+        storeNotificationIntent(false);
+        setNotificationIntent(false);
+        setNotificationsEnabled(false);
+        setNotificationStatus(disposition.status);
+      } else if (diagnostic.status !== 429) {
+        setNotificationStatus("error");
+      }
+      toast.error(getPushNotificationErrorMessage(error));
+    } finally {
+      setNotificationTestBusy(false);
     }
   };
   // Study Target Goals state
@@ -1433,13 +1651,32 @@ function SettingsPage({
             subtitle='Keep wake mode on while the app is open. Say Hey Prep, Prep Matrix, or Hey PrepMatrix followed by a command or question.'
           />
 
-          <ToggleSwitch
-            checked={notificationsEnabled}
-            onChange={toggleNotifications}
-            disabled={notificationsBusy}
-            label="Study Reminders (Push Notifications)"
-            subtitle={notificationsBusy ? "Updating notification settings..." : "Receive desktop push notifications around 6:00 PM if no tasks are completed"}
-          />
+          <div aria-live="polite" className="notification-setting">
+            <ToggleSwitch
+              checked={notificationsEnabled}
+              onChange={toggleNotifications}
+              disabled={notificationToggleDisabled}
+              label="Study Reminders (Push Notifications)"
+              subtitle={notificationSubtitle}
+            />
+            {notificationsEnabled && notificationStatus === "connected" && (
+              <div className="notification-test-row">
+                <span className="card-subtext">
+                  Foreground tests appear in the app; background tests appear as system notifications.
+                </span>
+                <button
+                  aria-busy={notificationTestBusy}
+                  className="secondary-btn notification-test-btn"
+                  disabled={notificationTestBusy || notificationsBusy}
+                  onClick={sendTestNotification}
+                  type="button"
+                >
+                  <BellRing aria-hidden="true" size={14} />
+                  {notificationTestBusy ? "Sending..." : "Send test"}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <GoalSettingsPanel

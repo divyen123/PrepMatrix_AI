@@ -25,14 +25,37 @@ import {
   normalizeAcademicProfile,
 } from "../src/utils/academicProfile.js";
 import { DEFAULT_ATTACHMENT_PROMPT } from "../src/utils/chatAttachments.js";
+import {
+  isNotificationMutationRequestAllowed,
+  parseAdditionalPushHosts,
+  runDailyReminderSweep,
+  schedulerSecretMatches,
+} from "./pushNotificationService.js";
+import { registerPushNotificationRoutes } from "./pushNotificationRoutes.js";
 
 dotenv.config();
 
-// Web Push VAPID configuration. Environment secrets are preferred. When they
-// are not configured, a single fallback keypair is persisted in MongoDB so
-// browser subscriptions survive backend restarts and deployments.
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const environmentVapidSubject = process.env.VAPID_SUBJECT?.trim() || "";
+
+function isValidVapidSubject(value) {
+  if (/^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(value)) return true;
+  try {
+    const subject = new URL(value);
+    return subject.protocol === "https:"
+      && Boolean(subject.hostname)
+      && !subject.username
+      && !subject.password;
+  } catch {
+    return false;
+  }
+}
+
+// Web Push VAPID configuration. Production requires environment-managed keys.
+// Development may use one Mongo-persisted fallback pair so local subscriptions
+// survive backend restarts without committing private key material.
 const VAPID_CONFIG_ID = "web-push-vapid";
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:divyen624@gmail.com";
+const VAPID_SUBJECT = environmentVapidSubject || (IS_PRODUCTION ? "" : "mailto:dev@localhost.invalid");
 const environmentVapidKeys = {
   publicKey: process.env.VAPID_PUBLIC_KEY?.trim() || "",
   privateKey: process.env.VAPID_PRIVATE_KEY?.trim() || "",
@@ -51,15 +74,21 @@ function activateVapidKeys(keys, source) {
   return vapidKeys;
 }
 
-if (environmentVapidKeys.publicKey && environmentVapidKeys.privateKey) {
+if (environmentVapidKeys.publicKey && environmentVapidKeys.privateKey && isValidVapidSubject(VAPID_SUBJECT)) {
   activateVapidKeys(environmentVapidKeys, "environment variables");
 } else if (environmentVapidKeys.publicKey || environmentVapidKeys.privateKey) {
-  console.warn("[Web Push] Ignoring an incomplete VAPID environment keypair; both keys must be configured together.");
+  console.warn("[Web Push] Ignoring incomplete Web Push configuration; a valid subject and both VAPID keys are required.");
+} else if (IS_PRODUCTION && !isValidVapidSubject(VAPID_SUBJECT)) {
+  console.warn("[Web Push] VAPID_SUBJECT must be a valid mailto: or HTTPS contact in production.");
 }
 
 async function ensureVapidConfigured() {
   if (vapidKeys) return vapidKeys;
   if (vapidInitializationPromise) return vapidInitializationPromise;
+
+  if (IS_PRODUCTION) {
+    throw new Error("A valid VAPID_SUBJECT and complete VAPID keypair must be configured in production.");
+  }
 
   vapidInitializationPromise = (async () => {
     const db = await getDb();
@@ -102,9 +131,12 @@ const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || "qwen/qwen3.6-27b";
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_DB = process.env.MONGODB_DB || "prepmatrix";
 const FRONTEND_URL = process.env.FRONTEND_URL || "";
-const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const SESSION_COOKIE = "prepmatrix_session";
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
+const REMINDER_CRON_SECRET = process.env.REMINDER_CRON_SECRET?.trim() || "";
+const ENABLE_IN_PROCESS_REMINDERS = process.env.ENABLE_IN_PROCESS_REMINDERS !== "false";
+const PUSH_TEST_COOLDOWN_MS = 60 * 1000;
+const ADDITIONAL_PUSH_ENDPOINT_HOSTS = parseAdditionalPushHosts(process.env.PUSH_ENDPOINT_HOSTS);
 
 let mongoClient;
 let mongoDb;
@@ -131,7 +163,7 @@ async function getDb() {
     mongoDb.collection("examStartLocks").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     mongoDb.collection("questionPapers").createIndex({ userId: 1, createdAt: -1 }),
   ]);
-  console.log(`MongoDB connected: ${MONGODB_URI}/${MONGODB_DB}`);
+  console.log(`MongoDB connected to database: ${MONGODB_DB}`);
   return mongoDb;
 }
 
@@ -271,14 +303,14 @@ async function createSession(userId) {
 }
 
 function getRequestToken(req) {
-  let token = parseCookies(req.headers.cookie || "")[SESSION_COOKIE];
-  if (!token && req.headers.authorization) {
+  let token = null;
+  if (req.headers.authorization) {
     const parts = req.headers.authorization.split(" ");
     if (parts.length === 2 && parts[0] === "Bearer") {
       token = parts[1];
     }
   }
-  return token || null;
+  return token || parseCookies(req.headers.cookie || "")[SESSION_COOKIE] || null;
 }
 
 async function getAuthenticatedSession(req) {
@@ -421,7 +453,8 @@ function requireAuth(handler) {
       setSessionCookie(res, auth.token);
       return handler(req, res);
     } catch (error) {
-      return res.status(500).json({ error: error instanceof Error ? error.message : "Server error." });
+      console.error("Authenticated request failed:", error instanceof Error ? error.name : "UnknownError");
+      return res.status(500).json({ error: "The request could not be completed." });
     }
   };
 }
@@ -502,11 +535,14 @@ function getGroqConfigStatus() {
 }
 
 // CORS: allow Vercel frontend in production
-const allowedOrigins = FRONTEND_URL ? FRONTEND_URL.split(",").map(o => o.trim()) : [];
+const allowedOrigins = FRONTEND_URL ? FRONTEND_URL.split(",").map((origin) => origin.trim()).filter(Boolean) : [];
+if (IS_PRODUCTION && allowedOrigins.length === 0) {
+  console.warn("FRONTEND_URL is not configured; cross-origin browser requests will be rejected.");
+}
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g. same-origin, Postman) or matching origins
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    const allowUnconfiguredDevelopmentOrigin = !IS_PRODUCTION && allowedOrigins.length === 0;
+    if (!origin || allowUnconfiguredDevelopmentOrigin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(null, false);
@@ -515,15 +551,34 @@ app.use(cors({
   credentials: true,
 }));
 
+function requireNotificationMutationSecurity(req, res, next) {
+  const contentType = req.headers["content-type"];
+  const allowed = isNotificationMutationRequestAllowed({
+    contentType,
+    authorization: req.headers.authorization,
+    origin: req.headers.origin,
+    allowedOrigins,
+    isProduction: IS_PRODUCTION,
+  });
+  if (allowed) return next();
+  if (String(contentType || "").split(";", 1)[0].trim().toLowerCase() !== "application/json") {
+    return res.status(415).json({ error: "Notification updates require JSON." });
+  }
+  return res.status(403).json({ error: "This notification update was blocked." });
+}
+
 app.use(express.json({ limit: "25mb" }));
 
 app.get("/api/database/status", async (_req, res) => {
   try {
     const db = await getDb();
     await db.command({ ping: 1 });
-    res.json({ available: true, database: MONGODB_DB, uri: MONGODB_URI });
+    res.set("Cache-Control", "no-store");
+    res.json({ available: true });
   } catch (error) {
-    res.status(500).json({ available: false, error: error instanceof Error ? error.message : "MongoDB connection failed." });
+    console.error("Database health check failed:", error instanceof Error ? error.name : "UnknownError");
+    res.set("Cache-Control", "no-store");
+    res.status(500).json({ available: false, error: "Database connection unavailable." });
   }
 });
 
@@ -599,8 +654,7 @@ app.post("/api/auth/login", async (req, res) => {
 });
 app.post("/api/auth/logout", requireAuth(async (req, res) => {
   const db = await getDb();
-  const token = parseCookies(req.headers.cookie || "")[SESSION_COOKIE];
-  if (token) await db.collection("sessions").deleteOne({ token });
+  if (req.sessionToken) await db.collection("sessions").deleteOne({ token: req.sessionToken });
   clearSessionCookie(res);
   res.json({ ok: true });
 }));
@@ -934,74 +988,34 @@ app.post("/api/workspace/import", requireAuth(async (req, res) => {
   }
 }));
 
-app.get("/api/notifications/vapid-key", async (_req, res) => {
+registerPushNotificationRoutes(app, {
+  additionalHosts: ADDITIONAL_PUSH_ENDPOINT_HOSTS,
+  ensureVapidConfigured,
+  getDb,
+  mutationSecurity: requireNotificationMutationSecurity,
+  pushTestCooldownMs: PUSH_TEST_COOLDOWN_MS,
+  requireAuth,
+  webpush,
+});
+
+app.post("/api/internal/notifications/daily-reminders", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  if (REMINDER_CRON_SECRET.length < 32) {
+    return res.status(503).json({ error: "Scheduled reminder execution is not configured." });
+  }
+  if (!schedulerSecretMatches(req.headers.authorization, REMINDER_CRON_SECRET)) {
+    return res.status(401).json({ error: "Unauthorized." });
+  }
+
   try {
-    const keys = await ensureVapidConfigured();
-    res.json({ publicKey: keys.publicKey, configured: true });
+    const summary = await checkAndSendDailyReminders();
+    return res.json({ success: true, summary });
   } catch (error) {
-    console.error("[Web Push] VAPID initialization failed:", error);
-    res.status(503).json({
-      error: "Study reminders are temporarily unavailable. Please try again shortly.",
-      code: "PUSH_NOT_CONFIGURED",
-      configured: false,
-    });
+    console.error("[Web Push] Scheduled reminder sweep failed:", error instanceof Error ? error.name : "UnknownError");
+    return res.status(500).json({ error: "Scheduled reminders could not be processed." });
   }
 });
 
-app.post("/api/notifications/subscribe", requireAuth(async (req, res) => {
-  const { subscription, timezoneOffset } = req.body ?? {};
-  const isValidSubscription = Boolean(
-    subscription?.endpoint &&
-    subscription?.keys?.p256dh &&
-    subscription?.keys?.auth
-  );
-
-  if (!isValidSubscription) {
-    return res.status(400).json({
-      error: "A valid push subscription is required.",
-      code: "INVALID_PUSH_SUBSCRIPTION",
-    });
-  }
-
-  try {
-    await ensureVapidConfigured();
-    const db = await getDb();
-    await db.collection("users").updateOne(
-      { _id: req.user._id },
-      {
-        $set: {
-          pushSubscription: subscription,
-          timezoneOffset: Number.isFinite(timezoneOffset) ? timezoneOffset : 0,
-        },
-        $unset: { lastReminderSentDate: "" },
-      }
-    );
-    res.json({ success: true });
-  } catch (error) {
-    console.error(`[Web Push] Failed to save subscription for ${req.user._id}:`, error);
-    res.status(500).json({ error: error instanceof Error ? error.message : "Subscription failed." });
-  }
-}));
-
-app.delete("/api/notifications/subscribe", requireAuth(async (req, res) => {
-  try {
-    const db = await getDb();
-    await db.collection("users").updateOne(
-      { _id: req.user._id },
-      {
-        $unset: {
-          pushSubscription: "",
-          timezoneOffset: "",
-          lastReminderSentDate: "",
-        },
-      }
-    );
-    res.json({ success: true });
-  } catch (error) {
-    console.error(`[Web Push] Failed to remove subscription for ${req.user._id}:`, error);
-    res.status(500).json({ error: error instanceof Error ? error.message : "Unsubscribe failed." });
-  }
-}));
 app.get("/api/notes", requireAuth(async (req, res) => {
   const db = await getDb();
   const doc = await db.collection("notes").findOne({ userId: req.user._id });
@@ -1520,96 +1534,41 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Unexpected chat error." });
   }
 }));
+
+let dailyReminderRunPromise = null;
+
 async function checkAndSendDailyReminders() {
-  try {
-    await ensureVapidConfigured();
+  if (dailyReminderRunPromise) return dailyReminderRunPromise;
+
+  dailyReminderRunPromise = (async () => {
     const db = await getDb();
-    const users = await db.collection("users").find({ pushSubscription: { $exists: true, $ne: null } }).toArray();
-    
-    for (const user of users) {
-      const utcTime = new Date();
-      // user.timezoneOffset is in minutes, representing client-side getTimezoneOffset()
-      const localTime = new Date(utcTime.getTime() - (user.timezoneOffset || 0) * 60 * 1000);
-      const localHour = localTime.getUTCHours();
-      
-      // We check for the 6 PM hour (18:00 - 18:59)
-      if (localHour === 18) {
-        const localDateString = `${localTime.getUTCFullYear()}-${String(localTime.getUTCMonth() + 1).padStart(2, '0')}-${String(localTime.getUTCDate()).padStart(2, '0')}`;
-        
-        // Prevent duplicate sending on the same local calendar day
-        if (user.lastReminderSentDate === localDateString) {
-          continue;
-        }
+    return runDailyReminderSweep({
+      db,
+      ensureVapidConfigured,
+      sendNotification: (subscription, payload, options) => webpush.sendNotification(subscription, payload, options),
+      additionalHosts: ADDITIONAL_PUSH_ENDPOINT_HOSTS,
+    });
+  })();
 
-        // Fetch user's workspace
-        const workspace = await db.collection("workspaces").findOne({ userId: user._id });
-        if (!workspace || !workspace.schedule || workspace.schedule.length === 0 || !workspace.scheduleStartDate) {
-          continue;
-        }
-
-        // Calculate schedule day index
-        const startDate = new Date(workspace.scheduleStartDate);
-        // Start dates at midnight UTC/Local
-        const startDateStart = Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate());
-        const localDateStart = Date.UTC(localTime.getUTCFullYear(), localTime.getUTCMonth(), localTime.getUTCDate());
-        
-        const diffDays = Math.floor((localDateStart - startDateStart) / (1000 * 60 * 60 * 24));
-        const dayIndex = diffDays + 1;
-
-        const currentDaySchedule = workspace.schedule.find(item => item.day === dayIndex);
-        
-        // Check if there are tasks for today, and if any are completed
-        if (currentDaySchedule && currentDaySchedule.tasks && currentDaySchedule.tasks.length > 0) {
-          const completedList = workspace.completed || [];
-          const anyCompleted = currentDaySchedule.tasks.some(task => completedList.includes(task.task));
-          
-          if (!anyCompleted) {
-            // Send Push Notification!
-            const payload = JSON.stringify({
-              title: "PrepMatrix AI Reminder",
-              body: `You haven't completed any of today's Day ${dayIndex} tasks yet! Start preparing now to keep your momentum strong.`
-            });
-
-            try {
-              await webpush.sendNotification(user.pushSubscription, payload);
-              console.log(`[Push Notification] Sent daily reminder to ${user.email} for Day ${dayIndex}`);
-            } catch (pushErr) {
-              const statusCode = Number(pushErr?.statusCode || 0);
-              console.error(`[Push Notification] Failed to send to ${user.email}:`, {
-                statusCode,
-                message: pushErr instanceof Error ? pushErr.message : "Unknown push delivery error",
-              });
-
-              if ([400, 401, 403, 404, 410].includes(statusCode)) {
-                await db.collection("users").updateOne(
-                  { _id: user._id },
-                  { $unset: { pushSubscription: "", lastReminderSentDate: "" } }
-                );
-              }
-
-              // Do not mark a failed delivery as sent; transient failures can
-              // retry during the next scheduler pass in the reminder hour.
-              continue;
-            }
-          }
-        }
-
-        // Mark as sent for today
-        await db.collection("users").updateOne(
-          { _id: user._id },
-          { $set: { lastReminderSentDate: localDateString } }
-        );
-      }
-    }
-  } catch (err) {
-    console.error("Daily reminder checker error:", err);
+  try {
+    return await dailyReminderRunPromise;
+  } finally {
+    dailyReminderRunPromise = null;
   }
 }
 
-// Start checker interval (every 15 minutes)
-setInterval(checkAndSendDailyReminders, 15 * 60 * 1000);
-// Also run once shortly after startup
-setTimeout(checkAndSendDailyReminders, 10000);
+function runInProcessReminderSweep() {
+  checkAndSendDailyReminders().catch((error) => {
+    console.error("[Web Push] In-process reminder sweep failed:", error instanceof Error ? error.name : "UnknownError");
+  });
+}
+
+if (ENABLE_IN_PROCESS_REMINDERS) {
+  setInterval(runInProcessReminderSweep, 15 * 60 * 1000);
+  setTimeout(runInProcessReminderSweep, 10000);
+} else {
+  console.log("[Web Push] In-process reminder scheduling is disabled; use the protected external scheduler endpoint.");
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
