@@ -70,8 +70,43 @@ function studyWorkspace() {
   };
 }
 
-function sweepDb(users, updateOne) {
-  return {
+class FakeHistoryCollection {
+  constructor() {
+    this.documents = new Map();
+  }
+
+  async updateOne(filter, update) {
+    const key = `${filter.userId}:${filter.eventKey}`;
+    if (this.documents.has(key)) {
+      return { matchedCount: 1, modifiedCount: 0, upsertedCount: 0, upsertedId: null };
+    }
+    const document = { _id: key, ...update.$setOnInsert };
+    this.documents.set(key, document);
+    return { matchedCount: 0, modifiedCount: 0, upsertedCount: 1, upsertedId: key };
+  }
+
+  find({ userId }) {
+    let documents = [...this.documents.values()].filter((document) => document.userId === userId);
+    const cursor = {
+      sort: () => cursor,
+      skip: (count) => {
+        documents = documents.slice(count);
+        return cursor;
+      },
+      project: () => cursor,
+      toArray: async () => documents,
+    };
+    return cursor;
+  }
+
+  async deleteMany() {
+    return { deletedCount: 0 };
+  }
+}
+
+function sweepDb(users, updateOne, history = new FakeHistoryCollection()) {
+  const db = {
+    history,
     collection(name) {
       if (name === "users") {
         return {
@@ -79,9 +114,11 @@ function sweepDb(users, updateOne) {
           updateOne,
         };
       }
+      if (name === "notificationHistory") return history;
       return { findOne: async () => studyWorkspace() };
     },
   };
+  return db;
 }
 
 test("normalizes trusted subscriptions and derives deterministic versions", () => {
@@ -306,6 +343,10 @@ test("daily sweep sends independently to every current device with a bounded tim
   assert.equal(PUSH_DELIVERY_TIMEOUT_MS < REMINDER_CLAIM_TTL_MS, true);
   assert.equal(updates.filter(({ update }) => update.$set?.["pushSubscriptions.$.dispatchClaim"]).length, 2);
   assert.equal(updates.filter(({ update }) => update.$set?.["pushSubscriptions.$.lastReminderSentDate"]).length, 2);
+  assert.equal(db.history.documents.size, 1);
+  const history = [...db.history.documents.values()][0];
+  assert.equal(history.kind, "daily-study-check");
+  assert.equal("deviceId" in history, false);
 });
 
 test("daily sweep catches up after 6 PM but never sends before the evening window", async () => {

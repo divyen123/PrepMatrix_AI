@@ -1,5 +1,9 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 
+import {
+  recordNotificationHistorySafely,
+} from "./notificationHistory.js";
+
 const DEFAULT_TRUSTED_PUSH_HOSTS = Object.freeze([
   "fcm.googleapis.com",
   "updates.push.services.mozilla.com",
@@ -419,6 +423,7 @@ export function buildTestNotificationPayload() {
     title: "PrepMatrix AI",
     body: "Test successful - study reminders are connected securely.",
     url: "/settings",
+    kind: "push-test",
     tag: "prepmatrix-push-test",
     forceNative: true,
   });
@@ -429,6 +434,7 @@ export function buildDailyReminderPayload() {
     title: "PrepMatrix AI Reminder",
     body: "You have study tasks waiting today. Open PrepMatrix to keep your momentum going.",
     url: "/planner",
+    kind: "daily-study-check",
     tag: "prepmatrix-daily-study-reminder",
   });
 }
@@ -599,10 +605,12 @@ export async function runDailyReminderSweep({
           continue;
         }
 
+        const serializedPayload = buildDailyReminderPayload();
+        const notification = JSON.parse(serializedPayload);
         try {
           await sendNotification(
             { endpoint: device.endpoint, expirationTime: device.expirationTime, keys: device.keys },
-            buildDailyReminderPayload(),
+            serializedPayload,
             { TTL: 60 * 60, timeout: PUSH_DELIVERY_TIMEOUT_MS },
           );
         } catch (error) {
@@ -638,6 +646,16 @@ export async function runDailyReminderSweep({
         const marked = await usersCollection.updateOne(success.filter, success.update);
         if (marked.modifiedCount === 1) summary.sent += 1;
         else summary.raced += 1;
+        await recordNotificationHistorySafely({
+          db,
+          userId: user._id,
+          eventKey: `daily-study-check:${clock.date}`,
+          kind: notification.kind,
+          title: notification.title,
+          body: notification.body,
+          url: notification.url,
+          createdAt: sweepNow,
+        }, logger);
         claimId = "";
       } catch (error) {
         if (claimId) await clearClaim(usersCollection, user._id, device.deviceId, claimId).catch(() => {});

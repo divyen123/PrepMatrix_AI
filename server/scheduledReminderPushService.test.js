@@ -81,9 +81,52 @@ class FakeDeliveryCollection {
   }
 }
 
-function createSweepDb({ users, workspace, deliveries = new FakeDeliveryCollection(), userUpdate }) {
+class FakeHistoryCollection {
+  constructor({ failWrites = false } = {}) {
+    this.documents = new Map();
+    this.failWrites = failWrites;
+  }
+
+  async updateOne(filter, update) {
+    if (this.failWrites) throw new Error("history unavailable");
+    const key = `${filter.userId}:${filter.eventKey}`;
+    if (this.documents.has(key)) {
+      return { matchedCount: 1, modifiedCount: 0, upsertedCount: 0, upsertedId: null };
+    }
+    const document = { _id: key, ...update.$setOnInsert };
+    this.documents.set(key, document);
+    return { matchedCount: 0, modifiedCount: 0, upsertedCount: 1, upsertedId: key };
+  }
+
+  find({ userId }) {
+    let documents = [...this.documents.values()].filter((document) => document.userId === userId);
+    const cursor = {
+      sort: () => cursor,
+      skip: (count) => {
+        documents = documents.slice(count);
+        return cursor;
+      },
+      project: () => cursor,
+      toArray: async () => documents,
+    };
+    return cursor;
+  }
+
+  async deleteMany() {
+    return { deletedCount: 0 };
+  }
+}
+
+function createSweepDb({
+  users,
+  workspace,
+  deliveries = new FakeDeliveryCollection(),
+  history = new FakeHistoryCollection(),
+  userUpdate,
+}) {
   return {
     deliveries,
+    history,
     db: {
       collection(name) {
         if (name === "users") {
@@ -94,6 +137,7 @@ function createSweepDb({ users, workspace, deliveries = new FakeDeliveryCollecti
         }
         if (name === "workspaces") return { findOne: async () => workspace };
         if (name === "scheduledReminderDeliveries") return deliveries;
+        if (name === "notificationHistory") return history;
         throw new Error(`Unexpected collection: ${name}`);
       },
     },
@@ -187,6 +231,7 @@ test("sends each occurrence once per browser device and sends again after snooze
   };
 
   const first = await runScheduledReminderPushSweep(options);
+  const historyAfterFirst = setup.history.documents.size;
   const duplicate = await runScheduledReminderPushSweep(options);
   workspace.goalReminderData.reminders[0].snoozedUntil = "2026-07-16T12:45:00.000Z";
   const snoozed = await runScheduledReminderPushSweep({
@@ -197,6 +242,10 @@ test("sends each occurrence once per browser device and sends again after snooze
   assert.equal(first.sent, 2);
   assert.equal(duplicate.sent, 0);
   assert.equal(snoozed.sent, 2);
+  assert.equal(historyAfterFirst, 1);
+  assert.equal(setup.history.documents.size, 2);
+  assert.equal([...setup.history.documents.values()].every((document) => !("deviceId" in document)), true);
+  assert.equal([...setup.history.documents.values()].every((document) => document.kind === "scheduled-reminder"), true);
   assert.equal(sends.length, 4);
   assert.equal(new Set(sends.slice(0, 2).map(([subscription]) => subscription.endpoint)).size, 2);
   assert.equal(sends.every(([, , deliveryOptions]) => deliveryOptions.timeout === 15_000), true);
@@ -246,6 +295,31 @@ test("clears transient claims for retry and removes an expired current subscript
   assert.equal(retried.sent, 1);
   assert.equal(expired.expired, 1);
   assert.equal(updates[0].update.$pull.pushSubscriptions.deviceId, DEVICE_TWO);
+});
+
+test("history write failures cannot cause a scheduled push to be delivered again", async () => {
+  const setup = createSweepDb({
+    users: [{ _id: "user-history-failure", pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
+    workspace: { goalReminderData: { reminders: [reminder()] } },
+    history: new FakeHistoryCollection({ failWrites: true }),
+  });
+  const sends = [];
+  const options = {
+    db: setup.db,
+    ensureVapidConfigured: async () => {},
+    sendNotification: async (...args) => sends.push(args),
+    now: DUE_NOW,
+    claimIdFactory: () => CLAIM_ONE,
+    logger: { warn() {}, error() {} },
+  };
+
+  const first = await runScheduledReminderPushSweep(options);
+  const repeated = await runScheduledReminderPushSweep(options);
+
+  assert.equal(first.sent, 1);
+  assert.equal(first.failed, 0);
+  assert.equal(repeated.sent, 0);
+  assert.equal(sends.length, 1);
 });
 
 test("bounds notification bursts and defers the remainder to later sweeps", async () => {

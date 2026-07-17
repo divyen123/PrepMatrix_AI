@@ -12,6 +12,9 @@ import {
   normalizeSubscriptionBinding,
   preparePushSubscriptionSync,
 } from "./pushNotificationService.js";
+import {
+  recordNotificationHistorySafely,
+} from "./notificationHistory.js";
 
 function clearLegacySubscriptionUpdate() {
   return {
@@ -72,6 +75,7 @@ export function registerPushNotificationRoutes(app, {
   additionalHosts = [],
   ensureVapidConfigured,
   getDb,
+  logger = console,
   mutationSecurity,
   pushTestCooldownMs = 60 * 1000,
   requireAuth,
@@ -260,11 +264,22 @@ export function registerPushNotificationRoutes(app, {
       }
 
       try {
+        const serializedPayload = buildTestNotificationPayload();
+        const notification = JSON.parse(serializedPayload);
         await webpush.sendNotification(
           publicSubscription(stored.record),
-          buildTestNotificationPayload(),
+          serializedPayload,
           { TTL: 60, timeout: PUSH_DELIVERY_TIMEOUT_MS },
         );
+        await recordNotificationHistorySafely({
+          db,
+          userId: req.user._id,
+          kind: notification.kind,
+          title: notification.title,
+          body: notification.body,
+          url: notification.url,
+          createdAt: now,
+        }, logger);
         return res.json({ success: true });
       } catch (error) {
         const statusCode = getPushDeliveryStatus(error);

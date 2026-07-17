@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, History } from "lucide-react";
 import api from "../utils/apiClient";
 import GoalSettingsPanel from "../components/GoalSettingsPanel";
 import {
@@ -172,6 +173,7 @@ function SettingsPage({
   onAcademicProfileChange,
   cursorStyle: parentCursorStyle, setCursorStyle: setParentCursorStyle
 }) {
+  const navigate = useNavigate();
   const initialAcademicProfile = normalizeAcademicProfile({
     ...userProfile,
     academicLevel: academicLevel || userProfile?.academicLevel,
@@ -1693,6 +1695,25 @@ function SettingsPage({
                 </button>
               </div>
             )}
+            <div className="notification-history-setting-row">
+              <div className="notification-history-setting-copy">
+                <span className="notification-history-setting-icon">
+                  <History aria-hidden="true" size={15} />
+                </span>
+                <div>
+                  <strong>Notification history</strong>
+                  <span>Review full messages and remove alerts you no longer need.</span>
+                </div>
+              </div>
+              <button
+                className="secondary-btn notification-history-setting-btn"
+                onClick={() => navigate("/notification-history")}
+                type="button"
+              >
+                <History aria-hidden="true" size={14} />
+                View history
+              </button>
+            </div>
           </div>
         </div>
 

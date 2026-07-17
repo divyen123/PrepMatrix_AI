@@ -10,6 +10,9 @@ import {
   normalizeStoredPushSubscriptionRecord,
   normalizeTimezoneOffset,
 } from "./pushNotificationService.js";
+import {
+  recordNotificationHistorySafely,
+} from "./notificationHistory.js";
 
 export const SCHEDULED_REMINDER_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 export const SCHEDULED_REMINDER_DELIVERY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -79,8 +82,12 @@ export function getDueScheduledReminderOccurrences(
       const occurrenceKey = createHash("sha256")
         .update(`${id}\0${effectiveAt.toISOString()}`)
         .digest("hex");
+      const logicalEventKey = createHash("sha256")
+        .update(`${id}\0${safeText(reminder.date, 10)}\0${safeText(reminder.time || "00:00", 5)}\0${snoozedUntil?.toISOString() || ""}`)
+        .digest("hex");
       return {
         occurrenceKey,
+        logicalEventKey,
         effectiveAt,
         reminder: {
           id,
@@ -291,10 +298,12 @@ export async function runScheduledReminderPushSweep({
           claimId = claim.claimId;
           claimedThisSweep += 1;
 
+          const serializedPayload = buildScheduledReminderPayload(occurrence);
+          const notification = JSON.parse(serializedPayload);
           try {
             await sendNotification(
               { endpoint: device.endpoint, expirationTime: device.expirationTime, keys: device.keys },
-              buildScheduledReminderPayload(occurrence),
+              serializedPayload,
               { TTL: SCHEDULED_REMINDER_PUSH_TTL_SECONDS, timeout: PUSH_DELIVERY_TIMEOUT_MS },
             );
           } catch (error) {
@@ -322,6 +331,16 @@ export async function runScheduledReminderPushSweep({
           const marked = await markScheduledReminderSent(deliveriesCollection, deliveryId, claimId, sweepNow);
           if (marked.modifiedCount === 1) summary.sent += 1;
           else summary.raced += 1;
+          await recordNotificationHistorySafely({
+            db,
+            userId: user._id,
+            eventKey: `scheduled-reminder:${occurrence.logicalEventKey}`,
+            kind: notification.kind,
+            title: notification.title,
+            body: notification.body,
+            url: notification.url,
+            createdAt: sweepNow,
+          }, logger);
           deliveryId = "";
           claimId = "";
         } catch (error) {

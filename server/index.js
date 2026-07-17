@@ -33,6 +33,10 @@ import {
 } from "./pushNotificationService.js";
 import { registerPushNotificationRoutes } from "./pushNotificationRoutes.js";
 import { runScheduledReminderPushSweep } from "./scheduledReminderPushService.js";
+import {
+  NOTIFICATION_HISTORY_COLLECTION,
+  registerNotificationHistoryRoutes,
+} from "./notificationHistory.js";
 
 dotenv.config();
 
@@ -163,6 +167,15 @@ async function getDb() {
     mongoDb.collection("examAttempts").createIndex({ userId: 1, resultAvailableAt: -1 }),
     mongoDb.collection("examStartLocks").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     mongoDb.collection("scheduledReminderDeliveries").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    mongoDb.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex({ userId: 1, createdAt: -1, _id: -1 }),
+    mongoDb.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex({ userId: 1, readAt: 1 }),
+    mongoDb.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex(
+      { userId: 1, eventKey: 1 },
+      {
+        unique: true,
+        partialFilterExpression: { eventKey: { $type: "string" } },
+      },
+    ),
     mongoDb.collection("questionPapers").createIndex({ userId: 1, createdAt: -1 }),
   ]);
   console.log(`MongoDB connected to database: ${MONGODB_DB}`);
@@ -698,6 +711,8 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
     db.collection("exams").deleteMany({ userId }),
     db.collection("examAttempts").deleteMany({ userId }),
     db.collection("examStartLocks").deleteMany({ userId }),
+    db.collection("scheduledReminderDeliveries").deleteMany({ userId }),
+    db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteMany({ userId }),
     db.collection("questionPapers").deleteMany({ userId }),
     db.collection("sessions").deleteMany({ userId }),
     db.collection("users").deleteOne({ _id: userId }),
@@ -998,6 +1013,12 @@ registerPushNotificationRoutes(app, {
   pushTestCooldownMs: PUSH_TEST_COOLDOWN_MS,
   requireAuth,
   webpush,
+});
+
+registerNotificationHistoryRoutes(app, {
+  getDb,
+  mutationSecurity: requireNotificationMutationSecurity,
+  requireAuth,
 });
 
 app.post("/api/internal/notifications/daily-reminders", async (req, res) => {

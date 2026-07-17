@@ -62,6 +62,7 @@ const ReportPage = lazy(() => import("./pages/ReportPage"));
 const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
 const SubjectsPage = lazy(() => import("./pages/SubjectsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const NotificationHistoryPage = lazy(() => import("./pages/NotificationHistoryPage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
 const ExamPage = lazy(() => import("./pages/ExamPage"));
 const ExamAboutPage = lazy(() => import("./pages/ExamAboutPage"));
@@ -260,6 +261,7 @@ function App() {
   const titleLabel = activeRoute?.label || (
     location.pathname.startsWith("/exam/about") ? "Exam Guide" :
     location.pathname.startsWith("/exam") ? "Exam" :
+    location.pathname.startsWith("/notification-history") ? "Notification History" :
     location.pathname.startsWith("/settings") ? "Settings" :
     location.pathname.startsWith("/about") ? "About" :
     location.pathname.includes("register") ? "Register" : "Login"
@@ -1158,6 +1160,8 @@ function App() {
                 <p className="page-subtitle">
                   {location.pathname.startsWith("/exam/about")
                     ? "Understand every exam tool, rule, and workflow"
+                    : location.pathname.startsWith("/notification-history")
+                    ? "Review, read, and manage your notification history"
                     : location.pathname.startsWith("/settings")
                     ? "Manage profile, update credentials, and customize appearance"
                     : location.pathname.startsWith("/exam")
@@ -1446,6 +1450,10 @@ function App() {
                             />
                           }
                           path="/settings"
+                        />
+                        <Route
+                          element={<NotificationHistoryPage />}
+                          path="/notification-history"
                         />
                         <Route
                           element={
