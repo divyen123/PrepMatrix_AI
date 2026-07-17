@@ -301,6 +301,55 @@ test("daily sweep sends independently to every current device with a bounded tim
   assert.equal(updates.filter(({ update }) => update.$set?.["pushSubscriptions.$.lastReminderSentDate"]).length, 2);
 });
 
+test("daily sweep catches up after 6 PM but never sends before the evening window", async () => {
+  const cases = [
+    { now: "2026-07-16T12:29:00.000Z", sent: 0, label: "17:59 local" },
+    { now: "2026-07-16T12:30:00.000Z", sent: 1, label: "18:00 local" },
+    { now: "2026-07-16T18:29:00.000Z", sent: 1, label: "23:59 local" },
+    { now: "2026-07-16T18:30:00.000Z", sent: 0, label: "00:00 next local day" },
+  ];
+
+  for (const scenario of cases) {
+    const sends = [];
+    const db = sweepDb(
+      [{ _id: "user-" + scenario.label, pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
+      async () => ({ modifiedCount: 1 }),
+    );
+    const summary = await runDailyReminderSweep({
+      db,
+      ensureVapidConfigured: async () => {},
+      sendNotification: async (...args) => sends.push(args),
+      now: new Date(scenario.now),
+      claimIdFactory: () => CLAIM_ONE,
+      logger: { warn() {}, error() {} },
+    });
+
+    assert.equal(summary.sent, scenario.sent, scenario.label);
+    assert.equal(sends.length, scenario.sent, scenario.label);
+  }
+});
+
+test("daily catch-up skips a device already handled on the same local date", async () => {
+  const record = subscriptionRecord(DEVICE_ONE, 1, { lastReminderSentDate: "2026-07-16" });
+  const sends = [];
+  const db = sweepDb(
+    [{ _id: "user-already-handled", pushSubscriptions: [record] }],
+    async () => ({ modifiedCount: 1 }),
+  );
+  const summary = await runDailyReminderSweep({
+    db,
+    ensureVapidConfigured: async () => {},
+    sendNotification: async (...args) => sends.push(args),
+    now: new Date("2026-07-16T16:30:00.000Z"),
+    claimIdFactory: () => CLAIM_ONE,
+    logger: { warn() {}, error() {} },
+  });
+
+  assert.equal(summary.sent, 0);
+  assert.equal(summary.skipped, 1);
+  assert.equal(sends.length, 0);
+});
+
 test("expired delivery cannot remove a same-device replacement and only clears the observed claim", async () => {
   const record = subscriptionRecord(DEVICE_ONE, 1);
   const updates = [];

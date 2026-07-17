@@ -559,7 +559,9 @@ export async function runDailyReminderSweep({
       let claimId = "";
       try {
         const clock = getLocalReminderClock(sweepNow, device.timezoneOffset);
-        if (clock.hour !== 18 || device.lastReminderSentDate === clock.date) {
+        // Scheduled runners are best-effort. Allow a same-day catch-up after
+        // 6 PM while the per-device date claim still guarantees one delivery.
+        if (clock.hour < 18 || device.lastReminderSentDate === clock.date) {
           summary.skipped += 1;
           continue;
         }

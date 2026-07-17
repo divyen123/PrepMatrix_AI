@@ -2,8 +2,8 @@ name: PrepMatrix reminder scheduler
 
 on:
   schedule:
-    # Temporary five-minute cadence to verify GitHub's scheduled trigger.
-    - cron: "*/5 * * * *"
+    # Offset from the start of each hour to reduce peak-time scheduling delays.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 # This workflow only makes an outbound HTTPS request. It does not need repository access.
