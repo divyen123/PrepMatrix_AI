@@ -779,7 +779,7 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
                   </article>
                   <article>
                     <div><BellRing aria-hidden="true" size={17} /><strong>Reminders</strong></div>
-                    <p>Schedule an alert with a date, time, priority, and note. Today&apos;s reminders also appear in the center summary.</p>
+                    <p>Schedule an alert with a date, time, priority, and note. Connected browsers also receive it as a push notification.</p>
                   </article>
                   <article>
                     <div><ListTodo aria-hidden="true" size={17} /><strong>Quick to-do</strong></div>
@@ -804,7 +804,7 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
                     </div>
                     <div>
                       <dt>Centered alerts and Remind later</dt>
-                      <dd>Opens a focused alert at the scheduled time. Choose Done or snooze it using the duration selected in Settings.</dd>
+                      <dd>Opens a focused alert at the scheduled time. Choose Done or snooze it; a snoozed reminder can notify again at its new time.</dd>
                     </div>
                     <div>
                       <dt>Show completed items</dt>

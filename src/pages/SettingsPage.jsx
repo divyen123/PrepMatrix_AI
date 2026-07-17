@@ -320,7 +320,7 @@ function SettingsPage({
   const notificationSubtitle = notificationsBusy
     ? "Checking the browser notification connection..."
     : notificationStatus === "connected"
-      ? "Connected securely. Reminders are delivered around 6:00 PM when today's tasks are incomplete."
+      ? "Connected securely. Scheduled reminders arrive around their due time, with a 6:00 PM study check when today's tasks are incomplete."
       : notificationStatus === "blocked"
         ? "Notifications are blocked by the browser or operating system. Allow them in site settings first."
         : notificationStatus === "unsupported"

@@ -46,7 +46,7 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
           <div style={{ flex: 1 }}>
             <h4 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>Enable Study Reminders</h4>
             <p className="card-subtext" style={{ margin: 0, fontSize: "0.82rem" }}>
-              Get browser notifications at 6:00 PM if you haven't completed any of today's study tasks, even when you're not active.
+              Get each scheduled reminder around its due time, plus a 6:00 PM study check when today's tasks are still waiting.
             </p>
           </div>
           <div style={{ display: "flex", gap: "10px" }}>

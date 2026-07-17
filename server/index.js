@@ -32,6 +32,7 @@ import {
   schedulerSecretMatches,
 } from "./pushNotificationService.js";
 import { registerPushNotificationRoutes } from "./pushNotificationRoutes.js";
+import { runScheduledReminderPushSweep } from "./scheduledReminderPushService.js";
 
 dotenv.config();
 
@@ -161,6 +162,7 @@ async function getDb() {
     mongoDb.collection("examAttempts").createIndex({ userId: 1, examId: 1 }, { unique: true }),
     mongoDb.collection("examAttempts").createIndex({ userId: 1, resultAvailableAt: -1 }),
     mongoDb.collection("examStartLocks").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    mongoDb.collection("scheduledReminderDeliveries").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     mongoDb.collection("questionPapers").createIndex({ userId: 1, createdAt: -1 }),
   ]);
   console.log(`MongoDB connected to database: ${MONGODB_DB}`);
@@ -1535,25 +1537,28 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
   }
 }));
 
-let dailyReminderRunPromise = null;
+let scheduledReminderRunPromise = null;
 
 async function checkAndSendDailyReminders() {
-  if (dailyReminderRunPromise) return dailyReminderRunPromise;
+  if (scheduledReminderRunPromise) return scheduledReminderRunPromise;
 
-  dailyReminderRunPromise = (async () => {
+  scheduledReminderRunPromise = (async () => {
     const db = await getDb();
-    return runDailyReminderSweep({
+    const shared = {
       db,
       ensureVapidConfigured,
       sendNotification: (subscription, payload, options) => webpush.sendNotification(subscription, payload, options),
       additionalHosts: ADDITIONAL_PUSH_ENDPOINT_HOSTS,
-    });
+    };
+    const scheduledReminders = await runScheduledReminderPushSweep(shared);
+    const dailyStudyReminder = await runDailyReminderSweep(shared);
+    return { ...dailyStudyReminder, scheduledReminders };
   })();
 
   try {
-    return await dailyReminderRunPromise;
+    return await scheduledReminderRunPromise;
   } finally {
-    dailyReminderRunPromise = null;
+    scheduledReminderRunPromise = null;
   }
 }
 
