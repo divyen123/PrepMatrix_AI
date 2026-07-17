@@ -4,6 +4,7 @@ import test from "node:test";
 import { createPushSubscriptionRecord } from "./pushNotificationService.js";
 import {
   MAX_SCHEDULED_REMINDERS_PER_DEVICE,
+  SCHEDULED_REMINDER_PUSH_TTL_SECONDS,
   buildScheduledReminderPayload,
   claimScheduledReminderDelivery,
   getDueScheduledReminderOccurrences,
@@ -199,6 +200,7 @@ test("sends each occurrence once per browser device and sends again after snooze
   assert.equal(sends.length, 4);
   assert.equal(new Set(sends.slice(0, 2).map(([subscription]) => subscription.endpoint)).size, 2);
   assert.equal(sends.every(([, , deliveryOptions]) => deliveryOptions.timeout === 15_000), true);
+  assert.equal(sends.every(([, , deliveryOptions]) => deliveryOptions.TTL === SCHEDULED_REMINDER_PUSH_TTL_SECONDS), true);
 });
 
 test("clears transient claims for retry and removes an expired current subscription", async () => {

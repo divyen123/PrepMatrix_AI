@@ -53,6 +53,7 @@ function createStorage(entries = {}) {
 function createRuntime({
   permission = "granted",
   existingSubscription = null,
+  getSubscriptionImpl = null,
   subscribeImpl = async () => createSubscription(),
   cryptoRandomUUID = () => DEVICE_ID,
   deleteImpl = async () => ({ success: true }),
@@ -67,6 +68,7 @@ function createRuntime({
     getSubscription: 0,
     order: [],
     register: 0,
+    registerArgs: [],
     subscribe: 0,
     unregister: 0,
   };
@@ -77,6 +79,10 @@ function createRuntime({
     pushManager: {
       getSubscription: async () => {
         calls.getSubscription += 1;
+        if (getSubscriptionImpl) {
+          const observed = await getSubscriptionImpl(currentSubscription, calls.getSubscription);
+          if (observed !== undefined) currentSubscription = observed;
+        }
         return currentSubscription;
       },
       subscribe: async (options) => {
@@ -93,8 +99,9 @@ function createRuntime({
   };
   const serviceWorker = {
     getRegistration: async () => registration,
-    register: async () => {
+    register: async (...args) => {
       calls.register += 1;
+      calls.registerArgs.push(args);
       return registration;
     },
     ready: Promise.resolve(registration),
@@ -148,14 +155,18 @@ function createRuntime({
   return { calls, registration, runtime, storage };
 }
 
-function createServiceWorkerHarness(windowClients = []) {
+function createServiceWorkerHarness(windowClients = [], { matchAllImpl } = {}) {
   const listeners = new Map();
   const notifications = [];
   const openedWindows = [];
+  const lifecycle = { claimed: 0, skippedWaiting: 0 };
   const workerSelf = {
     addEventListener: (type, handler) => listeners.set(type, handler),
     clients: {
-      matchAll: async () => windowClients,
+      claim: async () => {
+        lifecycle.claimed += 1;
+      },
+      matchAll: matchAllImpl || (async () => windowClients),
       openWindow: async (path) => {
         openedWindows.push(path);
         return null;
@@ -167,9 +178,23 @@ function createServiceWorkerHarness(windowClients = []) {
         notifications.push({ options, title });
       },
     },
+    skipWaiting: async () => {
+      lifecycle.skippedWaiting += 1;
+    },
   };
   vm.runInNewContext(serviceWorkerSource, { self: workerSelf, URL });
-  return { listeners, notifications, openedWindows };
+  return { lifecycle, listeners, notifications, openedWindows };
+}
+
+async function dispatchPush(harness, payload) {
+  let pushWork;
+  harness.listeners.get("push")({
+    data: { json: () => payload },
+    waitUntil: (promise) => {
+      pushWork = promise;
+    },
+  });
+  await pushWork;
 }
 
 test("inspects actual browser subscription state without creating one", async () => {
@@ -276,6 +301,26 @@ test("stops after the single recovery retry fails", async () => {
   assert.equal(calls.register, 2);
 });
 
+test("recovery reuses a matching subscription that appeared in another tab", async () => {
+  const appearedSubscription = createSubscription();
+  const { calls, runtime } = createRuntime({
+    getSubscriptionImpl: async (_current, attempt) => (
+      attempt === 1 ? null : appearedSubscription
+    ),
+    subscribeImpl: async () => {
+      throw Object.assign(new Error("subscription already exists"), { name: "InvalidStateError" });
+    },
+  });
+
+  const result = await enableStudyReminders({}, runtime);
+
+  assert.equal(result, appearedSubscription);
+  assert.equal(calls.subscribe, 1);
+  assert.equal(calls.unregister, 0);
+  assert.equal(calls.apiPost.length, 1);
+  assert.equal(calls.apiPost[0].path, "/api/notifications/subscribe");
+});
+
 test("does not retry blocked permission errors or expose native messages", async () => {
   const secretMessage = "SECRET_ENDPOINT=https://private.invalid";
   const { calls, runtime } = createRuntime({
@@ -297,13 +342,41 @@ test("does not retry blocked permission errors or expose native messages", async
   assert.equal(calls.unregister, 0);
 });
 
-test("reconciliation is inspect-only when no browser subscription exists", async () => {
+test("reconciliation stays inspect-only unless missing-subscription repair is requested", async () => {
   const { calls, runtime } = createRuntime();
   const state = await reconcileStudyReminders(runtime);
   assert.equal(state.subscribed, false);
   assert.equal(calls.register, 0);
   assert.equal(calls.subscribe, 0);
   assert.equal(calls.apiPost.length, 0);
+});
+
+test("reconciliation repairs a missing browser subscription when permission remains granted", async () => {
+  const { calls, runtime } = createRuntime();
+  const state = await reconcileStudyReminders(runtime, { repairMissing: true });
+  assert.equal(state.subscribed, true);
+  assert.equal(calls.register, 1);
+  assert.equal(calls.subscribe, 1);
+  assert.equal(calls.apiPost.length, 1);
+  assert.equal(calls.apiPost[0].path, "/api/notifications/subscribe");
+  assert.deepEqual(calls.registerArgs[0], [
+    "/sw.js",
+    { scope: "/", updateViaCache: "none" },
+  ]);
+});
+
+test("concurrent missing-subscription repairs share one browser subscription attempt", async () => {
+  const { calls, runtime } = createRuntime();
+  const [first, second] = await Promise.all([
+    reconcileStudyReminders(runtime, { repairMissing: true }),
+    reconcileStudyReminders(runtime, { repairMissing: true }),
+  ]);
+
+  assert.equal(first.subscribed, true);
+  assert.equal(second.subscribed, true);
+  assert.equal(calls.register, 1);
+  assert.equal(calls.subscribe, 1);
+  assert.equal(calls.apiPost.length, 1);
 });
 
 test("disable uses a targeted server-first delete and preserves the stable device id", async () => {
@@ -413,6 +486,108 @@ test("test notifications use the device/version returned by the just-synced subs
     deviceId: DEVICE_ID,
     subscriptionVersion: SUBSCRIPTION_VERSION,
   });
+});
+
+test("service worker activates its update immediately and claims open clients", async () => {
+  const harness = createServiceWorkerHarness();
+  let installWork;
+  let activateWork;
+
+  harness.listeners.get("install")({
+    waitUntil: (promise) => {
+      installWork = promise;
+    },
+  });
+  harness.listeners.get("activate")({
+    waitUntil: (promise) => {
+      activateWork = promise;
+    },
+  });
+  await Promise.all([installWork, activateWork]);
+
+  assert.equal(harness.lifecycle.skippedWaiting, 1);
+  assert.equal(harness.lifecycle.claimed, 1);
+});
+
+test("service worker falls back to a native notification when client lookup fails", async () => {
+  const harness = createServiceWorkerHarness([], {
+    matchAllImpl: async () => {
+      throw new Error("client lookup failed");
+    },
+  });
+
+  await dispatchPush(harness, {
+    body: "Fallback reminder",
+    tag: "fallback-reminder",
+    url: "/planner",
+  });
+
+  assert.equal(harness.notifications.length, 1);
+  assert.equal(harness.notifications[0].options.tag, "fallback-reminder");
+});
+
+test("service worker uses an in-app toast only for a focused visible PrepMatrix window", async () => {
+  const messages = [];
+  const harness = createServiceWorkerHarness([{
+    focused: true,
+    postMessage: (message) => messages.push(message),
+    url: "https://prep-matrix-ai.vercel.app/settings",
+    visibilityState: "visible",
+  }]);
+
+  await dispatchPush(harness, {
+    body: "Focused reminder",
+    tag: "focused-reminder",
+    title: "PrepMatrix Reminder",
+    url: "/settings",
+  });
+
+  assert.equal(harness.notifications.length, 0);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].tag, "focused-reminder");
+});
+
+test("service worker shows a native notification when the visible tab is not focused", async () => {
+  const messages = [];
+  const harness = createServiceWorkerHarness([{
+    focused: false,
+    postMessage: (message) => messages.push(message),
+    url: "https://prep-matrix-ai.vercel.app/settings",
+    visibilityState: "visible",
+  }]);
+
+  await dispatchPush(harness, {
+    body: "Background reminder",
+    tag: "background-reminder",
+    title: "PrepMatrix Reminder",
+    url: "/dashboard",
+  });
+
+  assert.equal(messages.length, 0);
+  assert.equal(harness.notifications.length, 1);
+  assert.equal(harness.notifications[0].options.renotify, true);
+  assert.equal(harness.notifications[0].options.tag, "background-reminder");
+});
+
+test("service worker forceNative payload bypasses a focused client for a real system test", async () => {
+  const messages = [];
+  const harness = createServiceWorkerHarness([{
+    focused: true,
+    postMessage: (message) => messages.push(message),
+    url: "https://prep-matrix-ai.vercel.app/settings",
+    visibilityState: "visible",
+  }]);
+
+  await dispatchPush(harness, {
+    body: "Native test",
+    forceNative: true,
+    tag: "native-test",
+    url: "/settings",
+  });
+
+  assert.equal(messages.length, 0);
+  assert.equal(harness.notifications.length, 1);
+  assert.equal(harness.notifications[0].options.tag, "native-test");
 });
 
 test("service worker rejects cross-origin backslash navigation and avoids substring URL matches", async () => {

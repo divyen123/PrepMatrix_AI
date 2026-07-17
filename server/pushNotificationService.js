@@ -420,6 +420,7 @@ export function buildTestNotificationPayload() {
     body: "Test successful - study reminders are connected securely.",
     url: "/settings",
     tag: "prepmatrix-push-test",
+    forceNative: true,
   });
 }
 

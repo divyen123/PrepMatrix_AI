@@ -6,6 +6,7 @@ import {
   REMINDER_CLAIM_TTL_MS,
   PushSubscriptionValidationError,
   buildExpiredSubscriptionRemovalOperation,
+  buildTestNotificationPayload,
   buildPushSubscriptionRemovalOperation,
   buildPushSubscriptionSyncPipeline,
   buildReminderClaimClearOperation,
@@ -30,6 +31,12 @@ const DEVICE_THREE = "00000000-0000-4000-8000-000000000003";
 const CLAIM_ONE = "10000000-0000-4000-8000-000000000001";
 const CLAIM_TWO = "10000000-0000-4000-8000-000000000002";
 const FIXED_NOW = new Date("2026-07-16T12:30:00.000Z");
+
+test("test notification payload always requests a native system notification", () => {
+  const payload = JSON.parse(buildTestNotificationPayload());
+  assert.equal(payload.forceNative, true);
+  assert.equal(payload.tag, "prepmatrix-push-test");
+});
 
 function validSubscription(index = 1, overrides = {}) {
   const p256dh = Buffer.concat([Buffer.from([4]), Buffer.alloc(64, index)]).toString("base64url");

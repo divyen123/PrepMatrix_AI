@@ -13,6 +13,7 @@ import {
 
 export const SCHEDULED_REMINDER_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 export const SCHEDULED_REMINDER_DELIVERY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+export const SCHEDULED_REMINDER_PUSH_TTL_SECONDS = 24 * 60 * 60;
 export const MAX_SCHEDULED_REMINDERS_PER_DEVICE = 5;
 
 const LOCAL_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -294,7 +295,7 @@ export async function runScheduledReminderPushSweep({
             await sendNotification(
               { endpoint: device.endpoint, expirationTime: device.expirationTime, keys: device.keys },
               buildScheduledReminderPayload(occurrence),
-              { TTL: 4 * 60 * 60, timeout: PUSH_DELIVERY_TIMEOUT_MS },
+              { TTL: SCHEDULED_REMINDER_PUSH_TTL_SECONDS, timeout: PUSH_DELIVERY_TIMEOUT_MS },
             );
           } catch (error) {
             const statusCode = getPushDeliveryStatus(error);

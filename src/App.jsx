@@ -657,7 +657,10 @@ function App() {
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js")
+      navigator.serviceWorker.register("/sw.js", {
+        scope: "/",
+        updateViaCache: "none",
+      })
         .then((reg) => {
           console.log("Service Worker registered successfully with scope:", reg.scope);
         })
@@ -675,7 +678,7 @@ function App() {
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
-          toastId: "daily-reminder-push-toast"
+          toastId: event.data.tag || "study-reminder-push-toast",
         });
       }
     };
@@ -718,7 +721,7 @@ function App() {
 
       reconcileInFlight = true;
       try {
-        const state = await reconcileStudyReminders();
+        const state = await reconcileStudyReminders({}, { repairMissing: true });
         if (!isActive) return;
 
         if (notificationStateIsDefinitivelyOff(state)) {

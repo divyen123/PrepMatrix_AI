@@ -1,6 +1,10 @@
 import api from "./apiClient.js";
 
 const SERVICE_WORKER_PATH = "/sw.js";
+const SERVICE_WORKER_REGISTRATION_OPTIONS = {
+  scope: "/",
+  updateViaCache: "none",
+};
 const SERVICE_WORKER_READY_TIMEOUT_MS = 12000;
 const RETRYABLE_SUBSCRIPTION_ERRORS = new Set(["AbortError", "InvalidStateError", "NetworkError"]);
 const PUSH_DEVICE_ID_STORAGE_KEY = "prepmatrix_push_device_id";
@@ -11,6 +15,7 @@ const SUBSCRIPTION_VERSION_PATTERN = /^[0-9a-f]{64}$/;
 const blockedStorageRefs = new WeakSet();
 let inMemoryDeviceId = null;
 let inMemorySubscriptionVersion = null;
+let missingSubscriptionRepairPromise = null;
 
 export class PushNotificationError extends Error {
   constructor(code, message, cause) {
@@ -211,7 +216,10 @@ function withTimeout(promise, timeoutMs, timeoutError, windowRef) {
 async function getReadyServiceWorkerRegistration(runtime) {
   const { navigatorRef, windowRef } = runtime;
   try {
-    await navigatorRef.serviceWorker.register(SERVICE_WORKER_PATH, { scope: "/" });
+    await navigatorRef.serviceWorker.register(
+      SERVICE_WORKER_PATH,
+      SERVICE_WORKER_REGISTRATION_OPTIONS
+    );
     return await withTimeout(
       navigatorRef.serviceWorker.ready,
       SERVICE_WORKER_READY_TIMEOUT_MS,
@@ -321,8 +329,18 @@ function registrationUsesOwnWorker(registration, windowRef) {
     .some((worker) => worker.scriptURL === expectedUrl);
 }
 
-async function recoverServiceWorkerRegistration(registration, runtime) {
+async function recoverServiceWorkerRegistration(
+  registration,
+  runtime,
+  applicationServerKey
+) {
   const existing = await registration.pushManager.getSubscription().catch(() => null);
+  if (
+    existing
+    && applicationServerKeysMatch(existing.options?.applicationServerKey, applicationServerKey)
+  ) {
+    return registration;
+  }
   if (existing) await existing.unsubscribe().catch(() => false);
 
   if (registrationUsesOwnWorker(registration, runtime.windowRef)) {
@@ -343,9 +361,23 @@ async function subscribeWithOneRecovery(registration, applicationServerKey, runt
 
     let recoveredRegistration;
     try {
-      recoveredRegistration = await recoverServiceWorkerRegistration(registration, runtime);
+      recoveredRegistration = await recoverServiceWorkerRegistration(
+        registration,
+        runtime,
+        applicationServerKey
+      );
     } catch {
       throw mappedSubscriptionError(firstError);
+    }
+
+    const appearedSubscription = await recoveredRegistration.pushManager
+      .getSubscription()
+      .catch(() => null);
+    if (
+      appearedSubscription
+      && applicationServerKeysMatch(appearedSubscription.options?.applicationServerKey, applicationServerKey)
+    ) {
+      return appearedSubscription;
     }
 
     try {
@@ -437,7 +469,20 @@ export async function enableStudyReminders({ requestPermission = true } = {}, ov
   return subscription;
 }
 
-export async function reconcileStudyReminders(overrides = {}) {
+async function repairMissingStudyReminderSubscription(runtime) {
+  if (!missingSubscriptionRepairPromise) {
+    missingSubscriptionRepairPromise = (async () => {
+      try {
+        return await enableStudyReminders({ requestPermission: false }, runtime);
+      } finally {
+        missingSubscriptionRepairPromise = null;
+      }
+    })();
+  }
+  return missingSubscriptionRepairPromise;
+}
+
+export async function reconcileStudyReminders(overrides = {}, { repairMissing = false } = {}) {
   const runtime = getRuntime(overrides);
   const inspected = await inspectStudyReminderState(runtime);
   const publicState = {
@@ -448,6 +493,19 @@ export async function reconcileStudyReminders(overrides = {}) {
   };
 
   if (!inspected.subscribed || !inspected.subscription) {
+    if (
+      repairMissing && inspected.supported
+      && inspected.secure
+      && inspected.permission === "granted"
+    ) {
+      const subscription = await repairMissingStudyReminderSubscription(runtime);
+      const binding = getStoredSubscriptionBinding(runtime);
+      return {
+        ...publicState,
+        subscribed: Boolean(subscription),
+        ...binding,
+      };
+    }
     return { ...publicState, deviceId: null, subscriptionVersion: null };
   }
 

@@ -56,7 +56,20 @@ const DEFINITIVE_NOTIFICATION_ERROR_CODES = new Set([
 ]);
 
 function storeNotificationIntent(enabled) {
-  localStorage.setItem(NOTIFICATION_INTENT_KEY, enabled ? "true" : "false");
+  try {
+    localStorage.setItem(NOTIFICATION_INTENT_KEY, enabled ? "true" : "false");
+  } catch {
+    // Browser privacy settings may block local storage. The live browser
+    // subscription remains the source of truth for the current page.
+  }
+}
+
+function readNotificationIntent() {
+  try {
+    return localStorage.getItem(NOTIFICATION_INTENT_KEY) === "true";
+  } catch {
+    return false;
+  }
 }
 
 function hasStoredNotificationBinding() {
@@ -237,12 +250,10 @@ function SettingsPage({
     const stored = localStorage.getItem("prepmatrix_sound_enabled");
     return stored === null ? true : stored === "true";
   });
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(readNotificationIntent);
   const [notificationsBusy, setNotificationsBusy] = useState(true);
   const [notificationStatus, setNotificationStatus] = useState("checking");
-  const [notificationIntent, setNotificationIntent] = useState(() => (
-    localStorage.getItem(NOTIFICATION_INTENT_KEY) === "true"
-  ));
+  const [notificationIntent, setNotificationIntent] = useState(readNotificationIntent);
   const [notificationTestBusy, setNotificationTestBusy] = useState(false);
 
   useEffect(() => {
@@ -261,7 +272,7 @@ function SettingsPage({
     const inspectNotifications = async () => {
       if (inspectionInFlight) return;
       inspectionInFlight = true;
-      const preferred = localStorage.getItem(NOTIFICATION_INTENT_KEY) === "true";
+      const preferred = readNotificationIntent();
       if (isActive) {
         setNotificationsBusy(true);
         setNotificationStatus("checking");
@@ -270,7 +281,7 @@ function SettingsPage({
 
       try {
         let state = preferred
-          ? await reconcileStudyReminders()
+          ? await reconcileStudyReminders({}, { repairMissing: true })
           : await getStudyReminderState();
         if (!preferred && isActive && (state.subscribed || hasStoredNotificationBinding())) {
           await disableStudyReminders();
@@ -292,8 +303,11 @@ function SettingsPage({
           storeNotificationIntent(false);
           setNotificationIntent(false);
         }
-        if (!disposition.clearIntent) scheduleInspectionRetry();
-        setNotificationsEnabled(false);
+        const shouldKeepEnabled = (
+          !disposition.clearIntent && disposition.status === "error" && preferred
+        );
+        if (shouldKeepEnabled) scheduleInspectionRetry();
+        setNotificationsEnabled(shouldKeepEnabled);
         setNotificationStatus(disposition.status);
         console.warn("Push notification status check failed:", getPushNotificationDiagnostic(error));
       } finally {
@@ -335,6 +349,7 @@ function SettingsPage({
                   : "Notification cleanup could not be confirmed. Try the switch again when you are online."
                 : "Reminders are off on this browser. Turn them on to receive the 6:00 PM study check.";
   const notificationToggleDisabled = notificationsBusy || ["unsupported", "insecure"].includes(notificationStatus);
+  const notificationToggleChecked = notificationsBusy ? notificationIntent : notificationsEnabled;
 
   const [wakeMode, setWakeMode] = useState(() =>
     localStorage.getItem("prepmatrix_wake_mode") === "true"
@@ -354,7 +369,7 @@ function SettingsPage({
 
   const toggleNotifications = async () => {
     if (notificationToggleDisabled) return;
-    const nextVal = !notificationsEnabled;
+    const nextVal = !notificationToggleChecked;
     setNotificationsBusy(true);
     setNotificationStatus("checking");
 
@@ -373,7 +388,9 @@ function SettingsPage({
           storeNotificationIntent(false);
           setNotificationIntent(false);
         }
-        setNotificationsEnabled(false);
+        setNotificationsEnabled(
+          !disposition.clearIntent && disposition.status === "error"
+        );
         setNotificationStatus(disposition.status);
         toast.error(getPushNotificationErrorMessage(error));
       } finally {
@@ -1653,7 +1670,7 @@ function SettingsPage({
 
           <div aria-live="polite" className="notification-setting">
             <ToggleSwitch
-              checked={notificationsEnabled}
+              checked={notificationToggleChecked}
               onChange={toggleNotifications}
               disabled={notificationToggleDisabled}
               label="Study Reminders (Push Notifications)"
@@ -1662,7 +1679,7 @@ function SettingsPage({
             {notificationsEnabled && notificationStatus === "connected" && (
               <div className="notification-test-row">
                 <span className="card-subtext">
-                  Foreground tests appear in the app; background tests appear as system notifications.
+                  Test notifications always appear as system notifications so you can verify background delivery.
                 </span>
                 <button
                   aria-busy={notificationTestBusy}

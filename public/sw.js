@@ -19,6 +19,14 @@ function clientMatchesAppPath(clientUrl, appPath) {
   }
 }
 
+self.addEventListener("install", (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener("push", (event) => {
   let payload = {};
   try {
@@ -29,6 +37,7 @@ self.addEventListener("push", (event) => {
       body: event.data ? event.data.text() : "You haven't completed any study tasks today! Start preparing now!" 
     };
   }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) payload = {};
 
   const title = payload.title || "PrepMatrix AI Reminder";
   const body = payload.body || "You haven't completed any study tasks today! Start preparing now!";
@@ -38,28 +47,39 @@ self.addEventListener("push", (event) => {
   const tag = typeof payload.tag === "string" && payload.tag.length <= 80
     ? payload.tag
     : "prepmatrix-study-reminder";
+  const forceNative = payload.forceNative === true;
+
+  const showNativeNotification = () => self.registration.showNotification(title, {
+    body,
+    icon,
+    badge,
+    vibrate: [200, 100, 200],
+    tag,
+    renotify: true,
+    data: { url: targetUrl },
+  });
 
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      const anyVisible = clientList.some((client) => client.visibilityState === "visible");
-      if (anyVisible) {
-        // App is currently open and visible! Dispatch message to trigger a toast notification
-        clientList.forEach((client) => {
-          client.postMessage({
-            type: "SHOW_TOAST",
-            message: body,
-          });
-        });
-      } else {
-        // App is closed or minimized! Show a native system push notification
-        return self.registration.showNotification(title, {
-          body,
-          icon,
-          badge,
-          vibrate: [200, 100, 200],
+    (forceNative
+      ? Promise.resolve([])
+      : self.clients.matchAll({ type: "window", includeUncontrolled: true }).catch(() => [])
+    ).then((clientList) => {
+      const focusedClient = clientList.find((client) => (
+        client.visibilityState === "visible" && client.focused === true
+      ));
+      if (!focusedClient) return showNativeNotification();
+
+      try {
+        focusedClient.postMessage({
+          type: "SHOW_TOAST",
+          title,
+          message: body,
           tag,
-          data: { url: targetUrl },
+          url: targetUrl,
         });
+        return undefined;
+      } catch {
+        return showNativeNotification();
       }
     })
   );
