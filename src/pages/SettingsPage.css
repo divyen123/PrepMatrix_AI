@@ -25,6 +25,14 @@
   box-sizing: border-box;
 }
 
+.settings-page .settings-system-card {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  scrollbar-gutter: auto;
+}
+
 .settings-page .settings-card .section-tag,
 .settings-page .goal-settings-card .section-tag {
   margin-bottom: 8px !important;
@@ -286,6 +294,28 @@
   padding-top: 10px !important;
 }
 
+.settings-page .settings-glass-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: clamp(12px, 1.5vw, 20px);
+  margin-top: 14px;
+}
+
+.settings-page .settings-glass-controls > div {
+  min-width: 0;
+  margin-top: 0 !important;
+}
+
+.settings-page .settings-glass-controls input[type="range"] {
+  min-width: 0;
+  width: 100%;
+}
+
+.settings-page .settings-glass-controls > div > div:last-child > span {
+  white-space: nowrap;
+}
+
 .settings-page input[type="range"] {
   min-height: 14px !important;
   height: 14px !important;
@@ -336,7 +366,6 @@
 }
 
 @media (min-width: 1181px) {
-  .settings-page .settings-system-card,
   .settings-page .goal-settings-card {
     height: var(--settings-paired-card-height) !important;
     min-height: var(--settings-paired-card-height) !important;
@@ -344,35 +373,18 @@
   }
 
   .settings-page .settings-system-card {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-gutter: stable;
-  }
-
-  .settings-page .settings-system-card::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .settings-page .settings-system-card::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .settings-page .settings-system-card::-webkit-scrollbar-thumb {
-    background: rgba(var(--accent-rgb), 0.26);
-    border-radius: 999px;
+    min-height: var(--settings-paired-card-height) !important;
   }
 }
 
 @media (max-width: 1180px) {
-  .settings-page .settings-system-card {
-    height: auto;
-    min-height: 0;
-    max-height: none;
-  }
-
   .settings-page .goal-settings-card {
     max-height: min(620px, 72dvh);
+  }
+
+  .settings-page .settings-glass-controls {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 }
 

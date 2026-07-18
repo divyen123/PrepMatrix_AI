@@ -1952,6 +1952,7 @@ function SettingsPage({
                   subtitle="Apply glass blur and transparency to containers"
                 />
 
+                <div className="settings-glass-controls">
                 {/* Glass Card Transparency Slider */}
                 <div style={{ marginTop: "14px" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
@@ -2018,6 +2019,7 @@ function SettingsPage({
                     />
                     <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Blurred</span>
                   </div>
+                </div>
                 </div>
               </div>
             </div>

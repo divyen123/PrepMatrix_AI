@@ -174,10 +174,11 @@
 
 .notification-history-list,
 .notification-loading-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 15px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 9px;
+  margin-top: 13px;
 }
 
 .notification-history-card {
@@ -187,7 +188,7 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--surface-muted);
   transition:
     transform 180ms ease,
@@ -215,11 +216,11 @@
   display: grid !important;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
-  gap: 13px;
+  gap: 10px;
   flex: 1 1 auto;
   min-width: 0 !important;
   min-height: 0 !important;
-  padding: 15px 12px 15px 16px !important;
+  padding: 12px 8px 12px 13px !important;
   color: var(--text) !important;
   text-align: left;
   border: 0 !important;
@@ -246,12 +247,12 @@
 .notification-card-icon {
   display: grid;
   place-items: center;
-  width: 35px;
-  height: 35px;
+  width: 32px;
+  height: 32px;
   margin-top: 1px;
   color: var(--text-muted);
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: 10px;
   background: var(--surface);
 }
 
@@ -272,7 +273,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .notification-kind {
@@ -315,7 +316,7 @@
 .notification-card-copy > strong {
   overflow: hidden;
   color: var(--text);
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -323,18 +324,18 @@
 
 .notification-card-preview {
   display: -webkit-box;
-  margin-top: 4px;
+  margin-top: 3px;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 0.73rem;
-  line-height: 1.48;
+  font-size: 0.7rem;
+  line-height: 1.42;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
 .notification-card-copy time {
-  margin-top: 7px;
+  margin-top: 5px;
   color: var(--text-muted);
   font-size: 0.62rem;
   font-weight: 650;
@@ -344,7 +345,7 @@
   display: flex;
   align-items: center;
   flex: 0 0 auto;
-  padding: 12px 12px 12px 0;
+  padding: 10px 8px 10px 0;
 }
 
 .notification-delete-confirm {
@@ -461,12 +462,12 @@
 
 .notification-loading-card {
   display: grid;
-  grid-template-columns: 35px minmax(0, 1fr);
-  gap: 13px;
-  padding: 15px 58px 15px 16px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 46px 12px 13px;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--surface-muted);
 }
 
@@ -482,8 +483,8 @@
 }
 
 .notification-loading-card > span {
-  width: 35px;
-  height: 35px;
+  width: 32px;
+  height: 32px;
 }
 
 .notification-loading-card > div {
@@ -731,6 +732,13 @@ body.no-glass-cards .notification-history-panel {
   background: var(--surface-strong);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+@media (max-width: 1180px) {
+  .notification-history-list,
+  .notification-loading-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 700px) {
