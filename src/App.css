@@ -6303,13 +6303,13 @@ body.dark .metric-list li:hover {
 }
 
 .badge-emblem {
-  width: 60px;
-  height: 60px;
-  border-radius: 20px;
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
 }
 
 .badge-emblem span {
-  font-size: 1.8rem;
+  font-size: 1.6rem;
 }
 
 .xp-ring-wrap {
