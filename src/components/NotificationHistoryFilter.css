@@ -319,9 +319,22 @@ body.has-bg-image .notification-filter-custom input {
 
 .notification-history-page button.notification-filter-apply {
   margin-top: 9px;
-  color: var(--on-accent, #ffffff) !important;
-  border: 1px solid var(--accent) !important;
-  background: var(--accent) !important;
+  color: #526078 !important;
+  border: 1px solid rgba(75, 91, 118, 0.14) !important;
+  background: #eef2f7 !important;
+}
+
+body.dark .notification-history-page button.notification-filter-apply,
+body.has-bg-image .notification-history-page button.notification-filter-apply {
+  color: #b7c3d3 !important;
+  border-color: rgba(196, 211, 230, 0.1) !important;
+  background: #1c2836 !important;
+}
+
+.notification-history-page button.notification-filter-apply:hover {
+  color: var(--accent) !important;
+  border-color: rgba(var(--accent-rgb), 0.28) !important;
+  background: rgba(var(--accent-rgb), 0.1) !important;
 }
 
 .notification-history-page button.notification-filter-reset {
