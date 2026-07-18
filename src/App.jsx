@@ -30,7 +30,11 @@ import {
   reconcileStudyReminders,
 } from "./utils/pushNotifications";
 import BACKGROUND_PRESETS from "./utils/backgroundPresets";
-import { resolveEffectiveDarkMode } from "./utils/appearanceTheme";
+import {
+  BACKGROUND_IMAGE_BLUR_STORAGE_KEY,
+  resolveBackgroundImageBlurPx,
+  resolveEffectiveDarkMode,
+} from "./utils/appearanceTheme";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
 import {
   academicProfilePayload,
@@ -926,6 +930,12 @@ function App() {
     const glassOp = localStorage.getItem("prepmatrix_glass_opacity") || "0.6";
     document.documentElement.style.setProperty("--glass-opacity", glassOp);
     document.body.style.setProperty("--glass-opacity", glassOp);
+    const backgroundImageBlur = resolveBackgroundImageBlurPx(localStorage.getItem(BACKGROUND_IMAGE_BLUR_STORAGE_KEY), Boolean(imgPreset));
+    const backgroundImageBlurInset = backgroundImageBlur > 0 ? -Math.ceil(backgroundImageBlur * 1.5) : 0;
+    document.documentElement.style.setProperty("--bg-image-blur", `${backgroundImageBlur}px`);
+    document.body.style.setProperty("--bg-image-blur", `${backgroundImageBlur}px`);
+    document.documentElement.style.setProperty("--bg-image-blur-inset", `${backgroundImageBlurInset}px`);
+    document.body.style.setProperty("--bg-image-blur-inset", `${backgroundImageBlurInset}px`);
 
     // Background image — suppressed entirely on auth routes
     const bgOvOp = localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55";

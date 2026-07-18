@@ -20,7 +20,13 @@ import {
   normalizeAcademicProfile,
 } from "../utils/academicProfile";
 import BACKGROUND_PRESETS from "../utils/backgroundPresets";
-import { resolveEffectiveDarkMode } from "../utils/appearanceTheme";
+import {
+  BACKGROUND_IMAGE_BLUR_MAX_PX,
+  BACKGROUND_IMAGE_BLUR_STORAGE_KEY,
+  normalizeBackgroundImageBlurPx,
+  resolveBackgroundImageBlurPx,
+  resolveEffectiveDarkMode,
+} from "../utils/appearanceTheme";
 import {
   disableStudyReminders,
   enableStudyReminders,
@@ -41,6 +47,16 @@ const COLOR_PRESETS = [
   { name: "Orange", light: "194, 65, 12", dark: "249, 115, 22" },
   { name: "Rose", light: "190, 24, 74", dark: "244, 63, 94" },
 ];
+
+function applyBackgroundImageBlurVariables(value, hasBackgroundImage) {
+  const resolvedBlur = resolveBackgroundImageBlurPx(value, hasBackgroundImage);
+  const blurInset = resolvedBlur > 0 ? -Math.ceil(resolvedBlur * 1.5) : 0;
+
+  for (const target of [document.documentElement, document.body]) {
+    target.style.setProperty("--bg-image-blur", `${resolvedBlur}px`);
+    target.style.setProperty("--bg-image-blur-inset", `${blurInset}px`);
+  }
+}
 
 const NOTIFICATION_INTENT_KEY = "prepmatrix_notifications_enabled";
 const PUSH_DEVICE_ID_STORAGE_KEY = "prepmatrix_push_device_id";
@@ -517,6 +533,12 @@ function SettingsPage({
   const [glassOpacity, setGlassOpacity] = useState(
     parseFloat(localStorage.getItem("prepmatrix_glass_opacity") || "0.6")
   );
+  const [backgroundImageBlur, setBackgroundImageBlur] = useState(() =>
+    normalizeBackgroundImageBlurPx(localStorage.getItem(BACKGROUND_IMAGE_BLUR_STORAGE_KEY))
+  );
+  const hasSelectedBackgroundImage = BACKGROUND_PRESETS.some(
+    ({ id }) => id === bgImageId
+  );
 
   // Color Palette state
   const [customColorLight, setCustomColorLight] = useState("#078f78");
@@ -628,6 +650,7 @@ function SettingsPage({
     bgImageId: localStorage.getItem("prepmatrix_bg_image_id") || "",
     bgOverlayOpacity: parseFloat(localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55"),
     glassOpacity: parseFloat(localStorage.getItem("prepmatrix_glass_opacity") || "0.6"),
+    backgroundImageBlur: normalizeBackgroundImageBlurPx(localStorage.getItem(BACKGROUND_IMAGE_BLUR_STORAGE_KEY)),
   });
 
   // 1. Real-time preview of style options on change
@@ -720,10 +743,11 @@ function SettingsPage({
 
     document.documentElement.style.setProperty("--glass-opacity", glassOpacity.toString());
     document.body.style.setProperty("--glass-opacity", glassOpacity.toString());
+    applyBackgroundImageBlurVariables(backgroundImageBlur, Boolean(imgPreset));
 
   }, [
     darkMode, accentRgbLight, accentRgbDark, transparency, contrast, fontSize, cardSize,
-    bgLight, bgDark, glassyCards, glassyButtons, fontFamilyStyle, fontWeightStyle, bgImageId, bgOverlayOpacity, glassOpacity
+    bgLight, bgDark, glassyCards, glassyButtons, fontFamilyStyle, fontWeightStyle, bgImageId, bgOverlayOpacity, glassOpacity, backgroundImageBlur
   ]);
 
   // 2. Revert styles on unmount if changes were not saved
@@ -822,6 +846,7 @@ function SettingsPage({
         // Revert glass opacity
         document.documentElement.style.setProperty("--glass-opacity", init.glassOpacity.toString());
         document.body.style.setProperty("--glass-opacity", init.glassOpacity.toString());
+        applyBackgroundImageBlurVariables(init.backgroundImageBlur, Boolean(imgPreset));
       }
     };
   }, [setDarkMode]);
@@ -1157,7 +1182,7 @@ function SettingsPage({
   };
 
   // Apply appearance styles to DOM
-  const applyAppearanceStyles = (theme, font, card, rgbLight, rgbDark, opacity, borderOp, bgL, bgD, glassC, glassB, fontS, fontW, bgImgId, bgOvOpacity, glassOp) => {
+  const applyAppearanceStyles = (theme, font, card, rgbLight, rgbDark, opacity, borderOp, bgL, bgD, glassC, glassB, fontS, fontW, bgImgId, bgOvOpacity, glassOp, bgImageBlur) => {
     // 1. Theme
     localStorage.setItem("prepmatrix_default_theme", theme);
     const imgPreset = BACKGROUND_PRESETS.find(({ id }) => id === bgImgId);
@@ -1238,8 +1263,11 @@ function SettingsPage({
     localStorage.setItem("prepmatrix_bg_image_id", imgPreset ? bgImgId : "");
     localStorage.setItem("prepmatrix_bg_overlay_opacity", String(bgOvOpacity));
     localStorage.setItem("prepmatrix_glass_opacity", String(glassOp));
+    const normalizedBackgroundImageBlur = normalizeBackgroundImageBlurPx(bgImageBlur);
+    localStorage.setItem(BACKGROUND_IMAGE_BLUR_STORAGE_KEY, String(normalizedBackgroundImageBlur));
     document.documentElement.style.setProperty("--glass-opacity", String(glassOp));
     document.body.style.setProperty("--glass-opacity", String(glassOp));
+    applyBackgroundImageBlurVariables(normalizedBackgroundImageBlur, Boolean(imgPreset));
 
     if (imgPreset) {
       document.body.classList.add("has-bg-image");
@@ -1286,7 +1314,8 @@ function SettingsPage({
       fontWeightStyle,
       bgImageId,
       bgOverlayOpacity,
-      glassOpacity
+      glassOpacity,
+      backgroundImageBlur
     );
 
 
@@ -1950,6 +1979,44 @@ function SettingsPage({
                       }}
                     />
                     <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Opaque</span>
+                  </div>
+                </div>
+
+                {/* Background Image Blur Slider */}
+                <div
+                  style={{
+                    marginTop: "14px",
+                    opacity: hasSelectedBackgroundImage ? 1 : 0.5,
+                    transition: "opacity 0.2s ease",
+                  }}
+                  title={!hasSelectedBackgroundImage ? "Select an image background to adjust blur." : undefined}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                    <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text)" }}>Background Image Blur</span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+                      {Math.round(backgroundImageBlur)}px
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Sharp</span>
+                    <input
+                      aria-label="Background image blur"
+                      aria-disabled={!hasSelectedBackgroundImage}
+                      type="range"
+                      min="0"
+                      max={BACKGROUND_IMAGE_BLUR_MAX_PX}
+                      step="1"
+                      value={backgroundImageBlur}
+                      disabled={!hasSelectedBackgroundImage}
+                      onChange={(e) => setBackgroundImageBlur(normalizeBackgroundImageBlurPx(e.target.value))}
+                      style={{
+                        flex: 1,
+                        accentColor: "rgb(var(--accent-rgb))",
+                        height: "6px",
+                        cursor: hasSelectedBackgroundImage ? "pointer" : "not-allowed",
+                      }}
+                    />
+                    <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Blurred</span>
                   </div>
                 </div>
               </div>

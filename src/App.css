@@ -10249,7 +10249,7 @@ body.has-bg-image {
 body.has-bg-image::after {
   content: "";
   position: fixed;
-  inset: 0;
+  inset: var(--bg-image-blur-inset, 0px);
   z-index: -2;
   background-image: var(--bg-image);
   background-size: cover;
@@ -10257,8 +10257,8 @@ body.has-bg-image::after {
   background-attachment: fixed;
   background-repeat: no-repeat;
   pointer-events: none;
-  filter: brightness(var(--bg-brightness, 1));
-  transition: filter 0.3s ease;
+  filter: brightness(var(--bg-brightness, 1)) blur(var(--bg-image-blur, 0px));
+  transition: filter 0.3s ease, inset 0.3s ease;
 }
 
 /* Dark overlay to control background brightness Ã¢â‚¬â€ sits above image, below content */
