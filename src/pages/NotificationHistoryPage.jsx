@@ -114,6 +114,8 @@ function NotificationHistoryPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [sortOrder, setSortOrder] = useState(NOTIFICATION_SORT_ORDERS.NEWEST);
   const [dateFilter, setDateFilter] = useState(NOTIFICATION_DATE_FILTERS.ALL);
@@ -123,6 +125,7 @@ function NotificationHistoryPage() {
   const closeButtonRef = useRef(null);
   const previouslyFocusedRef = useRef(null);
   const notificationCardRefs = useRef(new Map());
+  const clearAllControlsRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -268,6 +271,23 @@ function NotificationHistoryPage() {
     return () => document.removeEventListener("keydown", cancelDeleteOnEscape);
   }, [confirmDeleteId, selectedId]);
 
+  useEffect(() => {
+    if (!confirmClearAll || selectedId !== null) return undefined;
+
+    function cancelClearAllOnEscape(event) {
+      if (event.key !== "Escape") return;
+      setConfirmClearAll(false);
+      window.requestAnimationFrame(() => {
+        clearAllControlsRef.current
+          ?.querySelector(".notification-clear-action.is-trigger")
+          ?.focus();
+      });
+    }
+
+    document.addEventListener("keydown", cancelClearAllOnEscape);
+    return () => document.removeEventListener("keydown", cancelClearAllOnEscape);
+  }, [confirmClearAll, selectedId]);
+
   function restoreDeleteTrigger(id) {
     setConfirmDeleteId(null);
     window.requestAnimationFrame(() => {
@@ -278,10 +298,20 @@ function NotificationHistoryPage() {
     });
   }
 
+  function restoreClearAllTrigger() {
+    setConfirmClearAll(false);
+    window.requestAnimationFrame(() => {
+      clearAllControlsRef.current
+        ?.querySelector(".notification-clear-action.is-trigger")
+        ?.focus();
+    });
+  }
+
   async function openNotification(notification, triggerElement) {
     const id = notification.id;
     previouslyFocusedRef.current = triggerElement;
     setConfirmDeleteId(null);
+    setConfirmClearAll(false);
     setReadErrorId(null);
     setSelectedId(id);
 
@@ -311,7 +341,7 @@ function NotificationHistoryPage() {
 
   async function deleteNotification(notification) {
     const id = notification.id;
-    if (deletingId !== null) return;
+    if (deletingId !== null || clearingAll) return;
 
     setDeletingId(id);
     setActionError("");
@@ -325,6 +355,27 @@ function NotificationHistoryPage() {
       restoreDeleteTrigger(id);
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function clearAllNotifications() {
+    if (clearingAll || deletingId !== null) return;
+
+    setClearingAll(true);
+    setActionError("");
+    try {
+      await api.delete("/api/notifications/history");
+      setNotifications([]);
+      setConfirmClearAll(false);
+      setConfirmDeleteId(null);
+      setReadErrorId(null);
+      setSelectedId(null);
+      resetNotificationFilters();
+    } catch (error) {
+      setActionError(error?.message || "Notification history could not be cleared.");
+      restoreClearAllTrigger();
+    } finally {
+      setClearingAll(false);
     }
   }
 
@@ -382,17 +433,67 @@ function NotificationHistoryPage() {
             <h2 id="notification-history-list-title">All notifications</h2>
           </div>
           {!loading && !loadError && storedNotificationCount > 0 && (
-            <NotificationHistoryFilter
-              closeSignal={selectedId}
-              customEndDate={customEndDate}
-              customStartDate={customStartDate}
-              dateFilter={dateFilter}
-              onDateFilterChange={handleNotificationDateFilterChange}
-              onOpen={() => setConfirmDeleteId(null)}
-              onReset={resetNotificationFilters}
-              onSortOrderChange={setSortOrder}
-              sortOrder={sortOrder}
-            />
+            <div className="notification-history-controls" ref={clearAllControlsRef}>
+              <NotificationHistoryFilter
+                closeSignal={selectedId}
+                customEndDate={customEndDate}
+                customStartDate={customStartDate}
+                dateFilter={dateFilter}
+                onDateFilterChange={handleNotificationDateFilterChange}
+                onOpen={() => {
+                  setConfirmDeleteId(null);
+                  setConfirmClearAll(false);
+                }}
+                onReset={resetNotificationFilters}
+                onSortOrderChange={setSortOrder}
+                sortOrder={sortOrder}
+              />
+              {confirmClearAll ? (
+                <div
+                  aria-label="Confirm clearing all notifications"
+                  className="notification-clear-confirm"
+                  role="group"
+                >
+                  <button
+                    autoFocus
+                    aria-busy={clearingAll}
+                    aria-label="Confirm clear all notifications"
+                    className="notification-clear-action is-confirm"
+                    disabled={clearingAll || deletingId !== null}
+                    onClick={clearAllNotifications}
+                    title="Confirm clear all"
+                    type="button"
+                  >
+                    <Check aria-hidden="true" size={14} />
+                  </button>
+                  <button
+                    aria-label="Cancel clearing all notifications"
+                    className="notification-clear-action is-cancel"
+                    disabled={clearingAll}
+                    onClick={restoreClearAllTrigger}
+                    title="Cancel"
+                    type="button"
+                  >
+                    <X aria-hidden="true" size={14} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  aria-label="Clear all notifications"
+                  className="notification-clear-action is-trigger"
+                  disabled={deletingId !== null}
+                  onClick={() => {
+                    setActionError("");
+                    setConfirmDeleteId(null);
+                    setConfirmClearAll(true);
+                  }}
+                  title="Clear all notifications"
+                  type="button"
+                >
+                  <Trash2 aria-hidden="true" size={14} />
+                </button>
+              )}
+            </div>
           )}
         </div>
 
@@ -497,7 +598,7 @@ function NotificationHistoryPage() {
                           aria-busy={isDeleting}
                           aria-label={`Confirm delete: ${notification.title}`}
                           className="notification-action-icon is-confirm"
-                          disabled={isDeleting}
+                          disabled={isDeleting || clearingAll}
                           onClick={() => deleteNotification(notification)}
                           title="Confirm delete"
                           type="button"
@@ -507,7 +608,7 @@ function NotificationHistoryPage() {
                         <button
                           aria-label={`Cancel delete: ${notification.title}`}
                           className="notification-action-icon is-cancel"
-                          disabled={isDeleting}
+                          disabled={isDeleting || clearingAll}
                           onClick={() => restoreDeleteTrigger(notification.id)}
                           title="Cancel"
                           type="button"
@@ -519,9 +620,11 @@ function NotificationHistoryPage() {
                       <button
                         aria-label={`Delete notification: ${notification.title}`}
                         className="notification-action-icon is-delete"
+                        disabled={clearingAll}
                         onClick={() => {
                           setActionError("");
                           setConfirmDeleteId(notification.id);
+                          setConfirmClearAll(false);
                         }}
                         title="Delete notification"
                         type="button"

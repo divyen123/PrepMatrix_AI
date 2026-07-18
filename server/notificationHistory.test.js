@@ -354,6 +354,90 @@ test("history APIs authenticate, scope IDs by user, mark read idempotently, and 
   });
 });
 
+test("bulk delete clears only the authenticated user's notification history", async () => {
+  const firstOwnId = new ObjectId();
+  const secondOwnId = new ObjectId();
+  const foreignId = new ObjectId();
+  const collection = new FakeHistoryCollection([
+    {
+      _id: firstOwnId,
+      userId: USER_ONE,
+      kind: "scheduled-reminder",
+      title: "First reminder",
+      body: "First private notification.",
+      url: "/planner",
+      createdAt: new Date("2026-07-17T09:00:00.000Z"),
+    },
+    {
+      _id: secondOwnId,
+      userId: USER_ONE,
+      kind: "push-test",
+      title: "Second reminder",
+      body: "Second private notification.",
+      url: "/settings",
+      createdAt: new Date("2026-07-17T10:00:00.000Z"),
+    },
+    {
+      _id: foreignId,
+      userId: USER_TWO,
+      kind: "daily-study-check",
+      title: "Another user's reminder",
+      body: "This record must be preserved.",
+      url: "/planner",
+      createdAt: new Date("2026-07-17T11:00:00.000Z"),
+    },
+  ]);
+
+  await withHistoryRoutes(collection, async (baseUrl) => {
+    const unauthorized = await fetch(
+      `${baseUrl}/api/notifications/history`,
+      authenticatedOptions("unknown-user", "DELETE"),
+    );
+    assert.equal(unauthorized.status, 401);
+    assert.equal(collection.documents.length, 3);
+
+    const invalidContentType = await fetch(`${baseUrl}/api/notifications/history`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${USER_ONE}` },
+    });
+    assert.equal(invalidContentType.status, 415);
+    assert.equal(collection.documents.length, 3);
+
+    const response = await fetch(
+      `${baseUrl}/api/notifications/history`,
+      authenticatedOptions(USER_ONE, "DELETE"),
+    );
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { success: true, deletedCount: 2 });
+    assert.deepEqual(collection.documents.map(({ _id }) => String(_id)), [foreignId.toString()]);
+
+    const ownListResponse = await fetch(
+      `${baseUrl}/api/notifications/history`,
+      authenticatedOptions(USER_ONE),
+    );
+    const ownList = await ownListResponse.json();
+    assert.equal(ownListResponse.status, 200);
+    assert.deepEqual(ownList.notifications, []);
+    assert.equal(ownList.unreadCount, 0);
+
+    const foreignListResponse = await fetch(
+      `${baseUrl}/api/notifications/history`,
+      authenticatedOptions(USER_TWO),
+    );
+    const foreignList = await foreignListResponse.json();
+    assert.equal(foreignListResponse.status, 200);
+    assert.equal(foreignList.notifications.length, 1);
+    assert.equal(foreignList.notifications[0].id, foreignId.toString());
+
+    const repeated = await fetch(
+      `${baseUrl}/api/notifications/history`,
+      authenticatedOptions(USER_ONE, "DELETE"),
+    );
+    assert.equal(repeated.status, 200);
+    assert.deepEqual(await repeated.json(), { success: true, deletedCount: 0 });
+  });
+});
+
 test("public history records bound text and reject unsafe external URLs", () => {
   const notification = publicNotificationHistoryRecord({
     _id: new ObjectId(),

@@ -199,6 +199,22 @@ export function registerNotificationHistoryRoutes(app, {
   );
 
   app.delete(
+    "/api/notifications/history",
+    mutationSecurity,
+    requireAuth(async (req, res) => {
+      res.set("Cache-Control", "no-store");
+      const db = await getDb();
+      const result = await db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteMany({
+        userId: req.user._id,
+      });
+      return res.json({
+        success: true,
+        deletedCount: result.deletedCount || 0,
+      });
+    }),
+  );
+
+  app.delete(
     "/api/notifications/history/:id",
     mutationSecurity,
     requireAuth(async (req, res) => {

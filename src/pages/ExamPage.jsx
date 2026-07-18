@@ -1636,7 +1636,9 @@ function ExamPage({
 
       {section === "results" && <ResultsPanel onRefresh={loadResults} results={results} userProfile={userProfile} />}
 
-      <OfflineExamTimer paperMinutes={paperMinutes} />
+      {(section === "overview" || section === "paper") && (
+        <OfflineExamTimer paperMinutes={paperMinutes} />
+      )}
 
       {isPreparing && <ExamPreparationNotice subjectName={subjectName} />}
       {activeAttempt && <ExamRunner initialAttempt={activeAttempt} onFinished={finishExam} />}

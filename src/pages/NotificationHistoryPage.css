@@ -144,6 +144,72 @@
   font-size: 1.12rem;
 }
 
+.notification-history-controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.notification-clear-confirm {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface-strong));
+}
+
+.notification-history-page button.notification-clear-action {
+  display: grid !important;
+  place-items: center;
+  flex: 0 0 30px;
+  width: 30px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.notification-history-page button.notification-clear-action.is-trigger {
+  color: var(--danger) !important;
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent) !important;
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface-muted)) !important;
+}
+
+.notification-history-page button.notification-clear-action.is-trigger:hover {
+  color: var(--danger) !important;
+  border-color: color-mix(in srgb, var(--danger) 38%, transparent) !important;
+  background: color-mix(in srgb, var(--danger) 15%, var(--surface-muted)) !important;
+  transform: none !important;
+}
+
+.notification-history-page button.notification-clear-action.is-confirm {
+  color: #15805f !important;
+  border: 1px solid rgba(21, 128, 95, 0.24) !important;
+  background: rgba(21, 128, 95, 0.11) !important;
+}
+
+.notification-history-page button.notification-clear-action.is-cancel {
+  color: var(--danger) !important;
+  border: 1px solid color-mix(in srgb, var(--danger) 22%, transparent) !important;
+  background: color-mix(in srgb, var(--danger) 8%, transparent) !important;
+}
+
+.notification-history-page button.notification-clear-action:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.58);
+  outline-offset: 2px;
+}
+
+.notification-history-page button.notification-clear-action:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .notification-sort-label {
   display: inline-flex;
   align-items: center;
