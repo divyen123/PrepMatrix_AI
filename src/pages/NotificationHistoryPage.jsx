@@ -8,7 +8,6 @@ import {
   BellRing,
   CalendarClock,
   Check,
-  Clock3,
   Inbox,
   Mail,
   MailOpen,
@@ -17,7 +16,13 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import NotificationHistoryFilter from "../components/NotificationHistoryFilter";
 import api from "../utils/apiClient";
+import {
+  filterAndSortNotificationHistory,
+  NOTIFICATION_DATE_FILTERS,
+  NOTIFICATION_SORT_ORDERS,
+} from "../utils/notificationHistoryFilters";
 import "./NotificationHistoryPage.css";
 
 const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
@@ -110,6 +115,10 @@ function NotificationHistoryPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [sortOrder, setSortOrder] = useState(NOTIFICATION_SORT_ORDERS.NEWEST);
+  const [dateFilter, setDateFilter] = useState(NOTIFICATION_DATE_FILTERS.ALL);
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const modalRef = useRef(null);
   const closeButtonRef = useRef(null);
   const previouslyFocusedRef = useRef(null);
@@ -153,9 +162,39 @@ function NotificationHistoryPage() {
     [notifications, selectedId]
   );
 
-  const totalCount = notifications.length;
-  const visibleUnreadCount = notifications.filter((notification) => !notification.readAt).length;
+  const visibleNotifications = useMemo(
+    () => filterAndSortNotificationHistory(
+      notifications,
+      {
+        sortOrder,
+        dateFilter,
+        customStartDate,
+        customEndDate,
+      }
+    ),
+    [notifications, sortOrder, dateFilter, customStartDate, customEndDate]
+  );
+
+  const storedNotificationCount = notifications.length;
+  const totalCount = visibleNotifications.length;
+  const visibleUnreadCount = visibleNotifications.filter((notification) => !notification.readAt).length;
   const readCount = Math.max(0, totalCount - visibleUnreadCount);
+
+  function handleNotificationDateFilterChange(
+    nextFilter,
+    { startDate = "", endDate = "" } = {}
+  ) {
+    setDateFilter(nextFilter);
+    setCustomStartDate(nextFilter === NOTIFICATION_DATE_FILTERS.CUSTOM ? startDate : "");
+    setCustomEndDate(nextFilter === NOTIFICATION_DATE_FILTERS.CUSTOM ? endDate : "");
+  }
+
+  function resetNotificationFilters() {
+    setSortOrder(NOTIFICATION_SORT_ORDERS.NEWEST);
+    setDateFilter(NOTIFICATION_DATE_FILTERS.ALL);
+    setCustomStartDate("");
+    setCustomEndDate("");
+  }
 
   useEffect(() => {
     if (selectedId === null) return undefined;
@@ -342,10 +381,18 @@ function NotificationHistoryPage() {
             <span className="section-tag">Recent updates</span>
             <h2 id="notification-history-list-title">All notifications</h2>
           </div>
-          {!loading && !loadError && totalCount > 0 && (
-            <span className="notification-sort-label">
-              <Clock3 aria-hidden="true" size={14} /> Newest first
-            </span>
+          {!loading && !loadError && storedNotificationCount > 0 && (
+            <NotificationHistoryFilter
+              closeSignal={selectedId}
+              customEndDate={customEndDate}
+              customStartDate={customStartDate}
+              dateFilter={dateFilter}
+              onDateFilterChange={handleNotificationDateFilterChange}
+              onOpen={() => setConfirmDeleteId(null)}
+              onReset={resetNotificationFilters}
+              onSortOrderChange={setSortOrder}
+              sortOrder={sortOrder}
+            />
           )}
         </div>
 
@@ -376,7 +423,7 @@ function NotificationHistoryPage() {
               <RefreshCw aria-hidden="true" size={15} /> Try again
             </button>
           </div>
-        ) : totalCount === 0 ? (
+        ) : storedNotificationCount === 0 ? (
           <div className="notification-state-card">
             <span className="notification-state-icon">
               <Inbox aria-hidden="true" size={25} />
@@ -384,9 +431,20 @@ function NotificationHistoryPage() {
             <h3>No notifications yet</h3>
             <p>Your study reminders and alerts will appear here after they are sent.</p>
           </div>
+        ) : totalCount === 0 ? (
+          <div className="notification-state-card">
+            <span className="notification-state-icon">
+              <CalendarClock aria-hidden="true" size={25} />
+            </span>
+            <h3>No notifications found</h3>
+            <p>No notifications match the selected date range.</p>
+            <button onClick={resetNotificationFilters} type="button">
+              Reset filters
+            </button>
+          </div>
         ) : (
           <div className="notification-history-list">
-            {notifications.map((notification, index) => {
+            {visibleNotifications.map((notification, index) => {
               const isUnread = !notification.readAt;
               const isConfirming = String(confirmDeleteId) === String(notification.id);
               const isDeleting = String(deletingId) === String(notification.id);
