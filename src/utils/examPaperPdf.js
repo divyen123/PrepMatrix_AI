@@ -284,7 +284,7 @@ export function createExamCertificatePdf(result, options = {}) {
   const pageHeight = pdf.internal.pageSize.getHeight();
   const contentLeft = 28;
   const contentWidth = 185;
-  const badgeX = 249;
+  const badgeX = 237;
 
   pdf.setProperties({
     title: `${certificate.label} Certificate - ${studentName}`,
@@ -309,24 +309,20 @@ export function createExamCertificatePdf(result, options = {}) {
 
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(...dark);
-  pdf.setFontSize(10);
-  pdf.text(institutionName.toUpperCase(), contentLeft, 32);
-  pdf.setFont("helvetica", "normal");
-  pdf.setTextColor(91, 101, 117);
-  pdf.setFontSize(7.5);
-  pdf.text("POWERED BY PREPMATRIX AI", contentLeft, 39);
+  pdf.setFontSize(15);
+  pdf.text("PrepMatrix AI", contentLeft, 32);
 
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(...dark);
   pdf.setFontSize(28);
-  pdf.text("CERTIFICATE", contentLeft, 65);
+  pdf.text("CERTIFICATE", contentLeft, 60);
   pdf.setFontSize(14);
   pdf.setTextColor(...primary);
-  pdf.text("OF ACHIEVEMENT", contentLeft, 76);
+  pdf.text("OF ACHIEVEMENT", contentLeft, 71);
 
   pdf.setDrawColor(...primary);
   pdf.setLineWidth(0.8);
-  pdf.line(contentLeft, 83, contentLeft + 64, 83);
+  pdf.line(contentLeft, 78, contentLeft + 64, 78);
 
   pdf.setFont("helvetica", "normal");
   pdf.setTextColor(91, 101, 117);
@@ -340,17 +336,30 @@ export function createExamCertificatePdf(result, options = {}) {
   pdf.text(studentLines.slice(0, 2), contentLeft, 110);
   const nameBottom = 110 + Math.max(0, studentLines.slice(0, 2).length - 1) * 9;
 
+  const institutionKey = "INSTITUTION:";
+  const institutionY = nameBottom + 8;
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(...dark);
+  pdf.setFontSize(8);
+  pdf.text(institutionKey, contentLeft, institutionY);
+  const institutionValueX = contentLeft + pdf.getTextWidth(institutionKey) + 2;
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(91, 101, 117);
+  pdf.text(institutionName, institutionValueX, institutionY, {
+    maxWidth: contentLeft + contentWidth - institutionValueX,
+  });
+
   pdf.setFont("helvetica", "normal");
   pdf.setTextColor(91, 101, 117);
   pdf.setFontSize(9);
-  pdf.text("for successfully completing the assessment", contentLeft, nameBottom + 13);
+  pdf.text("for successfully completing the assessment", contentLeft, nameBottom + 17);
 
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(...dark);
   pdf.setFontSize(13);
   const titleLines = pdf.splitTextToSize(examTitle, contentWidth);
-  pdf.text(titleLines.slice(0, 2), contentLeft, nameBottom + 27);
-  const titleBottom = nameBottom + 27 + Math.max(0, titleLines.slice(0, 2).length - 1) * 5.5;
+  pdf.text(titleLines.slice(0, 2), contentLeft, nameBottom + 29);
+  const titleBottom = nameBottom + 29 + Math.max(0, titleLines.slice(0, 2).length - 1) * 5.5;
 
   pdf.setFont("helvetica", "normal");
   pdf.setTextColor(76, 86, 102);

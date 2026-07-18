@@ -1002,7 +1002,7 @@ function CertificateModal({ result, userProfile, onClose }) {
 
             <div className="exam-certificate-brand">
               <span><Award size={23} /></span>
-              <div><strong>{institutionName}</strong><small>Powered by PrepMatrix AI</small></div>
+              <div><strong>PrepMatrix AI</strong></div>
             </div>
 
             <div className="exam-certificate-copy">
@@ -1010,6 +1010,7 @@ function CertificateModal({ result, userProfile, onClose }) {
               <h2>Certificate <small>of Achievement</small></h2>
               <p>This certificate is proudly presented to</p>
               <h3>{studentName}</h3>
+              <p className="exam-certificate-institution"><strong>Institution:</strong> {institutionName}</p>
               <p>for successfully completing the assessment</p>
               <h4>{examTitle}</h4>
               <p>with a score of <strong>{score}/{total} ({percentage}%)</strong>, earning the {certificate.label} achievement badge.</p>
