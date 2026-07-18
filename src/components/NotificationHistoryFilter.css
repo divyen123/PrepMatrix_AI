@@ -46,8 +46,9 @@
   top: calc(100% + 9px);
   right: 0;
   z-index: 80;
+  box-sizing: border-box;
   width: min(330px, calc(100vw - 32px));
-  max-height: min(520px, calc(100dvh - 32px));
+  max-height: var(--notification-filter-menu-max-height, min(520px, calc(100dvh - 32px)));
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 14px;
@@ -60,6 +61,11 @@
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   animation: notificationFilterIn 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.notification-filter-menu.is-above {
+  top: auto;
+  bottom: calc(100% + 9px);
 }
 
 body.dark .notification-filter-menu,

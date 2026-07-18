@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Clock3, X } from "lucide-react";
 
 import {
@@ -25,6 +25,10 @@ const DATE_FILTER_LABELS = Object.freeze({
   [NOTIFICATION_DATE_FILTERS.CUSTOM]: "Custom range",
 });
 
+const FILTER_MENU_EDGE_GAP = 16;
+const FILTER_MENU_TRIGGER_GAP = 9;
+const FILTER_MENU_MAX_HEIGHT = 520;
+
 function NotificationHistoryFilter({
   closeSignal,
   customEndDate,
@@ -41,6 +45,7 @@ function NotificationHistoryFilter({
   const [draftStartDate, setDraftStartDate] = useState(customStartDate || "");
   const [draftEndDate, setDraftEndDate] = useState(customEndDate || "");
   const [customError, setCustomError] = useState("");
+  const [menuLayout, setMenuLayout] = useState({ maxHeight: FILTER_MENU_MAX_HEIGHT, placement: "below" });
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
 
@@ -63,6 +68,53 @@ function NotificationHistoryFilter({
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+
+    const visualViewport = window.visualViewport;
+
+    function updateMenuLayout() {
+      const triggerRect = triggerRef.current?.getBoundingClientRect();
+      if (!triggerRect) return;
+
+      const viewportTop = visualViewport?.offsetTop ?? 0;
+      const viewportHeight = visualViewport?.height ?? window.innerHeight;
+      const viewportBottom = viewportTop + viewportHeight;
+      const spaceBelow = Math.max(
+        0,
+        viewportBottom - triggerRect.bottom - FILTER_MENU_TRIGGER_GAP - FILTER_MENU_EDGE_GAP,
+      );
+      const spaceAbove = Math.max(
+        0,
+        triggerRect.top - viewportTop - FILTER_MENU_TRIGGER_GAP - FILTER_MENU_EDGE_GAP,
+      );
+      const placement = spaceBelow >= FILTER_MENU_MAX_HEIGHT || spaceBelow >= spaceAbove
+        ? "below"
+        : "above";
+      const availableSpace = placement === "below" ? spaceBelow : spaceAbove;
+      const maxHeight = Math.max(1, Math.floor(Math.min(FILTER_MENU_MAX_HEIGHT, availableSpace)));
+
+      setMenuLayout((current) => (
+        current.maxHeight === maxHeight && current.placement === placement
+          ? current
+          : { maxHeight, placement }
+      ));
+    }
+
+    updateMenuLayout();
+    window.addEventListener("resize", updateMenuLayout);
+    window.addEventListener("scroll", updateMenuLayout, true);
+    visualViewport?.addEventListener("resize", updateMenuLayout);
+    visualViewport?.addEventListener("scroll", updateMenuLayout);
+
+    return () => {
+      window.removeEventListener("resize", updateMenuLayout);
+      window.removeEventListener("scroll", updateMenuLayout, true);
+      visualViewport?.removeEventListener("resize", updateMenuLayout);
+      visualViewport?.removeEventListener("scroll", updateMenuLayout);
     };
   }, [open]);
 
@@ -144,9 +196,10 @@ function NotificationHistoryFilter({
       {open && (
         <div
           aria-label="Sort and filter notifications"
-          className="notification-filter-menu"
+          className={`notification-filter-menu is-${menuLayout.placement}`}
           id="notification-history-filter-menu"
           role="dialog"
+          style={{ "--notification-filter-menu-max-height": `${menuLayout.maxHeight}px` }}
         >
           <div className="notification-filter-menu-header">
             <div>
