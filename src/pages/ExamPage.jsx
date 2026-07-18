@@ -1075,10 +1075,9 @@ function ResultsPanel({ results, onRefresh, userProfile }) {
           return (
             <article className={cardClass} key={id}>
               <div className="exam-result-top">
-                <div className="exam-heading-icon">{locked ? <Clock3 size={18} /> : <Trophy size={18} />}</div>
-                <span>{locked ? "Result pending" : "Result released"}</span>
+                <div className="exam-heading-icon">{locked ? <Clock3 size={16} /> : <Trophy size={16} />}</div>
+                <h3>{result.title || result.subjectName}</h3>
               </div>
-              <h3>{result.title || result.subjectName}</h3>
               <p>{result.subjectName} | Submitted {formatDate(result.submittedAt)}</p>
               {locked ? (
                 <div className="exam-result-countdown">

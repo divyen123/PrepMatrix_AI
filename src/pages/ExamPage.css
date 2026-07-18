@@ -1142,14 +1142,14 @@
 
 .exam-results-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 13px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .exam-result-card {
   display: flex;
-  min-height: 225px;
-  padding: 19px;
+  min-height: 184px;
+  padding: 14px;
   flex-direction: column;
 }
 
@@ -1167,27 +1167,30 @@
 
 .exam-result-top {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 7px;
+  min-width: 0;
 }
 
-.exam-result-top span {
-  color: var(--text-secondary);
-  font-size: 0.65rem;
-  font-weight: 760;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.exam-result-card .exam-heading-icon {
+  width: 32px;
+  height: 32px;
+  flex-basis: 32px;
+  border-radius: 9px;
 }
 
-.exam-result-card h3 {
-  margin: 13px 0 4px;
-  font-size: 0.96rem;
+.exam-result-top h3 {
+  min-width: 0;
+  margin: 1px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .exam-result-card > p {
-  margin: 0;
+  margin: 8px 0 0;
   color: var(--text-secondary);
-  font-size: 0.65rem;
+  font-size: 0.62rem;
+  line-height: 1.4;
 }
 
 .exam-result-card > button {
@@ -1197,8 +1200,8 @@
 
 .exam-result-countdown {
   display: grid;
-  margin: 14px 0;
-  padding: 10px;
+  margin: 9px 0;
+  padding: 8px;
   border: 1px solid rgba(245, 158, 11, 0.2);
   border-radius: 10px;
   background: rgba(245, 158, 11, 0.055);
@@ -1220,12 +1223,12 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin: 14px 0;
+  margin: 9px 0;
 }
 
 .exam-result-score strong {
   color: var(--exam-success);
-  font-size: 1.55rem;
+  font-size: 1.35rem;
 }
 
 .exam-result-score span {
@@ -2345,6 +2348,10 @@ body.has-bg-image .exam-result-modal > section {
 
   .exam-paper-history-grid {
     grid-template-columns: 1fr;
+  }
+
+  .exam-results-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .exam-runner__status .exam-save-state {
