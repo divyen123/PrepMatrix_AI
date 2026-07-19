@@ -13498,6 +13498,8 @@ button.bg-palette-thumbnail-btn:hover {
 
 /* ── Copy block (heading + subtitle) ── */
 .auth-card--v2 .auth-copy {
+  width: 100% !important;
+  align-self: stretch !important;
   margin-bottom: 20px !important;
   text-align: center !important;
 }
