@@ -1,6 +1,9 @@
+import { useRef, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import AddSubject from "../components/AddSubject";
 import SubjectList from "../components/SubjectList";
+import SubjectSnapshotDialog from "../components/SubjectSnapshotDialog";
 import {
   ACADEMIC_LEVEL_OPTIONS,
   SCHOOL_CLASS_OPTIONS,
@@ -20,7 +23,13 @@ function SubjectsPage({
   userProfile,
   onAcademicProfileChange,
 }) {
-  const totalChapters = subjects.reduce((sum, subject) => sum + subject.chapters, 0);
+  const addSubjectRef = useRef(null);
+  const subjectLibraryRef = useRef(null);
+  const [activeSnapshot, setActiveSnapshot] = useState(null);
+  const totalChapters = subjects.reduce(
+    (sum, subject) => sum + (Number(subject?.chapters) || 0),
+    0,
+  );
   const hardSubjects = subjects.filter((subject) => subject.difficulty === "hard").length;
   const academicProfile = normalizeAcademicProfile({ ...userProfile, academicLevel, academicTrack });
   const isSchoolLearner = isSchoolAcademicLevel(academicProfile.academicLevel);
@@ -31,6 +40,42 @@ function SubjectsPage({
     if (patch.academicLevel) setAcademicLevel?.(patch.academicLevel);
     if (patch.academicTrack) setAcademicTrack?.(patch.academicTrack);
   });
+  const snapshotMetrics = [
+    {
+      desktopLabel: "Total subjects",
+      id: "subjects",
+      mobileLabel: "Subjects",
+      value: subjects.length,
+    },
+    {
+      desktopLabel: "Total chapters",
+      id: "chapters",
+      mobileLabel: "Chapters",
+      value: totalChapters,
+    },
+    {
+      desktopLabel: "Hard-priority subjects",
+      id: "hard",
+      mobileLabel: "Hard",
+      value: hardSubjects,
+    },
+  ];
+
+  const handleSnapshotPrimaryAction = (target) => {
+    const targetRef = target === "add-subject" ? addSubjectRef : subjectLibraryRef;
+    setActiveSnapshot(null);
+
+    window.requestAnimationFrame(() => {
+      const targetElement = targetRef.current;
+      if (!targetElement) return;
+
+      targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+      const focusTarget = target === "add-subject"
+        ? targetElement.querySelector("input")
+        : targetElement.querySelector(".subject-card-open, button");
+      focusTarget?.focus({ preventScroll: true });
+    });
+  };
 
   return (
     <section className="page-stack">
@@ -135,8 +180,12 @@ function SubjectsPage({
             </p>
           </section>
 
-          <AddSubject subjects={subjects} setSubjects={setSubjects} />
-          <SubjectList hasActiveSchedule={hasActiveSchedule} subjects={subjects} setSubjects={setSubjects} />
+          <div className="subject-page-anchor" ref={addSubjectRef}>
+            <AddSubject subjects={subjects} setSubjects={setSubjects} />
+          </div>
+          <div className="subject-page-anchor" ref={subjectLibraryRef}>
+            <SubjectList hasActiveSchedule={hasActiveSchedule} subjects={subjects} setSubjects={setSubjects} />
+          </div>
         </div>
 
         <div className="page-stack subjects-side-panel">
@@ -144,21 +193,25 @@ function SubjectsPage({
             <span className="section-tag">Overview</span>
             <h3>Subject load snapshot</h3>
             <ul className="metric-list">
-              <li>
-                <strong>{subjects.length}</strong>
-                <span className="desktop-only-text">Total subjects</span>
-                <span className="mobile-only-text">Subjects</span>
-              </li>
-              <li>
-                <strong>{totalChapters}</strong>
-                <span className="desktop-only-text">Total chapters</span>
-                <span className="mobile-only-text">Chapters</span>
-              </li>
-              <li>
-                <strong>{hardSubjects}</strong>
-                <span className="desktop-only-text">Hard-priority subjects</span>
-                <span className="mobile-only-text">Hard</span>
-              </li>
+              {snapshotMetrics.map((metric) => (
+                <li className="subject-snapshot-metric" key={metric.id}>
+                  <button
+                    aria-expanded={activeSnapshot === metric.id}
+                    aria-haspopup="dialog"
+                    aria-label={`${metric.desktopLabel}: ${metric.value}. Open details`}
+                    className="subject-snapshot-trigger"
+                    onClick={() => setActiveSnapshot(metric.id)}
+                    type="button"
+                  >
+                    <strong>{metric.value}</strong>
+                    <span className="desktop-only-text">{metric.desktopLabel}</span>
+                    <span className="mobile-only-text">{metric.mobileLabel}</span>
+                    <span className="subject-snapshot-open-cue" aria-hidden="true">
+                      <ChevronRight size={16} />
+                    </span>
+                  </button>
+                </li>
+              ))}
             </ul>
           </article>
 
@@ -182,6 +235,15 @@ function SubjectsPage({
           </article>
         </div>
       </div>
+
+      {activeSnapshot && (
+        <SubjectSnapshotDialog
+          activeSnapshot={activeSnapshot}
+          onClose={() => setActiveSnapshot(null)}
+          onPrimaryAction={handleSnapshotPrimaryAction}
+          subjects={subjects}
+        />
+      )}
     </section>
   );
 }
