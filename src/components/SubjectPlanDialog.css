@@ -276,26 +276,26 @@ body .subject-plan-close:focus-visible {
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
 }
 
-body .subject-topic-composer button {
+body .subject-plan-dialog .subject-topic-composer > button {
   min-height: 44px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   gap: 7px !important;
   padding: 0 14px !important;
-  color: var(--button-text) !important;
-  background: rgb(var(--accent-rgb)) !important;
-  border: 1px solid rgba(var(--accent-rgb), 0.82) !important;
+  color: var(--text) !important;
+  background: var(--surface-muted) !important;
+  border: 1px solid var(--border) !important;
   border-radius: 12px !important;
   box-shadow: none !important;
   font-size: 0.78rem !important;
   font-weight: 800 !important;
 }
 
-body .subject-topic-composer button:hover {
-  color: var(--button-text) !important;
-  background: rgb(var(--accent-rgb)) !important;
-  border-color: rgb(var(--accent-rgb)) !important;
+body .subject-plan-dialog .subject-topic-composer > button:hover {
+  color: var(--text) !important;
+  background: var(--surface) !important;
+  border-color: rgba(var(--accent-rgb), 0.38) !important;
   transform: translateY(-1px);
 }
 
@@ -664,17 +664,17 @@ body .subject-plan-save:hover:not(:disabled) {
   border-color: rgba(var(--accent-rgb), 0.3) !important;
 }
 
-body .subject-plan-primary {
-  color: var(--button-text) !important;
-  background: rgb(var(--accent-rgb)) !important;
-  border: 1px solid rgba(var(--accent-rgb), 0.82) !important;
+body .subject-plan-dialog .subject-plan-footer-actions > .subject-plan-primary {
+  color: var(--text) !important;
+  background: var(--surface-muted) !important;
+  border: 1px solid var(--border) !important;
   box-shadow: none !important;
 }
 
-body .subject-plan-primary:hover {
-  color: var(--button-text) !important;
-  background: rgb(var(--accent-rgb)) !important;
-  border-color: rgb(var(--accent-rgb)) !important;
+body .subject-plan-dialog .subject-plan-footer-actions > .subject-plan-primary:hover {
+  color: var(--text) !important;
+  background: var(--surface) !important;
+  border-color: rgba(var(--accent-rgb), 0.38) !important;
   transform: translateY(-1px);
 }
 
