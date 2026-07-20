@@ -1,0 +1,108 @@
+.subject-library-card .subject-row {
+  gap: 8px;
+  padding: 0;
+  overflow: hidden;
+}
+
+body .subject-library-card .subject-card-open {
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  align-self: stretch !important;
+  padding: 18px 10px 18px 24px !important;
+  color: inherit !important;
+  text-align: left !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+body .subject-library-card .subject-card-open:hover {
+  transform: none !important;
+}
+
+body .subject-library-card .subject-card-open:focus-visible {
+  outline: 3px solid rgba(var(--accent-rgb), 0.26) !important;
+  outline-offset: -4px !important;
+}
+
+.subject-library-card .subject-card-open .subject-left {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.subject-library-card .subject-name {
+  overflow-wrap: anywhere;
+}
+
+.subject-library-card .subject-meta-row {
+  flex-wrap: wrap;
+}
+
+.subject-plan-mini-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.subject-plan-mini-chip svg {
+  color: rgb(var(--accent-rgb));
+}
+
+.subject-config-cue {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  transition: color 160ms ease, transform 160ms ease;
+}
+
+.subject-card-open:hover .subject-config-cue,
+.subject-card-open:focus-visible .subject-config-cue {
+  color: rgb(var(--accent-rgb));
+  transform: translateX(2px);
+}
+
+.subject-library-card .subject-right {
+  flex: 0 0 auto;
+  padding-right: 20px;
+}
+
+body.has-bg-image .subject-library-card .subject-card-open {
+  color: #f0f0f5 !important;
+}
+
+@media (max-width: 640px) {
+  .subject-library-card .subject-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+  }
+
+  body .subject-library-card .subject-card-open {
+    width: auto !important;
+    padding: 15px 8px 15px 16px !important;
+  }
+
+  .subject-config-cue span {
+    display: none;
+  }
+
+  .subject-library-card .subject-right {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    align-self: stretch;
+    padding-right: 12px;
+  }
+}

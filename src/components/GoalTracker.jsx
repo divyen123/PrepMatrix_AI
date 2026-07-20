@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { extractSubjectFromTask } from "../utils/plannerMetrics";
 
 function GoalTracker({ completed, schedule, subjects = [] }) {
   const [goal, setGoal] = useState("");
@@ -22,7 +23,7 @@ function GoalTracker({ completed, schedule, subjects = [] }) {
     ...new Set(
       (matchedSubjects.length
         ? matchedSubjects.map((subject) => subject.name)
-        : goalTasks.map((task) => task.task.split(" - Chapter ")[0]).filter(Boolean)
+        : goalTasks.map((task) => extractSubjectFromTask(task.task)).filter(Boolean)
       )
     ),
   ];

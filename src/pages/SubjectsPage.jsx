@@ -12,6 +12,7 @@ import {
 function SubjectsPage({
   academicLevel,
   academicTrack,
+  hasActiveSchedule = false,
   setAcademicLevel,
   setAcademicTrack,
   subjects,
@@ -135,7 +136,7 @@ function SubjectsPage({
           </section>
 
           <AddSubject subjects={subjects} setSubjects={setSubjects} />
-          <SubjectList subjects={subjects} setSubjects={setSubjects} />
+          <SubjectList hasActiveSchedule={hasActiveSchedule} subjects={subjects} setSubjects={setSubjects} />
         </div>
 
         <div className="page-stack subjects-side-panel">

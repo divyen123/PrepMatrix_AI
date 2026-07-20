@@ -379,8 +379,9 @@ function App() {
     return normalized;
   }, [academicLevel, academicTrack, userProfile]);
 
-  const updateSubjects = (nextSubjects) => {
+  const updateSubjects = (nextSubjects, options = {}) => {
     setSubjects(Array.isArray(nextSubjects) ? nextSubjects : []);
+    if (options.preserveSchedule) return;
     setSchedule([]);
     setCompleted([]);
     setScheduleStartDate(null);
@@ -1328,6 +1329,7 @@ function App() {
                             <SubjectsPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
+                              hasActiveSchedule={schedule.length > 0}
                               onAcademicProfileChange={updateAcademicProfile}
                               setSubjects={updateSubjects}
                               subjects={subjects}
