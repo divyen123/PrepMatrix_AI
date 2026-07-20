@@ -75,6 +75,11 @@ const api = {
   deleteAccount: (password) => request("/api/auth/account", { method: "DELETE", body: JSON.stringify({ password }) }),
   saveWorkspace: (body) => request("/api/workspace", { method: "PUT", body: JSON.stringify(body) }),
   importWorkspace: (body) => request("/api/workspace/import", { method: "POST", body: JSON.stringify(body) }),
+  getResumeBuilderStatus: () => request("/api/resume-builder/status"),
+  generateResume: (body = {}) => request("/api/resume-builder/generate", {
+    method: "POST",
+    body: JSON.stringify(body),
+  }),
   getNotes: () => request("/api/notes"),
   saveNotes: (notes) => request("/api/notes", { method: "PUT", body: JSON.stringify({ notes }) }),
   getQuizzes: () => request("/api/quizzes"),

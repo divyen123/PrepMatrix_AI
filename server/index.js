@@ -37,6 +37,12 @@ import {
   NOTIFICATION_HISTORY_COLLECTION,
   registerNotificationHistoryRoutes,
 } from "./notificationHistory.js";
+import { normalizeResumeBuilderState } from "../src/utils/resumeBuilder.js";
+import {
+  RESUME_GENERATIONS_COLLECTION,
+  RESUME_GENERATION_LOCKS_COLLECTION,
+  registerResumeBuilderRoutes,
+} from "./resumeBuilderRoutes.js";
 
 dotenv.config();
 
@@ -166,6 +172,12 @@ async function getDb() {
     mongoDb.collection("examAttempts").createIndex({ userId: 1, examId: 1 }, { unique: true }),
     mongoDb.collection("examAttempts").createIndex({ userId: 1, resultAvailableAt: -1 }),
     mongoDb.collection("examStartLocks").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    mongoDb.collection(RESUME_GENERATIONS_COLLECTION).createIndex({ userId: 1, generatedAt: -1 }),
+    mongoDb.collection(RESUME_GENERATIONS_COLLECTION).createIndex(
+      { userId: 1, requestId: 1 },
+      { unique: true, partialFilterExpression: { requestId: { $type: "string" } } },
+    ),
+    mongoDb.collection(RESUME_GENERATION_LOCKS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     mongoDb.collection("scheduledReminderDeliveries").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     mongoDb.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex({ userId: 1, createdAt: -1, _id: -1 }),
     mongoDb.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex({ userId: 1, readAt: 1 }),
@@ -264,6 +276,7 @@ function defaultWorkspace(user) {
     academicLevel: academicProfile.academicLevel,
     academicTrack: academicProfile.academicTrack,
     materialBookmarks: [],
+    resumeBuilder: normalizeResumeBuilderState(null, user),
     goalReminderData: normalizeGoalReminderData(),
     goalReminderSettings: normalizeGoalReminderSettings(),
     darkMode: false,
@@ -290,6 +303,7 @@ function normalizeWorkspace(doc, user) {
     academicLevel: academicProfile.academicLevel,
     academicTrack: academicProfile.academicTrack,
     materialBookmarks: Array.isArray(doc?.materialBookmarks) ? doc.materialBookmarks : [],
+    resumeBuilder: normalizeResumeBuilderState(doc?.resumeBuilder, { ...user, ...academicProfile }),
     goalReminderData: normalizeGoalReminderData(doc?.goalReminderData),
     goalReminderSettings: normalizeGoalReminderSettings(doc?.goalReminderSettings),
     darkMode: Boolean(doc?.darkMode),
@@ -714,6 +728,8 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
     db.collection("scheduledReminderDeliveries").deleteMany({ userId }),
     db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteMany({ userId }),
     db.collection("questionPapers").deleteMany({ userId }),
+    db.collection(RESUME_GENERATIONS_COLLECTION).deleteMany({ userId }),
+    db.collection(RESUME_GENERATION_LOCKS_COLLECTION).deleteMany({ _id: `resume-generation:${String(userId)}` }),
     db.collection("sessions").deleteMany({ userId }),
     db.collection("users").deleteOne({ _id: userId }),
   ]);
@@ -959,7 +975,7 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
 
 app.put("/api/workspace", requireAuth(async (req, res) => {
   const db = await getDb();
-  const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "goalReminderData", "goalReminderSettings", "darkMode", "scheduleStartDate"];
+  const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "darkMode", "scheduleStartDate"];
   const update = allowed.reduce((next, key) => {
     if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
     return next;
@@ -969,6 +985,7 @@ app.put("/api/workspace", requireAuth(async (req, res) => {
   }
   if ("goalReminderData" in update) update.goalReminderData = normalizeGoalReminderData(update.goalReminderData);
   if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);
+  if ("resumeBuilder" in update) update.resumeBuilder = normalizeResumeBuilderState(update.resumeBuilder, req.user);
   await db.collection("workspaces").updateOne(
     { userId: req.user._id },
     { $set: update, $setOnInsert: { userId: req.user._id } },
@@ -982,7 +999,7 @@ app.put("/api/workspace", requireAuth(async (req, res) => {
 app.post("/api/workspace/import", requireAuth(async (req, res) => {
   try {
     const db = await getDb();
-    const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "goalReminderData", "goalReminderSettings", "darkMode", "scheduleStartDate"];
+    const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "darkMode", "scheduleStartDate"];
     const update = allowed.reduce((next, key) => {
       if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
       return next;
@@ -992,6 +1009,7 @@ app.post("/api/workspace/import", requireAuth(async (req, res) => {
     }
     if ("goalReminderData" in update) update.goalReminderData = normalizeGoalReminderData(update.goalReminderData);
     if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);
+    if ("resumeBuilder" in update) update.resumeBuilder = normalizeResumeBuilderState(update.resumeBuilder, req.user);
     await db.collection("workspaces").updateOne(
       { userId: req.user._id },
       { $set: update, $setOnInsert: { userId: req.user._id } },
@@ -1018,6 +1036,11 @@ registerPushNotificationRoutes(app, {
 registerNotificationHistoryRoutes(app, {
   getDb,
   mutationSecurity: requireNotificationMutationSecurity,
+  requireAuth,
+});
+
+registerResumeBuilderRoutes(app, {
+  getDb,
   requireAuth,
 });
 

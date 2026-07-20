@@ -13,6 +13,7 @@ import {
   Trophy,
   ClipboardList,
   Library,
+  FileUser,
   Menu,
   X,
   Settings as SettingsIcon,
@@ -41,6 +42,10 @@ import {
   normalizeAcademicProfile,
 } from "./utils/academicProfile";
 import {
+  getResumeEligibility,
+  normalizeResumeBuilderState,
+} from "./utils/resumeBuilder";
+import {
   DEFAULT_GOAL_REMINDER_DATA,
   DEFAULT_GOAL_REMINDER_SETTINGS,
   normalizePlannerData,
@@ -65,6 +70,7 @@ const QuizPage = lazy(() => import("./pages/QuizPage"));
 const ReportPage = lazy(() => import("./pages/ReportPage"));
 const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
 const SubjectsPage = lazy(() => import("./pages/SubjectsPage"));
+const ResumeBuilderPage = lazy(() => import("./pages/ResumeBuilderPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const NotificationHistoryPage = lazy(() => import("./pages/NotificationHistoryPage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
@@ -105,6 +111,13 @@ const NAV_ITEMS = [
   { to: "/quiz", label: "Quiz", helper: "Topic-level checks", icon: Trophy },
   { to: "/report", label: "Report", helper: "Planner intelligence", icon: ClipboardList },
   { to: "/resources", label: "Materials", helper: "Suggested study resources", icon: Library },
+  {
+    to: "/resume-builder",
+    label: "Resume Builder",
+    helper: "Create, edit, and export a professional resume",
+    icon: FileUser,
+    resumeOnly: true,
+  },
 ];
 
 function getTaskNames(schedule = []) {
@@ -220,6 +233,7 @@ function App() {
   const [academicLevel, setAcademicLevel] = useState("College");
   const [academicTrack, setAcademicTrack] = useState("General");
   const [materialBookmarks, setMaterialBookmarks] = useState([]);
+  const [resumeBuilder, setResumeBuilder] = useState(() => normalizeResumeBuilderState());
   const [goalReminderData, setGoalReminderData] = useState(() => normalizePlannerData(DEFAULT_GOAL_REMINDER_DATA));
   const [goalReminderSettings, setGoalReminderSettings] = useState(() => normalizePlannerSettings(DEFAULT_GOAL_REMINDER_SETTINGS));
   const [darkMode, setDarkMode] = useState(() => {
@@ -261,7 +275,21 @@ function App() {
   );
 
   const isAuthRoute = location.pathname === "/login" || location.pathname === "/register";
-  const activeRoute = NAV_ITEMS.find((item) => location.pathname.startsWith(item.to));
+  const resumeEligibility = useMemo(
+    () => getResumeEligibility({
+      ...(userProfile || {}),
+      academicLevel,
+      academicTrack,
+    }),
+    [academicLevel, academicTrack, userProfile]
+  );
+  const visibleNavItems = useMemo(
+    () => NAV_ITEMS.filter(
+      (item) => !item.resumeOnly || (userProfile && resumeEligibility.enabled)
+    ),
+    [resumeEligibility.enabled, userProfile]
+  );
+  const activeRoute = visibleNavItems.find((item) => location.pathname.startsWith(item.to));
   const titleLabel = activeRoute?.label || (
     location.pathname.startsWith("/exam/about") ? "Exam Guide" :
     location.pathname.startsWith("/exam") ? "Exam" :
@@ -333,6 +361,10 @@ function App() {
       setUserProfile((current) => ({ ...(current || profile), ...nextAcademicProfile }));
     }
     setMaterialBookmarks(Array.isArray(workspace?.materialBookmarks) ? workspace.materialBookmarks : []);
+    setResumeBuilder(normalizeResumeBuilderState(workspace?.resumeBuilder, {
+      ...(profile || {}),
+      ...nextAcademicProfile,
+    }));
     const nextGoalReminderSettings = normalizePlannerSettings(workspace?.goalReminderSettings || DEFAULT_GOAL_REMINDER_SETTINGS);
     const nextGoalReminderData = syncStudyTargetReminders(workspace?.goalReminderData || DEFAULT_GOAL_REMINDER_DATA, nextGoalReminderSettings);
     setGoalReminderData(nextGoalReminderData);
@@ -626,6 +658,7 @@ function App() {
         academicLevel,
         academicTrack,
         materialBookmarks,
+        resumeBuilder,
         goalReminderData,
         goalReminderSettings,
         darkMode,
@@ -640,7 +673,7 @@ function App() {
         window.clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [academicLevel, academicTrack, completed, darkMode, goalReminderData, goalReminderSettings, materialBookmarks, schedule, subjects, userProfile, workspaceLoaded, scheduleStartDate]);
+  }, [academicLevel, academicTrack, completed, darkMode, goalReminderData, goalReminderSettings, materialBookmarks, resumeBuilder, schedule, subjects, userProfile, workspaceLoaded, scheduleStartDate]);
 
   useEffect(() => {
     const backgroundImageId = localStorage.getItem("prepmatrix_bg_image_id") || "";
@@ -1046,7 +1079,7 @@ function App() {
             </button>
           </div>
           <nav className="sidebar-nav" aria-label="Primary navigation">
-            {NAV_ITEMS.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink
@@ -1416,6 +1449,24 @@ function App() {
                         />
                         <Route
                           element={
+                            resumeEligibility.enabled ? (
+                              <ResumeBuilderPage
+                                academicProfile={{
+                                  academicLevel,
+                                  academicTrack,
+                                }}
+                                onResumeBuilderChange={setResumeBuilder}
+                                resumeBuilder={resumeBuilder}
+                                userProfile={userProfile}
+                              />
+                            ) : (
+                              <Navigate replace to="/subjects" />
+                            )
+                          }
+                          path="/resume-builder"
+                        />
+                        <Route
+                          element={
                             <ResourcesPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
@@ -1445,6 +1496,7 @@ function App() {
                               materialBookmarks={materialBookmarks}
                               goalReminderData={goalReminderData}
                               goalReminderSettings={goalReminderSettings}
+                              resumeBuilder={resumeBuilder}
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
                               setAcademicLevel={setAcademicLevel}
@@ -1455,6 +1507,7 @@ function App() {
                               setMaterialBookmarks={setMaterialBookmarks}
                               setGoalReminderData={setGoalReminderData}
                               setGoalReminderSettings={setGoalReminderSettings}
+                              setResumeBuilder={setResumeBuilder}
                               setNotification={setNotification}
                               onAccountDeleted={handleAccountDeleted}
                               cursorStyle={cursorStyle}

@@ -19,6 +19,7 @@ import {
   isSchoolAcademicLevel,
   normalizeAcademicProfile,
 } from "../utils/academicProfile";
+import { normalizeResumeBuilderState } from "../utils/resumeBuilder";
 import BACKGROUND_PRESETS from "../utils/backgroundPresets";
 import {
   BACKGROUND_IMAGE_BLUR_MAX_PX,
@@ -182,9 +183,9 @@ function ToggleSwitch({ checked, onChange, label, subtitle, disabled = false }) 
 function SettingsPage({
   userProfile, setUserProfile, setAcademicLevel, setAcademicTrack,
   darkMode, setDarkMode, subjects, schedule, scheduleStartDate, completed, materialBookmarks,
-  goalReminderData, goalReminderSettings,
+  goalReminderData, goalReminderSettings, resumeBuilder,
   academicLevel, academicTrack, setSubjects, setSchedule, setCompleted,
-  setMaterialBookmarks, setGoalReminderData, setGoalReminderSettings,
+  setMaterialBookmarks, setGoalReminderData, setGoalReminderSettings, setResumeBuilder,
   setNotification, onAccountDeleted,
   onAcademicProfileChange,
   cursorStyle: parentCursorStyle, setCursorStyle: setParentCursorStyle
@@ -1089,6 +1090,10 @@ function SettingsPage({
       schedule,
       completed,
       materialBookmarks,
+      resumeBuilder: {
+        draft: resumeBuilder?.draft,
+        layout: resumeBuilder?.layout,
+      },
       goalReminderData,
       goalReminderSettings,
       academicLevel,
@@ -1121,6 +1126,16 @@ function SettingsPage({
         if (data.schedule) setSchedule(data.schedule);
         if (data.completed) setCompleted(data.completed);
         if (data.materialBookmarks) setMaterialBookmarks(data.materialBookmarks);
+        if (data.resumeBuilder) {
+          setResumeBuilder((current) => {
+            const imported = normalizeResumeBuilderState(data.resumeBuilder, userProfile);
+            return {
+              ...imported,
+              generationTimestamps: current?.generationTimestamps || [],
+              lastGeneratedAt: current?.lastGeneratedAt || null,
+            };
+          });
+        }
         if (data.goalReminderData) setGoalReminderData(normalizePlannerData(data.goalReminderData));
         if (data.goalReminderSettings) setGoalReminderSettings(normalizePlannerSettings(data.goalReminderSettings));
         if (data.academicLevel) setAcademicLevel(data.academicLevel);
@@ -1141,6 +1156,11 @@ function SettingsPage({
     setSchedule([]);
     setCompleted([]);
     setMaterialBookmarks([]);
+    setResumeBuilder((current) => ({
+      ...normalizeResumeBuilderState(null, userProfile),
+      generationTimestamps: current?.generationTimestamps || [],
+      lastGeneratedAt: current?.lastGeneratedAt || null,
+    }));
     setGoalReminderData(normalizePlannerData(DEFAULT_GOAL_REMINDER_DATA));
     setGoalReminderSettings(normalizePlannerSettings(DEFAULT_GOAL_REMINDER_SETTINGS));
     setDailyTarget(4);
