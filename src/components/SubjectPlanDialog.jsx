@@ -164,8 +164,33 @@ function SubjectPlanDialog({
     window.requestAnimationFrame(() => topicInputRef.current?.focus());
   };
 
-  const removeTopic = (topicToRemove) => {
-    setTopics((current) => current.filter((topic) => topic !== topicToRemove));
+  const updateTopic = (topicIndex, nextValue) => {
+    const nextTopic = String(nextValue ?? "").slice(0, 120);
+
+    setTopics((current) =>
+      current.map((topic, index) =>
+        index === topicIndex ? nextTopic : topic,
+      ),
+    );
+    setTopicError("");
+  };
+
+  const finishTopicEdit = (topicIndex) => {
+    setTopics((current) => {
+      const cleanedTopic = String(current[topicIndex] ?? "").trim();
+
+      if (!cleanedTopic) {
+        return current.filter((_, index) => index !== topicIndex);
+      }
+
+      return current.map((topic, index) =>
+        index === topicIndex ? cleanedTopic : topic,
+      );
+    });
+  };
+
+  const removeTopic = (topicIndex) => {
+    setTopics((current) => current.filter((_, index) => index !== topicIndex));
     setTopicError("");
   };
 
@@ -335,12 +360,27 @@ function SubjectPlanDialog({
                 </div>
               ) : (
                 topics.map((topic, index) => (
-                  <div className="subject-topic-item" key={topic}>
+                  <div className="subject-topic-item" key={`topic-${index}`}>
                     <span>{String(index + 1).padStart(2, "0")}</span>
-                    <strong>{topic}</strong>
+                    <input
+                      aria-label={`Rename topic ${index + 1}`}
+                      className="subject-topic-name-input"
+                      maxLength="120"
+                      onBlur={() => finishTopicEdit(index)}
+                      onChange={(event) => updateTopic(index, event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          event.currentTarget.blur();
+                        }
+                      }}
+                      spellCheck="false"
+                      title="Rename topic"
+                      value={topic}
+                    />
                     <button
-                      aria-label={`Remove ${topic}`}
-                      onClick={() => removeTopic(topic)}
+                      aria-label={`Remove ${topic || `topic ${index + 1}`}`}
+                      onClick={() => removeTopic(index)}
                       title="Remove topic"
                       type="button"
                     >
