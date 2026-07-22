@@ -3335,6 +3335,23 @@ body.dark select option:hover {
   justify-content: space-between;
 }
 
+.weekly-review-card .weekly-review-generate:disabled,
+.weekly-review-card .weekly-review-generate:disabled:hover {
+  opacity: 0.48 !important;
+  border-color: var(--border) !important;
+  color: var(--text-muted) !important;
+  background: var(--surface-muted) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+  cursor: not-allowed !important;
+}
+
+.weekly-review-card .weekly-review-generate:disabled::after {
+  display: none !important;
+}
+
 .resources-bookmark-header > span {
   color: var(--text-muted);
   font-weight: 800;

@@ -4,8 +4,12 @@ import { getPlannerMetrics } from "../utils/plannerMetrics";
 function WeeklyReview({ academicLevel = "College", academicTrack = "General", schedule = [], completed = [] }) {
   const [review, setReview] = useState(null);
   const metrics = useMemo(() => getPlannerMetrics(schedule, completed), [schedule, completed]);
+  const hasScheduledPlanner = metrics.hasScheduledPlanner;
+  const visibleReview = hasScheduledPlanner ? review : null;
 
   const generateReview = () => {
+    if (!hasScheduledPlanner) return;
+
     const missedTasks = metrics.remainingTasks;
     const weakSubject = metrics.weakSubject || "No weak subject detected yet";
     const nextTask = metrics.firstPendingTask || "No pending task right now";
@@ -36,7 +40,13 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
           <span className="section-tag">AI weekly review</span>
           <h3>Next-week recovery plan</h3>
         </div>
-        <button className="secondary-btn" onClick={generateReview} type="button">
+        <button
+          className="secondary-btn weekly-review-generate"
+          disabled={!hasScheduledPlanner}
+          onClick={generateReview}
+          title={hasScheduledPlanner ? "Generate weekly review" : "Generate a planner schedule first"}
+          type="button"
+        >
           Generate review
         </button>
       </div>
@@ -45,15 +55,15 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
         Summarize completed tasks, weak subjects, missed chapters, and a simple recovery path for the next week.
       </p>
 
-      {review ? (
+      {visibleReview ? (
         <div className="weekly-review-output">
           <div className="weekly-review-output-header">
             <span>Generated review</span>
-            <strong>{review.headline}</strong>
+            <strong>{visibleReview.headline}</strong>
           </div>
 
           <div className="weekly-review-highlights">
-            {review.highlights.map((item) => (
+            {visibleReview.highlights.map((item) => (
               <article key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
@@ -64,14 +74,18 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
           <div className="weekly-review-actions">
             <span>Action plan</span>
             <ul>
-              {review.actions.map((action) => (
+              {visibleReview.actions.map((action) => (
                 <li key={action}>{action}</li>
               ))}
             </ul>
           </div>
         </div>
       ) : (
-        <p className="empty-state">Click generate review to create a planner-aware weekly summary.</p>
+        <p className="empty-state">
+          {hasScheduledPlanner
+            ? "Click generate review to create a planner-aware weekly summary."
+            : "Generate a timetable in Planner to unlock your weekly review."}
+        </p>
       )}
     </section>
   );

@@ -78,6 +78,7 @@ export function getPlannerMetrics(schedule = [], completed = []) {
   const todayTasks = Array.isArray(safeSchedule[0]?.tasks) ? safeSchedule[0].tasks : [];
 
   return {
+    hasScheduledPlanner: totalTasks > 0,
     totalTasks,
     completedTasks,
     remainingTasks,
