@@ -58,7 +58,11 @@ export const RESUME_ACCENTS = Object.freeze([
 
 const cleanText = (value, max = 500) => String(value ?? "").replace(/\r\n/g, "\n").slice(0, max);
 const cleanLine = (value, max = 160) => cleanText(value, max).replace(/\s*\n+\s*/g, " ").trim();
+const cleanEditingLine = (value, max = 160) => cleanText(value, max).replace(/\s*\n+\s*/g, " ");
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+
+const isEditingMode = (options) => options?.mode === "editing";
+const lineCleaner = (options) => (isEditingMode(options) ? cleanEditingLine : cleanLine);
 
 function cleanUrl(value) {
   const raw = cleanLine(value, 240);
@@ -81,80 +85,92 @@ export function createResumeItemId(prefix = "item") {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function normalizeHighlights(value) {
-  const source = Array.isArray(value) ? value : cleanText(value, 1800).split("\n");
-  return source.map((item) => cleanLine(item, 240)).filter(Boolean).slice(0, 8);
+function normalizeHighlights(value, options) {
+  const source = Array.isArray(value)
+    ? value
+    : value == null || value === ""
+      ? []
+      : cleanText(value, 1800).split("\n");
+  const normalized = source.map((item) => lineCleaner(options)(item, 240));
+  return (isEditingMode(options) ? normalized : normalized.filter(Boolean)).slice(0, 8);
 }
 
-function normalizeEducation(item = {}, fallbackId) {
+function normalizeEducation(item = {}, fallbackId, options) {
+  const clean = lineCleaner(options);
   return {
     id: cleanLine(item.id, 100) || fallbackId || createResumeItemId("education"),
-    institution: cleanLine(item.institution, 140),
-    degree: cleanLine(item.degree, 140),
-    field: cleanLine(item.field, 140),
-    location: cleanLine(item.location, 100),
-    startDate: cleanLine(item.startDate, 40),
-    endDate: cleanLine(item.endDate, 40),
-    score: cleanLine(item.score, 80),
-    highlights: normalizeHighlights(item.highlights),
+    institution: clean(item.institution, 140),
+    degree: clean(item.degree, 140),
+    field: clean(item.field, 140),
+    location: clean(item.location, 100),
+    startDate: clean(item.startDate, 40),
+    endDate: clean(item.endDate, 40),
+    score: clean(item.score, 80),
+    highlights: normalizeHighlights(item.highlights, options),
   };
 }
 
-function normalizeExperience(item = {}, fallbackId) {
+function normalizeExperience(item = {}, fallbackId, options) {
+  const clean = lineCleaner(options);
   return {
     id: cleanLine(item.id, 100) || fallbackId || createResumeItemId("experience"),
-    role: cleanLine(item.role, 140),
-    organization: cleanLine(item.organization, 140),
-    location: cleanLine(item.location, 100),
-    startDate: cleanLine(item.startDate, 40),
-    endDate: cleanLine(item.endDate, 40),
+    role: clean(item.role, 140),
+    organization: clean(item.organization, 140),
+    location: clean(item.location, 100),
+    startDate: clean(item.startDate, 40),
+    endDate: clean(item.endDate, 40),
     current: Boolean(item.current),
-    highlights: normalizeHighlights(item.highlights),
+    highlights: normalizeHighlights(item.highlights, options),
   };
 }
 
-function normalizeProject(item = {}, fallbackId) {
+function normalizeProject(item = {}, fallbackId, options) {
+  const clean = lineCleaner(options);
   return {
     id: cleanLine(item.id, 100) || fallbackId || createResumeItemId("project"),
-    name: cleanLine(item.name, 140),
-    role: cleanLine(item.role, 120),
-    link: cleanLine(item.link, 240),
-    technologies: cleanLine(item.technologies, 240),
-    startDate: cleanLine(item.startDate, 40),
-    endDate: cleanLine(item.endDate, 40),
-    highlights: normalizeHighlights(item.highlights),
+    name: clean(item.name, 140),
+    role: clean(item.role, 120),
+    link: clean(item.link, 240),
+    technologies: clean(item.technologies, 240),
+    startDate: clean(item.startDate, 40),
+    endDate: clean(item.endDate, 40),
+    highlights: normalizeHighlights(item.highlights, options),
   };
 }
 
-function normalizeCertification(item = {}, fallbackId) {
+function normalizeCertification(item = {}, fallbackId, options) {
+  const clean = lineCleaner(options);
   return {
     id: cleanLine(item.id, 100) || fallbackId || createResumeItemId("certification"),
-    name: cleanLine(item.name, 160),
-    issuer: cleanLine(item.issuer, 140),
-    date: cleanLine(item.date, 40),
-    credentialUrl: cleanLine(item.credentialUrl, 240),
+    name: clean(item.name, 160),
+    issuer: clean(item.issuer, 140),
+    date: clean(item.date, 40),
+    credentialUrl: clean(item.credentialUrl, 240),
   };
 }
 
-function normalizeAchievement(item = {}, fallbackId) {
+function normalizeAchievement(item = {}, fallbackId, options) {
   return {
     id: cleanLine(item.id, 100) || fallbackId || createResumeItemId("achievement"),
-    title: cleanLine(item.title, 160),
-    description: cleanText(item.description, 500).trim(),
+    title: lineCleaner(options)(item.title, 160),
+    description: isEditingMode(options)
+      ? cleanText(item.description, 500)
+      : cleanText(item.description, 500).trim(),
   };
 }
 
-function normalizeLanguage(item = {}, fallbackId) {
+function normalizeLanguage(item = {}, fallbackId, options) {
+  const clean = lineCleaner(options);
   return {
     id: cleanLine(item.id, 100) || fallbackId || createResumeItemId("language"),
-    name: cleanLine(item.name, 80),
-    proficiency: cleanLine(item.proficiency, 80),
+    name: clean(item.name, 80),
+    proficiency: clean(item.proficiency, 80),
   };
 }
 
-function normalizeItems(items, normalizer, prefix, limit) {
+function normalizeItems(items, normalizer, prefix, limit, options) {
   if (!Array.isArray(items)) return [];
-  return items.slice(0, limit).map((item, index) => normalizer(item, `${prefix}-${index + 1}`));
+  return items.slice(0, limit).map((item, index) => normalizer(item, `${prefix}-${index + 1}`, options));
 }
 
 function buildProfileEducation(profile = {}) {
@@ -235,35 +251,39 @@ export function createResumeDraft(profile = {}) {
   };
 }
 
-export function normalizeResumeDraft(value, profile = {}) {
+export function normalizeResumeDraft(value, profile = {}, options = {}) {
   const source = value && typeof value === "object" ? value : {};
   const profileDraft = createResumeDraft(profile);
   const personal = source.personal && typeof source.personal === "object" ? source.personal : {};
+  const clean = lineCleaner(options);
   const skillsSource = Array.isArray(source.skills)
     ? source.skills
-    : cleanText(source.skills, 1500).split(/[\n,]/);
+    : source.skills == null || source.skills === ""
+      ? []
+      : cleanText(source.skills, 1500).split(/[\n,]/);
+  const normalizedSkills = skillsSource.map((item) => clean(item, 80));
 
   return {
     personal: {
-      fullName: cleanLine(hasOwn(personal, "fullName") ? personal.fullName : profileDraft.personal.fullName, 120),
-      headline: cleanLine(hasOwn(personal, "headline") ? personal.headline : profileDraft.personal.headline, 140),
-      email: cleanLine(hasOwn(personal, "email") ? personal.email : profileDraft.personal.email, 160),
-      phone: cleanLine(personal.phone, 60),
-      location: cleanLine(personal.location, 100),
-      linkedin: cleanUrl(personal.linkedin),
-      github: cleanUrl(personal.github),
-      portfolio: cleanUrl(personal.portfolio),
+      fullName: clean(hasOwn(personal, "fullName") ? personal.fullName : profileDraft.personal.fullName, 120),
+      headline: clean(hasOwn(personal, "headline") ? personal.headline : profileDraft.personal.headline, 140),
+      email: clean(hasOwn(personal, "email") ? personal.email : profileDraft.personal.email, 160),
+      phone: clean(personal.phone, 60),
+      location: clean(personal.location, 100),
+      linkedin: isEditingMode(options) ? clean(personal.linkedin, 240) : cleanUrl(personal.linkedin),
+      github: isEditingMode(options) ? clean(personal.github, 240) : cleanUrl(personal.github),
+      portfolio: isEditingMode(options) ? clean(personal.portfolio, 240) : cleanUrl(personal.portfolio),
     },
-    summary: cleanText(source.summary, 1200).trim(),
-    skills: skillsSource.map((item) => cleanLine(item, 80)).filter(Boolean).slice(0, 40),
-    experience: normalizeItems(source.experience, normalizeExperience, "experience", 12),
-    projects: normalizeItems(source.projects, normalizeProject, "project", 12),
+    summary: isEditingMode(options) ? cleanText(source.summary, 1200) : cleanText(source.summary, 1200).trim(),
+    skills: (isEditingMode(options) ? normalizedSkills : normalizedSkills.filter(Boolean)).slice(0, 40),
+    experience: normalizeItems(source.experience, normalizeExperience, "experience", 12, options),
+    projects: normalizeItems(source.projects, normalizeProject, "project", 12, options),
     education: Array.isArray(source.education)
-      ? normalizeItems(source.education, normalizeEducation, "education", 8)
+      ? normalizeItems(source.education, normalizeEducation, "education", 8, options)
       : profileDraft.education,
-    certifications: normalizeItems(source.certifications, normalizeCertification, "certification", 12),
-    achievements: normalizeItems(source.achievements, normalizeAchievement, "achievement", 12),
-    languages: normalizeItems(source.languages, normalizeLanguage, "language", 12),
+    certifications: normalizeItems(source.certifications, normalizeCertification, "certification", 12, options),
+    achievements: normalizeItems(source.achievements, normalizeAchievement, "achievement", 12, options),
+    languages: normalizeItems(source.languages, normalizeLanguage, "language", 12, options),
   };
 }
 
@@ -320,10 +340,10 @@ export function recordResumeGeneration(state, now = Date.now()) {
   };
 }
 
-export function normalizeResumeBuilderState(value, profile = {}) {
+export function normalizeResumeBuilderState(value, profile = {}, options = {}) {
   const source = value && typeof value === "object" ? value : {};
   return {
-    draft: normalizeResumeDraft(source.draft, profile),
+    draft: normalizeResumeDraft(source.draft, profile, options),
     layout: normalizeResumeLayout(source.layout),
     generationTimestamps: activeResumeGenerations(source.generationTimestamps),
     lastGeneratedAt: cleanLine(source.lastGeneratedAt, 40) || null,

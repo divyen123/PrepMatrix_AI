@@ -38,19 +38,24 @@ import {
   createResumeItemId,
   getResumeQuota,
   normalizeResumeBuilderState,
+  normalizeResumeDraft,
   validateResumeDraft,
 } from "../utils/resumeBuilder";
 import { createResumePdf, getResumePdfFilename } from "../utils/resumePdf";
 import "./ResumeBuilderPage.css";
 
 const EDITOR_SECTIONS = [
-  { id: "profile", label: "Profile", helper: "Contact and summary", icon: UserRound },
-  { id: "experience", label: "Experience", helper: "Work and internships", icon: BriefcaseBusiness },
-  { id: "projects", label: "Projects", helper: "Proof of your work", icon: FolderKanban },
-  { id: "education", label: "Education", helper: "Degrees and study", icon: GraduationCap },
-  { id: "skills", label: "Skills", helper: "Strengths and credentials", icon: Sparkles },
-  { id: "layout", label: "Layout", helper: "Style and ordering", icon: LayoutTemplate },
+  { id: "profile", label: "Profile", icon: UserRound },
+  { id: "experience", label: "Experience", icon: BriefcaseBusiness },
+  { id: "projects", label: "Projects", icon: FolderKanban },
+  { id: "education", label: "Education", icon: GraduationCap },
+  { id: "skills", label: "Skills", icon: Sparkles },
+  { id: "layout", label: "Layout", icon: LayoutTemplate },
 ];
+
+const EDITING_NORMALIZE_OPTIONS = Object.freeze({ mode: "editing" });
+const parseSkillsInput = (value) =>
+  String(value ?? "").split(/[,\n]/).map((item) => item.trim()).filter(Boolean).slice(0, 40);
 
 const SECTION_LABELS = {
   summary: "Professional summary",
@@ -191,7 +196,7 @@ function RepeatableCard({ index, title, subtitle, onRemove, children }) {
             <small>{subtitle}</small>
           </div>
         </div>
-        <button type="button" className="resume-icon-button resume-icon-button--danger" onClick={onRemove} aria-label={`Remove ${title}`}>
+        <button type="button" className="resume-icon-button resume-icon-button--danger resume-repeat-card__remove" onClick={onRemove} aria-label={`Remove ${title}`}>
           <Trash2 size={17} />
         </button>
       </header>
@@ -416,10 +421,14 @@ export default function ResumeBuilderPage({
   const noticeTimer = useRef(null);
   const generationRequestRef = useRef(null);
   const builder = useMemo(
-    () => normalizeResumeBuilderState(resumeBuilder, { ...userProfile, ...academicProfile }),
+    () => normalizeResumeBuilderState(resumeBuilder, { ...userProfile, ...academicProfile }, EDITING_NORMALIZE_OPTIONS),
     [academicProfile, resumeBuilder, userProfile]
   );
   const { draft, layout } = builder;
+  const previewDraft = useMemo(() => normalizeResumeDraft(draft), [draft]);
+  const skillsCanonical = draft.skills.map((item) => item.trim()).filter(Boolean).join(", ");
+  const [skillsInput, setSkillsInput] = useState(skillsCanonical);
+  const skillsInputRef = useRef(skillsCanonical);
 
   const announce = (type, message) => {
     setNotice({ type, message });
@@ -433,6 +442,13 @@ export default function ResumeBuilderPage({
     },
     []
   );
+
+  useEffect(() => {
+    const localCanonical = parseSkillsInput(skillsInputRef.current).join(", ");
+    if (skillsCanonical === localCanonical) return;
+    skillsInputRef.current = skillsCanonical;
+    setSkillsInput(skillsCanonical);
+  }, [skillsCanonical]);
 
   useEffect(() => {
     let active = true;
@@ -454,7 +470,7 @@ export default function ResumeBuilderPage({
 
   const updateBuilder = (producer) => {
     onResumeBuilderChange?.((current) => {
-      const normalized = normalizeResumeBuilderState(current, { ...userProfile, ...academicProfile });
+      const normalized = normalizeResumeBuilderState(current, { ...userProfile, ...academicProfile }, EDITING_NORMALIZE_OPTIONS);
       return {
         ...producer(normalized),
         updatedAt: new Date().toISOString(),
@@ -525,7 +541,7 @@ export default function ResumeBuilderPage({
   const handleReset = () => {
     if (!window.confirm("Reset the resume draft and layout? Your weekly generation usage will stay unchanged.")) return;
     onResumeBuilderChange?.((current) => {
-      const normalized = normalizeResumeBuilderState(null, { ...userProfile, ...academicProfile });
+      const normalized = normalizeResumeBuilderState(null, { ...userProfile, ...academicProfile }, EDITING_NORMALIZE_OPTIONS);
       return {
         ...normalized,
         generationTimestamps: current?.generationTimestamps || [],
@@ -533,6 +549,8 @@ export default function ResumeBuilderPage({
         updatedAt: new Date().toISOString(),
       };
     });
+    skillsInputRef.current = "";
+    setSkillsInput("");
     setValidationErrors({});
     setActiveSection("profile");
     announce("success", "Resume draft reset.");
@@ -642,27 +660,23 @@ export default function ResumeBuilderPage({
           <div className="resume-builder-nav__intro">
             <span>Edit console</span>
             <strong>Build your resume</strong>
-            <p>Move through each section. Optional fields stay hidden when empty.</p>
           </div>
           <div className="resume-builder-nav__items">
-            {EDITOR_SECTIONS.map((item, index) => {
+            {EDITOR_SECTIONS.map((item) => {
               const SectionIcon = item.icon;
               return (
                 <button
                   type="button"
                   key={item.id}
                   className={activeSection === item.id ? "is-active" : ""}
+                  aria-current={activeSection === item.id ? "step" : undefined}
                   onClick={() => {
                     setActiveSection(item.id);
                     setMobileView("edit");
                   }}
                 >
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <SectionIcon size={18} />
-                  <span>
-                    <strong>{item.label}</strong>
-                    <small>{item.helper}</small>
-                  </span>
+                  <SectionIcon className="resume-builder-nav__icon" size={18} />
+                  <span className="resume-builder-nav__label">{item.label}</span>
                 </button>
               );
             })}
@@ -914,11 +928,15 @@ export default function ResumeBuilderPage({
                   className="resume-field--full"
                   textarea
                   rows={4}
-                  value={draft.skills.join(", ")}
+                  value={skillsInput}
+                  maxLength={1500}
                   onChange={(event) => {
+                    const nextValue = event.target.value;
+                    skillsInputRef.current = nextValue;
+                    setSkillsInput(nextValue);
                     updateDraft((current) => ({
                       ...current,
-                      skills: event.target.value.split(/[,\n]/).map((item) => item.trim()).filter(Boolean),
+                      skills: parseSkillsInput(nextValue),
                     }));
                     if (validationErrors.skills) {
                       setValidationErrors((current) => ({ ...current, skills: undefined }));
@@ -1055,7 +1073,7 @@ export default function ResumeBuilderPage({
             <span><Eye size={14} /> Updates instantly</span>
           </header>
           <div className="resume-preview-stage">
-            <ResumePreview draft={draft} layout={layout} />
+            <ResumePreview draft={previewDraft} layout={layout} />
           </div>
           <div className="resume-preview-actions">
             <div>
