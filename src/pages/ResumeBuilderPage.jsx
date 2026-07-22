@@ -10,6 +10,7 @@ import {
   Clock3,
   Download,
   Eye,
+  EyeOff,
   FileText,
   FolderKanban,
   GraduationCap,
@@ -67,6 +68,18 @@ const SECTION_LABELS = {
   achievements: "Achievements",
   languages: "Languages",
 };
+
+const TYPOGRAPHY_OPTIONS = [
+  { value: "compact", label: "Compact", description: "Fits more content" },
+  { value: "balanced", label: "Balanced", description: "Standard reading size" },
+  { value: "large", label: "Large", description: "Larger, easier reading" },
+];
+
+const SPACING_OPTIONS = [
+  { value: "compact", label: "Compact", description: "Tighter section spacing" },
+  { value: "balanced", label: "Balanced", description: "Comfortable spacing" },
+  { value: "airy", label: "Airy", description: "More breathing room" },
+];
 
 const EMPTY_ITEMS = {
   experience: () => ({
@@ -1029,39 +1042,73 @@ export default function ResumeBuilderPage({
               <div className="resume-layout-split">
                 <div className="resume-layout-group">
                   <div className="resume-layout-group__heading"><Type size={18} /><div><strong>Typography</strong><span>Text scale</span></div></div>
-                  <div className="resume-segmented-control">
-                    {["compact", "balanced", "large"].map((value) => (
-                      <button type="button" key={value} className={layout.typography === value ? "is-selected" : ""} onClick={() => updateLayout({ typography: value })}>{value}</button>
+                  <ul className="resume-choice-list" role="radiogroup" aria-label="Typography">
+                    {TYPOGRAPHY_OPTIONS.map((option) => (
+                      <li key={option.value}>
+                        <label className={layout.typography === option.value ? "is-selected" : ""}>
+                          <input
+                            type="radio"
+                            name="resume-typography"
+                            value={option.value}
+                            checked={layout.typography === option.value}
+                            onChange={() => updateLayout({ typography: option.value })}
+                          />
+                          <span className="resume-choice-list__marker" aria-hidden="true" />
+                          <span className="resume-choice-list__copy">
+                            <strong>{option.label}</strong>
+                            <small>{option.description}</small>
+                          </span>
+                          {layout.typography === option.value ? <Check size={15} aria-hidden="true" /> : null}
+                        </label>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
                 <div className="resume-layout-group">
                   <div className="resume-layout-group__heading"><Sparkles size={18} /><div><strong>Spacing</strong><span>Content density</span></div></div>
-                  <div className="resume-segmented-control">
-                    {["compact", "balanced", "airy"].map((value) => (
-                      <button type="button" key={value} className={layout.density === value ? "is-selected" : ""} onClick={() => updateLayout({ density: value })}>{value}</button>
+                  <ul className="resume-choice-list" role="radiogroup" aria-label="Spacing">
+                    {SPACING_OPTIONS.map((option) => (
+                      <li key={option.value}>
+                        <label className={layout.density === option.value ? "is-selected" : ""}>
+                          <input
+                            type="radio"
+                            name="resume-spacing"
+                            value={option.value}
+                            checked={layout.density === option.value}
+                            onChange={() => updateLayout({ density: option.value })}
+                          />
+                          <span className="resume-choice-list__marker" aria-hidden="true" />
+                          <span className="resume-choice-list__copy">
+                            <strong>{option.label}</strong>
+                            <small>{option.description}</small>
+                          </span>
+                          {layout.density === option.value ? <Check size={15} aria-hidden="true" /> : null}
+                        </label>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               </div>
 
               <div className="resume-layout-group">
                 <div className="resume-layout-group__heading"><FileText size={18} /><div><strong>Section order</strong><span>Reorder or hide optional sections</span></div></div>
-                <div className="resume-order-list">
+                <ol className="resume-order-list">
                   {layout.sectionOrder.map((section, index) => {
                     const visible = !layout.hiddenSections.includes(section);
                     return (
-                      <div key={section}>
-                        <button type="button" className={visible ? "resume-order-visibility is-visible" : "resume-order-visibility"} onClick={() => toggleSection(section)} aria-label={`${visible ? "Hide" : "Show"} ${SECTION_LABELS[section]}`}>
-                          {visible ? <Eye size={16} /> : <Eye size={16} />}
+                      <li key={section} className={visible ? "resume-order-row" : "resume-order-row is-hidden"}>
+                        <button type="button" className={visible ? "resume-order-visibility is-visible" : "resume-order-visibility is-hidden"} onClick={() => toggleSection(section)} aria-label={`${SECTION_LABELS[section]} visibility`} aria-pressed={visible} title={`${visible ? "Hide" : "Show"} ${SECTION_LABELS[section]}`}>
+                          {visible ? <Eye size={17} aria-hidden="true" /> : <EyeOff size={17} aria-hidden="true" />}
                         </button>
-                        <span><strong>{SECTION_LABELS[section]}</strong><small>{visible ? "Shown in resume" : "Hidden from resume"}</small></span>
-                        <button type="button" className="resume-icon-button" onClick={() => moveSection(section, -1)} disabled={index === 0} aria-label={`Move ${SECTION_LABELS[section]} up`}><ChevronUp size={16} /></button>
-                        <button type="button" className="resume-icon-button" onClick={() => moveSection(section, 1)} disabled={index === layout.sectionOrder.length - 1} aria-label={`Move ${SECTION_LABELS[section]} down`}><ChevronDown size={16} /></button>
-                      </div>
+                        <span className="resume-order-copy"><strong>{SECTION_LABELS[section]}</strong><small aria-live="polite">{visible ? "Shown in resume" : "Hidden from resume"}</small></span>
+                        <span className="resume-order-actions">
+                          <button type="button" className="resume-order-move-button" onClick={() => moveSection(section, -1)} disabled={index === 0} aria-label={`Move ${SECTION_LABELS[section]} up`}><ChevronUp size={17} aria-hidden="true" /></button>
+                          <button type="button" className="resume-order-move-button" onClick={() => moveSection(section, 1)} disabled={index === layout.sectionOrder.length - 1} aria-label={`Move ${SECTION_LABELS[section]} down`}><ChevronDown size={17} aria-hidden="true" /></button>
+                        </span>
+                      </li>
                     );
                   })}
-                </div>
+                </ol>
               </div>
             </>
           )}

@@ -776,49 +776,134 @@ textarea.resume-field__control {
   gap: 13px;
 }
 
-.resume-segmented-control {
+.resume-choice-list {
+  list-style: none;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 5px;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
   padding: 4px;
   border: 1px solid var(--resume-border);
   border-radius: 12px;
   background: var(--resume-panel-strong);
 }
 
-.resume-segmented-control button {
+.resume-choice-list > li {
   min-width: 0;
-  padding: 8px 5px;
-  border: 0;
-  border-radius: 8px;
-  color: var(--resume-muted);
-  background: transparent;
-  font: inherit;
-  font-size: 0.65rem;
-  font-weight: 750;
-  text-transform: capitalize;
-  cursor: pointer;
 }
 
-.resume-segmented-control button.is-selected {
-  color: #061b19;
+.resume-choice-list label {
+  position: relative;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--resume-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.resume-choice-list input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  clip-path: inset(50%);
+}
+
+.resume-choice-list label:hover {
+  border-color: color-mix(in srgb, var(--resume-accent-ui) 28%, transparent);
+  background: color-mix(in srgb, var(--resume-accent-ui) 5%, transparent);
+}
+
+.resume-choice-list label.is-selected {
+  border-color: color-mix(in srgb, var(--resume-accent-ui) 46%, var(--resume-border));
+  color: var(--text, #eef3fb);
+  background: color-mix(in srgb, var(--resume-accent-ui) 10%, transparent);
+}
+
+body.dark .resume-choice-list label.is-selected,
+body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong {
+  color: #f7fbff !important;
+}
+
+.resume-choice-list label:has(input:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--resume-accent-ui) 76%, white);
+  outline-offset: 2px;
+}
+
+.resume-choice-list__marker {
+  width: 11px;
+  height: 11px;
+  border: 1px solid color-mix(in srgb, var(--resume-muted) 65%, transparent);
+  border-radius: 999px;
+}
+
+.resume-choice-list label.is-selected .resume-choice-list__marker {
+  border-color: var(--resume-accent-ui);
   background: var(--resume-accent-ui);
+  box-shadow: inset 0 0 0 3px var(--resume-panel-strong);
+}
+
+.resume-choice-list__copy {
+  min-width: 0;
+}
+
+.resume-choice-list__copy strong,
+.resume-choice-list__copy small {
+  display: block;
+}
+
+.resume-choice-list__copy strong {
+  overflow-wrap: anywhere;
+  font-size: 0.73rem;
+  line-height: 1.25;
+}
+
+.resume-choice-list__copy small {
+  margin-top: 2px;
+  color: var(--resume-muted);
+  font-size: 0.58rem;
+  line-height: 1.3;
+}
+
+.resume-choice-list label > svg {
+  justify-self: end;
+  color: var(--resume-accent-ui);
 }
 
 .resume-order-list {
+  list-style: none;
   display: grid;
   gap: 7px;
+  margin: 0;
+  padding: 0;
 }
 
-.resume-order-list > div {
+.resume-order-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 8px;
   border: 1px solid var(--resume-border);
   border-radius: 11px;
   background: var(--resume-panel-strong);
+}
+
+.resume-order-row.is-hidden {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--resume-muted) 5%, var(--resume-panel-strong));
+}
+
+.resume-order-copy {
+  min-width: 0;
 }
 
 .resume-order-list strong,
@@ -836,21 +921,103 @@ textarea.resume-field__control {
   font-size: 0.61rem;
 }
 
-.resume-order-visibility {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border: 1px solid var(--resume-border);
-  border-radius: 9px;
+.resume-order-row.is-hidden .resume-order-copy strong {
   color: var(--resume-muted);
-  background: transparent;
+}
+
+.resume-order-row.is-hidden .resume-order-copy small {
+  color: color-mix(in srgb, #df5d6d 70%, var(--resume-muted));
+}
+
+.resume-order-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.resume-builder-page .resume-order-visibility {
+  display: inline-grid !important;
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  align-self: center;
+  justify-self: center;
+  place-items: center;
+  padding: 0 !important;
+  border: 1px solid var(--resume-border) !important;
+  border-radius: 9px;
+  color: var(--resume-muted) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+  line-height: 0;
   cursor: pointer;
 }
 
-.resume-order-visibility.is-visible {
-  color: var(--resume-accent-ui);
-  background: color-mix(in srgb, var(--resume-accent-ui) 9%, transparent);
+.resume-builder-page .resume-order-visibility.is-visible {
+  border-color: color-mix(in srgb, var(--resume-accent-ui) 40%, var(--resume-border)) !important;
+  color: var(--resume-accent-ui) !important;
+  background: color-mix(in srgb, var(--resume-accent-ui) 9%, transparent) !important;
+}
+
+.resume-builder-page .resume-order-visibility.is-hidden {
+  border-color: color-mix(in srgb, #df5d6d 36%, var(--resume-border)) !important;
+  color: color-mix(in srgb, #df5d6d 78%, var(--text, #eef3fb)) !important;
+  background: color-mix(in srgb, #df5d6d 8%, transparent) !important;
+}
+
+.resume-builder-page .resume-order-visibility:hover:not(:disabled) {
+  border-color: color-mix(in srgb, currentColor 52%, var(--resume-border)) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.resume-builder-page .resume-order-move-button {
+  display: inline-grid !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  place-items: center;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 7px;
+  color: var(--resume-muted) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+  line-height: 0;
+  cursor: pointer;
+}
+
+.resume-builder-page .resume-order-move-button:hover:not(:disabled),
+.resume-builder-page .resume-order-move-button:focus-visible {
+  border: 0 !important;
+  color: var(--resume-accent-ui) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.resume-builder-page .resume-order-move-button:disabled,
+.resume-builder-page .resume-order-move-button:disabled:hover {
+  border: 0 !important;
+  color: var(--resume-muted) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  opacity: 0.24;
+  transform: none !important;
+  cursor: not-allowed;
+}
+
+.resume-builder-page .resume-order-visibility::after,
+.resume-builder-page .resume-order-move-button::after {
+  display: none !important;
 }
 
 .resume-preview-panel {
