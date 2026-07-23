@@ -190,7 +190,7 @@ function GoalSettingsPanel({
         <button className="goal-settings-save-btn" onClick={onSaveTargets} type="button">
           <Save aria-hidden="true" size={15} /> Save study targets
         </button>
-        <span><Eye aria-hidden="true" size={14} /> Saving enables and refreshes target-linked reminders</span>
+        <span><Eye aria-hidden="true" size={14} /> Saving refreshes target-linked reminders only when enabled</span>
       </div>
     </section>
   );

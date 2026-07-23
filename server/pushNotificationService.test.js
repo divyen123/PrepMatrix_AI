@@ -104,7 +104,7 @@ class FakeHistoryCollection {
   }
 }
 
-function sweepDb(users, updateOne, history = new FakeHistoryCollection()) {
+function sweepDb(users, updateOne, history = new FakeHistoryCollection(), workspace = studyWorkspace()) {
   const db = {
     history,
     collection(name) {
@@ -115,7 +115,7 @@ function sweepDb(users, updateOne, history = new FakeHistoryCollection()) {
         };
       }
       if (name === "notificationHistory") return history;
-      return { findOne: async () => studyWorkspace() };
+      return { findOne: async () => workspace };
     },
   };
   return db;
@@ -347,6 +347,53 @@ test("daily sweep sends independently to every current device with a bounded tim
   const history = [...db.history.documents.values()][0];
   assert.equal(history.kind, "daily-study-check");
   assert.equal("deviceId" in history, false);
+});
+
+test("daily sweep reminds learners with subjects to create a planner schedule", async () => {
+  const sends = [];
+  const db = sweepDb(
+    [{ _id: "user-needs-schedule", pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
+    async () => ({ modifiedCount: 1 }),
+    new FakeHistoryCollection(),
+    { subjects: [{ name: "Mathematics" }], schedule: [] },
+  );
+
+  const summary = await runDailyReminderSweep({
+    db,
+    ensureVapidConfigured: async () => {},
+    sendNotification: async (...args) => sends.push(args),
+    now: FIXED_NOW,
+    claimIdFactory: () => CLAIM_ONE,
+    logger: { warn() {}, error() {} },
+  });
+
+  const payload = JSON.parse(sends[0][1]);
+  assert.equal(summary.sent, 1);
+  assert.equal(payload.kind, "planner-schedule-reminder");
+  assert.equal(payload.url, "/planner");
+  assert.match(payload.body, /Generate a planner schedule/);
+});
+
+test("daily sweep stays quiet when there are no subjects or planner schedule", async () => {
+  const sends = [];
+  const db = sweepDb(
+    [{ _id: "user-not-ready", pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
+    async () => ({ modifiedCount: 1 }),
+    new FakeHistoryCollection(),
+    { subjects: [], schedule: [] },
+  );
+
+  const summary = await runDailyReminderSweep({
+    db,
+    ensureVapidConfigured: async () => {},
+    sendNotification: async (...args) => sends.push(args),
+    now: FIXED_NOW,
+    claimIdFactory: () => CLAIM_ONE,
+    logger: { warn() {}, error() {} },
+  });
+
+  assert.equal(summary.sent, 0);
+  assert.equal(sends.length, 0);
 });
 
 test("daily sweep catches up after 6 PM but never sends before the evening window", async () => {

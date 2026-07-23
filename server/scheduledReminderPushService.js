@@ -19,6 +19,8 @@ export const SCHEDULED_REMINDER_DELIVERY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 export const SCHEDULED_REMINDER_PUSH_TTL_SECONDS = 24 * 60 * 60;
 export const MAX_SCHEDULED_REMINDERS_PER_DEVICE = 5;
 
+const DAILY_STUDY_TARGET_REMINDER_PREFIX = "study-target-daily-";
+
 const LOCAL_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const LOCAL_TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -260,10 +262,16 @@ export async function runScheduledReminderPushSweep({
     if (devices.length === 0) continue;
 
     const workspace = await workspacesCollection.findOne({ userId: user._id });
-    const reminders = Array.isArray(workspace?.goalReminderData?.reminders)
+    const storedReminders = Array.isArray(workspace?.goalReminderData?.reminders)
       ? workspace.goalReminderData.reminders
       : [];
-    summary.remindersExamined += reminders.length;
+    summary.remindersExamined += storedReminders.length;
+    const hasPlannerSchedule = Array.isArray(workspace?.schedule) && workspace.schedule.length > 0;
+    const reminders = hasPlannerSchedule
+      ? storedReminders
+      : storedReminders.filter((reminder) => (
+        !String(reminder?.id || "").startsWith(DAILY_STUDY_TARGET_REMINDER_PREFIX)
+      ));
     if (reminders.length === 0) continue;
 
     for (const device of devices) {

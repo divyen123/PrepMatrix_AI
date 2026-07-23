@@ -439,6 +439,16 @@ export function buildDailyReminderPayload() {
   });
 }
 
+export function buildCreateScheduleReminderPayload() {
+  return JSON.stringify({
+    title: "Create your study schedule",
+    body: "Your subjects are ready. Generate a planner schedule to start receiving daily study-target reminders.",
+    url: "/planner",
+    kind: "planner-schedule-reminder",
+    tag: "prepmatrix-planner-schedule-reminder",
+  });
+}
+
 export function getLocalReminderClock(now, timezoneOffset) {
   const safeNow = validDate(now);
   if (!safeNow) throw new TypeError("A valid reminder time is required.");
@@ -452,7 +462,11 @@ export function getLocalReminderClock(now, timezoneOffset) {
 }
 
 function getReminderEligibility(workspace, localTime) {
-  if (!workspace?.schedule?.length || !workspace.scheduleStartDate) return { ready: false, handled: false };
+  if (!workspace?.schedule?.length) {
+    const hasSubjects = Array.isArray(workspace?.subjects) && workspace.subjects.length > 0;
+    return { ready: hasSubjects, handled: false, type: hasSubjects ? "create-schedule" : "none" };
+  }
+  if (!workspace.scheduleStartDate) return { ready: false, handled: false, type: "none" };
   const startDate = validDate(workspace.scheduleStartDate);
   if (!startDate) return { ready: false, handled: false };
   const startDateStart = Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate());
@@ -462,7 +476,11 @@ function getReminderEligibility(workspace, localTime) {
   const tasks = Array.isArray(currentDaySchedule?.tasks) ? currentDaySchedule.tasks : [];
   const completed = Array.isArray(workspace.completed) ? workspace.completed : [];
   const anyCompleted = tasks.some((task) => completed.includes(task.task));
-  return { ready: tasks.length > 0 && !anyCompleted, handled: tasks.length === 0 || anyCompleted };
+  return {
+    ready: tasks.length > 0 && !anyCompleted,
+    handled: tasks.length === 0 || anyCompleted,
+    type: "daily-study",
+  };
 }
 
 async function clearClaim(usersCollection, userId, deviceId, claimId) {
@@ -605,7 +623,9 @@ export async function runDailyReminderSweep({
           continue;
         }
 
-        const serializedPayload = buildDailyReminderPayload();
+        const serializedPayload = eligibility.type === "create-schedule"
+          ? buildCreateScheduleReminderPayload()
+          : buildDailyReminderPayload();
         const notification = JSON.parse(serializedPayload);
         try {
           await sendNotification(
@@ -649,7 +669,7 @@ export async function runDailyReminderSweep({
         await recordNotificationHistorySafely({
           db,
           userId: user._id,
-          eventKey: `daily-study-check:${clock.date}`,
+          eventKey: `${notification.kind}:${clock.date}`,
           kind: notification.kind,
           title: notification.title,
           body: notification.body,

@@ -252,6 +252,39 @@ test("sends each occurrence once per browser device and sends again after snooze
   assert.equal(sends.every(([, , deliveryOptions]) => deliveryOptions.TTL === SCHEDULED_REMINDER_PUSH_TTL_SECONDS), true);
 });
 
+test("daily study-target push waits until a planner schedule exists", async () => {
+  const workspace = {
+    schedule: [],
+    goalReminderData: {
+      reminders: [reminder({
+        id: "study-target-daily-2026-07-16",
+        title: "Daily study target - 4h",
+      })],
+    },
+  };
+  const setup = createSweepDb({
+    users: [{ _id: "user-target-reminder", pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
+    workspace,
+  });
+  const sends = [];
+  const options = {
+    db: setup.db,
+    ensureVapidConfigured: async () => {},
+    sendNotification: async (...args) => sends.push(args),
+    now: DUE_NOW,
+    claimIdFactory: () => CLAIM_ONE,
+    logger: { warn() {}, error() {} },
+  };
+
+  const withoutSchedule = await runScheduledReminderPushSweep(options);
+  workspace.schedule = [{ day: 1, tasks: [{ task: "Revise graphs" }] }];
+  const withSchedule = await runScheduledReminderPushSweep(options);
+
+  assert.equal(withoutSchedule.sent, 0);
+  assert.equal(withSchedule.sent, 1);
+  assert.equal(sends.length, 1);
+});
+
 test("clears transient claims for retry and removes an expired current subscription", async () => {
   const updates = [];
   const transientSetup = createSweepDb({

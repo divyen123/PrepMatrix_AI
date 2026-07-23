@@ -174,6 +174,14 @@ export function normalizePlannerSettings(value) {
   };
 }
 
+export function mergeStudyTargetSettings(value, dailyStudyTarget, weeklyReviewTarget) {
+  return normalizePlannerSettings({
+    ...normalizePlannerSettings(value),
+    dailyStudyTarget,
+    weeklyReviewTarget,
+  });
+}
+
 function resolveDate(value) {
   const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
   return Number.isFinite(date.getTime()) ? date : null;

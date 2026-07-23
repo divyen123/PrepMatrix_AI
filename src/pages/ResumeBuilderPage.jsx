@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertCircle,
   Award,
@@ -430,9 +431,13 @@ export default function ResumeBuilderPage({
   const [quotaLoading, setQuotaLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const noticeTimer = useRef(null);
   const generationRequestRef = useRef(null);
+  const resetDialogRef = useRef(null);
+  const resetCancelRef = useRef(null);
+  const resetTriggerRef = useRef(null);
   const builder = useMemo(
     () => normalizeResumeBuilderState(resumeBuilder, { ...userProfile, ...academicProfile }, EDITING_NORMALIZE_OPTIONS),
     [academicProfile, resumeBuilder, userProfile]
@@ -449,12 +454,67 @@ export default function ResumeBuilderPage({
     noticeTimer.current = window.setTimeout(() => setNotice(null), 5200);
   };
 
+  const closeResetConfirm = useCallback(() => {
+    setResetConfirmOpen(false);
+    window.requestAnimationFrame(() => resetTriggerRef.current?.focus());
+  }, []);
+
   useEffect(
     () => () => {
       window.clearTimeout(noticeTimer.current);
     },
     []
   );
+
+  useEffect(() => {
+    if (!resetConfirmOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const modalClassAlreadyPresent = document.body.classList.contains("modal-open");
+
+    document.body.classList.add("modal-open");
+    document.body.style.overflow = "hidden";
+    resetCancelRef.current?.focus();
+
+    const handleDialogKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeResetConfirm();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusableElements = Array.from(
+        resetDialogRef.current?.querySelectorAll("button:not(:disabled)") || []
+      );
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements.at(-1);
+
+      if (!firstElement || !lastElement) return;
+      if (!resetDialogRef.current?.contains(document.activeElement)) {
+        event.preventDefault();
+        firstElement.focus();
+        return;
+      }
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleDialogKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleDialogKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (!modalClassAlreadyPresent) document.body.classList.remove("modal-open");
+    };
+  }, [closeResetConfirm, resetConfirmOpen]);
 
   useEffect(() => {
     const localCanonical = parseSkillsInput(skillsInputRef.current).join(", ");
@@ -552,7 +612,11 @@ export default function ResumeBuilderPage({
   };
 
   const handleReset = () => {
-    if (!window.confirm("Reset the resume draft and layout? Your weekly generation usage will stay unchanged.")) return;
+    setResetConfirmOpen(true);
+  };
+
+  const confirmReset = () => {
+    closeResetConfirm();
     onResumeBuilderChange?.((current) => {
       const normalized = normalizeResumeBuilderState(null, { ...userProfile, ...academicProfile }, EDITING_NORMALIZE_OPTIONS);
       return {
@@ -1127,7 +1191,16 @@ export default function ResumeBuilderPage({
               <span><CheckCircle2 size={15} /> Autosaved</span>
               <small>Each PDF generation uses one weekly slot.</small>
             </div>
-            <button type="button" className="resume-reset-button" onClick={handleReset} disabled={generating}>
+            <button
+              aria-controls={resetConfirmOpen ? "resume-reset-confirm-dialog" : undefined}
+              aria-expanded={resetConfirmOpen}
+              aria-haspopup="dialog"
+              className="resume-reset-button"
+              disabled={generating}
+              onClick={handleReset}
+              ref={resetTriggerRef}
+              type="button"
+            >
               <RefreshCcw size={16} /> Reset
             </button>
             <button type="button" className="resume-generate-button" onClick={handleGenerate} disabled={generating || quotaLoading || quotaRemaining <= 0}>
@@ -1143,6 +1216,56 @@ export default function ResumeBuilderPage({
           {notice.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
           <span>{notice.message}</span>
         </div>
+      )}
+
+      {resetConfirmOpen && typeof document !== "undefined" && createPortal(
+        <div
+          className="confirm-modal-backdrop resume-reset-dialog-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeResetConfirm();
+          }}
+          role="presentation"
+        >
+          <section
+            aria-describedby="resume-reset-confirm-description"
+            aria-labelledby="resume-reset-confirm-title"
+            aria-modal="true"
+            className="confirm-modal resume-reset-dialog"
+            id="resume-reset-confirm-dialog"
+            ref={resetDialogRef}
+            role="alertdialog"
+          >
+            <div className="confirm-modal-icon warning" aria-hidden="true">
+              <RefreshCcw size={22} strokeWidth={2.5} />
+            </div>
+            <div className="confirm-modal-copy">
+              <span className="section-tag">Confirm</span>
+              <h2 id="resume-reset-confirm-title">Reset resume?</h2>
+              <p id="resume-reset-confirm-description">
+                This clears your resume draft and layout. Your weekly PDF generation usage will stay unchanged.
+              </p>
+            </div>
+            <div className="confirm-modal-actions">
+              <button
+                className="secondary-btn resume-reset-dialog__cancel"
+                onClick={closeResetConfirm}
+                ref={resetCancelRef}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                aria-label="OK, reset resume"
+                className="confirm-danger-btn resume-reset-dialog__confirm"
+                onClick={confirmReset}
+                type="button"
+              >
+                OK
+              </button>
+            </div>
+          </section>
+        </div>,
+        document.body
       )}
     </section>
   );

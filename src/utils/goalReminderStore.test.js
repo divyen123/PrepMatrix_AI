@@ -9,6 +9,7 @@ import {
   getPlannerAttentionSummary,
   getTargetReviewDateKeys,
   getTomorrowDateKey,
+  mergeStudyTargetSettings,
   normalizePlannerData,
   normalizePlannerSettings,
   postponeGoalToTomorrow,
@@ -131,6 +132,24 @@ test("normalizes reminder nudge preferences to supported values", () => {
   assert.equal(normalizePlannerSettings({ snoozeMinutes: 20 }).snoozeMinutes, 10);
   assert.equal(normalizePlannerSettings({}).snoozeMinutes, 10);
   assert.equal(normalizePlannerSettings({ dailyStudyTarget: 99 }).dailyStudyTarget, 16);
+});
+
+test("saving study targets preserves a disabled target-linked reminder preference", () => {
+  const current = {
+    dailyStudyTarget: 4,
+    weeklyReviewTarget: "2",
+    targetRemindersEnabled: false,
+    nudgeEnabled: false,
+    repeatSeconds: 30,
+    snoozeMinutes: 30,
+    showCompleted: false,
+  };
+
+  assert.deepEqual(mergeStudyTargetSettings(current, 6.5, "3"), {
+    ...current,
+    dailyStudyTarget: 6.5,
+    weeklyReviewTarget: "3",
+  });
 });
 
 test("creates deterministic daily and weekly target reminders without duplicates", () => {

@@ -6,6 +6,7 @@ import GoalSettingsPanel from "../components/GoalSettingsPanel";
 import {
   DEFAULT_GOAL_REMINDER_DATA,
   DEFAULT_GOAL_REMINDER_SETTINGS,
+  mergeStudyTargetSettings,
   normalizePlannerData,
   normalizePlannerSettings,
   syncStudyTargetReminders,
@@ -1072,15 +1073,12 @@ function SettingsPage({
   const handleSaveStudyTargets = () => {
     localStorage.setItem("prepmatrix_daily_target", String(dailyTarget));
     localStorage.setItem("prepmatrix_weekly_review", weeklyReview);
-    const nextSettings = normalizePlannerSettings({
-      ...goalReminderSettings,
-      dailyStudyTarget: dailyTarget,
-      weeklyReviewTarget: weeklyReview,
-      targetRemindersEnabled: true,
-    });
+    const nextSettings = mergeStudyTargetSettings(goalReminderSettings, dailyTarget, weeklyReview);
     setGoalReminderSettings(nextSettings);
     setGoalReminderData(syncStudyTargetReminders(goalReminderData, nextSettings));
-    toast.success("Study targets saved and reminder schedule refreshed!");
+    toast.success(nextSettings.targetRemindersEnabled
+      ? "Study targets saved and reminder schedule refreshed!"
+      : "Study targets saved. Target-linked reminders remain off.");
   };
 
   // Export backup
