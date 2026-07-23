@@ -5,6 +5,7 @@ import {
   getCustomNotificationDateRange,
   NOTIFICATION_DATE_FILTERS,
   NOTIFICATION_SORT_ORDERS,
+  NOTIFICATION_STATUS_FILTERS,
 } from "../utils/notificationHistoryFilters";
 import "./NotificationHistoryFilter.css";
 
@@ -24,6 +25,11 @@ const DATE_FILTER_LABELS = Object.freeze({
   [NOTIFICATION_DATE_FILTERS.LAST_1_YEAR]: "Last 1 year",
   [NOTIFICATION_DATE_FILTERS.CUSTOM]: "Custom range",
 });
+const STATUS_FILTER_OPTIONS = [
+  { value: NOTIFICATION_STATUS_FILTERS.ALL, label: "All" },
+  { value: NOTIFICATION_STATUS_FILTERS.UNREAD, label: "Unread" },
+  { value: NOTIFICATION_STATUS_FILTERS.READ, label: "Read" },
+];
 
 const FILTER_MENU_EDGE_GAP = 16;
 const FILTER_MENU_TRIGGER_GAP = 9;
@@ -38,7 +44,9 @@ function NotificationHistoryFilter({
   onOpen,
   onReset,
   onSortOrderChange,
+  onStatusFilterChange,
   sortOrder,
+  statusFilter,
 }) {
   const [open, setOpen] = useState(false);
   const [customExpanded, setCustomExpanded] = useState(false);
@@ -126,9 +134,17 @@ function NotificationHistoryFilter({
     ? "Oldest first"
     : "Newest first";
   const dateLabel = DATE_FILTER_LABELS[dateFilter] || DATE_FILTER_LABELS[NOTIFICATION_DATE_FILTERS.ALL];
-  const triggerLabel = dateFilter === NOTIFICATION_DATE_FILTERS.ALL
+  const defaultTriggerLabel = dateFilter === NOTIFICATION_DATE_FILTERS.ALL
     ? sortLabel
     : `${sortOrder === NOTIFICATION_SORT_ORDERS.OLDEST ? "Oldest" : "Newest"} · ${dateLabel}`;
+  const statusLabel = STATUS_FILTER_OPTIONS.find((option) => option.value === statusFilter)?.label || "All";
+  const activeFilters = [
+    dateFilter === NOTIFICATION_DATE_FILTERS.ALL ? "" : dateLabel,
+    statusFilter === NOTIFICATION_STATUS_FILTERS.ALL ? "" : statusLabel,
+  ].filter(Boolean);
+  const triggerLabel = activeFilters.length === 0
+    ? defaultTriggerLabel
+    : `${sortOrder === NOTIFICATION_SORT_ORDERS.OLDEST ? "Oldest" : "Newest"} / ${activeFilters.join(" / ")}`;
 
   function toggleMenu() {
     const next = !open;
@@ -204,7 +220,7 @@ function NotificationHistoryFilter({
           <div className="notification-filter-menu-header">
             <div>
               <strong>Sort & filter</strong>
-              <span>Choose the notification period to display.</span>
+              <span>Choose order, status, and date range.</span>
             </div>
             <button
               aria-label="Close notification filters"
@@ -230,6 +246,27 @@ function NotificationHistoryFilter({
                     className={`notification-filter-option${active ? " is-active" : ""}`}
                     key={option.value}
                     onClick={() => onSortOrderChange(option.value)}
+                    type="button"
+                  >
+                    <span>{option.label}</span>
+                    {active && <Check aria-hidden="true" size={14} />}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <fieldset className="notification-filter-section">
+            <legend>Read status</legend>
+            <div className="notification-filter-options is-status">
+              {STATUS_FILTER_OPTIONS.map((option) => {
+                const active = statusFilter === option.value;
+                return (
+                  <button
+                    aria-pressed={active}
+                    className={`notification-filter-option${active ? " is-active" : ""}`}
+                    key={option.value}
+                    onClick={() => onStatusFilterChange(option.value)}
                     type="button"
                   >
                     <span>{option.label}</span>

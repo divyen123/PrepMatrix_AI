@@ -6,6 +6,7 @@ import {
   getCustomNotificationDateRange,
   NOTIFICATION_DATE_FILTERS,
   NOTIFICATION_SORT_ORDERS,
+  NOTIFICATION_STATUS_FILTERS,
 } from "./notificationHistoryFilters.js";
 
 function at(year, monthIndex, day, hour = 12) {
@@ -28,6 +29,45 @@ test("sorts notification history newest or oldest without mutating the source", 
   assert.deepEqual(newest.map(({ id }) => id), ["newest", "middle", "oldest", "undated"]);
   assert.deepEqual(oldest.map(({ id }) => id), ["oldest", "middle", "newest", "undated"]);
   assert.deepEqual(source.map(({ id }) => id), ["middle", "oldest", "newest", "undated"]);
+});
+
+test("filters notification history by read status", () => {
+  const notifications = [
+    { id: "unread-new", createdAt: at(2026, 6, 18), readAt: null },
+    { id: "read", createdAt: at(2026, 6, 17), readAt: at(2026, 6, 17, 13) },
+    { id: "unread-old", createdAt: at(2026, 6, 16), readAt: "" },
+  ];
+
+  const unread = filterAndSortNotificationHistory(notifications, {
+    statusFilter: NOTIFICATION_STATUS_FILTERS.UNREAD,
+  });
+  const read = filterAndSortNotificationHistory(notifications, {
+    statusFilter: NOTIFICATION_STATUS_FILTERS.READ,
+  });
+
+  assert.deepEqual(unread.map(({ id }) => id), ["unread-new", "unread-old"]);
+  assert.deepEqual(read.map(({ id }) => id), ["read"]);
+});
+
+test("combines read status, date range, and sort order", () => {
+  const notifications = [
+    { id: "read-late", createdAt: at(2026, 6, 17), readAt: at(2026, 6, 17, 13) },
+    { id: "unread", createdAt: at(2026, 6, 16), readAt: null },
+    { id: "read-early", createdAt: at(2026, 6, 5), readAt: at(2026, 6, 5, 13) },
+    { id: "read-outside", createdAt: at(2026, 6, 3), readAt: at(2026, 6, 3, 13) },
+  ];
+
+  const filtered = filterAndSortNotificationHistory(notifications, {
+    statusFilter: NOTIFICATION_STATUS_FILTERS.READ,
+    dateFilter: NOTIFICATION_DATE_FILTERS.LAST_15_DAYS,
+    sortOrder: NOTIFICATION_SORT_ORDERS.OLDEST,
+    now: new Date(2026, 6, 18, 12),
+  });
+
+  assert.deepEqual(filtered.map(({ id }) => id), [
+    "read-early",
+    "read-late",
+  ]);
 });
 
 test("last 15 days includes today and the previous fourteen local calendar days", () => {

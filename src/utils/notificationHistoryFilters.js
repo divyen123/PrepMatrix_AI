@@ -12,6 +12,12 @@ export const NOTIFICATION_DATE_FILTERS = Object.freeze({
   CUSTOM: "custom",
 });
 
+export const NOTIFICATION_STATUS_FILTERS = Object.freeze({
+  ALL: "all",
+  UNREAD: "unread",
+  READ: "read",
+});
+
 function getTimestamp(value) {
   const timestamp = Date.parse(value || "");
   return Number.isFinite(timestamp) ? timestamp : null;
@@ -104,6 +110,7 @@ export function filterAndSortNotificationHistory(
   {
     sortOrder = NOTIFICATION_SORT_ORDERS.NEWEST,
     dateFilter = NOTIFICATION_DATE_FILTERS.ALL,
+    statusFilter = NOTIFICATION_STATUS_FILTERS.ALL,
     customStartDate = "",
     customEndDate = "",
     now = new Date(),
@@ -116,7 +123,7 @@ export function filterAndSortNotificationHistory(
     now,
   });
 
-  const filtered = dateFilter === NOTIFICATION_DATE_FILTERS.ALL
+  const dateFiltered = dateFilter === NOTIFICATION_DATE_FILTERS.ALL
     ? [...source]
     : range
       ? source.filter((notification) => {
@@ -124,6 +131,14 @@ export function filterAndSortNotificationHistory(
         return timestamp !== null && timestamp >= range.startTime && timestamp <= range.endTime;
       })
       : [];
+
+  const filtered = statusFilter === NOTIFICATION_STATUS_FILTERS.ALL
+    ? dateFiltered
+    : dateFiltered.filter((notification) => (
+      statusFilter === NOTIFICATION_STATUS_FILTERS.READ
+        ? Boolean(notification?.readAt)
+        : !notification?.readAt
+    ));
 
   const direction = sortOrder === NOTIFICATION_SORT_ORDERS.OLDEST ? 1 : -1;
   return filtered.sort((a, b) => {

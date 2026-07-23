@@ -625,16 +625,15 @@ function NotesPage({
                             role="group"
                           >
                             <div className="planner-date-menu-header">
-                              <CalendarDays aria-hidden="true" size={15} />
+                              <CalendarDays aria-hidden="true" size={13} />
                               <div>
-                                <strong>Choose a schedule date</strong>
-                                <span>Select again later to move this note.</span>
+                                <strong>Choose date</strong>
                               </div>
                             </div>
 
                             {scheduleDateOptions.length === 0 ? (
                               <p className="planner-date-empty">
-                                Generate a planner schedule first to make dated slots available.
+                                Create a schedule first.
                               </p>
                             ) : (
                               <>
@@ -652,7 +651,7 @@ function NotesPage({
                                       >
                                         <span>
                                           <strong>{option.label}</strong>
-                                          <small>{option.taskCount} {option.taskCount === 1 ? "task" : "tasks"} scheduled</small>
+                                          <small>{option.taskCount} {option.taskCount === 1 ? "task" : "tasks"}</small>
                                         </span>
                                         {isCurrentDate ? <em>Current</em> : option.isPast ? <em>Past</em> : null}
                                       </button>
@@ -661,7 +660,7 @@ function NotesPage({
                                 </div>
                                 {!hasUpcomingDates ? (
                                   <p className="planner-date-empty is-compact">
-                                    No upcoming dates remain. Generate a new schedule to add this note.
+                                    Create a new schedule.
                                   </p>
                                 ) : null}
                               </>

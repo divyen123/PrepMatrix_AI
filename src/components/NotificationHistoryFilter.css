@@ -185,6 +185,9 @@ body.has-bg-image .notification-filter-section legend {
   gap: 6px;
   margin-top: 8px;
 }
+.notification-filter-options.is-status {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 
 .notification-history-page button.notification-filter-option {
   display: flex !important;

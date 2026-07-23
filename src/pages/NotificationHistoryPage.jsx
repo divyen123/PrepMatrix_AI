@@ -22,6 +22,7 @@ import {
   filterAndSortNotificationHistory,
   NOTIFICATION_DATE_FILTERS,
   NOTIFICATION_SORT_ORDERS,
+  NOTIFICATION_STATUS_FILTERS,
 } from "../utils/notificationHistoryFilters";
 import "./NotificationHistoryPage.css";
 
@@ -119,6 +120,7 @@ function NotificationHistoryPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [sortOrder, setSortOrder] = useState(NOTIFICATION_SORT_ORDERS.NEWEST);
   const [dateFilter, setDateFilter] = useState(NOTIFICATION_DATE_FILTERS.ALL);
+  const [statusFilter, setStatusFilter] = useState(NOTIFICATION_STATUS_FILTERS.ALL);
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const modalRef = useRef(null);
@@ -165,7 +167,7 @@ function NotificationHistoryPage() {
     [notifications, selectedId]
   );
 
-  const visibleNotifications = useMemo(
+  const summaryNotifications = useMemo(
     () => filterAndSortNotificationHistory(
       notifications,
       {
@@ -178,9 +180,23 @@ function NotificationHistoryPage() {
     [notifications, sortOrder, dateFilter, customStartDate, customEndDate]
   );
 
+  const visibleNotifications = useMemo(
+    () => filterAndSortNotificationHistory(
+      notifications,
+      {
+        sortOrder,
+        dateFilter,
+        statusFilter,
+        customStartDate,
+        customEndDate,
+      }
+    ),
+    [notifications, sortOrder, dateFilter, statusFilter, customStartDate, customEndDate]
+  );
+
   const storedNotificationCount = notifications.length;
-  const totalCount = visibleNotifications.length;
-  const visibleUnreadCount = visibleNotifications.filter((notification) => !notification.readAt).length;
+  const totalCount = summaryNotifications.length;
+  const visibleUnreadCount = summaryNotifications.filter((notification) => !notification.readAt).length;
   const readCount = Math.max(0, totalCount - visibleUnreadCount);
 
   function handleNotificationDateFilterChange(
@@ -196,6 +212,7 @@ function NotificationHistoryPage() {
     setSortOrder(NOTIFICATION_SORT_ORDERS.NEWEST);
     setDateFilter(NOTIFICATION_DATE_FILTERS.ALL);
     setCustomStartDate("");
+    setStatusFilter(NOTIFICATION_STATUS_FILTERS.ALL);
     setCustomEndDate("");
   }
 
@@ -207,6 +224,8 @@ function NotificationHistoryPage() {
     }
 
     const previousOverflow = document.body.style.overflow;
+    const fallbackFocusElement = clearAllControlsRef.current
+      ?.querySelector(".notification-sort-label");
     document.body.style.overflow = "hidden";
 
     const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
@@ -248,7 +267,14 @@ function NotificationHistoryPage() {
       document.body.style.overflow = previousOverflow;
       const previousElement = previouslyFocusedRef.current;
       previouslyFocusedRef.current = null;
-      window.requestAnimationFrame(() => previousElement?.focus?.());
+      window.requestAnimationFrame(() => {
+        const focusTarget = previousElement?.isConnected
+          ? previousElement
+          : fallbackFocusElement?.isConnected
+            ? fallbackFocusElement
+            : null;
+        focusTarget?.focus?.();
+      });
     };
   }, [selectedId]);
 
@@ -382,6 +408,11 @@ function NotificationHistoryPage() {
   const safeSelectedUrl = getSafeNotificationUrl(selectedNotification?.url);
   const selectedKindMeta = getNotificationKindMeta(selectedNotification?.kind);
   const SelectedKindIcon = selectedKindMeta.icon;
+  const listTitle = statusFilter === NOTIFICATION_STATUS_FILTERS.UNREAD
+    ? "Unread notifications"
+    : statusFilter === NOTIFICATION_STATUS_FILTERS.READ
+      ? "Read notifications"
+      : "All notifications";
 
   return (
     <section className="notification-history-page page-stack">
@@ -430,7 +461,7 @@ function NotificationHistoryPage() {
         <div className="notification-history-panel-header">
           <div>
             <span className="section-tag">Recent updates</span>
-            <h2 id="notification-history-list-title">All notifications</h2>
+            <h2 id="notification-history-list-title">{listTitle}</h2>
           </div>
           {!loading && !loadError && storedNotificationCount > 0 && (
             <div className="notification-history-controls" ref={clearAllControlsRef}>
@@ -446,7 +477,9 @@ function NotificationHistoryPage() {
                 }}
                 onReset={resetNotificationFilters}
                 onSortOrderChange={setSortOrder}
+                onStatusFilterChange={setStatusFilter}
                 sortOrder={sortOrder}
+                statusFilter={statusFilter}
               />
               {confirmClearAll ? (
                 <div
@@ -532,13 +565,13 @@ function NotificationHistoryPage() {
             <h3>No notifications yet</h3>
             <p>Your study reminders and alerts will appear here after they are sent.</p>
           </div>
-        ) : totalCount === 0 ? (
+        ) : visibleNotifications.length === 0 ? (
           <div className="notification-state-card">
             <span className="notification-state-icon">
               <CalendarClock aria-hidden="true" size={25} />
             </span>
             <h3>No notifications found</h3>
-            <p>No notifications match the selected date range.</p>
+            <p>No notifications match the selected filters.</p>
             <button onClick={resetNotificationFilters} type="button">
               Reset filters
             </button>
