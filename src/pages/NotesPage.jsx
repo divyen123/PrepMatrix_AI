@@ -168,6 +168,9 @@ function NotesPage({
       )
     );
     setPlannerMenuNoteId(null);
+    window.requestAnimationFrame(() => {
+      noteCardRefs.current.get(note.id)?.querySelector(".note-plan-action")?.focus();
+    });
     setNotification?.(
       `${wasPlanned ? "Planner date updated" : "Doubt added to planner"}${dateOption ? ` for ${dateOption.label}` : ""}.`,
     );
@@ -582,7 +585,7 @@ function NotesPage({
                     ) : (
                       <>
                         <button
-                          aria-controls={`note-planner-dates-${note.id}`}
+                          aria-controls={plannerState.state === "completed" ? undefined : `note-planner-dates-${note.id}`}
                           aria-expanded={plannerState.state === "completed" ? undefined : isPlannerMenuOpen}
                           className={`note-action-btn note-plan-action is-${plannerState.state}`}
                           onClick={() => {
@@ -615,7 +618,12 @@ function NotesPage({
                         </button>
 
                         {isPlannerMenuOpen ? (
-                          <div className="planner-date-menu" id={`note-planner-dates-${note.id}`}>
+                          <div
+                            aria-label="Choose a schedule date"
+                            className="planner-date-menu"
+                            id={`note-planner-dates-${note.id}`}
+                            role="group"
+                          >
                             <div className="planner-date-menu-header">
                               <CalendarDays aria-hidden="true" size={15} />
                               <div>

@@ -240,10 +240,12 @@
   }
 }
 
-/* Note-to-planner workflow: two compact actions with an in-card date list. */
+/* Note-to-planner workflow: two compact actions with an anchored date popover. */
 .notes-page .note-card-actions {
+  position: relative;
   grid-template-columns: minmax(0, 1fr) 30px !important;
   align-items: center;
+  z-index: 2;
 }
 
 .notes-page .note-card-actions .note-plan-action {
@@ -301,15 +303,18 @@ body.has-bg-image .notes-page .planned-chip.is-completed {
 }
 
 .notes-page .note-card.is-planner-menu-open {
-  height: auto !important;
-  min-height: 240px !important;
-  max-height: none !important;
+  z-index: 3;
   overflow: visible !important;
 }
 
 .notes-page .planner-date-menu {
+  position: absolute;
+  right: 35px;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 10;
   display: grid;
-  grid-column: 1 / -1;
+  box-sizing: border-box;
   gap: 8px;
   padding: 9px;
   background: color-mix(in srgb, var(--surface) 94%, var(--accent) 6%);
@@ -346,7 +351,7 @@ body.has-bg-image .notes-page .planned-chip.is-completed {
 
 .notes-page .planner-date-options {
   display: grid;
-  max-height: 158px;
+  max-height: 108px;
   gap: 5px;
   padding-right: 2px;
   overflow-y: auto;
