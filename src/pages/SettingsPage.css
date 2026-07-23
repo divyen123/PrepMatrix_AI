@@ -125,19 +125,19 @@
 .settings-page .notification-test-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.settings-page .notification-test-row .card-subtext {
-  flex: 1 1 220px;
-  margin: 0 !important;
+  justify-content: flex-end;
+  margin-top: 1px;
 }
 
 .settings-page .notification-test-btn {
-  min-height: 32px !important;
-  padding: 5px 10px !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 5px;
+  width: auto !important;
+  min-height: 28px !important;
+  padding: 3px 8px !important;
+  border-radius: 999px !important;
+  font-size: 0.68rem !important;
   white-space: nowrap;
 }
 
@@ -431,10 +431,6 @@
 
   .settings-page .goal-settings-card {
     max-height: 72dvh;
-  }
-
-  .settings-page .notification-test-btn {
-    width: 100% !important;
   }
 
   .settings-page .notification-history-setting-row {

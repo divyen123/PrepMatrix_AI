@@ -448,7 +448,12 @@ function SettingsPage({
   };
 
   const sendTestNotification = async () => {
-    if (notificationTestBusy || notificationsBusy || !notificationsEnabled) return;
+    if (
+      notificationTestBusy ||
+      notificationsBusy ||
+      !notificationsEnabled ||
+      notificationStatus !== "connected"
+    ) return;
     setNotificationTestBusy(true);
     try {
       await sendTestStudyReminder();
@@ -1727,18 +1732,17 @@ function SettingsPage({
             />
             {notificationsEnabled && notificationStatus === "connected" && (
               <div className="notification-test-row">
-                <span className="card-subtext">
-                  Test notifications always appear as system notifications so you can verify background delivery.
-                </span>
                 <button
+                  aria-label={notificationTestBusy ? "Sending test notification" : "Send test notification"}
                   aria-busy={notificationTestBusy}
                   className="secondary-btn notification-test-btn"
                   disabled={notificationTestBusy || notificationsBusy}
                   onClick={sendTestNotification}
+                  title="Verify system notification delivery"
                   type="button"
                 >
-                  <BellRing aria-hidden="true" size={14} />
-                  {notificationTestBusy ? "Sending..." : "Send test"}
+                  <BellRing aria-hidden="true" size={12} />
+                  {notificationTestBusy ? "Sending..." : "Test notification"}
                 </button>
               </div>
             )}
