@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertCircle,
@@ -229,6 +229,8 @@ function AddItemButton({ label, onClick }) {
 }
 
 function ResumePreview({ draft, layout }) {
+  const paperRef = useRef(null);
+  const contentRef = useRef(null);
   const visibleSections = layout.sectionOrder.filter((section) => !layout.hiddenSections.includes(section));
   const contact = [
     draft.personal.location && { icon: MapPin, value: draft.personal.location },
@@ -238,6 +240,55 @@ function ResumePreview({ draft, layout }) {
     draft.personal.github && { icon: FileText, value: draft.personal.github.replace(/^https?:\/\//, "") },
     draft.personal.portfolio && { icon: FileText, value: draft.personal.portfolio.replace(/^https?:\/\//, "") },
   ].filter(Boolean);
+
+  useLayoutEffect(() => {
+    const paper = paperRef.current;
+    const content = contentRef.current;
+    if (!paper || !content) return undefined;
+
+    let frame = 0;
+    const setScale = (scale) => {
+      paper.style.setProperty("--resume-fit-scale", String(scale));
+      paper.style.setProperty("--resume-fit-width", `${100 / scale}%`);
+    };
+    const renderedHeightAt = (scale) => {
+      setScale(scale);
+      return content.scrollHeight * scale;
+    };
+    const fitToA4 = () => {
+      frame = 0;
+      const availableHeight = paper.clientHeight;
+      if (!availableHeight) return;
+
+      if (renderedHeightAt(1) <= availableHeight + 0.5) {
+        paper.dataset.fitted = "false";
+        return;
+      }
+
+      let low = 0.55;
+      let high = 1;
+      for (let index = 0; index < 10; index += 1) {
+        const candidate = (low + high) / 2;
+        if (renderedHeightAt(candidate) <= availableHeight) low = candidate;
+        else high = candidate;
+      }
+      setScale(low);
+      paper.dataset.fitted = "true";
+    };
+    const scheduleFit = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fitToA4);
+    };
+
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleFit);
+    observer?.observe(paper);
+    scheduleFit();
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, [draft, layout]);
 
   const renderSection = (section) => {
     if (section === "summary" && draft.summary) {
@@ -352,39 +403,42 @@ function ResumePreview({ draft, layout }) {
 
   return (
     <article
+      ref={paperRef}
       className={`resume-paper resume-paper--${layout.template} resume-paper--type-${layout.typography} resume-paper--density-${layout.density}`}
       style={{ "--resume-accent": layout.accent }}
       aria-label="Live resume preview"
     >
-      <header className="resume-paper__header">
-        <h1>{draft.personal.fullName || "Your name"}</h1>
-        <p>{draft.personal.headline || "Professional headline"}</p>
-        <div className="resume-paper__contact">
-          {contact.length ? (
-            contact.map(({ icon: Icon, value }) => (
-              <span key={`${Icon.displayName || Icon.name}-${value}`}>
-                <Icon size={10} />
-                {value}
-              </span>
-            ))
-          ) : (
-            <span>Add contact details to complete your header.</span>
+      <div ref={contentRef} className="resume-paper__fit">
+        <header className="resume-paper__header">
+          <h1>{draft.personal.fullName || "Your name"}</h1>
+          <p>{draft.personal.headline || "Professional headline"}</p>
+          <div className="resume-paper__contact">
+            {contact.length ? (
+              contact.map(({ icon: Icon, value }) => (
+                <span key={`${Icon.displayName || Icon.name}-${value}`}>
+                  <Icon size={10} />
+                  {value}
+                </span>
+              ))
+            ) : (
+              <span>Add contact details to complete your header.</span>
+            )}
+          </div>
+        </header>
+        <div className="resume-paper__body">
+          {visibleSections.map(renderSection)}
+          {!visibleSections.some((section) => {
+            if (section === "summary") return draft.summary;
+            if (section === "skills") return draft.skills.length;
+            return Array.isArray(draft[section]) && draft[section].some(hasEntryContent);
+          }) && (
+            <div className="resume-paper__empty">
+              <FileText size={26} />
+              <strong>Your story starts here</strong>
+              <span>Add details in the edit console to build the preview.</span>
+            </div>
           )}
         </div>
-      </header>
-      <div className="resume-paper__body">
-        {visibleSections.map(renderSection)}
-        {!visibleSections.some((section) => {
-          if (section === "summary") return draft.summary;
-          if (section === "skills") return draft.skills.length;
-          return Array.isArray(draft[section]) && draft[section].some(hasEntryContent);
-        }) && (
-          <div className="resume-paper__empty">
-            <FileText size={26} />
-            <strong>Your story starts here</strong>
-            <span>Add details in the edit console to build the preview.</span>
-          </div>
-        )}
       </div>
     </article>
   );

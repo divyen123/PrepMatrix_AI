@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createResumePdf, getResumePdfFilename } from "./resumePdf.js";
+import { createResumePdf, getResumePdfFilename, getResumePdfMetrics } from "./resumePdf.js";
 
 const fixture = {
   personal: {
@@ -45,6 +45,39 @@ test("sanitizes the generated filename", () => {
   assert.equal(getResumePdfFilename(fixture), "Avery-Sharma-resume.pdf");
 });
 
+test("keeps template alignment and layout scales distinct", () => {
+  const compact = getResumePdfMetrics({ template: "compact", typography: "compact", density: "compact" });
+  const balanced = getResumePdfMetrics({ template: "compact", typography: "balanced", density: "balanced" });
+  const largeAiry = getResumePdfMetrics({ template: "compact", typography: "large", density: "airy" });
+  const classic = getResumePdfMetrics({ template: "classic" });
+
+  assert.equal(compact.headerAlignment, "left");
+  assert.equal(classic.headerAlignment, "center");
+  assert.ok(compact.bodyLineHeight < balanced.bodyLineHeight);
+  assert.ok(balanced.bodyLineHeight < largeAiry.bodyLineHeight);
+  assert.ok(compact.sectionGap < balanced.sectionGap);
+  assert.ok(balanced.sectionGap < largeAiry.sectionGap);
+});
+
+test("keeps wrapped modern header contact details in the exported document", () => {
+  const pdf = createResumePdf(
+    {
+      ...fixture,
+      personal: {
+        ...fixture.personal,
+        location: "Chennai, Tamil Nadu",
+        phone: "+91 98408 01856",
+        linkedin: "https://linkedin.com/in/avery-sharma",
+        github: "https://github.com/avery-sharma",
+        portfolio: "https://avery-portfolio.example",
+      },
+    },
+    { template: "modern", typography: "large", density: "airy" }
+  );
+  const stream = pdf.internal.pages.flat().join(" ");
+  assert.match(stream, /avery-portfolio\.example/);
+});
+
 test("paginates long content", () => {
   const longFixture = {
     ...fixture,
@@ -60,5 +93,7 @@ test("paginates long content", () => {
     })),
   };
   const pdf = createResumePdf(longFixture, { template: "modern", density: "airy" });
+  const stream = pdf.internal.pages.flat().join(" ");
   assert.ok(pdf.getNumberOfPages() > 1);
+  assert.match(stream, /Engineering role 12/);
 });

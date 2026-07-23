@@ -1076,6 +1076,8 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
 .resume-paper {
   --resume-paper-ink: #152035;
   --resume-paper-muted: #66748a;
+  --resume-fit-scale: 1;
+  --resume-fit-width: 100%;
   width: min(100%, 500px);
   min-height: 0;
   aspect-ratio: 210 / 297;
@@ -1085,6 +1087,12 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.27);
   font-family: Inter, "Segoe UI", Arial, sans-serif;
   font-size: 8px;
+}
+
+.resume-paper__fit {
+  width: var(--resume-fit-width);
+  transform: scale(var(--resume-fit-scale));
+  transform-origin: left top;
 }
 
 .resume-paper--type-compact {
