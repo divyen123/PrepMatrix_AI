@@ -31,6 +31,59 @@ const fixture = {
   ],
 };
 
+const screenshotFixture = {
+  personal: {
+    fullName: "Divyen R M",
+    headline: "Information technology",
+    location: "Chennai, Tamil Nadu",
+    email: "divyen624@gmail.com",
+    phone: "9840801856",
+    github: "github.com/divyen123",
+  },
+  summary:
+    "Aspiring Frontend Developer specializing in React.js and modern web technologies, passionate about creating responsive, user-friendly, and engaging web applications. Skilled in building interactive interfaces, optimizing performance, and delivering smooth digital experiences. Committed to continuous learning.",
+  skills: ["Frontend developer", "UI Designer", "React developer"],
+  projects: [
+    {
+      name: "MedAI Symptom analyser",
+      role: "Full-Stack developer",
+      technologies: "React.js, Node.js, Express.js, Groq API.",
+      endDate: "May 2026",
+      highlights: [
+        "Developed a full-stack AI health assistant web app with symptom analysis, vitals tracking, medication management, and an AI doctor chatbot.",
+      ],
+    },
+  ],
+  education: [
+    {
+      degree: "B.Tech",
+      field: "IT",
+      institution: "R.M.K Engineering college",
+      location: "Kavaraipettai, Thiruvallur",
+      score: "7.87/10",
+      startDate: "2024",
+      endDate: "2028",
+    },
+    {
+      degree: "Higher studies",
+      field: "CBSE",
+      institution: "Maharishi vidya mandir",
+      location: "Chetpet, Chennai",
+      score: "A",
+      startDate: "2010",
+      endDate: "2024",
+    },
+  ],
+  certifications: [
+    { name: "AI Agentic foundation", issuer: "Oracle", date: "03/08/2025" },
+    { name: "Python Foundation certification", issuer: "Infosys", date: "23/08/2025" },
+  ],
+};
+
+const assertClose = (actual, expected, tolerance = 0.001) => {
+  assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} is not within ${tolerance} of ${expected}`);
+};
+
 test("creates an extractable resume without empty optional contact separators", () => {
   const pdf = createResumePdf(fixture, { template: "classic" });
   const stream = pdf.internal.pages.flat().join(" ");
@@ -57,6 +110,43 @@ test("keeps template alignment and layout scales distinct", () => {
   assert.ok(balanced.bodyLineHeight < largeAiry.bodyLineHeight);
   assert.ok(compact.sectionGap < balanced.sectionGap);
   assert.ok(balanced.sectionGap < largeAiry.sectionGap);
+  assertClose(compact.bodyTop, 5.04);
+  assertClose(balanced.bodyTop, 7.14);
+  assertClose(largeAiry.bodyTop, 9.66);
+  assertClose(compact.sectionGap, 4.2);
+  assertClose(balanced.sectionGap, 5.88);
+  assertClose(largeAiry.sectionGap, 7.98);
+  assertClose(compact.entryGap, 2.52);
+  assertClose(balanced.entryGap, 3.78);
+  assertClose(largeAiry.entryGap, 5.04);
+});
+
+test("uses the preview spacing scale throughout a representative one-page resume", () => {
+  const compact = createResumePdf(screenshotFixture, {
+    template: "compact",
+    typography: "compact",
+    density: "compact",
+  }).__resumeLayout;
+  const balanced = createResumePdf(screenshotFixture, {
+    template: "compact",
+    typography: "balanced",
+    density: "balanced",
+  }).__resumeLayout;
+  const largeAiry = createResumePdf(screenshotFixture, {
+    template: "compact",
+    typography: "large",
+    density: "airy",
+  }).__resumeLayout;
+
+  assert.equal(compact.pageCount, 1);
+  assert.equal(balanced.pageCount, 1);
+  assert.equal(largeAiry.pageCount, 1);
+  assert.ok(compact.contentBottom / 297 > 0.58);
+  assert.ok(balanced.contentBottom / 297 > 0.66);
+  assert.ok(largeAiry.contentBottom / 297 > 0.73);
+  assert.ok(compact.contentBottom < balanced.contentBottom);
+  assert.ok(balanced.contentBottom < largeAiry.contentBottom);
+  assert.ok(largeAiry.contentBottom < 281);
 });
 
 test("keeps wrapped modern header contact details in the exported document", () => {
