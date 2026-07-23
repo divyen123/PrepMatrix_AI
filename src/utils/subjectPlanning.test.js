@@ -98,3 +98,21 @@ test("applies named topics and subject study preferences to generated tasks", ()
   assert.equal(tasks[0].unitType, "topic");
   assert.equal(tasks[2].unitType, "chapter");
 });
+
+test("assigns an actual calendar date to every generated schedule day", () => {
+  const schedule = generateSchedule(
+    [{ name: "Physics", chapters: 3, difficulty: "medium" }],
+    3,
+    [],
+    { startDate: "2026-04-15" },
+  );
+
+  assert.deepEqual(
+    schedule.map((day) => ({ day: day.day, date: day.date })),
+    [
+      { day: 1, date: "2026-04-15" },
+      { day: 2, date: "2026-04-16" },
+      { day: 3, date: "2026-04-17" },
+    ],
+  );
+});

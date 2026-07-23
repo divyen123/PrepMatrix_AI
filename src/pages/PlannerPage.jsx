@@ -77,6 +77,7 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
       <Timetable
         completed={completed}
         schedule={schedule}
+        scheduleStartDate={scheduleStartDate}
         setCompleted={setCompleted}
         setSchedule={setSchedule}
         subjects={subjects}

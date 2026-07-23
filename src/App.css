@@ -18565,16 +18565,52 @@ button:where(:not(.floating-analytics-btn):not(.exam-widget-btn)):focus-visible 
   }
 }
 
-/* Preserve sidebar scrolling while keeping the navigation rail visually clean. */
+/* Keep the navigation rail scrollable with a quiet, theme-matched indicator. */
 .sidebar-nav {
-  -ms-overflow-style: none;
-  scrollbar-width: none !important;
+  -ms-overflow-style: auto;
+  scrollbar-color: rgba(var(--accent-rgb), 0.34) transparent;
+  scrollbar-color: color-mix(in srgb, var(--text-muted) 42%, transparent) transparent;
+  scrollbar-width: thin !important;
 }
 
 .sidebar-nav::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+  display: block;
+  width: 5px;
+  height: 5px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track,
+.sidebar-nav::-webkit-scrollbar-track-piece,
+.sidebar-nav::-webkit-scrollbar-corner {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.34);
+  background: color-mix(in srgb, var(--text-muted) 42%, transparent);
+  background-clip: border-box;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.5);
+  background: color-mix(in srgb, var(--text-muted) 62%, transparent);
+}
+
+body.has-bg-image .sidebar-nav {
+  scrollbar-color: rgba(240, 240, 245, 0.36) transparent;
+}
+
+body.has-bg-image .sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(240, 240, 245, 0.36);
+}
+
+body.has-bg-image .sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(240, 240, 245, 0.56);
 }
 
 /* The danger class has a global auto width; opt this desktop trigger out of grid stretching. */

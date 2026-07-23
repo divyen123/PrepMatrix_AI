@@ -1,55 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Search, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, Search, Trash2, X } from "lucide-react";
 import api from "../utils/apiClient";
+import {
+  getNotePlannerState,
+  getScheduleDateOptions,
+  pruneRemovedTaskCompletions,
+  removeNotesFromPlanner,
+  upsertNotePlannerTask,
+} from "../utils/notePlanner";
 import "./NotesPage.css";
 
 const NOTES_PER_PAGE = 6;
-
-function buildRevisionTask(note) {
-  const legacyTopics = Array.isArray(note.leftTopics)
-    ? note.leftTopics.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 3)
-    : [];
-  const legacySuffix = legacyTopics.length ? `: ${legacyTopics.join(", ")}` : "";
-  return `Revise ${note.topic} doubt${legacySuffix}`;
-}
-
-function isNoteRevisionTask(taskName = "") {
-  return /^Revise .+ doubt(?::|$)/i.test(taskName.trim());
-}
-
-function getCoreTasks(day) {
-  return (day.tasks || []).filter((task) => !isNoteRevisionTask(task.task));
-}
-
-function isCoreDayComplete(day, completedTasks) {
-  const coreTasks = getCoreTasks(day);
-  return coreTasks.length > 0 && coreTasks.every((task) => completedTasks.has(task.task));
-}
-
-function getPlanTargetIndex(schedule, completed = [], preferredDay = "tomorrow") {
-  const completedTasks = new Set(completed);
-  const preferredIndex = preferredDay === "tomorrow" ? 1 : 0;
-  let progressIndex = 0;
-
-  while (progressIndex < schedule.length) {
-    const day = schedule[progressIndex];
-    const coreTasks = getCoreTasks(day);
-
-    if (coreTasks.length === 0 || isCoreDayComplete(day, completedTasks)) {
-      progressIndex += 1;
-      continue;
-    }
-
-    break;
-  }
-
-  const searchStart = Math.max(preferredIndex, progressIndex);
-  const nextStudyDayIndex = schedule.findIndex((day, index) => (
-    index >= searchStart && getCoreTasks(day).length > 0
-  ));
-
-  return nextStudyDayIndex >= 0 ? nextStudyDayIndex : schedule.length - 1;
-}
 
 function rankSearchMatch(fields, query) {
   const cleanQuery = query.trim().toLowerCase();
@@ -64,7 +25,19 @@ function rankSearchMatch(fields, query) {
   }, 0);
 }
 
-function NotesPage({ completed = [], schedule = [], setSchedule, setNotification }) {
+function getWorkflowStatus(note, plannerState) {
+  if (plannerState?.state === "completed") return "Resolved";
+  return note?.status === "Resolved" ? "Resolved" : "Open";
+}
+
+function NotesPage({
+  completed = [],
+  schedule = [],
+  scheduleStartDate = "",
+  setCompleted,
+  setSchedule,
+  setNotification,
+}) {
   const [notes, setNotes] = useState([]);
   const [topic, setTopic] = useState("");
   const [details, setDetails] = useState("");
@@ -75,7 +48,9 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
   const [isNotesLoading, setIsNotesLoading] = useState(true);
   const [confirmClearNotes, setConfirmClearNotes] = useState(false);
   const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState(null);
+  const [plannerMenuNoteId, setPlannerMenuNoteId] = useState(null);
   const deleteTriggerRefs = useRef(new Map());
+  const noteCardRefs = useRef(new Map());
   const notesListHeadingRef = useRef(null);
 
   const saveNotes = (nextNotes) => {
@@ -112,66 +87,133 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
     setPriority("Medium");
   };
 
-  const toggleStatus = (id) => {
-    saveNotes(
-      notes.map((note) =>
-        note.id === id
-          ? { ...note, status: note.status === "Open" ? "Resolved" : "Open" }
-          : note
-      )
-    );
-  };
 
   const cancelDeleteNote = (id) => {
     setPendingDeleteNoteId(null);
     window.requestAnimationFrame(() => deleteTriggerRefs.current.get(id)?.focus());
   };
 
+  const removePlannerLinks = (notesToRemove) => {
+    const removal = removeNotesFromPlanner(schedule, notesToRemove);
+    if (!removal.changed) return;
+
+    setSchedule(removal.schedule);
+    setCompleted?.((current) => pruneRemovedTaskCompletions(
+      current,
+      removal.removedTaskNames,
+      removal.schedule,
+    ));
+  };
+
   const deleteNote = (id) => {
+    const noteToDelete = notes.find((note) => note.id === id);
     const nextNotes = notes.filter((note) => note.id !== id);
+    if (noteToDelete) removePlannerLinks([noteToDelete]);
     saveNotes(nextNotes);
     setPendingDeleteNoteId(null);
+    setPlannerMenuNoteId((current) => (current === id ? null : current));
     if (nextNotes.length === 0) setConfirmClearNotes(false);
     window.requestAnimationFrame(() => notesListHeadingRef.current?.focus());
   };
 
   const clearAllNotes = () => {
     if (notes.length === 0) return;
+    removePlannerLinks(notes);
     setConfirmClearNotes(false);
     setPendingDeleteNoteId(null);
+    setPlannerMenuNoteId(null);
     saveNotes([]);
     setFilter("All");
     setNotesSearchQuery("");
     setNotification?.("Stored notes cleared.");
   };
 
-  const planNote = (note, preferredDay = "tomorrow") => {
-    const taskName = buildRevisionTask(note);
-    const nextSchedule = schedule.length ? structuredClone(schedule) : [{ day: 1, tasks: [] }];
-    const targetIndex = getPlanTargetIndex(nextSchedule, completed, preferredDay);
-    const targetDay = nextSchedule[targetIndex] || nextSchedule[0];
-
-    targetDay.tasks = targetDay.tasks || [];
-
-    const alreadyPlanned = nextSchedule.some((day) =>
-      day.tasks?.some((task) => task.task === taskName)
+  const planNoteForDate = (note, dateKey) => {
+    const result = upsertNotePlannerTask(
+      schedule,
+      note,
+      dateKey,
+      scheduleStartDate,
     );
-
-    if (!alreadyPlanned) {
-      targetDay.tasks.push({ time: "Morning", task: taskName });
-      setSchedule(nextSchedule);
+    if (!result) {
+      setNotification?.("That schedule date is no longer available. Generate or refresh your schedule.");
+      return;
     }
 
+    const dateOption = getScheduleDateOptions(schedule, scheduleStartDate)
+      .find((option) => option.dateKey === result.dateKey);
+    const wasPlanned = Boolean(getNotePlannerState(
+      note,
+      schedule,
+      completed,
+      scheduleStartDate,
+    ).link);
+    const updatedAt = new Date().toISOString();
+
+    setSchedule(result.schedule);
     saveNotes(
       notes.map((item) =>
         item.id === note.id
-          ? { ...item, planned: true, plannedTask: taskName, plannedAt: new Date().toISOString() }
+          ? {
+              ...item,
+              planned: true,
+              plannedAt: item.plannedAt || updatedAt,
+              plannedDate: result.dateKey,
+              plannedDay: Number(result.schedule[result.targetDayIndex]?.day) || result.targetDayIndex + 1,
+              plannedTask: result.task.task,
+              plannerUpdatedAt: updatedAt,
+              status: "Open",
+            }
           : item
       )
     );
-
-    setNotification?.(alreadyPlanned ? "This doubt is already in the planner." : "Doubt added to your study schedule.");
+    setPlannerMenuNoteId(null);
+    setNotification?.(
+      `${wasPlanned ? "Planner date updated" : "Doubt added to planner"}${dateOption ? ` for ${dateOption.label}` : ""}.`,
+    );
   };
+
+  const reopenNote = (note, plannerState) => {
+    if (plannerState.taskName) {
+      setCompleted?.((current) => current.filter((task) => task !== plannerState.taskName));
+    }
+
+    saveNotes(notes.map((item) => (
+      item.id === note.id
+        ? { ...item, planned: Boolean(plannerState.link), status: "Open" }
+        : item
+    )));
+
+    if (!plannerState.link) setPlannerMenuNoteId(note.id);
+    setNotification?.(
+      plannerState.link
+        ? "Planner task reopened. You can also move it to another date."
+        : "Choose a schedule date to reopen this note in the planner.",
+    );
+  };
+
+  useEffect(() => {
+    if (!plannerMenuNoteId) return undefined;
+
+    const closeWhenClickingOutside = (event) => {
+      const openCard = noteCardRefs.current.get(plannerMenuNoteId);
+      if (openCard && !openCard.contains(event.target)) setPlannerMenuNoteId(null);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key !== "Escape") return;
+      setPlannerMenuNoteId(null);
+      window.requestAnimationFrame(() => {
+        noteCardRefs.current.get(plannerMenuNoteId)?.querySelector(".note-plan-action")?.focus();
+      });
+    };
+
+    document.addEventListener("pointerdown", closeWhenClickingOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeWhenClickingOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [plannerMenuNoteId]);
 
   useEffect(() => {
     try {
@@ -224,8 +266,19 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
     };
   }, [setNotification]);
 
+  const plannerStates = useMemo(() => new Map(notes.map((note) => [
+    note.id,
+    getNotePlannerState(note, schedule, completed, scheduleStartDate),
+  ])), [completed, notes, schedule, scheduleStartDate]);
+  const scheduleDateOptions = useMemo(
+    () => getScheduleDateOptions(schedule, scheduleStartDate),
+    [schedule, scheduleStartDate],
+  );
+
   const filteredNotes = useMemo(() => {
-    const statusFiltered = filter === "All" ? notes : notes.filter((note) => note.status === filter);
+    const statusFiltered = filter === "All"
+      ? notes
+      : notes.filter((note) => getWorkflowStatus(note, plannerStates.get(note.id)) === filter);
     if (!notesSearchQuery.trim()) return statusFiltered;
 
     return statusFiltered
@@ -233,14 +286,21 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
         note,
         index,
         rank: rankSearchMatch(
-          [note.topic, note.details, note.priority, note.status, ...(Array.isArray(note.leftTopics) ? note.leftTopics : [])],
+          [
+            note.topic,
+            note.details,
+            note.priority,
+            getWorkflowStatus(note, plannerStates.get(note.id)),
+            plannerStates.get(note.id)?.state,
+            ...(Array.isArray(note.leftTopics) ? note.leftTopics : []),
+          ],
           notesSearchQuery
         ),
       }))
       .filter((item) => item.rank > 0)
       .sort((a, b) => b.rank - a.rank || a.index - b.index)
       .map((item) => item.note);
-  }, [filter, notes, notesSearchQuery]);
+  }, [filter, notes, notesSearchQuery, plannerStates]);
 
   const notesTotalPages = Math.max(1, Math.ceil(filteredNotes.length / NOTES_PER_PAGE));
   const notesStart = (notesPage - 1) * NOTES_PER_PAGE;
@@ -254,9 +314,9 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
     setNotesPage((current) => Math.min(current, notesTotalPages));
   }, [notesTotalPages]);
 
-  const openCount = notes.filter((note) => note.status === "Open").length;
-  const resolvedCount = notes.filter((note) => note.status === "Resolved").length;
-  const plannedCount = notes.filter((note) => note.planned).length;
+  const openCount = notes.filter((note) => getWorkflowStatus(note, plannerStates.get(note.id)) === "Open").length;
+  const resolvedCount = notes.filter((note) => getWorkflowStatus(note, plannerStates.get(note.id)) === "Resolved").length;
+  const plannedCount = notes.filter((note) => plannerStates.get(note.id)?.state !== "unscheduled").length;
 
   return (
     <section className="page-stack notes-page">
@@ -337,7 +397,7 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
             <span className="section-tag">Planner bridge</span>
             <h3>Notes to planner</h3>
             <p>
-              Turn any note into a morning revision task. Voice commands can also add doubts here automatically.
+              Add a note to any available schedule date, then track its completion from the planner.
             </p>
           </article>
         </aside>
@@ -437,15 +497,25 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
         ) : (
           <div className="notes-list-grid">
             {paginatedNotes.map((note) => {
-              const noteStatus = note.status === "Resolved" ? "Resolved" : "Open";
+              const plannerState = plannerStates.get(note.id) || { state: "unscheduled" };
+              const noteStatus = getWorkflowStatus(note, plannerState);
               const notePriority = ["Low", "Medium", "High"].includes(note.priority) ? note.priority : "Medium";
               const isConfirmingDelete = pendingDeleteNoteId === note.id;
+              const isPlannerMenuOpen = plannerMenuNoteId === note.id;
               const legacyTopics = Array.isArray(note.leftTopics) ? note.leftTopics.filter(Boolean) : [];
+              const plannerActionLabel = plannerState.state === "completed"
+                ? "Reopen"
+                : plannerState.state === "added" ? "Added to planner" : "Add to planner";
+              const hasUpcomingDates = scheduleDateOptions.some((option) => !option.isPast);
 
               return (
                 <article
-                  className={`note-card is-${noteStatus.toLowerCase()}${isConfirmingDelete ? " is-confirming-delete" : ""}`}
+                  className={`note-card is-${noteStatus.toLowerCase()}${isConfirmingDelete ? " is-confirming-delete" : ""}${isPlannerMenuOpen ? " is-planner-menu-open" : ""}`}
                   key={note.id}
+                  ref={(node) => {
+                    if (node) noteCardRefs.current.set(note.id, node);
+                    else noteCardRefs.current.delete(note.id);
+                  }}
                 >
                   <div className="note-card-top">
                     <div className="note-card-heading">
@@ -455,7 +525,11 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
                       </div>
                       <h4>{note.topic}</h4>
                     </div>
-                    {note.planned ? <span className="planned-chip">Added to planner</span> : null}
+                    {plannerState.state !== "unscheduled" ? (
+                      <span className={`planned-chip${plannerState.state === "completed" ? " is-completed" : ""}`}>
+                        {plannerState.state === "completed" ? "Completed" : "Added to planner"}
+                      </span>
+                    ) : null}
                   </div>
 
                   <p className={`note-card-details${note.details ? "" : " is-empty"}`}>
@@ -507,23 +581,85 @@ function NotesPage({ completed = [], schedule = [], setSchedule, setNotification
                       </div>
                     ) : (
                       <>
-                        <button className="note-action-btn note-plan-action" onClick={() => planNote(note)} type="button">
-                          Plan tomorrow morning
-                        </button>
-                        <button className="note-action-btn" onClick={() => toggleStatus(note.id)} type="button">
-                          {noteStatus === "Open" ? "Mark resolved" : "Reopen"}
+                        <button
+                          aria-controls={`note-planner-dates-${note.id}`}
+                          aria-expanded={plannerState.state === "completed" ? undefined : isPlannerMenuOpen}
+                          className={`note-action-btn note-plan-action is-${plannerState.state}`}
+                          onClick={() => {
+                            if (plannerState.state === "completed") {
+                              reopenNote(note, plannerState);
+                            } else {
+                              setPlannerMenuNoteId((current) => current === note.id ? null : note.id);
+                            }
+                          }}
+                          type="button"
+                        >
+                          {plannerState.state !== "completed" ? <CalendarDays aria-hidden="true" size={13} /> : null}
+                          <span>{plannerActionLabel}</span>
                         </button>
                         <button
-                          className="note-action-btn danger-text"
-                          onClick={() => setPendingDeleteNoteId(note.id)}
+                          aria-label={`Delete ${note.topic}`}
+                          className="note-delete-icon-btn"
+                          onClick={() => {
+                            setPlannerMenuNoteId(null);
+                            setPendingDeleteNoteId(note.id);
+                          }}
                           ref={(node) => {
                             if (node) deleteTriggerRefs.current.set(note.id, node);
                             else deleteTriggerRefs.current.delete(note.id);
                           }}
+                          title="Delete note"
                           type="button"
                         >
-                          Delete
+                          <Trash2 aria-hidden="true" size={13} />
                         </button>
+
+                        {isPlannerMenuOpen ? (
+                          <div className="planner-date-menu" id={`note-planner-dates-${note.id}`}>
+                            <div className="planner-date-menu-header">
+                              <CalendarDays aria-hidden="true" size={15} />
+                              <div>
+                                <strong>Choose a schedule date</strong>
+                                <span>Select again later to move this note.</span>
+                              </div>
+                            </div>
+
+                            {scheduleDateOptions.length === 0 ? (
+                              <p className="planner-date-empty">
+                                Generate a planner schedule first to make dated slots available.
+                              </p>
+                            ) : (
+                              <>
+                                <div className="planner-date-options">
+                                  {scheduleDateOptions.map((option) => {
+                                    const isCurrentDate = plannerState.dateKey === option.dateKey;
+                                    return (
+                                      <button
+                                        aria-current={isCurrentDate ? "date" : undefined}
+                                        className={`planner-date-option${isCurrentDate ? " is-current" : ""}${option.isPast ? " is-past" : ""}`}
+                                        disabled={option.isPast}
+                                        key={option.dateKey}
+                                        onClick={() => planNoteForDate(note, option.dateKey)}
+                                        type="button"
+                                      >
+                                        <span>
+                                          <strong>{option.label}</strong>
+                                          <small>{option.taskCount} {option.taskCount === 1 ? "task" : "tasks"} scheduled</small>
+                                        </span>
+                                        {isCurrentDate ? <em>Current</em> : option.isPast ? <em>Past</em> : null}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                {!hasUpcomingDates ? (
+                                  <p className="planner-date-empty is-compact">
+                                    No upcoming dates remain. Generate a new schedule to add this note.
+                                  </p>
+                                ) : null}
+                              </>
+                            )}
+                          </div>
+                        ) : null}
                       </>
                     )}
                   </div>

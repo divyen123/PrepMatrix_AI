@@ -1400,6 +1400,8 @@ function App() {
                             <NotesPage
                               completed={completed}
                               schedule={schedule}
+                              scheduleStartDate={scheduleStartDate}
+                              setCompleted={updateCompletedWithRewards}
                               setNotification={setNotification}
                               setSchedule={setSchedule}
                             />

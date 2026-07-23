@@ -110,21 +110,26 @@ test("keeps template alignment and layout scales distinct", () => {
   assert.ok(balanced.bodyLineHeight < largeAiry.bodyLineHeight);
   assert.ok(compact.sectionGap < balanced.sectionGap);
   assert.ok(balanced.sectionGap < largeAiry.sectionGap);
-  assertClose(compact.bodyTop, 5.04);
-  assertClose(balanced.bodyTop, 7.14);
-  assertClose(largeAiry.bodyTop, 9.66);
-  assertClose(compact.sectionGap, 4.2);
-  assertClose(balanced.sectionGap, 5.88);
-  assertClose(largeAiry.sectionGap, 7.98);
-  assertClose(compact.entryGap, 2.52);
-  assertClose(balanced.entryGap, 3.78);
-  assertClose(largeAiry.entryGap, 5.04);
+  assertClose(compact.bodyTop, 7);
+  assertClose(balanced.bodyTop, 9.916667);
+  assertClose(largeAiry.bodyTop, 13.416667);
+  assertClose(compact.sectionGap, 5.833333);
+  assertClose(balanced.sectionGap, 8.166667);
+  assertClose(largeAiry.sectionGap, 11.083333);
+  assertClose(compact.entryGap, 3.5);
+  assertClose(balanced.entryGap, 5.25);
+  assertClose(largeAiry.entryGap, 7);
 });
 
-test("uses the preview spacing scale throughout a representative one-page resume", () => {
+test("fills a representative page like the responsive editor preview", () => {
   const compact = createResumePdf(screenshotFixture, {
     template: "compact",
     typography: "compact",
+    density: "compact",
+  }).__resumeLayout;
+  const balancedCompact = createResumePdf(screenshotFixture, {
+    template: "compact",
+    typography: "balanced",
     density: "compact",
   }).__resumeLayout;
   const balanced = createResumePdf(screenshotFixture, {
@@ -139,14 +144,34 @@ test("uses the preview spacing scale throughout a representative one-page resume
   }).__resumeLayout;
 
   assert.equal(compact.pageCount, 1);
+  assert.equal(balancedCompact.pageCount, 1);
   assert.equal(balanced.pageCount, 1);
   assert.equal(largeAiry.pageCount, 1);
-  assert.ok(compact.contentBottom / 297 > 0.58);
-  assert.ok(balanced.contentBottom / 297 > 0.66);
-  assert.ok(largeAiry.contentBottom / 297 > 0.73);
-  assert.ok(compact.contentBottom < balanced.contentBottom);
-  assert.ok(balanced.contentBottom < largeAiry.contentBottom);
-  assert.ok(largeAiry.contentBottom < 281);
+  assert.ok(compact.contentBottom >= 260 && compact.contentBottom <= 267);
+  assert.ok(
+    balancedCompact.contentBottom >= 274 &&
+      balancedCompact.contentBottom <= 279
+  );
+  assert.ok(balanced.contentBottom >= 278 && balanced.contentBottom <= 280);
+  assert.ok(largeAiry.contentBottom >= 278 && largeAiry.contentBottom <= 280);
+  assert.equal(compact.renderScale, 1);
+  assert.equal(balancedCompact.renderScale, 1);
+  assert.ok(balanced.renderScale < 1);
+  assert.ok(largeAiry.renderScale < 1);
+  assert.equal(balanced.sectionCount, 5);
+});
+
+test("does not stretch a sparse resume", () => {
+  const pdf = createResumePdf(
+    {
+      personal: fixture.personal,
+      summary: fixture.summary,
+    },
+    { template: "compact", typography: "large", density: "airy" }
+  );
+
+  assert.equal(pdf.__resumeLayout.pageCount, 1);
+  assert.equal(pdf.__resumeLayout.renderScale, 1);
 });
 
 test("keeps wrapped modern header contact details in the exported document", () => {
@@ -185,5 +210,6 @@ test("paginates long content", () => {
   const pdf = createResumePdf(longFixture, { template: "modern", density: "airy" });
   const stream = pdf.internal.pages.flat().join(" ");
   assert.ok(pdf.getNumberOfPages() > 1);
+  assert.equal(pdf.__resumeLayout.renderScale, 1);
   assert.match(stream, /Engineering role 12/);
 });

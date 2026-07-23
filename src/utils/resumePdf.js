@@ -7,26 +7,27 @@ const MUTED = "#64748b";
 const LIGHT = "#d8e0ea";
 const SOFT = "#f3f6f9";
 
-const PREVIEW_WIDTH_PX = 500;
+const PREVIEW_WIDTH_PX = 360;
 const CSS_PX_TO_MM = PAGE.width / PREVIEW_WIDTH_PX;
 const CSS_PX_TO_PT = CSS_PX_TO_MM / (25.4 / 72);
 const BASE_PREVIEW_FONT_PT = 8 * CSS_PX_TO_PT;
+const verticalPxToMm = (value) => value * CSS_PX_TO_MM;
 const TYPOGRAPHY_SCALES = Object.freeze({ compact: 7.35 / 8, balanced: 1, large: 8.65 / 8 });
 const DENSITY_LAYOUT = Object.freeze({
   compact: Object.freeze({
-    bodyTop: 12 * CSS_PX_TO_MM,
-    sectionGap: 10 * CSS_PX_TO_MM,
-    entryGap: 6 * CSS_PX_TO_MM,
+    bodyTop: verticalPxToMm(12),
+    sectionGap: verticalPxToMm(10),
+    entryGap: verticalPxToMm(6),
   }),
   balanced: Object.freeze({
-    bodyTop: 17 * CSS_PX_TO_MM,
-    sectionGap: 14 * CSS_PX_TO_MM,
-    entryGap: 9 * CSS_PX_TO_MM,
+    bodyTop: verticalPxToMm(17),
+    sectionGap: verticalPxToMm(14),
+    entryGap: verticalPxToMm(9),
   }),
   airy: Object.freeze({
-    bodyTop: 23 * CSS_PX_TO_MM,
-    sectionGap: 19 * CSS_PX_TO_MM,
-    entryGap: 12 * CSS_PX_TO_MM,
+    bodyTop: verticalPxToMm(23),
+    sectionGap: verticalPxToMm(19),
+    entryGap: verticalPxToMm(12),
   }),
 });
 
@@ -42,30 +43,34 @@ export function getResumePdfFilename(draft) {
   return `${cleanFilePart(name)}-resume.pdf`;
 }
 
-export function getResumePdfMetrics(layoutValue = {}) {
+export function getResumePdfMetrics(layoutValue = {}, renderScale = 1) {
   const layout = normalizeResumeLayout(layoutValue);
   const isCompact = layout.template === "compact";
   const typographyScale = TYPOGRAPHY_SCALES[layout.typography];
   const density = DENSITY_LAYOUT[layout.density];
-  const densityScale = density.sectionGap / DENSITY_LAYOUT.balanced.sectionGap;
+  const densityScale =
+    (density.sectionGap / DENSITY_LAYOUT.balanced.sectionGap) * renderScale;
   const bodyFontSize = BASE_PREVIEW_FONT_PT * 1.02;
   return Object.freeze({
     template: layout.template,
     headerAlignment: layout.template === "classic" ? "center" : "left",
-    marginX: 30 * CSS_PX_TO_MM,
-    marginTop: isCompact ? 18 : layout.template === "classic" ? 20 : 17,
+    marginX: 18,
+    marginTop:
+      (isCompact ? 23 : layout.template === "classic" ? 25 : 21) * renderScale,
     bottomMargin: 16,
     typographyScale,
+    renderScale,
     densityScale,
     bodyFontSize,
-    effectiveBodyFontSize: bodyFontSize * typographyScale,
-    bodyLineHeight: bodyFontSize * typographyScale * 0.3528 * 1.48,
-    bodyTop: density.bodyTop,
-    sectionGap: density.sectionGap,
-    entryGap: density.entryGap,
-    headingContentGap: 7 * CSS_PX_TO_MM,
-    bulletTopGap: 4 * CSS_PX_TO_MM,
-    bulletItemGap: 2 * CSS_PX_TO_MM,
+    effectiveBodyFontSize: bodyFontSize * typographyScale * renderScale,
+    bodyLineHeight: bodyFontSize * typographyScale * renderScale * 0.3528 * 1.48,
+    bodyTop: density.bodyTop * renderScale,
+    sectionGap: density.sectionGap * renderScale,
+    entryGap: density.entryGap * renderScale,
+    headingContentGap: verticalPxToMm(7) * renderScale,
+    metaTopGap: verticalPxToMm(2) * renderScale,
+    bulletTopGap: verticalPxToMm(4) * renderScale,
+    bulletItemGap: verticalPxToMm(2) * renderScale,
     nameFontSize: BASE_PREVIEW_FONT_PT * 3.15,
     headlineFontSize: BASE_PREVIEW_FONT_PT * 1.35,
     contactFontSize: BASE_PREVIEW_FONT_PT * 0.92,
@@ -118,10 +123,10 @@ function hasEntryContent(item) {
   );
 }
 
-export function createResumePdf(draftValue, layoutValue = {}) {
+function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
   const draft = normalizeResumeDraft(draftValue);
   const layout = normalizeResumeLayout(layoutValue);
-  const metrics = getResumePdfMetrics(layout);
+  const metrics = getResumePdfMetrics(layout, renderScale);
   const accent = colorToRgb(layout.accent);
   const isClassic = layout.template === "classic";
   const isCompact = layout.template === "compact";
@@ -140,7 +145,9 @@ export function createResumePdf(draftValue, layoutValue = {}) {
     keywords: "resume, curriculum vitae, professional profile",
   });
 
-  const fontSize = (value) => Math.max(6.6, value * typographyScale);
+  const fontSize = (value) =>
+    Math.max(6.6, value * typographyScale * renderScale);
+  const flowPx = (value) => verticalPxToMm(value) * renderScale;
   const fontHeight = (value) => fontSize(value) * 0.3528;
   const lineHeight = (value, multiplier = 1.25) => fontSize(value) * 0.3528 * multiplier;
   const baselineTransition = (fromSize, margin, toSize) =>
@@ -344,9 +351,32 @@ export function createResumePdf(draftValue, layoutValue = {}) {
     },
   ].filter(Boolean);
 
+  const buildContactLines = (width, size) => {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(fontSize(size));
+    const rows = [];
+    let row = "";
+    let itemCount = 0;
+    contactItems.forEach((item) => {
+      const label = String(item.label || "").trim();
+      if (!label) return;
+      const candidate = row ? `${row}  |  ${label}` : label;
+      if (row && (itemCount >= 3 || pdf.getTextWidth(candidate) > width)) {
+        rows.push(row);
+        row = label;
+        itemCount = 1;
+        return;
+      }
+      row = candidate;
+      itemCount += 1;
+    });
+    if (row) rows.push(row);
+    return rows.flatMap((value) => pdf.splitTextToSize(value, width));
+  };
+
   const renderHeader = () => {
     if (layout.template === "modern") {
-      const headerTop = 15 * CSS_PX_TO_MM;
+      const headerTop = flowPx(15);
       const headerX = 15 * CSS_PX_TO_MM;
       const headerWidth = PAGE.width - headerX * 2;
       const innerX = headerX + 22 * CSS_PX_TO_MM;
@@ -363,19 +393,17 @@ export function createResumePdf(draftValue, layoutValue = {}) {
         draft.personal.headline || "Professional headline",
         innerWidth
       );
-      const contactText = contactItems.map((item) => item.label).join("  |  ");
-      pdf.setFontSize(fontSize(contactSize));
-      const contactLines = contactText ? pdf.splitTextToSize(contactText, innerWidth) : [];
+      const contactLines = buildContactLines(innerWidth, contactSize);
       const nameLeading = lineHeight(nameSize, 1);
       const headlineLeading = lineHeight(headlineSize, 1.2);
-      const contactLeading = lineHeight(contactSize, 1.2) + 5 * CSS_PX_TO_MM;
-      const nameY = headerTop + 20 * CSS_PX_TO_MM + fontHeight(nameSize) * 0.8;
+      const contactLeading = lineHeight(contactSize, 1.2) + flowPx(5);
+      const nameY = headerTop + flowPx(20) + fontHeight(nameSize) * 0.8;
       const lastNameY = nameY + (nameLines.length - 1) * nameLeading;
       const headlineY =
-        lastNameY + baselineTransition(nameSize, 7 * CSS_PX_TO_MM, headlineSize);
+        lastNameY + baselineTransition(nameSize, flowPx(7), headlineSize);
       const lastHeadlineY = headlineY + (headlineLines.length - 1) * headlineLeading;
       const contactY =
-        lastHeadlineY + baselineTransition(headlineSize, 9 * CSS_PX_TO_MM, contactSize);
+        lastHeadlineY + baselineTransition(headlineSize, flowPx(9), contactSize);
       const lastContentY = contactLines.length
         ? contactY + (contactLines.length - 1) * contactLeading
         : lastHeadlineY;
@@ -384,7 +412,7 @@ export function createResumePdf(draftValue, layoutValue = {}) {
         lastContentY -
         headerTop +
         fontHeight(lastContentSize) * 0.2 +
-        16 * CSS_PX_TO_MM;
+        flowPx(16);
       pdf.setFillColor(...accent);
       pdf.roundedRect(
         headerX,
@@ -411,7 +439,7 @@ export function createResumePdf(draftValue, layoutValue = {}) {
           pdf.text(line, innerX, contactY + index * contactLeading)
         );
       }
-      y = headerTop + headerHeight + 15 * CSS_PX_TO_MM;
+      y = headerTop + headerHeight + flowPx(15);
       return;
     }
 
@@ -429,7 +457,7 @@ export function createResumePdf(draftValue, layoutValue = {}) {
     nameLines.forEach((line, index) => pdf.text(line, headerX, y + index * nameLeading, textOptions));
     const lastNameY = y + (nameLines.length - 1) * nameLeading;
     const headlineY =
-      lastNameY + baselineTransition(nameSize, 7 * CSS_PX_TO_MM, headlineSize);
+      lastNameY + baselineTransition(nameSize, flowPx(7), headlineSize);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(fontSize(headlineSize));
     setColor(accent);
@@ -443,13 +471,12 @@ export function createResumePdf(draftValue, layoutValue = {}) {
     );
     const lastHeadlineY = headlineY + (headlineLines.length - 1) * headlineLeading;
     const contactY =
-      lastHeadlineY + baselineTransition(headlineSize, 9 * CSS_PX_TO_MM, contactSize);
+      lastHeadlineY + baselineTransition(headlineSize, flowPx(9), contactSize);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(fontSize(contactSize));
     setColor(MUTED);
-    const contactText = contactItems.map((item) => item.label).join("  |  ");
-    const contactLines = contactText ? pdf.splitTextToSize(contactText, contentWidth) : [];
-    const contactLeading = lineHeight(contactSize, 1.2) + 5 * CSS_PX_TO_MM;
+    const contactLines = buildContactLines(contentWidth, contactSize);
+    const contactLeading = lineHeight(contactSize, 1.2) + flowPx(5);
     contactLines.forEach((line, index) => {
       pdf.text(line, headerX, contactY + index * contactLeading, textOptions);
     });
@@ -460,7 +487,7 @@ export function createResumePdf(draftValue, layoutValue = {}) {
     y =
       lastContentY +
       fontHeight(lastContentSize) * 0.2 +
-      (isCompact ? 15 : 19) * CSS_PX_TO_MM;
+      flowPx(isCompact ? 15 : 19);
     setDrawColor(isClassic ? INK : accent);
     pdf.setLineWidth(0.5);
     pdf.line(marginX, y, PAGE.width - marginX, y);
@@ -479,9 +506,9 @@ export function createResumePdf(draftValue, layoutValue = {}) {
   const renderSkillChips = () => {
     const skillSize = metrics.metaFontSize;
     const horizontalPadding = 6 * CSS_PX_TO_MM;
-    const verticalPadding = 3 * CSS_PX_TO_MM;
+    const verticalPadding = flowPx(3);
     const chipHeight = lineHeight(skillSize, 1.2) + verticalPadding * 2;
-    const rowGap = 4 * CSS_PX_TO_MM;
+    const rowGap = flowPx(4);
     const soft = colorToRgb(SOFT);
     const tint = accent.map((channel, index) => Math.round(channel * 0.1 + soft[index] * 0.9));
     let x = marginX;
@@ -527,7 +554,7 @@ export function createResumePdf(draftValue, layoutValue = {}) {
       writeInlinePair(item.role || item.organization, dateRange(item), {
         size: metrics.entryTitleFontSize,
         rightSize: metrics.entryDateFontSize,
-        after: 2 * CSS_PX_TO_MM,
+        after: metrics.metaTopGap,
       });
       const organizationLine = [item.role ? item.organization : "", item.location].filter(Boolean).join(" | ");
       writeWrapped(organizationLine, {
@@ -549,7 +576,7 @@ export function createResumePdf(draftValue, layoutValue = {}) {
       writeInlinePair(item.name || "Project", dateRange(item), {
         size: metrics.entryTitleFontSize,
         rightSize: metrics.entryDateFontSize,
-        after: 2 * CSS_PX_TO_MM,
+        after: metrics.metaTopGap,
       });
       const detail = [item.role, item.technologies].filter(Boolean).join(" | ");
       writeWrapped(detail, {
@@ -580,7 +607,7 @@ export function createResumePdf(draftValue, layoutValue = {}) {
       writeInlinePair(title, dateRange(item), {
         size: metrics.entryTitleFontSize,
         rightSize: metrics.entryDateFontSize,
-        after: 2 * CSS_PX_TO_MM,
+        after: metrics.metaTopGap,
       });
       const secondary = [title === item.institution ? "" : item.institution, item.location, item.score]
         .filter(Boolean)
@@ -604,7 +631,7 @@ export function createResumePdf(draftValue, layoutValue = {}) {
       writeInlinePair(item.name || item.issuer, item.date, {
         size: metrics.entryTitleFontSize,
         rightSize: metrics.entryDateFontSize,
-        after: 2 * CSS_PX_TO_MM,
+        after: metrics.metaTopGap,
       });
       const issuer = item.name ? item.issuer : "";
       if (issuer) {
@@ -635,7 +662,7 @@ export function createResumePdf(draftValue, layoutValue = {}) {
         size: metrics.entryTitleFontSize,
         style: "bold",
         leading: lineHeight(metrics.entryTitleFontSize, 1.25),
-        after: 2 * CSS_PX_TO_MM,
+        after: metrics.metaTopGap,
       });
       writeWrapped(item.description, {
         size: metrics.bodyFontSize,
@@ -673,11 +700,53 @@ export function createResumePdf(draftValue, layoutValue = {}) {
   addFooter();
 
   Object.defineProperty(pdf, "__resumeLayout", {
-    value: Object.freeze({ contentBottom: y, pageCount: pageNumber, metrics }),
+    value: Object.freeze({
+      contentBottom: y,
+      pageCount: pageNumber,
+      sectionCount: renderedSectionCount,
+      renderScale,
+      metrics,
+    }),
     enumerable: false,
   });
 
   return pdf;
+}
+
+export function createResumePdf(draftValue, layoutValue = {}) {
+  const naturalPdf = renderResumePdf(draftValue, layoutValue, 1);
+  const naturalLayout = naturalPdf.__resumeLayout;
+  const shouldFitSinglePage =
+    naturalLayout.pageCount === 2 &&
+    naturalLayout.sectionCount >= 4 &&
+    naturalLayout.contentBottom <= 96;
+  if (!shouldFitSinglePage) return naturalPdf;
+
+  let low = 0.68;
+  let high = 1;
+  let bestPdf = renderResumePdf(draftValue, layoutValue, low);
+  if (bestPdf.__resumeLayout.pageCount !== 1) return naturalPdf;
+
+  for (let index = 0; index < 10; index += 1) {
+    const candidateScale = (low + high) / 2;
+    const candidatePdf = renderResumePdf(
+      draftValue,
+      layoutValue,
+      candidateScale
+    );
+    const candidateLayout = candidatePdf.__resumeLayout;
+    if (
+      candidateLayout.pageCount === 1 &&
+      candidateLayout.contentBottom <= 280
+    ) {
+      low = candidateScale;
+      bestPdf = candidatePdf;
+    } else {
+      high = candidateScale;
+    }
+  }
+
+  return bestPdf;
 }
 
 export function exportResumePdf(draft, layout) {

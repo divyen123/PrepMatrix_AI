@@ -239,3 +239,199 @@
     border-radius: 15px !important;
   }
 }
+
+/* Note-to-planner workflow: two compact actions with an in-card date list. */
+.notes-page .note-card-actions {
+  grid-template-columns: minmax(0, 1fr) 30px !important;
+  align-items: center;
+}
+
+.notes-page .note-card-actions .note-plan-action {
+  display: inline-flex !important;
+  grid-column: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.notes-page .note-card-actions .note-plan-action.is-added {
+  color: var(--accent) !important;
+  background: rgba(var(--accent-rgb), 0.09) !important;
+  border-color: rgba(var(--accent-rgb), 0.2) !important;
+}
+
+.notes-page .note-card-actions .note-plan-action.is-completed {
+  color: var(--text) !important;
+  background: var(--surface-muted) !important;
+}
+
+.notes-page .note-card-actions .note-delete-icon-btn {
+  display: inline-grid !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  place-items: center !important;
+  padding: 0 !important;
+  color: #dc5a68 !important;
+  background: rgba(220, 90, 104, 0.09) !important;
+  border: 1px solid rgba(220, 90, 104, 0.2) !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+}
+
+.notes-page .note-card-actions .note-delete-icon-btn:hover,
+.notes-page .note-card-actions .note-delete-icon-btn:focus-visible {
+  color: #fff !important;
+  background: #c94f5e !important;
+  border-color: #c94f5e !important;
+}
+
+.notes-page .planned-chip.is-completed {
+  color: #23825a;
+  background: rgba(35, 130, 90, 0.12);
+  border-color: rgba(35, 130, 90, 0.24);
+}
+
+body.dark .notes-page .planned-chip.is-completed,
+body.has-bg-image .notes-page .planned-chip.is-completed {
+  color: #8be0b6;
+  background: rgba(61, 187, 125, 0.15);
+  border-color: rgba(139, 224, 182, 0.23);
+}
+
+.notes-page .note-card.is-planner-menu-open {
+  height: auto !important;
+  min-height: 240px !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.notes-page .planner-date-menu {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  padding: 9px;
+  background: color-mix(in srgb, var(--surface) 94%, var(--accent) 6%);
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.notes-page .planner-date-menu-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--accent);
+}
+
+.notes-page .planner-date-menu-header > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.notes-page .planner-date-menu-header strong {
+  color: var(--text);
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
+.notes-page .planner-date-menu-header span,
+.notes-page .planner-date-empty {
+  color: var(--text-muted);
+  font-size: 0.61rem;
+  line-height: 1.35;
+}
+
+.notes-page .planner-date-options {
+  display: grid;
+  max-height: 158px;
+  gap: 5px;
+  padding-right: 2px;
+  overflow-y: auto;
+  scrollbar-color: rgba(var(--accent-rgb), 0.32) transparent;
+  scrollbar-width: thin;
+}
+
+.notes-page .planner-date-options::-webkit-scrollbar {
+  width: 4px;
+}
+
+.notes-page .planner-date-options::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notes-page .planner-date-options::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.32);
+  border-radius: 999px;
+}
+
+.notes-page .note-card-actions .planner-date-option {
+  display: flex !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 42px !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px;
+  padding: 7px 8px !important;
+  color: var(--text) !important;
+  text-align: left;
+  background: var(--surface-muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+}
+
+.notes-page .planner-date-option > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.notes-page .planner-date-option strong {
+  overflow: hidden;
+  font-size: 0.65rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-page .planner-date-option small {
+  color: var(--text-muted);
+  font-size: 0.58rem;
+  font-weight: 600;
+}
+
+.notes-page .planner-date-option em {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 0.56rem;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.notes-page .note-card-actions .planner-date-option:hover:not(:disabled),
+.notes-page .note-card-actions .planner-date-option:focus-visible,
+.notes-page .note-card-actions .planner-date-option.is-current {
+  background: rgba(var(--accent-rgb), 0.09) !important;
+  border-color: rgba(var(--accent-rgb), 0.32) !important;
+}
+
+.notes-page .planner-date-option.is-past {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.notes-page .planner-date-empty {
+  margin: 0;
+  padding: 7px 8px;
+  background: var(--surface-muted);
+  border-radius: 8px;
+}
+
+.notes-page .planner-date-empty.is-compact {
+  padding: 5px 7px;
+}

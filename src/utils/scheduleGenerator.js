@@ -3,6 +3,7 @@ import {
   normalizeStudyPreferences,
   normalizeSubjectTopics,
 } from "./subjectPlanning.js";
+import { addDaysToDateKey, toLocalDateKey } from "./scheduleDates.js";
 
 const SESSION_LABELS = [
   "Morning",
@@ -86,6 +87,7 @@ export function generateSchedule(subjects, days, backlog = [], options = {}) {
 
   const priority = { hard: 3, medium: 2, easy: 1 };
   const mode = options.planMode || "balanced";
+  const startDate = toLocalDateKey(options.startDate);
   const restInterval = mode === "revision-heavy" ? 4 : mode === "rapid" ? 0 : 5;
   const sorted = [...subjects].sort(
     (left, right) => priority[right.difficulty] - priority[left.difficulty],
@@ -129,7 +131,11 @@ export function generateSchedule(subjects, days, backlog = [], options = {}) {
     if (taskCount >= maxTotalTasks) break;
 
     if (restInterval && day % restInterval === 0) {
-      schedule.push({ day, tasks: [] });
+      schedule.push({
+        day,
+        ...(startDate ? { date: addDaysToDateKey(startDate, day - 1) } : {}),
+        tasks: [],
+      });
       continue;
     }
 
@@ -142,10 +148,19 @@ export function generateSchedule(subjects, days, backlog = [], options = {}) {
     const tasks = [];
 
     while (tasks.length < tasksNeededToday && backlog.length > 0) {
-      tasks.push({
-        time: getSessionLabel(tasks.length),
-        task: backlog.shift(),
-      });
+      const backlogTask = backlog.shift();
+      tasks.push(
+        backlogTask && typeof backlogTask === "object"
+          ? {
+              ...backlogTask,
+              time: getSessionLabel(tasks.length),
+              task: String(backlogTask.task || "").trim(),
+            }
+          : {
+              time: getSessionLabel(tasks.length),
+              task: String(backlogTask || "").trim(),
+            },
+      );
       taskCount += 1;
     }
 
@@ -183,7 +198,11 @@ export function generateSchedule(subjects, days, backlog = [], options = {}) {
     }
 
     if (!tasks.length) break;
-    schedule.push({ day, tasks });
+    schedule.push({
+      day,
+      ...(startDate ? { date: addDaysToDateKey(startDate, day - 1) } : {}),
+      tasks,
+    });
   }
 
   return schedule;

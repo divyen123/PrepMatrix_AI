@@ -5,6 +5,10 @@ import { Download } from "lucide-react";
 import { toast } from "react-toastify";
 import successSound from "../assets/success.mp3";
 import { generateSchedule } from "../utils/scheduleGenerator";
+import {
+  formatScheduleDayHeading,
+  toLocalDateKey,
+} from "../utils/scheduleDates";
 
 function Timetable({
   subjects,
@@ -12,6 +16,7 @@ function Timetable({
   setSchedule,
   completed,
   setCompleted,
+  scheduleStartDate,
   setScheduleStartDate,
 }) {
   const [examDate, setExamDate] = useState("");
@@ -33,7 +38,7 @@ function Timetable({
     schedule.forEach((day) => {
       day.tasks?.forEach((task) => {
         if (!completed.includes(task.task)) {
-          backlog.push(task.task);
+          backlog.push({ ...task });
         }
       });
     });
@@ -73,10 +78,14 @@ function Timetable({
       }
 
       const backlog = getBacklogTasks();
-      const result = generateSchedule(subjects, days, backlog, { planMode });
+      const startDate = toLocalDateKey(new Date());
+      const result = generateSchedule(subjects, days, backlog, {
+        planMode,
+        startDate,
+      });
 
       setSchedule(result);
-      setScheduleStartDate?.(new Date().toISOString());
+      setScheduleStartDate?.(startDate);
       setLoading(false);
       setPreviousSchedule(null);
       setShowGenerateForm(false);
@@ -87,7 +96,7 @@ function Timetable({
       const audio = new Audio(successSound);
       audio.play().catch(() => {});
     }, 450);
-  }, [examDate, getBacklogTasks, planMode, setSchedule, subjects]);
+  }, [examDate, getBacklogTasks, planMode, setSchedule, setScheduleStartDate, subjects]);
 
   useEffect(() => {
     window.plannerActions = { generate };
@@ -134,7 +143,7 @@ function Timetable({
       toast.success("PDF exported.", {
         toastId: "planner-pdf-exported",
       });
-    } catch (err) {
+    } catch {
       toast.error("Failed to export PDF.");
     } finally {
       element.style.maxHeight = originalMaxHeight;
@@ -308,9 +317,11 @@ function Timetable({
         {schedule.length === 0 ? (
           <p className="empty-state">No timetable generated yet.</p>
         ) : (
-          schedule.map((item) => (
+          schedule.map((item, index) => (
             <div className="day-card" key={item.day}>
-              <div className="day-title">Day {item.day}</div>
+              <div className="day-title">
+                {formatScheduleDayHeading(item, index, scheduleStartDate)}
+              </div>
               {item.tasks?.length === 0 ? (
                 <div className="task-chip revision">Revision block</div>
               ) : (
