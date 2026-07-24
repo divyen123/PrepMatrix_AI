@@ -37,6 +37,7 @@ import {
   resolveEffectiveDarkMode,
 } from "./utils/appearanceTheme";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
+import { reconcileScheduleWithSubjects } from "./utils/scheduleReconciliation";
 import {
   academicProfilePayload,
   normalizeAcademicProfile,
@@ -412,8 +413,21 @@ function App() {
   }, [academicLevel, academicTrack, userProfile]);
 
   const updateSubjects = (nextSubjects, options = {}) => {
-    setSubjects(Array.isArray(nextSubjects) ? nextSubjects : []);
-    if (options.preserveSchedule) return;
+    const normalizedSubjects = Array.isArray(nextSubjects) ? nextSubjects : [];
+    setSubjects(normalizedSubjects);
+    if (options.preserveSchedule) {
+      const reconciled = reconcileScheduleWithSubjects(
+        schedule,
+        completed,
+        subjects,
+        normalizedSubjects,
+      );
+      if (reconciled.changed) {
+        setSchedule(reconciled.schedule);
+        setCompleted(reconciled.completed);
+      }
+      return;
+    }
     setSchedule([]);
     setCompleted([]);
     setScheduleStartDate(null);

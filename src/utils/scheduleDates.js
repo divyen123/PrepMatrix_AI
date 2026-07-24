@@ -52,6 +52,35 @@ export function addDaysToDateKey(value, offset = 0) {
   );
 }
 
+export function getScheduleGenerationWindow(examDate, now = new Date(), cutoffHour = 18) {
+  const generatedAt = now instanceof Date ? new Date(now.getTime()) : new Date(now);
+  const today = toLocalDateKey(generatedAt);
+  const parsedCutoff = Number.parseInt(cutoffHour, 10);
+  const cutoffHourValue = Number.isInteger(parsedCutoff) ? Math.min(Math.max(parsedCutoff, 0), 23) : 18;
+  const startDate = generatedAt.getHours() >= cutoffHourValue
+    ? addDaysToDateKey(today, 1)
+    : today;
+  const examKey = toLocalDateKey(examDate);
+  const startParts = parseDateKey(startDate);
+  const examParts = parseDateKey(examKey);
+
+  if (!startParts || !examParts) {
+    return { days: 0, startDate };
+  }
+
+  const startUtc = Date.UTC(
+    startParts.year, startParts.month - 1, startParts.day,
+  );
+  const examUtc = Date.UTC(
+    examParts.year, examParts.month - 1, examParts.day,
+  );
+
+  return {
+    days: Math.max(0, Math.round((examUtc - startUtc) / 86_400_000)),
+    startDate,
+  };
+}
+
 export function getScheduleDateKey(day, index = 0, scheduleStartDate = "") {
   const explicitDate = toLocalDateKey(day?.date);
   if (explicitDate) return explicitDate;

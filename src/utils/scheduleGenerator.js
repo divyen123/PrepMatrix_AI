@@ -1,7 +1,6 @@
 import {
-  getSubjectStudyUnits,
+  getSubjectStudyUnitRecords,
   normalizeStudyPreferences,
-  normalizeSubjectTopics,
 } from "./subjectPlanning.js";
 import { addDaysToDateKey, toLocalDateKey } from "./scheduleDates.js";
 
@@ -59,6 +58,26 @@ function getGoalLabel(unit, studyGoal) {
   return unit;
 }
 
+export function createSubjectScheduleTask(subject = {}, unit = {}, sessionIndex = 0) {
+  const name = String(subject?.name || "").trim();
+  const preferences = normalizeStudyPreferences(subject?.preferences || subject?.studyPreferences);
+  const label = String(unit?.label || "").trim();
+  const displayUnit = getGoalLabel(label, preferences.studyGoal);
+
+  return {
+    durationMinutes: preferences.sessionMinutes,
+    source: "subject",
+    studyGoal: preferences.studyGoal,
+    subjectName: name,
+    time: getConfiguredTimeLabel(preferences, sessionIndex),
+    topic: label,
+    task: `${name} - ${displayUnit}`,
+    unitIndex: unit.unitIndex,
+    unitKey: unit.unitKey,
+    unitType: unit.unitType,
+  };
+}
+
 function buildWeightedRotation(configuredSubjects, planMode, priority) {
   const weighted = configuredSubjects.map((subject) => {
     const priorityBoost = planMode === "high-priority"
@@ -94,17 +113,15 @@ export function generateSchedule(subjects, days, backlog = [], options = {}) {
   );
   const configuredSubjects = sorted.map((subject, index) => {
     const name = String(subject?.name || "").trim();
-    const topics = normalizeSubjectTopics(subject?.topics);
-    const topicKeys = new Set(topics.map((topic) => topic.toLocaleLowerCase()));
     const preferences = normalizeStudyPreferences(subject?.studyPreferences);
 
     return {
+      ...subject,
       difficulty: priority[subject?.difficulty] ? subject.difficulty : "medium",
       key: `${index}:${name}`,
       name,
       preferences,
-      topicKeys,
-      units: getSubjectStudyUnits(subject),
+      units: getSubjectStudyUnitRecords(subject),
     };
   }).filter((subject) => subject.name && subject.units.length > 0);
 
@@ -115,10 +132,7 @@ export function generateSchedule(subjects, days, backlog = [], options = {}) {
 
   configuredSubjects.forEach((subject) => {
     subjectDetails[subject.key] = subject;
-    subjectQueues[subject.key] = subject.units.map((unit) => ({
-      label: unit,
-      unitType: subject.topicKeys.has(unit.toLocaleLowerCase()) ? "topic" : "chapter",
-    }));
+    subjectQueues[subject.key] = subject.units.map((unit) => ({ ...unit }));
   });
 
   const subjectRotation = buildWeightedRotation(configuredSubjects, mode, priority);
@@ -183,17 +197,7 @@ export function generateSchedule(subjects, days, backlog = [], options = {}) {
 
       const subject = subjectDetails[selectedKey];
       const unit = subjectQueues[selectedKey].shift();
-      const displayUnit = getGoalLabel(unit.label, subject.preferences.studyGoal);
-
-      tasks.push({
-        durationMinutes: subject.preferences.sessionMinutes,
-        studyGoal: subject.preferences.studyGoal,
-        subjectName: subject.name,
-        time: getConfiguredTimeLabel(subject.preferences, tasks.length),
-        topic: unit.label,
-        task: `${subject.name} - ${displayUnit}`,
-        unitType: unit.unitType,
-      });
+      tasks.push(createSubjectScheduleTask(subject, unit, tasks.length));
       taskCount += 1;
     }
 

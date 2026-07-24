@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   getSubjectStudyUnits,
+  getSubjectStudyUnitRecords,
   normalizeStudyPreferences,
+  normalizeSubjectChapterNames,
   normalizeSubjectTopics,
 } from "./subjectPlanning.js";
 import { generateSchedule } from "./scheduleGenerator.js";
@@ -18,23 +20,51 @@ test("normalizes optional topics without blanks or case-insensitive duplicates",
   );
 });
 
-test("uses topic names first and fills the remaining chapter workload", () => {
+test("adds focus topics alongside every named or fallback chapter", () => {
   assert.deepEqual(
     getSubjectStudyUnits({
       chapters: 4,
       topics: ["Arrays", "Trees"],
     }),
-    ["Arrays", "Trees", "Chapter 3", "Chapter 4"],
+    ["Arrays", "Trees", "Chapter 1", "Chapter 2", "Chapter 3", "Chapter 4"],
   );
 });
 
-test("keeps all optional topics when they exceed the chapter count", () => {
+test("keeps all optional topics in addition to the chapter count", () => {
   assert.deepEqual(
     getSubjectStudyUnits({
       chapters: 2,
       topics: ["Arrays", "Trees", "Graphs"],
     }),
-    ["Arrays", "Trees", "Graphs"],
+    ["Arrays", "Trees", "Graphs", "Chapter 1", "Chapter 2"],
+  );
+});
+
+test("preserves chapter positions and falls back only for unnamed chapters", () => {
+  assert.deepEqual(
+    normalizeSubjectChapterNames(["Introduction", "", " Routing "], 3),
+    ["Introduction", "", "Routing"],
+  );
+  assert.deepEqual(
+    getSubjectStudyUnits({
+      chapterNames: ["Introduction", "", "Routing"],
+      chapters: 3,
+    }),
+    ["Introduction", "Chapter 2", "Routing"],
+  );
+});
+
+test("keeps topic and chapter identities distinct even when labels match", () => {
+  assert.deepEqual(
+    getSubjectStudyUnitRecords({
+      chapterNames: ["Networks"],
+      chapters: 1,
+      topics: ["Networks"],
+    }).map(({ unitKey, unitType }) => ({ unitKey, unitType })),
+    [
+      { unitKey: "topic:networks", unitType: "topic" },
+      { unitKey: "chapter:1", unitType: "chapter" },
+    ],
   );
 });
 
@@ -86,17 +116,22 @@ test("applies named topics and subject study preferences to generated tasks", ()
   );
   const tasks = schedule.flatMap((day) => day.tasks);
 
-  assert.deepEqual(tasks.map((task) => task.task), [
+  assert.deepEqual(tasks.filter((task) => !["Chapter 1", "Chapter 2"].includes(task.topic)).map((task) => task.task), [
     "Data structures - Arrays · Practice",
     "Data structures - Trees · Practice",
     "Data structures - Chapter 3 · Practice",
     "Data structures - Chapter 4 · Practice",
+  ]);
+  assert.deepEqual(tasks.map((task) => task.topic), [
+    "Arrays", "Trees", "Chapter 1", "Chapter 2", "Chapter 3", "Chapter 4",
   ]);
   assert.equal(tasks.every((task) => task.time === "Evening · 60 min"), true);
   assert.equal(tasks.every((task) => task.durationMinutes === 60), true);
   assert.equal(tasks[0].topic, "Arrays");
   assert.equal(tasks[0].unitType, "topic");
   assert.equal(tasks[2].unitType, "chapter");
+  assert.equal(tasks[2].unitKey, "chapter:1");
+  assert.equal(tasks.every((task) => task.source === "subject"), true);
 });
 
 test("assigns an actual calendar date to every generated schedule day", () => {

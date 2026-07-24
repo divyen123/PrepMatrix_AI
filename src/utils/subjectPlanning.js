@@ -10,6 +10,7 @@ export const PREFERRED_TIME_OPTIONS = ["any", "morning", "midday", "afternoon", 
 export const STUDY_GOAL_OPTIONS = ["coverage", "practice", "revision"];
 
 const MAX_TOPICS = 60;
+const MAX_CHAPTERS = 500;
 
 function clampInteger(value, minimum, maximum, fallback) {
   const parsed = Number.parseInt(value, 10);
@@ -40,6 +41,24 @@ export function normalizeSubjectTopics(value) {
     .slice(0, MAX_TOPICS);
 }
 
+export function normalizeSubjectChapterNames(value, chapterCount = MAX_CHAPTERS) {
+  if (!Array.isArray(value)) return [];
+
+  const maximum = clampInteger(chapterCount, 0, MAX_CHAPTERS, MAX_CHAPTERS);
+  const normalized = value
+    .slice(0, maximum)
+    .map((chapter) => {
+      if (typeof chapter === "string") return chapter.trim().slice(0, 120);
+      if (chapter && typeof chapter === "object") {
+        return String(chapter.title || chapter.name || chapter.label || "").trim().slice(0, 120);
+      }
+      return "";
+    });
+
+  while (normalized.at(-1) === "") normalized.pop();
+  return normalized;
+}
+
 export function normalizeStudyPreferences(value = {}) {
   const sessionMinutes = Number(value?.sessionMinutes);
   const preferredTime = String(value?.preferredTime || "").toLowerCase();
@@ -64,28 +83,29 @@ export function normalizeStudyPreferences(value = {}) {
   };
 }
 
-export function getSubjectStudyUnits(subject = {}) {
+export function getSubjectStudyUnitRecords(subject = {}) {
   const topics = normalizeSubjectTopics(subject?.topics);
-  const chapterCount = clampInteger(subject?.chapters, 0, 500, 0);
-  const targetUnitCount = Math.max(chapterCount, topics.length);
-  const usedKeys = new Set(topics.map((topic) => topic.toLocaleLowerCase()));
-  const chapterFallbacks = [
-    ...Array.from(
-      { length: Math.max(chapterCount - topics.length, 0) },
-      (_, index) => `Chapter ${topics.length + index + 1}`,
-    ),
-    ...Array.from(
-      { length: chapterCount },
-      (_, index) => `Chapter ${index + 1}`,
-    ),
-  ].filter((chapter) => {
-    const key = chapter.toLocaleLowerCase();
-    if (usedKeys.has(key)) return false;
-    usedKeys.add(key);
-    return true;
-  });
+  const chapterCount = clampInteger(subject?.chapters, 0, MAX_CHAPTERS, 0);
+  const chapterNames = normalizeSubjectChapterNames(subject?.chapterNames, chapterCount);
 
-  return [...topics, ...chapterFallbacks].slice(0, targetUnitCount);
+  return [
+    ...topics.map((label, unitIndex) => ({
+      label,
+      unitIndex,
+      unitKey: `topic:${label.toLocaleLowerCase()}`,
+      unitType: "topic",
+    })),
+    ...Array.from({ length: chapterCount }, (_, unitIndex) => ({
+      label: chapterNames[unitIndex] || `Chapter ${unitIndex + 1}`,
+      unitIndex,
+      unitKey: `chapter:${unitIndex + 1}`,
+      unitType: "chapter",
+    })),
+  ];
+}
+
+export function getSubjectStudyUnits(subject = {}) {
+  return getSubjectStudyUnitRecords(subject).map((unit) => unit.label);
 }
 
 export function getSubjectPlanAnalysis(subject = {}) {

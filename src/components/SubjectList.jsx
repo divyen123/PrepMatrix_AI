@@ -87,7 +87,7 @@ function SubjectList({ hasActiveSchedule = false, subjects, setSubjects }) {
     setSubjects(updated, { preserveSchedule: true });
     toast.success(
       hasActiveSchedule
-        ? "Subject plan saved. Generate a new timetable when you are ready to apply it."
+        ? "Subject plan saved. Current timetable updated."
         : "Subject plan saved.",
       { toastId: "subject-plan-saved" },
     );

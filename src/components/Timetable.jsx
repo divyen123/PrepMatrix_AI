@@ -7,7 +7,7 @@ import successSound from "../assets/success.mp3";
 import { generateSchedule } from "../utils/scheduleGenerator";
 import {
   formatScheduleDayHeading,
-  toLocalDateKey,
+  getScheduleGenerationWindow,
 } from "../utils/scheduleDates";
 
 function Timetable({
@@ -57,14 +57,11 @@ function Timetable({
     setLoading(true);
 
     setTimeout(() => {
-      const today = new Date();
-      const exam = new Date(examDate);
-      const diffTime = exam - today;
-      let days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      let { days, startDate } = getScheduleGenerationWindow(examDate, new Date());
 
       if (days < 1) {
         setLoading(false);
-        toast.error("Choose an exam date in the future.", {
+        toast.error("Choose an exam date with at least one study day available.", {
           toastId: "planner-future-date",
         });
         return;
@@ -78,7 +75,6 @@ function Timetable({
       }
 
       const backlog = getBacklogTasks();
-      const startDate = toLocalDateKey(new Date());
       const result = generateSchedule(subjects, days, backlog, {
         planMode,
         startDate,

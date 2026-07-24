@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import {
   DEFAULT_STUDY_PREFERENCES,
-  getChapterTopicSuggestions,
+  normalizeSubjectChapterNames,
   getSubjectPlanAnalysis,
   normalizeStudyPreferences,
   normalizeSubjectTopics,
@@ -42,6 +42,11 @@ function SubjectPlanDialog({
   const closingRef = useRef(false);
   const previousFocusRef = useRef(null);
   const onCloseRef = useRef(onClose);
+  const chapterCount = Math.max(0, Number.parseInt(subject?.chapters, 10) || 0);
+  const [chapterError, setChapterError] = useState("");
+  const [chapterNameInput, setChapterNameInput] = useState("");
+  const [chapterNumber, setChapterNumber] = useState(1);
+  const [chapterNames, setChapterNames] = useState(() => normalizeSubjectChapterNames(subject?.chapterNames, chapterCount));
   const [isClosing, setIsClosing] = useState(false);
   const [topicInput, setTopicInput] = useState("");
   const [topicError, setTopicError] = useState("");
@@ -57,15 +62,17 @@ function SubjectPlanDialog({
 
   const originalConfiguration = useMemo(() => ({
     difficulty: subject?.difficulty || "medium",
+    chapterNames: normalizeSubjectChapterNames(subject?.chapterNames, chapterCount),
     topics: normalizeSubjectTopics(subject?.topics),
     studyPreferences: normalizeStudyPreferences(subject?.studyPreferences),
-  }), [subject]);
+  }), [chapterCount, subject]);
 
   const nextConfiguration = useMemo(() => ({
     difficulty,
+    chapterNames: normalizeSubjectChapterNames(chapterNames, chapterCount),
     topics: normalizeSubjectTopics(topics),
     studyPreferences: normalizeStudyPreferences(preferences),
-  }), [difficulty, preferences, topics]);
+  }), [chapterCount, chapterNames, difficulty, preferences, topics]);
 
   const isDirty = JSON.stringify(originalConfiguration) !== JSON.stringify(nextConfiguration);
   const configuredSubject = useMemo(
@@ -76,13 +83,15 @@ function SubjectPlanDialog({
     () => getSubjectPlanAnalysis(configuredSubject),
     [configuredSubject],
   );
-  const suggestions = useMemo(
-    () => getChapterTopicSuggestions(subject),
-    [subject],
-  );
   const selectedTopicKeys = useMemo(
     () => new Set(topics.map((topic) => topic.toLocaleLowerCase())),
     [topics],
+  );
+  const namedChapters = useMemo(
+    () => chapterNames
+      .map((name, index) => ({ index, name: String(name || "").trim() }))
+      .filter((chapter) => chapter.name),
+    [chapterNames],
   );
 
   const requestClose = useCallback((afterClose) => {
@@ -143,6 +152,68 @@ function SubjectPlanDialog({
     };
   }, [requestClose]);
 
+  const addChapterName = () => {
+    const chapterIndex = Math.min(Math.max(Number(chapterNumber) - 1, 0), Math.max(chapterCount - 1, 0));
+    const chapterName = String(chapterNameInput || "").trim().slice(0, 120);
+    if (!chapterCount) {
+      setChapterError("Add at least one chapter to this subject first.");
+      return;
+    }
+    if (!chapterName) {
+      setChapterError("Type a chapter name before adding it.");
+      return;
+    }
+    if (selectedTopicKeys.has(chapterName.toLocaleLowerCase())) {
+      setChapterError("That name is already used by a focus topic.");
+      return;
+    }
+    const duplicateIndex = chapterNames.findIndex((name, index) => (
+      index !== chapterIndex
+      && String(name || "").trim().toLocaleLowerCase() === chapterName.toLocaleLowerCase()
+    ));
+    if (duplicateIndex >= 0) {
+      setChapterError(`That name is already used for Chapter ${duplicateIndex + 1}.`);
+      return;
+    }
+
+    const nextNames = [...chapterNames];
+    while (nextNames.length <= chapterIndex) nextNames.push("");
+    nextNames[chapterIndex] = chapterName;
+    setChapterNames(normalizeSubjectChapterNames(nextNames, chapterCount));
+    setChapterNameInput("");
+    setChapterError("");
+
+    const nextBlankIndex = Array.from(
+      { length: chapterCount },
+      (_, index) => index,
+    ).find((index) => !String(nextNames[index] || "").trim());
+    if (nextBlankIndex !== undefined) setChapterNumber(nextBlankIndex + 1);
+  };
+
+  const updateChapterName = (chapterIndex, nextValue) => {
+    setChapterNames((current) => {
+      const nextNames = [...current];
+      while (nextNames.length <= chapterIndex) nextNames.push("");
+      nextNames[chapterIndex] = String(nextValue ?? "").slice(0, 120);
+      return nextNames;
+    });
+    setChapterError("");
+  };
+
+  const finishChapterNameEdit = () => {
+    setChapterNames((current) => normalizeSubjectChapterNames(current, chapterCount));
+  };
+
+  const removeChapterName = (chapterIndex) => {
+    setChapterNames((current) => {
+      const nextNames = [...current];
+      nextNames[chapterIndex] = "";
+      return normalizeSubjectChapterNames(nextNames, chapterCount);
+    });
+    setChapterNumber(chapterIndex + 1);
+    setChapterError("");
+  };
+
   const addTopic = (rawTopic = topicInput) => {
     const topic = String(rawTopic || "").trim().slice(0, 120);
     if (!topic) {
@@ -151,6 +222,13 @@ function SubjectPlanDialog({
     }
     if (topics.length >= 60) {
       setTopicError("A subject can contain up to 60 focus topics.");
+      return;
+    }
+    const topicMatchesChapter = chapterNames.some((name) => (
+      String(name || "").trim().toLocaleLowerCase() === topic.toLocaleLowerCase()
+    ));
+    if (topicMatchesChapter) {
+      setTopicError("That name is already used by a chapter.");
       return;
     }
     if (selectedTopicKeys.has(topic.toLocaleLowerCase())) {
@@ -195,6 +273,10 @@ function SubjectPlanDialog({
   };
 
   const resetPlanOptions = () => {
+    setChapterNames([]);
+    setChapterNameInput("");
+    setChapterNumber(1);
+    setChapterError("");
     setTopics([]);
     setPreferences({ ...DEFAULT_STUDY_PREFERENCES });
     setDifficulty(subject?.difficulty || "medium");
@@ -223,9 +305,11 @@ function SubjectPlanDialog({
 
   const hours = analysis.totalMinutes / 60;
   const hoursLabel = Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
-  const topicSummary = topics.length
-    ? `${topics.length} named ${topics.length === 1 ? "topic" : "topics"}`
-    : "Automatic chapter sequence";
+  const contentSummary = [
+    `${chapterCount} ${chapterCount === 1 ? "chapter" : "chapters"}`,
+    namedChapters.length ? `${namedChapters.length} named` : null,
+    topics.length ? `${topics.length} focus ${topics.length === 1 ? "topic" : "topics"}` : null,
+  ].filter(Boolean).join(", ");
 
   return createPortal(
     <div
@@ -251,7 +335,7 @@ function SubjectPlanDialog({
             <span className="subject-plan-eyebrow">Subject planning workspace</span>
             <h2 id="subject-plan-title">Configure {subject?.name}</h2>
             <p id="subject-plan-description">
-              Add optional focus topics and set a realistic rhythm for the next generated schedule.
+              Name chapters, add focus topics, and set a realistic study rhythm.
             </p>
           </div>
           <button
@@ -288,17 +372,106 @@ function SubjectPlanDialog({
         </div>
 
         <div className="subject-plan-body">
-          <section className="subject-plan-panel subject-topic-panel" aria-labelledby="subject-topic-heading">
+          <section className="subject-plan-panel subject-topic-panel" aria-labelledby="subject-content-heading">
             <div className="subject-plan-panel-heading">
               <div>
                 <span className="subject-plan-step">01</span>
                 <div>
-                  <h3 id="subject-topic-heading">Optional focus topics</h3>
-                  <p>Leave this empty to plan {subject?.chapters || 0} numbered chapters automatically.</p>
+                  <h3 id="subject-content-heading">Study content</h3>
+                  <p>Name chapters and add extra focus topics to the schedule.</p>
                 </div>
               </div>
-              <span className="subject-plan-count">{topics.length}/60</span>
             </div>
+
+            <div className="subject-unit-group subject-chapter-group">
+              <div className="subject-unit-group-heading">
+                <div>
+                  <h4>Chapter names</h4>
+                  <p>Optional. Blank chapters stay as Chapter N.</p>
+                </div>
+                <span className="subject-plan-count">{namedChapters.length}/{chapterCount}</span>
+              </div>
+
+              <div className="subject-chapter-composer">
+                <select
+                  aria-label="Chapter number"
+                  onChange={(event) => setChapterNumber(Number(event.target.value))}
+                  value={chapterNumber}
+                >
+                  {Array.from({ length: chapterCount }, (_, index) => (
+                    <option key={index + 1} value={index + 1}>Chapter {index + 1}</option>
+                  ))}
+                </select>
+                <input
+                  aria-describedby={chapterError ? "subject-chapter-error" : undefined}
+                  maxLength="120"
+                  onChange={(event) => {
+                    setChapterNameInput(event.target.value);
+                    if (chapterError) setChapterError("");
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addChapterName();
+                    }
+                  }}
+                  placeholder="e.g. Network fundamentals"
+                  value={chapterNameInput}
+                />
+                <button onClick={addChapterName} type="button">
+                  <Plus size={16} />
+                  Add chapter name
+                </button>
+              </div>
+              {chapterError && (
+                <p className="subject-topic-error" id="subject-chapter-error" role="alert">{chapterError}</p>
+              )}
+
+              <div className="subject-chapter-list" aria-live="polite">
+                {namedChapters.length === 0 ? (
+                  <div className="subject-unit-empty">No custom names yet. Raw chapter labels remain available.</div>
+                ) : (
+                  namedChapters.map(({ index, name }) => (
+                    <div className="subject-topic-item subject-chapter-item" key={`chapter-${index}`}>
+                      <span>CH {index + 1}</span>
+                      <input
+                        aria-label={`Rename Chapter ${index + 1}`}
+                        className="subject-topic-name-input"
+                        maxLength="120"
+                        onBlur={finishChapterNameEdit}
+                        onChange={(event) => updateChapterName(index, event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        spellCheck="false"
+                        title={`Rename Chapter ${index + 1}`}
+                        value={name}
+                      />
+                      <button
+                        aria-label={`Remove name from Chapter ${index + 1}`}
+                        onClick={() => removeChapterName(index)}
+                        title="Remove chapter name"
+                        type="button"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="subject-unit-group subject-focus-group">
+              <div className="subject-unit-group-heading">
+                <div>
+                  <h4>Focus topics</h4>
+                  <p>Optional topics are added alongside every chapter.</p>
+                </div>
+                <span className="subject-plan-count">{topics.length}/60</span>
+              </div>
 
             <div className="subject-topic-composer">
               <input
@@ -325,39 +498,10 @@ function SubjectPlanDialog({
             </div>
             {topicError && <p className="subject-topic-error" id="subject-topic-error" role="alert">{topicError}</p>}
 
-            {suggestions.length > 0 && (
-              <div className="subject-topic-suggestions">
-                <span>Quick add</span>
-                <div>
-                  {suggestions.map((suggestion) => {
-                    const isSelected = selectedTopicKeys.has(suggestion.toLocaleLowerCase());
-                    return (
-                      <button
-                        aria-pressed={isSelected}
-                        className={isSelected ? "is-selected" : ""}
-                        disabled={isSelected}
-                        key={suggestion}
-                        onClick={() => addTopic(suggestion)}
-                        type="button"
-                      >
-                        {isSelected ? <CheckCircle2 size={13} /> : <Plus size={13} />}
-                        {suggestion}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             <div className="subject-topic-list" aria-live="polite">
               {topics.length === 0 ? (
-                <div className="subject-topic-empty">
-                  <Sparkles aria-hidden="true" size={19} />
-                  <div>
-                    <strong>Topics are optional</strong>
-                    <span>The planner will use Chapter 1 through Chapter {subject?.chapters || 0}.</span>
-                  </div>
-                </div>
+                <div className="subject-unit-empty">No extra topics yet. Chapters will still be planned.</div>
               ) : (
                 topics.map((topic, index) => (
                   <div className="subject-topic-item" key={`topic-${index}`}>
@@ -389,6 +533,7 @@ function SubjectPlanDialog({
                   </div>
                 ))
               )}
+            </div>
             </div>
           </section>
 
@@ -482,13 +627,13 @@ function SubjectPlanDialog({
                 <strong id="subject-analysis-heading">{analysis.estimatedWeeks} week{analysis.estimatedWeeks === 1 ? "" : "s"} at target pace</strong>
               </div>
               <p>
-                {topicSummary}. Approximately <strong>{hoursLabel} hours</strong> across {analysis.unitCount} planned sessions.
+                {contentSummary}. Approximately <strong>{hoursLabel} hours</strong> across {analysis.unitCount} planned sessions.
               </p>
               <div className="subject-plan-analysis-bar" aria-hidden="true">
                 <span style={{ width: `${Math.min(100, Math.max(16, (analysis.unitCount / Math.max(analysis.preferences.sessionsPerWeek * 4, 1)) * 100))}%` }} />
               </div>
               <small>
-                Named topics are scheduled first. Remaining units use chapter labels; a close exam date may compress the weekly target.
+                Focus topics are added alongside chapters. Unnamed chapters keep their Chapter N fallback.
               </small>
             </section>
           </aside>
@@ -499,7 +644,7 @@ function SubjectPlanDialog({
             {hasActiveSchedule ? (
               <>
                 <CalendarDays aria-hidden="true" size={15} />
-                <span>Your current timetable stays intact. Generate a new one to apply these settings.</span>
+                <span>Saving updates this subject in the current timetable without moving other tasks.</span>
               </>
             ) : (
               <>
