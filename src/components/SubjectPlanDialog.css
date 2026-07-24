@@ -625,6 +625,10 @@ body .subject-topic-item button:focus-visible {
 }
 
 @media (min-width: 901px) {
+  .subject-plan-side > * {
+    flex: 0 0 auto;
+  }
+
   .subject-chapter-list,
   .subject-topic-list,
   .subject-focus-group .subject-topic-list {
