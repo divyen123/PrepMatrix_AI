@@ -179,13 +179,15 @@ body .subject-plan-close:focus-visible {
 }
 
 .subject-plan-body {
+  flex: 1 1 auto;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1.24fr) minmax(300px, 0.76fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 16px;
   padding: 18px 24px 22px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .subject-plan-panel {
@@ -589,6 +591,49 @@ body .subject-topic-item button:focus-visible {
   gap: 12px;
 }
 
+.subject-topic-panel,
+.subject-plan-side {
+  min-height: 0;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-color: rgba(var(--accent-rgb), 0.42) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.subject-topic-panel::-webkit-scrollbar,
+.subject-plan-side::-webkit-scrollbar {
+  width: 6px;
+}
+
+.subject-topic-panel::-webkit-scrollbar-track,
+.subject-plan-side::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.subject-topic-panel::-webkit-scrollbar-thumb,
+.subject-plan-side::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.4);
+  border-radius: 999px;
+}
+
+.subject-topic-panel::-webkit-scrollbar-thumb:hover,
+.subject-plan-side::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.62);
+}
+
+@media (min-width: 901px) {
+  .subject-chapter-list,
+  .subject-topic-list,
+  .subject-focus-group .subject-topic-list {
+    max-height: none;
+    padding-right: 0;
+    overflow: visible;
+  }
+}
+
 .subject-plan-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -866,6 +911,15 @@ body.has-bg-image .subject-plan-footer {
 
   .subject-plan-body {
     grid-template-columns: 1fr;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
+  .subject-topic-panel,
+  .subject-plan-side {
+    max-height: none;
+    overflow: visible;
+    scrollbar-gutter: auto;
   }
 
   .subject-topic-list {
