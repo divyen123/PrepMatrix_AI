@@ -366,14 +366,12 @@
 }
 
 @media (min-width: 1181px) {
+  .settings-page .settings-system-card,
   .settings-page .goal-settings-card {
-    height: var(--settings-paired-card-height) !important;
+    align-self: stretch;
+    height: auto !important;
     min-height: var(--settings-paired-card-height) !important;
-    max-height: var(--settings-paired-card-height) !important;
-  }
-
-  .settings-page .settings-system-card {
-    min-height: var(--settings-paired-card-height) !important;
+    max-height: none !important;
   }
 }
 
