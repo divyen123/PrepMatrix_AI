@@ -51,8 +51,8 @@ test("voice preferences clamp unsafe numeric values and reject malformed ones", 
     }),
     {
       voiceStyle: "female",
-      rate: 1.25,
-      pitch: 0.75,
+      rate: 1.5,
+      pitch: 0.6,
       volume: 1,
     }
   );

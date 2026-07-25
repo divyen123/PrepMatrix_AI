@@ -393,7 +393,7 @@ export default function useVoiceAssistant({
   ]);
 
 
-  const previewVoice = useCallback(() => {
+  const previewVoice = useCallback((preferenceOverrides) => {
     if (
       !("speechSynthesis" in window)
       || typeof SpeechSynthesisUtterance === "undefined"
@@ -409,7 +409,7 @@ export default function useVoiceAssistant({
     let utterance;
     try {
       utterance = new SpeechSynthesisUtterance(
-        "Hello! I am your PrepMatrix study assistant. This is how I will read your answers."
+        "PrepMatrix voice preview. Clear ideas, confident answers, and focused study."
       );
     } catch {
       if (shouldResumeWake && wakeModeRef.current) scheduleWakeRestart(120);
@@ -419,10 +419,17 @@ export default function useVoiceAssistant({
     const availableVoices = speechVoices.length > 0
       ? speechVoices
       : window.speechSynthesis.getVoices?.() || [];
+    const previewPreferences = preferenceOverrides
+      ? normalizeVoicePreferences({
+          ...voicePreferences,
+          ...preferenceOverrides,
+        })
+      : voicePreferences;
+
     applyVoicePreferencesToUtterance(
       utterance,
       availableVoices,
-      voicePreferences
+      previewPreferences
     );
     previewSpeechRef.current = utterance;
 

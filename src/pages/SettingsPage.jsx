@@ -58,6 +58,17 @@ const COLOR_PRESETS = [
   { name: "Orange", light: "194, 65, 12", dark: "249, 115, 22" },
   { name: "Rose", light: "190, 24, 74", dark: "244, 63, 94" },
 ];
+const VOICE_RANGE_PREVIEW_KEYS = new Set([
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "End",
+  "Home",
+  "PageDown",
+  "PageUp",
+]);
+
 
 function applyBackgroundImageBlurVariables(value, hasBackgroundImage) {
   const resolvedBlur = resolveBackgroundImageBlurPx(value, hasBackgroundImage);
@@ -209,10 +220,14 @@ function SettingsPage({
       [key]: value,
     }));
   };
-  const handleVoicePreview = () => {
-    if (!onPreviewVoice?.()) {
+  const handleVoicePreview = (preferenceOverrides) => {
+    if (!onPreviewVoice?.(preferenceOverrides)) {
       toast.error("Voice preview is not supported in this browser.");
     }
+  };
+  const previewVoiceAdjustment = (event, key) => {
+    if (event.type === "keyup" && !VOICE_RANGE_PREVIEW_KEYS.has(event.key)) return;
+    handleVoicePreview({ [key]: Number(event.currentTarget.value) });
   };
 
   const initialAcademicProfile = normalizeAcademicProfile({
@@ -1782,7 +1797,9 @@ function SettingsPage({
                   max={VOICE_RATE_MAX}
                   min={VOICE_RATE_MIN}
                   onChange={(event) => updateVoicePreference("rate", Number(event.target.value))}
-                  step="0.05"
+                  onKeyUp={(event) => previewVoiceAdjustment(event, "rate")}
+                  onPointerUp={(event) => previewVoiceAdjustment(event, "rate")}
+                  step="0.1"
                   type="range"
                   value={assistantVoicePreferences.rate}
                 />
@@ -1790,7 +1807,7 @@ function SettingsPage({
 
               <label className="assistant-voice-range" htmlFor="assistant-voice-pitch">
                 <span>
-                  <strong>Pitch / tone</strong>
+                  <strong>Pitch</strong>
                   <output>{Math.round(assistantVoicePreferences.pitch * 100)}%</output>
                 </span>
                 <input
@@ -1799,7 +1816,9 @@ function SettingsPage({
                   max={VOICE_PITCH_MAX}
                   min={VOICE_PITCH_MIN}
                   onChange={(event) => updateVoicePreference("pitch", Number(event.target.value))}
-                  step="0.05"
+                  onKeyUp={(event) => previewVoiceAdjustment(event, "pitch")}
+                  onPointerUp={(event) => previewVoiceAdjustment(event, "pitch")}
+                  step="0.1"
                   type="range"
                   value={assistantVoicePreferences.pitch}
                 />
@@ -1816,6 +1835,8 @@ function SettingsPage({
                   max={VOICE_VOLUME_MAX}
                   min={VOICE_VOLUME_MIN}
                   onChange={(event) => updateVoicePreference("volume", Number(event.target.value))}
+                  onKeyUp={(event) => previewVoiceAdjustment(event, "volume")}
+                  onPointerUp={(event) => previewVoiceAdjustment(event, "volume")}
                   step="0.05"
                   type="range"
                   value={assistantVoicePreferences.volume}
@@ -1827,12 +1848,12 @@ function SettingsPage({
               <p aria-live="polite">
                 <span>Active browser voice</span>
                 <strong>{activeVoiceName || "Browser default voice"}</strong>
-                <small>Voice availability depends on this browser and device.</small>
+                <small>Release a slider to hear the change. Pitch response depends on the browser voice.</small>
               </p>
               <button
                 className="secondary-btn assistant-voice-preview-btn"
                 disabled={!onPreviewVoice}
-                onClick={handleVoicePreview}
+                onClick={() => handleVoicePreview()}
                 type="button"
               >
                 <Volume2 aria-hidden="true" size={14} />

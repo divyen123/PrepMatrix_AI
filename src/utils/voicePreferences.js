@@ -1,9 +1,9 @@
 export const VOICE_PREFERENCES_STORAGE_KEY = "prepmatrix_voice_preferences_v1";
 
-export const VOICE_RATE_MIN = 0.75;
-export const VOICE_RATE_MAX = 1.25;
-export const VOICE_PITCH_MIN = 0.75;
-export const VOICE_PITCH_MAX = 1.25;
+export const VOICE_RATE_MIN = 0.7;
+export const VOICE_RATE_MAX = 1.5;
+export const VOICE_PITCH_MIN = 0.6;
+export const VOICE_PITCH_MAX = 1.4;
 export const VOICE_VOLUME_MIN = 0;
 export const VOICE_VOLUME_MAX = 1;
 
