@@ -1427,6 +1427,8 @@ function App() {
                             <QuizPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
+                              completed={completed}
+                              schedule={schedule}
                               subjects={subjects}
                               userProfile={userProfile}
                             />

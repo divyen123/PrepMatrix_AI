@@ -12,7 +12,7 @@ function getSubjectProgress(subjects, schedule, completed) {
     );
     const done = subjectTasks.filter((task) => completedSet.has(task.task)).length;
     const total = subjectTasks.length || subject?.chapters || 0;
-    const percent = total ? Math.round((done / total) * 100) : 0;
+    const percent = total ? Math.floor((done / total) * 100) : 0;
 
     return {
       ...subject,

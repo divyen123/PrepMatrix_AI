@@ -317,14 +317,14 @@ body.has-bg-image .notes-page .planned-chip.is-completed {
   box-sizing: border-box;
   gap: 5px;
   padding: 7px;
-  background: color-mix(in srgb, var(--bg) 94%, var(--accent) 6%);
+  background: var(--bg);
   border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
   border-radius: 12px;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
 }
 
 body.has-bg-image .notes-page .planner-date-menu {
-  background: color-mix(in srgb, rgb(var(--bg-surface-rgb)) 94%, var(--accent) 6%);
+  background: rgb(var(--bg-surface-rgb));
 }
 
 .notes-page .planner-date-menu-header {

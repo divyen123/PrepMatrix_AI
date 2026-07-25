@@ -13,6 +13,7 @@ export function normalizeTimeSlot(timeLabel = "") {
 }
 
 export const EXAM_ELIGIBILITY_THRESHOLD = 80;
+export const QUIZ_ELIGIBILITY_THRESHOLD = 50;
 
 export function getPlannerMetrics(schedule = [], completed = []) {
   const safeSchedule = Array.isArray(schedule) ? schedule : [];
@@ -33,7 +34,7 @@ export function getPlannerMetrics(schedule = [], completed = []) {
       totalTasks += 1;
 
       const taskName = task.task;
-      const subject = extractSubjectFromTask(taskName);
+      const subject = String(task.subjectName || "").trim() || extractSubjectFromTask(taskName);
       const isDone = completedSet.has(taskName);
 
       if (!subjectStats[subject]) {
@@ -91,5 +92,62 @@ export function getPlannerMetrics(schedule = [], completed = []) {
     subjectStats,
     morningCompleted,
     eveningCompleted,
+  };
+}
+
+export function getSubjectQuizEligibility(subjectName = "", schedule = [], completed = []) {
+  const cleanSubjectName = String(subjectName || "").trim();
+  const normalizedSubjectName = cleanSubjectName.toLocaleLowerCase();
+  const safeSchedule = Array.isArray(schedule) ? schedule : [];
+  const completedSet = new Set(Array.isArray(completed) ? completed : []);
+  const scheduledTasks = safeSchedule.flatMap((day) => (
+    Array.isArray(day?.tasks) ? day.tasks : []
+  )).filter((task) => task && typeof task.task === "string");
+  const exactLegacyPrefix = `${cleanSubjectName} -`;
+  const normalizedLegacyPrefix = `${normalizedSubjectName} -`;
+  const hasExactSubjectMatch = scheduledTasks.some((task) => {
+    const structuredSubject = String(task.subjectName || "").trim();
+    return structuredSubject
+      ? structuredSubject === cleanSubjectName
+      : task.task.trim().startsWith(exactLegacyPrefix);
+  });
+  const subjectTasks = normalizedSubjectName
+    ? scheduledTasks.filter((task) => {
+      const structuredSubject = String(task.subjectName || "").trim();
+      if (structuredSubject) {
+        return hasExactSubjectMatch
+          ? structuredSubject === cleanSubjectName
+          : structuredSubject.toLocaleLowerCase() === normalizedSubjectName;
+      }
+      const taskName = task.task.trim();
+      return hasExactSubjectMatch
+        ? taskName.startsWith(exactLegacyPrefix)
+        : taskName.toLocaleLowerCase().startsWith(normalizedLegacyPrefix);
+    })
+    : [];
+  const matchedSubjectName = subjectTasks
+    .map((task) => String(task.subjectName || "").trim())
+    .find(Boolean)
+    || subjectTasks[0]?.task.trim().slice(0, cleanSubjectName.length)
+    || cleanSubjectName;
+  const totalTasks = subjectTasks.length;
+  const completedTasks = subjectTasks.filter((task) => completedSet.has(task.task)).length;
+  const completionRate = totalTasks === 0
+    ? 0
+    : Math.floor((completedTasks / totalTasks) * 100);
+  const requiredCompletedTasks = totalTasks === 0
+    ? 0
+    : Math.ceil((totalTasks * QUIZ_ELIGIBILITY_THRESHOLD) / 100);
+  const isEligible = totalTasks > 0
+    && completedTasks * 100 >= totalTasks * QUIZ_ELIGIBILITY_THRESHOLD;
+
+  return {
+    subjectName: matchedSubjectName,
+    totalTasks,
+    completedTasks,
+    completionRate,
+    requiredCompletedTasks,
+    tasksToEligibility: Math.max(requiredCompletedTasks - completedTasks, 0),
+    isEligible,
   };
 }

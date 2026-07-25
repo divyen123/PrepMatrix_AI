@@ -15,6 +15,7 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
+import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 
 function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] }) {
   const navigate = useNavigate();
@@ -39,7 +40,13 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
     () => safeSchedule.flatMap((day, dayIndex) => {
       const tasks = Array.isArray(day?.tasks) ? day.tasks : [];
       return tasks
-        .filter((task) => typeof task?.task === "string" && task.task.startsWith(`${subject} -`))
+        .filter((task) => {
+          if (typeof task?.task !== "string") return false;
+          const structuredSubjectName = String(task.subjectName || "").trim();
+          const normalizedSubjectName = String(subject || "").trim().toLocaleLowerCase();
+          if (structuredSubjectName) return structuredSubjectName.toLocaleLowerCase() === normalizedSubjectName;
+          return task.task.trim().toLocaleLowerCase().startsWith(`${normalizedSubjectName} -`);
+        })
         .map((task, taskIndex) => ({
           id: task.task,
           topic: task.task.slice(`${subject} -`.length).trimStart(),
@@ -57,8 +64,14 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
   const remainingCount = Math.max(totalChapters - completedCount, 0);
   const completionPercentage = totalChapters === 0
     ? 0
-    : Math.round((completedCount / totalChapters) * 100);
+    : Math.floor((completedCount / totalChapters) * 100);
   const nextTask = subjectTasks.find((task) => !task.isComplete);
+  const quizEligibility = getSubjectQuizEligibility(subject, safeSchedule, safeCompleted);
+  const isQuizEligible = quizEligibility.isEligible;
+  const quizLockMessage = quizEligibility.totalTasks === 0
+    ? `Schedule ${subject} and complete at least ${QUIZ_ELIGIBILITY_THRESHOLD}% to unlock quizzes`
+    : `Complete ${quizEligibility.tasksToEligibility} more scheduled ${quizEligibility.tasksToEligibility === 1 ? "task" : "tasks"} to unlock`;
+
   const readinessLabel = completionPercentage === 100
     ? "Ready for final revision"
     : completionPercentage >= 70
@@ -120,6 +133,7 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
   };
 
   const handleQuiz = () => {
+    if (!isQuizEligible) return;
     closeWithAction(() => navigate(`/quiz?subject=${encodeURIComponent(subject)}`));
   };
 
@@ -360,9 +374,15 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
             <span><strong>Refer material</strong><small>Open curated resources</small></span>
             <ArrowRight size={15} />
           </button>
-          <button className="subject-action-btn" onClick={handleQuiz} type="button">
+          <button
+            className="subject-action-btn"
+            disabled={!isQuizEligible}
+            onClick={handleQuiz}
+            title={!isQuizEligible ? quizLockMessage : "Take a subject quiz"}
+            type="button"
+          >
             <span className="subject-action-icon"><PenTool size={17} /></span>
-            <span><strong>Take a quiz</strong><small>Test this subject</small></span>
+            <span><strong>Take a quiz</strong><small>{isQuizEligible ? "Test this subject" : quizLockMessage}</small></span>
             <ArrowRight size={15} />
           </button>
           <button

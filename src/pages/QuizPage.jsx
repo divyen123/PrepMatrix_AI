@@ -9,6 +9,7 @@ import {
   academicProfilePayload,
   buildLearnerAcademicContext,
 } from "../utils/academicProfile";
+import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 
 const QUIZ_HISTORY_PER_PAGE = 6;
 
@@ -25,7 +26,7 @@ function rankSearchMatch(fields, query) {
   }, 0);
 }
 
-function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
+function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], schedule = [], completed = [] }) {
   const [topic, setTopic] = useState("");
   const [subjectName, setSubjectName] = useState("");
   const [questionLimit, setQuestionLimit] = useState(5);
@@ -50,10 +51,10 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
 
   useEffect(() => {
     const querySubject = searchParams.get("subject");
-    if (querySubject && !subjectName) {
-      setSubjectName(querySubject);
+    if (!subjectName) {
+      setSubjectName(querySubject || subjects[0]?.name || "");
     }
-  }, [searchParams, subjectName]);
+  }, [searchParams, subjectName, subjects]);
 
   useEffect(() => {
     setSearchQuery(subjectName);
@@ -87,6 +88,12 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
 
 
   const selectedSubject = subjectName || subjects[0]?.name || "General study";
+  const quizEligibility = getSubjectQuizEligibility(selectedSubject, schedule, completed);
+  const quizEligibilityMessage = quizEligibility.isEligible
+    ? `${selectedSubject} is ${quizEligibility.completionRate}% complete. Quiz unlocked.`
+    : quizEligibility.totalTasks === 0
+      ? `Schedule ${selectedSubject} and complete at least ${QUIZ_ELIGIBILITY_THRESHOLD}% to unlock its quiz.`
+      : `${quizEligibility.completedTasks}/${quizEligibility.totalTasks} scheduled tasks complete. Complete ${quizEligibility.tasksToEligibility} more scheduled ${quizEligibility.tasksToEligibility === 1 ? "task" : "tasks"} to reach ${QUIZ_ELIGIBILITY_THRESHOLD}%.`;
   const cleanTopic = topic.trim();
   const learnerContext = buildLearnerAcademicContext({
     ...userProfile,
@@ -231,7 +238,19 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
     }
   };
 
+  const resetGeneratedQuiz = () => {
+    if (questions.length === 0 && Object.keys(answers).length === 0 && !result && !quizMeta) return;
+    setQuestions([]);
+    setAnswers({});
+    setResult(null);
+    setQuizMeta(null);
+  };
+
   const startQuiz = async () => {
+    if (!quizEligibility.isEligible) {
+      setSaveError(quizEligibilityMessage);
+      return;
+    }
     if (!cleanTopic) {
       setSaveError("Enter the exact topic first, for example: Travelling salesman problem.");
       return;
@@ -253,7 +272,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
       });
 
       setQuestions(payload.questions || []);
-      setQuizMeta({ model: payload.model, limit: payload.limit, topic: payload.topic });
+      setQuizMeta({ model: payload.model, limit: payload.limit, subjectName: selectedSubject, topic: payload.topic });
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not generate quiz.");
     } finally {
@@ -271,8 +290,8 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
       setSaveError("");
       const payload = await api.saveQuizAttempt({
         ...academicProfilePayload(learnerContext),
-        subjectName: selectedSubject,
-        topic: cleanTopic,
+        subjectName: quizMeta?.subjectName || selectedSubject,
+        topic: quizMeta?.topic || cleanTopic,
         total: questions.length,
         score,
         questions,
@@ -336,16 +355,19 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
         </div>
 
         <div className="quiz-builder-grid">
-          <label className="field-stack">
+          <label className="field-stack quiz-builder-field quiz-subject-field">
             Subject
             <div className="autocomplete-container" style={{ position: "relative" }}>
               <input
+                aria-describedby="quiz-eligibility-status"
+                disabled={isGenerating}
                 type="text"
                 className="text-input"
                 value={searchQuery}
                 onChange={(event) => {
                   const val = event.target.value;
                   setSearchQuery(val);
+                  resetGeneratedQuiz();
                   setSubjectName(val);
                   setShowDropdown(true);
                 }}
@@ -380,6 +402,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
                     <div 
                       style={{ padding: "10px 14px", fontSize: "0.85rem", color: "var(--text-muted)", cursor: "pointer" }}
                       onMouseDown={() => {
+                        resetGeneratedQuiz();
                         setSubjectName(searchQuery);
                         setShowDropdown(false);
                       }}
@@ -400,6 +423,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
                           transition: "background 0.2s"
                         }}
                         onMouseDown={() => {
+                          resetGeneratedQuiz();
                           setSubjectName(subject.name);
                           setSearchQuery(subject.name);
                           setShowDropdown(false);
@@ -414,19 +438,27 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
             </div>
           </label>
 
-          <label className="field-stack">
+          <label className="field-stack quiz-builder-field quiz-topic-field">
             Topic or doubt
             <input
-              onChange={(event) => setTopic(event.target.value)}
+              disabled={isGenerating}
+              onChange={(event) => {
+                resetGeneratedQuiz();
+                setTopic(event.target.value);
+              }}
               placeholder="Example: Travelling salesman problem"
               value={topic}
             />
           </label>
 
-          <label className="field-stack">
+          <label className="field-stack quiz-builder-field quiz-limit-field">
             Question limit
             <select
-              onChange={(event) => setQuestionLimit(Number(event.target.value))}
+              disabled={isGenerating}
+              onChange={(event) => {
+                resetGeneratedQuiz();
+                setQuestionLimit(Number(event.target.value));
+              }}
               value={questionLimit}
             >
               <option value={5}>5 questions</option>
@@ -435,9 +467,20 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects }) {
           </label>
         </div>
 
-        {saveError && <p className="auth-message">{saveError}</p>}
+        <p aria-live="polite" className={`quiz-eligibility-status ${quizEligibility.isEligible ? "is-eligible" : "is-locked"}`} id="quiz-eligibility-status" role="status">
+          {quizEligibilityMessage}
+        </p>
 
-        <button className="action-btn" disabled={isGenerating} onClick={startQuiz} type="button">
+        {saveError && <p className="auth-message" role="alert">{saveError}</p>}
+
+        <button
+          aria-describedby="quiz-eligibility-status"
+          className="action-btn"
+          disabled={isGenerating || !quizEligibility.isEligible}
+          onClick={startQuiz}
+          title={!quizEligibility.isEligible ? quizEligibilityMessage : "Generate AI quiz"}
+          type="button"
+        >
           {isGenerating ? "Generating topic quiz..." : "Generate AI quiz"}
         </button>
       </section>
