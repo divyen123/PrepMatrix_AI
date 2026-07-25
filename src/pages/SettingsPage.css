@@ -29,8 +29,16 @@
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;
-  overflow: visible !important;
+  overflow: hidden !important;
   scrollbar-gutter: auto;
+}
+
+.settings-page .settings-system-card::before {
+  opacity: 0 !important;
+}
+
+.settings-page .settings-system-card:hover::before {
+  opacity: 0.65 !important;
 }
 
 .settings-page .settings-card .section-tag,
