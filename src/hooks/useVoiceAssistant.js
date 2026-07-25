@@ -2,6 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import api from "../utils/apiClient";
+import {
+  VOICE_PREFERENCES_STORAGE_KEY,
+  applyVoicePreferencesToUtterance,
+  normalizeVoicePreferences,
+  observeSpeechVoices,
+  readStoredVoicePreferences,
+  resolvePreferredVoice,
+  storeVoicePreferences,
+} from "../utils/voicePreferences";
 
 const WAKE_MODE_KEY = "prepmatrix_wake_mode";
 const UNSUPPORTED_MESSAGE = "Voice recognition is not supported in this browser. Please try Chrome or Edge.";
@@ -197,6 +206,7 @@ export default function useVoiceAssistant({
   const processingRef = useRef(false);
   const startWakeListeningRef = useRef(null);
   const activeSpeechRef = useRef(null);
+  const previewSpeechRef = useRef(null);
 
   const metrics = useMemo(() => getPlannerMetrics(schedule, completed), [schedule, completed]);
   const plannerContext = useMemo(
@@ -217,6 +227,26 @@ export default function useVoiceAssistant({
   const [lastText, setLastText] = useState("");
   const [replySpeechState, setReplySpeechState] = useState("idle");
   const voiceStatusRef = useRef("idle");
+  const [voicePreferences, setVoicePreferencesState] = useState(readStoredVoicePreferences);
+  const [speechVoices, setSpeechVoices] = useState([]);
+  const activeVoiceName = useMemo(
+    () => resolvePreferredVoice(speechVoices, voicePreferences)?.name || "",
+    [speechVoices, voicePreferences]
+  );
+
+  const setVoicePreferences = useCallback((nextPreferences) => {
+    setVoicePreferencesState((currentPreferences) => {
+      const candidate = typeof nextPreferences === "function"
+        ? nextPreferences(currentPreferences)
+        : nextPreferences;
+      return storeVoicePreferences(candidate);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return undefined;
+    return observeSpeechVoices(window.speechSynthesis, setSpeechVoices);
+  }, []);
 
   const emitVoiceRecordingChange = useCallback((isRecording) => {
     window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: Boolean(isRecording), source: "voiceAssistant" } }));
@@ -243,6 +273,7 @@ export default function useVoiceAssistant({
 
   const invalidateActiveSpeech = useCallback(() => {
     activeSpeechRef.current = null;
+    previewSpeechRef.current = null;
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
@@ -316,8 +347,14 @@ export default function useVoiceAssistant({
 
     invalidateActiveSpeech();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-IN";
-    utterance.rate = 0.96;
+    const availableVoices = speechVoices.length > 0
+      ? speechVoices
+      : window.speechSynthesis.getVoices?.() || [];
+    applyVoicePreferencesToUtterance(
+      utterance,
+      availableVoices,
+      voicePreferences
+    );
     activeSpeechRef.current = { utterance, closeOverlay, resumeWake };
     setReplySpeechState("playing");
 
@@ -346,8 +383,73 @@ export default function useVoiceAssistant({
     } catch {
       finishSpeech();
     }
-  }, [hideOverlay, invalidateActiveSpeech, scheduleWakeRestart, setVoiceStatus]);
+  }, [
+    hideOverlay,
+    invalidateActiveSpeech,
+    scheduleWakeRestart,
+    setVoiceStatus,
+    speechVoices,
+    voicePreferences,
+  ]);
 
+
+  const previewVoice = useCallback(() => {
+    if (
+      !("speechSynthesis" in window)
+      || typeof SpeechSynthesisUtterance === "undefined"
+    ) {
+      return false;
+    }
+
+    const shouldResumeWake = wakeModeRef.current;
+    pauseWakeRecognition();
+    stopCommandRecognition();
+    invalidateActiveSpeech();
+
+    let utterance;
+    try {
+      utterance = new SpeechSynthesisUtterance(
+        "Hello! I am your PrepMatrix study assistant. This is how I will read your answers."
+      );
+    } catch {
+      if (shouldResumeWake && wakeModeRef.current) scheduleWakeRestart(120);
+      return false;
+    }
+
+    const availableVoices = speechVoices.length > 0
+      ? speechVoices
+      : window.speechSynthesis.getVoices?.() || [];
+    applyVoicePreferencesToUtterance(
+      utterance,
+      availableVoices,
+      voicePreferences
+    );
+    previewSpeechRef.current = utterance;
+
+    const finishPreview = () => {
+      if (previewSpeechRef.current !== utterance) return;
+      previewSpeechRef.current = null;
+      if (shouldResumeWake && wakeModeRef.current) scheduleWakeRestart(120);
+    };
+
+    utterance.onend = finishPreview;
+    utterance.onerror = finishPreview;
+
+    try {
+      window.speechSynthesis.speak(utterance);
+      return true;
+    } catch {
+      finishPreview();
+      return false;
+    }
+  }, [
+    invalidateActiveSpeech,
+    pauseWakeRecognition,
+    scheduleWakeRestart,
+    speechVoices,
+    stopCommandRecognition,
+    voicePreferences,
+  ]);
   const muteCurrentReply = useCallback(() => {
     const activeSpeech = activeSpeechRef.current;
     if (!activeSpeech) return;
@@ -778,6 +880,10 @@ export default function useVoiceAssistant({
       if (event.key === WAKE_MODE_KEY) {
         const enabled = event.newValue === "true";
         window.dispatchEvent(new CustomEvent("prepmatrixWakeModeChange", { detail: { enabled } }));
+      } else if (event.key === VOICE_PREFERENCES_STORAGE_KEY) {
+        setVoicePreferencesState(
+          readStoredVoicePreferences(event.storageArea || undefined)
+        );
       }
     };
 
@@ -820,6 +926,7 @@ export default function useVoiceAssistant({
   const isAwake = voiceStatus === "awake" || voiceStatus === "listening" || voiceStatus === "processing" || voiceStatus === "speaking" || voiceStatus === "answered";
 
   return {
+    activeVoiceName,
     askWithVoice,
     dismissOverlay,
     error,
@@ -832,11 +939,14 @@ export default function useVoiceAssistant({
     muteCurrentReply,
     replySpeechState,
     pauseWakeMode,
+    previewVoice,
+    setVoicePreferences,
     setWakeMode,
     supported,
     transcript,
     wakeMode,
     voiceStatus,
+    voicePreferences: normalizeVoicePreferences(voicePreferences),
     lastText,
     isAwake,
     stopListening,

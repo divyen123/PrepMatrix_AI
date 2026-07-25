@@ -1502,6 +1502,10 @@ function App() {
                         <Route
                           element={
                             <SettingsPage
+                              activeVoiceName={voiceAssistant.activeVoiceName}
+                              onPreviewVoice={voiceAssistant.previewVoice}
+                              setVoicePreferences={voiceAssistant.setVoicePreferences}
+                              voicePreferences={voiceAssistant.voicePreferences}
                               userProfile={userProfile}
                               setUserProfile={setUserProfile}
                               onAcademicProfileChange={updateAcademicProfile}

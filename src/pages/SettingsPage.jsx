@@ -38,6 +38,15 @@ import {
   reconcileStudyReminders,
   sendTestStudyReminder,
 } from "../utils/pushNotifications";
+import {
+  VOICE_PITCH_MAX,
+  VOICE_PITCH_MIN,
+  VOICE_RATE_MAX,
+  VOICE_RATE_MIN,
+  VOICE_VOLUME_MAX,
+  VOICE_VOLUME_MIN,
+  normalizeVoicePreferences,
+} from "../utils/voicePreferences";
 import { toast } from "react-toastify";
 import "./SettingsPage.css";
 
@@ -189,9 +198,23 @@ function SettingsPage({
   setMaterialBookmarks, setGoalReminderData, setGoalReminderSettings, setResumeBuilder,
   setNotification, onAccountDeleted,
   onAcademicProfileChange,
+  activeVoiceName, onPreviewVoice, setVoicePreferences, voicePreferences,
   cursorStyle: parentCursorStyle, setCursorStyle: setParentCursorStyle
 }) {
   const navigate = useNavigate();
+  const assistantVoicePreferences = normalizeVoicePreferences(voicePreferences);
+  const updateVoicePreference = (key, value) => {
+    setVoicePreferences?.((currentPreferences) => ({
+      ...currentPreferences,
+      [key]: value,
+    }));
+  };
+  const handleVoicePreview = () => {
+    if (!onPreviewVoice?.()) {
+      toast.error("Voice preview is not supported in this browser.");
+    }
+  };
+
   const initialAcademicProfile = normalizeAcademicProfile({
     ...userProfile,
     academicLevel: academicLevel || userProfile?.academicLevel,
@@ -1704,7 +1727,7 @@ function SettingsPage({
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
               <Settings2 size={20} className="status-success" /> System Preferences & Toggles
             </h3>
-            <p className="card-subtext">Configure study sounds, wake mode, and notification preferences.</p>
+            <p className="card-subtext">Configure study sounds, assistant voice, wake mode, and notification preferences.</p>
           </div>
 
           <ToggleSwitch
@@ -1721,6 +1744,102 @@ function SettingsPage({
             label="Wake Mode (Hands-Free)"
             subtitle='Keep wake mode on while the app is open. Say Hey Prep, Prep Matrix, or Hey PrepMatrix followed by a command or question.'
           />
+
+          <section aria-labelledby="assistant-voice-title" className="assistant-voice-settings">
+            <div className="assistant-voice-heading">
+              <span className="assistant-voice-icon">
+                <Mic aria-hidden="true" size={16} />
+              </span>
+              <div>
+                <strong id="assistant-voice-title">Assistant voice</strong>
+                <p>Choose a preferred female or male browser voice and fine-tune how answers sound.</p>
+              </div>
+            </div>
+
+            <div aria-label="Preferred assistant voice" className="assistant-voice-style" role="group">
+              {["female", "male"].map((voiceStyle) => (
+                <button
+                  aria-pressed={assistantVoicePreferences.voiceStyle === voiceStyle}
+                  className={assistantVoicePreferences.voiceStyle === voiceStyle ? "is-active" : ""}
+                  key={voiceStyle}
+                  onClick={() => updateVoicePreference("voiceStyle", voiceStyle)}
+                  type="button"
+                >
+                  {voiceStyle === "female" ? "Female" : "Male"}
+                </button>
+              ))}
+            </div>
+
+            <div className="assistant-voice-modifiers">
+              <label className="assistant-voice-range" htmlFor="assistant-voice-rate">
+                <span>
+                  <strong>Speed</strong>
+                  <output>{assistantVoicePreferences.rate.toFixed(2)}x</output>
+                </span>
+                <input
+                  aria-valuetext={`${assistantVoicePreferences.rate.toFixed(2)} times speed`}
+                  id="assistant-voice-rate"
+                  max={VOICE_RATE_MAX}
+                  min={VOICE_RATE_MIN}
+                  onChange={(event) => updateVoicePreference("rate", Number(event.target.value))}
+                  step="0.05"
+                  type="range"
+                  value={assistantVoicePreferences.rate}
+                />
+              </label>
+
+              <label className="assistant-voice-range" htmlFor="assistant-voice-pitch">
+                <span>
+                  <strong>Pitch / tone</strong>
+                  <output>{Math.round(assistantVoicePreferences.pitch * 100)}%</output>
+                </span>
+                <input
+                  aria-valuetext={`${Math.round(assistantVoicePreferences.pitch * 100)} percent pitch`}
+                  id="assistant-voice-pitch"
+                  max={VOICE_PITCH_MAX}
+                  min={VOICE_PITCH_MIN}
+                  onChange={(event) => updateVoicePreference("pitch", Number(event.target.value))}
+                  step="0.05"
+                  type="range"
+                  value={assistantVoicePreferences.pitch}
+                />
+              </label>
+
+              <label className="assistant-voice-range" htmlFor="assistant-voice-volume">
+                <span>
+                  <strong>Volume</strong>
+                  <output>{Math.round(assistantVoicePreferences.volume * 100)}%</output>
+                </span>
+                <input
+                  aria-valuetext={`${Math.round(assistantVoicePreferences.volume * 100)} percent volume`}
+                  id="assistant-voice-volume"
+                  max={VOICE_VOLUME_MAX}
+                  min={VOICE_VOLUME_MIN}
+                  onChange={(event) => updateVoicePreference("volume", Number(event.target.value))}
+                  step="0.05"
+                  type="range"
+                  value={assistantVoicePreferences.volume}
+                />
+              </label>
+            </div>
+
+            <div className="assistant-voice-footer">
+              <p aria-live="polite">
+                <span>Active browser voice</span>
+                <strong>{activeVoiceName || "Browser default voice"}</strong>
+                <small>Voice availability depends on this browser and device.</small>
+              </p>
+              <button
+                className="secondary-btn assistant-voice-preview-btn"
+                disabled={!onPreviewVoice}
+                onClick={handleVoicePreview}
+                type="button"
+              >
+                <Volume2 aria-hidden="true" size={14} />
+                Preview voice
+              </button>
+            </div>
+          </section>
 
           <div aria-live="polite" className="notification-setting">
             <ToggleSwitch

@@ -442,3 +442,185 @@
     width: 100% !important;
   }
 }
+
+/* Browser voice assistant preferences. */
+.settings-page .assistant-voice-settings {
+  display: grid;
+  gap: 11px;
+  padding: 12px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.settings-page .assistant-voice-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.settings-page .assistant-voice-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 31px;
+  width: 31px;
+  height: 31px;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 9px;
+}
+
+.settings-page .assistant-voice-heading > div {
+  min-width: 0;
+}
+
+.settings-page .assistant-voice-heading strong {
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.settings-page .assistant-voice-heading p {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+.settings-page .assistant-voice-style {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.settings-page .assistant-voice-style button {
+  width: 100%;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 5px 9px !important;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px !important;
+  box-shadow: none;
+  font-size: 0.7rem !important;
+  font-weight: 800;
+  transform: none;
+}
+
+.settings-page .assistant-voice-style button:hover,
+.settings-page .assistant-voice-style button:focus-visible {
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.38);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.1);
+  transform: none;
+}
+
+.settings-page .assistant-voice-style button.is-active {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 7px 16px rgba(var(--accent-rgb), 0.2);
+}
+
+.settings-page .assistant-voice-modifiers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-page .assistant-voice-range {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.settings-page .assistant-voice-range > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.settings-page .assistant-voice-range strong,
+.settings-page .assistant-voice-range output {
+  color: var(--text);
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.settings-page .assistant-voice-range output {
+  color: var(--accent);
+}
+
+.settings-page .assistant-voice-range input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.settings-page .assistant-voice-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.settings-page .assistant-voice-footer p {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+  margin: 0;
+}
+
+.settings-page .assistant-voice-footer p span,
+.settings-page .assistant-voice-footer p small {
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  line-height: 1.35;
+}
+
+.settings-page .assistant-voice-footer p strong {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.settings-page .assistant-voice-preview-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  width: auto !important;
+  min-height: 30px !important;
+  padding: 4px 9px !important;
+  border-radius: 9px !important;
+  font-size: 0.66rem !important;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .settings-page .assistant-voice-modifiers {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-page .assistant-voice-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-page .assistant-voice-preview-btn {
+    width: 100% !important;
+  }
+}
