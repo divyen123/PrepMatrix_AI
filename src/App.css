@@ -19007,3 +19007,230 @@ body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {
     gap: 10px;
   }
 }
+
+/* Authentication request and logout transition feedback. */
+.auth-submit-btn.is-loading,
+.auth-submit-btn:disabled {
+  cursor: wait !important;
+  opacity: 0.86 !important;
+  transform: none !important;
+}
+
+.auth-submit-btn.is-loading:hover,
+.auth-submit-btn:disabled:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.auth-submit-spinner {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: authSubmitSpin 0.68s linear infinite;
+}
+
+.logout-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 120000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(var(--accent-rgb), 0.2), transparent 34%),
+    rgba(4, 8, 17, 0.86);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  animation: logoutTransitionEnter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  isolation: isolate;
+}
+
+.logout-transition.is-exiting {
+  pointer-events: none;
+  animation: logoutTransitionExit 280ms ease both;
+}
+
+.logout-transition-halo {
+  position: absolute;
+  z-index: 0;
+  width: min(72vw, 560px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.14), transparent 67%);
+  box-shadow:
+    0 0 90px rgba(var(--accent-rgb), 0.16),
+    inset 0 0 70px rgba(var(--accent-rgb), 0.08);
+  animation: logoutHaloPulse 1.6s ease-in-out infinite;
+}
+
+.logout-transition-panel {
+  position: relative;
+  display: flex;
+  width: min(370px, 100%);
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 34px 30px 30px;
+  overflow: hidden;
+  color: var(--text);
+  text-align: center;
+  z-index: 1;
+  background: var(--surface-strong);
+  background: color-mix(in srgb, var(--surface-strong) 94%, transparent);
+  border: 1px solid color-mix(in srgb, rgb(var(--accent-rgb)) 34%, var(--border));
+  border-radius: 26px;
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: logoutPanelEnter 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.logout-transition-panel:focus {
+  outline: 2px solid rgba(var(--accent-rgb), 0.34);
+  outline-offset: 4px;
+}
+
+.logout-transition.is-exiting .logout-transition-panel {
+  animation: logoutPanelExit 280ms ease both;
+}
+
+.logout-transition-icon {
+  position: relative;
+  display: grid;
+  width: 68px;
+  height: 68px;
+  place-items: center;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.13);
+  border: 1px solid rgba(var(--accent-rgb), 0.26);
+  border-radius: 21px;
+  box-shadow: 0 16px 42px rgba(var(--accent-rgb), 0.18);
+}
+
+.logout-transition-icon::before {
+  position: absolute;
+  inset: -8px;
+  box-sizing: border-box;
+  border: 2px solid rgba(var(--accent-rgb), 0.18);
+  border-top-color: var(--accent);
+  border-radius: 25px;
+  content: "";
+  animation: logoutRingSpin 0.92s linear infinite;
+}
+
+.logout-transition-icon svg {
+  position: relative;
+  z-index: 1;
+}
+
+.logout-transition-copy {
+  display: grid;
+  gap: 7px;
+}
+
+.logout-transition-copy > span {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.logout-transition-copy h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.65rem, 5vw, 2.15rem);
+  letter-spacing: -0.035em;
+}
+
+.logout-transition-copy p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.logout-transition-progress {
+  width: min(230px, 74vw);
+  height: 5px;
+  overflow: hidden;
+  background: rgba(var(--accent-rgb), 0.12);
+  border-radius: 999px;
+}
+
+.logout-transition-progress span {
+  display: block;
+  width: 42%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--accent-cyan));
+  border-radius: inherit;
+  animation: logoutProgressSweep 1.05s ease-in-out infinite;
+}
+
+@keyframes authSubmitSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes logoutTransitionEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes logoutTransitionExit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes logoutPanelEnter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes logoutPanelExit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+}
+
+@keyframes logoutHaloPulse {
+  0%, 100% { opacity: 0.54; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+@keyframes logoutRingSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes logoutProgressSweep {
+  from { transform: translateX(-125%); }
+  to { transform: translateX(340%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-submit-spinner,
+  .logout-transition,
+  .logout-transition-halo,
+  .logout-transition-panel,
+  .logout-transition-icon::before,
+  .logout-transition-progress span {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition: none !important;
+  }
+}

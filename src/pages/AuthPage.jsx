@@ -27,6 +27,7 @@ function AuthPage({ onLogin }) {
   const location = useLocation();
   const [form, setForm] = useState(emptyProfile);
   const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // Derive mode from the current URL path — no prop needed
   const isRegister = location.pathname === "/register";
 
@@ -49,6 +50,8 @@ function AuthPage({ onLogin }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (isSubmitting) return;
+
     setMessage("");
 
     if (!form.email.trim() || !form.password.trim()) {
@@ -60,6 +63,8 @@ function AuthPage({ onLogin }) {
       setMessage("Enter your institution name to personalize PrepMatrix.");
       return;
     }
+
+    setIsSubmitting(true);
 
     try {
       const result = isRegister
@@ -79,6 +84,8 @@ function AuthPage({ onLogin }) {
       navigate("/dashboard", { replace: true });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Authentication failed.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -127,6 +134,7 @@ function AuthPage({ onLogin }) {
             <label className="field-stack">
               Email address
               <input
+                autoFocus
                 autoComplete="email"
                 onChange={(event) => updateField("email", event.target.value)}
                 placeholder="student@example.com"
@@ -221,7 +229,15 @@ function AuthPage({ onLogin }) {
 
           {message && <p className="auth-message">{message}</p>}
 
-          <button type="submit" className="auth-submit-btn">{submitLabel}</button>
+          <button
+            aria-busy={isSubmitting}
+            className={`auth-submit-btn${isSubmitting ? " is-loading" : ""}`}
+            disabled={isSubmitting}
+            type="submit"
+          >
+            {isSubmitting && <span aria-hidden="true" className="auth-submit-spinner" />}
+            <span>{isSubmitting ? (isRegister ? "Creating account..." : "Logging in...") : submitLabel}</span>
+          </button>
         </form>
 
         <div className="auth-switch">

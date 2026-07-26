@@ -78,6 +78,9 @@ const AboutPage = lazy(() => import("./pages/AboutPage"));
 const ExamPage = lazy(() => import("./pages/ExamPage"));
 const ExamAboutPage = lazy(() => import("./pages/ExamAboutPage"));
 
+const LOGOUT_TRANSITION_MIN_MS = 700;
+const LOGOUT_TRANSITION_EXIT_MS = 280;
+
 const NOTIFICATION_INTENT_KEY = "prepmatrix_notifications_enabled";
 const NOTIFICATION_RECONCILE_RETRY_DELAYS_MS = [4000, 15000];
 const DEFINITIVE_NOTIFICATION_ERROR_CODES = new Set([
@@ -208,6 +211,34 @@ function EntrySplash() {
   );
 }
 
+function LogoutTransition({ phase }) {
+  return (
+    <div className={`logout-transition${phase === "exiting" ? " is-exiting" : ""}`}>
+      <div aria-hidden="true" className="logout-transition-halo" />
+      <div
+        aria-atomic="true"
+        aria-live="polite"
+        autoFocus
+        className="logout-transition-panel"
+        role="status"
+        tabIndex={-1}
+      >
+        <span aria-hidden="true" className="logout-transition-icon">
+          <LogOut size={28} strokeWidth={2.3} />
+        </span>
+        <div className="logout-transition-copy">
+          <span>PrepMatrix</span>
+          <h2>Logging out...</h2>
+          <p>Closing your session securely.</p>
+        </div>
+        <div aria-hidden="true" className="logout-transition-progress">
+          <span />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RouteLoading() {
   return (
     <section className="card loading-card route-loading-card" role="status" aria-live="polite">
@@ -225,6 +256,8 @@ function App() {
   const academicProfileRevisionRef = useRef(0);
   const rewardTimeoutRef = useRef(null);
   const splashTimeoutRef = useRef(null);
+  const logoutTransitionTimeoutRef = useRef(null);
+  const logoutInFlightRef = useRef(false);
   const resetConfirmRef = useRef(null);
   const profilePreviewTimerRef = useRef(null);
   const [subjects, setSubjects] = useState([]);
@@ -250,6 +283,7 @@ function App() {
   const [entrySplash, setEntrySplash] = useState(true);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [logoutTransitionPhase, setLogoutTransitionPhase] = useState("idle");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
   const [profilePreviewSide, setProfilePreviewSide] = useState("photo");
@@ -454,16 +488,30 @@ function App() {
   };
 
   const handleLogout = async () => {
+    if (logoutInFlightRef.current) return;
+
+    logoutInFlightRef.current = true;
+    setLogoutConfirmOpen(false);
+    setLogoutTransitionPhase("active");
+    setSidebarOpen(false);
+    setProfilePreviewOpen(false);
+
     voiceAssistant.pauseWakeMode?.();
     window.studyVoiceAssistant?.pauseWakeListening?.();
     window.speechSynthesis?.cancel?.();
     window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
 
-    try {
-      await api.logout();
-    } catch {
-      // If the cookie is already expired, clear the UI session anyway.
-    }
+    const minimumTransition = new Promise((resolve) => {
+      window.setTimeout(resolve, LOGOUT_TRANSITION_MIN_MS);
+    });
+    const logoutRequest = api.logout().catch(() => undefined);
+
+    await Promise.all([
+      logoutRequest,
+      minimumTransition,
+    ]);
+
+    localStorage.removeItem("prepmatrix_auth_token");
 
     if (splashTimeoutRef.current) {
       window.clearTimeout(splashTimeoutRef.current);
@@ -474,6 +522,20 @@ function App() {
     setWorkspaceLoaded(false);
     applyWorkspace({}, null);
     setNotification("Logged out of PrepMatrix.");
+    setLogoutTransitionPhase("exiting");
+
+    if (logoutTransitionTimeoutRef.current) {
+      window.clearTimeout(logoutTransitionTimeoutRef.current);
+    }
+    const logoutExitDelay = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+      ? 0
+      : LOGOUT_TRANSITION_EXIT_MS;
+
+    logoutTransitionTimeoutRef.current = window.setTimeout(() => {
+      setLogoutTransitionPhase("idle");
+      logoutInFlightRef.current = false;
+      logoutTransitionTimeoutRef.current = null;
+    }, logoutExitDelay);
   };
 
   const handleAccountDeleted = () => {
@@ -818,7 +880,7 @@ function App() {
   }, [userProfile]);
 
   useEffect(() => {
-    if (logoutConfirmOpen) {
+    if (logoutConfirmOpen || logoutTransitionPhase !== "idle") {
       document.body.classList.add("modal-open");
     } else {
       document.body.classList.remove("modal-open");
@@ -826,7 +888,7 @@ function App() {
     return () => {
       document.body.classList.remove("modal-open");
     };
-  }, [logoutConfirmOpen]);
+  }, [logoutConfirmOpen, logoutTransitionPhase]);
 
   useEffect(() => {
     if (resetConfirmOpen) {
@@ -1053,6 +1115,11 @@ function App() {
       window.clearTimeout(splashTimeoutRef.current);
     }
 
+    if (logoutTransitionTimeoutRef.current) {
+      window.clearTimeout(logoutTransitionTimeoutRef.current);
+    }
+    logoutInFlightRef.current = false;
+
     if (profilePreviewTimerRef.current) {
       window.clearTimeout(profilePreviewTimerRef.current);
     }
@@ -1071,13 +1138,18 @@ function App() {
         <span className="motion-grid" />
       </div>
       {entrySplash && <EntrySplash />}
+      {logoutTransitionPhase !== "idle" && <LogoutTransition phase={logoutTransitionPhase} />}
 
       {userProfile && !isAuthRoute && sidebarOpen && (
         <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
       )}
 
       {userProfile && !isAuthRoute && (
-        <aside className={`app-sidebar ${sidebarOpen ? "open" : ""}`}>
+        <aside
+          aria-hidden={logoutTransitionPhase !== "idle"}
+          className={`app-sidebar ${sidebarOpen ? "open" : ""}`}
+          inert={logoutTransitionPhase !== "idle" ? true : undefined}
+        >
           <div className="sidebar-header">
             <Link to="/dashboard" className="workspace-logo-wrap" aria-label="PrepMatrix">
               <span className="workspace-logo-mark" aria-hidden="true">P</span>
@@ -1201,7 +1273,11 @@ function App() {
         </aside>
       )}
 
-      <div className="app-main-content">
+      <div
+        aria-hidden={logoutTransitionPhase !== "idle"}
+        className="app-main-content"
+        inert={logoutTransitionPhase !== "idle" ? true : undefined}
+      >
         {userProfile && !isAuthRoute && (
           <header className="workspace-topbar">
             <div className="topbar-left">
@@ -1329,10 +1405,7 @@ function App() {
                 </button>
                 <button
                   className="confirm-danger-btn"
-                  onClick={() => {
-                    setLogoutConfirmOpen(false);
-                    handleLogout();
-                  }}
+                  onClick={handleLogout}
                   type="button"
                 >
                   Log out
