@@ -111,3 +111,34 @@ test("retries one invalid AI notebook response with stricter temperature", async
   assert.equal("response_format" in requests[1], false);
   assert.equal(requests[1].temperature, 0.1);
 });
+
+test("disables reasoning for Qwen notebook requests so structured JSON reaches content", async () => {
+  const requests = [];
+  const fetchImpl = async (_url, options) => {
+    requests.push(JSON.parse(options.body));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify(validGeneratedNotebook()) } }],
+      }),
+    };
+  };
+
+  await requestLearningNotebookJson({
+    apiKey: "test-key",
+    fetchImpl,
+    model: "qwen/qwen3.6-27b",
+    systemPrompt: "Return JSON.",
+    userContent: [
+      { type: "text", text: "Analyze this scanned page." },
+      { type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } },
+    ],
+  });
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].reasoning_effort, "none");
+  assert.equal(requests[0].max_completion_tokens, 7000);
+  assert.equal("max_tokens" in requests[0], false);
+  assert.deepEqual(requests[0].response_format, { type: "json_object" });
+});

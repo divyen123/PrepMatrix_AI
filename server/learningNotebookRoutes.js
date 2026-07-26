@@ -168,12 +168,18 @@ export async function requestLearningNotebookJson({
   systemPrompt,
   userContent,
 }) {
+  const usesReasoningControls = /^qwen\//iu.test(String(model || ""));
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const body = {
       model,
       temperature: attempt === 0 ? 0.2 : 0.1,
-      max_tokens: 7000,
+      ...(usesReasoningControls
+        ? {
+            max_completion_tokens: 7000,
+            reasoning_effort: "none",
+          }
+        : { max_tokens: 7000 }),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
