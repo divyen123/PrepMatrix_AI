@@ -10,6 +10,7 @@ import {
   Calendar,
   TrendingUp,
   StickyNote,
+  BookOpenCheck,
   Trophy,
   ClipboardList,
   Library,
@@ -66,6 +67,7 @@ const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const NotesPage = lazy(() => import("./pages/NotesPage"));
+const StartLearningPage = lazy(() => import("./pages/StartLearningPage"));
 const PlannerPage = lazy(() => import("./pages/PlannerPage"));
 const QuizPage = lazy(() => import("./pages/QuizPage"));
 const ReportPage = lazy(() => import("./pages/ReportPage"));
@@ -109,6 +111,7 @@ function notificationErrorIsDefinitive(error) {
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", helper: "Overview and momentum", icon: LayoutDashboard },
   { to: "/subjects", label: "Subjects", helper: "Manage chapters and load", icon: BookOpen },
+  { to: "/learn", label: "Start Learning", helper: "Upload, map, and revise", icon: BookOpenCheck },
   { to: "/planner", label: "Planner", helper: "Generate and rebalance work", icon: Calendar },
   { to: "/analytics", label: "Analytics", helper: "Progress, readiness, patterns", icon: TrendingUp },
   { to: "/notes", label: "Notes", helper: "Doubts and left topics", icon: StickyNote },
@@ -1457,6 +1460,24 @@ function App() {
                             />
                           }
                           path="/subjects"
+                        />
+                        <Route
+                          element={
+                            <StartLearningPage
+                              academicLevel={academicLevel}
+                              academicTrack={academicTrack}
+                              completed={completed}
+                              schedule={schedule}
+                              scheduleStartDate={scheduleStartDate}
+                              setCompleted={updateCompletedWithRewards}
+                              setNotification={setNotification}
+                              setSchedule={setSchedule}
+                              setSubjects={updateSubjects}
+                              subjects={subjects}
+                              userProfile={userProfile}
+                            />
+                          }
+                          path="/learn"
                         />
                         <Route
                           element={

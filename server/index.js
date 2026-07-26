@@ -43,6 +43,10 @@ import {
   RESUME_GENERATION_LOCKS_COLLECTION,
   registerResumeBuilderRoutes,
 } from "./resumeBuilderRoutes.js";
+import {
+  LEARNING_NOTEBOOKS_COLLECTION,
+  registerLearningNotebookRoutes,
+} from "./learningNotebookRoutes.js";
 
 dotenv.config();
 
@@ -189,6 +193,8 @@ async function getDb() {
       },
     ),
     mongoDb.collection("questionPapers").createIndex({ userId: 1, createdAt: -1 }),
+    mongoDb.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, updatedAt: -1 }),
+    mongoDb.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, subjectName: 1 }),
   ]);
   console.log(`MongoDB connected to database: ${MONGODB_DB}`);
   return mongoDb;
@@ -723,6 +729,7 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
     db.collection("worktrees").deleteMany({ userId }),
     db.collection("chatSessions").deleteMany({ userId }),
     db.collection("exams").deleteMany({ userId }),
+    db.collection(LEARNING_NOTEBOOKS_COLLECTION).deleteMany({ userId }),
     db.collection("examAttempts").deleteMany({ userId }),
     db.collection("examStartLocks").deleteMany({ userId }),
     db.collection("scheduledReminderDeliveries").deleteMany({ userId }),
@@ -1044,6 +1051,14 @@ registerResumeBuilderRoutes(app, {
   requireAuth,
 });
 
+
+registerLearningNotebookRoutes(app, {
+  getDb,
+  getGroqConfigStatus,
+  groqModel: GROQ_CHAT_MODEL,
+  groqVisionModel: GROQ_VISION_MODEL,
+  requireAuth,
+});
 app.post("/api/internal/notifications/daily-reminders", async (req, res) => {
   res.set("Cache-Control", "no-store");
   if (REMINDER_CRON_SECRET.length < 32) {

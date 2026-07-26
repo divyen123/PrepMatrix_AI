@@ -128,6 +128,36 @@ test("reconciles legacy raw chapter tasks while ignoring note-linked tasks", () 
   assert.deepEqual(result.completed, ["Networks - Network basics"]);
 });
 
+test("preserves learning-map tasks while reconciling generated subject units", () => {
+  const learningTask = {
+    id: "learning-project-1-node-1",
+    source: "learning",
+    sourceLearningProjectId: "project-1",
+    sourceLearningNodeId: "node-1",
+    subjectName: "Networks",
+    task: "Networks - Routing lab",
+    time: "Evening",
+    topic: "Routing lab",
+    unitKey: "learning:project-1:node-1",
+    unitType: "topic",
+  };
+  const schedule = [{
+    date: "2026-07-25",
+    day: 1,
+    tasks: [subjectTask(1, "Morning"), learningTask],
+  }];
+
+  const result = reconcileSubjectSchedule(
+    schedule,
+    [],
+    { ...previousSubject, chapters: 1 },
+    { ...previousSubject, chapters: 1, chapterNames: ["Network basics"] },
+  );
+
+  assert.equal(result.schedule[0].tasks[0].task, "Networks - Network basics");
+  assert.deepEqual(result.schedule[0].tasks[1], learningTask);
+});
+
 test("only reconciles subjects whose planning signature changed", () => {
   const schedule = [{
     day: 1,

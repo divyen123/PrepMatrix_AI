@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  applySubjectChapterNameDraft,
   getSubjectStudyUnits,
   getSubjectStudyUnitRecords,
   normalizeStudyPreferences,
@@ -51,6 +52,26 @@ test("preserves chapter positions and falls back only for unnamed chapters", () 
       chapters: 3,
     }),
     ["Introduction", "Chapter 2", "Routing"],
+  );
+});
+
+test("applies a pending chapter-name draft to its selected chapter position", () => {
+  assert.deepEqual(
+    applySubjectChapterNameDraft(
+      ["Introduction"],
+      3,
+      3,
+      "  Routing protocols  ",
+    ),
+    ["Introduction", "", "Routing protocols"],
+  );
+  assert.deepEqual(
+    applySubjectChapterNameDraft(["Introduction"], 1, 1, "A".repeat(140)),
+    ["A".repeat(120)],
+  );
+  assert.deepEqual(
+    applySubjectChapterNameDraft(["Introduction"], 1, 1, "   "),
+    ["Introduction"],
   );
 });
 

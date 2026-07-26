@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import {
   DEFAULT_STUDY_PREFERENCES,
+  applySubjectChapterNameDraft,
   normalizeSubjectChapterNames,
   getSubjectPlanAnalysis,
   normalizeStudyPreferences,
@@ -74,7 +75,8 @@ function SubjectPlanDialog({
     studyPreferences: normalizeStudyPreferences(preferences),
   }), [chapterCount, chapterNames, difficulty, preferences, topics]);
 
-  const isDirty = JSON.stringify(originalConfiguration) !== JSON.stringify(nextConfiguration);
+  const hasPendingChapterName = Boolean(String(chapterNameInput || "").trim());
+  const isDirty = hasPendingChapterName || JSON.stringify(originalConfiguration) !== JSON.stringify(nextConfiguration);
   const configuredSubject = useMemo(
     () => ({ ...subject, ...nextConfiguration }),
     [nextConfiguration, subject],
@@ -152,41 +154,59 @@ function SubjectPlanDialog({
     };
   }, [requestClose]);
 
-  const addChapterName = () => {
+  const resolveChapterNameDraft = () => {
     const chapterIndex = Math.min(Math.max(Number(chapterNumber) - 1, 0), Math.max(chapterCount - 1, 0));
     const chapterName = String(chapterNameInput || "").trim().slice(0, 120);
-    if (!chapterCount) {
-      setChapterError("Add at least one chapter to this subject first.");
-      return;
-    }
     if (!chapterName) {
-      setChapterError("Type a chapter name before adding it.");
-      return;
+      return {
+        chapterName,
+        chapterNames: normalizeSubjectChapterNames(chapterNames, chapterCount),
+      };
+    }
+    if (!chapterCount) {
+      return { error: "Add at least one chapter to this subject first." };
     }
     if (selectedTopicKeys.has(chapterName.toLocaleLowerCase())) {
-      setChapterError("That name is already used by a focus topic.");
-      return;
+      return { error: "That name is already used by a focus topic." };
     }
     const duplicateIndex = chapterNames.findIndex((name, index) => (
       index !== chapterIndex
       && String(name || "").trim().toLocaleLowerCase() === chapterName.toLocaleLowerCase()
     ));
     if (duplicateIndex >= 0) {
-      setChapterError(`That name is already used for Chapter ${duplicateIndex + 1}.`);
+      return { error: `That name is already used for Chapter ${duplicateIndex + 1}.` };
+    }
+
+    return {
+      chapterName,
+      chapterNames: applySubjectChapterNameDraft(
+        chapterNames,
+        chapterCount,
+        chapterNumber,
+        chapterName,
+      ),
+    };
+  };
+
+  const addChapterName = () => {
+    const result = resolveChapterNameDraft();
+    if (result.error) {
+      setChapterError(result.error);
+      return;
+    }
+    if (!result.chapterName) {
+      setChapterError("Type a chapter name before adding it.");
       return;
     }
 
-    const nextNames = [...chapterNames];
-    while (nextNames.length <= chapterIndex) nextNames.push("");
-    nextNames[chapterIndex] = chapterName;
-    setChapterNames(normalizeSubjectChapterNames(nextNames, chapterCount));
+    setChapterNames(result.chapterNames);
     setChapterNameInput("");
     setChapterError("");
 
     const nextBlankIndex = Array.from(
       { length: chapterCount },
       (_, index) => index,
-    ).find((index) => !String(nextNames[index] || "").trim());
+    ).find((index) => !String(result.chapterNames[index] || "").trim());
     if (nextBlankIndex !== undefined) setChapterNumber(nextBlankIndex + 1);
   };
 
@@ -285,21 +305,31 @@ function SubjectPlanDialog({
   };
 
   const persistConfiguration = () => {
-    if (!isDirty) return false;
-    onSave({
-      ...subject,
+    const result = resolveChapterNameDraft();
+    if (result.error) {
+      setChapterError(result.error);
+      return false;
+    }
+    const persistedConfiguration = {
       ...nextConfiguration,
-    });
+      chapterNames: result.chapterNames,
+    };
+    if (JSON.stringify(originalConfiguration) !== JSON.stringify(persistedConfiguration)) {
+      onSave({
+        ...subject,
+        ...persistedConfiguration,
+      });
+    }
     return true;
   };
 
   const handleSave = () => {
-    persistConfiguration();
+    if (!persistConfiguration()) return;
     requestClose();
   };
 
   const handleSaveAndPlan = () => {
-    persistConfiguration();
+    if (!persistConfiguration()) return;
     requestClose(onOpenPlanner);
   };
 

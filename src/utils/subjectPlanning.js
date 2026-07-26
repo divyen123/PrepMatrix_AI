@@ -59,6 +59,26 @@ export function normalizeSubjectChapterNames(value, chapterCount = MAX_CHAPTERS)
   return normalized;
 }
 
+export function applySubjectChapterNameDraft(
+  chapterNames = [],
+  chapterCount = 0,
+  chapterNumber = 1,
+  draft = "",
+) {
+  const maximum = clampInteger(chapterCount, 0, MAX_CHAPTERS, 0);
+  const chapterName = String(draft || "").trim().slice(0, 120);
+  const normalized = normalizeSubjectChapterNames(chapterNames, maximum);
+
+  if (!maximum || !chapterName) return normalized;
+
+  const selectedChapter = clampInteger(chapterNumber, 1, maximum, 1);
+  const chapterIndex = selectedChapter - 1;
+  const nextNames = [...normalized];
+  while (nextNames.length <= chapterIndex) nextNames.push("");
+  nextNames[chapterIndex] = chapterName;
+  return normalizeSubjectChapterNames(nextNames, maximum);
+}
+
 export function normalizeStudyPreferences(value = {}) {
   const sessionMinutes = Number(value?.sessionMinutes);
   const preferredTime = String(value?.preferredTime || "").toLowerCase();

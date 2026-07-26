@@ -12,8 +12,11 @@ function normalizeLabel(value) {
   return cleanText(value).toLocaleLowerCase();
 }
 
-function isNoteTask(task) {
-  return task?.source === "note" || Boolean(cleanText(task?.sourceNoteId));
+function isExternallyManagedTask(task) {
+  return task?.source === "note"
+    || task?.source === "learning"
+    || Boolean(cleanText(task?.sourceNoteId))
+    || Boolean(cleanText(task?.sourceLearningProjectId));
 }
 
 function subjectSignature(subject = {}) {
@@ -71,7 +74,7 @@ function inferUnitKey(task, previousSubject, nextSubject) {
 }
 
 function isSubjectTask(task, previousSubject, nextSubject, inferredKey) {
-  if (!task || isNoteTask(task)) return false;
+  if (!task || isExternallyManagedTask(task)) return false;
 
   const previousName = cleanText(previousSubject?.name);
   const nextName = cleanText(nextSubject?.name);

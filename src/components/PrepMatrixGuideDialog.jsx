@@ -6,6 +6,7 @@ import {
   ArrowRight,
   BarChart3,
   BookOpen,
+  BrainCircuit,
   Calendar,
   CheckCircle2,
   Lightbulb,
@@ -59,6 +60,21 @@ const GUIDE_STEPS = [
       "Select Generate schedule. Plans are limited to 30 days to keep the daily view focused.",
     ],
     tip: "Balanced coverage is a reliable starting point; use Revision-heavy when the exam is close and most topics are familiar.",
+  },
+  {
+    icon: BrainCircuit,
+    label: "Start learning",
+    title: "Turn sources into a revision notebook",
+    route: "/learn",
+    action: "Start Learning",
+    summary: "Upload study material or add chapter names, then work through prioritized questions, revised notes, and a connected mind map.",
+    instructions: [
+      "Open Start Learning and upload a PDF, image, text file, or Markdown notes, or enter a subject with chapter names.",
+      "Review the important questions first, then move through the revised notes and topic outline.",
+      "Refine chapter, topic, or subtopic names and save the notebook when the structure matches your syllabus.",
+      "Use Ask AI for a selected concept, export the notebook as a PDF, or add a learning unit to an available planner date.",
+    ],
+    tip: "Sync named chapters to Subjects so future generated schedules use the real chapter titles.",
   },
   {
     icon: CheckCircle2,
@@ -206,7 +222,7 @@ function PrepMatrixGuideDialog({ open, onClose, userName = "", variant = "manual
             <p id="guide-dialog-description">
               {isOnboarding
                 ? "Here’s the quickest path from your first subject to a confident weekly review."
-                : "Follow these six steps from first setup to weekly progress review."}
+                : `Follow these ${GUIDE_STEPS.length} steps from first setup to weekly progress review.`}
             </p>
           </div>
           <button
