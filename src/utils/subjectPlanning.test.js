@@ -5,6 +5,7 @@ import {
   getSubjectStudyUnits,
   getSubjectStudyUnitRecords,
   normalizeStudyPreferences,
+  normalizeSubjectNames,
   normalizeSubjectChapterNames,
   normalizeSubjectTopics,
 } from "./subjectPlanning.js";
@@ -13,6 +14,22 @@ import { generateSchedule } from "./scheduleGenerator.js";
 function taskNames(schedule) {
   return schedule.flatMap((day) => day.tasks.map((task) => task.task));
 }
+
+test("normalizes saved subject names for reusable subject pickers", () => {
+  assert.deepEqual(
+    normalizeSubjectNames([
+      { name: " Operating Systems " },
+      { subjectName: "Computer Networks" },
+      { title: "Database Systems" },
+      { label: "Artificial Intelligence" },
+      "Physics",
+      { name: "operating systems" },
+      null,
+      {},
+    ]),
+    ["Operating Systems", "Computer Networks", "Database Systems", "Artificial Intelligence", "Physics"],
+  );
+});
 
 test("normalizes optional topics without blanks or case-insensitive duplicates", () => {
   assert.deepEqual(

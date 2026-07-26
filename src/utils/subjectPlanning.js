@@ -18,6 +18,26 @@ function clampInteger(value, minimum, maximum, fallback) {
   return Math.min(Math.max(parsed, minimum), maximum);
 }
 
+export function normalizeSubjectNames(value) {
+  if (!Array.isArray(value)) return [];
+
+  const names = [];
+  const seen = new Set();
+
+  value.forEach((subject) => {
+    const rawName = typeof subject === "string"
+      ? subject
+      : subject?.name ?? subject?.subjectName ?? subject?.title ?? subject?.label;
+    const name = String(rawName || "").trim().slice(0, 160);
+    const key = name.toLocaleLowerCase();
+    if (!name || seen.has(key)) return;
+    seen.add(key);
+    names.push(name);
+  });
+
+  return names;
+}
+
 export function normalizeSubjectTopics(value) {
   if (!Array.isArray(value)) return [];
 

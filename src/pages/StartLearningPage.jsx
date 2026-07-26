@@ -46,6 +46,7 @@ import {
   acceptLearningPrivacyConsent,
   hasLearningPrivacyConsent,
 } from "../utils/learningPrivacyConsent";
+import { normalizeSubjectNames } from "../utils/subjectPlanning";
 import "./StartLearningPage.css";
 
 const TEXT_SOURCE_ACCEPT = ".txt,.md,text/plain,text/markdown";
@@ -521,6 +522,10 @@ function StartLearningPage({
   const [plannerError, setPlannerError] = useState("");
   const [privacyConsentOpen, setPrivacyConsentOpen] = useState(false);
 
+  const savedSubjectNames = useMemo(
+    () => normalizeSubjectNames(subjects),
+    [subjects],
+  );
   const nodes = useMemo(() => learningNodes(activeNotebook), [activeNotebook]);
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) || nodes[0] || null,
@@ -1428,11 +1433,23 @@ function StartLearningPage({
           <label className="learning-field">
             <span>Subject</span>
             <input
+              autoComplete="off"
               disabled={analyzing}
+              list={savedSubjectNames.length ? "learning-saved-subjects" : undefined}
               onChange={(event) => setSubjectName(event.target.value)}
-              placeholder="e.g. Operating Systems"
+              placeholder={savedSubjectNames.length ? "Choose or type a subject" : "e.g. Operating Systems"}
               value={subjectName}
             />
+            {savedSubjectNames.length > 0 && (
+              <datalist id="learning-saved-subjects">
+                {savedSubjectNames.map((name) => <option key={name} value={name} />)}
+              </datalist>
+            )}
+            <small>
+              {savedSubjectNames.length
+                ? `Choose from ${savedSubjectNames.length} saved subject${savedSubjectNames.length === 1 ? "" : "s"}, or type another.`
+                : "No saved subjects yet. Type a subject here or add one from the Subjects page."}
+            </small>
           </label>
           <label className="learning-field">
             <span>Chapter names</span>
