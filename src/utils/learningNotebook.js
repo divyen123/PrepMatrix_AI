@@ -23,7 +23,7 @@ const DIFFICULTIES = new Set(["easy", "medium", "hard"]);
 const IMPORTANCE_LEVELS = new Set(["high", "medium", "low"]);
 const MIND_MAP_KINDS = new Set(["root", "chapter", "topic", "subtopic", "question", "concept"]);
 const SOURCE_KINDS = new Set(["pdf", "image", "text"]);
-const ANALYSIS_MODES = new Set(["text", "vision", "manual"]);
+const ANALYSIS_MODES = new Set(["text", "vision", "native", "manual"]);
 
 function cleanInline(value, max = 160) {
   return String(value ?? "")

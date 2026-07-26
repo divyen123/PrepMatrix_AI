@@ -1515,6 +1515,85 @@ body .learning-map-subtopics button {
   animation: learningDialogIn 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.learning-privacy-dialog {
+  width: min(590px, 100%);
+  gap: 18px;
+}
+
+.learning-privacy-heading {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.learning-privacy-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.learning-privacy-heading h3 {
+  margin: 0;
+  font-size: 1.16rem;
+  letter-spacing: -0.025em;
+}
+
+.learning-privacy-icon {
+  display: grid;
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  place-items: center;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.11);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.learning-privacy-copy {
+  display: grid;
+  gap: 10px;
+  padding: 15px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.learning-privacy-copy p,
+.learning-privacy-warning {
+  margin: 0;
+  font-size: 0.73rem;
+  line-height: 1.62;
+}
+
+.learning-privacy-copy p {
+  color: var(--text-muted);
+}
+
+.learning-privacy-warning {
+  padding: 11px 12px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface-muted));
+  border: 1px solid color-mix(in srgb, var(--warning) 24%, var(--border));
+  border-radius: 12px;
+}
+
+.learning-privacy-actions {
+  padding-top: 0;
+}
+
+body .learning-privacy-actions .learning-privacy-agree {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+body .learning-privacy-actions .learning-privacy-agree:hover {
+  background: color-mix(in srgb, var(--accent) 88%, #000);
+  border-color: color-mix(in srgb, var(--accent) 88%, #000);
+}
+
 body .learning-dialog-header > button {
   display: grid;
   width: 38px;

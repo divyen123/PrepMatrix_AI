@@ -15,11 +15,16 @@ import {
   normalizeLearningChapterNames,
   normalizeLearningNotebook,
 } from "../src/utils/learningNotebook.js";
+import { LEARNING_PRIVACY_CONSENT_VERSION } from "../src/utils/learningPrivacyConsent.js";
 
 export const LEARNING_NOTEBOOKS_COLLECTION = "learningNotebooks";
 export const MAX_LEARNING_TEXT_SOURCE_CHARS = 30_000;
 export const MAX_LEARNING_TEXT_TOTAL_CHARS = 60_000;
 export const MAX_LEARNING_VISION_TEXT_CHARS = 24_000;
+export const MAX_LEARNING_AI_SOURCE_CHARS = 14_000;
+export const MAX_LEARNING_COMPLETION_TOKENS = 4_000;
+export const MAX_GEMINI_LEARNING_OUTPUT_TOKENS = 8_192;
+export const DEFAULT_GEMINI_LEARNING_MODEL = "gemini-3.5-flash-lite";
 
 const LEARNING_TEXT_TYPES = new Set([
   "text/plain",
@@ -27,6 +32,7 @@ const LEARNING_TEXT_TYPES = new Set([
   "text/x-markdown",
 ]);
 const GROQ_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GEMINI_GENERATE_CONTENT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const PROVIDER_TIMEOUT_MS = 75_000;
 
 class LearningNotebookError extends Error {
@@ -149,17 +155,88 @@ function isGroqJsonFailure(payload) {
     || message.includes("failed to generate json");
 }
 
-function createProviderError(response) {
-  const isRateLimit = response.status === 429;
+function isProviderSizeLimit(response, payload) {
+  const code = cleanInline(payload?.error?.code, 80).toLocaleLowerCase();
+  return response.status === 413
+    || code === "context_length_exceeded";
+}
+
+function createProviderError(response, payload = {}) {
+  const code = cleanInline(payload?.error?.code, 80).toLocaleLowerCase();
+  const isSizeLimit = isProviderSizeLimit(response, payload);
+  const isRateLimit = response.status === 429 || code === "rate_limit_exceeded";
   return new LearningNotebookError(
-    isRateLimit
-      ? "The learning assistant is busy. Please retry in a moment."
-      : "The learning assistant could not generate this notebook.",
+    isSizeLimit
+      ? "The uploaded material is larger than the current AI processing limit. Try fewer chapters or one file at a time."
+      : isRateLimit
+        ? "The learning assistant is busy. Please retry in a moment."
+        : "The learning assistant could not generate this notebook.",
     {
-      code: isRateLimit ? "LEARNING_PROVIDER_RATE_LIMIT" : "LEARNING_PROVIDER_ERROR",
-      status: isRateLimit ? 429 : 502,
+      code: isSizeLimit
+        ? "LEARNING_PROVIDER_SIZE_LIMIT"
+        : isRateLimit
+          ? "LEARNING_PROVIDER_RATE_LIMIT"
+          : "LEARNING_PROVIDER_ERROR",
+      status: isSizeLimit ? 413 : isRateLimit ? 429 : 502,
     },
   );
+}
+
+function sampleLearningText(value, maxChars) {
+  const text = normalizeSourceText(value);
+  if (!text || text.length <= maxChars) return text;
+  const separator = "\n\n[... source section omitted ...]\n\n";
+  const sliceCount = 5;
+  const sliceSize = Math.max(
+    1,
+    Math.floor((maxChars - separator.length * (sliceCount - 1)) / sliceCount),
+  );
+  const lastStart = Math.max(0, text.length - sliceSize);
+  const slices = Array.from({ length: sliceCount }, (_, index) => {
+    const start = Math.round(lastStart * index / (sliceCount - 1));
+    return text.slice(start, start + sliceSize);
+  });
+  return slices.join(separator).slice(0, maxChars);
+}
+
+export function compactLearningSourceMaterial({
+  pdfDocuments = [],
+  textSources = [],
+} = {}, maxChars = MAX_LEARNING_AI_SOURCE_CHARS) {
+  const safeMaxChars = Math.max(
+    1_000,
+    Math.min(MAX_LEARNING_AI_SOURCE_CHARS, Number(maxChars) || 0),
+  );
+  const sourceCount = pdfDocuments.length + textSources.length;
+  if (!sourceCount) {
+    return {
+      pdfDocuments: [],
+      textSources: [],
+      totalIncludedChars: 0,
+      wasCompacted: false,
+    };
+  }
+  const perSourceLimit = Math.max(500, Math.floor(safeMaxChars / sourceCount));
+  let wasCompacted = false;
+  const compactRows = (rows) => rows.map((row) => {
+    const originalText = normalizeSourceText(row?.text);
+    const text = sampleLearningText(originalText, perSourceLimit);
+    if (text.length < originalText.length) wasCompacted = true;
+    return {
+      ...row,
+      text,
+      truncated: Boolean(row?.truncated) || text.length < originalText.length,
+    };
+  });
+  const compactPdfDocuments = compactRows(pdfDocuments);
+  const compactTextSources = compactRows(textSources);
+  return {
+    pdfDocuments: compactPdfDocuments,
+    textSources: compactTextSources,
+    totalIncludedChars: [...compactPdfDocuments, ...compactTextSources]
+      .reduce((sum, row) => sum + row.text.length, 0),
+    wasCompacted,
+  };
 }
 
 export async function requestLearningNotebookJson({
@@ -172,15 +249,18 @@ export async function requestLearningNotebookJson({
   const usesReasoningControls = /^qwen\//iu.test(String(model || ""));
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    const completionTokens = attempt === 0
+      ? MAX_LEARNING_COMPLETION_TOKENS
+      : 3_000;
     const body = {
       model,
       temperature: attempt === 0 ? 0.2 : 0.1,
       ...(usesReasoningControls
         ? {
-            max_completion_tokens: 7000,
+            max_completion_tokens: completionTokens,
             reasoning_effort: "none",
           }
-        : { max_tokens: 7000 }),
+        : { max_tokens: completionTokens }),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
@@ -199,10 +279,13 @@ export async function requestLearningNotebookJson({
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      if (attempt === 0 && response.status === 400 && isGroqJsonFailure(payload)) {
+      if (attempt === 0 && (
+        (response.status === 400 && isGroqJsonFailure(payload))
+        || isProviderSizeLimit(response, payload)
+      )) {
         continue;
       }
-      throw createProviderError(response);
+      throw createProviderError(response, payload);
     }
 
     try {
@@ -276,7 +359,7 @@ export async function requestLearningVisionText({
     body: JSON.stringify(body),
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw createProviderError(response);
+  if (!response.ok) throw createProviderError(response, payload);
   const text = normalizeSourceText(payload?.choices?.[0]?.message?.content || "");
   if (!text) {
     throw new LearningNotebookError(
@@ -463,7 +546,9 @@ function objectIdFromParam(value) {
 export function registerLearningNotebookRoutes(app, {
   fetchImpl = globalThis.fetch,
   getDb,
-  getGroqConfigStatus,
+  getGeminiConfigStatus = () => ({ available: false }),
+  getGroqConfigStatus = () => ({ available: false }),
+  geminiLearningModel = DEFAULT_GEMINI_LEARNING_MODEL,
   groqLearningModel,
   groqModel,
   groqVisionModel,
@@ -489,11 +574,26 @@ export function registerLearningNotebookRoutes(app, {
 
   app.post("/api/learning-notebooks/analyze", requireAuth(async (req, res) => {
     try {
-      const config = getGroqConfigStatus();
-      if (!config.available) {
+      const privacyConsent = req.body?.privacyConsent;
+      if (
+        privacyConsent?.accepted !== true
+        || privacyConsent?.version !== LEARNING_PRIVACY_CONSENT_VERSION
+      ) {
+        return res.status(428).json({
+          code: "LEARNING_PRIVACY_CONSENT_REQUIRED",
+          error: "Review and accept the AI source privacy notice before creating a learning notebook.",
+          consentVersion: LEARNING_PRIVACY_CONSENT_VERSION,
+        });
+      }
+
+      const geminiConfig = getGeminiConfigStatus();
+      const groqConfig = getGroqConfigStatus();
+      const geminiAvailable = Boolean(geminiConfig?.available && geminiConfig?.apiKey);
+      const groqAvailable = Boolean(groqConfig?.available && groqConfig?.apiKey);
+      if (!geminiAvailable && !groqAvailable) {
         return res.status(503).json({
           code: "LEARNING_ASSISTANT_UNAVAILABLE",
-          error: config.message,
+          error: geminiConfig?.message || groqConfig?.message || "The learning assistant is not configured on the server.",
         });
       }
 
@@ -532,91 +632,63 @@ export function registerLearningNotebookRoutes(app, {
         });
       }
 
-      const attachmentContext = attachments.length
-        ? await prepareAttachmentContext(attachments)
-        : { metadata: [], pdfDocuments: [], visionImages: [] };
-      const fileSources = buildAttachmentSourceMetadata(attachments, attachmentContext);
-      const sourceMetadata = [
-        ...fileSources,
-        ...textSources.map((source) => ({
-          name: source.name,
-          type: source.type,
-          size: source.size,
-          kind: "text",
-          analysisMode: "text",
-          truncated: false,
-        })),
-      ];
-      const manualMode = sourceMetadata.length === 0;
+      const manualMode = !hasSources;
       const learnerContext = buildLearnerAcademicContext(req.user);
       const careerEligibility = getLearningCareerEligibility(req.user);
-      let visionText = "";
-      let visionReadWarning = "";
-      if (attachmentContext.visionImages.length) {
+      let generationResult = null;
+      let geminiFailure = null;
+      if (geminiAvailable) {
         try {
-          visionText = await requestLearningVisionText({
-            apiKey: config.apiKey,
+          generationResult = await generateLearningNotebookWithGemini({
+            apiKey: geminiConfig.apiKey,
+            attachments,
+            careerEligibility,
             chapterNames,
             fetchImpl,
-            model: groqVisionModel,
+            learnerContext,
+            manualMode,
+            model: geminiLearningModel || DEFAULT_GEMINI_LEARNING_MODEL,
             subjectName,
-            visionImages: attachmentContext.visionImages,
+            textSources,
           });
         } catch (error) {
-          const canGenerateWithoutVision = Boolean(
-            attachmentContext.pdfDocuments.length
-            || textSources.length
-            || chapterNames.length,
-          );
-          if (!canGenerateWithoutVision) throw error;
-          visionReadWarning = "Some scanned pages could not be read; this notebook was completed from the readable sources and chapter names.";
+          if (!isGeminiFallbackError(error)) throw error;
+          geminiFailure = error;
         }
       }
-      const promptTextSources = visionText
-        ? [
-            ...textSources,
-            {
-              name: "Scanned page extraction",
-              type: "text/plain",
-              text: visionText,
-              size: Buffer.byteLength(visionText, "utf8"),
-            },
-          ]
-        : textSources;
-      const prompts = buildGenerationPrompts({
-        careerEligibility,
-        chapterNames,
-        learnerContext,
-        manualMode,
-        subjectName,
-        textSources: promptTextSources,
-      });
-      const textOnlyAttachmentContext = {
-        ...attachmentContext,
-        visionImages: [],
-      };
-      const userContent = attachments.length
-        ? buildChatAttachmentUserContent(prompts.userPrompt, textOnlyAttachmentContext)
-        : prompts.userPrompt;
-      const model = groqLearningModel || groqModel;
-      const generated = await requestLearningNotebookJson({
-        apiKey: config.apiKey,
-        fetchImpl,
-        model,
-        systemPrompt: prompts.systemPrompt,
-        userContent,
-      });
+      if (!generationResult && groqAvailable) {
+        generationResult = await generateLearningNotebookWithGroq({
+          apiKey: groqConfig.apiKey,
+          attachments,
+          careerEligibility,
+          chapterNames,
+          fetchImpl,
+          groqLearningModel,
+          groqModel,
+          groqVisionModel,
+          learnerContext,
+          manualMode,
+          prepareAttachmentContext,
+          subjectName,
+          textSources,
+        });
+      }
+      if (!generationResult) {
+        if (geminiFailure) throw geminiFailure;
+        return res.status(503).json({
+          code: "LEARNING_ASSISTANT_UNAVAILABLE",
+          error: "The learning assistant is not configured on the server.",
+        });
+      }
+
       const generatedAt = now();
-      const notebook = normalizeLearningNotebook(generated, {
+      const notebook = normalizeLearningNotebook(generationResult.generated, {
         chapterNames,
-        coverageWarnings: [
-          ...buildCoverageWarnings(fileSources, textSources, manualMode),
-          ...(visionReadWarning ? [visionReadWarning] : []),
-        ],
-        model,
+        coverageWarnings: generationResult.coverageWarnings,
+        model: generationResult.model,
         now: generatedAt,
         profile: req.user,
-        sources: sourceMetadata,
+        sources: generationResult.sourceMetadata,
         subjectName,
       });
       const document = persistenceDocument(notebook, req.user._id, generatedAt);
@@ -703,3 +775,442 @@ export function registerLearningNotebookRoutes(app, {
 }
 
 export default registerLearningNotebookRoutes;
+
+const LEARNING_NOTEBOOK_RESPONSE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "title",
+    "overview",
+    "importantQuestions",
+    "revisedNotes",
+    "chapters",
+    "mindMap",
+    "coverageWarnings",
+    "careerPreparation",
+  ],
+  properties: {
+    title: { type: "string" },
+    overview: { type: "string" },
+    importantQuestions: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["id", "question", "answer", "whyItMatters", "difficulty"],
+        properties: {
+          id: { type: "string" },
+          question: { type: "string" },
+          answer: { type: "string" },
+          whyItMatters: { type: "string" },
+          difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
+        },
+      },
+    },
+    revisedNotes: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["id", "title", "content", "keyPoints", "revisionTips"],
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          content: { type: "string" },
+          keyPoints: { type: "array", items: { type: "string" } },
+          revisionTips: { type: "array", items: { type: "string" } },
+        },
+      },
+    },
+    chapters: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["id", "title", "summary", "topics"],
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          summary: { type: "string" },
+          topics: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["id", "title", "summary", "importance", "keyPoints", "revisionTips", "subtopics"],
+              properties: {
+                id: { type: "string" },
+                title: { type: "string" },
+                summary: { type: "string" },
+                importance: { type: "string", enum: ["high", "medium", "low"] },
+                keyPoints: { type: "array", items: { type: "string" } },
+                revisionTips: { type: "array", items: { type: "string" } },
+                subtopics: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["id", "title", "summary", "keyPoints"],
+                    properties: {
+                      id: { type: "string" },
+                      title: { type: "string" },
+                      summary: { type: "string" },
+                      keyPoints: { type: "array", items: { type: "string" } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    mindMap: {
+      type: "object",
+      required: ["nodes", "edges"],
+      properties: {
+        nodes: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["id", "label", "parentId", "kind", "order"],
+            properties: {
+              id: { type: "string" },
+              label: { type: "string" },
+              parentId: { type: ["string", "null"] },
+              kind: {
+                type: "string",
+                enum: ["root", "chapter", "topic", "subtopic", "question", "concept"],
+              },
+              order: { type: "integer" },
+            },
+          },
+        },
+        edges: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["id", "from", "to"],
+            properties: {
+              id: { type: "string" },
+              from: { type: "string" },
+              to: { type: "string" },
+            },
+          },
+        },
+      },
+    },
+    coverageWarnings: { type: "array", items: { type: "string" } },
+    careerPreparation: {
+      type: "object",
+      required: ["focus", "skills", "interviewQuestions", "codingTopics"],
+      properties: {
+        focus: { type: "string" },
+        skills: { type: "array", items: { type: "string" } },
+        interviewQuestions: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["id", "question", "guidance"],
+            properties: {
+              id: { type: "string" },
+              question: { type: "string" },
+              guidance: { type: "string" },
+            },
+          },
+        },
+        codingTopics: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["id", "title", "whyItMatters", "practiceSteps"],
+            properties: {
+              id: { type: "string" },
+              title: { type: "string" },
+              whyItMatters: { type: "string" },
+              practiceSteps: { type: "array", items: { type: "string" } },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+function createGeminiProviderError(response, payload = {}) {
+  const providerStatus = cleanInline(payload?.error?.status, 80).toLocaleUpperCase();
+  const providerMessage = cleanInline(payload?.error?.message, 300).toLocaleLowerCase();
+  const isSizeLimit = response.status === 413
+    || providerStatus === "REQUEST_TOO_LARGE"
+    || providerMessage.includes("context length")
+    || providerMessage.includes("input token")
+    || providerMessage.includes("request too large");
+  const isRateLimit = response.status === 429 || providerStatus === "RESOURCE_EXHAUSTED";
+  return new LearningNotebookError(
+    isSizeLimit
+      ? "The uploaded material is larger than the current AI processing limit. Try fewer chapters or one file at a time."
+      : isRateLimit
+        ? "The learning assistant is busy. Please retry in a moment."
+        : "The learning assistant could not generate this notebook.",
+    {
+      code: isSizeLimit
+        ? "LEARNING_PROVIDER_SIZE_LIMIT"
+        : isRateLimit
+          ? "LEARNING_PROVIDER_RATE_LIMIT"
+          : "LEARNING_PROVIDER_ERROR",
+      status: isSizeLimit ? 413 : isRateLimit ? 429 : 502,
+    },
+  );
+}
+
+function geminiResponseText(payload = {}) {
+  const parts = payload?.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) return "";
+  return parts
+    .map((part) => (typeof part?.text === "string" ? part.text : ""))
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function buildGeminiLearningParts(userPrompt, attachments = []) {
+  const parts = [];
+  attachments.forEach((attachment, index) => {
+    const bytes = Buffer.isBuffer(attachment?.buffer)
+      ? attachment.buffer
+      : Buffer.from(attachment?.buffer || []);
+    if (!bytes.length) {
+      learningError(`${sanitizeChatAttachmentName(attachment?.name)} has an invalid file payload.`, {
+        code: "CHAT_ATTACHMENT_DATA",
+      });
+    }
+    parts.push({
+      text: `Untrusted attached study file ${index + 1}: ${sanitizeChatAttachmentName(attachment.name)} (${attachment.type}).`,
+    });
+    parts.push({
+      inlineData: {
+        mimeType: attachment.type,
+        data: bytes.toString("base64"),
+      },
+    });
+  });
+  parts.push({ text: String(userPrompt || "").trim() });
+  return parts;
+}
+
+export async function requestGeminiLearningNotebookJson({
+  apiKey,
+  attachments = [],
+  fetchImpl = globalThis.fetch,
+  model = DEFAULT_GEMINI_LEARNING_MODEL,
+  systemPrompt,
+  userPrompt,
+}) {
+  const resolvedModel = cleanInline(model, 120) || DEFAULT_GEMINI_LEARNING_MODEL;
+  const response = await fetchImpl(
+    `${GEMINI_GENERATE_CONTENT_BASE_URL}/${encodeURIComponent(resolvedModel)}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: systemPrompt }],
+        },
+        contents: [{
+          role: "user",
+          parts: buildGeminiLearningParts(userPrompt, attachments),
+        }],
+        generationConfig: {
+          maxOutputTokens: MAX_GEMINI_LEARNING_OUTPUT_TOKENS,
+          responseFormat: {
+            text: {
+              mimeType: "application/json",
+              schema: LEARNING_NOTEBOOK_RESPONSE_SCHEMA,
+            },
+          },
+        },
+      }),
+    },
+  );
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw createGeminiProviderError(response, payload);
+
+  try {
+    const parsed = parseLearningJson(geminiResponseText(payload));
+    if (!hasLearningNotebookShape(parsed)) {
+      throw new Error("AI response was missing required notebook sections.");
+    }
+    return parsed;
+  } catch {
+    throw new LearningNotebookError(
+      "The learning assistant returned incomplete notes.",
+      { code: "LEARNING_OUTPUT_INVALID", status: 502 },
+    );
+  }
+}
+
+
+function buildTextSourceMetadata(textSources = []) {
+  return textSources.map((source) => ({
+    name: source.name,
+    type: source.type,
+    size: source.size,
+    kind: "text",
+    analysisMode: "text",
+    truncated: false,
+  }));
+}
+
+function buildNativeAttachmentSourceMetadata(attachments = []) {
+  return attachments.map((attachment) => ({
+    name: attachment.name,
+    type: attachment.type,
+    size: attachment.size,
+    kind: attachment.kind,
+    analysisMode: attachment.kind === "pdf" ? "native" : "vision",
+    truncated: false,
+  }));
+}
+
+async function generateLearningNotebookWithGemini({
+  apiKey,
+  attachments,
+  careerEligibility,
+  chapterNames,
+  fetchImpl,
+  learnerContext,
+  manualMode,
+  model,
+  subjectName,
+  textSources,
+}) {
+  const fileSources = buildNativeAttachmentSourceMetadata(attachments);
+  const prompts = buildGenerationPrompts({
+    careerEligibility,
+    chapterNames,
+    learnerContext,
+    manualMode,
+    subjectName,
+    textSources,
+  });
+  const generated = await requestGeminiLearningNotebookJson({
+    apiKey,
+    attachments,
+    fetchImpl,
+    model,
+    systemPrompt: prompts.systemPrompt,
+    userPrompt: prompts.userPrompt,
+  });
+  return {
+    generated,
+    model,
+    sourceMetadata: [...fileSources, ...buildTextSourceMetadata(textSources)],
+    coverageWarnings: buildCoverageWarnings(fileSources, textSources, manualMode),
+  };
+}
+
+async function generateLearningNotebookWithGroq({
+  apiKey,
+  attachments,
+  careerEligibility,
+  chapterNames,
+  fetchImpl,
+  groqLearningModel,
+  groqModel,
+  groqVisionModel,
+  learnerContext,
+  manualMode,
+  prepareAttachmentContext,
+  subjectName,
+  textSources,
+}) {
+  const attachmentContext = attachments.length
+    ? await prepareAttachmentContext(attachments)
+    : { metadata: [], pdfDocuments: [], visionImages: [] };
+  const fileSources = buildAttachmentSourceMetadata(attachments, attachmentContext);
+  let visionText = "";
+  let visionReadWarning = "";
+  if (attachmentContext.visionImages.length) {
+    try {
+      visionText = await requestLearningVisionText({
+        apiKey,
+        chapterNames,
+        fetchImpl,
+        model: groqVisionModel,
+        subjectName,
+        visionImages: attachmentContext.visionImages,
+      });
+    } catch (error) {
+      const canGenerateWithoutVision = Boolean(
+        attachmentContext.pdfDocuments.length
+        || textSources.length
+        || chapterNames.length,
+      );
+      if (!canGenerateWithoutVision) throw error;
+      visionReadWarning = "Some scanned pages could not be read; this notebook was completed from the readable sources and chapter names.";
+    }
+  }
+  const promptTextSources = visionText
+    ? [
+        ...textSources,
+        {
+          name: "Scanned page extraction",
+          type: "text/plain",
+          text: visionText,
+          size: Buffer.byteLength(visionText, "utf8"),
+        },
+      ]
+    : textSources;
+  const compactSources = compactLearningSourceMaterial({
+    pdfDocuments: attachmentContext.pdfDocuments,
+    textSources: promptTextSources,
+  });
+  const prompts = buildGenerationPrompts({
+    careerEligibility,
+    chapterNames,
+    learnerContext,
+    manualMode,
+    subjectName,
+    textSources: compactSources.textSources,
+  });
+  const textOnlyAttachmentContext = {
+    ...attachmentContext,
+    pdfDocuments: compactSources.pdfDocuments,
+    visionImages: [],
+  };
+  const userContent = attachments.length
+    ? buildChatAttachmentUserContent(prompts.userPrompt, textOnlyAttachmentContext)
+    : prompts.userPrompt;
+  const model = groqLearningModel || groqModel;
+  const generated = await requestLearningNotebookJson({
+    apiKey,
+    fetchImpl,
+    model,
+    systemPrompt: prompts.systemPrompt,
+    userContent,
+  });
+  return {
+    generated,
+    model,
+    sourceMetadata: [...fileSources, ...buildTextSourceMetadata(textSources)],
+    coverageWarnings: [
+      ...buildCoverageWarnings(fileSources, textSources, manualMode),
+      ...(compactSources.wasCompacted
+        ? ["Source material was sampled across every uploaded file to fit the AI processing limit; review the originals for omitted detail."]
+        : []),
+      ...(visionReadWarning ? [visionReadWarning] : []),
+    ],
+  };
+}
+
+function isGeminiFallbackError(error) {
+  return Boolean(
+    error instanceof TypeError
+    || error?.name === "TimeoutError"
+    || error?.name === "AbortError"
+    || (
+      error instanceof LearningNotebookError
+      && (
+        String(error.code || "").startsWith("LEARNING_PROVIDER_")
+        || error.code === "LEARNING_OUTPUT_INVALID"
+      )
+    )
+  );
+}

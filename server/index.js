@@ -139,6 +139,8 @@ async function ensureVapidConfigured() {
 }
 const app = express();
 const PORT = Number(process.env.PORT || 8787);
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const GEMINI_LEARNING_MODEL = process.env.GEMINI_LEARNING_MODEL || "gemini-3.5-flash-lite";
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const LEGACY_OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || process.env.OPENAI_CHAT_MODEL || "llama-3.1-8b-instant";
@@ -568,6 +570,23 @@ function getGroqConfigStatus() {
     };
   }
   return { available: false, apiKey: null, message: "GROQ_API_KEY is not configured on the server.", keySource: null };
+}
+
+function getGeminiConfigStatus() {
+  if (GEMINI_API_KEY) {
+    return {
+      available: true,
+      apiKey: GEMINI_API_KEY,
+      message: "Gemini API key configured.",
+      keySource: "GEMINI_API_KEY",
+    };
+  }
+  return {
+    available: false,
+    apiKey: null,
+    message: "GEMINI_API_KEY is not configured on the server.",
+    keySource: null,
+  };
 }
 
 // CORS: allow Vercel frontend in production
@@ -1054,7 +1073,9 @@ registerResumeBuilderRoutes(app, {
 
 
 registerLearningNotebookRoutes(app, {
+  geminiLearningModel: GEMINI_LEARNING_MODEL,
   getDb,
+  getGeminiConfigStatus,
   getGroqConfigStatus,
   groqLearningModel: GROQ_LEARNING_MODEL,
   groqModel: GROQ_CHAT_MODEL,
@@ -1325,10 +1346,19 @@ app.post("/api/quizzes", requireAuth(async (req, res) => {
 
 app.get("/api/study-assistant/status", (_req, res) => {
   const config = getGroqConfigStatus();
+  const geminiConfig = getGeminiConfigStatus();
   res.json({
     available: config.available,
     model: GROQ_CHAT_MODEL,
-    learningModel: GROQ_LEARNING_MODEL,
+    learningAvailable: geminiConfig.available || config.available,
+    learningProvider: geminiConfig.available ? "gemini" : config.available ? "groq" : null,
+    learningModel: geminiConfig.available ? GEMINI_LEARNING_MODEL : GROQ_LEARNING_MODEL,
+    learningFallbackModel: geminiConfig.available && config.available ? GROQ_LEARNING_MODEL : null,
+    learningMessage: geminiConfig.available
+      ? geminiConfig.message
+      : config.available
+        ? "Gemini is not configured; Start Learning will use the Groq fallback."
+        : "Start Learning requires GEMINI_API_KEY or GROQ_API_KEY on the server.",
     visionModel: GROQ_VISION_MODEL,
     message: config.message,
     keySource: config.keySource,

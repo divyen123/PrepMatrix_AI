@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  DEFAULT_GEMINI_LEARNING_MODEL,
+  MAX_GEMINI_LEARNING_OUTPUT_TOKENS,
+  MAX_LEARNING_AI_SOURCE_CHARS,
+  MAX_LEARNING_COMPLETION_TOKENS,
+  compactLearningSourceMaterial,
   MAX_LEARNING_VISION_TEXT_CHARS,
   MAX_LEARNING_TEXT_SOURCE_CHARS,
   normalizeLearningTextSources,
@@ -8,6 +13,7 @@ import {
   requestLearningVisionText,
   registerLearningNotebookRoutes,
 } from "./learningNotebookRoutes.js";
+import { LEARNING_PRIVACY_CONSENT_VERSION } from "../src/utils/learningPrivacyConsent.js";
 
 function validGeneratedNotebook() {
   return {
@@ -111,8 +117,10 @@ test("retries one invalid AI notebook response with stricter temperature", async
   assert.equal(result.chapters[0].title, "Trees");
   assert.equal(requests.length, 2);
   assert.deepEqual(requests[0].response_format, { type: "json_object" });
+  assert.equal(requests[0].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
   assert.equal("response_format" in requests[1], false);
   assert.equal(requests[1].temperature, 0.1);
+  assert.equal(requests[1].max_tokens, 3000);
 });
 
 test("disables reasoning for Qwen notebook requests so structured JSON reaches content", async () => {
@@ -141,7 +149,7 @@ test("disables reasoning for Qwen notebook requests so structured JSON reaches c
 
   assert.equal(requests.length, 1);
   assert.equal(requests[0].reasoning_effort, "none");
-  assert.equal(requests[0].max_completion_tokens, 7000);
+  assert.equal(requests[0].max_completion_tokens, MAX_LEARNING_COMPLETION_TOKENS);
   assert.equal("max_tokens" in requests[0], false);
   assert.deepEqual(requests[0].response_format, { type: "json_object" });
 });
@@ -231,6 +239,10 @@ test("routes scanned inputs through Qwen OCR and Llama structured generation", a
 
   const req = {
     body: {
+      privacyConsent: {
+        accepted: true,
+        version: LEARNING_PRIVACY_CONSENT_VERSION,
+      },
       subjectName: "Quantum Computing",
       chapterNames: ["Introduction"],
       attachments: [{
@@ -268,8 +280,386 @@ test("routes scanned inputs through Qwen OCR and Llama structured generation", a
   assert.equal(requests[0].model, "qwen/qwen3.6-27b");
   assert.equal(requests[0].reasoning_effort, "none");
   assert.equal(requests[1].model, "llama-3.3-70b-versatile");
-  assert.equal(requests[1].max_tokens, 7000);
+  assert.equal(requests[1].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
   assert.match(requests[1].messages[1].content, /Quantum gates and qubits/u);
   assert.equal(stored[0].model, "llama-3.3-70b-versatile");
   assert.equal(res.body.notebook.model, "llama-3.3-70b-versatile");
+});
+
+test("samples every uploaded source within the learning AI character budget", () => {
+  const first = `${"FIRST ".repeat(4000)}FIRST-END`;
+  const second = `${"SECOND ".repeat(4000)}SECOND-END`;
+  const compacted = compactLearningSourceMaterial({
+    pdfDocuments: [
+      { name: "unit-1.pdf", text: first },
+      { name: "unit-2.pdf", text: second },
+    ],
+  });
+
+  assert.equal(compacted.pdfDocuments.length, 2);
+  assert.ok(compacted.totalIncludedChars <= MAX_LEARNING_AI_SOURCE_CHARS);
+  assert.equal(compacted.wasCompacted, true);
+  assert.match(compacted.pdfDocuments[0].text, /^FIRST/u);
+  assert.match(compacted.pdfDocuments[0].text, /FIRST-END$/u);
+  assert.match(compacted.pdfDocuments[1].text, /^SECOND/u);
+  assert.match(compacted.pdfDocuments[1].text, /SECOND-END$/u);
+});
+
+test("retries one provider size rejection with a smaller completion budget", async () => {
+  const requests = [];
+  const fetchImpl = async (_url, options) => {
+    requests.push(JSON.parse(options.body));
+    if (requests.length === 1) {
+      return {
+        ok: false,
+        status: 413,
+        json: async () => ({
+          error: { code: "rate_limit_exceeded", type: "tokens" },
+        }),
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify(validGeneratedNotebook()) } }],
+      }),
+    };
+  };
+
+  await requestLearningNotebookJson({
+    apiKey: "test-key",
+    fetchImpl,
+    model: "llama-3.3-70b-versatile",
+    systemPrompt: "Return JSON.",
+    userContent: "Generate a notebook.",
+  });
+
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
+  assert.equal(requests[1].max_tokens, 3000);
+});
+
+function geminiNotebookResponse(notebook = validGeneratedNotebook()) {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      candidates: [{ content: { parts: [{ text: JSON.stringify(notebook) }] } }],
+    }),
+  };
+}
+
+function groqNotebookResponse(notebook = validGeneratedNotebook()) {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      choices: [{ message: { content: JSON.stringify(notebook) } }],
+    }),
+  };
+}
+
+function createLearningRouteHarness({
+  fetchImpl,
+  geminiConfig = { available: true, apiKey: "gemini-key" },
+  groqConfig = { available: true, apiKey: "groq-key" },
+  prepareAttachmentContext,
+} = {}) {
+  const routes = new Map();
+  const app = {};
+  ["get", "post", "patch", "delete"].forEach((method) => {
+    app[method] = (path, handler) => routes.set(`${method.toUpperCase()} ${path}`, handler);
+  });
+  const stored = [];
+  let dbCalls = 0;
+  let prepareCalls = 0;
+  const collection = {
+    countDocuments: async () => 0,
+    insertOne: async (document) => {
+      stored.push(document);
+      return { insertedId: "notebook-1" };
+    },
+  };
+  registerLearningNotebookRoutes(app, {
+    fetchImpl,
+    geminiLearningModel: DEFAULT_GEMINI_LEARNING_MODEL,
+    getDb: async () => {
+      dbCalls += 1;
+      return { collection: () => collection };
+    },
+    getGeminiConfigStatus: () => geminiConfig,
+    getGroqConfigStatus: () => groqConfig,
+    groqLearningModel: "llama-3.3-70b-versatile",
+    groqModel: "llama-3.1-8b-instant",
+    groqVisionModel: "qwen/qwen3.6-27b",
+    prepareAttachmentContext: async (attachments) => {
+      prepareCalls += 1;
+      if (prepareAttachmentContext) return prepareAttachmentContext(attachments);
+      return { metadata: [], pdfDocuments: [], visionImages: [] };
+    },
+    requireAuth: (handler) => handler,
+  });
+
+  return {
+    stored,
+    get dbCalls() { return dbCalls; },
+    get prepareCalls() { return prepareCalls; },
+    async analyze(body = {}) {
+      const req = {
+        body: {
+          privacyConsent: {
+            accepted: true,
+            version: LEARNING_PRIVACY_CONSENT_VERSION,
+          },
+          subjectName: "Operating Systems",
+          chapterNames: ["Processes"],
+          attachments: [],
+          textSources: [],
+          ...body,
+        },
+        user: {
+          _id: "user-1",
+          academicLevel: "Undergraduate / Bachelor's",
+          degree: "B.Tech",
+          department: "IT",
+        },
+      };
+      const res = {
+        body: null,
+        statusCode: 200,
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
+        json(payload) {
+          this.body = payload;
+          return this;
+        },
+      };
+      await routes.get("POST /api/learning-notebooks/analyze")(req, res);
+      return res;
+    },
+  };
+}
+
+test("uses Gemini structured output with native PDF and image bytes without local extraction", async () => {
+  const requests = [];
+  const pdfBytes = Buffer.from("%PDF-1.7\nNative Gemini PDF\n%%EOF", "utf8");
+  const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAAUSURBVAiZY6yxevufgYGBgYkBCgAn5wKm8Nhy+QAAAABJRU5ErkJggg==";
+  const pngBytes = Buffer.from(pngBase64, "base64");
+  const harness = createLearningRouteHarness({
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options, body: JSON.parse(options.body) });
+      return geminiNotebookResponse();
+    },
+    prepareAttachmentContext: async () => {
+      throw new Error("Local extraction must stay lazy on Gemini success.");
+    },
+  });
+
+  const res = await harness.analyze({
+    attachments: [
+      {
+        name: "unit.pdf",
+        type: "application/pdf",
+        size: pdfBytes.length,
+        dataUrl: `data:application/pdf;base64,${pdfBytes.toString("base64")}`,
+      },
+      {
+        name: "diagram.png",
+        type: "image/png",
+        size: pngBytes.length,
+        dataUrl: `data:image/png;base64,${pngBase64}`,
+      },
+    ],
+  });
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(requests.length, 1);
+  assert.equal(harness.prepareCalls, 0);
+  assert.match(requests[0].url, new RegExp(`/models/${DEFAULT_GEMINI_LEARNING_MODEL}:generateContent$`, "u"));
+  assert.equal(requests[0].options.headers["x-goog-api-key"], "gemini-key");
+  const generationConfig = requests[0].body.generationConfig;
+  assert.equal(generationConfig.maxOutputTokens, MAX_GEMINI_LEARNING_OUTPUT_TOKENS);
+  assert.equal("temperature" in generationConfig, false);
+  assert.equal("topP" in generationConfig, false);
+  assert.equal("topK" in generationConfig, false);
+  assert.equal(generationConfig.responseFormat.text.mimeType, "application/json");
+  assert.equal(generationConfig.responseFormat.text.schema.type, "object");
+  const parts = requests[0].body.contents[0].parts;
+  const inlineParts = parts.filter((part) => part.inlineData);
+  assert.deepEqual(inlineParts.map((part) => part.inlineData.mimeType), [
+    "application/pdf",
+    "image/png",
+  ]);
+  assert.equal(inlineParts[0].inlineData.data, pdfBytes.toString("base64"));
+  assert.equal(inlineParts[1].inlineData.data, pngBase64);
+  assert.ok(parts.at(-1).text.trim());
+  assert.match(parts.at(-1).text, /Return this exact JSON shape/u);
+  assert.equal(harness.stored[0].model, DEFAULT_GEMINI_LEARNING_MODEL);
+  assert.equal(res.body.notebook.model, DEFAULT_GEMINI_LEARNING_MODEL);
+});
+
+test("lazily extracts PDFs and uses the preserved Groq fallback after a Gemini transport failure", async () => {
+  const sequence = [];
+  const groqRequests = [];
+  const pdfBytes = Buffer.from("%PDF-1.7\nFallback PDF\n%%EOF", "utf8");
+  const harness = createLearningRouteHarness({
+    fetchImpl: async (url, options) => {
+      if (url.includes("generativelanguage.googleapis.com")) {
+        sequence.push("gemini");
+        throw new TypeError("network unavailable");
+      }
+      sequence.push("groq");
+      groqRequests.push(JSON.parse(options.body));
+      return groqNotebookResponse();
+    },
+    prepareAttachmentContext: async ([attachment]) => {
+      sequence.push("prepare");
+      assert.equal(attachment.buffer.toString("utf8"), pdfBytes.toString("utf8"));
+      return {
+        metadata: [{ name: attachment.name, type: attachment.type, size: attachment.size }],
+        pdfDocuments: [{
+          name: attachment.name,
+          text: "Processes use isolated address spaces and scheduled threads.",
+          totalPages: 1,
+          pagesRead: 1,
+          truncated: false,
+        }],
+        visionImages: [],
+      };
+    },
+  });
+
+  const res = await harness.analyze({
+    attachments: [{
+      name: "fallback.pdf",
+      type: "application/pdf",
+      size: pdfBytes.length,
+      dataUrl: `data:application/pdf;base64,${pdfBytes.toString("base64")}`,
+    }],
+  });
+
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(sequence, ["gemini", "prepare", "groq"]);
+  assert.equal(harness.prepareCalls, 1);
+  assert.equal(groqRequests[0].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
+  assert.match(groqRequests[0].messages[1].content, /isolated address spaces/u);
+  assert.equal(harness.stored[0].model, "llama-3.3-70b-versatile");
+  assert.equal(res.body.notebook.model, "llama-3.3-70b-versatile");
+});
+
+test("falls back to Groq when Gemini returns malformed notebook output", async () => {
+  let requestCount = 0;
+  const harness = createLearningRouteHarness({
+    fetchImpl: async (url) => {
+      requestCount += 1;
+      if (url.includes("generativelanguage.googleapis.com")) {
+        return geminiNotebookResponse({ overview: "Incomplete" });
+      }
+      return groqNotebookResponse();
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(requestCount, 2);
+  assert.equal(res.body.notebook.model, "llama-3.3-70b-versatile");
+});
+
+test("supports Gemini-first, Gemini-only, Groq-only, and unavailable provider configurations", async (t) => {
+  const cases = [
+    { name: "both", gemini: true, groq: true, status: 201, provider: "gemini" },
+    { name: "Gemini only", gemini: true, groq: false, status: 201, provider: "gemini" },
+    { name: "Groq only", gemini: false, groq: true, status: 201, provider: "groq" },
+    { name: "neither", gemini: false, groq: false, status: 503, provider: null },
+  ];
+
+  for (const row of cases) {
+    await t.test(row.name, async () => {
+      const providers = [];
+      const harness = createLearningRouteHarness({
+        geminiConfig: row.gemini
+          ? { available: true, apiKey: "gemini-key" }
+          : { available: false, message: "Gemini unavailable." },
+        groqConfig: row.groq
+          ? { available: true, apiKey: "groq-key" }
+          : { available: false, message: "Groq unavailable." },
+        fetchImpl: async (url) => {
+          const provider = url.includes("generativelanguage.googleapis.com") ? "gemini" : "groq";
+          providers.push(provider);
+          return provider === "gemini" ? geminiNotebookResponse() : groqNotebookResponse();
+        },
+      });
+
+      const res = await harness.analyze();
+
+      assert.equal(res.statusCode, row.status);
+      assert.deepEqual(providers, row.provider ? [row.provider] : []);
+      if (row.provider) {
+        assert.equal(
+          res.body.notebook.model,
+          row.provider === "gemini" ? DEFAULT_GEMINI_LEARNING_MODEL : "llama-3.3-70b-versatile",
+        );
+      } else {
+        assert.equal(res.body.code, "LEARNING_ASSISTANT_UNAVAILABLE");
+        assert.equal(harness.dbCalls, 0);
+      }
+    });
+  }
+});
+
+test("rejects missing, declined, or stale privacy consent before provider or database work", async (t) => {
+  const cases = [
+    { name: "missing", value: undefined },
+    { name: "declined", value: { accepted: false, version: LEARNING_PRIVACY_CONSENT_VERSION } },
+    { name: "stale", value: { accepted: true, version: "stale-version" } },
+  ];
+
+  for (const row of cases) {
+    await t.test(row.name, async () => {
+      let fetchCalls = 0;
+      const harness = createLearningRouteHarness({
+        fetchImpl: async () => {
+          fetchCalls += 1;
+          return geminiNotebookResponse();
+        },
+      });
+
+      const res = await harness.analyze({ privacyConsent: row.value });
+
+      assert.equal(res.statusCode, 428);
+      assert.equal(res.body.code, "LEARNING_PRIVACY_CONSENT_REQUIRED");
+      assert.equal(res.body.consentVersion, LEARNING_PRIVACY_CONSENT_VERSION);
+      assert.equal(fetchCalls, 0);
+      assert.equal(harness.dbCalls, 0);
+    });
+  }
+});
+
+test("does not invoke Gemini or Groq fallback for client input validation errors", async () => {
+  let fetchCalls = 0;
+  const harness = createLearningRouteHarness({
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return geminiNotebookResponse();
+    },
+  });
+
+  const res = await harness.analyze({
+    attachments: [{
+      name: "unsafe.html",
+      type: "text/html",
+      size: 8,
+      dataUrl: "data:text/html;base64,PHNjcmlwdD4=",
+    }],
+  });
+
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.code, "CHAT_ATTACHMENT_TYPE");
+  assert.equal(fetchCalls, 0);
+  assert.equal(harness.prepareCalls, 0);
+  assert.equal(harness.dbCalls, 0);
 });

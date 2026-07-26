@@ -17,6 +17,7 @@ import {
   MessageSquareText,
   Plus,
   Save,
+  ShieldCheck,
   Sparkles,
   Trash2,
   UploadCloud,
@@ -38,6 +39,11 @@ import {
   getLearningScheduleDateOptions,
   upsertLearningPlannerTask,
 } from "../utils/learningPlanner";
+import {
+  LEARNING_PRIVACY_CONSENT_VERSION,
+  acceptLearningPrivacyConsent,
+  hasLearningPrivacyConsent,
+} from "../utils/learningPrivacyConsent";
 import "./StartLearningPage.css";
 
 const TEXT_SOURCE_ACCEPT = ".txt,.md,text/plain,text/markdown";
@@ -355,6 +361,9 @@ function StartLearningPage({
   const fileInputRef = useRef(null);
   const analysisTimerRef = useRef(null);
   const mountedRef = useRef(true);
+  const pendingAnalysisRef = useRef(null);
+  const privacyConsentCancelRef = useRef(null);
+  const privacyConsentDialogRef = useRef(null);
   const [notebooks, setNotebooks] = useState([]);
   const [notebooksLoading, setNotebooksLoading] = useState(true);
   const [notebooksError, setNotebooksError] = useState("");
@@ -385,6 +394,7 @@ function StartLearningPage({
   const [plannerNodeId, setPlannerNodeId] = useState("");
   const [plannerDateKey, setPlannerDateKey] = useState("");
   const [plannerError, setPlannerError] = useState("");
+  const [privacyConsentOpen, setPrivacyConsentOpen] = useState(false);
 
   const nodes = useMemo(() => learningNodes(activeNotebook), [activeNotebook]);
   const selectedNode = useMemo(
@@ -441,6 +451,44 @@ function StartLearningPage({
     setPlannerDateKey((current) => current || dateOptions[0]?.dateKey || "");
   }, [dateOptions, nodes, plannerDialogOpen, selectedNode?.id]);
 
+  useEffect(() => {
+    if (!privacyConsentOpen) return undefined;
+    const previouslyFocused = document.activeElement;
+    const focusFrame = window.requestAnimationFrame(() => {
+      privacyConsentCancelRef.current?.focus();
+    });
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        pendingAnalysisRef.current = null;
+        setPrivacyConsentOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(
+        privacyConsentDialogRef.current?.querySelectorAll("button:not([disabled])") || [],
+      );
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [privacyConsentOpen]);
+
   const handleFiles = async (fileList) => {
     const selected = Array.from(fileList || []);
     if (!selected.length) return;
@@ -495,14 +543,17 @@ function StartLearningPage({
     }, 1050);
   };
 
-  const analyzeNotebook = async () => {
+  const getAnalysisRequest = () => {
     const chapterNames = parseChapterNames(manualChapters);
     const cleanSubject = cleanText(subjectName, 160);
     if (!sources.length && (!cleanSubject || !chapterNames.length)) {
       setAnalysisError("Upload a source, or add a subject and at least one chapter.");
-      return;
+      return null;
     }
+    return { chapterNames, cleanSubject };
+  };
 
+  const runNotebookAnalysis = async ({ chapterNames, cleanSubject }) => {
     setAnalyzing(true);
     setAnalysisError("");
     beginAnalysisProgress();
@@ -527,6 +578,10 @@ function StartLearningPage({
           department: userProfile?.department || userProfile?.fieldOfStudy || "",
           primaryGoal: userProfile?.primaryGoal || userProfile?.careerGoal || "",
         },
+        privacyConsent: {
+          accepted: true,
+          version: LEARNING_PRIVACY_CONSENT_VERSION,
+        },
       }, { timeoutMs: 120000 });
       if (!mountedRef.current) return;
       if (analysisTimerRef.current) window.clearInterval(analysisTimerRef.current);
@@ -549,6 +604,38 @@ function StartLearningPage({
       analysisTimerRef.current = null;
       if (mountedRef.current) setAnalyzing(false);
     }
+  };
+
+  const analyzeNotebook = () => {
+    const analysisRequest = getAnalysisRequest();
+    if (!analysisRequest) return;
+    setAnalysisError("");
+
+    if (!hasLearningPrivacyConsent(userProfile?.id)) {
+      pendingAnalysisRef.current = analysisRequest;
+      setPrivacyConsentOpen(true);
+      return;
+    }
+
+    runNotebookAnalysis(analysisRequest);
+  };
+
+  const declinePrivacyConsent = () => {
+    pendingAnalysisRef.current = null;
+    setPrivacyConsentOpen(false);
+  };
+
+  const agreeToPrivacyConsent = () => {
+    const analysisRequest = pendingAnalysisRef.current;
+    if (!analysisRequest) {
+      setPrivacyConsentOpen(false);
+      return;
+    }
+
+    acceptLearningPrivacyConsent(userProfile?.id);
+    pendingAnalysisRef.current = null;
+    setPrivacyConsentOpen(false);
+    runNotebookAnalysis(analysisRequest);
   };
 
   const updateNotebook = (updater) => {
@@ -1660,6 +1747,74 @@ function StartLearningPage({
           )}
         </section>
       </div>
+
+      {privacyConsentOpen && (
+        <div
+          className="learning-dialog-backdrop learning-privacy-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) declinePrivacyConsent();
+          }}
+          role="presentation"
+        >
+          <section
+            aria-describedby="learning-privacy-description"
+            aria-labelledby="learning-privacy-title"
+            aria-modal="true"
+            className="learning-planner-dialog learning-privacy-dialog card"
+            ref={privacyConsentDialogRef}
+            role="dialog"
+          >
+            <div className="learning-privacy-heading">
+              <span className="learning-privacy-icon" aria-hidden="true">
+                <ShieldCheck size={23} />
+              </span>
+              <div>
+                <span className="section-tag">One-time privacy notice</span>
+                <h3 id="learning-privacy-title">Allow AI processing?</h3>
+              </div>
+            </div>
+
+            <div className="learning-privacy-copy" id="learning-privacy-description">
+              <p>
+                To build your notebook, PrepMatrix sends uploaded PDFs, images, and notes
+                or the subject and chapters you type, together with relevant academic-profile
+                context, to Google Gemini for AI processing.
+              </p>
+              <p>
+                If Gemini cannot complete the request, the same information may be sent to
+                Groq as a fallback.
+              </p>
+              <p>
+                PrepMatrix saves the generated notebook and source metadata, such as file name,
+                type, size, and coverage. Raw uploaded or typed source contents are not saved in
+                notebook records.
+              </p>
+            </div>
+
+            <p className="learning-privacy-warning">
+              Only continue with material you are allowed to share. Avoid confidential,
+              sensitive, or personally identifying information.
+            </p>
+
+            <div className="learning-dialog-actions learning-privacy-actions">
+              <button
+                onClick={declinePrivacyConsent}
+                ref={privacyConsentCancelRef}
+                type="button"
+              >
+                Not now
+              </button>
+              <button
+                className="learning-privacy-agree"
+                onClick={agreeToPrivacyConsent}
+                type="button"
+              >
+                <ShieldCheck size={16} /> Agree &amp; analyze
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {plannerDialogOpen && activeNotebook && (
         <div

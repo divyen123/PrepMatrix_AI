@@ -81,7 +81,7 @@ test("normalizes a bounded notebook and strips raw source payloads", () => {
       type: "application/pdf",
       size: 4096,
       kind: "pdf",
-      analysisMode: "text",
+      analysisMode: "native",
       totalPages: 80,
       pagesRead: 40,
       truncated: true,
@@ -100,6 +100,7 @@ test("normalizes a bounded notebook and strips raw source payloads", () => {
   assert.equal(notebook.mindMap.edges[0].from, "root");
   assert.equal(notebook.careerPreparation.enabled, true);
   assert.equal(notebook.careerPreparation.codingRelevant, true);
+  assert.equal(notebook.sources[0].analysisMode, "native");
   assert.equal(notebook.sources[0].truncated, true);
   assert.equal("dataUrl" in notebook.sources[0], false);
   assert.equal("text" in notebook.sources[0], false);
