@@ -370,6 +370,147 @@ body .learning-delete-confirm button {
   font-weight: 600;
 }
 
+.learning-subject-picker {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.learning-subject-picker.is-open {
+  z-index: 80;
+}
+
+.learning-subject-picker > input {
+  padding-right: 44px;
+}
+
+body .learning-subject-picker-toggle {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: 5px;
+  display: grid;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  place-items: center;
+  padding: 0;
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 9px;
+  box-shadow: none !important;
+  transform: translateY(-50%) !important;
+}
+
+body .learning-subject-picker-toggle:hover,
+body .learning-subject-picker-toggle:focus-visible {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  border-color: rgba(var(--accent-rgb), 0.18) !important;
+  transform: translateY(-50%) !important;
+}
+
+.learning-subject-picker-toggle svg {
+  transition: transform 180ms ease;
+}
+
+.learning-subject-picker.is-open .learning-subject-picker-toggle svg {
+  transform: rotate(180deg);
+}
+
+body .learning-subject-picker-toggle::after,
+body .learning-subject-option::after {
+  display: none;
+}
+
+.learning-subject-options {
+  position: absolute;
+  z-index: 90;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  display: grid;
+  gap: 3px;
+  max-height: 240px;
+  padding: 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-strong) 94%, var(--bg) 6%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px -18px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(var(--accent-rgb), 0.04);
+  backdrop-filter: blur(24px) saturate(1.2);
+  scrollbar-color: rgba(var(--accent-rgb), 0.34) transparent;
+  scrollbar-width: thin;
+  animation: learningReveal 180ms ease both;
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+}
+
+body .learning-subject-option {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  color: var(--text) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 10px;
+  box-shadow: none !important;
+  font-size: 0.72rem;
+  text-align: left;
+  transform: none !important;
+}
+
+body .learning-subject-option:hover,
+body .learning-subject-option.is-active {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  border-color: rgba(var(--accent-rgb), 0.18) !important;
+  transform: none !important;
+}
+
+body .learning-subject-option.is-selected {
+  color: var(--accent) !important;
+  font-weight: 800;
+}
+
+.learning-subject-option span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.learning-subject-option svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.learning-subject-options-empty {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  line-height: 1.45;
+}
+
+.learning-subject-options-empty strong {
+  color: var(--text);
+  font-size: 0.7rem;
+}
+
+body.has-bg-image .learning-subject-options {
+  background: rgba(var(--bg-surface-rgb), 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 22px 58px -20px rgba(0, 0, 0, 0.7) !important;
+}
+
 body .learning-analyze-btn {
   display: inline-flex;
   width: 100%;
@@ -1709,6 +1850,10 @@ body .learning-dialog-header > button {
     grid-template-columns: 1fr;
   }
 
+  .learning-hero.has-workspace-controls {
+    padding-top: 78px;
+  }
+
   .learning-workspace {
     grid-template-columns: minmax(235px, 0.34fr) minmax(0, 1fr);
   }
@@ -1876,20 +2021,23 @@ body .learning-dialog-header > button {
 }
 
 /* Start Learning view states */
-.learning-subpage-bar {
-  position: relative;
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 11px;
-  padding: 10px 62px 10px 12px;
+.learning-hero.has-workspace-controls .learning-hero-metrics {
+  padding-top: 50px;
 }
 
-body .learning-subpage-bar .learning-icon-button {
+.learning-hero-controls {
   position: absolute;
-  top: 10px;
-  right: 12px;
-  z-index: 1;
+  z-index: 2;
+  top: clamp(18px, 2vw, 24px);
+  right: clamp(18px, 2.5vw, 30px);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: calc(100% - 40px);
+}
+
+body .learning-hero-controls .learning-icon-button {
   display: grid;
   width: 38px;
   min-width: 38px;
@@ -1897,31 +2045,24 @@ body .learning-subpage-bar .learning-icon-button {
   min-height: 38px;
   place-items: center;
   padding: 0;
+  color: var(--text-muted) !important;
+  background: var(--surface-muted) !important;
+  border: 1px solid var(--border) !important;
   border-radius: 11px;
   box-shadow: none !important;
+  transform: none !important;
 }
 
-.learning-subpage-title {
-  display: grid;
-  min-width: 0;
-  flex: 1;
-  gap: 2px;
+body .learning-hero-controls .learning-icon-button:hover,
+body .learning-hero-controls .learning-icon-button:focus-visible {
+  color: var(--accent) !important;
+  background: var(--surface-strong) !important;
+  border-color: rgba(var(--accent-rgb), 0.26) !important;
+  transform: none !important;
 }
 
-.learning-subpage-title small {
-  color: var(--accent);
-  font-size: 0.58rem;
-  font-weight: 850;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.learning-subpage-title strong {
-  overflow: hidden;
-  color: var(--text);
-  font-size: 0.78rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+body .learning-hero-controls .learning-icon-button::after {
+  display: none;
 }
 
 .learning-subpage-tabs {
@@ -1954,6 +2095,12 @@ body .learning-subpage-tabs button.is-active {
   color: var(--accent) !important;
   background: var(--surface-strong) !important;
   border-color: rgba(var(--accent-rgb), 0.22) !important;
+}
+
+@media (max-width: 1120px) {
+  .learning-hero.has-workspace-controls .learning-hero-metrics {
+    padding-top: 0;
+  }
 }
 
 .learning-workspace.is-intake {
@@ -2726,18 +2873,19 @@ body .learning-career-analyze:hover:not(:disabled) {
 }
 
 @media (max-width: 700px) {
-  .learning-subpage-bar {
-    align-items: flex-start;
-    flex-wrap: wrap;
+  .learning-hero-controls {
+    top: 15px;
+    right: 15px;
+    max-width: calc(100% - 30px);
   }
 
   .learning-subpage-tabs {
-    width: 100%;
+    width: auto;
     margin-left: 0;
   }
 
   body .learning-subpage-tabs button {
-    flex: 1;
+    flex: 0 0 auto;
     justify-content: center;
   }
 

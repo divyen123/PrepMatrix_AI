@@ -480,6 +480,8 @@ function StartLearningPage({
   setNotification,
 }) {
   const fileInputRef = useRef(null);
+  const subjectInputRef = useRef(null);
+  const subjectOptionsRef = useRef(null);
   const analysisTimerRef = useRef(null);
   const mountedRef = useRef(true);
   const pendingAnalysisRef = useRef(null);
@@ -498,6 +500,8 @@ function StartLearningPage({
   const [sourceError, setSourceError] = useState("");
   const [preparingSources, setPreparingSources] = useState(false);
   const [subjectName, setSubjectName] = useState("");
+  const [subjectPickerOpen, setSubjectPickerOpen] = useState(false);
+  const [subjectOptionIndex, setSubjectOptionIndex] = useState(0);
   const [manualChapters, setManualChapters] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
@@ -526,6 +530,25 @@ function StartLearningPage({
     () => normalizeSubjectNames(subjects),
     [subjects],
   );
+  const visibleSavedSubjectNames = useMemo(() => {
+    const query = subjectName.trim().toLocaleLowerCase();
+    if (!query) return savedSubjectNames;
+    const exactMatch = savedSubjectNames.some((name) => name.toLocaleLowerCase() === query);
+    if (exactMatch) return savedSubjectNames;
+    return savedSubjectNames.filter((name) => name.toLocaleLowerCase().includes(query));
+  }, [savedSubjectNames, subjectName]);
+  const activeSubjectOptionIndex = Math.min(
+    subjectOptionIndex,
+    Math.max(visibleSavedSubjectNames.length - 1, 0),
+  );
+  useEffect(() => {
+    if (!subjectPickerOpen || !visibleSavedSubjectNames.length) return;
+    const activeOption = subjectOptionsRef.current?.querySelector(
+      "#learning-subject-option-" + activeSubjectOptionIndex,
+    );
+    activeOption?.scrollIntoView({ block: "nearest" });
+  }, [activeSubjectOptionIndex, subjectPickerOpen, visibleSavedSubjectNames.length]);
+
   const nodes = useMemo(() => learningNodes(activeNotebook), [activeNotebook]);
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) || nodes[0] || null,
@@ -725,6 +748,48 @@ function StartLearningPage({
   const removeSource = (sourceId) => {
     setSources((current) => current.filter((source) => source.id !== sourceId));
     setSourceError("");
+  };
+
+  const chooseSavedSubject = (name) => {
+    setSubjectName(name);
+    setSubjectPickerOpen(false);
+    setSubjectOptionIndex(0);
+    setAnalysisError("");
+  };
+
+  const handleSubjectPickerKeyDown = (event) => {
+    if (!savedSubjectNames.length) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSubjectPickerOpen(true);
+      if (visibleSavedSubjectNames.length) {
+        setSubjectOptionIndex(subjectPickerOpen
+          ? (activeSubjectOptionIndex + 1) % visibleSavedSubjectNames.length
+          : 0);
+      }
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSubjectPickerOpen(true);
+      if (visibleSavedSubjectNames.length) {
+        setSubjectOptionIndex(subjectPickerOpen
+          ? (activeSubjectOptionIndex - 1 + visibleSavedSubjectNames.length) % visibleSavedSubjectNames.length
+          : visibleSavedSubjectNames.length - 1,
+        );
+      }
+      return;
+    }
+    if (event.key === "Enter" && subjectPickerOpen && visibleSavedSubjectNames.length) {
+      event.preventDefault();
+      chooseSavedSubject(visibleSavedSubjectNames[activeSubjectOptionIndex]);
+      return;
+    }
+    if (event.key === "Escape" && subjectPickerOpen) {
+      event.preventDefault();
+      setSubjectPickerOpen(false);
+    }
   };
 
   const beginAnalysisProgress = () => {
@@ -1312,7 +1377,11 @@ function StartLearningPage({
   const noSavedNotebooks = !notebooksLoading && !notebooksError && notebooks.length === 0;
   return (
     <div className="learning-page">
-      <section className="card learning-hero">
+      <section
+        className={workspaceView !== "intake" && activeNotebook
+          ? "card learning-hero has-workspace-controls"
+          : "card learning-hero"}
+      >
         <div className="learning-hero-copy">
           <span className="section-tag"><Sparkles size={14} /> AI learning workspace</span>
           <h2>Start Learning</h2>
@@ -1326,49 +1395,40 @@ function StartLearningPage({
           <div><strong>{activeNotebook?.chapters.length || 0}</strong><span>Mapped chapters</span></div>
           <div><strong>{nodes.length}</strong><span>Study concepts</span></div>
         </div>
-      </section>
-
-      {workspaceView !== "intake" && activeNotebook && (
-        <nav className="card learning-subpage-bar" aria-label="Start Learning views">
-          <button
-            aria-label="Back to notebook sources"
-            className="learning-icon-button"
-            onClick={() => setWorkspaceView("intake")}
-            title="Back to sources"
-            type="button"
-          >
-            <ArrowLeft size={17} />
-          </button>
-          <div className="learning-subpage-title">
-            <small>Start Learning</small>
-            <strong>
-              {workspaceView === "career"
-                ? "Placement & internship preparation"
-                : activeNotebook.title}
-            </strong>
-          </div>
-          <div className="learning-subpage-tabs">
-            <button
-              aria-current={workspaceView === "notebook" ? "page" : undefined}
-              className={workspaceView === "notebook" ? "is-active" : ""}
-              onClick={() => setWorkspaceView("notebook")}
-              type="button"
-            >
-              <BookOpenCheck size={15} /> <span>Notebook</span>
-            </button>
-            {careerVisible && (
+        {workspaceView !== "intake" && activeNotebook && (
+          <nav className="learning-hero-controls" aria-label="Start Learning views">
+            <div className="learning-subpage-tabs">
               <button
-                aria-current={workspaceView === "career" ? "page" : undefined}
-                className={workspaceView === "career" ? "is-active" : ""}
-                onClick={openCareerWorkspace}
+                aria-current={workspaceView === "notebook" ? "page" : undefined}
+                className={workspaceView === "notebook" ? "is-active" : ""}
+                onClick={() => setWorkspaceView("notebook")}
                 type="button"
               >
-                <BriefcaseBusiness size={15} /> <span>Placement prep</span>
+                <BookOpenCheck size={15} /> <span>Notebook</span>
               </button>
-            )}
-          </div>
-        </nav>
-      )}
+              {careerVisible && (
+                <button
+                  aria-current={workspaceView === "career" ? "page" : undefined}
+                  className={workspaceView === "career" ? "is-active" : ""}
+                  onClick={openCareerWorkspace}
+                  type="button"
+                >
+                  <BriefcaseBusiness size={15} /> <span>Placement prep</span>
+                </button>
+              )}
+            </div>
+            <button
+              aria-label="Back to notebook sources"
+              className="learning-icon-button"
+              onClick={() => setWorkspaceView("intake")}
+              title="Back to sources"
+              type="button"
+            >
+              <ArrowLeft size={17} />
+            </button>
+          </nav>
+        )}
+      </section>
 
       <div className={`learning-workspace is-${workspaceView}`}>
         <aside className="learning-source-rail" aria-label="Sources and saved notebooks">
@@ -1430,27 +1490,105 @@ function StartLearningPage({
           )}
 
           <div className="learning-or-divider"><span>or map manually</span></div>
-          <label className="learning-field">
-            <span>Subject</span>
-            <input
-              autoComplete="off"
-              disabled={analyzing}
-              list={savedSubjectNames.length ? "learning-saved-subjects" : undefined}
-              onChange={(event) => setSubjectName(event.target.value)}
-              placeholder={savedSubjectNames.length ? "Choose or type a subject" : "e.g. Operating Systems"}
-              value={subjectName}
-            />
-            {savedSubjectNames.length > 0 && (
-              <datalist id="learning-saved-subjects">
-                {savedSubjectNames.map((name) => <option key={name} value={name} />)}
-              </datalist>
-            )}
-            <small>
+          <div className="learning-field">
+            <label htmlFor="learning-subject-input">Subject</label>
+            <div
+              className={`learning-subject-picker${subjectPickerOpen ? " is-open" : ""}`}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setSubjectPickerOpen(false);
+              }}
+            >
+              <input
+                aria-activedescendant={
+                  subjectPickerOpen && visibleSavedSubjectNames.length
+                    ? `learning-subject-option-${activeSubjectOptionIndex}`
+                    : undefined
+                }
+                aria-autocomplete="list"
+                aria-controls={
+                  subjectPickerOpen ? "learning-saved-subject-options" : undefined
+                }
+                aria-describedby="learning-subject-help"
+                aria-expanded={subjectPickerOpen && savedSubjectNames.length > 0}
+                autoComplete="off"
+                disabled={analyzing}
+                id="learning-subject-input"
+                onChange={(event) => {
+                  setSubjectName(event.target.value);
+                  setSubjectOptionIndex(0);
+                  setSubjectPickerOpen(savedSubjectNames.length > 0);
+                }}
+                onClick={() => setSubjectPickerOpen(savedSubjectNames.length > 0)}
+                onFocus={() => setSubjectPickerOpen(savedSubjectNames.length > 0)}
+                onKeyDown={handleSubjectPickerKeyDown}
+                placeholder={savedSubjectNames.length ? "Choose or type a subject" : "e.g. Operating Systems"}
+                ref={subjectInputRef}
+                role="combobox"
+                type="text"
+                value={subjectName}
+              />
+              {savedSubjectNames.length > 0 && (
+                <button
+                  aria-label={subjectPickerOpen ? "Close saved subjects" : "Show saved subjects"}
+                  aria-controls={
+                    subjectPickerOpen ? "learning-saved-subject-options" : undefined
+                  }
+                  aria-expanded={subjectPickerOpen}
+                  aria-haspopup="listbox"
+                  className="learning-subject-picker-toggle"
+                  disabled={analyzing}
+                  onClick={() => {
+                    setSubjectPickerOpen((current) => !current);
+                    subjectInputRef.current?.focus();
+                  }}
+                  onMouseDown={(event) => event.preventDefault()}
+                  type="button"
+                >
+                  <ChevronDown size={15} />
+                </button>
+              )}
+              {subjectPickerOpen && savedSubjectNames.length > 0 && (
+                <div
+                  aria-label="Saved subjects"
+                  className="learning-subject-options"
+                  id="learning-saved-subject-options"
+                  ref={subjectOptionsRef}
+                  role="listbox"
+                >
+                  {visibleSavedSubjectNames.length > 0 ? visibleSavedSubjectNames.map((name, index) => {
+                    const selected = name.toLocaleLowerCase() === subjectName.trim().toLocaleLowerCase();
+                    return (
+                      <button
+                        aria-selected={selected}
+                        className={`learning-subject-option${index === activeSubjectOptionIndex ? " is-active" : ""}${selected ? " is-selected" : ""}`}
+                        id={`learning-subject-option-${index}`}
+                        key={name}
+                        onClick={() => chooseSavedSubject(name)}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onMouseEnter={() => setSubjectOptionIndex(index)}
+                        role="option"
+                        tabIndex={-1}
+                        type="button"
+                      >
+                        <span>{name}</span>
+                        {selected && <Check size={14} />}
+                      </button>
+                    );
+                  }) : (
+                    <div aria-live="polite" className="learning-subject-options-empty" role="status">
+                      <strong>No saved subject matches.</strong>
+                      <span>Keep typing to use this as a new subject.</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <small id="learning-subject-help">
               {savedSubjectNames.length
                 ? `Choose from ${savedSubjectNames.length} saved subject${savedSubjectNames.length === 1 ? "" : "s"}, or type another.`
                 : "No saved subjects yet. Type a subject here or add one from the Subjects page."}
             </small>
-          </label>
+          </div>
           <label className="learning-field">
             <span>Chapter names</span>
             <textarea
