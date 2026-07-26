@@ -1303,7 +1303,8 @@ function StartLearningPage({
       )}
 
       <div className={`learning-workspace is-${workspaceView}`}>
-        <aside className="card learning-source-rail" aria-label="Sources and saved notebooks">
+        <aside className="learning-source-rail" aria-label="Sources and saved notebooks">
+          <section className="card learning-intake-source-panel">
           <div className="learning-panel-heading">
             <div>
               <span className="section-tag">Sources</span>
@@ -1409,6 +1410,8 @@ function StartLearningPage({
             </div>
           )}
 
+          </section>
+          <section className="card learning-saved-panel">
           <div className="learning-saved-heading">
             <div><Layers3 size={16} /><strong>Saved notebooks</strong></div>
             {notebooksLoading && <LoaderCircle aria-label="Loading notebooks" className="spinner" size={15} />}
@@ -1474,6 +1477,7 @@ function StartLearningPage({
               </article>
             ))}
           </div>
+          </section>
         </aside>
 
         <section className="learning-notebook-stage" aria-live="polite">

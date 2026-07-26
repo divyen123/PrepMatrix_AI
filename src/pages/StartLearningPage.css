@@ -1922,16 +1922,41 @@ body .learning-subpage-tabs button.is-active {
 }
 
 .learning-workspace.is-intake {
-  grid-template-columns: minmax(0, 760px);
-  justify-content: center;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
 }
 
 .learning-workspace.is-intake .learning-source-rail {
   position: static;
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(260px, 3fr);
+  gap: 18px;
   width: 100%;
   max-height: none;
-  padding: clamp(20px, 3vw, 28px);
+  padding: 0;
   overflow: visible;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.learning-intake-source-panel,
+.learning-saved-panel {
+  min-width: 0;
+  padding: clamp(20px, 3vw, 28px);
+}
+
+.learning-intake-source-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.learning-saved-panel {
+  display: flex;
+  align-self: start;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .learning-workspace.is-intake .learning-notebook-stage,
@@ -1963,7 +1988,7 @@ body .learning-subpage-tabs button.is-active {
 }
 
 .learning-workspace.is-intake .learning-notebook-list {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .learning-intake-progress {
@@ -2519,6 +2544,10 @@ body .learning-career-analyze {
 }
 
 @media (max-width: 900px) {
+  .learning-workspace.is-intake .learning-source-rail {
+    grid-template-columns: 1fr;
+  }
+
   .learning-career-intro {
     grid-template-columns: 1fr;
   }
