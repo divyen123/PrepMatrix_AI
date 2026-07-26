@@ -840,6 +840,36 @@ body .learning-question-card > button {
   animation: learningReveal 260ms ease both;
 }
 
+.learning-question-answer p {
+  margin: 0 0 9px;
+}
+
+.learning-question-answer p:last-of-type {
+  margin-bottom: 0;
+}
+
+.learning-question-answer aside {
+  display: grid;
+  gap: 3px;
+  margin-top: 11px;
+  padding: 10px 12px;
+  color: var(--text-muted);
+  background: var(--accent-soft);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 11px;
+}
+
+.learning-question-answer aside strong {
+  color: var(--accent);
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.learning-question-answer aside span {
+  line-height: 1.55;
+}
+
 .learning-tablist {
   display: flex;
   gap: 7px;
@@ -1847,14 +1877,19 @@ body .learning-dialog-header > button {
 
 /* Start Learning view states */
 .learning-subpage-bar {
+  position: relative;
   display: flex;
   min-width: 0;
   align-items: center;
   gap: 11px;
-  padding: 10px 12px;
+  padding: 10px 62px 10px 12px;
 }
 
 body .learning-subpage-bar .learning-icon-button {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 1;
   display: grid;
   width: 38px;
   min-width: 38px;
@@ -2130,6 +2165,24 @@ body .learning-outline-toolbar > div:last-child button {
   border-radius: 12px;
 }
 
+.learning-topic-details > .learning-topic-explanation,
+.learning-topic-details > .is-examples {
+  grid-column: 1 / -1;
+}
+
+.learning-topic-details > .learning-topic-explanation {
+  background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface-strong));
+}
+
+.learning-topic-details > .is-mistakes {
+  background: color-mix(in srgb, #ef4444 7%, var(--surface-strong));
+  border-color: color-mix(in srgb, #ef4444 20%, var(--border));
+}
+
+.learning-topic-details p {
+  margin: 0 0 8px;
+}
+
 .learning-note-details > .is-revision,
 .learning-topic-details > .is-revision {
   background: color-mix(in srgb, var(--accent-soft) 65%, var(--surface-strong));
@@ -2145,11 +2198,17 @@ body .learning-outline-toolbar > div:last-child button {
 }
 
 .learning-note-details ul,
-.learning-topic-details ul {
+.learning-topic-details ul,
+.learning-topic-details ol {
   display: grid;
   gap: 5px;
   margin: 0;
   padding-left: 16px;
+}
+
+.learning-topic-details p,
+.learning-topic-details li {
+  white-space: pre-line;
 }
 
 .learning-topic-details {
@@ -2159,14 +2218,18 @@ body .learning-outline-toolbar > div:last-child button {
 
 .learning-topic-details li,
 .learning-subtopic-summary,
-.learning-subtopic-points li {
+.learning-subtopic-points li,
+.learning-subtopic-explanation p,
+.learning-subtopic-examples li {
   color: var(--text-muted);
-  font-size: 0.64rem;
+  font-size: 0.68rem;
   line-height: 1.55;
 }
 
 .learning-subtopic-summary,
-.learning-subtopic-points {
+.learning-subtopic-points,
+.learning-subtopic-explanation,
+.learning-subtopic-examples {
   grid-column: 2 / -1;
 }
 
@@ -2179,6 +2242,38 @@ body .learning-outline-toolbar > div:last-child button {
   gap: 4px;
   margin: 1px 4px 3px;
   padding-left: 16px;
+}
+
+.learning-subtopic-explanation,
+.learning-subtopic-examples {
+  display: grid;
+  gap: 5px;
+  margin: 2px 4px;
+  padding: 9px 10px;
+  background: color-mix(in srgb, var(--surface-muted) 75%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.learning-subtopic-explanation strong,
+.learning-subtopic-examples strong {
+  color: var(--text);
+  font-size: 0.64rem;
+}
+
+.learning-subtopic-explanation p {
+  margin: 0;
+}
+
+.learning-subtopic-examples ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 16px;
+}
+
+.learning-subtopic-examples li {
+  white-space: pre-line;
 }
 
 .learning-map-focus {
@@ -2200,9 +2295,10 @@ body .learning-outline-toolbar > div:last-child button {
 }
 
 .learning-map-focus-copy p,
-.learning-map-focus-copy li {
+.learning-map-focus-copy li,
+.learning-map-focus-section {
   color: var(--text-muted);
-  font-size: 0.64rem;
+  font-size: 0.7rem;
   line-height: 1.5;
 }
 
@@ -2210,11 +2306,44 @@ body .learning-outline-toolbar > div:last-child button {
   margin: 2px 0 0;
 }
 
-.learning-map-focus-copy ul {
+.learning-map-focus-copy ul,
+.learning-map-focus-copy ol {
   display: grid;
-  gap: 3px;
+  gap: 5px;
   margin: 2px 0 0;
   padding-left: 16px;
+}
+
+.learning-map-focus-section {
+  display: grid;
+  gap: 5px;
+  margin-top: 5px;
+  padding: 9px 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.learning-map-focus-section small {
+  color: var(--accent);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.learning-map-focus-section p,
+.learning-map-focus-section li {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.learning-map-focus-section.is-examples {
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface-muted));
+}
+
+.learning-map-focus-section.is-mistakes {
+  border-color: color-mix(in srgb, #ef4444 20%, var(--border));
 }
 
 body .learning-map-focus > button {
@@ -2384,8 +2513,14 @@ body .learning-career-topic-grid button {
 .learning-career-fields {
   display: grid;
   grid-template-columns: minmax(220px, 0.65fr) minmax(0, 1.35fr);
+  align-items: start;
   gap: 12px;
   margin-top: 15px;
+}
+
+.learning-career-fields > .learning-field:first-child {
+  align-content: start;
+  align-self: start;
 }
 
 .learning-career-fields textarea {
@@ -2400,12 +2535,20 @@ body .learning-career-analyze {
   gap: 7px;
   margin-top: 12px;
   padding: 8px 14px;
-  color: var(--accent-contrast, #fff) !important;
-  background: var(--accent) !important;
-  border-color: transparent !important;
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  border-color: rgba(var(--accent-rgb), 0.24) !important;
   border-radius: 11px;
   font-size: 0.7rem;
   font-weight: 800;
+  box-shadow: none !important;
+}
+
+body .learning-career-analyze:hover:not(:disabled) {
+  color: var(--accent) !important;
+  background: rgba(var(--accent-rgb), 0.18) !important;
+  border-color: rgba(var(--accent-rgb), 0.36) !important;
+  box-shadow: 0 8px 24px -12px rgba(var(--accent-rgb), 0.42) !important;
 }
 
 .learning-career-results {
@@ -2590,7 +2733,7 @@ body .learning-career-analyze {
 
   .learning-subpage-tabs {
     width: 100%;
-    margin-left: 49px;
+    margin-left: 0;
   }
 
   body .learning-subpage-tabs button {

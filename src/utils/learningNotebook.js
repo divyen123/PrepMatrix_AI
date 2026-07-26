@@ -86,6 +86,44 @@ function normalizeStringList(value, { maxItems = 10, maxLength = 360 } = {}) {
   return normalized;
 }
 
+function normalizeExampleList(value, { maxItems = 6, maxLength = 1800 } = {}) {
+  const list = Array.isArray(value) ? value : value == null ? [] : [value];
+  const seen = new Set();
+  const examples = [];
+
+  for (const item of list) {
+    const text = item && typeof item === "object"
+      ? cleanContent([
+          item.title,
+          item.problem ?? item.scenario ?? item.question,
+          Array.isArray(item.steps) && item.steps.length
+            ? `Steps: ${item.steps.map((step, index) => `${index + 1}. ${cleanContent(
+                step?.text ?? step?.description ?? step?.instruction ?? step,
+                500,
+              )}`).join(" ")}`
+            : "",
+          item.solution ?? item.answer ?? item.result,
+          item.takeaway ? `Takeaway: ${item.takeaway}` : "",
+        ].filter(Boolean).join("\n"), maxLength)
+      : cleanContent(item, maxLength);
+    const key = text.toLocaleLowerCase();
+    if (!text || seen.has(key)) continue;
+    seen.add(key);
+    examples.push(text);
+    if (examples.length >= maxItems) break;
+  }
+
+  return examples;
+}
+
+function hasDetailedText(value, minimumLength) {
+  return cleanContent(value, 10_000).length >= minimumLength;
+}
+
+function hasMinimumItems(value, minimum) {
+  return Array.isArray(value) && value.length >= minimum;
+}
+
 export function normalizeLearningChapterNames(value) {
   return normalizeStringList(value, {
     maxItems: MAX_LEARNING_CHAPTERS,
@@ -209,10 +247,18 @@ function normalizeSubtopics(value, topicId, usedIdentifiers) {
         usedIdentifiers,
       ),
       title,
-      summary: cleanContent(source.summary ?? source.explanation ?? source.content, 1800),
+      summary: cleanContent(source.summary ?? source.description ?? source.explanation ?? source.content, 2400),
+      explanation: cleanContent(
+        source.explanation ?? source.details ?? source.body ?? source.summary ?? source.content,
+        4800,
+      ),
       keyPoints: normalizeStringList(source.keyPoints ?? source.points, {
         maxItems: 10,
         maxLength: 420,
+      }),
+      examples: normalizeExampleList(source.examples ?? source.workedExamples ?? source.example, {
+        maxItems: 4,
+        maxLength: 1400,
       }),
     });
     if (subtopics.length >= MAX_LEARNING_SUBTOPICS) break;
@@ -250,11 +296,31 @@ function normalizeTopics(
     topics.push({
       id: topicId,
       title,
-      summary: cleanContent(source.summary ?? source.explanation ?? source.content, 2600),
+      summary: cleanContent(source.summary ?? source.description ?? source.explanation ?? source.content, 3200),
+      explanation: cleanContent(
+        source.explanation ?? source.details ?? source.body ?? source.summary ?? source.content,
+        7200,
+      ),
       importance: IMPORTANCE_LEVELS.has(rawImportance) ? rawImportance : "medium",
+      learningObjectives: normalizeStringList(source.learningObjectives ?? source.objectives, {
+        maxItems: 8,
+        maxLength: 420,
+      }),
       keyPoints: normalizeStringList(source.keyPoints ?? source.points, {
         maxItems: 12,
         maxLength: 440,
+      }),
+      examples: normalizeExampleList(source.examples ?? source.workedExamples ?? source.example, {
+        maxItems: 6,
+        maxLength: 1800,
+      }),
+      applications: normalizeStringList(source.applications ?? source.uses ?? source.useCases, {
+        maxItems: 8,
+        maxLength: 700,
+      }),
+      commonMistakes: normalizeStringList(source.commonMistakes ?? source.mistakes ?? source.misconceptions, {
+        maxItems: 8,
+        maxLength: 700,
       }),
       revisionTips: normalizeStringList(source.revisionTips ?? source.tips, {
         maxItems: 8,
@@ -730,6 +796,40 @@ export function hasLearningNotebookShape(value) {
     && typeof source.mindMap === "object"
     && Array.isArray(source.mindMap.nodes),
   );
+}
+
+export function hasGeneratedLearningNotebookDepth(value, options = {}) {
+  if (!hasLearningNotebookShape(value)) return false;
+  const minimumTopicsPerChapter = Math.max(1, Number.parseInt(options.minimumTopicsPerChapter, 10) || 6);
+  const minimumSubtopicsPerTopic = Math.max(1, Number.parseInt(options.minimumSubtopicsPerTopic, 10) || 3);
+  const minimumExamplesPerTopic = Math.max(1, Number.parseInt(options.minimumExamplesPerTopic, 10) || 1);
+  const minimumExamplesPerSubtopic = Math.max(1, Number.parseInt(options.minimumExamplesPerSubtopic, 10) || 1);
+  const minimumImportantQuestions = Math.max(1, Number.parseInt(options.minimumImportantQuestions, 10) || 8);
+  const minimumNoteSections = Math.max(1, Number.parseInt(options.minimumNoteSections, 10) || 4);
+  const expectedChapterCount = Math.max(0, Number.parseInt(options.expectedChapterCount, 10) || 0);
+  const normalized = normalizeLearningNotebook(value, {
+    subjectName: value?.subjectName || value?.title || "Generated notebook",
+  });
+
+  if (expectedChapterCount && normalized.chapters.length < expectedChapterCount) return false;
+  if (!hasMinimumItems(normalized.importantQuestions, minimumImportantQuestions)) return false;
+  if (!hasMinimumItems(normalized.revisedNotes, minimumNoteSections)) return false;
+
+  return normalized.chapters.every((chapter) => (
+    hasDetailedText(chapter.summary, 40)
+    && hasMinimumItems(chapter.topics, minimumTopicsPerChapter)
+    && chapter.topics.every((topic) => (
+      hasDetailedText(topic.explanation, 120)
+      && hasMinimumItems(topic.keyPoints, 4)
+      && hasMinimumItems(topic.examples, minimumExamplesPerTopic)
+      && hasMinimumItems(topic.subtopics, minimumSubtopicsPerTopic)
+      && topic.subtopics.every((subtopic) => (
+        hasDetailedText(subtopic.explanation, 60)
+        && hasMinimumItems(subtopic.keyPoints, 2)
+        && hasMinimumItems(subtopic.examples, minimumExamplesPerSubtopic)
+      ))
+    ))
+  ));
 }
 
 export function normalizeLearningNotebook(value = {}, options = {}) {

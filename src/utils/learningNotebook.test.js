@@ -7,6 +7,7 @@ import {
   MAX_LEARNING_SUBTOPICS,
   MAX_LEARNING_TOPICS,
   getLearningCareerEligibility,
+  hasGeneratedLearningNotebookDepth,
   hasLearningNotebookShape,
   normalizeLearningCareerTopicAnalysis,
   normalizeLearningCareerTopics,
@@ -66,6 +67,55 @@ function generatedNotebook(overrides = {}) {
     },
     ...overrides,
   };
+}
+
+function richlyGeneratedNotebook() {
+  const topics = Array.from({ length: 6 }, (_, topicIndex) => ({
+    title: `Memory concept ${topicIndex + 1}`,
+    summary: "A focused summary of the concept and its role in memory management.",
+    explanation: "This detailed explanation defines the memory-management concept, builds intuition from the address-translation path, and traces how the operating system applies it during a real access. It connects the mechanism to performance, protection, and design trade-offs so the learner can reason about both exam questions and practical behavior.",
+    importance: "high",
+    learningObjectives: ["Define the mechanism.", "Trace its operation.", "Compare its trade-offs."],
+    keyPoints: ["Definition", "Representation", "Operation", "Trade-off"],
+    examples: [{
+      title: "Worked address-translation trace",
+      problem: "Translate a virtual address using a page table.",
+      steps: [{ instruction: "Split the address into page number and offset." }, "Look up the frame and combine it with the offset."],
+      result: "The virtual address resolves to a physical address.",
+      takeaway: "The offset is preserved during translation.",
+    }],
+    applications: ["Process isolation", "Demand paging"],
+    commonMistakes: ["Confusing pages with frames", "Changing the offset during translation"],
+    revisionTips: ["Draw the translation path.", "State the page-size assumption."],
+    subtopics: Array.from({ length: 3 }, (_, subtopicIndex) => ({
+      title: `Memory subtopic ${topicIndex + 1}.${subtopicIndex + 1}`,
+      summary: "A focused subtopic summary.",
+      explanation: "This subtopic explains the representation, the step-by-step operation, and the effect on the wider memory-management workflow using a concrete trace.",
+      keyPoints: ["Representation", "Operation", "Effect"],
+      examples: ["Trace a small address through the mechanism and verify the resulting state."],
+    })),
+  }));
+
+  return generatedNotebook({
+    importantQuestions: Array.from({ length: 8 }, (_, index) => ({
+      question: `How does memory mechanism ${index + 1} work?`,
+      answer: "It translates, validates, and records the access using the relevant operating-system structures.",
+      whyItMatters: "It connects the abstract rule to observable behavior.",
+      difficulty: "medium",
+    })),
+    revisedNotes: topics.slice(0, 4).map((topic) => ({
+      title: topic.title,
+      content: `${topic.explanation}\n\nExample: ${topic.examples[0].problem}`,
+      keyPoints: topic.keyPoints,
+      revisionTips: topic.revisionTips,
+    })),
+    chapters: [{
+      title: "Memory",
+      summary: "Memory organization, address translation, protection, performance, and the trade-offs connecting them.",
+      topics,
+    }],
+    mindMap: { nodes: [{ id: "root", label: "Operating Systems", kind: "root" }], edges: [] },
+  });
 }
 
 test("normalizes a bounded notebook and strips raw source payloads", () => {
@@ -228,6 +278,31 @@ test("recognizes only the strict generated notebook envelope", () => {
   assert.equal(hasLearningNotebookShape(generatedNotebook({ chapters: [{ title: "", topics: [] }] })), false);
   assert.equal(hasLearningNotebookShape({ overview: "Missing arrays" }), false);
   assert.equal(hasLearningNotebookShape(null), false);
+});
+
+test("requires rich depth for new generations while preserving legacy notebooks", () => {
+  const legacy = generatedNotebook();
+  const rich = richlyGeneratedNotebook();
+
+  assert.equal(hasLearningNotebookShape(legacy), true);
+  assert.equal(hasGeneratedLearningNotebookDepth(legacy), false);
+  assert.equal(hasGeneratedLearningNotebookDepth(rich), true);
+
+  const normalized = normalizeLearningNotebook(rich, { subjectName: "Operating Systems" });
+  const topic = normalized.chapters[0].topics[0];
+  assert.match(topic.explanation, /builds intuition/u);
+  assert.deepEqual(topic.learningObjectives, [
+    "Define the mechanism.",
+    "Trace its operation.",
+    "Compare its trade-offs.",
+  ]);
+  assert.match(topic.examples[0], /Steps: 1\. Split the address/u);
+  assert.deepEqual(topic.applications, ["Process isolation", "Demand paging"]);
+  assert.deepEqual(topic.commonMistakes, [
+    "Confusing pages with frames",
+    "Changing the offset during translation",
+  ]);
+  assert.ok(normalized.mindMap.nodes.length >= 26);
 });
 
 test("normalizes bounded comma/newline career topics and detailed analysis", () => {

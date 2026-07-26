@@ -89,16 +89,45 @@ function listFrom(value) {
   return [value];
 }
 
+function exampleText(value) {
+  if (!value || typeof value !== "object") return cleanText(value, 2200);
+  return cleanText([
+    value.title,
+    value.problem || value.scenario || value.question,
+    listFrom(value.steps).length
+      ? `Steps: ${listFrom(value.steps).map((step, index) => `${index + 1}. ${cleanText(
+          step?.text || step?.description || step?.instruction || step,
+          500,
+        )}`).join(" ")}`
+      : "",
+    value.solution || value.answer || value.result,
+    value.takeaway ? `Takeaway: ${value.takeaway}` : "",
+  ].filter(Boolean).join("\n"), 2200);
+}
+
+function exampleList(value) {
+  return listFrom(value)
+    .map(exampleText)
+    .filter(Boolean);
+}
+
+function textList(value, maxLength = 900) {
+  return listFrom(value).map((item) => cleanText(item?.text || item?.title || item, maxLength)).filter(Boolean);
+}
+
 function normalizeSubtopic(value, index, topicId) {
   const source = value && typeof value === "object" ? value : { title: value };
   return {
     ...source,
     id: cleanText(source.id || source._id, 120) || `${topicId}-subtopic-${index + 1}`,
     title: cleanText(source.title || source.name || source.label, 180) || `Subtopic ${index + 1}`,
-    summary: cleanText(source.summary || source.description || source.note, 1200),
-    keyPoints: listFrom(source.keyPoints || source.points)
-      .map((item) => cleanText(item?.text || item?.title || item, 900))
-      .filter(Boolean),
+    summary: cleanText(source.summary || source.description || source.explanation || source.note, 2400),
+    explanation: cleanText(
+      source.explanation || source.details || source.body || source.summary || source.note,
+      4800,
+    ),
+    keyPoints: textList(source.keyPoints || source.points),
+    examples: exampleList(source.examples || source.workedExamples || source.example),
   };
 }
 
@@ -109,14 +138,18 @@ function normalizeTopic(value, index, chapterId) {
     ...source,
     id,
     title: cleanText(source.title || source.name || source.label, 180) || `Topic ${index + 1}`,
-    summary: cleanText(source.summary || source.description || source.note, 1600),
+    summary: cleanText(source.summary || source.description || source.explanation || source.note, 3200),
+    explanation: cleanText(
+      source.explanation || source.details || source.body || source.summary || source.note,
+      7200,
+    ),
     importance: cleanText(source.importance, 40) || "medium",
-    keyPoints: listFrom(source.keyPoints || source.points)
-      .map((item) => cleanText(item?.text || item?.title || item, 900))
-      .filter(Boolean),
-    revisionTips: listFrom(source.revisionTips || source.tips)
-      .map((item) => cleanText(item?.text || item?.title || item, 900))
-      .filter(Boolean),
+    learningObjectives: textList(source.learningObjectives || source.objectives),
+    keyPoints: textList(source.keyPoints || source.points),
+    examples: exampleList(source.examples || source.workedExamples || source.example),
+    applications: textList(source.applications || source.uses || source.useCases, 1200),
+    commonMistakes: textList(source.commonMistakes || source.mistakes || source.misconceptions, 1200),
+    revisionTips: textList(source.revisionTips || source.tips),
     subtopics: listFrom(source.subtopics || source.children).map((item, itemIndex) =>
       normalizeSubtopic(item, itemIndex, id),
     ),
@@ -146,6 +179,7 @@ function normalizeQuestion(value, index, notebookId) {
       cleanText(source.question || source.title || source.prompt || source.text, 1200) ||
       `Important question ${index + 1}`,
     answer: cleanText(source.answer || source.explanation || source.hint, 3000),
+    whyItMatters: cleanText(source.whyItMatters || source.reason || source.importance, 1200),
     priority: cleanText(source.priority || source.importance || source.difficulty, 40)
       || (index < 3 ? "High" : "Review"),
   };
@@ -319,7 +353,18 @@ async function prepareTextSource(file) {
 }
 
 function learningNodes(notebook) {
-  const nodes = [];
+  if (!notebook) return [];
+  const nodes = [{
+    id: "root",
+    title: notebook.subjectName,
+    type: "notebook",
+    chapterName: "All chapters",
+    subjectName: notebook.subjectName,
+    summary: notebook.summary,
+    explanation: notebook.summary,
+    keyPoints: notebook.chapters.map((chapter) => chapter.title),
+    examples: [],
+  }];
   (notebook?.chapters || []).forEach((chapter) => {
     nodes.push({
       id: chapter.id,
@@ -328,7 +373,9 @@ function learningNodes(notebook) {
       chapterName: chapter.title,
       subjectName: notebook.subjectName,
       summary: chapter.summary,
+      explanation: chapter.summary,
       keyPoints: [],
+      examples: [],
     });
     chapter.topics.forEach((topic) => {
       nodes.push({
@@ -338,7 +385,12 @@ function learningNodes(notebook) {
         chapterName: chapter.title,
         subjectName: notebook.subjectName,
         summary: topic.summary,
+        explanation: topic.explanation,
         keyPoints: topic.keyPoints,
+        examples: topic.examples,
+        applications: topic.applications,
+        commonMistakes: topic.commonMistakes,
+        revisionTips: topic.revisionTips,
       });
       topic.subtopics.forEach((subtopic) => {
         nodes.push({
@@ -348,7 +400,9 @@ function learningNodes(notebook) {
           chapterName: chapter.title,
           subjectName: notebook.subjectName,
           summary: subtopic.summary,
+          explanation: subtopic.explanation,
           keyPoints: subtopic.keyPoints,
+          examples: subtopic.examples,
         });
       });
     });
@@ -494,6 +548,9 @@ function StartLearningPage({
     [activeNotebook?.careerPreparation],
   );
   const careerAnalysis = activeNotebook?.careerPreparation?.topicAnalysis || null;
+  const careerAnalysisReady = Boolean(
+    careerAnalysis && listFrom(careerAnalysis.topics).some((topic) => cleanText(topic?.title || topic, 180)),
+  );
 
   const selectNotebook = useCallback((value) => {
     const normalized = normalizeNotebook(value);
@@ -1238,8 +1295,13 @@ function StartLearningPage({
   };
 
   const fitMindMap = () => {
-    const branchCount = activeNotebook?.chapters.length || 1;
-    setZoom(branchCount > 6 ? 0.62 : branchCount > 4 ? 0.75 : branchCount > 2 ? 0.88 : 1);
+    const nodeCount = nodes.length;
+    setZoom(
+      nodeCount > 120 ? 0.55
+        : nodeCount > 80 ? 0.62
+          : nodeCount > 50 ? 0.72
+            : nodeCount > 30 ? 0.82 : 1,
+    );
   };
 
   const noSavedNotebooks = !notebooksLoading && !notebooksError && notebooks.length === 0;
@@ -1607,7 +1669,18 @@ function StartLearningPage({
                           </button>
                           {expanded && (
                             <div className="learning-question-answer">
-                              {question.answer || "Use Ask AI to work through this question step by step."}
+                              {(question.answer || "Use Ask AI to work through this question step by step.")
+                                .split(/\n{2,}/)
+                                .filter(Boolean)
+                                .map((paragraph, paragraphIndex) => (
+                                  <p key={`${question.id}-answer-${paragraphIndex}`}>{paragraph}</p>
+                                ))}
+                              {question.whyItMatters && (
+                                <aside>
+                                  <strong>Why this matters</strong>
+                                  <span>{question.whyItMatters}</span>
+                                </aside>
+                              )}
                             </div>
                           )}
                         </article>
@@ -1789,12 +1862,52 @@ function StartLearningPage({
                                       <X size={13} />
                                     </button>
                                     {topic.summary && <p>{topic.summary}</p>}
-                                    {(topic.keyPoints.length > 0 || topic.revisionTips.length > 0) && (
+                                    {(
+                                      topic.explanation
+                                      || topic.learningObjectives.length > 0
+                                      || topic.keyPoints.length > 0
+                                      || topic.examples.length > 0
+                                      || topic.applications.length > 0
+                                      || topic.commonMistakes.length > 0
+                                      || topic.revisionTips.length > 0
+                                    ) && (
                                       <div className="learning-topic-details">
+                                        {topic.explanation && topic.explanation !== topic.summary && (
+                                          <div className="learning-topic-explanation">
+                                            <strong>Detailed explanation</strong>
+                                            {topic.explanation.split(/\n{2,}/).filter(Boolean).map((paragraph, paragraphIndex) => (
+                                              <p key={`${topic.id}-explanation-${paragraphIndex}`}>{paragraph}</p>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {topic.learningObjectives.length > 0 && (
+                                          <div>
+                                            <strong>Learning objectives</strong>
+                                            <ul>{topic.learningObjectives.map((objective) => <li key={objective}>{objective}</li>)}</ul>
+                                          </div>
+                                        )}
                                         {topic.keyPoints.length > 0 && (
                                           <div>
                                             <strong>Key points</strong>
                                             <ul>{topic.keyPoints.map((point) => <li key={point}>{point}</li>)}</ul>
+                                          </div>
+                                        )}
+                                        {topic.examples.length > 0 && (
+                                          <div className="is-examples">
+                                            <strong>Worked examples</strong>
+                                            <ol>{topic.examples.map((example, exampleIndex) => <li key={`${topic.id}-example-${exampleIndex}`}>{example}</li>)}</ol>
+                                          </div>
+                                        )}
+                                        {topic.applications.length > 0 && (
+                                          <div>
+                                            <strong>Applications</strong>
+                                            <ul>{topic.applications.map((application) => <li key={application}>{application}</li>)}</ul>
+                                          </div>
+                                        )}
+                                        {topic.commonMistakes.length > 0 && (
+                                          <div className="is-mistakes">
+                                            <strong>Common mistakes</strong>
+                                            <ul>{topic.commonMistakes.map((mistake) => <li key={mistake}>{mistake}</li>)}</ul>
                                           </div>
                                         )}
                                         {topic.revisionTips.length > 0 && (
@@ -1832,6 +1945,20 @@ function StartLearningPage({
                                           </button>
                                           {subtopic.summary && (
                                             <p className="learning-subtopic-summary">{subtopic.summary}</p>
+                                          )}
+                                          {subtopic.explanation && subtopic.explanation !== subtopic.summary && (
+                                            <div className="learning-subtopic-explanation">
+                                              <strong>Explanation</strong>
+                                              {subtopic.explanation.split(/\n{2,}/).filter(Boolean).map((paragraph, paragraphIndex) => (
+                                                <p key={`${subtopic.id}-explanation-${paragraphIndex}`}>{paragraph}</p>
+                                              ))}
+                                            </div>
+                                          )}
+                                          {subtopic.examples.length > 0 && (
+                                            <div className="learning-subtopic-examples">
+                                              <strong>Example</strong>
+                                              <ul>{subtopic.examples.map((example, exampleIndex) => <li key={`${subtopic.id}-example-${exampleIndex}`}>{example}</li>)}</ul>
+                                            </div>
                                           )}
                                           {subtopic.keyPoints.length > 0 && (
                                             <ul className="learning-subtopic-points">
@@ -1906,7 +2033,7 @@ function StartLearningPage({
                       <div className="learning-map-canvas" style={{ "--map-zoom": zoom }}>
                         <button
                           className="learning-map-root"
-                          onClick={() => setSelectedNodeId("")}
+                          onClick={() => setSelectedNodeId("root")}
                           type="button"
                         >
                           <BrainCircuit size={19} />
@@ -1925,7 +2052,7 @@ function StartLearningPage({
                                 onClick={() => setSelectedNodeId(chapter.id)}
                                 type="button"
                               >
-                                <small>Chapter {chapterIndex + 1}</small>
+                                <small>Chapter {chapterIndex + 1} / {chapter.topics.length} topics</small>
                                 <strong>{chapter.title}</strong>
                               </button>
                               <div className="learning-map-topic-stack">
@@ -1938,6 +2065,7 @@ function StartLearningPage({
                                       type="button"
                                     >
                                       <strong>{topic.title}</strong>
+                                      <small>{topic.subtopics.length} subtopics / {topic.examples.length} examples</small>
                                     </button>
                                     {topic.subtopics.length > 0 && (
                                       <div className="learning-map-subtopics">
@@ -1947,6 +2075,7 @@ function StartLearningPage({
                                             key={subtopic.id}
                                             onClick={() => setSelectedNodeId(subtopic.id)}
                                             style={{ "--reveal-index": chapterIndex + topicIndex + subtopicIndex + 2 }}
+                                            title={subtopic.summary || subtopic.explanation}
                                             type="button"
                                           >
                                             {subtopic.title}
@@ -1968,10 +2097,43 @@ function StartLearningPage({
                           <span>{selectedNode.type}</span>
                           <strong>{selectedNode.title}</strong>
                           {selectedNode.summary && <p>{selectedNode.summary}</p>}
+                          {selectedNode.explanation && selectedNode.explanation !== selectedNode.summary && (
+                            <div className="learning-map-focus-section">
+                              <small>Detailed explanation</small>
+                              {selectedNode.explanation.split(/\n{2,}/).filter(Boolean).map((paragraph, paragraphIndex) => (
+                                <p key={`${selectedNode.id}-map-explanation-${paragraphIndex}`}>{paragraph}</p>
+                              ))}
+                            </div>
+                          )}
                           {selectedNode.keyPoints?.length > 0 && (
-                            <ul>
-                              {selectedNode.keyPoints.slice(0, 5).map((point) => <li key={point}>{point}</li>)}
-                            </ul>
+                            <div className="learning-map-focus-section">
+                              <small>Key points</small>
+                              <ul>{selectedNode.keyPoints.map((point) => <li key={point}>{point}</li>)}</ul>
+                            </div>
+                          )}
+                          {selectedNode.examples?.length > 0 && (
+                            <div className="learning-map-focus-section is-examples">
+                              <small>Worked examples</small>
+                              <ol>{selectedNode.examples.map((example, exampleIndex) => <li key={`${selectedNode.id}-map-example-${exampleIndex}`}>{example}</li>)}</ol>
+                            </div>
+                          )}
+                          {selectedNode.applications?.length > 0 && (
+                            <div className="learning-map-focus-section">
+                              <small>Applications</small>
+                              <ul>{selectedNode.applications.map((application) => <li key={application}>{application}</li>)}</ul>
+                            </div>
+                          )}
+                          {selectedNode.commonMistakes?.length > 0 && (
+                            <div className="learning-map-focus-section is-mistakes">
+                              <small>Common mistakes</small>
+                              <ul>{selectedNode.commonMistakes.map((mistake) => <li key={mistake}>{mistake}</li>)}</ul>
+                            </div>
+                          )}
+                          {selectedNode.revisionTips?.length > 0 && (
+                            <div className="learning-map-focus-section is-revision">
+                              <small>Revision cues</small>
+                              <ul>{selectedNode.revisionTips.map((tip) => <li key={tip}>{tip}</li>)}</ul>
+                            </div>
                           )}
                         </div>
                         <button aria-label="Ask AI about selected concept" onClick={askAI} title="Ask AI" type="button">
@@ -2170,11 +2332,11 @@ function StartLearningPage({
                 type="button"
               >
                 {careerAnalyzing ? <LoaderCircle className="spinner" size={17} /> : <BrainCircuit size={17} />}
-                {careerAnalyzing ? "Analyzing preparation topics?" : "Analyze preparation topics"}
+                {careerAnalyzing ? "Analyzing preparation topics..." : "Analyze preparation topics"}
               </button>
             </section>
 
-            {careerAnalysis && (
+            {careerAnalysisReady && (
               <section className="card learning-career-results" aria-live="polite">
                 <div className="learning-panel-heading">
                   <div>

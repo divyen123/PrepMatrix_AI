@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   DEFAULT_GEMINI_LEARNING_MODEL,
   MAX_GEMINI_LEARNING_OUTPUT_TOKENS,
+  LEARNING_RETRY_COMPLETION_TOKENS,
   MAX_LEARNING_AI_SOURCE_CHARS,
   MAX_LEARNING_COMPLETION_TOKENS,
   compactLearningSourceMaterial,
@@ -16,30 +17,59 @@ import {
 import { LEARNING_PRIVACY_CONSENT_VERSION } from "../src/utils/learningPrivacyConsent.js";
 
 function validGeneratedNotebook() {
+  const topics = Array.from({ length: 8 }, (_, topicIndex) => {
+    const topicNumber = topicIndex + 1;
+    const title = `Balanced trees concept ${topicNumber}`;
+    return {
+      id: `topic-${topicNumber}`,
+      title,
+      summary: `${title} introduces a distinct part of balanced-tree design and explains why bounded height matters.`,
+      explanation: `${title} keeps search paths predictable by maintaining structural invariants after updates. The learner should understand the invariant, trace how an insertion can violate it, and follow the local repair that restores balance. This connects tree height directly to logarithmic search, insertion, and deletion costs while showing when rebalancing work is worthwhile.`,
+      importance: topicIndex < 4 ? "high" : "medium",
+      learningObjectives: ["Define the invariant.", "Trace an update.", "Explain the complexity impact."],
+      keyPoints: ["Invariant", "Height bound", "Local repair", "Complexity"],
+      examples: [
+        `Insert keys into example ${topicNumber}, identify the first violated invariant, apply the repair, and verify the final height bound.`,
+        `Compare an unbalanced search path with the repaired tree for example ${topicNumber} and explain the operation-count difference.`,
+      ],
+      applications: ["Database indexes", "Ordered in-memory collections"],
+      commonMistakes: ["Checking balance only at the root", "Forgetting to update stored heights"],
+      revisionTips: ["Draw the repair step.", "State the invariant before tracing."],
+      subtopics: Array.from({ length: 4 }, (_, subtopicIndex) => {
+        const subtopicNumber = subtopicIndex + 1;
+        return {
+          id: `topic-${topicNumber}-subtopic-${subtopicNumber}`,
+          title: `${title} subtopic ${subtopicNumber}`,
+          summary: `A focused view of ${title.toLowerCase()} using invariant ${subtopicNumber}.`,
+          explanation: `This subtopic explains how invariant ${subtopicNumber} is represented, checked, and restored during an update. It connects the local structural change to the global height guarantee and gives the learner a repeatable tracing method.`,
+          keyPoints: ["Representation", "Validation", "Repair"],
+          examples: [`Trace invariant ${subtopicNumber} through a small insertion and verify the repaired tree.`],
+        };
+      }),
+    };
+  });
   return {
     title: "Data Structures",
-    overview: "A structured overview.",
-    importantQuestions: [{
-      question: "Why is a balanced tree useful?",
-      answer: "It keeps core operations logarithmic.",
-      difficulty: "medium",
-    }],
-    revisedNotes: [{
-      title: "Trees",
-      content: "Trees organize hierarchical data.",
-      keyPoints: ["Root", "Edges"],
-      revisionTips: ["Trace operations by hand."],
-    }],
+    overview: "A detailed, example-led guide to balanced trees and their performance guarantees.",
+    importantQuestions: Array.from({ length: 10 }, (_, index) => ({
+      id: `question-${index + 1}`,
+      question: `How does balanced-tree invariant ${index + 1} affect an update?`,
+      answer: "The invariant bounds height and determines when a local repair is required after an update.",
+      whyItMatters: "It connects implementation details to logarithmic performance.",
+      difficulty: index < 3 ? "easy" : index < 7 ? "medium" : "hard",
+    })),
+    revisedNotes: topics.slice(0, 8).map((topic, index) => ({
+      id: `revised-note-${index + 1}`,
+      title: topic.title,
+      content: `${topic.explanation}\n\nWorked example: ${topic.examples[0]}`,
+      keyPoints: topic.keyPoints,
+      revisionTips: topic.revisionTips,
+    })),
     chapters: [{
       id: "chapter-1",
       title: "Trees",
-      summary: "Tree fundamentals.",
-      topics: [{
-        id: "topic-1",
-        title: "Balanced trees",
-        summary: "Trees with bounded height.",
-        subtopics: [],
-      }],
+      summary: "Tree fundamentals, balancing invariants, update repairs, and the relationship between height and operation cost.",
+      topics,
     }],
     mindMap: {
       nodes: [{ id: "root", label: "Data Structures", parentId: null, kind: "root" }],
@@ -120,7 +150,7 @@ test("retries one invalid AI notebook response with stricter temperature", async
   assert.equal(requests[0].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
   assert.equal("response_format" in requests[1], false);
   assert.equal(requests[1].temperature, 0.1);
-  assert.equal(requests[1].max_tokens, 3000);
+  assert.equal(requests[1].max_tokens, LEARNING_RETRY_COMPLETION_TOKENS);
 });
 
 test("disables reasoning for Qwen notebook requests so structured JSON reaches content", async () => {
@@ -337,7 +367,7 @@ test("retries one provider size rejection with a smaller completion budget", asy
 
   assert.equal(requests.length, 2);
   assert.equal(requests[0].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
-  assert.equal(requests[1].max_tokens, 3000);
+  assert.equal(requests[1].max_tokens, LEARNING_RETRY_COMPLETION_TOKENS);
 });
 
 function geminiNotebookResponse(notebook = validGeneratedNotebook()) {
@@ -487,6 +517,17 @@ test("uses Gemini structured output with native PDF and image bytes without loca
   assert.equal("topK" in generationConfig, false);
   assert.equal(generationConfig.responseFormat.text.mimeType, "application/json");
   assert.equal(generationConfig.responseFormat.text.schema.type, "object");
+  const chapterSchema = generationConfig.responseFormat.text.schema.properties.chapters;
+  const topicSchema = chapterSchema.items.properties.topics;
+  const topicItemSchema = topicSchema.items;
+  const subtopicSchema = topicItemSchema.properties.subtopics;
+  assert.equal(chapterSchema.minItems, 1);
+  assert.equal(chapterSchema.maxItems, 1);
+  assert.equal(topicSchema.minItems, 8);
+  assert.equal(topicSchema.maxItems, 8);
+  assert.equal(subtopicSchema.minItems, 4);
+  assert.ok(topicItemSchema.required.includes("explanation"));
+  assert.equal(topicItemSchema.properties.examples.minItems, 2);
   const parts = requests[0].body.contents[0].parts;
   const inlineParts = parts.filter((part) => part.inlineData);
   assert.deepEqual(inlineParts.map((part) => part.inlineData.mimeType), [

@@ -8,9 +8,12 @@ import {
 } from "./chatAttachments.js";
 import { buildLearnerAcademicContext } from "../src/utils/academicProfile.js";
 import {
+  MAX_LEARNING_MIND_MAP_NODES,
   MAX_LEARNING_NOTEBOOKS_PER_USER,
   MAX_LEARNING_SOURCES,
+  MAX_LEARNING_TOPICS,
   getLearningCareerEligibility,
+  hasGeneratedLearningNotebookDepth,
   normalizeLearningCareerTopicAnalysis,
   normalizeLearningCareerTopics,
   hasLearningNotebookShape,
@@ -24,8 +27,9 @@ export const MAX_LEARNING_TEXT_SOURCE_CHARS = 30_000;
 export const MAX_LEARNING_TEXT_TOTAL_CHARS = 60_000;
 export const MAX_LEARNING_VISION_TEXT_CHARS = 24_000;
 export const MAX_LEARNING_AI_SOURCE_CHARS = 14_000;
-export const MAX_LEARNING_COMPLETION_TOKENS = 4_000;
-export const MAX_GEMINI_LEARNING_OUTPUT_TOKENS = 8_192;
+export const MAX_LEARNING_COMPLETION_TOKENS = 16_000;
+export const LEARNING_RETRY_COMPLETION_TOKENS = 12_000;
+export const MAX_GEMINI_LEARNING_OUTPUT_TOKENS = 24_576;
 export const DEFAULT_GEMINI_LEARNING_MODEL = "gemini-3.5-flash-lite";
 
 const LEARNING_TEXT_TYPES = new Set([
@@ -36,6 +40,47 @@ const LEARNING_TEXT_TYPES = new Set([
 const GROQ_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GEMINI_GENERATE_CONTENT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const PROVIDER_TIMEOUT_MS = 75_000;
+
+export function buildLearningNotebookDepthTargets(chapterNames = []) {
+  const normalizedChapterNames = normalizeLearningChapterNames(chapterNames);
+  const expectedChapterCount = normalizedChapterNames.length;
+  const planningChapterCount = expectedChapterCount || 4;
+  const topicsPerChapter = Math.max(
+    1,
+    Math.min(8, Math.floor(MAX_LEARNING_TOPICS / planningChapterCount)),
+  );
+  const totalTopics = planningChapterCount * topicsPerChapter;
+  const remainingMapSlots = Math.max(
+    totalTopics,
+    MAX_LEARNING_MIND_MAP_NODES - 1 - planningChapterCount - totalTopics,
+  );
+  const mapSafeSubtopics = Math.max(1, Math.floor(remainingMapSlots / totalTopics));
+  const preferredSubtopics = planningChapterCount <= 2
+    ? 4
+    : planningChapterCount <= 12
+      ? 3
+      : 2;
+  const subtopicsPerTopic = Math.max(1, Math.min(preferredSubtopics, mapSafeSubtopics));
+  const minimumImportantQuestions = Math.min(
+    16,
+    Math.max(10, planningChapterCount * 2),
+  );
+  const minimumNoteSections = Math.min(12, Math.max(6, totalTopics));
+
+  return {
+    expectedChapterCount,
+    planningChapterCount,
+    minimumExamplesPerSubtopic: 1,
+    minimumExamplesPerTopic: planningChapterCount <= 2 ? 2 : 1,
+    minimumImportantQuestions,
+    minimumNoteSections,
+    minimumSubtopicsPerTopic: subtopicsPerTopic,
+    minimumTopicsPerChapter: topicsPerChapter,
+    subtopicsPerTopic,
+    topicsPerChapter,
+    totalTopics,
+  };
+}
 
 class LearningNotebookError extends Error {
   constructor(message, { code = "LEARNING_NOTEBOOK_INVALID", status = 400 } = {}) {
@@ -247,13 +292,14 @@ export async function requestLearningNotebookJson({
   model,
   systemPrompt,
   userContent,
+  validateNotebook = hasLearningNotebookShape,
 }) {
   const usesReasoningControls = /^qwen\//iu.test(String(model || ""));
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const completionTokens = attempt === 0
       ? MAX_LEARNING_COMPLETION_TOKENS
-      : 3_000;
+      : LEARNING_RETRY_COMPLETION_TOKENS;
     const body = {
       model,
       temperature: attempt === 0 ? 0.2 : 0.1,
@@ -292,7 +338,7 @@ export async function requestLearningNotebookJson({
 
     try {
       const parsed = parseLearningJson(payload?.choices?.[0]?.message?.content || "");
-      if (!hasLearningNotebookShape(parsed)) {
+      if (!hasLearningNotebookShape(parsed) || !validateNotebook(parsed)) {
         throw new Error("AI response was missing required notebook sections.");
       }
       return parsed;
@@ -449,6 +495,12 @@ function buildGenerationPrompts({
   textSources,
   manualMode,
 }) {
+  const depthTargets = buildLearningNotebookDepthTargets(chapterNames);
+  const topicExplanationLength = depthTargets.planningChapterCount <= 2 ? "180-320 words" : "120-220 words";
+  const subtopicExplanationLength = depthTargets.planningChapterCount <= 2 ? "80-150 words" : "60-110 words";
+  const chapterPlanningRule = depthTargets.expectedChapterCount
+    ? `Preserve all ${depthTargets.expectedChapterCount} named chapters in the supplied order.`
+    : "Identify 3-4 major chapters from the supplied material before expanding their topics.";
   const careerRule = careerEligibility.enabled
     ? [
         `Career preparation is enabled for this profile and must be tailored to: ${JSON.stringify(careerEligibility.field)}.`,
@@ -475,7 +527,7 @@ function buildGenerationPrompts({
     '  "overview":"...",',
     '  "importantQuestions":[{"id":"question-1","question":"...","answer":"...","whyItMatters":"...","difficulty":"easy|medium|hard"}],',
     '  "revisedNotes":[{"id":"revised-note-1","title":"...","content":"...","keyPoints":["..."],"revisionTips":["..."]}],',
-    '  "chapters":[{"id":"chapter-1","title":"...","summary":"...","topics":[{"id":"topic-1","title":"...","summary":"...","importance":"high|medium|low","keyPoints":["..."],"revisionTips":["..."],"subtopics":[{"id":"subtopic-1","title":"...","summary":"...","keyPoints":["..."]}]}]}],',
+    '  "chapters":[{"id":"chapter-1","title":"...","summary":"...","topics":[{"id":"topic-1","title":"...","summary":"...","explanation":"...","importance":"high|medium|low","learningObjectives":["..."],"keyPoints":["..."],"examples":["..."],"applications":["..."],"commonMistakes":["..."],"revisionTips":["..."],"subtopics":[{"id":"subtopic-1","title":"...","summary":"...","explanation":"...","keyPoints":["..."],"examples":["..."]}]}]}],',
     '  "mindMap":{"nodes":[{"id":"root","label":"...","parentId":null,"kind":"root|chapter|topic|subtopic|question|concept","order":0}],"edges":[{"id":"edge-1","from":"root","to":"topic-1"}]},',
     '  "coverageWarnings":["..."],',
     '  "careerPreparation":{"focus":"...","skills":["..."],"interviewQuestions":[{"id":"career-question-1","question":"...","guidance":"..."}],"codingTopics":[{"id":"coding-topic-1","title":"...","whyItMatters":"...","practiceSteps":["..."]}]}',
@@ -487,15 +539,18 @@ function buildGenerationPrompts({
     `Chapter data: ${JSON.stringify(chapterNames)}.`,
     sourceRule,
     "Create easy-to-revise notes with a clear hierarchy. Cover all named chapters when chapter data is provided.",
-    "When scope and output budget permit, create 4-6 distinct topics per chapter and 2-4 meaningful subtopics per topic. For large scopes, distribute the global topic budget fairly and preserve coverage for every chapter before adding extra depth.",
-    "Teach rather than label: use complete explanatory prose with definitions, intuition, relationships, a concrete example or application, and a common misconception where useful.",
-    "Give each topic 4-7 specific key points and 2-4 actionable revision tips. Give each subtopic a substantive explanation and recall-ready key points; avoid filler and repeated wording.",
+    chapterPlanningRule,
+    `Generate exactly ${depthTargets.topicsPerChapter} distinct, non-overlapping topics for every chapter and exactly ${depthTargets.subtopicsPerTopic} meaningful subtopics for every topic. These counts are required, not optional.`,
+    `For every topic, write a ${topicExplanationLength} teaching explanation covering definition, intuition, how it works, relationships, and when it is used. Include 3-5 learning objectives, 4-7 specific key points, ${depthTargets.minimumExamplesPerTopic} worked examples, 2-4 applications, 2-4 common mistakes, and 2-4 actionable revision tips.`,
+    "Each topic example must be self-contained and include a concrete problem or scenario, the reasoning or steps, the result, and a takeaway. Use realistic academic, technical, or everyday examples rather than generic filler.",
+    `For every subtopic, write a ${subtopicExplanationLength} explanation, 2-5 recall-ready key points, and at least ${depthTargets.minimumExamplesPerSubtopic} concrete example.`,
+    `Create at least ${depthTargets.minimumNoteSections} revised-note sections with multi-paragraph explanations and examples, and at least ${depthTargets.minimumImportantQuestions} important questions with complete model answers and why each matters.`,
     "Put important exam, placement, or conceptual questions first. Give complete, focused model answers and explain why each question matters.",
-    "Build a connected mind map containing every generated chapter, topic, and subtopic with the same IDs used in the chapter hierarchy.",
+    "Keep the returned mindMap compact with a root plus only useful cross-cutting concept or question nodes. PrepMatrix derives the complete chapter-topic-subtopic map from the detailed hierarchy, so prioritize teaching content over duplicating labels.",
     `Return this exact JSON shape:\n${schema}`,
     textSources.length ? buildTextSourceSections(textSources) : "",
   ].filter(Boolean).join("\n\n");
-  return { systemPrompt, userPrompt };
+  return { depthTargets, systemPrompt, userPrompt };
 }
 
 function notebookResponse(document, profile) {
@@ -995,24 +1050,34 @@ const LEARNING_NOTEBOOK_RESPONSE_SCHEMA = {
             type: "array",
             items: {
               type: "object",
-              required: ["id", "title", "summary", "importance", "keyPoints", "revisionTips", "subtopics"],
+              required: [
+                "id", "title", "summary", "explanation", "importance", "learningObjectives",
+                "keyPoints", "examples", "applications", "commonMistakes", "revisionTips", "subtopics",
+              ],
               properties: {
                 id: { type: "string" },
                 title: { type: "string" },
                 summary: { type: "string" },
+                explanation: { type: "string" },
                 importance: { type: "string", enum: ["high", "medium", "low"] },
+                learningObjectives: { type: "array", items: { type: "string" } },
                 keyPoints: { type: "array", items: { type: "string" } },
+                examples: { type: "array", items: { type: "string" } },
+                applications: { type: "array", items: { type: "string" } },
+                commonMistakes: { type: "array", items: { type: "string" } },
                 revisionTips: { type: "array", items: { type: "string" } },
                 subtopics: {
                   type: "array",
                   items: {
                     type: "object",
-                    required: ["id", "title", "summary", "keyPoints"],
+                    required: ["id", "title", "summary", "explanation", "keyPoints", "examples"],
                     properties: {
                       id: { type: "string" },
                       title: { type: "string" },
                       summary: { type: "string" },
+                      explanation: { type: "string" },
                       keyPoints: { type: "array", items: { type: "string" } },
+                      examples: { type: "array", items: { type: "string" } },
                     },
                   },
                 },
@@ -1093,6 +1158,47 @@ const LEARNING_NOTEBOOK_RESPONSE_SCHEMA = {
     },
   },
 };
+
+export function buildLearningNotebookResponseSchema(depthTargets = buildLearningNotebookDepthTargets()) {
+  const schema = structuredClone(LEARNING_NOTEBOOK_RESPONSE_SCHEMA);
+  const topicSchema = schema.properties.chapters.items.properties.topics;
+  const topicItemSchema = topicSchema.items;
+  const subtopicSchema = topicItemSchema.properties.subtopics;
+  const subtopicItemSchema = subtopicSchema.items;
+  const expectedChapterCount = Math.max(0, Number(depthTargets.expectedChapterCount) || 0);
+
+  schema.properties.importantQuestions.minItems = depthTargets.minimumImportantQuestions;
+  schema.properties.importantQuestions.maxItems = 20;
+  schema.properties.revisedNotes.minItems = depthTargets.minimumNoteSections;
+  schema.properties.revisedNotes.maxItems = 24;
+  schema.properties.chapters.minItems = expectedChapterCount || 1;
+  schema.properties.chapters.maxItems = expectedChapterCount || 30;
+  topicSchema.minItems = depthTargets.topicsPerChapter;
+  topicSchema.maxItems = depthTargets.topicsPerChapter;
+  topicItemSchema.properties.learningObjectives.minItems = 3;
+  topicItemSchema.properties.learningObjectives.maxItems = 5;
+  topicItemSchema.properties.keyPoints.minItems = 4;
+  topicItemSchema.properties.keyPoints.maxItems = 7;
+  topicItemSchema.properties.examples.minItems = depthTargets.minimumExamplesPerTopic;
+  topicItemSchema.properties.examples.maxItems = Math.max(3, depthTargets.minimumExamplesPerTopic);
+  topicItemSchema.properties.applications.minItems = 2;
+  topicItemSchema.properties.applications.maxItems = 4;
+  topicItemSchema.properties.commonMistakes.minItems = 2;
+  topicItemSchema.properties.commonMistakes.maxItems = 4;
+  topicItemSchema.properties.revisionTips.minItems = 2;
+  topicItemSchema.properties.revisionTips.maxItems = 4;
+  subtopicSchema.minItems = depthTargets.subtopicsPerTopic;
+  subtopicSchema.maxItems = depthTargets.subtopicsPerTopic;
+  subtopicItemSchema.properties.keyPoints.minItems = 2;
+  subtopicItemSchema.properties.keyPoints.maxItems = 5;
+  subtopicItemSchema.properties.examples.minItems = depthTargets.minimumExamplesPerSubtopic;
+  subtopicItemSchema.properties.examples.maxItems = 2;
+  schema.properties.mindMap.properties.nodes.minItems = 1;
+  schema.properties.mindMap.properties.nodes.maxItems = 12;
+  schema.properties.mindMap.properties.edges.maxItems = 16;
+  return schema;
+}
+
 const CAREER_TOPIC_ANALYSIS_RESPONSE_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -1288,8 +1394,10 @@ export async function requestGeminiLearningNotebookJson({
   attachments = [],
   fetchImpl = globalThis.fetch,
   model = DEFAULT_GEMINI_LEARNING_MODEL,
+  responseSchema = LEARNING_NOTEBOOK_RESPONSE_SCHEMA,
   systemPrompt,
   userPrompt,
+  validateNotebook = hasLearningNotebookShape,
 }) {
   const resolvedModel = cleanInline(model, 120) || DEFAULT_GEMINI_LEARNING_MODEL;
   const response = await fetchImpl(
@@ -1314,7 +1422,7 @@ export async function requestGeminiLearningNotebookJson({
           responseFormat: {
             text: {
               mimeType: "application/json",
-              schema: LEARNING_NOTEBOOK_RESPONSE_SCHEMA,
+              schema: responseSchema,
             },
           },
         },
@@ -1326,7 +1434,7 @@ export async function requestGeminiLearningNotebookJson({
 
   try {
     const parsed = parseLearningJson(geminiResponseText(payload));
-    if (!hasLearningNotebookShape(parsed)) {
+    if (!hasLearningNotebookShape(parsed) || !validateNotebook(parsed)) {
       throw new Error("AI response was missing required notebook sections.");
     }
     return parsed;
@@ -1508,8 +1616,13 @@ async function generateLearningNotebookWithGemini({
     attachments,
     fetchImpl,
     model,
+    responseSchema: buildLearningNotebookResponseSchema(prompts.depthTargets),
     systemPrompt: prompts.systemPrompt,
     userPrompt: prompts.userPrompt,
+    validateNotebook: (value) => hasGeneratedLearningNotebookDepth(
+      value,
+      prompts.depthTargets,
+    ),
   });
   return {
     generated,
@@ -1598,6 +1711,10 @@ async function generateLearningNotebookWithGroq({
     model,
     systemPrompt: prompts.systemPrompt,
     userContent,
+    validateNotebook: (value) => hasGeneratedLearningNotebookDepth(
+      value,
+      prompts.depthTargets,
+    ),
   });
   return {
     generated,
