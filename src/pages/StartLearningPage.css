@@ -1954,9 +1954,29 @@ body .learning-subpage-tabs button.is-active {
 
 .learning-saved-panel {
   display: flex;
-  align-self: start;
+  align-self: stretch;
   flex-direction: column;
   gap: 14px;
+}
+
+.learning-saved-panel.is-empty {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.learning-notebooks-empty-message {
+  display: grid;
+  min-height: 160px;
+  flex: 1;
+  place-items: center;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .learning-workspace.is-intake .learning-notebook-stage,

@@ -1242,6 +1242,7 @@ function StartLearningPage({
     setZoom(branchCount > 6 ? 0.62 : branchCount > 4 ? 0.75 : branchCount > 2 ? 0.88 : 1);
   };
 
+  const noSavedNotebooks = !notebooksLoading && !notebooksError && notebooks.length === 0;
   return (
     <div className="learning-page">
       <section className="card learning-hero">
@@ -1411,22 +1412,21 @@ function StartLearningPage({
           )}
 
           </section>
-          <section className="card learning-saved-panel">
+          <section className={`learning-saved-panel${noSavedNotebooks ? " is-empty" : " card"}`}>
+          {!noSavedNotebooks && (
           <div className="learning-saved-heading">
             <div><Layers3 size={16} /><strong>Saved notebooks</strong></div>
             {notebooksLoading && <LoaderCircle aria-label="Loading notebooks" className="spinner" size={15} />}
           </div>
+          )}
           {notebooksError && (
             <div className="learning-rail-empty">
               <p>{notebooksError}</p>
               <button onClick={loadNotebooks} type="button">Retry</button>
             </div>
           )}
-          {!notebooksLoading && !notebooksError && notebooks.length === 0 && (
-            <div className="learning-rail-empty">
-              <BookOpenCheck size={20} />
-              <p>Your generated notebooks will stay here.</p>
-            </div>
+          {noSavedNotebooks && (
+            <p className="learning-notebooks-empty-message">No saved notebooks yet</p>
           )}
           <div className="learning-notebook-list">
             {notebooks.map((notebook) => (
