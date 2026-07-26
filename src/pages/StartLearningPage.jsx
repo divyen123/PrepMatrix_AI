@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   BookOpenCheck,
   BrainCircuit,
   BriefcaseBusiness,
@@ -26,6 +27,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { jsPDF } from "jspdf";
 import api from "../utils/apiClient";
 import {
@@ -56,6 +58,20 @@ const ANALYSIS_STEPS = [
   "Prioritizing important questions",
   "Building your revision notebook",
 ];
+const DEFAULT_CAREER_FOUNDATIONS = [
+  { title: "Role fundamentals", summary: "Explain the core concepts, tools, and trade-offs expected for your target role." },
+  { title: "Project walkthroughs", summary: "Prepare concise stories about decisions, constraints, outcomes, and what you would improve." },
+  { title: "Problem solving", summary: "Practice clarifying requirements, comparing approaches, and communicating your reasoning." },
+  { title: "Behavioral readiness", summary: "Build evidence-based examples for teamwork, ownership, conflict, and learning quickly." },
+];
+const DEFAULT_CODING_TOPICS = [
+  { title: "Arrays & strings", summary: "Traversal, two pointers, sliding windows, prefix sums, and common edge cases." },
+  { title: "Hashing & complexity", summary: "Fast lookup patterns, frequency maps, sets, and time-space trade-offs." },
+  { title: "Linked structures", summary: "Linked lists, stacks, queues, pointer movement, and implementation choices." },
+  { title: "Trees & graphs", summary: "DFS, BFS, recursion, traversal state, shortest paths, and connectivity." },
+  { title: "Dynamic programming", summary: "Recognize overlapping subproblems and build clear state transitions." },
+  { title: "SQL & data handling", summary: "Joins, grouping, filtering, schema reasoning, and practical query analysis." },
+];
 
 function makeId(prefix = "learning") {
   return globalThis.crypto?.randomUUID?.()
@@ -80,6 +96,9 @@ function normalizeSubtopic(value, index, topicId) {
     id: cleanText(source.id || source._id, 120) || `${topicId}-subtopic-${index + 1}`,
     title: cleanText(source.title || source.name || source.label, 180) || `Subtopic ${index + 1}`,
     summary: cleanText(source.summary || source.description || source.note, 1200),
+    keyPoints: listFrom(source.keyPoints || source.points)
+      .map((item) => cleanText(item?.text || item?.title || item, 900))
+      .filter(Boolean),
   };
 }
 
@@ -91,6 +110,13 @@ function normalizeTopic(value, index, chapterId) {
     id,
     title: cleanText(source.title || source.name || source.label, 180) || `Topic ${index + 1}`,
     summary: cleanText(source.summary || source.description || source.note, 1600),
+    importance: cleanText(source.importance, 40) || "medium",
+    keyPoints: listFrom(source.keyPoints || source.points)
+      .map((item) => cleanText(item?.text || item?.title || item, 900))
+      .filter(Boolean),
+    revisionTips: listFrom(source.revisionTips || source.tips)
+      .map((item) => cleanText(item?.text || item?.title || item, 900))
+      .filter(Boolean),
     subtopics: listFrom(source.subtopics || source.children).map((item, itemIndex) =>
       normalizeSubtopic(item, itemIndex, id),
     ),
@@ -127,17 +153,20 @@ function normalizeQuestion(value, index, notebookId) {
 
 function normalizeNoteSection(value, index, notebookId) {
   const source = value && typeof value === "object" ? value : { content: value };
+  const keyPoints = listFrom(source.bullets || source.keyPoints || source.points)
+    .map((item) => cleanText(item?.text || item?.title || item, 1000))
+    .filter(Boolean);
+  const revisionTips = listFrom(source.revisionTips || source.tips)
+    .map((item) => cleanText(item?.text || item?.title || item, 900))
+    .filter(Boolean);
   return {
     ...source,
     id: cleanText(source.id || source._id, 120) || `${notebookId}-note-${index + 1}`,
     title: cleanText(source.title || source.heading || source.name, 180) || `Revision note ${index + 1}`,
     content: cleanText(source.content || source.body || source.summary || source.text, 6000),
-    bullets: [
-      ...listFrom(source.bullets || source.keyPoints || source.points),
-      ...listFrom(source.revisionTips).map((item) => `Revision tip: ${cleanText(item, 900)}`),
-    ]
-      .map((item) => cleanText(item?.text || item?.title || item, 1000))
-      .filter(Boolean),
+    keyPoints,
+    revisionTips,
+    bullets: [...keyPoints, ...revisionTips.map((item) => `Revision tip: ${item}`)],
   };
 }
 
@@ -247,6 +276,19 @@ function parseChapterNames(value) {
     .slice(0, 30);
 }
 
+function parseCareerTopics(value) {
+  const seen = new Set();
+  return listFrom(value).flatMap((item) => String(item || "").split(/[\n,]+/))
+    .map((topic) => cleanText(topic, 140))
+    .filter((topic) => {
+      const key = topic.toLocaleLowerCase();
+      if (!topic || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 12);
+}
+
 function isTextSource(file) {
   const type = String(file?.type || "").toLowerCase();
   const name = String(file?.name || "").toLowerCase();
@@ -285,6 +327,8 @@ function learningNodes(notebook) {
       type: "chapter",
       chapterName: chapter.title,
       subjectName: notebook.subjectName,
+      summary: chapter.summary,
+      keyPoints: [],
     });
     chapter.topics.forEach((topic) => {
       nodes.push({
@@ -293,6 +337,8 @@ function learningNodes(notebook) {
         type: "topic",
         chapterName: chapter.title,
         subjectName: notebook.subjectName,
+        summary: topic.summary,
+        keyPoints: topic.keyPoints,
       });
       topic.subtopics.forEach((subtopic) => {
         nodes.push({
@@ -301,6 +347,8 @@ function learningNodes(notebook) {
           type: "subtopic",
           chapterName: chapter.title,
           subjectName: notebook.subjectName,
+          summary: subtopic.summary,
+          keyPoints: subtopic.keyPoints,
         });
       });
     });
@@ -310,6 +358,24 @@ function learningNodes(notebook) {
 
 function careerProfileAllows(careerPreparation) {
   return Boolean(careerPreparation?.enabled);
+}
+
+function careerTopicCards(value, fallback) {
+  const cards = listFrom(value).map((item, index) => {
+    const source = item && typeof item === "object" ? item : { title: item };
+    const title = cleanText(source.title || source.name || source.text || item, 180);
+    if (!title) return null;
+    return {
+      id: cleanText(source.id, 120)
+        || `career-topic-${index + 1}-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      title,
+      summary: cleanText(
+        source.summary || source.whyItMatters || source.guidance || source.description,
+        700,
+      ),
+    };
+  }).filter(Boolean);
+  return cards.length ? cards : fallback;
 }
 
 function careerItems(value) {
@@ -368,6 +434,11 @@ function StartLearningPage({
   const [notebooksLoading, setNotebooksLoading] = useState(true);
   const [notebooksError, setNotebooksError] = useState("");
   const [activeNotebook, setActiveNotebook] = useState(null);
+  const [workspaceView, setWorkspaceView] = useState("intake");
+  const [careerRole, setCareerRole] = useState("");
+  const [careerTopics, setCareerTopics] = useState("");
+  const [careerAnalyzing, setCareerAnalyzing] = useState(false);
+  const [careerError, setCareerError] = useState("");
   const [sources, setSources] = useState([]);
   const [sourceError, setSourceError] = useState("");
   const [preparingSources, setPreparingSources] = useState(false);
@@ -409,16 +480,56 @@ function StartLearningPage({
     () => careerProfileAllows(activeNotebook?.careerPreparation),
     [activeNotebook?.careerPreparation],
   );
+  const careerFoundationTopics = useMemo(
+    () => careerTopicCards(activeNotebook?.careerPreparation?.skills, DEFAULT_CAREER_FOUNDATIONS),
+    [activeNotebook?.careerPreparation?.skills],
+  );
+  const careerCodingTopics = useMemo(
+    () => careerTopicCards(
+      activeNotebook?.careerPreparation?.codingTopics
+        || activeNotebook?.careerPreparation?.codingInterview
+        || activeNotebook?.careerPreparation?.coding,
+      DEFAULT_CODING_TOPICS,
+    ),
+    [activeNotebook?.careerPreparation],
+  );
+  const careerAnalysis = activeNotebook?.careerPreparation?.topicAnalysis || null;
 
   const selectNotebook = useCallback((value) => {
     const normalized = normalizeNotebook(value);
     setActiveNotebook(normalized);
+    setWorkspaceView("notebook");
+    setCareerError("");
     setDirty(false);
     setActiveTab("notes");
     setExpandedChapters(new Set(normalized.chapters.slice(0, 1).map((chapter) => chapter.id)));
     setSelectedNodeId(normalized.chapters[0]?.id || "");
     setZoom(1);
   }, []);
+
+  const openCareerWorkspace = () => {
+    if (!activeNotebook) return;
+    setCareerRole((current) => current || cleanText(
+      activeNotebook.careerPreparation?.topicAnalysis?.targetRole
+        || userProfile?.primaryGoal
+        || userProfile?.careerGoal,
+      160,
+    ));
+    setCareerError("");
+    setWorkspaceView("career");
+  };
+
+  const addCareerTopic = (title) => {
+    const cleanTitle = cleanText(title, 140);
+    if (!cleanTitle) return;
+    setCareerTopics((current) => {
+      const topics = parseCareerTopics(current);
+      if (topics.some((topic) => topic.toLocaleLowerCase() === cleanTitle.toLocaleLowerCase())) {
+        return topics.join("\n");
+      }
+      return [...topics, cleanTitle].slice(0, 12).join("\n");
+    });
+  };
 
   const loadNotebooks = useCallback(async () => {
     setNotebooksLoading(true);
@@ -454,6 +565,17 @@ function StartLearningPage({
   useEffect(() => {
     if (!privacyConsentOpen) return undefined;
     const previouslyFocused = document.activeElement;
+    const root = document.getElementById("root");
+    const htmlHadModalClass = document.documentElement.classList.contains("learning-privacy-modal-open");
+    const bodyHadModalClass = document.body.classList.contains("learning-privacy-modal-open");
+    const rootWasInert = root?.hasAttribute("inert") || false;
+    const rootAriaHidden = root?.getAttribute("aria-hidden");
+
+    document.documentElement.classList.add("learning-privacy-modal-open");
+    document.body.classList.add("learning-privacy-modal-open");
+    root?.setAttribute("inert", "");
+    root?.setAttribute("aria-hidden", "true");
+
     const focusFrame = window.requestAnimationFrame(() => {
       privacyConsentCancelRef.current?.focus();
     });
@@ -485,6 +607,14 @@ function StartLearningPage({
     return () => {
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", handleKeyDown);
+      if (!htmlHadModalClass) document.documentElement.classList.remove("learning-privacy-modal-open");
+      if (!bodyHadModalClass) document.body.classList.remove("learning-privacy-modal-open");
+      if (!rootWasInert) root?.removeAttribute("inert");
+      if (rootAriaHidden === null || rootAriaHidden === undefined) {
+        root?.removeAttribute("aria-hidden");
+      } else {
+        root?.setAttribute("aria-hidden", rootAriaHidden);
+      }
       previouslyFocused?.focus?.();
     };
   }, [privacyConsentOpen]);
@@ -612,12 +742,71 @@ function StartLearningPage({
     setAnalysisError("");
 
     if (!hasLearningPrivacyConsent(userProfile?.id)) {
-      pendingAnalysisRef.current = analysisRequest;
+      pendingAnalysisRef.current = { kind: "notebook", request: analysisRequest };
       setPrivacyConsentOpen(true);
       return;
     }
 
     runNotebookAnalysis(analysisRequest);
+  };
+
+  const runCareerAnalysis = async ({ targetRole, topics }) => {
+    if (!activeNotebook?.id || careerAnalyzing) return;
+    setCareerAnalyzing(true);
+    setCareerError("");
+    try {
+      const payload = await api.post(
+        `/api/learning-notebooks/${encodeURIComponent(activeNotebook.id)}/career-analyze`,
+        {
+          targetRole,
+          topics,
+          privacyConsent: {
+            accepted: true,
+            version: LEARNING_PRIVACY_CONSENT_VERSION,
+          },
+        },
+        { timeoutMs: 120000 },
+      );
+      if (!mountedRef.current) return;
+      const normalized = normalizeNotebook(payload?.notebook);
+      setActiveNotebook(normalized);
+      setNotebooks((current) => [
+        normalized,
+        ...current.filter((notebook) => notebook.id !== normalized.id),
+      ]);
+      setCareerRole(targetRole);
+      setCareerTopics(topics.join("\n"));
+      setDirty(false);
+      setNotification?.("Your placement preparation guide is ready.");
+    } catch (error) {
+      if (mountedRef.current) {
+        setCareerError(error instanceof Error ? error.message : "Placement topics could not be analyzed.");
+      }
+    } finally {
+      if (mountedRef.current) setCareerAnalyzing(false);
+    }
+  };
+
+  const analyzeCareerTopics = () => {
+    if (!activeNotebook?.id) {
+      setCareerError("Open a learning notebook before preparing placement topics.");
+      return;
+    }
+    const request = {
+      targetRole: cleanText(careerRole, 160),
+      topics: parseCareerTopics(careerTopics),
+    };
+    if (!request.topics.length) {
+      setCareerError("Add at least one role, interview, or coding topic to analyze.");
+      return;
+    }
+    setCareerError("");
+    if (!hasLearningPrivacyConsent(userProfile?.id)) {
+      pendingAnalysisRef.current = { kind: "career", request };
+      setPrivacyConsentOpen(true);
+      return;
+    }
+    runCareerAnalysis(request);
   };
 
   const declinePrivacyConsent = () => {
@@ -626,8 +815,8 @@ function StartLearningPage({
   };
 
   const agreeToPrivacyConsent = () => {
-    const analysisRequest = pendingAnalysisRef.current;
-    if (!analysisRequest) {
+    const pending = pendingAnalysisRef.current;
+    if (!pending) {
       setPrivacyConsentOpen(false);
       return;
     }
@@ -635,7 +824,11 @@ function StartLearningPage({
     acceptLearningPrivacyConsent(userProfile?.id);
     pendingAnalysisRef.current = null;
     setPrivacyConsentOpen(false);
-    runNotebookAnalysis(analysisRequest);
+    if (pending.kind === "career") {
+      runCareerAnalysis(pending.request);
+    } else {
+      runNotebookAnalysis(pending.request || pending);
+    }
   };
 
   const updateNotebook = (updater) => {
@@ -737,7 +930,10 @@ function StartLearningPage({
       await api.delete(`/api/learning-notebooks/${encodeURIComponent(notebookId)}`, { timeoutMs: 30000 });
       if (!mountedRef.current) return;
       setNotebooks((current) => current.filter((notebook) => notebook.id !== notebookId));
-      if (activeNotebook?.id === notebookId) setActiveNotebook(null);
+      if (activeNotebook?.id === notebookId) {
+        setActiveNotebook(null);
+        setWorkspaceView("intake");
+      }
       setDeleteCandidateId("");
       setNotification?.("Learning notebook deleted.");
     } catch (error) {
@@ -1064,7 +1260,49 @@ function StartLearningPage({
         </div>
       </section>
 
-      <div className="learning-workspace">
+      {workspaceView !== "intake" && activeNotebook && (
+        <nav className="card learning-subpage-bar" aria-label="Start Learning views">
+          <button
+            aria-label="Back to notebook sources"
+            className="learning-icon-button"
+            onClick={() => setWorkspaceView("intake")}
+            title="Back to sources"
+            type="button"
+          >
+            <ArrowLeft size={17} />
+          </button>
+          <div className="learning-subpage-title">
+            <small>Start Learning</small>
+            <strong>
+              {workspaceView === "career"
+                ? "Placement & internship preparation"
+                : activeNotebook.title}
+            </strong>
+          </div>
+          <div className="learning-subpage-tabs">
+            <button
+              aria-current={workspaceView === "notebook" ? "page" : undefined}
+              className={workspaceView === "notebook" ? "is-active" : ""}
+              onClick={() => setWorkspaceView("notebook")}
+              type="button"
+            >
+              <BookOpenCheck size={15} /> <span>Notebook</span>
+            </button>
+            {careerVisible && (
+              <button
+                aria-current={workspaceView === "career" ? "page" : undefined}
+                className={workspaceView === "career" ? "is-active" : ""}
+                onClick={openCareerWorkspace}
+                type="button"
+              >
+                <BriefcaseBusiness size={15} /> <span>Placement prep</span>
+              </button>
+            )}
+          </div>
+        </nav>
+      )}
+
+      <div className={`learning-workspace is-${workspaceView}`}>
         <aside className="card learning-source-rail" aria-label="Sources and saved notebooks">
           <div className="learning-panel-heading">
             <div>
@@ -1153,6 +1391,23 @@ function StartLearningPage({
             {analyzing ? <LoaderCircle className="spinner" size={17} /> : <BrainCircuit size={17} />}
             {analyzing ? "Building notebook…" : "Analyze & start learning"}
           </button>
+
+          {analyzing && (
+            <div className="learning-intake-progress" role="status">
+              <span className="learning-intake-progress-icon">
+                <LoaderCircle className="spinner" size={18} />
+              </span>
+              <div>
+                <strong>{ANALYSIS_STEPS[analysisStep]}</strong>
+                <small>Step {analysisStep + 1} of {ANALYSIS_STEPS.length}. Your notebook will open here when ready.</small>
+              </div>
+              <span
+                aria-hidden="true"
+                className="learning-intake-progress-bar"
+                style={{ "--learning-progress": `${((analysisStep + 1) / ANALYSIS_STEPS.length) * 100}%` }}
+              />
+            </div>
+          )}
 
           <div className="learning-saved-heading">
             <div><Layers3 size={16} /><strong>Saved notebooks</strong></div>
@@ -1286,20 +1541,32 @@ function StartLearningPage({
                   )}
                 </div>
                 <div className="learning-header-actions" aria-label="Notebook actions">
-                  <button disabled={!dirty || saving} onClick={saveNotebook} type="button">
+                  <button aria-label="Save notebook" disabled={!dirty || saving} onClick={saveNotebook} title="Save notebook" type="button">
                     {saving ? <LoaderCircle className="spinner" size={16} /> : <Save size={16} />}
                     {saving ? "Saving…" : "Save"}
                   </button>
-                  <button disabled={exporting} onClick={exportNotebook} type="button">
+                  <button aria-label="Export notebook PDF" disabled={exporting} onClick={exportNotebook} title="Export PDF" type="button">
                     {exporting ? <LoaderCircle className="spinner" size={16} /> : <Download size={16} />}
                     {exporting ? "Exporting…" : "Export PDF"}
                   </button>
-                  <button onClick={askAI} type="button">
+                  <button aria-label="Ask AI about this notebook" onClick={askAI} title="Ask AI" type="button">
                     <MessageSquareText size={16} /> Ask AI
                   </button>
-                  <button onClick={() => setPlannerDialogOpen(true)} type="button">
+                  <button aria-label="Add a learning unit to planner" onClick={() => setPlannerDialogOpen(true)} title="Add to planner" type="button">
                     <CalendarPlus size={16} /> Add to planner
                   </button>
+                  {careerVisible && (
+                    <button
+                      aria-label="Open placement and internship preparation"
+                      className="is-career"
+                      onClick={openCareerWorkspace}
+                      title="Placement preparation"
+                      type="button"
+                    >
+                      <BriefcaseBusiness size={16} />
+                    </button>
+                  )}
+
                 </div>
               </section>
 
@@ -1378,8 +1645,25 @@ function StartLearningPage({
                           {section.content.split(/\n{2,}/).filter(Boolean).map((paragraph, paragraphIndex) => (
                             <p key={`${section.id}-paragraph-${paragraphIndex}`}>{paragraph}</p>
                           ))}
-                          {section.bullets.length > 0 && (
-                            <ul>{section.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul>
+                          {(section.keyPoints.length > 0 || section.revisionTips.length > 0) && (
+                            <div className="learning-note-details">
+                              {section.keyPoints.length > 0 && (
+                                <section>
+                                  <h4>Key ideas</h4>
+                                  <ul>
+                                    {section.keyPoints.map((point) => <li key={point}>{point}</li>)}
+                                  </ul>
+                                </section>
+                              )}
+                              {section.revisionTips.length > 0 && (
+                                <section className="is-revision">
+                                  <h4>Revision cues</h4>
+                                  <ul>
+                                    {section.revisionTips.map((tip) => <li key={tip}>{tip}</li>)}
+                                  </ul>
+                                </section>
+                              )}
+                            </div>
                           )}
                         </div>
                       </article>
@@ -1397,10 +1681,10 @@ function StartLearningPage({
                         <p>Refine the structure before saving or syncing it to Subjects.</p>
                       </div>
                       <div>
-                        <button onClick={() => setChapterComposerOpen(true)} type="button">
+                        <button aria-label="Add chapter" onClick={() => setChapterComposerOpen(true)} title="Add chapter" type="button">
                           <Plus size={15} /> Add chapter
                         </button>
-                        <button onClick={addNotebookSubject} type="button">
+                        <button aria-label="Sync notebook with subjects" onClick={addNotebookSubject} title="Sync with subjects" type="button">
                           <BookOpenCheck size={15} /> Sync subjects
                         </button>
                       </div>
@@ -1453,6 +1737,14 @@ function StartLearningPage({
                                 />
                               </label>
                               <button
+                                aria-label={`Add topic to ${chapter.title}`}
+                                onClick={() => setTopicComposer({ chapterId: chapter.id, value: "" })}
+                                title="Add topic"
+                                type="button"
+                              >
+                                <Plus size={14} />
+                              </button>
+                              <button
                                 aria-label={`Remove ${chapter.title}`}
                                 onClick={() => removeChapter(chapter.id)}
                                 type="button"
@@ -1475,6 +1767,14 @@ function StartLearningPage({
                                       />
                                     </label>
                                     <button
+                                      aria-label={`Add subtopic to ${topic.title}`}
+                                      onClick={() => setSubtopicComposer({ chapterId: chapter.id, topicId: topic.id, value: "" })}
+                                      title="Add subtopic"
+                                      type="button"
+                                    >
+                                      <Plus size={13} />
+                                    </button>
+                                    <button
                                       aria-label={`Remove ${topic.title}`}
                                       onClick={() => updateChapter(chapter.id, (current) => ({
                                         ...current,
@@ -1485,6 +1785,22 @@ function StartLearningPage({
                                       <X size={13} />
                                     </button>
                                     {topic.summary && <p>{topic.summary}</p>}
+                                    {(topic.keyPoints.length > 0 || topic.revisionTips.length > 0) && (
+                                      <div className="learning-topic-details">
+                                        {topic.keyPoints.length > 0 && (
+                                          <div>
+                                            <strong>Key points</strong>
+                                            <ul>{topic.keyPoints.map((point) => <li key={point}>{point}</li>)}</ul>
+                                          </div>
+                                        )}
+                                        {topic.revisionTips.length > 0 && (
+                                          <div className="is-revision">
+                                            <strong>Revision cues</strong>
+                                            <ul>{topic.revisionTips.map((tip) => <li key={tip}>{tip}</li>)}</ul>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
                                     <div className="learning-subtopic-list" role="group">
                                       {topic.subtopics.map((subtopic) => (
                                         <div className="learning-subtopic-row" key={subtopic.id} role="treeitem">
@@ -1510,10 +1826,18 @@ function StartLearningPage({
                                           >
                                             <X size={12} />
                                           </button>
+                                          {subtopic.summary && (
+                                            <p className="learning-subtopic-summary">{subtopic.summary}</p>
+                                          )}
+                                          {subtopic.keyPoints.length > 0 && (
+                                            <ul className="learning-subtopic-points">
+                                              {subtopic.keyPoints.map((point) => <li key={point}>{point}</li>)}
+                                            </ul>
+                                          )}
                                         </div>
                                       ))}
                                     </div>
-                                    {subtopicComposer.chapterId === chapter.id && subtopicComposer.topicId === topic.id ? (
+                                    {subtopicComposer.chapterId === chapter.id && subtopicComposer.topicId === topic.id && (
                                       <div className="learning-mini-composer">
                                         <input
                                           autoFocus
@@ -1527,18 +1851,10 @@ function StartLearningPage({
                                         />
                                         <button onClick={() => addSubtopic(chapter.id, topic.id)} type="button"><Check size={13} /></button>
                                       </div>
-                                    ) : (
-                                      <button
-                                        className="learning-add-nested"
-                                        onClick={() => setSubtopicComposer({ chapterId: chapter.id, topicId: topic.id, value: "" })}
-                                        type="button"
-                                      >
-                                        <Plus size={13} /> Add subtopic
-                                      </button>
                                     )}
                                   </div>
                                 ))}
-                                {topicComposer.chapterId === chapter.id ? (
+                                {topicComposer.chapterId === chapter.id && (
                                   <div className="learning-mini-composer">
                                     <input
                                       autoFocus
@@ -1552,14 +1868,6 @@ function StartLearningPage({
                                     />
                                     <button onClick={() => addTopic(chapter.id)} type="button"><Check size={13} /></button>
                                   </div>
-                                ) : (
-                                  <button
-                                    className="learning-add-nested"
-                                    onClick={() => setTopicComposer({ chapterId: chapter.id, value: "" })}
-                                    type="button"
-                                  >
-                                    <Plus size={13} /> Add topic
-                                  </button>
                                 )}
                               </div>
                             )}
@@ -1652,12 +1960,27 @@ function StartLearningPage({
                     </div>
                     {selectedNode && (
                       <div className="learning-map-focus" aria-live="polite">
-                        <div>
+                        <div className="learning-map-focus-copy">
                           <span>{selectedNode.type}</span>
                           <strong>{selectedNode.title}</strong>
+                          {selectedNode.summary && <p>{selectedNode.summary}</p>}
+                          {selectedNode.keyPoints?.length > 0 && (
+                            <ul>
+                              {selectedNode.keyPoints.slice(0, 5).map((point) => <li key={point}>{point}</li>)}
+                            </ul>
+                          )}
                         </div>
-                        <button onClick={askAI} type="button"><MessageSquareText size={14} /> Ask AI</button>
-                        <button onClick={() => setPlannerDialogOpen(true)} type="button"><CalendarPlus size={14} /> Plan</button>
+                        <button aria-label="Ask AI about selected concept" onClick={askAI} title="Ask AI" type="button">
+                          <MessageSquareText size={14} />
+                        </button>
+                        <button
+                          aria-label="Add selected concept to planner"
+                          onClick={() => setPlannerDialogOpen(true)}
+                          title="Add to planner"
+                          type="button"
+                        >
+                          <CalendarPlus size={14} />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1746,9 +2069,168 @@ function StartLearningPage({
             </>
           )}
         </section>
+        {activeNotebook && careerVisible && (
+          <section className="learning-career-workspace" aria-label="Placement and internship preparation">
+            <section className="card learning-career-intro">
+              <div>
+                <span className="section-tag"><BriefcaseBusiness size={14} /> Career preparation</span>
+                <h2>Prepare for the questions that matter</h2>
+                <p>
+                  Start with role fundamentals and frequently tested coding patterns, then ask AI
+                  to turn your selected topics into an explained interview plan.
+                </p>
+              </div>
+              <div className="learning-career-intro-metrics">
+                <span><strong>{careerFoundationTopics.length}</strong> role areas</span>
+                <span><strong>{careerCodingTopics.length}</strong> coding patterns</span>
+                <span><strong>{parseCareerTopics(careerTopics).length}</strong> selected</span>
+              </div>
+            </section>
+
+            <section className="learning-career-primer" aria-label="Frequently tested preparation areas">
+              <article className="card">
+                <div className="learning-career-section-heading">
+                  <span><BriefcaseBusiness size={17} /></span>
+                  <div>
+                    <h3>Important role topics</h3>
+                    <p>Build clear explanations and evidence before practicing answers.</p>
+                  </div>
+                </div>
+                <div className="learning-career-topic-grid">
+                  {careerFoundationTopics.slice(0, 8).map((topic) => (
+                    <button key={topic.id || topic.title} onClick={() => addCareerTopic(topic.title)} type="button">
+                      <span><Plus size={13} /></span>
+                      <strong>{topic.title}</strong>
+                      <small>{topic.summary || "Add this area to your personalized preparation guide."}</small>
+                    </button>
+                  ))}
+                </div>
+              </article>
+
+              <article className="card">
+                <div className="learning-career-section-heading">
+                  <span><Code2 size={17} /></span>
+                  <div>
+                    <h3>Frequently tested coding</h3>
+                    <p>Prioritize patterns, complexity, edge cases, and spoken reasoning.</p>
+                  </div>
+                </div>
+                <div className="learning-career-topic-grid">
+                  {careerCodingTopics.slice(0, 8).map((topic) => (
+                    <button key={topic.id || topic.title} onClick={() => addCareerTopic(topic.title)} type="button">
+                      <span><Plus size={13} /></span>
+                      <strong>{topic.title}</strong>
+                      <small>{topic.summary || "Add this coding pattern to your personalized preparation guide."}</small>
+                    </button>
+                  ))}
+                </div>
+              </article>
+            </section>
+
+            <section className="card learning-career-form">
+              <div className="learning-panel-heading">
+                <div>
+                  <span className="section-tag"><Sparkles size={13} /> Personalized analysis</span>
+                  <h3>Choose what you want explained</h3>
+                  <p>Add topics from above or enter your own role-specific interview areas.</p>
+                </div>
+                <span className="learning-count">{parseCareerTopics(careerTopics).length}/12</span>
+              </div>
+              <div className="learning-career-fields">
+                <label className="learning-field">
+                  <span>Target role</span>
+                  <input
+                    disabled={careerAnalyzing}
+                    onChange={(event) => setCareerRole(event.target.value)}
+                    placeholder="e.g. Software engineering intern"
+                    value={careerRole}
+                  />
+                </label>
+                <label className="learning-field">
+                  <span>Topics to analyze</span>
+                  <textarea
+                    disabled={careerAnalyzing}
+                    onChange={(event) => setCareerTopics(event.target.value)}
+                    placeholder={"Arrays and strings\nOperating systems\nProject walkthrough"}
+                    rows={5}
+                    value={careerTopics}
+                  />
+                  <small>Separate topics with commas or new lines. Add up to 12.</small>
+                </label>
+              </div>
+              {careerError && <p className="learning-inline-error" role="alert">{careerError}</p>}
+              <button
+                className="learning-career-analyze"
+                disabled={careerAnalyzing}
+                onClick={analyzeCareerTopics}
+                type="button"
+              >
+                {careerAnalyzing ? <LoaderCircle className="spinner" size={17} /> : <BrainCircuit size={17} />}
+                {careerAnalyzing ? "Analyzing preparation topics?" : "Analyze preparation topics"}
+              </button>
+            </section>
+
+            {careerAnalysis && (
+              <section className="card learning-career-results" aria-live="polite">
+                <div className="learning-panel-heading">
+                  <div>
+                    <span className="section-tag"><Check size={13} /> Preparation guide</span>
+                    <h3>{careerAnalysis.targetRole || careerRole || "Placement preparation"}</h3>
+                    <p>{careerAnalysis.overview}</p>
+                  </div>
+                  <span className="learning-count">{listFrom(careerAnalysis.topics).length}</span>
+                </div>
+                <div className="learning-career-analysis-grid">
+                  {listFrom(careerAnalysis.topics).map((topic, index) => (
+                    <article key={topic?.id || topic?.title || index}>
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <h4>{cleanText(topic?.title, 180)}</h4>
+                      <p>{cleanText(topic?.explanation, 3000)}</p>
+                      {cleanText(topic?.whyItMatters, 900) && (
+                        <aside><strong>Why it matters</strong>{cleanText(topic.whyItMatters, 900)}</aside>
+                      )}
+                      {listFrom(topic?.interviewQuestions).length > 0 && (
+                        <div>
+                          <h5>Interview checks</h5>
+                          {listFrom(topic.interviewQuestions).map((question, questionIndex) => (
+                            <details key={question?.id || question?.question || questionIndex}>
+                              <summary>{cleanText(question?.question || question, 500)}</summary>
+                              <p>{cleanText(question?.guidance, 1200)}</p>
+                            </details>
+                          ))}
+                        </div>
+                      )}
+                      {listFrom(topic?.practiceSteps).length > 0 && (
+                        <div>
+                          <h5>Practice next</h5>
+                          <ol>{listFrom(topic.practiceSteps).map((step) => <li key={cleanText(step, 500)}>{cleanText(step, 500)}</li>)}</ol>
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
+                {listFrom(careerAnalysis.preparationPlan).length > 0 && (
+                  <div className="learning-career-plan">
+                    <h3>Your preparation sequence</h3>
+                    {listFrom(careerAnalysis.preparationPlan).map((phase, index) => (
+                      <article key={phase?.id || phase?.title || index}>
+                        <span>{index + 1}</span>
+                        <div>
+                          <h4>{cleanText(phase?.title, 180)}</h4>
+                          <p>{cleanText(phase?.description, 1200)}</p>
+                          <ul>{listFrom(phase?.actions).map((action) => <li key={cleanText(action, 500)}>{cleanText(action, 500)}</li>)}</ul>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+          </section>
+        )}
       </div>
 
-      {privacyConsentOpen && (
+      {privacyConsentOpen && typeof document !== "undefined" && createPortal(
         <div
           className="learning-dialog-backdrop learning-privacy-backdrop"
           onMouseDown={(event) => {
@@ -1776,9 +2258,9 @@ function StartLearningPage({
 
             <div className="learning-privacy-copy" id="learning-privacy-description">
               <p>
-                To build your notebook, PrepMatrix sends uploaded PDFs, images, and notes
-                or the subject and chapters you type, together with relevant academic-profile
-                context, to Google Gemini for AI processing.
+                To build a notebook or placement-preparation guide, PrepMatrix sends uploaded
+                PDFs, images, notes, subjects, chapters, target roles, or topics you enter,
+                together with relevant academic-profile context, to Google Gemini for AI processing.
               </p>
               <p>
                 If Gemini cannot complete the request, the same information may be sent to
@@ -1787,7 +2269,8 @@ function StartLearningPage({
               <p>
                 PrepMatrix saves the generated notebook and source metadata, such as file name,
                 type, size, and coverage. Raw uploaded or typed source contents are not saved in
-                notebook records.
+                notebook records. Placement topics and their generated preparation guide are saved
+                with the notebook so you can return to them.
               </p>
             </div>
 
@@ -1813,7 +2296,8 @@ function StartLearningPage({
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {plannerDialogOpen && activeNotebook && (

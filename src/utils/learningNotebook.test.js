@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  MAX_LEARNING_CAREER_TOPICS,
   MAX_LEARNING_IMPORTANT_QUESTIONS,
   MAX_LEARNING_MIND_MAP_NODES,
   MAX_LEARNING_SUBTOPICS,
   MAX_LEARNING_TOPICS,
   getLearningCareerEligibility,
   hasLearningNotebookShape,
+  normalizeLearningCareerTopicAnalysis,
+  normalizeLearningCareerTopics,
   normalizeLearningNotebook,
 } from "./learningNotebook.js";
 
@@ -225,4 +228,84 @@ test("recognizes only the strict generated notebook envelope", () => {
   assert.equal(hasLearningNotebookShape(generatedNotebook({ chapters: [{ title: "", topics: [] }] })), false);
   assert.equal(hasLearningNotebookShape({ overview: "Missing arrays" }), false);
   assert.equal(hasLearningNotebookShape(null), false);
+});
+
+test("normalizes bounded comma/newline career topics and detailed analysis", () => {
+  assert.deepEqual(
+    normalizeLearningCareerTopics(" Arrays, Graphs\narrays "),
+    ["Arrays", "Graphs"],
+  );
+  const requestedTopics = normalizeLearningCareerTopics(
+    Array.from({ length: MAX_LEARNING_CAREER_TOPICS + 4 }, (_, index) => `Topic ${index + 1}`),
+  );
+  assert.equal(requestedTopics.length, MAX_LEARNING_CAREER_TOPICS);
+
+  const analysis = normalizeLearningCareerTopicAnalysis({
+    targetRole: "Software engineering intern",
+    overview: "A role-focused preparation overview.",
+    topics: requestedTopics.map((title, index) => ({
+      title,
+      explanation: `Detailed explanation ${index + 1}`,
+      whyItMatters: "Frequently tests applied understanding.",
+      interviewQuestions: Array.from({ length: 8 }, (_, questionIndex) => ({
+        question: `Question ${index + 1}.${questionIndex + 1}?`,
+        guidance: "Explain the trade-off and give an example.",
+      })),
+      practiceSteps: Array.from({ length: 12 }, (_, stepIndex) => `Step ${stepIndex + 1}`),
+    })),
+    preparationPlan: Array.from({ length: 12 }, (_, index) => ({
+      title: `Phase ${index + 1}`,
+      description: "Build understanding, then apply it.",
+      actions: Array.from({ length: 12 }, (_, actionIndex) => `Action ${actionIndex + 1}`),
+    })),
+  }, {
+    requestedTopics,
+    targetRole: "Software engineering intern",
+  });
+
+  assert.equal(analysis.targetRole, "Software engineering intern");
+  assert.equal(analysis.topics.length, requestedTopics.length);
+  assert.equal(analysis.topics[0].title, requestedTopics[0]);
+  assert.equal(analysis.topics[0].interviewQuestions.length, 6);
+  assert.equal(analysis.topics[0].practiceSteps.length, 8);
+  assert.equal(analysis.preparationPlan.length, 8);
+  assert.equal(analysis.preparationPlan[0].actions.length, 8);
+});
+
+test("allocates the global topic budget fairly across chapters", () => {
+  const chapters = Array.from({ length: 4 }, (_, chapterIndex) => ({
+    title: `Chapter ${chapterIndex + 1}`,
+    topics: Array.from({ length: MAX_LEARNING_TOPICS }, (_, topicIndex) => ({
+      title: `Chapter ${chapterIndex + 1} topic ${topicIndex + 1}`,
+      subtopics: [],
+    })),
+  }));
+  const notebook = normalizeLearningNotebook(generatedNotebook({
+    chapters,
+    mindMap: { nodes: [{ id: "root", label: "Fair subject", kind: "root" }] },
+  }), { subjectName: "Fair subject" });
+  const counts = notebook.chapters.map((chapter) => chapter.topics.length);
+
+  assert.equal(counts.reduce((sum, count) => sum + count, 0), MAX_LEARNING_TOPICS);
+  assert.ok(counts.every((count) => count > 0));
+  assert.ok(Math.max(...counts) - Math.min(...counts) <= 1);
+});
+
+test("keeps canonical chapter, topic, and subtopic nodes when provider map is sparse", () => {
+  const notebook = normalizeLearningNotebook(generatedNotebook({
+    mindMap: {
+      nodes: [{ id: "root", label: "Sparse provider map", kind: "root" }],
+      edges: [],
+    },
+  }), { subjectName: "Operating Systems" });
+  const chapter = notebook.chapters[0];
+  const topic = chapter.topics[0];
+  const subtopic = topic.subtopics[0];
+  const ids = new Set(notebook.mindMap.nodes.map((node) => node.id));
+
+  assert.ok(ids.has(chapter.id));
+  assert.ok(ids.has(topic.id));
+  assert.ok(ids.has(subtopic.id));
+  assert.ok(notebook.mindMap.edges.some((edge) => edge.from === chapter.id && edge.to === topic.id));
+  assert.ok(notebook.mindMap.edges.some((edge) => edge.from === topic.id && edge.to === subtopic.id));
 });

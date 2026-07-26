@@ -4,9 +4,10 @@ export const MAX_LEARNING_NOTEBOOKS_PER_USER = 30;
 export const MAX_LEARNING_SOURCES = 3;
 export const MAX_LEARNING_CHAPTERS = 30;
 export const MAX_LEARNING_IMPORTANT_QUESTIONS = 20;
-export const MAX_LEARNING_TOPICS = 24;
+export const MAX_LEARNING_TOPICS = 36;
 export const MAX_LEARNING_SUBTOPICS = 12;
-export const MAX_LEARNING_MIND_MAP_NODES = 120;
+export const MAX_LEARNING_MIND_MAP_NODES = 180;
+export const MAX_LEARNING_CAREER_TOPICS = 12;
 
 const CAREER_ELIGIBLE_BANDS = new Set([
   "diploma",
@@ -88,6 +89,18 @@ function normalizeStringList(value, { maxItems = 10, maxLength = 360 } = {}) {
 export function normalizeLearningChapterNames(value) {
   return normalizeStringList(value, {
     maxItems: MAX_LEARNING_CHAPTERS,
+    maxLength: 140,
+  });
+}
+
+export function normalizeLearningCareerTopics(value) {
+  const rows = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/[\n,]+/u)
+      : [];
+  return normalizeStringList(rows, {
+    maxItems: MAX_LEARNING_CAREER_TOPICS,
     maxLength: 140,
   });
 }
@@ -214,6 +227,9 @@ function normalizeTopics(
   idScope = "",
   usedIdentifiers = new Set(),
 ) {
+  const boundedMaximum = Math.max(0, Math.min(MAX_LEARNING_TOPICS, Number.parseInt(maximum, 10) || 0));
+  if (!boundedMaximum) return [];
+
   const rows = Array.isArray(value) ? value : [];
   const seen = new Set();
   const topics = [];
@@ -250,7 +266,7 @@ function normalizeTopics(
         usedIdentifiers,
       ),
     });
-    if (topics.length >= maximum) break;
+    if (topics.length >= boundedMaximum) break;
   }
 
   return topics;
@@ -285,9 +301,13 @@ function normalizeChapters(value, requestedChapterNames = [], legacyTopics = [])
       "",
       usedOutlineIds,
     );
+    const remainingChapters = maximum - index;
+    const fairTopicLimit = remainingTopicSlots > 0
+      ? Math.ceil(remainingTopicSlots / remainingChapters)
+      : 0;
     const chapterTopics = normalizeTopics(
       source.topics ?? source.children,
-      remainingTopicSlots,
+      fairTopicLimit,
       chapterId,
       usedOutlineIds,
     );
@@ -378,6 +398,7 @@ function deriveMindMap(subjectName, chapters, topics) {
     kind: "root",
     order: 0,
   }];
+  const subtopicNodes = [];
 
   const appendTopic = (topic, topicIndex, parentId) => {
     const topicId = cleanIdentifier(topic.id, `topic-${topicIndex + 1}`);
@@ -389,7 +410,7 @@ function deriveMindMap(subjectName, chapters, topics) {
       order: topicIndex,
     });
     topic.subtopics.forEach((subtopic, subtopicIndex) => {
-      nodes.push({
+      subtopicNodes.push({
         id: cleanIdentifier(subtopic.id, `${topicId}-subtopic-${subtopicIndex + 1}`),
         label: subtopic.title,
         parentId: topicId,
@@ -419,6 +440,7 @@ function deriveMindMap(subjectName, chapters, topics) {
     topics.forEach((topic, topicIndex) => appendTopic(topic, topicIndex, rootId));
   }
 
+  nodes.push(...subtopicNodes);
   return nodes.slice(0, MAX_LEARNING_MIND_MAP_NODES);
 }
 
@@ -446,7 +468,28 @@ function normalizeMindMap(value, subjectName, chapters, topics) {
     });
   });
 
-  const candidateNodes = nodes.length ? nodes : deriveMindMap(subjectName, chapters, topics);
+  const canonicalNodes = deriveMindMap(subjectName, chapters, topics);
+  const reservedIds = new Set(canonicalNodes.map((node) => node.id));
+  const canonicalSignatures = new Set(
+    canonicalNodes.map((node) => `${node.kind}:${node.label.toLocaleLowerCase()}`),
+  );
+  const extraNodes = [];
+  nodes.forEach((node) => {
+    if (node.kind !== "concept" && node.kind !== "question") return;
+    const signature = `${node.kind}:${node.label.toLocaleLowerCase()}`;
+    if (canonicalSignatures.has(signature)) return;
+    let id = node.id;
+    while (reservedIds.has(id)) {
+      id = cleanIdentifier(`${id}-extra`, `extra-${extraNodes.length + 1}`);
+    }
+    reservedIds.add(id);
+    canonicalSignatures.add(signature);
+    extraNodes.push({ ...node, id });
+  });
+  const candidateNodes = [
+    ...canonicalNodes,
+    ...extraNodes,
+  ].slice(0, MAX_LEARNING_MIND_MAP_NODES);
   const resolvedNodes = candidateNodes.map((node) => {
     if (!("rawParentId" in node)) return node;
     const parentId = node.rawParentId
@@ -551,6 +594,88 @@ function normalizeCodingTopics(value) {
     }];
   });
 }
+function normalizeCareerTopicQuestions(value, topicId) {
+  const rows = Array.isArray(value) ? value : [];
+  return rows.slice(0, 6).flatMap((item, index) => {
+    const source = item && typeof item === "object" ? item : { question: item };
+    const question = cleanContent(source.question ?? source.title ?? source.text, 700);
+    if (!question) return [];
+    return [{
+      id: cleanIdentifier(source.id, `${topicId}-question-${index + 1}`),
+      question,
+      guidance: cleanContent(source.guidance ?? source.answer ?? source.explanation, 2200),
+    }];
+  });
+}
+
+function normalizeCareerPreparationPlan(value) {
+  const rows = Array.isArray(value) ? value : [];
+  return rows.slice(0, 8).flatMap((item, index) => {
+    const source = item && typeof item === "object" ? item : { title: item };
+    const title = cleanInline(source.title ?? source.phase ?? source.name, 180);
+    const description = cleanContent(source.description ?? source.goal ?? source.summary, 1800);
+    const actions = normalizeStringList(source.actions ?? source.steps, {
+      maxItems: 8,
+      maxLength: 500,
+    });
+    if (!title && !description && !actions.length) return [];
+    return [{
+      id: cleanIdentifier(source.id, `preparation-phase-${index + 1}`),
+      title: title || `Preparation phase ${index + 1}`,
+      description,
+      actions,
+    }];
+  });
+}
+
+export function normalizeLearningCareerTopicAnalysis(value = {}, options = {}) {
+  const source = value && typeof value === "object" ? value : {};
+  const requestedTopics = normalizeLearningCareerTopics(options.requestedTopics);
+  const rows = Array.isArray(source.topics) ? source.topics : [];
+  const maximum = requestedTopics.length || MAX_LEARNING_CAREER_TOPICS;
+  const topics = [];
+
+  for (let index = 0; index < maximum; index += 1) {
+    const requestedTitle = requestedTopics[index];
+    const matchingRow = requestedTitle
+      ? rows.find((item) => (
+          item
+          && typeof item === "object"
+          && cleanInline(item.title ?? item.name ?? item.label, 180).toLocaleLowerCase()
+            === requestedTitle.toLocaleLowerCase()
+        )) || rows[index]
+      : rows[index];
+    const item = matchingRow && typeof matchingRow === "object"
+      ? matchingRow
+      : { title: matchingRow };
+    const title = requestedTitle || cleanInline(item.title ?? item.name ?? item.label, 180);
+    if (!title) continue;
+    const topicId = cleanIdentifier(item.id, `career-topic-${index + 1}`);
+    topics.push({
+      id: topicId,
+      title,
+      explanation: cleanContent(item.explanation ?? item.overview ?? item.summary, 3000),
+      whyItMatters: cleanContent(item.whyItMatters ?? item.reason ?? item.importance, 1000),
+      interviewQuestions: normalizeCareerTopicQuestions(
+        item.interviewQuestions ?? item.questions,
+        topicId,
+      ),
+      practiceSteps: normalizeStringList(item.practiceSteps ?? item.steps, {
+        maxItems: 8,
+        maxLength: 500,
+      }),
+    });
+  }
+
+  return {
+    targetRole: cleanInline(options.targetRole ?? source.targetRole ?? source.role, 160),
+    overview: cleanContent(source.overview ?? source.summary, 3000),
+    topics,
+    preparationPlan: normalizeCareerPreparationPlan(
+      source.preparationPlan ?? source.plan,
+    ),
+  };
+}
 
 function normalizeCareerPreparation(value, profile) {
   const eligibility = getLearningCareerEligibility(profile);
@@ -564,6 +689,7 @@ function normalizeCareerPreparation(value, profile) {
       skills: [],
       interviewQuestions: [],
       codingTopics: [],
+      topicAnalysis: normalizeLearningCareerTopicAnalysis(),
     };
   }
 
@@ -579,6 +705,7 @@ function normalizeCareerPreparation(value, profile) {
     codingTopics: eligibility.codingRelevant
       ? normalizeCodingTopics(source.codingTopics ?? source.codingPreparation)
       : [],
+    topicAnalysis: normalizeLearningCareerTopicAnalysis(source.topicAnalysis),
   };
 }
 

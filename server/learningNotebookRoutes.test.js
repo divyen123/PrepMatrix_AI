@@ -663,3 +663,216 @@ test("does not invoke Gemini or Groq fallback for client input validation errors
   assert.equal(harness.prepareCalls, 0);
   assert.equal(harness.dbCalls, 0);
 });
+
+function validCareerTopicAnalysis(topics = ["Arrays", "Graphs"]) {
+  return {
+    targetRole: "Software engineering intern",
+    overview: "Focus on problem-solving fundamentals and clear trade-off explanations.",
+    topics: topics.map((title, index) => ({
+      id: `career-topic-${index + 1}`,
+      title,
+      explanation: `${title} explained with intuition, examples, and common mistakes.`,
+      whyItMatters: `${title} is frequently used to test applied reasoning.`,
+      interviewQuestions: [{
+        id: `career-topic-${index + 1}-question-1`,
+        question: `How would you apply ${title} in a constrained problem?`,
+        guidance: "Clarify constraints, compare approaches, and explain complexity.",
+      }],
+      practiceSteps: ["Review the core model.", "Solve a representative problem."],
+    })),
+    preparationPlan: [{
+      id: "preparation-phase-1",
+      title: "Foundations",
+      description: "Build accurate explanations before timed practice.",
+      actions: ["Review both requested topics.", "Complete a recall check."],
+    }],
+  };
+}
+
+function createCareerRouteHarness({
+  fetchImpl,
+  geminiConfig = { available: true, apiKey: "gemini-key" },
+  groqConfig = { available: true, apiKey: "groq-key" },
+  user = {},
+} = {}) {
+  const routes = new Map();
+  const app = {};
+  ["get", "post", "patch", "delete"].forEach((method) => {
+    app[method] = (path, handler) => routes.set(`${method.toUpperCase()} ${path}`, handler);
+  });
+  const existing = {
+    _id: "507f1f77bcf86cd799439011",
+    userId: "user-1",
+    subjectName: "Data Structures",
+    ...validGeneratedNotebook(),
+    model: DEFAULT_GEMINI_LEARNING_MODEL,
+    sources: [],
+    createdAt: new Date("2026-07-26T10:00:00.000Z"),
+    updatedAt: new Date("2026-07-26T10:00:00.000Z"),
+  };
+  const updates = [];
+  let dbCalls = 0;
+  const collection = {
+    findOne: async () => existing,
+    updateOne: async (filter, update) => {
+      updates.push({ filter, update });
+      return { matchedCount: 1, modifiedCount: 1 };
+    },
+  };
+  registerLearningNotebookRoutes(app, {
+    fetchImpl,
+    geminiLearningModel: DEFAULT_GEMINI_LEARNING_MODEL,
+    getDb: async () => {
+      dbCalls += 1;
+      return { collection: () => collection };
+    },
+    getGeminiConfigStatus: () => geminiConfig,
+    getGroqConfigStatus: () => groqConfig,
+    groqLearningModel: "llama-3.3-70b-versatile",
+    groqModel: "llama-3.1-8b-instant",
+    groqVisionModel: "qwen/qwen3.6-27b",
+    now: () => new Date("2026-07-26T12:00:00.000Z"),
+    requireAuth: (handler) => handler,
+  });
+
+  return {
+    updates,
+    get dbCalls() { return dbCalls; },
+    async analyze(body = {}) {
+      const req = {
+        body: {
+          privacyConsent: {
+            accepted: true,
+            version: LEARNING_PRIVACY_CONSENT_VERSION,
+          },
+          targetRole: "Software engineering intern",
+          topics: "Arrays, Graphs",
+          ...body,
+        },
+        params: { id: "507f1f77bcf86cd799439011" },
+        user: {
+          _id: "user-1",
+          academicLevel: "Undergraduate / Bachelor's",
+          degree: "B.Tech",
+          department: "IT",
+          ...user,
+        },
+      };
+      const res = {
+        body: null,
+        statusCode: 200,
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
+        json(payload) {
+          this.body = payload;
+          return this;
+        },
+      };
+      await routes.get("POST /api/learning-notebooks/:id/career-analyze")(req, res);
+      return res;
+    },
+  };
+}
+
+test("career analysis requires current privacy consent before database or provider work", async () => {
+  let fetchCalls = 0;
+  const harness = createCareerRouteHarness({
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return geminiNotebookResponse();
+    },
+  });
+
+  const res = await harness.analyze({ privacyConsent: undefined });
+
+  assert.equal(res.statusCode, 428);
+  assert.equal(res.body.code, "LEARNING_PRIVACY_CONSENT_REQUIRED");
+  assert.equal(harness.dbCalls, 0);
+  assert.equal(fetchCalls, 0);
+});
+
+test("uses Gemini structured output for career topics and persists normalized analysis", async () => {
+  const requests = [];
+  const harness = createCareerRouteHarness({
+    fetchImpl: async (url, options) => {
+      requests.push({ url, body: JSON.parse(options.body) });
+      return geminiNotebookResponse(validCareerTopicAnalysis(["Arrays", "Graphs"]));
+    },
+  });
+
+  const res = await harness.analyze({
+    topics: " Arrays, Graphs\narrays ",
+    targetRole: "Backend engineering intern",
+  });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(requests.length, 1);
+  assert.match(requests[0].url, /generativelanguage\.googleapis\.com/u);
+  assert.equal(
+    requests[0].body.generationConfig.responseFormat.text.schema.properties.topics.type,
+    "array",
+  );
+  assert.match(
+    requests[0].body.contents[0].parts[0].text,
+    /Requested career topic data, in required output order: \["Arrays","Graphs"\]/u,
+  );
+  assert.equal(harness.updates.length, 1);
+  const persisted = harness.updates[0].update.$set.careerPreparation.topicAnalysis;
+  assert.equal(persisted.targetRole, "Backend engineering intern");
+  assert.deepEqual(persisted.topics.map((topic) => topic.title), ["Arrays", "Graphs"]);
+  assert.ok(persisted.topics[0].explanation.length > 20);
+  assert.equal(res.body.notebook.careerPreparation.topicAnalysis.topics.length, 2);
+  assert.equal(res.body.topicAnalysis.preparationPlan.length, 1);
+  assert.equal(res.body.providerModel, DEFAULT_GEMINI_LEARNING_MODEL);
+});
+
+test("falls back to Groq for career analysis after a Gemini transport failure", async () => {
+  const providers = [];
+  const groqRequests = [];
+  const harness = createCareerRouteHarness({
+    fetchImpl: async (url, options) => {
+      if (url.includes("generativelanguage.googleapis.com")) {
+        providers.push("gemini");
+        throw new TypeError("network unavailable");
+      }
+      providers.push("groq");
+      const body = JSON.parse(options.body);
+      groqRequests.push(body);
+      return groqNotebookResponse(validCareerTopicAnalysis(["Arrays", "Graphs"]));
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(providers, ["gemini", "groq"]);
+  assert.equal(groqRequests[0].model, "llama-3.3-70b-versatile");
+  assert.equal(groqRequests[0].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
+  assert.equal(res.body.providerModel, "llama-3.3-70b-versatile");
+  assert.equal(harness.updates.length, 1);
+});
+
+test("rejects career analysis for an ineligible learner profile before provider work", async () => {
+  let fetchCalls = 0;
+  const harness = createCareerRouteHarness({
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return geminiNotebookResponse(validCareerTopicAnalysis());
+    },
+    user: {
+      academicLevel: "Class 10",
+      academicTrack: "CBSE",
+      degree: "",
+      department: "",
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.body.code, "LEARNING_CAREER_NOT_ELIGIBLE");
+  assert.equal(harness.dbCalls, 0);
+  assert.equal(fetchCalls, 0);
+});
