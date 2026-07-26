@@ -1490,7 +1490,11 @@ function StartLearningPage({
           )}
 
           <div className="learning-or-divider"><span>or map manually</span></div>
-          <div className="learning-field">
+          <div
+            className={subjectPickerOpen
+              ? "learning-field learning-subject-field is-open"
+              : "learning-field learning-subject-field"}
+          >
             <label htmlFor="learning-subject-input">Subject</label>
             <div
               className={`learning-subject-picker${subjectPickerOpen ? " is-open" : ""}`}

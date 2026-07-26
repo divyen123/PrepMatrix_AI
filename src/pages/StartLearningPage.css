@@ -376,6 +376,10 @@ body .learning-delete-confirm button {
   min-width: 0;
 }
 
+.learning-intake-source-panel > .learning-subject-field.is-open {
+  z-index: 100;
+}
+
 .learning-subject-picker.is-open {
   z-index: 80;
 }
