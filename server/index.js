@@ -143,6 +143,7 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const LEGACY_OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || process.env.OPENAI_CHAT_MODEL || "llama-3.1-8b-instant";
 const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || "qwen/qwen3.6-27b";
+const GROQ_LEARNING_MODEL = process.env.GROQ_LEARNING_MODEL || "llama-3.3-70b-versatile";
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_DB = process.env.MONGODB_DB || "prepmatrix";
 const FRONTEND_URL = process.env.FRONTEND_URL || "";
@@ -1055,6 +1056,7 @@ registerResumeBuilderRoutes(app, {
 registerLearningNotebookRoutes(app, {
   getDb,
   getGroqConfigStatus,
+  groqLearningModel: GROQ_LEARNING_MODEL,
   groqModel: GROQ_CHAT_MODEL,
   groqVisionModel: GROQ_VISION_MODEL,
   requireAuth,
@@ -1326,6 +1328,7 @@ app.get("/api/study-assistant/status", (_req, res) => {
   res.json({
     available: config.available,
     model: GROQ_CHAT_MODEL,
+    learningModel: GROQ_LEARNING_MODEL,
     visionModel: GROQ_VISION_MODEL,
     message: config.message,
     keySource: config.keySource,
