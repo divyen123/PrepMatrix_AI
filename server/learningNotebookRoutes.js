@@ -27,9 +27,11 @@ export const MAX_LEARNING_TEXT_SOURCE_CHARS = 30_000;
 export const MAX_LEARNING_TEXT_TOTAL_CHARS = 60_000;
 export const MAX_LEARNING_VISION_TEXT_CHARS = 24_000;
 export const MAX_LEARNING_AI_SOURCE_CHARS = 14_000;
-export const MAX_LEARNING_COMPLETION_TOKENS = 16_000;
-export const LEARNING_RETRY_COMPLETION_TOKENS = 12_000;
+export const MAX_LEARNING_AI_SOURCE_TOKENS = 2_800;
+export const MAX_LEARNING_COMPLETION_TOKENS = 6_500;
+export const LEARNING_RETRY_COMPLETION_TOKENS = 5_000;
 export const MAX_GEMINI_LEARNING_OUTPUT_TOKENS = 24_576;
+export const MAX_GROQ_LEARNING_CHAPTERS = 12;
 export const DEFAULT_GEMINI_LEARNING_MODEL = "gemini-3.5-flash-lite";
 
 const LEARNING_TEXT_TYPES = new Set([
@@ -40,14 +42,19 @@ const LEARNING_TEXT_TYPES = new Set([
 const GROQ_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GEMINI_GENERATE_CONTENT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const PROVIDER_TIMEOUT_MS = 75_000;
+const GROQ_LEARNING_TOKEN_BUDGET = 12_000;
+const GROQ_LEARNING_TOKEN_HEADROOM = 750;
+const GROQ_LEARNING_RETRY_REDUCTION_TOKENS = 500;
+const MIN_GROQ_LEARNING_COMPLETION_TOKENS = 3_000;
 
-export function buildLearningNotebookDepthTargets(chapterNames = []) {
+export function buildLearningNotebookDepthTargets(chapterNames = [], { compact = false } = {}) {
   const normalizedChapterNames = normalizeLearningChapterNames(chapterNames);
   const expectedChapterCount = normalizedChapterNames.length;
   const planningChapterCount = expectedChapterCount || 4;
+  const topicBudget = compact ? 12 : MAX_LEARNING_TOPICS;
   const topicsPerChapter = Math.max(
     1,
-    Math.min(8, Math.floor(MAX_LEARNING_TOPICS / planningChapterCount)),
+    Math.min(compact ? 4 : 8, Math.floor(topicBudget / planningChapterCount)),
   );
   const totalTopics = planningChapterCount * topicsPerChapter;
   const remainingMapSlots = Math.max(
@@ -55,23 +62,26 @@ export function buildLearningNotebookDepthTargets(chapterNames = []) {
     MAX_LEARNING_MIND_MAP_NODES - 1 - planningChapterCount - totalTopics,
   );
   const mapSafeSubtopics = Math.max(1, Math.floor(remainingMapSlots / totalTopics));
-  const preferredSubtopics = planningChapterCount <= 2
-    ? 4
-    : planningChapterCount <= 12
-      ? 3
-      : 2;
+  const preferredSubtopics = compact
+    ? (planningChapterCount <= 2 ? 2 : 1)
+    : planningChapterCount <= 2
+      ? 4
+      : planningChapterCount <= 12
+        ? 3
+        : 2;
   const subtopicsPerTopic = Math.max(1, Math.min(preferredSubtopics, mapSafeSubtopics));
-  const minimumImportantQuestions = Math.min(
-    16,
-    Math.max(10, planningChapterCount * 2),
-  );
-  const minimumNoteSections = Math.min(12, Math.max(6, totalTopics));
+  const minimumImportantQuestions = compact
+    ? Math.min(8, Math.max(5, planningChapterCount))
+    : Math.min(16, Math.max(10, planningChapterCount * 2));
+  const minimumNoteSections = compact
+    ? Math.min(6, Math.max(4, Math.ceil(totalTopics / 2)))
+    : Math.min(12, Math.max(6, totalTopics));
 
   return {
     expectedChapterCount,
     planningChapterCount,
     minimumExamplesPerSubtopic: 1,
-    minimumExamplesPerTopic: planningChapterCount <= 2 ? 2 : 1,
+    minimumExamplesPerTopic: compact ? 1 : planningChapterCount <= 2 ? 2 : 1,
     minimumImportantQuestions,
     minimumNoteSections,
     minimumSubtopicsPerTopic: subtopicsPerTopic,
@@ -202,31 +212,57 @@ function isGroqJsonFailure(payload) {
     || message.includes("failed to generate json");
 }
 
-function isProviderSizeLimit(response, payload) {
+function isProviderRateLimit(response, payload) {
   const code = cleanInline(payload?.error?.code, 80).toLocaleLowerCase();
+  const type = cleanInline(payload?.error?.type, 80).toLocaleLowerCase();
+  const message = cleanInline(payload?.error?.message, 300).toLocaleLowerCase();
+  return response.status === 429
+    || code === "rate_limit_exceeded"
+    || code === "rate_limit"
+    || type === "rate_limit_error"
+    || message.includes("rate limit")
+    || message.includes("tokens per minute");
+}
+
+function isProviderTokenBudgetLimit(response, payload) {
+  return response.status === 413 && isProviderRateLimit(response, payload);
+}
+
+function isProviderSizeLimit(response, payload) {
+  if (isProviderRateLimit(response, payload)) return false;
+  const code = cleanInline(payload?.error?.code, 80).toLocaleLowerCase();
+  const message = cleanInline(payload?.error?.message, 300).toLocaleLowerCase();
   return response.status === 413
-    || code === "context_length_exceeded";
+    || code === "context_length_exceeded"
+    || message.includes("context length")
+    || message.includes("request too large");
 }
 
 function createProviderError(response, payload = {}) {
-  const code = cleanInline(payload?.error?.code, 80).toLocaleLowerCase();
+  const isRateLimit = isProviderRateLimit(response, payload);
   const isSizeLimit = isProviderSizeLimit(response, payload);
-  const isRateLimit = response.status === 429 || code === "rate_limit_exceeded";
   return new LearningNotebookError(
-    isSizeLimit
-      ? "The uploaded material is larger than the current AI processing limit. Try fewer chapters or one file at a time."
-      : isRateLimit
-        ? "The learning assistant is busy. Please retry in a moment."
+    isRateLimit
+      ? "The learning assistant is busy. Please retry in a moment."
+      : isSizeLimit
+        ? "The source material and requested notebook exceed the current AI processing limit. Try fewer chapters or one file at a time."
         : "The learning assistant could not generate this notebook.",
     {
-      code: isSizeLimit
-        ? "LEARNING_PROVIDER_SIZE_LIMIT"
-        : isRateLimit
-          ? "LEARNING_PROVIDER_RATE_LIMIT"
+      code: isRateLimit
+        ? "LEARNING_PROVIDER_RATE_LIMIT"
+        : isSizeLimit
+          ? "LEARNING_PROVIDER_SIZE_LIMIT"
           : "LEARNING_PROVIDER_ERROR",
-      status: isSizeLimit ? 413 : isRateLimit ? 429 : 502,
+      status: isRateLimit ? 429 : isSizeLimit ? 413 : 502,
     },
   );
+}
+
+function estimateLearningTextTokens(value) {
+  // Llama's byte-level tokenizer cannot produce more tokens than the UTF-8
+  // bytes supplied. Use that upper bound instead of an average chars/token
+  // estimate so code, formulas, and random identifiers remain within budget.
+  return Buffer.byteLength(String(value ?? ""), "utf8");
 }
 
 function sampleLearningText(value, maxChars) {
@@ -246,28 +282,67 @@ function sampleLearningText(value, maxChars) {
   return slices.join(separator).slice(0, maxChars);
 }
 
+function sampleLearningTextWithinTokenBudget(value, maxChars, maxEstimatedTokens) {
+  let charLimit = Math.max(1, maxChars);
+  let sampled = sampleLearningText(value, charLimit);
+  for (let pass = 0; pass < 12; pass += 1) {
+    const estimatedTokens = estimateLearningTextTokens(sampled);
+    if (estimatedTokens <= maxEstimatedTokens) return sampled;
+    const nextLimit = Math.max(
+      1,
+      Math.floor(charLimit * maxEstimatedTokens / estimatedTokens * 0.9),
+    );
+    charLimit = nextLimit < charLimit ? nextLimit : Math.max(1, charLimit - 1);
+    sampled = sampleLearningText(value, charLimit);
+  }
+  let fitted = "";
+  let fittedTokens = 0;
+  for (const character of sampled) {
+    const characterTokens = estimateLearningTextTokens(character);
+    if (fittedTokens + characterTokens > maxEstimatedTokens) break;
+    fitted += character;
+    fittedTokens += characterTokens;
+  }
+  return fitted;
+}
+
 export function compactLearningSourceMaterial({
   pdfDocuments = [],
   textSources = [],
-} = {}, maxChars = MAX_LEARNING_AI_SOURCE_CHARS) {
+} = {}, maxChars = MAX_LEARNING_AI_SOURCE_CHARS, maxEstimatedTokens = Infinity) {
   const safeMaxChars = Math.max(
     1_000,
     Math.min(MAX_LEARNING_AI_SOURCE_CHARS, Number(maxChars) || 0),
   );
+  const numericTokenBudget = Number(maxEstimatedTokens);
+  const safeTokenBudget = Number.isFinite(numericTokenBudget) && numericTokenBudget > 0
+    ? Math.max(500, Math.floor(numericTokenBudget))
+    : Infinity;
   const sourceCount = pdfDocuments.length + textSources.length;
   if (!sourceCount) {
     return {
       pdfDocuments: [],
       textSources: [],
       totalIncludedChars: 0,
+      estimatedIncludedTokens: 0,
       wasCompacted: false,
     };
   }
   const perSourceLimit = Math.max(500, Math.floor(safeMaxChars / sourceCount));
+  const perSourceTokenLimit = Number.isFinite(safeTokenBudget)
+    ? Math.max(400, Math.floor(safeTokenBudget / sourceCount))
+    : Infinity;
   let wasCompacted = false;
   const compactRows = (rows) => rows.map((row) => {
     const originalText = normalizeSourceText(row?.text);
-    const text = sampleLearningText(originalText, perSourceLimit);
+    const charSample = sampleLearningText(originalText, perSourceLimit);
+    const text = Number.isFinite(perSourceTokenLimit)
+      ? sampleLearningTextWithinTokenBudget(
+          charSample,
+          charSample.length,
+          perSourceTokenLimit,
+        )
+      : charSample;
     if (text.length < originalText.length) wasCompacted = true;
     return {
       ...row,
@@ -282,8 +357,39 @@ export function compactLearningSourceMaterial({
     textSources: compactTextSources,
     totalIncludedChars: [...compactPdfDocuments, ...compactTextSources]
       .reduce((sum, row) => sum + row.text.length, 0),
+    estimatedIncludedTokens: [...compactPdfDocuments, ...compactTextSources]
+      .reduce((sum, row) => sum + estimateLearningTextTokens(row.text), 0),
     wasCompacted,
   };
+}
+
+function estimateLearningContentTokens(content) {
+  if (!Array.isArray(content)) return estimateLearningTextTokens(content);
+  return content.reduce((sum, item) => {
+    if (item?.type === "text") return sum + estimateLearningTextTokens(item.text);
+    if (item?.type === "image_url") {
+      return sum + Math.ceil(String(item?.image_url?.url || "").length / 4);
+    }
+    return sum;
+  }, 0);
+}
+
+function learningCompletionTokenBudget(preferredTokens, systemPrompt, userContent) {
+  const estimatedPromptTokens = estimateLearningTextTokens(systemPrompt)
+    + estimateLearningContentTokens(userContent)
+    + 32;
+  const availableTokens = Math.floor(
+    GROQ_LEARNING_TOKEN_BUDGET
+    - GROQ_LEARNING_TOKEN_HEADROOM
+    - estimatedPromptTokens,
+  );
+  if (availableTokens < MIN_GROQ_LEARNING_COMPLETION_TOKENS) {
+    throw new LearningNotebookError(
+      "The source material and requested notebook exceed the current AI processing limit. Try fewer chapters or one file at a time.",
+      { code: "LEARNING_PROVIDER_SIZE_LIMIT", status: 413 },
+    );
+  }
+  return Math.min(preferredTokens, availableTokens);
 }
 
 export async function requestLearningNotebookJson({
@@ -295,11 +401,25 @@ export async function requestLearningNotebookJson({
   validateNotebook = hasLearningNotebookShape,
 }) {
   const usesReasoningControls = /^qwen\//iu.test(String(model || ""));
+  let previousCompletionTokens = null;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const completionTokens = attempt === 0
+    const preferredCompletionTokens = attempt === 0
       ? MAX_LEARNING_COMPLETION_TOKENS
-      : LEARNING_RETRY_COMPLETION_TOKENS;
+      : Math.max(
+          MIN_GROQ_LEARNING_COMPLETION_TOKENS,
+          Math.min(
+            LEARNING_RETRY_COMPLETION_TOKENS,
+            Number(previousCompletionTokens) - GROQ_LEARNING_RETRY_REDUCTION_TOKENS,
+          ),
+        );
+    const completionTokens = learningCompletionTokenBudget(
+      preferredCompletionTokens,
+      systemPrompt,
+      userContent,
+    );
+    const hasSmallerRetryBudget = completionTokens > MIN_GROQ_LEARNING_COMPLETION_TOKENS;
+    previousCompletionTokens = completionTokens;
     const body = {
       model,
       temperature: attempt === 0 ? 0.2 : 0.1,
@@ -327,9 +447,13 @@ export async function requestLearningNotebookJson({
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      const retryableTokenBudgetFailure = (
+        isProviderSizeLimit(response, payload)
+        || isProviderTokenBudgetLimit(response, payload)
+      ) && hasSmallerRetryBudget;
       if (attempt === 0 && (
         (response.status === 400 && isGroqJsonFailure(payload))
-        || isProviderSizeLimit(response, payload)
+        || retryableTokenBudgetFailure
       )) {
         continue;
       }
@@ -490,14 +614,28 @@ function buildTextSourceSections(textSources) {
 function buildGenerationPrompts({
   careerEligibility,
   chapterNames,
+  compactOutput = false,
   learnerContext,
   subjectName,
   textSources,
   manualMode,
 }) {
-  const depthTargets = buildLearningNotebookDepthTargets(chapterNames);
-  const topicExplanationLength = depthTargets.planningChapterCount <= 2 ? "180-320 words" : "120-220 words";
-  const subtopicExplanationLength = depthTargets.planningChapterCount <= 2 ? "80-150 words" : "60-110 words";
+  const depthTargets = buildLearningNotebookDepthTargets(chapterNames, { compact: compactOutput });
+  const topicExplanationLength = compactOutput
+    ? "70-110 words"
+    : depthTargets.planningChapterCount <= 2 ? "180-320 words" : "120-220 words";
+  const subtopicExplanationLength = compactOutput
+    ? "35-60 words"
+    : depthTargets.planningChapterCount <= 2 ? "80-150 words" : "60-110 words";
+  const topicDetailRule = compactOutput
+    ? "For every topic, write a " + topicExplanationLength + " teaching explanation covering definition, intuition, how it works, and when it is used. Include 2-3 learning objectives, 4-5 specific key points, " + depthTargets.minimumExamplesPerTopic + " worked example, 1-2 applications, 1-2 common mistakes, and 1-2 actionable revision tips."
+    : "For every topic, write a " + topicExplanationLength + " teaching explanation covering definition, intuition, how it works, relationships, and when it is used. Include 3-5 learning objectives, 4-7 specific key points, " + depthTargets.minimumExamplesPerTopic + " worked examples, 2-4 applications, 2-4 common mistakes, and 2-4 actionable revision tips.";
+  const subtopicDetailRule = compactOutput
+    ? "For every subtopic, write a " + subtopicExplanationLength + " explanation, 2-3 recall-ready key points, and at least " + depthTargets.minimumExamplesPerSubtopic + " concrete example."
+    : "For every subtopic, write a " + subtopicExplanationLength + " explanation, 2-5 recall-ready key points, and at least " + depthTargets.minimumExamplesPerSubtopic + " concrete example.";
+  const notesAndQuestionsRule = compactOutput
+    ? "Create at least " + depthTargets.minimumNoteSections + " focused revised-note sections with examples, and at least " + depthTargets.minimumImportantQuestions + " important questions with concise model answers and why each matters."
+    : "Create at least " + depthTargets.minimumNoteSections + " revised-note sections with multi-paragraph explanations and examples, and at least " + depthTargets.minimumImportantQuestions + " important questions with complete model answers and why each matters.";
   const chapterPlanningRule = depthTargets.expectedChapterCount
     ? `Preserve all ${depthTargets.expectedChapterCount} named chapters in the supplied order.`
     : "Identify 3-4 major chapters from the supplied material before expanding their topics.";
@@ -541,10 +679,10 @@ function buildGenerationPrompts({
     "Create easy-to-revise notes with a clear hierarchy. Cover all named chapters when chapter data is provided.",
     chapterPlanningRule,
     `Generate exactly ${depthTargets.topicsPerChapter} distinct, non-overlapping topics for every chapter and exactly ${depthTargets.subtopicsPerTopic} meaningful subtopics for every topic. These counts are required, not optional.`,
-    `For every topic, write a ${topicExplanationLength} teaching explanation covering definition, intuition, how it works, relationships, and when it is used. Include 3-5 learning objectives, 4-7 specific key points, ${depthTargets.minimumExamplesPerTopic} worked examples, 2-4 applications, 2-4 common mistakes, and 2-4 actionable revision tips.`,
+    topicDetailRule,
     "Each topic example must be self-contained and include a concrete problem or scenario, the reasoning or steps, the result, and a takeaway. Use realistic academic, technical, or everyday examples rather than generic filler.",
-    `For every subtopic, write a ${subtopicExplanationLength} explanation, 2-5 recall-ready key points, and at least ${depthTargets.minimumExamplesPerSubtopic} concrete example.`,
-    `Create at least ${depthTargets.minimumNoteSections} revised-note sections with multi-paragraph explanations and examples, and at least ${depthTargets.minimumImportantQuestions} important questions with complete model answers and why each matters.`,
+    subtopicDetailRule,
+    notesAndQuestionsRule,
     "Put important exam, placement, or conceptual questions first. Give complete, focused model answers and explain why each question matters.",
     "Keep the returned mindMap compact with a root plus only useful cross-cutting concept or question nodes. PrepMatrix derives the complete chapter-topic-subtopic map from the detailed hierarchy, so prioritize teaching content over duplicating labels.",
     `Return this exact JSON shape:\n${schema}`,
@@ -911,6 +1049,18 @@ export function registerLearningNotebookRoutes(app, {
           error: geminiConfig?.message || groqConfig?.message || "The shared AI provider is not configured on the server.",
         });
       }
+      if (
+        !geminiAvailable
+        && groqAvailable
+        && chapterNames.length > MAX_GROQ_LEARNING_CHAPTERS
+      ) {
+        return res.status(400).json({
+          code: "LEARNING_GROQ_CHAPTER_LIMIT",
+          error: "With the current AI provider, generate up to "
+            + MAX_GROQ_LEARNING_CHAPTERS
+            + " chapters at a time.",
+        });
+      }
 
       const db = await getDb();
       const collection = db.collection(LEARNING_NOTEBOOKS_COLLECTION);
@@ -961,7 +1111,7 @@ export function registerLearningNotebookRoutes(app, {
           geminiFailure = error;
         }
       }
-      if (!generationResult && groqAvailable) {
+      if (!generationResult && groqAvailable && chapterNames.length <= MAX_GROQ_LEARNING_CHAPTERS) {
         generationResult = await generateLearningNotebookWithGroq({
           apiKey: groqConfig.apiKey,
           attachments,
@@ -1686,25 +1836,30 @@ function buildCareerAnalysisPrompts({
 function createGeminiProviderError(response, payload = {}) {
   const providerStatus = cleanInline(payload?.error?.status, 80).toLocaleUpperCase();
   const providerMessage = cleanInline(payload?.error?.message, 300).toLocaleLowerCase();
-  const isSizeLimit = response.status === 413
+  const isRateLimit = response.status === 429
+    || providerStatus === "RESOURCE_EXHAUSTED"
+    || providerMessage.includes("rate limit")
+    || providerMessage.includes("quota exceeded");
+  const isSizeLimit = !isRateLimit && (
+    response.status === 413
     || providerStatus === "REQUEST_TOO_LARGE"
     || providerMessage.includes("context length")
     || providerMessage.includes("input token")
-    || providerMessage.includes("request too large");
-  const isRateLimit = response.status === 429 || providerStatus === "RESOURCE_EXHAUSTED";
+    || providerMessage.includes("request too large")
+  );
   return new LearningNotebookError(
-    isSizeLimit
-      ? "The uploaded material is larger than the current AI processing limit. Try fewer chapters or one file at a time."
-      : isRateLimit
-        ? "The learning assistant is busy. Please retry in a moment."
+    isRateLimit
+      ? "The learning assistant is busy. Please retry in a moment."
+      : isSizeLimit
+        ? "The source material and requested notebook exceed the current AI processing limit. Try fewer chapters or one file at a time."
         : "The learning assistant could not generate this notebook.",
     {
-      code: isSizeLimit
-        ? "LEARNING_PROVIDER_SIZE_LIMIT"
-        : isRateLimit
-          ? "LEARNING_PROVIDER_RATE_LIMIT"
+      code: isRateLimit
+        ? "LEARNING_PROVIDER_RATE_LIMIT"
+        : isSizeLimit
+          ? "LEARNING_PROVIDER_SIZE_LIMIT"
           : "LEARNING_PROVIDER_ERROR",
-      status: isSizeLimit ? 413 : isRateLimit ? 429 : 502,
+      status: isRateLimit ? 429 : isSizeLimit ? 413 : 502,
     },
   );
 }
@@ -1900,6 +2055,7 @@ export async function requestGroqCareerTopicAnalysisJson({
       if (attempt === 0 && (
         (response.status === 400 && isGroqJsonFailure(payload))
         || isProviderSizeLimit(response, payload)
+        || isProviderTokenBudgetLimit(response, payload)
       )) {
         continue;
       }
@@ -2038,13 +2194,18 @@ async function generateLearningNotebookWithGroq({
         },
       ]
     : textSources;
-  const compactSources = compactLearningSourceMaterial({
-    pdfDocuments: attachmentContext.pdfDocuments,
-    textSources: promptTextSources,
-  });
+  const compactSources = compactLearningSourceMaterial(
+    {
+      pdfDocuments: attachmentContext.pdfDocuments,
+      textSources: promptTextSources,
+    },
+    MAX_LEARNING_AI_SOURCE_CHARS,
+    MAX_LEARNING_AI_SOURCE_TOKENS,
+  );
   const prompts = buildGenerationPrompts({
     careerEligibility,
     chapterNames,
+    compactOutput: true,
     learnerContext,
     manualMode,
     subjectName,

@@ -4,7 +4,9 @@ import {
   DEFAULT_GEMINI_LEARNING_MODEL,
   MAX_GEMINI_LEARNING_OUTPUT_TOKENS,
   LEARNING_RETRY_COMPLETION_TOKENS,
+  MAX_GROQ_LEARNING_CHAPTERS,
   MAX_LEARNING_AI_SOURCE_CHARS,
+  MAX_LEARNING_AI_SOURCE_TOKENS,
   MAX_LEARNING_COMPLETION_TOKENS,
   compactLearningSourceMaterial,
   MAX_LEARNING_VISION_TEXT_CHARS,
@@ -392,7 +394,8 @@ test("routes scanned inputs through Qwen OCR and Llama structured generation", a
   assert.equal(requests[0].model, "qwen/qwen3.6-27b");
   assert.equal(requests[0].reasoning_effort, "none");
   assert.equal(requests[1].model, "llama-3.3-70b-versatile");
-  assert.equal(requests[1].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
+  assert.ok(requests[1].max_tokens < MAX_LEARNING_COMPLETION_TOKENS);
+  assert.ok(requests[1].max_tokens >= 3_000);
   assert.match(requests[1].messages[1].content, /Quantum gates and qubits/u);
   assert.equal(stored[0].model, "llama-3.3-70b-versatile");
   assert.equal(res.body.notebook.model, "llama-3.3-70b-versatile");
@@ -417,7 +420,41 @@ test("samples every uploaded source within the learning AI character budget", ()
   assert.match(compacted.pdfDocuments[1].text, /SECOND-END$/u);
 });
 
-test("retries one provider size rejection with a smaller completion budget", async () => {
+test("compacts Unicode-heavy sources to the Groq estimated-token budget", () => {
+  const compacted = compactLearningSourceMaterial(
+    {
+      pdfDocuments: [{
+        name: "unicode-notes.pdf",
+        text: "\u0921\u0947\u091f\u093e \u0938\u0902\u091a\u093e\u0930 \u0928\u0947\u091f\u0935\u0930\u094d\u0915 ".repeat(2_000),
+      }],
+    },
+    MAX_LEARNING_AI_SOURCE_CHARS,
+    MAX_LEARNING_AI_SOURCE_TOKENS,
+  );
+
+  assert.ok(compacted.estimatedIncludedTokens <= MAX_LEARNING_AI_SOURCE_TOKENS);
+  assert.equal(compacted.wasCompacted, true);
+});
+
+test("compacts dense ASCII sources with a byte-safe Groq token upper bound", () => {
+  const denseAscii = "aB9_/\\|{}[]()<>!?$%^&*-=+;:,.".repeat(400);
+  const compacted = compactLearningSourceMaterial(
+    {
+      pdfDocuments: [{ name: "dense-code.pdf", text: denseAscii }],
+    },
+    MAX_LEARNING_AI_SOURCE_CHARS,
+    MAX_LEARNING_AI_SOURCE_TOKENS,
+  );
+
+  assert.ok(compacted.estimatedIncludedTokens <= MAX_LEARNING_AI_SOURCE_TOKENS);
+  assert.equal(
+    compacted.estimatedIncludedTokens,
+    Buffer.byteLength(compacted.pdfDocuments[0].text, "utf8"),
+  );
+  assert.equal(compacted.wasCompacted, true);
+});
+
+test("retries one provider token-rate rejection with a smaller completion budget", async () => {
   const requests = [];
   const fetchImpl = async (_url, options) => {
     requests.push(JSON.parse(options.body));
@@ -452,6 +489,178 @@ test("retries one provider size rejection with a smaller completion budget", asy
   assert.equal(requests[1].max_tokens, LEARNING_RETRY_COMPLETION_TOKENS);
 });
 
+test("strictly reduces a dynamically capped token-budget retry", async () => {
+  const requests = [];
+  const fetchImpl = async (_url, options) => {
+    requests.push(JSON.parse(options.body));
+    if (requests.length === 1) {
+      return {
+        ok: false,
+        status: 413,
+        json: async () => ({
+          error: {
+            code: "rate_limit_exceeded",
+            message: "Tokens per minute rate limit exceeded.",
+          },
+        }),
+      };
+    }
+    return groqNotebookResponse();
+  };
+
+  await requestLearningNotebookJson({
+    apiKey: "test-key",
+    fetchImpl,
+    model: "llama-3.3-70b-versatile",
+    systemPrompt: "S",
+    userContent: "A".repeat(7_217),
+  });
+
+  assert.deepEqual(requests.map((request) => request.max_tokens), [4_000, 3_500]);
+});
+
+test("does not immediately retry an ordinary provider 429", async () => {
+  let attempts = 0;
+  await assert.rejects(
+    () => requestLearningNotebookJson({
+      apiKey: "test-key",
+      fetchImpl: async () => {
+        attempts += 1;
+        return {
+          ok: false,
+          status: 429,
+          json: async () => ({
+            error: {
+              code: "rate_limit_exceeded",
+              message: "Rate limit exceeded.",
+            },
+          }),
+        };
+      },
+      model: "llama-3.3-70b-versatile",
+      systemPrompt: "Return JSON.",
+      userContent: "Generate a notebook.",
+    }),
+    (error) => error.code === "LEARNING_PROVIDER_RATE_LIMIT" && error.status === 429,
+  );
+  assert.equal(attempts, 1);
+});
+
+test("derives a smaller completion allowance for a large estimated prompt", async () => {
+  const requests = [];
+  await requestLearningNotebookJson({
+    apiKey: "test-key",
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      return groqNotebookResponse();
+    },
+    model: "llama-3.3-70b-versatile",
+    systemPrompt: "Return JSON.",
+    userContent: "\u0921\u0947\u091f\u093e".repeat(500),
+  });
+
+  assert.equal(requests.length, 1);
+  assert.ok(requests[0].max_tokens < MAX_LEARNING_COMPLETION_TOKENS);
+  assert.ok(requests[0].max_tokens >= 3_000);
+});
+
+test("keeps adversarial ASCII prompt and completion under the Groq token budget", async () => {
+  const requests = [];
+  await requestLearningNotebookJson({
+    apiKey: "test-key",
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      return groqNotebookResponse();
+    },
+    model: "llama-3.3-70b-versatile",
+    systemPrompt: "Return strict JSON.",
+    userContent: "aB9_/\\|{}[]()<>!?$%^&*-=+;:,.".repeat(175),
+  });
+
+  const request = requests[0];
+  const promptByteUpperBound = request.messages.reduce(
+    (sum, message) => sum + Buffer.byteLength(message.content, "utf8"),
+    32,
+  );
+  assert.ok(promptByteUpperBound + request.max_tokens + 750 <= 12_000);
+});
+
+test("does not retry a token-budget rejection at the minimum completion budget", async () => {
+  const requestedTokens = [];
+  await assert.rejects(
+    () => requestLearningNotebookJson({
+      apiKey: "test-key",
+      fetchImpl: async (_url, options) => {
+        requestedTokens.push(JSON.parse(options.body).max_tokens);
+        return {
+          ok: false,
+          status: 413,
+          json: async () => ({
+            error: {
+              code: "rate_limit_exceeded",
+              message: "Tokens per minute rate limit exceeded.",
+            },
+          }),
+        };
+      },
+      model: "llama-3.3-70b-versatile",
+      systemPrompt: "S",
+      userContent: "A".repeat(8_217),
+    }),
+    (error) => error.code === "LEARNING_PROVIDER_RATE_LIMIT" && error.status === 429,
+  );
+  assert.deepEqual(requestedTokens, [3_000]);
+});
+
+test("classifies repeated Groq token-rate 413 responses as provider throttling", async () => {
+  let attempts = 0;
+  await assert.rejects(
+    () => requestLearningNotebookJson({
+      apiKey: "test-key",
+      fetchImpl: async () => {
+        attempts += 1;
+        return {
+          ok: false,
+          status: 413,
+          json: async () => ({
+            error: {
+              code: "rate_limit_exceeded",
+              type: "tokens",
+              message: "Tokens per minute rate limit exceeded.",
+            },
+          }),
+        };
+      },
+      model: "llama-3.3-70b-versatile",
+      systemPrompt: "Return JSON.",
+      userContent: "Generate a notebook.",
+    }),
+    (error) => error.code === "LEARNING_PROVIDER_RATE_LIMIT" && error.status === 429,
+  );
+  assert.equal(attempts, 2);
+});
+
+test("keeps a true Groq context rejection distinct from provider throttling", async () => {
+  await assert.rejects(
+    () => requestLearningNotebookJson({
+      apiKey: "test-key",
+      fetchImpl: async () => ({
+        ok: false,
+        status: 413,
+        json: async () => ({
+          error: {
+            code: "context_length_exceeded",
+            message: "Request too large for the model context length.",
+          },
+        }),
+      }),
+      model: "llama-3.3-70b-versatile",
+      systemPrompt: "Return JSON.",
+      userContent: "Generate a notebook.",
+    }),
+    (error) => error.code === "LEARNING_PROVIDER_SIZE_LIMIT" && error.status === 413,
+  );
+});
 function geminiNotebookResponse(notebook = validGeneratedNotebook()) {
   return {
     ok: true,
@@ -685,7 +894,10 @@ test("lazily extracts PDFs and uses the preserved Groq fallback after a Gemini t
   assert.equal(res.statusCode, 201);
   assert.deepEqual(sequence, ["gemini", "prepare", "groq"]);
   assert.equal(harness.prepareCalls, 1);
-  assert.equal(groqRequests[0].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
+  assert.ok(groqRequests[0].max_tokens < MAX_LEARNING_COMPLETION_TOKENS);
+  assert.ok(groqRequests[0].max_tokens >= 3_000);
+  assert.match(groqRequests[0].messages[1].content, /Generate exactly 4 distinct.*exactly 2 meaningful subtopics/u);
+  assert.match(groqRequests[0].messages[1].content, /4-5 specific key points/u);
   assert.match(groqRequests[0].messages[1].content, /isolated address spaces/u);
   assert.equal(harness.stored[0].model, "llama-3.3-70b-versatile");
   assert.equal(res.body.notebook.model, "llama-3.3-70b-versatile");
@@ -715,6 +927,60 @@ test("falls back to Groq when Gemini returns malformed notebook output", async (
   assert.equal(res.body.notebook.model, "llama-3.3-70b-versatile");
 });
 
+test("rejects oversized Groq-only chapter sets before reserving credits", async () => {
+  let fetchCalls = 0;
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return groqNotebookResponse();
+    },
+  });
+
+  const res = await harness.analyze({
+    chapterNames: Array.from(
+      { length: MAX_GROQ_LEARNING_CHAPTERS + 1 },
+      (_, index) => "Chapter " + (index + 1),
+    ),
+  });
+
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.code, "LEARNING_GROQ_CHAPTER_LIMIT");
+  assert.equal(fetchCalls, 0);
+  assert.equal(harness.aiQuota.calls.reserve.length, 0);
+});
+
+test("returns the public provider-rate-limit error and refunds after repeated Groq token throttling", async () => {
+  let fetchCalls = 0;
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return {
+        ok: false,
+        status: 413,
+        json: async () => ({
+          error: {
+            code: "rate_limit_exceeded",
+            type: "tokens",
+            message: "Tokens per minute rate limit exceeded.",
+          },
+        }),
+      };
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(fetchCalls, 2);
+  assert.equal(res.statusCode, 429);
+  assert.equal(res.body.code, "AI_PROVIDER_RATE_LIMITED");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.match(res.body.error, /credits were refunded/i);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
 test("rejects an exhausted learning-notebook quota before any provider request", async () => {
   let fetchCalls = 0;
   const exhaustedQuota = {
