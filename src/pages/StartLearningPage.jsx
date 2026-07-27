@@ -31,6 +31,13 @@ import { createPortal } from "react-dom";
 import { jsPDF } from "jspdf";
 import api from "../utils/apiClient";
 import {
+  AI_FEATURES,
+  createAiIdempotencyKey,
+  getAiRequestErrorMessage,
+  useAiQuota,
+} from "../utils/aiQuota";
+import { AiCreditCost } from "../components/AiQuotaProvider";
+import {
   CHAT_ATTACHMENT_ACCEPT,
   MAX_CHAT_ATTACHMENTS,
   formatChatFileSize,
@@ -479,6 +486,7 @@ function StartLearningPage({
   setSubjects,
   setNotification,
 }) {
+  const { hasInsufficientCredits } = useAiQuota();
   const fileInputRef = useRef(null);
   const subjectInputRef = useRef(null);
   const subjectOptionsRef = useRef(null);
@@ -811,6 +819,11 @@ function StartLearningPage({
   };
 
   const runNotebookAnalysis = async ({ chapterNames, cleanSubject }) => {
+    if (hasInsufficientCredits(AI_FEATURES.LEARNING_NOTEBOOK)) {
+      setAnalysisError(getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }));
+      return;
+    }
+
     setAnalyzing(true);
     setAnalysisError("");
     beginAnalysisProgress();
@@ -839,7 +852,10 @@ function StartLearningPage({
           accepted: true,
           version: LEARNING_PRIVACY_CONSENT_VERSION,
         },
-      }, { timeoutMs: 120000 });
+      }, {
+        timeoutMs: 120000,
+        headers: { "Idempotency-Key": createAiIdempotencyKey() },
+      });
       if (!mountedRef.current) return;
       if (analysisTimerRef.current) window.clearInterval(analysisTimerRef.current);
       setAnalysisStep(ANALYSIS_STEPS.length - 1);
@@ -855,7 +871,7 @@ function StartLearningPage({
       setNotification?.("Your learning notebook is ready.");
     } catch (error) {
       if (!mountedRef.current) return;
-      setAnalysisError(error instanceof Error ? error.message : "The notebook could not be generated.");
+      setAnalysisError(getAiRequestErrorMessage(error, "The notebook could not be generated."));
     } finally {
       if (analysisTimerRef.current) window.clearInterval(analysisTimerRef.current);
       analysisTimerRef.current = null;
@@ -878,6 +894,11 @@ function StartLearningPage({
   };
 
   const runCareerAnalysis = async ({ targetRole, topics }) => {
+    if (hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)) {
+      setCareerError(getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }));
+      return;
+    }
+
     if (!activeNotebook?.id || careerAnalyzing) return;
     setCareerAnalyzing(true);
     setCareerError("");
@@ -892,7 +913,10 @@ function StartLearningPage({
             version: LEARNING_PRIVACY_CONSENT_VERSION,
           },
         },
-        { timeoutMs: 120000 },
+        {
+          timeoutMs: 120000,
+          headers: { "Idempotency-Key": createAiIdempotencyKey() },
+        },
       );
       if (!mountedRef.current) return;
       const normalized = normalizeNotebook(payload?.notebook);
@@ -907,7 +931,7 @@ function StartLearningPage({
       setNotification?.("Your placement preparation guide is ready.");
     } catch (error) {
       if (mountedRef.current) {
-        setCareerError(error instanceof Error ? error.message : "Placement topics could not be analyzed.");
+        setCareerError(getAiRequestErrorMessage(error, "Placement topics could not be analyzed."));
       }
     } finally {
       if (mountedRef.current) setCareerAnalyzing(false);
@@ -1607,12 +1631,13 @@ function StartLearningPage({
           {analysisError && <p className="learning-inline-error" role="alert">{analysisError}</p>}
           <button
             className="learning-analyze-btn"
-            disabled={analyzing || preparingSources}
+            disabled={analyzing || preparingSources || hasInsufficientCredits(AI_FEATURES.LEARNING_NOTEBOOK)}
             onClick={analyzeNotebook}
             type="button"
           >
             {analyzing ? <LoaderCircle className="spinner" size={17} /> : <BrainCircuit size={17} />}
             {analyzing ? "Building notebook…" : "Analyze & start learning"}
+            <AiCreditCost feature={AI_FEATURES.LEARNING_NOTEBOOK} />
           </button>
 
           {analyzing && (
@@ -2486,12 +2511,13 @@ function StartLearningPage({
               {careerError && <p className="learning-inline-error" role="alert">{careerError}</p>}
               <button
                 className="learning-career-analyze"
-                disabled={careerAnalyzing}
+                disabled={careerAnalyzing || hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)}
                 onClick={analyzeCareerTopics}
                 type="button"
               >
                 {careerAnalyzing ? <LoaderCircle className="spinner" size={17} /> : <BrainCircuit size={17} />}
                 {careerAnalyzing ? "Analyzing preparation topics..." : "Analyze preparation topics"}
+                <AiCreditCost feature={AI_FEATURES.CAREER_ANALYSIS} />
               </button>
             </section>
 

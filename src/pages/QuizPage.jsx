@@ -6,6 +6,13 @@ import { toast } from "react-toastify";
 import { Download, Search, Trash2, Check, X } from "lucide-react";
 import api from "../utils/apiClient";
 import {
+  AI_FEATURES,
+  createAiIdempotencyKey,
+  getAiRequestErrorMessage,
+  useAiQuota,
+} from "../utils/aiQuota";
+import { AiCreditCost } from "../components/AiQuotaProvider";
+import {
   academicProfilePayload,
   buildLearnerAcademicContext,
 } from "../utils/academicProfile";
@@ -27,6 +34,7 @@ function rankSearchMatch(fields, query) {
 }
 
 function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], schedule = [], completed = [] }) {
+  const { hasInsufficientCredits } = useAiQuota();
   const [topic, setTopic] = useState("");
   const [subjectName, setSubjectName] = useState("");
   const [questionLimit, setQuestionLimit] = useState(5);
@@ -255,6 +263,10 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
       setSaveError("Enter the exact topic first, for example: Travelling salesman problem.");
       return;
     }
+    if (hasInsufficientCredits(AI_FEATURES.QUIZ)) {
+      setSaveError(getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }));
+      return;
+    }
 
     try {
       setIsGenerating(true);
@@ -269,12 +281,15 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
         subjectName: selectedSubject,
         topic: cleanTopic,
         limit: questionLimit,
+      }, {
+        headers: { "Idempotency-Key": createAiIdempotencyKey() },
+        timeoutMs: 120000,
       });
 
       setQuestions(payload.questions || []);
       setQuizMeta({ model: payload.model, limit: payload.limit, subjectName: selectedSubject, topic: payload.topic });
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Could not generate quiz.");
+      setSaveError(getAiRequestErrorMessage(error, "Could not generate quiz."));
     } finally {
       setIsGenerating(false);
     }
@@ -473,12 +488,13 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
 
         {saveError && <p className="auth-message" role="alert">{saveError}</p>}
 
+        <AiCreditCost feature={AI_FEATURES.QUIZ} />
         <button
           aria-describedby="quiz-eligibility-status"
           className="action-btn"
-          disabled={isGenerating || !quizEligibility.isEligible}
+          disabled={isGenerating || !quizEligibility.isEligible || hasInsufficientCredits(AI_FEATURES.QUIZ)}
           onClick={startQuiz}
-          title={!quizEligibility.isEligible ? quizEligibilityMessage : "Generate AI quiz"}
+          title={!quizEligibility.isEligible ? quizEligibilityMessage : hasInsufficientCredits(AI_FEATURES.QUIZ) ? "Not enough AI credits" : "Generate AI quiz"}
           type="button"
         >
           {isGenerating ? "Generating topic quiz..." : "Generate AI quiz"}

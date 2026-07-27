@@ -19234,3 +19234,259 @@ body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {
     transition: none !important;
   }
 }
+/* Per-student monthly AI credits */
+.ai-credit-indicator {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+body .ai-credit-trigger {
+  min-height: 38px !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.24) !important;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.2), rgba(109, 93, 252, 0.12)) !important;
+  color: var(--text) !important;
+  box-shadow: 0 8px 20px rgba(20, 33, 58, 0.08) !important;
+  white-space: nowrap;
+}
+
+body .ai-credit-trigger:hover {
+  border-color: rgba(var(--accent-rgb), 0.42) !important;
+  transform: translateY(-1px);
+}
+
+body .ai-credit-trigger.is-empty {
+  border-color: rgba(239, 68, 68, 0.32) !important;
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.ai-credit-trigger strong {
+  min-width: 1.5ch;
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+.ai-credit-trigger-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ai-credit-popover {
+  position: absolute;
+  z-index: 220;
+  top: calc(100% + 12px);
+  right: 0;
+  width: min(360px, calc(100vw - 24px));
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-strong);
+  color: var(--text);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+.ai-credit-popover-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ai-credit-popover-head > div {
+  display: grid;
+  gap: 3px;
+}
+
+.ai-credit-popover-head span {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ai-credit-popover-head strong {
+  font-size: 1.05rem;
+}
+
+body .ai-credit-popover-head button {
+  min-width: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center;
+  border-radius: 9px !important;
+}
+
+.ai-credit-meter {
+  height: 8px;
+  margin-top: 17px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+.ai-credit-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), #6d5dfc);
+  transition: width 220ms ease;
+}
+
+.ai-credit-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ai-credit-summary span {
+  display: grid;
+  gap: 1px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.ai-credit-summary b {
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.ai-credit-reset,
+.ai-credit-error {
+  margin: 12px 0 0;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.ai-credit-error {
+  color: #dc2626;
+}
+
+.ai-credit-cost-list {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 7px 12px;
+  margin: 16px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 0.76rem;
+}
+
+.ai-credit-cost-list > span {
+  grid-column: 1 / -1;
+  color: var(--text);
+  font-weight: 750;
+}
+
+.ai-credit-cost-list > div {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-credit-cost-list > div span {
+  color: var(--text-muted);
+}
+
+.ai-credit-cost-list > div b {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-weight: 750;
+}
+
+body .ai-credit-refresh {
+  width: 100%;
+  min-height: 36px !important;
+  margin-top: 14px;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 10px !important;
+}
+
+.ai-credit-cost {
+  width: max-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+button .ai-credit-cost {
+  margin-left: 3px;
+  color: inherit;
+  opacity: 0.8;
+}
+
+.chat-credit-row {
+  min-height: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px 12px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+body.dark .ai-credit-popover {
+  background: #111b2d;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.48);
+}
+
+@media (max-width: 640px) {
+  .topbar-right {
+    gap: 6px;
+  }
+
+  .topbar-right .reset-icon-btn,
+  .topbar-right .theme-icon-btn {
+    display: none !important;
+  }
+
+  .topbar-left,
+  .page-header-info {
+    min-width: 0;
+  }
+
+  .ai-credit-trigger-label {
+    display: none;
+  }
+
+  body .ai-credit-trigger {
+    min-width: 40px !important;
+    padding-inline: 9px !important;
+  }
+
+  .ai-credit-popover {
+    position: fixed;
+    top: 72px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(100dvh - 84px);
+    overflow-y: auto;
+  }
+
+  .ai-credit-summary {
+    gap: 5px;
+  }
+
+  button .ai-credit-cost {
+    font-size: 0.67rem;
+  }
+}

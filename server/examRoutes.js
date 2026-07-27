@@ -31,6 +31,8 @@ const GROQ_RETRYABLE_STATUSES = new Set([408, 429, 498, 500, 502, 503, 504]);
 const GROQ_JSON_FAILURE_CODES = new Set(["failed_generation", "json_validate_failed"]);
 const AI_OUTPUT_INVALID_CODE = "AI_OUTPUT_INVALID";
 const AI_OUTPUT_INVALID_MESSAGE = "The AI service returned invalid structured output after several automatic retries. Please try again.";
+const PROVIDER_TIMEOUT_MS = 75_000;
+const AI_ACTION_TIMEOUT_MS = 25 * 60 * 1000;
 
 function cleanText(value, fallback = "") {
   return String(value ?? fallback).trim();
@@ -526,7 +528,10 @@ function groqRequestError(result) {
   return error;
 }
 
-export async function requestGroqJson(config, model, { system, prompt, maxTokens = 5000, temperature = 0.18 }) {
+export async function requestGroqJson(config, model, { system, prompt, maxTokens = 5000, temperature = 0.18, deadlineAt }) {
+  const numericDeadline = Number(deadlineAt);
+  const actionDeadline = Number.isFinite(numericDeadline) ? numericDeadline : Date.now() + AI_ACTION_TIMEOUT_MS;
+
   const baseBody = {
     model,
     temperature,
@@ -542,9 +547,16 @@ export async function requestGroqJson(config, model, { system, prompt, maxTokens
     temperature: Math.min(0.1, Number.isFinite(numericTemperature) ? Math.max(0, numericTemperature) : 0.1),
   };
   async function send(body) {
+    const remainingMs = actionDeadline - Date.now();
+    if (remainingMs <= 0) {
+      const timeoutError = new Error("The AI generation deadline was reached.");
+      timeoutError.name = "TimeoutError";
+      throw timeoutError;
+    }
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: "Bearer " + config.apiKey, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(Math.max(1, Math.min(PROVIDER_TIMEOUT_MS, remainingMs))),
       body: JSON.stringify(body),
     });
     const payload = await response.json().catch(() => ({}));
@@ -586,6 +598,8 @@ export async function generateExamQuestions(config, model, context) {
   const maxVariationPasses = 5;
   const allQuestions = [];
   const seen = new Set();
+  const deadlineAt = Number(context.aiDeadlineAt) || Date.now() + AI_ACTION_TIMEOUT_MS;
+  context.aiDeadlineAt = deadlineAt;
 
   for (let batch = 0; batch < 4; batch += 1) {
     const accepted = [];
@@ -615,6 +629,7 @@ export async function generateExamQuestions(config, model, context) {
           prompt,
           maxTokens: Math.min(5200, Math.max(1600, missing * 480 + 600)),
           temperature: Math.min(0.7, 0.25 + pass * 0.1),
+          deadlineAt,
         });
         const rawQuestions = parsed.questions
           ?? parsed.mcqs
@@ -754,6 +769,8 @@ async function generatePaperSection(config, model, context, row, sectionIndex, e
   const title = `Section ${String.fromCharCode(65 + sectionIndex)} - ${row.marks} mark questions`;
   const questions = [];
   const batchSize = row.marks >= 10 ? 3 : row.marks >= 5 ? 5 : 10;
+  const deadlineAt = Number(context.aiDeadlineAt) || Date.now() + AI_ACTION_TIMEOUT_MS;
+  context.aiDeadlineAt = deadlineAt;
   while (questions.length < row.count) {
     const count = Math.min(batchSize, row.count - questions.length);
     const prompt = [
@@ -785,6 +802,7 @@ async function generatePaperSection(config, model, context, row, sectionIndex, e
           prompt: retryPrompt,
           maxTokens: Math.min(row.marks >= 10 ? 5200 : 3600, Math.max(1000, missing * (row.marks >= 10 ? 850 : 520))),
           temperature: Math.min(0.65, 0.25 + attempt * 0.1),
+          deadlineAt,
         });
         const normalized = normalizePaperQuestions(parsed.questions ?? parsed.questionPaper?.questions, missing, row.marks, title);
         const existing = new Set([
@@ -815,20 +833,203 @@ async function generatePaperSection(config, model, context, row, sectionIndex, e
   return { title, marksPerQuestion: row.marks, count: row.count, questions };
 }
 
+function aiQuotaUnavailableError(message = "AI credit tracking is temporarily unavailable.") {
+  const error = new Error(message);
+  error.status = 503;
+  error.code = "AI_QUOTA_UNAVAILABLE";
+  return error;
+}
+
+async function rollbackInsertedAiArtifact(collection, insertedId, userId, commitError, artifactName) {
+  try {
+    const rollback = await collection.deleteOne({ _id: insertedId, userId });
+    if (rollback?.deletedCount === 1) return;
+  } catch (rollbackError) {
+    const error = aiQuotaUnavailableError(
+      `AI credit tracking failed and the saved ${artifactName} could not be safely removed.`,
+    );
+    error.cause = rollbackError;
+    throw error;
+  }
+  const error = aiQuotaUnavailableError(
+    `AI credit tracking failed and the saved ${artifactName} could not be safely removed.`,
+  );
+  error.cause = commitError;
+  throw error;
+}
+
+function requestIdempotencyKey(req) {
+  return cleanText(
+    req?.get?.("Idempotency-Key")
+      ?? req?.headers?.["idempotency-key"]
+      ?? req?.headers?.["Idempotency-Key"],
+  );
+}
+
+function setAiQuotaHeaders(res, aiQuota, quota, cost) {
+  if (!quota || typeof aiQuota?.responseHeaders !== "function" || typeof res?.set !== "function") return;
+  const headers = aiQuota.responseHeaders(quota, cost);
+  Object.entries(headers || {}).forEach(([name, value]) => {
+    if (value !== undefined && value !== null) res.set(name, String(value));
+  });
+}
+
+async function lookupAiAction(aiQuota, req, feature) {
+  if (typeof aiQuota?.lookup !== "function") throw aiQuotaUnavailableError();
+  const requestId = requestIdempotencyKey(req);
+  try {
+    const result = await aiQuota.lookup({
+      userId: req.user._id,
+      feature,
+      requestId,
+    });
+    return { ...result, requestId };
+  } catch (error) {
+    if (error && typeof error === "object" && error.cost === undefined) {
+      error.cost = error?.details?.cost ?? error?.quota?.costs?.[feature];
+    }
+    throw error;
+  }
+}
+
+async function reserveAiAction(aiQuota, req, feature, requestId = requestIdempotencyKey(req)) {
+  if (typeof aiQuota?.reserve !== "function") throw aiQuotaUnavailableError();
+  try {
+    return await aiQuota.reserve({
+      userId: req.user._id,
+      feature,
+      requestId,
+    });
+  } catch (error) {
+    if (error && typeof error === "object" && error.cost === undefined) {
+      error.cost = error?.details?.cost ?? error?.quota?.costs?.[feature];
+    }
+    throw error;
+  }
+}
+
+async function refundAiAction(aiQuota, res, reservation, error) {
+  if (!reservation?.eventId || typeof aiQuota?.refund !== "function") {
+    return { refunded: false, error: aiQuotaUnavailableError() };
+  }
+  try {
+    const result = await aiQuota.refund({
+      eventId: reservation.eventId,
+      reservationToken: reservation.reservationToken,
+      outcome: cleanText(error?.code, "failed"),
+    });
+    setAiQuotaHeaders(res, aiQuota, result?.quota, reservation.cost);
+    return { refunded: result?.refunded === true || result?.status === "refunded" };
+  } catch (refundError) {
+    return {
+      refunded: false,
+      error: refundError?.code ? refundError : aiQuotaUnavailableError(),
+    };
+  }
+}
+
+function normalizeExamAiError(error, fallbackMessage) {
+  if (cleanText(error?.code).startsWith("AI_")) {
+    return {
+      status: Number(error?.status) || 503,
+      code: error.code,
+      message: error instanceof Error ? error.message : fallbackMessage,
+    };
+  }
+  const providerStatus = Number(error?.providerStatus || error?.status || 0);
+  if (providerStatus === 429) {
+    return {
+      status: 429,
+      code: "AI_PROVIDER_RATE_LIMITED",
+      message: "The shared AI provider is temporarily rate-limited. Please try again shortly.",
+    };
+  }
+  if (providerStatus >= 400 || error?.name === "TimeoutError" || error instanceof TypeError) {
+    return {
+      status: 503,
+      code: "AI_PROVIDER_UNAVAILABLE",
+      message: "The shared AI provider is temporarily unavailable. Please try again shortly.",
+    };
+  }
+  if (error?.code === AI_OUTPUT_INVALID_CODE) {
+    return {
+      status: 502,
+      code: AI_OUTPUT_INVALID_CODE,
+      message: AI_OUTPUT_INVALID_MESSAGE,
+    };
+  }
+  return {
+    status: 500,
+    code: cleanText(error?.code),
+    message: error instanceof Error ? error.message : fallbackMessage,
+  };
+}
+
+function sendExamAiError(res, aiQuota, error, fallbackMessage, { creditsRefunded = false } = {}) {
+  const normalized = normalizeExamAiError(error, fallbackMessage);
+  const quota = error?.details?.quota ?? error?.quota;
+  const cost = error?.details?.cost ?? error?.cost;
+  setAiQuotaHeaders(res, aiQuota, quota, cost);
+  const details = error?.details && typeof error.details === "object" ? error.details : {};
+  const message = creditsRefunded
+    ? `${normalized.message} Your AI credits were refunded.`
+    : normalized.message;
+  return res.status(normalized.status).json({
+    ...details,
+    ...(normalized.code ? { code: normalized.code } : {}),
+    error: message,
+    ...(creditsRefunded ? { creditsRefunded: true } : {}),
+  });
+}
+
+function questionPaperResponse(paper) {
+  const safePaper = { ...paper, id: publicId(paper) };
+  delete safePaper._id;
+  delete safePaper.userId;
+  return { paper: safePaper };
+}
+
+async function loadQuestionPaperReplay(db, userId, reservation) {
+  if (reservation?.replayPayload) return reservation.replayPayload;
+  const paperId = toObjectId(reservation?.resultRef?.id);
+  if (!paperId) throw aiQuotaUnavailableError("The saved question paper replay is unavailable.");
+  const paper = await db.collection("questionPapers").findOne({ _id: paperId, userId });
+  if (!paper) throw aiQuotaUnavailableError("The saved question paper replay is unavailable.");
+  return questionPaperResponse(paper);
+}
+
 export default function registerExamRoutes(app, dependencies) {
-  const { getDb, requireAuth, getGroqConfigStatus, groqModel } = dependencies;
+  const { aiQuota, getDb, requireAuth, getGroqConfigStatus, groqModel } = dependencies;
 
   app.post("/api/exams/generate", requireAuth(async (req, res) => {
+    let reservation = null;
+    let persisted = false;
     try {
+      const requestedSubject = cleanText(req.body?.subjectName);
+      if (!requestedSubject) {
+        return res.status(400).json({ error: "Choose a subject saved in your Subjects page." });
+      }
+      const lookupResult = await lookupAiAction(aiQuota, req, "secure_exam");
+      setAiQuotaHeaders(res, aiQuota, lookupResult?.quota, lookupResult?.cost);
+      if (lookupResult?.state === "replay") {
+        if (!lookupResult.replayPayload) {
+          throw aiQuotaUnavailableError("The saved secure exam replay is unavailable.");
+        }
+        return res.status(201).json(lookupResult.replayPayload);
+      }
       const config = getGroqConfigStatus();
-      if (!config.available) return res.status(500).json({ error: config.message });
+      if (!config.available) {
+        return res.status(503).json({
+          code: "AI_PROVIDER_UNAVAILABLE",
+          error: config.message || "The shared AI provider is not configured.",
+        });
+      }
       const db = await getDb();
       const limitState = await loadExamStartLimit(db, req.user._id);
       if (limitState.reached) return sendExamStartLimitError(res, limitState);
       const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
       const eligibility = getWorkspaceExamEligibility(workspace);
       if (!eligibility.isExamEligible) return sendExamEligibilityError(res, eligibility);
-      const requestedSubject = cleanText(req.body?.subjectName);
       const subject = (workspace?.subjects || []).find((item) => cleanText(item?.name).toLowerCase() === requestedSubject.toLowerCase());
       if (!subject) return res.status(400).json({ error: "Choose a subject saved in your Subjects page." });
       const difficulty = normalizeDifficulty(req.body?.difficulty);
@@ -839,6 +1040,20 @@ export default function registerExamRoutes(app, dependencies) {
         scopeText: cleanText(req.body?.scopeText || req.body?.topics),
         difficulty,
       };
+      const quotaResult = await reserveAiAction(
+        aiQuota,
+        req,
+        "secure_exam",
+        lookupResult.requestId,
+      );
+      setAiQuotaHeaders(res, aiQuota, quotaResult?.quota, quotaResult?.cost);
+      if (quotaResult?.state === "replay") {
+        if (!quotaResult.replayPayload) {
+          throw aiQuotaUnavailableError("The saved secure exam replay is unavailable.");
+        }
+        return res.status(201).json(quotaResult.replayPayload);
+      }
+      reservation = quotaResult;
       const questions = await generateExamQuestions(config, groqModel, context);
       const now = new Date();
       const exam = {
@@ -857,16 +1072,50 @@ export default function registerExamRoutes(app, dependencies) {
         createdAt: now,
         updatedAt: now,
       };
-      const result = await db.collection("exams").insertOne(exam);
+      const exams = db.collection("exams");
+      const result = await exams.insertOne(exam);
       exam._id = result.insertedId;
-      return res.status(201).json({ exam: examMetadata(exam) });
-    } catch (error) {
-      if (error?.code === AI_OUTPUT_INVALID_CODE) {
-        return res.status(502).json({ code: AI_OUTPUT_INVALID_CODE, error: AI_OUTPUT_INVALID_MESSAGE });
+      persisted = true;
+      const payload = { exam: examMetadata(exam) };
+      let committed;
+      try {
+        committed = await aiQuota.commit({
+          eventId: reservation.eventId,
+          reservationToken: reservation.reservationToken,
+          replayPayload: payload,
+          resultRef: { type: "secure_exam", id: publicId(exam) },
+        });
+      } catch (commitError) {
+        await rollbackInsertedAiArtifact(
+          exams,
+          result.insertedId,
+          req.user._id,
+          commitError,
+          "secure exam",
+        );
+        persisted = false;
+        throw commitError;
       }
-      return res.status(error?.status === 429 ? 429 : 500).json({
-        error: error instanceof Error ? error.message : "Exam generation failed.",
-      });
+      setAiQuotaHeaders(res, aiQuota, committed?.quota, reservation.cost);
+      return res.status(201).json(payload);
+    } catch (error) {
+      let finalError = error;
+      let creditsRefunded = false;
+      if (reservation?.state === "reserved" && !persisted) {
+        const refund = await refundAiAction(aiQuota, res, reservation, error);
+        creditsRefunded = refund.refunded;
+        if (refund.error) finalError = refund.error;
+      }
+      if (finalError && typeof finalError === "object" && finalError.cost === undefined) {
+        finalError.cost = reservation?.cost;
+      }
+      return sendExamAiError(
+        res,
+        aiQuota,
+        finalError,
+        "Exam generation failed.",
+        { creditsRefunded },
+      );
     }
   }));
 
@@ -1103,9 +1352,9 @@ export default function registerExamRoutes(app, dependencies) {
   }));
 
   app.post("/api/question-papers/generate", requireAuth(async (req, res) => {
+    let reservation = null;
+    let persisted = false;
     try {
-      const config = getGroqConfigStatus();
-      if (!config.available) return res.status(500).json({ error: config.message });
       const totalMarks = Number(req.body?.totalMarks);
       if (!PAPER_TOTALS.has(totalMarks)) return res.status(400).json({ error: "Choose total marks from 30 to 100 in steps of 10." });
       const { distribution, invalid: invalidDistribution } = normalizeMarkDistribution(req.body);
@@ -1114,11 +1363,29 @@ export default function registerExamRoutes(app, dependencies) {
       if (!distribution.length || allocated !== totalMarks) return res.status(400).json({ error: `The mark distribution must equal exactly ${totalMarks} marks.` });
       const totalQuestions = distribution.reduce((sum, row) => sum + row.count, 0);
       if (totalQuestions > 100) return res.status(400).json({ error: "A paper can contain at most 100 questions." });
-      const db = await getDb();
-      const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
       const requestedNames = Array.isArray(req.body?.subjectNames)
         ? req.body.subjectNames.map((name) => cleanText(name)).filter(Boolean)
         : [cleanText(req.body?.subjectName)].filter(Boolean);
+      if (!requestedNames.length) return res.status(400).json({ error: "Choose subjects saved in your Subjects page." });
+
+      const lookupResult = await lookupAiAction(aiQuota, req, "question_paper");
+      setAiQuotaHeaders(res, aiQuota, lookupResult?.quota, lookupResult?.cost);
+      if (lookupResult?.state === "replay") {
+        const replayDb = await getDb();
+        const payload = await loadQuestionPaperReplay(replayDb, req.user._id, lookupResult);
+        return res.status(201).json(payload);
+      }
+
+      const config = getGroqConfigStatus();
+      if (!config.available) {
+        return res.status(503).json({
+          code: "AI_PROVIDER_UNAVAILABLE",
+          error: config.message || "The shared AI provider is not configured.",
+        });
+      }
+
+      const db = await getDb();
+      const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
       const selectedSubjects = requestedNames.map((requested) =>
         (workspace?.subjects || []).find((subject) => cleanText(subject?.name).toLowerCase() === requested.toLowerCase()),
       );
@@ -1139,6 +1406,18 @@ export default function registerExamRoutes(app, dependencies) {
         programmingLanguage: cleanText(req.body?.programmingLanguage),
         internalChoice: Boolean(req.body?.internalChoice),
       };
+      const quotaResult = await reserveAiAction(
+        aiQuota,
+        req,
+        "question_paper",
+        lookupResult.requestId,
+      );
+      setAiQuotaHeaders(res, aiQuota, quotaResult?.quota, quotaResult?.cost);
+      if (quotaResult?.state === "replay") {
+        const payload = await loadQuestionPaperReplay(db, req.user._id, quotaResult);
+        return res.status(201).json(payload);
+      }
+      reservation = quotaResult;
       const sections = [];
       const existingQuestions = [];
       for (let index = 0; index < distribution.length; index += 1) {
@@ -1189,14 +1468,49 @@ export default function registerExamRoutes(app, dependencies) {
         createdAt: now,
         updatedAt: now,
       };
-      const result = await db.collection("questionPapers").insertOne(paper);
+      const questionPapers = db.collection("questionPapers");
+      const result = await questionPapers.insertOne(paper);
       paper._id = result.insertedId;
-      const safePaper = { ...paper, id: result.insertedId.toString() };
-      delete safePaper._id;
-      delete safePaper.userId;
-      return res.status(201).json({ paper: safePaper });
+      persisted = true;
+      const payload = questionPaperResponse(paper);
+      let committed;
+      try {
+        committed = await aiQuota.commit({
+          eventId: reservation.eventId,
+          reservationToken: reservation.reservationToken,
+          resultRef: { type: "question_paper", id: publicId(paper) },
+        });
+      } catch (commitError) {
+        await rollbackInsertedAiArtifact(
+          questionPapers,
+          result.insertedId,
+          req.user._id,
+          commitError,
+          "question paper",
+        );
+        persisted = false;
+        throw commitError;
+      }
+      setAiQuotaHeaders(res, aiQuota, committed?.quota, reservation.cost);
+      return res.status(201).json(payload);
     } catch (error) {
-      return res.status(500).json({ error: error instanceof Error ? error.message : "Question paper generation failed." });
+      let finalError = error;
+      let creditsRefunded = false;
+      if (reservation?.state === "reserved" && !persisted) {
+        const refund = await refundAiAction(aiQuota, res, reservation, error);
+        creditsRefunded = refund.refunded;
+        if (refund.error) finalError = refund.error;
+      }
+      if (finalError && typeof finalError === "object" && finalError.cost === undefined) {
+        finalError.cost = reservation?.cost;
+      }
+      return sendExamAiError(
+        res,
+        aiQuota,
+        finalError,
+        "Question paper generation failed.",
+        { creditsRefunded },
+      );
     }
   }));
 

@@ -18,6 +18,13 @@ import {
 } from "../utils/chatAttachments";
 import { ChatStudyPet } from "./StudyPet";
 import {
+  AI_FEATURES,
+  createAiIdempotencyKey,
+  getAiRequestErrorMessage,
+  useAiQuota,
+} from "../utils/aiQuota";
+import { AiCreditCost } from "./AiQuotaProvider";
+import {
   MessageSquare,
   Plus,
   Trash2,
@@ -87,6 +94,7 @@ function formatMessageText(text) {
 
 function Chatbot({ academicLevel = "College", academicTrack = "General", schedule = [], completed = [], setDarkMode, onReset }) {
   const navigate = useNavigate();
+  const { hasInsufficientCredits } = useAiQuota();
   const scrollRef = useRef(null);
   const chatRecognitionRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -461,6 +469,17 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
         return;
       }
 
+      if (hasInsufficientCredits(AI_FEATURES.CHAT)) {
+        setInput(cleanMessage);
+        setAttachments(selectedAttachments);
+        setMessages((current) => [...current, {
+          id: `${Date.now()}-assistant-quota`,
+          role: "assistant",
+          text: getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }),
+        }]);
+        return;
+      }
+
       const requestId = ++chatRequestSeqRef.current;
       const requestEpoch = viewEpochRef.current;
       const originSessionId = activeSessionId;
@@ -483,6 +502,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
           })),
         }, {
           timeoutMs: selectedAttachments.length ? 105000 : 30000,
+          headers: { "Idempotency-Key": createAiIdempotencyKey() },
         });
         if (!isCurrentRequest()) return;
 
@@ -526,12 +546,10 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       } catch (err) {
         if (!isCurrentRequest()) return;
         console.error("Study assistant error:", err);
-        const errorMessage = err instanceof Error ? err.message : "Unable to reach the AI assistant.";
+        const errorMessage = getAiRequestErrorMessage(err, "Unable to reach the AI assistant.");
         const isApiError = err instanceof Error && err.message && err.message !== "Failed to fetch";
-        if (selectedAttachments.length) {
-          setAttachments(selectedAttachments);
-          if (!options.keepInput) setInput(cleanMessage);
-        }
+        setAttachments(selectedAttachments);
+        if (!options.keepInput) setInput(cleanMessage);
         const replyText = isApiError
           ? `Error: ${errorMessage}`
           : selectedAttachments.length
@@ -562,6 +580,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       loading,
       metrics,
       navigate,
+      hasInsufficientCredits,
       onReset,
       plannerContext,
       preparingAttachments,
@@ -1104,6 +1123,12 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                   tabIndex={-1}
                   type="file"
                 />
+                <div className="chat-credit-row">
+                  <AiCreditCost feature={AI_FEATURES.CHAT} />
+                  {hasInsufficientCredits(AI_FEATURES.CHAT) && (
+                    <span>Local commands still work. Add credits next month for AI answers.</span>
+                  )}
+                </div>
                 <div className="chat-composer-row">
                 <input
                   aria-label="Message study assistant"
@@ -1142,10 +1167,10 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                 <button
                   aria-label="Send message"
                   className="chat-icon-btn chat-send-btn"
-                  disabled={loading || preparingAttachments || (!input.trim() && !attachments.length)}
+                  disabled={loading || preparingAttachments || (!input.trim() && !attachments.length) || (attachments.length > 0 && hasInsufficientCredits(AI_FEATURES.CHAT))}
                   onClick={() => sendMessage()}
                   type="button"
-                  title="Send message"
+                  title={attachments.length > 0 && hasInsufficientCredits(AI_FEATURES.CHAT) ? "Not enough AI credits for this request" : "Send message"}
                 >
                   <Send size={16} />
                 </button>

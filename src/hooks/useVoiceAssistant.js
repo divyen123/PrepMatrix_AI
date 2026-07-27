@@ -3,6 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import api from "../utils/apiClient";
 import {
+  AI_FEATURES,
+  createAiIdempotencyKey,
+  getAiRequestErrorMessage,
+  useAiQuota,
+} from "../utils/aiQuota";
+import {
   VOICE_PREFERENCES_STORAGE_KEY,
   applyVoicePreferencesToUtterance,
   normalizeVoicePreferences,
@@ -198,6 +204,7 @@ export default function useVoiceAssistant({
   completed = [],
 } = {}) {
   const navigate = useNavigate();
+  const { hasInsufficientCredits } = useAiQuota();
   const wakeRecognitionRef = useRef(null);
   const commandRecognitionRef = useRef(null);
   const wakeRestartTimerRef = useRef(null);
@@ -521,18 +528,25 @@ export default function useVoiceAssistant({
   }, []);
 
   const sendQuestionToAssistant = useCallback(async (question) => {
+    if (hasInsufficientCredits(AI_FEATURES.CHAT)) {
+      const quotaError = new Error("Not enough AI credits for this voice question.");
+      quotaError.code = "AI_USER_QUOTA_EXHAUSTED";
+      throw quotaError;
+    }
     const normalizedMessage = normalizeNoisyStudyQuestion(question);
     const payload = await api.post("/api/study-assistant/chat", {
       message: question,
       normalizedMessage,
       source: "voice",
       plannerContext,
+    }, {
+      headers: { "Idempotency-Key": createAiIdempotencyKey() },
     });
     return {
       reply: payload.reply?.trim() || "I could not generate an answer for that question.",
       sessionId: payload.sessionId || null,
     };
-  }, [plannerContext]);
+  }, [hasInsufficientCredits, plannerContext]);
 
   const processSpokenText = useCallback(async (spokenText, { speakReply = true } = {}) => {
     const cleanText = spokenText.trim();
@@ -593,9 +607,10 @@ export default function useVoiceAssistant({
       }
     } catch (err) {
       const rawMessage = err instanceof Error ? err.message : "Unable to complete that voice request.";
+      const aiMessage = getAiRequestErrorMessage(err, rawMessage);
       const message = /failed to fetch|network|abort/i.test(rawMessage)
         ? "I could not reach the AI service right now. Please check the server or internet connection and try again."
-        : rawMessage;
+        : aiMessage;
       setError(message);
       setReply(message);
       setOverlayReply(message);
@@ -959,6 +974,3 @@ export default function useVoiceAssistant({
     stopListening,
   };
 }
-
-
-

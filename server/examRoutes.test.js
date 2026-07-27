@@ -10,6 +10,79 @@ import registerExamRoutes, {
   summarizeExamStartLimit,
 } from "./examRoutes.js";
 
+const TEST_IDEMPOTENCY_KEY = "a808bba7-f91a-4b0e-8478-6b6231dad21b";
+const TEST_QUOTA = Object.freeze({
+  limit: 100,
+  used: 0,
+  reserved: 15,
+  remaining: 85,
+  periodStart: "2026-07-01T00:00:00.000Z",
+  resetAt: "2026-08-01T00:00:00.000Z",
+  costs: {
+    secure_exam: 15,
+    question_paper: 15,
+  },
+});
+
+function createTestAiQuota({
+  lookup: lookupOverride,
+  reserve: reserveOverride,
+  commit: commitOverride,
+  refund: refundOverride,
+} = {}) {
+  const calls = {
+    lookup: [],
+    reserve: [],
+    commit: [],
+    refund: [],
+  };
+  return {
+    calls,
+    async lookup(input) {
+      calls.lookup.push(input);
+      if (lookupOverride) return lookupOverride(input);
+      return {
+        state: "none",
+        cost: TEST_QUOTA.costs[input.feature],
+        quota: TEST_QUOTA,
+      };
+    },
+    async reserve(input) {
+      calls.reserve.push(input);
+      if (reserveOverride) return reserveOverride(input);
+      return {
+        state: "reserved",
+        eventId: `event-${calls.reserve.length}`,
+        reservationToken: `reservation-${calls.reserve.length}`,
+        cost: TEST_QUOTA.costs[input.feature],
+        quota: TEST_QUOTA,
+      };
+    },
+    async commit(input) {
+      calls.commit.push(input);
+      if (commitOverride) return commitOverride(input);
+      return { quota: { ...TEST_QUOTA, used: 15, reserved: 0 } };
+    },
+    async refund(input) {
+      calls.refund.push(input);
+      if (refundOverride) return refundOverride(input);
+      return {
+        refunded: true,
+        status: "refunded",
+        quota: { ...TEST_QUOTA, reserved: 0, remaining: 100 },
+      };
+    },
+    responseHeaders(quota, cost) {
+      return {
+        "X-AI-Credit-Limit": String(quota.limit),
+        "X-AI-Credit-Remaining": String(quota.remaining),
+        "X-AI-Credit-Reset-At": quota.resetAt,
+        "X-AI-Credit-Cost": String(cost),
+      };
+    },
+  };
+}
+
 function questionFixture(label, overrides = {}) {
   return {
     question: label,
@@ -316,13 +389,14 @@ function createRouteResponse() {
   };
 }
 
-function registerRouteHarness(db) {
+function registerRouteHarness(db, { aiQuota } = {}) {
   const routes = new Map();
   const app = {};
   for (const method of ["get", "post", "put", "delete"]) {
     app[method] = (path, handler) => routes.set(`${method.toUpperCase()} ${path}`, handler);
   }
   registerExamRoutes(app, {
+    aiQuota,
     getDb: async () => db,
     requireAuth: (handler) => handler,
     getGroqConfigStatus: () => ({ available: true, apiKey: "test-key" }),
@@ -381,8 +455,13 @@ test("status, generation preflight, and start endpoint enforce the same limit co
       throw new Error(`Unexpected collection: ${name}`);
     },
   };
-  const routes = registerRouteHarness(db);
-  const request = { user: { _id: userId }, params: { id: examId }, body: {} };
+  const routes = registerRouteHarness(db, { aiQuota: createTestAiQuota() });
+  const request = {
+    user: { _id: userId },
+    params: { id: examId },
+    body: { subjectName: "Operating systems" },
+    headers: { "idempotency-key": TEST_IDEMPOTENCY_KEY },
+  };
 
   const statusResponse = createRouteResponse();
   await routes.get("GET /api/exams/start-limit")(request, statusResponse);
@@ -403,4 +482,348 @@ test("status, generation preflight, and start endpoint enforce the same limit co
   assert.ok(Number(startResponse.headers["Retry-After"]) > 0);
   assert.equal(attemptInserts, 0);
   assert.equal(workspaceReads, 1);
+});
+
+function createAiGenerationDb({
+  examDeleteError,
+  examDeleteResult,
+  examInsertError,
+  paperDeleteError,
+  paperDeleteResult,
+  paperInsertError,
+} = {}) {
+  const stored = {
+    exams: [],
+    papers: [],
+  };
+  const deletes = {
+    exams: [],
+    papers: [],
+  };
+  const deleteStored = (documents, filter, configuredResult) => {
+    if (configuredResult) return configuredResult;
+    const index = documents.findIndex((document) => (
+      sameId(document._id, filter._id)
+      && sameId(document.userId, filter.userId)
+    ));
+    if (index < 0) return { deletedCount: 0 };
+    documents.splice(index, 1);
+    return { deletedCount: 1 };
+  };
+  const workspace = {
+    schedule: [{ tasks: [{ task: "Operating Systems - Processes", time: "Morning" }] }],
+    completed: ["Operating Systems - Processes"],
+    subjects: [{ name: "Operating Systems", chapters: 5, difficulty: "medium" }],
+  };
+  const db = {
+    collection(name) {
+      if (name === "examAttempts") {
+        return {
+          find: (query) => createAttemptCursor([], query),
+        };
+      }
+      if (name === "workspaces") {
+        return { findOne: async () => workspace };
+      }
+      if (name === "exams") {
+        return {
+          insertOne: async (document) => {
+            if (examInsertError) throw examInsertError;
+            stored.exams.push(document);
+            return { insertedId: "64b000000000000000000010" };
+          },
+          deleteOne: async (filter) => {
+            deletes.exams.push(filter);
+            if (examDeleteError) throw examDeleteError;
+            return deleteStored(stored.exams, filter, examDeleteResult);
+          },
+        };
+      }
+      if (name === "questionPapers") {
+        return {
+          insertOne: async (document) => {
+            if (paperInsertError) throw paperInsertError;
+            stored.papers.push(document);
+            return { insertedId: "64b000000000000000000020" };
+          },
+          deleteOne: async (filter) => {
+            deletes.papers.push(filter);
+            if (paperDeleteError) throw paperDeleteError;
+            return deleteStored(stored.papers, filter, paperDeleteResult);
+          },
+          findOne: async () => null,
+        };
+      }
+      throw new Error(`Unexpected collection: ${name}`);
+    },
+  };
+  return { db, deletes, stored };
+}
+
+function groqJsonResponse(payload, { status = 200 } = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: () => null },
+    json: async () => (
+      status >= 200 && status < 300
+        ? { choices: [{ message: { content: JSON.stringify(payload) } }] }
+        : payload
+    ),
+  };
+}
+
+function secureExamRequest() {
+  return {
+    body: {
+      subjectName: "Operating Systems",
+      difficulty: "medium",
+      scopeText: "Processes and scheduling",
+    },
+    headers: { "idempotency-key": TEST_IDEMPOTENCY_KEY },
+    user: {
+      _id: "user-1",
+      academicLevel: "Undergraduate / Bachelor's",
+      degree: "B.Tech",
+      department: "IT",
+    },
+  };
+}
+
+function questionPaperRequest() {
+  return {
+    body: {
+      totalMarks: 30,
+      markDistribution: [{ marks: 15, count: 2 }],
+      subjectNames: ["Operating Systems"],
+      difficulty: "balanced",
+    },
+    headers: { "idempotency-key": TEST_IDEMPOTENCY_KEY },
+    user: {
+      _id: "user-1",
+      academicLevel: "Undergraduate / Bachelor's",
+      degree: "B.Tech",
+      department: "IT",
+      institutionName: "Test University",
+    },
+  };
+}
+
+test("replays a completed secure exam before mutable preflight checks", async () => {
+  let dbAccesses = 0;
+  const replayPayload = {
+    exam: {
+      id: "64b000000000000000000010",
+      title: "Replayed secure exam",
+    },
+  };
+  const aiQuota = createTestAiQuota({
+    lookup: async () => ({
+      state: "replay",
+      eventId: "completed-event",
+      cost: 15,
+      quota: { ...TEST_QUOTA, used: 15, reserved: 0 },
+      replayPayload,
+    }),
+  });
+  const db = {
+    collection() {
+      dbAccesses += 1;
+      throw new Error("Replay should not access mutable exam state.");
+    },
+  };
+  const routes = registerRouteHarness(db, { aiQuota });
+  const res = createRouteResponse();
+
+  await routes.get("POST /api/exams/generate")(secureExamRequest(), res);
+
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(res.body, replayPayload);
+  assert.equal(dbAccesses, 0);
+  assert.equal(aiQuota.calls.lookup.length, 1);
+  assert.equal(aiQuota.calls.reserve.length, 0);
+  assert.equal(aiQuota.calls.commit.length, 0);
+});
+
+test("rejects an exhausted secure-exam quota before any provider request", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  const exhaustedQuota = {
+    ...TEST_QUOTA,
+    reserved: 0,
+    remaining: 0,
+    used: 100,
+  };
+  const aiQuota = createTestAiQuota({
+    reserve: async () => {
+      const error = new Error("You have used all AI credits for this month.");
+      error.status = 429;
+      error.code = "AI_USER_QUOTA_EXHAUSTED";
+      error.details = { quota: exhaustedQuota, cost: 15 };
+      throw error;
+    },
+  });
+  const { db } = createAiGenerationDb();
+  const routes = registerRouteHarness(db, { aiQuota });
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return groqJsonResponse({ questions: [] });
+  };
+
+  try {
+    const res = createRouteResponse();
+    await routes.get("POST /api/exams/generate")(secureExamRequest(), res);
+
+    assert.equal(res.statusCode, 429);
+    assert.equal(res.body.code, "AI_USER_QUOTA_EXHAUSTED");
+    assert.equal(fetchCalls, 0);
+    assert.equal(aiQuota.calls.reserve.length, 1);
+    assert.equal(aiQuota.calls.reserve[0].feature, "secure_exam");
+    assert.equal(aiQuota.calls.commit.length, 0);
+    assert.equal(aiQuota.calls.refund.length, 0);
+    assert.equal(res.headers["X-AI-Credit-Remaining"], "0");
+    assert.equal(res.headers["X-AI-Credit-Cost"], "15");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("commits one secure-exam debit after all question batches persist", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  const aiQuota = createTestAiQuota();
+  const { db, stored } = createAiGenerationDb();
+  const routes = registerRouteHarness(db, { aiQuota });
+  globalThis.fetch = async (_url, options) => {
+    fetchCalls += 1;
+    const prompt = JSON.parse(options.body).messages.at(-1).content;
+    const batch = Number(prompt.match(/Batch: (\d+) of 4/u)?.[1]);
+    return groqJsonResponse({
+      questions: Array.from({ length: 10 }, (_, index) =>
+        questionFixture(`Batch ${batch} quota concept ${index + 1}`)),
+    });
+  };
+
+  try {
+    const res = createRouteResponse();
+    await routes.get("POST /api/exams/generate")(secureExamRequest(), res);
+
+    assert.equal(res.statusCode, 201);
+    assert.equal(fetchCalls, 4);
+    assert.equal(stored.exams.length, 1);
+    assert.equal(aiQuota.calls.reserve.length, 1);
+    assert.deepEqual(aiQuota.calls.reserve[0], {
+      userId: "user-1",
+      feature: "secure_exam",
+      requestId: TEST_IDEMPOTENCY_KEY,
+    });
+    assert.equal(aiQuota.calls.commit.length, 1);
+    assert.equal(aiQuota.calls.refund.length, 0);
+    assert.equal(res.headers["X-AI-Credit-Cost"], "15");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("rolls back a persisted secure exam and refunds when quota commit fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const aiQuota = createTestAiQuota({
+    commit: async () => {
+      const error = new Error("AI credit storage unavailable.");
+      error.status = 503;
+      error.code = "AI_QUOTA_UNAVAILABLE";
+      throw error;
+    },
+  });
+  const { db, deletes, stored } = createAiGenerationDb();
+  const routes = registerRouteHarness(db, { aiQuota });
+  globalThis.fetch = async (_url, options) => {
+    const prompt = JSON.parse(options.body).messages.at(-1).content;
+    const batch = Number(prompt.match(/Batch: (\d+) of 4/u)?.[1]);
+    return groqJsonResponse({
+      questions: Array.from({ length: 10 }, (_, index) =>
+        questionFixture("Rollback batch " + batch + " concept " + (index + 1))),
+    });
+  };
+
+  try {
+    const res = createRouteResponse();
+    await routes.get("POST /api/exams/generate")(secureExamRequest(), res);
+
+    assert.equal(res.statusCode, 503);
+    assert.equal(res.body.code, "AI_QUOTA_UNAVAILABLE");
+    assert.equal(res.body.creditsRefunded, true);
+    assert.equal(stored.exams.length, 0);
+    assert.equal(deletes.exams.length, 1);
+    assert.equal(aiQuota.calls.commit.length, 1);
+    assert.equal(aiQuota.calls.commit[0].reservationToken, "reservation-1");
+    assert.equal(aiQuota.calls.refund.length, 1);
+    assert.equal(aiQuota.calls.refund[0].reservationToken, "reservation-1");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("keeps question-paper variation retries within one quota debit", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  const aiQuota = createTestAiQuota();
+  const { db, stored } = createAiGenerationDb();
+  const routes = registerRouteHarness(db, { aiQuota });
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    if (fetchCalls === 1) return groqJsonResponse({ questions: [] });
+    return groqJsonResponse({
+      questions: [
+        { question: "Explain process scheduling with an example.", modelAnswer: "Use a ready queue.", markingScheme: "Award for a correct explanation." },
+        { question: "Compare preemptive and cooperative scheduling.", modelAnswer: "Preemptive scheduling can interrupt.", markingScheme: "Award for a valid comparison." },
+      ],
+    });
+  };
+
+  try {
+    const res = createRouteResponse();
+    await routes.get("POST /api/question-papers/generate")(questionPaperRequest(), res);
+
+    assert.equal(res.statusCode, 201);
+    assert.equal(fetchCalls, 2);
+    assert.equal(stored.papers.length, 1);
+    assert.equal(aiQuota.calls.reserve.length, 1);
+    assert.equal(aiQuota.calls.reserve[0].feature, "question_paper");
+    assert.equal(aiQuota.calls.commit.length, 1);
+    assert.equal(aiQuota.calls.refund.length, 0);
+    assert.equal(res.headers["X-AI-Credit-Cost"], "15");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("refunds a question-paper reservation when persistence fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const aiQuota = createTestAiQuota();
+  const { db } = createAiGenerationDb({
+    paperInsertError: new Error("database unavailable"),
+  });
+  const routes = registerRouteHarness(db, { aiQuota });
+  globalThis.fetch = async () => groqJsonResponse({
+    questions: [
+      { question: "Explain process scheduling with an example.", modelAnswer: "Use a ready queue.", markingScheme: "Award for a correct explanation." },
+      { question: "Compare preemptive and cooperative scheduling.", modelAnswer: "Preemptive scheduling can interrupt.", markingScheme: "Award for a valid comparison." },
+    ],
+  });
+
+  try {
+    const res = createRouteResponse();
+    await routes.get("POST /api/question-papers/generate")(questionPaperRequest(), res);
+
+    assert.equal(res.statusCode, 500);
+    assert.equal(res.body.creditsRefunded, true);
+    assert.match(res.body.error, /credits were refunded/iu);
+    assert.equal(aiQuota.calls.reserve.length, 1);
+    assert.equal(aiQuota.calls.commit.length, 0);
+    assert.equal(aiQuota.calls.refund.length, 1);
+    assert.equal(res.headers["X-AI-Credit-Remaining"], "100");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

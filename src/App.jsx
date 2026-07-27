@@ -25,8 +25,9 @@ import Notification from "./components/Notification";
 import Chatbot from "./components/Chatbot";
 import VoiceAssistant from "./components/VoiceAssistant";
 import VoiceAssistantOverlay from "./components/VoiceAssistantOverlay";
+import { AiCreditIndicator } from "./components/AiQuotaProvider";
 import useVoiceAssistant from "./hooks/useVoiceAssistant";
-import api, { HAS_CONFIGURED_API } from "./utils/apiClient";
+import api, { clearStoredAuthState, HAS_CONFIGURED_API } from "./utils/apiClient";
 import {
   getPushNotificationDiagnostic,
   reconcileStudyReminders,
@@ -514,7 +515,7 @@ function App() {
       minimumTransition,
     ]);
 
-    localStorage.removeItem("prepmatrix_auth_token");
+    clearStoredAuthState();
 
     if (splashTimeoutRef.current) {
       window.clearTimeout(splashTimeoutRef.current);
@@ -542,6 +543,7 @@ function App() {
   };
 
   const handleAccountDeleted = () => {
+    clearStoredAuthState();
     voiceAssistant.pauseWakeMode?.();
     window.studyVoiceAssistant?.pauseWakeListening?.();
     window.speechSynthesis?.cancel?.();
@@ -1318,6 +1320,8 @@ function App() {
                 hidden
                 assistant={voiceAssistant}
               />
+
+              <AiCreditIndicator />
 
               <button
                 aria-label="Reset planner"

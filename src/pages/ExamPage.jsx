@@ -38,6 +38,13 @@ import {
 } from "lucide-react";
 import api from "../utils/apiClient";
 import {
+  AI_FEATURES,
+  createAiIdempotencyKey,
+  getAiRequestErrorMessage,
+  useAiQuota,
+} from "../utils/aiQuota";
+import { AiCreditCost } from "../components/AiQuotaProvider";
+import {
   exportExamCertificatePdf,
   exportExamResultPdf,
   exportQuestionPaperPdf,
@@ -728,6 +735,7 @@ function OfflineExamTimer({ paperMinutes = 60 }) {
 }
 
 function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onGenerated }) {
+  const { hasInsufficientCredits } = useAiQuota();
   const names = useMemo(() => subjectNames(subjects), [subjects]);
   const [selectedSubjects, setSelectedSubjects] = useState(() => names.slice(0, 1));
   const [totalMarks, setTotalMarks] = useState(50);
@@ -760,7 +768,8 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
   ].filter(Boolean).join(" "));
   const codingHeavy = codingMode === "high" || (codingMode === "auto" && codingDetected);
   const suggestedMinutes = recommendedDuration(totalMarks, codingHeavy);
-  const canGenerate = selectedSubjects.length > 0 && allocatedMarks === totalMarks && !isGenerating;
+  const canGenerate = selectedSubjects.length > 0 && allocatedMarks === totalMarks && !isGenerating
+    && !hasInsufficientCredits(AI_FEATURES.QUESTION_PAPER);
 
   const toggleSubject = (name) => {
     setSelectedSubjects((current) =>
@@ -794,13 +803,16 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
         internalChoice,
         shuffleQuestions,
         includeAnswerKey,
-      }, { timeoutMs: 240000 });
+      }, {
+        timeoutMs: 240000,
+        headers: { "Idempotency-Key": createAiIdempotencyKey() },
+      });
       const paper = unwrapOne(payload, ["paper"]);
       setGeneratedPaper(paper);
       onGenerated?.(paper);
       toast.success("Question paper generated and saved.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not generate the question paper.");
+      toast.error(getAiRequestErrorMessage(error, "Could not generate the question paper."));
     } finally {
       setIsGenerating(false);
     }
@@ -921,6 +933,7 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
           <div><Code2 size={17} /><span>Subject mode</span><strong>{codingHeavy ? "Coding-heavy" : "Standard"}</strong></div>
           <button className="exam-primary-btn" disabled={!canGenerate} onClick={generate} type="button">
             {isGenerating ? <><LoaderCircle className="spin" size={17} /> Generating paper...</> : <><Sparkles size={17} /> Generate question paper</>}
+            <AiCreditCost feature={AI_FEATURES.QUESTION_PAPER} />
           </button>
         </div>
       </section>
@@ -1278,6 +1291,7 @@ function ExamPage({
   isExamEligible: examEligibilityOverride,
   tasksToExamEligibility = 0,
 }) {
+  const { hasInsufficientCredits } = useAiQuota();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const names = useMemo(() => subjectNames(subjects), [subjects]);
@@ -1383,6 +1397,11 @@ function ExamPage({
       toast.error("Add and select a subject before preparing an exam.");
       return;
     }
+    if (hasInsufficientCredits(AI_FEATURES.SECURE_EXAM)) {
+      toast.info(getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }));
+      return;
+    }
+
     preparingRef.current = true;
     setPreparedExam(null);
     setIsPreparing(true);
@@ -1392,7 +1411,10 @@ function ExamPage({
         scopeText,
         difficulty,
         ...academicProfilePayload({ ...userProfile, academicLevel, academicTrack }),
-      }, { timeoutMs: 240000 });
+      }, {
+        timeoutMs: 240000,
+        headers: { "Idempotency-Key": createAiIdempotencyKey() },
+      });
       setPreparedExam(unwrapOne(payload, ["exam"]));
       toast.success("Your secure 40-question exam is ready.");
     } catch (error) {
@@ -1400,9 +1422,7 @@ function ExamPage({
       if (limitState) setExamStartLimit(limitState);
       const message = error?.name === "AbortError"
         ? "Exam generation took longer than four minutes. Please try again."
-        : error instanceof Error
-          ? error.message
-          : "Could not prepare the exam.";
+        : getAiRequestErrorMessage(error, "Could not prepare the exam.");
       toast.error(message);
     } finally {
       preparingRef.current = false;
@@ -1590,7 +1610,7 @@ function ExamPage({
             <div className="exam-rule-strip"><span><Clock3 size={15} /> 60 minutes</span><span><ListChecks size={15} /> 40 MCQs</span><span><ShieldAlert size={15} /> 3 warnings allowed</span></div>
             <button
               className="exam-primary-btn"
-              disabled={!isOnlineExamEligible || isPreparing || !subjectName || examStartLimit?.reached}
+              disabled={!isOnlineExamEligible || isPreparing || !subjectName || examStartLimit?.reached || hasInsufficientCredits(AI_FEATURES.SECURE_EXAM)}
               onClick={prepareExam}
               title={examStartLimit?.reached ? "Two exams have already been started in the current 24-hour window." : undefined}
               type="button"
@@ -1600,6 +1620,7 @@ function ExamPage({
                 : examStartLimit?.reached
                   ? <><Clock3 size={17} /> Exam limit reached</>
                   : <><Sparkles size={17} /> Prepare exam</>}
+              <AiCreditCost feature={AI_FEATURES.SECURE_EXAM} />
             </button>
 
             {preparedExam && (

@@ -1,7 +1,70 @@
 export const API_BASE = (import.meta.env?.VITE_API_URL || "").trim().replace(/\/+$/, "");
 export const HAS_CONFIGURED_API = Boolean(API_BASE);
 export const AUTH_RECOVERY_TIMEOUT_MS = 65000;
+export const AI_QUOTA_UPDATED_EVENT = "prepmatrixAiQuotaUpdated";
+export const AI_AUTH_READY_EVENT = "prepmatrixAiAuthReady";
+export const AI_AUTH_CLEARED_EVENT = "prepmatrixAiAuthCleared";
 const AUTH_NOTICE_KEY = "prepmatrix_auth_notice";
+const AI_IDEMPOTENCY_RECOVERY_TTL_MS = 30 * 60 * 1000;
+const pendingAiIdempotencyKeys = new Map();
+
+async function createAiRequestFingerprint(path, method, body) {
+  const input = String(body || "");
+  const prefix = `${String(method || "GET").toUpperCase()}:${path}:`;
+  if (globalThis.crypto?.subtle && typeof TextEncoder !== "undefined") {
+    const digest = await globalThis.crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(prefix + input),
+    );
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  let hash = 2166136261;
+  const fallbackInput = prefix + input;
+  for (let index = 0; index < fallbackInput.length; index += 1) {
+    hash ^= fallbackInput.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${fallbackInput.length}:${(hash >>> 0).toString(16)}`;
+}
+function rememberAiIdempotencyKey(fingerprint, requestedKey) {
+  if (!fingerprint || !requestedKey) return requestedKey;
+
+  const now = Date.now();
+  for (const [key, entry] of pendingAiIdempotencyKeys) {
+    if (entry.expiresAt <= now) pendingAiIdempotencyKeys.delete(key);
+  }
+
+  const existing = pendingAiIdempotencyKeys.get(fingerprint);
+  if (existing?.expiresAt > now) return existing.key;
+
+  if (pendingAiIdempotencyKeys.size >= 100) {
+    pendingAiIdempotencyKeys.delete(pendingAiIdempotencyKeys.keys().next().value);
+  }
+  pendingAiIdempotencyKeys.set(fingerprint, {
+    key: requestedKey,
+    expiresAt: now + AI_IDEMPOTENCY_RECOVERY_TTL_MS,
+  });
+  return requestedKey;
+}
+
+function finishAiIdempotencyRequest(fingerprint, responsePayload) {
+  if (!fingerprint) return;
+  const code = responsePayload?.code;
+  if (code === "AI_REQUEST_IN_PROGRESS" || code === "AI_QUOTA_UNAVAILABLE") return;
+  pendingAiIdempotencyKeys.delete(fingerprint);
+}
+
+export function clearStoredAuthState() {
+  localStorage.removeItem("prepmatrix_auth_token");
+  pendingAiIdempotencyKeys.clear();
+  dispatchWindowEvent(AI_AUTH_CLEARED_EVENT);
+}
+
+function dispatchWindowEvent(name, detail) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(name, { detail }));
+}
 
 function notifySessionEnded(message) {
   if (typeof window === "undefined") return;
@@ -10,17 +73,66 @@ function notifySessionEnded(message) {
   window.dispatchEvent(new CustomEvent("prepmatrixAuthSessionEnded", { detail: { message: notice } }));
 }
 
+function numberHeader(response, name) {
+  const value = response.headers.get(name);
+  if (value === null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function publishQuota(response, payload) {
+  const nestedQuota = payload?.quota && typeof payload.quota === "object"
+    ? payload.quota
+    : null;
+  const directQuota = payload && typeof payload === "object"
+    && Number.isFinite(Number(payload.limit))
+    && Number.isFinite(Number(payload.remaining))
+    ? payload
+    : null;
+  const payloadQuota = nestedQuota || directQuota;
+  const limit = numberHeader(response, "X-AI-Credit-Limit");
+  const remaining = numberHeader(response, "X-AI-Credit-Remaining");
+  const cost = numberHeader(response, "X-AI-Credit-Cost");
+  const resetAt = response.headers.get("X-AI-Credit-Reset-At");
+
+  if (!payloadQuota && limit === null && remaining === null && cost === null && !resetAt) {
+    return;
+  }
+
+  dispatchWindowEvent(AI_QUOTA_UPDATED_EVENT, {
+    ...(payloadQuota || {}),
+    ...(!payloadQuota ? { partial: true, reserved: 0 } : { partial: false }),
+    ...(limit !== null ? { limit } : {}),
+    ...(remaining !== null ? { remaining } : {}),
+    ...(resetAt ? { resetAt } : {}),
+    ...(cost !== null ? { requestCost: cost } : {}),
+  });
+}
+
 async function request(path, options = {}) {
   const controller = new AbortController();
   const timeoutMs = options.timeoutMs || 15000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const { timeoutMs: _timeoutMs, ...fetchOptions } = options;
+  const {
+    timeoutMs: _timeoutMs,
+    headers: optionHeaders,
+    ...fetchOptions
+  } = options;
   const token = localStorage.getItem("prepmatrix_auth_token");
+  const requestedIdempotencyKey = optionHeaders?.["Idempotency-Key"]
+    ?? optionHeaders?.["idempotency-key"];
+  const idempotencyFingerprint = requestedIdempotencyKey
+    ? await createAiRequestFingerprint(path, fetchOptions.method, fetchOptions.body)
+    : "";
+  const stableIdempotencyKey = rememberAiIdempotencyKey(idempotencyFingerprint, requestedIdempotencyKey);
   const headers = {
     "Content-Type": "application/json",
-    ...(options.headers || {}),
+    ...(optionHeaders || {}),
   };
+  if (stableIdempotencyKey) {
+    headers["Idempotency-Key"] = stableIdempotencyKey;
+  }
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
@@ -28,24 +140,28 @@ async function request(path, options = {}) {
   try {
     const response = await fetch(`${API_BASE}${path}`, {
       credentials: "include",
-      headers,
       signal: controller.signal,
       ...fetchOptions,
+      headers,
     });
 
     clearTimeout(timeoutId);
 
     const payload = await response.json().catch(() => ({}));
+    if (token && token === localStorage.getItem("prepmatrix_auth_token")) {
+      publishQuota(response, payload);
+    }
+    finishAiIdempotencyRequest(idempotencyFingerprint, payload);
 
     if (response.status === 401) {
-      localStorage.removeItem("prepmatrix_auth_token");
+      clearStoredAuthState();
       if (payload.code === "PASSWORD_CHANGED") {
         notifySessionEnded(payload.error || "Your password was changed. Please log in again.");
       }
     }
 
-    if (path === "/api/auth/logout") {
-      localStorage.removeItem("prepmatrix_auth_token");
+    if (path === "/api/auth/logout" || (path === "/api/auth/account" && response.ok)) {
+      clearStoredAuthState();
     }
 
     if (payload.token) {
@@ -58,6 +174,14 @@ async function request(path, options = {}) {
       error.code = payload.code;
       error.details = payload;
       throw error;
+    }
+
+    if (
+      path === "/api/auth/me"
+      || path === "/api/auth/login"
+      || path === "/api/auth/register"
+    ) {
+      dispatchWindowEvent(AI_AUTH_READY_EVENT, { path });
     }
 
     return payload;
@@ -85,7 +209,11 @@ const api = {
   getQuizzes: () => request("/api/quizzes"),
   clearQuizHistory: () => request("/api/quizzes", { method: "DELETE" }),
   deleteQuizAttempt: (id) => request(`/api/quizzes/${encodeURIComponent(id)}`, { method: "DELETE" }),
-  generateQuiz: (body) => request("/api/quizzes/generate", { method: "POST", body: JSON.stringify(body) }),
+  generateQuiz: (body, options = {}) => request("/api/quizzes/generate", {
+    ...options,
+    method: "POST",
+    body: JSON.stringify(body),
+  }),
   saveQuizAttempt: (body) => request("/api/quizzes", { method: "POST", body: JSON.stringify(body) }),
   updateProfile: (body) => request("/api/auth/profile", { method: "PUT", body: JSON.stringify(body) }),
   getChatSessions: () => request("/api/chat-sessions"),
@@ -94,6 +222,7 @@ const api = {
   deleteChatSession: (id) => request(`/api/chat-sessions/${id}`, { method: "DELETE" }),
   clearChatSessions: () => request("/api/chat-sessions", { method: "DELETE" }),
   renameChatSession: (id, title) => request(`/api/chat-sessions/${id}`, { method: "PUT", body: JSON.stringify({ title }) }),
+  getAiQuota: () => request("/api/ai/quota"),
   get: (path, options = {}) => request(path, options),
   post: (path, body, options = {}) => request(path, { ...options, method: "POST", body: JSON.stringify(body) }),
   put: (path, body, options = {}) => request(path, { ...options, method: "PUT", body: JSON.stringify(body) }),
@@ -106,4 +235,3 @@ const api = {
 };
 
 export default api;
-

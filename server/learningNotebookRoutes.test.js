@@ -16,6 +16,86 @@ import {
 } from "./learningNotebookRoutes.js";
 import { LEARNING_PRIVACY_CONSENT_VERSION } from "../src/utils/learningPrivacyConsent.js";
 
+const TEST_IDEMPOTENCY_KEY = "9f0c91cc-6c62-4a41-8c44-b6a364cc31f8";
+const TEST_QUOTA = Object.freeze({
+  limit: 100,
+  used: 0,
+  reserved: 12,
+  remaining: 88,
+  periodStart: "2026-07-01T00:00:00.000Z",
+  resetAt: "2026-08-01T00:00:00.000Z",
+  costs: {
+    learning_notebook: 12,
+    career_analysis: 5,
+  },
+});
+
+function createTestAiQuota({
+  lookup: lookupOverride,
+  reserve: reserveOverride,
+  commit: commitOverride,
+  refund: refundOverride,
+} = {}) {
+  const calls = {
+    lookup: [],
+    reserve: [],
+    commit: [],
+    refund: [],
+  };
+  const featureCost = (feature) => TEST_QUOTA.costs[feature] || 1;
+  return {
+    calls,
+    async lookup(input) {
+      calls.lookup.push(input);
+      if (lookupOverride) return lookupOverride(input);
+      return {
+        state: "none",
+        cost: featureCost(input.feature),
+        quota: TEST_QUOTA,
+      };
+    },
+    async reserve(input) {
+      calls.reserve.push(input);
+      if (reserveOverride) return reserveOverride(input);
+      return {
+        state: "reserved",
+        eventId: `event-${calls.reserve.length}`,
+        reservationToken: "reservation-" + calls.reserve.length,
+        cost: featureCost(input.feature),
+        quota: TEST_QUOTA,
+      };
+    },
+    async commit(input) {
+      calls.commit.push(input);
+      if (commitOverride) return commitOverride(input);
+      return {
+        quota: {
+          ...TEST_QUOTA,
+          used: featureCost(calls.reserve.at(-1)?.feature),
+          reserved: 0,
+        },
+      };
+    },
+    async refund(input) {
+      calls.refund.push(input);
+      if (refundOverride) return refundOverride(input);
+      return {
+        refunded: true,
+        status: "refunded",
+        quota: { ...TEST_QUOTA, reserved: 0, remaining: 100 },
+      };
+    },
+    responseHeaders(quota, cost) {
+      return {
+        "X-AI-Credit-Limit": String(quota.limit),
+        "X-AI-Credit-Remaining": String(quota.remaining),
+        "X-AI-Credit-Reset-At": quota.resetAt,
+        "X-AI-Credit-Cost": String(cost),
+      };
+    },
+  };
+}
+
 function validGeneratedNotebook() {
   const topics = Array.from({ length: 8 }, (_, topicIndex) => {
     const topicNumber = topicIndex + 1;
@@ -248,6 +328,7 @@ test("routes scanned inputs through Qwen OCR and Llama structured generation", a
   const imageDataUrl = `data:image/png;base64,${pngBase64}`;
 
   registerLearningNotebookRoutes(app, {
+    aiQuota: createTestAiQuota(),
     fetchImpl,
     getDb: async () => ({ collection: () => collection }),
     getGroqConfigStatus: () => ({ available: true, apiKey: "test-key" }),
@@ -289,6 +370,7 @@ test("routes scanned inputs through Qwen OCR and Llama structured generation", a
       degree: "B.Tech",
       department: "IT",
     },
+    headers: { "idempotency-key": TEST_IDEMPOTENCY_KEY },
   };
   const res = {
     body: null,
@@ -395,6 +477,7 @@ function createLearningRouteHarness({
   geminiConfig = { available: true, apiKey: "gemini-key" },
   groqConfig = { available: true, apiKey: "groq-key" },
   prepareAttachmentContext,
+  aiQuota = createTestAiQuota(),
 } = {}) {
   const routes = new Map();
   const app = {};
@@ -407,11 +490,21 @@ function createLearningRouteHarness({
   const collection = {
     countDocuments: async () => 0,
     insertOne: async (document) => {
-      stored.push(document);
+      stored.push({ ...document, _id: "notebook-1" });
       return { insertedId: "notebook-1" };
+    },
+    deleteOne: async (filter) => {
+      const index = stored.findIndex((document) => (
+        String(document._id) === String(filter._id)
+        && String(document.userId) === String(filter.userId)
+      ));
+      if (index < 0) return { deletedCount: 0 };
+      stored.splice(index, 1);
+      return { deletedCount: 1 };
     },
   };
   registerLearningNotebookRoutes(app, {
+    aiQuota,
     fetchImpl,
     geminiLearningModel: DEFAULT_GEMINI_LEARNING_MODEL,
     getDb: async () => {
@@ -432,6 +525,7 @@ function createLearningRouteHarness({
   });
 
   return {
+    aiQuota,
     stored,
     get dbCalls() { return dbCalls; },
     get prepareCalls() { return prepareCalls; },
@@ -454,10 +548,16 @@ function createLearningRouteHarness({
           degree: "B.Tech",
           department: "IT",
         },
+        headers: { "idempotency-key": TEST_IDEMPOTENCY_KEY },
       };
       const res = {
         body: null,
+        headers: {},
         statusCode: 200,
+        set(name, value) {
+          this.headers[name] = String(value);
+          return this;
+        },
         status(code) {
           this.statusCode = code;
           return this;
@@ -589,6 +689,11 @@ test("lazily extracts PDFs and uses the preserved Groq fallback after a Gemini t
   assert.match(groqRequests[0].messages[1].content, /isolated address spaces/u);
   assert.equal(harness.stored[0].model, "llama-3.3-70b-versatile");
   assert.equal(res.body.notebook.model, "llama-3.3-70b-versatile");
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.reserve[0].feature, "learning_notebook");
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+  assert.equal(res.headers["X-AI-Credit-Cost"], "12");
 });
 
 test("falls back to Groq when Gemini returns malformed notebook output", async () => {
@@ -608,6 +713,133 @@ test("falls back to Groq when Gemini returns malformed notebook output", async (
   assert.equal(res.statusCode, 201);
   assert.equal(requestCount, 2);
   assert.equal(res.body.notebook.model, "llama-3.3-70b-versatile");
+});
+
+test("rejects an exhausted learning-notebook quota before any provider request", async () => {
+  let fetchCalls = 0;
+  const exhaustedQuota = {
+    ...TEST_QUOTA,
+    reserved: 0,
+    remaining: 0,
+    used: 100,
+  };
+  const aiQuota = createTestAiQuota({
+    reserve: async () => {
+      const error = new Error("You have used all AI credits for this month.");
+      error.status = 429;
+      error.code = "AI_USER_QUOTA_EXHAUSTED";
+      error.details = { quota: exhaustedQuota, cost: 12 };
+      throw error;
+    },
+  });
+  const harness = createLearningRouteHarness({
+    aiQuota,
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return geminiNotebookResponse();
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 429);
+  assert.equal(res.body.code, "AI_USER_QUOTA_EXHAUSTED");
+  assert.equal(fetchCalls, 0);
+  assert.equal(aiQuota.calls.reserve.length, 1);
+  assert.equal(aiQuota.calls.commit.length, 0);
+  assert.equal(aiQuota.calls.refund.length, 0);
+  assert.equal(res.headers["X-AI-Credit-Remaining"], "0");
+  assert.equal(res.headers["X-AI-Credit-Cost"], "12");
+});
+
+test("replays a completed learning-notebook request without another provider call", async () => {
+  let fetchCalls = 0;
+  const replayPayload = {
+    notebook: {
+      id: "replayed-notebook",
+      title: "Replayed notebook",
+    },
+  };
+  const aiQuota = createTestAiQuota({
+    lookup: async () => ({
+      state: "replay",
+      eventId: "completed-event",
+      cost: 12,
+      quota: { ...TEST_QUOTA, used: 12, reserved: 0 },
+      replayPayload,
+    }),
+  });
+  const harness = createLearningRouteHarness({
+    aiQuota,
+    geminiConfig: { available: false, message: "Gemini unavailable." },
+    groqConfig: { available: false, message: "Groq unavailable." },
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return geminiNotebookResponse();
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(res.body, replayPayload);
+  assert.equal(fetchCalls, 0);
+  assert.equal(aiQuota.calls.lookup.length, 1);
+  assert.equal(aiQuota.calls.reserve.length, 0);
+  assert.equal(aiQuota.calls.commit.length, 0);
+  assert.equal(aiQuota.calls.refund.length, 0);
+  assert.equal(res.headers["X-AI-Credit-Cost"], "12");
+});
+
+test("refunds one learning-notebook reservation when the provider is unavailable", async () => {
+  let fetchCalls = 0;
+  const aiQuota = createTestAiQuota();
+  const harness = createLearningRouteHarness({
+    aiQuota,
+    groqConfig: { available: false, message: "Groq unavailable." },
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      throw new TypeError("network unavailable");
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 503);
+  assert.equal(res.body.code, "AI_PROVIDER_UNAVAILABLE");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.match(res.body.error, /credits were refunded/iu);
+  assert.equal(fetchCalls, 1);
+  assert.equal(aiQuota.calls.reserve.length, 1);
+  assert.equal(aiQuota.calls.commit.length, 0);
+  assert.equal(aiQuota.calls.refund.length, 1);
+  assert.equal(res.headers["X-AI-Credit-Remaining"], "100");
+});
+
+test("rolls back a persisted notebook and refunds when quota commit fails", async () => {
+  const aiQuota = createTestAiQuota({
+    commit: async () => {
+      const error = new Error("AI credit storage unavailable.");
+      error.status = 503;
+      error.code = "AI_QUOTA_UNAVAILABLE";
+      throw error;
+    },
+  });
+  const harness = createLearningRouteHarness({
+    aiQuota,
+    fetchImpl: async () => geminiNotebookResponse(),
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 503);
+  assert.equal(res.body.code, "AI_QUOTA_UNAVAILABLE");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.equal(harness.stored.length, 0);
+  assert.equal(aiQuota.calls.commit.length, 1);
+  assert.equal(aiQuota.calls.commit[0].reservationToken, "reservation-1");
+  assert.equal(aiQuota.calls.refund.length, 1);
+  assert.equal(aiQuota.calls.refund[0].reservationToken, "reservation-1");
 });
 
 test("supports Gemini-first, Gemini-only, Groq-only, and unavailable provider configurations", async (t) => {
@@ -645,7 +877,7 @@ test("supports Gemini-first, Gemini-only, Groq-only, and unavailable provider co
           row.provider === "gemini" ? DEFAULT_GEMINI_LEARNING_MODEL : "llama-3.3-70b-versatile",
         );
       } else {
-        assert.equal(res.body.code, "LEARNING_ASSISTANT_UNAVAILABLE");
+        assert.equal(res.body.code, "AI_PROVIDER_UNAVAILABLE");
         assert.equal(harness.dbCalls, 0);
       }
     });
@@ -735,6 +967,7 @@ function createCareerRouteHarness({
   geminiConfig = { available: true, apiKey: "gemini-key" },
   groqConfig = { available: true, apiKey: "groq-key" },
   user = {},
+  aiQuota = createTestAiQuota(),
 } = {}) {
   const routes = new Map();
   const app = {};
@@ -761,6 +994,7 @@ function createCareerRouteHarness({
     },
   };
   registerLearningNotebookRoutes(app, {
+    aiQuota,
     fetchImpl,
     geminiLearningModel: DEFAULT_GEMINI_LEARNING_MODEL,
     getDb: async () => {
@@ -777,6 +1011,7 @@ function createCareerRouteHarness({
   });
 
   return {
+    aiQuota,
     updates,
     get dbCalls() { return dbCalls; },
     async analyze(body = {}) {
@@ -798,10 +1033,16 @@ function createCareerRouteHarness({
           department: "IT",
           ...user,
         },
+        headers: { "idempotency-key": TEST_IDEMPOTENCY_KEY },
       };
       const res = {
         body: null,
+        headers: {},
         statusCode: 200,
+        set(name, value) {
+          this.headers[name] = String(value);
+          return this;
+        },
         status(code) {
           this.statusCode = code;
           return this;
@@ -816,6 +1057,43 @@ function createCareerRouteHarness({
     },
   };
 }
+
+test("replays completed career analysis before eligibility and provider checks", async () => {
+  let fetchCalls = 0;
+  const replayPayload = {
+    notebook: { id: "507f1f77bcf86cd799439011" },
+    topicAnalysis: { targetRole: "Backend intern", topics: [] },
+    providerModel: "saved-model",
+  };
+  const aiQuota = createTestAiQuota({
+    lookup: async () => ({
+      state: "replay",
+      eventId: "completed-career-event",
+      cost: 5,
+      quota: { ...TEST_QUOTA, used: 5, reserved: 0 },
+      replayPayload,
+    }),
+  });
+  const harness = createCareerRouteHarness({
+    aiQuota,
+    geminiConfig: { available: false, message: "Gemini unavailable." },
+    groqConfig: { available: false, message: "Groq unavailable." },
+    user: { academicLevel: "High School", degree: "", department: "" },
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return geminiNotebookResponse();
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body, replayPayload);
+  assert.equal(fetchCalls, 0);
+  assert.equal(harness.dbCalls, 1);
+  assert.equal(aiQuota.calls.lookup.length, 1);
+  assert.equal(aiQuota.calls.reserve.length, 0);
+});
 
 test("career analysis requires current privacy consent before database or provider work", async () => {
   let fetchCalls = 0;
@@ -867,6 +1145,39 @@ test("uses Gemini structured output for career topics and persists normalized an
   assert.equal(res.body.notebook.careerPreparation.topicAnalysis.topics.length, 2);
   assert.equal(res.body.topicAnalysis.preparationPlan.length, 1);
   assert.equal(res.body.providerModel, DEFAULT_GEMINI_LEARNING_MODEL);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.reserve[0].feature, "career_analysis");
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+  assert.equal(res.headers["X-AI-Credit-Cost"], "5");
+});
+
+test("restores career data and refunds when quota commit fails", async () => {
+  const aiQuota = createTestAiQuota({
+    commit: async () => {
+      const error = new Error("AI credit storage unavailable.");
+      error.status = 503;
+      error.code = "AI_QUOTA_UNAVAILABLE";
+      throw error;
+    },
+  });
+  const harness = createCareerRouteHarness({
+    aiQuota,
+    fetchImpl: async () => (
+      geminiNotebookResponse(validCareerTopicAnalysis(["Arrays", "Graphs"]))
+    ),
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 503);
+  assert.equal(res.body.code, "AI_QUOTA_UNAVAILABLE");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.equal(harness.updates.length, 2);
+  assert.equal(aiQuota.calls.commit.length, 1);
+  assert.equal(aiQuota.calls.commit[0].reservationToken, "reservation-1");
+  assert.equal(aiQuota.calls.refund.length, 1);
+  assert.equal(aiQuota.calls.refund[0].reservationToken, "reservation-1");
 });
 
 test("falls back to Groq for career analysis after a Gemini transport failure", async () => {

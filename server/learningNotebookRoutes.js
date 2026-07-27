@@ -577,21 +577,243 @@ function persistenceDocument(notebook, userId, now, existingCreatedAt) {
   };
 }
 
-function sendLearningError(res, error) {
-  if (error instanceof ChatAttachmentError || error instanceof LearningNotebookError) {
-    return res.status(error.status || 400).json({
-      code: error.code || "LEARNING_NOTEBOOK_INVALID",
-      error: error.message,
+function learningQuotaUnavailableError(message = "AI credit tracking is temporarily unavailable.") {
+  const error = new Error(message);
+  error.status = 503;
+  error.code = "AI_QUOTA_UNAVAILABLE";
+  return error;
+}
+
+async function rollbackInsertedLearningArtifact(
+  collection,
+  insertedId,
+  userId,
+  commitError,
+  artifactName,
+) {
+  try {
+    const rollback = await collection.deleteOne({ _id: insertedId, userId });
+    if (rollback?.deletedCount === 1) return;
+  } catch (rollbackError) {
+    const error = learningQuotaUnavailableError(
+      `AI credit tracking failed and the saved ${artifactName} could not be safely removed.`,
+    );
+    error.cause = rollbackError;
+    throw error;
+  }
+  const error = learningQuotaUnavailableError(
+    `AI credit tracking failed and the saved ${artifactName} could not be safely removed.`,
+  );
+  error.cause = commitError;
+  throw error;
+}
+
+function storedValueFilter(value) {
+  return value === undefined ? { $exists: false } : value;
+}
+
+function restoreStoredField(update, name, value) {
+  if (value === undefined) {
+    update.$unset = { ...(update.$unset || {}), [name]: "" };
+  } else {
+    update.$set = { ...(update.$set || {}), [name]: value };
+  }
+}
+
+async function rollbackCareerAnalysisWrite(collection, {
+  commitError,
+  notebookId,
+  priorCareerPreparation,
+  priorUpdatedAt,
+  userId,
+  writtenCareerPreparation,
+  writtenUpdatedAt,
+}) {
+  const restoreUpdate = {};
+  restoreStoredField(restoreUpdate, "careerPreparation", priorCareerPreparation);
+  restoreStoredField(restoreUpdate, "updatedAt", priorUpdatedAt);
+  try {
+    const rollback = await collection.updateOne(
+      {
+        _id: notebookId,
+        userId,
+        careerPreparation: writtenCareerPreparation,
+        updatedAt: writtenUpdatedAt,
+      },
+      restoreUpdate,
+    );
+    if (rollback?.matchedCount === 1) return;
+  } catch (rollbackError) {
+    const error = learningQuotaUnavailableError(
+      "AI credit tracking failed and the saved career analysis could not be safely restored.",
+    );
+    error.cause = rollbackError;
+    throw error;
+  }
+  const error = learningQuotaUnavailableError(
+    "AI credit tracking failed and the saved career analysis could not be safely restored.",
+  );
+  error.cause = commitError;
+  throw error;
+}
+
+function learningRequestIdempotencyKey(req) {
+  return cleanInline(
+    req?.get?.("Idempotency-Key")
+      ?? req?.headers?.["idempotency-key"]
+      ?? req?.headers?.["Idempotency-Key"],
+    100,
+  );
+}
+
+function setLearningQuotaHeaders(res, aiQuota, quota, cost) {
+  if (!quota || typeof aiQuota?.responseHeaders !== "function" || typeof res?.set !== "function") return;
+  const headers = aiQuota.responseHeaders(quota, cost);
+  Object.entries(headers || {}).forEach(([name, value]) => {
+    if (value !== undefined && value !== null) res.set(name, String(value));
+  });
+}
+
+async function lookupLearningAiAction(aiQuota, req, feature) {
+  if (typeof aiQuota?.lookup !== "function") throw learningQuotaUnavailableError();
+  const requestId = learningRequestIdempotencyKey(req);
+  try {
+    const result = await aiQuota.lookup({
+      userId: req.user._id,
+      feature,
+      requestId,
+    });
+    return { ...result, requestId };
+  } catch (error) {
+    if (error && typeof error === "object" && error.cost === undefined) {
+      error.cost = error?.details?.cost ?? error?.quota?.costs?.[feature];
+    }
+    throw error;
+  }
+}
+
+async function reserveLearningAiAction(
+  aiQuota,
+  req,
+  feature,
+  requestId = learningRequestIdempotencyKey(req),
+) {
+  if (typeof aiQuota?.reserve !== "function") throw learningQuotaUnavailableError();
+  try {
+    return await aiQuota.reserve({
+      userId: req.user._id,
+      feature,
+      requestId,
+    });
+  } catch (error) {
+    if (error && typeof error === "object" && error.cost === undefined) {
+      error.cost = error?.details?.cost ?? error?.quota?.costs?.[feature];
+    }
+    throw error;
+  }
+}
+
+async function refundLearningAiAction(aiQuota, res, reservation, error) {
+  if (!reservation?.eventId || typeof aiQuota?.refund !== "function") {
+    return { refunded: false, error: learningQuotaUnavailableError() };
+  }
+  try {
+    const result = await aiQuota.refund({
+      eventId: reservation.eventId,
+      reservationToken: reservation.reservationToken,
+      outcome: cleanInline(error?.code, 100) || "failed",
+    });
+    setLearningQuotaHeaders(res, aiQuota, result?.quota, reservation.cost);
+    return { refunded: result?.refunded === true || result?.status === "refunded" };
+  } catch (refundError) {
+    return {
+      refunded: false,
+      error: refundError?.code ? refundError : learningQuotaUnavailableError(),
+    };
+  }
+}
+
+async function loadNotebookReplay(db, userId, reservation, profile) {
+  if (reservation?.replayPayload) return reservation.replayPayload;
+  const id = reservation?.resultRef?.id;
+  if (!ObjectId.isValid(id)) {
+    throw learningQuotaUnavailableError("The saved learning notebook replay is unavailable.");
+  }
+  const notebook = await db.collection(LEARNING_NOTEBOOKS_COLLECTION).findOne({
+    _id: new ObjectId(id),
+    userId,
+  });
+  if (!notebook) {
+    throw learningQuotaUnavailableError("The saved learning notebook replay is unavailable.");
+  }
+  return { notebook: notebookResponse(notebook, profile) };
+}
+
+async function loadCareerAnalysisReplay(db, userId, reservation, profile) {
+  if (reservation?.replayPayload) return reservation.replayPayload;
+  const id = reservation?.resultRef?.id;
+  if (!ObjectId.isValid(id)) {
+    throw learningQuotaUnavailableError("The saved career analysis replay is unavailable.");
+  }
+  const notebook = await db.collection(LEARNING_NOTEBOOKS_COLLECTION).findOne({
+    _id: new ObjectId(id),
+    userId,
+  });
+  if (!notebook?.careerPreparation?.topicAnalysis) {
+    throw learningQuotaUnavailableError("The saved career analysis replay is unavailable.");
+  }
+  const responseNotebook = notebookResponse(notebook, profile);
+  return {
+    notebook: responseNotebook,
+    topicAnalysis: responseNotebook.careerPreparation.topicAnalysis,
+    providerModel: cleanInline(reservation?.resultRef?.providerModel, 160),
+  };
+}
+
+function sendLearningError(res, error, {
+  aiQuota,
+  creditsRefunded = false,
+} = {}) {
+  const quota = error?.details?.quota ?? error?.quota;
+  const cost = error?.details?.cost ?? error?.cost;
+  setLearningQuotaHeaders(res, aiQuota, quota, cost);
+  const details = error?.details && typeof error.details === "object" ? error.details : {};
+  const withRefundMessage = (message) => creditsRefunded
+    ? `${message} Your AI credits were refunded.`
+    : message;
+  if (cleanInline(error?.code, 100).startsWith("AI_")) {
+    return res.status(Number(error?.status) || 503).json({
+      ...details,
+      code: error.code,
+      error: withRefundMessage(error instanceof Error ? error.message : "The AI request could not be completed."),
+      ...(creditsRefunded ? { creditsRefunded: true } : {}),
     });
   }
-  if (error?.name === "TimeoutError") {
-    return res.status(504).json({
-      code: "LEARNING_PROVIDER_TIMEOUT",
-      error: "The learning assistant took too long to analyze this material.",
+  if (error instanceof ChatAttachmentError || error instanceof LearningNotebookError) {
+    const providerRateLimited = error.code === "LEARNING_PROVIDER_RATE_LIMIT";
+    const providerUnavailable = error.code === "LEARNING_PROVIDER_ERROR";
+    return res.status(providerRateLimited ? 429 : providerUnavailable ? 503 : error.status || 400).json({
+      code: providerRateLimited
+        ? "AI_PROVIDER_RATE_LIMITED"
+        : providerUnavailable
+          ? "AI_PROVIDER_UNAVAILABLE"
+          : error.code || "LEARNING_NOTEBOOK_INVALID",
+      error: withRefundMessage(error.message),
+      ...(creditsRefunded ? { creditsRefunded: true } : {}),
+    });
+  }
+  if (error?.name === "TimeoutError" || (creditsRefunded && error instanceof TypeError)) {
+    return res.status(503).json({
+      code: "AI_PROVIDER_UNAVAILABLE",
+      error: withRefundMessage("The shared AI provider is temporarily unavailable. Please try again shortly."),
+      ...(creditsRefunded ? { creditsRefunded: true } : {}),
     });
   }
   console.error("[Learning notebooks] Request failed:", error instanceof Error ? error.name : "UnknownError");
-  return res.status(500).json({ error: "The learning notebook request could not be completed." });
+  return res.status(500).json({
+    error: withRefundMessage("The learning notebook request could not be completed."),
+    ...(creditsRefunded ? { creditsRefunded: true } : {}),
+  });
 }
 
 function objectIdFromParam(value) {
@@ -604,6 +826,7 @@ function objectIdFromParam(value) {
 }
 
 export function registerLearningNotebookRoutes(app, {
+  aiQuota,
   fetchImpl = globalThis.fetch,
   getDb,
   getGeminiConfigStatus = () => ({ available: false }),
@@ -633,6 +856,8 @@ export function registerLearningNotebookRoutes(app, {
   }));
 
   app.post("/api/learning-notebooks/analyze", requireAuth(async (req, res) => {
+    let reservation = null;
+    let persisted = false;
     try {
       const privacyConsent = req.body?.privacyConsent;
       if (
@@ -643,17 +868,6 @@ export function registerLearningNotebookRoutes(app, {
           code: "LEARNING_PRIVACY_CONSENT_REQUIRED",
           error: "Review and accept the AI source privacy notice before creating a learning notebook.",
           consentVersion: LEARNING_PRIVACY_CONSENT_VERSION,
-        });
-      }
-
-      const geminiConfig = getGeminiConfigStatus();
-      const groqConfig = getGroqConfigStatus();
-      const geminiAvailable = Boolean(geminiConfig?.available && geminiConfig?.apiKey);
-      const groqAvailable = Boolean(groqConfig?.available && groqConfig?.apiKey);
-      if (!geminiAvailable && !groqAvailable) {
-        return res.status(503).json({
-          code: "LEARNING_ASSISTANT_UNAVAILABLE",
-          error: geminiConfig?.message || groqConfig?.message || "The learning assistant is not configured on the server.",
         });
       }
 
@@ -679,6 +893,25 @@ export function registerLearningNotebookRoutes(app, {
         attachments[0]?.name || textSources[0]?.name,
       );
 
+      const lookupResult = await lookupLearningAiAction(aiQuota, req, "learning_notebook");
+      setLearningQuotaHeaders(res, aiQuota, lookupResult?.quota, lookupResult?.cost);
+      if (lookupResult?.state === "replay") {
+        const replayDb = await getDb();
+        const payload = await loadNotebookReplay(replayDb, req.user._id, lookupResult, req.user);
+        return res.status(201).json(payload);
+      }
+
+      const geminiConfig = getGeminiConfigStatus();
+      const groqConfig = getGroqConfigStatus();
+      const geminiAvailable = Boolean(geminiConfig?.available && geminiConfig?.apiKey);
+      const groqAvailable = Boolean(groqConfig?.available && groqConfig?.apiKey);
+      if (!geminiAvailable && !groqAvailable) {
+        return res.status(503).json({
+          code: "AI_PROVIDER_UNAVAILABLE",
+          error: geminiConfig?.message || groqConfig?.message || "The shared AI provider is not configured on the server.",
+        });
+      }
+
       const db = await getDb();
       const collection = db.collection(LEARNING_NOTEBOOKS_COLLECTION);
       const notebookCount = await collection.countDocuments(
@@ -691,6 +924,18 @@ export function registerLearningNotebookRoutes(app, {
           error: `Save up to ${MAX_LEARNING_NOTEBOOKS_PER_USER} learning notebooks. Delete one before creating another.`,
         });
       }
+      const quotaResult = await reserveLearningAiAction(
+        aiQuota,
+        req,
+        "learning_notebook",
+        lookupResult.requestId,
+      );
+      setLearningQuotaHeaders(res, aiQuota, quotaResult?.quota, quotaResult?.cost);
+      if (quotaResult?.state === "replay") {
+        const payload = await loadNotebookReplay(db, req.user._id, quotaResult, req.user);
+        return res.status(201).json(payload);
+      }
+      reservation = quotaResult;
 
       const manualMode = !hasSources;
       const learnerContext = buildLearnerAcademicContext(req.user);
@@ -735,10 +980,10 @@ export function registerLearningNotebookRoutes(app, {
       }
       if (!generationResult) {
         if (geminiFailure) throw geminiFailure;
-        return res.status(503).json({
-          code: "LEARNING_ASSISTANT_UNAVAILABLE",
-          error: "The learning assistant is not configured on the server.",
-        });
+        throw new LearningNotebookError(
+          "The shared AI provider is temporarily unavailable.",
+          { code: "AI_PROVIDER_UNAVAILABLE", status: 503 },
+        );
       }
 
       const generatedAt = now();
@@ -753,15 +998,51 @@ export function registerLearningNotebookRoutes(app, {
       });
       const document = persistenceDocument(notebook, req.user._id, generatedAt);
       const result = await collection.insertOne(document);
-      return res.status(201).json({
+      persisted = true;
+      const payload = {
         notebook: notebookResponse({ _id: result.insertedId, ...document }, req.user),
-      });
+      };
+      let committed;
+      try {
+        committed = await aiQuota.commit({
+          eventId: reservation.eventId,
+          reservationToken: reservation.reservationToken,
+          resultRef: { type: "learning_notebook", id: String(result.insertedId) },
+        });
+      } catch (commitError) {
+        await rollbackInsertedLearningArtifact(
+          collection,
+          result.insertedId,
+          req.user._id,
+          commitError,
+          "learning notebook",
+        );
+        persisted = false;
+        throw commitError;
+      }
+      setLearningQuotaHeaders(res, aiQuota, committed?.quota, reservation.cost);
+      return res.status(201).json(payload);
     } catch (error) {
-      return sendLearningError(res, error);
+      let finalError = error;
+      let creditsRefunded = false;
+      if (reservation?.state === "reserved" && !persisted) {
+        const refund = await refundLearningAiAction(aiQuota, res, reservation, error);
+        creditsRefunded = refund.refunded;
+        if (refund.error) finalError = refund.error;
+      }
+      if (finalError && typeof finalError === "object" && finalError.cost === undefined) {
+        finalError.cost = reservation?.cost;
+      }
+      return sendLearningError(res, finalError, {
+        aiQuota,
+        creditsRefunded,
+      });
     }
   }));
 
   app.post("/api/learning-notebooks/:id/career-analyze", requireAuth(async (req, res) => {
+    let reservation = null;
+    let persisted = false;
     try {
       const privacyConsent = req.body?.privacyConsent;
       if (
@@ -783,6 +1064,15 @@ export function registerLearningNotebookRoutes(app, {
         });
       }
 
+      const notebookId = objectIdFromParam(req.params.id);
+      const lookupResult = await lookupLearningAiAction(aiQuota, req, "career_analysis");
+      setLearningQuotaHeaders(res, aiQuota, lookupResult?.quota, lookupResult?.cost);
+      if (lookupResult?.state === "replay") {
+        const replayDb = await getDb();
+        const payload = await loadCareerAnalysisReplay(replayDb, req.user._id, lookupResult, req.user);
+        return res.json(payload);
+      }
+
       const careerEligibility = getLearningCareerEligibility(req.user);
       if (!careerEligibility.enabled) {
         return res.status(403).json({
@@ -800,12 +1090,11 @@ export function registerLearningNotebookRoutes(app, {
       const groqAvailable = Boolean(groqConfig?.available && groqConfig?.apiKey);
       if (!geminiAvailable && !groqAvailable) {
         return res.status(503).json({
-          code: "LEARNING_ASSISTANT_UNAVAILABLE",
-          error: geminiConfig?.message || groqConfig?.message || "The learning assistant is not configured on the server.",
+          code: "AI_PROVIDER_UNAVAILABLE",
+          error: geminiConfig?.message || groqConfig?.message || "The shared AI provider is not configured on the server.",
         });
       }
 
-      const notebookId = objectIdFromParam(req.params.id);
       const db = await getDb();
       const collection = db.collection(LEARNING_NOTEBOOKS_COLLECTION);
       const existing = await collection.findOne({
@@ -818,6 +1107,18 @@ export function registerLearningNotebookRoutes(app, {
           error: "Learning notebook not found.",
         });
       }
+      const quotaResult = await reserveLearningAiAction(
+        aiQuota,
+        req,
+        "career_analysis",
+        lookupResult.requestId,
+      );
+      setLearningQuotaHeaders(res, aiQuota, quotaResult?.quota, quotaResult?.cost);
+      if (quotaResult?.state === "replay") {
+        const payload = await loadCareerAnalysisReplay(db, req.user._id, quotaResult, req.user);
+        return res.json(payload);
+      }
+      reservation = quotaResult;
 
       const learnerContext = buildLearnerAcademicContext(req.user);
       const prompts = buildCareerAnalysisPrompts({
@@ -862,10 +1163,10 @@ export function registerLearningNotebookRoutes(app, {
 
       if (!generated) {
         if (geminiFailure) throw geminiFailure;
-        return res.status(503).json({
-          code: "LEARNING_ASSISTANT_UNAVAILABLE",
-          error: "The learning assistant is not configured on the server.",
-        });
+        throw new LearningNotebookError(
+          "The shared AI provider is temporarily unavailable.",
+          { code: "AI_PROVIDER_UNAVAILABLE", status: 503 },
+        );
       }
 
       const topicAnalysis = normalizeLearningCareerTopicAnalysis(generated, {
@@ -873,6 +1174,9 @@ export function registerLearningNotebookRoutes(app, {
         targetRole,
       });
       const updatedAt = now();
+      const priorCareerPreparation = existing.careerPreparation;
+      const priorUpdatedAt = existing.updatedAt;
+      const writtenUpdatedAt = new Date(updatedAt);
       const normalizedNotebook = normalizeLearningNotebook(
         {
           ...existing,
@@ -894,28 +1198,78 @@ export function registerLearningNotebookRoutes(app, {
         },
       );
 
-      await collection.updateOne(
-        { _id: notebookId, userId: req.user._id },
+      const persistence = await collection.updateOne(
+        {
+          _id: notebookId,
+          userId: req.user._id,
+          careerPreparation: storedValueFilter(priorCareerPreparation),
+          updatedAt: storedValueFilter(priorUpdatedAt),
+        },
         {
           $set: {
             careerPreparation: normalizedNotebook.careerPreparation,
-            updatedAt: new Date(updatedAt),
+            updatedAt: writtenUpdatedAt,
           },
         },
       );
+      if (persistence?.matchedCount !== 1) {
+        throw learningQuotaUnavailableError(
+          "The learning notebook changed before the career analysis could be saved.",
+        );
+      }
+      persisted = true;
       const responseNotebook = notebookResponse({
         ...existing,
         _id: notebookId,
         careerPreparation: normalizedNotebook.careerPreparation,
         updatedAt,
       }, req.user);
-      return res.json({
+      const payload = {
         notebook: responseNotebook,
         topicAnalysis: responseNotebook.careerPreparation.topicAnalysis,
         providerModel,
-      });
+      };
+      let committed;
+      try {
+        committed = await aiQuota.commit({
+          eventId: reservation.eventId,
+          reservationToken: reservation.reservationToken,
+          resultRef: {
+            type: "career_analysis",
+            id: String(notebookId),
+            providerModel,
+          },
+        });
+      } catch (commitError) {
+        await rollbackCareerAnalysisWrite(collection, {
+          commitError,
+          notebookId,
+          priorCareerPreparation,
+          priorUpdatedAt,
+          userId: req.user._id,
+          writtenCareerPreparation: normalizedNotebook.careerPreparation,
+          writtenUpdatedAt,
+        });
+        persisted = false;
+        throw commitError;
+      }
+      setLearningQuotaHeaders(res, aiQuota, committed?.quota, reservation.cost);
+      return res.json(payload);
     } catch (error) {
-      return sendLearningError(res, error);
+      let finalError = error;
+      let creditsRefunded = false;
+      if (reservation?.state === "reserved" && !persisted) {
+        const refund = await refundLearningAiAction(aiQuota, res, reservation, error);
+        creditsRefunded = refund.refunded;
+        if (refund.error) finalError = refund.error;
+      }
+      if (finalError && typeof finalError === "object" && finalError.cost === undefined) {
+        finalError.cost = reservation?.cost;
+      }
+      return sendLearningError(res, finalError, {
+        aiQuota,
+        creditsRefunded,
+      });
     }
   }));
   app.patch("/api/learning-notebooks/:id", requireAuth(async (req, res) => {
