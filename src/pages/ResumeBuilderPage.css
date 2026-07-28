@@ -271,31 +271,34 @@
   white-space: nowrap;
 }
 
-.resume-builder-nav__note {
+.resume-builder-privacy-note {
   display: flex;
-  gap: 9px;
-  margin-top: auto;
-  padding: 13px 11px;
-  border: 1px solid var(--resume-border);
-  border-radius: 13px;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  margin: -6px 6px 0;
+  overflow-x: auto;
   color: var(--resume-muted);
-  background: color-mix(in srgb, var(--resume-soft) 68%, transparent);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  scrollbar-width: none;
 }
 
-.resume-builder-nav__note svg {
+.resume-builder-privacy-note::-webkit-scrollbar {
+  display: none;
+}
+
+.resume-builder-privacy-note svg {
   flex: 0 0 auto;
   color: var(--resume-accent-ui);
 }
 
-.resume-builder-nav__note p {
+.resume-builder-privacy-note p {
   margin: 0;
-  font-size: 0.68rem;
-  line-height: 1.45;
 }
 
-.resume-builder-nav__note strong {
-  display: block;
-  margin-bottom: 2px;
+.resume-builder-privacy-note strong {
   color: var(--text, #eef3fb);
 }
 
@@ -1632,8 +1635,7 @@ body .resume-reset-dialog .resume-reset-dialog__confirm:focus-visible {
     border-bottom: 1px solid var(--resume-border);
   }
 
-  .resume-builder-nav__intro,
-  .resume-builder-nav__note {
+  .resume-builder-nav__intro {
     display: none;
   }
 

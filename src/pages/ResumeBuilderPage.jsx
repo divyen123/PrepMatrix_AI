@@ -812,10 +812,6 @@ export default function ResumeBuilderPage({
               );
             })}
           </div>
-          <div className="resume-builder-nav__note">
-            <ShieldCheck size={17} />
-            <p><strong>Your draft stays private.</strong> Previewing and editing do not use your weekly limit.</p>
-          </div>
         </nav>
 
         <main className="resume-editor-panel">
@@ -1263,6 +1259,11 @@ export default function ResumeBuilderPage({
             </button>
           </div>
         </aside>
+      </div>
+
+      <div className="resume-builder-privacy-note">
+        <ShieldCheck aria-hidden="true" size={15} />
+        <p><strong>Your draft stays private.</strong> Previewing and editing do not use your weekly limit.</p>
       </div>
 
       {notice && (
