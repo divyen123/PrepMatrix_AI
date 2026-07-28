@@ -1895,7 +1895,9 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
 
     let finalError = error;
     const hasStructuredCode = String(error?.code || "").startsWith("AI_");
-    if (error?.name === "TimeoutError") {
+    if (error instanceof ChatAttachmentError) {
+      finalError = error;
+    } else if (error?.name === "TimeoutError") {
       finalError = createStructuredAiError(
         503,
         "AI_PROVIDER_UNAVAILABLE",
@@ -1924,7 +1926,11 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
       }
     }
 
-    if (finalError instanceof AiQuotaError || String(finalError?.code || "").startsWith("AI_")) {
+    if (
+      finalError instanceof AiQuotaError
+      || finalError instanceof ChatAttachmentError
+      || String(finalError?.code || "").startsWith("AI_")
+    ) {
       return sendStructuredAiError(res, finalError);
     }
     return res.status(500).json({ error: "Unexpected chat error." });

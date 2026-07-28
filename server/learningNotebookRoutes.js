@@ -1012,7 +1012,9 @@ export function registerLearningNotebookRoutes(app, {
       const chapterNames = normalizeLearningChapterNames(req.body?.chapterNames);
       const rawAttachments = req.body?.attachments ?? [];
       const textSources = normalizeLearningTextSources(req.body?.textSources);
-      const attachments = decodeChatAttachments(rawAttachments);
+      const attachments = decodeChatAttachments(rawAttachments, {
+        allowPresentations: false,
+      });
       if (attachments.length + textSources.length > MAX_LEARNING_SOURCES) {
         return res.status(400).json({
           code: "LEARNING_SOURCE_COUNT",

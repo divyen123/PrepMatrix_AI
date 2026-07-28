@@ -13,6 +13,8 @@ import {
   MAX_CHAT_ATTACHMENTS,
   chatAttachmentMetadata,
   formatChatFileSize,
+  getChatDroppedFiles,
+  hasChatFileDrag,
   prepareChatAttachment,
   validateChatAttachmentSelection,
 } from "../utils/chatAttachments";
@@ -40,7 +42,8 @@ import {
   Copy,
   Paperclip,
   FileText,
-  Image as ImageIcon
+  UploadCloud,
+  Image as ImageIcon,
 } from "lucide-react";
 
 function formatMessageText(text) {
@@ -103,6 +106,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   const viewEpochRef = useRef(0);
   const chatRequestSeqRef = useRef(0);
   const attachmentPrepSeqRef = useRef(0);
+  const attachmentDragDepthRef = useRef(0);
   const sessionLoadSeqRef = useRef(0);
   const isSendingRef = useRef(false);
 
@@ -140,6 +144,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   const [attachments, setAttachments] = useState([]);
   const [attachmentError, setAttachmentError] = useState("");
   const [preparingAttachments, setPreparingAttachments] = useState(false);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -379,9 +384,8 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     }
   }, [renameTitle, activeSessionId]);
 
-  const handleAttachmentFiles = useCallback(async (event) => {
-    const selectedFiles = Array.from(event.target.files || []);
-    event.target.value = "";
+  const prepareAttachmentFiles = useCallback(async (files) => {
+    const selectedFiles = Array.from(files || []);
     if (!selectedFiles.length) return;
 
     const validationMessage = validateChatAttachmentSelection(selectedFiles, attachments);
@@ -416,6 +420,60 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       if (isCurrentPreparation()) setPreparingAttachments(false);
     }
   }, [attachments]);
+
+  const handleAttachmentInputChange = useCallback((event) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    event.target.value = "";
+    void prepareAttachmentFiles(selectedFiles);
+  }, [prepareAttachmentFiles]);
+
+  const clearAttachmentDragState = useCallback(() => {
+    attachmentDragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+  }, []);
+
+  const handleChatDragEnter = useCallback((event) => {
+    if (!hasChatFileDrag(event.dataTransfer)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    attachmentDragDepthRef.current += 1;
+    setIsDraggingFiles(true);
+  }, []);
+
+  const handleChatDragOver = useCallback((event) => {
+    if (!hasChatFileDrag(event.dataTransfer)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = loading || preparingAttachments ? "none" : "copy";
+  }, [loading, preparingAttachments]);
+
+  const handleChatDragLeave = useCallback((event) => {
+    if (attachmentDragDepthRef.current === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    attachmentDragDepthRef.current = Math.max(0, attachmentDragDepthRef.current - 1);
+    if (attachmentDragDepthRef.current === 0) setIsDraggingFiles(false);
+  }, []);
+
+  const handleChatDrop = useCallback((event) => {
+    const isFileDrop = hasChatFileDrag(event.dataTransfer);
+    clearAttachmentDragState();
+    if (!isFileDrop) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const droppedFiles = getChatDroppedFiles(event.dataTransfer);
+    if (!droppedFiles.length) return;
+    if (loading || preparingAttachments) {
+      setAttachmentError("Wait for the current response or file preparation to finish.");
+      return;
+    }
+    void prepareAttachmentFiles(droppedFiles);
+  }, [clearAttachmentDragState, loading, prepareAttachmentFiles, preparingAttachments]);
+
+  useEffect(() => {
+    if (!open) clearAttachmentDragState();
+  }, [clearAttachmentDragState, open]);
 
   const handleRemoveAttachment = useCallback((attachmentId) => {
     setAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId));
@@ -991,7 +1049,32 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
             </aside>
 
             {/* Right Panel: Active Chat */}
-            <div className="chat-main">
+            <div
+              className={`chat-main${isDraggingFiles ? " is-file-dragging" : ""}`}
+              onDragEnter={handleChatDragEnter}
+              onDragLeave={handleChatDragLeave}
+              onDragOver={handleChatDragOver}
+              onDrop={handleChatDrop}
+            >
+              {isDraggingFiles ? (
+                <div aria-live="polite" className="chat-drop-overlay" role="status">
+                  <div className="chat-drop-overlay-card">
+                    <span className="chat-drop-overlay-icon">
+                      <UploadCloud aria-hidden="true" size={26} strokeWidth={1.9} />
+                    </span>
+                    <strong>
+                      {loading || preparingAttachments
+                        ? "Attachments temporarily unavailable"
+                        : "Drop files to attach"}
+                    </strong>
+                    <span>
+                      {loading || preparingAttachments
+                        ? "Wait for the current response or file preparation to finish."
+                        : `JPG, PNG, WebP, PDF, or PPTX · up to ${MAX_CHAT_ATTACHMENTS} files`}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
               <div className="chat-header">
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   <button
@@ -1118,7 +1201,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                   accept={CHAT_ATTACHMENT_ACCEPT}
                   className="chat-file-input"
                   multiple
-                  onChange={handleAttachmentFiles}
+                  onChange={handleAttachmentInputChange}
                   ref={fileInputRef}
                   tabIndex={-1}
                   type="file"
@@ -1144,12 +1227,12 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                   className="chat-input-field"
                 />
                 <button
-                  aria-label="Attach images or PDF files"
+                  aria-label="Attach images, PDF, or PowerPoint files"
                   className={`chat-icon-btn chat-upload-btn${attachments.length ? " has-attachments" : ""}`}
                   disabled={loading || preparingAttachments || attachments.length >= MAX_CHAT_ATTACHMENTS}
                   onClick={() => fileInputRef.current?.click()}
                   type="button"
-                  title={attachments.length >= MAX_CHAT_ATTACHMENTS ? `Maximum ${MAX_CHAT_ATTACHMENTS} files attached` : "Attach images or PDF files"}
+                  title={attachments.length >= MAX_CHAT_ATTACHMENTS ? `Maximum ${MAX_CHAT_ATTACHMENTS} files attached` : "Attach images, PDF, or PowerPoint files"}
                 >
                   {preparingAttachments ? <Loader2 aria-hidden="true" className="spinner" size={16} /> : <Paperclip aria-hidden="true" size={16} />}
                   {attachments.length ? <span className="chat-upload-count">{attachments.length}</span> : null}

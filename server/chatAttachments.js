@@ -1,7 +1,9 @@
 import { fork } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import yauzl from "yauzl";
 import {
   CHAT_IMAGE_TYPES,
+  CHAT_PRESENTATION_TYPE,
   DEFAULT_ATTACHMENT_PROMPT,
   MAX_CHAT_ATTACHMENTS,
   MAX_CHAT_ATTACHMENT_FILE_BYTES,
@@ -17,9 +19,16 @@ export const MAX_CHAT_PDF_TOTAL_TEXT_CHARS = 90000;
 export const MAX_CHAT_VISION_IMAGES = 3;
 export const MAX_CHAT_PDF_OCR_PAGES = 3;
 export const MAX_CHAT_PDF_PROCESSING_MS = 12000;
+export const MAX_CHAT_PRESENTATION_SLIDES = 80;
+export const MAX_CHAT_PRESENTATION_TEXT_CHARS = 45000;
 
 const PDF_TYPE = "application/pdf";
-const ALLOWED_TYPES = new Set([...CHAT_IMAGE_TYPES, PDF_TYPE]);
+const BASE_ALLOWED_TYPES = new Set([...CHAT_IMAGE_TYPES, PDF_TYPE]);
+const MAX_CHAT_PRESENTATION_ENTRIES = 2500;
+const MAX_CHAT_PRESENTATION_UNCOMPRESSED_BYTES = 64 * 1024 * 1024;
+const MAX_CHAT_PRESENTATION_SLIDE_XML_BYTES = 1024 * 1024;
+const MAX_CHAT_PRESENTATION_PROCESSING_MS = 12000;
+const PRESENTATION_SLIDE_PATH = /^ppt\/slides\/slide(\d+)\.xml$/u;
 const PDF_SCREENSHOT_WIDTHS = [900, 700, 520];
 const MAX_CHAT_PDF_RENDER_HEIGHT = 6000;
 const PDF_PROCESS_PATH = fileURLToPath(new URL("./pdfAttachmentProcess.js", import.meta.url));
@@ -198,13 +207,25 @@ function hasPdfSignature(buffer) {
   return buffer.subarray(0, Math.min(1024, buffer.length)).includes(Buffer.from("%PDF-"));
 }
 
-function decodeBase64DataUrl(rawAttachment, index) {
+function hasZipSignature(buffer) {
+  return buffer.length >= 4
+    && buffer[0] === 0x50
+    && buffer[1] === 0x4b
+    && buffer[2] === 0x03
+    && buffer[3] === 0x04;
+}
+
+function decodeBase64DataUrl(rawAttachment, index, { allowPresentations = true } = {}) {
   const name = sanitizeChatAttachmentName(rawAttachment?.name || `attachment-${index + 1}`);
   const declaredType = String(rawAttachment?.type || "").trim().toLowerCase();
   const dataUrl = String(rawAttachment?.dataUrl || "");
+  const isPresentation = declaredType === CHAT_PRESENTATION_TYPE;
 
-  if (!ALLOWED_TYPES.has(declaredType)) {
-    attachmentError(`${name} is not a supported image or PDF file.`, { code: "CHAT_ATTACHMENT_TYPE" });
+  if (!BASE_ALLOWED_TYPES.has(declaredType) && !(allowPresentations && isPresentation)) {
+    attachmentError(
+      `${name} is not a supported image, PDF${allowPresentations ? ", or PPTX" : ""} file.`,
+      { code: "CHAT_ATTACHMENT_TYPE" },
+    );
   }
   if (dataUrl.length > Math.ceil(MAX_CHAT_ATTACHMENT_FILE_BYTES * 4 / 3) + 256) {
     attachmentError(`${name} is too large.`, { code: "CHAT_ATTACHMENT_TOO_LARGE", status: 413 });
@@ -226,14 +247,20 @@ function decodeBase64DataUrl(rawAttachment, index) {
   if (buffer.length > MAX_CHAT_ATTACHMENT_FILE_BYTES) {
     attachmentError(`${name} is too large.`, { code: "CHAT_ATTACHMENT_TOO_LARGE", status: 413 });
   }
-  if (declaredType !== PDF_TYPE && buffer.length > MAX_CHAT_IMAGE_BYTES) {
+  const isImage = CHAT_IMAGE_TYPES.includes(declaredType);
+  if (isImage && buffer.length > MAX_CHAT_IMAGE_BYTES) {
     attachmentError(
       `${name} is too large after compression.`,
       { code: "CHAT_IMAGE_TOO_LARGE", status: 413 },
     );
   }
-  const imageDimensions = declaredType === PDF_TYPE ? null : readImageDimensions(buffer, declaredType);
-  if (declaredType === PDF_TYPE ? !hasPdfSignature(buffer) : !imageDimensions) {
+  const imageDimensions = isImage ? readImageDimensions(buffer, declaredType) : null;
+  const signatureMatches = declaredType === PDF_TYPE
+    ? hasPdfSignature(buffer)
+    : isPresentation
+      ? hasZipSignature(buffer)
+      : Boolean(imageDimensions);
+  if (!signatureMatches) {
     attachmentError(`${name} does not match its declared file type.`, { code: "CHAT_ATTACHMENT_SIGNATURE" });
   }
   if (imageDimensions && !hasSafeImageDimensions(imageDimensions)) {
@@ -247,14 +274,17 @@ function decodeBase64DataUrl(rawAttachment, index) {
     name,
     type: declaredType,
     size: buffer.length,
-    kind: declaredType === PDF_TYPE ? "pdf" : "image",
+    kind: declaredType === PDF_TYPE ? "pdf" : isPresentation ? "presentation" : "image",
     buffer,
     ...(imageDimensions || {}),
     dataUrl,
   };
 }
 
-export function decodeChatAttachments(rawAttachments = []) {
+export function decodeChatAttachments(
+  rawAttachments = [],
+  { allowPresentations = true } = {},
+) {
   if (rawAttachments == null) return [];
   if (!Array.isArray(rawAttachments)) {
     attachmentError("Attachments must be provided as a list.");
@@ -263,7 +293,9 @@ export function decodeChatAttachments(rawAttachments = []) {
     attachmentError(`Attach up to ${MAX_CHAT_ATTACHMENTS} files at a time.`, { code: "CHAT_ATTACHMENT_COUNT" });
   }
 
-  const attachments = rawAttachments.map(decodeBase64DataUrl);
+  const attachments = rawAttachments.map((attachment, index) => (
+    decodeBase64DataUrl(attachment, index, { allowPresentations })
+  ));
   const totalBytes = attachments.reduce((sum, attachment) => sum + attachment.size, 0);
   const imageBytes = attachments
     .filter((attachment) => attachment.kind === "image")
@@ -289,6 +321,312 @@ function normalizePdfText(value = "") {
     .replace(/\r\n?/g, "\n")
     .replace(/\n{4,}/g, "\n\n\n")
     .trim();
+}
+
+function decodePresentationXmlEntities(value = "") {
+  const namedEntities = {
+    amp: "&",
+    apos: "'",
+    gt: ">",
+    lt: "<",
+    quot: '"',
+  };
+
+  return String(value).replace(/&(#(?:x[0-9a-f]+|\d+)|amp|apos|gt|lt|quot);/giu, (match, entity) => {
+    const normalizedEntity = entity.toLowerCase();
+    if (normalizedEntity in namedEntities) return namedEntities[normalizedEntity];
+
+    const hexadecimal = normalizedEntity.startsWith("#x");
+    const codePoint = Number.parseInt(normalizedEntity.slice(hexadecimal ? 2 : 1), hexadecimal ? 16 : 10);
+    if (
+      !Number.isInteger(codePoint)
+      || codePoint < 0
+      || codePoint > 0x10ffff
+      || (codePoint >= 0xd800 && codePoint <= 0xdfff)
+    ) {
+      return "";
+    }
+    return String.fromCodePoint(codePoint);
+  });
+}
+
+export function extractPresentationSlideText(xml = "") {
+  const fragments = [];
+  const textNodePattern = /<(?:[A-Za-z_][\w.-]*:)?t\b[^>]*>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?t\s*>/giu;
+  let match;
+
+  while ((match = textNodePattern.exec(String(xml))) !== null) {
+    const fragment = decodePresentationXmlEntities(match[1])
+      .split("")
+      .map((character) => {
+        const codePoint = character.codePointAt(0);
+        return codePoint <= 8
+          || codePoint === 11
+          || codePoint === 12
+          || (codePoint >= 14 && codePoint <= 31)
+          || codePoint === 127
+          ? " "
+          : character;
+      })
+      .join("")
+      .trim();
+    if (fragment) fragments.push(fragment);
+  }
+
+  return normalizePdfText(fragments.join(" "));
+}
+
+function presentationReadError(name) {
+  return new ChatAttachmentError(
+    `${name} could not be read as a PowerPoint presentation. It may be encrypted, corrupted, or unsupported.`,
+    { code: "CHAT_PRESENTATION_READ_FAILED", status: 422 },
+  );
+}
+
+function presentationNoTextError(name) {
+  return new ChatAttachmentError(
+    `${name} does not contain readable slide text. Export it as a PDF and try again.`,
+    { code: "CHAT_PRESENTATION_NO_TEXT", status: 422 },
+  );
+}
+
+export function extractPresentationAttachment(attachment, options = {}) {
+  const requestedTextLimit = Number(options.maxTextChars);
+  const maxTextChars = Number.isFinite(requestedTextLimit) && requestedTextLimit > 0
+    ? Math.max(1000, Math.min(MAX_CHAT_PRESENTATION_TEXT_CHARS, Math.floor(requestedTextLimit)))
+    : MAX_CHAT_PRESENTATION_TEXT_CHARS;
+  const requestedTimeout = Number(options.processTimeoutMs);
+  const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
+    ? Math.min(30000, Math.floor(requestedTimeout))
+    : MAX_CHAT_PRESENTATION_PROCESSING_MS;
+
+  return new Promise((resolve, reject) => {
+    let zipFile;
+    let activeStream;
+    let timer;
+    let settled = false;
+    let entryCount = 0;
+    let totalUncompressedBytes = 0;
+    let hasContentTypes = false;
+    let hasPresentationDocument = false;
+    let truncatedBySlideLimit = false;
+    let truncatedByTextLimit = false;
+    let processedSlides = 0;
+    let accumulatedText = "";
+    const structuralEntryNames = new Set();
+    const slideNumbers = new Set();
+
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        activeStream?.destroy();
+      } catch {
+        // The active stream has already ended after a read failure.
+      }
+      try {
+        zipFile?.close();
+      } catch {
+        // The archive has already closed after completion or a read failure.
+      }
+      reject(error instanceof ChatAttachmentError ? error : presentationReadError(attachment.name));
+    };
+
+    const finish = () => {
+      if (settled) return;
+      if (!hasContentTypes || !hasPresentationDocument || !slideNumbers.size) {
+        fail(presentationReadError(attachment.name));
+        return;
+      }
+
+      const normalizedText = normalizePdfText(accumulatedText);
+      if (!normalizedText.replace(/[^\p{L}\p{N}]/gu, "")) {
+        fail(presentationNoTextError(attachment.name));
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timer);
+      try {
+        zipFile?.close();
+      } catch {
+        // The archive has already closed after the final entry.
+      }
+      resolve({
+        mode: "text",
+        name: attachment.name,
+        type: attachment.type,
+        size: attachment.size,
+        text: normalizedText,
+        totalSlides: slideNumbers.size,
+        slidesRead: processedSlides,
+        truncated: truncatedByTextLimit || truncatedBySlideLimit,
+      });
+    };
+
+    const readNextEntry = () => {
+      if (settled) return;
+      try {
+        zipFile.readEntry();
+      } catch {
+        fail(presentationReadError(attachment.name));
+      }
+    };
+
+    const handleEntry = (entry) => {
+      try {
+        entryCount += 1;
+        if (entryCount > MAX_CHAT_PRESENTATION_ENTRIES) {
+          fail(presentationReadError(attachment.name));
+          return;
+        }
+        if (
+          !Number.isSafeInteger(entry.uncompressedSize)
+          || entry.uncompressedSize < 0
+          || !Number.isSafeInteger(entry.compressedSize)
+          || entry.compressedSize < 0
+          || ![0, 8].includes(entry.compressionMethod)
+          || (entry.generalPurposeBitFlag & 0x1) !== 0
+        ) {
+          fail(presentationReadError(attachment.name));
+          return;
+        }
+
+        totalUncompressedBytes += entry.uncompressedSize;
+        if (
+          !Number.isSafeInteger(totalUncompressedBytes)
+          || totalUncompressedBytes > MAX_CHAT_PRESENTATION_UNCOMPRESSED_BYTES
+        ) {
+          fail(presentationReadError(attachment.name));
+          return;
+        }
+
+        const entryName = String(entry.fileName || "");
+        const isContentTypes = entryName === "[Content_Types].xml";
+        const isPresentationDocument = entryName === "ppt/presentation.xml";
+        const slideMatch = entryName.match(PRESENTATION_SLIDE_PATH);
+        if (isContentTypes || isPresentationDocument || slideMatch) {
+          if (structuralEntryNames.has(entryName)) {
+            fail(presentationReadError(attachment.name));
+            return;
+          }
+          structuralEntryNames.add(entryName);
+        }
+        if (isContentTypes) hasContentTypes = true;
+        if (isPresentationDocument) hasPresentationDocument = true;
+
+        if (!slideMatch) {
+          readNextEntry();
+          return;
+        }
+
+        const slideNumber = Number(slideMatch[1]);
+        if (
+          !Number.isSafeInteger(slideNumber)
+          || slideNumber < 1
+          || slideNumbers.has(slideNumber)
+          || entry.uncompressedSize > MAX_CHAT_PRESENTATION_SLIDE_XML_BYTES
+        ) {
+          fail(presentationReadError(attachment.name));
+          return;
+        }
+        slideNumbers.add(slideNumber);
+
+        if (slideNumbers.size > MAX_CHAT_PRESENTATION_SLIDES || truncatedByTextLimit) {
+          truncatedBySlideLimit = true;
+          readNextEntry();
+          return;
+        }
+
+        zipFile.openReadStream(entry, (streamError, stream) => {
+          if (streamError || !stream) {
+            fail(presentationReadError(attachment.name));
+            return;
+          }
+
+          if (settled) {
+            stream.destroy();
+            return;
+          }
+          activeStream = stream;
+          const chunks = [];
+          let actualBytes = 0;
+          let streamEnded = false;
+          stream.on("data", (chunk) => {
+            if (settled) return;
+            actualBytes += chunk.length;
+            if (actualBytes > MAX_CHAT_PRESENTATION_SLIDE_XML_BYTES) {
+              stream.destroy();
+              fail(presentationReadError(attachment.name));
+              return;
+            }
+            chunks.push(chunk);
+          });
+          stream.once("error", () => fail(presentationReadError(attachment.name)));
+          stream.once("end", () => {
+            if (settled) return;
+            streamEnded = true;
+            activeStream = undefined;
+            processedSlides += 1;
+            const xml = Buffer.concat(chunks, actualBytes).toString("utf8");
+            const slideText = extractPresentationSlideText(xml);
+            if (slideText) {
+              const separator = accumulatedText ? "\n\n" : "";
+              const section = `[Slide ${slideNumber}]\n${slideText}`;
+              const remainingChars = Math.max(0, maxTextChars - accumulatedText.length);
+              if (separator.length + section.length > remainingChars) {
+                const remainingSectionChars = Math.max(0, remainingChars - separator.length);
+                const slicedSection = slicePdfText(section, remainingSectionChars).text;
+                if (slicedSection) accumulatedText += separator + slicedSection;
+                truncatedByTextLimit = true;
+              } else {
+                accumulatedText += separator + section;
+              }
+            }
+            readNextEntry();
+          });
+          stream.once("close", () => {
+            if (!settled && !streamEnded) {
+              fail(presentationReadError(attachment.name));
+            }
+          });
+        });
+      } catch {
+        fail(presentationReadError(attachment.name));
+      }
+    };
+
+    try {
+      timer = setTimeout(() => fail(presentationReadError(attachment.name)), timeoutMs);
+      yauzl.fromBuffer(attachment.buffer, {
+        decodeStrings: true,
+        lazyEntries: true,
+        strictFileNames: true,
+        validateEntrySizes: true,
+      }, (error, openedZipFile) => {
+        if (settled) {
+          try {
+            openedZipFile?.close();
+          } catch {
+            // The timed-out archive never finished opening.
+          }
+          return;
+        }
+        if (error || !openedZipFile) {
+          fail(presentationReadError(attachment.name));
+          return;
+        }
+        zipFile = openedZipFile;
+        zipFile.on("error", () => fail(presentationReadError(attachment.name)));
+        zipFile.on("entry", handleEntry);
+        zipFile.once("end", finish);
+        readNextEntry();
+      });
+    } catch {
+      fail(presentationReadError(attachment.name));
+    }
+  });
 }
 
 function hasUsefulPdfText(text) {
@@ -588,21 +926,24 @@ export async function prepareChatAttachmentContext(attachments = [], options = {
       dataUrl: attachment.dataUrl,
     }));
   const pdfAttachments = attachments.filter((attachment) => attachment.kind === "pdf");
+  const presentationAttachments = attachments.filter((attachment) => attachment.kind === "presentation");
   const pdfDocuments = [];
+  const presentationDocuments = [];
   const renderedPdfImages = [];
   let remainingImageSlots = Math.max(0, MAX_CHAT_VISION_IMAGES - directImages.length);
   let remainingImageBytes = Math.max(
     0,
     MAX_CHAT_IMAGE_TOTAL_BYTES - directImages.reduce((sum, image) => sum + image.size, 0),
   );
-  const perPdfTextLimit = pdfAttachments.length
-    ? Math.min(MAX_CHAT_PDF_TEXT_CHARS, Math.floor(MAX_CHAT_PDF_TOTAL_TEXT_CHARS / pdfAttachments.length))
+  const textDocumentCount = pdfAttachments.length + presentationAttachments.length;
+  const perDocumentTextLimit = textDocumentCount
+    ? Math.min(MAX_CHAT_PDF_TEXT_CHARS, Math.floor(MAX_CHAT_PDF_TOTAL_TEXT_CHARS / textDocumentCount))
     : MAX_CHAT_PDF_TEXT_CHARS;
 
   for (const attachment of pdfAttachments) {
     const extracted = await extractPdfAttachment(attachment, {
       PdfParser: options.PdfParser,
-      maxTextChars: perPdfTextLimit,
+      maxTextChars: perDocumentTextLimit,
       maxOcrPages: Math.min(MAX_CHAT_PDF_OCR_PAGES, remainingImageSlots),
       maxOcrBytes: remainingImageBytes,
       processTimeoutMs: options.processTimeoutMs,
@@ -618,9 +959,17 @@ export async function prepareChatAttachmentContext(attachments = [], options = {
     remainingImageBytes -= extracted.images.reduce((sum, image) => sum + image.size, 0);
   }
 
+  const PresentationExtractor = options.PresentationExtractor || extractPresentationAttachment;
+  for (const attachment of presentationAttachments) {
+    presentationDocuments.push(await PresentationExtractor(attachment, {
+      maxTextChars: perDocumentTextLimit,
+    }));
+  }
+
   return {
     metadata,
     pdfDocuments,
+    presentationDocuments,
     visionImages: [...directImages, ...renderedPdfImages],
   };
 }
@@ -641,6 +990,14 @@ export function buildChatAttachmentUserContent(message, context) {
       : "",
     `--- END STUDENT PDF: ${document.name} ---`,
   ].filter(Boolean).join("\n"));
+  const presentationSections = (context.presentationDocuments || []).map((document) => [
+    `--- BEGIN STUDENT POWERPOINT: ${document.name} ---`,
+    document.text,
+    document.truncated
+      ? `[Document note: Only a bounded portion of this ${document.totalSlides || "multi-slide"}-slide PowerPoint was included.]`
+      : "",
+    `--- END STUDENT POWERPOINT: ${document.name} ---`,
+  ].filter(Boolean).join("\n"));
 
   const prompt = [
     "Use the attached files as study material for the student's request.",
@@ -649,6 +1006,7 @@ export function buildChatAttachmentUserContent(message, context) {
     fileList ? `Attached files:\n${fileList}` : "",
     imageList ? `Images supplied to you in the order shown below:\n${imageList}` : "",
     ...pdfSections,
+    ...presentationSections,
   ].filter(Boolean).join("\n\n");
 
   if (!context.visionImages.length) return prompt;

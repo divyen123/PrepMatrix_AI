@@ -38,7 +38,7 @@ import {
 } from "../utils/aiQuota";
 import { AiCreditCost } from "../components/AiQuotaProvider";
 import {
-  CHAT_ATTACHMENT_ACCEPT,
+  LEARNING_ATTACHMENT_ACCEPT,
   MAX_CHAT_ATTACHMENTS,
   formatChatFileSize,
   prepareChatAttachment,
@@ -57,7 +57,7 @@ import { normalizeSubjectNames } from "../utils/subjectPlanning";
 import "./StartLearningPage.css";
 
 const TEXT_SOURCE_ACCEPT = ".txt,.md,text/plain,text/markdown";
-const LEARNING_SOURCE_ACCEPT = `${CHAT_ATTACHMENT_ACCEPT},${TEXT_SOURCE_ACCEPT}`;
+const LEARNING_SOURCE_ACCEPT = `${LEARNING_ATTACHMENT_ACCEPT},${TEXT_SOURCE_ACCEPT}`;
 const MAX_TEXT_SOURCE_BYTES = 30_000;
 const MAX_TEXT_TOTAL_CHARS = 60_000;
 const ANALYSIS_STEPS = [
@@ -722,7 +722,11 @@ function StartLearningPage({
 
     const binaryFiles = selected.filter((file) => !isTextSource(file));
     const existingBinary = sources.filter((source) => source.kind === "attachment");
-    const binaryError = validateChatAttachmentSelection(binaryFiles, existingBinary);
+    const binaryError = validateChatAttachmentSelection(
+      binaryFiles,
+      existingBinary,
+      { allowPresentations: false },
+    );
     if (binaryError) {
       setSourceError(binaryError);
       return;

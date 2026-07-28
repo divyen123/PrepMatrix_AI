@@ -5,7 +5,9 @@ export const MAX_CHAT_IMAGE_BYTES = 850 * 1024;
 export const MAX_CHAT_IMAGE_TOTAL_BYTES = 2550 * 1024;
 export const MAX_CHAT_IMAGE_DIMENSION = 1800;
 export const DEFAULT_ATTACHMENT_PROMPT = "Please analyze and explain the attached file(s).";
-export const CHAT_ATTACHMENT_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+export const CHAT_PRESENTATION_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+export const LEARNING_ATTACHMENT_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+export const CHAT_ATTACHMENT_ACCEPT = `${LEARNING_ATTACHMENT_ACCEPT},${CHAT_PRESENTATION_TYPE},.pptx`;
 
 export const CHAT_IMAGE_TYPES = Object.freeze([
   "image/jpeg",
@@ -13,7 +15,43 @@ export const CHAT_IMAGE_TYPES = Object.freeze([
   "image/webp",
 ]);
 
-const CHAT_ATTACHMENT_TYPES = new Set([...CHAT_IMAGE_TYPES, "application/pdf"]);
+const BASE_CHAT_ATTACHMENT_TYPES = new Set([...CHAT_IMAGE_TYPES, "application/pdf"]);
+const PRESENTATION_EXTENSIONS = new Set(["pptx"]);
+
+export function resolveChatAttachmentType(file) {
+  const declaredType = String(file?.type || "").trim().toLowerCase();
+  if (BASE_CHAT_ATTACHMENT_TYPES.has(declaredType) || declaredType === CHAT_PRESENTATION_TYPE) {
+    return declaredType;
+  }
+  const extension = String(file?.name || "").split(".").pop()?.toLowerCase();
+  if (PRESENTATION_EXTENSIONS.has(extension)) return CHAT_PRESENTATION_TYPE;
+  return declaredType;
+}
+
+export function hasChatFileDrag(dataTransfer) {
+  if (Array.from(dataTransfer?.types || []).includes("Files")) return true;
+  if (Number(dataTransfer?.files?.length || 0) > 0) return true;
+  return Array.from(dataTransfer?.items || []).some((item) => item?.kind === "file");
+}
+
+export function getChatDroppedFiles(dataTransfer) {
+  if (!hasChatFileDrag(dataTransfer)) return [];
+  const transferredFiles = Array.from(dataTransfer?.files || [])
+    .filter((file) => file && typeof file.name === "string");
+  if (transferredFiles.length) return transferredFiles;
+
+  return Array.from(dataTransfer?.items || [])
+    .filter((item) => item?.kind === "file")
+    .map((item) => {
+      try {
+        if (item.webkitGetAsEntry?.()?.isDirectory) return null;
+        return item.getAsFile?.() || null;
+      } catch {
+        return null;
+      }
+    })
+    .filter((file) => file && typeof file.name === "string");
+}
 
 export function formatChatFileSize(bytes = 0) {
   const normalizedBytes = Math.max(0, Number(bytes) || 0);
@@ -22,7 +60,11 @@ export function formatChatFileSize(bytes = 0) {
   return `${(normalizedBytes / (1024 * 1024)).toFixed(normalizedBytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
 }
 
-export function validateChatAttachmentSelection(files = [], existingAttachments = []) {
+export function validateChatAttachmentSelection(
+  files = [],
+  existingAttachments = [],
+  { allowPresentations = true } = {},
+) {
   const selectedFiles = Array.from(files || []);
   const existing = Array.from(existingAttachments || []);
 
@@ -30,13 +72,16 @@ export function validateChatAttachmentSelection(files = [], existingAttachments 
     return `Attach up to ${MAX_CHAT_ATTACHMENTS} files at a time.`;
   }
 
+  const allowedTypes = allowPresentations
+    ? new Set([...BASE_CHAT_ATTACHMENT_TYPES, CHAT_PRESENTATION_TYPE])
+    : BASE_CHAT_ATTACHMENT_TYPES;
   for (const file of selectedFiles) {
-    const type = String(file?.type || "").toLowerCase();
+    const type = resolveChatAttachmentType(file);
     const name = String(file?.name || "This file");
     const size = Number(file?.size || 0);
 
-    if (!CHAT_ATTACHMENT_TYPES.has(type)) {
-      return `${name} is not supported. Choose a JPG, PNG, WebP, or PDF file.`;
+    if (!allowedTypes.has(type)) {
+      return `${name} is not supported. Choose a JPG, PNG, WebP, PDF${allowPresentations ? ", or PPTX" : ""} file.`;
     }
     if (!size) {
       return `${name} is empty and cannot be attached.`;
@@ -156,10 +201,11 @@ async function prepareImageBlob(file) {
 }
 
 export async function prepareChatAttachment(file) {
-  const type = String(file?.type || "").toLowerCase();
+  const type = resolveChatAttachmentType(file);
+  const typedFile = file?.type === type ? file : file.slice(0, file.size, type);
   const preparedBlob = CHAT_IMAGE_TYPES.includes(type)
-    ? await prepareImageBlob(file)
-    : file;
+    ? await prepareImageBlob(typedFile)
+    : typedFile;
   const dataUrl = await readBlobAsDataUrl(preparedBlob);
 
   if (!dataUrl) throw new Error("The selected file could not be read.");
