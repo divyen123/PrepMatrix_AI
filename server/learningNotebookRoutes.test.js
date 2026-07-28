@@ -519,23 +519,33 @@ test("strictly reduces a dynamically capped token-budget retry", async () => {
   assert.deepEqual(requests.map((request) => request.max_tokens), [4_000, 3_500]);
 });
 
-test("does not immediately retry an ordinary provider 429", async () => {
+test("retries an ordinary provider 429 once and succeeds", async () => {
+  let attempts = 0;
+  const notebook = await requestLearningNotebookJson({
+    apiKey: "test-key",
+    fetchImpl: async () => {
+      attempts += 1;
+      return attempts === 1
+        ? providerRateLimitResponse()
+        : groqNotebookResponse();
+    },
+    model: "llama-3.3-70b-versatile",
+    systemPrompt: "Return JSON.",
+    userContent: "Generate a notebook.",
+  });
+
+  assert.equal(attempts, 2);
+  assert.ok(notebook.title);
+});
+
+test("stops after one bounded retry when an ordinary provider 429 persists", async () => {
   let attempts = 0;
   await assert.rejects(
     () => requestLearningNotebookJson({
       apiKey: "test-key",
       fetchImpl: async () => {
         attempts += 1;
-        return {
-          ok: false,
-          status: 429,
-          json: async () => ({
-            error: {
-              code: "rate_limit_exceeded",
-              message: "Rate limit exceeded.",
-            },
-          }),
-        };
+        return providerRateLimitResponse();
       },
       model: "llama-3.3-70b-versatile",
       systemPrompt: "Return JSON.",
@@ -543,7 +553,7 @@ test("does not immediately retry an ordinary provider 429", async () => {
     }),
     (error) => error.code === "LEARNING_PROVIDER_RATE_LIMIT" && error.status === 429,
   );
-  assert.equal(attempts, 1);
+  assert.equal(attempts, 2);
 });
 
 test("derives a smaller completion allowance for a large estimated prompt", async () => {
@@ -667,6 +677,22 @@ function geminiNotebookResponse(notebook = validGeneratedNotebook()) {
     status: 200,
     json: async () => ({
       candidates: [{ content: { parts: [{ text: JSON.stringify(notebook) }] } }],
+    }),
+  };
+}
+
+function providerRateLimitResponse(retryAfter = "0") {
+  return {
+    ok: false,
+    status: 429,
+    headers: {
+      get: (name) => String(name).toLocaleLowerCase() === "retry-after" ? retryAfter : null,
+    },
+    json: async () => ({
+      error: {
+        code: "rate_limit_exceeded",
+        message: "Rate limit exceeded.",
+      },
     }),
   };
 }

@@ -42,6 +42,9 @@ const LEARNING_TEXT_TYPES = new Set([
 const GROQ_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GEMINI_GENERATE_CONTENT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const PROVIDER_TIMEOUT_MS = 75_000;
+const PROVIDER_RETRY_BASE_DELAY_MS = 650;
+const PROVIDER_RETRY_MAX_DELAY_MS = 2_500;
+const PROVIDER_TRANSIENT_RETRY_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const GROQ_LEARNING_TOKEN_BUDGET = 12_000;
 const GROQ_LEARNING_TOKEN_HEADROOM = 750;
 const GROQ_LEARNING_RETRY_REDUCTION_TOKENS = 500;
@@ -236,6 +239,57 @@ function isProviderSizeLimit(response, payload) {
     || code === "context_length_exceeded"
     || message.includes("context length")
     || message.includes("request too large");
+}
+
+function providerRetryDelayMs(response) {
+  const retryAfter = cleanInline(response?.headers?.get?.("retry-after"), 80);
+  let delayMs = Number.NaN;
+
+  if (retryAfter) {
+    const retryAfterSeconds = Number(retryAfter);
+    delayMs = Number.isFinite(retryAfterSeconds)
+      ? retryAfterSeconds * 1_000
+      : Date.parse(retryAfter) - Date.now();
+  }
+
+  if (!Number.isFinite(delayMs)) {
+    delayMs = PROVIDER_RETRY_BASE_DELAY_MS + Math.floor(Math.random() * 151);
+  }
+
+  return Math.min(PROVIDER_RETRY_MAX_DELAY_MS, Math.max(0, Math.round(delayMs)));
+}
+
+function isRetryableTransientProviderResponse(response, payload = {}) {
+  if (response?.status === 413) return false;
+  const providerStatus = cleanInline(payload?.error?.status, 80).toLocaleUpperCase();
+  return PROVIDER_TRANSIENT_RETRY_STATUSES.has(Number(response?.status))
+    || providerStatus === "RESOURCE_EXHAUSTED"
+    || isProviderRateLimit(response, payload);
+}
+
+async function fetchProviderJsonWithRetry(fetchImpl, url, options) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetchImpl(url, options);
+    const payload = await response.json().catch(() => ({}));
+
+    if (
+      !response.ok
+      && attempt === 0
+      && isRetryableTransientProviderResponse(response, payload)
+    ) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, providerRetryDelayMs(response));
+      });
+      continue;
+    }
+
+    return { response, payload };
+  }
+
+  throw new LearningNotebookError(
+    "The learning assistant could not reach the AI provider.",
+    { code: "LEARNING_PROVIDER_ERROR", status: 502 },
+  );
 }
 
 function createProviderError(response, payload = {}) {
@@ -435,16 +489,19 @@ export async function requestLearningNotebookJson({
       ],
       ...(attempt === 0 ? { response_format: { type: "json_object" } } : {}),
     };
-    const response = await fetchImpl(GROQ_COMPLETIONS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+    const { response, payload } = await fetchProviderJsonWithRetry(
+      fetchImpl,
+      GROQ_COMPLETIONS_URL,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+        body: JSON.stringify(body),
       },
-      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-      body: JSON.stringify(body),
-    });
-    const payload = await response.json().catch(() => ({}));
+    );
 
     if (!response.ok) {
       const retryableTokenBudgetFailure = (
@@ -521,16 +578,19 @@ export async function requestLearningVisionText({
       { role: "user", content },
     ],
   };
-  const response = await fetchImpl(GROQ_COMPLETIONS_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+  const { response, payload } = await fetchProviderJsonWithRetry(
+    fetchImpl,
+    GROQ_COMPLETIONS_URL,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      body: JSON.stringify(body),
     },
-    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-    body: JSON.stringify(body),
-  });
-  const payload = await response.json().catch(() => ({}));
+  );
   if (!response.ok) throw createProviderError(response, payload);
   const text = normalizeSourceText(payload?.choices?.[0]?.message?.content || "");
   if (!text) {
@@ -1911,7 +1971,8 @@ export async function requestGeminiLearningNotebookJson({
   validateNotebook = hasLearningNotebookShape,
 }) {
   const resolvedModel = cleanInline(model, 120) || DEFAULT_GEMINI_LEARNING_MODEL;
-  const response = await fetchImpl(
+  const { response, payload } = await fetchProviderJsonWithRetry(
+    fetchImpl,
     `${GEMINI_GENERATE_CONTENT_BASE_URL}/${encodeURIComponent(resolvedModel)}:generateContent`,
     {
       method: "POST",
@@ -1940,7 +2001,6 @@ export async function requestGeminiLearningNotebookJson({
       }),
     },
   );
-  const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw createGeminiProviderError(response, payload);
 
   try {
@@ -1967,7 +2027,8 @@ export async function requestGeminiCareerTopicAnalysisJson({
   userPrompt,
 }) {
   const resolvedModel = cleanInline(model, 120) || DEFAULT_GEMINI_LEARNING_MODEL;
-  const response = await fetchImpl(
+  const { response, payload } = await fetchProviderJsonWithRetry(
+    fetchImpl,
     `${GEMINI_GENERATE_CONTENT_BASE_URL}/${encodeURIComponent(resolvedModel)}:generateContent`,
     {
       method: "POST",
@@ -1996,7 +2057,6 @@ export async function requestGeminiCareerTopicAnalysisJson({
       }),
     },
   );
-  const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw createGeminiProviderError(response, payload);
 
   try {
@@ -2042,16 +2102,19 @@ export async function requestGroqCareerTopicAnalysisJson({
       ],
       ...(attempt === 0 ? { response_format: { type: "json_object" } } : {}),
     };
-    const response = await fetchImpl(GROQ_COMPLETIONS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+    const { response, payload } = await fetchProviderJsonWithRetry(
+      fetchImpl,
+      GROQ_COMPLETIONS_URL,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+        body: JSON.stringify(body),
       },
-      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-      body: JSON.stringify(body),
-    });
-    const payload = await response.json().catch(() => ({}));
+    );
 
     if (!response.ok) {
       if (attempt === 0 && (
