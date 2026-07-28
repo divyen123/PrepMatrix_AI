@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, Check, Search, Trash2, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { CalendarDays, Check, Copy, Search, Trash2, X } from "lucide-react";
 import api from "../utils/apiClient";
 import {
   getNotePlannerState,
@@ -30,6 +31,34 @@ function getWorkflowStatus(note, plannerState) {
   return note?.status === "Resolved" ? "Resolved" : "Open";
 }
 
+function formatNoteDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  document.body.appendChild(textArea);
+  textArea.select();
+  const didCopy = document.execCommand("copy");
+  textArea.remove();
+  if (!didCopy) throw new Error("Copy is unavailable.");
+}
+
 function NotesPage({
   completed = [],
   schedule = [],
@@ -49,6 +78,12 @@ function NotesPage({
   const [confirmClearNotes, setConfirmClearNotes] = useState(false);
   const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState(null);
   const [plannerMenuNoteId, setPlannerMenuNoteId] = useState(null);
+  const [selectedNoteId, setSelectedNoteId] = useState(null);
+  const [noteDialogDeletePending, setNoteDialogDeletePending] = useState(false);
+  const [copiedNoteId, setCopiedNoteId] = useState(null);
+  const noteDetailsModalRef = useRef(null);
+  const noteDetailsCloseRef = useRef(null);
+  const previouslyFocusedNoteRef = useRef(null);
   const deleteTriggerRefs = useRef(new Map());
   const noteCardRefs = useRef(new Map());
   const notesListHeadingRef = useRef(null);
@@ -86,6 +121,37 @@ function NotesPage({
     setDetails("");
     setPriority("Medium");
   };
+  const openNoteDetails = (id) => {
+    setPlannerMenuNoteId(null);
+    setPendingDeleteNoteId(null);
+    setNoteDialogDeletePending(false);
+    setCopiedNoteId(null);
+    setSelectedNoteId(id);
+  };
+
+  const closeNoteDetails = () => {
+    setNoteDialogDeletePending(false);
+    setCopiedNoteId(null);
+    setSelectedNoteId(null);
+  };
+
+  const copyNoteDetails = async (note) => {
+    const legacyTopics = Array.isArray(note.leftTopics) ? note.leftTopics.filter(Boolean) : [];
+    const copyValue = [
+      `Topic: ${note.topic || "Untitled note"}`,
+      `Details:\n${note.details?.trim() || "No extra details added."}`,
+      legacyTopics.length > 0 ? `Saved topics: ${legacyTopics.join(", ")}` : "",
+    ].filter(Boolean).join("\n\n");
+
+    try {
+      await copyText(copyValue);
+      setCopiedNoteId(note.id);
+      setNotification?.("Note details copied.");
+    } catch (error) {
+      setCopiedNoteId(null);
+      setNotification?.(error instanceof Error ? error.message : "Could not copy note details.");
+    }
+  };
 
 
   const cancelDeleteNote = (id) => {
@@ -112,7 +178,11 @@ function NotesPage({
     saveNotes(nextNotes);
     setPendingDeleteNoteId(null);
     setPlannerMenuNoteId((current) => (current === id ? null : current));
+    setSelectedNoteId((current) => (current === id ? null : current));
+    setNoteDialogDeletePending(false);
+    setCopiedNoteId(null);
     if (nextNotes.length === 0) setConfirmClearNotes(false);
+    setNotification?.("Note deleted.");
     window.requestAnimationFrame(() => notesListHeadingRef.current?.focus());
   };
 
@@ -122,6 +192,9 @@ function NotesPage({
     setConfirmClearNotes(false);
     setPendingDeleteNoteId(null);
     setPlannerMenuNoteId(null);
+    setSelectedNoteId(null);
+    setNoteDialogDeletePending(false);
+    setCopiedNoteId(null);
     saveNotes([]);
     setFilter("All");
     setNotesSearchQuery("");
@@ -219,6 +292,64 @@ function NotesPage({
   }, [plannerMenuNoteId]);
 
   useEffect(() => {
+    if (!selectedNoteId) return undefined;
+
+    previouslyFocusedNoteRef.current = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    const fallbackFocusElement = notesListHeadingRef.current;
+    document.body.style.overflow = "hidden";
+    const focusFrame = window.requestAnimationFrame(() => noteDetailsCloseRef.current?.focus());
+
+    const handleDialogKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setNoteDialogDeletePending(false);
+        setCopiedNoteId(null);
+        setSelectedNoteId(null);
+        return;
+      }
+
+      if (event.key !== "Tab" || !noteDetailsModalRef.current) return;
+      const focusable = Array.from(noteDetailsModalRef.current.querySelectorAll(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ));
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleDialogKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleDialogKeyDown);
+      document.body.style.overflow = previousOverflow;
+
+      const previousElement = previouslyFocusedNoteRef.current;
+      previouslyFocusedNoteRef.current = null;
+      window.requestAnimationFrame(() => {
+        const focusTarget = previousElement?.isConnected
+          ? previousElement
+          : fallbackFocusElement?.isConnected
+            ? fallbackFocusElement
+            : null;
+        focusTarget?.focus?.();
+      });
+    };
+  }, [selectedNoteId]);
+
+  useEffect(() => {
     try {
       const parsed = window.pendingVoiceNote;
       window.pendingVoiceNote = null;
@@ -277,6 +408,23 @@ function NotesPage({
     () => getScheduleDateOptions(schedule, scheduleStartDate),
     [schedule, scheduleStartDate],
   );
+  const selectedNote = notes.find((note) => note.id === selectedNoteId) || null;
+  const selectedPlannerState = selectedNote
+    ? plannerStates.get(selectedNote.id) || { state: "unscheduled" }
+    : null;
+  const selectedNoteStatus = selectedNote ? getWorkflowStatus(selectedNote, selectedPlannerState) : "";
+  const selectedNotePriority = selectedNote && ["Low", "Medium", "High"].includes(selectedNote.priority)
+    ? selectedNote.priority
+    : "Medium";
+  const selectedLegacyTopics = Array.isArray(selectedNote?.leftTopics)
+    ? selectedNote.leftTopics.filter(Boolean)
+    : [];
+  const selectedCreatedAt = formatNoteDate(selectedNote?.createdAt);
+  const selectedPlannerDate = selectedNote
+    ? scheduleDateOptions.find((option) => option.dateKey === selectedPlannerState?.dateKey)?.label
+      || selectedNote.plannedDate
+      || ""
+    : "";
 
   const filteredNotes = useMemo(() => {
     const statusFiltered = filter === "All"
@@ -339,7 +487,7 @@ function NotesPage({
           </div>
 
           <label className="field-stack">
-            Doubt topic
+            Topic
             <input
               onChange={(event) => setTopic(event.target.value)}
               placeholder="Example: Bayes theorem, React hooks, deadlock"
@@ -520,6 +668,21 @@ function NotesPage({
                     else noteCardRefs.current.delete(note.id);
                   }}
                 >
+                  <div
+                    aria-controls="note-details-dialog"
+                    aria-haspopup="dialog"
+                    aria-label={`Open full note: ${note.topic}`}
+                    className="note-card-open"
+                    onClick={() => openNoteDetails(note.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openNoteDetails(note.id);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
                   <div className="note-card-top">
                     <div className="note-card-heading">
                       <div className="note-card-chips">
@@ -545,6 +708,7 @@ function NotesPage({
                       <div>{legacyTopics.map((item) => <span key={`${note.id}-${item}`}>{item}</span>)}</div>
                     </div>
                   ) : null}
+                  </div>
 
                   <div className="note-card-actions">
                     {isConfirmingDelete ? (
@@ -688,6 +852,141 @@ function NotesPage({
           </div>
         )}
       </section>
+
+      {selectedNote && typeof document !== "undefined" && createPortal(
+        <div
+          className="note-details-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeNoteDetails();
+          }}
+          role="presentation"
+        >
+          <section
+            aria-describedby="note-details-description"
+            aria-labelledby="note-details-title"
+            aria-modal="true"
+            className="note-details-dialog"
+            id="note-details-dialog"
+            ref={noteDetailsModalRef}
+            role="dialog"
+          >
+            <header className="note-details-header">
+              <div className="note-details-chips">
+                <span className={`note-priority ${selectedNotePriority.toLowerCase()}`}>
+                  {selectedNotePriority}
+                </span>
+                <span className={`note-status is-${selectedNoteStatus.toLowerCase()}`}>
+                  {selectedNoteStatus}
+                </span>
+              </div>
+              <button
+                aria-label="Close note details"
+                className="note-details-close"
+                onClick={closeNoteDetails}
+                ref={noteDetailsCloseRef}
+                title="Close"
+                type="button"
+              >
+                <X aria-hidden="true" size={17} />
+              </button>
+            </header>
+
+            <div className="note-details-heading">
+              <span>Study note</span>
+              <h2 id="note-details-title">{selectedNote.topic || "Untitled note"}</h2>
+              {selectedCreatedAt ? (
+                <time dateTime={selectedNote.createdAt}>Saved {selectedCreatedAt}</time>
+              ) : null}
+            </div>
+
+            <div className="note-details-meta" aria-label="Note information">
+              <div>
+                <span>Status</span>
+                <strong>{selectedNoteStatus}</strong>
+              </div>
+              <div>
+                <span>Planner</span>
+                <strong>
+                  {selectedPlannerState?.state === "completed"
+                    ? "Completed"
+                    : selectedPlannerState?.state === "added"
+                      ? "Added"
+                      : "Not scheduled"}
+                </strong>
+                {selectedPlannerDate ? <small>{selectedPlannerDate}</small> : null}
+              </div>
+            </div>
+
+            <section className="note-details-content" aria-labelledby="note-details-content-title">
+              <div className="note-details-content-head">
+                <h3 id="note-details-content-title">Details</h3>
+                <button
+                  aria-label={copiedNoteId === selectedNote.id ? "Note details copied" : "Copy note details"}
+                  className={`note-dialog-button is-copy${copiedNoteId === selectedNote.id ? " is-copied" : ""}`}
+                  onClick={() => copyNoteDetails(selectedNote)}
+                  title="Copy note details"
+                  type="button"
+                >
+                  {copiedNoteId === selectedNote.id
+                    ? <Check aria-hidden="true" size={15} />
+                    : <Copy aria-hidden="true" size={15} />}
+                  <span>{copiedNoteId === selectedNote.id ? "Copied" : "Copy details"}</span>
+                </button>
+              </div>
+              <p className={selectedNote.details ? "" : "is-empty"} id="note-details-description">
+                {selectedNote.details || "No extra details added."}
+              </p>
+            </section>
+
+            {selectedLegacyTopics.length > 0 ? (
+              <section className="note-details-saved-topics" aria-labelledby="note-details-topics-title">
+                <h3 id="note-details-topics-title">Saved topics</h3>
+                <div>
+                  {selectedLegacyTopics.map((item) => (
+                    <span key={`${selectedNote.id}-dialog-${item}`}>{item}</span>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <footer className={`note-details-footer${noteDialogDeletePending ? " is-confirming" : ""}`}>
+              {noteDialogDeletePending ? (
+                <div className="note-dialog-delete-confirm" role="group" aria-label={`Confirm deleting ${selectedNote.topic}`}>
+                  <span>Delete this note?</span>
+                  <div>
+                    <button
+                      className="note-dialog-button is-cancel"
+                      autoFocus
+                      onClick={() => setNoteDialogDeletePending(false)}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="note-dialog-button is-confirm"
+                      onClick={() => deleteNote(selectedNote.id)}
+                      type="button"
+                    >
+                      <Trash2 aria-hidden="true" size={14} />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  className="note-dialog-button is-delete"
+                  onClick={() => setNoteDialogDeletePending(true)}
+                  type="button"
+                >
+                  <Trash2 aria-hidden="true" size={14} />
+                  Delete note
+                </button>
+              )}
+            </footer>
+          </section>
+        </div>,
+        document.body,
+      )}
     </section>
   );
 }

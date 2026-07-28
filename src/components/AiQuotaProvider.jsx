@@ -305,19 +305,23 @@ export function AiCreditIndicator() {
     <div className="ai-credit-indicator" ref={wrapperRef}>
       <button
         aria-expanded={open}
+        aria-controls="ai-credit-details"
         aria-haspopup="dialog"
+        aria-label={isKnown ? `AI Credits ${quota.remaining}` : "AI Credits balance unavailable"}
         className={`ai-credit-trigger${isKnown && quota.remaining === 0 ? " is-empty" : ""}`}
         onClick={() => setOpen((current) => !current)}
         title="View monthly AI credits"
         type="button"
       >
         <Coins aria-hidden="true" size={17} />
-        <span className="ai-credit-trigger-label">AI credits</span>
+        <span className="ai-credit-trigger-copy" aria-hidden="true">
+          <span className="ai-credit-trigger-label">AI Credits</span>
         <strong>{isKnown ? quota.remaining : "—"}</strong>
+        </span>
       </button>
 
       {open && (
-        <section aria-label="Monthly AI credits" className="ai-credit-popover" role="dialog">
+        <section aria-label="Monthly AI credits" className="ai-credit-popover" id="ai-credit-details" role="dialog">
           <div className="ai-credit-popover-head">
             <div>
               <span>Monthly allowance</span>

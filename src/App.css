@@ -19328,22 +19328,58 @@ body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {
 }
 
 body .ai-credit-trigger {
+  box-sizing: border-box;
+  width: 38px;
+  min-width: 38px !important;
+  height: 38px;
   min-height: 38px !important;
   display: inline-flex !important;
   align-items: center;
+  justify-content: flex-start;
   gap: 7px;
-  padding: 0 12px !important;
+  padding: 0 10px !important;
+  overflow: hidden;
   border-radius: 999px !important;
   border: 1px solid rgba(var(--accent-rgb), 0.24) !important;
   background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.2), rgba(109, 93, 252, 0.12)) !important;
   color: var(--text) !important;
   box-shadow: 0 8px 20px rgba(20, 33, 58, 0.08) !important;
   white-space: nowrap;
+  transition:
+    width 620ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 250ms ease,
+    background 250ms ease,
+    box-shadow 250ms ease,
+    transform 250ms ease !important;
 }
 
-body .ai-credit-trigger:hover {
+body .ai-credit-trigger:hover,
+body .ai-credit-trigger:focus-visible {
+  width: 145px;
   border-color: rgba(var(--accent-rgb), 0.42) !important;
-  transform: translateY(-1px);
+  transform: translateY(-1px) !important;
+}
+
+.ai-credit-trigger > svg {
+  flex: 0 0 auto;
+}
+
+.ai-credit-trigger-copy {
+  display: inline-flex;
+  min-width: max-content;
+  align-items: center;
+  gap: 7px;
+  opacity: 0;
+  transform: translateX(-5px);
+  transition:
+    opacity 300ms ease 80ms,
+    transform 460ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ai-credit-trigger:hover .ai-credit-trigger-copy,
+.ai-credit-trigger:focus-visible .ai-credit-trigger-copy {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 body .ai-credit-trigger.is-empty {
@@ -19550,13 +19586,10 @@ body.dark .ai-credit-popover {
     min-width: 0;
   }
 
-  .ai-credit-trigger-label {
-    display: none;
-  }
-
   body .ai-credit-trigger {
-    min-width: 40px !important;
-    padding-inline: 9px !important;
+    width: 38px;
+    min-width: 38px !important;
+    padding-inline: 10px !important;
   }
 
   .ai-credit-popover {

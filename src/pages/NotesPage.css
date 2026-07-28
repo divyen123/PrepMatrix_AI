@@ -442,3 +442,418 @@ body.has-bg-image .notes-page .planner-date-menu {
 .notes-page .planner-date-empty.is-compact {
   padding: 5px 7px;
 }
+
+/* Full note details */
+.notes-page .note-card-open {
+  display: flex !important;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 9px;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  color: inherit !important;
+  font: inherit;
+  text-align: left;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+  cursor: pointer;
+}
+
+.notes-page .note-card-open:hover,
+.notes-page .note-card-open:focus-visible {
+  color: inherit !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.notes-page .note-card-open:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.62);
+  outline-offset: 4px;
+}
+
+.notes-page .note-card-open:hover h4,
+.notes-page .note-card-open:focus-visible h4 {
+  color: var(--accent);
+}
+
+.notes-page .note-card-open .note-card-top {
+  width: 100%;
+}
+
+.note-details-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(3, 7, 14, 0.68);
+  backdrop-filter: blur(10px) brightness(0.72) saturate(0.72);
+  -webkit-backdrop-filter: blur(10px) brightness(0.72) saturate(0.72);
+  animation: noteDetailsOverlayIn 180ms ease both;
+}
+
+.note-details-dialog {
+  width: min(620px, 100%);
+  max-height: min(760px, calc(100dvh - 48px));
+  padding: 22px;
+  overflow-y: auto;
+  color: var(--text);
+  background: var(--surface-strong);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent) 28%);
+  border-radius: 24px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.44);
+  backdrop-filter: blur(30px) saturate(1.18);
+  -webkit-backdrop-filter: blur(30px) saturate(1.18);
+  scrollbar-color: rgba(var(--accent-rgb), 0.35) transparent;
+  scrollbar-width: thin;
+  animation: noteDetailsDialogIn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+body.has-bg-image .note-details-dialog {
+  background: color-mix(in srgb, var(--surface-strong) 92%, var(--bg) 8%);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+body.no-glass-cards .note-details-dialog {
+  background: var(--surface-strong);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.note-details-header,
+.note-details-content-head,
+.note-details-footer,
+.note-dialog-delete-confirm,
+.note-dialog-delete-confirm > div {
+  display: flex;
+  align-items: center;
+}
+
+.note-details-header,
+.note-details-content-head,
+.note-details-footer,
+.note-dialog-delete-confirm {
+  justify-content: space-between;
+}
+
+.note-details-header {
+  gap: 14px;
+}
+
+.note-details-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.note-details-dialog .note-priority,
+.note-details-dialog .note-status {
+  padding: 4px 8px;
+  font-size: 0.62rem;
+  letter-spacing: 0.045em;
+}
+
+.note-details-dialog .note-status.is-open {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+}
+
+.note-details-dialog .note-status.is-resolved {
+  color: var(--text-muted);
+  background: var(--surface-muted);
+}
+
+.note-details-dialog .note-details-close {
+  display: inline-grid !important;
+  flex: 0 0 34px !important;
+  place-items: center;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  color: var(--text-muted) !important;
+  background: var(--surface-muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.note-details-dialog .note-details-close:hover {
+  color: var(--text) !important;
+  background: rgba(var(--accent-rgb), 0.12) !important;
+  border-color: rgba(var(--accent-rgb), 0.3) !important;
+  transform: rotate(5deg) !important;
+}
+
+.note-details-heading {
+  display: grid;
+  gap: 5px;
+  margin-top: 18px;
+}
+
+.note-details-heading > span,
+.note-details-content h3,
+.note-details-saved-topics h3,
+.note-details-meta span {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.note-details-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.25rem, 3vw, 1.7rem);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.note-details-heading time {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.note-details-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.note-details-meta > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 12px 13px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.note-details-meta strong {
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.note-details-meta small {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  overflow-wrap: anywhere;
+}
+
+.note-details-content {
+  margin-top: 14px;
+  padding: 15px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.note-details-content-head {
+  gap: 12px;
+}
+
+.note-details-content h3,
+.note-details-saved-topics h3 {
+  margin: 0;
+}
+
+.note-details-content > p {
+  max-height: min(330px, 42dvh);
+  margin: 13px 0 0;
+  overflow-y: auto;
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.note-details-content > p.is-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.note-details-saved-topics {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 13px 15px;
+  background: rgba(var(--accent-rgb), 0.055);
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
+  border-radius: 15px;
+}
+
+.note-details-saved-topics > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.note-details-saved-topics > div > span {
+  padding: 5px 8px;
+  color: var(--text);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.note-details-footer {
+  min-height: 40px;
+  gap: 12px;
+  margin-top: 17px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border);
+}
+
+.note-details-footer:not(.is-confirming) {
+  justify-content: flex-end;
+}
+
+.note-details-dialog .note-dialog-button {
+  display: inline-flex !important;
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 34px !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px !important;
+  border-radius: 11px !important;
+  font-size: 0.72rem !important;
+  font-weight: 800;
+  box-shadow: none !important;
+}
+
+.note-details-dialog .note-dialog-button.is-copy {
+  color: var(--accent) !important;
+  background: rgba(var(--accent-rgb), 0.1) !important;
+  border-color: rgba(var(--accent-rgb), 0.24) !important;
+}
+
+.note-details-dialog .note-dialog-button.is-copy:hover,
+.note-details-dialog .note-dialog-button.is-copy.is-copied {
+  color: #fff !important;
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  transform: translateY(-1px) !important;
+}
+
+.note-details-dialog .note-dialog-button.is-delete,
+.note-details-dialog .note-dialog-button.is-confirm {
+  color: var(--danger) !important;
+  background: color-mix(in srgb, var(--danger) 11%, transparent) !important;
+  border-color: color-mix(in srgb, var(--danger) 28%, transparent) !important;
+}
+
+.note-details-dialog .note-dialog-button.is-delete:hover,
+.note-details-dialog .note-dialog-button.is-confirm:hover {
+  color: #fff !important;
+  background: var(--danger) !important;
+  border-color: var(--danger) !important;
+  transform: translateY(-1px) !important;
+}
+
+.note-details-dialog .note-dialog-button.is-cancel {
+  color: var(--text-muted) !important;
+  background: var(--surface-muted) !important;
+  border-color: var(--border) !important;
+}
+
+.note-details-dialog .note-dialog-button.is-cancel:hover {
+  color: var(--text) !important;
+  background: var(--surface-strong) !important;
+  border-color: rgba(var(--accent-rgb), 0.28) !important;
+  transform: translateY(-1px) !important;
+}
+
+.note-dialog-delete-confirm {
+  width: 100%;
+  gap: 12px;
+  padding: 10px 11px 10px 13px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--border));
+  border-radius: 14px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.note-dialog-delete-confirm > div {
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+@keyframes noteDetailsOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes noteDetailsDialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .note-details-overlay {
+    align-items: end;
+    padding: 12px;
+  }
+
+  .note-details-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .note-details-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .note-details-content > p {
+    max-height: 34dvh;
+  }
+
+  .note-dialog-delete-confirm {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .note-dialog-delete-confirm > div,
+  .note-dialog-delete-confirm .note-dialog-button {
+    flex: 1 1 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note-details-overlay,
+  .note-details-dialog {
+    animation: none;
+  }
+}
