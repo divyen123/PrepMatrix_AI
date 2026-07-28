@@ -927,10 +927,7 @@ function NotesPage({
                   title="Copy note details"
                   type="button"
                 >
-                  {copiedNoteId === selectedNote.id
-                    ? <Check aria-hidden="true" size={15} />
-                    : <Copy aria-hidden="true" size={15} />}
-                  <span>{copiedNoteId === selectedNote.id ? "Copied" : "Copy details"}</span>
+                  <Copy aria-hidden="true" size={17} />
                 </button>
               </div>
               <p className={selectedNote.details ? "" : "is-empty"} id="note-details-description">

@@ -1311,6 +1311,7 @@ function App() {
             </div>
 
             <div className="topbar-right">
+              <AiCreditIndicator />
               {/* Global browser VoiceAssistant service */}
               <VoiceAssistant
                 academicLevel={academicLevel}
@@ -1321,7 +1322,6 @@ function App() {
                 assistant={voiceAssistant}
               />
 
-              <AiCreditIndicator />
 
               <button
                 aria-label="Reset planner"

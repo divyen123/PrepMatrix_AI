@@ -745,17 +745,27 @@ body.no-glass-cards .note-details-dialog {
 }
 
 .note-details-dialog .note-dialog-button.is-copy {
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
   color: var(--accent) !important;
-  background: rgba(var(--accent-rgb), 0.1) !important;
-  border-color: rgba(var(--accent-rgb), 0.24) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .note-details-dialog .note-dialog-button.is-copy:hover,
 .note-details-dialog .note-dialog-button.is-copy.is-copied {
-  color: #fff !important;
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
-  transform: translateY(-1px) !important;
+  color: var(--accent-strong) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: scale(1.08) !important;
 }
 
 .note-details-dialog .note-dialog-button.is-delete,
