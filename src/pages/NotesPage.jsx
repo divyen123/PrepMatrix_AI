@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, Check, Copy, Search, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, Copy, Pencil, Search, Trash2, X } from "lucide-react";
 import api from "../utils/apiClient";
 import {
   getNotePlannerState,
@@ -81,8 +81,15 @@ function NotesPage({
   const [selectedNoteId, setSelectedNoteId] = useState(null);
   const [noteDialogDeletePending, setNoteDialogDeletePending] = useState(false);
   const [copiedNoteId, setCopiedNoteId] = useState(null);
+  const [isNoteDialogEditing, setIsNoteDialogEditing] = useState(false);
+  const [editNoteTopic, setEditNoteTopic] = useState("");
+  const [editNoteDetails, setEditNoteDetails] = useState("");
+  const [editNotePriority, setEditNotePriority] = useState("Medium");
   const noteDetailsModalRef = useRef(null);
   const noteDetailsCloseRef = useRef(null);
+  const noteEditTopicRef = useRef(null);
+  const noteEditTriggerRef = useRef(null);
+  const noteDialogEditingRef = useRef(false);
   const previouslyFocusedNoteRef = useRef(null);
   const deleteTriggerRefs = useRef(new Map());
   const noteCardRefs = useRef(new Map());
@@ -126,13 +133,72 @@ function NotesPage({
     setPendingDeleteNoteId(null);
     setNoteDialogDeletePending(false);
     setCopiedNoteId(null);
+    noteDialogEditingRef.current = false;
+    setIsNoteDialogEditing(false);
+    setEditNoteTopic("");
+    setEditNoteDetails("");
+    setEditNotePriority("Medium");
     setSelectedNoteId(id);
   };
 
   const closeNoteDetails = () => {
     setNoteDialogDeletePending(false);
     setCopiedNoteId(null);
+    noteDialogEditingRef.current = false;
+    setIsNoteDialogEditing(false);
+    setEditNoteTopic("");
+    setEditNoteDetails("");
+    setEditNotePriority("Medium");
     setSelectedNoteId(null);
+  };
+
+  const startEditingNote = (note) => {
+    setNoteDialogDeletePending(false);
+    setCopiedNoteId(null);
+    setEditNoteTopic(note.topic || "");
+    setEditNoteDetails(note.details || "");
+    setEditNotePriority(["Low", "Medium", "High"].includes(note.priority) ? note.priority : "Medium");
+    noteDialogEditingRef.current = true;
+    setIsNoteDialogEditing(true);
+    window.requestAnimationFrame(() => noteEditTopicRef.current?.focus());
+  };
+
+  const cancelEditingNote = () => {
+    noteDialogEditingRef.current = false;
+    setIsNoteDialogEditing(false);
+    window.requestAnimationFrame(() => noteEditTriggerRef.current?.focus());
+  };
+
+  const saveEditedNote = (event) => {
+    event.preventDefault();
+    if (!selectedNoteId) return;
+
+    const cleanTopic = editNoteTopic.trim();
+    const cleanDetails = editNoteDetails.trim();
+    if (!cleanTopic && !cleanDetails) {
+      setNotification?.("Add a topic or details before saving.");
+      noteEditTopicRef.current?.focus();
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    saveNotes(notes.map((item) => (
+      item.id === selectedNoteId
+        ? {
+            ...item,
+            topic: cleanTopic || "Untitled doubt",
+            details: cleanDetails,
+            priority: ["Low", "Medium", "High"].includes(editNotePriority)
+              ? editNotePriority
+              : "Medium",
+            updatedAt,
+          }
+        : item
+    )));
+    noteDialogEditingRef.current = false;
+    setIsNoteDialogEditing(false);
+    setNotification?.("Note updated.");
+    window.requestAnimationFrame(() => noteEditTriggerRef.current?.focus());
   };
 
   const copyNoteDetails = async (note) => {
@@ -303,6 +369,14 @@ function NotesPage({
     const handleDialogKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
+
+        if (noteDialogEditingRef.current) {
+          noteDialogEditingRef.current = false;
+          setIsNoteDialogEditing(false);
+          window.requestAnimationFrame(() => noteEditTriggerRef.current?.focus());
+          return;
+        }
+
         setNoteDialogDeletePending(false);
         setCopiedNoteId(null);
         setSelectedNoteId(null);
@@ -311,7 +385,7 @@ function NotesPage({
 
       if (event.key !== "Tab" || !noteDetailsModalRef.current) return;
       const focusable = Array.from(noteDetailsModalRef.current.querySelectorAll(
-        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
       ));
 
       if (focusable.length === 0) {
@@ -862,7 +936,7 @@ function NotesPage({
           role="presentation"
         >
           <section
-            aria-describedby="note-details-description"
+            aria-describedby={isNoteDialogEditing ? "note-edit-help" : "note-details-description"}
             aria-labelledby="note-details-title"
             aria-modal="true"
             className="note-details-dialog"
@@ -872,8 +946,8 @@ function NotesPage({
           >
             <header className="note-details-header">
               <div className="note-details-chips">
-                <span className={`note-priority ${selectedNotePriority.toLowerCase()}`}>
-                  {selectedNotePriority}
+                <span className={`note-priority ${(isNoteDialogEditing ? editNotePriority : selectedNotePriority).toLowerCase()}`}>
+                  {isNoteDialogEditing ? editNotePriority : selectedNotePriority}
                 </span>
                 <span className={`note-status is-${selectedNoteStatus.toLowerCase()}`}>
                   {selectedNoteStatus}
@@ -892,8 +966,12 @@ function NotesPage({
             </header>
 
             <div className="note-details-heading">
-              <span>Study note</span>
-              <h2 id="note-details-title">{selectedNote.topic || "Untitled note"}</h2>
+              <span>{isNoteDialogEditing ? "Editing study note" : "Study note"}</span>
+              <h2 id="note-details-title">
+                {isNoteDialogEditing
+                  ? editNoteTopic.trim() || "Untitled note"
+                  : selectedNote.topic || "Untitled note"}
+              </h2>
               {selectedCreatedAt ? (
                 <time dateTime={selectedNote.createdAt}>Saved {selectedCreatedAt}</time>
               ) : null}
@@ -917,22 +995,69 @@ function NotesPage({
               </div>
             </div>
 
-            <section className="note-details-content" aria-labelledby="note-details-content-title">
+            <section
+              className={`note-details-content${isNoteDialogEditing ? " is-editing" : ""}`}
+              aria-labelledby="note-details-content-title"
+            >
               <div className="note-details-content-head">
-                <h3 id="note-details-content-title">Details</h3>
-                <button
-                  aria-label={copiedNoteId === selectedNote.id ? "Note details copied" : "Copy note details"}
-                  className={`note-dialog-button is-copy${copiedNoteId === selectedNote.id ? " is-copied" : ""}`}
-                  onClick={() => copyNoteDetails(selectedNote)}
-                  title="Copy note details"
-                  type="button"
-                >
-                  <Copy aria-hidden="true" size={17} />
-                </button>
+                <h3 id="note-details-content-title">{isNoteDialogEditing ? "Edit note" : "Details"}</h3>
+                {!isNoteDialogEditing ? (
+                  <button
+                    aria-label={copiedNoteId === selectedNote.id ? "Note details copied" : "Copy note details"}
+                    className={`note-dialog-button is-copy${copiedNoteId === selectedNote.id ? " is-copied" : ""}`}
+                    onClick={() => copyNoteDetails(selectedNote)}
+                    title="Copy note details"
+                    type="button"
+                  >
+                    <Copy aria-hidden="true" size={17} />
+                  </button>
+                ) : null}
               </div>
-              <p className={selectedNote.details ? "" : "is-empty"} id="note-details-description">
-                {selectedNote.details || "No extra details added."}
-              </p>
+
+              {isNoteDialogEditing ? (
+                <form className="note-details-edit-form" id="note-details-edit-form" onSubmit={saveEditedNote}>
+                  <label className="note-details-edit-field">
+                    <span>Topic</span>
+                    <input
+                      onChange={(event) => setEditNoteTopic(event.target.value)}
+                      placeholder="Example: Bayes theorem, React hooks, deadlock"
+                      ref={noteEditTopicRef}
+                      type="text"
+                      value={editNoteTopic}
+                    />
+                  </label>
+
+                  <label className="note-details-edit-field">
+                    <span>Details</span>
+                    <textarea
+                      onChange={(event) => setEditNoteDetails(event.target.value)}
+                      placeholder="Write what confused you, where to revise, or what to ask later"
+                      rows="7"
+                      value={editNoteDetails}
+                    />
+                  </label>
+
+                  <label className="note-details-edit-field is-priority">
+                    <span>Priority</span>
+                    <select
+                      onChange={(event) => setEditNotePriority(event.target.value)}
+                      value={editNotePriority}
+                    >
+                      <option>Low</option>
+                      <option>Medium</option>
+                      <option>High</option>
+                    </select>
+                  </label>
+
+                  <p className="note-details-edit-help" id="note-edit-help">
+                    Status and planner details stay unchanged.
+                  </p>
+                </form>
+              ) : (
+                <p className={selectedNote.details ? "" : "is-empty"} id="note-details-description">
+                  {selectedNote.details || "No extra details added."}
+                </p>
+              )}
             </section>
 
             {selectedLegacyTopics.length > 0 ? (
@@ -946,8 +1071,27 @@ function NotesPage({
               </section>
             ) : null}
 
-            <footer className={`note-details-footer${noteDialogDeletePending ? " is-confirming" : ""}`}>
-              {noteDialogDeletePending ? (
+            <footer className={`note-details-footer${noteDialogDeletePending ? " is-confirming" : ""}${isNoteDialogEditing ? " is-editing" : ""}`}>
+              {isNoteDialogEditing ? (
+                <div className="note-dialog-edit-actions">
+                  <button
+                    className="note-dialog-button is-cancel"
+                    onClick={cancelEditingNote}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="note-dialog-button is-save"
+                    disabled={!editNoteTopic.trim() && !editNoteDetails.trim()}
+                    form="note-details-edit-form"
+                    type="submit"
+                  >
+                    <Check aria-hidden="true" size={14} />
+                    Save changes
+                  </button>
+                </div>
+              ) : noteDialogDeletePending ? (
                 <div className="note-dialog-delete-confirm" role="group" aria-label={`Confirm deleting ${selectedNote.topic}`}>
                   <span>Delete this note?</span>
                   <div>
@@ -970,14 +1114,26 @@ function NotesPage({
                   </div>
                 </div>
               ) : (
-                <button
-                  className="note-dialog-button is-delete"
-                  onClick={() => setNoteDialogDeletePending(true)}
-                  type="button"
-                >
-                  <Trash2 aria-hidden="true" size={14} />
-                  Delete note
-                </button>
+                <div className="note-dialog-actions">
+                  <button
+                    aria-label="Edit note"
+                    className="note-dialog-button is-edit"
+                    onClick={() => startEditingNote(selectedNote)}
+                    ref={noteEditTriggerRef}
+                    title="Edit note"
+                    type="button"
+                  >
+                    <Pencil aria-hidden="true" size={14} />
+                  </button>
+                  <button
+                    className="note-dialog-button is-delete"
+                    onClick={() => setNoteDialogDeletePending(true)}
+                    type="button"
+                  >
+                    <Trash2 aria-hidden="true" size={14} />
+                    Delete note
+                  </button>
+                </div>
               )}
             </footer>
           </section>

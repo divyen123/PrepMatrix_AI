@@ -691,6 +691,77 @@ body.no-glass-cards .note-details-dialog {
   font-style: italic;
 }
 
+.note-details-edit-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 13px;
+}
+
+.note-details-edit-field {
+  display: grid;
+  gap: 6px;
+}
+
+.note-details-edit-field > span {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.note-details-edit-field input,
+.note-details-edit-field select,
+.note-details-edit-field textarea {
+  width: 100%;
+  color: var(--text);
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.note-details-edit-field input,
+.note-details-edit-field select {
+  min-height: 40px;
+  padding: 8px 11px;
+}
+
+.note-details-edit-field textarea {
+  min-height: 170px;
+  max-height: 36dvh;
+  padding: 10px 11px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.note-details-edit-field input:focus,
+.note-details-edit-field select:focus,
+.note-details-edit-field textarea:focus {
+  border-color: rgba(var(--accent-rgb), 0.56);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+  outline: none;
+}
+
+.note-details-edit-field.is-priority {
+  max-width: 190px;
+}
+
+.note-details-edit-help {
+  margin: -1px 0 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.note-dialog-actions,
+.note-dialog-edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .note-details-saved-topics {
   display: grid;
   gap: 9px;
@@ -766,6 +837,44 @@ body.no-glass-cards .note-details-dialog {
   border-color: transparent !important;
   box-shadow: none !important;
   transform: scale(1.08) !important;
+}
+
+.note-details-dialog .note-dialog-button.is-edit {
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  color: var(--accent) !important;
+  background: rgba(var(--accent-rgb), 0.1) !important;
+  border-color: rgba(var(--accent-rgb), 0.24) !important;
+}
+
+.note-details-dialog .note-dialog-button.is-edit:hover,
+.note-details-dialog .note-dialog-button.is-edit:focus-visible {
+  color: #fff !important;
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  transform: translateY(-1px) !important;
+}
+
+.note-details-dialog .note-dialog-button.is-save {
+  color: var(--bg) !important;
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+
+.note-details-dialog .note-dialog-button.is-save:hover:not(:disabled),
+.note-details-dialog .note-dialog-button.is-save:focus-visible:not(:disabled) {
+  color: var(--bg) !important;
+  background: var(--accent-strong) !important;
+  border-color: var(--accent-strong) !important;
+  transform: translateY(-1px) !important;
+}
+
+.note-details-dialog .note-dialog-button.is-save:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
 }
 
 .note-details-dialog .note-dialog-button.is-delete,
@@ -844,6 +953,23 @@ body.no-glass-cards .note-details-dialog {
 
   .note-details-meta {
     grid-template-columns: 1fr;
+  }
+
+  .note-details-edit-field.is-priority {
+    max-width: none;
+  }
+
+  .note-details-edit-field textarea {
+    min-height: 150px;
+    max-height: 30dvh;
+  }
+
+  .note-dialog-edit-actions {
+    width: 100%;
+  }
+
+  .note-dialog-edit-actions .note-dialog-button {
+    flex: 1 1 0;
   }
 
   .note-details-content > p {
