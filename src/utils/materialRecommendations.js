@@ -150,15 +150,19 @@ export function buildSubjectMaterials(
   const profile = getSubjectProfile(subject.name);
   const levelProfile = getLevelProfile(academicLevel);
   const completedChapters = Math.min(stats.done || 0, subject.chapters);
-  const nextChapter = Math.min(completedChapters + 1, subject.chapters || 1);
   const remaining = Math.max(subject.chapters - completedChapters, 0);
+  const nextChapter = remaining > 0
+    ? Math.min(completedChapters + 1, subject.chapters || 1)
+    : subject.chapters || 1;
   const trackQuery = academicTrack === "General" ? "" : ` ${academicTrack}`;
   const baseQuery = `${levelProfile.queryPrefix}${trackQuery} ${subject.name} chapter ${nextChapter}`;
 
   return {
     subject: subject.name,
     trackLabel: `${levelProfile.label} ${academicTrack === "General" ? "" : `${academicTrack} `}${profile.trackLabel}`,
-    spotlight: `Move into Chapter ${nextChapter} next. For ${academicLevel}${academicTrack === "General" ? "" : ` ${academicTrack}`}, focus on ${levelProfile.guidance} with ${profile.focus}.`,
+    spotlight: remaining > 0
+      ? `Move into Chapter ${nextChapter} next. For ${academicLevel}${academicTrack === "General" ? "" : ` ${academicTrack}`}, focus on ${levelProfile.guidance} with ${profile.focus}.`
+      : `All ${subject.chapters} chapters are complete. For ${academicLevel}${academicTrack === "General" ? "" : ` ${academicTrack}`}, consolidate ${profile.focus} through active recall and spaced revision.`,
     completionLabel: `${completedChapters}/${subject.chapters} chapters completed`,
     remaining,
     lanes: [
@@ -191,7 +195,7 @@ export function buildSubjectMaterials(
       const chapterNumber = index + 1;
       let status = "Upcoming";
 
-      if (chapterNumber < nextChapter) {
+      if (chapterNumber <= completedChapters) {
         status = "Completed";
       } else if (chapterNumber === nextChapter && remaining > 0) {
         status = "Start now";

@@ -231,10 +231,8 @@ function ResourcesHub({
           <article className="card resource-card" key={resource.subject} id={`subject-${resource.subject.replace(/\s+/g, "-")}`}>
             <div className="resource-card-header">
               <div>
-                <span className="section-tag">{resource.trackLabel}</span>
                 <h3>{resource.subject}</h3>
               </div>
-              <span className="resource-progress-chip">{resource.completionLabel}</span>
             </div>
 
             <p className="card-desc">{resource.spotlight}</p>
