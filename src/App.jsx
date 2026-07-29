@@ -85,6 +85,7 @@ const LOGOUT_TRANSITION_MIN_MS = 700;
 const LOGOUT_TRANSITION_EXIT_MS = 280;
 
 const NOTIFICATION_INTENT_KEY = "prepmatrix_notifications_enabled";
+const TOPBAR_AUTO_HIDE_STORAGE_KEY = "prepmatrix_topbar_auto_hide";
 const NOTIFICATION_RECONCILE_RETRY_DELAYS_MS = [4000, 15000];
 const DEFINITIVE_NOTIFICATION_ERROR_CODES = new Set([
   "unsupported",
@@ -300,6 +301,14 @@ function App() {
     }
     return saved;
   });
+  const [autoHideTopBar, setAutoHideTopBar] = useState(
+    () => localStorage.getItem(TOPBAR_AUTO_HIDE_STORAGE_KEY) === "true"
+  );
+  const handleAutoHideTopBarChange = useCallback((enabled) => {
+    const nextValue = Boolean(enabled);
+    setAutoHideTopBar(nextValue);
+    localStorage.setItem(TOPBAR_AUTO_HIDE_STORAGE_KEY, String(nextValue));
+  }, []);
 
   const voiceAssistant = useVoiceAssistant({
     academicLevel,
@@ -1280,11 +1289,13 @@ function App() {
 
       <div
         aria-hidden={logoutTransitionPhase !== "idle"}
-        className="app-main-content"
+        className={`app-main-content${autoHideTopBar ? " topbar-auto-hide-enabled" : ""}`}
         inert={logoutTransitionPhase !== "idle" ? true : undefined}
       >
         {userProfile && !isAuthRoute && (
-          <header className="workspace-topbar">
+          <>
+            {autoHideTopBar && <div aria-hidden="true" className="topbar-reveal-zone" />}
+            <header className="workspace-topbar">
             <div className="topbar-left">
               <button
                 className="hamburger-btn"
@@ -1384,7 +1395,8 @@ function App() {
                 <LogOut aria-hidden="true" size={20} strokeWidth={2.4} />
               </button>
             </div>
-          </header>
+            </header>
+          </>
         )}
 
         <Notification message={notification} />
@@ -1632,6 +1644,8 @@ function App() {
                               onAccountDeleted={handleAccountDeleted}
                               cursorStyle={cursorStyle}
                               setCursorStyle={setCursorStyle}
+                              autoHideTopBar={autoHideTopBar}
+                              onAutoHideTopBarChange={handleAutoHideTopBarChange}
                             />
                           }
                           path="/settings"

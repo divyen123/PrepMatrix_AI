@@ -181,7 +181,7 @@ function ToggleSwitch({ checked, onChange, label, subtitle, disabled = false }) 
         {subtitle && <p className="card-subtext" style={{ margin: '4px 0 0', fontSize: '0.82rem' }}>{subtitle}</p>}
       </div>
       <label className="toggle-switch-label" style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.65 : 1 }}>
-        <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} />
+        <input aria-label={label} type="checkbox" checked={checked} onChange={onChange} disabled={disabled} style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} />
         <span style={{
           position: 'absolute', inset: 0, borderRadius: '999px',
           background: checked ? 'rgba(var(--accent-rgb), 0.6)' : 'var(--surface-muted)',
@@ -210,7 +210,8 @@ function SettingsPage({
   setNotification, onAccountDeleted,
   onAcademicProfileChange,
   activeVoiceName, onPreviewVoice, setVoicePreferences, voicePreferences,
-  cursorStyle: parentCursorStyle, setCursorStyle: setParentCursorStyle
+  cursorStyle: parentCursorStyle, setCursorStyle: setParentCursorStyle,
+  autoHideTopBar, onAutoHideTopBarChange
 }) {
   const navigate = useNavigate();
   const assistantVoicePreferences = normalizeVoicePreferences(voicePreferences);
@@ -1742,8 +1743,15 @@ function SettingsPage({
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
               <Settings2 size={20} className="status-success" /> System Preferences & Toggles
             </h3>
-            <p className="card-subtext">Configure study sounds, assistant voice, wake mode, and notification preferences.</p>
+            <p className="card-subtext">Configure top bar visibility, study sounds, assistant voice, wake mode, and notification preferences.</p>
           </div>
+
+          <ToggleSwitch
+            checked={autoHideTopBar}
+            onChange={(event) => onAutoHideTopBarChange?.(event.target.checked)}
+            label="Auto-hide Top Bar"
+            subtitle="Hide the top bar until you move the cursor to the top edge of the screen."
+          />
 
           <ToggleSwitch
             checked={soundEnabled}

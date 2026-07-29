@@ -234,6 +234,11 @@
   left: 21px !important;
 }
 
+.settings-page .toggle-switch-label input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 .settings-page .goal-settings-card {
   overflow-y: auto;
   overscroll-behavior: contain;
