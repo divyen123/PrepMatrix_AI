@@ -65,6 +65,7 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
   const completionPercentage = totalChapters === 0
     ? 0
     : Math.floor((completedCount / totalChapters) * 100);
+  const isSubjectComplete = completionPercentage === 100;
   const nextTask = subjectTasks.find((task) => !task.isComplete);
   const quizEligibility = getSubjectQuizEligibility(subject, safeSchedule, safeCompleted);
   const isQuizEligible = quizEligibility.isEligible;
@@ -267,9 +268,18 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
               A focused view of completed chapters, upcoming work, and exam readiness.
             </p>
           </div>
-          <div className="subject-modal-summary" aria-label={`${completionPercentage}% complete`}>
-            <strong>{completionPercentage}%</strong>
-            <span>complete</span>
+          <div
+            aria-label={isSubjectComplete ? `${subject} completed` : `${completionPercentage}% complete`}
+            className={`subject-modal-summary${isSubjectComplete ? " is-complete" : ""}`}
+          >
+            {isSubjectComplete ? (
+              <strong>Completed</strong>
+            ) : (
+              <>
+                <strong>{completionPercentage}%</strong>
+                <span>complete</span>
+              </>
+            )}
           </div>
         </header>
 

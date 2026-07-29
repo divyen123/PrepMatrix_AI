@@ -15346,6 +15346,28 @@ body .subject-modal-close:focus-visible {
   text-transform: uppercase;
 }
 
+.subject-modal-summary.is-complete {
+  min-width: 112px;
+  align-content: center;
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.28);
+  box-shadow: 0 10px 28px rgba(22, 163, 74, 0.08);
+}
+
+.subject-modal-summary.is-complete strong {
+  color: #15803d;
+  font-size: 0.92rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+body.dark .subject-modal-summary.is-complete strong,
+body.has-bg-image .subject-modal-summary.is-complete strong {
+  color: #86efac;
+
+}
 .subject-modal-progress {
   height: 4px;
   margin: 0 30px;
