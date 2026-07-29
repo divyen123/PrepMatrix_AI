@@ -9,6 +9,10 @@ import {
   removeNotesFromPlanner,
   upsertNotePlannerTask,
 } from "../utils/notePlanner";
+import {
+  getNotesBoardStatusCounts,
+  getNoteWorkflowStatus,
+} from "./notesBoardStatus";
 import "./NotesPage.css";
 
 const NOTES_PER_PAGE = 6;
@@ -24,11 +28,6 @@ function rankSearchMatch(fields, query) {
     if (value.startsWith(cleanQuery)) return Math.max(best, 3);
     return Math.max(best, 2);
   }, 0);
-}
-
-function getWorkflowStatus(note, plannerState) {
-  if (plannerState?.state === "completed") return "Resolved";
-  return note?.status === "Resolved" ? "Resolved" : "Open";
 }
 
 function formatNoteDate(value) {
@@ -486,7 +485,7 @@ function NotesPage({
   const selectedPlannerState = selectedNote
     ? plannerStates.get(selectedNote.id) || { state: "unscheduled" }
     : null;
-  const selectedNoteStatus = selectedNote ? getWorkflowStatus(selectedNote, selectedPlannerState) : "";
+  const selectedNoteStatus = selectedNote ? getNoteWorkflowStatus(selectedNote, selectedPlannerState) : "";
   const selectedNotePriority = selectedNote && ["Low", "Medium", "High"].includes(selectedNote.priority)
     ? selectedNote.priority
     : "Medium";
@@ -503,7 +502,7 @@ function NotesPage({
   const filteredNotes = useMemo(() => {
     const statusFiltered = filter === "All"
       ? notes
-      : notes.filter((note) => getWorkflowStatus(note, plannerStates.get(note.id)) === filter);
+      : notes.filter((note) => getNoteWorkflowStatus(note, plannerStates.get(note.id)) === filter);
     if (!notesSearchQuery.trim()) return statusFiltered;
 
     return statusFiltered
@@ -515,7 +514,7 @@ function NotesPage({
             note.topic,
             note.details,
             note.priority,
-            getWorkflowStatus(note, plannerStates.get(note.id)),
+            getNoteWorkflowStatus(note, plannerStates.get(note.id)),
             plannerStates.get(note.id)?.state,
             ...(Array.isArray(note.leftTopics) ? note.leftTopics : []),
           ],
@@ -539,9 +538,11 @@ function NotesPage({
     setNotesPage((current) => Math.min(current, notesTotalPages));
   }, [notesTotalPages]);
 
-  const openCount = notes.filter((note) => getWorkflowStatus(note, plannerStates.get(note.id)) === "Open").length;
-  const resolvedCount = notes.filter((note) => getWorkflowStatus(note, plannerStates.get(note.id)) === "Resolved").length;
-  const plannedCount = notes.filter((note) => plannerStates.get(note.id)?.state !== "unscheduled").length;
+  const {
+    open: openCount,
+    completed: completedCount,
+    inProcess: inProcessCount,
+  } = getNotesBoardStatusCounts(notes, plannerStates);
 
   return (
     <section className="page-stack notes-page">
@@ -606,14 +607,14 @@ function NotesPage({
                 <span className="mobile-only-text">doubts</span>
               </div>
               <div>
-                <strong>{resolvedCount}</strong>
-                <span className="desktop-only-text">Resolved</span>
-                <span className="mobile-only-text">resolved</span>
+                <strong>{completedCount}</strong>
+                <span className="desktop-only-text">Completed</span>
+                <span className="mobile-only-text">completed</span>
               </div>
               <div>
-                <strong>{plannedCount}</strong>
-                <span className="desktop-only-text">Planned</span>
-                <span className="mobile-only-text">planned</span>
+                <strong>{inProcessCount}</strong>
+                <span className="desktop-only-text">In process</span>
+                <span className="mobile-only-text">in process</span>
               </div>
             </div>
           </article>
@@ -723,7 +724,7 @@ function NotesPage({
           <div className="notes-list-grid">
             {paginatedNotes.map((note) => {
               const plannerState = plannerStates.get(note.id) || { state: "unscheduled" };
-              const noteStatus = getWorkflowStatus(note, plannerState);
+              const noteStatus = getNoteWorkflowStatus(note, plannerState);
               const notePriority = ["Low", "Medium", "High"].includes(note.priority) ? note.priority : "Medium";
               const isConfirmingDelete = pendingDeleteNoteId === note.id;
               const isPlannerMenuOpen = plannerMenuNoteId === note.id;

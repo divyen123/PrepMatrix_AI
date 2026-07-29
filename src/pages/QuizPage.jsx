@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -17,6 +17,7 @@ import {
   buildLearnerAcademicContext,
 } from "../utils/academicProfile";
 import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
+import { getRankedQuizSubjects } from "../utils/quizSubjectOptions";
 
 const QUIZ_HISTORY_PER_PAGE = 6;
 
@@ -56,21 +57,20 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
   const [showDropdown, setShowDropdown] = useState(false);
 
   const [searchParams] = useSearchParams();
+  const hasInitializedSubject = useRef(false);
 
   useEffect(() => {
-    const querySubject = searchParams.get("subject");
-    if (!subjectName) {
-      setSubjectName(querySubject || subjects[0]?.name || "");
-    }
-  }, [searchParams, subjectName, subjects]);
+    if (hasInitializedSubject.current) return;
 
-  useEffect(() => {
-    setSearchQuery(subjectName);
-  }, [subjectName]);
+    const initialSubject = searchParams.get("subject")?.trim() || subjects[0]?.name?.trim() || "";
+    if (!initialSubject) return;
 
-  const filteredSubjects = subjects.filter((subject) =>
-    subject.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    hasInitializedSubject.current = true;
+    setSubjectName(initialSubject);
+    setSearchQuery(initialSubject);
+  }, [searchParams, subjects]);
+
+  const filteredSubjects = getRankedQuizSubjects(subjects, searchQuery);
 
   useEffect(() => {
     let isMounted = true;
@@ -95,7 +95,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
 
 
 
-  const selectedSubject = subjectName || subjects[0]?.name || "General study";
+  const selectedSubject = subjectName.trim() || "General study";
   const quizEligibility = getSubjectQuizEligibility(selectedSubject, schedule, completed);
   const quizEligibilityMessage = quizEligibility.isEligible
     ? `${selectedSubject} is ${quizEligibility.completionRate}% complete. Quiz unlocked.`
@@ -374,10 +374,15 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
             Subject
             <div className="autocomplete-container" style={{ position: "relative" }}>
               <input
+                aria-autocomplete="list"
+                aria-controls="quiz-subject-suggestions"
                 aria-describedby="quiz-eligibility-status"
+                aria-expanded={showDropdown && searchQuery.trim() !== ""}
+                autoComplete="off"
                 disabled={isGenerating}
                 type="text"
                 className="text-input"
+                role="combobox"
                 value={searchQuery}
                 onChange={(event) => {
                   const val = event.target.value;
@@ -394,27 +399,28 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
                 style={{ width: "100%", boxSizing: "border-box" }}
               />
               {showDropdown && searchQuery.trim() !== "" && (
-                <div 
+                <div
+                  id="quiz-subject-suggestions"
                   className="autocomplete-dropdown"
+                  role="listbox"
                   style={{
                     position: "absolute",
                     top: "100%",
                     left: 0,
                     right: 0,
-                    backgroundColor: "var(--surface-strong)",
                     border: "1px solid var(--border)",
                     borderRadius: "12px",
                     zIndex: 100,
                     maxHeight: "180px",
                     overflowY: "auto",
                     marginTop: "6px",
-                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.4)",
-                    backdropFilter: "blur(12px)",
-                    WebkitBackdropFilter: "blur(12px)"
+                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.4)"
                   }}
                 >
                   {filteredSubjects.length === 0 ? (
-                    <div 
+                    <div
+                      aria-selected="false"
+                      role="option"
                       style={{ padding: "10px 14px", fontSize: "0.85rem", color: "var(--text-muted)", cursor: "pointer" }}
                       onMouseDown={() => {
                         resetGeneratedQuiz();
@@ -429,6 +435,8 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
                       <div
                         className="autocomplete-item"
                         key={subject.id}
+                        aria-selected={subject.name === subjectName}
+                        role="option"
                         style={{
                           padding: "10px 14px",
                           cursor: "pointer",

@@ -19076,6 +19076,20 @@ body .bookmark-clear-all-btn:focus-visible {
   min-width: 126px;
 }
 
+.quiz-page .quiz-subject-field .autocomplete-dropdown {
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.dark .quiz-page .quiz-subject-field .autocomplete-dropdown {
+  background: #121b2d !important;
+}
+
+body.has-bg-image .quiz-page .quiz-subject-field .autocomplete-dropdown {
+  background: rgb(var(--bg-surface-rgb, 18, 27, 45)) !important;
+}
+
 .quiz-eligibility-status {
   margin: -2px 0 0;
   color: var(--text-muted);
