@@ -19,6 +19,7 @@ import {
   LayoutTemplate,
   Mail,
   MapPin,
+  Maximize2,
   Palette,
   PenLine,
   Phone,
@@ -30,6 +31,7 @@ import {
   Trophy,
   Type,
   UserRound,
+  X,
 } from "lucide-react";
 import api from "../utils/apiClient";
 import {
@@ -485,6 +487,7 @@ export default function ResumeBuilderPage({
   const [quotaLoading, setQuotaLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [previewFullscreenOpen, setPreviewFullscreenOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const noticeTimer = useRef(null);
@@ -492,6 +495,9 @@ export default function ResumeBuilderPage({
   const resetDialogRef = useRef(null);
   const resetCancelRef = useRef(null);
   const resetTriggerRef = useRef(null);
+  const previewFullscreenDialogRef = useRef(null);
+  const previewFullscreenCloseRef = useRef(null);
+  const previewFullscreenTriggerRef = useRef(null);
   const builder = useMemo(
     () => normalizeResumeBuilderState(resumeBuilder, { ...userProfile, ...academicProfile }, EDITING_NORMALIZE_OPTIONS),
     [academicProfile, resumeBuilder, userProfile]
@@ -513,12 +519,70 @@ export default function ResumeBuilderPage({
     window.requestAnimationFrame(() => resetTriggerRef.current?.focus());
   }, []);
 
+  const closePreviewFullscreen = useCallback(() => {
+    setPreviewFullscreenOpen(false);
+    window.requestAnimationFrame(() => previewFullscreenTriggerRef.current?.focus({ preventScroll: true }));
+  }, []);
+
   useEffect(
     () => () => {
       window.clearTimeout(noticeTimer.current);
     },
     []
   );
+
+  useEffect(() => {
+    if (!previewFullscreenOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const modalClassAlreadyPresent = document.body.classList.contains("modal-open");
+    const focusFrame = window.requestAnimationFrame(() => {
+      previewFullscreenCloseRef.current?.focus({ preventScroll: true });
+    });
+
+    document.body.classList.add("modal-open");
+    document.body.style.overflow = "hidden";
+
+    const handlePreviewKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closePreviewFullscreen();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusableElements = Array.from(
+        previewFullscreenDialogRef.current?.querySelectorAll("button:not(:disabled)") || []
+      );
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements.at(-1);
+
+      if (!firstElement || !lastElement) return;
+      if (!previewFullscreenDialogRef.current?.contains(document.activeElement)) {
+        event.preventDefault();
+        firstElement.focus();
+        return;
+      }
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handlePreviewKeyDown);
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handlePreviewKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (!modalClassAlreadyPresent) document.body.classList.remove("modal-open");
+    };
+  }, [closePreviewFullscreen, previewFullscreenOpen]);
 
   useEffect(() => {
     if (!resetConfirmOpen) return undefined;
@@ -1231,7 +1295,19 @@ export default function ResumeBuilderPage({
         <aside className="resume-preview-panel">
           <header className="resume-preview-panel__header">
             <div><span>Live preview</span><strong>A4 · {RESUME_TEMPLATES.find((item) => item.id === layout.template)?.label}</strong></div>
-            <span><Eye size={14} /> Updates instantly</span>
+            <button
+              aria-controls="resume-preview-fullscreen-dialog"
+              aria-expanded={previewFullscreenOpen}
+              aria-haspopup="dialog"
+              aria-label="Open full screen resume preview"
+              className="resume-icon-button resume-preview-expand-button"
+              onClick={() => setPreviewFullscreenOpen(true)}
+              ref={previewFullscreenTriggerRef}
+              title="Open full screen preview"
+              type="button"
+            >
+              <Maximize2 aria-hidden="true" size={16} />
+            </button>
           </header>
           <div className="resume-preview-stage">
             <ResumePreview draft={previewDraft} layout={layout} />
@@ -1271,6 +1347,48 @@ export default function ResumeBuilderPage({
           {notice.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
           <span>{notice.message}</span>
         </div>
+      )}
+
+      {previewFullscreenOpen && typeof document !== "undefined" && createPortal(
+        <div
+          className="resume-preview-fullscreen-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closePreviewFullscreen();
+          }}
+          role="presentation"
+        >
+          <section
+            aria-labelledby="resume-preview-fullscreen-title"
+            aria-modal="true"
+            className="resume-preview-fullscreen-dialog"
+            id="resume-preview-fullscreen-dialog"
+            ref={previewFullscreenDialogRef}
+            role="dialog"
+          >
+            <header className="resume-preview-fullscreen-header">
+              <div>
+                <span>Live preview</span>
+                <strong id="resume-preview-fullscreen-title">
+                  {previewDraft.personal.fullName || "Resume"} - A4
+                </strong>
+              </div>
+              <button
+                aria-label="Close full screen resume preview"
+                className="resume-preview-fullscreen-close"
+                onClick={closePreviewFullscreen}
+                ref={previewFullscreenCloseRef}
+                title="Close preview"
+                type="button"
+              >
+                <X aria-hidden="true" size={15} strokeWidth={2.8} />
+              </button>
+            </header>
+            <div className="resume-preview-fullscreen-stage">
+              <ResumePreview draft={previewDraft} layout={layout} />
+            </div>
+          </section>
+        </div>,
+        document.body
       )}
 
       {resetConfirmOpen && typeof document !== "undefined" && createPortal(
