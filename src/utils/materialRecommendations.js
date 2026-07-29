@@ -163,7 +163,7 @@ export function buildSubjectMaterials(
     spotlight: remaining > 0
       ? `Move into Chapter ${nextChapter} next. For ${academicLevel}${academicTrack === "General" ? "" : ` ${academicTrack}`}, focus on ${levelProfile.guidance} with ${profile.focus}.`
       : `All ${subject.chapters} chapters are complete. For ${academicLevel}${academicTrack === "General" ? "" : ` ${academicTrack}`}, consolidate ${profile.focus} through active recall and spaced revision.`,
-    completionLabel: `${completedChapters}/${subject.chapters} chapters completed`,
+    completionLabel: `${completedChapters}/${subject.chapters} Completed`,
     remaining,
     lanes: [
       {

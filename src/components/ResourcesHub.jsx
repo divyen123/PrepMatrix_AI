@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Check, Search, Trash2, X } from "lucide-react";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { buildSubjectMaterials } from "../utils/materialRecommendations";
+import { normalizeMaterialBookmarks } from "../utils/materialBookmarks";
 
 function rankSearchMatch(fields, query) {
   const cleanQuery = query.trim().toLowerCase();
@@ -36,11 +37,15 @@ function ResourcesHub({
     buildSubjectMaterials(subject, metrics.subjectStats[subject.name], academicLevel, academicTrack)
   );
 
-  const savedLinks = new Set(materialBookmarks.map((bookmark) => bookmark.href));
+  const safeMaterialBookmarks = useMemo(
+    () => normalizeMaterialBookmarks(materialBookmarks),
+    [materialBookmarks]
+  );
+  const savedLinks = new Set(safeMaterialBookmarks.map((bookmark) => bookmark.href));
   const filteredMaterialBookmarks = useMemo(() => {
-    if (!bookmarkSearchQuery.trim()) return materialBookmarks;
+    if (!bookmarkSearchQuery.trim()) return safeMaterialBookmarks;
 
-    return materialBookmarks
+    return safeMaterialBookmarks
       .map((bookmark, index) => ({
         bookmark,
         index,
@@ -52,7 +57,7 @@ function ResourcesHub({
       .filter((item) => item.rank > 0)
       .sort((a, b) => b.rank - a.rank || a.index - b.index)
       .map((item) => item.bookmark);
-  }, [bookmarkSearchQuery, materialBookmarks]);
+  }, [bookmarkSearchQuery, safeMaterialBookmarks]);
 
   const [searchParams] = useSearchParams();
   const targetSubject = searchParams.get("subject");
@@ -86,7 +91,7 @@ function ResourcesHub({
         </div>
       ) : null}
 
-      {materialBookmarks.length > 0 ? (
+      {safeMaterialBookmarks.length > 0 ? (
         <section className="card bookmark-library-card">
           <div className="resources-bookmark-header">
             <div>
@@ -104,7 +109,7 @@ function ResourcesHub({
                   value={bookmarkSearchQuery}
                 />
               </label>
-              <span className="resources-bookmark-count">{materialBookmarks.length} saved</span>
+              <span className="resources-bookmark-count">{safeMaterialBookmarks.length} saved</span>
               {confirmClearAllBookmarks ? (
                 <div
                   aria-label="Confirm clearing all saved materials"
@@ -163,19 +168,19 @@ function ResourcesHub({
           ) : (
             <div className="bookmark-grid">
               {filteredMaterialBookmarks.map((bookmark) => (
-                <article className="bookmark-card" key={bookmark.id}>
+                <article className="bookmark-card" key={bookmark.id || bookmark.href}>
                   <span>{bookmark.subject}</span>
                   <strong>{bookmark.title}</strong>
                   <p>{bookmark.provider}</p>
                   <div className="bookmark-actions">
                     <a href={bookmark.href} rel="noreferrer" target="_blank">Open</a>
-                    {pendingBookmarkRemovalId === bookmark.id ? (
+                    {pendingBookmarkRemovalId === (bookmark.id || bookmark.href) ? (
                       <div className="bookmark-remove-confirm" role="group" aria-label={`Confirm removing ${bookmark.title}`}>
                         <button
                           aria-label={`Confirm removing ${bookmark.title}`}
                           className="compact-confirm-btn is-confirm"
                           onClick={() => {
-                            onRemoveBookmark?.(bookmark.id);
+                            onRemoveBookmark?.(bookmark.id || bookmark.href);
                             setPendingBookmarkRemovalId(null);
                           }}
                           title="Confirm remove"
@@ -198,7 +203,7 @@ function ResourcesHub({
                         aria-label={`Remove ${bookmark.title} from saved library`}
                         onClick={() => {
                           setConfirmClearAllBookmarks(false);
-                          setPendingBookmarkRemovalId(bookmark.id);
+                          setPendingBookmarkRemovalId(bookmark.id || bookmark.href);
                         }}
                         type="button"
                       >
@@ -233,6 +238,7 @@ function ResourcesHub({
               <div>
                 <h3>{resource.subject}</h3>
               </div>
+              <span className="resource-progress-text">{resource.completionLabel}</span>
             </div>
 
             <p className="card-desc">{resource.spotlight}</p>

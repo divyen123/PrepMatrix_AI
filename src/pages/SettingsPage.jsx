@@ -21,6 +21,7 @@ import {
   normalizeAcademicProfile,
 } from "../utils/academicProfile";
 import { normalizeResumeBuilderState } from "../utils/resumeBuilder";
+import { normalizeMaterialBookmarks } from "../utils/materialBookmarks";
 import BACKGROUND_PRESETS from "../utils/backgroundPresets";
 import {
   BACKGROUND_IMAGE_BLUR_MAX_PX,
@@ -1167,7 +1168,7 @@ function SettingsPage({
         if (data.subjects) setSubjects(data.subjects);
         if (data.schedule) setSchedule(data.schedule);
         if (data.completed) setCompleted(data.completed);
-        if (data.materialBookmarks) setMaterialBookmarks(data.materialBookmarks);
+        if (data.materialBookmarks) setMaterialBookmarks(normalizeMaterialBookmarks(data.materialBookmarks));
         if (data.resumeBuilder) {
           setResumeBuilder((current) => {
             const imported = normalizeResumeBuilderState(data.resumeBuilder, userProfile);

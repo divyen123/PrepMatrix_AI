@@ -34,4 +34,5 @@ test("marks the final chapter completed when the subject is fully complete", () 
   );
   assert.match(materials.spotlight, /All 2 chapters are complete/);
   assert.doesNotMatch(materials.spotlight, /Move into Chapter/);
+  assert.equal(materials.completionLabel, "2/2 Completed");
 });

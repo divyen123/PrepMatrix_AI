@@ -1,3 +1,5 @@
+import { isMaterialSuggestionRequest } from "./chatMaterialSuggestions.js";
+
 const MOTIVATION_LINES = [
   "You are building real momentum. Stay with it.",
   "Consistency beats intensity. Keep going.",
@@ -119,8 +121,10 @@ export function resolveLocalAssistantCommand(rawText, options = {}) {
     };
   }
   const navigationTarget = resolveNavigationTarget(normalized);
+  const isResourceSuggestion = navigationTarget?.route === "/resources"
+    && isMaterialSuggestionRequest(rawText);
 
-  if (navigationTarget) {
+  if (navigationTarget && !isResourceSuggestion) {
     navigate?.(navigationTarget.route);
     return {
       response: `Opening ${navigationTarget.label}.`,

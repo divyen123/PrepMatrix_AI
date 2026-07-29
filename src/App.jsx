@@ -39,6 +39,10 @@ import {
   resolveEffectiveDarkMode,
 } from "./utils/appearanceTheme";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
+import {
+  normalizeMaterialBookmark,
+  normalizeMaterialBookmarks,
+} from "./utils/materialBookmarks";
 import { reconcileScheduleWithSubjects } from "./utils/scheduleReconciliation";
 import {
   academicProfilePayload,
@@ -428,7 +432,7 @@ function App() {
     if (profile) {
       setUserProfile((current) => ({ ...(current || profile), ...nextAcademicProfile }));
     }
-    setMaterialBookmarks(Array.isArray(workspace?.materialBookmarks) ? workspace.materialBookmarks : []);
+    setMaterialBookmarks(normalizeMaterialBookmarks(workspace?.materialBookmarks));
     setResumeBuilder(normalizeResumeBuilderState(workspace?.resumeBuilder, {
       ...(profile || {}),
       ...nextAcademicProfile,
@@ -607,26 +611,38 @@ function App() {
   };
 
   const saveMaterialBookmark = (bookmark) => {
-    const exists = materialBookmarks.some((item) => item.href === bookmark.href);
+    const normalizedBookmark = normalizeMaterialBookmark(bookmark);
+    if (!normalizedBookmark) {
+      setNotification("This material link cannot be saved.");
+      return;
+    }
+
+    const exists = materialBookmarks.some((item) => item.href === normalizedBookmark.href);
 
     if (exists) {
       setNotification("Material already saved.");
       return;
     }
 
-    setMaterialBookmarks([
-      {
-        id: crypto.randomUUID(),
-        savedAt: new Date().toISOString(),
-        ...bookmark,
-      },
-      ...materialBookmarks,
-    ]);
-    setNotification("Material saved to bookmarks.");
+    setMaterialBookmarks((current) => {
+      if (current.some((item) => item.href === normalizedBookmark.href)) {
+        return current;
+      }
+
+      return [
+        {
+          id: crypto.randomUUID(),
+          savedAt: new Date().toISOString(),
+          ...normalizedBookmark,
+        },
+        ...current,
+      ];
+    });
+    setNotification("Material saved to library.");
   };
 
   const removeMaterialBookmark = (id) => {
-    setMaterialBookmarks(materialBookmarks.filter((item) => item.id !== id));
+    setMaterialBookmarks(materialBookmarks.filter((item) => (item.id || item.href) !== id));
     setNotification("Bookmark removed.");
   };
 
@@ -1254,9 +1270,12 @@ function App() {
                 academicLevel={academicLevel}
                 academicTrack={academicTrack}
                 completed={completed}
+                materialBookmarks={materialBookmarks}
                 onReset={resetPlanner}
+                onSaveBookmark={saveMaterialBookmark}
                 schedule={schedule}
                 setDarkMode={setDarkMode}
+                subjects={subjects}
               />
             <Link
               to="/about"

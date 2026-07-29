@@ -6,6 +6,10 @@ import {
   buildFallbackReply,
   resolveLocalAssistantCommand,
 } from "../utils/assistantCommands";
+import {
+  buildChatMaterialSuggestions,
+  normalizeChatMaterialSuggestions,
+} from "../utils/chatMaterialSuggestions";
 import api, { API_BASE } from "../utils/apiClient";
 import {
   CHAT_ATTACHMENT_ACCEPT,
@@ -95,7 +99,87 @@ function formatMessageText(text) {
   });
 }
 
-function Chatbot({ academicLevel = "College", academicTrack = "General", schedule = [], completed = [], setDarkMode, onReset }) {
+function ChatMaterialSuggestions({
+  academicLevel,
+  academicTrack,
+  materials,
+  onOpenMaterials,
+  onSaveBookmark,
+  savedMaterialLinks,
+}) {
+  const suggestions = normalizeChatMaterialSuggestions(materials);
+
+  if (!suggestions.length) return null;
+
+  return (
+    <section aria-label="Suggested study materials" className="chat-material-suggestions">
+      <div className="chat-material-suggestions-heading">
+        <strong>Suggested materials</strong>
+        <span>{suggestions.length} options</span>
+      </div>
+      <div className="chat-material-suggestion-list">
+        {suggestions.map((material) => {
+          const saved = savedMaterialLinks.has(material.href);
+
+          return (
+            <article className="chat-material-suggestion-card" key={material.href}>
+              <span className="chat-material-provider">{material.provider}</span>
+              <strong>{material.title}</strong>
+              {material.description ? <p>{material.description}</p> : null}
+              <div className="chat-material-actions">
+                <a
+                  aria-label={`Open ${material.title} in a new tab`}
+                  href={material.href}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Open
+                </a>
+                <button
+                  aria-label={saved ? `${material.title} is saved` : `Save ${material.title} to library`}
+                  disabled={saved}
+                  onClick={() =>
+                    onSaveBookmark?.({
+                      academicLevel: material.academicLevel || academicLevel,
+                      academicTrack: material.academicTrack || academicTrack,
+                      description: material.description,
+                      href: material.href,
+                      provider: material.provider,
+                      subject: material.subject,
+                      title: material.title,
+                    })
+                  }
+                  type="button"
+                >
+                  {saved ? "Saved" : "Save to library"}
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <button
+        className="chat-material-page-btn"
+        onClick={onOpenMaterials}
+        type="button"
+      >
+        Go to Materials page
+      </button>
+    </section>
+  );
+}
+
+function Chatbot({
+  academicLevel = "College",
+  academicTrack = "General",
+  schedule = [],
+  completed = [],
+  materialBookmarks = [],
+  onSaveBookmark,
+  setDarkMode,
+  subjects = [],
+  onReset,
+}) {
   const navigate = useNavigate();
   const { hasInsufficientCredits } = useAiQuota();
   const scrollRef = useRef(null);
@@ -113,6 +197,10 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
     [schedule, completed]
+  );
+  const savedMaterialLinks = useMemo(
+    () => new Set(materialBookmarks.map((bookmark) => bookmark.href)),
+    [materialBookmarks]
   );
 
   const plannerContext = useMemo(
@@ -494,6 +582,15 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
         ...chatAttachmentMetadata(attachment),
         ...(attachment.type.startsWith("image/") ? { dataUrl: attachment.dataUrl } : {}),
       }));
+      const materialSuggestions = selectedAttachments.length
+        ? []
+        : buildChatMaterialSuggestions({
+            academicLevel,
+            academicTrack,
+            message: finalMessage,
+            metrics,
+            subjects,
+          });
       const userMessage = {
         id: `${Date.now()}-user`,
         role: "user",
@@ -534,6 +631,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
           id: `${Date.now()}-assistant-quota`,
           role: "assistant",
           text: getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }),
+          ...(materialSuggestions.length ? { materials: materialSuggestions } : {}),
         }]);
         return;
       }
@@ -552,6 +650,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
           message: finalMessage,
           sessionId: originSessionId,
           plannerContext,
+          materials: materialSuggestions,
           attachments: selectedAttachments.map(({ name, type, size, dataUrl }) => ({
             name,
             type,
@@ -565,6 +664,8 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
         if (!isCurrentRequest()) return;
 
         const reply = payload.reply?.trim() || "I couldn't generate a response for that request.";
+        const returnedMaterials = normalizeChatMaterialSuggestions(payload.materials);
+        const replyMaterials = returnedMaterials.length ? returnedMaterials : materialSuggestions;
 
         setMessages((current) => [
           ...current,
@@ -572,6 +673,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
             id: `${Date.now()}-assistant`,
             role: "assistant",
             text: reply,
+            ...(replyMaterials.length ? { materials: replyMaterials } : {}),
           },
         ]);
 
@@ -620,6 +722,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
             id: `${Date.now()}-assistant-fallback`,
             role: "assistant",
             text: replyText,
+            ...(materialSuggestions.length ? { materials: materialSuggestions } : {}),
           },
         ]);
       } finally {
@@ -631,6 +734,8 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
     },
     [
       activeSessionId,
+      academicLevel,
+      academicTrack,
       assistantStatus.model,
       attachments,
       fetchSessions,
@@ -643,6 +748,7 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
       plannerContext,
       preparingAttachments,
       setDarkMode,
+      subjects,
     ]
   );
 
@@ -1134,6 +1240,17 @@ function Chatbot({ academicLevel = "College", academicTrack = "General", schedul
                       </div>
                     ) : null}
                     {formatMessageText(message.text)}
+                    <ChatMaterialSuggestions
+                      academicLevel={academicLevel}
+                      academicTrack={academicTrack}
+                      materials={message.materials}
+                      onOpenMaterials={() => {
+                        setOpen(false);
+                        navigate("/resources");
+                      }}
+                      onSaveBookmark={onSaveBookmark}
+                      savedMaterialLinks={savedMaterialLinks}
+                    />
                     <button
                       aria-label="Copy chat message"
                       className="chat-message-copy-btn"
