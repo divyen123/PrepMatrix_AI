@@ -19664,7 +19664,8 @@ body.dark .ai-credit-popover {
 
   .app-main-content.topbar-auto-hide-enabled > .topbar-reveal-zone:hover + .workspace-topbar,
   .app-main-content.topbar-auto-hide-enabled > .workspace-topbar:hover,
-  .app-main-content.topbar-auto-hide-enabled > .workspace-topbar:focus-within {
+  .app-main-content.topbar-auto-hide-enabled > .workspace-topbar:focus-within,
+  .app-main-content.topbar-auto-hide-enabled.topbar-temporarily-pinned > .workspace-topbar {
     opacity: 1;
     pointer-events: auto;
     transform: translate3d(0, 0, 0) !important;

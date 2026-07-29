@@ -83,6 +83,7 @@ const ExamAboutPage = lazy(() => import("./pages/ExamAboutPage"));
 
 const LOGOUT_TRANSITION_MIN_MS = 700;
 const LOGOUT_TRANSITION_EXIT_MS = 280;
+const TOPBAR_CLICK_PIN_MS = 3500;
 
 const NOTIFICATION_INTENT_KEY = "prepmatrix_notifications_enabled";
 const TOPBAR_AUTO_HIDE_STORAGE_KEY = "prepmatrix_topbar_auto_hide";
@@ -265,6 +266,7 @@ function App() {
   const logoutInFlightRef = useRef(false);
   const resetConfirmRef = useRef(null);
   const profilePreviewTimerRef = useRef(null);
+  const topBarPinTimeoutRef = useRef(null);
   const [subjects, setSubjects] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [completed, setCompleted] = useState([]);
@@ -304,11 +306,29 @@ function App() {
   const [autoHideTopBar, setAutoHideTopBar] = useState(
     () => localStorage.getItem(TOPBAR_AUTO_HIDE_STORAGE_KEY) === "true"
   );
+  const [topBarTemporarilyPinned, setTopBarTemporarilyPinned] = useState(false);
   const handleAutoHideTopBarChange = useCallback((enabled) => {
     const nextValue = Boolean(enabled);
+
+    if (!nextValue) {
+      window.clearTimeout(topBarPinTimeoutRef.current);
+      topBarPinTimeoutRef.current = null;
+      setTopBarTemporarilyPinned(false);
+    }
+
     setAutoHideTopBar(nextValue);
     localStorage.setItem(TOPBAR_AUTO_HIDE_STORAGE_KEY, String(nextValue));
   }, []);
+  const handleTopBarClick = useCallback(() => {
+    if (!autoHideTopBar) return;
+
+    window.clearTimeout(topBarPinTimeoutRef.current);
+    setTopBarTemporarilyPinned(true);
+    topBarPinTimeoutRef.current = window.setTimeout(() => {
+      topBarPinTimeoutRef.current = null;
+      setTopBarTemporarilyPinned(false);
+    }, TOPBAR_CLICK_PIN_MS);
+  }, [autoHideTopBar]);
 
   const voiceAssistant = useVoiceAssistant({
     academicLevel,
@@ -1137,6 +1157,10 @@ function App() {
     if (profilePreviewTimerRef.current) {
       window.clearTimeout(profilePreviewTimerRef.current);
     }
+
+    if (topBarPinTimeoutRef.current) {
+      window.clearTimeout(topBarPinTimeoutRef.current);
+    }
   }, []);
 
   return (
@@ -1289,13 +1313,15 @@ function App() {
 
       <div
         aria-hidden={logoutTransitionPhase !== "idle"}
-        className={`app-main-content${autoHideTopBar ? " topbar-auto-hide-enabled" : ""}`}
+        className={`app-main-content${autoHideTopBar ? " topbar-auto-hide-enabled" : ""}${
+          autoHideTopBar && topBarTemporarilyPinned ? " topbar-temporarily-pinned" : ""
+        }`}
         inert={logoutTransitionPhase !== "idle" ? true : undefined}
       >
         {userProfile && !isAuthRoute && (
           <>
             {autoHideTopBar && <div aria-hidden="true" className="topbar-reveal-zone" />}
-            <header className="workspace-topbar">
+            <header className="workspace-topbar" onClickCapture={handleTopBarClick}>
             <div className="topbar-left">
               <button
                 className="hamburger-btn"
