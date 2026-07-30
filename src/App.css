@@ -10632,7 +10632,7 @@ body.chat-open .workspace-topbar {
 .workspace-main,
 .app-sidebar,
 .workspace-topbar {
-  transition: filter 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease, border-color 0.3s ease !important;
+  transition: filter 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), padding-top 420ms cubic-bezier(0.22, 1, 0.36, 1), background 0.3s ease, border-color 0.3s ease !important;
 }
 
 /* Topbar right buttons styling to match bottom buttons with reduced glow */
@@ -19686,7 +19686,7 @@ body.dark .ai-credit-popover {
   .app-main-content.topbar-auto-hide-enabled > .topbar-reveal-zone:hover + .workspace-topbar,
   .app-main-content.topbar-auto-hide-enabled > .workspace-topbar:hover,
   .app-main-content.topbar-auto-hide-enabled > .workspace-topbar:focus-within,
-  .app-main-content.topbar-auto-hide-enabled.topbar-temporarily-pinned > .workspace-topbar {
+  .app-main-content.topbar-auto-hide-enabled.topbar-visible > .workspace-topbar {
     opacity: 1;
     pointer-events: auto;
     transform: translate3d(0, 0, 0) !important;
@@ -19695,7 +19695,12 @@ body.dark .ai-credit-popover {
 
 @media (min-width: 992px) and (hover: hover) and (pointer: fine) {
   .app-main-content.topbar-auto-hide-enabled > .topbar-reveal-zone {
-    left: 280px;
+    left: 0;
+    z-index: 101;
+  }
+
+  .app-container.has-sidebar .app-main-content.topbar-auto-hide-enabled:not(.topbar-visible) > .workspace-main {
+    padding-top: 64px !important;
   }
 }
 

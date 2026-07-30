@@ -87,7 +87,7 @@ const ExamAboutPage = lazy(() => import("./pages/ExamAboutPage"));
 
 const LOGOUT_TRANSITION_MIN_MS = 700;
 const LOGOUT_TRANSITION_EXIT_MS = 280;
-const TOPBAR_CLICK_PIN_MS = 3500;
+const TOPBAR_HIDE_DELAY_MS = 3500;
 
 const NOTIFICATION_INTENT_KEY = "prepmatrix_notifications_enabled";
 const TOPBAR_AUTO_HIDE_STORAGE_KEY = "prepmatrix_topbar_auto_hide";
@@ -270,7 +270,7 @@ function App() {
   const logoutInFlightRef = useRef(false);
   const resetConfirmRef = useRef(null);
   const profilePreviewTimerRef = useRef(null);
-  const topBarPinTimeoutRef = useRef(null);
+  const topBarHideTimeoutRef = useRef(null);
   const [subjects, setSubjects] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [completed, setCompleted] = useState([]);
@@ -310,29 +310,54 @@ function App() {
   const [autoHideTopBar, setAutoHideTopBar] = useState(
     () => localStorage.getItem(TOPBAR_AUTO_HIDE_STORAGE_KEY) === "true"
   );
-  const [topBarTemporarilyPinned, setTopBarTemporarilyPinned] = useState(false);
+  const [topBarVisible, setTopBarVisible] = useState(true);
+  const clearTopBarHideTimeout = useCallback(() => {
+    if (!topBarHideTimeoutRef.current) return;
+
+    window.clearTimeout(topBarHideTimeoutRef.current);
+    topBarHideTimeoutRef.current = null;
+  }, []);
   const handleAutoHideTopBarChange = useCallback((enabled) => {
     const nextValue = Boolean(enabled);
 
-    if (!nextValue) {
-      window.clearTimeout(topBarPinTimeoutRef.current);
-      topBarPinTimeoutRef.current = null;
-      setTopBarTemporarilyPinned(false);
-    }
-
+    clearTopBarHideTimeout();
+    setTopBarVisible(true);
     setAutoHideTopBar(nextValue);
     localStorage.setItem(TOPBAR_AUTO_HIDE_STORAGE_KEY, String(nextValue));
-  }, []);
-  const handleTopBarClick = useCallback(() => {
+  }, [clearTopBarHideTimeout]);
+  const showTopBar = useCallback(() => {
     if (!autoHideTopBar) return;
 
-    window.clearTimeout(topBarPinTimeoutRef.current);
-    setTopBarTemporarilyPinned(true);
-    topBarPinTimeoutRef.current = window.setTimeout(() => {
-      topBarPinTimeoutRef.current = null;
-      setTopBarTemporarilyPinned(false);
-    }, TOPBAR_CLICK_PIN_MS);
-  }, [autoHideTopBar]);
+    clearTopBarHideTimeout();
+    setTopBarVisible(true);
+  }, [autoHideTopBar, clearTopBarHideTimeout]);
+  const scheduleTopBarHide = useCallback(() => {
+    if (!autoHideTopBar) return;
+
+    clearTopBarHideTimeout();
+    topBarHideTimeoutRef.current = window.setTimeout(() => {
+      topBarHideTimeoutRef.current = null;
+      setTopBarVisible(false);
+    }, TOPBAR_HIDE_DELAY_MS);
+  }, [autoHideTopBar, clearTopBarHideTimeout]);
+  const handleTopBarBlur = useCallback((event) => {
+    if (event.currentTarget.contains(event.relatedTarget)) return;
+    scheduleTopBarHide();
+  }, [scheduleTopBarHide]);
+
+  useEffect(() => {
+    clearTopBarHideTimeout();
+    setTopBarVisible(true);
+
+    if (!autoHideTopBar) return undefined;
+
+    topBarHideTimeoutRef.current = window.setTimeout(() => {
+      topBarHideTimeoutRef.current = null;
+      setTopBarVisible(false);
+    }, TOPBAR_HIDE_DELAY_MS);
+
+    return clearTopBarHideTimeout;
+  }, [autoHideTopBar, clearTopBarHideTimeout, location.pathname]);
 
   const voiceAssistant = useVoiceAssistant({
     academicLevel,
@@ -1174,8 +1199,8 @@ function App() {
       window.clearTimeout(profilePreviewTimerRef.current);
     }
 
-    if (topBarPinTimeoutRef.current) {
-      window.clearTimeout(topBarPinTimeoutRef.current);
+    if (topBarHideTimeoutRef.current) {
+      window.clearTimeout(topBarHideTimeoutRef.current);
     }
   }, []);
 
@@ -1333,14 +1358,27 @@ function App() {
       <div
         aria-hidden={logoutTransitionPhase !== "idle"}
         className={`app-main-content${autoHideTopBar ? " topbar-auto-hide-enabled" : ""}${
-          autoHideTopBar && topBarTemporarilyPinned ? " topbar-temporarily-pinned" : ""
+          autoHideTopBar && topBarVisible ? " topbar-visible" : ""
         }`}
         inert={logoutTransitionPhase !== "idle" ? true : undefined}
       >
         {userProfile && !isAuthRoute && (
           <>
-            {autoHideTopBar && <div aria-hidden="true" className="topbar-reveal-zone" />}
-            <header className="workspace-topbar" onClickCapture={handleTopBarClick}>
+            {autoHideTopBar && (
+              <div
+                aria-hidden="true"
+                className="topbar-reveal-zone"
+                onPointerEnter={showTopBar}
+                onPointerLeave={scheduleTopBarHide}
+              />
+            )}
+            <header
+              className="workspace-topbar"
+              onBlurCapture={handleTopBarBlur}
+              onFocusCapture={showTopBar}
+              onPointerEnter={showTopBar}
+              onPointerLeave={scheduleTopBarHide}
+            >
             <div className="topbar-left">
               <button
                 className="hamburger-btn"
