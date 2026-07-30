@@ -14762,7 +14762,9 @@ body.dark .notes-clear-all-btn {
 }
 /* Center board status metric labels inside each card */
 .notes-summary-card .notes-stat-grid > div {
+  align-content: center !important;
   align-items: center !important;
+  grid-template-rows: auto minmax(2em, auto);
   justify-items: center !important;
   text-align: center !important;
 }

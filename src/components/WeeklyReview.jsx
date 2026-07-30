@@ -1,5 +1,6 @@
 ﻿import { useMemo, useState } from "react";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
+import { buildWeeklyReview } from "../utils/weeklyReview";
 
 function WeeklyReview({ academicLevel = "College", academicTrack = "General", schedule = [], completed = [] }) {
   const [review, setReview] = useState(null);
@@ -10,27 +11,7 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
   const generateReview = () => {
     if (!hasScheduledPlanner) return;
 
-    const missedTasks = metrics.remainingTasks;
-    const weakSubject = metrics.weakSubject || "No weak subject detected yet";
-    const nextTask = metrics.firstPendingTask || "No pending task right now";
-    const completionLabel = `${metrics.completedTasks}/${metrics.totalTasks} tasks completed`;
-
-    setReview({
-      headline: `Weekly review for ${academicLevel} (${academicTrack})`,
-      highlights: [
-        { label: "Completed", value: completionLabel },
-        { label: "Weakest area", value: weakSubject },
-        { label: "Pending workload", value: `${missedTasks} tasks need attention` },
-      ],
-      actions: [
-        `Start next week with ${nextTask}.`,
-        "Recover backlog before adding new chapters.",
-        "Protect one revision block after every 3 focused study sessions.",
-        weakSubject === "No weak subject detected yet"
-          ? "Complete more tasks to reveal a clearer weak-area pattern."
-          : `Give ${weakSubject} one dedicated repair session.`,
-      ],
-    });
+    setReview(buildWeeklyReview(metrics, { academicLevel, academicTrack }));
   };
 
   return (
@@ -38,7 +19,7 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
       <div className="weekly-review-header">
         <div>
           <span className="section-tag">AI weekly review</span>
-          <h3>Next-week recovery plan</h3>
+          <h3>Planner progress review</h3>
         </div>
         <button
           className="secondary-btn weekly-review-generate"
@@ -52,7 +33,7 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
       </div>
 
       <p className="card-desc">
-        Summarize completed tasks, weak subjects, missed chapters, and a simple recovery path for the next week.
+        Generate a progress-aware summary and practical next steps from your current planner.
       </p>
 
       {visibleReview ? (

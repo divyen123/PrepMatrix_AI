@@ -852,9 +852,9 @@ body.no-glass-cards .note-details-dialog {
 
 .note-details-dialog .note-dialog-button.is-edit:hover,
 .note-details-dialog .note-dialog-button.is-edit:focus-visible {
-  color: #fff !important;
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
+  color: var(--text) !important;
+  background: rgba(var(--accent-rgb), 0.12) !important;
+  border-color: rgba(var(--accent-rgb), 0.3) !important;
   transform: translateY(-1px) !important;
 }
 
