@@ -1111,7 +1111,7 @@ function ResultsPanel({ results, onRefresh, userProfile }) {
         )}
       </div>
 
-      {selectedResult && (
+      {selectedResult && createPortal(
         <div className="exam-result-modal" role="presentation" onMouseDown={(event) => {
           if (event.target === event.currentTarget) setSelectedResult(null);
         }}>
@@ -1146,7 +1146,8 @@ function ResultsPanel({ results, onRefresh, userProfile }) {
               </div>
             </footer>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {selectedCertificate && (
