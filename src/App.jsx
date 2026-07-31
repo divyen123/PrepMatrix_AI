@@ -357,7 +357,7 @@ function App() {
     }, TOPBAR_HIDE_DELAY_MS);
 
     return clearTopBarHideTimeout;
-  }, [autoHideTopBar, clearTopBarHideTimeout, location.pathname]);
+  }, [autoHideTopBar, clearTopBarHideTimeout]);
 
   const voiceAssistant = useVoiceAssistant({
     academicLevel,
