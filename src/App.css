@@ -19933,36 +19933,127 @@ body .sidebar-chatbot-portal .chat-material-page-btn {
   }
 }
 
-/* Keep the workspace topbar readable over every background-image theme. */
+/* Let image-theme glass sample the fixed body background instead of stopping
+   at the shell's isolated stacking context. */
+body.has-bg-image .app-container.has-sidebar {
+  isolation: auto !important;
+}
+
+body.has-bg-image .app-container.has-sidebar::before,
+body.has-bg-image .app-container.has-sidebar::after {
+  display: none !important;
+}
+
+/* A stationary glass plane avoids Chromium dropping blur on the animated bar. */
+body.has-bg-image .app-main-content::before {
+  content: "";
+  position: fixed;
+  z-index: 89;
+  top: 0;
+  right: 0;
+  left: 280px;
+  height: 72px;
+  pointer-events: none;
+  border-radius: 0 0 22px 22px;
+  background:
+    linear-gradient(
+      112deg,
+      rgba(var(--accent-rgb, 20, 184, 166), 0.16),
+      transparent 48%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.09),
+      rgba(255, 255, 255, 0.015) 48%,
+      transparent
+    ),
+    rgba(var(--bg-surface-rgb, 15, 23, 42), 0.48);
+  backdrop-filter: blur(42px) saturate(150%) contrast(0.86) brightness(0.9);
+  -webkit-backdrop-filter: blur(42px) saturate(150%) contrast(0.86) brightness(0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 14px 38px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 200ms ease, visibility 0s linear;
+}
+
+/* The header carries content and sheen; the stationary plane supplies blur. */
 body.has-bg-image .app-main-content > .workspace-topbar,
 body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+body.has-bg-image .workspace-topbar::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
   background:
-    linear-gradient(115deg, rgba(var(--accent-rgb, 20, 184, 166), 0.1), transparent 52%),
+    radial-gradient(
+      circle at 84% -40%,
+      rgba(255, 255, 255, 0.18),
+      transparent 42%
+    ),
     linear-gradient(
-      135deg,
-      rgba(var(--bg-surface-rgb, 15, 23, 42), 0.8),
-      rgba(var(--bg-surface-rgb, 15, 23, 42), 0.62)
-    ) !important;
-  backdrop-filter: blur(24px) saturate(145%) contrast(1.03) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(145%) contrast(1.03) !important;
-  border-bottom-color: rgba(255, 255, 255, 0.13) !important;
-  box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
-    inset 0 -1px 0 rgba(var(--accent-rgb, 20, 184, 166), 0.08) !important;
+      105deg,
+      rgba(var(--accent-rgb, 20, 184, 166), 0.08),
+      transparent 45%
+    );
+}
+
+body.has-bg-image .workspace-topbar > .topbar-left,
+body.has-bg-image .workspace-topbar > .topbar-right {
+  position: relative;
+  z-index: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body.has-bg-image
+    .app-main-content.topbar-auto-hide-enabled:not(.topbar-visible)::before {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 180ms ease, visibility 0s linear 200ms;
+  }
+
+  body.has-bg-image
+    .app-main-content.topbar-auto-hide-enabled.topbar-visible::before {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
 }
 
 @media (max-width: 991.98px) {
-  body.has-bg-image .app-main-content > .workspace-topbar,
-  body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
-    background:
-      linear-gradient(115deg, rgba(var(--accent-rgb, 20, 184, 166), 0.09), transparent 52%),
-      linear-gradient(
-        135deg,
-        rgba(var(--bg-surface-rgb, 15, 23, 42), 0.82),
-        rgba(var(--bg-surface-rgb, 15, 23, 42), 0.68)
-      ) !important;
-    backdrop-filter: blur(18px) saturate(140%) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
+  body.has-bg-image .app-main-content::before {
+    top: 16px;
+    right: 16px;
+    left: 16px;
+    height: 72px;
+    border-radius: 18px;
+    backdrop-filter: blur(32px) saturate(145%) contrast(0.88) brightness(0.92);
+    -webkit-backdrop-filter: blur(32px) saturate(145%) contrast(0.88) brightness(0.92);
+  }
+}
+
+@media (max-width: 640px) {
+  body.has-bg-image .app-main-content::before {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    border-radius: 16px;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  body.has-bg-image .app-main-content::before {
+    background: rgba(var(--bg-surface-rgb, 15, 23, 42), 0.92);
   }
 }
