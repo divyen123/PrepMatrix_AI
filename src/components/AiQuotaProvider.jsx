@@ -2,6 +2,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -282,6 +283,7 @@ export function AiCreditCost({ feature, className = "" }) {
 
 export function AiCreditIndicator() {
   const { quota, loading, error, isKnown, refresh } = useAiQuota();
+  const detailsId = useId();
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
 
@@ -305,7 +307,7 @@ export function AiCreditIndicator() {
     <div className="ai-credit-indicator" ref={wrapperRef}>
       <button
         aria-expanded={open}
-        aria-controls="ai-credit-details"
+        aria-controls={detailsId}
         aria-haspopup="dialog"
         aria-label={isKnown ? `AI Credits ${quota.remaining}` : "AI Credits balance unavailable"}
         className={`ai-credit-trigger${isKnown && quota.remaining === 0 ? " is-empty" : ""}`}
@@ -321,7 +323,7 @@ export function AiCreditIndicator() {
       </button>
 
       {open && (
-        <section aria-label="Monthly AI credits" className="ai-credit-popover" id="ai-credit-details" role="dialog">
+        <section aria-label="Monthly AI credits" className="ai-credit-popover" id={detailsId} role="dialog">
           <div className="ai-credit-popover-head">
             <div>
               <span>Monthly allowance</span>

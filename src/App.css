@@ -20080,3 +20080,57 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
     -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
   }
 }
+
+/* Mobile shell actions: keep credits/reset in the drawer and free topbar space. */
+.sidebar-mobile-actions {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .topbar-left {
+    gap: 10px;
+  }
+
+  .topbar-right {
+    gap: 5px;
+  }
+
+  .topbar-right > .ai-credit-indicator {
+    display: none !important;
+  }
+
+  .workspace-topbar .hamburger-btn,
+  body .topbar-right .icon-shell-btn {
+    flex: 0 0 32px !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+
+  .workspace-topbar .hamburger-btn svg,
+  body .topbar-right .icon-shell-btn svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .sidebar-mobile-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .sidebar-mobile-actions .ai-credit-trigger,
+  .sidebar-mobile-actions .sidebar-reset-icon-btn {
+    flex: 0 0 36px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+  }
+
+  .sidebar-mobile-actions .sidebar-reset-icon-btn {
+    border-radius: 50% !important;
+  }
+}

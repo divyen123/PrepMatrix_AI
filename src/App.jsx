@@ -1294,6 +1294,23 @@ function App() {
                 onSettingsChange={setGoalReminderSettings}
                 settings={goalReminderSettings}
               />
+              <div className="sidebar-mobile-actions" aria-label="Mobile workspace actions">
+                <AiCreditIndicator />
+                <button
+                  aria-label="Reset planner"
+                  aria-expanded={resetConfirmOpen}
+                  aria-haspopup="dialog"
+                  className="icon-shell-btn reset-icon-btn sidebar-reset-icon-btn"
+                  onClick={() => {
+                    setSidebarOpen(false);
+                    resetPlanner();
+                  }}
+                  title="Reset planner"
+                  type="button"
+                >
+                  <RotateCcw aria-hidden="true" size={18} strokeWidth={2.4} />
+                </button>
+              </div>
               </div>
               <Suspense fallback={null}>
               <div className="sidebar-widget-cell">

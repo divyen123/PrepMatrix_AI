@@ -1921,3 +1921,24 @@ body .resume-preview-fullscreen-close:focus-visible {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Constrain the mobile page grid while keeping section tabs independently scrollable. */
+@media (max-width: 760px) {
+  .resume-builder-page {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .resume-builder-page > *,
+  .resume-builder-nav,
+  .resume-builder-nav__items {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .resume-builder-nav__items {
+    width: 100%;
+  }
+}
