@@ -923,9 +923,36 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
         </div>
 
         <div className="exam-toggle-grid">
-          <label><input checked={internalChoice} onChange={(event) => setInternalChoice(event.target.checked)} type="checkbox" /><span>Allow internal choices</span></label>
-          <label><input checked={shuffleQuestions} onChange={(event) => setShuffleQuestions(event.target.checked)} type="checkbox" /><span>Shuffle questions</span></label>
-          <label><input checked={includeAnswerKey} onChange={(event) => setIncludeAnswerKey(event.target.checked)} type="checkbox" /><span>Include answer key</span></label>
+          <label className="exam-toggle-option">
+            <span className="exam-toggle-copy">Allow internal choices</span>
+            <input
+              checked={internalChoice}
+              onChange={(event) => setInternalChoice(event.target.checked)}
+              role="switch"
+              type="checkbox"
+            />
+            <span aria-hidden="true" className="exam-toggle-control" />
+          </label>
+          <label className="exam-toggle-option">
+            <span className="exam-toggle-copy">Shuffle questions</span>
+            <input
+              checked={shuffleQuestions}
+              onChange={(event) => setShuffleQuestions(event.target.checked)}
+              role="switch"
+              type="checkbox"
+            />
+            <span aria-hidden="true" className="exam-toggle-control" />
+          </label>
+          <label className="exam-toggle-option">
+            <span className="exam-toggle-copy">Include answer key</span>
+            <input
+              checked={includeAnswerKey}
+              onChange={(event) => setIncludeAnswerKey(event.target.checked)}
+              role="switch"
+              type="checkbox"
+            />
+            <span aria-hidden="true" className="exam-toggle-control" />
+          </label>
         </div>
 
         <div className="exam-paper-summary">
