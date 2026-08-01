@@ -1350,8 +1350,20 @@
   background: var(--surface-muted);
 }
 
+.exam-result-review article.is-wrong {
+  border-color: color-mix(in srgb, var(--exam-danger) 24%, var(--border));
+  border-left-color: var(--exam-danger);
+  background:
+    linear-gradient(110deg, color-mix(in srgb, var(--exam-danger) 9%, transparent), transparent 62%),
+    var(--surface-muted);
+}
+
 .exam-result-review article.is-correct {
+  border-color: color-mix(in srgb, var(--exam-success) 24%, var(--border));
   border-left-color: var(--exam-success);
+  background:
+    linear-gradient(110deg, color-mix(in srgb, var(--exam-success) 9%, transparent), transparent 62%),
+    var(--surface-muted);
 }
 
 .exam-result-review h4 {
