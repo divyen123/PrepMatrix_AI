@@ -19932,3 +19932,37 @@ body .sidebar-chatbot-portal .chat-material-page-btn {
     transition: none !important;
   }
 }
+
+/* Keep the workspace topbar readable over every background-image theme. */
+body.has-bg-image .app-main-content > .workspace-topbar,
+body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
+  background:
+    linear-gradient(115deg, rgba(var(--accent-rgb, 20, 184, 166), 0.1), transparent 52%),
+    linear-gradient(
+      135deg,
+      rgba(var(--bg-surface-rgb, 15, 23, 42), 0.8),
+      rgba(var(--bg-surface-rgb, 15, 23, 42), 0.62)
+    ) !important;
+  backdrop-filter: blur(24px) saturate(145%) contrast(1.03) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(145%) contrast(1.03) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.13) !important;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -1px 0 rgba(var(--accent-rgb, 20, 184, 166), 0.08) !important;
+}
+
+@media (max-width: 991.98px) {
+  body.has-bg-image .app-main-content > .workspace-topbar,
+  body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
+    background:
+      linear-gradient(115deg, rgba(var(--accent-rgb, 20, 184, 166), 0.09), transparent 52%),
+      linear-gradient(
+        135deg,
+        rgba(var(--bg-surface-rgb, 15, 23, 42), 0.82),
+        rgba(var(--bg-surface-rgb, 15, 23, 42), 0.68)
+      ) !important;
+    backdrop-filter: blur(18px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
+  }
+}
