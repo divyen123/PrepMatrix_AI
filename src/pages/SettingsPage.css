@@ -454,6 +454,12 @@
   }
 }
 
+@media (max-width: 640px) {
+  .settings-page .settings-auto-hide-topbar {
+    display: none;
+  }
+}
+
 /* Browser voice assistant preferences. */
 .settings-page .assistant-voice-settings {
   display: grid;

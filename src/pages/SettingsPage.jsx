@@ -1747,12 +1747,14 @@ function SettingsPage({
             <p className="card-subtext">Configure top bar visibility, study sounds, assistant voice, wake mode, and notification preferences.</p>
           </div>
 
-          <ToggleSwitch
-            checked={autoHideTopBar}
-            onChange={(event) => onAutoHideTopBarChange?.(event.target.checked)}
-            label="Auto-hide Top Bar"
-            subtitle="Hide the top bar until you move the cursor to the top edge of the screen."
-          />
+          <div className="settings-auto-hide-topbar">
+            <ToggleSwitch
+              checked={autoHideTopBar}
+              onChange={(event) => onAutoHideTopBarChange?.(event.target.checked)}
+              label="Auto-hide Top Bar"
+              subtitle="Hide the top bar until you move the cursor to the top edge of the screen."
+            />
+          </div>
 
           <ToggleSwitch
             checked={soundEnabled}
