@@ -19743,8 +19743,7 @@ body.dark .ai-credit-popover {
     gap: 6px;
   }
 
-  .topbar-right .reset-icon-btn,
-  .topbar-right .theme-icon-btn {
+  .topbar-right .reset-icon-btn {
     display: none !important;
   }
 
@@ -19753,10 +19752,27 @@ body.dark .ai-credit-popover {
     min-width: 0;
   }
 
-  body .ai-credit-trigger {
-    width: 38px;
+  body .ai-credit-trigger,
+  body .ai-credit-trigger:hover,
+  body .ai-credit-trigger:focus-visible {
+    width: 38px !important;
     min-width: 38px !important;
-    padding-inline: 10px !important;
+    padding-inline: 0 !important;
+    justify-content: center;
+    transform: none !important;
+    transition:
+      border-color 250ms ease,
+      background 250ms ease,
+      box-shadow 250ms ease !important;
+  }
+
+  .ai-credit-trigger-copy,
+  .ai-credit-trigger:hover .ai-credit-trigger-copy,
+  .ai-credit-trigger:focus-visible .ai-credit-trigger-copy {
+    display: none;
+    opacity: 0;
+    transform: none;
+    transition: none;
   }
 
   .ai-credit-popover {
