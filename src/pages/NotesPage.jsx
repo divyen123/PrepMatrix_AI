@@ -314,6 +314,36 @@ function NotesPage({
     );
   };
 
+
+  const completeNote = (note, plannerState) => {
+    if (getNoteWorkflowStatus(note, plannerState) === "Resolved") return;
+
+    const resolvedAt = new Date().toISOString();
+    if (plannerState.link && plannerState.taskName) {
+      setCompleted?.((current) => (
+        current.includes(plannerState.taskName)
+          ? current
+          : [...current, plannerState.taskName]
+      ));
+    }
+
+    saveNotes(notes.map((item) => (
+      item.id === note.id
+        ? {
+            ...item,
+            status: "Resolved",
+            resolvedAt,
+            updatedAt: resolvedAt,
+          }
+        : item
+    )));
+    setPlannerMenuNoteId(null);
+    setNotification?.(
+      plannerState.link && plannerState.taskName
+        ? "Note and planner task marked as completed."
+        : "Note marked as completed.",
+    );
+  };
   const reopenNote = (note, plannerState) => {
     if (plannerState.taskName) {
       setCompleted?.((current) => current.filter((task) => task !== plannerState.taskName));
@@ -726,6 +756,7 @@ function NotesPage({
               const plannerState = plannerStates.get(note.id) || { state: "unscheduled" };
               const noteStatus = getNoteWorkflowStatus(note, plannerState);
               const notePriority = ["Low", "Medium", "High"].includes(note.priority) ? note.priority : "Medium";
+              const isNoteCompleted = noteStatus === "Resolved";
               const isConfirmingDelete = pendingDeleteNoteId === note.id;
               const isPlannerMenuOpen = plannerMenuNoteId === note.id;
               const legacyTopics = Array.isArray(note.leftTopics) ? note.leftTopics.filter(Boolean) : [];
@@ -838,6 +869,17 @@ function NotesPage({
                         >
                           {plannerState.state !== "completed" ? <CalendarDays aria-hidden="true" size={13} /> : null}
                           <span>{plannerActionLabel}</span>
+                        </button>
+                        <button
+                          aria-label={isNoteCompleted ? `${note.topic} is completed` : `Mark ${note.topic} as completed`}
+                          aria-pressed={isNoteCompleted}
+                          className={`note-complete-icon-btn${isNoteCompleted ? " is-completed" : ""}`}
+                          disabled={isNoteCompleted}
+                          onClick={() => completeNote(note, plannerState)}
+                          title={isNoteCompleted ? "Note completed" : "Mark as completed"}
+                          type="button"
+                        >
+                          <Check aria-hidden="true" size={13} />
                         </button>
                         <button
                           aria-label={`Delete ${note.topic}`}

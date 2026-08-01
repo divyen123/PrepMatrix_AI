@@ -240,10 +240,12 @@
   }
 }
 
-/* Note-to-planner workflow: two compact actions with an anchored date popover. */
-.notes-page .note-card-actions {
+/* Note workflow: planner, completion, and delete actions with an anchored date popover. */
+.notes-page .notes-list-grid .note-card-actions {
+  display: grid !important;
   position: relative;
-  grid-template-columns: minmax(0, 1fr) 30px !important;
+  grid-template-columns: minmax(0, 1fr) 30px 30px !important;
+  gap: 5px !important;
   align-items: center;
   z-index: 2;
 }
@@ -267,7 +269,54 @@
   background: var(--surface-muted) !important;
 }
 
+
+.notes-page .note-card-actions .note-complete-icon-btn {
+  display: inline-grid !important;
+  grid-column: 2;
+  width: 30px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  place-items: center !important;
+  padding: 0 !important;
+  color: #23825a !important;
+  background: rgba(35, 130, 90, 0.1) !important;
+  border: 1px solid rgba(35, 130, 90, 0.24) !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  transition: color 180ms ease, background 180ms ease, border-color 180ms ease !important;
+}
+
+.notes-page .note-card-actions .note-complete-icon-btn:hover:not(:disabled),
+.notes-page .note-card-actions .note-complete-icon-btn:focus-visible:not(:disabled) {
+  color: #176e48 !important;
+  background: rgba(35, 130, 90, 0.2) !important;
+  border-color: rgba(35, 130, 90, 0.4) !important;
+  transform: none !important;
+}
+
+.notes-page .note-card-actions .note-complete-icon-btn:focus-visible {
+  outline: 2px solid rgba(35, 130, 90, 0.48);
+  outline-offset: 2px;
+}
+
+.notes-page .note-card-actions .note-complete-icon-btn.is-completed,
+.notes-page .note-card-actions .note-complete-icon-btn:disabled {
+  opacity: 1 !important;
+  cursor: default !important;
+  color: #23825a !important;
+  background: rgba(35, 130, 90, 0.18) !important;
+  border-color: rgba(35, 130, 90, 0.34) !important;
+}
+
+body.dark .notes-page .note-card-actions .note-complete-icon-btn,
+body.has-bg-image .notes-page .note-card-actions .note-complete-icon-btn {
+  color: #8be0b6 !important;
+  background: rgba(61, 187, 125, 0.15) !important;
+  border-color: rgba(139, 224, 182, 0.25) !important;
+}
 .notes-page .note-card-actions .note-delete-icon-btn {
+  grid-column: 3;
   display: inline-grid !important;
   width: 30px !important;
   min-width: 30px !important;
@@ -309,7 +358,7 @@ body.has-bg-image .notes-page .planned-chip.is-completed {
 
 .notes-page .planner-date-menu {
   position: absolute;
-  right: 35px;
+  right: 70px;
   bottom: calc(100% + 8px);
   left: 0;
   z-index: 10;
