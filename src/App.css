@@ -19799,7 +19799,7 @@ body.dark .ai-credit-popover {
   display: none;
 }
 
-@media (hover: hover) and (pointer: fine) {
+@media (min-width: 641px) and (hover: hover) and (pointer: fine) {
   .app-main-content.topbar-auto-hide-enabled > .topbar-reveal-zone {
     position: fixed;
     z-index: 91;
