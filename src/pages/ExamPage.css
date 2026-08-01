@@ -1259,6 +1259,8 @@
 }
 
 .exam-result-modal {
+  --exam-success: #22c55e;
+  --exam-danger: #ef4444;
   position: fixed;
   z-index: 1900;
   inset: 0;
@@ -1350,20 +1352,22 @@
   background: var(--surface-muted);
 }
 
-.exam-result-review article.is-wrong {
-  border-color: color-mix(in srgb, var(--exam-danger) 24%, var(--border));
-  border-left-color: var(--exam-danger);
+.exam-result-modal .exam-result-review article.is-wrong {
+  border-color: rgba(239, 68, 68, 0.46) !important;
+  border-left: 4px solid var(--exam-danger) !important;
   background:
-    linear-gradient(110deg, color-mix(in srgb, var(--exam-danger) 9%, transparent), transparent 62%),
-    var(--surface-muted);
+    linear-gradient(110deg, rgba(239, 68, 68, 0.18), rgba(239, 68, 68, 0.06) 72%),
+    var(--surface-muted) !important;
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.05);
 }
 
-.exam-result-review article.is-correct {
-  border-color: color-mix(in srgb, var(--exam-success) 24%, var(--border));
-  border-left-color: var(--exam-success);
+.exam-result-modal .exam-result-review article.is-correct {
+  border-color: rgba(34, 197, 94, 0.46) !important;
+  border-left: 4px solid var(--exam-success) !important;
   background:
-    linear-gradient(110deg, color-mix(in srgb, var(--exam-success) 9%, transparent), transparent 62%),
-    var(--surface-muted);
+    linear-gradient(110deg, rgba(34, 197, 94, 0.18), rgba(34, 197, 94, 0.06) 72%),
+    var(--surface-muted) !important;
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.05);
 }
 
 .exam-result-review h4 {
