@@ -1,4 +1,5 @@
 export const ACADEMIC_LEVEL_OPTIONS = Object.freeze([
+  "Early Years / Kindergarten",
   "Primary School",
   "Middle School",
   "Secondary School",
@@ -13,8 +14,18 @@ export const ACADEMIC_LEVEL_OPTIONS = Object.freeze([
   "Competitive Exam Preparation",
 ]);
 
+export const EARLY_YEARS_GRADE_OPTIONS = Object.freeze([
+  "Nursery",
+  "LKG",
+  "UKG",
+  "Kindergarten",
+]);
+
 export const SCHOOL_CLASS_OPTIONS = Object.freeze(
-  Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`),
+  [
+    ...EARLY_YEARS_GRADE_OPTIONS,
+    ...Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`),
+  ],
 );
 
 export const TRACK_OPTIONS = Object.freeze([
@@ -98,6 +109,7 @@ export const DEPARTMENT_OPTIONS = Object.freeze([
 ]);
 
 const LEVEL_BY_BAND = Object.freeze({
+  early: "Early Years / Kindergarten",
   primary: "Primary School",
   middle: "Middle School",
   secondary: "Secondary School",
@@ -112,9 +124,10 @@ const LEVEL_BY_BAND = Object.freeze({
   competitive: "Competitive Exam Preparation",
 });
 
-const SCHOOL_BANDS = new Set(["primary", "middle", "secondary", "senior"]);
+const SCHOOL_BANDS = new Set(["early", "primary", "middle", "secondary", "senior"]);
 
 const STAGE_GUIDANCE = Object.freeze({
+  early: "Use very short, playful, concrete, picture- or sound-led activities with one-step choices. Focus on recognition, matching, counting, tracing, and spoken instructions; do not assume independent reading or primary-school prerequisites.",
   primary: "Use plain language, concrete examples, short tasks, and single-step reasoning. Do not assume secondary-school prerequisites.",
   middle: "Use clear foundational terminology, familiar applications, and short multi-step reasoning without senior-secondary prerequisites.",
   secondary: "Use grade-appropriate syllabus terminology, structured reasoning, and practical application without college-level prerequisites.",
@@ -156,6 +169,20 @@ function matcherText(value) {
     .trim();
 }
 
+function extractEarlyYearsGrade(...values) {
+  for (const value of values) {
+    const key = matcherText(value);
+    if (!key) continue;
+
+    if (/\b(?:ukg|u k g|upper (?:kindergarten|kindergarden|kg)|senior (?:kindergarten|kindergarden|kg)|sr kg|(?:kindergarten|kindergarden|kg|k) ?2|k g ?2)\b/u.test(key)) return "UKG";
+    if (/\b(?:lkg|l k g|lower (?:kindergarten|kindergarden|kg)|junior (?:kindergarten|kindergarden|kg)|jr kg|(?:kindergarten|kindergarden|kg|k) ?1|k g ?1)\b/u.test(key)) return "LKG";
+    if (/\b(?:pre nursery|pre (?:kindergarten|kindergarden|kg|k)|nursery|preschool|pre school|playgroup|play group)\b/u.test(key)) return "Nursery";
+    if (["kindergarten", "kindergarden", "kg", "k"].includes(key)) return "Kindergarten";
+  }
+
+  return "";
+}
+
 function extractClassNumber(...values) {
   for (const value of values) {
     const text = sanitizeText(value, 80);
@@ -186,6 +213,7 @@ function bandFromLevel(value) {
   const canonical = Object.entries(LEVEL_BY_BAND).find(([, label]) => matcherText(label) === key);
   if (canonical) return canonical[0];
 
+  if (extractEarlyYearsGrade(value) || /\b(?:early years?|early childhood|pre primary|preprimary|foundation stage|montessori|kindergartens?|kindergardens?|kg)\b/u.test(key)) return "early";
   if (/\b(primary|elementary)\b/u.test(key)) return "primary";
   if (/\b(middle school|upper primary)\b/u.test(key)) return "middle";
   if (/\b(senior secondary|higher secondary|pre university)\b/u.test(key)) return "senior";
@@ -270,6 +298,7 @@ function rawLevelCanBeDegree(rawLevel) {
 
 export function isSchoolAcademicLevel(value) {
   if (value && typeof value === "object") {
+    if (extractEarlyYearsGrade(value.academicLevel, value.grade)) return true;
     const classNumber = extractClassNumber(value.academicLevel, value.grade);
     if (classNumber) return true;
     const explicitBand = bandFromLevel(value.academicLevel);
@@ -278,6 +307,7 @@ export function isSchoolAcademicLevel(value) {
     return false;
   }
 
+  if (extractEarlyYearsGrade(value)) return true;
   if (extractClassNumber(value)) return true;
   return SCHOOL_BANDS.has(bandFromLevel(value));
 }
@@ -291,6 +321,7 @@ export function normalizeAcademicProfile(input = {}) {
   const rawTrack = sanitizeText(source.academicTrack ?? source.track ?? source.board, 100);
   const rawSchoolType = matcherText(source.schoolType);
   const classNumber = extractClassNumber(rawAcademicLevel, rawGrade);
+  const earlyYearsGrade = extractEarlyYearsGrade(rawAcademicLevel, rawGrade);
   const explicitBand = bandFromLevel(rawAcademicLevel);
   const qualificationBand = bandFromQualification(
     [rawDegree, rawDepartment, rawTrack, rawAcademicLevel].filter(Boolean).join(" "),
@@ -299,6 +330,8 @@ export function normalizeAcademicProfile(input = {}) {
   let band;
   if (classNumber) {
     band = bandForClass(classNumber);
+  } else if (earlyYearsGrade) {
+    band = "early";
   } else if (explicitBand === "undergraduate" && qualificationBand) {
     band = qualificationBand;
   } else if (explicitBand) {
@@ -313,7 +346,7 @@ export function normalizeAcademicProfile(input = {}) {
 
   const schoolType = SCHOOL_BANDS.has(band) ? "school" : "college";
   const grade = schoolType === "school"
-    ? (classNumber ? `Class ${classNumber}` : rawGrade)
+    ? (classNumber ? `Class ${classNumber}` : earlyYearsGrade || rawGrade)
     : "";
   const derivedDegree = !rawDegree && rawLevelCanBeDegree(rawAcademicLevel)
     ? rawAcademicLevel
@@ -355,7 +388,10 @@ export function buildLearnerAcademicContext(input = {}, options = {}) {
     `Academic stage: ${promptValue(profile.academicLevel)}.`,
   ];
 
-  if (profile.grade) promptLines.push(`Exact school class: ${promptValue(profile.grade)}.`);
+  if (profile.grade) {
+    const gradeLabel = profile.band === "early" ? "Exact early-years level" : "Exact school class";
+    promptLines.push(`${gradeLabel}: ${promptValue(profile.grade)}.`);
+  }
   if (profile.degree) promptLines.push(`Degree or qualification: ${promptValue(profile.degree)}.`);
   if (profile.academicTrack !== "General") promptLines.push(`Board, stream, or pathway: ${promptValue(profile.academicTrack)}.`);
   if (profile.department && profile.department !== "General / Undeclared") {

@@ -9,6 +9,7 @@ const MOTIVATION_LINES = [
 
 const NAVIGATION_TARGETS = [
   { label: "Dashboard", route: "/dashboard", aliases: ["dashboard", "home", "main page"] },
+  { label: "Kids Play & Learn", route: "/kids", aliases: ["kids", "kids zone", "play and learn", "learning games", "game world"] },
   { label: "Subjects", route: "/subjects", aliases: ["subjects", "subject", "subject library"] },
   { label: "Planner", route: "/planner", aliases: ["planner", "schedule", "study schedule", "timetable", "time table"] },
   { label: "Analytics", route: "/analytics", aliases: ["analytics", "performance", "signals", "patterns"] },
@@ -264,7 +265,6 @@ export function buildFallbackReply(message, metrics) {
     "The AI chat service is unavailable right now, but your planner data is still available locally."
   );
 }
-
 
 
 

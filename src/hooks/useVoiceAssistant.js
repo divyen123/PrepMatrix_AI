@@ -158,6 +158,10 @@ function resolvePageCommand(spokenText = "") {
     return { type: "navigate", route: "/dashboard", response: normalized.includes("home") ? "Opening home page." : "Opening dashboard page." };
   }
 
+  if (/\b(open|go to)\s+(kids|kids zone|play and learn|learning games|game world)\b/.test(normalized)) {
+    return { type: "navigate", route: "/kids", response: "Opening Kids Play and Learn." };
+  }
+
   if (/\b(open|go to)\s+planner\b/.test(normalized)) {
     return { type: "navigate", route: "/planner", response: "Opening planner page." };
   }
@@ -202,6 +206,7 @@ export default function useVoiceAssistant({
   academicTrack = "General",
   schedule = [],
   completed = [],
+  disabled = false,
 } = {}) {
   const navigate = useNavigate();
   const { hasInsufficientCredits } = useAiQuota();
@@ -209,7 +214,7 @@ export default function useVoiceAssistant({
   const commandRecognitionRef = useRef(null);
   const wakeRestartTimerRef = useRef(null);
   const commandTimeoutRef = useRef(null);
-  const wakeModeRef = useRef(readStoredWakeMode());
+  const wakeModeRef = useRef(disabled ? false : readStoredWakeMode());
   const processingRef = useRef(false);
   const startWakeListeningRef = useRef(null);
   const activeSpeechRef = useRef(null);
@@ -221,7 +226,7 @@ export default function useVoiceAssistant({
     [academicLevel, academicTrack, metrics]
   );
 
-  const [wakeMode, setWakeModeState] = useState(readStoredWakeMode);
+  const [wakeMode, setWakeModeState] = useState(() => (disabled ? false : readStoredWakeMode()));
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -229,7 +234,7 @@ export default function useVoiceAssistant({
   const [overlayReply, setOverlayReply] = useState("");
   const [latestChatSessionId, setLatestChatSessionId] = useState(null);
   const [error, setError] = useState("");
-  const [supported, setSupported] = useState(() => typeof window !== "undefined" && Boolean(getRecognitionConstructor()));
+  const [supported, setSupported] = useState(() => !disabled && typeof window !== "undefined" && Boolean(getRecognitionConstructor()));
   const [voiceStatus, setVoiceStatusState] = useState("idle");
   const [lastText, setLastText] = useState("");
   const [replySpeechState, setReplySpeechState] = useState("idle");
@@ -323,11 +328,11 @@ export default function useVoiceAssistant({
 
   const scheduleWakeRestart = useCallback((delay = WAKE_RESTART_DELAY_MS) => {
     clearWakeRestartTimer();
-    if (!wakeModeRef.current) return;
+    if (disabled || !wakeModeRef.current) return;
     wakeRestartTimerRef.current = window.setTimeout(() => {
       startWakeListeningRef.current?.();
     }, delay);
-  }, [clearWakeRestartTimer]);
+  }, [clearWakeRestartTimer, disabled]);
 
   const hideOverlay = useCallback(() => {
     setVoiceStatus("idle");
@@ -521,13 +526,23 @@ export default function useVoiceAssistant({
   }, [clearWakeRestartTimer, hideOverlay, invalidateActiveSpeech, pauseWakeRecognition, stopCommandRecognition]);
 
   const setWakeMode = useCallback((enabled) => {
+    if (disabled) {
+      wakeModeRef.current = false;
+      setWakeModeState(false);
+      return;
+    }
     wakeModeRef.current = enabled;
     localStorage.setItem(WAKE_MODE_KEY, enabled ? "true" : "false");
     setWakeModeState(enabled);
     window.dispatchEvent(new CustomEvent("prepmatrixWakeModeChange", { detail: { enabled } }));
-  }, []);
+  }, [disabled]);
 
   const sendQuestionToAssistant = useCallback(async (question) => {
+    if (disabled) {
+      const childModeError = new Error("Open-ended voice questions are unavailable in Kids Mode.");
+      childModeError.code = "KIDS_OPEN_CHAT_DISABLED";
+      throw childModeError;
+    }
     if (hasInsufficientCredits(AI_FEATURES.CHAT)) {
       const quotaError = new Error("Not enough AI credits for this voice question.");
       quotaError.code = "AI_USER_QUOTA_EXHAUSTED";
@@ -546,7 +561,7 @@ export default function useVoiceAssistant({
       reply: payload.reply?.trim() || "I could not generate an answer for that question.",
       sessionId: payload.sessionId || null,
     };
-  }, [hasInsufficientCredits, plannerContext]);
+  }, [disabled, hasInsufficientCredits, plannerContext]);
 
   const processSpokenText = useCallback(async (spokenText, { speakReply = true } = {}) => {
     const cleanText = spokenText.trim();
@@ -646,6 +661,7 @@ export default function useVoiceAssistant({
   }, [setVoiceStatus]);
 
   const startCommandListening = useCallback(() => {
+    if (disabled) return;
     const recognition = createRecognition(false, { interimResults: false, maxAlternatives: 5 });
     if (!recognition) return;
 
@@ -724,10 +740,10 @@ export default function useVoiceAssistant({
       hideOverlay();
       scheduleWakeRestart();
     }
-  }, [clearCommandTimeout, createRecognition, detachAndStopRecognition, emitVoiceRecordingChange, hideOverlay, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
+  }, [clearCommandTimeout, createRecognition, detachAndStopRecognition, disabled, emitVoiceRecordingChange, hideOverlay, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
 
   const startWakeListening = useCallback(() => {
-    if (!wakeModeRef.current) return;
+    if (disabled || !wakeModeRef.current) return;
 
     const recognition = createRecognition(true, { interimResults: false, maxAlternatives: 5 });
     if (!recognition) return;
@@ -803,13 +819,14 @@ export default function useVoiceAssistant({
       setIsListening(false);
       scheduleWakeRestart(900);
     }
-  }, [createRecognition, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, setWakeMode, startCommandListening]);
+  }, [createRecognition, disabled, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, setWakeMode, startCommandListening]);
 
   useEffect(() => {
     startWakeListeningRef.current = startWakeListening;
   }, [startWakeListening]);
 
   const askWithVoice = useCallback(() => {
+    if (disabled) return;
     const recognition = createRecognition(false, { interimResults: false, maxAlternatives: 5 });
     if (!recognition) return;
 
@@ -872,19 +889,24 @@ export default function useVoiceAssistant({
       setVoiceStatus("error");
       scheduleWakeRestart();
     }
-  }, [createRecognition, emitVoiceRecordingChange, hideOverlay, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
+  }, [createRecognition, disabled, emitVoiceRecordingChange, hideOverlay, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
 
   useEffect(() => {
+    if (disabled) {
+      setSupported(false);
+      setError("");
+      return;
+    }
     const nextSupported = Boolean(getRecognitionConstructor());
     setSupported(nextSupported);
     if (!nextSupported) {
       setError(UNSUPPORTED_MESSAGE);
     }
-  }, []);
+  }, [disabled]);
 
   useEffect(() => {
     const handleWakeModeChange = (event) => {
-      const enabled = Boolean(event.detail?.enabled);
+      const enabled = !disabled && Boolean(event.detail?.enabled);
       wakeModeRef.current = enabled;
       setWakeModeState(enabled);
       if (enabled) {
@@ -915,9 +937,19 @@ export default function useVoiceAssistant({
       window.removeEventListener("prepmatrixWakeModeChange", handleWakeModeChange);
       window.removeEventListener("storage", handleStorage);
     };
-  }, [clearWakeRestartTimer, hideOverlay, invalidateActiveSpeech, pauseWakeRecognition, scheduleWakeRestart, stopCommandRecognition]);
+  }, [clearWakeRestartTimer, disabled, hideOverlay, invalidateActiveSpeech, pauseWakeRecognition, scheduleWakeRestart, stopCommandRecognition]);
 
   useEffect(() => {
+    if (disabled) {
+      wakeModeRef.current = false;
+      setWakeModeState(false);
+      clearWakeRestartTimer();
+      stopCommandRecognition();
+      pauseWakeRecognition();
+      invalidateActiveSpeech();
+      hideOverlay();
+      return undefined;
+    }
     if (wakeMode) {
       wakeModeRef.current = true;
       scheduleWakeRestart(80);
@@ -931,7 +963,7 @@ export default function useVoiceAssistant({
     invalidateActiveSpeech();
     hideOverlay();
     return undefined;
-  }, [clearWakeRestartTimer, hideOverlay, invalidateActiveSpeech, pauseWakeRecognition, scheduleWakeRestart, stopCommandRecognition, wakeMode]);
+  }, [clearWakeRestartTimer, disabled, hideOverlay, invalidateActiveSpeech, pauseWakeRecognition, scheduleWakeRestart, stopCommandRecognition, wakeMode]);
 
   useEffect(() => {
     const isUserCommandRecording = isListening && !wakeMode && (voiceStatus === "listening" || voiceStatus === "awake");
@@ -964,9 +996,9 @@ export default function useVoiceAssistant({
     previewVoice,
     setVoicePreferences,
     setWakeMode,
-    supported,
+    supported: disabled ? false : supported,
     transcript,
-    wakeMode,
+    wakeMode: disabled ? false : wakeMode,
     voiceStatus,
     voicePreferences: normalizeVoicePreferences(voicePreferences),
     lastText,

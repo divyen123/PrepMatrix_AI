@@ -44,3 +44,17 @@ test("preserves Notes and natural Materials-page navigation", () => {
     assert.ok(result, message);
   });
 });
+
+test("opens Kids Play & Learn using child-friendly aliases", () => {
+  const scenarios = ["Open kids zone", "Show me the learning games", "Go to play and learn"];
+
+  scenarios.forEach((message) => {
+    let navigatedTo = null;
+    const result = resolveLocalAssistantCommand(message, {
+      navigate: (route) => { navigatedTo = route; },
+    });
+
+    assert.equal(navigatedTo, "/kids", message);
+    assert.match(result.response, /Kids Play & Learn/);
+  });
+});

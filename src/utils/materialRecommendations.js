@@ -49,6 +49,14 @@ const SUBJECT_PROFILES = [
 ];
 
 const LEVEL_PROFILES = {
+  early: {
+    labelSuffix: "play & learn",
+    guidance: "short audio-led or picture-led examples, playful demonstrations, and one-step activities",
+    conceptQuery: "kindergarten kids learning visual song story",
+    notesQuery: "kindergarten printable picture worksheet",
+    practiceQuery: "kindergarten matching counting learning game",
+    recapQuery: "kindergarten quick revision activity game",
+  },
   primary: {
     labelSuffix: "friendly",
     guidance: "simple examples, visual explanations, vocabulary support, and short practice",
@@ -115,11 +123,12 @@ export function getLevelProfile(academicLevel = "College") {
     };
   }
 
+  const exactSchoolLevel = learner.classNumber ? `Class ${learner.classNumber}` : learner.grade;
   return {
     ...schoolProfile,
-    queryPrefix: learner.classNumber ? `class ${learner.classNumber}` : learner.academicLevel.toLowerCase(),
-    label: learner.classNumber
-      ? `Class ${learner.classNumber} ${schoolProfile.labelSuffix}`
+    queryPrefix: exactSchoolLevel ? exactSchoolLevel.toLowerCase() : learner.academicLevel.toLowerCase(),
+    label: exactSchoolLevel
+      ? `${exactSchoolLevel} ${schoolProfile.labelSuffix}`
       : `${learner.academicLevel} ${schoolProfile.labelSuffix}`,
   };
 }

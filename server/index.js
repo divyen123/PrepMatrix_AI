@@ -53,6 +53,11 @@ import {
   registerLearningNotebookRoutes,
 } from "./learningNotebookRoutes.js";
 import {
+  KIDS_ATTEMPTS_COLLECTION,
+  KIDS_PARENT_SETTINGS_COLLECTION,
+} from "./kidsLearning.js";
+import registerKidsLearningRoutes from "./kidsLearningRoutes.js";
+import {
   AI_QUOTA_LOCKS_COLLECTION,
   AI_USAGE_EVENTS_COLLECTION,
   AiQuotaError,
@@ -221,6 +226,26 @@ async function getDb() {
         db.collection("questionPapers").createIndex({ userId: 1, createdAt: -1 }),
         db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, updatedAt: -1 }),
         db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, subjectName: 1 }),
+        db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex({ userId: 1, completedAt: -1 }),
+        db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex({ userId: 1, packId: 1, completedAt: -1 }),
+        db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex(
+          { userId: 1, clientAttemptId: 1 },
+          {
+            unique: true,
+            partialFilterExpression: { clientAttemptId: { $type: "string" } },
+          },
+        ),
+        db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex(
+          { userId: 1, mode: 1, localDate: 1 },
+          {
+            unique: true,
+            partialFilterExpression: {
+              mode: "daily",
+              localDate: { $type: "string" },
+            },
+          },
+        ),
+        db.collection(KIDS_PARENT_SETTINGS_COLLECTION).createIndex({ userId: 1 }, { unique: true }),
         db.collection(AI_USAGE_EVENTS_COLLECTION).createIndex(
           { userId: 1, requestId: 1 },
           { unique: true },
@@ -791,6 +816,8 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
     db.collection("workspaces").deleteMany({ userId }),
     db.collection("notes").deleteMany({ userId }),
     db.collection("quizAttempts").deleteMany({ userId }),
+    db.collection(KIDS_ATTEMPTS_COLLECTION).deleteMany({ userId }),
+    db.collection(KIDS_PARENT_SETTINGS_COLLECTION).deleteMany({ userId }),
     db.collection("worktrees").deleteMany({ userId }),
     db.collection("chatSessions").deleteMany({ userId }),
     db.collection("exams").deleteMany({ userId }),
@@ -1130,6 +1157,11 @@ registerLearningNotebookRoutes(app, {
   groqLearningModel: GROQ_LEARNING_MODEL,
   groqModel: GROQ_CHAT_MODEL,
   groqVisionModel: GROQ_VISION_MODEL,
+  requireAuth,
+});
+
+registerKidsLearningRoutes(app, {
+  getDb,
   requireAuth,
 });
 app.post("/api/internal/notifications/daily-reminders", async (req, res) => {

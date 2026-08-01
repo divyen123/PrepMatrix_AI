@@ -1,3 +1,6 @@
+const OFFLINE_CACHE_NAME = "prepmatrix-offline-v1";
+const OFFLINE_SHELL_PATHS = ["/", "/index.html", "/favicon.svg"];
+
 function safeAppPath(value, fallback = "/") {
   if (typeof value !== "string") return fallback;
   try {
@@ -20,11 +23,71 @@ function clientMatchesAppPath(clientUrl, appPath) {
 }
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(self.skipWaiting());
+  const prepareOfflineShell = self.caches
+    ? self.caches.open(OFFLINE_CACHE_NAME).then((cache) => (
+        Promise.allSettled(OFFLINE_SHELL_PATHS.map((path) => cache.add(path)))
+      ))
+    : Promise.resolve();
+  event.waitUntil(prepareOfflineShell.then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  const removeOldCaches = self.caches
+    ? self.caches.keys().then((keys) => Promise.all(
+        keys
+          .filter((key) => key.startsWith("prepmatrix-offline-") && key !== OFFLINE_CACHE_NAME)
+          .map((key) => self.caches.delete(key)),
+      ))
+    : Promise.resolve();
+  event.waitUntil(removeOldCaches.then(() => self.clients.claim()));
+});
+
+async function cacheSuccessfulResponse(cache, key, response) {
+  if (response?.ok && (response.type === "basic" || response.type === "default")) {
+    await cache.put(key, response.clone()).catch(() => undefined);
+  }
+  return response;
+}
+
+async function networkFirstNavigation(request) {
+  const cache = await self.caches.open(OFFLINE_CACHE_NAME);
+  try {
+    const response = await fetch(request);
+    if (response?.ok) {
+      await cacheSuccessfulResponse(cache, "/index.html", response);
+    }
+    return response;
+  } catch {
+    return cache.match(request)
+      .then((cached) => cached || cache.match("/index.html"))
+      .then((cached) => cached || cache.match("/"));
+  }
+}
+
+async function cacheFirstAsset(request) {
+  const cache = await self.caches.open(OFFLINE_CACHE_NAME);
+  const cached = await cache.match(request);
+  const refresh = fetch(request)
+    .then((response) => cacheSuccessfulResponse(cache, request, response))
+    .catch(() => cached);
+  return cached || refresh;
+}
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (!self.caches || request.method !== "GET") return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+
+  if (request.mode === "navigate") {
+    event.respondWith(networkFirstNavigation(request));
+    return;
+  }
+
+  if (["script", "style", "image", "font", "audio"].includes(request.destination)) {
+    event.respondWith(cacheFirstAsset(request));
+  }
 });
 
 self.addEventListener("push", (event) => {

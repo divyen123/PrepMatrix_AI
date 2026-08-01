@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildSubjectMaterials } from "./materialRecommendations.js";
+import { buildSubjectMaterials, getLevelProfile } from "./materialRecommendations.js";
 
 const subject = {
   chapters: 2,
@@ -35,4 +35,20 @@ test("marks the final chapter completed when the subject is fully complete", () 
   assert.match(materials.spotlight, /All 2 chapters are complete/);
   assert.doesNotMatch(materials.spotlight, /Move into Chapter/);
   assert.equal(materials.completionLabel, "2/2 Completed");
+});
+
+test("uses playful early-years resources instead of college-depth fallbacks", () => {
+  const lkgProfile = getLevelProfile("LKG");
+
+  assert.equal(lkgProfile.label, "LKG play & learn");
+  assert.equal(lkgProfile.queryPrefix, "lkg");
+  assert.match(lkgProfile.guidance, /audio-led or picture-led/iu);
+
+  const materials = buildSubjectMaterials({ chapters: 1, name: "Counting" }, { done: 0 }, "Kindergarten");
+  const decodedLinks = materials.lanes.map((lane) => decodeURIComponent(lane.href));
+
+  assert.match(materials.trackLabel, /Kindergarten play & learn/iu);
+  assert.doesNotMatch(materials.trackLabel, /college|depth/iu);
+  assert.ok(decodedLinks.every((href) => /kindergarten/iu.test(href)));
+  assert.ok(decodedLinks.some((href) => /matching counting learning game/iu.test(href)));
 });

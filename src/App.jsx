@@ -18,7 +18,8 @@ import {
   Menu,
   X,
   Settings as SettingsIcon,
-  Info
+  Info,
+  Gamepad2,
 } from "lucide-react";
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Notification from "./components/Notification";
@@ -75,6 +76,7 @@ const NotesPage = lazy(() => import("./pages/NotesPage"));
 const StartLearningPage = lazy(() => import("./pages/StartLearningPage"));
 const PlannerPage = lazy(() => import("./pages/PlannerPage"));
 const QuizPage = lazy(() => import("./pages/QuizPage"));
+const KidsLearningPage = lazy(() => import("./pages/KidsLearningPage"));
 const ReportPage = lazy(() => import("./pages/ReportPage"));
 const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
 const SubjectsPage = lazy(() => import("./pages/SubjectsPage"));
@@ -117,6 +119,7 @@ function notificationErrorIsDefinitive(error) {
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", helper: "Overview and momentum", icon: LayoutDashboard },
+  { to: "/kids", label: "Play & Learn", helper: "Games, adventures, and rewards", icon: Gamepad2, kidsOnly: true },
   { to: "/subjects", label: "Subjects", helper: "Manage chapters and load", icon: BookOpen },
   { to: "/learn", label: "Start Learning", helper: "Upload, map, and revise", icon: BookOpenCheck },
   { to: "/planner", label: "Planner", helper: "Generate and rebalance work", icon: Calendar },
@@ -133,6 +136,8 @@ const NAV_ITEMS = [
     resumeOnly: true,
   },
 ];
+
+const KIDS_SAFE_NAV_ROUTES = new Set(["/kids"]);
 
 function getTaskNames(schedule = []) {
   return schedule.flatMap((day) => day.tasks?.map((task) => task.task) || []);
@@ -359,11 +364,22 @@ function App() {
     return clearTopBarHideTimeout;
   }, [autoHideTopBar, clearTopBarHideTimeout]);
 
+  const activeLearnerProfile = useMemo(
+    () => normalizeAcademicProfile({
+      ...(userProfile || {}),
+      academicLevel,
+      academicTrack,
+    }),
+    [academicLevel, academicTrack, userProfile],
+  );
+  const isKidsLearner = activeLearnerProfile.band === "early" || activeLearnerProfile.band === "primary";
+
   const voiceAssistant = useVoiceAssistant({
     academicLevel,
     academicTrack,
     schedule,
     completed,
+    disabled: authLoading || !userProfile || isKidsLearner,
   });
 
   const metrics = useMemo(
@@ -382,9 +398,13 @@ function App() {
   );
   const visibleNavItems = useMemo(
     () => NAV_ITEMS.filter(
-      (item) => !item.resumeOnly || (userProfile && resumeEligibility.enabled)
+      (item) => (
+        (!item.resumeOnly || (userProfile && resumeEligibility.enabled))
+        && (!item.kidsOnly || isKidsLearner)
+        && (!isKidsLearner || KIDS_SAFE_NAV_ROUTES.has(item.to))
+      )
     ),
-    [resumeEligibility.enabled, userProfile]
+    [isKidsLearner, resumeEligibility.enabled, userProfile]
   );
   const activeRoute = visibleNavItems.find((item) => location.pathname.startsWith(item.to));
   const titleLabel = activeRoute?.label || (
@@ -1205,7 +1225,7 @@ function App() {
   }, []);
 
   return (
-    <div className={`app-container app-shell-layout ${userProfile && !isAuthRoute ? "has-sidebar" : "auth-layout"} cursor-mode--${cursorStyle}`}>
+    <div className={`app-container app-shell-layout ${userProfile && !isAuthRoute ? "has-sidebar" : "auth-layout"} cursor-mode--${cursorStyle}${isKidsLearner ? " is-kids-mode" : ""}`}>
       <CustomCursor mode={cursorStyle} />
       <div className="page-glow page-glow-left" />
       <div className="page-glow page-glow-right" />
@@ -1230,7 +1250,7 @@ function App() {
           inert={logoutTransitionPhase !== "idle" ? true : undefined}
         >
           <div className="sidebar-header">
-            <Link to="/dashboard" className="workspace-logo-wrap" aria-label="PrepMatrix">
+            <Link to={isKidsLearner ? "/kids" : "/dashboard"} className="workspace-logo-wrap" aria-label="PrepMatrix">
               <span className="workspace-logo-mark" aria-hidden="true">P</span>
               <h1 className="workspace-logo-title">PrepMatrix</h1>
             </Link>
@@ -1264,7 +1284,8 @@ function App() {
           </nav>
           
           <div className="sidebar-widgets">
-            <div className="sidebar-companion-row">
+            {!isKidsLearner && (<>
+              <div className="sidebar-companion-row">
               <SidebarStudyPet />
               <GoalReminderCenter
                 data={goalReminderData}
@@ -1273,13 +1294,13 @@ function App() {
                 onSettingsChange={setGoalReminderSettings}
                 settings={goalReminderSettings}
               />
-            </div>
-            <Suspense fallback={null}>
+              </div>
+              <Suspense fallback={null}>
               <div className="sidebar-widget-cell">
                 <FloatingAnalytics completed={completed} schedule={schedule} subjects={subjects} />
               </div>
-            </Suspense>
-            <div className="sidebar-widget-cell sidebar-exam-widget">
+              </Suspense>
+              <div className="sidebar-widget-cell sidebar-exam-widget">
                 <NavLink
                   aria-label="Open exam workspace"
                   className={({ isActive }) => `exam-widget-btn${isActive ? " active" : ""}`}
@@ -1302,14 +1323,15 @@ function App() {
                 setDarkMode={setDarkMode}
                 subjects={subjects}
               />
-            <Link
+            </>)}
+            {!isKidsLearner && <Link
               to="/about"
               className="about-info-btn"
               title="About application"
               aria-label="About application"
             >
               <Info size={16} />
-            </Link>
+            </Link>}
           </div>
 
           <div className="sidebar-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
@@ -1332,7 +1354,7 @@ function App() {
                 <span>{userProfile.academicLevel}</span>
               </div>
             </div>
-            <NavLink
+            {!isKidsLearner && <NavLink
               to="/settings"
               className={({ isActive }) =>
                 isActive ? "settings-icon-btn active" : "settings-icon-btn"
@@ -1350,7 +1372,7 @@ function App() {
               }}
             >
               <SettingsIcon size={18} />
-            </NavLink>
+            </NavLink>}
           </div>
         </aside>
       )}
@@ -1405,19 +1427,19 @@ function App() {
             </div>
 
             <div className="topbar-right">
-              <AiCreditIndicator />
+              {!isKidsLearner && <AiCreditIndicator />}
               {/* Global browser VoiceAssistant service */}
-              <VoiceAssistant
+              {!isKidsLearner && <VoiceAssistant
                 academicLevel={academicLevel}
                 academicTrack={academicTrack}
                 completed={completed}
                 schedule={schedule}
                 hidden
                 assistant={voiceAssistant}
-              />
+              />}
 
 
-              <button
+              {!isKidsLearner && <button
                 aria-label="Reset planner"
                 aria-expanded={resetConfirmOpen}
                 aria-haspopup="dialog"
@@ -1427,9 +1449,9 @@ function App() {
                 type="button"
               >
                 <RotateCcw aria-hidden="true" size={20} strokeWidth={2.4} />
-              </button>
+              </button>}
 
-              {resetConfirmOpen && (
+              {!isKidsLearner && resetConfirmOpen && (
                 <div
                   aria-labelledby="reset-confirm-title"
                   className="reset-confirm-popover"
@@ -1533,7 +1555,7 @@ function App() {
                   <Routes>
                     {userProfile ? (
                       <>
-                        <Route
+                        {!isKidsLearner && <Route
                           element={
                             <DashboardPage
                               academicLevel={academicLevel}
@@ -1545,6 +1567,19 @@ function App() {
                             />
                           }
                           path="/dashboard"
+                        />}
+                        {!isKidsLearner && (
+                          <>
+                        <Route
+                          element={
+                            <KidsLearningPage
+                              academicLevel={academicLevel}
+                              academicTrack={academicTrack}
+                              subjects={subjects}
+                              userProfile={userProfile}
+                            />
+                          }
+                          path="/kids"
                         />
                         <Route
                           element={
@@ -1553,6 +1588,7 @@ function App() {
                               academicTrack={academicTrack}
                               hasActiveSchedule={schedule.length > 0}
                               onAcademicProfileChange={updateAcademicProfile}
+                              profileLocked={isKidsLearner}
                               setSubjects={updateSubjects}
                               subjects={subjects}
                               userProfile={userProfile}
@@ -1743,7 +1779,9 @@ function App() {
                           }
                           path="/about"
                         />
-                        <Route element={<Navigate replace to="/dashboard" />} path="*" />
+                          </>
+                        )}
+                        <Route element={<Navigate replace to={isKidsLearner ? "/kids" : "/dashboard"} />} path="*" />
                       </>
                     ) : (
                       <Route element={<Navigate replace to="/login" />} path="*" />
@@ -1787,7 +1825,7 @@ function App() {
         </div>
       )}
 
-      {voiceAssistant.voiceStatus !== "idle" && (
+      {!isKidsLearner && voiceAssistant.voiceStatus !== "idle" && (
         <VoiceAssistantOverlay
           voiceStatus={voiceAssistant.voiceStatus}
           lastText={voiceAssistant.lastText}
@@ -1816,4 +1854,3 @@ function App() {
 }
 
 export default App;
-
