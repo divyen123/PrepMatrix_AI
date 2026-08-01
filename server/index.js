@@ -15,6 +15,7 @@ import {
   decodeChatAttachments,
   prepareChatAttachmentContext,
 } from "./chatAttachments.js";
+import { buildChatSessionListFilter } from "./chatSessionSearch.js";
 import {
   normalizeGoalReminderData,
   normalizeGoalReminderSettings,
@@ -1526,8 +1527,9 @@ app.get("/api/study-assistant/status", (_req, res) => {
 // Chat History Endpoints
 app.get("/api/chat-sessions", requireAuth(async (req, res) => {
   const db = await getDb();
+  const filter = buildChatSessionListFilter(req.user._id, req.query.q);
   const sessions = await db.collection("chatSessions")
-    .find({ userId: req.user._id })
+    .find(filter)
     .project({ _id: 1, title: 1, createdAt: 1, updatedAt: 1 })
     .sort({ updatedAt: -1 })
     .toArray();

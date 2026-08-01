@@ -216,7 +216,11 @@ const api = {
   }),
   saveQuizAttempt: (body) => request("/api/quizzes", { method: "POST", body: JSON.stringify(body) }),
   updateProfile: (body) => request("/api/auth/profile", { method: "PUT", body: JSON.stringify(body) }),
-  getChatSessions: () => request("/api/chat-sessions"),
+  getChatSessions: (query = "") => {
+    const normalizedQuery = typeof query === "string" ? query.trim() : "";
+    const search = normalizedQuery ? `?q=${encodeURIComponent(normalizedQuery)}` : "";
+    return request(`/api/chat-sessions${search}`);
+  },
   getChatSession: (id) => request(`/api/chat-sessions/${id}`),
   createChatSession: (body) => request("/api/chat-sessions", { method: "POST", body: JSON.stringify(body) }),
   deleteChatSession: (id) => request(`/api/chat-sessions/${id}`, { method: "DELETE" }),

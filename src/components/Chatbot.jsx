@@ -10,6 +10,7 @@ import {
   buildChatMaterialSuggestions,
   normalizeChatMaterialSuggestions,
 } from "../utils/chatMaterialSuggestions";
+import { filterChatSessionsByTitle } from "../utils/chatHistorySearch";
 import api, { API_BASE } from "../utils/apiClient";
 import {
   CHAT_ATTACHMENT_ACCEPT,
@@ -48,6 +49,7 @@ import {
   FileText,
   UploadCloud,
   Image as ImageIcon,
+  Search,
 } from "lucide-react";
 
 function formatMessageText(text) {
@@ -192,6 +194,8 @@ function Chatbot({
   const attachmentPrepSeqRef = useRef(0);
   const attachmentDragDepthRef = useRef(0);
   const sessionLoadSeqRef = useRef(0);
+  const sessionsFetchSeqRef = useRef(0);
+  const historySearchSeqRef = useRef(0);
   const isSendingRef = useRef(false);
 
   const metrics = useMemo(
@@ -238,6 +242,13 @@ function Chatbot({
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [activeSessionTitle, setActiveSessionTitle] = useState("New Chat");
   const [historyOpen, setHistoryOpen] = useState(true);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historySearchResponse, setHistorySearchResponse] = useState({
+    query: "",
+    sessions: [],
+  });
+  const [historySearchLoading, setHistorySearchLoading] = useState(false);
+  const [historySearchError, setHistorySearchError] = useState("");
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [deletingSessionId, setDeletingSessionId] = useState(null);
   const [renameTitle, setRenameTitle] = useState("");
@@ -263,6 +274,8 @@ function Chatbot({
       chatRequestSeqRef.current += 1;
       attachmentPrepSeqRef.current += 1;
       sessionLoadSeqRef.current += 1;
+      sessionsFetchSeqRef.current += 1;
+      historySearchSeqRef.current += 1;
       isSendingRef.current = false;
     };
   }, []);
@@ -293,9 +306,13 @@ function Chatbot({
 
   // Load session list from backend
   const fetchSessions = useCallback(async () => {
+    const requestId = ++sessionsFetchSeqRef.current;
+    const isCurrentRequest = () => mountedRef.current
+      && sessionsFetchSeqRef.current === requestId;
     setSessionsLoading(true);
     try {
       const data = await api.getChatSessions();
+      if (!isCurrentRequest()) return;
       const loadedSessions = data.sessions || [];
       setSessions(loadedSessions);
       // On mobile, if sessions came back empty, retry once after a short delay
@@ -304,7 +321,7 @@ function Chatbot({
         setTimeout(async () => {
           try {
             const retry = await api.getChatSessions();
-            if (retry.sessions?.length > 0) {
+            if (isCurrentRequest() && retry.sessions?.length > 0) {
               setSessions(retry.sessions);
             }
           } catch {
@@ -313,9 +330,59 @@ function Chatbot({
         }, 1500);
       }
     } catch (err) {
+      if (!isCurrentRequest()) return;
       console.error("Failed to load chat history:", err);
     } finally {
-      setSessionsLoading(false);
+      if (isCurrentRequest()) setSessionsLoading(false);
+    }
+  }, []);
+
+  const historySearchQuery = useMemo(
+    () => historySearch.trim().replace(/\s+/g, " ").slice(0, 120),
+    [historySearch]
+  );
+  const titleHistoryMatches = useMemo(
+    () => filterChatSessionsByTitle(sessions, historySearchQuery),
+    [historySearchQuery, sessions]
+  );
+  const visibleSessions = useMemo(() => {
+    if (!historySearchQuery) return sessions;
+    if (historySearchResponse.query === historySearchQuery) {
+      return historySearchResponse.sessions;
+    }
+    return titleHistoryMatches;
+  }, [historySearchQuery, historySearchResponse, sessions, titleHistoryMatches]);
+
+  const fetchHistorySearch = useCallback(async (query) => {
+    const normalizedQuery = typeof query === "string"
+      ? query.trim().replace(/\s+/g, " ").slice(0, 120)
+      : "";
+    const requestId = ++historySearchSeqRef.current;
+
+    if (!normalizedQuery) {
+      setHistorySearchLoading(false);
+      setHistorySearchError("");
+      return;
+    }
+
+    const isCurrentRequest = () => mountedRef.current
+      && historySearchSeqRef.current === requestId;
+    setHistorySearchLoading(true);
+    setHistorySearchError("");
+    try {
+      const data = await api.getChatSessions(normalizedQuery);
+      if (!isCurrentRequest()) return;
+      setHistorySearchResponse({
+        query: normalizedQuery,
+        sessions: data.sessions || [],
+      });
+    } catch (err) {
+      if (!isCurrentRequest()) return;
+      console.error("Failed to search chat history:", err);
+      setHistorySearchResponse({ query: "", sessions: [] });
+      setHistorySearchError("Message search is unavailable. Showing title matches.");
+    } finally {
+      if (isCurrentRequest()) setHistorySearchLoading(false);
     }
   }, []);
 
@@ -329,6 +396,22 @@ function Chatbot({
       setHistoryOpen(window.innerWidth > 768);
     }
   }, [open, fetchSessions]);
+
+  useEffect(() => {
+    historySearchSeqRef.current += 1;
+    setHistorySearchLoading(Boolean(open && historySearchQuery));
+    setHistorySearchError("");
+
+    if (!open || !historySearchQuery) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchHistorySearch(historySearchQuery);
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [fetchHistorySearch, historySearchQuery, open]);
 
   useEffect(() => {
     if (open) {
@@ -422,6 +505,10 @@ function Chatbot({
     try {
       await api.deleteChatSession(sessionId);
       setSessions((current) => current.filter((s) => s._id !== sessionId));
+      setHistorySearchResponse((current) => ({
+        ...current,
+        sessions: current.sessions.filter((session) => session._id !== sessionId),
+      }));
       if (activeSessionId === sessionId) {
         handleNewChat();
       }
@@ -438,6 +525,8 @@ function Chatbot({
     try {
       await api.clearChatSessions();
       setSessions([]);
+      setHistorySearchResponse({ query: "", sessions: [] });
+      setHistorySearch("");
       handleNewChat();
       setShowClearHistoryConfirm(false);
     } catch (err) {
@@ -466,11 +555,19 @@ function Chatbot({
       if (activeSessionId === sessionId) {
         setActiveSessionTitle(cleanTitle);
       }
+      if (historySearchQuery) {
+        void fetchHistorySearch(historySearchQuery);
+      }
       setEditingSessionId(null);
     } catch (err) {
       console.error("Failed to rename session:", err);
     }
-  }, [renameTitle, activeSessionId]);
+  }, [
+    activeSessionId,
+    fetchHistorySearch,
+    historySearchQuery,
+    renameTitle,
+  ]);
 
   const prepareAttachmentFiles = useCallback(async (files) => {
     const selectedFiles = Array.from(files || []);
@@ -687,14 +784,22 @@ function Chatbot({
             fetchSessions();
           } else {
             setSessions((current) => {
-              const matched = current.find((s) => s._id === payload.sessionId);
-              if (matched) {
-                matched.title = payload.sessionTitle || matched.title;
-                matched.updatedAt = new Date().toISOString();
-                return [...current].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-              }
-              return current;
+              const hasMatch = current.some((session) => session._id === payload.sessionId);
+              if (!hasMatch) return current;
+
+              return current
+                .map((session) => session._id === payload.sessionId
+                  ? {
+                      ...session,
+                      title: payload.sessionTitle || session.title,
+                      updatedAt: new Date().toISOString(),
+                    }
+                  : session)
+                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
             });
+          }
+          if (historySearchQuery) {
+            void fetchHistorySearch(historySearchQuery);
           }
         }
 
@@ -738,7 +843,9 @@ function Chatbot({
       academicTrack,
       assistantStatus.model,
       attachments,
+      fetchHistorySearch,
       fetchSessions,
+      historySearchQuery,
       input,
       loading,
       metrics,
@@ -1053,21 +1160,86 @@ function Chatbot({
                 </div>
               </div>
 
-              <div className="history-sessions-list">
-                {sessionsLoading && (
+              <div className="chat-history-search-panel">
+                <div className="chat-history-search-field" role="search">
+                  {historySearchLoading ? (
+                    <Loader2 aria-hidden="true" className="spinner" size={15} />
+                  ) : (
+                    <Search aria-hidden="true" size={15} />
+                  )}
+                  <input
+                    aria-controls="chat-history-session-list"
+                    aria-label="Search chat history"
+                    autoComplete="off"
+                    maxLength={120}
+                    onChange={(event) => {
+                      setHistorySearch(event.target.value);
+                      setEditingSessionId(null);
+                      setDeletingSessionId(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        setHistorySearch("");
+                        event.currentTarget.blur();
+                      }
+                    }}
+                    placeholder="Search titles & messages"
+                    type="search"
+                    value={historySearch}
+                  />
+                  {historySearch ? (
+                    <button
+                      aria-label="Clear chat history search"
+                      className="chat-history-search-clear"
+                      onClick={() => setHistorySearch("")}
+                      title="Clear search"
+                      type="button"
+                    >
+                      <X aria-hidden="true" size={13} />
+                    </button>
+                  ) : null}
+                </div>
+                <span
+                  aria-live="polite"
+                  className={`chat-history-search-status${historySearchError ? " is-error" : ""}`}
+                >
+                  {historySearchError
+                    || (historySearchQuery
+                      ? historySearchLoading
+                        ? "Searching titles and messages..."
+                        : `${visibleSessions.length} result${visibleSessions.length === 1 ? "" : "s"} found`
+                      : "Searches titles and message text")}
+                </span>
+              </div>
+
+              <div className="history-sessions-list" id="chat-history-session-list">
+                {sessionsLoading && !historySearchQuery && (
                   <div className="history-loading">
                     <Loader2 size={16} className="spinner" />
                     <span>Loading chats...</span>
                   </div>
                 )}
 
-                {!sessionsLoading && sessions.length === 0 && (
+                {!sessionsLoading && !historySearchQuery && sessions.length === 0 && (
                   <div className="history-empty">
                     No recent chats
                   </div>
                 )}
 
-                {sessions.map((s) => {
+                {historySearchQuery && historySearchLoading && visibleSessions.length === 0 && (
+                  <div className="history-loading">
+                    <Loader2 size={16} className="spinner" />
+                    <span>Searching chats...</span>
+                  </div>
+                )}
+
+                {historySearchQuery && !historySearchLoading && visibleSessions.length === 0 && (
+                  <div className="history-empty">
+                    No chats match &ldquo;{historySearchQuery}&rdquo;
+                  </div>
+                )}
+
+                {visibleSessions.map((s) => {
                   const isActive = s._id === activeSessionId;
                   const isEditing = s._id === editingSessionId;
 
