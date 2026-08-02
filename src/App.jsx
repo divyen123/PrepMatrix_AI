@@ -63,6 +63,7 @@ import {
 import CustomCursor from "./components/CustomCursor";
 import { SidebarStudyPet } from "./components/StudyPet";
 import GoalReminderCenter from "./components/GoalReminderCenter";
+import SidebarProximityNav from "./components/SidebarProximityNav";
 import "./App.css";
 import "./components/GoalReminderCenter.css";
 import { ToastContainer, toast } from "react-toastify";
@@ -1263,25 +1264,10 @@ function App() {
               <X size={20} />
             </button>
           </div>
-          <nav className="sidebar-nav" aria-label="Primary navigation">
-            {visibleNavItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  className={({ isActive }) =>
-                    isActive ? "sidebar-link active" : "sidebar-link"
-                  }
-                  key={item.to}
-                  title={item.helper}
-                  to={item.to}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <Icon aria-hidden="true" className="sidebar-link-icon" size={18} strokeWidth={2.2} />
-                  <span className="sidebar-link-label">{item.label}</span>
-                </NavLink>
-              );
-            })}
-          </nav>
+          <SidebarProximityNav
+            items={visibleNavItems}
+            onNavigate={() => setSidebarOpen(false)}
+          />
           
           <div className="sidebar-widgets">
             {!isKidsLearner && (<>
