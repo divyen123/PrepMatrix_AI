@@ -864,13 +864,15 @@ export default function ResumeBuilderPage({
                   type="button"
                   key={item.id}
                   className={activeSection === item.id ? "is-active" : ""}
+                  aria-label={item.label}
                   aria-current={activeSection === item.id ? "step" : undefined}
+                  title={item.label}
                   onClick={() => {
                     setActiveSection(item.id);
                     setMobileView("edit");
                   }}
                 >
-                  <SectionIcon className="resume-builder-nav__icon" size={18} />
+                  <SectionIcon aria-hidden="true" className="resume-builder-nav__icon" size={18} />
                   <span className="resume-builder-nav__label">{item.label}</span>
                 </button>
               );
