@@ -203,7 +203,7 @@ test("rejects unsupported and oversized text sources before AI work", () => {
   );
 });
 
-test("retries one invalid AI notebook response with stricter temperature", async () => {
+test("keeps the completion allowance when retrying an incomplete AI notebook response", async () => {
   const requests = [];
   const responses = [
     { choices: [{ message: { content: '{"overview":"incomplete"}' } }] },
@@ -232,7 +232,7 @@ test("retries one invalid AI notebook response with stricter temperature", async
   assert.equal(requests[0].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
   assert.equal("response_format" in requests[1], false);
   assert.equal(requests[1].temperature, 0.1);
-  assert.equal(requests[1].max_tokens, LEARNING_RETRY_COMPLETION_TOKENS);
+  assert.equal(requests[1].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
 });
 
 test("disables reasoning for Qwen notebook requests so structured JSON reaches content", async () => {

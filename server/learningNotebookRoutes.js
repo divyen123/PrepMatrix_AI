@@ -457,16 +457,19 @@ export async function requestLearningNotebookJson({
   const usesReasoningControls = /^qwen\//iu.test(String(model || ""));
   let previousCompletionTokens = null;
 
+  let retryForTokenBudget = false;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const preferredCompletionTokens = attempt === 0
       ? MAX_LEARNING_COMPLETION_TOKENS
-      : Math.max(
-          MIN_GROQ_LEARNING_COMPLETION_TOKENS,
-          Math.min(
-            LEARNING_RETRY_COMPLETION_TOKENS,
-            Number(previousCompletionTokens) - GROQ_LEARNING_RETRY_REDUCTION_TOKENS,
-          ),
-        );
+      : retryForTokenBudget
+        ? Math.max(
+            MIN_GROQ_LEARNING_COMPLETION_TOKENS,
+            Math.min(
+              LEARNING_RETRY_COMPLETION_TOKENS,
+              Number(previousCompletionTokens) - GROQ_LEARNING_RETRY_REDUCTION_TOKENS,
+            ),
+          )
+        : Number(previousCompletionTokens) || MAX_LEARNING_COMPLETION_TOKENS;
     const completionTokens = learningCompletionTokenBudget(
       preferredCompletionTokens,
       systemPrompt,
@@ -508,10 +511,11 @@ export async function requestLearningNotebookJson({
         isProviderSizeLimit(response, payload)
         || isProviderTokenBudgetLimit(response, payload)
       ) && hasSmallerRetryBudget;
-      if (attempt === 0 && (
-        (response.status === 400 && isGroqJsonFailure(payload))
-        || retryableTokenBudgetFailure
-      )) {
+      if (attempt === 0 && response.status === 400 && isGroqJsonFailure(payload)) {
+        continue;
+      }
+      if (attempt === 0 && retryableTokenBudgetFailure) {
+        retryForTokenBudget = true;
         continue;
       }
       throw createProviderError(response, payload);
