@@ -33,7 +33,19 @@ export const LEARNING_RETRY_COMPLETION_TOKENS = 5_000;
 export const MAX_GEMINI_LEARNING_OUTPUT_TOKENS = 24_576;
 export const MAX_GROQ_LEARNING_CHAPTERS = 12;
 export const DEFAULT_GEMINI_LEARNING_MODEL = "gemini-3.5-flash-lite";
-export const GEMINI_LEARNING_FALLBACK_MODEL = "gemini-2.5-flash-lite";
+export const DEFAULT_GEMINI_LEARNING_FALLBACK_MODELS = Object.freeze([
+  "gemini-3.6-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-flash-lite",
+]);
+export const DEFAULT_GROQ_LEARNING_MODEL = "openai/gpt-oss-120b";
+export const DEFAULT_GROQ_LEARNING_FALLBACK_MODELS = Object.freeze([
+  DEFAULT_GROQ_LEARNING_MODEL,
+  "openai/gpt-oss-20b",
+]);
+export const MAX_LEARNING_MODEL_CANDIDATES_PER_PROVIDER = 4;
+export const LEARNING_GENERATION_DEADLINE_MS = 180_000;
+export const LEARNING_MODEL_TIMEOUT_MS = 45_000;
 
 const LEARNING_TEXT_TYPES = new Set([
   "text/plain",
@@ -98,12 +110,47 @@ export function buildLearningNotebookDepthTargets(chapterNames = [], { compact =
 }
 
 class LearningNotebookError extends Error {
-  constructor(message, { code = "LEARNING_NOTEBOOK_INVALID", status = 400 } = {}) {
+  constructor(message, {
+    code = "LEARNING_NOTEBOOK_INVALID",
+    modelFallbackAllowed,
+    status = 400,
+  } = {}) {
     super(message);
     this.name = "LearningNotebookError";
     this.code = code;
     this.status = status;
+    this.modelFallbackAllowed = modelFallbackAllowed;
   }
+}
+
+function learningGenerationTimeoutError() {
+  return new LearningNotebookError(
+    "The learning assistant reached its generation time limit. Please retry.",
+    {
+      code: "LEARNING_GENERATION_TIMEOUT",
+      modelFallbackAllowed: false,
+      status: 504,
+    },
+  );
+}
+
+function assertLearningGenerationDeadline(deadline) {
+  const resolvedDeadline = Number(deadline);
+  if (Number.isFinite(resolvedDeadline) && Date.now() >= resolvedDeadline) {
+    throw learningGenerationTimeoutError();
+  }
+  return resolvedDeadline;
+}
+
+function learningRequestSignal(deadline) {
+  let timeoutMs = LEARNING_MODEL_TIMEOUT_MS;
+  const resolvedDeadline = assertLearningGenerationDeadline(deadline);
+  if (Number.isFinite(resolvedDeadline)) {
+    const remainingMs = Math.floor(resolvedDeadline - Date.now());
+    if (remainingMs <= 0) throw learningGenerationTimeoutError();
+    timeoutMs = Math.min(timeoutMs, remainingMs);
+  }
+  return AbortSignal.timeout(Math.max(1, timeoutMs));
 }
 
 function cleanInline(value, max = 160) {
@@ -269,8 +316,9 @@ function isRetryableTransientProviderResponse(response, payload = {}) {
     || isProviderRateLimit(response, payload);
 }
 
-async function fetchProviderJsonWithRetry(fetchImpl, url, options) {
+async function fetchProviderJsonWithRetryRaw(fetchImpl, url, options) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    options?.signal?.throwIfAborted?.();
     const response = await fetchImpl(url, options);
     const payload = await response.json().catch(() => ({}));
 
@@ -294,9 +342,30 @@ async function fetchProviderJsonWithRetry(fetchImpl, url, options) {
   );
 }
 
+async function fetchProviderJsonWithRetry(
+  fetchImpl,
+  url,
+  options,
+  { deadline } = {},
+) {
+  try {
+    return await fetchProviderJsonWithRetryRaw(fetchImpl, url, options);
+  } catch (error) {
+    const resolvedDeadline = Number(deadline);
+    const isAbort = error?.name === "TimeoutError" || error?.name === "AbortError";
+    if (isAbort && Number.isFinite(resolvedDeadline) && Date.now() >= resolvedDeadline) {
+      throw learningGenerationTimeoutError();
+    }
+    throw error;
+  }
+}
+
 function createProviderError(response, payload = {}) {
   const isRateLimit = isProviderRateLimit(response, payload);
-  const isSizeLimit = isProviderSizeLimit(response, payload);
+  const isSizeLimit = !isRateLimit && isProviderSizeLimit(response, payload);
+  const providerCode = cleanInline(payload?.error?.code, 100).toLocaleLowerCase();
+  const isModelPermissionError = providerCode.startsWith("model_permission_");
+  const isAuthFailure = response.status === 401 || (response.status === 403 && !isModelPermissionError);
   return new LearningNotebookError(
     isRateLimit
       ? "The learning assistant is busy. Please retry in a moment."
@@ -309,6 +378,7 @@ function createProviderError(response, payload = {}) {
         : isSizeLimit
           ? "LEARNING_PROVIDER_SIZE_LIMIT"
           : "LEARNING_PROVIDER_ERROR",
+      modelFallbackAllowed: !isSizeLimit && !isAuthFailure,
       status: isRateLimit ? 429 : isSizeLimit ? 413 : 502,
     },
   );
@@ -450,17 +520,22 @@ function learningCompletionTokenBudget(preferredTokens, systemPrompt, userConten
 
 export async function requestLearningNotebookJson({
   apiKey,
+  deadline,
   fetchImpl = globalThis.fetch,
+  maxAttempts = 2,
   model,
   systemPrompt,
   userContent,
   validateNotebook = hasLearningNotebookShape,
 }) {
   const usesReasoningControls = /^qwen\//iu.test(String(model || ""));
+  const boundedAttempts = Math.max(1, Math.min(2, Number.parseInt(maxAttempts, 10) || 1));
+  const signal = learningRequestSignal(deadline);
   let previousCompletionTokens = null;
 
   let retryForTokenBudget = false;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < boundedAttempts; attempt += 1) {
+    const hasRetryAttempt = attempt + 1 < boundedAttempts;
     const preferredCompletionTokens = attempt === 0
       ? MAX_LEARNING_COMPLETION_TOKENS
       : retryForTokenBudget
@@ -503,9 +578,10 @@ export async function requestLearningNotebookJson({
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+        signal,
         body: JSON.stringify(body),
       },
+      { deadline },
     );
 
     if (!response.ok) {
@@ -513,10 +589,10 @@ export async function requestLearningNotebookJson({
         isProviderSizeLimit(response, payload)
         || isProviderTokenBudgetLimit(response, payload)
       ) && hasSmallerRetryBudget;
-      if (attempt === 0 && response.status === 400 && isGroqJsonFailure(payload)) {
+      if (hasRetryAttempt && response.status === 400 && isGroqJsonFailure(payload)) {
         continue;
       }
-      if (attempt === 0 && retryableTokenBudgetFailure) {
+      if (hasRetryAttempt && retryableTokenBudgetFailure) {
         retryForTokenBudget = true;
         continue;
       }
@@ -530,12 +606,14 @@ export async function requestLearningNotebookJson({
       }
       return parsed;
     } catch {
-      if (attempt === 0) continue;
+      if (hasRetryAttempt) continue;
     }
   }
 
   throw new LearningNotebookError(
-    "The learning assistant returned incomplete notes after an automatic retry.",
+    boundedAttempts > 1
+      ? "The learning assistant returned incomplete notes after an automatic retry."
+      : "The learning assistant returned incomplete notes.",
     { code: "LEARNING_OUTPUT_INVALID", status: 502 },
   );
 }
@@ -543,6 +621,7 @@ export async function requestLearningNotebookJson({
 export async function requestLearningVisionText({
   apiKey,
   chapterNames = [],
+  deadline,
   fetchImpl = globalThis.fetch,
   model,
   subjectName,
@@ -593,9 +672,10 @@ export async function requestLearningVisionText({
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      signal: learningRequestSignal(deadline),
       body: JSON.stringify(body),
     },
+    { deadline },
   );
   if (!response.ok) throw createProviderError(response, payload);
   const text = normalizeSourceText(payload?.choices?.[0]?.message?.content || "");
@@ -1029,11 +1109,42 @@ function objectIdFromParam(value) {
   return new ObjectId(value);
 }
 
-function learningGeminiModels(configuredModel) {
-  return [...new Set([
-    cleanInline(configuredModel, 120) || DEFAULT_GEMINI_LEARNING_MODEL,
-    GEMINI_LEARNING_FALLBACK_MODEL,
-  ])];
+function learningModelValues(value) {
+  const rows = Array.isArray(value) ? value : [value];
+  return rows
+    .flatMap((item) => String(item ?? "").split(/[,\r\n]+/u))
+    .map((item) => cleanInline(item, 120))
+    .filter(Boolean);
+}
+
+export function buildLearningModelCandidates(
+  primaryModel,
+  configuredModels,
+  defaultFallbackModels = [],
+) {
+  const primary = cleanInline(primaryModel, 120);
+  const configured = learningModelValues(configuredModels);
+  const fallbacks = configured.length
+    ? configured
+    : learningModelValues(defaultFallbackModels);
+  return [...new Set([primary, ...fallbacks].filter(Boolean))]
+    .slice(0, MAX_LEARNING_MODEL_CANDIDATES_PER_PROVIDER);
+}
+
+function learningGeminiModels(configuredModel, configuredModels) {
+  return buildLearningModelCandidates(
+    configuredModel || DEFAULT_GEMINI_LEARNING_MODEL,
+    configuredModels,
+    DEFAULT_GEMINI_LEARNING_FALLBACK_MODELS,
+  );
+}
+
+function learningGroqModels(configuredModel, configuredModels) {
+  return buildLearningModelCandidates(
+    configuredModel,
+    configuredModels,
+    DEFAULT_GROQ_LEARNING_FALLBACK_MODELS,
+  );
 }
 
 function logLearningProviderFailure(logger, {
@@ -1062,7 +1173,10 @@ export function registerLearningNotebookRoutes(app, {
   getGeminiConfigStatus = () => ({ available: false }),
   getGroqConfigStatus = () => ({ available: false }),
   geminiLearningModel = DEFAULT_GEMINI_LEARNING_MODEL,
+  geminiLearningModels,
+  generationDeadlineMs = LEARNING_GENERATION_DEADLINE_MS,
   groqLearningModel,
+  groqLearningModels,
   groqModel,
   groqVisionModel,
   logger = console,
@@ -1070,6 +1184,10 @@ export function registerLearningNotebookRoutes(app, {
   prepareAttachmentContext = prepareChatAttachmentContext,
   requireAuth,
 }) {
+  const requestedGenerationDeadlineMs = Number(generationDeadlineMs);
+  const resolvedGenerationDeadlineMs = Number.isFinite(requestedGenerationDeadlineMs)
+    ? Math.max(0, requestedGenerationDeadlineMs)
+    : LEARNING_GENERATION_DEADLINE_MS;
   app.get("/api/learning-notebooks", requireAuth(async (req, res) => {
     try {
       const db = await getDb();
@@ -1181,6 +1299,7 @@ export function registerLearningNotebookRoutes(app, {
         return res.status(201).json(payload);
       }
       reservation = quotaResult;
+      const generationDeadline = Date.now() + resolvedGenerationDeadlineMs;
 
       const manualMode = !hasSources;
       const learnerContext = buildLearnerAcademicContext(req.user);
@@ -1188,7 +1307,7 @@ export function registerLearningNotebookRoutes(app, {
       let generationResult = null;
       let geminiFailure = null;
       if (geminiAvailable) {
-        const geminiModels = learningGeminiModels(geminiLearningModel);
+        const geminiModels = learningGeminiModels(geminiLearningModel, geminiLearningModels);
         for (const [index, model] of geminiModels.entries()) {
           try {
             generationResult = await generateLearningNotebookWithGemini({
@@ -1196,6 +1315,7 @@ export function registerLearningNotebookRoutes(app, {
               attachments,
               careerEligibility,
               chapterNames,
+              deadline: generationDeadline,
               fetchImpl,
               learnerContext,
               manualMode,
@@ -1205,42 +1325,39 @@ export function registerLearningNotebookRoutes(app, {
             });
             break;
           } catch (error) {
-            const canFallback = isGeminiFallbackError(error);
+            const canTryNextModel = isLearningModelFallbackError(error);
+            const canTryOtherProvider = isLearningProviderFallbackError(error);
             logLearningProviderFailure(logger, {
               model,
               phase: index === 0 ? "primary" : "secondary",
               provider: "gemini",
             }, error);
-            if (!canFallback) throw error;
+            if (!canTryOtherProvider) throw error;
             geminiFailure = error;
+            if (!canTryNextModel) break;
           }
         }
       }
       if (!generationResult && groqAvailable && chapterNames.length <= MAX_GROQ_LEARNING_CHAPTERS) {
-        try {
-          generationResult = await generateLearningNotebookWithGroq({
-            apiKey: groqConfig.apiKey,
-            attachments,
-            careerEligibility,
-            chapterNames,
-            fetchImpl,
-            groqLearningModel,
-            groqModel,
-            groqVisionModel,
-            learnerContext,
-            manualMode,
-            prepareAttachmentContext,
-            subjectName,
-            textSources,
-          });
-        } catch (error) {
-          logLearningProviderFailure(logger, {
-            model: groqLearningModel || groqModel,
-            phase: geminiFailure ? "fallback" : "primary",
-            provider: "groq",
-          }, error);
-          throw error;
-        }
+        generationResult = await generateLearningNotebookWithGroq({
+          apiKey: groqConfig.apiKey,
+          attachments,
+          careerEligibility,
+          chapterNames,
+          deadline: generationDeadline,
+          fetchImpl,
+          groqLearningModel,
+          groqLearningModels,
+          groqModel,
+          groqVisionModel,
+          learnerContext,
+          logger,
+          manualMode,
+          prepareAttachmentContext,
+          providerPhase: geminiFailure ? "fallback" : "primary",
+          subjectName,
+          textSources,
+        });
       }
       if (!generationResult) {
         if (geminiFailure) throw geminiFailure;
@@ -1408,7 +1525,7 @@ export function registerLearningNotebookRoutes(app, {
           });
           providerModel = geminiLearningModel || DEFAULT_GEMINI_LEARNING_MODEL;
         } catch (error) {
-          if (!isGeminiFallbackError(error)) throw error;
+          if (!isLearningProviderFallbackError(error)) throw error;
           geminiFailure = error;
         }
       }
@@ -1948,8 +2065,24 @@ function buildCareerAnalysisPrompts({
   return { systemPrompt, userPrompt };
 }
 function createGeminiProviderError(response, payload = {}) {
+  const providerCode = cleanInline(payload?.error?.code, 80).toLocaleUpperCase();
   const providerStatus = cleanInline(payload?.error?.status, 80).toLocaleUpperCase();
   const providerMessage = cleanInline(payload?.error?.message, 300).toLocaleLowerCase();
+  const detailReasons = Array.isArray(payload?.error?.details)
+    ? payload.error.details.map((detail) => (
+        cleanInline(detail?.reason || detail?.metadata?.reason, 100).toLocaleUpperCase()
+      ))
+    : [];
+  const hasInvalidApiKeyMessage = (
+    /(?:api key|apikey).*(?:invalid|not valid|expired)/u.test(providerMessage)
+    || /(?:invalid|not valid|expired).*(?:api key|apikey)/u.test(providerMessage)
+  );
+  const isAuthFailure = response.status === 401
+    || response.status === 403
+    || providerCode === "API_KEY_INVALID"
+    || providerStatus === "API_KEY_INVALID"
+    || detailReasons.includes("API_KEY_INVALID")
+    || hasInvalidApiKeyMessage;
   const isRateLimit = response.status === 429
     || providerStatus === "RESOURCE_EXHAUSTED"
     || providerMessage.includes("rate limit")
@@ -1973,6 +2106,7 @@ function createGeminiProviderError(response, payload = {}) {
         : isSizeLimit
           ? "LEARNING_PROVIDER_SIZE_LIMIT"
           : "LEARNING_PROVIDER_ERROR",
+      modelFallbackAllowed: !isSizeLimit && !isAuthFailure,
       status: isRateLimit ? 429 : isSizeLimit ? 413 : 502,
     },
   );
@@ -2015,6 +2149,7 @@ export function buildGeminiLearningParts(userPrompt, attachments = []) {
 export async function requestGeminiLearningNotebookJson({
   apiKey,
   attachments = [],
+  deadline,
   fetchImpl = globalThis.fetch,
   model = DEFAULT_GEMINI_LEARNING_MODEL,
   responseSchema = LEARNING_NOTEBOOK_RESPONSE_SCHEMA,
@@ -2032,7 +2167,7 @@ export async function requestGeminiLearningNotebookJson({
         "Content-Type": "application/json",
         "x-goog-api-key": apiKey,
       },
-      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      signal: learningRequestSignal(deadline),
       body: JSON.stringify({
         systemInstruction: {
           parts: [{ text: systemPrompt }],
@@ -2052,6 +2187,7 @@ export async function requestGeminiLearningNotebookJson({
         },
       }),
     },
+    { deadline },
   );
   if (!response.ok) throw createGeminiProviderError(response, payload);
 
@@ -2222,6 +2358,7 @@ async function generateLearningNotebookWithGemini({
   attachments,
   careerEligibility,
   chapterNames,
+  deadline,
   fetchImpl,
   learnerContext,
   manualMode,
@@ -2241,6 +2378,7 @@ async function generateLearningNotebookWithGemini({
   const generated = await requestGeminiLearningNotebookJson({
     apiKey,
     attachments,
+    deadline,
     fetchImpl,
     model,
     responseSchema: buildLearningNotebookResponseSchema(prompts.depthTargets),
@@ -2266,19 +2404,25 @@ async function generateLearningNotebookWithGroq({
   attachments,
   careerEligibility,
   chapterNames,
+  deadline,
   fetchImpl,
   groqLearningModel,
+  groqLearningModels,
   groqModel,
   groqVisionModel,
   learnerContext,
+  logger,
   manualMode,
   prepareAttachmentContext,
+  providerPhase = "primary",
   subjectName,
   textSources,
 }) {
+  assertLearningGenerationDeadline(deadline);
   const attachmentContext = attachments.length
     ? await prepareAttachmentContext(attachments)
     : { metadata: [], pdfDocuments: [], visionImages: [] };
+  assertLearningGenerationDeadline(deadline);
   const fileSources = buildAttachmentSourceMetadata(attachments, attachmentContext);
   let visionText = "";
   let visionReadWarning = "";
@@ -2287,6 +2431,7 @@ async function generateLearningNotebookWithGroq({
       visionText = await requestLearningVisionText({
         apiKey,
         chapterNames,
+        deadline,
         fetchImpl,
         model: groqVisionModel,
         subjectName,
@@ -2338,18 +2483,43 @@ async function generateLearningNotebookWithGroq({
   const userContent = attachments.length
     ? buildChatAttachmentUserContent(prompts.userPrompt, textOnlyAttachmentContext)
     : prompts.userPrompt;
-  const model = groqLearningModel || groqModel;
-  const generated = await requestLearningNotebookJson({
-    apiKey,
-    fetchImpl,
-    model,
-    systemPrompt: prompts.systemPrompt,
-    userContent,
-    validateNotebook: (value) => hasGeneratedLearningNotebookDepth(
-      value,
-      prompts.depthTargets,
-    ),
-  });
+  const models = learningGroqModels(groqLearningModel || groqModel, groqLearningModels);
+  let generated = null;
+  let model = "";
+  let lastError = null;
+  for (const [index, candidateModel] of models.entries()) {
+    try {
+      generated = await requestLearningNotebookJson({
+        apiKey,
+        deadline,
+        fetchImpl,
+        maxAttempts: models.length > 1 ? 1 : 2,
+        model: candidateModel,
+        systemPrompt: prompts.systemPrompt,
+        userContent,
+        validateNotebook: (value) => hasGeneratedLearningNotebookDepth(
+          value,
+          prompts.depthTargets,
+        ),
+      });
+      model = candidateModel;
+      break;
+    } catch (error) {
+      lastError = error;
+      logLearningProviderFailure(logger, {
+        model: candidateModel,
+        phase: index === 0 ? providerPhase : "secondary",
+        provider: "groq",
+      }, error);
+      if (!isLearningModelFallbackError(error)) throw error;
+    }
+  }
+  if (!generated) {
+    throw lastError || new LearningNotebookError(
+      "The shared AI provider is temporarily unavailable.",
+      { code: "AI_PROVIDER_UNAVAILABLE", status: 503 },
+    );
+  }
   return {
     generated,
     model,
@@ -2364,11 +2534,17 @@ async function generateLearningNotebookWithGroq({
   };
 }
 
-function isGeminiFallbackError(error) {
+function isLearningTransportError(error) {
   return Boolean(
     error instanceof TypeError
     || error?.name === "TimeoutError"
     || error?.name === "AbortError"
+  );
+}
+
+function isLearningProviderFallbackError(error) {
+  return Boolean(
+    isLearningTransportError(error)
     || (
       error instanceof LearningNotebookError
       && (
@@ -2377,4 +2553,10 @@ function isGeminiFallbackError(error) {
       )
     )
   );
+}
+
+function isLearningModelFallbackError(error) {
+  return !isLearningTransportError(error)
+    && error?.modelFallbackAllowed !== false
+    && isLearningProviderFallbackError(error);
 }

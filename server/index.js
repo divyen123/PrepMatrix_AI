@@ -50,7 +50,11 @@ import {
   registerResumeBuilderRoutes,
 } from "./resumeBuilderRoutes.js";
 import {
+  DEFAULT_GEMINI_LEARNING_FALLBACK_MODELS,
+  DEFAULT_GROQ_LEARNING_FALLBACK_MODELS,
+  DEFAULT_GROQ_LEARNING_MODEL,
   LEARNING_NOTEBOOKS_COLLECTION,
+  buildLearningModelCandidates,
   registerLearningNotebookRoutes,
 } from "./learningNotebookRoutes.js";
 import {
@@ -159,11 +163,21 @@ const app = express();
 const PORT = Number(process.env.PORT || 8787);
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_LEARNING_MODEL = process.env.GEMINI_LEARNING_MODEL || "gemini-3.5-flash-lite";
+const GEMINI_LEARNING_MODELS = buildLearningModelCandidates(
+  GEMINI_LEARNING_MODEL,
+  process.env.GEMINI_LEARNING_MODELS,
+  DEFAULT_GEMINI_LEARNING_FALLBACK_MODELS,
+);
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const LEGACY_OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || process.env.OPENAI_CHAT_MODEL || "llama-3.1-8b-instant";
+const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || process.env.OPENAI_CHAT_MODEL || "openai/gpt-oss-20b";
 const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || "qwen/qwen3.6-27b";
-const GROQ_LEARNING_MODEL = process.env.GROQ_LEARNING_MODEL || "llama-3.3-70b-versatile";
+const GROQ_LEARNING_MODEL = process.env.GROQ_LEARNING_MODEL || DEFAULT_GROQ_LEARNING_MODEL;
+const GROQ_LEARNING_MODELS = buildLearningModelCandidates(
+  GROQ_LEARNING_MODEL,
+  process.env.GROQ_LEARNING_MODELS,
+  DEFAULT_GROQ_LEARNING_FALLBACK_MODELS,
+);
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_DB = process.env.MONGODB_DB || "prepmatrix";
 const FRONTEND_URL = process.env.FRONTEND_URL || "";
@@ -1152,10 +1166,12 @@ registerResumeBuilderRoutes(app, {
 registerLearningNotebookRoutes(app, {
   aiQuota,
   geminiLearningModel: GEMINI_LEARNING_MODEL,
+  geminiLearningModels: GEMINI_LEARNING_MODELS,
   getDb,
   getGeminiConfigStatus,
   getGroqConfigStatus,
   groqLearningModel: GROQ_LEARNING_MODEL,
+  groqLearningModels: GROQ_LEARNING_MODELS,
   groqModel: GROQ_CHAT_MODEL,
   groqVisionModel: GROQ_VISION_MODEL,
   requireAuth,
@@ -1506,13 +1522,23 @@ app.post("/api/quizzes", requireAuth(async (req, res) => {
 app.get("/api/study-assistant/status", (_req, res) => {
   const config = getGroqConfigStatus();
   const geminiConfig = getGeminiConfigStatus();
+  const learningModelChain = [
+    ...(geminiConfig.available
+      ? GEMINI_LEARNING_MODELS.map((model) => ({ provider: "gemini", model }))
+      : []),
+    ...(config.available
+      ? GROQ_LEARNING_MODELS.map((model) => ({ provider: "groq", model }))
+      : []),
+  ];
   res.json({
     available: config.available,
     model: GROQ_CHAT_MODEL,
     learningAvailable: geminiConfig.available || config.available,
     learningProvider: geminiConfig.available ? "gemini" : config.available ? "groq" : null,
-    learningModel: geminiConfig.available ? GEMINI_LEARNING_MODEL : GROQ_LEARNING_MODEL,
-    learningFallbackModel: geminiConfig.available && config.available ? GROQ_LEARNING_MODEL : null,
+    learningModel: learningModelChain[0]?.model || null,
+    learningFallbackModel: learningModelChain[1]?.model || null,
+    learningFallbackModels: learningModelChain.slice(1).map(({ model }) => model),
+    learningModelChain,
     learningMessage: geminiConfig.available
       ? geminiConfig.message
       : config.available

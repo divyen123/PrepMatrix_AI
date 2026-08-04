@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  DEFAULT_GEMINI_LEARNING_FALLBACK_MODELS,
   DEFAULT_GEMINI_LEARNING_MODEL,
-  GEMINI_LEARNING_FALLBACK_MODEL,
+  DEFAULT_GROQ_LEARNING_FALLBACK_MODELS,
+  DEFAULT_GROQ_LEARNING_MODEL,
   MAX_GEMINI_LEARNING_OUTPUT_TOKENS,
   LEARNING_RETRY_COMPLETION_TOKENS,
   MAX_GROQ_LEARNING_CHAPTERS,
@@ -13,6 +15,7 @@ import {
   MAX_LEARNING_VISION_TEXT_CHARS,
   MAX_LEARNING_TEXT_SOURCE_CHARS,
   normalizeLearningTextSources,
+  requestGeminiLearningNotebookJson,
   requestLearningNotebookJson,
   requestLearningVisionText,
   registerLearningNotebookRoutes,
@@ -20,6 +23,14 @@ import {
 import { LEARNING_PRIVACY_CONSENT_VERSION } from "../src/utils/learningPrivacyConsent.js";
 
 const TEST_IDEMPOTENCY_KEY = "9f0c91cc-6c62-4a41-8c44-b6a364cc31f8";
+const DEFAULT_GEMINI_LEARNING_MODEL_CHAIN = [
+  DEFAULT_GEMINI_LEARNING_MODEL,
+  ...DEFAULT_GEMINI_LEARNING_FALLBACK_MODELS,
+];
+const DEFAULT_GROQ_LEARNING_MODEL_CHAIN = [...new Set([
+  DEFAULT_GROQ_LEARNING_MODEL,
+  ...DEFAULT_GROQ_LEARNING_FALLBACK_MODELS,
+])];
 const TEST_QUOTA = Object.freeze({
   limit: 100,
   used: 0,
@@ -202,6 +213,94 @@ test("rejects unsupported and oversized text sources before AI work", () => {
     }]),
     (error) => error.code === "LEARNING_TEXT_SOURCE_TOO_LARGE" && error.status === 413,
   );
+});
+
+test("does not fetch after the shared learning-generation deadline", async (t) => {
+  const deadline = Date.now() - 1;
+  const cases = [
+    {
+      name: "Gemini notebook",
+      run: (fetchImpl) => requestGeminiLearningNotebookJson({
+        apiKey: "test-key",
+        deadline,
+        fetchImpl,
+        systemPrompt: "Return JSON.",
+        userPrompt: "Generate a notebook.",
+      }),
+    },
+    {
+      name: "Groq notebook",
+      run: (fetchImpl) => requestLearningNotebookJson({
+        apiKey: "test-key",
+        deadline,
+        fetchImpl,
+        model: DEFAULT_GROQ_LEARNING_MODEL,
+        systemPrompt: "Return JSON.",
+        userContent: "Generate a notebook.",
+      }),
+    },
+    {
+      name: "Groq OCR",
+      run: (fetchImpl) => requestLearningVisionText({
+        apiKey: "test-key",
+        chapterNames: ["Introduction"],
+        deadline,
+        fetchImpl,
+        model: "qwen/qwen3.6-27b",
+        subjectName: "Quantum Computing",
+        visionImages: [{
+          name: "page-1.png",
+          dataUrl: "data:image/png;base64,AAAA",
+        }],
+      }),
+    },
+  ];
+
+  for (const row of cases) {
+    await t.test(row.name, async () => {
+      let fetchCalls = 0;
+      await assert.rejects(
+        () => row.run(async () => {
+          fetchCalls += 1;
+          throw new Error("Fetch must not run.");
+        }),
+        (error) => error.code === "LEARNING_GENERATION_TIMEOUT" && error.status === 504,
+      );
+      assert.equal(fetchCalls, 0);
+    });
+  }
+});
+
+test("returns and refunds a public 504 when the shared deadline expires in flight", async () => {
+  let fetchCalls = 0;
+  const harness = createLearningRouteHarness({
+    generationDeadlineMs: 15,
+    fetchImpl: async (_url, options) => {
+      fetchCalls += 1;
+      return new Promise((_resolve, reject) => {
+        const rejectForAbort = () => {
+          reject(options.signal.reason);
+        };
+        if (options.signal.aborted) {
+          rejectForAbort();
+          return;
+        }
+        options.signal.addEventListener("abort", rejectForAbort, { once: true });
+      });
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(fetchCalls, 1);
+  assert.equal(res.statusCode, 504);
+  assert.equal(res.body.code, "LEARNING_GENERATION_TIMEOUT");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.match(res.body.error, /time limit/iu);
+  assert.match(res.body.error, /credits were refunded/iu);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
 });
 
 test("keeps the completion allowance when retrying an incomplete AI notebook response", async () => {
@@ -710,8 +809,13 @@ function groqNotebookResponse(notebook = validGeneratedNotebook()) {
 
 function createLearningRouteHarness({
   fetchImpl,
+  generationDeadlineMs,
   geminiConfig = { available: true, apiKey: "gemini-key" },
+  geminiLearningModel = DEFAULT_GEMINI_LEARNING_MODEL,
+  geminiLearningModels,
   groqConfig = { available: true, apiKey: "groq-key" },
+  groqLearningModel = DEFAULT_GROQ_LEARNING_MODEL,
+  groqLearningModels,
   logger = { warn() {} },
   prepareAttachmentContext,
   aiQuota = createTestAiQuota(),
@@ -743,14 +847,17 @@ function createLearningRouteHarness({
   registerLearningNotebookRoutes(app, {
     aiQuota,
     fetchImpl,
-    geminiLearningModel: DEFAULT_GEMINI_LEARNING_MODEL,
+    geminiLearningModel,
+    geminiLearningModels,
+    generationDeadlineMs,
     getDb: async () => {
       dbCalls += 1;
       return { collection: () => collection };
     },
     getGeminiConfigStatus: () => geminiConfig,
     getGroqConfigStatus: () => groqConfig,
-    groqLearningModel: "llama-3.3-70b-versatile",
+    groqLearningModel,
+    groqLearningModels,
     groqModel: "llama-3.1-8b-instant",
     groqVisionModel: "qwen/qwen3.6-27b",
     logger,
@@ -938,12 +1045,12 @@ test("rejects blank Gemini prose instead of storing an empty notebook", async ()
 
   assert.equal(res.statusCode, 502);
   assert.equal(res.body.code, "LEARNING_OUTPUT_INVALID");
-  assert.equal(requests, 2);
+  assert.equal(requests, DEFAULT_GEMINI_LEARNING_MODEL_CHAIN.length);
   assert.equal(harness.stored.length, 0);
   assert.equal(harness.aiQuota.calls.refund.length, 1);
 });
 
-test("tries the stable secondary Gemini model before Groq", async () => {
+test("tries the first default secondary Gemini model before Groq", async () => {
   const requestedModels = [];
   const harness = createLearningRouteHarness({
     fetchImpl: async (url) => {
@@ -964,23 +1071,131 @@ test("tries the stable secondary Gemini model before Groq", async () => {
   assert.equal(res.statusCode, 201);
   assert.deepEqual(requestedModels, [
     DEFAULT_GEMINI_LEARNING_MODEL,
-    GEMINI_LEARNING_FALLBACK_MODEL,
+    DEFAULT_GEMINI_LEARNING_FALLBACK_MODELS[0],
   ]);
-  assert.equal(res.body.notebook.model, GEMINI_LEARNING_FALLBACK_MODEL);
+  assert.equal(res.body.notebook.model, DEFAULT_GEMINI_LEARNING_FALLBACK_MODELS[0]);
 });
 
-test("lazily extracts PDFs and uses the preserved Groq fallback after a Gemini transport failure", async () => {
+test("deduplicates configured Gemini candidates and caps the provider chain", async () => {
+  const requestedModels = [];
+  const configuredModels = [
+    "gemini-cap-primary",
+    "gemini-cap-primary",
+    "gemini-cap-2",
+    "gemini-cap-3",
+    "gemini-cap-4",
+    "gemini-cap-5",
+  ];
+  const harness = createLearningRouteHarness({
+    geminiLearningModel: configuredModels[0],
+    geminiLearningModels: configuredModels,
+    groqConfig: { available: false },
+    fetchImpl: async (url) => {
+      const match = url.match(/\/models\/([^:]+):generateContent$/u);
+      requestedModels.push(decodeURIComponent(match?.[1] || ""));
+      return geminiNotebookResponse({ overview: "Incomplete" });
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.body.code, "LEARNING_OUTPUT_INVALID");
+  assert.deepEqual(requestedModels, [
+    "gemini-cap-primary",
+    "gemini-cap-2",
+    "gemini-cap-3",
+    "gemini-cap-4",
+  ]);
+});
+
+test("guards Groq PDF preparation before and after the shared deadline", async (t) => {
+  const pdfBytes = Buffer.from("%PDF-1.7\nDeadline PDF\n%%EOF", "utf8");
+  const attachments = [{
+    name: "deadline.pdf",
+    type: "application/pdf",
+    size: pdfBytes.length,
+    dataUrl: "data:application/pdf;base64," + pdfBytes.toString("base64"),
+  }];
+
+  await t.test("does not start preparation after expiry", async () => {
+    let fetchCalls = 0;
+    const harness = createLearningRouteHarness({
+      geminiConfig: { available: false },
+      generationDeadlineMs: 0,
+      fetchImpl: async () => {
+        fetchCalls += 1;
+        return groqNotebookResponse();
+      },
+    });
+
+    const res = await harness.analyze({ attachments });
+
+    assert.equal(res.statusCode, 504);
+    assert.equal(res.body.code, "LEARNING_GENERATION_TIMEOUT");
+    assert.equal(res.body.creditsRefunded, true);
+    assert.equal(harness.prepareCalls, 0);
+    assert.equal(fetchCalls, 0);
+    assert.equal(harness.aiQuota.calls.reserve.length, 1);
+    assert.equal(harness.aiQuota.calls.commit.length, 0);
+    assert.equal(harness.aiQuota.calls.refund.length, 1);
+  });
+
+  await t.test("does not generate when preparation finishes after expiry", async () => {
+    let fetchCalls = 0;
+    const harness = createLearningRouteHarness({
+      geminiConfig: { available: false },
+      generationDeadlineMs: 5,
+      fetchImpl: async () => {
+        fetchCalls += 1;
+        return groqNotebookResponse();
+      },
+      prepareAttachmentContext: async ([attachment]) => {
+        await new Promise((resolve) => {
+          setTimeout(resolve, 15);
+        });
+        return {
+          metadata: [{ name: attachment.name, type: attachment.type, size: attachment.size }],
+          pdfDocuments: [{
+            name: attachment.name,
+            text: "Processes use isolated address spaces and scheduled threads.",
+            totalPages: 1,
+            pagesRead: 1,
+            truncated: false,
+          }],
+          visionImages: [],
+        };
+      },
+    });
+
+    const res = await harness.analyze({ attachments });
+
+    assert.equal(res.statusCode, 504);
+    assert.equal(res.body.code, "LEARNING_GENERATION_TIMEOUT");
+    assert.equal(res.body.creditsRefunded, true);
+    assert.equal(harness.prepareCalls, 1);
+    assert.equal(fetchCalls, 0);
+    assert.equal(harness.aiQuota.calls.reserve.length, 1);
+    assert.equal(harness.aiQuota.calls.commit.length, 0);
+    assert.equal(harness.aiQuota.calls.refund.length, 1);
+  });
+});
+
+test("crosses directly to Groq after one Gemini transport failure and lazily extracts PDFs", async () => {
   const sequence = [];
   const groqRequests = [];
   const pdfBytes = Buffer.from("%PDF-1.7\nFallback PDF\n%%EOF", "utf8");
   const harness = createLearningRouteHarness({
     fetchImpl: async (url, options) => {
       if (url.includes("generativelanguage.googleapis.com")) {
-        sequence.push("gemini");
+        const match = url.match(/\/models\/([^:]+):generateContent$/u);
+        const model = decodeURIComponent(match?.[1] || "");
+        sequence.push("gemini:" + model);
         throw new TypeError("network unavailable");
       }
-      sequence.push("groq");
-      groqRequests.push(JSON.parse(options.body));
+      const request = JSON.parse(options.body);
+      sequence.push("groq:" + request.model);
+      groqRequests.push(request);
       return groqNotebookResponse();
     },
     prepareAttachmentContext: async ([attachment]) => {
@@ -1010,20 +1225,149 @@ test("lazily extracts PDFs and uses the preserved Groq fallback after a Gemini t
   });
 
   assert.equal(res.statusCode, 201);
-  assert.deepEqual(sequence, ["gemini", "gemini", "prepare", "groq"]);
+  assert.deepEqual(sequence, [
+    "gemini:" + DEFAULT_GEMINI_LEARNING_MODEL,
+    "prepare",
+    "groq:" + DEFAULT_GROQ_LEARNING_MODEL,
+  ]);
   assert.equal(harness.prepareCalls, 1);
   assert.ok(groqRequests[0].max_tokens < MAX_LEARNING_COMPLETION_TOKENS);
   assert.ok(groqRequests[0].max_tokens >= 3_000);
   assert.match(groqRequests[0].messages[1].content, /Generate exactly 4 distinct.*exactly 2 meaningful subtopics/u);
   assert.match(groqRequests[0].messages[1].content, /4-5 specific key points/u);
   assert.match(groqRequests[0].messages[1].content, /isolated address spaces/u);
-  assert.equal(harness.stored[0].model, "llama-3.3-70b-versatile");
-  assert.equal(res.body.notebook.model, "llama-3.3-70b-versatile");
+  assert.equal(harness.stored[0].model, DEFAULT_GROQ_LEARNING_MODEL);
+  assert.equal(res.body.notebook.model, DEFAULT_GROQ_LEARNING_MODEL);
   assert.equal(harness.aiQuota.calls.reserve.length, 1);
   assert.equal(harness.aiQuota.calls.reserve[0].feature, "learning_notebook");
   assert.equal(harness.aiQuota.calls.commit.length, 1);
   assert.equal(harness.aiQuota.calls.refund.length, 0);
   assert.equal(res.headers["X-AI-Credit-Cost"], "12");
+});
+
+test("crosses directly to Groq after one invalid Gemini API-key response", async () => {
+  const attempts = [];
+  const harness = createLearningRouteHarness({
+    fetchImpl: async (url, options) => {
+      if (url.includes("generativelanguage.googleapis.com")) {
+        const match = url.match(/\/models\/([^:]+):generateContent$/u);
+        attempts.push({
+          provider: "gemini",
+          model: decodeURIComponent(match?.[1] || ""),
+        });
+        return {
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: {
+              code: 400,
+              details: [{
+                "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                reason: "API_KEY_INVALID",
+              }],
+              message: "API key not valid. Please pass a valid API key.",
+              status: "INVALID_ARGUMENT",
+            },
+          }),
+        };
+      }
+
+      const request = JSON.parse(options.body);
+      attempts.push({ provider: "groq", model: request.model });
+      return groqNotebookResponse();
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(attempts, [
+    {
+      provider: "gemini",
+      model: DEFAULT_GEMINI_LEARNING_MODEL,
+    },
+    {
+      provider: "groq",
+      model: DEFAULT_GROQ_LEARNING_MODEL,
+    },
+  ]);
+  assert.equal(harness.stored[0].model, DEFAULT_GROQ_LEARNING_MODEL);
+  assert.equal(res.body.notebook.model, DEFAULT_GROQ_LEARNING_MODEL);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("tries every Gemini candidate before the second configured Groq model succeeds", async () => {
+  const geminiModels = ["gemini-test-primary", "gemini-test-secondary"];
+  const groqModels = ["groq-test-primary", "groq-test-secondary"];
+  const attempts = [];
+  const pdfBytes = Buffer.from("%PDF-1.7\nMulti-model fallback PDF\n%%EOF", "utf8");
+  const harness = createLearningRouteHarness({
+    geminiLearningModel: geminiModels[0],
+    geminiLearningModels: geminiModels,
+    groqLearningModel: groqModels[0],
+    groqLearningModels: groqModels,
+    fetchImpl: async (url, options) => {
+      if (url.includes("generativelanguage.googleapis.com")) {
+        const match = url.match(/\/models\/([^:]+):generateContent$/u);
+        const model = decodeURIComponent(match?.[1] || "");
+        attempts.push({ provider: "gemini", model });
+        return geminiNotebookResponse({ overview: "Incomplete" });
+      }
+
+      const request = JSON.parse(options.body);
+      attempts.push({ provider: "groq", model: request.model });
+      if (request.model === groqModels[0]) {
+        return {
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: {
+              code: "model_unavailable",
+              message: "The selected model is unavailable.",
+            },
+          }),
+        };
+      }
+      return groqNotebookResponse();
+    },
+    prepareAttachmentContext: async ([attachment]) => {
+      assert.equal(attachment.buffer.toString("utf8"), pdfBytes.toString("utf8"));
+      return {
+        metadata: [{ name: attachment.name, type: attachment.type, size: attachment.size }],
+        pdfDocuments: [{
+          name: attachment.name,
+          text: "Processes use isolated address spaces and scheduled threads.",
+          totalPages: 1,
+          pagesRead: 1,
+          truncated: false,
+        }],
+        visionImages: [],
+      };
+    },
+  });
+
+  const res = await harness.analyze({
+    attachments: [{
+      name: "multi-model-fallback.pdf",
+      type: "application/pdf",
+      size: pdfBytes.length,
+      dataUrl: "data:application/pdf;base64," + pdfBytes.toString("base64"),
+    }],
+  });
+
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(attempts, [
+    ...geminiModels.map((model) => ({ provider: "gemini", model })),
+    ...groqModels.map((model) => ({ provider: "groq", model })),
+  ]);
+  assert.equal(harness.prepareCalls, 1);
+  assert.equal(harness.stored[0].model, groqModels[1]);
+  assert.equal(res.body.notebook.model, groqModels[1]);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
 });
 
 test("falls back to Groq when Gemini returns malformed notebook output", async () => {
@@ -1041,8 +1385,8 @@ test("falls back to Groq when Gemini returns malformed notebook output", async (
   const res = await harness.analyze();
 
   assert.equal(res.statusCode, 201);
-  assert.equal(requestCount, 3);
-  assert.equal(res.body.notebook.model, "llama-3.3-70b-versatile");
+  assert.equal(requestCount, DEFAULT_GEMINI_LEARNING_MODEL_CHAIN.length + 1);
+  assert.equal(res.body.notebook.model, DEFAULT_GROQ_LEARNING_MODEL);
 });
 
 test("logs provider failures without leaking source or credential data", async () => {
@@ -1067,38 +1411,25 @@ test("logs provider failures without leaking source or credential data", async (
 
   assert.equal(res.statusCode, 429);
   assert.equal(res.body.code, "AI_PROVIDER_RATE_LIMITED");
-  assert.deepEqual(warnings, [
+  assert.deepEqual(
+    warnings.map(([, details]) => ({
+      model: details.model,
+      provider: details.provider,
+    })),
     [
-      "[Learning notebook] provider request failed",
-      {
-        code: "LEARNING_OUTPUT_INVALID",
-        model: DEFAULT_GEMINI_LEARNING_MODEL,
-        phase: "primary",
-        provider: "gemini",
-        status: 502,
-      },
+      ...DEFAULT_GEMINI_LEARNING_MODEL_CHAIN.map((model) => ({ model, provider: "gemini" })),
+      ...DEFAULT_GROQ_LEARNING_MODEL_CHAIN.map((model) => ({ model, provider: "groq" })),
     ],
-    [
-      "[Learning notebook] provider request failed",
-      {
-        code: "LEARNING_OUTPUT_INVALID",
-        model: GEMINI_LEARNING_FALLBACK_MODEL,
-        phase: "secondary",
-        provider: "gemini",
-        status: 502,
-      },
-    ],
-    [
-      "[Learning notebook] provider request failed",
-      {
-        code: "LEARNING_PROVIDER_RATE_LIMIT",
-        model: "llama-3.3-70b-versatile",
-        phase: "fallback",
-        provider: "groq",
-        status: 429,
-      },
-    ],
-  ]);
+  );
+  warnings.forEach(([message, details], index) => {
+    const isGemini = index < DEFAULT_GEMINI_LEARNING_MODEL_CHAIN.length;
+    assert.equal(message, "[Learning notebook] provider request failed");
+    assert.equal(details.code, isGemini
+      ? "LEARNING_OUTPUT_INVALID"
+      : "LEARNING_PROVIDER_RATE_LIMIT");
+    assert.equal(details.status, isGemini ? 502 : 429);
+    assert.ok(["primary", "secondary", "fallback"].includes(details.phase));
+  });
   assert.doesNotMatch(
     JSON.stringify(warnings),
     /gemini-key|groq-key|Operating Systems|Processes/u,
@@ -1150,7 +1481,7 @@ test("returns the public provider-rate-limit error and refunds after repeated Gr
 
   const res = await harness.analyze();
 
-  assert.equal(fetchCalls, 2);
+  assert.equal(fetchCalls, DEFAULT_GROQ_LEARNING_MODEL_CHAIN.length);
   assert.equal(res.statusCode, 429);
   assert.equal(res.body.code, "AI_PROVIDER_RATE_LIMITED");
   assert.equal(res.body.creditsRefunded, true);
@@ -1253,7 +1584,7 @@ test("refunds one learning-notebook reservation when the provider is unavailable
   assert.equal(res.body.code, "AI_PROVIDER_UNAVAILABLE");
   assert.equal(res.body.creditsRefunded, true);
   assert.match(res.body.error, /credits were refunded/iu);
-  assert.equal(fetchCalls, 2);
+  assert.equal(fetchCalls, 1);
   assert.equal(aiQuota.calls.reserve.length, 1);
   assert.equal(aiQuota.calls.commit.length, 0);
   assert.equal(aiQuota.calls.refund.length, 1);
@@ -1318,7 +1649,7 @@ test("supports Gemini-first, Gemini-only, Groq-only, and unavailable provider co
       if (row.provider) {
         assert.equal(
           res.body.notebook.model,
-          row.provider === "gemini" ? DEFAULT_GEMINI_LEARNING_MODEL : "llama-3.3-70b-versatile",
+          row.provider === "gemini" ? DEFAULT_GEMINI_LEARNING_MODEL : DEFAULT_GROQ_LEARNING_MODEL,
         );
       } else {
         assert.equal(res.body.code, "AI_PROVIDER_UNAVAILABLE");
