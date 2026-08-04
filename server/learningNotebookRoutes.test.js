@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_GEMINI_LEARNING_MODEL,
+  GEMINI_LEARNING_FALLBACK_MODEL,
   MAX_GEMINI_LEARNING_OUTPUT_TOKENS,
   LEARNING_RETRY_COMPLETION_TOKENS,
   MAX_GROQ_LEARNING_CHAPTERS,
@@ -711,6 +712,7 @@ function createLearningRouteHarness({
   fetchImpl,
   geminiConfig = { available: true, apiKey: "gemini-key" },
   groqConfig = { available: true, apiKey: "groq-key" },
+  logger = { warn() {} },
   prepareAttachmentContext,
   aiQuota = createTestAiQuota(),
 } = {}) {
@@ -751,6 +753,7 @@ function createLearningRouteHarness({
     groqLearningModel: "llama-3.3-70b-versatile",
     groqModel: "llama-3.1-8b-instant",
     groqVisionModel: "qwen/qwen3.6-27b",
+    logger,
     prepareAttachmentContext: async (attachments) => {
       prepareCalls += 1;
       if (prepareAttachmentContext) return prepareAttachmentContext(attachments);
@@ -877,6 +880,95 @@ test("uses Gemini structured output with native PDF and image bytes without loca
   assert.equal(res.body.notebook.model, DEFAULT_GEMINI_LEARNING_MODEL);
 });
 
+test("accepts concise structured Gemini notebooks without falling back", async () => {
+  const conciseNotebook = validGeneratedNotebook();
+  conciseNotebook.chapters = conciseNotebook.chapters.map((chapter) => ({
+    ...chapter,
+    summary: "Concise chapter summary.",
+    topics: chapter.topics.map((topic) => ({
+      ...topic,
+      explanation: "Concise explanation.",
+      subtopics: topic.subtopics.map((subtopic) => ({
+        ...subtopic,
+        explanation: "Concise subtopic explanation.",
+      })),
+    })),
+  }));
+  const providers = [];
+  const harness = createLearningRouteHarness({
+    fetchImpl: async (url) => {
+      const provider = url.includes("generativelanguage.googleapis.com") ? "gemini" : "groq";
+      providers.push(provider);
+      if (provider === "groq") assert.fail("Structured Gemini output should not use Groq.");
+      return geminiNotebookResponse(conciseNotebook);
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(providers, ["gemini"]);
+  assert.equal(res.body.notebook.model, DEFAULT_GEMINI_LEARNING_MODEL);
+});
+
+test("rejects blank Gemini prose instead of storing an empty notebook", async () => {
+  const blankNotebook = validGeneratedNotebook();
+  blankNotebook.chapters = blankNotebook.chapters.map((chapter) => ({
+    ...chapter,
+    summary: " ",
+    topics: chapter.topics.map((topic) => ({
+      ...topic,
+      explanation: " ",
+      subtopics: topic.subtopics.map((subtopic) => ({
+        ...subtopic,
+        explanation: " ",
+      })),
+    })),
+  }));
+  let requests = 0;
+  const harness = createLearningRouteHarness({
+    groqConfig: { available: false },
+    fetchImpl: async () => {
+      requests += 1;
+      return geminiNotebookResponse(blankNotebook);
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.body.code, "LEARNING_OUTPUT_INVALID");
+  assert.equal(requests, 2);
+  assert.equal(harness.stored.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("tries the stable secondary Gemini model before Groq", async () => {
+  const requestedModels = [];
+  const harness = createLearningRouteHarness({
+    fetchImpl: async (url) => {
+      if (!url.includes("generativelanguage.googleapis.com")) {
+        assert.fail("The secondary Gemini model should prevent a Groq request.");
+      }
+      const match = url.match(/\/models\/([^:]+):generateContent$/u);
+      const model = decodeURIComponent(match?.[1] || "");
+      requestedModels.push(model);
+      return requestedModels.length === 1
+        ? geminiNotebookResponse({ overview: "Incomplete" })
+        : geminiNotebookResponse();
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(requestedModels, [
+    DEFAULT_GEMINI_LEARNING_MODEL,
+    GEMINI_LEARNING_FALLBACK_MODEL,
+  ]);
+  assert.equal(res.body.notebook.model, GEMINI_LEARNING_FALLBACK_MODEL);
+});
+
 test("lazily extracts PDFs and uses the preserved Groq fallback after a Gemini transport failure", async () => {
   const sequence = [];
   const groqRequests = [];
@@ -918,7 +1010,7 @@ test("lazily extracts PDFs and uses the preserved Groq fallback after a Gemini t
   });
 
   assert.equal(res.statusCode, 201);
-  assert.deepEqual(sequence, ["gemini", "prepare", "groq"]);
+  assert.deepEqual(sequence, ["gemini", "gemini", "prepare", "groq"]);
   assert.equal(harness.prepareCalls, 1);
   assert.ok(groqRequests[0].max_tokens < MAX_LEARNING_COMPLETION_TOKENS);
   assert.ok(groqRequests[0].max_tokens >= 3_000);
@@ -949,8 +1041,68 @@ test("falls back to Groq when Gemini returns malformed notebook output", async (
   const res = await harness.analyze();
 
   assert.equal(res.statusCode, 201);
-  assert.equal(requestCount, 2);
+  assert.equal(requestCount, 3);
   assert.equal(res.body.notebook.model, "llama-3.3-70b-versatile");
+});
+
+test("logs provider failures without leaking source or credential data", async () => {
+  const warnings = [];
+  const harness = createLearningRouteHarness({
+    fetchImpl: async (url) => (
+      url.includes("generativelanguage.googleapis.com")
+        ? geminiNotebookResponse({ overview: "Incomplete" })
+        : providerRateLimitResponse()
+    ),
+    logger: {
+      warn(...args) {
+        warnings.push(args);
+      },
+    },
+  });
+
+  const res = await harness.analyze({
+    subjectName: "Operating Systems",
+    chapterNames: ["Processes"],
+  });
+
+  assert.equal(res.statusCode, 429);
+  assert.equal(res.body.code, "AI_PROVIDER_RATE_LIMITED");
+  assert.deepEqual(warnings, [
+    [
+      "[Learning notebook] provider request failed",
+      {
+        code: "LEARNING_OUTPUT_INVALID",
+        model: DEFAULT_GEMINI_LEARNING_MODEL,
+        phase: "primary",
+        provider: "gemini",
+        status: 502,
+      },
+    ],
+    [
+      "[Learning notebook] provider request failed",
+      {
+        code: "LEARNING_OUTPUT_INVALID",
+        model: GEMINI_LEARNING_FALLBACK_MODEL,
+        phase: "secondary",
+        provider: "gemini",
+        status: 502,
+      },
+    ],
+    [
+      "[Learning notebook] provider request failed",
+      {
+        code: "LEARNING_PROVIDER_RATE_LIMIT",
+        model: "llama-3.3-70b-versatile",
+        phase: "fallback",
+        provider: "groq",
+        status: 429,
+      },
+    ],
+  ]);
+  assert.doesNotMatch(
+    JSON.stringify(warnings),
+    /gemini-key|groq-key|Operating Systems|Processes/u,
+  );
 });
 
 test("rejects oversized Groq-only chapter sets before reserving credits", async () => {
@@ -1101,7 +1253,7 @@ test("refunds one learning-notebook reservation when the provider is unavailable
   assert.equal(res.body.code, "AI_PROVIDER_UNAVAILABLE");
   assert.equal(res.body.creditsRefunded, true);
   assert.match(res.body.error, /credits were refunded/iu);
-  assert.equal(fetchCalls, 1);
+  assert.equal(fetchCalls, 2);
   assert.equal(aiQuota.calls.reserve.length, 1);
   assert.equal(aiQuota.calls.commit.length, 0);
   assert.equal(aiQuota.calls.refund.length, 1);

@@ -33,6 +33,7 @@ export const LEARNING_RETRY_COMPLETION_TOKENS = 5_000;
 export const MAX_GEMINI_LEARNING_OUTPUT_TOKENS = 24_576;
 export const MAX_GROQ_LEARNING_CHAPTERS = 12;
 export const DEFAULT_GEMINI_LEARNING_MODEL = "gemini-3.5-flash-lite";
+export const GEMINI_LEARNING_FALLBACK_MODEL = "gemini-2.5-flash-lite";
 
 const LEARNING_TEXT_TYPES = new Set([
   "text/plain",
@@ -44,6 +45,7 @@ const GEMINI_GENERATE_CONTENT_BASE_URL = "https://generativelanguage.googleapis.
 const PROVIDER_TIMEOUT_MS = 75_000;
 const PROVIDER_RETRY_BASE_DELAY_MS = 650;
 const PROVIDER_RETRY_MAX_DELAY_MS = 2_500;
+const MIN_GEMINI_LEARNING_PROSE_LENGTH = 20;
 const PROVIDER_TRANSIENT_RETRY_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const GROQ_LEARNING_TOKEN_BUDGET = 12_000;
 const GROQ_LEARNING_TOKEN_HEADROOM = 750;
@@ -1027,6 +1029,32 @@ function objectIdFromParam(value) {
   return new ObjectId(value);
 }
 
+function learningGeminiModels(configuredModel) {
+  return [...new Set([
+    cleanInline(configuredModel, 120) || DEFAULT_GEMINI_LEARNING_MODEL,
+    GEMINI_LEARNING_FALLBACK_MODEL,
+  ])];
+}
+
+function logLearningProviderFailure(logger, {
+  model,
+  phase,
+  provider,
+}, error) {
+  const status = Number(error?.status);
+  try {
+    logger?.warn?.("[Learning notebook] provider request failed", {
+      code: cleanInline(error?.code, 100) || "UNKNOWN",
+      model: cleanInline(model, 120) || "unknown",
+      phase,
+      provider,
+      status: Number.isFinite(status) ? status : 500,
+    });
+  } catch {
+    // Operational diagnostics must never affect generation or credit refunds.
+  }
+}
+
 export function registerLearningNotebookRoutes(app, {
   aiQuota,
   fetchImpl = globalThis.fetch,
@@ -1037,6 +1065,7 @@ export function registerLearningNotebookRoutes(app, {
   groqLearningModel,
   groqModel,
   groqVisionModel,
+  logger = console,
   now = () => new Date(),
   prepareAttachmentContext = prepareChatAttachmentContext,
   requireAuth,
@@ -1159,40 +1188,59 @@ export function registerLearningNotebookRoutes(app, {
       let generationResult = null;
       let geminiFailure = null;
       if (geminiAvailable) {
+        const geminiModels = learningGeminiModels(geminiLearningModel);
+        for (const [index, model] of geminiModels.entries()) {
+          try {
+            generationResult = await generateLearningNotebookWithGemini({
+              apiKey: geminiConfig.apiKey,
+              attachments,
+              careerEligibility,
+              chapterNames,
+              fetchImpl,
+              learnerContext,
+              manualMode,
+              model,
+              subjectName,
+              textSources,
+            });
+            break;
+          } catch (error) {
+            const canFallback = isGeminiFallbackError(error);
+            logLearningProviderFailure(logger, {
+              model,
+              phase: index === 0 ? "primary" : "secondary",
+              provider: "gemini",
+            }, error);
+            if (!canFallback) throw error;
+            geminiFailure = error;
+          }
+        }
+      }
+      if (!generationResult && groqAvailable && chapterNames.length <= MAX_GROQ_LEARNING_CHAPTERS) {
         try {
-          generationResult = await generateLearningNotebookWithGemini({
-            apiKey: geminiConfig.apiKey,
+          generationResult = await generateLearningNotebookWithGroq({
+            apiKey: groqConfig.apiKey,
             attachments,
             careerEligibility,
             chapterNames,
             fetchImpl,
+            groqLearningModel,
+            groqModel,
+            groqVisionModel,
             learnerContext,
             manualMode,
-            model: geminiLearningModel || DEFAULT_GEMINI_LEARNING_MODEL,
+            prepareAttachmentContext,
             subjectName,
             textSources,
           });
         } catch (error) {
-          if (!isGeminiFallbackError(error)) throw error;
-          geminiFailure = error;
+          logLearningProviderFailure(logger, {
+            model: groqLearningModel || groqModel,
+            phase: geminiFailure ? "fallback" : "primary",
+            provider: "groq",
+          }, error);
+          throw error;
         }
-      }
-      if (!generationResult && groqAvailable && chapterNames.length <= MAX_GROQ_LEARNING_CHAPTERS) {
-        generationResult = await generateLearningNotebookWithGroq({
-          apiKey: groqConfig.apiKey,
-          attachments,
-          careerEligibility,
-          chapterNames,
-          fetchImpl,
-          groqLearningModel,
-          groqModel,
-          groqVisionModel,
-          learnerContext,
-          manualMode,
-          prepareAttachmentContext,
-          subjectName,
-          textSources,
-        });
       }
       if (!generationResult) {
         if (geminiFailure) throw geminiFailure;
@@ -2197,11 +2245,13 @@ async function generateLearningNotebookWithGemini({
     model,
     responseSchema: buildLearningNotebookResponseSchema(prompts.depthTargets),
     systemPrompt: prompts.systemPrompt,
+    validateNotebook: (value) => hasGeneratedLearningNotebookDepth(value, {
+      ...prompts.depthTargets,
+      minimumChapterSummaryLength: MIN_GEMINI_LEARNING_PROSE_LENGTH,
+      minimumTopicExplanationLength: MIN_GEMINI_LEARNING_PROSE_LENGTH,
+      minimumSubtopicExplanationLength: MIN_GEMINI_LEARNING_PROSE_LENGTH,
+    }),
     userPrompt: prompts.userPrompt,
-    validateNotebook: (value) => hasGeneratedLearningNotebookDepth(
-      value,
-      prompts.depthTargets,
-    ),
   });
   return {
     generated,

@@ -807,6 +807,9 @@ export function hasGeneratedLearningNotebookDepth(value, options = {}) {
   const minimumImportantQuestions = Math.max(1, Number.parseInt(options.minimumImportantQuestions, 10) || 8);
   const minimumNoteSections = Math.max(1, Number.parseInt(options.minimumNoteSections, 10) || 4);
   const expectedChapterCount = Math.max(0, Number.parseInt(options.expectedChapterCount, 10) || 0);
+  const minimumChapterSummaryLength = Math.max(1, Number.parseInt(options.minimumChapterSummaryLength, 10) || 40);
+  const minimumTopicExplanationLength = Math.max(1, Number.parseInt(options.minimumTopicExplanationLength, 10) || 120);
+  const minimumSubtopicExplanationLength = Math.max(1, Number.parseInt(options.minimumSubtopicExplanationLength, 10) || 60);
   const normalized = normalizeLearningNotebook(value, {
     subjectName: value?.subjectName || value?.title || "Generated notebook",
   });
@@ -816,15 +819,15 @@ export function hasGeneratedLearningNotebookDepth(value, options = {}) {
   if (!hasMinimumItems(normalized.revisedNotes, minimumNoteSections)) return false;
 
   return normalized.chapters.every((chapter) => (
-    hasDetailedText(chapter.summary, 40)
+    hasDetailedText(chapter.summary, minimumChapterSummaryLength)
     && hasMinimumItems(chapter.topics, minimumTopicsPerChapter)
     && chapter.topics.every((topic) => (
-      hasDetailedText(topic.explanation, 120)
+      hasDetailedText(topic.explanation, minimumTopicExplanationLength)
       && hasMinimumItems(topic.keyPoints, 4)
       && hasMinimumItems(topic.examples, minimumExamplesPerTopic)
       && hasMinimumItems(topic.subtopics, minimumSubtopicsPerTopic)
       && topic.subtopics.every((subtopic) => (
-        hasDetailedText(subtopic.explanation, 60)
+        hasDetailedText(subtopic.explanation, minimumSubtopicExplanationLength)
         && hasMinimumItems(subtopic.keyPoints, 2)
         && hasMinimumItems(subtopic.examples, minimumExamplesPerSubtopic)
       ))
