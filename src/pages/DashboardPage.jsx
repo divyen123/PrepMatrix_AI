@@ -323,20 +323,13 @@ function DashboardPage({
         )}
       </div>
 
-      {/* ── Subjects Popup ──────────────────────────────────────── */}
-      <div
-        className={`db-subjects-popup-overlay ${showSubjectsPopup ? "open" : ""}`}
-        onClick={() => setShowSubjectsPopup(false)}
-        role="presentation"
-      >
-        <div 
-          className={`db-subjects-popup-container ${showSubjectsPopup ? "open" : ""}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="db-subjects-popup-header">
+      {/* ── Subjects Timeline ───────────────────────────────────── */}
+      {showSubjectsPopup && (
+        <div className="db-subjects-timeline-wrapper">
+          <div className="db-subjects-timeline-header">
             <h3>Your Subjects</h3>
             <button
-              className="db-subjects-popup-close"
+              className="db-subjects-timeline-close"
               onClick={() => setShowSubjectsPopup(false)}
               title="Close"
               type="button"
@@ -345,22 +338,28 @@ function DashboardPage({
             </button>
           </div>
           
-          <div className="db-subjects-popup-body">
-            {subjects.length === 0 ? (
-              <p className="db-subjects-empty">No subjects added yet.</p>
-            ) : (
-              <ul className="db-subjects-list">
-                {subjects.map((s) => (
-                  <li key={s.id} className="db-subject-item">
-                    <span className="db-subject-name">{s.name}</span>
-                    <span className="db-subject-chapters">{s.chapters || 0} chapters</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          {subjects.length === 0 ? (
+            <p className="db-subjects-empty">No subjects added yet.</p>
+          ) : (
+            <div className="db-subjects-timeline">
+              <div className="db-timeline-line"></div>
+              {subjects.map((s, index) => (
+                <div 
+                  key={s.id} 
+                  className="db-timeline-node"
+                  style={{ animationDelay: `${index * 0.15}s` }}
+                >
+                  <div className="db-timeline-dot"></div>
+                  <div className="db-timeline-content">
+                    <span className="db-timeline-name">{s.name}</span>
+                    <span className="db-timeline-chapters">{s.chapters || 0} chapters</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
-          <div className="db-subjects-popup-footer">
+          <div className="db-subjects-timeline-footer">
             <button
               className="primary-btn db-subjects-open-btn"
               onClick={() => navigate("/subjects")}
@@ -370,7 +369,7 @@ function DashboardPage({
             </button>
           </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
