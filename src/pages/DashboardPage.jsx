@@ -255,7 +255,7 @@ function DashboardPage({
                 cursor:               "pointer",
               }}
               onClick={() => {
-                if (card.label.toLowerCase().includes("subject")) setShowSubjectsPopup(true);
+                if (card.label.toLowerCase().includes("subject")) setShowSubjectsPopup((prev) => !prev);
                 else if (card.label.toLowerCase().includes("planned")) navigate("/planner");
                 else navigate("/analytics");
               }}
@@ -264,7 +264,7 @@ function DashboardPage({
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  if (card.label.toLowerCase().includes("subject")) setShowSubjectsPopup(true);
+                  if (card.label.toLowerCase().includes("subject")) setShowSubjectsPopup((prev) => !prev);
                   else if (card.label.toLowerCase().includes("planned")) navigate("/planner");
                   else navigate("/analytics");
                 }
@@ -324,52 +324,38 @@ function DashboardPage({
       </div>
 
       {/* ── Subjects Timeline ───────────────────────────────────── */}
-      {showSubjectsPopup && (
-        <div className="db-subjects-timeline-wrapper">
-          <div className="db-subjects-timeline-header">
-            <h3>Your Subjects</h3>
-            <button
-              className="db-subjects-timeline-close"
-              onClick={() => setShowSubjectsPopup(false)}
-              title="Close"
-              type="button"
-            >
-              ✕
-            </button>
-          </div>
-          
-          {subjects.length === 0 ? (
-            <p className="db-subjects-empty">No subjects added yet.</p>
-          ) : (
-            <div className="db-subjects-timeline">
-              <div className="db-timeline-line"></div>
-              {subjects.map((s, index) => (
-                <div 
-                  key={s.id} 
-                  className="db-timeline-node"
-                  style={{ animationDelay: `${index * 0.15}s` }}
-                >
-                  <div className="db-timeline-dot"></div>
-                  <div className="db-timeline-content">
-                    <span className="db-timeline-name">{s.name}</span>
-                    <span className="db-timeline-chapters">{s.chapters || 0} chapters</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="db-subjects-timeline-footer">
-            <button
-              className="primary-btn db-subjects-open-btn"
-              onClick={() => navigate("/subjects")}
-              type="button"
-            >
-              Open subjects
-            </button>
-          </div>
+      <div className={`db-subjects-timeline-wrapper ${showSubjectsPopup ? "open" : ""}`}>
+        <div className="db-subjects-timeline-header">
+          <h3>Your Subjects</h3>
+          <button
+            className="primary-btn db-subjects-open-btn"
+            onClick={() => navigate("/subjects")}
+            type="button"
+          >
+            Open subjects
+          </button>
         </div>
-      )}
+        
+        {subjects.length === 0 ? (
+          <p className="db-subjects-empty">No subjects added yet.</p>
+        ) : (
+          <div className="db-subjects-timeline">
+            {subjects.map((s, index) => (
+              <div 
+                key={s.id} 
+                className="db-timeline-node"
+                style={{ animationDelay: `${index * 0.15}s` }}
+              >
+                <div className="db-timeline-dot"></div>
+                <div className="db-timeline-content">
+                  <span className="db-timeline-name">{s.name}</span>
+                  <span className="db-timeline-chapters">{s.chapters || 0} chapters</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

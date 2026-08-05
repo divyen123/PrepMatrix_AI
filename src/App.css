@@ -20752,17 +20752,22 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 }
 /* -- Subjects Timeline ------------------------------------------ */
 .db-subjects-timeline-wrapper {
-  margin-top: 2rem;
-  padding: 1rem 0;
+  margin-top: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  animation: fadeIn 0.4s ease forwards;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.db-subjects-timeline-wrapper.open {
+  margin-top: 2rem;
+  padding: 1rem 0;
+  max-height: 1000px;
+  opacity: 1;
 }
 
 .db-subjects-timeline-header {
@@ -20774,18 +20779,6 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 .db-subjects-timeline-header h3 {
   margin: 0;
   font-size: 1.2rem;
-  color: var(--text);
-}
-
-.db-subjects-timeline-close {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 1.2rem;
-  transition: color 0.2s;
-}
-.db-subjects-timeline-close:hover {
   color: var(--text);
 }
 
@@ -20858,12 +20851,6 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 .db-timeline-chapters {
   font-size: 0.8rem;
   color: var(--text-muted);
-}
-
-.db-subjects-timeline-footer {
-  display: flex;
-  justify-content: center;
-  margin-top: 1rem;
 }
 
 .db-subjects-open-btn {
