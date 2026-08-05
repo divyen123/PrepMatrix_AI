@@ -20346,6 +20346,7 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 
 /* -- Search bar – single-layer pill, no inner box -------------- */
 .db-search-form {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.55rem;
@@ -20636,4 +20637,79 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   .db-panel-inner .smart-suggestion-strip {
     grid-template-columns: 1fr;
   }
+}
+
+/* -- Dashboard search bar: action buttons (mic / attach) ------- */
+.db-search-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  min-height: unset;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+
+.db-search-action-btn:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: scale(1.1);
+}
+
+/* Mic active state */
+.db-mic-btn--active {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.db-mic-btn--active:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* Pulsing red dot when recording */
+.db-mic-pulse {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: db-mic-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes db-mic-pulse {
+  0%, 100% { transform: scale(1);   opacity: 1; }
+  50%       { transform: scale(1.5); opacity: 0.6; }
+}
+
+/* Drag-over state for the search form */
+.db-search-form--dragging {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-soft) !important;
+  position: relative;
+}
+
+/* Semi-transparent overlay shown during drag */
+.db-drop-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--accent);
+  font-size: 0.84rem;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 2;
 }

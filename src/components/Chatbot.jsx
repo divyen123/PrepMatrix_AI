@@ -902,12 +902,30 @@ function Chatbot({
     };
 
     window.openStudyAssistant = () => setOpen(true);
+
+    // Allow the dashboard search bar to open the chatbot's file picker
+    window.triggerChatAttachment = () => {
+      setOpen(true);
+      // Give the panel a frame to mount before clicking the hidden input
+      window.requestAnimationFrame(() => {
+        fileInputRef.current?.click();
+      });
+    };
+
+    // Allow the dashboard search bar to start/stop the chatbot's mic
+    window.toggleChatMic = () => {
+      setOpen(true);
+      window.requestAnimationFrame(() => handleMicClick());
+    };
+
     window.addEventListener("prepmatrixOpenChatSession", openChatSession);
 
     return () => {
       window.removeEventListener("prepmatrixOpenChatSession", openChatSession);
       delete window.sendToChatbot;
       delete window.openStudyAssistant;
+      delete window.triggerChatAttachment;
+      delete window.toggleChatMic;
     };
   }, [fetchSessions, handleSelectSession, sendMessage]);
 
