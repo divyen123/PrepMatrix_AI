@@ -205,7 +205,7 @@ function DashboardPage({
                 }}
                 aria-label="Remove document"
               >
-                <X size={12} />
+                <X size={16} />
               </button>
             </div>
           ))}
