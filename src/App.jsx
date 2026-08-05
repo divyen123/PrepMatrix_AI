@@ -1567,6 +1567,7 @@ function App() {
                               metrics={metrics}
                               overviewCards={overviewCards}
                               schedule={schedule}
+                              userProfile={userProfile}
                             />
                           }
                           path="/dashboard"

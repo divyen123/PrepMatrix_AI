@@ -20319,3 +20319,237 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
     transform: translate3d(6px, 0, 0);
   }
 }
+
+/* ---------------------------------------------------------------
+   NEW DASHBOARD PAGE  (db-* namespace)
+--------------------------------------------------------------- */
+
+.db-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 3rem;
+  width: 100%;
+}
+
+/* -- Hero / Welcome ------------------------------------------- */
+.db-hero {
+  text-align: center;
+  padding: 3rem 0 2rem;
+}
+
+.db-welcome {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0 0 0.35rem;
+  line-height: 1.15;
+}
+
+.db-tagline {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin: 0 0 2rem;
+}
+
+/* -- Search Bar ---------------------------------------------- */
+.db-search-form {
+  width: 100%;
+  max-width: 580px;
+  margin: 0 auto;
+}
+
+.db-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface-strong);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 0.6rem 1rem 0.6rem 1.1rem;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.db-search-wrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 4px 24px rgba(0,0,0,0.08);
+}
+
+.db-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.db-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.97rem;
+  color: var(--text);
+  padding: 0;
+  min-height: unset;
+}
+
+.db-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.db-search-send {
+  flex-shrink: 0;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.25rem 0.9rem;
+  border-radius: 999px;
+  cursor: pointer;
+  min-height: unset;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.db-search-send:hover {
+  background: var(--accent-strong);
+  transform: scale(1.04);
+}
+
+/* -- Stats Grid ---------------------------------------------- */
+.db-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-top: 2.5rem;
+}
+
+.db-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 1.25rem 1.1rem 1.1rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.db-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.07);
+}
+
+.db-stat-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+.db-stat-value {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1.1;
+}
+
+.db-stat-detail {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* -- Panel Toggle Buttons ------------------------------------ */
+.db-panel-buttons {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 2.25rem;
+  flex-wrap: wrap;
+}
+
+.db-panel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--surface-strong);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.5rem 1.1rem;
+  min-height: unset;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.db-panel-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+.db-panel-btn--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* -- Panel Content with smooth slide-in ---------------------- */
+.db-panel-content {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition:
+    max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.35s ease;
+}
+
+.db-panel-content--visible {
+  max-height: 1200px;
+  opacity: 1;
+}
+
+.db-panel-inner {
+  padding-top: 1.25rem;
+}
+
+@keyframes db-panel-slide {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.db-panel-enter {
+  animation: db-panel-slide 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* -- Responsive ---------------------------------------------- */
+@media (max-width: 680px) {
+  .db-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .db-hero {
+    padding: 2rem 0 1.5rem;
+  }
+  .db-welcome {
+    font-size: 1.6rem;
+  }
+}
+
+@media (max-width: 440px) {
+  .db-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .db-panel-buttons {
+    gap: 0.5rem;
+  }
+  .db-panel-btn {
+    font-size: 0.78rem;
+    padding: 0.45rem 0.85rem;
+  }
+}
