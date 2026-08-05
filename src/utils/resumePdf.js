@@ -31,10 +31,9 @@ const DENSITY_LAYOUT = Object.freeze({
   }),
 });
 
-// A short second page is usually a normal one-page resume with a few sections
-// pushed over the page boundary. Allow a measured reduction for that case,
-// while preserving genuinely long resumes as multi-page documents.
-const MAX_SINGLE_PAGE_OVERFLOW_BOTTOM_MM = 128;
+// Minimum render scale — matches the live preview's lower bound so the PDF
+// always tries to fit to a single page the same way the preview does.
+const MIN_SINGLE_PAGE_SCALE = 0.55;
 const cleanFilePart = (value) =>
   String(value || "resume")
     .trim()
@@ -720,29 +719,27 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
 export function createResumePdf(draftValue, layoutValue = {}) {
   const naturalPdf = renderResumePdf(draftValue, layoutValue, 1);
   const naturalLayout = naturalPdf.__resumeLayout;
-  const shouldFitSinglePage =
-    naturalLayout.pageCount === 2 &&
-    naturalLayout.sectionCount >= 4 &&
-    naturalLayout.contentBottom <= MAX_SINGLE_PAGE_OVERFLOW_BOTTOM_MM;
-  if (!shouldFitSinglePage) return naturalPdf;
 
-  let low = 0.68;
+  // If the content already fits on one page at scale 1, return as-is.
+  if (naturalLayout.pageCount === 1) return naturalPdf;
+
+  // Content overflows — try to shrink-to-fit onto a single page,
+  // mirroring the live preview's binary-search scale approach.
+  let low = MIN_SINGLE_PAGE_SCALE;
   let high = 1;
-  let bestPdf = renderResumePdf(draftValue, layoutValue, low);
-  if (bestPdf.__resumeLayout.pageCount !== 1) return naturalPdf;
 
-  for (let index = 0; index < 10; index += 1) {
+  // Verify the minimum scale actually fits; if not the resume is genuinely
+  // multi-page and we return the natural render.
+  const minScalePdf = renderResumePdf(draftValue, layoutValue, low);
+  if (minScalePdf.__resumeLayout.pageCount !== 1) return naturalPdf;
+
+  let bestPdf = minScalePdf;
+
+  for (let index = 0; index < 12; index += 1) {
     const candidateScale = (low + high) / 2;
-    const candidatePdf = renderResumePdf(
-      draftValue,
-      layoutValue,
-      candidateScale
-    );
+    const candidatePdf = renderResumePdf(draftValue, layoutValue, candidateScale);
     const candidateLayout = candidatePdf.__resumeLayout;
-    if (
-      candidateLayout.pageCount === 1 &&
-      candidateLayout.contentBottom <= 280
-    ) {
+    if (candidateLayout.pageCount === 1) {
       low = candidateScale;
       bestPdf = candidatePdf;
     } else {
