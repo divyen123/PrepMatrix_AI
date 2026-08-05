@@ -353,7 +353,7 @@ function DashboardPage({
                 {subjects.map((s) => (
                   <li key={s.id} className="db-subject-item">
                     <span className="db-subject-name">{s.name}</span>
-                    <span className="db-subject-chapters">{s.chapters?.length || 0} chapters</span>
+                    <span className="db-subject-chapters">{s.chapters || 0} chapters</span>
                   </li>
                 ))}
               </ul>

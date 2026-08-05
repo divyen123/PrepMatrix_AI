@@ -20772,7 +20772,7 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 }
 
 .db-subjects-popup-container {
-  background: var(--bg-surface);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 16px;
   width: 90%;
@@ -20780,10 +20780,11 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
   transform: scale(0.95) translateY(10px);
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   overflow: hidden;
+  backdrop-filter: none;
 }
 
 .db-subjects-popup-container.open {
