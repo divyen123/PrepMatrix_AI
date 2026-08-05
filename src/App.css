@@ -20400,6 +20400,12 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   min-height: unset;
 }
 
+.db-search-input:focus {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
 .db-search-input::placeholder {
   color: var(--text-muted);
   opacity: 0.75;

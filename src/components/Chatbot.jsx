@@ -1104,6 +1104,16 @@ function Chatbot({
 
   return (
     <>
+      <input
+        accept={CHAT_ATTACHMENT_ACCEPT}
+        className="chat-file-input"
+        multiple
+        onChange={handleAttachmentInputChange}
+        ref={fileInputRef}
+        tabIndex={-1}
+        type="file"
+        style={{ display: "none" }}
+      />
 
       {open ? createPortal(
         <>
@@ -1507,15 +1517,6 @@ function Chatbot({
                   </div>
                 ) : null}
 
-                <input
-                  accept={CHAT_ATTACHMENT_ACCEPT}
-                  className="chat-file-input"
-                  multiple
-                  onChange={handleAttachmentInputChange}
-                  ref={fileInputRef}
-                  tabIndex={-1}
-                  type="file"
-                />
                 <div className="chat-credit-row">
                   <AiCreditCost feature={AI_FEATURES.CHAT} />
                   {hasInsufficientCredits(AI_FEATURES.CHAT) && (
