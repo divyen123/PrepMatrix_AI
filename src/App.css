@@ -20388,7 +20388,9 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   opacity: 0.7;
 }
 
-.db-search-input {
+body .db-search-input,
+body.dark .db-search-input,
+.db-search-form .db-search-input {
   flex: 1 !important;
   border: none !important;
   background: transparent !important;
@@ -20405,8 +20407,10 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   border-radius: 0 !important;
 }
 
-.db-search-input:focus,
-.db-search-input:active {
+body .db-search-input:focus,
+body .db-search-input:active,
+body.dark .db-search-input:focus,
+.db-search-form .db-search-input:focus {
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;

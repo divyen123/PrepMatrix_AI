@@ -223,17 +223,6 @@ function SubjectsPage({
               ))}
             </ul>
           </article>
-
-
-          <article className="card route-highlight-card">
-            <span className="section-tag">Next layer</span>
-            <h3>Turn subjects into guided materials</h3>
-            <p className="card-desc">
-              Once your subjects are in place, PrepMatrix can suggest concept videos,
-              notes, practice tracks, and revision searches chapter by chapter.
-            </p>
-            <Link className="route-link-btn" to="/resources">Open materials hub</Link>
-          </article>
         </div>
       </div>
 
