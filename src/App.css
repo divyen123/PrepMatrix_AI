@@ -20388,6 +20388,28 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   opacity: 0.7;
 }
 
+.db-search-file-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  max-width: 140px;
+  flex-shrink: 0;
+}
+
+.db-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 body .db-search-input,
 body.dark .db-search-input,
 .db-search-form .db-search-input {

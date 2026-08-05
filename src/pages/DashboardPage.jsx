@@ -34,7 +34,7 @@ function DashboardPage({
   const [searchInput, setSearchInput]   = useState("");
   const [isRecording, setIsRecording]   = useState(false);
   const [isDragging, setIsDragging]     = useState(false);
-  const [attachmentCount, setAttachmentCount] = useState(0);
+  const [attachments, setAttachments] = useState([]);
   const dragDepthRef = useRef(0);
   const inputRef     = useRef(null);
   const recognitionRef = useRef(null);
@@ -44,9 +44,9 @@ function DashboardPage({
     userProfile?.name?.split(" ")[0] ||
     "there";
 
-  /* ── Listen to attachment count from Chatbot ─────────────── */
+  /* ── Listen to attachments from Chatbot ─────────────── */
   useEffect(() => {
-    const handler = (e) => setAttachmentCount(e.detail?.count || 0);
+    const handler = (e) => setAttachments(e.detail?.attachments || []);
     window.addEventListener("chatAttachmentsChange", handler);
     return () => window.removeEventListener("chatAttachmentsChange", handler);
   }, []);
@@ -58,7 +58,7 @@ function DashboardPage({
       recognitionRef.current?.stop();
     }
     const query = searchInput.trim();
-    if (!query && attachmentCount === 0) {
+    if (!query && attachments.length === 0) {
       if (window.openStudyAssistant) window.openStudyAssistant();
       return;
     }
@@ -189,11 +189,19 @@ function DashboardPage({
 
           <Search size={17} className="db-search-icon" />
 
+          {/* Render Document Chips */}
+          {attachments.map((file, idx) => (
+            <div key={idx} className="db-search-file-chip" title={file.file.name}>
+              <Paperclip size={12} />
+              <span className="db-file-name">{file.file.name}</span>
+            </div>
+          ))}
+
           <input
             ref={inputRef}
             className="db-search-input"
             type="text"
-            placeholder="Ask your AI study assistant…"
+            placeholder={attachments.length > 0 ? "Ask about your document..." : "Ask your AI study assistant…"}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             aria-label="Ask AI study assistant"
@@ -209,9 +217,9 @@ function DashboardPage({
             style={{ position: "relative" }}
           >
             <Paperclip size={16} />
-            {attachmentCount > 0 && (
-              <span className="db-attachment-badge" aria-label={`${attachmentCount} attachments`}>
-                {attachmentCount}
+            {attachments.length > 0 && (
+              <span className="db-attachment-badge" aria-label={`${attachments.length} attachments`}>
+                {attachments.length}
               </span>
             )}
           </button>
@@ -232,7 +240,7 @@ function DashboardPage({
           </button>
 
           {/* Ask button — only when text is typed or files are attached */}
-          {(searchInput || attachmentCount > 0) && (
+          {(searchInput || attachments.length > 0) && (
             <button type="submit" className="db-search-send" aria-label="Send">
               Ask
             </button>

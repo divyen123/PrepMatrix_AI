@@ -934,7 +934,7 @@ function Chatbot({
 
   // Broadcast attachment count to the dashboard so it can show a badge
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent("chatAttachmentsChange", { detail: { count: attachments.length } }));
+    window.dispatchEvent(new CustomEvent("chatAttachmentsChange", { detail: { count: attachments.length, attachments } }));
   }, [attachments]);
 
   useEffect(() => () => {
