@@ -20280,21 +20280,6 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   }
 }
 
-/* Line Sidebar-style proximity motion for the primary navigation.
-   Deliberately omits a marker rail and numeric indices. */
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .app-sidebar .sidebar-nav--proximity .sidebar-link--proximity:hover,
-  .app-sidebar .sidebar-nav--proximity .sidebar-link--proximity.active {
-    transform: none !important;
-  }
-
-  .app-sidebar .sidebar-nav--proximity .sidebar-link--proximity {
-    --sidebar-proximity: 0;
-  }
-
-  .app-sidebar .sidebar-nav--proximity .sidebar-link--proximity .sidebar-link-label {
-    display: inline-block;
-    color: color-mix(
       in srgb,
       var(--accent) calc(var(--sidebar-proximity) * 72%),
       var(--text-muted)
@@ -20320,33 +20305,37 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   }
 }
 
-/* ---------------------------------------------------------------
-   NEW DASHBOARD PAGE  (db-* namespace)
---------------------------------------------------------------- */
 
+/* ================================================================
+   DASHBOARD PAGE  (db-* namespace)
+   Uses CSS vars + backdrop-filter — works with ALL bg themes.
+================================================================ */
+
+/* -- Page shell ------------------------------------------------ */
 .db-page {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  max-width: 760px;
+  align-items: center;
+  max-width: 900px;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem 3rem;
+  padding: 0 1.5rem 4rem;
   width: 100%;
 }
 
-/* -- Hero / Welcome ------------------------------------------- */
+/* -- Hero / Welcome -------------------------------------------- */
 .db-hero {
   text-align: center;
-  padding: 3rem 0 2rem;
+  padding: 3.5rem 0 2.25rem;
+  width: 100%;
 }
 
 .db-welcome {
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-size: clamp(2rem, 4.5vw, 2.75rem);
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   color: var(--text);
-  margin: 0 0 0.35rem;
-  line-height: 1.15;
+  margin: 0 0 0.4rem;
+  line-height: 1.12;
 }
 
 .db-tagline {
@@ -20355,33 +20344,32 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   margin: 0 0 2rem;
 }
 
-/* -- Search Bar ---------------------------------------------- */
+/* -- Search bar – single-layer pill, no inner box -------------- */
 .db-search-form {
-  width: 100%;
-  max-width: 580px;
-  margin: 0 auto;
-}
-
-.db-search-wrap {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: var(--surface-strong);
+  gap: 0.55rem;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0.65rem 0.75rem 0.65rem 1.1rem;
   border: 1.5px solid var(--border);
   border-radius: 999px;
-  padding: 0.6rem 1rem 0.6rem 1.1rem;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background: transparent;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
-.db-search-wrap:focus-within {
+.db-search-form:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft), 0 4px 24px rgba(0,0,0,0.08);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .db-search-icon {
   color: var(--text-muted);
   flex-shrink: 0;
+  opacity: 0.7;
 }
 
 .db-search-input {
@@ -20389,7 +20377,7 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   border: none;
   background: transparent;
   outline: none;
-  font-size: 0.97rem;
+  font-size: 0.95rem;
   color: var(--text);
   padding: 0;
   min-height: unset;
@@ -20397,6 +20385,7 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 
 .db-search-input::placeholder {
   color: var(--text-muted);
+  opacity: 0.75;
 }
 
 .db-search-send {
@@ -20404,93 +20393,127 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   border: none;
   background: var(--accent);
   color: #fff;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  padding: 0.25rem 0.9rem;
+  padding: 0.3rem 1rem;
   border-radius: 999px;
   cursor: pointer;
   min-height: unset;
-  transition: background 0.2s ease, transform 0.15s ease;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
 
 .db-search-send:hover {
   background: var(--accent-strong);
-  transform: scale(1.04);
+  transform: scale(1.05);
+  box-shadow: 0 2px 12px var(--accent-soft);
 }
 
-/* -- Stats Grid ---------------------------------------------- */
+/* -- Stats grid – glassy cards with per-card color tones ------- */
 .db-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
   margin-top: 2.5rem;
+  width: 100%;
 }
 
 .db-stat-card {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  background: var(--surface-strong);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 1.25rem 1.1rem 1.1rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  gap: 0.35rem;
+  background: var(--card-bg, rgba(255,255,255,0.04));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 1.4rem 1.3rem 1.25rem;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.3s cubic-bezier(0.16,1,0.3,1),
+    box-shadow 0.3s cubic-bezier(0.16,1,0.3,1),
+    border-color 0.3s ease;
+}
+
+/* Subtle top edge glow stripe */
+.db-stat-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--card-label-color, var(--accent)), transparent);
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
 }
 
 .db-stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.07);
+  transform: translateY(-5px);
+  border-color: var(--card-label-color, var(--accent));
+  box-shadow:
+    0 0 0 1px var(--card-glow, var(--accent-soft)),
+    0 16px 48px var(--card-glow, var(--accent-soft)),
+    inset 0 0 24px rgba(255,255,255,0.015);
+}
+
+.db-stat-card:hover::before {
+  opacity: 0.8;
 }
 
 .db-stat-label {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  color: var(--card-label-color, var(--accent));
 }
 
 .db-stat-value {
-  font-size: 2rem;
+  font-size: 2.2rem;
   font-weight: 800;
-  color: var(--accent);
-  line-height: 1.1;
+  color: var(--text);
+  line-height: 1.05;
+  margin-top: 0.2rem;
 }
 
 .db-stat-detail {
-  font-size: 0.78rem;
+  font-size: 0.77rem;
   color: var(--text-muted);
-  line-height: 1.4;
+  line-height: 1.45;
+  margin-top: 0.1rem;
 }
 
-/* -- Panel Toggle Buttons ------------------------------------ */
+/* -- Panel toggle buttons – centered under the search bar ------ */
 .db-panel-buttons {
   display: flex;
-  gap: 0.6rem;
+  gap: 0.55rem;
   margin-top: 2.25rem;
   flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
 }
 
 .db-panel-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  background: var(--surface-strong);
+  gap: 0.4rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: transparent;
   border: 1.5px solid var(--border);
   border-radius: 999px;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   font-weight: 600;
-  padding: 0.5rem 1.1rem;
+  padding: 0.5rem 1.15rem;
   min-height: unset;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .db-panel-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
-  background: var(--accent-soft);
+  box-shadow: 0 0 0 2px var(--accent-soft);
   transform: translateY(-1px);
 }
 
@@ -20498,58 +20521,119 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
-/* -- Panel Content with smooth slide-in ---------------------- */
+/* -- Panel content – slow, smooth fade + rise ------------------ */
 .db-panel-content {
+  width: 100%;
   overflow: hidden;
   max-height: 0;
   opacity: 0;
   transition:
-    max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.35s ease;
+    max-height 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity    0.5s ease;
 }
 
 .db-panel-content--visible {
-  max-height: 1200px;
+  max-height: 1800px;
   opacity: 1;
 }
 
 .db-panel-inner {
-  padding-top: 1.25rem;
+  padding-top: 1.5rem;
+  width: 100%;
 }
 
-@keyframes db-panel-slide {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+@keyframes db-fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0);    }
 }
 
 .db-panel-enter {
-  animation: db-panel-slide 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: db-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* -- Responsive ---------------------------------------------- */
-@media (max-width: 680px) {
+/* -- SmartSuggestion overrides inside the panel ---------------- */
+.db-panel-inner .smart-suggestion-card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  width: 100%;
+}
+
+.db-panel-inner .smart-suggestion-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.db-panel-inner .suggestion-mini-card {
+  min-height: 175px;
+  padding: 1.4rem 1.25rem;
+  border-radius: 20px;
+  background: transparent;
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  gap: 0.8rem;
+  transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
+}
+
+.db-panel-inner .suggestion-mini-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+  box-shadow: 0 10px 32px var(--accent-soft);
+}
+
+.db-panel-inner .suggestion-mini-card strong {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.db-panel-inner .suggestion-mini-card p {
+  font-size: 0.82rem;
+  line-height: 1.58;
+  margin: 0;
+}
+
+.db-panel-inner .smart-suggestion-header {
+  margin-bottom: 1rem;
+}
+
+.db-panel-inner .smart-suggestion-header h3 {
+  font-size: 1.1rem;
+}
+
+/* ProgressBar1 + WeeklyReview inherit the glass look */
+.db-panel-inner .completion-card,
+.db-panel-inner .weekly-review-card {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* -- Responsive ----------------------------------------------- */
+@media (max-width: 780px) {
   .db-stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  .db-hero {
-    padding: 2rem 0 1.5rem;
-  }
-  .db-welcome {
-    font-size: 1.6rem;
+  .db-panel-inner .smart-suggestion-strip {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 440px) {
-  .db-stats-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-  .db-panel-buttons {
-    gap: 0.5rem;
-  }
-  .db-panel-btn {
-    font-size: 0.78rem;
-    padding: 0.45rem 0.85rem;
+@media (max-width: 600px) {
+  .db-page { padding: 0 1rem 3rem; }
+  .db-hero { padding: 2.5rem 0 1.75rem; }
+  .db-welcome { font-size: 1.8rem; }
+  .db-stats-grid { gap: 0.75rem; }
+  .db-panel-buttons { gap: 0.45rem; }
+  .db-panel-btn { font-size: 0.78rem; padding: 0.45rem 0.9rem; }
+}
+
+@media (max-width: 420px) {
+  .db-panel-inner .smart-suggestion-strip {
+    grid-template-columns: 1fr;
   }
 }

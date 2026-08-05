@@ -10,6 +10,14 @@ const PANEL_BUTTONS = [
   { id: "review",      label: "Weekly review",      icon: CalendarCheck },
 ];
 
+// Each card gets a unique color tone matching the original design
+const CARD_TONES = [
+  { glow: "rgba(11,199,177,0.22)",  labelColor: "#24c7b1", bg: "rgba(11,199,177,0.06)" },
+  { glow: "rgba(59,130,246,0.22)",  labelColor: "#60a5fa", bg: "rgba(59,130,246,0.06)" },
+  { glow: "rgba(234,179,8,0.22)",   labelColor: "#eab308", bg: "rgba(234,179,8,0.06)"  },
+  { glow: "rgba(168,85,247,0.22)",  labelColor: "#c084fc", bg: "rgba(168,85,247,0.06)" },
+];
+
 function DashboardPage({
   academicLevel,
   academicTrack,
@@ -20,10 +28,14 @@ function DashboardPage({
   userProfile,
 }) {
   const [activePanel, setActivePanel] = useState(null);
+  const [prevPanel, setPrevPanel]     = useState(null);
   const [searchInput, setSearchInput] = useState("");
   const inputRef = useRef(null);
 
-  const firstName = userProfile?.username?.split(" ")[0] || userProfile?.name?.split(" ")[0] || "there";
+  const firstName =
+    userProfile?.username?.split(" ")[0] ||
+    userProfile?.name?.split(" ")[0] ||
+    "there";
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -41,6 +53,7 @@ function DashboardPage({
   };
 
   const togglePanel = (id) => {
+    setPrevPanel(activePanel);
     setActivePanel((prev) => (prev === id ? null : id));
   };
 
@@ -52,39 +65,44 @@ function DashboardPage({
         <p className="db-tagline">What would you like to work on today?</p>
 
         <form className="db-search-form" onSubmit={handleSearch}>
-          <div className="db-search-wrap">
-            <Search size={18} className="db-search-icon" />
-            <input
-              ref={inputRef}
-              className="db-search-input"
-              type="text"
-              placeholder="Ask your AI study assistant…"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              aria-label="Ask AI study assistant"
-            />
-            {searchInput && (
-              <button
-                type="submit"
-                className="db-search-send"
-                aria-label="Send"
-              >
-                Ask
-              </button>
-            )}
-          </div>
+          <Search size={17} className="db-search-icon" />
+          <input
+            ref={inputRef}
+            className="db-search-input"
+            type="text"
+            placeholder="Ask your AI study assistant…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            aria-label="Ask AI study assistant"
+          />
+          {searchInput && (
+            <button type="submit" className="db-search-send" aria-label="Send">
+              Ask
+            </button>
+          )}
         </form>
       </div>
 
       {/* ── Overview Cards ───────────────────────────────── */}
       <div className="db-stats-grid">
-        {overviewCards.map((card) => (
-          <article className="db-stat-card" key={card.label}>
-            <span className="db-stat-label">{card.label}</span>
-            <strong className="db-stat-value">{card.value}</strong>
-            <span className="db-stat-detail">{card.detail}</span>
-          </article>
-        ))}
+        {overviewCards.map((card, i) => {
+          const tone = CARD_TONES[i] || CARD_TONES[0];
+          return (
+            <article
+              className="db-stat-card"
+              key={card.label}
+              style={{
+                "--card-glow": tone.glow,
+                "--card-label-color": tone.labelColor,
+                "--card-bg": tone.bg,
+              }}
+            >
+              <span className="db-stat-label">{card.label}</span>
+              <strong className="db-stat-value">{card.value}</strong>
+              <span className="db-stat-detail">{card.detail}</span>
+            </article>
+          );
+        })}
       </div>
 
       {/* ── Panel Toggle Buttons ─────────────────────────── */}
@@ -97,7 +115,7 @@ function DashboardPage({
             onClick={() => togglePanel(id)}
             aria-pressed={activePanel === id}
           >
-            <Icon size={15} />
+            <Icon size={14} />
             {label}
           </button>
         ))}
