@@ -142,8 +142,14 @@ function DashboardPage({
     setIsDragging(false);
     if (!isFileDrag(e.dataTransfer)) return;
     e.preventDefault();
-    // Open chatbot — its own drop zone will handle files once open
-    if (window.triggerChatAttachment) {
+
+    const files = Array.from(e.dataTransfer.files || []);
+    if (!files.length) return;
+
+    // Send files directly to the Chatbot attachments state
+    if (window.addChatbotAttachments) {
+      window.addChatbotAttachments(files);
+    } else if (window.triggerChatAttachment) {
       window.triggerChatAttachment();
     } else if (window.openStudyAssistant) {
       window.openStudyAssistant();

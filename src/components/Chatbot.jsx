@@ -916,6 +916,10 @@ function Chatbot({
       window.requestAnimationFrame(() => handleMicClick());
     };
 
+    window.addChatbotAttachments = (files) => {
+      void prepareAttachmentFiles(files);
+    };
+
     window.addEventListener("prepmatrixOpenChatSession", openChatSession);
 
     return () => {
@@ -924,8 +928,9 @@ function Chatbot({
       delete window.openStudyAssistant;
       delete window.triggerChatAttachment;
       delete window.toggleChatMic;
+      delete window.addChatbotAttachments;
     };
-  }, [fetchSessions, handleSelectSession, sendMessage]);
+  }, [fetchSessions, handleSelectSession, sendMessage, prepareAttachmentFiles]);
 
   // Broadcast attachment count to the dashboard so it can show a badge
   useEffect(() => {
