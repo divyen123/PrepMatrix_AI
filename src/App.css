@@ -20280,6 +20280,21 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   }
 }
 
+/* Line Sidebar-style proximity motion for the primary navigation.
+   Deliberately omits a marker rail and numeric indices. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .app-sidebar .sidebar-nav--proximity .sidebar-link--proximity:hover,
+  .app-sidebar .sidebar-nav--proximity .sidebar-link--proximity.active {
+    transform: none !important;
+  }
+
+  .app-sidebar .sidebar-nav--proximity .sidebar-link--proximity {
+    --sidebar-proximity: 0;
+  }
+
+  .app-sidebar .sidebar-nav--proximity .sidebar-link--proximity .sidebar-link-label {
+    display: inline-block;
+    color: color-mix(
       in srgb,
       var(--accent) calc(var(--sidebar-proximity) * 72%),
       var(--text-muted)
@@ -20305,10 +20320,10 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   }
 }
 
-
+ï»¿
 /* ================================================================
    DASHBOARD PAGE  (db-* namespace)
-   Uses CSS vars + backdrop-filter — works with ALL bg themes.
+   Uses CSS vars + backdrop-filter â€” works with ALL bg themes.
 ================================================================ */
 
 /* -- Page shell ------------------------------------------------ */
@@ -20344,7 +20359,7 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   margin: 0 0 2rem;
 }
 
-/* -- Search bar – single-layer pill, no inner box -------------- */
+/* -- Search bar â€“ single-layer pill, no inner box -------------- */
 .db-search-form {
   position: relative;
   display: flex;
@@ -20409,7 +20424,81 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   box-shadow: 0 2px 12px var(--accent-soft);
 }
 
-/* -- Stats grid – glassy cards with per-card color tones ------- */
+/* -- Dashboard search bar: action buttons (mic / attach) ------- */
+.db-search-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  min-height: unset;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+
+.db-search-action-btn:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: scale(1.1);
+}
+
+/* Mic active state */
+.db-mic-btn--active {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.db-mic-btn--active:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* Pulsing red dot when recording */
+.db-mic-pulse {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: db-mic-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes db-mic-pulse {
+  0%, 100% { transform: scale(1);   opacity: 1; }
+  50%       { transform: scale(1.5); opacity: 0.6; }
+}
+
+/* Drag-over state for the search form */
+.db-search-form--dragging {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-soft) !important;
+}
+
+/* Semi-transparent overlay shown during drag */
+.db-drop-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--accent);
+  font-size: 0.84rem;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* -- Stats grid â€“ glassy cards with per-card color tones ------- */
 .db-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -20483,7 +20572,7 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   margin-top: 0.1rem;
 }
 
-/* -- Panel toggle buttons – centered under the search bar ------ */
+/* -- Panel toggle buttons â€“ centered under the search bar ------ */
 .db-panel-buttons {
   display: flex;
   gap: 0.55rem;
@@ -20525,7 +20614,7 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
-/* -- Panel content – slow, smooth fade + rise ------------------ */
+/* -- Panel content â€“ slow, smooth fade + rise ------------------ */
 .db-panel-content {
   width: 100%;
   overflow: hidden;
@@ -20637,79 +20726,4 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   .db-panel-inner .smart-suggestion-strip {
     grid-template-columns: 1fr;
   }
-}
-
-/* -- Dashboard search bar: action buttons (mic / attach) ------- */
-.db-search-action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  min-height: unset;
-  padding: 0;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.2s ease, background 0.2s ease, transform 0.15s ease;
-}
-
-.db-search-action-btn:hover {
-  color: var(--accent);
-  background: var(--accent-soft);
-  transform: scale(1.1);
-}
-
-/* Mic active state */
-.db-mic-btn--active {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.12);
-}
-
-.db-mic-btn--active:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.2);
-}
-
-/* Pulsing red dot when recording */
-.db-mic-pulse {
-  display: block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ef4444;
-  animation: db-mic-pulse 0.9s ease-in-out infinite;
-}
-
-@keyframes db-mic-pulse {
-  0%, 100% { transform: scale(1);   opacity: 1; }
-  50%       { transform: scale(1.5); opacity: 0.6; }
-}
-
-/* Drag-over state for the search form */
-.db-search-form--dragging {
-  border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px var(--accent-soft) !important;
-  position: relative;
-}
-
-/* Semi-transparent overlay shown during drag */
-.db-drop-overlay {
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  backdrop-filter: blur(6px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  color: var(--accent);
-  font-size: 0.84rem;
-  font-weight: 700;
-  pointer-events: none;
-  z-index: 2;
 }
