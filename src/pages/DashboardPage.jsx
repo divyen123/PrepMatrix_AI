@@ -191,9 +191,9 @@ function DashboardPage({
 
           {/* Render Document Chips */}
           {attachments.map((file, idx) => (
-            <div key={idx} className="db-search-file-chip" title={file.file.name}>
+            <div key={idx} className="db-search-file-chip" title={file.name}>
               <Paperclip size={12} />
-              <span className="db-file-name">{file.file.name}</span>
+              <span className="db-file-name">{file.name}</span>
             </div>
           ))}
 
