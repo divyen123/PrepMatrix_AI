@@ -20646,10 +20646,6 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 
 /* -- SmartSuggestion overrides inside the panel ---------------- */
 .db-panel-inner .smart-suggestion-card {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 0;
   width: 100%;
 }
 
@@ -20696,7 +20692,8 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   font-size: 1.1rem;
 }
 
-/* ProgressBar1 + WeeklyReview inherit the glass look */
+/* SmartSuggestion, ProgressBar1 + WeeklyReview inherit the glass look */
+.db-panel-inner .smart-suggestion-card,
 .db-panel-inner .completion-card,
 .db-panel-inner .weekly-review-card {
   backdrop-filter: blur(12px);
