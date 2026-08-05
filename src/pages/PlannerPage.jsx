@@ -6,7 +6,6 @@ import {
   isPushNotificationSupported,
 } from "../utils/pushNotifications";
 import Reminder from "../components/Reminder";
-import SmartSuggestion from "../components/SmartSuggestion";
 import Timetable from "../components/Timetable";
 import WorktreeMapper from "../components/WorktreeMapper";
 
@@ -70,7 +69,6 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
       )}
 
       <div className="planner-support-strip">
-        <SmartSuggestion completed={completed} schedule={schedule} />
         <Reminder completed={completed} schedule={schedule} />
       </div>
 
