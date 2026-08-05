@@ -1,3 +1,5 @@
+import { useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import Analytics from "../components/Analytics";
 import FocusLandscape from "../components/FocusLandscape";
 import Gamification from "../components/Gamification";
@@ -8,6 +10,22 @@ import Readiness from "../components/Readiness";
 import TopicTimeline from "../components/TopicTimeline";
 
 function AnalyticsPage({ subjects, schedule, completed }) {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash === "#topic-progress") {
+      const timer = setTimeout(() => {
+        const el = document.getElementById("topic-progress");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          el.classList.add("highlight-pulse");
+          setTimeout(() => el.classList.remove("highlight-pulse"), 1000);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [location.hash]);
+
   return (
     <section className="page-stack">
       <div className="section-intro">
@@ -27,7 +45,9 @@ function AnalyticsPage({ subjects, schedule, completed }) {
         <GoalTracker completed={completed} schedule={schedule} subjects={subjects} />
       </div>
 
-      <TopicTimeline completed={completed} schedule={schedule} subjects={subjects} />
+      <div id="topic-progress">
+        <TopicTimeline completed={completed} schedule={schedule} subjects={subjects} />
+      </div>
       <FocusLandscape completed={completed} schedule={schedule} subjects={subjects} />
     </section>
   );

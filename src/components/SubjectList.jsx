@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   CalendarClock,
@@ -25,6 +25,21 @@ function SubjectList({ hasActiveSchedule = false, subjects, setSubjects }) {
     difficulty: "",
   });
   const confirmRef = useRef(null);
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash === "#subject-library") {
+      const timer = setTimeout(() => {
+        const el = document.getElementById("subject-library");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          el.classList.add("highlight-pulse");
+          setTimeout(() => el.classList.remove("highlight-pulse"), 1000);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [location.hash]);
 
   useEffect(() => {
     if (deleteConfirmIndex === null) return undefined;
@@ -94,11 +109,22 @@ function SubjectList({ hasActiveSchedule = false, subjects, setSubjects }) {
   };
 
   return (
-    <section className="card subject-library-card">
-      <h2>Subject library</h2>
-      <p className="card-subtext">
-        Select a subject to add optional topics and shape how it appears in your study schedule.
-      </p>
+    <section className="card subject-library-card" id="subject-library">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+        <div>
+          <h2 style={{ margin: 0 }}>Subject library</h2>
+          <p className="card-subtext" style={{ marginTop: "0.5rem", marginBottom: 0 }}>
+            Select a subject to add optional topics and shape how it appears in your study schedule.
+          </p>
+        </div>
+        <button
+          className="primary-btn"
+          onClick={() => navigate("/resources")}
+          type="button"
+        >
+          Open materials
+        </button>
+      </div>
 
       {subjects.length === 0 ? (
         <p className="empty-state">No subjects added yet.</p>

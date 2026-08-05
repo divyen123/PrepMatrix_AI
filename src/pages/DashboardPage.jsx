@@ -257,6 +257,7 @@ function DashboardPage({
               onClick={() => {
                 if (card.label.toLowerCase().includes("subject")) setShowSubjectsPopup((prev) => !prev);
                 else if (card.label.toLowerCase().includes("planned")) navigate("/planner");
+                else if (card.label.toLowerCase().includes("remaining")) navigate("/analytics#topic-progress");
                 else navigate("/analytics");
               }}
               role="button"
@@ -266,6 +267,7 @@ function DashboardPage({
                   e.preventDefault();
                   if (card.label.toLowerCase().includes("subject")) setShowSubjectsPopup((prev) => !prev);
                   else if (card.label.toLowerCase().includes("planned")) navigate("/planner");
+                  else if (card.label.toLowerCase().includes("remaining")) navigate("/analytics#topic-progress");
                   else navigate("/analytics");
                 }
               }}
@@ -329,7 +331,7 @@ function DashboardPage({
           <h3>Your Subjects</h3>
           <button
             className="primary-btn db-subjects-open-btn"
-            onClick={() => navigate("/subjects")}
+            onClick={() => navigate("/subjects#subject-library")}
             type="button"
           >
             Open subjects
