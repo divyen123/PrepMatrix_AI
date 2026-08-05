@@ -20410,6 +20410,23 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   white-space: nowrap;
 }
 
+.db-file-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-left: 0.15rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.db-file-remove-btn:hover {
+  color: rgba(239, 68, 68, 0.9);
+}
+
 body .db-search-input,
 body.dark .db-search-input,
 .db-search-form .db-search-input {

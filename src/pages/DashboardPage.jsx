@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Lightbulb, BarChart2, CalendarCheck, Mic, Paperclip, UploadCloud } from "lucide-react";
+import { Search, Lightbulb, BarChart2, CalendarCheck, Mic, Paperclip, UploadCloud, X } from "lucide-react";
 import SmartSuggestion from "../components/SmartSuggestion";
 import ProgressBar1 from "../components/Progressbar1";
 import WeeklyReview from "../components/WeeklyReview";
@@ -194,6 +194,19 @@ function DashboardPage({
             <div key={idx} className="db-search-file-chip" title={file.name}>
               <Paperclip size={12} />
               <span className="db-file-name">{file.name}</span>
+              <button
+                type="button"
+                className="db-file-remove-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.removeChatbotAttachment) {
+                    window.removeChatbotAttachment(file.id);
+                  }
+                }}
+                aria-label="Remove document"
+              >
+                <X size={12} />
+              </button>
             </div>
           ))}
 

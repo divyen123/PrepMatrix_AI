@@ -919,6 +919,9 @@ function Chatbot({
     window.addChatbotAttachments = (files) => {
       void prepareAttachmentFiles(files);
     };
+    window.removeChatbotAttachment = (id) => {
+      setAttachments((current) => current.filter((a) => a.id !== id));
+    };
 
     window.addEventListener("prepmatrixOpenChatSession", openChatSession);
 
@@ -929,6 +932,7 @@ function Chatbot({
       delete window.triggerChatAttachment;
       delete window.toggleChatMic;
       delete window.addChatbotAttachments;
+      delete window.removeChatbotAttachment;
     };
   }, [fetchSessions, handleSelectSession, sendMessage, prepareAttachmentFiles]);
 
