@@ -20389,21 +20389,30 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 }
 
 .db-search-input {
-  flex: 1;
+  flex: 1 !important;
   border: none !important;
   background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
   box-shadow: none !important;
-  outline: none;
-  font-size: 0.95rem;
-  color: var(--text);
-  padding: 0;
-  min-height: unset;
+  outline: none !important;
+  font-size: 0.95rem !important;
+  color: var(--text) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: unset !important;
+  height: auto !important;
+  border-radius: 0 !important;
 }
 
-.db-search-input:focus {
+.db-search-input:focus,
+.db-search-input:active {
   background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
   box-shadow: none !important;
   border: none !important;
+  outline: none !important;
 }
 
 .db-search-input::placeholder {
