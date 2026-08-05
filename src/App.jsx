@@ -1568,6 +1568,7 @@ function App() {
                               overviewCards={overviewCards}
                               schedule={schedule}
                               userProfile={userProfile}
+                              subjects={subjects}
                             />
                           }
                           path="/dashboard"

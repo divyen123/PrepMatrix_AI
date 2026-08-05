@@ -26,8 +26,10 @@ function DashboardPage({
   schedule,
   completed,
   userProfile,
+  subjects = [],
 }) {
   const navigate = useNavigate();
+  const [showSubjectsPopup, setShowSubjectsPopup] = useState(false);
   const [activePanel, setActivePanel] = useState(null);
   const [searchInput, setSearchInput]   = useState("");
   const [isRecording, setIsRecording]   = useState(false);
@@ -253,7 +255,7 @@ function DashboardPage({
                 cursor:               "pointer",
               }}
               onClick={() => {
-                if (card.label.toLowerCase().includes("subject")) navigate("/subjects");
+                if (card.label.toLowerCase().includes("subject")) setShowSubjectsPopup(true);
                 else if (card.label.toLowerCase().includes("planned")) navigate("/planner");
                 else navigate("/analytics");
               }}
@@ -262,7 +264,7 @@ function DashboardPage({
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  if (card.label.toLowerCase().includes("subject")) navigate("/subjects");
+                  if (card.label.toLowerCase().includes("subject")) setShowSubjectsPopup(true);
                   else if (card.label.toLowerCase().includes("planned")) navigate("/planner");
                   else navigate("/analytics");
                 }
@@ -319,6 +321,55 @@ function DashboardPage({
             />
           </div>
         )}
+      </div>
+
+      {/* ── Subjects Popup ──────────────────────────────────────── */}
+      <div
+        className={`db-subjects-popup-overlay ${showSubjectsPopup ? "open" : ""}`}
+        onClick={() => setShowSubjectsPopup(false)}
+        role="presentation"
+      >
+        <div 
+          className={`db-subjects-popup-container ${showSubjectsPopup ? "open" : ""}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="db-subjects-popup-header">
+            <h3>Your Subjects</h3>
+            <button
+              className="db-subjects-popup-close"
+              onClick={() => setShowSubjectsPopup(false)}
+              title="Close"
+              type="button"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="db-subjects-popup-body">
+            {subjects.length === 0 ? (
+              <p className="db-subjects-empty">No subjects added yet.</p>
+            ) : (
+              <ul className="db-subjects-list">
+                {subjects.map((s) => (
+                  <li key={s.id} className="db-subject-item">
+                    <span className="db-subject-name">{s.name}</span>
+                    <span className="db-subject-chapters">{s.chapters?.length || 0} chapters</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="db-subjects-popup-footer">
+            <button
+              className="primary-btn db-subjects-open-btn"
+              onClick={() => navigate("/subjects")}
+              type="button"
+            >
+              Open subjects
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   );
