@@ -29,6 +29,8 @@ export const MAX_LEARNING_VISION_TEXT_CHARS = 24_000;
 export const MAX_LEARNING_AI_SOURCE_CHARS = 14_000;
 export const MAX_LEARNING_AI_SOURCE_TOKENS = 2_800;
 export const MAX_LEARNING_COMPLETION_TOKENS = 6_500;
+// Keep GPT-OSS requests inside Groq Free-tier TPM capacity after prompt tokens.
+export const MAX_GROQ_LEARNING_COMPLETION_TOKENS = 4_800;
 export const LEARNING_RETRY_COMPLETION_TOKENS = 5_000;
 export const MAX_GEMINI_LEARNING_OUTPUT_TOKENS = 24_576;
 export const MAX_GROQ_LEARNING_CHAPTERS = 12;
@@ -59,7 +61,10 @@ const PROVIDER_RETRY_BASE_DELAY_MS = 650;
 const PROVIDER_RETRY_MAX_DELAY_MS = 2_500;
 const MIN_GEMINI_LEARNING_PROSE_LENGTH = 20;
 const PROVIDER_TRANSIENT_RETRY_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
-const GROQ_LEARNING_TOKEN_BUDGET = 12_000;
+// GPT-OSS Free-tier models have an 8K tokens-per-minute limit. Keep the
+// complete prompt plus requested completion inside that limit so a fallback
+// can generate instead of being rejected before it starts.
+const GROQ_LEARNING_TOKEN_BUDGET = 8_000;
 const GROQ_LEARNING_TOKEN_HEADROOM = 750;
 const GROQ_LEARNING_RETRY_REDUCTION_TOKENS = 500;
 const MIN_GROQ_LEARNING_COMPLETION_TOKENS = 3_000;
@@ -113,6 +118,8 @@ class LearningNotebookError extends Error {
   constructor(message, {
     code = "LEARNING_NOTEBOOK_INVALID",
     modelFallbackAllowed,
+    providerCode,
+    providerStatus,
     status = 400,
   } = {}) {
     super(message);
@@ -120,6 +127,8 @@ class LearningNotebookError extends Error {
     this.code = code;
     this.status = status;
     this.modelFallbackAllowed = modelFallbackAllowed;
+    this.providerCode = providerCode;
+    this.providerStatus = providerStatus;
   }
 }
 
@@ -379,6 +388,8 @@ function createProviderError(response, payload = {}) {
           ? "LEARNING_PROVIDER_SIZE_LIMIT"
           : "LEARNING_PROVIDER_ERROR",
       modelFallbackAllowed: !isSizeLimit && !isAuthFailure,
+      providerCode,
+      providerStatus: Number(response?.status),
       status: isRateLimit ? 429 : isSizeLimit ? 413 : 502,
     },
   );
@@ -389,6 +400,26 @@ function estimateLearningTextTokens(value) {
   // bytes supplied. Use that upper bound instead of an average chars/token
   // estimate so code, formulas, and random identifiers remain within budget.
   return Buffer.byteLength(String(value ?? ""), "utf8");
+}
+
+function estimateGroqPromptTextTokens(value) {
+  const text = String(value ?? "");
+  const byteLength = Buffer.byteLength(text, "utf8");
+  if (!byteLength) return 0;
+
+  // Natural-language prompts are much denser than one byte per token. Keep a
+  // conservative 3-bytes-per-token estimate, but retain the byte upper bound
+  // for dense code, formulas, or random identifiers where tokenization can be
+  // close to one byte per token.
+  const visibleLength = Math.max(1, Array.from(text).length);
+  const punctuationCount = (text.match(/[^\p{L}\p{M}\p{N}\s]/gu) || []).length;
+  const whitespaceCount = (text.match(/\s/gu) || []).length;
+  const isDenseStructuredText = (
+    byteLength >= 256
+    && punctuationCount / visibleLength >= 0.3
+    && whitespaceCount / visibleLength < 0.2
+  );
+  return isDenseStructuredText ? byteLength : Math.ceil(byteLength / 3);
 }
 
 function sampleLearningText(value, maxChars) {
@@ -489,10 +520,10 @@ export function compactLearningSourceMaterial({
   };
 }
 
-function estimateLearningContentTokens(content) {
-  if (!Array.isArray(content)) return estimateLearningTextTokens(content);
+function estimateGroqPromptContentTokens(content) {
+  if (!Array.isArray(content)) return estimateGroqPromptTextTokens(content);
   return content.reduce((sum, item) => {
-    if (item?.type === "text") return sum + estimateLearningTextTokens(item.text);
+    if (item?.type === "text") return sum + estimateGroqPromptTextTokens(item.text);
     if (item?.type === "image_url") {
       return sum + Math.ceil(String(item?.image_url?.url || "").length / 4);
     }
@@ -501,8 +532,8 @@ function estimateLearningContentTokens(content) {
 }
 
 function learningCompletionTokenBudget(preferredTokens, systemPrompt, userContent) {
-  const estimatedPromptTokens = estimateLearningTextTokens(systemPrompt)
-    + estimateLearningContentTokens(userContent)
+  const estimatedPromptTokens = estimateGroqPromptTextTokens(systemPrompt)
+    + estimateGroqPromptContentTokens(userContent)
     + 32;
   const availableTokens = Math.floor(
     GROQ_LEARNING_TOKEN_BUDGET
@@ -518,6 +549,30 @@ function learningCompletionTokenBudget(preferredTokens, systemPrompt, userConten
   return Math.min(preferredTokens, availableTokens);
 }
 
+function groqLearningCompletionTokenLimit(model, preferredTokens) {
+  return /^openai\/gpt-oss-/iu.test(String(model || ""))
+    ? Math.min(MAX_GROQ_LEARNING_COMPLETION_TOKENS, preferredTokens)
+    : preferredTokens;
+}
+
+function groqCompletionRequestOptions(model, completionTokens) {
+  const modelName = String(model || "");
+  if (/^qwen\//iu.test(modelName)) {
+    return {
+      max_completion_tokens: completionTokens,
+      reasoning_effort: "none",
+    };
+  }
+  if (/^openai\/gpt-oss-/iu.test(modelName)) {
+    return {
+      include_reasoning: false,
+      max_completion_tokens: completionTokens,
+      reasoning_effort: "low",
+    };
+  }
+  return { max_tokens: completionTokens };
+}
+
 export async function requestLearningNotebookJson({
   apiKey,
   deadline,
@@ -528,7 +583,6 @@ export async function requestLearningNotebookJson({
   userContent,
   validateNotebook = hasLearningNotebookShape,
 }) {
-  const usesReasoningControls = /^qwen\//iu.test(String(model || ""));
   const boundedAttempts = Math.max(1, Math.min(2, Number.parseInt(maxAttempts, 10) || 1));
   const signal = learningRequestSignal(deadline);
   let previousCompletionTokens = null;
@@ -548,7 +602,7 @@ export async function requestLearningNotebookJson({
           )
         : Number(previousCompletionTokens) || MAX_LEARNING_COMPLETION_TOKENS;
     const completionTokens = learningCompletionTokenBudget(
-      preferredCompletionTokens,
+      groqLearningCompletionTokenLimit(model, preferredCompletionTokens),
       systemPrompt,
       userContent,
     );
@@ -557,12 +611,7 @@ export async function requestLearningNotebookJson({
     const body = {
       model,
       temperature: attempt === 0 ? 0.2 : 0.1,
-      ...(usesReasoningControls
-        ? {
-            max_completion_tokens: completionTokens,
-            reasoning_effort: "none",
-          }
-        : { max_tokens: completionTokens }),
+      ...groqCompletionRequestOptions(model, completionTokens),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
@@ -629,7 +678,6 @@ export async function requestLearningVisionText({
 }) {
   const images = Array.isArray(visionImages) ? visionImages.slice(0, 3) : [];
   if (!images.length) return "";
-  const usesReasoningControls = /^qwen\//iu.test(String(model || ""));
   const content = [{
     type: "text",
     text: [
@@ -649,12 +697,7 @@ export async function requestLearningVisionText({
   const body = {
     model,
     temperature: 0,
-    ...(usesReasoningControls
-      ? {
-          max_completion_tokens: 4000,
-          reasoning_effort: "none",
-        }
-      : { max_tokens: 4000 }),
+    ...groqCompletionRequestOptions(model, 4000),
     messages: [
       {
         role: "system",
@@ -1153,6 +1196,8 @@ function logLearningProviderFailure(logger, {
   provider,
 }, error) {
   const status = Number(error?.status);
+  const providerStatus = Number(error?.providerStatus);
+  const providerCode = cleanInline(error?.providerCode, 100);
   try {
     logger?.warn?.("[Learning notebook] provider request failed", {
       code: cleanInline(error?.code, 100) || "UNKNOWN",
@@ -1160,6 +1205,8 @@ function logLearningProviderFailure(logger, {
       phase,
       provider,
       status: Number.isFinite(status) ? status : 500,
+      ...(providerCode ? { providerCode } : {}),
+      ...(Number.isFinite(providerStatus) ? { providerStatus } : {}),
     });
   } catch {
     // Operational diagnostics must never affect generation or credit refunds.
@@ -2107,6 +2154,8 @@ function createGeminiProviderError(response, payload = {}) {
           ? "LEARNING_PROVIDER_SIZE_LIMIT"
           : "LEARNING_PROVIDER_ERROR",
       modelFallbackAllowed: !isSizeLimit && !isAuthFailure,
+      providerCode,
+      providerStatus: Number(response?.status),
       status: isRateLimit ? 429 : isSizeLimit ? 413 : 502,
     },
   );
@@ -2119,6 +2168,17 @@ function geminiResponseText(payload = {}) {
     .map((part) => (typeof part?.text === "string" ? part.text : ""))
     .filter(Boolean)
     .join("\n");
+}
+
+function geminiStructuredOutputConfig(responseJsonSchema) {
+  return {
+    maxOutputTokens: MAX_GEMINI_LEARNING_OUTPUT_TOKENS,
+    // Preserve normal JSON Schema (including nullable values and
+    // additionalProperties) on the legacy generateContent endpoint used by
+    // every configured Gemini fallback model.
+    responseJsonSchema,
+    responseMimeType: "application/json",
+  };
 }
 
 export function buildGeminiLearningParts(userPrompt, attachments = []) {
@@ -2176,15 +2236,7 @@ export async function requestGeminiLearningNotebookJson({
           role: "user",
           parts: buildGeminiLearningParts(userPrompt, attachments),
         }],
-        generationConfig: {
-          maxOutputTokens: MAX_GEMINI_LEARNING_OUTPUT_TOKENS,
-          responseFormat: {
-            text: {
-              mimeType: "application/json",
-              schema: responseSchema,
-            },
-          },
-        },
+        generationConfig: geminiStructuredOutputConfig(responseSchema),
       }),
     },
     { deadline },
@@ -2233,15 +2285,7 @@ export async function requestGeminiCareerTopicAnalysisJson({
           role: "user",
           parts: [{ text: userPrompt }],
         }],
-        generationConfig: {
-          maxOutputTokens: MAX_GEMINI_LEARNING_OUTPUT_TOKENS,
-          responseFormat: {
-            text: {
-              mimeType: "application/json",
-              schema: CAREER_TOPIC_ANALYSIS_RESPONSE_SCHEMA,
-            },
-          },
-        },
+        generationConfig: geminiStructuredOutputConfig(CAREER_TOPIC_ANALYSIS_RESPONSE_SCHEMA),
       }),
     },
   );
@@ -2269,21 +2313,15 @@ export async function requestGroqCareerTopicAnalysisJson({
   systemPrompt,
   userContent,
 }) {
-  const usesReasoningControls = /^qwen\//iu.test(String(model || ""));
-
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const completionTokens = attempt === 0
-      ? MAX_LEARNING_COMPLETION_TOKENS
-      : 3_000;
+    const completionTokens = groqLearningCompletionTokenLimit(
+      model,
+      attempt === 0 ? MAX_LEARNING_COMPLETION_TOKENS : 3_000,
+    );
     const body = {
       model,
       temperature: attempt === 0 ? 0.2 : 0.1,
-      ...(usesReasoningControls
-        ? {
-            max_completion_tokens: completionTokens,
-            reasoning_effort: "none",
-          }
-        : { max_tokens: completionTokens }),
+      ...groqCompletionRequestOptions(model, completionTokens),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
@@ -2511,7 +2549,9 @@ async function generateLearningNotebookWithGroq({
         phase: index === 0 ? providerPhase : "secondary",
         provider: "groq",
       }, error);
-      if (!isLearningModelFallbackError(error)) throw error;
+      const canTryNextModel = isLearningModelFallbackError(error)
+        || (isLearningTransportError(error) && error?.modelFallbackAllowed !== false);
+      if (!canTryNextModel) throw error;
     }
   }
   if (!generated) {

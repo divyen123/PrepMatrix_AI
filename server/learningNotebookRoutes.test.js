@@ -11,6 +11,7 @@ import {
   MAX_LEARNING_AI_SOURCE_CHARS,
   MAX_LEARNING_AI_SOURCE_TOKENS,
   MAX_LEARNING_COMPLETION_TOKENS,
+  MAX_GROQ_LEARNING_COMPLETION_TOKENS,
   compactLearningSourceMaterial,
   MAX_LEARNING_VISION_TEXT_CHARS,
   MAX_LEARNING_TEXT_SOURCE_CHARS,
@@ -366,6 +367,27 @@ test("disables reasoning for Qwen notebook requests so structured JSON reaches c
   assert.deepEqual(requests[0].response_format, { type: "json_object" });
 });
 
+test("uses GPT-OSS-compatible reasoning controls for structured notebooks", async () => {
+  const requests = [];
+  await requestLearningNotebookJson({
+    apiKey: "test-key",
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      return groqNotebookResponse();
+    },
+    model: "openai/gpt-oss-20b",
+    systemPrompt: "Return JSON.",
+    userContent: "Generate a notebook.",
+  });
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].reasoning_effort, "low");
+  assert.equal(requests[0].include_reasoning, false);
+  assert.equal(requests[0].max_completion_tokens, MAX_GROQ_LEARNING_COMPLETION_TOKENS);
+  assert.equal("max_tokens" in requests[0], false);
+  assert.deepEqual(requests[0].response_format, { type: "json_object" });
+});
+
 test("uses Qwen only for bounded OCR text before structured notebook generation", async () => {
   const requests = [];
   const fetchImpl = async (_url, options) => {
@@ -613,7 +635,7 @@ test("strictly reduces a dynamically capped token-budget retry", async () => {
     fetchImpl,
     model: "llama-3.3-70b-versatile",
     systemPrompt: "S",
-    userContent: "A".repeat(7_217),
+    userContent: "<>{}[]".repeat(536) + "!",
   });
 
   assert.deepEqual(requests.map((request) => request.max_tokens), [4_000, 3_500]);
@@ -683,8 +705,8 @@ test("keeps adversarial ASCII prompt and completion under the Groq token budget"
       return groqNotebookResponse();
     },
     model: "llama-3.3-70b-versatile",
-    systemPrompt: "Return strict JSON.",
-    userContent: "aB9_/\\|{}[]()<>!?$%^&*-=+;:,.".repeat(175),
+    systemPrompt: "S",
+    userContent: "aB9_/\\|{}[]()<>!?$%^&*-=+;:,.".repeat(80),
   });
 
   const request = requests[0];
@@ -692,7 +714,7 @@ test("keeps adversarial ASCII prompt and completion under the Groq token budget"
     (sum, message) => sum + Buffer.byteLength(message.content, "utf8"),
     32,
   );
-  assert.ok(promptByteUpperBound + request.max_tokens + 750 <= 12_000);
+  assert.ok(promptByteUpperBound + request.max_tokens + 750 <= 8_000);
 });
 
 test("does not retry a token-budget rejection at the minimum completion budget", async () => {
@@ -715,7 +737,7 @@ test("does not retry a token-budget rejection at the minimum completion budget",
       },
       model: "llama-3.3-70b-versatile",
       systemPrompt: "S",
-      userContent: "A".repeat(8_217),
+      userContent: "<>{}[]".repeat(702) + "!!!!!",
     }),
     (error) => error.code === "LEARNING_PROVIDER_RATE_LIMIT" && error.status === 429,
   );
@@ -960,9 +982,9 @@ test("uses Gemini structured output with native PDF and image bytes without loca
   assert.equal("temperature" in generationConfig, false);
   assert.equal("topP" in generationConfig, false);
   assert.equal("topK" in generationConfig, false);
-  assert.equal(generationConfig.responseFormat.text.mimeType, "application/json");
-  assert.equal(generationConfig.responseFormat.text.schema.type, "object");
-  const chapterSchema = generationConfig.responseFormat.text.schema.properties.chapters;
+  assert.equal(generationConfig.responseMimeType, "application/json");
+  assert.equal(generationConfig.responseJsonSchema.type, "object");
+  const chapterSchema = generationConfig.responseJsonSchema.properties.chapters;
   const topicSchema = chapterSchema.items.properties.topics;
   const topicItemSchema = topicSchema.items;
   const subtopicSchema = topicItemSchema.properties.subtopics;
@@ -1231,8 +1253,11 @@ test("crosses directly to Groq after one Gemini transport failure and lazily ext
     "groq:" + DEFAULT_GROQ_LEARNING_MODEL,
   ]);
   assert.equal(harness.prepareCalls, 1);
-  assert.ok(groqRequests[0].max_tokens < MAX_LEARNING_COMPLETION_TOKENS);
-  assert.ok(groqRequests[0].max_tokens >= 3_000);
+  const groqCompletionTokens = groqRequests[0].max_completion_tokens ?? groqRequests[0].max_tokens;
+  assert.ok(groqCompletionTokens <= MAX_GROQ_LEARNING_COMPLETION_TOKENS);
+  assert.ok(groqCompletionTokens >= 3_000);
+  assert.equal(groqRequests[0].reasoning_effort, "low");
+  assert.equal(groqRequests[0].include_reasoning, false);
   assert.match(groqRequests[0].messages[1].content, /Generate exactly 4 distinct.*exactly 2 meaningful subtopics/u);
   assert.match(groqRequests[0].messages[1].content, /4-5 specific key points/u);
   assert.match(groqRequests[0].messages[1].content, /isolated address spaces/u);
@@ -1365,6 +1390,31 @@ test("tries every Gemini candidate before the second configured Groq model succe
   assert.equal(harness.prepareCalls, 1);
   assert.equal(harness.stored[0].model, groqModels[1]);
   assert.equal(res.body.notebook.model, groqModels[1]);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("tries the next Groq model after a transport failure", async () => {
+  const models = ["groq-transport-primary", "groq-transport-secondary"];
+  const attempts = [];
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    groqLearningModel: models[0],
+    groqLearningModels: models,
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      attempts.push(request.model);
+      if (request.model === models[0]) throw new TypeError("network unavailable");
+      return groqNotebookResponse();
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(attempts, models);
+  assert.equal(res.body.notebook.model, models[1]);
   assert.equal(harness.aiQuota.calls.reserve.length, 1);
   assert.equal(harness.aiQuota.calls.commit.length, 1);
   assert.equal(harness.aiQuota.calls.refund.length, 0);
@@ -1905,7 +1955,7 @@ test("uses Gemini structured output for career topics and persists normalized an
   assert.equal(requests.length, 1);
   assert.match(requests[0].url, /generativelanguage\.googleapis\.com/u);
   assert.equal(
-    requests[0].body.generationConfig.responseFormat.text.schema.properties.topics.type,
+    requests[0].body.generationConfig.responseJsonSchema.properties.topics.type,
     "array",
   );
   assert.match(

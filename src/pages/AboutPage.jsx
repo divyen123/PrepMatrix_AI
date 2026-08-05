@@ -8,18 +8,26 @@ import {
   BrainCircuit,
   Calendar,
   ClipboardList,
+  Coins,
   GraduationCap,
   Library,
   Mic,
   Network,
   Palette,
   PlayCircle,
+  RefreshCcw,
   Sparkles,
   StickyNote,
   TrendingUp,
   Trophy,
 } from "lucide-react";
 import PrepMatrixGuideDialog from "../components/PrepMatrixGuideDialog";
+import {
+  AI_DEFAULT_COSTS,
+  AI_FEATURE_LABELS,
+  AI_FEATURES,
+  useAiQuota,
+} from "../utils/aiQuota";
 
 const FEATURES = [
   { icon: Calendar, title: "Smart Planner & Scheduler", desc: "Distributes study workloads, balances daily tasks by difficulty, and keeps missed work organized." },
@@ -37,9 +45,30 @@ const FEATURES = [
   { icon: Palette, title: "Appearance Customization", desc: "Adjusts backgrounds, brightness, layout scale, and the overall workspace theme." },
 ];
 
+const CREDIT_ACTIONS = Object.values(AI_FEATURES);
+
+function formatCreditReset(value) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "the next UTC month";
+  return new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short",
+    timeZone: "UTC",
+    timeZoneName: "short",
+    year: "numeric",
+  }).format(date);
+}
+
 function AboutPage() {
   const navigate = useNavigate();
   const [guideOpen, setGuideOpen] = useState(false);
+  const { isKnown, loading, quota, refresh } = useAiQuota();
+  const remainingCredits = isKnown ? quota.remaining : null;
+  const usedCredits = isKnown
+    ? Math.max(0, quota.used ?? quota.limit - quota.remaining - (quota.reserved || 0))
+    : null;
 
   return (
     <section className="page-stack about-page-route">
@@ -86,6 +115,52 @@ function AboutPage() {
           </article>
         ))}
       </div>
+
+      <section aria-labelledby="about-credits-title" className="card about-credits-card">
+        <div className="about-credits-intro">
+          <span className="section-tag">AI credits</span>
+          <h3 id="about-credits-title">Your monthly AI allowance</h3>
+          <p>
+            Credits are used only when you request an AI action. If an AI request cannot be completed, its credits are returned automatically.
+          </p>
+
+          <div className="about-credit-balance">
+            <Coins aria-hidden="true" size={22} />
+            <div>
+              <strong>{isKnown ? `${remainingCredits} credits left` : "Your current balance"}</strong>
+              <span>
+                {isKnown
+                  ? `${usedCredits} used · ${quota.reserved || 0} processing · ${quota.limit} total`
+                  : "Sign in to see your live allowance and reset date."}
+              </span>
+            </div>
+          </div>
+
+          {isKnown ? (
+            <p className="about-credit-reset">Resets {formatCreditReset(quota.resetAt)}.</p>
+          ) : (
+            <button className="about-credit-refresh" disabled={loading} onClick={refresh} type="button">
+              <RefreshCcw aria-hidden="true" className={loading ? "spinner" : ""} size={14} />
+              {loading ? "Refreshing…" : "Refresh balance"}
+            </button>
+          )}
+        </div>
+
+        <div className="about-credit-costs">
+          <span>Cost per action</span>
+          <dl>
+            {CREDIT_ACTIONS.map((feature) => {
+              const cost = quota?.costs?.[feature] ?? AI_DEFAULT_COSTS[feature];
+              return (
+                <div key={feature}>
+                  <dt>{AI_FEATURE_LABELS[feature]}</dt>
+                  <dd>{cost} credit{cost === 1 ? "" : "s"}</dd>
+                </div>
+              );
+            })}
+          </dl>
+        </div>
+      </section>
 
       <footer className="about-footer">&copy; 2026 PrepMatrix AI &bull; All rights reserved &bull; Tailored for Divyen R M</footer>
 

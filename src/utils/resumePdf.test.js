@@ -80,6 +80,27 @@ const screenshotFixture = {
   ],
 };
 
+const fullStudentResumeFixture = {
+  ...screenshotFixture,
+  personal: {
+    ...screenshotFixture.personal,
+    linkedin: "www.linkedin.com/in-r-m-663b49534a",
+    portfolio: "divyen-portfolio-website.vercel.app",
+  },
+  projects: [
+    ...screenshotFixture.projects,
+    {
+      name: "PrepMatrix AI",
+      role: "Full-Stack Developer",
+      technologies: "React, node.js, Express.js, Groq API, Gemini API",
+      endDate: "May 2026",
+      link: "github.com/divyen123/PrepMatrix_AI",
+      highlights: [
+        "Built an intelligent study planner that auto-generates personalized timetables, tracks chapter-wise progress, and adapts learning strategies using AI-driven smart suggestions and voice assistance.",
+      ],
+    },
+  ],
+};
 const assertClose = (actual, expected, tolerance = 0.001) => {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} is not within ${tolerance} of ${expected}`);
 };
@@ -161,6 +182,18 @@ test("fills a representative page like the responsive editor preview", () => {
   assert.equal(balanced.sectionCount, 5);
 });
 
+test("fits a representative two-project student resume onto one A4 page", () => {
+  const pdf = createResumePdf(fullStudentResumeFixture, {
+    template: "compact",
+    typography: "balanced",
+    density: "balanced",
+  });
+
+  assert.equal(pdf.getNumberOfPages(), 1);
+  assert.equal(pdf.__resumeLayout.pageCount, 1);
+  assert.ok(pdf.__resumeLayout.renderScale < 1);
+  assert.ok(pdf.__resumeLayout.contentBottom <= 280);
+});
 test("does not stretch a sparse resume", () => {
   const pdf = createResumePdf(
     {

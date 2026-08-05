@@ -31,6 +31,10 @@ const DENSITY_LAYOUT = Object.freeze({
   }),
 });
 
+// A short second page is usually a normal one-page resume with a few sections
+// pushed over the page boundary. Allow a measured reduction for that case,
+// while preserving genuinely long resumes as multi-page documents.
+const MAX_SINGLE_PAGE_OVERFLOW_BOTTOM_MM = 128;
 const cleanFilePart = (value) =>
   String(value || "resume")
     .trim()
@@ -719,7 +723,7 @@ export function createResumePdf(draftValue, layoutValue = {}) {
   const shouldFitSinglePage =
     naturalLayout.pageCount === 2 &&
     naturalLayout.sectionCount >= 4 &&
-    naturalLayout.contentBottom <= 96;
+    naturalLayout.contentBottom <= MAX_SINGLE_PAGE_OVERFLOW_BOTTOM_MM;
   if (!shouldFitSinglePage) return naturalPdf;
 
   let low = 0.68;
