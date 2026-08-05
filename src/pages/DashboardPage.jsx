@@ -30,28 +30,31 @@ function DashboardPage({
   const [searchInput, setSearchInput]   = useState("");
   const [isRecording, setIsRecording]   = useState(false);
   const [isDragging, setIsDragging]     = useState(false);
+  const [attachmentCount, setAttachmentCount] = useState(0);
   const dragDepthRef = useRef(0);
   const inputRef     = useRef(null);
+  const recognitionRef = useRef(null);
 
   const firstName =
     userProfile?.username?.split(" ")[0] ||
     userProfile?.name?.split(" ")[0] ||
     "there";
 
-  /* ── Listen to voice recording state from Chatbot ────────── */
+  /* ── Listen to attachment count from Chatbot ─────────────── */
   useEffect(() => {
-    const handler = (e) => {
-      setIsRecording(Boolean(e.detail?.isRecording));
-    };
-    window.addEventListener("voiceRecordingChange", handler);
-    return () => window.removeEventListener("voiceRecordingChange", handler);
+    const handler = (e) => setAttachmentCount(e.detail?.count || 0);
+    window.addEventListener("chatAttachmentsChange", handler);
+    return () => window.removeEventListener("chatAttachmentsChange", handler);
   }, []);
 
   /* ── Text submit ─────────────────────────────────────────── */
   const handleSearch = (e) => {
     e.preventDefault();
+    if (isRecording) {
+      recognitionRef.current?.stop();
+    }
     const query = searchInput.trim();
-    if (!query) {
+    if (!query && attachmentCount === 0) {
       if (window.openStudyAssistant) window.openStudyAssistant();
       return;
     }
@@ -60,10 +63,48 @@ function DashboardPage({
     setSearchInput("");
   };
 
-  /* ── Mic button ──────────────────────────────────────────── */
+  /* ── Mic button (Local Speech Recognition) ───────────────── */
   const handleMic = () => {
-    if (window.toggleChatMic) window.toggleChatMic();
-    else if (window.openStudyAssistant) window.openStudyAssistant();
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSearchInput("Voice recognition is not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.lang = "en-IN";
+    recognitionRef.current = recognition;
+
+    recognition.onstart = () => setIsRecording(true);
+    recognition.onend = () => {
+      setIsRecording(false);
+      recognitionRef.current = null;
+    };
+    recognition.onerror = () => {
+      setIsRecording(false);
+      recognitionRef.current = null;
+    };
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((res) => res[0]?.transcript || "")
+        .join(" ")
+        .trim();
+      if (transcript) setSearchInput(transcript);
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      setIsRecording(false);
+    }
   };
 
   /* ── File/paperclip button ───────────────────────────────── */
@@ -155,8 +196,14 @@ function DashboardPage({
             onClick={handleAttach}
             title="Upload document to AI"
             aria-label="Upload document to AI"
+            style={{ position: "relative" }}
           >
             <Paperclip size={16} />
+            {attachmentCount > 0 && (
+              <span className="db-attachment-badge" aria-label={`${attachmentCount} attachments`}>
+                {attachmentCount}
+              </span>
+            )}
           </button>
 
           {/* Mic */}
@@ -174,8 +221,8 @@ function DashboardPage({
             )}
           </button>
 
-          {/* Ask button — only when text is typed */}
-          {searchInput && (
+          {/* Ask button — only when text is typed or files are attached */}
+          {(searchInput || attachmentCount > 0) && (
             <button type="submit" className="db-search-send" aria-label="Send">
               Ask
             </button>

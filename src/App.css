@@ -20390,8 +20390,9 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 
 .db-search-input {
   flex: 1;
-  border: none;
-  background: transparent;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
   outline: none;
   font-size: 0.95rem;
   color: var(--text);
@@ -20723,4 +20724,23 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   .db-panel-inner .smart-suggestion-strip {
     grid-template-columns: 1fr;
   }
+}
+
+/* Dashboard attachment badge */
+.db-attachment-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  pointer-events: none;
 }

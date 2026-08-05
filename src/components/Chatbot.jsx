@@ -905,7 +905,6 @@ function Chatbot({
 
     // Allow the dashboard search bar to open the chatbot's file picker
     window.triggerChatAttachment = () => {
-      setOpen(true);
       // Give the panel a frame to mount before clicking the hidden input
       window.requestAnimationFrame(() => {
         fileInputRef.current?.click();
@@ -914,7 +913,6 @@ function Chatbot({
 
     // Allow the dashboard search bar to start/stop the chatbot's mic
     window.toggleChatMic = () => {
-      setOpen(true);
       window.requestAnimationFrame(() => handleMicClick());
     };
 
@@ -928,6 +926,11 @@ function Chatbot({
       delete window.toggleChatMic;
     };
   }, [fetchSessions, handleSelectSession, sendMessage]);
+
+  // Broadcast attachment count to the dashboard so it can show a badge
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("chatAttachmentsChange", { detail: { count: attachments.length } }));
+  }, [attachments]);
 
   useEffect(() => () => {
     const activeRecognition = chatRecognitionRef.current;
