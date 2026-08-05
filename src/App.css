@@ -20750,3 +20750,131 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
   pointer-events: none;
 }
+/* -- Subjects Popup ------------------------------------------ */
+.db-subjects-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.db-subjects-popup-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.db-subjects-popup-container {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  transform: scale(0.95) translateY(10px);
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: hidden;
+}
+
+.db-subjects-popup-container.open {
+  transform: scale(1) translateY(0);
+}
+
+.db-subjects-popup-header {
+  padding: 1.2rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.db-subjects-popup-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.db-subjects-popup-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.db-subjects-popup-close:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.db-subjects-popup-body {
+  padding: 1rem 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.db-subjects-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.db-subject-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.db-subject-name {
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.db-subject-chapters {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+}
+
+.db-subjects-empty {
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 0.95rem;
+  padding: 2rem 0;
+}
+
+.db-subjects-popup-footer {
+  padding: 1.2rem 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.db-subjects-open-btn {
+  width: 100%;
+}
