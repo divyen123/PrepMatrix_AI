@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { buildWeeklyReview } from "../utils/weeklyReview";
 
@@ -10,9 +10,15 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
 
   const generateReview = () => {
     if (!hasScheduledPlanner) return;
-
     setReview(buildWeeklyReview(metrics, { academicLevel, academicTrack }));
   };
+
+  useEffect(() => {
+    if (hasScheduledPlanner && !review) {
+      generateReview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasScheduledPlanner]);
 
   return (
     <section className="card weekly-review-card">

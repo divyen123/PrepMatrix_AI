@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Lightbulb, BarChart2, CalendarCheck, Mic, Paperclip, UploadCloud } from "lucide-react";
 import SmartSuggestion from "../components/SmartSuggestion";
 import ProgressBar1 from "../components/Progressbar1";
@@ -26,6 +27,7 @@ function DashboardPage({
   completed,
   userProfile,
 }) {
+  const navigate = useNavigate();
   const [activePanel, setActivePanel] = useState(null);
   const [searchInput, setSearchInput]   = useState("");
   const [isRecording, setIsRecording]   = useState(false);
@@ -248,6 +250,22 @@ function DashboardPage({
                 "--card-glow":        tone.glow,
                 "--card-label-color": tone.labelColor,
                 "--card-bg":          tone.bg,
+                cursor:               "pointer",
+              }}
+              onClick={() => {
+                if (card.label.toLowerCase().includes("subject")) navigate("/subjects");
+                else if (card.label.toLowerCase().includes("planned")) navigate("/planner");
+                else navigate("/analytics");
+              }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  if (card.label.toLowerCase().includes("subject")) navigate("/subjects");
+                  else if (card.label.toLowerCase().includes("planned")) navigate("/planner");
+                  else navigate("/analytics");
+                }
               }}
             >
               <span className="db-stat-label">{card.label}</span>
