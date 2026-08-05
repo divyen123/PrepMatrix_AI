@@ -224,14 +224,6 @@ function SubjectsPage({
             </ul>
           </article>
 
-          <article className="card route-highlight-card">
-            <span className="section-tag">Learning level</span>
-            <h3>{qualification}</h3>
-            <p className="card-desc">
-              {academicProfile.academicLevel} · {academicProfile.academicTrack}
-              {academicProfile.department ? ` · ${academicProfile.department}` : ""}. Every adaptive module uses this same profile.
-            </p>
-          </article>
 
           <article className="card route-highlight-card">
             <span className="section-tag">Next layer</span>
