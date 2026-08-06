@@ -8489,6 +8489,13 @@ body.dark .app-container::after {
 .app-shell-layout.has-sidebar.is-sidebar-collapsed .app-sidebar .workspace-logo-mark {
   width: 34px !important;
   height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
   font-size: 1rem !important;
   border-radius: 50% !important;
   margin: 0 !important;
@@ -8507,8 +8514,8 @@ body.dark .app-container::after {
 @media (min-width: 992px) {
   .app-shell-layout.has-sidebar.is-sidebar-collapsed .app-main-content {
     margin-left: 80px !important;
-    width: calc(100vw - 280px) !important;
-    max-width: calc(100vw - 280px) !important;
+    width: calc(100vw - 320px) !important;
+    max-width: calc(100vw - 320px) !important;
   }
   
   .app-shell-layout.has-sidebar .workspace-topbar {
