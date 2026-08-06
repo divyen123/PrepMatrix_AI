@@ -428,9 +428,14 @@ function SubjectPlanDialog({
                   onChange={(event) => setChapterNumber(Number(event.target.value))}
                   value={chapterNumber}
                 >
-                  {Array.from({ length: chapterCount }, (_, index) => (
-                    <option key={index + 1} value={index + 1}>Chapter {index + 1}</option>
-                  ))}
+                  {Array.from({ length: chapterCount }, (_, index) => {
+                    const isNamed = Boolean(String(chapterNames[index] || "").trim());
+                    return (
+                      <option key={index + 1} value={index + 1} disabled={isNamed && chapterNumber !== index + 1}>
+                        Chapter {index + 1}
+                      </option>
+                    );
+                  })}
                 </select>
                 <input
                   aria-describedby={chapterError ? "subject-chapter-error" : undefined}
