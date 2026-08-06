@@ -72,7 +72,7 @@
 .learning-hero-copy {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: flex-start;
   gap: 16px;
   min-width: 0;
