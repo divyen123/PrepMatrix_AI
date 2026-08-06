@@ -2022,7 +2022,6 @@ function StartLearningPage({
                                 {chapter.summary && <p className="learning-outline-summary">{chapter.summary}</p>}
                                 {chapter.topics.map((topic) => (
                                   <div className="learning-outline-topic" key={topic.id} role="treeitem">
-                                    <span className="learning-tree-marker" aria-hidden="true" />
                                     <label>
                                       <span className="sr-only">Topic name</span>
                                       <input

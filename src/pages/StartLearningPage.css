@@ -1166,7 +1166,14 @@ body .learning-mini-composer button {
   border-radius: 15px;
   animation: learningReveal 440ms cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: calc(var(--reveal-index, 0) * 50ms);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
 }
+
+.learning-outline-chapter:hover {
+  border-color: rgba(var(--accent-rgb), 0.5);
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.1);
+}
+
 
 .learning-outline-chapter-row {
   display: grid;
@@ -1231,15 +1238,12 @@ body .learning-subtopic-row > button {
   background: var(--surface-strong);
   border: 1px solid var(--border);
   border-radius: 12px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
 }
 
-.learning-tree-marker {
-  position: absolute;
-  width: 13px;
-  height: 1px;
-  left: -14px;
-  top: 27px;
-  background: rgba(var(--accent-rgb), 0.34);
+.learning-outline-topic:hover {
+  border-color: rgba(var(--accent-rgb), 0.5);
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.1);
 }
 
 .learning-outline-topic > p {
