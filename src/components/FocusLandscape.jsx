@@ -69,9 +69,9 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
               {sortedData.map((item, index) => (
                 <div 
                   className="custom-bar-row" 
-                  key={item.id} 
+                  key={item.subject} 
                   style={{ animationDelay: `${index * 0.1}s` }}
-                  onMouseEnter={() => setHoveredSubject(item.id)}
+                  onMouseEnter={() => setHoveredSubject(item.subject)}
                   onMouseLeave={() => setHoveredSubject(null)}
                 >
                   <div className="custom-bar-label">
@@ -97,7 +97,7 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
                       }}
                     />
                   </div>
-                  {hoveredSubject === item.id && (
+                  {hoveredSubject === item.subject && (
                     <div className="custom-bar-tooltip">
                       <strong>{item.subject}</strong>
                       <div className="tooltip-metrics">
