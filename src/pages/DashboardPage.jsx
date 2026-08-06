@@ -46,7 +46,7 @@ function DashboardPage({
 
   const saveConfiguration = (updatedSubject) => {
     if (typeof setSubjects === "function") {
-      const idx = subjects.findIndex((s) => String(s.id) === String(updatedSubject.id));
+      const idx = subjects.findIndex((s) => s.name === updatedSubject.name);
       if (idx === -1) {
         setSubjects(subjects, { preserveSchedule: hasActiveSchedule });
       } else {
