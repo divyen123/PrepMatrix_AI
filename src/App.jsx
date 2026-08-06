@@ -69,24 +69,44 @@ import "./components/GoalReminderCenter.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const FloatingAnalytics = lazy(() => import("./components/FloatingAnalytics"));
-const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
-const AuthPage = lazy(() => import("./pages/AuthPage"));
-const DashboardPage = lazy(() => import("./pages/DashboardPage"));
-const NotesPage = lazy(() => import("./pages/NotesPage"));
-const StartLearningPage = lazy(() => import("./pages/StartLearningPage"));
-const PlannerPage = lazy(() => import("./pages/PlannerPage"));
-const QuizPage = lazy(() => import("./pages/QuizPage"));
-const KidsLearningPage = lazy(() => import("./pages/KidsLearningPage"));
-const ReportPage = lazy(() => import("./pages/ReportPage"));
-const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
-const SubjectsPage = lazy(() => import("./pages/SubjectsPage"));
-const ResumeBuilderPage = lazy(() => import("./pages/ResumeBuilderPage"));
-const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const NotificationHistoryPage = lazy(() => import("./pages/NotificationHistoryPage"));
-const AboutPage = lazy(() => import("./pages/AboutPage"));
-const ExamPage = lazy(() => import("./pages/ExamPage"));
-const ExamAboutPage = lazy(() => import("./pages/ExamAboutPage"));
+const lazyRetry = (componentImport) =>
+  lazy(async () => {
+    const pageHasAlreadyBeenForceRefreshed = JSON.parse(
+      window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
+    );
+    try {
+      const component = await componentImport();
+      window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
+      return component;
+    } catch (error) {
+      if (!pageHasAlreadyBeenForceRefreshed) {
+        window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
+        window.location.reload();
+        // Return a promise that never resolves so React Suspense hangs until reload completes
+        return new Promise(() => {});
+      }
+      throw error;
+    }
+  });
+
+const FloatingAnalytics = lazyRetry(() => import("./components/FloatingAnalytics"));
+const AnalyticsPage = lazyRetry(() => import("./pages/AnalyticsPage"));
+const AuthPage = lazyRetry(() => import("./pages/AuthPage"));
+const DashboardPage = lazyRetry(() => import("./pages/DashboardPage"));
+const NotesPage = lazyRetry(() => import("./pages/NotesPage"));
+const StartLearningPage = lazyRetry(() => import("./pages/StartLearningPage"));
+const PlannerPage = lazyRetry(() => import("./pages/PlannerPage"));
+const QuizPage = lazyRetry(() => import("./pages/QuizPage"));
+const KidsLearningPage = lazyRetry(() => import("./pages/KidsLearningPage"));
+const ReportPage = lazyRetry(() => import("./pages/ReportPage"));
+const ResourcesPage = lazyRetry(() => import("./pages/ResourcesPage"));
+const SubjectsPage = lazyRetry(() => import("./pages/SubjectsPage"));
+const ResumeBuilderPage = lazyRetry(() => import("./pages/ResumeBuilderPage"));
+const SettingsPage = lazyRetry(() => import("./pages/SettingsPage"));
+const NotificationHistoryPage = lazyRetry(() => import("./pages/NotificationHistoryPage"));
+const AboutPage = lazyRetry(() => import("./pages/AboutPage"));
+const ExamPage = lazyRetry(() => import("./pages/ExamPage"));
+const ExamAboutPage = lazyRetry(() => import("./pages/ExamAboutPage"));
 
 const LOGOUT_TRANSITION_MIN_MS = 700;
 const LOGOUT_TRANSITION_EXIT_MS = 280;

@@ -54,6 +54,7 @@ export const RESUME_ACCENTS = Object.freeze([
   { value: "#a56ef5", label: "Violet" },
   { value: "#d97757", label: "Terracotta" },
   { value: "#334155", label: "Slate" },
+  { value: "#10b981", label: "Emerald" },
 ]);
 
 const cleanText = (value, max = 500) => String(value ?? "").replace(/\r\n/g, "\n").slice(0, max);

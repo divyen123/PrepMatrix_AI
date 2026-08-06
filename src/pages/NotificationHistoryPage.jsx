@@ -128,6 +128,8 @@ function NotificationHistoryPage() {
   const previouslyFocusedRef = useRef(null);
   const notificationCardRefs = useRef(new Map());
   const clearAllControlsRef = useRef(null);
+  const [visibleLimit, setVisibleLimit] = useState(10);
+  const observerTarget = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -161,6 +163,27 @@ function NotificationHistoryPage() {
       active = false;
     };
   }, [reloadKey]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleLimit((prev) => prev + 10);
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [observerTarget.current]);
 
   const selectedNotification = useMemo(
     () => notifications.find((notification) => String(notification.id) === String(selectedId)) || null,
@@ -578,7 +601,7 @@ function NotificationHistoryPage() {
           </div>
         ) : (
           <div className="notification-history-list">
-            {visibleNotifications.map((notification, index) => {
+            {visibleNotifications.slice(0, visibleLimit).map((notification, index) => {
               const isUnread = !notification.readAt;
               const isConfirming = String(confirmDeleteId) === String(notification.id);
               const isDeleting = String(deletingId) === String(notification.id);
@@ -669,6 +692,9 @@ function NotificationHistoryPage() {
                 </article>
               );
             })}
+            {visibleLimit < visibleNotifications.length && (
+              <div ref={observerTarget} style={{ height: "20px" }} />
+            )}
           </div>
         )}
       </section>
