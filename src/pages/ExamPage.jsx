@@ -1569,7 +1569,6 @@ function ExamPage({
             <div>
               <span className="exam-hero-badge"><ShieldAlert size={14} /> Secure assessment workspace</span>
               <h2>From focused practice to a complete exam workflow.</h2>
-              <p>Prepare a 40-question online assessment, generate printable papers with exact mark allocation, and keep every result or paper organized.</p>
               <div><button className="exam-primary-btn" disabled={!isOnlineExamEligible} onClick={() => setSection("attend")} title={!isOnlineExamEligible ? `Complete ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner to unlock Attend Exam` : undefined} type="button"><ListChecks size={17} /> {isOnlineExamEligible ? "Attend exam" : `Unlock at ${EXAM_ELIGIBILITY_THRESHOLD}%`}</button><button className="exam-secondary-btn" onClick={() => setSection("paper")} type="button"><FilePlus2 size={17} /> Generate paper</button></div>
             </div>
             <div className="exam-hero-stats">

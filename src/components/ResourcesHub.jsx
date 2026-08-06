@@ -77,19 +77,7 @@ function ResourcesHub({
 
   return (
     <section className="resources-shell">
-      {subjects.length > 0 ? (
-        <div className="resources-summary-grid">
-          <article className="card resources-summary-card">
-            <span className="section-tag">Resources</span>
-            <h3>Guided learning map</h3>
-            <span className="resource-level-chip">{academicLevel} - {academicTrack}</span>
-            <p className="card-subtext">
-              Chapter-aware suggestions combine concept lessons, notes, practice, and
-              revision prompts for each subject.
-            </p>
-          </article>
-        </div>
-      ) : null}
+
 
       {safeMaterialBookmarks.length > 0 ? (
         <section className="card bookmark-library-card">

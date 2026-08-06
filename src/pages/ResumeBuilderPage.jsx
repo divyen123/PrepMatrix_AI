@@ -815,7 +815,6 @@ export default function ResumeBuilderPage({
         <div className="resume-builder-hero__copy">
           <span className="resume-builder-eyebrow">Career workspace</span>
           <h1>Resume Builder</h1>
-          <p>Shape your experience into a polished, ATS-friendly resume with a live edit console.</p>
           <div className="resume-builder-hero__meta">
             <span><ShieldCheck size={14} /> Enabled for {academicProfile.academicTrack || academicProfile.academicLevel || "your profile"}</span>
             <span><CheckCircle2 size={14} /> Draft saved automatically</span>
@@ -886,7 +885,6 @@ export default function ResumeBuilderPage({
               <EditorHeading
                 eyebrow="01 · Profile"
                 title="Make a strong first impression"
-                description="Start with the details recruiters need. Phone, LinkedIn, GitHub, and portfolio are optional."
               />
               <div className="resume-form-grid">
                 <InputField
@@ -976,7 +974,6 @@ export default function ResumeBuilderPage({
               <EditorHeading
                 eyebrow="02 · Experience"
                 title="Show the impact of your work"
-                description="Add jobs, internships, freelance work, volunteering, or leadership. Lead each point with a clear action."
               />
               <div className="resume-repeat-list">
                 {draft.experience.map((item, index) => (
@@ -1023,7 +1020,6 @@ export default function ResumeBuilderPage({
               <EditorHeading
                 eyebrow="03 · Projects"
                 title="Turn your projects into proof"
-                description="Highlight academic, personal, open-source, design, research, or client projects."
               />
               <div className="resume-repeat-list">
                 {draft.projects.map((item, index) => (
@@ -1066,7 +1062,6 @@ export default function ResumeBuilderPage({
               <EditorHeading
                 eyebrow="04 · Education"
                 title="Add your academic foundation"
-                description="Your current academic profile is used as a starting point. Adjust it for the role you are targeting."
               />
               {validationErrors.education && (
                 <div className="resume-inline-error"><AlertCircle size={16} /> {validationErrors.education}</div>
@@ -1113,7 +1108,6 @@ export default function ResumeBuilderPage({
               <EditorHeading
                 eyebrow="05 · Skills & more"
                 title="Complete your professional profile"
-                description="Prioritize skills that match your target role, then add relevant credentials and distinctions."
               />
               <div className="resume-form-grid">
                 <InputField
@@ -1189,7 +1183,6 @@ export default function ResumeBuilderPage({
               <EditorHeading
                 eyebrow="06 · Layout"
                 title="Polish the presentation"
-                description="Change the visual hierarchy without rewriting your content. Every option stays readable and print-ready."
               />
               <div className="resume-layout-group">
                 <div className="resume-layout-group__heading"><LayoutTemplate size={18} /><div><strong>Template</strong><span>Choose the overall character</span></div></div>

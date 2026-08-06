@@ -102,9 +102,6 @@ function TopicTimeline({ subjects = [], schedule = [], completed = [] }) {
         <div>
           <span className="section-tag">Timeline map</span>
           <h3>Topic progress lanes</h3>
-          <p className="card-subtext">
-            Each card turns scheduled chapters into a compact topic timeline.
-          </p>
         </div>
         <strong>{metrics.completedTasks}/{metrics.totalTasks} done</strong>
       </div>

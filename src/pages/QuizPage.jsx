@@ -361,12 +361,6 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
         <div>
           <span className="section-tag">Adaptive setup</span>
           <h3>Build a quiz from your exact topic</h3>
-          <p className="card-subtext">
-            Stage: {learnerContext.academicLevel}. {learnerContext.grade ? `Class: ${learnerContext.grade}. ` : ""}
-            {learnerContext.degree ? `Qualification: ${learnerContext.degree}. ` : ""}
-            Pathway: {learnerContext.academicTrack}{learnerContext.department ? `. Specialization: ${learnerContext.department}` : ""}.
-            Questions stay inside this learner profile and the entered topic.
-          </p>
         </div>
 
         <div className="quiz-builder-grid">

@@ -52,10 +52,6 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
         <div>
           <span className="section-tag">Focus Map</span>
           <h2>Subject landscape</h2>
-          <p className="card-subtext">
-            Compare subjects by workload and progress. Solid bars show completed chapters,
-            while the shaded area shows what's left.
-          </p>
         </div>
       </div>
 

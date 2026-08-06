@@ -76,6 +76,7 @@
   justify-content: center;
   gap: 11px;
   min-width: 0;
+  padding-top: 32px;
 }
 
 .learning-hero .section-tag {

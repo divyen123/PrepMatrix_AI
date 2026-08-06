@@ -179,10 +179,6 @@ function ExamAboutPage() {
         </article>
       </div>
 
-      <section className="card exam-guide-footer-cta">
-        <div><span className="exam-guide-kicker">Ready to begin?</span><h2>Return to the Exam workspace and choose your mode.</h2></div>
-        <button className="exam-guide-primary" onClick={() => navigate("/exam")} type="button">Open Exam workspace <ArrowRight size={16} /></button>
-      </section>
     </section>
   );
 }
