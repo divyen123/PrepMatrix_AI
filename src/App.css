@@ -883,6 +883,71 @@ body.dark .task-chip {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  position: relative;
+}
+
+.custom-bar-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface-float);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px;
+  min-width: 200px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  z-index: 100;
+  pointer-events: none;
+  animation: fadeInTooltip 0.2s ease forwards;
+}
+
+.custom-bar-tooltip::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 12px;
+  height: 12px;
+  background: var(--surface-float);
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.custom-bar-tooltip strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  color: var(--text-base);
+}
+
+.tooltip-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tooltip-metrics span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tooltip-metrics .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.tooltip-metrics .dot.easy { background: #22c55e; }
+.tooltip-metrics .dot.medium { background: #f59e0b; }
+.tooltip-metrics .dot.hard { background: #ef4444; }
+
+@keyframes fadeInTooltip {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 .custom-bar-label {

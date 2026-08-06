@@ -3,6 +3,7 @@ import { getPlannerMetrics } from "../utils/plannerMetrics";
 
 function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
   const [isVisible, setIsVisible] = useState(false);
+  const [hoveredSubject, setHoveredSubject] = useState(null);
   const observer = useRef(null);
 
   const setObserverTarget = useCallback((node) => {
@@ -66,7 +67,13 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
           <div className="landscape-chart-shell" ref={setObserverTarget}>
             <div className="custom-bar-chart">
               {sortedData.map((item, index) => (
-                <div className="custom-bar-row" key={item.id} style={{ animationDelay: `${index * 0.1}s` }}>
+                <div 
+                  className="custom-bar-row" 
+                  key={item.id} 
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                  onMouseEnter={() => setHoveredSubject(item.id)}
+                  onMouseLeave={() => setHoveredSubject(null)}
+                >
                   <div className="custom-bar-label">
                     <span>{item.subject}</span>
                     <span className="custom-bar-count">
@@ -90,6 +97,17 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
                       }}
                     />
                   </div>
+                  {hoveredSubject === item.id && (
+                    <div className="custom-bar-tooltip">
+                      <strong>{item.subject}</strong>
+                      <div className="tooltip-metrics">
+                        <span><i className={`dot ${item.difficulty}`}></i> Difficulty: {item.difficulty}</span>
+                        <span>✓ Completed: {item.done}</span>
+                        <span>⏱ Pending: {item.pending}</span>
+                        <span>% Coverage: {item.completionRate}%</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
