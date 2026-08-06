@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 
 function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
   const [isVisible, setIsVisible] = useState(false);
-  const [hoveredSubject, setHoveredSubject] = useState(null);
+  const [tooltipInfo, setTooltipInfo] = useState(null);
   const observer = useRef(null);
 
   const setObserverTarget = useCallback((node) => {
@@ -71,8 +72,15 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
                   className="custom-bar-row" 
                   key={item.subject} 
                   style={{ animationDelay: `${index * 0.1}s` }}
-                  onMouseEnter={() => setHoveredSubject(item.subject)}
-                  onMouseLeave={() => setHoveredSubject(null)}
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setTooltipInfo({
+                      item,
+                      x: rect.left + rect.width / 2,
+                      y: rect.top - 10
+                    });
+                  }}
+                  onMouseLeave={() => setTooltipInfo(null)}
                 >
                   <div className="custom-bar-label">
                     <span>{item.subject}</span>
@@ -97,17 +105,6 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
                       }}
                     />
                   </div>
-                  {hoveredSubject === item.subject && (
-                    <div className="custom-bar-tooltip">
-                      <strong>{item.subject}</strong>
-                      <div className="tooltip-metrics">
-                        <span><i className={`dot ${item.difficulty}`}></i> Difficulty: {item.difficulty}</span>
-                        <span>✓ Completed: {item.done}</span>
-                        <span>⏱ Pending: {item.pending}</span>
-                        <span>% Coverage: {item.completionRate}%</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -137,6 +134,22 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
             </div>
           </div>
         </div>
+      )}
+
+      {tooltipInfo && createPortal(
+        <div 
+          className="custom-bar-tooltip" 
+          style={{ left: tooltipInfo.x, top: tooltipInfo.y }}
+        >
+          <strong>{tooltipInfo.item.subject}</strong>
+          <div className="tooltip-metrics">
+            <span><i className={`dot ${tooltipInfo.item.difficulty}`}></i> Difficulty: {tooltipInfo.item.difficulty}</span>
+            <span>✓ Completed: {tooltipInfo.item.done}</span>
+            <span>⏱ Pending: {tooltipInfo.item.pending}</span>
+            <span>% Coverage: {tooltipInfo.item.completionRate}%</span>
+          </div>
+        </div>,
+        document.body
       )}
     </section>
   );
