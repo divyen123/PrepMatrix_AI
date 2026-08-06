@@ -147,9 +147,7 @@ function ProgressModal({ isOpen, isActive, onClose, schedule = [], completed = [
             <h2 id="trend-modal-title">Progress Trend Analytics</h2>
             <span className={`trend-status-badge ${colorTheme.badge}`}>{statusText}</span>
           </div>
-          <p className="trend-modal-subtitle">
-            Detailed breakdown of your learning velocity and study plan completion.
-          </p>
+
         </div>
 
         <div className="trend-modal-grid">

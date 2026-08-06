@@ -1461,17 +1461,7 @@ function App() {
               </button>
               <div className="page-header-info">
                 <h2 className="page-title">{titleLabel}</h2>
-                <p className="page-subtitle">
-                  {location.pathname.startsWith("/exam/about")
-                    ? "Understand every exam tool, rule, and workflow"
-                    : location.pathname.startsWith("/notification-history")
-                    ? "Review, read, and manage your notification history"
-                    : location.pathname.startsWith("/settings")
-                    ? "Manage profile, update credentials, and customize appearance"
-                    : location.pathname.startsWith("/exam")
-                      ? "Attend exams, generate question papers, and review results"
-                      : activeRoute?.helper || "Study planning platform"}
-                </p>
+
               </div>
             </div>
 
