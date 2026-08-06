@@ -358,7 +358,7 @@ body .learning-delete-confirm button {
 .learning-field input:focus,
 .learning-field select:focus,
 .learning-field textarea:focus,
-.learning-outline-view input:focus {
+.learning-outline-view input:focus-visible {
   background: var(--surface-strong);
   border-color: rgba(var(--accent-rgb), 0.42);
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
@@ -1245,7 +1245,6 @@ body .learning-subtopic-row > button {
 
 .learning-outline-topic:hover {
   border-color: rgba(var(--accent-rgb), 0.5);
-  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.1);
 }
 
 .learning-outline-topic > p {
