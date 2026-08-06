@@ -1714,6 +1714,7 @@ body.learning-privacy-modal-open {
   gap: 16px;
   padding: 23px;
   overflow: auto;
+  background: var(--bg-surface, #0f172a);
   animation: learningDialogIn 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -1722,6 +1723,7 @@ body.learning-privacy-modal-open {
   max-height: calc(100dvh - clamp(32px, 6vw, 64px));
   margin: auto;
   gap: 18px;
+  background: var(--bg-surface, #0f172a);
   border-color: color-mix(in srgb, var(--border) 72%, rgba(255, 255, 255, 0.18));
   box-shadow:
     0 30px 90px rgba(0, 0, 0, 0.56),
