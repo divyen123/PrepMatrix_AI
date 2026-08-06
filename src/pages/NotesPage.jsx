@@ -15,7 +15,7 @@ import {
 } from "./notesBoardStatus";
 import "./NotesPage.css";
 
-const NOTES_PER_PAGE = 6;
+const NOTES_PER_PAGE = 12;
 
 function rankSearchMatch(fields, query) {
   const cleanQuery = query.trim().toLowerCase();
@@ -72,6 +72,8 @@ function NotesPage({
   const [priority, setPriority] = useState("Medium");
   const [filter, setFilter] = useState("All");
   const [notesPage, setNotesPage] = useState(1);
+  const [isCaptureOpen, setIsCaptureOpen] = useState(false);
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [notesSearchQuery, setNotesSearchQuery] = useState("");
   const [isNotesLoading, setIsNotesLoading] = useState(true);
   const [confirmClearNotes, setConfirmClearNotes] = useState(false);
@@ -126,6 +128,7 @@ function NotesPage({
     setTopic("");
     setDetails("");
     setPriority("Medium");
+    setIsCaptureOpen(false);
   };
   const openNoteDetails = (id) => {
     setPlannerMenuNoteId(null);
@@ -557,8 +560,14 @@ function NotesPage({
   }, [filter, notes, notesSearchQuery, plannerStates]);
 
   const notesTotalPages = Math.max(1, Math.ceil(filteredNotes.length / NOTES_PER_PAGE));
-  const notesStart = (notesPage - 1) * NOTES_PER_PAGE;
-  const paginatedNotes = filteredNotes.slice(notesStart, notesStart + NOTES_PER_PAGE);
+  const paginatedNotes = filteredNotes.slice(0, notesPage * NOTES_PER_PAGE);
+
+  const handleNotesScroll = (event) => {
+    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 100) {
+      setNotesPage((current) => Math.min(current + 1, notesTotalPages));
+    }
+  };
 
   useEffect(() => {
     setNotesPage(1);
@@ -576,87 +585,29 @@ function NotesPage({
 
   return (
     <section className="page-stack notes-page">
-      <div className="section-intro">
-        <span className="section-tag">Notes</span>
-        <h2>Doubt board</h2>
-      </div>
-
-      <div className="notes-grid">
-        <form className="card notes-form-card" onSubmit={addNote}>
-          <div>
-            <span className="section-tag">Capture</span>
-            <h3>Add a study note</h3>
-            <p className="card-desc">
-              Save doubts, questions, and revision reminders before they disappear.
-            </p>
-          </div>
-
-          <label className="field-stack">
-            Topic
-            <input
-              onChange={(event) => setTopic(event.target.value)}
-              placeholder="Example: Bayes theorem, React hooks, deadlock"
-              type="text"
-              value={topic}
-            />
-          </label>
-
-          <label className="field-stack">
-            Details
-            <textarea
-              onChange={(event) => setDetails(event.target.value)}
-              placeholder="Write what confused you, where to revise, or what to ask later"
-              rows="5"
-              value={details}
-            />
-          </label>
-
-          <div className="notes-form-row">
-            <label className="field-stack">
-              Priority
-              <select
-                onChange={(event) => setPriority(event.target.value)}
-                value={priority}
-              >
-                <option>Low</option>
-                <option>Medium</option>
-                <option>High</option>
-              </select>
-            </label>
-            <button className="primary-btn" type="submit">Save note</button>
-          </div>
-        </form>
-
-        <aside className="notes-side-stack">
-          <article className="card notes-summary-card">
-            <span className="section-tag">Board status</span>
-            <div className="notes-stat-grid">
-              <div>
-                <strong>{openCount}</strong>
-                <span className="desktop-only-text">Open doubts</span>
-                <span className="mobile-only-text">doubts</span>
-              </div>
-              <div>
-                <strong>{completedCount}</strong>
-                <span className="desktop-only-text">Completed</span>
-                <span className="mobile-only-text">completed</span>
-              </div>
-              <div>
-                <strong>{inProcessCount}</strong>
-                <span className="desktop-only-text">In process</span>
-                <span className="mobile-only-text">in process</span>
-              </div>
-            </div>
-          </article>
-
-          <article className="card notes-method-card">
-            <span className="section-tag">Planner bridge</span>
-            <h3>Notes to planner</h3>
-            <p>
-              Add a note to any available schedule date, then track its completion from the planner.
-            </p>
-          </article>
-        </aside>
+      <div className="section-intro has-actions">
+        <div>
+          <span className="section-tag">Notes</span>
+          <h2>Doubt board</h2>
+        </div>
+        <div className="notes-header-actions">
+          <button
+            className="notes-status-button"
+            onClick={() => setIsStatusOpen(true)}
+            title="View board status"
+            type="button"
+          >
+            <strong>{openCount}</strong>
+            <span className="notes-status-label">Open</span>
+          </button>
+          <button
+            className="primary-btn"
+            onClick={() => setIsCaptureOpen(true)}
+            type="button"
+          >
+            <Pencil size={14} /> Add note
+          </button>
+        </div>
       </div>
 
       <section className={`card notes-list-card${confirmClearNotes ? " is-confirming-clear" : ""}`}>
@@ -751,7 +702,7 @@ function NotesPage({
               : "No stored notes match your search."}
           </p>
         ) : (
-          <div className="notes-list-grid">
+          <div className="notes-list-grid" onScroll={handleNotesScroll}>
             {paginatedNotes.map((note) => {
               const plannerState = plannerStates.get(note.id) || { state: "unscheduled" };
               const noteStatus = getNoteWorkflowStatus(note, plannerState);
@@ -1182,6 +1133,115 @@ function NotesPage({
           </section>
         </div>,
         document.body,
+      )}
+
+      {isCaptureOpen && createPortal(
+        <div
+          className="learning-dialog-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIsCaptureOpen(false);
+          }}
+          role="presentation"
+        >
+          <form
+            aria-labelledby="note-capture-title"
+            aria-modal="true"
+            className="card notes-form-card notes-modal-card"
+            onSubmit={addNote}
+            role="dialog"
+          >
+            <div className="learning-dialog-header">
+              <div>
+                <span className="section-tag">Capture</span>
+                <h3 id="note-capture-title">Add a study note</h3>
+                <p className="card-desc">
+                  Save doubts, questions, and revision reminders before they disappear.
+                </p>
+              </div>
+              <button aria-label="Close" onClick={() => setIsCaptureOpen(false)} type="button">
+                <X size={17} />
+              </button>
+            </div>
+
+            <label className="field-stack">
+              Topic
+              <input
+                onChange={(event) => setTopic(event.target.value)}
+                placeholder="Example: Bayes theorem, React hooks, deadlock"
+                type="text"
+                value={topic}
+              />
+            </label>
+
+            <label className="field-stack">
+              Details
+              <textarea
+                onChange={(event) => setDetails(event.target.value)}
+                placeholder="Write what confused you, where to revise, or what to ask later"
+                rows="5"
+                value={details}
+              />
+            </label>
+
+            <div className="notes-form-row">
+              <label className="field-stack">
+                Priority
+                <select
+                  onChange={(event) => setPriority(event.target.value)}
+                  value={priority}
+                >
+                  <option>Low</option>
+                  <option>Medium</option>
+                  <option>High</option>
+                </select>
+              </label>
+              <button className="primary-btn" type="submit">Save note</button>
+            </div>
+          </form>
+        </div>,
+        document.body
+      )}
+
+      {isStatusOpen && createPortal(
+        <div
+          className="learning-dialog-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIsStatusOpen(false);
+          }}
+          role="presentation"
+        >
+          <article
+            aria-labelledby="note-status-title"
+            aria-modal="true"
+            className="card notes-summary-card notes-modal-card"
+            role="dialog"
+          >
+            <div className="learning-dialog-header">
+              <div>
+                <span className="section-tag">Board status</span>
+                <h3 id="note-status-title">Doubt metrics</h3>
+              </div>
+              <button aria-label="Close" onClick={() => setIsStatusOpen(false)} type="button">
+                <X size={17} />
+              </button>
+            </div>
+            <div className="notes-stat-grid">
+              <div>
+                <strong>{openCount}</strong>
+                <span>Open doubts</span>
+              </div>
+              <div>
+                <strong>{completedCount}</strong>
+                <span>Completed</span>
+              </div>
+              <div>
+                <strong>{inProcessCount}</strong>
+                <span>In process</span>
+              </div>
+            </div>
+          </article>
+        </div>,
+        document.body
       )}
     </section>
   );

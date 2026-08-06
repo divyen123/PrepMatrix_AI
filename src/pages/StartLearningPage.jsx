@@ -1413,10 +1413,6 @@ function StartLearningPage({
         <div className="learning-hero-copy">
           <span className="section-tag"><Sparkles size={14} /> AI learning workspace</span>
           <h2>Start Learning</h2>
-          <p>
-            Turn files or a chapter list into revision-first notes, important questions,
-            and a living concept map calibrated to {academicLevel} · {academicTrack}.
-          </p>
         </div>
         <div className="learning-hero-metrics" aria-label="Learning notebook summary">
           <div><strong>{notebooks.length}</strong><span>Saved notebooks</span></div>

@@ -71,9 +71,11 @@
 }
 
 .learning-hero-copy {
-  display: grid;
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   gap: 11px;
+  min-width: 0;
 }
 
 .learning-hero-copy h2 {
@@ -291,7 +293,6 @@ body .learning-page .learning-dropzone {
 }
 
 body .learning-source-chip > button,
-body .learning-notebook-delete,
 body .learning-delete-confirm button {
   display: grid;
   width: 28px;
@@ -303,6 +304,29 @@ body .learning-delete-confirm button {
   border-radius: 9px;
   box-shadow: none !important;
 }
+
+body .learning-notebook-delete {
+  display: grid;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  place-items: center;
+  padding: 0;
+  border-radius: 9px;
+  background: transparent !important;
+  color: var(--danger, #ff4d4d) !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+body .learning-notebook-delete:hover,
+body .learning-notebook-delete:focus-visible {
+  background: color-mix(in srgb, var(--danger) 15%, transparent) !important;
+  color: var(--danger) !important;
+}
+
+
 
 .learning-or-divider {
   display: flex;
