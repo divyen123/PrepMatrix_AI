@@ -65,7 +65,7 @@ function ProgressBar1({ schedule, completed }) {
   }, [completionCelebrationKey, progress, metrics.totalTasks]);
 
   return (
-    <section className="card completion-card" style={{ padding: "20px", gap: "16px" }}>
+    <section className="card completion-card" style={{ padding: "20px", gap: "16px", maxWidth: "700px", margin: "0 auto", width: "100%" }}>
       <div className="completion-card-header">
         <h2 style={{ fontSize: "1.1rem" }}>Overall completion</h2>
         <span className="completion-card-value" style={{ fontSize: "1.6rem" }}>{progress}%</span>
