@@ -8513,9 +8513,9 @@ body.dark .app-container::after {
 
 @media (min-width: 992px) {
   .app-shell-layout.has-sidebar.is-sidebar-collapsed .app-main-content {
-    margin: 0 auto !important;
-    width: calc(100% - 200px) !important;
-    max-width: calc(100% - 200px) !important;
+    margin-left: 180px !important;
+    width: calc(100% - 280px) !important;
+    max-width: calc(100% - 280px) !important;
   }
   
   .app-shell-layout.has-sidebar .workspace-topbar {
