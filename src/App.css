@@ -8542,7 +8542,7 @@ body.dark .app-container::after {
   justify-content: center;
   border: none;
   background: transparent !important;
-  color: var(--text-muted);
+  color: var(--text) !important;
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: none;
@@ -8552,7 +8552,7 @@ body.dark .app-container::after {
   width: 28px !important;
   height: 28px !important;
   border-radius: 50% !important;
-  border: 1px solid var(--border) !important;
+  border: none !important;
   background: transparent !important;
 }
 
