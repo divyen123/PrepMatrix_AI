@@ -1,40 +1,23 @@
-import {
-  CartesianGrid,
-  ResponsiveContainer,
-  Scatter,
-  ScatterChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-  ZAxis,
-} from "recharts";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 
-const DIFFICULTY_COLORS = {
-  easy: "#2f7a4b",
-  medium: "#c6871f",
-  hard: "#c13a56",
-};
-
-function CustomTooltip({ active, payload }) {
-  if (!active || !payload?.length) {
-    return null;
-  }
-
-  const point = payload[0].payload;
-
-  return (
-    <div className="landscape-tooltip">
-      <strong>{point.subject}</strong>
-      <p>Difficulty: {point.difficulty}</p>
-      <p>Completed chapters: {point.x}</p>
-      <p>Pending chapters: {point.y}</p>
-      <p>Coverage: {point.completionRate}%</p>
-    </div>
-  );
-}
-
 function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const observer = useRef(null);
+
+  const setObserverTarget = useCallback((node) => {
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(
+      (entries) => {
+        if (entries.length > 0 && entries[0].isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    if (node) observer.current.observe(node);
+  }, []);
+
   const metrics = getPlannerMetrics(schedule, completed);
 
   const chartData = subjects.map((subject) => {
@@ -43,27 +26,23 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
       pending: 0,
       total: 0,
     };
-
     const totalChapters = Math.max(subject.chapters, stats.total, 1);
     const completionRate = Math.round((stats.done / totalChapters) * 100) || 0;
-
+    const pendingRate = Math.max(0, 100 - completionRate);
+    
     return {
+      id: subject.id,
       subject: subject.name,
-      difficulty: subject.difficulty,
-      x: stats.done,
-      y: stats.pending,
-      z: Math.max(totalChapters * 110, 180),
+      difficulty: subject.difficulty || "medium",
+      done: stats.done,
+      pending: stats.pending,
       completionRate,
+      pendingRate,
     };
   });
 
-  const focusLeader = [...chartData].sort(
-    (left, right) => right.y - left.y || left.completionRate - right.completionRate
-  )[0];
-
-  const hardSubjects = chartData.filter((item) => item.difficulty === "hard");
-  const mediumSubjects = chartData.filter((item) => item.difficulty === "medium");
-  const easySubjects = chartData.filter((item) => item.difficulty === "easy");
+  const sortedData = [...chartData].sort((a, b) => b.pending - a.pending || b.pendingRate - a.pendingRate);
+  const focusLeader = sortedData[0];
 
   return (
     <section className="card landscape-card">
@@ -72,8 +51,8 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
           <span className="section-tag">Focus Map</span>
           <h2>Subject landscape</h2>
           <p className="card-subtext">
-            Each bubble shows how balanced a subject is. Larger bubbles represent
-            bigger chapter loads, while higher placement means more unfinished work.
+            Compare subjects by workload and progress. Solid bars show completed chapters,
+            while the shaded area shows what's left.
           </p>
         </div>
       </div>
@@ -84,43 +63,46 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
         </p>
       ) : (
         <div className="landscape-grid">
-          <div className="landscape-chart-shell">
-            <ResponsiveContainer height="100%" width="100%">
-              <ScatterChart margin={{ top: 14, right: 18, left: 0, bottom: 8 }}>
-                <CartesianGrid className="chart-grid" />
-                <XAxis
-                  allowDecimals={false}
-                  dataKey="x"
-                  name="Completed"
-                  className="chart-axis"
-                  tickLine={false}
-                  label={{ value: "Completed chapters", position: "insideBottom", offset: -2 }}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  dataKey="y"
-                  name="Pending"
-                  className="chart-axis"
-                  tickLine={false}
-                  label={{ value: "Pending chapters", angle: -90, position: "insideLeft" }}
-                />
-                <ZAxis dataKey="z" range={[180, 1100]} />
-                <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: "4 4" }} />
-                <Scatter data={easySubjects} fill={DIFFICULTY_COLORS.easy} />
-                <Scatter data={mediumSubjects} fill={DIFFICULTY_COLORS.medium} />
-                <Scatter data={hardSubjects} fill={DIFFICULTY_COLORS.hard} />
-              </ScatterChart>
-            </ResponsiveContainer>
+          <div className="landscape-chart-shell" ref={setObserverTarget}>
+            <div className="custom-bar-chart">
+              {sortedData.map((item, index) => (
+                <div className="custom-bar-row" key={item.id} style={{ animationDelay: `${index * 0.1}s` }}>
+                  <div className="custom-bar-label">
+                    <span>{item.subject}</span>
+                    <span className="custom-bar-count">
+                      {item.done}/{item.done + item.pending} ch
+                    </span>
+                  </div>
+                  <div className="custom-bar-track">
+                    <div 
+                      className={`custom-bar-fill custom-bar-fill--${item.difficulty}`}
+                      style={{ 
+                        width: isVisible ? `${item.completionRate}%` : "0%",
+                        opacity: isVisible ? 1 : 0
+                      }}
+                    />
+                    <div 
+                      className={`custom-bar-pending custom-bar-pending--${item.difficulty}`}
+                      style={{ 
+                        width: isVisible ? `${item.pendingRate}%` : "0%", 
+                        left: isVisible ? `${item.completionRate}%` : "0%",
+                        opacity: isVisible ? 1 : 0
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="landscape-side">
             <div className="landscape-panel">
-              <span className="panel-label">Focus priority</span>
+              <span className="panel-label">Top Priority</span>
               <strong>{focusLeader?.subject || "No subjects yet"}</strong>
               <p>
-                {focusLeader
-                  ? `${focusLeader.y} unfinished chapters are still sitting in this subject.`
-                  : "Generate a schedule to see which subject needs attention first."}
+                {focusLeader && focusLeader.pending > 0
+                  ? `${focusLeader.pending} unfinished chapters are sitting in this subject.`
+                  : "All caught up or generate a schedule to see priorities."}
               </p>
             </div>
 
@@ -132,8 +114,7 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
                 <span><i className="legend-dot hard" /> Hard</span>
               </div>
               <p>
-                Use the chart to compare high-load subjects with low completion, then
-                rebalance before the backlog grows.
+                Darker filled regions represent completed work, while lighter translucent sections indicate pending chapters.
               </p>
             </div>
           </div>

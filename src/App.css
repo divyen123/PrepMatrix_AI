@@ -869,6 +869,72 @@ body.dark .task-chip {
     var(--surface-muted);
 }
 
+/* Custom Bar Chart */
+.custom-bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 16px 20px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.custom-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.custom-bar-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+  color: var(--text-base);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.custom-bar-count {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.custom-bar-track {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.custom-bar-fill, .custom-bar-pending {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 6px;
+  transition: width 1.4s cubic-bezier(0.22, 1, 0.36, 1), left 1.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.8s ease;
+}
+
+.custom-bar-fill {
+  z-index: 2;
+  box-shadow: 0 0 12px rgba(0,0,0,0.15);
+}
+
+.custom-bar-pending {
+  z-index: 1;
+}
+
+/* Base Difficulty colors */
+.custom-bar-fill--easy { background: linear-gradient(90deg, #16a34a, #4ade80); }
+.custom-bar-pending--easy { background: rgba(74, 222, 128, 0.15); border: 1px dashed rgba(74, 222, 128, 0.3); }
+
+.custom-bar-fill--medium { background: linear-gradient(90deg, #d97706, #fbbf24); }
+.custom-bar-pending--medium { background: rgba(251, 191, 36, 0.15); border: 1px dashed rgba(251, 191, 36, 0.3); }
+
+.custom-bar-fill--hard { background: linear-gradient(90deg, #dc2626, #f87171); }
+.custom-bar-pending--hard { background: rgba(248, 113, 113, 0.15); border: 1px dashed rgba(248, 113, 113, 0.3); }
+
 .landscape-side {
   display: grid;
   gap: 16px;
