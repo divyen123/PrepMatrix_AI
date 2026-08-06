@@ -8465,6 +8465,15 @@ body.dark .app-container::after {
   .app-shell-layout.has-sidebar.is-sidebar-collapsed .app-main-content {
     margin-left: 140px !important;
   }
+  
+  .app-shell-layout.has-sidebar .workspace-topbar {
+    transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1), right 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
+  }
+
+  .app-shell-layout.has-sidebar.is-sidebar-collapsed .workspace-topbar {
+    left: 140px !important;
+    right: 140px !important;
+  }
 }
 
 .sidebar-expand-btn {
@@ -8478,17 +8487,16 @@ body.dark .app-container::after {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  border: 1px solid rgba(var(--accent-rgb), 0.15);
-  background: var(--surface-strong);
+  border: none;
+  background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 .sidebar-expand-btn:hover {
-  background: var(--surface-hover);
+  background: transparent;
   color: var(--accent);
-  border-color: rgba(var(--accent-rgb), 0.3);
   transform: translateY(-1px);
 }
 
