@@ -21,20 +21,9 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
   }, [hasScheduledPlanner]);
 
   return (
-    <section className="card weekly-review-card">
-      <div className="weekly-review-header">
-        <div>
-          <span className="section-tag">AI weekly review</span>
-          <h3>Planner progress review</h3>
-        </div>
-      </div>
-
-      <p className="card-desc">
-        Generate a progress-aware summary and practical next steps from your current planner.
-      </p>
-
+    <section className="card weekly-review-card weekly-review-output" style={{ padding: "24px" }}>
       {visibleReview ? (
-        <div className="weekly-review-output">
+        <>
           <div className="weekly-review-output-header">
             <span>Generated review</span>
             <strong>{visibleReview.headline}</strong>
@@ -57,13 +46,15 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
               ))}
             </ul>
           </div>
-        </div>
+        </>
       ) : (
-        <p className="empty-state">
-          {hasScheduledPlanner
-            ? "Generating your planner-aware weekly summary..."
-            : "Generate a timetable in Planner to unlock your weekly review."}
-        </p>
+        <div className="weekly-review-header">
+          <p className="empty-state">
+            {hasScheduledPlanner
+              ? "Generating your planner-aware weekly summary..."
+              : "Generate a timetable in Planner to unlock your weekly review."}
+          </p>
+        </div>
       )}
     </section>
   );
