@@ -8436,6 +8436,88 @@ body.dark .app-container::after {
 .app-shell-layout.has-sidebar {
   grid-template-columns: 282px minmax(0, 1fr);
   gap: 22px;
+  transition: grid-template-columns 0.4s cubic-bezier(0.4, 0, 0.2, 1), gap 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-shell-layout.has-sidebar.is-sidebar-collapsed {
+  grid-template-columns: 0px minmax(0, 1fr);
+  gap: 0px;
+}
+
+.app-shell-layout.has-sidebar .app-sidebar {
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+.app-shell-layout.has-sidebar.is-sidebar-collapsed .app-sidebar {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-20px);
+}
+
+.app-shell-layout.has-sidebar .app-main-content {
+  transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), margin 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 100%;
+  margin: 0;
+}
+
+@media (min-width: 992px) {
+  .app-shell-layout.has-sidebar.is-sidebar-collapsed .app-main-content {
+    max-width: calc(100% - 304px);
+    margin: 0 auto;
+  }
+}
+
+.sidebar-expand-btn {
+  position: absolute;
+  top: 36px;
+  left: 28px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
+  background: var(--surface-strong);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+.sidebar-expand-btn:hover {
+  background: var(--surface-hover);
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.3);
+  transform: translateY(-1px);
+}
+
+.sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sidebar-collapse-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .app-sidebar,

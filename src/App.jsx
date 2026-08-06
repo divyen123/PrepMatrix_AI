@@ -20,6 +20,8 @@ import {
   Settings as SettingsIcon,
   Info,
   Gamepad2,
+  PanelLeft,
+  PanelLeftClose,
 } from "lucide-react";
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Notification from "./components/Notification";
@@ -322,6 +324,7 @@ function App() {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [logoutTransitionPhase, setLogoutTransitionPhase] = useState("idle");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
   const [profilePreviewSide, setProfilePreviewSide] = useState("photo");
   const [cursorStyle, setCursorStyle] = useState(() => {
@@ -1246,7 +1249,7 @@ function App() {
   }, []);
 
   return (
-    <div className={`app-container app-shell-layout ${userProfile && !isAuthRoute ? "has-sidebar" : "auth-layout"} cursor-mode--${cursorStyle}${isKidsLearner ? " is-kids-mode" : ""}`}>
+    <div className={`app-container app-shell-layout ${userProfile && !isAuthRoute ? "has-sidebar" : "auth-layout"} ${sidebarCollapsed ? "is-sidebar-collapsed" : ""} cursor-mode--${cursorStyle}${isKidsLearner ? " is-kids-mode" : ""}`}>
       <CustomCursor mode={cursorStyle} />
       <div className="page-glow page-glow-left" />
       <div className="page-glow page-glow-right" />
@@ -1264,6 +1267,17 @@ function App() {
         <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
       )}
 
+      {userProfile && !isAuthRoute && sidebarCollapsed && (
+        <button
+          className="sidebar-expand-btn"
+          onClick={() => setSidebarCollapsed(false)}
+          aria-label="Expand sidebar"
+          type="button"
+        >
+          <PanelLeft size={20} />
+        </button>
+      )}
+
       {userProfile && !isAuthRoute && (
         <aside
           aria-hidden={logoutTransitionPhase !== "idle"}
@@ -1275,14 +1289,24 @@ function App() {
               <span className="workspace-logo-mark" aria-hidden="true">P</span>
               <h1 className="workspace-logo-title">PrepMatrix</h1>
             </Link>
-            <button
-              className="sidebar-close-btn"
-              onClick={() => setSidebarOpen(false)}
-              aria-label="Close sidebar"
-              type="button"
-            >
-              <X size={20} />
-            </button>
+            <div className="sidebar-header-actions">
+              <button
+                className="sidebar-collapse-btn"
+                onClick={() => setSidebarCollapsed(true)}
+                aria-label="Collapse sidebar"
+                type="button"
+              >
+                <PanelLeftClose size={18} />
+              </button>
+              <button
+                className="sidebar-close-btn"
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Close sidebar"
+                type="button"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
           <SidebarProximityNav
             items={visibleNavItems}
