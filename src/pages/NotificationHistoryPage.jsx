@@ -129,7 +129,7 @@ function NotificationHistoryPage() {
   const notificationCardRefs = useRef(new Map());
   const clearAllControlsRef = useRef(null);
   const [visibleLimit, setVisibleLimit] = useState(10);
-  const observerTarget = useRef(null);
+  const observer = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -164,26 +164,18 @@ function NotificationHistoryPage() {
     };
   }, [reloadKey]);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
+  const setObserverTarget = useCallback((node) => {
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
           setVisibleLimit((prev) => prev + 10);
         }
       },
-      { threshold: 1.0 }
+      { threshold: 0.1 }
     );
-
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
-    }
-
-    return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current);
-      }
-    };
-  }, [observerTarget.current]);
+    if (node) observer.current.observe(node);
+  }, []);
 
   const selectedNotification = useMemo(
     () => notifications.find((notification) => String(notification.id) === String(selectedId)) || null,
@@ -693,7 +685,7 @@ function NotificationHistoryPage() {
               );
             })}
             {visibleLimit < visibleNotifications.length && (
-              <div ref={observerTarget} style={{ height: "20px" }} />
+              <div ref={setObserverTarget} style={{ height: "20px" }} />
             )}
           </div>
         )}
