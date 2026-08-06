@@ -1410,6 +1410,18 @@ function App() {
             >
               <SettingsIcon size={18} />
             </NavLink>}
+            {sidebarCollapsed && (
+              <button
+                className="sidebar-collapse-btn"
+                onClick={() => setSidebarCollapsed(false)}
+                aria-label="Expand sidebar"
+                title="Expand sidebar"
+                type="button"
+                style={{ margin: 0, padding: "8px" }}
+              >
+                <Menu size={18} />
+              </button>
+            )}
           </div>
         </aside>
       )}
