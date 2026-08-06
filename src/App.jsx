@@ -22,6 +22,7 @@ import {
   Gamepad2,
   PanelLeft,
   PanelLeftClose,
+  ChevronLeft,
 } from "lucide-react";
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Notification from "./components/Notification";
@@ -1268,14 +1269,19 @@ function App() {
       )}
 
       {userProfile && !isAuthRoute && sidebarCollapsed && (
-        <button
-          className="sidebar-expand-btn"
-          onClick={() => setSidebarCollapsed(false)}
-          aria-label="Expand sidebar"
-          type="button"
-        >
-          <PanelLeft size={24} />
-        </button>
+        <div className="collapsed-sidebar-header">
+          <Link to={isKidsLearner ? "/kids" : "/dashboard"} aria-label="PrepMatrix">
+            <span className="workspace-logo-mark compact" aria-hidden="true">P</span>
+          </Link>
+          <button
+            className="sidebar-expand-btn"
+            onClick={() => setSidebarCollapsed(false)}
+            aria-label="Expand sidebar"
+            type="button"
+          >
+            <PanelLeft size={24} />
+          </button>
+        </div>
       )}
 
       {userProfile && !isAuthRoute && (
@@ -1296,7 +1302,7 @@ function App() {
                 aria-label="Collapse sidebar"
                 type="button"
               >
-                <PanelLeftClose size={24} />
+                <ChevronLeft size={20} />
               </button>
               <button
                 className="sidebar-close-btn"

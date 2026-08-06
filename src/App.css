@@ -8476,17 +8476,29 @@ body.dark .app-container::after {
   }
 }
 
-.sidebar-expand-btn {
+.collapsed-sidebar-header {
   position: absolute;
   top: 36px;
   left: 28px;
   z-index: 100;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.workspace-logo-mark.compact {
+  width: 42px !important;
+  height: 42px !important;
+  font-size: 1.2rem !important;
+  border-radius: 12px !important;
+  margin: 0 !important;
+}
+
+.sidebar-expand-btn {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
   border: none;
   background: transparent;
   color: var(--text-muted);
