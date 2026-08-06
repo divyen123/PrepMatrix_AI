@@ -1706,23 +1706,25 @@ body.learning-privacy-modal-open {
   overscroll-behavior: none;
 }
 
-.learning-planner-dialog {
+body .learning-planner-dialog.card,
+body.has-bg-image .learning-planner-dialog.card {
   display: grid;
   width: min(520px, 100%);
   max-height: calc(100dvh - 36px);
   gap: 16px;
   padding: 23px;
   overflow: auto;
-  background: var(--bg-surface, #0f172a);
+  background: rgb(var(--bg-surface-rgb, 15, 23, 42)) !important;
   animation: learningDialogIn 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.learning-privacy-dialog {
+body .learning-privacy-dialog.card,
+body.has-bg-image .learning-privacy-dialog.card {
   width: min(590px, 100%);
   max-height: calc(100dvh - clamp(32px, 6vw, 64px));
   margin: auto;
   gap: 18px;
-  background: var(--bg-surface, #0f172a);
+  background: rgb(var(--bg-surface-rgb, 15, 23, 42)) !important;
   border-color: color-mix(in srgb, var(--border) 72%, rgba(255, 255, 255, 0.18));
   box-shadow:
     0 30px 90px rgba(0, 0, 0, 0.56),
