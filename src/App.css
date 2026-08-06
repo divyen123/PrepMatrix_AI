@@ -6945,7 +6945,7 @@ body.dark .app-sidebar {
   .app-sidebar {
     position: fixed; /* Fixed position */
     height: 100vh;
-    transform: none !important;
+    transform: translateX(0);
   }
 }
 
@@ -8454,19 +8454,16 @@ body.dark .app-container::after {
 .app-shell-layout.has-sidebar.is-sidebar-collapsed .app-sidebar {
   opacity: 0;
   visibility: hidden;
-  transform: translateX(-20px);
+  transform: translateX(-100%);
 }
 
 .app-shell-layout.has-sidebar .app-main-content {
-  transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), margin 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  max-width: 100%;
-  margin: 0;
+  transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), margin 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (min-width: 992px) {
   .app-shell-layout.has-sidebar.is-sidebar-collapsed .app-main-content {
-    max-width: calc(100% - 304px);
-    margin: 0 auto;
+    margin-left: 140px !important;
   }
 }
 
