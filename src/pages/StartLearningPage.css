@@ -78,6 +78,13 @@
   min-width: 0;
 }
 
+.learning-hero .section-tag {
+  position: absolute;
+  top: clamp(22px, 3vw, 34px);
+  left: clamp(22px, 3vw, 34px);
+  margin: 0;
+}
+
 .learning-hero-copy h2 {
   margin: 0;
   font-size: clamp(2rem, 4vw, 3.3rem);
