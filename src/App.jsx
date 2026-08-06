@@ -1286,7 +1286,7 @@ function App() {
                 aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 type="button"
               >
-                {sidebarCollapsed ? <PanelLeft size={24} /> : <ChevronLeft size={20} />}
+                {sidebarCollapsed ? <Menu size={18} /> : <ChevronLeft size={20} />}
               </button>
               <button
                 className="sidebar-close-btn"
