@@ -1296,7 +1296,7 @@ function App() {
                 aria-label="Collapse sidebar"
                 type="button"
               >
-                <PanelLeftClose size={22} />
+                <PanelLeftClose size={24} />
               </button>
               <button
                 className="sidebar-close-btn"

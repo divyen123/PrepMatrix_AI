@@ -8510,18 +8510,16 @@ body.dark .app-container::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
   border: none;
-  background: transparent;
+  background: transparent !important;
   color: var(--text-muted);
-  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: none;
 }
 
 .sidebar-collapse-btn:hover {
-  background: var(--surface-hover);
+  background: transparent !important;
   color: var(--text);
 }
 
