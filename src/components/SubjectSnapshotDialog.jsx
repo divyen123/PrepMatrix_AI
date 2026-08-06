@@ -20,7 +20,6 @@ const SNAPSHOT_COPY = {
   subjects: {
     actionLabel: "Add subject",
     actionTarget: "add-subject",
-    description: "Every subject currently feeding your study plan, with its size and priority.",
     eyebrow: "Portfolio overview",
     Icon: BookOpen,
     metricLabel: "subjects in your library",
