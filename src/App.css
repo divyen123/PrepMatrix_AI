@@ -8440,21 +8440,47 @@ body.dark .app-container::after {
 }
 
 .app-shell-layout.has-sidebar.is-sidebar-collapsed {
-  grid-template-columns: 0px minmax(0, 1fr);
+  grid-template-columns: 80px minmax(0, 1fr);
   gap: 0px;
 }
 
 .app-shell-layout.has-sidebar .app-sidebar {
-  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(0);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .app-shell-layout.has-sidebar.is-sidebar-collapsed .app-sidebar {
+  width: 80px !important;
+}
+
+.app-shell-layout.has-sidebar.is-sidebar-collapsed .app-sidebar .workspace-logo-title,
+.app-shell-layout.has-sidebar.is-sidebar-collapsed .app-sidebar .sidebar-link-label,
+.app-shell-layout.has-sidebar.is-sidebar-collapsed .app-sidebar .sidebar-widgets {
+  display: none !important;
   opacity: 0;
   visibility: hidden;
-  transform: translateX(-100%);
+}
+
+.app-shell-layout.has-sidebar.is-sidebar-collapsed .app-sidebar .sidebar-header {
+  padding: 0;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  height: auto;
+  padding-top: 24px;
+  border-bottom: none;
+}
+
+.app-shell-layout.has-sidebar.is-sidebar-collapsed .app-sidebar .workspace-logo-mark {
+  width: 42px !important;
+  height: 42px !important;
+  font-size: 1.2rem !important;
+  border-radius: 12px !important;
+  margin: 0 !important;
+}
+
+.app-shell-layout.has-sidebar.is-sidebar-collapsed .app-sidebar .sidebar-link {
+  justify-content: center;
+  padding: 12px;
 }
 
 .app-shell-layout.has-sidebar .app-main-content {
@@ -8463,54 +8489,22 @@ body.dark .app-container::after {
 
 @media (min-width: 992px) {
   .app-shell-layout.has-sidebar.is-sidebar-collapsed .app-main-content {
-    margin-left: 140px !important;
+    margin-left: 80px !important;
+    width: calc(100% - 80px) !important;
+    max-width: calc(100% - 80px) !important;
   }
   
   .app-shell-layout.has-sidebar .workspace-topbar {
-    transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1), right 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
+    transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1), width 0.4s cubic-bezier(0.16, 1, 0.3, 1), right 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
   }
 
   .app-shell-layout.has-sidebar.is-sidebar-collapsed .workspace-topbar {
-    left: 140px !important;
-    right: 140px !important;
+    left: 80px !important;
+    right: 0 !important;
+    width: calc(100% - 80px) !important;
   }
 }
 
-.collapsed-sidebar-header {
-  position: absolute;
-  top: 36px;
-  left: 28px;
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
-.workspace-logo-mark.compact {
-  width: 42px !important;
-  height: 42px !important;
-  font-size: 1.2rem !important;
-  border-radius: 12px !important;
-  margin: 0 !important;
-}
-
-.sidebar-expand-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: none;
-}
-.sidebar-expand-btn:hover {
-  background: transparent;
-  color: var(--accent);
-  transform: translateY(-1px);
-}
 
 .sidebar-header-actions {
   display: flex;

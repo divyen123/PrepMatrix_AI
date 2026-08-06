@@ -1268,22 +1268,6 @@ function App() {
         <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
       )}
 
-      {userProfile && !isAuthRoute && sidebarCollapsed && (
-        <div className="collapsed-sidebar-header">
-          <Link to={isKidsLearner ? "/kids" : "/dashboard"} aria-label="PrepMatrix">
-            <span className="workspace-logo-mark compact" aria-hidden="true">P</span>
-          </Link>
-          <button
-            className="sidebar-expand-btn"
-            onClick={() => setSidebarCollapsed(false)}
-            aria-label="Expand sidebar"
-            type="button"
-          >
-            <PanelLeft size={24} />
-          </button>
-        </div>
-      )}
-
       {userProfile && !isAuthRoute && (
         <aside
           aria-hidden={logoutTransitionPhase !== "idle"}
@@ -1298,11 +1282,11 @@ function App() {
             <div className="sidebar-header-actions">
               <button
                 className="sidebar-collapse-btn"
-                onClick={() => setSidebarCollapsed(true)}
-                aria-label="Collapse sidebar"
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 type="button"
               >
-                <ChevronLeft size={20} />
+                {sidebarCollapsed ? <PanelLeft size={24} /> : <ChevronLeft size={20} />}
               </button>
               <button
                 className="sidebar-close-btn"
