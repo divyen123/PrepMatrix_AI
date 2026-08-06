@@ -2654,7 +2654,7 @@ function StartLearningPage({
         document.body,
       )}
 
-      {plannerDialogOpen && activeNotebook && (
+      {plannerDialogOpen && activeNotebook && createPortal(
         <div
           className="learning-dialog-backdrop"
           onMouseDown={(event) => {

@@ -2325,10 +2325,6 @@ body .learning-outline-toolbar > div:last-child button {
   grid-column: 1 / -1;
 }
 
-.learning-topic-details > .learning-topic-explanation {
-  background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface-strong));
-}
-
 .learning-topic-details > .is-mistakes {
   background: color-mix(in srgb, #ef4444 7%, var(--surface-strong));
   border-color: color-mix(in srgb, #ef4444 20%, var(--border));
