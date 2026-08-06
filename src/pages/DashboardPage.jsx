@@ -4,6 +4,7 @@ import { Search, Lightbulb, BarChart2, CalendarCheck, Mic, Paperclip, UploadClou
 import SmartSuggestion from "../components/SmartSuggestion";
 import ProgressBar1 from "../components/Progressbar1";
 import WeeklyReview from "../components/WeeklyReview";
+import SubjectPlanDialog from "../components/SubjectPlanDialog";
 
 const PANEL_BUTTONS = [
   { id: "suggestions", label: "Smart suggestions", icon: Lightbulb },
@@ -27,6 +28,8 @@ function DashboardPage({
   completed,
   userProfile,
   subjects = [],
+  setSubjects,
+  hasActiveSchedule,
 }) {
   const navigate = useNavigate();
   const [showSubjectsPopup, setShowSubjectsPopup] = useState(false);
@@ -38,6 +41,21 @@ function DashboardPage({
   const dragDepthRef = useRef(0);
   const inputRef     = useRef(null);
   const recognitionRef = useRef(null);
+
+  const [configureSubject, setConfigureSubject] = useState(null);
+
+  const saveConfiguration = (updatedSubject) => {
+    if (typeof setSubjects === "function") {
+      setSubjects((prev) => {
+        const idx = prev.findIndex((s) => String(s.id) === String(updatedSubject.id));
+        if (idx === -1) return prev;
+        const copy = [...prev];
+        copy[idx] = updatedSubject;
+        return copy;
+      });
+    }
+    setConfigureSubject(null);
+  };
 
   const firstName =
     userProfile?.username?.split(" ")[0] ||
@@ -367,7 +385,16 @@ function DashboardPage({
               <div 
                 key={s.id} 
                 className="db-timeline-node"
-                style={{ animationDelay: `${index * 0.15}s` }}
+                style={{ animationDelay: `${index * 0.15}s`, cursor: "pointer" }}
+                onClick={() => setConfigureSubject(s)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setConfigureSubject(s);
+                  }
+                }}
               >
                 <div className="db-timeline-dot"></div>
                 <div className="db-timeline-content">
@@ -379,6 +406,16 @@ function DashboardPage({
           </div>
         )}
       </div>
+
+      {configureSubject && (
+        <SubjectPlanDialog
+          hasActiveSchedule={hasActiveSchedule}
+          onClose={() => setConfigureSubject(null)}
+          onOpenPlanner={() => navigate("/planner")}
+          onSave={saveConfiguration}
+          subject={configureSubject}
+        />
+      )}
     </section>
   );
 }

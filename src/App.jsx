@@ -1589,6 +1589,8 @@ function App() {
                               schedule={schedule}
                               userProfile={userProfile}
                               subjects={subjects}
+                              setSubjects={updateSubjects}
+                              hasActiveSchedule={schedule.length > 0}
                             />
                           }
                           path="/dashboard"
