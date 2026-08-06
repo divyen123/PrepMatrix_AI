@@ -2725,7 +2725,8 @@ function StartLearningPage({
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

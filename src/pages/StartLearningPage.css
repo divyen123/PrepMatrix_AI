@@ -1235,7 +1235,9 @@ body .learning-subtopic-row > button {
   grid-template-columns: minmax(0, 1fr) 32px;
   gap: 6px;
   padding: 8px;
-  background: var(--surface-strong);
+  background: color-mix(in srgb, var(--surface-strong) 85%, var(--bg-surface, #0f172a));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
   border-radius: 12px;
   transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
@@ -2315,7 +2317,9 @@ body .learning-outline-toolbar > div:last-child button {
 .learning-note-details > section,
 .learning-topic-details > div {
   padding: 11px;
-  background: color-mix(in srgb, var(--surface-strong) 78%, transparent);
+  background: color-mix(in srgb, var(--surface-strong) 85%, var(--bg-surface, #0f172a));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: 12px;
 }
