@@ -444,7 +444,6 @@ function NotificationHistoryPage() {
         <div>
           <span className="section-tag">Notifications</span>
           <h1>Notification history</h1>
-          <p>Review study reminders and keep your notification list organized.</p>
         </div>
       </header>
 

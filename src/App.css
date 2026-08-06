@@ -889,14 +889,14 @@ body.dark .task-chip {
 .custom-bar-tooltip {
   position: fixed;
   transform: translate(-50%, -100%);
-  background: rgba(18, 18, 22, 0.95);
+  background: var(--surface-strong);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
   min-width: 200px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  box-shadow: var(--shadow);
   z-index: 9999;
   pointer-events: none;
   animation: fadeInTooltip 0.2s ease forwards;
@@ -908,7 +908,7 @@ body.dark .task-chip {
   display: block;
   font-size: 0.95rem;
   margin-bottom: 8px;
-  color: var(--text-base);
+  color: var(--text);
 }
 
 .tooltip-metrics {

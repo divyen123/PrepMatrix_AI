@@ -535,7 +535,7 @@ body .learning-subject-option.is-selected {
 }
 
 body.has-bg-image .learning-subject-options {
-  background: rgba(var(--bg-surface-rgb), 0.9) !important;
+  background: var(--surface-strong) !important;
   border-color: rgba(255, 255, 255, 0.14) !important;
   box-shadow: 0 22px 58px -20px rgba(0, 0, 0, 0.7) !important;
 }
@@ -1739,7 +1739,7 @@ body.has-bg-image .learning-planner-dialog.card {
   gap: 16px;
   padding: 23px;
   overflow: auto;
-  background: rgb(var(--bg-surface-rgb, 15, 23, 42)) !important;
+  background: var(--surface-strong) !important;
   animation: learningDialogIn 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -1749,7 +1749,7 @@ body.has-bg-image .learning-privacy-dialog.card {
   max-height: calc(100dvh - clamp(32px, 6vw, 64px));
   margin: auto;
   gap: 18px;
-  background: rgb(var(--bg-surface-rgb, 15, 23, 42)) !important;
+  background: var(--surface-strong) !important;
   border-color: color-mix(in srgb, var(--border) 72%, rgba(255, 255, 255, 0.18));
   box-shadow:
     0 30px 90px rgba(0, 0, 0, 0.56),

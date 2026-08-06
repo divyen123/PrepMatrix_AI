@@ -102,11 +102,7 @@ function SubjectsPage({
               <div><span>Curriculum / field</span><strong>{academicProfile.academicTrack}</strong></div>
             </div>
 
-            <div>
-              <p className="card-subtext">
-                Resources, quizzes, explanations, and exams stay inside this stage, curriculum, and specialization.
-              </p>
-            </div>
+
 
             {profileLocked ? (
               <div className="academic-profile-note" role="note">

@@ -29,7 +29,6 @@ const SNAPSHOT_COPY = {
   chapters: {
     actionLabel: "Manage topics",
     actionTarget: "subject-library",
-    description: "Custom topics appear first. Any remaining study units keep their numbered chapter labels.",
     eyebrow: "Chapter breakdown",
     Icon: Layers3,
     metricLabel: "chapters across all subjects",
@@ -38,7 +37,6 @@ const SNAPSHOT_COPY = {
   hard: {
     actionLabel: "Review priorities",
     actionTarget: "subject-library",
-    description: "Subjects marked Hard receive extra attention when the planner balances your workload.",
     eyebrow: "Priority review",
     Icon: ShieldAlert,
     metricLabel: "hard-priority subjects",
@@ -247,7 +245,7 @@ function SubjectSnapshotDialog({
           <div>
             <span className="subject-snapshot-eyebrow">{snapshot.eyebrow}</span>
             <h2 id="subject-snapshot-title">{snapshot.title}</h2>
-            <p id="subject-snapshot-description">{snapshot.description}</p>
+            {snapshot.description && <p id="subject-snapshot-description">{snapshot.description}</p>}
           </div>
           <button
             aria-label="Close subject snapshot"
