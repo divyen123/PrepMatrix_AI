@@ -27,15 +27,6 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
           <span className="section-tag">AI weekly review</span>
           <h3>Planner progress review</h3>
         </div>
-        <button
-          className="secondary-btn weekly-review-generate"
-          disabled={!hasScheduledPlanner}
-          onClick={generateReview}
-          title={hasScheduledPlanner ? "Generate weekly review" : "Generate a planner schedule first"}
-          type="button"
-        >
-          Generate review
-        </button>
       </div>
 
       <p className="card-desc">
@@ -70,7 +61,7 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
       ) : (
         <p className="empty-state">
           {hasScheduledPlanner
-            ? "Click generate review to create a planner-aware weekly summary."
+            ? "Generating your planner-aware weekly summary..."
             : "Generate a timetable in Planner to unlock your weekly review."}
         </p>
       )}
