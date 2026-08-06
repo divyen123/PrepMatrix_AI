@@ -325,7 +325,7 @@ function App() {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [logoutTransitionPhase, setLogoutTransitionPhase] = useState("idle");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
   const [profilePreviewSide, setProfilePreviewSide] = useState("photo");
   const [cursorStyle, setCursorStyle] = useState(() => {
