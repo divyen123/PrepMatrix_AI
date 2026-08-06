@@ -46,13 +46,14 @@ function DashboardPage({
 
   const saveConfiguration = (updatedSubject) => {
     if (typeof setSubjects === "function") {
-      setSubjects((prev) => {
-        const idx = prev.findIndex((s) => String(s.id) === String(updatedSubject.id));
-        if (idx === -1) return prev;
-        const copy = [...prev];
+      const idx = subjects.findIndex((s) => String(s.id) === String(updatedSubject.id));
+      if (idx === -1) {
+        setSubjects(subjects, { preserveSchedule: hasActiveSchedule });
+      } else {
+        const copy = [...subjects];
         copy[idx] = updatedSubject;
-        return copy;
-      });
+        setSubjects(copy, { preserveSchedule: hasActiveSchedule });
+      }
     }
     setConfigureSubject(null);
   };
