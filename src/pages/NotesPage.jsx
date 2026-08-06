@@ -597,8 +597,7 @@ function NotesPage({
             title="View board status"
             type="button"
           >
-            <strong>{openCount}</strong>
-            <span className="notes-status-label">Open</span>
+            <strong>{notes.length}</strong>
           </button>
           <button
             className="primary-btn"

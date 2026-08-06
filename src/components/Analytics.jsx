@@ -23,9 +23,6 @@ function Analytics({ schedule, completed }) {
       <div className="analytics-overview-header">
         <div>
           <h3>Task distribution</h3>
-          <p className="card-subtext">
-            Planned: {metrics.totalTasks} tasks. Done: {metrics.completedTasks}. Remaining: {metrics.remainingTasks}.
-          </p>
         </div>
       </div>
 

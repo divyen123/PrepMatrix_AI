@@ -118,6 +118,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px 16px;
+  margin-top: 14px;
 }
 
 .resume-builder-hero__meta span {
