@@ -2407,7 +2407,9 @@ function StartLearningPage({
               </span>
             </small>
           </label>
-          {analysisError && <p className="learning-inline-error" role="alert">{analysisError}</p>}
+          {!analyzing && analysisError && (
+            <p className="learning-inline-error" role="alert">{analysisError}</p>
+          )}
           <button
             className="learning-analyze-btn"
             disabled={analyzing || preparingSources || hasInsufficientCredits(AI_FEATURES.LEARNING_NOTEBOOK)}

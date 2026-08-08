@@ -1,0 +1,83 @@
+.learning-route-recovery {
+  min-height: min(640px, calc(100vh - 9rem));
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.85rem;
+  padding: clamp(2rem, 6vw, 5rem);
+  border: 1px solid color-mix(in srgb, var(--primary, #0f9f8f) 22%, var(--border-color, #dce7e5));
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 50% 15%, color-mix(in srgb, var(--primary, #0f9f8f) 13%, transparent), transparent 42%),
+    var(--card-bg, #fff);
+  color: var(--text-primary, #182322);
+  text-align: center;
+}
+
+.learning-route-recovery__icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--primary, #0f9f8f) 14%, transparent);
+  color: var(--primary, #0f9f8f);
+}
+
+.learning-route-recovery h2,
+.learning-route-recovery p {
+  margin: 0;
+}
+
+.learning-route-recovery p {
+  max-width: 34rem;
+  color: var(--text-secondary, #61706e);
+  line-height: 1.65;
+}
+
+.learning-route-recovery__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.55rem;
+}
+
+.learning-route-recovery__actions button,
+.learning-route-recovery__actions a {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--primary, #0f9f8f) 28%, transparent);
+  border-radius: 13px;
+  background: var(--primary, #0f9f8f);
+  color: #fff;
+  font: inherit;
+  font-weight: 750;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.learning-route-recovery__actions a {
+  background: color-mix(in srgb, var(--card-bg, #fff) 90%, transparent);
+  color: var(--text-primary, #182322);
+}
+
+@media (max-width: 620px) {
+  .learning-route-recovery {
+    min-height: 520px;
+    border-radius: 20px;
+  }
+
+  .learning-route-recovery__actions {
+    width: 100%;
+  }
+
+  .learning-route-recovery__actions button,
+  .learning-route-recovery__actions a {
+    width: 100%;
+  }
+}

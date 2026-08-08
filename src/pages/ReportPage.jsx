@@ -1,7 +1,6 @@
 import jsPDF from "jspdf";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import LearningProgressSummary from "../components/LearningProgressSummary";
 import useLearningInsights from "../hooks/useLearningInsights";
 import api from "../utils/apiClient";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
@@ -472,16 +471,6 @@ function ReportPage({ completed, materialBookmarks, schedule, subjects, userProf
           </p>
         </article>
       </div>
-
-      <LearningProgressSummary
-        description="A durable record of subjects studied, topics learned, mastery checks, and guided learning time."
-        error={learning.error}
-        insights={learning.insights}
-        loading={learning.loading}
-        onRetry={learning.reload}
-        title="What you have learned"
-        variant="report"
-      />
 
       <section className="card report-action-card">
         <span className="section-tag">Next best actions</span>

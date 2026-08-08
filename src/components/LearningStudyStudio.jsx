@@ -12,7 +12,7 @@ import {
   FileQuestion,
   Gauge,
   Lightbulb,
-  Map,
+  Map as MapIcon,
   Mic,
   NotebookPen,
   Pause,
@@ -60,7 +60,7 @@ const STOP_WORDS = new Set([
 ]);
 
 function stateFor(source, nodeId) {
-  if (source instanceof Map) return source.get(nodeId) || {};
+  if (source instanceof globalThis.Map) return source.get(nodeId) || {};
   return source?.[nodeId] || {};
 }
 
@@ -456,7 +456,7 @@ function LearningStudyStudio({
         <aside className="learning-studio-outline" aria-label="Course mastery outline">
           <div className="learning-studio-panel-heading">
             <div><span>Course path</span><strong>{learningNodes.length} units</strong></div>
-            <button aria-label="Open mastery map" onClick={onOpenMap} title="Open mastery map" type="button"><Map size={16} /></button>
+            <button aria-label="Open mastery map" onClick={onOpenMap} title="Open mastery map" type="button"><MapIcon size={16} /></button>
           </div>
           <div className="learning-studio-outline__list">
             {(notebook?.chapters || []).map((chapter) => (

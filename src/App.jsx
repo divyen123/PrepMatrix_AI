@@ -67,6 +67,7 @@ import CustomCursor from "./components/CustomCursor";
 import { SidebarStudyPet } from "./components/StudyPet";
 import GoalReminderCenter from "./components/GoalReminderCenter";
 import SidebarProximityNav from "./components/SidebarProximityNav";
+import LearningRouteBoundary from "./components/LearningRouteBoundary";
 import "./App.css";
 import "./components/GoalReminderCenter.css";
 import { ToastContainer, toast } from "react-toastify";
@@ -1641,19 +1642,21 @@ function App() {
                         />
                         <Route
                           element={
-                            <StartLearningPage
-                              academicLevel={academicLevel}
-                              academicTrack={academicTrack}
-                              completed={completed}
-                              schedule={schedule}
-                              scheduleStartDate={scheduleStartDate}
-                              setCompleted={updateCompletedWithRewards}
-                              setNotification={setNotification}
-                              setSchedule={setSchedule}
-                              setSubjects={updateSubjects}
-                              subjects={subjects}
-                              userProfile={userProfile}
-                            />
+                            <LearningRouteBoundary>
+                              <StartLearningPage
+                                academicLevel={academicLevel}
+                                academicTrack={academicTrack}
+                                completed={completed}
+                                schedule={schedule}
+                                scheduleStartDate={scheduleStartDate}
+                                setCompleted={updateCompletedWithRewards}
+                                setNotification={setNotification}
+                                setSchedule={setSchedule}
+                                setSubjects={updateSubjects}
+                                subjects={subjects}
+                                userProfile={userProfile}
+                              />
+                            </LearningRouteBoundary>
                           }
                           path="/learn"
                         />
