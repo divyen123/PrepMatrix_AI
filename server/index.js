@@ -57,6 +57,7 @@ import {
   buildLearningModelCandidates,
   registerLearningNotebookRoutes,
 } from "./learningNotebookRoutes.js";
+import { registerLearningNoteRoutes } from "./learningNoteRoutes.js";
 import {
   KIDS_ATTEMPTS_COLLECTION,
   KIDS_PARENT_SETTINGS_COLLECTION,
@@ -1178,6 +1179,11 @@ registerLearningNotebookRoutes(app, {
 });
 
 registerKidsLearningRoutes(app, {
+  getDb,
+  requireAuth,
+});
+
+registerLearningNoteRoutes(app, {
   getDb,
   requireAuth,
 });

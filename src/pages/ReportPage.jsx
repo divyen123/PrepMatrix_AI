@@ -1,6 +1,8 @@
 import jsPDF from "jspdf";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import LearningProgressSummary from "../components/LearningProgressSummary";
+import useLearningInsights from "../hooks/useLearningInsights";
 import api from "../utils/apiClient";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 
@@ -63,6 +65,7 @@ function drawProgressBar(pdf, x, y, width, percent) {
 
 function ReportPage({ completed, materialBookmarks, schedule, subjects, userProfile }) {
   const navigate = useNavigate();
+  const learning = useLearningInsights();
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
     [schedule, completed]
@@ -193,7 +196,7 @@ function ReportPage({ completed, materialBookmarks, schedule, subjects, userProf
     pdf.text("PrepMatrix", margin + 8, y + 14);
     pdf.setFontSize(10);
     pdf.setFont("helvetica", "normal");
-    pdf.text("Planner intelligence report", margin + 8, y + 24);
+    pdf.text("Learning and planner intelligence", margin + 8, y + 24);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(9);
     pdf.text(generatedAt.toLocaleDateString(), pageWidth - margin - 8, y + 14, { align: "right" });
@@ -269,6 +272,58 @@ function ReportPage({ completed, materialBookmarks, schedule, subjects, userProf
     }
     y += watchHeight + 12;
 
+    if (learning.insights.notebookCount) {
+      const learnedSubjects = learning.insights.subjects
+        .filter((subject) => Number(subject.learnedTopics || 0) > 0)
+        .map((subject) => subject.subjectName)
+        .filter(Boolean)
+        .slice(0, 6);
+      const learnedTopics = learning.insights.recentLearnedTopics.slice(0, 6);
+      const evidenceHeight = 48 + learnedTopics.length * 9;
+      sectionTitle("Learning evidence", "Learned subjects and topics", evidenceHeight + 10);
+      drawPanel(margin, y, contentWidth, evidenceHeight);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10.5);
+      setTextColor(pdf, PDF_COLORS.ink);
+      pdf.text(`${learning.insights.learnedTopicCount} topics learned - ${learning.insights.masteredTopicCount} mastered`, margin + 7, y + 11);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8.5);
+      setTextColor(pdf, PDF_COLORS.muted);
+      pdf.text(
+        fitText(
+          `Guided study: ${learning.insights.studyMinutes} minutes - Reviews due: ${learning.insights.reviewDueCount} - Practice accuracy: ${learning.insights.accuracy}% - Open misconceptions: ${learning.insights.unresolvedMisconceptionCount}`,
+          contentWidth - 14,
+        ),
+        margin + 7,
+        y + 19,
+      );
+      pdf.setFont("helvetica", "bold");
+      setTextColor(pdf, PDF_COLORS.accent);
+      pdf.text("LEARNED SUBJECTS", margin + 7, y + 29);
+      pdf.setFont("helvetica", "normal");
+      setTextColor(pdf, PDF_COLORS.ink);
+      pdf.text(
+        fitText(learnedSubjects.join(", ") || "No completed subjects yet", contentWidth - 14),
+        margin + 7,
+        y + 37,
+      );
+      learnedTopics.forEach((topic, index) => {
+        const rowY = y + 47 + index * 9;
+        pdf.setFont("helvetica", "bold");
+        setTextColor(pdf, PDF_COLORS.ink);
+        pdf.text(fitText(topic.title || "Learned topic", 86), margin + 7, rowY);
+        pdf.setFont("helvetica", "normal");
+        setTextColor(pdf, PDF_COLORS.muted);
+        pdf.text(
+          fitText([topic.subjectName, topic.chapterTitle].filter(Boolean).join(" - ") || "Learning notebook", 72),
+          pageWidth - margin - 7,
+          rowY,
+          { align: "right" },
+        );
+      });
+      y += evidenceHeight + 12;
+    }
+
     const actionHeight = 60;
     sectionTitle("Action plan", "Next best recovery steps", actionHeight + 10);
     drawPanel(margin, y, contentWidth, actionHeight);
@@ -324,10 +379,16 @@ function ReportPage({ completed, materialBookmarks, schedule, subjects, userProf
       <div className="section-intro report-intro-row">
         <div>
           <span className="section-tag">Overall report</span>
-          <h2>Your planner intelligence report</h2>
+          <h2>Your learning and planner intelligence report</h2>
         </div>
-        <button className="secondary-btn report-export-btn" onClick={exportReportPDF} type="button">
-          Export report PDF
+        <button
+          aria-busy={learning.loading}
+          className="secondary-btn report-export-btn"
+          disabled={learning.loading}
+          onClick={exportReportPDF}
+          type="button"
+        >
+          {learning.loading ? "Preparing report..." : "Export report PDF"}
         </button>
       </div>
 
@@ -411,6 +472,16 @@ function ReportPage({ completed, materialBookmarks, schedule, subjects, userProf
           </p>
         </article>
       </div>
+
+      <LearningProgressSummary
+        description="A durable record of subjects studied, topics learned, mastery checks, and guided learning time."
+        error={learning.error}
+        insights={learning.insights}
+        loading={learning.loading}
+        onRetry={learning.reload}
+        title="What you have learned"
+        variant="report"
+      />
 
       <section className="card report-action-card">
         <span className="section-tag">Next best actions</span>

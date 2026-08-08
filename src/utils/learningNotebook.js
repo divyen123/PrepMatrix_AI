@@ -1,4 +1,5 @@
 import { normalizeAcademicProfile } from "./academicProfile.js";
+import { normalizeLearningState } from "./learningMastery.js";
 
 export const MAX_LEARNING_NOTEBOOKS_PER_USER = 30;
 export const MAX_LEARNING_SOURCES = 3;
@@ -838,6 +839,8 @@ export function hasGeneratedLearningNotebookDepth(value, options = {}) {
 export function normalizeLearningNotebook(value = {}, options = {}) {
   const source = value?.notebook && typeof value.notebook === "object" ? value.notebook : value;
   const now = options.now || new Date();
+  const rawNotebookId = options.id ?? source?.id;
+  const notebookId = rawNotebookId ? cleanInline(rawNotebookId, 80) : "";
   const subjectName = cleanInline(options.subjectName ?? source?.subjectName, 140) || "General study";
   const requestedChapterNames = normalizeLearningChapterNames(
     options.chapterNames
@@ -867,7 +870,7 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
   );
 
   return {
-    ...(options.id ?? source?.id ? { id: cleanInline(options.id ?? source.id, 80) } : {}),
+    ...(notebookId ? { id: notebookId } : {}),
     title: cleanInline(source?.title, 180)
       || `${subjectName}${chapterNames.length === 1 ? ` - ${chapterNames[0]}` : ""}`,
     subjectName,
@@ -890,6 +893,19 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
       options.profile || {},
     ),
     sources: normalizeSources(options.sources ?? source?.sources ?? source?.sourceFiles),
+    learningState: normalizeLearningState(
+      source?.learningState ?? source?.masteryState ?? source?.learningProgress,
+      {
+        notebook: {
+          ...(notebookId ? { id: notebookId } : {}),
+          subjectName,
+          chapters,
+          createdAt,
+          updatedAt,
+        },
+        now,
+      },
+    ),
     model: cleanInline(options.model ?? source?.model, 120),
     createdAt,
     updatedAt,

@@ -14,7 +14,7 @@ import {
   Image as ImageIcon,
   Layers3,
   LoaderCircle,
-  Maximize2,
+
   MessageSquareText,
   Plus,
   Save,
@@ -23,12 +23,15 @@ import {
   Trash2,
   UploadCloud,
   X,
-  ZoomIn,
-  ZoomOut,
+
+
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { jsPDF } from "jspdf";
+import { useNavigate } from "react-router-dom";
+import LearningMasteryMap from "../components/LearningMasteryMap";
+import LearningStudyStudio from "../components/LearningStudyStudio";
 import api from "../utils/apiClient";
 import {
   AI_FEATURES,
@@ -50,6 +53,20 @@ import {
   setLearningPlannerNodeCompletion,
   upsertLearningPlannerTask,
 } from "../utils/learningPlanner";
+import {
+  completeLearningSession,
+  getLearningNodeStatus,
+  getLearningReviewQueue,
+  markLearningNodeLearned,
+  normalizeLearningState,
+  recordLearningAttempt,
+  setLearningNodeStatus,
+  startLearningSession,
+  updateLearningSession,
+} from "../utils/learningMastery";
+import { buildLearningTopicNote } from "../utils/learningNoteIntegration";
+import { buildMaterialGuidePath } from "../utils/materialGuideNavigation";
+import { getPlannerMetrics } from "../utils/plannerMetrics";
 import {
   LEARNING_PRIVACY_CONSENT_VERSION,
   acceptLearningPrivacyConsent,
@@ -496,6 +513,7 @@ function StartLearningPage({
   setNotification,
 }) {
   const { hasInsufficientCredits } = useAiQuota();
+  const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const subjectInputRef = useRef(null);
   const subjectOptionsRef = useRef(null);
@@ -504,6 +522,10 @@ function StartLearningPage({
   const pendingAnalysisRef = useRef(null);
   const privacyConsentCancelRef = useRef(null);
   const privacyConsentDialogRef = useRef(null);
+  const masteryAutosaveTimerRef = useRef(null);
+  const masterySaveSequenceRef = useRef(0);
+  const notebookSaveChainRef = useRef(Promise.resolve());
+  const activeNotebookRef = useRef(null);
   const [notebooks, setNotebooks] = useState([]);
   const [notebooksLoading, setNotebooksLoading] = useState(true);
   const [notebooksError, setNotebooksError] = useState("");
@@ -526,11 +548,11 @@ function StartLearningPage({
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
   const [analysisError, setAnalysisError] = useState("");
-  const [activeTab, setActiveTab] = useState("notes");
+  const [activeTab, setActiveTab] = useState("studio");
   const [expandedQuestions, setExpandedQuestions] = useState(() => new Set());
   const [expandedChapters, setExpandedChapters] = useState(() => new Set());
   const [selectedNodeId, setSelectedNodeId] = useState("");
-  const [zoom, setZoom] = useState(1);
+
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -545,6 +567,12 @@ function StartLearningPage({
   const [plannerDateKey, setPlannerDateKey] = useState("");
   const [plannerError, setPlannerError] = useState("");
   const [privacyConsentOpen, setPrivacyConsentOpen] = useState(false);
+  const [masterySaving, setMasterySaving] = useState(false);
+  const [coachState, setCoachState] = useState({ loading: false, error: "", response: "", label: "" });
+  const [latestReceipt, setLatestReceipt] = useState(null);
+  const [noteSavingKeys, setNoteSavingKeys] = useState(() => new Set());
+  const noteSavingKeysRef = useRef(new Set());
+  const [masteryClock, setMasteryClock] = useState(() => Date.now());
 
   const savedSubjectNames = useMemo(
     () => normalizeSubjectNames(subjects),
@@ -602,6 +630,15 @@ function StartLearningPage({
     activeOption?.scrollIntoView({ block: "nearest" });
   }, [activeSubjectOptionIndex, subjectPickerOpen, visibleSavedSubjectNames.length]);
 
+  useEffect(() => {
+    activeNotebookRef.current = activeNotebook;
+  }, [activeNotebook]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setMasteryClock(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const nodes = useMemo(() => learningNodes(activeNotebook), [activeNotebook]);
   const activeLearningProject = useMemo(() => ({
     id: activeNotebook?.id || "",
@@ -626,6 +663,61 @@ function StartLearningPage({
     nodes,
     schedule,
   ]);
+  const plannerMetrics = useMemo(
+    () => getPlannerMetrics(schedule, completed),
+    [completed, schedule],
+  );
+  const normalizedMasteryState = useMemo(
+    () => normalizeLearningState(activeNotebook?.learningState, {
+      notebook: activeNotebook || {},
+      now: new Date(masteryClock).toISOString(),
+    }),
+    [activeNotebook, masteryClock],
+  );
+  const progressByNodeId = useMemo(() => {
+    const now = new Date(masteryClock).toISOString();
+    const next = Object.fromEntries(Object.entries(normalizedMasteryState.nodes || {}).map(([nodeId, node]) => [
+      nodeId,
+      { ...node, status: getLearningNodeStatus(node, { now }) },
+    ]));
+
+    (activeNotebook?.chapters || []).forEach((chapter) => {
+      const childStates = (chapter.topics || []).map((topic) => next[topic.id]).filter(Boolean);
+      if (!childStates.length || !next[chapter.id]) return;
+      const statuses = childStates.map((item) => item.status);
+      const masteryScore = Math.round(
+        childStates.reduce((sum, item) => sum + Number(item.masteryScore || 0), 0) / childStates.length,
+      );
+      const status = statuses.every((item) => item === "mastered")
+        ? "mastered"
+        : statuses.some((item) => item === "review_due")
+          ? "review_due"
+          : statuses.some((item) => item === "learning")
+            ? "learning"
+            : statuses.some((item) => item === "learned" || item === "mastered")
+              ? "learned"
+              : next[chapter.id].status;
+      next[chapter.id] = { ...next[chapter.id], status, masteryScore };
+    });
+    return next;
+  }, [activeNotebook, masteryClock, normalizedMasteryState.nodes]);
+  const reviewQueue = useMemo(
+    () => getLearningReviewQueue(activeNotebook ? [activeNotebook] : [], {
+      limit: 24,
+      now: new Date(masteryClock).toISOString(),
+    }).map((item) => ({
+      ...nodes.find((node) => node.id === item.id),
+      ...item,
+      reviewLabel: item.dueAt ? `Due ${formatNotebookDate(item.dueAt)}` : "Due for recall",
+    })),
+    [activeNotebook, masteryClock, nodes],
+  );
+  const activeLearningSession = useMemo(() => {
+    const session = normalizedMasteryState.sessions.find(
+      (item) => item.id === normalizedMasteryState.activeSessionId && item.status === "in_progress",
+    );
+    return session ? { ...session, nodeId: session.nodeIds[0] || "" } : null;
+  }, [normalizedMasteryState]);
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) || nodes[0] || null,
     [nodes, selectedNodeId],
@@ -662,10 +754,10 @@ function StartLearningPage({
     setWorkspaceView("notebook");
     setCareerError("");
     setDirty(false);
-    setActiveTab("notes");
+    setActiveTab("studio");
     setExpandedChapters(new Set(normalized.chapters.slice(0, 1).map((chapter) => chapter.id)));
     setSelectedNodeId(normalized.chapters[0]?.id || "");
-    setZoom(1);
+
   }, []);
 
   const openCareerWorkspace = () => {
@@ -1100,11 +1192,423 @@ function StartLearningPage({
     setActiveNotebook((current) => {
       if (!current) return current;
       const next = typeof updater === "function" ? updater(current) : { ...current, ...updater };
-      return { ...next, updatedAt: new Date().toISOString() };
+      const stamped = { ...next, updatedAt: new Date().toISOString() };
+      activeNotebookRef.current = stamped;
+      return stamped;
     });
     setDirty(true);
   };
 
+  const enqueueNotebookPatch = useCallback((snapshot) => {
+    const request = notebookSaveChainRef.current
+      .catch(() => undefined)
+      .then(() => api.patch(
+        `/api/learning-notebooks/${encodeURIComponent(snapshot.id)}`,
+        { notebook: snapshot },
+        { timeoutMs: 30000 },
+      ));
+    notebookSaveChainRef.current = request.catch(() => undefined);
+    return request;
+  }, []);
+
+  const queueMasteryAutosave = useCallback((snapshot) => {
+    if (!snapshot?.id) return;
+    const sequence = ++masterySaveSequenceRef.current;
+    if (masteryAutosaveTimerRef.current) window.clearTimeout(masteryAutosaveTimerRef.current);
+    setMasterySaving(true);
+    masteryAutosaveTimerRef.current = window.setTimeout(async () => {
+      const currentSnapshot = activeNotebookRef.current?.id === snapshot.id
+        ? activeNotebookRef.current
+        : snapshot;
+      try {
+        const payload = await enqueueNotebookPatch(currentSnapshot);
+        if (!mountedRef.current || sequence !== masterySaveSequenceRef.current) return;
+        const normalized = normalizeNotebook(payload?.notebook || currentSnapshot);
+        const revisionMatches = activeNotebookRef.current?.id === currentSnapshot.id
+          && activeNotebookRef.current?.updatedAt === currentSnapshot.updatedAt;
+        setNotebooks((current) => current.map((notebook) => (
+          notebook.id === normalized.id && notebook.updatedAt === currentSnapshot.updatedAt
+            ? normalized
+            : notebook
+        )));
+        if (revisionMatches) {
+          activeNotebookRef.current = normalized;
+          setActiveNotebook(normalized);
+          setDirty(false);
+        }
+      } catch (error) {
+        if (mountedRef.current && sequence === masterySaveSequenceRef.current) {
+          setDirty(true);
+          setNotification?.(error instanceof Error ? error.message : "Learning progress could not be saved.");
+        }
+      } finally {
+        if (mountedRef.current && sequence === masterySaveSequenceRef.current) setMasterySaving(false);
+      }
+    }, 650);
+  }, [enqueueNotebookPatch, setNotification]);
+
+  const applyLearningState = (updater) => {
+    if (!activeNotebook?.id) return null;
+    const now = new Date().toISOString();
+    const currentState = normalizeLearningState(activeNotebook.learningState, {
+      notebook: activeNotebook,
+      now,
+    });
+    const nextState = typeof updater === "function" ? updater(currentState, now) : updater;
+    const nextNotebook = {
+      ...activeNotebook,
+      learningState: normalizeLearningState(nextState, { notebook: activeNotebook, now }),
+      updatedAt: now,
+    };
+    activeNotebookRef.current = nextNotebook;
+    setActiveNotebook(nextNotebook);
+    setNotebooks((current) => current.map((notebook) => (
+      notebook.id === nextNotebook.id ? nextNotebook : notebook
+    )));
+    setDirty(true);
+    queueMasteryAutosave(nextNotebook);
+    return nextNotebook.learningState;
+  };
+
+  const startStudySession = (nodeId) => {
+    const node = nodes.find((item) => item.id === nodeId && item.type !== "notebook");
+    if (!node || !activeNotebook) return;
+    setSelectedNodeId(node.id);
+    setActiveTab("studio");
+    const nextState = applyLearningState((state, now) => {
+      let working = state;
+      const active = state.sessions.find((session) => session.id === state.activeSessionId);
+
+      if (active?.nodeIds?.[0] === node.id) {
+        working = updateLearningSession(working, {
+          sessionId: active.id,
+          pausedAt: "",
+          nodeIds: [node.id],
+        }, { notebook: activeNotebook, now });
+      } else {
+        if (active) {
+          const previousNodeId = active.nodeIds?.[0];
+          working = updateLearningSession(working, {
+            sessionId: active.id,
+            pausedAt: true,
+          }, { notebook: activeNotebook, now });
+          working = { ...working, activeSessionId: "", updatedAt: now };
+
+          const previousProgress = working.nodes?.[previousNodeId];
+          if (previousNodeId && previousProgress) {
+            const restoredStatus = previousProgress.masteredAt
+              ? "mastered"
+              : previousProgress.learnedAt
+                ? getLearningNodeStatus({ ...previousProgress, status: "learned" }, { now })
+                : previousProgress.attempts?.length
+                  ? getLearningNodeStatus({ ...previousProgress, status: "learning" }, { now })
+                  : "ready";
+            working = setLearningNodeStatus(working, previousNodeId, restoredStatus, {
+              notebook: activeNotebook,
+              now,
+            });
+          }
+        }
+
+        const resumable = [...working.sessions].reverse().find((session) => (
+          session.status === "in_progress"
+          && session.pausedAt
+          && session.nodeIds?.[0] === node.id
+        ));
+        if (resumable) {
+          working = updateLearningSession(working, {
+            sessionId: resumable.id,
+            pausedAt: "",
+            nodeIds: [node.id],
+          }, { notebook: activeNotebook, now });
+          working = { ...working, activeSessionId: resumable.id, updatedAt: now };
+        } else {
+          working = startLearningSession(working, {
+            notebookId: activeNotebook.id,
+            subjectName: activeNotebook.subjectName,
+            objective: `Understand and prove ${node.title}`,
+            mode: "guided",
+            nodeIds: [node.id],
+            stageIndex: 0,
+          }, { notebook: activeNotebook, now });
+        }
+      }
+
+      return setLearningNodeStatus(working, node.id, "learning", {
+        notebook: activeNotebook,
+        now,
+      });
+    });
+    if (nextState) setLatestReceipt(null);
+  };
+
+  const pauseStudySession = (session) => {
+    if (!session?.id) return;
+    applyLearningState((state, now) => updateLearningSession(state, {
+      sessionId: session.id,
+      pausedAt: true,
+    }, { notebook: activeNotebook, now }));
+    setNotification?.("Study session paused and saved. Continue whenever you are ready.");
+  };
+
+  const advanceStudySession = ({ sessionId, stageIndex }) => {
+    applyLearningState((state, now) => updateLearningSession(state, {
+      sessionId,
+      stageIndex,
+      pausedAt: "",
+    }, { notebook: activeNotebook, now }));
+  };
+
+  const ratingScore = (rating, fallback) => {
+    if (Number.isFinite(Number(fallback))) return Number(fallback);
+    return { again: 25, hard: 55, good: 82, easy: 100 }[rating] ?? 60;
+  };
+
+  const recordStudyAttempt = (attempt) => {
+    if (!attempt?.nodeId) return;
+    applyLearningState((state, now) => {
+      const score = ratingScore(attempt.rating, attempt.score);
+      const attempted = recordLearningAttempt(state, {
+        ...attempt,
+        score,
+        correct: score >= 70,
+        responseSummary: attempt.response,
+        sessionId: state.activeSessionId,
+      }, { notebook: activeNotebook, now });
+      return Number.isFinite(Number(attempt.nextStageIndex))
+        ? updateLearningSession(attempted, {
+            sessionId: attempted.activeSessionId,
+            stageIndex: Number(attempt.nextStageIndex),
+            pausedAt: "",
+          }, { notebook: activeNotebook, now })
+        : attempted;
+    });
+  };
+
+  const syncLearnedNodeToPlanner = (node) => {
+    if (!node || !activeNotebook) return false;
+    let nextSchedule = schedule;
+    let plannerState = getLearningPlannerCompletionState(
+      nextSchedule,
+      completed,
+      activeLearningProject,
+      node,
+    );
+    if (!plannerState.isScheduled && dateOptions[0]) {
+      const scheduled = upsertLearningPlannerTask(
+        nextSchedule,
+        activeLearningProject,
+        node,
+        dateOptions[0].dateKey,
+        scheduleStartDate,
+      );
+      if (scheduled?.schedule) {
+        nextSchedule = scheduled.schedule;
+        setSchedule?.(nextSchedule);
+        plannerState = getLearningPlannerCompletionState(
+          nextSchedule,
+          completed,
+          activeLearningProject,
+          node,
+        );
+      }
+    }
+    if (!plannerState.isScheduled) return false;
+    const completion = setLearningPlannerNodeCompletion(
+      nextSchedule,
+      completed,
+      activeLearningProject,
+      node,
+      true,
+    );
+    if (!completion) return false;
+    setCompleted?.(completion.completed);
+    return true;
+  };
+
+  const finishStudySession = ({ nodeId, sessionId, rating }) => {
+    const node = nodes.find((item) => item.id === nodeId);
+    if (!node || !activeNotebook) return;
+    const score = ratingScore(rating);
+    const nextState = applyLearningState((state, now) => {
+      const attempted = recordLearningAttempt(state, {
+        nodeId,
+        kind: "mastery_check",
+        score,
+        correct: score >= 70,
+        confidence: rating === "easy" ? 5 : rating === "good" ? 4 : rating === "hard" ? 2 : 1,
+        sessionId: sessionId || state.activeSessionId,
+      }, { notebook: activeNotebook, now });
+      return completeLearningSession(attempted, {
+        sessionId: sessionId || attempted.activeSessionId,
+        nodeIds: [nodeId],
+        summary: score >= 70
+          ? `${node.title} was learned and scheduled for spaced review.`
+          : `${node.title} needs another recall pass and remains in the review queue.`,
+      }, { notebook: activeNotebook, now });
+    });
+    const progress = nextState?.nodes?.[nodeId];
+    const plannerSynced = score >= 70 ? syncLearnedNodeToPlanner(node) : false;
+    setLatestReceipt({
+      nodeId,
+      title: node.title,
+      masteryScore: progress?.masteryScore || score,
+      summary: score >= 70
+        ? `Learning evidence saved${plannerSynced ? ", planner checked" : ""}, and the next review was scheduled.`
+        : "This attempt was saved and a shorter review interval was scheduled.",
+    });
+    setNotification?.(
+      score >= 70
+        ? `${node.title} learned${plannerSynced ? " and completed in the planner" : ""}.`
+        : `${node.title} added to your review queue.`,
+    );
+  };
+
+  const addLearningMisconception = (nodeId, label) => {
+    applyLearningState((state, now) => recordLearningAttempt(state, {
+      nodeId,
+      kind: "reflection",
+      responseSummary: label,
+      misconceptions: [{ label }],
+      sessionId: state.activeSessionId,
+    }, { notebook: activeNotebook, now }));
+  };
+
+  const resolveLearningMisconception = (nodeId, misconceptionId) => {
+    applyLearningState((state, now) => recordLearningAttempt(state, {
+      nodeId,
+      kind: "reflection",
+      resolvedMisconceptionIds: [misconceptionId],
+      sessionId: state.activeSessionId,
+    }, { notebook: activeNotebook, now }));
+  };
+
+  const buildLearningNoteCandidate = (node, override = {}) => buildLearningTopicNote({
+    subjectName: activeNotebook.subjectName,
+    chapterTitle: node.chapterName || "Independent study",
+    topicTitle: override.title || node.title,
+    summary: node.summary,
+    explanation: override.details || node.explanation,
+    keyPoints: node.keyPoints,
+    examples: node.examples,
+    revisionTips: node.revisionTips,
+    notebookId: activeNotebook.id,
+    chapterId: activeNotebook.chapters.find((chapter) => chapter.title === node.chapterName)?.id,
+    topicId: node.id,
+  });
+
+  const isLearningNoteSaving = (node, override = {}) => {
+    if (!node || !activeNotebook) return false;
+    try {
+      return noteSavingKeys.has(buildLearningNoteCandidate(node, override).sourceKey);
+    } catch {
+      return false;
+    }
+  };
+
+  const saveLearningTopicToNotes = async (node, override = {}) => {
+    if (!node || !activeNotebook) return;
+    let candidate;
+    try {
+      candidate = buildLearningNoteCandidate(node, override);
+    } catch (error) {
+      setNotification?.(error instanceof Error ? error.message : "This topic could not be prepared for Notes.");
+      return;
+    }
+    if (noteSavingKeysRef.current.has(candidate.sourceKey)) return;
+    noteSavingKeysRef.current.add(candidate.sourceKey);
+    setNoteSavingKeys((current) => new Set(current).add(candidate.sourceKey));
+    try {
+      const payload = await api.createNote(candidate);
+      const guidance = Boolean(override.title || override.details);
+      const createdMessage = guidance ? "AI guidance saved to Notes." : "Topic saved to Notes.";
+      const existingMessage = guidance ? "This guidance is already in Notes." : "This topic is already in Notes.";
+      setNotification?.(payload.created ? createdMessage : existingMessage);
+    } catch (error) {
+      setNotification?.(error instanceof Error ? error.message : "This topic could not be saved to Notes.");
+    } finally {
+      noteSavingKeysRef.current.delete(candidate.sourceKey);
+      setNoteSavingKeys((current) => {
+        const next = new Set(current);
+        next.delete(candidate.sourceKey);
+        return next;
+      });
+    }
+  };
+
+  const referLearningMaterial = (node) => {
+    const subject = node?.subjectName || activeNotebook?.subjectName || subjectName;
+    navigate(buildMaterialGuidePath(subject));
+  };
+
+  const runLearningCoachAction = async (action, node) => {
+    if (!node || coachState.loading) return;
+    if (hasInsufficientCredits(AI_FEATURES.CHAT)) {
+      setCoachState({
+        loading: false,
+        error: getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }),
+        response: "",
+        label: "",
+      });
+      return;
+    }
+    const instruction = {
+      simpler: "Explain this in simpler language and no more than five short steps.",
+      analogy: "Give one memorable everyday analogy, then map each part back to the concept.",
+      hint: "Give one Socratic hint only. Do not reveal the full answer.",
+      example: "Give one fresh worked example appropriate to my academic level.",
+      challenge: "Ask one challenging application question. Do not answer it yet.",
+    }[action] || "Give focused guidance for this concept.";
+    const label = {
+      simpler: "Simpler explanation",
+      analogy: "Concept analogy",
+      hint: "Socratic hint",
+      example: "Worked example",
+      challenge: "Challenge question",
+    }[action] || "Coach guidance";
+    setCoachState({ loading: true, error: "", response: "", label });
+    try {
+      const payload = await api.post("/api/study-assistant/chat", {
+        source: "learning_coach",
+        message: [
+          `You are the contextual coach inside the Start Learning mastery workspace.`,
+          `Subject: ${activeNotebook.subjectName}.`,
+          `Chapter: ${node.chapterName || "Independent study"}.`,
+          `Concept: ${node.title}.`,
+          node.explanation || node.summary ? `Notebook context: ${cleanText(node.explanation || node.summary, 3200)}` : "",
+          instruction,
+          "Be concise, accurate, and keep the learner doing the thinking.",
+        ].filter(Boolean).join("\n"),
+        plannerContext: {
+          academicLevel,
+          academicTrack,
+          totalTasks: plannerMetrics.totalTasks,
+          completedTasks: plannerMetrics.completedTasks,
+          remainingTasks: plannerMetrics.remainingTasks,
+          completionRate: plannerMetrics.completionRate,
+          weakSubject: plannerMetrics.weakSubject,
+          firstPendingTask: plannerMetrics.firstPendingTask,
+          todayTasks: plannerMetrics.todayTasks,
+          subjectBreakdown: Object.entries(plannerMetrics.subjectStats || {}).map(
+            ([name, stats]) => `${name}: ${stats.completed}/${stats.total} complete`,
+          ),
+        },
+      }, {
+        timeoutMs: 30000,
+        headers: { "Idempotency-Key": createAiIdempotencyKey() },
+      });
+      if (!mountedRef.current) return;
+      setCoachState({ loading: false, error: "", response: payload.reply || "No guidance was returned.", label });
+    } catch (error) {
+      if (!mountedRef.current) return;
+      setCoachState({
+        loading: false,
+        error: getAiRequestErrorMessage(error, "The AI Coach could not respond."),
+        response: "",
+        label,
+      });
+    }
+  };
   const updateChapter = (chapterId, updater) => {
     updateNotebook((current) => ({
       ...current,
@@ -1168,21 +1672,33 @@ function StartLearningPage({
     errorMessage = "The notebook could not be saved.",
   } = {}) => {
     if (!activeNotebook?.id || saving) return;
+    if (masteryAutosaveTimerRef.current) {
+      window.clearTimeout(masteryAutosaveTimerRef.current);
+      masteryAutosaveTimerRef.current = null;
+    }
+    ++masterySaveSequenceRef.current;
+    setMasterySaving(false);
+    const snapshot = activeNotebook;
     setSaving(true);
     try {
-      const payload = await api.patch(
-        `/api/learning-notebooks/${encodeURIComponent(activeNotebook.id)}`,
-        { notebook: activeNotebook },
-        { timeoutMs: 30000 },
-      );
+      const payload = await enqueueNotebookPatch(snapshot);
       if (!mountedRef.current) return;
-      const normalized = normalizeNotebook(payload?.notebook || activeNotebook);
-      setActiveNotebook(normalized);
-      setNotebooks((current) => current.map((notebook) =>
-        notebook.id === normalized.id ? normalized : notebook,
-      ));
-      setDirty(false);
-      setNotification?.(successMessage);
+      const normalized = normalizeNotebook(payload?.notebook || snapshot);
+      const revisionMatches = activeNotebookRef.current?.id === snapshot.id
+        && activeNotebookRef.current?.updatedAt === snapshot.updatedAt;
+      setNotebooks((current) => current.map((notebook) => (
+        notebook.id === normalized.id && notebook.updatedAt === snapshot.updatedAt
+          ? normalized
+          : notebook
+      )));
+      if (revisionMatches) {
+        activeNotebookRef.current = normalized;
+        setActiveNotebook(normalized);
+        setDirty(false);
+      }
+      setNotification?.(
+        revisionMatches ? successMessage : `${successMessage} Newer changes are still being saved.`,
+      );
     } catch (error) {
       if (mountedRef.current) {
         setNotification?.(error instanceof Error ? error.message : errorMessage);
@@ -1457,6 +1973,13 @@ function StartLearningPage({
     if (!result) return;
 
     setCompleted?.(result.completed);
+    if (result.isCompleted) {
+      applyLearningState((learningState, now) => markLearningNodeLearned(
+        learningState,
+        node.id,
+        { notebook: activeNotebook, now },
+      ));
+    }
     setNotification?.(
       result.isCompleted
         ? `${node.title} marked complete in Study schedule.`
@@ -1577,16 +2100,6 @@ function StartLearningPage({
       else next.add(chapterId);
       return next;
     });
-  };
-
-  const fitMindMap = () => {
-    const nodeCount = nodes.length;
-    setZoom(
-      nodeCount > 120 ? 0.55
-        : nodeCount > 80 ? 0.62
-          : nodeCount > 50 ? 0.72
-            : nodeCount > 30 ? 0.82 : 1,
-    );
   };
 
   const noSavedNotebooks = !notebooksLoading && !notebooksError && notebooks.length === 0;
@@ -2043,6 +2556,7 @@ function StartLearningPage({
                     <span>{activeNotebook.chapters.length} chapters</span>
                     <span>{nodes.length} concepts</span>
                     {dirty && <span className="is-unsaved">Unsaved edits</span>}
+                    {masterySaving && <span className="is-saving">Saving learning progress...</span>}
                   </div>
                   {activeNotebook.coverageWarnings.length > 0 && (
                     <details className="learning-coverage-warning">
@@ -2067,6 +2581,8 @@ function StartLearningPage({
                   </button>
                   <button aria-label="Ask AI about this notebook" onClick={askAI} title="Ask AI" type="button">
                     <MessageSquareText size={16} /> Ask AI
+                  </button>                  <button aria-label="Refer subject learning materials" onClick={() => referLearningMaterial(selectedNode)} title="Refer material" type="button">
+                    <BookOpenCheck size={16} /> Refer material
                   </button>
                   <button aria-label="Add a learning unit to planner" onClick={() => openPlannerForNode(selectedNode)} title="Add to planner" type="button">
                     <CalendarPlus size={16} /> Add to planner
@@ -2086,6 +2602,7 @@ function StartLearningPage({
                 </div>
               </section>
 
+              {activeTab === "notes" && (
               <section className="card learning-question-priority">
                 <div className="learning-panel-heading">
                   <div>
@@ -2141,13 +2658,15 @@ function StartLearningPage({
                   <div className="learning-section-empty">No important questions were returned for this source.</div>
                 )}
               </section>
+              )}
 
               <section className="card learning-content-card">
                 <div className="learning-tablist" role="tablist" aria-label="Notebook views">
                   {[
+                    ["studio", "Study studio", <Sparkles aria-hidden="true" key="studio-icon" size={15} />],
                     ["notes", "Revised notes", <FileText aria-hidden="true" key="notes-icon" size={15} />],
                     ["outline", "Topic outline", <BookOpenCheck aria-hidden="true" key="outline-icon" size={15} />],
-                    ["map", "Mind map", <BrainCircuit aria-hidden="true" key="map-icon" size={15} />],
+                    ["map", "Mastery map", <BrainCircuit aria-hidden="true" key="map-icon" size={15} />],
                   ].map(([tabId, label, icon]) => (
                     <button
                       aria-selected={activeTab === tabId}
@@ -2162,6 +2681,34 @@ function StartLearningPage({
                   ))}
                 </div>
 
+                {activeTab === "studio" && (
+                  <div className="learning-studio-view" role="tabpanel">
+                    <LearningStudyStudio
+                      activeSession={activeLearningSession}
+                      coachState={coachState}
+                      isSavingNote={isLearningNoteSaving}
+                      latestReceipt={latestReceipt}
+                      nodes={nodes}
+                      notebook={activeNotebook}
+                      onAddMisconception={addLearningMisconception}
+                      onAdvanceSession={advanceStudySession}
+                      onCoachAction={runLearningCoachAction}
+                      onFinishSession={finishStudySession}
+                      onOpenMap={() => setActiveTab("map")}
+                      onPauseSession={pauseStudySession}
+                      onRecordAttempt={recordStudyAttempt}
+                      onReferMaterial={referLearningMaterial}
+                      onResolveMisconception={resolveLearningMisconception}
+                      onSaveToNotes={saveLearningTopicToNotes}
+                      onSelectNode={setSelectedNodeId}
+                      onStartSession={startStudySession}
+                      progressByNodeId={progressByNodeId}
+                      renderPlannerAction={(node) => renderCompletionAction(node)}
+                      reviewQueue={reviewQueue}
+                      selectedNode={selectedNode}
+                    />
+                  </div>
+                )}
                 {activeTab === "notes" && (
                   <div className="learning-notes-view" role="tabpanel">
                     {activeNotebook.revisedNotes.length ? activeNotebook.revisedNotes.map((section, index) => (
@@ -2468,146 +3015,40 @@ function StartLearningPage({
                   <div className="learning-map-view" role="tabpanel">
                     <div className="learning-map-toolbar">
                       <div>
-                        <h3>Concept mind map</h3>
-                        <p>Select a node to focus Ask AI or planner actions.</p>
-                      </div>
-                      <div aria-label="Mind map zoom controls">
-                        <button aria-label="Zoom out" onClick={() => setZoom((current) => Math.max(0.55, current - 0.1))} type="button">
-                          <ZoomOut size={15} />
-                        </button>
-                        <span aria-live="polite">{Math.round(zoom * 100)}%</span>
-                        <button aria-label="Zoom in" onClick={() => setZoom((current) => Math.min(1.35, current + 0.1))} type="button">
-                          <ZoomIn size={15} />
-                        </button>
-                        <button aria-label="Fit mind map to view" onClick={fitMindMap} type="button">
-                          <Maximize2 size={15} />
-                        </button>
+                        <h3>Interactive mastery worktree</h3>
+                        <p>Move through prerequisites, inspect learning evidence, and double-click any node to start studying.</p>
                       </div>
                     </div>
-                    <div className="learning-map-viewport" tabIndex="0">
-                      <div className="learning-map-canvas" style={{ "--map-zoom": zoom }}>
-                        <button
-                          className="learning-map-root"
-                          onClick={() => setSelectedNodeId("root")}
-                          type="button"
-                        >
-                          <BrainCircuit size={19} />
-                          <span>
-                            <small>Notebook</small>
-                            <strong>{activeNotebook.subjectName}</strong>
-                          </span>
-                        </button>
-                        <div className="learning-map-trunk" aria-hidden="true" />
-                        <div className="learning-map-branches">
-                          {activeNotebook.chapters.map((chapter, chapterIndex) => (
-                            <div className="learning-map-branch" key={chapter.id} style={{ "--reveal-index": chapterIndex }}>
-                              <span className="learning-map-connector" aria-hidden="true" />
-                              <button
-                                className={`learning-map-node is-chapter${selectedNodeId === chapter.id ? " is-selected" : ""}`}
-                                onClick={() => setSelectedNodeId(chapter.id)}
-                                type="button"
-                              >
-                                <small>Chapter {chapterIndex + 1} / {chapter.topics.length} topics</small>
-                                <strong>{chapter.title}</strong>
-                              </button>
-                              <div className="learning-map-topic-stack">
-                                {chapter.topics.map((topic, topicIndex) => (
-                                  <div className="learning-map-topic-group" key={topic.id}>
-                                    <button
-                                      className={`learning-map-node is-topic${selectedNodeId === topic.id ? " is-selected" : ""}`}
-                                      onClick={() => setSelectedNodeId(topic.id)}
-                                      style={{ "--reveal-index": chapterIndex + topicIndex + 1 }}
-                                      type="button"
-                                    >
-                                      <strong>{topic.title}</strong>
-                                      <small>{topic.subtopics.length} subtopics / {topic.examples.length} examples</small>
-                                    </button>
-                                    {topic.subtopics.length > 0 && (
-                                      <div className="learning-map-subtopics">
-                                        {topic.subtopics.map((subtopic, subtopicIndex) => (
-                                          <button
-                                            className={selectedNodeId === subtopic.id ? "is-selected" : ""}
-                                            key={subtopic.id}
-                                            onClick={() => setSelectedNodeId(subtopic.id)}
-                                            style={{ "--reveal-index": chapterIndex + topicIndex + subtopicIndex + 2 }}
-                                            title={subtopic.summary || subtopic.explanation}
-                                            type="button"
-                                          >
-                                            {subtopic.title}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    {selectedNode && (
-                      <div className={`learning-map-focus${selectedNode.type === "notebook" ? " is-notebook" : ""}`} aria-live="polite">
-                        <div className="learning-map-focus-copy">
+                    <LearningMasteryMap
+                      notebook={activeNotebook}
+                      onSelectNode={setSelectedNodeId}
+                      onStartNode={(nodeId) => {
+                        setSelectedNodeId(nodeId);
+                        setActiveTab("studio");
+                        startStudySession(nodeId);
+                      }}
+                      plannerByNodeId={completionStateByNodeId}
+                      progressByNodeId={progressByNodeId}
+                      selectedNodeId={selectedNodeId}
+                    />
+                    {selectedNode && selectedNode.type !== "notebook" && (
+                      <div className="learning-map-smart-actions" aria-live="polite">
+                        <div>
                           <span>{selectedNode.type}</span>
                           <strong>{selectedNode.title}</strong>
-                          {selectedNode.summary && <p>{selectedNode.summary}</p>}
-                          {selectedNode.explanation && selectedNode.explanation !== selectedNode.summary && (
-                            <div className="learning-map-focus-section">
-                              <small>Detailed explanation</small>
-                              {selectedNode.explanation.split(/\n{2,}/).filter(Boolean).map((paragraph, paragraphIndex) => (
-                                <p key={`${selectedNode.id}-map-explanation-${paragraphIndex}`}>{paragraph}</p>
-                              ))}
-                            </div>
-                          )}
-                          {selectedNode.keyPoints?.length > 0 && (
-                            <div className="learning-map-focus-section">
-                              <small>Key points</small>
-                              <ul>{selectedNode.keyPoints.map((point) => <li key={point}>{point}</li>)}</ul>
-                            </div>
-                          )}
-                          {selectedNode.examples?.length > 0 && (
-                            <div className="learning-map-focus-section is-examples">
-                              <small>Worked examples</small>
-                              <ol>{selectedNode.examples.map((example, exampleIndex) => <li key={`${selectedNode.id}-map-example-${exampleIndex}`}>{example}</li>)}</ol>
-                            </div>
-                          )}
-                          {selectedNode.applications?.length > 0 && (
-                            <div className="learning-map-focus-section">
-                              <small>Applications</small>
-                              <ul>{selectedNode.applications.map((application) => <li key={application}>{application}</li>)}</ul>
-                            </div>
-                          )}
-                          {selectedNode.commonMistakes?.length > 0 && (
-                            <div className="learning-map-focus-section is-mistakes">
-                              <small>Common mistakes</small>
-                              <ul>{selectedNode.commonMistakes.map((mistake) => <li key={mistake}>{mistake}</li>)}</ul>
-                            </div>
-                          )}
-                          {selectedNode.revisionTips?.length > 0 && (
-                            <div className="learning-map-focus-section is-revision">
-                              <small>Revision cues</small>
-                              <ul>{selectedNode.revisionTips.map((tip) => <li key={tip}>{tip}</li>)}</ul>
-                            </div>
-                          )}
+                          <small>{selectedNode.chapterName}</small>
                         </div>
-                        {renderCompletionAction(selectedNode, { iconOnly: true })}
-                        <button aria-label="Ask AI about selected concept" onClick={askAI} title="Ask AI" type="button">
-                          <MessageSquareText size={14} />
+                        <button onClick={() => startStudySession(selectedNode.id)} type="button">
+                          <Sparkles size={14} /> Study this concept
                         </button>
-                        <button
-                          aria-label="Add selected concept to planner"
-                          onClick={() => openPlannerForNode(selectedNode)}
-                          title="Add to planner"
-                          type="button"
-                        >
-                          <CalendarPlus size={14} />
+                        <button disabled={isLearningNoteSaving(selectedNode)} onClick={() => saveLearningTopicToNotes(selectedNode)} type="button">
+                          <Save size={14} /> {isLearningNoteSaving(selectedNode) ? "Saving..." : "Save to notes"}
                         </button>
+                        {renderCompletionAction(selectedNode)}
                       </div>
                     )}
                   </div>
-                )}
-              </section>
+                )}              </section>
 
               {careerVisible && (
                 <section className="card learning-career-panel">

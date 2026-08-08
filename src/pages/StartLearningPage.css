@@ -3136,3 +3136,94 @@ body .learning-career-save:hover:not(:disabled) {
     align-self: flex-end;
   }
 }
+
+/* Adaptive Learning Studio integration */
+.learning-studio-view {
+  margin-top: 14px;
+}
+
+.learning-notebook-meta .is-saving {
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.25);
+}
+
+.learning-map-smart-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 15px;
+}
+
+.learning-map-smart-actions > div {
+  display: grid;
+  min-width: min(280px, 100%);
+  flex: 1;
+  gap: 2px;
+}
+
+.learning-map-smart-actions > div span,
+.learning-map-smart-actions > div small {
+  color: var(--text-muted);
+  font-size: 0.61rem;
+}
+
+.learning-map-smart-actions > div span {
+  color: var(--accent);
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.learning-map-smart-actions > div strong {
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+body .learning-map-smart-actions > button,
+body .learning-map-smart-actions .learning-completion-action {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  color: var(--text-muted) !important;
+  background: var(--surface-strong) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 10px;
+  box-shadow: none !important;
+  font-size: 0.67rem;
+  font-weight: 760;
+  transform: none !important;
+}
+
+body .learning-map-smart-actions > button:hover,
+body .learning-map-smart-actions .learning-completion-action:hover {
+  color: var(--accent) !important;
+  border-color: rgba(var(--accent-rgb), 0.28) !important;
+}
+
+@media (max-width: 720px) {
+  .learning-content-card {
+    padding: 12px;
+  }
+
+  .learning-tablist {
+    overflow-x: auto;
+  }
+
+  body .learning-tablist button {
+    min-width: 125px;
+    flex: 0 0 auto;
+  }
+
+  .learning-map-smart-actions > button,
+  .learning-map-smart-actions .learning-completion-action {
+    flex: 1 1 135px;
+  }
+}

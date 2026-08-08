@@ -4,6 +4,10 @@ import { Check, Search, Trash2, X } from "lucide-react";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { buildSubjectMaterials } from "../utils/materialRecommendations";
 import { normalizeMaterialBookmarks } from "../utils/materialBookmarks";
+import {
+  getMaterialGuideCardId,
+  resolveMaterialGuideSubjects,
+} from "../utils/materialGuideNavigation";
 
 function rankSearchMatch(fields, query) {
   const cleanQuery = query.trim().toLowerCase();
@@ -32,8 +36,14 @@ function ResourcesHub({
   const [bookmarkSearchQuery, setBookmarkSearchQuery] = useState("");
   const [confirmClearAllBookmarks, setConfirmClearAllBookmarks] = useState(false);
   const [pendingBookmarkRemovalId, setPendingBookmarkRemovalId] = useState(null);
+  const [searchParams] = useSearchParams();
+  const targetSubject = searchParams.get("subject");
+  const guide = useMemo(
+    () => resolveMaterialGuideSubjects(subjects, targetSubject),
+    [subjects, targetSubject],
+  );
   const metrics = getPlannerMetrics(schedule, completed);
-  const materials = subjects.map((subject) =>
+  const materials = guide.subjects.map((subject) =>
     buildSubjectMaterials(subject, metrics.subjectStats[subject.name], academicLevel, academicTrack)
   );
 
@@ -59,11 +69,9 @@ function ResourcesHub({
       .map((item) => item.bookmark);
   }, [bookmarkSearchQuery, safeMaterialBookmarks]);
 
-  const [searchParams] = useSearchParams();
-  const targetSubject = searchParams.get("subject");
   useEffect(() => {
-    if (targetSubject && materials.length > 0) {
-      const element = document.getElementById(`subject-${targetSubject.replace(/\s+/g, "-")}`);
+    if (guide.focusedSubject && materials.length > 0) {
+      const element = document.getElementById(getMaterialGuideCardId(guide.focusedSubject));
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "center" });
         element.classList.add("highlighted-card");
@@ -73,7 +81,7 @@ function ResourcesHub({
         return () => clearTimeout(timer);
       }
     }
-  }, [targetSubject, materials]);
+  }, [guide.focusedSubject, materials.length]);
 
   return (
     <section className="resources-shell">
@@ -206,7 +214,7 @@ function ResourcesHub({
         </section>
       ) : null}
 
-      {subjects.length === 0 ? (
+      {guide.subjects.length === 0 ? (
         <section className="card resources-shell">
           <div className="section-intro compact-intro">
             <span className="section-tag">Resources</span>
@@ -221,7 +229,7 @@ function ResourcesHub({
 
       <div className="resources-grid">
         {materials.map((resource) => (
-          <article className="card resource-card" key={resource.subject} id={`subject-${resource.subject.replace(/\s+/g, "-")}`}>
+          <article className="card resource-card" key={resource.subject} id={getMaterialGuideCardId(resource.subject)}>
             <div className="resource-card-header">
               <div>
                 <h3>{resource.subject}</h3>

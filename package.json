@@ -14,6 +14,7 @@
   "dependencies": {
     "@langchain/anthropic": "^1.4.1",
     "@react-three/fiber": "^9.6.1",
+    "@xyflow/react": "^12.11.2",
     "axios": "^1.14.0",
     "canvas-confetti": "^1.9.4",
     "cors": "^2.8.6",

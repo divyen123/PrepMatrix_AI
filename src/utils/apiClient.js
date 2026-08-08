@@ -205,6 +205,7 @@ const api = {
     body: JSON.stringify(body),
   }),
   getNotes: () => request("/api/notes"),
+  createNote: (note) => request("/api/notes", { method: "POST", body: JSON.stringify({ note }) }),
   saveNotes: (notes) => request("/api/notes", { method: "PUT", body: JSON.stringify({ notes }) }),
   getQuizzes: () => request("/api/quizzes"),
   clearQuizHistory: () => request("/api/quizzes", { method: "DELETE" }),
