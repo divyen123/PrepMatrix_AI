@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import {
   buildLearningPlannerTaskName,
   findLearningPlannerTask,
+  findLearningPlannerTaskForNode,
+  getLearningPlannerCompletionState,
   getLearningScheduleDateOptions,
+  setLearningPlannerNodeCompletion,
   upsertLearningPlannerTask,
 } from "./learningPlanner.js";
 
@@ -136,4 +139,135 @@ test("rejects past, missing, or invalid planner targets", () => {
     null,
   );
   assert.equal(buildLearningPlannerTaskName({}, { title: "Trees" }), "Learn - Trees");
+});
+
+test("marks a stably linked notebook unit complete without duplicating completion names", () => {
+  const added = upsertLearningPlannerTask(
+    schedule,
+    project,
+    node,
+    "2026-07-27",
+    "",
+    "2026-07-26",
+  );
+  const first = setLearningPlannerNodeCompletion(
+    added.schedule,
+    [],
+    project,
+    node,
+  );
+  const second = setLearningPlannerNodeCompletion(
+    added.schedule,
+    first.completed,
+    project,
+    node,
+  );
+
+  assert.equal(first.match.matchType, "id");
+  assert.equal(first.isCompleted, true);
+  assert.deepEqual(first.completed, ["Computer networks - Routing fundamentals"]);
+  assert.deepEqual(second.completed, first.completed);
+  assert.equal(
+    getLearningPlannerCompletionState(added.schedule, second.completed, project, node).isCompleted,
+    true,
+  );
+});
+
+test("matches subject-generated chapter and topic tasks by exact metadata", () => {
+  const generatedSchedule = [{
+    day: 1,
+    tasks: [
+      {
+        source: "subject",
+        subjectName: "Computer Networks",
+        task: "Computer Networks - Routing fundamentals",
+        topic: "Routing fundamentals",
+        unitKey: "chapter:1",
+        unitType: "chapter",
+      },
+      {
+        source: "subject",
+        subjectName: "Computer Networks",
+        task: "Computer Networks - Distance-vector routing",
+        topic: "Distance-vector routing",
+        unitKey: "topic:distance-vector routing",
+        unitType: "topic",
+      },
+    ],
+  }];
+
+  const chapterMatch = findLearningPlannerTaskForNode(
+    generatedSchedule,
+    project,
+    { ...node, unitKey: "chapter:1" },
+  );
+  const topicMatch = findLearningPlannerTaskForNode(
+    generatedSchedule,
+    project,
+    { id: "topic-1", title: "Distance vector routing", type: "topic" },
+  );
+
+  assert.equal(chapterMatch.matchType, "metadata");
+  assert.equal(chapterMatch.task.unitKey, "chapter:1");
+  assert.equal(topicMatch.task.unitType, "topic");
+});
+
+test("does not complete a similar title from another subject or an ambiguous unit", () => {
+  const ambiguousSchedule = [{
+    day: 1,
+    tasks: [
+      {
+        subjectName: "Computer networks",
+        task: "Computer networks - Routing fundamentals",
+        topic: "Routing fundamentals",
+        unitType: "chapter",
+      },
+      {
+        subjectName: "Computer networks",
+        task: "Computer networks - Routing fundamentals (revision)",
+        topic: "Routing fundamentals",
+        unitType: "chapter",
+      },
+      {
+        subjectName: "Algorithms",
+        task: "Algorithms - Routing fundamentals",
+        topic: "Routing fundamentals",
+        unitType: "chapter",
+      },
+    ],
+  }];
+
+  assert.equal(
+    setLearningPlannerNodeCompletion(ambiguousSchedule, [], project, node),
+    null,
+  );
+  assert.equal(
+    findLearningPlannerTaskForNode(
+      ambiguousSchedule,
+      { id: "other", subjectName: "Operating systems" },
+      node,
+    ),
+    null,
+  );
+});
+
+test("unmarks only the linked planner task", () => {
+  const added = upsertLearningPlannerTask(
+    schedule,
+    project,
+    node,
+    "2026-07-27",
+    "",
+    "2026-07-26",
+  );
+  const result = setLearningPlannerNodeCompletion(
+    added.schedule,
+    ["Keep me", added.task.task],
+    project,
+    node,
+    false,
+  );
+
+  assert.equal(result.isCompleted, false);
+  assert.deepEqual(result.completed, ["Keep me"]);
 });

@@ -45,7 +45,9 @@ import {
   validateChatAttachmentSelection,
 } from "../utils/chatAttachments";
 import {
+  getLearningPlannerCompletionState,
   getLearningScheduleDateOptions,
+  setLearningPlannerNodeCompletion,
   upsertLearningPlannerTask,
 } from "../utils/learningPlanner";
 import {
@@ -53,13 +55,18 @@ import {
   acceptLearningPrivacyConsent,
   hasLearningPrivacyConsent,
 } from "../utils/learningPrivacyConsent";
-import { normalizeSubjectNames } from "../utils/subjectPlanning";
+import {
+  normalizeSubjectChapterNames,
+  normalizeSubjectNames,
+  normalizeSubjectTopics,
+} from "../utils/subjectPlanning";
 import "./StartLearningPage.css";
 
 const TEXT_SOURCE_ACCEPT = ".txt,.md,text/plain,text/markdown";
 const LEARNING_SOURCE_ACCEPT = `${LEARNING_ATTACHMENT_ACCEPT},${TEXT_SOURCE_ACCEPT}`;
 const MAX_TEXT_SOURCE_BYTES = 30_000;
 const MAX_TEXT_TOTAL_CHARS = 60_000;
+const MAX_LEARNING_PROMPT_CHARS = 3_000;
 const ANALYSIS_STEPS = [
   "Reading your sources",
   "Structuring chapters and concepts",
@@ -373,13 +380,14 @@ function learningNodes(notebook) {
     keyPoints: notebook.chapters.map((chapter) => chapter.title),
     examples: [],
   }];
-  (notebook?.chapters || []).forEach((chapter) => {
+  (notebook?.chapters || []).forEach((chapter, chapterIndex) => {
     nodes.push({
       id: chapter.id,
       title: chapter.title,
       type: "chapter",
       chapterName: chapter.title,
       subjectName: notebook.subjectName,
+      unitKey: `chapter:${chapterIndex + 1}`,
       summary: chapter.summary,
       explanation: chapter.summary,
       keyPoints: [],
@@ -392,6 +400,7 @@ function learningNodes(notebook) {
         type: "topic",
         chapterName: chapter.title,
         subjectName: notebook.subjectName,
+        unitKey: `topic:${cleanText(topic.title, 180).toLocaleLowerCase()}`,
         summary: topic.summary,
         explanation: topic.explanation,
         keyPoints: topic.keyPoints,
@@ -511,6 +520,9 @@ function StartLearningPage({
   const [subjectPickerOpen, setSubjectPickerOpen] = useState(false);
   const [subjectOptionIndex, setSubjectOptionIndex] = useState(0);
   const [manualChapters, setManualChapters] = useState("");
+  const [scopeChapter, setScopeChapter] = useState("");
+  const [scopeTopic, setScopeTopic] = useState("");
+  const [learningPrompt, setLearningPrompt] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
   const [analysisError, setAnalysisError] = useState("");
@@ -538,6 +550,39 @@ function StartLearningPage({
     () => normalizeSubjectNames(subjects),
     [subjects],
   );
+  const selectedSavedSubject = useMemo(() => {
+    const selectedName = cleanText(subjectName, 160).toLocaleLowerCase();
+    if (!selectedName) return null;
+    return subjects.find((subject) => {
+      const name = typeof subject === "string"
+        ? subject
+        : subject?.name || subject?.subjectName || subject?.title || subject?.label;
+      return cleanText(name, 160).toLocaleLowerCase() === selectedName;
+    }) || null;
+  }, [subjectName, subjects]);
+  const savedChapterOptions = useMemo(() => {
+    if (!selectedSavedSubject || typeof selectedSavedSubject !== "object") return [];
+    const sourceNames = Array.isArray(selectedSavedSubject.chapterNames)
+      ? selectedSavedSubject.chapterNames
+      : [];
+    const chapterCount = Math.max(
+      Number.parseInt(selectedSavedSubject.chapters, 10) || 0,
+      sourceNames.length,
+    );
+    const names = normalizeSubjectChapterNames(sourceNames, chapterCount);
+    return Array.from(
+      { length: chapterCount },
+      (_, index) => names[index] || `Chapter ${index + 1}`,
+    );
+  }, [selectedSavedSubject]);
+  const savedTopicOptions = useMemo(
+    () => normalizeSubjectTopics(
+      selectedSavedSubject && typeof selectedSavedSubject === "object"
+        ? selectedSavedSubject.topics
+        : [],
+    ),
+    [selectedSavedSubject],
+  );
   const visibleSavedSubjectNames = useMemo(() => {
     const query = subjectName.trim().toLocaleLowerCase();
     if (!query) return savedSubjectNames;
@@ -558,6 +603,29 @@ function StartLearningPage({
   }, [activeSubjectOptionIndex, subjectPickerOpen, visibleSavedSubjectNames.length]);
 
   const nodes = useMemo(() => learningNodes(activeNotebook), [activeNotebook]);
+  const activeLearningProject = useMemo(() => ({
+    id: activeNotebook?.id || "",
+    subjectName: activeNotebook?.subjectName || "",
+    title: activeNotebook?.title || "",
+  }), [activeNotebook?.id, activeNotebook?.subjectName, activeNotebook?.title]);
+  const completionStateByNodeId = useMemo(() => new Map(
+    nodes
+      .filter((node) => node.type !== "notebook")
+      .map((node) => [
+        node.id,
+        getLearningPlannerCompletionState(
+          schedule,
+          completed,
+          activeLearningProject,
+          node,
+        ),
+      ]),
+  ), [
+    activeLearningProject,
+    completed,
+    nodes,
+    schedule,
+  ]);
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) || nodes[0] || null,
     [nodes, selectedNodeId],
@@ -763,6 +831,10 @@ function StartLearningPage({
   };
 
   const chooseSavedSubject = (name) => {
+    if (cleanText(name, 160).toLocaleLowerCase() !== subjectName.trim().toLocaleLowerCase()) {
+      setScopeChapter("");
+      setScopeTopic("");
+    }
     setSubjectName(name);
     setSubjectPickerOpen(false);
     setSubjectOptionIndex(0);
@@ -813,16 +885,49 @@ function StartLearningPage({
   };
 
   const getAnalysisRequest = () => {
-    const chapterNames = parseChapterNames(manualChapters);
+    const selectedChapter = cleanText(scopeChapter, 180);
+    const selectedTopic = cleanText(scopeTopic, 180);
+    const chapterNames = parseChapterNames(
+      [selectedChapter, manualChapters].filter(Boolean).join("\n"),
+    );
     const cleanSubject = cleanText(subjectName, 160);
-    if (!sources.length && (!cleanSubject || !chapterNames.length)) {
-      setAnalysisError("Upload a source, or add a subject and at least one chapter.");
+    const cleanPrompt = cleanText(learningPrompt, MAX_LEARNING_PROMPT_CHARS);
+    const requestedPrompt = cleanPrompt;
+    const requestedOutline = selectedChapter || selectedTopic
+      ? [{
+          chapterName: selectedChapter || chapterNames[0] || "",
+          topics: selectedTopic ? [selectedTopic] : [],
+        }]
+      : [];
+    const hasManualScope = Boolean(cleanSubject && chapterNames.length);
+    const hasOutlineScope = requestedOutline.some((item) => (
+      item.chapterName && item.topics.length
+    ));
+    if (
+      !sources.length
+      && !requestedPrompt
+      && !hasOutlineScope
+      && !hasManualScope
+    ) {
+      setAnalysisError(
+        "Upload a source, choose a subject and chapter, or describe what you want to learn.",
+      );
       return null;
     }
-    return { chapterNames, cleanSubject };
+    return {
+      chapterNames,
+      cleanSubject,
+      learningPrompt: requestedPrompt,
+      requestedOutline,
+    };
   };
 
-  const runNotebookAnalysis = async ({ chapterNames, cleanSubject }) => {
+  const runNotebookAnalysis = async ({
+    chapterNames,
+    cleanSubject,
+    learningPrompt: requestedPrompt,
+    requestedOutline,
+  }) => {
     if (hasInsufficientCredits(AI_FEATURES.LEARNING_NOTEBOOK)) {
       setAnalysisError(getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }));
       return;
@@ -841,6 +946,8 @@ function StartLearningPage({
       const payload = await api.post("/api/learning-notebooks/analyze", {
         subjectName: cleanSubject,
         chapterNames,
+        learningPrompt: requestedPrompt,
+        requestedOutline,
         attachments,
         textSources,
         academicLevel,
@@ -872,6 +979,9 @@ function StartLearningPage({
       setSources([]);
       setSubjectName("");
       setManualChapters("");
+      setScopeChapter("");
+      setScopeTopic("");
+      setLearningPrompt("");
       setNotification?.("Your learning notebook is ready.");
     } catch (error) {
       if (!mountedRef.current) return;
@@ -1053,7 +1163,10 @@ function StartLearningPage({
     }));
   };
 
-  const saveNotebook = async () => {
+  const persistActiveNotebook = async ({
+    successMessage = "Learning notebook saved.",
+    errorMessage = "The notebook could not be saved.",
+  } = {}) => {
     if (!activeNotebook?.id || saving) return;
     setSaving(true);
     try {
@@ -1069,15 +1182,22 @@ function StartLearningPage({
         notebook.id === normalized.id ? normalized : notebook,
       ));
       setDirty(false);
-      setNotification?.("Learning notebook saved.");
+      setNotification?.(successMessage);
     } catch (error) {
       if (mountedRef.current) {
-        setNotification?.(error instanceof Error ? error.message : "The notebook could not be saved.");
+        setNotification?.(error instanceof Error ? error.message : errorMessage);
       }
     } finally {
       if (mountedRef.current) setSaving(false);
     }
   };
+
+  const saveNotebook = () => persistActiveNotebook();
+
+  const saveCareerPreparation = () => persistActiveNotebook({
+    successMessage: "Placement preparation saved.",
+    errorMessage: "The placement preparation could not be saved.",
+  });
 
   const deleteNotebook = async (notebookId) => {
     setDeletingId(notebookId);
@@ -1308,6 +1428,73 @@ function StartLearningPage({
     }));
   };
 
+  const openPlannerForNode = (node) => {
+    if (!node) return;
+    setSelectedNodeId(node.id);
+    setPlannerNodeId(node.id);
+    setPlannerDateKey(dateOptions[0]?.dateKey || "");
+    setPlannerError("");
+    setPlannerDialogOpen(true);
+  };
+
+  const toggleLearningNodeCompletion = (node) => {
+    const state = completionStateByNodeId.get(node?.id);
+    if (!node || !state?.isScheduled) {
+      openPlannerForNode(node);
+      setNotification?.(
+        `${node?.title || "This learning unit"} is not scheduled yet. Choose a planner date first.`,
+      );
+      return;
+    }
+
+    const result = setLearningPlannerNodeCompletion(
+      schedule,
+      completed,
+      activeLearningProject,
+      node,
+      !state.isCompleted,
+    );
+    if (!result) return;
+
+    setCompleted?.(result.completed);
+    setNotification?.(
+      result.isCompleted
+        ? `${node.title} marked complete in Study schedule.`
+        : `${node.title} marked incomplete in Study schedule.`,
+    );
+  };
+
+  const renderCompletionAction = (node, { iconOnly = false } = {}) => {
+    if (!node || node.type === "notebook") return null;
+    const state = completionStateByNodeId.get(node.id) || {
+      isCompleted: false,
+      isScheduled: false,
+    };
+    const label = state.isScheduled
+      ? state.isCompleted ? "Completed" : "Mark as completed"
+      : "Add to planner";
+    const Icon = state.isScheduled ? Check : CalendarPlus;
+    const title = state.isScheduled && state.isCompleted
+      ? `Mark ${node.title} incomplete`
+      : state.isScheduled
+        ? `Mark ${node.title} as completed`
+        : `Add ${node.title} to the planner before completing it`;
+
+    return (
+      <button
+        aria-label={title}
+        aria-pressed={state.isScheduled ? state.isCompleted : undefined}
+        className={`learning-completion-action${state.isCompleted ? " is-complete" : ""}${state.isScheduled ? "" : " is-unscheduled"}`}
+        onClick={() => toggleLearningNodeCompletion(node)}
+        title={title}
+        type="button"
+      >
+        <Icon size={iconOnly ? 15 : 14} />
+        {!iconOnly && <span>{label}</span>}
+      </button>
+    );
+  };
+
   const addToPlanner = () => {
     const node = nodes.find((item) => item.id === plannerNodeId);
     if (!node || !plannerDateKey || !activeNotebook) {
@@ -1513,7 +1700,7 @@ function StartLearningPage({
             </div>
           )}
 
-          <div className="learning-or-divider"><span>or map manually</span></div>
+          <div className="learning-or-divider"><span>or build from a prompt</span></div>
           <div
             className={subjectPickerOpen
               ? "learning-field learning-subject-field is-open"
@@ -1617,16 +1804,95 @@ function StartLearningPage({
                 : "No saved subjects yet. Type a subject here or add one from the Subjects page."}
             </small>
           </div>
+          <div className="learning-scope-builder">
+            <div className="learning-scope-heading">
+              <span>Notebook scope</span>
+              <small>Link generated content to a chapter and topic from this subject.</small>
+            </div>
+            <div className="learning-scope-fields">
+              <label className="learning-field">
+                <span>Chapter</span>
+                <input
+                  autoComplete="off"
+                  disabled={analyzing}
+                  list="learning-chapter-options"
+                  onChange={(event) => {
+                    const nextChapter = event.target.value;
+                    setScopeChapter(nextChapter);
+                    if (!nextChapter.trim()) setScopeTopic("");
+                    setAnalysisError("");
+                  }}
+                  placeholder={savedChapterOptions.length ? "Choose or type a chapter" : "e.g. CPU Scheduling"}
+                  value={scopeChapter}
+                />
+                <datalist id="learning-chapter-options">
+                  {savedChapterOptions.map((chapter) => (
+                    <option key={chapter} value={chapter} />
+                  ))}
+                </datalist>
+                <small>
+                  {savedChapterOptions.length
+                    ? `${savedChapterOptions.length} saved chapter${savedChapterOptions.length === 1 ? "" : "s"} available.`
+                    : "Type a chapter or leave it blank for AI to organize."}
+                </small>
+              </label>
+              <label className="learning-field">
+                <span>Topic</span>
+                <input
+                  autoComplete="off"
+                  disabled={analyzing || !scopeChapter.trim()}
+                  list="learning-topic-options"
+                  onChange={(event) => {
+                    setScopeTopic(event.target.value);
+                    setAnalysisError("");
+                  }}
+                  placeholder={!scopeChapter.trim() ? "Choose a chapter first" : savedTopicOptions.length ? "Choose or type a topic" : "e.g. Round-robin scheduling"}
+                  value={scopeTopic}
+                />
+                <datalist id="learning-topic-options">
+                  {savedTopicOptions.map((topic) => (
+                    <option key={topic} value={topic} />
+                  ))}
+                </datalist>
+                <small>Optional focus inside the selected chapter.</small>
+              </label>
+            </div>
+          </div>
           <label className="learning-field">
-            <span>Chapter names</span>
+            <span>More chapters (optional)</span>
             <textarea
               disabled={analyzing}
-              onChange={(event) => setManualChapters(event.target.value)}
+              onChange={(event) => {
+                setManualChapters(event.target.value);
+                setAnalysisError("");
+              }}
               placeholder={"Processes, Threads\nCPU Scheduling"}
               rows={4}
               value={manualChapters}
             />
-            <small>Separate names with commas or new lines.</small>
+            <small>Add extra chapters with commas or new lines.</small>
+          </label>
+          <label className="learning-field learning-prompt-field">
+            <span>What do you want to learn?</span>
+            <textarea
+              disabled={analyzing}
+              maxLength={MAX_LEARNING_PROMPT_CHARS}
+              onChange={(event) => {
+                setLearningPrompt(event.target.value);
+                setAnalysisError("");
+              }}
+              placeholder="e.g. Explain deadlocks from first principles, compare prevention and avoidance, and include a worked Banker's algorithm example."
+              rows={5}
+              value={learningPrompt}
+            />
+            <small className="learning-prompt-meta">
+              <span>
+                Use a prompt by itself, or combine it with a subject, chapter, topic, or upload.
+              </span>
+              <span>
+                {learningPrompt.length.toLocaleString()}/{MAX_LEARNING_PROMPT_CHARS.toLocaleString()}
+              </span>
+            </small>
           </label>
           {analysisError && <p className="learning-inline-error" role="alert">{analysisError}</p>}
           <button
@@ -1802,7 +2068,7 @@ function StartLearningPage({
                   <button aria-label="Ask AI about this notebook" onClick={askAI} title="Ask AI" type="button">
                     <MessageSquareText size={16} /> Ask AI
                   </button>
-                  <button aria-label="Add a learning unit to planner" onClick={() => setPlannerDialogOpen(true)} title="Add to planner" type="button">
+                  <button aria-label="Add a learning unit to planner" onClick={() => openPlannerForNode(selectedNode)} title="Add to planner" type="button">
                     <CalendarPlus size={16} /> Add to planner
                   </button>
                   {careerVisible && (
@@ -2016,6 +2282,9 @@ function StartLearningPage({
                             {expanded && (
                               <div className="learning-outline-topic-list" role="group">
                                 {chapter.summary && <p className="learning-outline-summary">{chapter.summary}</p>}
+                                <div className="learning-unit-completion-row is-chapter">
+                                  {renderCompletionAction(nodes.find((node) => node.id === chapter.id))}
+                                </div>
                                 {chapter.topics.map((topic) => (
                                   <div className="learning-outline-topic" key={topic.id} role="treeitem">
                                     <label>
@@ -2101,6 +2370,9 @@ function StartLearningPage({
                                         )}
                                       </div>
                                     )}
+                                    <div className="learning-unit-completion-row">
+                                      {renderCompletionAction(nodes.find((node) => node.id === topic.id))}
+                                    </div>
                                     <div className="learning-subtopic-list" role="group">
                                       {topic.subtopics.map((subtopic) => (
                                         <div className="learning-subtopic-row" key={subtopic.id} role="treeitem">
@@ -2275,7 +2547,7 @@ function StartLearningPage({
                       </div>
                     </div>
                     {selectedNode && (
-                      <div className="learning-map-focus" aria-live="polite">
+                      <div className={`learning-map-focus${selectedNode.type === "notebook" ? " is-notebook" : ""}`} aria-live="polite">
                         <div className="learning-map-focus-copy">
                           <span>{selectedNode.type}</span>
                           <strong>{selectedNode.title}</strong>
@@ -2319,12 +2591,13 @@ function StartLearningPage({
                             </div>
                           )}
                         </div>
+                        {renderCompletionAction(selectedNode, { iconOnly: true })}
                         <button aria-label="Ask AI about selected concept" onClick={askAI} title="Ask AI" type="button">
                           <MessageSquareText size={14} />
                         </button>
                         <button
                           aria-label="Add selected concept to planner"
-                          onClick={() => setPlannerDialogOpen(true)}
+                          onClick={() => openPlannerForNode(selectedNode)}
                           title="Add to planner"
                           type="button"
                         >
@@ -2528,7 +2801,20 @@ function StartLearningPage({
                     <h3>{careerAnalysis.targetRole || careerRole || "Placement preparation"}</h3>
                     <p>{careerAnalysis.overview}</p>
                   </div>
-                  <span className="learning-count">{listFrom(careerAnalysis.topics).length}</span>
+                  <div className="learning-career-results-actions">
+                    <span className="learning-count">{listFrom(careerAnalysis.topics).length}</span>
+                    <button
+                      aria-label="Save placement preparation"
+                      className="learning-career-save"
+                      disabled={saving || careerAnalyzing}
+                      onClick={saveCareerPreparation}
+                      title="Save placement preparation"
+                      type="button"
+                    >
+                      {saving ? <LoaderCircle className="spinner" size={16} /> : <Save size={16} />}
+                      <span>{saving ? "Saving..." : "Save preparation"}</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="learning-career-analysis-grid">
                   {listFrom(careerAnalysis.topics).map((topic, index) => (
@@ -2609,7 +2895,7 @@ function StartLearningPage({
             <div className="learning-privacy-copy" id="learning-privacy-description">
               <p>
                 To build a notebook or placement-preparation guide, PrepMatrix sends uploaded
-                PDFs, images, notes, subjects, chapters, target roles, or topics you enter,
+                PDFs, images, notes, prompts, subjects, chapters, target roles, or topics you enter,
                 together with relevant academic-profile context, to Google Gemini for AI processing.
               </p>
               <p>

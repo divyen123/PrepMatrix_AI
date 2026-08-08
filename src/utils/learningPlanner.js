@@ -10,6 +10,15 @@ function cleanText(value) {
   return String(value || "").trim();
 }
 
+function normalizeMatchText(value) {
+  return cleanText(value)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
 function getProjectId(projectOrId) {
   if (typeof projectOrId === "string") return cleanText(projectOrId);
   return cleanText(projectOrId?.id || projectOrId?.projectId);
@@ -132,6 +141,100 @@ export function findLearningPlannerTask(
     }
   }
   return null;
+}
+
+function findLearningPlannerTaskByMetadata(schedule = [], project = {}, node = {}) {
+  if (!Array.isArray(schedule) || typeof node === "string") return null;
+
+  const subjectName = normalizeMatchText(getSubjectName(project, node));
+  const nodeTitle = normalizeMatchText(getNodeTitle(node));
+  const unitType = getUnitType(node);
+  if (!subjectName || !nodeTitle) return null;
+
+  const matches = [];
+  schedule.forEach((day, dayIndex) => {
+    const tasks = Array.isArray(day?.tasks) ? day.tasks : [];
+    tasks.forEach((task, taskIndex) => {
+      const taskSubject = normalizeMatchText(task?.subjectName);
+      const taskTitle = normalizeMatchText(task?.topic || task?.chapterName);
+      const taskType = cleanText(task?.unitType).toLocaleLowerCase();
+      if (
+        taskSubject === subjectName
+        && taskTitle === nodeTitle
+        && (!taskType || taskType === unitType)
+      ) {
+        matches.push({ day, dayIndex, task, taskIndex });
+      }
+    });
+  });
+
+  if (matches.length <= 1) return matches[0] || null;
+
+  const unitKey = normalizeMatchText(node?.unitKey);
+  if (unitKey) {
+    const keyMatches = matches.filter(({ task }) => (
+      normalizeMatchText(task?.unitKey) === unitKey
+    ));
+    if (keyMatches.length === 1) return keyMatches[0];
+  }
+
+  const taskNames = new Set(matches.map(({ task }) => getTaskName(task)).filter(Boolean));
+  return taskNames.size === 1 ? matches[0] : null;
+}
+
+export function findLearningPlannerTaskForNode(
+  schedule = [],
+  project = {},
+  node = {},
+) {
+  const stableMatch = findLearningPlannerTask(schedule, project, node);
+  if (stableMatch) return { ...stableMatch, matchType: "id" };
+
+  const metadataMatch = findLearningPlannerTaskByMetadata(schedule, project, node);
+  return metadataMatch ? { ...metadataMatch, matchType: "metadata" } : null;
+}
+
+export function getLearningPlannerCompletionState(
+  schedule = [],
+  completed = [],
+  project = {},
+  node = {},
+) {
+  const match = findLearningPlannerTaskForNode(schedule, project, node);
+  const taskName = getTaskName(match?.task);
+  return {
+    isCompleted: Boolean(taskName && Array.isArray(completed) && completed.includes(taskName)),
+    isScheduled: Boolean(taskName),
+    match,
+    taskName,
+  };
+}
+
+export function setLearningPlannerNodeCompletion(
+  schedule = [],
+  completed = [],
+  project = {},
+  node = {},
+  shouldComplete = true,
+) {
+  const state = getLearningPlannerCompletionState(
+    schedule,
+    completed,
+    project,
+    node,
+  );
+  if (!state.isScheduled) return null;
+
+  const safeCompleted = Array.isArray(completed) ? completed : [];
+  const nextCompleted = shouldComplete
+    ? [...new Set([...safeCompleted, state.taskName])]
+    : safeCompleted.filter((taskName) => taskName !== state.taskName);
+
+  return {
+    ...state,
+    completed: nextCompleted,
+    isCompleted: Boolean(shouldComplete),
+  };
 }
 
 export function upsertLearningPlannerTask(
