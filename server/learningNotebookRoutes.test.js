@@ -17,6 +17,7 @@ import {
   MAX_LEARNING_VISION_TEXT_CHARS,
   MAX_LEARNING_TEXT_SOURCE_CHARS,
   normalizeLearningTextSources,
+  normalizeLearningGenerationSize,
   normalizeLearningPrompt,
   normalizeLearningRequestedOutline,
   requestGeminiLearningNotebookJson,
@@ -27,6 +28,13 @@ import {
 import { LEARNING_PRIVACY_CONSENT_VERSION } from "../src/utils/learningPrivacyConsent.js";
 
 const TEST_IDEMPOTENCY_KEY = "9f0c91cc-6c62-4a41-8c44-b6a364cc31f8";
+
+test("normalizes optional kids lesson generation sizes", () => {
+  assert.equal(normalizeLearningGenerationSize(" Low "), "low");
+  assert.equal(normalizeLearningGenerationSize("HIGH"), "high");
+  assert.equal(normalizeLearningGenerationSize("medium"), null);
+  assert.equal(normalizeLearningGenerationSize(undefined), null);
+});
 const DEFAULT_GEMINI_LEARNING_MODEL_CHAIN = [
   DEFAULT_GEMINI_LEARNING_MODEL,
   ...DEFAULT_GEMINI_LEARNING_FALLBACK_MODELS,
@@ -978,6 +986,42 @@ function createLearningRouteHarness({
     },
   };
 }
+
+test("maps kids Low and High lesson sizes to compact and full provider schemas", async () => {
+  async function requestedTopicsFor(generationSize) {
+    let requestBody = null;
+    const harness = createLearningRouteHarness({
+      fetchImpl: async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return geminiNotebookResponse();
+      },
+    });
+    const response = await harness.analyze({ generationSize });
+    assert.equal(response.statusCode, 201);
+    return requestBody.generationConfig.responseJsonSchema
+      .properties.chapters.items.properties.topics.minItems;
+  }
+
+  assert.equal(await requestedTopicsFor("Low"), 4);
+  assert.equal(await requestedTopicsFor("High"), 8);
+
+  async function requestedGroqPrompt(generationSize) {
+    let requestBody = null;
+    const harness = createLearningRouteHarness({
+      geminiConfig: { available: false },
+      fetchImpl: async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return groqNotebookResponse();
+      },
+    });
+    const response = await harness.analyze({ generationSize });
+    assert.equal(response.statusCode, 201);
+    return requestBody.messages.map((message) => message.content).join("\n");
+  }
+
+  assert.match(await requestedGroqPrompt("Low"), /70-110 words/u);
+  assert.match(await requestedGroqPrompt("High"), /180-320 words/u);
+});
 
 test("rejects oversized and underspecified learning prompts before AI work", async () => {
   let fetchCalls = 0;

@@ -3,13 +3,16 @@ import test from "node:test";
 
 import {
   DEFAULT_VOICE_PREFERENCES,
+  WAKE_MODE_STORAGE_KEY,
   VOICE_PREFERENCES_STORAGE_KEY,
   applyVoicePreferencesToUtterance,
   inferVoiceStyle,
   normalizeVoicePreferences,
   observeSpeechVoices,
+  readStoredWakeMode,
   readStoredVoicePreferences,
   resolvePreferredVoice,
+  storeWakeMode,
   storeVoicePreferences,
 } from "./voicePreferences.js";
 
@@ -88,6 +91,37 @@ test("voice preferences persist safely and recover from bad storage", () => {
   };
   assert.deepEqual(readStoredVoicePreferences(blockedStorage), DEFAULT_VOICE_PREFERENCES);
   assert.doesNotThrow(() => storeVoicePreferences({}, blockedStorage));
+});
+
+test("wake mode stays persisted until it is explicitly disabled", () => {
+  const values = new Map();
+  const storage = {
+    getItem: (key) => values.get(key) || null,
+    setItem: (key, value) => values.set(key, value),
+  };
+
+  assert.equal(readStoredWakeMode(storage), false);
+  assert.equal(storeWakeMode(true, storage), true);
+  assert.equal(values.get(WAKE_MODE_STORAGE_KEY), "true");
+  assert.equal(readStoredWakeMode(storage), true);
+
+  assert.equal(storeWakeMode(false, storage), false);
+  assert.equal(values.get(WAKE_MODE_STORAGE_KEY), "false");
+  assert.equal(readStoredWakeMode(storage), false);
+});
+
+test("wake mode preference falls back safely when browser storage is blocked", () => {
+  const blockedStorage = {
+    getItem: () => {
+      throw new Error("blocked");
+    },
+    setItem: () => {
+      throw new Error("blocked");
+    },
+  };
+
+  assert.equal(readStoredWakeMode(blockedStorage), false);
+  assert.doesNotThrow(() => storeWakeMode(true, blockedStorage));
 });
 
 test("voice style inference never mistakes female for male", () => {

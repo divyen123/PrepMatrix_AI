@@ -226,6 +226,11 @@ export function normalizeLearningPrompt(value) {
   return prompt;
 }
 
+export function normalizeLearningGenerationSize(value) {
+  const normalized = String(value ?? "").trim().toLocaleLowerCase();
+  return normalized === "low" || normalized === "high" ? normalized : null;
+}
+
 export function normalizeLearningRequestedOutline(value = []) {
   if (value == null) return [];
   if (!Array.isArray(value)) {
@@ -1334,6 +1339,8 @@ export function registerLearningNotebookRoutes(app, {
 
       const chapterNames = normalizeLearningChapterNames(req.body?.chapterNames);
       const learningPrompt = normalizeLearningPrompt(req.body?.learningPrompt);
+      const generationSize = normalizeLearningGenerationSize(req.body?.generationSize);
+      const compactOutput = generationSize == null ? undefined : generationSize === "low";
       const requestedOutline = normalizeLearningRequestedOutline(req.body?.requestedOutline);
       const rawAttachments = req.body?.attachments ?? [];
       const textSources = normalizeLearningTextSources(req.body?.textSources);
@@ -1434,6 +1441,7 @@ export function registerLearningNotebookRoutes(app, {
               attachments,
               careerEligibility,
               chapterNames,
+              compactOutput,
               deadline: generationDeadline,
               fetchImpl,
               learningPrompt,
@@ -1465,6 +1473,7 @@ export function registerLearningNotebookRoutes(app, {
           attachments,
           careerEligibility,
           chapterNames,
+          compactOutput,
           deadline: generationDeadline,
           fetchImpl,
           groqLearningModel,
@@ -2408,6 +2417,7 @@ async function generateLearningNotebookWithGemini({
   attachments,
   careerEligibility,
   chapterNames,
+  compactOutput,
   deadline,
   fetchImpl,
   learningPrompt,
@@ -2422,6 +2432,7 @@ async function generateLearningNotebookWithGemini({
   const prompts = buildGenerationPrompts({
     careerEligibility,
     chapterNames,
+    compactOutput: compactOutput ?? false,
     learningPrompt,
     learnerContext,
     manualMode,
@@ -2463,6 +2474,7 @@ async function generateLearningNotebookWithGroq({
   attachments,
   careerEligibility,
   chapterNames,
+  compactOutput,
   deadline,
   fetchImpl,
   groqLearningModel,
@@ -2532,7 +2544,7 @@ async function generateLearningNotebookWithGroq({
   const prompts = buildGenerationPrompts({
     careerEligibility,
     chapterNames,
-    compactOutput: true,
+    compactOutput: compactOutput ?? true,
     learningPrompt,
     learnerContext,
     manualMode,

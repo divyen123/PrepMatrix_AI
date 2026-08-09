@@ -1,31 +1,25 @@
 import { useEffect } from "react";
 import { Mic } from "lucide-react";
 
-function VoiceAssistant({
-  academicLevel = "College",
-  academicTrack = "General",
-  completed = [],
-  schedule = [],
-  hidden = false,
-  assistant,
-}) {
+function VoiceAssistant({ hidden = false, assistant }) {
+  const { askWithVoice, pauseWakeMode, setWakeMode } = assistant;
 
   useEffect(() => {
     window.studyVoiceAssistant = {
-      askWithVoice: assistant.askWithVoice,
-      startRecording: assistant.askWithVoice,
-      toggleRecording: assistant.askWithVoice,
+      askWithVoice,
+      startRecording: askWithVoice,
+      toggleRecording: askWithVoice,
       stopRecording: () => {},
-      setWakeMode: assistant.setWakeMode,
-      startWakeListening: () => assistant.setWakeMode(true),
-      pauseWakeListening: assistant.pauseWakeMode,
-      stopWakeListening: assistant.pauseWakeMode,
+      setWakeMode,
+      startWakeListening: () => setWakeMode(true),
+      pauseWakeListening: pauseWakeMode,
+      stopWakeListening: () => setWakeMode(false),
     };
 
     return () => {
       delete window.studyVoiceAssistant;
     };
-  }, [assistant.askWithVoice, assistant.pauseWakeMode, assistant.setWakeMode]);
+  }, [askWithVoice, pauseWakeMode, setWakeMode]);
 
   if (hidden) {
     if (assistant.wakeMode) {

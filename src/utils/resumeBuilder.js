@@ -354,6 +354,15 @@ export function normalizeResumeBuilderState(value, profile = {}, options = {}) {
 
 export function getResumeEligibility(profile = {}) {
   const normalized = normalizeAcademicProfile(profile);
+  if (normalized.schoolType === "school") {
+    return {
+      enabled: false,
+      eligible: false,
+      optional: false,
+      category: null,
+      academicProfile: normalized,
+    };
+  }
   const trackMatch = RESUME_ELIGIBLE_TRACKS.find(
     (track) => track.toLowerCase() === String(normalized.academicTrack || "").trim().toLowerCase()
   );

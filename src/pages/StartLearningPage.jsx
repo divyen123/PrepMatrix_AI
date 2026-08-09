@@ -30,7 +30,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { jsPDF } from "jspdf";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import LearningMasteryMap from "../components/LearningMasteryMap";
 import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDialog";
 import LearningStudyStudio from "../components/LearningStudyStudio";
@@ -539,6 +539,7 @@ function StartLearningPage({
   setNotification,
 }) {
   const { hasInsufficientCredits } = useAiQuota();
+  const location = useLocation();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const subjectInputRef = useRef(null);
@@ -614,6 +615,26 @@ function StartLearningPage({
     [academicLevel, academicTrack, userProfile],
   );
   const placementEligible = careerEligibility.enabled;
+
+  useEffect(() => {
+    const hash = String(location.hash || "").toLowerCase();
+    if (hash === "#subject-mastery") {
+      setMasteryDialogOpen(true);
+      return;
+    }
+    if (hash !== "#placement-prep" || !placementEligible) return;
+
+    setCareerError("");
+    setIntakeMode("placement");
+    setWorkspaceView("intake");
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("placement-prep")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.hash, placementEligible]);
 
   const savedSubjectNames = useMemo(
     () => normalizeSubjectNames(subjects),
@@ -2433,7 +2454,7 @@ function StartLearningPage({
 
       <div className={`learning-workspace is-${workspaceView}`}>
         <aside className="learning-source-rail" aria-label="Sources and saved notebooks">
-          <section className="card learning-intake-source-panel">
+          <section className="card learning-intake-source-panel" id="placement-prep">
           <div aria-label="Start Learning inputs" className="learning-intake-tabs" role="group">
             <button
               aria-pressed={intakeMode === "notebook"}
@@ -3722,7 +3743,12 @@ function StartLearningPage({
         loading={notebooksLoading}
         notebooks={masteryNotebooks}
         now={new Date(masteryClock).toISOString()}
-        onClose={() => setMasteryDialogOpen(false)}
+        onClose={() => {
+          setMasteryDialogOpen(false);
+          if (String(location.hash || "").toLowerCase() === "#subject-mastery") {
+            navigate("/learn", { replace: true });
+          }
+        }}
         onRetry={loadNotebooks}
         open={masteryDialogOpen}
       />

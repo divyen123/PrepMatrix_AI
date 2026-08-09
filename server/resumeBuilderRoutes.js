@@ -4,6 +4,7 @@ import {
   normalizeResumeDraft,
   normalizeResumeLayout,
 } from "../src/utils/resumeBuilder.js";
+import { normalizeAcademicProfile } from "../src/utils/academicProfile.js";
 
 export const RESUME_GENERATIONS_COLLECTION = "resumeGenerations";
 export const RESUME_GENERATION_LOCKS_COLLECTION = "resumeGenerationLocks";
@@ -147,8 +148,10 @@ export async function pruneResumeHistory(collection, userId) {
 }
 
 export function isResumeBuilderEnabled(profile = {}) {
-  const academicTrack = cleanLine(profile.academicTrack);
-  const academicLevel = cleanLine(profile.academicLevel);
+  const normalized = normalizeAcademicProfile(profile);
+  if (normalized.schoolType === "school") return false;
+  const academicTrack = cleanLine(normalized.academicTrack);
+  const academicLevel = cleanLine(normalized.academicLevel);
   return ELIGIBLE_TRACKS.has(academicTrack) || ELIGIBLE_LEVELS.has(academicLevel);
 }
 

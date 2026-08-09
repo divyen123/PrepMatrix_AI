@@ -12,6 +12,30 @@ test("enables only resume-relevant academic profiles", () => {
   assert.equal(isResumeBuilderEnabled({ academicTrack: "Professional Certification" }), true);
   assert.equal(isResumeBuilderEnabled({ academicLevel: "Undergraduate / Bachelor's" }), true);
   assert.equal(isResumeBuilderEnabled({ academicLevel: "Secondary", academicTrack: "CBSE" }), false);
+  assert.equal(
+    isResumeBuilderEnabled({
+      academicLevel: "Primary School",
+      grade: "Class 1",
+      academicTrack: "Engineering & Technology",
+    }),
+    false,
+  );
+  assert.equal(
+    isResumeBuilderEnabled({
+      academicLevel: "Middle School",
+      grade: "Class 6",
+      academicTrack: "Computer Science & IT",
+    }),
+    false,
+  );
+  assert.equal(
+    isResumeBuilderEnabled({
+      academicLevel: "Senior Secondary",
+      grade: "Class 12",
+      academicTrack: "Professional Certification",
+    }),
+    false,
+  );
 });
 
 test("returns a five-generation rolling quota", () => {

@@ -117,7 +117,7 @@ export const KIDS_UI = {
     startMission: "Start mission",
     games: "Games",
     bossRound: "Boss round",
-    bossCopy: "Five quick questions to win a subject badge.",
+    bossCopy: "Seven challenge questions to win a subject badge.",
     play: "Play",
     retryPractice: "Gentle retry practice",
     retryCopy: "Try tricky questions again—no points are ever lost.",
@@ -191,7 +191,7 @@ export const KIDS_UI = {
     startMission: "मिशन शुरू करो",
     games: "खेल",
     bossRound: "बॉस राउंड",
-    bossCopy: "विषय बैज जीतने के लिए पाँच छोटे सवाल।",
+    bossCopy: "विषय बैज जीतने के लिए सात चुनौती वाले सवाल।",
     play: "खेलो",
     retryPractice: "प्यार से फिर अभ्यास",
     retryCopy: "कठिन सवाल फिर करो—कोई अंक कभी नहीं कटेंगे।",
@@ -256,7 +256,7 @@ function item(id, prompt, answer, extra = {}) {
   return { id, prompt, answer, ...extra };
 }
 
-export const FALLBACK_KIDS_PACKS = [
+const BASE_FALLBACK_KIDS_PACKS = [
   {
     id: "early-english-sounds",
     gradeBand: "early-years",
@@ -597,6 +597,280 @@ export const FALLBACK_KIDS_PACKS = [
   },
 ];
 
+function quizQuestion(id, prompt, answer, options, extra = {}) {
+  return item(id, prompt, answer, { options, ...extra });
+}
+
+function supplementalPack(id, gradeBand, subject, title, topic, difficulty, questions) {
+  return {
+    id,
+    gradeBand,
+    subject,
+    gameType: "mcq",
+    title,
+    description: "A larger question trail with a fresh selection each day.",
+    topic,
+    difficulty,
+    estimatedMinutes: 5,
+    dailyQuestionCount: 5,
+    items: questions.map(([questionId, prompt, answer, options, hint]) => (
+      quizQuestion(`${id}-${questionId}`, prompt, answer, options, hint ? { hint } : {})
+    )),
+  };
+}
+
+const SUPPLEMENTAL_KIDS_PACKS = [
+  supplementalPack("early-english-rainbow", "early-years", "English", "Letter Rainbow", "Letters and words", "starter", [
+    ["vowel", "Which one is a vowel?", "A", ["A", "B", "T", "M"]],
+    ["moon", "Which word starts with M?", "Moon", ["Sun", "Moon", "Cat", "Fish"]],
+    ["cat", "Which word rhymes with cat?", "Hat", ["Cup", "Hat", "Dog", "Pen"]],
+    ["ending", "Which letter ends the word sun?", "N", ["S", "U", "N", "M"]],
+    ["small", "Choose the small letter for B.", "b", ["d", "p", "b", "q"]],
+    ["apple", "Which word begins with the same sound as apple?", "Ant", ["Ball", "Ant", "Sun", "Top"]],
+    ["word", "Which is a complete word?", "DOG", ["DGO", "GOD", "DOG", "ODG"]],
+  ]),
+  supplementalPack("early-maths-rainbow", "early-years", "Maths", "Number Rainbow", "Counting and shapes", "starter", [
+    ["after", "What number comes after 4?", "5", ["3", "4", "5", "6"]],
+    ["before", "What number comes before 7?", "6", ["5", "6", "7", "8"]],
+    ["sum", "2 + 3 = ?", "5", ["4", "5", "6", "7"]],
+    ["take", "You have 5 stars and give away 1. How many remain?", "4", ["3", "4", "5", "6"]],
+    ["corners", "Which shape has three corners?", "Triangle", ["Circle", "Square", "Triangle", "Oval"]],
+    ["largest", "Which number is the largest?", "9", ["3", "6", "9", "4"]],
+    ["pattern", "Complete the pattern: 1, 2, 1, 2, __", "1", ["1", "2", "3", "4"]],
+  ]),
+  supplementalPack("early-evs-rainbow", "early-years", "EVS", "Little World Rainbow", "Everyday environment", "starter", [
+    ["water", "What do we drink when we are thirsty?", "Water", ["Sand", "Water", "Paper", "Stone"]],
+    ["plant", "Which part of a plant grows under the soil?", "Root", ["Flower", "Leaf", "Root", "Fruit"]],
+    ["night", "What can we often see in the night sky?", "Moon", ["Moon", "Rainbow", "Butterfly", "Tree"]],
+    ["bird", "Which animal has feathers?", "Bird", ["Fish", "Bird", "Cat", "Frog"]],
+    ["clean", "Where should litter go?", "Bin", ["Road", "River", "Bin", "Garden"]],
+    ["sense", "Which body part helps us smell?", "Nose", ["Ear", "Nose", "Hand", "Foot"]],
+    ["season", "What keeps us dry in rain?", "Umbrella", ["Spoon", "Umbrella", "Pillow", "Plate"]],
+  ]),
+  supplementalPack("junior-english-explorer", "class1-2", "English", "English Explorer", "Vocabulary and grammar", "easy", [
+    ["opposite", "Choose the opposite of tall.", "Short", ["Long", "Short", "Wide", "Fast"]],
+    ["plural", "Choose the plural of box.", "Boxes", ["Boxs", "Boxes", "Boxies", "Box"]],
+    ["verb", "Which word is an action?", "Jump", ["Blue", "Jump", "Chair", "Soft"]],
+    ["article", "Complete: I saw __ elephant.", "an", ["a", "an", "thee", "and"]],
+    ["punctuation", "Which mark ends a question?", "?", [".", ",", "?", "!"]],
+    ["sentence", "Which is a complete sentence?", "The dog runs.", ["Dog the", "The dog runs.", "Runs dog", "The runs"]],
+    ["past", "What is the past tense of play?", "Played", ["Playing", "Plays", "Played", "Playd"]],
+  ]),
+  supplementalPack("junior-maths-explorer", "class1-2", "Maths", "Maths Explorer", "Number sense", "easy", [
+    ["add", "17 + 6 = ?", "23", ["21", "22", "23", "24"]],
+    ["subtract", "24 - 9 = ?", "15", ["13", "14", "15", "16"]],
+    ["tens", "How many tens are in 40?", "4", ["2", "3", "4", "5"]],
+    ["skip", "Count by twos: 2, 4, 6, __", "8", ["7", "8", "9", "10"]],
+    ["coins", "Two coins worth 5 each make?", "10", ["7", "8", "10", "12"]],
+    ["compare", "Which number is smaller?", "36", ["63", "46", "36", "56"]],
+    ["double", "What is double 9?", "18", ["16", "17", "18", "19"]],
+  ]),
+  supplementalPack("junior-evs-explorer", "class1-2", "EVS", "Earth Explorer", "Health and environment", "easy", [
+    ["healthy", "Which is a healthy snack?", "Fruit", ["Fruit", "Candy", "Chips", "Soda"]],
+    ["water", "Which action saves water?", "Turn off the tap", ["Leave the tap running", "Turn off the tap", "Spill water", "Wash one toy for an hour"]],
+    ["animal", "Which animal lives in water?", "Dolphin", ["Camel", "Dolphin", "Lion", "Horse"]],
+    ["plant", "What do leaves use from sunlight?", "Energy", ["Noise", "Energy", "Plastic", "Dust"]],
+    ["sense", "Which sense helps us hear music?", "Hearing", ["Taste", "Touch", "Hearing", "Smell"]],
+    ["traffic", "What should we do at a red traffic light?", "Stop", ["Run", "Stop", "Jump", "Turn around"]],
+    ["waste", "Which item can be recycled?", "Paper", ["Smoke", "Paper", "Dirty water", "Food smell"]],
+  ]),
+  supplementalPack("middle-english-explorer", "class3-5", "English", "Language Explorer", "Grammar and comprehension", "medium", [
+    ["adjective", "Which word is the adjective: The bright kite flew?", "bright", ["The", "bright", "kite", "flew"]],
+    ["pronoun", "Replace Riya with a pronoun: Riya reads daily.", "She", ["He", "It", "She", "They"]],
+    ["subject", "What is the subject in: Birds build nests?", "Birds", ["build", "nests", "Birds", "build nests"]],
+    ["comma", "Which sentence uses a comma correctly?", "I bought apples, pears and grapes.", ["I bought, apples pears and grapes.", "I bought apples, pears and grapes.", "I, bought apples pears and grapes.", "I bought apples pears, and, grapes."]],
+    ["synonym", "Choose a synonym for quick.", "Rapid", ["Slow", "Rapid", "Quiet", "Heavy"]],
+    ["inference", "Maya took an umbrella and wore boots. What was likely happening?", "It was raining", ["It was snowing", "It was raining", "It was bedtime", "It was very hot"]],
+    ["tense", "Choose the future-tense sentence.", "We will visit the museum.", ["We visited the museum.", "We visit the museum.", "We will visit the museum.", "We are at the museum."]],
+  ]),
+  supplementalPack("middle-maths-explorer", "class3-5", "Maths", "Problem Solver Trail", "Reasoning", "medium", [
+    ["multiply", "9 x 7 = ?", "63", ["54", "56", "63", "72"]],
+    ["divide", "72 divided by 8 = ?", "9", ["7", "8", "9", "10"]],
+    ["fraction", "Which fraction equals one half?", "3/6", ["2/3", "3/6", "4/6", "5/6"]],
+    ["perimeter", "A square has sides of 5 cm. What is its perimeter?", "20 cm", ["10 cm", "15 cm", "20 cm", "25 cm"]],
+    ["place", "What is the value of 6 in 4,682?", "600", ["6", "60", "600", "6000"]],
+    ["time", "What time is 45 minutes after 2:30?", "3:15", ["2:75", "3:00", "3:15", "3:30"]],
+    ["remainder", "20 sweets shared equally among 3 children leave how many?", "2", ["0", "1", "2", "3"]],
+  ]),
+  supplementalPack("middle-science-explorer", "class3-5", "Science", "Science Explorer", "Science reasoning", "medium", [
+    ["state", "Which change turns liquid water into gas?", "Evaporation", ["Freezing", "Melting", "Evaporation", "Condensation"]],
+    ["force", "Which force pulls objects toward Earth?", "Gravity", ["Magnetism", "Gravity", "Friction", "Electricity"]],
+    ["food", "Which organism makes its own food?", "Green plant", ["Tiger", "Mushroom", "Green plant", "Human"]],
+    ["shadow", "A shadow forms when light is?", "Blocked", ["Stored", "Blocked", "Frozen", "Heard"]],
+    ["material", "Which material is a good conductor of heat?", "Metal", ["Wood", "Plastic", "Metal", "Rubber"]],
+    ["organ", "Which organ sends messages through nerves?", "Brain", ["Heart", "Lungs", "Brain", "Stomach"]],
+    ["habitat", "Webbed feet help ducks mainly to?", "Swim", ["Climb", "Swim", "Dig", "Fly at night"]],
+  ]),
+  supplementalPack("middle-social-explorer", "class3-5", "Social", "Community Explorer", "Maps and civics", "medium", [
+    ["map", "What does a map key explain?", "Symbols", ["Weather", "Symbols", "Stories", "Prices"]],
+    ["direction", "Which direction is opposite east?", "West", ["North", "South", "West", "Up"]],
+    ["local", "Who helps manage services in a city?", "Municipal body", ["Sports team", "Municipal body", "Shopkeeper", "Tourist"]],
+    ["rights", "Which is a responsibility of a citizen?", "Follow laws", ["Ignore rules", "Follow laws", "Waste water", "Damage parks"]],
+    ["landform", "A high area with a flat top is a?", "Plateau", ["Island", "Plateau", "Valley", "River"]],
+    ["scale", "A map scale helps us understand?", "Distance", ["Taste", "Distance", "Sound", "Temperature"]],
+    ["heritage", "Why do we protect monuments?", "They preserve history", ["They block roads", "They preserve history", "They make rain", "They grow food"]],
+  ]),
+];
+
+export const FALLBACK_KIDS_PACKS = Object.freeze([
+  ...BASE_FALLBACK_KIDS_PACKS,
+  ...SUPPLEMENTAL_KIDS_PACKS,
+]);
+
+function bossQuestionSet(prefix, rows) {
+  return rows.map(([id, prompt, answer, options, hint]) => (
+    quizQuestion(`${prefix}-${id}`, prompt, answer, options, {
+      ...(hint ? { hint } : {}),
+      bossQuestion: true,
+    })
+  ));
+}
+
+const BOSS_KIDS_QUESTION_BANKS = Object.freeze({
+  "early-years:English": bossQuestionSet("boss-early-english", [
+    ["blend", "Which word starts with the sound 'sh'?", "Ship", ["Sun", "Ship", "Cat", "Map"]],
+    ["rhyme", "Which pair rhymes?", "Cake and lake", ["Cake and lake", "Dog and sun", "Pen and fish", "Book and ball"]],
+    ["middle", "Which letter is in the middle of CAT?", "A", ["C", "A", "T", "S"]],
+    ["missing", "Choose the missing letter: D_G", "O", ["A", "E", "I", "O"]],
+    ["sound", "Which word begins with a different sound?", "Moon", ["Ball", "Bat", "Moon", "Book"]],
+    ["ending", "Which two words end with the same sound?", "Sun and fun", ["Sun and fun", "Cat and cup", "Dog and pen", "Fish and ball"]],
+    ["order", "Which word comes first in alphabet order?", "Ant", ["Dog", "Cat", "Ball", "Ant"]],
+  ]),
+  "early-years:Maths": bossQuestionSet("boss-early-maths", [
+    ["missing", "Find the missing number: 2, 4, __, 8", "6", ["5", "6", "7", "8"]],
+    ["make", "Which two numbers make 7?", "3 and 4", ["1 and 4", "2 and 3", "3 and 4", "4 and 4"]],
+    ["difference", "How many more is 8 than 5?", "3", ["2", "3", "4", "5"]],
+    ["shape", "Which shape has four equal sides?", "Square", ["Rectangle", "Triangle", "Square", "Circle"]],
+    ["pattern", "Complete: circle, square, circle, square, __", "Circle", ["Triangle", "Circle", "Star", "Oval"]],
+    ["groups", "Three pairs of socks contain how many socks?", "6", ["3", "4", "5", "6"]],
+    ["story", "Mina has 4 red beads and 3 blue beads. How many altogether?", "7", ["5", "6", "7", "8"]],
+  ]),
+  "early-years:EVS": bossQuestionSet("boss-early-evs", [
+    ["young", "A baby frog is called a?", "Tadpole", ["Cub", "Calf", "Tadpole", "Chick"]],
+    ["grow", "What does a seed need to begin growing?", "Water", ["Plastic", "Water", "Paint", "Stone"]],
+    ["day", "Which animal is often awake at night?", "Owl", ["Butterfly", "Owl", "Cow", "Sparrow"]],
+    ["float", "Which object is most likely to float?", "Dry leaf", ["Metal key", "Stone", "Dry leaf", "Coin"]],
+    ["sense", "Which sense warns us that food is burning?", "Smell", ["Taste", "Smell", "Touch", "Sight only"]],
+    ["care", "What is the kindest way to treat a pet?", "Give food, water and care", ["Pull its tail", "Give food, water and care", "Leave it in the sun", "Make loud noises"]],
+    ["weather", "Dark clouds and thunder often mean?", "A storm may come", ["Snow is melting", "A storm may come", "Night is ending", "Summer is over"]],
+  ]),
+  "class1-2:English": bossQuestionSet("boss-junior-english", [
+    ["subject", "Choose the subject in: The little rabbit hops.", "The little rabbit", ["hops", "little", "The little rabbit", "rabbit hops"]],
+    ["because", "Complete: Tara carried an umbrella __ it was raining.", "because", ["but", "because", "or", "after"]],
+    ["plural", "Choose the correct plural of baby.", "babies", ["babys", "babyes", "babies", "babyes"]],
+    ["possessive", "Which sentence shows that the ball belongs to Ria?", "It is Ria's ball.", ["It is Rias ball.", "It is Ria ball.", "It is Ria's ball.", "It is Rias' ball."]],
+    ["order", "Which sentence has the words in the best order?", "The happy children sang loudly.", ["Happy the loudly children sang.", "The happy children sang loudly.", "Children the sang happy loudly.", "Loudly happy the sang children."]],
+    ["meaning", "If a path is narrow, it is?", "Not wide", ["Very loud", "Not wide", "Very long", "Not clean"]],
+    ["punctuation", "Which sentence is punctuated correctly?", "Wow! That kite is high.", ["Wow, That kite is high?", "Wow! That kite is high.", "Wow That kite is high", "Wow? that kite is high!"]],
+  ]),
+  "class1-2:Maths": bossQuestionSet("boss-junior-maths", [
+    ["twostep", "A box has 18 crayons. 5 are used and 4 are added. How many now?", "17", ["9", "13", "17", "27"]],
+    ["unknown", "Which number makes 9 + __ = 15?", "6", ["5", "6", "7", "8"]],
+    ["difference", "What is the difference between 32 and 18?", "14", ["12", "13", "14", "15"]],
+    ["groups", "There are 4 plates with 3 biscuits each. How many biscuits?", "12", ["7", "10", "12", "14"]],
+    ["place", "Which number has 5 tens and 8 ones?", "58", ["508", "85", "58", "13"]],
+    ["time", "School starts at 8:30. One hour later it is?", "9:30", ["8:31", "9:00", "9:30", "10:30"]],
+    ["pattern", "Continue: 5, 10, 15, 20, __", "25", ["21", "22", "24", "25"]],
+  ]),
+  "class1-2:EVS": bossQuestionSet("boss-junior-evs", [
+    ["chain", "Which food chain begins correctly?", "Grass -> deer -> tiger", ["Tiger -> grass -> deer", "Grass -> deer -> tiger", "Deer -> tiger -> grass", "Grass -> tiger -> deer"]],
+    ["germ", "What best stops germs spreading before meals?", "Wash hands with soap", ["Wipe hands on clothes", "Wash hands with soap", "Touch the floor", "Share a towel"]],
+    ["resource", "Which resource can run out if we waste it?", "Clean water", ["Sunlight", "Wind", "Clean water", "Fresh air outdoors"]],
+    ["adapt", "Why does a camel have broad feet?", "To walk on sand", ["To climb trees", "To walk on sand", "To swim faster", "To fly"]],
+    ["community", "Who should we call when there is a fire?", "Fire service", ["Post office", "Fire service", "Library", "Bank"]],
+    ["cycle", "What happens after water vapour cools?", "It condenses into drops", ["It becomes soil", "It condenses into drops", "It catches fire", "It disappears forever"]],
+    ["waste", "Which action makes the least waste?", "Use a refillable bottle", ["Use a new plastic cup each time", "Use a refillable bottle", "Throw paper on the road", "Leave lunch uneaten"]],
+  ]),
+  "class3-5:English": bossQuestionSet("boss-middle-english", [
+    ["clause", "Choose the best joining word: I stayed inside __ the storm was strong.", "because", ["although", "because", "unless", "before"]],
+    ["agreement", "Which sentence has correct subject-verb agreement?", "The basket of apples is heavy.", ["The basket of apples are heavy.", "The basket of apples is heavy.", "The baskets of apple is heavy.", "The basket are heavy."]],
+    ["inference", "Aman whispered and pointed to the sleeping baby. Why did he whisper?", "He did not want to wake the baby", ["He had lost his voice", "He did not want to wake the baby", "He was outdoors", "He was reading a map"]],
+    ["figurative", "In 'The stars danced', danced makes the stars seem?", "Human", ["Tiny", "Human", "Silent", "Square"]],
+    ["prefix", "Which prefix changes possible to its opposite?", "im-", ["re-", "un-", "im-", "pre-"]],
+    ["editing", "Choose the correctly edited sentence.", "After lunch, we visited the library.", ["after lunch we visited, the library.", "After lunch, we visited the library.", "After Lunch we Visited the library", "After lunch we visited the library?"]],
+    ["summary", "A good summary should include?", "The main idea and key details", ["Every single word", "Only the title", "The main idea and key details", "Unrelated opinions"]],
+  ]),
+  "class3-5:Maths": bossQuestionSet("boss-middle-maths", [
+    ["fraction", "What is 3/4 of 28?", "21", ["7", "14", "21", "24"]],
+    ["multistep", "A bus has 48 seats. 37 are filled, then 6 people leave. How many are filled?", "31", ["5", "31", "42", "43"]],
+    ["area", "A rectangle is 9 cm long and 4 cm wide. Its area is?", "36 sq cm", ["13 sq cm", "26 sq cm", "36 sq cm", "40 sq cm"]],
+    ["division", "A baker packs 84 buns equally into 7 trays. How many per tray?", "12", ["10", "11", "12", "14"]],
+    ["decimal", "Which is greatest?", "0.75", ["0.57", "0.7", "0.75", "0.705"]],
+    ["angle", "An angle smaller than a right angle is?", "Acute", ["Obtuse", "Straight", "Acute", "Reflex"]],
+    ["pattern", "What is the next number: 3, 6, 12, 24, __?", "48", ["30", "36", "42", "48"]],
+  ]),
+  "class3-5:Science": bossQuestionSet("boss-middle-science", [
+    ["system", "Which two systems work together to move oxygen around the body?", "Respiratory and circulatory", ["Digestive and skeletal", "Respiratory and circulatory", "Nervous and digestive", "Skeletal and excretory"]],
+    ["circuit", "A bulb in a simple circuit lights only when the circuit is?", "Closed", ["Open", "Closed", "Wet", "Painted"]],
+    ["mixture", "Which method separates sand from water?", "Filtration", ["Melting", "Filtration", "Freezing", "Magnetism"]],
+    ["adaptation", "Why do cactus leaves form spines?", "To reduce water loss", ["To make more shade", "To reduce water loss", "To absorb noise", "To attract snow"]],
+    ["force", "Friction usually acts in which direction?", "Opposite to motion", ["With motion", "Opposite to motion", "Only upward", "Only downward"]],
+    ["energy", "Which change converts electrical energy mainly to light?", "A glowing bulb", ["A rolling ball", "A growing plant", "A glowing bulb", "A falling stone"]],
+    ["ecosystem", "If insects disappear from a food web, insect-eating birds may?", "Have less food", ["Have more food", "Have less food", "Become plants", "Stop needing water"]],
+  ]),
+  "class3-5:Social": bossQuestionSet("boss-middle-social", [
+    ["coordinates", "Lines of latitude mainly measure distance north or south of?", "The Equator", ["The Prime Meridian", "The Equator", "The poles only", "A coastline"]],
+    ["government", "Why are local governments important?", "They solve nearby community needs", ["They control all countries", "They solve nearby community needs", "They write school exams", "They predict every storm"]],
+    ["source", "Which is a primary historical source?", "A letter written at the time", ["A modern cartoon about it", "A letter written at the time", "A recent summary", "A fictional story"]],
+    ["scale", "On a map, 1 cm represents 10 km. What does 4 cm represent?", "40 km", ["4 km", "14 km", "40 km", "400 km"]],
+    ["democracy", "A secret ballot protects a voter's?", "Privacy of choice", ["Travel plans", "Job title", "Privacy of choice", "Address from maps"]],
+    ["resource", "Which choice supports sustainable use of forests?", "Replant trees after harvesting", ["Cut every tree", "Replant trees after harvesting", "Burn forest waste openly", "Build only concrete areas"]],
+    ["diversity", "Why can festivals differ across regions?", "Communities have varied histories and traditions", ["All regions have identical weather", "Communities have varied histories and traditions", "Maps change each week", "Laws require different food"]],
+  ]),
+});
+
+function localDateKey(value = new Date()) {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(value.trim())) return value.trim();
+  const date = value instanceof Date ? value : new Date(value);
+  const safe = Number.isFinite(date.getTime()) ? date : new Date();
+  return [
+    safe.getFullYear(),
+    String(safe.getMonth() + 1).padStart(2, "0"),
+    String(safe.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function stableKidsHash(value) {
+  let hash = 2166136261;
+  for (const character of String(value || "")) {
+    hash ^= character.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+export function selectKidsDailyItems(items, {
+  count = 5,
+  localDate = new Date(),
+  scope = "kids",
+} = {}) {
+  const candidates = Array.isArray(items) ? items.filter(Boolean) : [];
+  if (candidates.length <= 1) return [...candidates];
+  const safeCount = Math.max(1, Math.min(candidates.length, Number(count) || 1));
+  const date = localDateKey(localDate);
+  const dayNumber = Math.floor(Date.parse(`${date}T00:00:00.000Z`) / 86_400_000);
+  const start = (stableKidsHash(scope) + dayNumber) % candidates.length;
+  return Array.from({ length: safeCount }, (_, offset) => (
+    candidates[(start + offset) % candidates.length]
+  ));
+}
+
+export function reconcileKidsPacks(localPacks = [], serverPacks = []) {
+  const local = (Array.isArray(localPacks) ? localPacks : []).filter((pack) => pack?.id);
+  const server = (Array.isArray(serverPacks) ? serverPacks : []).filter((pack) => pack?.id);
+  const serverById = new Map(server.map((pack) => [String(pack.id), pack]));
+  const reconciled = local.map((pack) => {
+    const serverPack = serverById.get(String(pack.id));
+    if (!serverPack) return pack;
+    serverById.delete(String(pack.id));
+    return serverPack;
+  });
+  server.forEach((pack) => {
+    if (serverById.delete(String(pack.id))) reconciled.push(pack);
+  });
+  return reconciled;
+}
+
 export function getKidsCopy(language = "en") {
   return KIDS_UI[language] || KIDS_UI.en;
 }
@@ -615,11 +889,20 @@ export function getKidsAgeBand(academicLevel = "") {
   return "class1-2";
 }
 
-export function getFallbackKidsPacks(gradeBand, subject) {
-  return FALLBACK_KIDS_PACKS.filter((pack) => (
+export function getFallbackKidsPacks(gradeBand, subject, localDate = null) {
+  const packs = FALLBACK_KIDS_PACKS.filter((pack) => (
     (!gradeBand || pack.gradeBand === gradeBand)
     && (!subject || pack.subject === subject)
   ));
+  if (!localDate) return packs;
+  return packs.map((pack) => ({
+    ...pack,
+    items: selectKidsDailyItems(pack.items, {
+      count: Math.min(pack.items.length, Number(pack.dailyQuestionCount) || 5),
+      localDate,
+      scope: `regular:${pack.id}`,
+    }),
+  }));
 }
 
 export function normalizeKidsPack(pack, fallbackIndex = 0) {
@@ -731,6 +1014,8 @@ export function createDefaultKidsProgress() {
     stars: 0,
     coins: 0,
     streak: 0,
+    dailyStreak: 0,
+    lastDailyDate: "",
     lastActiveDate: "",
     attempts: [],
     mastery: {},
@@ -748,7 +1033,7 @@ export function createDefaultKidsProgress() {
 
 export function createDefaultParentSettings(language = "en") {
   return {
-    pinHash: "",
+    parentPinConfigured: false,
     timeLimitMinutes: 20,
     audioEnabled: true,
     timerVisible: true,
@@ -756,12 +1041,20 @@ export function createDefaultParentSettings(language = "en") {
   };
 }
 
-function dayDifference(previousDate, nextDate) {
-  if (!previousDate || !nextDate) return null;
-  const previous = Date.parse(`${previousDate}T00:00:00Z`);
-  const next = Date.parse(`${nextDate}T00:00:00Z`);
-  if (!Number.isFinite(previous) || !Number.isFinite(next)) return null;
-  return Math.round((next - previous) / 86_400_000);
+export function calculateKidsDailyStreak(completedDates = [], todayValue = new Date()) {
+  const dates = new Set((Array.isArray(completedDates) ? completedDates : [])
+    .map((date) => String(date || "").trim())
+    .filter((date) => /^\d{4}-\d{2}-\d{2}$/u.test(date)));
+  if (!dates.size) return 0;
+  const today = localDateKey(todayValue);
+  let cursor = new Date(`${today}T12:00:00.000Z`);
+  if (!dates.has(today)) cursor = new Date(cursor.getTime() - 86_400_000);
+  let streak = 0;
+  while (dates.has(cursor.toISOString().slice(0, 10)) && streak < 366) {
+    streak += 1;
+    cursor = new Date(cursor.getTime() - 86_400_000);
+  }
+  return streak;
 }
 
 export function applyKidsAttempt(progressValue, attempt, options = {}) {
@@ -786,10 +1079,6 @@ export function applyKidsAttempt(progressValue, attempt, options = {}) {
   const masteryTotal = (Number(serverSubjectMastery.total) || 0) + nextOfflineMastery.total;
   const masteryCorrect = (Number(serverSubjectMastery.correct) || 0) + nextOfflineMastery.correct;
   const masteryPercentage = masteryTotal ? Math.round((masteryCorrect / masteryTotal) * 100) : 0;
-  const difference = dayDifference(progress.lastActiveDate, today);
-  const streak = progress.lastActiveDate === today
-    ? progress.streak
-    : difference === 1 ? Math.max(1, progress.streak + 1) : 1;
   const retryByKey = new Map((progress.retryQueue || []).map((entry) => [`${entry.packId}:${entry.itemId}`, entry]));
   (attempt?.evaluations || []).forEach((evaluation) => {
     const key = `${attempt.packId}:${evaluation.itemId}`;
@@ -823,6 +1112,7 @@ export function applyKidsAttempt(progressValue, attempt, options = {}) {
   const completedDailyMissions = options.isDailyMission
     ? [...new Set([...(progress.completedDailyMissions || []), today])]
     : [...(progress.completedDailyMissions || [])];
+  const dailyStreak = calculateKidsDailyStreak(completedDailyMissions, today);
   const savedAttempt = {
     id: String(attempt?.id || `${attempt?.packId || "kids"}-${Date.now()}`),
     packId: String(attempt?.packId || ""),
@@ -847,8 +1137,10 @@ export function applyKidsAttempt(progressValue, attempt, options = {}) {
     serverCoins,
     offlineStars,
     offlineCoins,
-    streak,
+    streak: dailyStreak,
+    dailyStreak,
     lastActiveDate: today,
+    lastDailyDate: options.isDailyMission ? today : progress.lastDailyDate || "",
     attempts: [savedAttempt, ...(progress.attempts || [])].slice(0, 100),
     mastery: {
       ...(progress.mastery || {}),
@@ -920,6 +1212,11 @@ export function mergeKidsProgress(localValue, serverValue) {
     const key = `${entry.packId || ""}:${entry.itemId || entry.id || ""}`;
     if (key !== ":") retryItems.set(key, entry);
   });
+  const completedDailyMissions = [...new Set([
+    ...(local.completedDailyMissions || []),
+    ...(server.completedDailyMissions || []),
+  ])];
+  const dailyStreak = calculateKidsDailyStreak(completedDailyMissions);
   return {
     ...local,
     ...server,
@@ -929,34 +1226,45 @@ export function mergeKidsProgress(localValue, serverValue) {
     serverCoins,
     offlineStars,
     offlineCoins,
-    streak: Math.max(Number(local.streak) || 0, Number(server.streak) || 0),
+    streak: dailyStreak,
+    dailyStreak,
+    lastDailyDate: [...completedDailyMissions].sort().at(-1) || "",
     mastery,
     serverMastery,
     offlineMastery,
     retryQueue: [...retryItems.values()].slice(0, 50),
     badges: [...new Set([...(local.badges || []), ...(server.badges || [])])],
     attempts,
-    completedDailyMissions: [...new Set([
-      ...(local.completedDailyMissions || []),
-      ...(server.completedDailyMissions || []),
-    ])],
+    completedDailyMissions,
   };
 }
 
-export function buildLocalDailyMission(gradeBand, progress = createDefaultKidsProgress()) {
+export function buildLocalDailyMission(gradeBand, progress = createDefaultKidsProgress(), localDate = new Date()) {
   const subjectIds = SUBJECTS_BY_AGE_BAND[gradeBand] || SUBJECTS_BY_AGE_BAND["class1-2"];
   const retryKeys = new Set((progress.retryQueue || []).map((entry) => `${entry.packId}:${entry.itemId}`));
-  const candidates = getFallbackKidsPacks(gradeBand).flatMap((pack) => pack.items.map((entry) => ({ pack, entry })));
+  const date = localDateKey(localDate);
+  const allCandidates = getFallbackKidsPacks(gradeBand)
+    .flatMap((pack) => pack.items.map((entry) => ({ pack, entry })));
+  const candidates = getFallbackKidsPacks(gradeBand, null, date)
+    .flatMap((pack) => pack.items.map((entry) => ({ pack, entry })));
+  const dailyCandidates = selectKidsDailyItems(candidates, {
+    count: candidates.length,
+    localDate: date,
+    scope: `daily:${gradeBand}`,
+  });
   const selected = [];
-  candidates.filter(({ pack, entry }) => retryKeys.has(`${pack.id}:${entry.id}`)).slice(0, 2).forEach((candidate) => selected.push(candidate));
+  selectKidsDailyItems(
+    allCandidates.filter(({ pack, entry }) => retryKeys.has(`${pack.id}:${entry.id}`)),
+    { count: 2, localDate: date, scope: `daily-retry:${gradeBand}` },
+  ).forEach((candidate) => selected.push(candidate));
   subjectIds.forEach((subject) => {
     if (selected.length >= 5) return;
-    const candidate = candidates.find(({ pack, entry }) => (
+    const candidate = dailyCandidates.find(({ pack, entry }) => (
       pack.subject === subject && !selected.some((selectedItem) => selectedItem.entry.id === entry.id)
     ));
     if (candidate) selected.push(candidate);
   });
-  candidates.forEach((candidate) => {
+  dailyCandidates.forEach((candidate) => {
     if (selected.length >= 5) return;
     if (!selected.some((selectedItem) => selectedItem.entry.id === candidate.entry.id)) selected.push(candidate);
   });
@@ -965,7 +1273,7 @@ export function buildLocalDailyMission(gradeBand, progress = createDefaultKidsPr
     originalGameType: pack.gameType,
   }));
   return {
-    id: `daily-${gradeBand}`,
+    id: `daily-${gradeBand}-${date}`,
     gradeBand,
     subject: "Mixed",
     gameType: "mcq",
@@ -1011,12 +1319,13 @@ export function buildLocalRetryPack(gradeBand, progress = createDefaultKidsProgr
   };
 }
 
-export function buildLocalBossPack(gradeBand, subject) {
-  const packs = getFallbackKidsPacks(gradeBand, subject);
-  const items = packs.flatMap((pack) => pack.items.map((entry) => ({
-    ...entry,
-    originalGameType: pack.gameType,
-  })));
+export function buildLocalBossPack(gradeBand, subject, localDate = new Date()) {
+  const bank = BOSS_KIDS_QUESTION_BANKS[`${gradeBand}:${subject}`] || [];
+  const items = selectKidsDailyItems(bank, {
+    count: 7,
+    localDate,
+    scope: `boss:${gradeBand}:${subject}`,
+  }).map((entry) => ({ ...entry, originalGameType: "mcq" }));
   if (!items.length) return null;
   const subjectInfo = KIDS_SUBJECTS[subject] || KIDS_SUBJECTS.English;
   return {
@@ -1026,33 +1335,24 @@ export function buildLocalBossPack(gradeBand, subject) {
     gameType: "mcq",
     title: `${subjectInfo.name} Boss Round`,
     titleHi: `${subjectInfo.nameHi} बॉस राउंड`,
-    description: "Five quick challenges. Effort unlocks the victory chest!",
+    description: "Seven challenge questions. Effort unlocks the victory chest!",
     descriptionHi: "पाँच छोटे सवाल। मेहनत से जीत का खज़ाना खुलेगा!",
     topic: "Subject challenge",
-    difficulty: "mixed",
+    difficulty: "challenge",
     estimatedMinutes: 5,
-    items: items.slice(0, 5),
+    items,
     source: "local",
     mixedGameTypes: true,
   };
 }
 
-export function hashParentPin(pin) {
-  const value = `prepmatrix-parent:${String(pin || "")}`;
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(36);
+export function buildKidsResponseSnapshot(responses, itemId, draft) {
+  if (!itemId) return { ...(responses || {}) };
+  return { ...(responses || {}), [itemId]: draft };
 }
 
 export function isValidParentPin(pin) {
   return /^\d{4}$/.test(String(pin || ""));
-}
-
-export function verifyParentPin(pin, hash) {
-  return Boolean(hash) && isValidParentPin(pin) && hashParentPin(pin) === hash;
 }
 
 export function getKidsStorageKey(userProfile = {}) {
@@ -1066,9 +1366,18 @@ export function loadKidsLocalState(storage, key) {
   try {
     const parsed = JSON.parse(storage?.getItem(key) || "null");
     if (!parsed || parsed.version !== KIDS_STORAGE_VERSION) return null;
+    const savedSettings = parsed.settings && typeof parsed.settings === "object"
+      ? parsed.settings
+      : {};
     return {
       progress: mergeKidsProgress(createDefaultKidsProgress(), parsed.progress),
-      settings: { ...createDefaultParentSettings(), ...(parsed.settings || {}) },
+      settings: {
+        parentPinConfigured: Boolean(savedSettings.parentPinConfigured),
+        timeLimitMinutes: Math.max(10, Math.min(60, Number(savedSettings.timeLimitMinutes) || 20)),
+        audioEnabled: savedSettings.audioEnabled !== false,
+        timerVisible: savedSettings.timerVisible !== false,
+        language: savedSettings.language === "hi" ? "hi" : "en",
+      },
       selectedAgeBand: KIDS_AGE_BANDS.some(({ id }) => id === parsed.selectedAgeBand)
         ? parsed.selectedAgeBand
         : "",
@@ -1083,7 +1392,13 @@ export function saveKidsLocalState(storage, key, value) {
     storage?.setItem(key, JSON.stringify({
       version: KIDS_STORAGE_VERSION,
       progress: value.progress,
-      settings: value.settings,
+      settings: {
+        parentPinConfigured: Boolean(value.settings?.parentPinConfigured),
+        timeLimitMinutes: Math.max(10, Math.min(60, Number(value.settings?.timeLimitMinutes) || 20)),
+        audioEnabled: value.settings?.audioEnabled !== false,
+        timerVisible: value.settings?.timerVisible !== false,
+        language: value.settings?.language === "hi" ? "hi" : "en",
+      },
       selectedAgeBand: value.selectedAgeBand,
     }));
     return true;

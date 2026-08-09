@@ -9,16 +9,18 @@ import {
   useAiQuota,
 } from "../utils/aiQuota";
 import {
+  WAKE_MODE_STORAGE_KEY,
   VOICE_PREFERENCES_STORAGE_KEY,
   applyVoicePreferencesToUtterance,
   normalizeVoicePreferences,
   observeSpeechVoices,
+  readStoredWakeMode,
   readStoredVoicePreferences,
   resolvePreferredVoice,
+  storeWakeMode,
   storeVoicePreferences,
 } from "../utils/voicePreferences";
 
-const WAKE_MODE_KEY = "prepmatrix_wake_mode";
 const UNSUPPORTED_MESSAGE = "Voice recognition is not supported in this browser. Please try Chrome or Edge.";
 const COMMAND_TIMEOUT_MS = 8500;
 const WAKE_RESTART_DELAY_MS = 450;
@@ -49,10 +51,6 @@ function normalizeVoiceText(text = "") {
     .replace(/[^\w\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function readStoredWakeMode() {
-  return localStorage.getItem(WAKE_MODE_KEY) === "true";
 }
 
 function getWakeCommand(rawText = "") {
@@ -226,7 +224,7 @@ export default function useVoiceAssistant({
     [academicLevel, academicTrack, metrics]
   );
 
-  const [wakeMode, setWakeModeState] = useState(() => (disabled ? false : readStoredWakeMode()));
+  const [wakeMode, setWakeModeState] = useState(readStoredWakeMode);
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -506,7 +504,6 @@ export default function useVoiceAssistant({
 
   const pauseWakeMode = useCallback(() => {
     wakeModeRef.current = false;
-    setWakeModeState(false);
     clearWakeRestartTimer();
     stopCommandRecognition();
     pauseWakeRecognition();
@@ -516,7 +513,7 @@ export default function useVoiceAssistant({
 
   const stopListening = useCallback(() => {
     wakeModeRef.current = false;
-    localStorage.setItem(WAKE_MODE_KEY, "false");
+    storeWakeMode(false);
     setWakeModeState(false);
     clearWakeRestartTimer();
     stopCommandRecognition();
@@ -528,11 +525,10 @@ export default function useVoiceAssistant({
   const setWakeMode = useCallback((enabled) => {
     if (disabled) {
       wakeModeRef.current = false;
-      setWakeModeState(false);
       return;
     }
     wakeModeRef.current = enabled;
-    localStorage.setItem(WAKE_MODE_KEY, enabled ? "true" : "false");
+    storeWakeMode(enabled);
     setWakeModeState(enabled);
     window.dispatchEvent(new CustomEvent("prepmatrixWakeModeChange", { detail: { enabled } }));
   }, [disabled]);
@@ -792,7 +788,7 @@ export default function useVoiceAssistant({
 
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         setError("Microphone permission is required for voice recognition.");
-        setWakeMode(false);
+        pauseWakeMode();
         return;
       }
 
@@ -819,7 +815,7 @@ export default function useVoiceAssistant({
       setIsListening(false);
       scheduleWakeRestart(900);
     }
-  }, [createRecognition, disabled, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, setWakeMode, startCommandListening]);
+  }, [createRecognition, disabled, pauseWakeMode, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, startCommandListening]);
 
   useEffect(() => {
     startWakeListeningRef.current = startWakeListening;
@@ -905,10 +901,17 @@ export default function useVoiceAssistant({
   }, [disabled]);
 
   useEffect(() => {
+    const enabled = readStoredWakeMode();
+    setWakeModeState(enabled);
+    wakeModeRef.current = disabled ? false : enabled;
+  }, [disabled]);
+
+  useEffect(() => {
     const handleWakeModeChange = (event) => {
-      const enabled = !disabled && Boolean(event.detail?.enabled);
-      wakeModeRef.current = enabled;
+      const enabled = Boolean(event.detail?.enabled);
       setWakeModeState(enabled);
+      wakeModeRef.current = disabled ? false : enabled;
+      if (disabled) return;
       if (enabled) {
         scheduleWakeRestart(80);
       } else {
@@ -921,7 +924,7 @@ export default function useVoiceAssistant({
     };
 
     const handleStorage = (event) => {
-      if (event.key === WAKE_MODE_KEY) {
+      if (event.key === WAKE_MODE_STORAGE_KEY) {
         const enabled = event.newValue === "true";
         window.dispatchEvent(new CustomEvent("prepmatrixWakeModeChange", { detail: { enabled } }));
       } else if (event.key === VOICE_PREFERENCES_STORAGE_KEY) {
@@ -942,7 +945,6 @@ export default function useVoiceAssistant({
   useEffect(() => {
     if (disabled) {
       wakeModeRef.current = false;
-      setWakeModeState(false);
       clearWakeRestartTimer();
       stopCommandRecognition();
       pauseWakeRecognition();
@@ -998,7 +1000,7 @@ export default function useVoiceAssistant({
     setWakeMode,
     supported: disabled ? false : supported,
     transcript,
-    wakeMode: disabled ? false : wakeMode,
+    wakeMode,
     voiceStatus,
     voicePreferences: normalizeVoicePreferences(voicePreferences),
     lastText,

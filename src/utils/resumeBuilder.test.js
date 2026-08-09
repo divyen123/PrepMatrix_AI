@@ -14,11 +14,15 @@ test("resume builder enables requested career categories", () => {
   assert.equal(getResumeEligibility({ academicLevel: "Diploma / Vocational" }).enabled, true);
 });
 
-test("resume builder stays hidden for school-only profiles", () => {
-  assert.equal(
-    getResumeEligibility({ academicLevel: "Secondary", academicTrack: "CBSE" }).enabled,
-    false
-  );
+test("resume builder stays hidden for every school class regardless of track", () => {
+  [
+    { academicLevel: "Primary School", grade: "Class 1", academicTrack: "Engineering & Technology" },
+    { academicLevel: "Middle School", grade: "Class 6", academicTrack: "Computer Science & IT" },
+    { academicLevel: "Senior Secondary", grade: "Class 12", academicTrack: "Professional Certification" },
+    { academicLevel: "Secondary", academicTrack: "CBSE" },
+  ].forEach((profile) => {
+    assert.equal(getResumeEligibility(profile).enabled, false);
+  });
 });
 
 test("professional certification eligibility is optional", () => {

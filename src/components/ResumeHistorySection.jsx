@@ -99,6 +99,7 @@ export default function ResumeHistorySection({
     <section
       className={"resume-history-section" + (isEmpty ? " is-empty" : "")}
       aria-labelledby="resume-history-title"
+      id="resume-history"
     >
       <header className="resume-history-header">
         <div className="resume-history-heading">
@@ -113,6 +114,11 @@ export default function ResumeHistorySection({
                 {normalizedEntries.length}
               </span>
             </div>
+            {isEmpty && (
+              <p className="resume-history-empty-message" role="status">
+                No generated resumes yet
+              </p>
+            )}
           </div>
         </div>
 

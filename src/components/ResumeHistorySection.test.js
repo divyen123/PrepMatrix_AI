@@ -89,7 +89,7 @@ test("renders loading and error states without adding empty-history controls", a
     assert.match(errorMarkup, /> Retry</u);
     assert.match(emptyMarkup, /Resume history/u);
     assert.doesNotMatch(emptyMarkup, /Search resume history/u);
-    assert.doesNotMatch(emptyMarkup, /No generated resumes yet/u);
+    assert.match(emptyMarkup, /class="resume-history-empty-message" role="status">No generated resumes yet</u);
     assert.doesNotMatch(emptyMarkup, /Generate a PDF to save your first editable resume version here\./u);
     assert.doesNotMatch(emptyMarkup, /resume-history-state--empty/u);
 

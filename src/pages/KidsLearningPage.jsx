@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Award,
   Check,
@@ -27,6 +28,7 @@ import {
   buildLocalBossPack,
   buildLocalDailyMission,
   buildLocalRetryPack,
+  calculateKidsDailyStreak,
   createDefaultKidsProgress,
   createDefaultParentSettings,
   evaluateLocalKidsAttempt,
@@ -36,17 +38,17 @@ import {
   getKidsCopy,
   getKidsStorageKey,
   getLocalized,
-  hashParentPin,
   loadKidsLocalState,
   mergeKidsProgress,
   normalizeKidsPack,
+  reconcileKidsPacks,
   saveKidsLocalState,
-  verifyParentPin,
 } from "../utils/kidsLearning";
 import KidsAdventureMap from "../components/kids/KidsAdventureMap";
 import KidsGameRunner from "../components/kids/KidsGameRunner";
 import KidsParentCorner from "../components/kids/KidsParentCorner";
 import KidsPetTutor from "../components/kids/KidsPetTutor";
+import KidsRouteBoundary from "../components/kids/KidsRouteBoundary";
 import "./KidsLearningPage.css";
 
 function localDateKey(date = new Date()) {
@@ -104,7 +106,6 @@ function normalizeServerSettings(value, localSettings) {
   return {
     ...localSettings,
     ...value,
-    pinHash: localSettings.pinHash,
     parentPinConfigured: Boolean(value.parentPinConfigured),
     timeLimitMinutes: Math.max(10, Math.min(60, Number(value.dailyPlayLimitMinutes ?? value.timeLimitMinutes) || localSettings.timeLimitMinutes)),
     audioEnabled: value.audioEnabled === undefined ? localSettings.audioEnabled : Boolean(value.audioEnabled),
@@ -162,12 +163,16 @@ function formatReviewAnswer(value, gameType) {
   return String(value ?? "").trim() || "No answer";
 }
 
-export default function KidsLearningPage({
+function KidsLearningPageContent({
   userProfile = {},
   academicLevel = "",
   academicTrack = "",
   subjects = [],
+  parentAccess = {},
+  onParentAccessChange,
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const storageKey = useMemo(() => getKidsStorageKey(userProfile), [userProfile]);
   const savedStateRef = useRef(null);
   if (savedStateRef.current === null && typeof window !== "undefined") {
@@ -175,18 +180,27 @@ export default function KidsLearningPage({
   }
   const savedState = savedStateRef.current || null;
   const inferredAgeBand = getKidsAgeBand(userProfile?.grade || academicLevel);
-  const [selectedAgeBand, setSelectedAgeBand] = useState(savedState?.selectedAgeBand || inferredAgeBand);
+  const selectedAgeBand = inferredAgeBand;
+  const [today, setToday] = useState(localDateKey);
   const [selectedSubject, setSelectedSubject] = useState(
-    SUBJECTS_BY_AGE_BAND[savedState?.selectedAgeBand || inferredAgeBand]?.[0] || "English",
+    SUBJECTS_BY_AGE_BAND[inferredAgeBand]?.[0] || "English",
   );
   const [progress, setProgress] = useState(savedState?.progress || createDefaultKidsProgress());
   const [settings, setSettings] = useState(savedState?.settings || createDefaultParentSettings());
-  const [packs, setPacks] = useState(() => getFallbackKidsPacks(selectedAgeBand, selectedSubject).map((pack) => ({ ...pack, source: "local" })));
-  const [dailyMission, setDailyMission] = useState(() => buildLocalDailyMission(selectedAgeBand, progress));
+  const [packs, setPacks] = useState(() => getFallbackKidsPacks(selectedAgeBand, selectedSubject, today).map((pack) => ({ ...pack, source: "local" })));
+  const [dailyMission, setDailyMission] = useState(() => buildLocalDailyMission(selectedAgeBand, progress, today));
   const [activePack, setActivePack] = useState(null);
   const [activeMode, setActiveMode] = useState("game");
   const [result, setResult] = useState(null);
   const [parentCornerOpen, setParentCornerOpen] = useState(false);
+  const [registrationPinSetupPending, setRegistrationPinSetupPending] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.sessionStorage.getItem("prepmatrix_kids_pin_setup_pending") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [syncStatus, setSyncStatus] = useState("loading");
   const [packsLoading, setPacksLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -210,11 +224,29 @@ export default function KidsLearningPage({
   const dailyUsageLoadedRef = useRef(initialSessionStateRef.current.dailyBaselineSeconds !== null);
   const [remainingSeconds, setRemainingSeconds] = useState(settings.timeLimitMinutes * 60);
   const copy = getKidsCopy(settings.language);
-  const [today, setToday] = useState(localDateKey);
   const dailyComplete = (progress.completedDailyMissions || []).includes(today);
   const linkedSubjectNames = useMemo(() => new Set(
     (Array.isArray(subjects) ? subjects : []).map((subject) => String(subject?.name || subject).trim().toLocaleLowerCase()),
   ), [subjects]);
+
+  useEffect(() => {
+    if (registrationPinSetupPending || parentAccess?.setupRequired === true || location.state?.parentAccess) {
+      setParentCornerOpen(true);
+    }
+    if (parentAccess?.setupRequired === false && registrationPinSetupPending) {
+      try {
+        window.sessionStorage.removeItem("prepmatrix_kids_pin_setup_pending");
+      } catch {
+        // The server state remains authoritative if storage is unavailable.
+      }
+      setRegistrationPinSetupPending(false);
+    }
+  }, [location.state, parentAccess?.setupRequired, registrationPinSetupPending]);
+
+  useEffect(() => {
+    const allowedSubjects = SUBJECTS_BY_AGE_BAND[selectedAgeBand] || SUBJECTS_BY_AGE_BAND["class1-2"];
+    if (!allowedSubjects.includes(selectedSubject)) setSelectedSubject(allowedSubjects[0] || "English");
+  }, [selectedAgeBand, selectedSubject]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -259,8 +291,12 @@ export default function KidsLearningPage({
           setProgress((current) => mergeKidsProgress(current, payload.progress));
         }
         if (payload?.settings) setSettings((current) => normalizeServerSettings(payload.settings, current));
+        if (payload?.parentAccess) {
+          onParentAccessChange?.(payload.parentAccess);
+          if (payload.parentAccess.setupRequired) setParentCornerOpen(true);
+        }
         const prefersHindiContent = payload?.settings?.language === "hi" || settings.language === "hi";
-        if (!prefersHindiContent && payload?.dailyMission?.items?.length) {
+        if (!prefersHindiContent && payload?.dailyMission?.items?.length >= 5) {
           setDailyMission({ ...normalizeKidsPack(payload.dailyMission), source: "server" });
         }
         setSyncStatus("synced");
@@ -271,11 +307,18 @@ export default function KidsLearningPage({
     return () => {
       cancelled = true;
     };
-  }, [profileRefreshKey, selectedAgeBand, sessionStorageKey, settings.language, today]);
+  }, [
+    onParentAccessChange,
+    profileRefreshKey,
+    selectedAgeBand,
+    sessionStorageKey,
+    settings.language,
+    today,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
-    const localPacks = getFallbackKidsPacks(selectedAgeBand, selectedSubject).map((pack) => ({ ...pack, source: "local" }));
+    const localPacks = getFallbackKidsPacks(selectedAgeBand, selectedSubject, today).map((pack) => ({ ...pack, source: "local" }));
     setPacks(localPacks);
     if (settings.language === "hi") {
       setPacksLoading(false);
@@ -292,7 +335,7 @@ export default function KidsLearningPage({
           ? payload.packs.map((pack, index) => ({ ...normalizeKidsPack(pack, index), source: "server" })).filter((pack) => pack.items.length)
           : [];
         if (serverPacks.length) {
-          setPacks(serverPacks);
+          setPacks(reconcileKidsPacks(localPacks, serverPacks));
           setSyncStatus("synced");
         }
       })
@@ -305,11 +348,11 @@ export default function KidsLearningPage({
     return () => {
       cancelled = true;
     };
-  }, [selectedAgeBand, selectedSubject, settings.language]);
+  }, [selectedAgeBand, selectedSubject, settings.language, today]);
 
   useEffect(() => {
     let cancelled = false;
-    const localMission = buildLocalDailyMission(selectedAgeBand, progress);
+    const localMission = buildLocalDailyMission(selectedAgeBand, progress, today);
     setDailyMission(localMission);
     if (settings.language === "hi") {
       return () => {
@@ -319,7 +362,7 @@ export default function KidsLearningPage({
     const query = new URLSearchParams({ gradeBand: selectedAgeBand, localDate: today });
     api.get(`/api/kids/daily-mission?${query.toString()}`)
       .then((payload) => {
-        if (cancelled || !payload?.mission?.items?.length) return;
+        if (cancelled || payload?.mission?.items?.length < 5) return;
         setDailyMission({ ...normalizeKidsPack(payload.mission), source: "server" });
       })
       .catch(() => {
@@ -381,12 +424,17 @@ export default function KidsLearningPage({
             setProgress((current) => {
               const merged = mergeKidsProgress(current, payload.progress);
               if (pendingAttempt.mode !== "daily" || !pendingAttempt.localDate) return merged;
+              const completedDailyMissions = [...new Set([
+                ...(merged.completedDailyMissions || []),
+                pendingAttempt.localDate,
+              ])];
+              const dailyStreak = calculateKidsDailyStreak(completedDailyMissions, localDateKey());
               return {
                 ...merged,
-                completedDailyMissions: [...new Set([
-                  ...(merged.completedDailyMissions || []),
-                  pendingAttempt.localDate,
-                ])],
+                completedDailyMissions,
+                dailyStreak,
+                streak: dailyStreak,
+                lastDailyDate: [...completedDailyMissions].sort().at(-1) || "",
               };
             });
           }
@@ -463,23 +511,42 @@ export default function KidsLearningPage({
     };
 
     if (activePack.source !== "server") {
-      const evaluation = evaluateLocalKidsAttempt(activePack, responses);
-      let nextProgress;
-      setProgress((current) => {
-        nextProgress = applyKidsAttempt(current, evaluation, modeOptions);
-        return nextProgress;
-      });
-      const localProgress = nextProgress || applyKidsAttempt(progress, evaluation, modeOptions);
-      setResult({
-        pack: activePack,
-        correct: evaluation.correct,
-        total: evaluation.total,
-        percentage: evaluation.percentage,
-        rewards: localProgress.lastReward,
-        offline: true,
-      });
-      setActivePack(null);
-      setSubmitting(false);
+      const completedPack = activePack;
+      try {
+        const evaluation = evaluateLocalKidsAttempt(completedPack, responses);
+        const localProgress = applyKidsAttempt(progress, evaluation, modeOptions);
+        setProgress((current) => applyKidsAttempt(current, evaluation, modeOptions));
+        setResult({
+          pack: completedPack,
+          correct: evaluation.correct,
+          total: evaluation.total,
+          percentage: evaluation.percentage,
+          rewards: localProgress.lastReward,
+          review: evaluation.evaluations.map((itemResult) => {
+            const item = completedPack.items.find((entry) => entry.id === itemResult.itemId) || {};
+            return {
+              ...itemResult,
+              prompt: settings.language === "hi" ? item.promptHi || item.prompt : item.prompt,
+              correctResponse: item.answer,
+              explanation: item.explanation,
+            };
+          }),
+          offline: true,
+        });
+      } catch (error) {
+        console.error("Kids local adventure completion recovered safely.", error);
+        setResult({
+          pack: completedPack,
+          correct: null,
+          total: completedPack.items.length,
+          percentage: null,
+          rewards: { stars: 0, coins: 0, badgeAwarded: "" },
+          error: true,
+        });
+      } finally {
+        setActivePack(null);
+        setSubmitting(false);
+      }
       return;
     }
 
@@ -508,12 +575,17 @@ export default function KidsLearningPage({
             evaluations: evaluation.itemResults?.map((entry) => ({ itemId: entry.itemId, correct: entry.correct })) || [],
           }, modeOptions);
         if (activeMode === "daily") {
+          const completedDailyMissions = [...new Set([
+            ...(updatedProgress.completedDailyMissions || []),
+            today,
+          ])];
+          const dailyStreak = calculateKidsDailyStreak(completedDailyMissions, today);
           updatedProgress = {
             ...updatedProgress,
-            completedDailyMissions: [...new Set([
-              ...(updatedProgress.completedDailyMissions || []),
-              today,
-            ])],
+            completedDailyMissions,
+            dailyStreak,
+            streak: dailyStreak,
+            lastDailyDate: today,
           };
         }
         nextProgress = updatedProgress;
@@ -546,10 +618,17 @@ export default function KidsLearningPage({
           return next;
         });
         if (activeMode === "daily") {
-          setProgress((current) => ({
-            ...current,
-            completedDailyMissions: [...new Set([...(current.completedDailyMissions || []), today])],
-          }));
+          setProgress((current) => {
+            const completedDailyMissions = [...new Set([...(current.completedDailyMissions || []), today])];
+            const dailyStreak = calculateKidsDailyStreak(completedDailyMissions, today);
+            return {
+              ...current,
+              completedDailyMissions,
+              dailyStreak,
+              streak: dailyStreak,
+              lastDailyDate: today,
+            };
+          });
         }
       }
       setResult({
@@ -568,7 +647,6 @@ export default function KidsLearningPage({
   };
 
   const parentSettingsBody = (value, extras = {}) => ({
-    gradeBand: selectedAgeBand,
     dailyPlayLimitMinutes: value.timeLimitMinutes,
     audioEnabled: Boolean(value.audioEnabled),
     timerVisible: Boolean(value.timerVisible),
@@ -577,62 +655,30 @@ export default function KidsLearningPage({
   });
 
   const authorizeParentPin = async (pin, { create = false } = {}) => {
-    const localPinHash = hashParentPin(pin);
-    const withLocalPin = { ...settings, pinHash: localPinHash };
-
     if (create) {
       try {
         const payload = await api.put("/api/kids/parent-settings", parentSettingsBody(settings, { parentPin: pin }));
-        const normalized = normalizeServerSettings(payload?.settings, withLocalPin);
+        const normalized = normalizeServerSettings(payload?.settings, settings);
         setSettings(normalized);
         setSyncStatus("synced");
-        return { ok: true, settings: normalized };
+        return { ok: true, settings: normalized, parentAccess: payload?.parentAccess };
       } catch (error) {
-        if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
-          return { ok: false, message: error.message };
-        }
-        const offlineSettings = { ...withLocalPin, parentPinConfigured: false };
-        setSettings(offlineSettings);
-        setSyncStatus("offline");
-        return { ok: true, offline: true, settings: offlineSettings };
+        if (!Number(error?.status) || Number(error?.status) >= 500) setSyncStatus("offline");
+        return { ok: false, message: error?.message || "The parent PIN could not be saved." };
       }
     }
 
-    const locallyVerified = verifyParentPin(pin, settings.pinHash);
-    if (settings.parentPinConfigured) {
-      try {
-        await api.post("/api/kids/parent-settings/verify-pin", { pin });
-        setSettings(withLocalPin);
-        setSyncStatus("synced");
-        return { ok: true, settings: withLocalPin };
-      } catch (error) {
-        if (error?.code === "KIDS_PARENT_PIN_INCORRECT") {
-          return { ok: false, message: error.message };
-        }
-        if (locallyVerified && (!Number(error?.status) || Number(error?.status) >= 500)) {
-          setSyncStatus("offline");
-          return { ok: true, offline: true, settings: withLocalPin };
-        }
-        return { ok: false, message: error.message };
-      }
-    }
-
-    if (!locallyVerified) {
-      return { ok: false, message: getKidsCopy(settings.language).wrongPin };
+    if (!settings.parentPinConfigured) {
+      return { ok: false, message: "Set the parent PIN before unlocking Parent Corner." };
     }
 
     try {
-      const payload = await api.put("/api/kids/parent-settings", parentSettingsBody(settings, { parentPin: pin }));
-      const normalized = normalizeServerSettings(payload?.settings, withLocalPin);
-      setSettings(normalized);
+      const payload = await api.post("/api/kids/parent-settings/verify-pin", { pin });
       setSyncStatus("synced");
-      return { ok: true, settings: normalized };
+      return { ok: true, settings, parentAccess: payload?.parentAccess };
     } catch (error) {
-      if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
-        return { ok: false, message: error.message };
-      }
-      setSyncStatus("offline");
-      return { ok: true, offline: true, settings: withLocalPin };
+      if (!Number(error?.status) || Number(error?.status) >= 500) setSyncStatus("offline");
+      return { ok: false, message: error?.message || "The parent PIN could not be verified." };
     }
   };
 
@@ -654,27 +700,50 @@ export default function KidsLearningPage({
       const savedSettings = normalizeServerSettings(payload?.settings, normalized);
       setSettings(savedSettings);
       setSyncStatus("synced");
-      return { ok: true, settings: savedSettings };
+      if (payload?.parentAccess) onParentAccessChange?.(payload.parentAccess);
+      return { ok: true, settings: savedSettings, parentAccess: payload?.parentAccess };
     } catch (error) {
       if (!Number(error?.status) || Number(error?.status) >= 500) setSyncStatus("offline");
       return { ok: false, message: error.message };
     }
   };
 
-  const chooseAgeBand = (ageBand) => {
-    const firstSubject = SUBJECTS_BY_AGE_BAND[ageBand]?.[0] || "English";
-    setSelectedAgeBand(ageBand);
-    setSelectedSubject(firstSubject);
-    setActivePack(null);
-    setResult(null);
+  const handleParentAuthorized = (outcome) => {
+    if (outcome?.parentAccess) onParentAccessChange?.(outcome.parentAccess);
+    if (outcome?.parentAccess?.setupRequired === false) {
+      setRegistrationPinSetupPending(false);
+    }
+    const returnTo = location.state?.returnTo;
+    if (returnTo === "/planner" || returnTo === "/settings") {
+      navigate(returnTo, { replace: true, state: null });
+    }
+  };
+
+  const lockParentAccess = async () => {
+    try {
+      const payload = await api.post("/api/kids/parent-access/lock", {});
+      onParentAccessChange?.(payload?.parentAccess || { unlocked: false });
+    } catch {
+      onParentAccessChange?.({ unlocked: false });
+    }
   };
 
   const retryPack = useMemo(() => (
     buildLocalRetryPack(selectedAgeBand, progress) || createServerRetryPack(progress, selectedAgeBand)
   ), [progress, selectedAgeBand]);
-  const bossPack = useMemo(() => buildLocalBossPack(selectedAgeBand, selectedSubject), [selectedAgeBand, selectedSubject]);
+  const bossPack = useMemo(
+    () => buildLocalBossPack(selectedAgeBand, selectedSubject, today),
+    [selectedAgeBand, selectedSubject, today],
+  );
   const selectedSubjectInfo = KIDS_SUBJECTS[selectedSubject] || KIDS_SUBJECTS.English;
   const selectedAgeInfo = KIDS_AGE_BANDS.find(({ id }) => id === selectedAgeBand) || KIDS_AGE_BANDS[1];
+  const registeredClassLabel = String(
+    userProfile?.grade
+      || userProfile?.classLevel
+      || userProfile?.classStandard
+      || academicLevel
+      || selectedAgeInfo.label,
+  ).trim();
   const firstName = String(userProfile?.username || userProfile?.name || "Explorer").trim().split(/\s+/)[0];
   const timeUp = remainingSeconds <= 0;
 
@@ -702,7 +771,7 @@ export default function KidsLearningPage({
   return (
     <section
       className="kids-learning-page"
-      data-academic-context={`${academicLevel || selectedAgeInfo.label}:${academicTrack || "General"}:${linkedSubjectNames.size}`}
+      data-academic-context={`${registeredClassLabel}:${academicTrack || "General"}:${linkedSubjectNames.size}`}
     >
       <div aria-hidden="true" className="kids-page-confetti"><i>✦</i><i>●</i><i>▲</i><i>★</i><i>●</i></div>
 
@@ -728,7 +797,7 @@ export default function KidsLearningPage({
             <span className="kids-hero-kicker"><Sparkles aria-hidden="true" size={16} /> PrepMatrix {copy.playLearn}</span>
             <h1>{copy.heroTitle}</h1>
             <p>{copy.heroCopy}</p>
-            <small>👋 {settings.language === "hi" ? `तैयार हो, ${firstName}?` : `Ready, ${firstName}?`} · {getLocalized(selectedAgeInfo, settings.language, "label")}</small>
+            <small>👋 {settings.language === "hi" ? `तैयार हो, ${firstName}?` : `Ready, ${firstName}?`} · {registeredClassLabel}</small>
           </div>
           <KidsPetTutor
             audioEnabled={settings.audioEnabled}
@@ -741,7 +810,7 @@ export default function KidsLearningPage({
         <div className="kids-stats-ribbon">
           <article><span><Star aria-hidden="true" size={21} /></span><div><strong>{progress.stars || 0}</strong><small>{copy.stars}</small></div></article>
           <article><span><Coins aria-hidden="true" size={21} /></span><div><strong>{progress.coins || 0}</strong><small>{copy.coins}</small></div></article>
-          <article><span><Trophy aria-hidden="true" size={21} /></span><div><strong>{progress.streak || 0}</strong><small>{copy.streak}</small></div></article>
+          <article><span><Trophy aria-hidden="true" size={21} /></span><div><strong>{progress.dailyStreak ?? progress.streak ?? 0}</strong><small>{copy.streak}</small></div></article>
           {settings.timerVisible && <article className={remainingSeconds <= 120 ? "is-low" : ""}><span><Clock3 aria-hidden="true" size={21} /></span><div><strong>{formatSessionRemaining(remainingSeconds)}</strong><small>{copy.sessionTime}</small></div></article>}
         </div>
       </header>
@@ -755,28 +824,6 @@ export default function KidsLearningPage({
         </section>
       ) : (
         <main className="kids-main-grid">
-          <section className="kids-age-selector" aria-labelledby="kids-level-heading">
-            <div className="kids-section-heading">
-              <span aria-hidden="true" className="kids-heading-icon">🎒</span>
-              <div><span className="kids-eyebrow">{copy.chooseLevel}</span><h2 id="kids-level-heading">{settings.language === "hi" ? "मेरी कक्षा" : "My learning path"}</h2></div>
-            </div>
-            <div className="kids-age-options">
-              {KIDS_AGE_BANDS.map((ageBand) => (
-                <button
-                  aria-pressed={selectedAgeBand === ageBand.id}
-                  className={selectedAgeBand === ageBand.id ? "is-selected" : ""}
-                  key={ageBand.id}
-                  onClick={() => chooseAgeBand(ageBand.id)}
-                  type="button"
-                >
-                  <span aria-hidden="true">{ageBand.icon}</span>
-                  <div><strong>{getLocalized(ageBand, settings.language, "label")}</strong><small>{ageBand.grades}</small><p>{getLocalized(ageBand, settings.language, "helper")}</p></div>
-                  {selectedAgeBand === ageBand.id && <Check aria-hidden="true" size={18} />}
-                </button>
-              ))}
-            </div>
-          </section>
-
           <section className={`kids-daily-card${dailyComplete ? " is-complete" : ""}`}>
             <div className="kids-daily-art" aria-hidden="true"><span>⚡</span><i>+10</i></div>
             <div>
@@ -881,13 +928,26 @@ export default function KidsLearningPage({
 
       <KidsParentCorner
         onClose={() => setParentCornerOpen(false)}
+        onAuthorized={handleParentAuthorized}
         onAuthorizePin={authorizeParentPin}
+        onLock={lockParentAccess}
+        onOpenSettings={() => navigate("/settings", { state: null })}
         onResetSession={resetSession}
         onSave={saveParentSettings}
         open={parentCornerOpen}
         progress={progress}
+        requiredSetup={registrationPinSetupPending || parentAccess?.setupRequired === true}
+        sessionAuthorized={Boolean(parentAccess?.unlocked)}
         settings={settings}
       />
     </section>
+  );
+}
+
+export default function KidsLearningPage(props) {
+  return (
+    <KidsRouteBoundary>
+      <KidsLearningPageContent {...props} />
+    </KidsRouteBoundary>
   );
 }

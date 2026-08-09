@@ -12060,6 +12060,78 @@ body.worktree-fullscreen-active .workspace-topbar {
   box-shadow: 0 0 14px rgba(16, 185, 129, 0.3);
 }
 
+.planner-parent-lock {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border: 1px solid rgba(139, 92, 246, 0.38);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.14), rgba(14, 165, 233, 0.1));
+}
+
+.planner-parent-lock p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.is-kids-planner .schedule-card,
+.worktree-variant--kids {
+  border-color: rgba(56, 189, 248, 0.34);
+  background:
+    radial-gradient(circle at 88% 4%, rgba(251, 191, 36, 0.16), transparent 30%),
+    radial-gradient(circle at 4% 92%, rgba(168, 85, 247, 0.18), transparent 34%),
+    linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(18, 37, 64, 0.94));
+  box-shadow: 0 22px 58px rgba(2, 132, 199, 0.12);
+}
+
+.worktree-variant--kids .worktree-canvas-container {
+  background:
+    radial-gradient(circle at 18% 20%, rgba(244, 114, 182, 0.16), transparent 24%),
+    radial-gradient(circle at 80% 76%, rgba(45, 212, 191, 0.16), transparent 28%),
+    linear-gradient(160deg, #081426, #10243c);
+}
+
+.worktree-variant--kids .canvas-grid-overlay {
+  background-image:
+    radial-gradient(circle, rgba(125, 211, 252, 0.22) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+}
+
+.worktree-variant--kids .worktree-node {
+  border-width: 2px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.92), rgba(14, 165, 233, 0.9));
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.26);
+}
+
+.worktree-variant--kids .worktree-node:nth-of-type(4n + 2) {
+  background: linear-gradient(135deg, rgba(219, 39, 119, 0.9), rgba(124, 58, 237, 0.92));
+}
+
+.worktree-variant--kids .worktree-node:nth-of-type(4n + 3) {
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.92), rgba(8, 145, 178, 0.9));
+}
+
+.worktree-variant--kids .worktree-node:nth-of-type(4n) {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.94), rgba(234, 88, 12, 0.9));
+}
+
+.worktree-variant--kids .worktree-node:hover {
+  border-color: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 14px 34px rgba(56, 189, 248, 0.34);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 720px) {
+  .planner-parent-lock {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .node-check-icon {
   color: #10b981;
   flex-shrink: 0;
@@ -20609,6 +20681,141 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 }
 
 /* -- Search bar – single-layer pill, no inner box -------------- */
+.db-command-shell {
+  position: relative;
+  z-index: 12;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.db-command-shell .db-search-form {
+  max-width: none;
+  margin: 0;
+}
+
+.db-command-help {
+  min-height: 1.1rem;
+  margin: 0.55rem 1rem 0;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.db-command-help--warning {
+  color: #f59e0b;
+}
+
+.db-command-menu {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  left: 0;
+  z-index: 30;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: min(420px, calc(100vh - 14rem));
+  overscroll-behavior: contain;
+  padding: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, var(--accent-soft), transparent 42%),
+    var(--surface-strong);
+  box-shadow: 0 22px 55px rgba(3, 7, 18, 0.32);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  text-align: left;
+}
+
+.db-command-menu-label {
+  padding: 0.35rem 0.65rem 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.db-command-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  width: 100%;
+  min-height: 0;
+  padding: 0.68rem 0.72rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.db-command-option:hover,
+.db-command-option--active,
+.db-command-option[aria-selected="true"] {
+  border-color: var(--border);
+  background: var(--accent-soft);
+  color: var(--accent);
+  transform: translateX(2px);
+}
+
+.db-command-option-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.db-command-option-copy strong {
+  overflow: hidden;
+  font-size: 0.84rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-command-option-copy small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-command-option > svg {
+  flex: 0 0 auto;
+  opacity: 0.72;
+}
+
+.db-command-empty {
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.72rem;
+  border-radius: 12px;
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.db-command-empty strong {
+  font-size: 0.82rem;
+}
+
+.db-command-empty span {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
 .db-search-form {
   position: relative;
   display: flex;
@@ -20741,6 +20948,27 @@ body.dark .db-search-input:focus,
   background: var(--accent-strong);
   transform: scale(1.05);
   box-shadow: 0 2px 12px var(--accent-soft);
+}
+
+.db-search-send:focus-visible,
+.db-command-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .db-command-help {
+    margin-inline: 0.75rem;
+  }
+
+  .db-command-menu {
+    border-radius: 16px;
+    max-height: min(360px, calc(100dvh - 12rem));
+  }
+
+  .db-command-option {
+    padding: 0.65rem;
+  }
 }
 
 /* -- Dashboard search bar: action buttons (mic / attach) ------- */
@@ -20939,6 +21167,8 @@ body.dark .db-search-input:focus,
   overflow: hidden;
   max-height: 0;
   opacity: 0;
+  scroll-margin-top: 6rem;
+  outline: none;
   transition:
     max-height 0.65s cubic-bezier(0.16, 1, 0.3, 1),
     opacity    0.5s ease;

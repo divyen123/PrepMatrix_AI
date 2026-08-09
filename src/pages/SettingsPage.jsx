@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, History } from "lucide-react";
 import api from "../utils/apiClient";
 import GoalSettingsPanel from "../components/GoalSettingsPanel";
+import KidsPerformanceSettings from "../components/kids/KidsPerformanceSettings";
 import {
   DEFAULT_GOAL_REMINDER_DATA,
   DEFAULT_GOAL_REMINDER_SETTINGS,
@@ -212,7 +213,11 @@ function SettingsPage({
   onAcademicProfileChange,
   activeVoiceName, onPreviewVoice, setVoicePreferences, voicePreferences,
   cursorStyle: parentCursorStyle, setCursorStyle: setParentCursorStyle,
-  autoHideTopBar, onAutoHideTopBarChange
+  autoHideTopBar, onAutoHideTopBarChange,
+  youngKidsMode = false,
+  kidsParentAccess = null,
+  onKidsParentAccessChange,
+  onKidsParentLocked,
 }) {
   const navigate = useNavigate();
   const assistantVoicePreferences = normalizeVoicePreferences(voicePreferences);
@@ -1422,6 +1427,13 @@ function SettingsPage({
       </div>
 
       <div className="dashboard-feature-grid settings-grid" style={{ marginTop: "24px" }}>
+        {youngKidsMode && kidsParentAccess?.unlocked ? (
+          <KidsPerformanceSettings
+            onLocked={onKidsParentLocked}
+            onParentAccessChange={onKidsParentAccessChange}
+            userProfile={userProfile}
+          />
+        ) : null}
         
         {/* Profile Card */}
         <div className="card settings-card settings-account-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1492,6 +1504,7 @@ function SettingsPage({
             <label className="field-stack">
               <span>Academic Stage</span>
               <select
+                disabled={youngKidsMode}
                 value={educationStage}
                 onChange={(e) => setEducationStage(e.target.value)}
               >
@@ -1515,6 +1528,7 @@ function SettingsPage({
               <label className="field-stack">
                 <span>Grade / Class</span>
                 <select
+                  disabled={youngKidsMode}
                   value={grade}
                   onChange={(e) => setGrade(e.target.value)}
                 >
@@ -1536,13 +1550,19 @@ function SettingsPage({
             )}
             <label className="field-stack">
               <span>{isSchoolAcademicLevel(educationStage) ? "Board / Curriculum" : "Field / Stream"}</span>
-              <select value={profileTrack} onChange={(e) => setProfileTrack(e.target.value)}>
+              <select disabled={youngKidsMode} value={profileTrack} onChange={(e) => setProfileTrack(e.target.value)}>
                 {[...new Set([profileTrack, ...TRACK_OPTIONS].filter(Boolean))].map((option) => (
                   <option key={option} value={option}>{option}</option>
                 ))}
               </select>
             </label>
           </div>
+
+          {youngKidsMode ? (
+            <p className="card-subtext" role="note">
+              The learning stage, registered class, and curriculum are locked to this child account.
+            </p>
+          ) : null}
 
           {!isSchoolAcademicLevel(educationStage) && (
             <label className="field-stack">

@@ -77,6 +77,13 @@
   white-space: nowrap;
 }
 
+.resume-history-empty-message {
+  margin: 4px 0 0;
+  color: var(--resume-history-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
 .resume-history-count {
   min-width: 28px;
   height: 25px;

@@ -8,7 +8,7 @@ import {
   academicProfilePayload,
   isSchoolAcademicLevel,
 } from "../utils/academicProfile";
-import { getLearnerHomeRoute } from "../utils/learnerRouting";
+import { getLearnerRoutePolicy } from "../utils/learnerRouting";
 import api from "../utils/apiClient";
 import Antigravity from "../components/Antigravity";
 
@@ -65,6 +65,11 @@ function AuthPage({ onLogin }) {
       return;
     }
 
+    if (isRegister && isSchoolAcademicLevel(form) && !form.grade.trim()) {
+      setMessage("Choose the learner's exact class.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -81,8 +86,16 @@ function AuthPage({ onLogin }) {
         window.dispatchEvent(new CustomEvent("prepmatrixWakeModeChange", { detail: { enabled: false } }));
       }
 
+      const routePolicy = getLearnerRoutePolicy(result.user);
+      if (isRegister && routePolicy.isYoungKidsLearner) {
+        try {
+          window.sessionStorage.setItem("prepmatrix_kids_pin_setup_pending", "true");
+        } catch {
+          // The Kids route also derives mandatory setup from the server.
+        }
+      }
       onLogin(result.user, result.workspace);
-      navigate(getLearnerHomeRoute(result.user), { replace: true });
+      navigate(routePolicy.homeRoute, { replace: true });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Authentication failed.");
     } finally {
@@ -194,7 +207,11 @@ function AuthPage({ onLogin }) {
               {isSchoolAcademicLevel(form.academicLevel) ? (
                 <label className="field-stack auth-field-full">
                   Exact class
-                  <select onChange={(event) => updateField("grade", event.target.value)} value={form.grade}>
+                  <select
+                    onChange={(event) => updateField("grade", event.target.value)}
+                    required
+                    value={form.grade}
+                  >
                     <option value="">Choose class</option>
                     {SCHOOL_CLASS_OPTIONS.map((option) => (
                       <option key={option} value={option}>{option}</option>

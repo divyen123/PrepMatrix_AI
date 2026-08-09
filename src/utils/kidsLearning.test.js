@@ -6,22 +6,26 @@ import {
   KIDS_GAME_TYPES,
   KIDS_STORAGE_PREFIX,
   KIDS_STORAGE_VERSION,
+  SUBJECTS_BY_AGE_BAND,
   applyKidsAttempt,
+  buildKidsResponseSnapshot,
   buildLocalBossPack,
   buildLocalDailyMission,
   buildLocalRetryPack,
+  calculateKidsDailyStreak,
   createDefaultKidsProgress,
   evaluateLocalKidsAttempt,
+  getFallbackKidsPacks,
   getKidsAgeBand,
   getKidsStorageKey,
-  hashParentPin,
   isKidsResponseCorrect,
   isValidParentPin,
   loadKidsLocalState,
   mergeKidsProgress,
   normalizeKidsPack,
+  reconcileKidsPacks,
   saveKidsLocalState,
-  verifyParentPin,
+  selectKidsDailyItems,
 } from "./kidsLearning.js";
 
 test("maps canonical learner profiles and grade aliases to Kids age bands", () => {
@@ -170,7 +174,7 @@ test("applies effort rewards, mastery, streaks, badges, and gentle retry updates
 
   assert.equal(first.stars, 3);
   assert.equal(first.coins, 10);
-  assert.equal(first.streak, 1);
+  assert.equal(first.streak, 0);
   assert.deepEqual(first.mastery.Maths, { correct: 1, total: 2, percentage: 50 });
   assert.deepEqual(first.retryQueue, [{
     packId: "math-pack",
@@ -199,7 +203,7 @@ test("applies effort rewards, mastery, streaks, badges, and gentle retry updates
 
   assert.equal(mastered.stars, 10);
   assert.equal(mastered.coins, 45);
-  assert.equal(mastered.streak, 2);
+  assert.equal(mastered.streak, 0);
   assert.deepEqual(mastered.mastery.Maths, { correct: 4, total: 5, percentage: 80 });
   assert.deepEqual(mastered.retryQueue, []);
   assert.ok(mastered.badges.includes("mastery-maths"));
@@ -223,7 +227,7 @@ test("applies effort rewards, mastery, streaks, badges, and gentle retry updates
     isDailyMission: true,
   });
 
-  assert.equal(daily.streak, 2);
+  assert.equal(daily.streak, 1);
   assert.equal(daily.stars, 13);
   assert.equal(daily.coins, 65);
   assert.deepEqual(daily.completedDailyMissions, ["2026-08-02"]);
@@ -238,7 +242,7 @@ test("applies effort rewards, mastery, streaks, badges, and gentle retry updates
     total: 0,
     evaluations: [],
   }, { today: "2026-08-05", isRetry: true });
-  assert.equal(afterGap.streak, 1);
+  assert.equal(afterGap.streak, 0);
   assert.equal(afterGap.attempts[0].mode, "retry");
 });
 
@@ -271,7 +275,7 @@ test("merges progress without double-counting attempts or losing local achieveme
 
   assert.equal(merged.stars, 12);
   assert.equal(merged.coins, 30);
-  assert.equal(merged.streak, 4);
+  assert.equal(merged.streak, 0);
   assert.deepEqual(merged.badges, ["local-badge", "server-badge"]);
   assert.deepEqual(merged.attempts.map(({ id }) => id), ["shared", "server", "local"]);
   assert.equal(merged.attempts[0].packId, "server-version");
@@ -331,14 +335,14 @@ test("builds retry-first daily missions, retry practice, and subject boss rounds
       { packId: "early-evs-match", itemId: "early-match-homes" },
     ],
   };
-  const daily = buildLocalDailyMission("early-years", progress);
+  const daily = buildLocalDailyMission("early-years", progress, "2026-08-09");
 
-  assert.equal(daily.id, "daily-early-years");
+  assert.equal(daily.id, "daily-early-years-2026-08-09");
   assert.equal(daily.items.length, 5);
-  assert.deepEqual(daily.items.slice(0, 2).map(({ id }) => id), [
+  assert.deepEqual(new Set(daily.items.slice(0, 2).map(({ id }) => id)), new Set([
     "early-count-5",
     "early-match-homes",
-  ]);
+  ]));
   assert.equal(new Set(daily.items.map(({ id }) => id)).size, daily.items.length);
   assert.ok(daily.items.every(({ originalGameType }) => KIDS_GAME_TYPES[originalGameType]));
   assert.equal(daily.mixedGameTypes, true);
@@ -351,15 +355,79 @@ test("builds retry-first daily missions, retry practice, and subject boss rounds
   ]);
   assert.equal(buildLocalRetryPack("early-years", createDefaultKidsProgress()), null);
 
-  const boss = buildLocalBossPack("early-years", "English");
+  const boss = buildLocalBossPack("early-years", "English", "2026-08-09");
   assert.equal(boss.id, "boss-early-years-english");
   assert.equal(boss.subject, "English");
-  assert.equal(boss.items.length, 5);
-  assert.deepEqual(new Set(boss.items.map(({ originalGameType }) => originalGameType)), new Set([
-    "listen-pick",
-    "picture-choice",
-  ]));
+  assert.equal(boss.items.length, 7);
+  assert.equal(boss.difficulty, "challenge");
+  assert.equal(boss.items.every(({ originalGameType, bossQuestion }) => originalGameType === "mcq" && bossQuestion), true);
   assert.equal(buildLocalBossPack("early-years", "Science"), null);
+});
+
+test("rotates daily content deterministically and keeps every subject well stocked", () => {
+  const sample = Array.from({ length: 9 }, (_, index) => ({ id: `q-${index + 1}` }));
+  const first = selectKidsDailyItems(sample, {
+    count: 5,
+    localDate: "2026-08-09",
+    scope: "sample",
+  });
+  const replay = selectKidsDailyItems(sample, {
+    count: 5,
+    localDate: "2026-08-09",
+    scope: "sample",
+  });
+  const tomorrow = selectKidsDailyItems(sample, {
+    count: 5,
+    localDate: "2026-08-10",
+    scope: "sample",
+  });
+
+  assert.deepEqual(replay, first);
+  assert.notDeepEqual(tomorrow.map(({ id }) => id), first.map(({ id }) => id));
+  assert.equal(new Set(first.map(({ id }) => id)).size, 5);
+
+  Object.entries(SUBJECTS_BY_AGE_BAND).forEach(([gradeBand, subjects]) => {
+    subjects.forEach((subject) => {
+      const packs = getFallbackKidsPacks(gradeBand, subject, "2026-08-09");
+      assert.ok(packs.length >= 3, `${gradeBand}:${subject}`);
+      const boss = buildLocalBossPack(gradeBand, subject, "2026-08-09");
+      assert.equal(boss.items.length, 7, `${gradeBand}:${subject}`);
+      assert.equal(new Set(boss.items.map(({ id }) => id)).size, 7);
+    });
+  });
+
+  const today = buildLocalDailyMission("class1-2", createDefaultKidsProgress(), "2026-08-09");
+  const todayReplay = buildLocalDailyMission("class1-2", createDefaultKidsProgress(), "2026-08-09");
+  const nextDay = buildLocalDailyMission("class1-2", createDefaultKidsProgress(), "2026-08-10");
+  assert.deepEqual(todayReplay.items.map(({ id }) => id), today.items.map(({ id }) => id));
+  assert.notDeepEqual(nextDay.items.map(({ id }) => id), today.items.map(({ id }) => id));
+});
+
+test("reconciles server packs without shrinking local games and snapshots the final answer", () => {
+  const local = [
+    { id: "local-a", source: "local" },
+    { id: "shared", source: "local" },
+    { id: "local-b", source: "local" },
+  ];
+  const server = [
+    { id: "shared", source: "server" },
+    { id: "server-a", source: "server" },
+  ];
+  const reconciled = reconcileKidsPacks(local, server);
+
+  assert.deepEqual(reconciled.map(({ id }) => id), ["local-a", "shared", "local-b", "server-a"]);
+  assert.equal(reconciled.find(({ id }) => id === "shared").source, "server");
+  assert.deepEqual(buildKidsResponseSnapshot({ first: "A" }, "last", "B"), {
+    first: "A",
+    last: "B",
+  });
+});
+
+test("counts streaks from completed daily challenges only", () => {
+  assert.equal(calculateKidsDailyStreak([], "2026-08-09"), 0);
+  assert.equal(calculateKidsDailyStreak(["2026-08-09"], "2026-08-09"), 1);
+  assert.equal(calculateKidsDailyStreak(["2026-08-07", "2026-08-08"], "2026-08-09"), 2);
+  assert.equal(calculateKidsDailyStreak(["2026-08-05", "2026-08-07"], "2026-08-09"), 0);
 });
 
 function memoryStorage(initialValue) {
@@ -381,7 +449,7 @@ test("normalizes versioned local state and safely persists only supported fields
   const storage = memoryStorage(JSON.stringify({
     version: KIDS_STORAGE_VERSION,
     progress: { stars: 7, mastery: { Maths: { correct: 2, total: 3, percentage: 67 } } },
-    settings: { language: "hi", timeLimitMinutes: 30 },
+    settings: { language: "hi", timeLimitMinutes: 30, pinHash: "legacy-insecure-hash" },
     selectedAgeBand: "not-a-band",
   }));
   const loaded = loadKidsLocalState(storage, "kids-state");
@@ -392,6 +460,7 @@ test("normalizes versioned local state and safely persists only supported fields
   assert.equal(loaded.settings.language, "hi");
   assert.equal(loaded.settings.timeLimitMinutes, 30);
   assert.equal(loaded.settings.audioEnabled, true);
+  assert.equal("pinHash" in loaded.settings, false);
   assert.equal(loaded.selectedAgeBand, "");
 
   const state = {
@@ -408,6 +477,7 @@ test("normalizes versioned local state and safely persists only supported fields
     "version",
   ]);
   assert.equal(persisted.version, KIDS_STORAGE_VERSION);
+  assert.equal("pinHash" in persisted.settings, false);
   assert.equal(loadKidsLocalState(storage, "kids-state").selectedAgeBand, "class3-5");
 
   assert.equal(loadKidsLocalState(memoryStorage("not-json"), "kids-state"), null);
@@ -429,11 +499,4 @@ test("derives stable user-scoped storage keys and validates parent PINs", () => 
     assert.equal(isValidParentPin(pin), false, pin);
   });
 
-  const hash = hashParentPin("4826");
-  assert.equal(hash, hashParentPin(4826));
-  assert.notEqual(hash, hashParentPin("0000"));
-  assert.equal(verifyParentPin("4826", hash), true);
-  assert.equal(verifyParentPin("0000", hash), false);
-  assert.equal(verifyParentPin("4826", ""), false);
-  assert.equal(verifyParentPin("not-a-pin", hashParentPin("not-a-pin")), false);
 });

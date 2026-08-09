@@ -19,6 +19,12 @@ import {
   summarizeKidsProgress,
   verifyKidsParentPin,
 } from "./kidsLearning.js";
+import {
+  getYoungKidsAccessProfile,
+  grantParentAccess,
+  readParentAccess,
+  revokeParentAccess,
+} from "./kidsParentAccess.js";
 
 const MAX_PROGRESS_ATTEMPTS = 500;
 const PARENT_PIN_FAILURE_LIMIT = 5;
@@ -93,9 +99,50 @@ function kidsRoute(handler) {
   };
 }
 
-async function loadParentSettings(db, userId) {
+function youngKidsProfile(req) {
+  const profile = getYoungKidsAccessProfile(req.user);
+  if (!profile.eligible || !profile.gradeBand) {
+    throw new KidsLearningValidationError(
+      "Kids Play & Learn is available for Kindergarten through Class 3 profiles.",
+      { code: "KIDS_YOUNG_PROFILE_REQUIRED", status: 403 },
+    );
+  }
+  return profile;
+}
+
+function lockedGradeBand(req) {
+  return youngKidsProfile(req).gradeBand;
+}
+
+function rejectGradeBandOverride(value, expectedGradeBand) {
+  if (value === undefined || value === null || value === "") return;
+  const requested = normalizeKidsGradeBand(value);
+  if (requested !== expectedGradeBand) {
+    throw new KidsLearningValidationError(
+      "Kids activities are locked to the learner's registered class.",
+      { code: "KIDS_GRADE_BAND_LOCKED", status: 403 },
+    );
+  }
+}
+
+function rejectParentGradeBandMutation(payload) {
+  if (payload && Object.prototype.hasOwnProperty.call(payload, "gradeBand")) {
+    throw new KidsLearningValidationError(
+      "The Kids learning level comes from the registered class and cannot be changed here.",
+      { code: "KIDS_GRADE_BAND_LOCKED" },
+    );
+  }
+}
+
+async function loadParentSettings(db, userId, gradeBand) {
   const document = await db.collection(KIDS_PARENT_SETTINGS_COLLECTION).findOne({ userId });
-  return { document, settings: normalizeKidsParentSettings(document || {}) };
+  return {
+    document,
+    settings: {
+      ...normalizeKidsParentSettings(document || {}),
+      gradeBand,
+    },
+  };
 }
 
 async function loadAttempts(db, userId) {
@@ -106,9 +153,9 @@ async function loadAttempts(db, userId) {
     .toArray();
 }
 
-async function loadProgress(db, userId, now, todayKey = null) {
+async function loadProgress(db, userId, now, todayKey = null, gradeBand) {
   const [{ settings }, attempts] = await Promise.all([
-    loadParentSettings(db, userId),
+    loadParentSettings(db, userId, gradeBand),
     loadAttempts(db, userId),
   ]);
   return summarizeKidsProgress(attempts, { now, settings, todayKey });
@@ -135,9 +182,9 @@ function rewardFromAttempt(document) {
   };
 }
 
-async function attemptResponse({ db, document, now, replayed = false }) {
+async function attemptResponse({ db, document, now, gradeBand, replayed = false }) {
   const pack = getKidsPack(document.packId);
-  const progress = await loadProgress(db, document.userId, now, document.localDate);
+  const progress = await loadProgress(db, document.userId, now, document.localDate, gradeBand);
   return {
     replayed,
     attempt: publicKidsAttempt(document),
@@ -148,8 +195,7 @@ async function attemptResponse({ db, document, now, replayed = false }) {
   };
 }
 
-function missionForSettings(settings, query, now) {
-  const gradeBand = normalizeKidsGradeBand(query.gradeBand || query.ageBand || settings.gradeBand);
+function missionForSettings(settings, query, now, gradeBand) {
   const subject = normalizeKidsSubject(query.subject, { optional: true });
   return chooseKidsDailyMission({
     gradeBand,
@@ -181,7 +227,8 @@ export function registerKidsLearningRoutes(app, {
   now = () => new Date(),
 }) {
   app.get("/api/kids/packs", requireAuth(kidsRoute(async (req, res) => {
-    const gradeBand = req.query.gradeBand || req.query.ageBand;
+    const gradeBand = lockedGradeBand(req);
+    rejectGradeBandOverride(req.query.gradeBand || req.query.ageBand, gradeBand);
     const packs = listKidsPacks({
       gradeBand,
       subject: req.query.subject,
@@ -191,7 +238,7 @@ export function registerKidsLearningRoutes(app, {
     return res.json({
       version: KIDS_CONTENT_VERSION,
       filters: {
-        gradeBand: gradeBand ? normalizeKidsGradeBand(gradeBand) : null,
+        gradeBand,
         subject: req.query.subject ? normalizeKidsSubject(req.query.subject) : null,
         gameType: req.query.gameType || null,
       },
@@ -200,6 +247,7 @@ export function registerKidsLearningRoutes(app, {
   })));
 
   app.get("/api/kids/packs/:id", requireAuth(kidsRoute(async (req, res) => {
+    const gradeBand = lockedGradeBand(req);
     const pack = getKidsPack(req.params.id);
     if (!pack) {
       return res.status(404).json({
@@ -207,30 +255,41 @@ export function registerKidsLearningRoutes(app, {
         code: "KIDS_PACK_NOT_FOUND",
       });
     }
+    if (pack.gradeBand !== gradeBand) {
+      throw new KidsLearningValidationError(
+        "That activity is not available for the learner's registered class.",
+        { code: "KIDS_PACK_GRADE_MISMATCH", status: 403 },
+      );
+    }
     res.set("Cache-Control", "private, max-age=300");
     return res.json({ version: KIDS_CONTENT_VERSION, pack: publicKidsPack(pack) });
   })));
 
   app.get("/api/kids/progress", requireAuth(kidsRoute(async (req, res) => {
+    const gradeBand = lockedGradeBand(req);
     const db = await getDb();
-    const progress = await loadProgress(db, req.user._id, now(), req.query.localDate);
+    const progress = await loadProgress(db, req.user._id, now(), req.query.localDate, gradeBand);
     res.set("Cache-Control", "no-store");
     return res.json({ progress });
   })));
 
   app.get("/api/kids/daily-mission", requireAuth(kidsRoute(async (req, res) => {
+    const gradeBand = lockedGradeBand(req);
+    rejectGradeBandOverride(req.query.gradeBand || req.query.ageBand, gradeBand);
     const db = await getDb();
-    const { settings } = await loadParentSettings(db, req.user._id);
-    const mission = missionForSettings(settings, req.query, now());
+    const { settings } = await loadParentSettings(db, req.user._id, gradeBand);
+    const mission = missionForSettings(settings, req.query, now(), gradeBand);
     res.set("Cache-Control", "no-store");
     return res.json({ date: mission.missionDate, mission });
   })));
 
   app.get("/api/kids/profile", requireAuth(kidsRoute(async (req, res) => {
+    const gradeBand = lockedGradeBand(req);
+    rejectGradeBandOverride(req.query.gradeBand || req.query.ageBand, gradeBand);
     const db = await getDb();
     const currentTime = now();
     const [{ settings }, attempts] = await Promise.all([
-      loadParentSettings(db, req.user._id),
+      loadParentSettings(db, req.user._id, gradeBand),
       loadAttempts(db, req.user._id),
     ]);
     const progress = summarizeKidsProgress(attempts, {
@@ -238,7 +297,11 @@ export function registerKidsLearningRoutes(app, {
       settings,
       todayKey: req.query.localDate,
     });
-    const dailyMission = missionForSettings(settings, req.query, currentTime);
+    const dailyMission = missionForSettings(settings, req.query, currentTime, gradeBand);
+    const parentAccess = await readParentAccess(db, req.sessionToken, {
+      parentPinConfigured: settings.parentPinConfigured,
+      now: currentTime,
+    });
     res.set("Cache-Control", "no-store");
     return res.json({
       profile: {
@@ -250,11 +313,19 @@ export function registerKidsLearningRoutes(app, {
       settings,
       progress,
       dailyMission,
+      parentAccess,
     });
   })));
 
   app.post("/api/kids/attempts", requireAuth(kidsRoute(async (req, res) => {
+    const gradeBand = lockedGradeBand(req);
     const { pack, responses, durationSeconds, clientAttemptId, mode, localDate } = normalizeKidsAttemptSubmission(req.body);
+    if (pack.gradeBand !== gradeBand) {
+      throw new KidsLearningValidationError(
+        "That activity is not available for the learner's registered class.",
+        { code: "KIDS_PACK_GRADE_MISMATCH", status: 403 },
+      );
+    }
     const db = await getDb();
     const attempts = db.collection(KIDS_ATTEMPTS_COLLECTION);
     const userId = req.user._id;
@@ -264,7 +335,13 @@ export function registerKidsLearningRoutes(app, {
       const existing = await attempts.findOne({ userId, clientAttemptId });
       if (existing) {
         res.set("Cache-Control", "no-store");
-        return res.json(await attemptResponse({ db, document: existing, now: completedAt, replayed: true }));
+        return res.json(await attemptResponse({
+          db,
+          document: existing,
+          now: completedAt,
+          gradeBand,
+          replayed: true,
+        }));
       }
     }
 
@@ -285,11 +362,10 @@ export function registerKidsLearningRoutes(app, {
           code: "KIDS_LOCAL_DATE_OUT_OF_RANGE",
         });
       }
-      const { settings } = await loadParentSettings(db, userId);
+      const { settings } = await loadParentSettings(db, userId, gradeBand);
       const expectedMission = missionForSettings(settings, {
-        gradeBand: pack.gradeBand,
         localDate,
-      }, completedAt);
+      }, completedAt, gradeBand);
       if (expectedMission.id !== pack.id) {
         throw new KidsLearningValidationError("Complete today's assigned mission to earn the Daily bonus.", {
           code: "KIDS_DAILY_MISSION_MISMATCH",
@@ -309,7 +385,7 @@ export function registerKidsLearningRoutes(app, {
     }
 
     if (mode === "retry") {
-      const currentProgress = await loadProgress(db, userId, completedAt, localDate);
+      const currentProgress = await loadProgress(db, userId, completedAt, localDate, gradeBand);
       const allowedRetryItems = new Set(
         (currentProgress.retryQueue || []).map((entry) => `${entry.packId}:${entry.itemId || entry.id}`),
       );
@@ -369,7 +445,13 @@ export function registerKidsLearningRoutes(app, {
         const existing = await attempts.findOne({ userId, clientAttemptId });
         if (existing) {
           res.set("Cache-Control", "no-store");
-          return res.json(await attemptResponse({ db, document: existing, now: completedAt, replayed: true }));
+          return res.json(await attemptResponse({
+            db,
+            document: existing,
+            now: completedAt,
+            gradeBand,
+            replayed: true,
+          }));
         }
       }
       if (mode === "daily") {
@@ -382,35 +464,71 @@ export function registerKidsLearningRoutes(app, {
     }
 
     res.set("Cache-Control", "no-store");
-    return res.status(201).json(await attemptResponse({ db, document, now: completedAt }));
+    return res.status(201).json(await attemptResponse({
+      db,
+      document,
+      now: completedAt,
+      gradeBand,
+    }));
   })));
 
   app.get("/api/kids/parent-settings", requireAuth(kidsRoute(async (req, res) => {
+    const gradeBand = lockedGradeBand(req);
     const db = await getDb();
-    const { settings } = await loadParentSettings(db, req.user._id);
+    const currentTime = now();
+    const { settings } = await loadParentSettings(db, req.user._id, gradeBand);
+    const parentAccess = await readParentAccess(db, req.sessionToken, {
+      parentPinConfigured: settings.parentPinConfigured,
+      now: currentTime,
+    });
     res.set("Cache-Control", "no-store");
-    return res.json({ settings });
+    return res.json({ settings, parentAccess });
   })));
 
   app.put("/api/kids/parent-settings", requireAuth(kidsRoute(async (req, res) => {
+    const gradeBand = lockedGradeBand(req);
+    rejectParentGradeBandMutation(req.body);
     const db = await getDb();
     const collection = db.collection(KIDS_PARENT_SETTINGS_COLLECTION);
     const existing = await collection.findOne({ userId: req.user._id });
     const publicSettingKeys = new Set(["language"]);
     const requestedKeys = Object.keys(req.body || {}).filter((key) => key !== "currentParentPin");
     const changesProtectedSettings = requestedKeys.some((key) => !publicSettingKeys.has(key));
+    const hasExistingParentPin = Boolean(existing?.pinHash && existing?.pinSalt);
+    const isCreatingParentPin = Object.prototype.hasOwnProperty.call(req.body || {}, "parentPin");
+    if (!hasExistingParentPin && changesProtectedSettings && !isCreatingParentPin) {
+      return res.status(409).json({
+        error: "Set the parent PIN before changing Kids settings.",
+        code: "KIDS_PARENT_PIN_SETUP_REQUIRED",
+      });
+    }
     const currentTime = now();
-    if (existing?.pinHash && changesProtectedSettings) {
-      if (enforcePinAttemptLimit(req, res, currentTime)) return undefined;
-      if (!verifyKidsParentPin(req.body?.currentParentPin, existing)) {
-        return recordPinFailure(req, res, currentTime, {
-        error: "Verify the current parent PIN before changing Kids settings.",
-        code: "KIDS_PARENT_PIN_REQUIRED",
+    let parentAccess = await readParentAccess(db, req.sessionToken, {
+      parentPinConfigured: hasExistingParentPin,
+      now: currentTime,
+    });
+    if (hasExistingParentPin && changesProtectedSettings) {
+      if (!parentAccess.unlocked) {
+        if (enforcePinAttemptLimit(req, res, currentTime)) return undefined;
+        if (!verifyKidsParentPin(req.body?.currentParentPin, existing)) {
+          return recordPinFailure(req, res, currentTime, {
+            error: "Verify the current parent PIN before changing Kids settings.",
+            code: "KIDS_PARENT_PIN_REQUIRED",
+          });
+        }
+        clearPinFailures(req);
+        parentAccess = await grantParentAccess(db, req.sessionToken, {
+          parentPinConfigured: true,
+          now: currentTime,
         });
       }
-      clearPinFailures(req);
     }
-    const update = prepareKidsParentSettingsUpdate(req.body, existing || {}, currentTime);
+    const update = prepareKidsParentSettingsUpdate(
+      req.body,
+      { ...(existing || {}), gradeBand },
+      currentTime,
+    );
+    update.set.gradeBand = gradeBand;
     const operation = {
       $set: update.set,
       $setOnInsert: { userId: req.user._id, createdAt: currentTime },
@@ -418,11 +536,32 @@ export function registerKidsLearningRoutes(app, {
     };
     await collection.updateOne({ userId: req.user._id }, operation, { upsert: true });
     const stored = await collection.findOne({ userId: req.user._id });
+    const settings = {
+      ...normalizeKidsParentSettings(stored || { ...existing, ...update.set }),
+      gradeBand,
+    };
+    if (req.body?.clearParentPin === true) {
+      parentAccess = await revokeParentAccess(db, req.sessionToken, {
+        parentPinConfigured: false,
+        now: currentTime,
+      });
+    } else if (!hasExistingParentPin && settings.parentPinConfigured) {
+      parentAccess = await grantParentAccess(db, req.sessionToken, {
+        parentPinConfigured: true,
+        now: currentTime,
+      });
+    } else {
+      parentAccess = await readParentAccess(db, req.sessionToken, {
+        parentPinConfigured: settings.parentPinConfigured,
+        now: currentTime,
+      });
+    }
     res.set("Cache-Control", "no-store");
-    return res.json({ settings: normalizeKidsParentSettings(stored || { ...existing, ...update.set }) });
+    return res.json({ settings, parentAccess });
   })));
 
   app.post("/api/kids/parent-settings/verify-pin", requireAuth(kidsRoute(async (req, res) => {
+    lockedGradeBand(req);
     const db = await getDb();
     const document = await db.collection(KIDS_PARENT_SETTINGS_COLLECTION).findOne({ userId: req.user._id });
     if (!document?.pinHash) {
@@ -442,8 +581,38 @@ export function registerKidsLearningRoutes(app, {
       });
     }
     clearPinFailures(req);
+    const parentAccess = await grantParentAccess(db, req.sessionToken, {
+      parentPinConfigured: true,
+      now: currentTime,
+    });
     res.set("Cache-Control", "no-store");
-    return res.json({ verified: true });
+    return res.json({ verified: true, parentAccess });
+  })));
+
+  app.get("/api/kids/parent-access", requireAuth(kidsRoute(async (req, res) => {
+    const gradeBand = lockedGradeBand(req);
+    const db = await getDb();
+    const currentTime = now();
+    const { settings } = await loadParentSettings(db, req.user._id, gradeBand);
+    const parentAccess = await readParentAccess(db, req.sessionToken, {
+      parentPinConfigured: settings.parentPinConfigured,
+      now: currentTime,
+    });
+    res.set("Cache-Control", "no-store");
+    return res.json({ parentAccess });
+  })));
+
+  app.post("/api/kids/parent-access/lock", requireAuth(kidsRoute(async (req, res) => {
+    const gradeBand = lockedGradeBand(req);
+    const db = await getDb();
+    const currentTime = now();
+    const { settings } = await loadParentSettings(db, req.user._id, gradeBand);
+    const parentAccess = await revokeParentAccess(db, req.sessionToken, {
+      parentPinConfigured: settings.parentPinConfigured,
+      now: currentTime,
+    });
+    res.set("Cache-Control", "no-store");
+    return res.json({ parentAccess });
   })));
 }
 

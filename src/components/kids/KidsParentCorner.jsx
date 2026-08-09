@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BarChart3,
   Clock3,
@@ -28,6 +29,11 @@ export default function KidsParentCorner({
   onSave,
   onResetSession,
   onAuthorizePin,
+  onAuthorized,
+  onLock,
+  onOpenSettings,
+  requiredSetup = false,
+  sessionAuthorized = false,
 }) {
   const language = settings?.language || "en";
   const copy = getKidsCopy(language);
@@ -44,7 +50,7 @@ export default function KidsParentCorner({
   const [authorizedPin, setAuthorizedPin] = useState("");
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
-  const hasPin = Boolean(settings?.parentPinConfigured || settings?.pinHash);
+  const hasPin = Boolean(settings?.parentPinConfigured);
 
   useEffect(() => {
     if (!open) return;
@@ -54,7 +60,7 @@ export default function KidsParentCorner({
     setPinError("");
     setSavedMessage("");
     setSaveError("");
-    setUnlocked(false);
+    setUnlocked(Boolean(sessionAuthorized));
     setAuthorizedPin("");
     setWorking(false);
     window.setTimeout(() => dialogRef.current?.focus(), 0);
@@ -64,13 +70,22 @@ export default function KidsParentCorner({
         window.setTimeout(() => previousFocus.focus(), 0);
       }
     };
+  }, [open, sessionAuthorized]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
   }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
-        onClose();
+        if (!requiredSetup || unlocked) onClose();
         return;
       }
       if (event.key !== "Tab") return;
@@ -94,7 +109,7 @@ export default function KidsParentCorner({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, open]);
+  }, [onClose, open, requiredSetup, unlocked]);
 
   const overview = useMemo(() => {
     const masteryValues = Object.values(progress?.mastery || {}).map((entry) => Number(entry?.percentage) || 0);
@@ -127,6 +142,15 @@ export default function KidsParentCorner({
       setAuthorizedPin(pin);
       setUnlocked(true);
       setPin("");
+      onAuthorized?.(outcome);
+      if (!hasPin) {
+        try {
+          window.sessionStorage.removeItem("prepmatrix_kids_pin_setup_pending");
+        } catch {
+          // The server-backed parent access state remains authoritative.
+        }
+        window.dispatchEvent(new CustomEvent("prepmatrixKidsPinSetupComplete"));
+      }
       if (outcome.offline) {
         setSavedMessage("Parent controls are available offline and will sync later.");
       }
@@ -152,9 +176,9 @@ export default function KidsParentCorner({
     }
   };
 
-  return (
+  return createPortal(
     <div className="kids-parent-backdrop" onMouseDown={(event) => {
-      if (event.currentTarget === event.target) onClose();
+      if (event.currentTarget === event.target && (!requiredSetup || unlocked)) onClose();
     }}>
       <section
         aria-labelledby="kids-parent-title"
@@ -172,7 +196,9 @@ export default function KidsParentCorner({
               <h2 id="kids-parent-title">{copy.parentCorner}</h2>
             </div>
           </div>
-          <button aria-label="Close Parent Corner" onClick={onClose} type="button"><X aria-hidden="true" size={20} /></button>
+          {(!requiredSetup || unlocked) ? (
+            <button aria-label="Close Parent Corner" onClick={onClose} type="button"><X aria-hidden="true" size={20} /></button>
+          ) : null}
         </header>
 
         {!unlocked ? (
@@ -287,10 +313,19 @@ export default function KidsParentCorner({
 
         {unlocked && (
           <footer>
-            <button onClick={() => setUnlocked(false)} type="button"><Lock aria-hidden="true" size={16} /> {copy.lock}</button>
+            {onOpenSettings ? (
+              <button className="kids-parent-settings-link" onClick={onOpenSettings} type="button">
+                Open Settings
+              </button>
+            ) : null}
+            <button onClick={async () => {
+              await onLock?.();
+              setUnlocked(false);
+            }} type="button"><Lock aria-hidden="true" size={16} /> {copy.lock}</button>
           </footer>
         )}
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

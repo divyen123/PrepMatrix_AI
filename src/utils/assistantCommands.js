@@ -1,31 +1,13 @@
-import { isMaterialSuggestionRequest } from "./chatMaterialSuggestions.js";
+import {
+  buildHomeNavigationRoute,
+  resolveHomeNavigationCommand,
+} from "./homeNavigationCommands.js";
 
 const MOTIVATION_LINES = [
   "You are building real momentum. Stay with it.",
   "Consistency beats intensity. Keep going.",
   "One focused session now will make revision easier later.",
   "You are closer than you think. Finish the next task.",
-];
-
-const NAVIGATION_TARGETS = [
-  { label: "Dashboard", route: "/dashboard", aliases: ["dashboard", "home", "main page"] },
-  { label: "Kids Play & Learn", route: "/kids", aliases: ["kids", "kids zone", "play and learn", "learning games", "game world"] },
-  { label: "Subjects", route: "/subjects", aliases: ["subjects", "subject", "subject library"] },
-  { label: "Planner", route: "/planner", aliases: ["planner", "schedule", "study schedule", "timetable", "time table"] },
-  { label: "Analytics", route: "/analytics", aliases: ["analytics", "performance", "signals", "patterns"] },
-  { label: "Notes", route: "/notes", aliases: ["notes", "note", "doubts", "doubt board", "left topics"] },
-  { label: "Materials", route: "/resources", aliases: ["materials", "resources", "learning materials", "study materials"] },
-];
-
-const NAVIGATION_PATTERNS = [
-  /\bgo(?:\s+to)?\b/,
-  /\bopen\b/,
-  /\bshow\b/,
-  /\btake\s+me\s+to\b/,
-  /\bnavigate(?:\s+to)?\b/,
-  /\bswitch(?:\s+to)?\b/,
-  /\bmove(?:\s+to)?\b/,
-  /\bvisit\b/,
 ];
 
 export function normalizeAssistantText(text = "") {
@@ -68,24 +50,13 @@ function getWeakSubjectReply(metrics) {
     : "No weak subject stands out yet.";
 }
 
-function resolveNavigationTarget(normalized) {
-  const hasNavigationIntent = NAVIGATION_PATTERNS.some((pattern) => pattern.test(normalized));
-
-  if (!hasNavigationIntent) {
-    return null;
-  }
-
-  return NAVIGATION_TARGETS.find((target) =>
-    target.aliases.some((alias) => normalized.includes(alias))
-  ) || null;
-}
-
 export function resolveLocalAssistantCommand(rawText, options = {}) {
   const {
     metrics,
     setDarkMode,
     onReset,
     navigate,
+    availableRoutes,
   } = options;
 
   const normalized = normalizeAssistantText(rawText);
@@ -121,14 +92,18 @@ export function resolveLocalAssistantCommand(rawText, options = {}) {
       mode: "system",
     };
   }
-  const navigationTarget = resolveNavigationTarget(normalized);
-  const isResourceSuggestion = navigationTarget?.route === "/resources"
-    && isMaterialSuggestionRequest(rawText);
-
-  if (navigationTarget && !isResourceSuggestion) {
-    navigate?.(navigationTarget.route);
+  const navigationTarget = resolveHomeNavigationCommand(rawText, {
+    availableRoutes,
+    allowContentIntents: false,
+  });
+  if (navigationTarget) {
+    navigate?.(buildHomeNavigationRoute(navigationTarget));
+    const navigationLabel = navigationTarget.route === "/kids"
+      && navigationTarget.label === "Play & Learn"
+      ? "Kids Play & Learn"
+      : navigationTarget.label;
     return {
-      response: `Opening ${navigationTarget.label}.`,
+      response: `Opening ${navigationLabel}.`,
       mode: "system",
     };
   }
@@ -265,8 +240,4 @@ export function buildFallbackReply(message, metrics) {
     "The AI chat service is unavailable right now, but your planner data is still available locally."
   );
 }
-
-
-
-
 

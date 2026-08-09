@@ -53,6 +53,7 @@ import {
   normalizeAcademicProfile,
 } from "./utils/academicProfile";
 import { getLearnerRoutePolicy } from "./utils/learnerRouting";
+import { getLearningCareerEligibility } from "./utils/learningNotebook";
 import {
   getResumeEligibility,
   normalizeResumeBuilderState,
@@ -104,6 +105,8 @@ const StartLearningPage = lazyRetry(() => import("./pages/StartLearningPage"));
 const PlannerPage = lazyRetry(() => import("./pages/PlannerPage"));
 const QuizPage = lazyRetry(() => import("./pages/QuizPage"));
 const KidsLearningPage = lazyRetry(() => import("./pages/KidsLearningPage"));
+const KidsStartLearningPage = lazyRetry(() => import("./pages/KidsStartLearningPage"));
+const SchoolKnowledgePage = lazyRetry(() => import("./pages/SchoolKnowledgePage"));
 const ReportPage = lazyRetry(() => import("./pages/ReportPage"));
 const ResourcesPage = lazyRetry(() => import("./pages/ResourcesPage"));
 const SubjectsPage = lazyRetry(() => import("./pages/SubjectsPage"));
@@ -121,6 +124,11 @@ const TOPBAR_HIDE_DELAY_MS = 3500;
 const NOTIFICATION_INTENT_KEY = "prepmatrix_notifications_enabled";
 const TOPBAR_AUTO_HIDE_STORAGE_KEY = "prepmatrix_topbar_auto_hide";
 const NOTIFICATION_RECONCILE_RETRY_DELAYS_MS = [4000, 15000];
+const LOCKED_KIDS_PARENT_ACCESS = Object.freeze({
+  unlocked: false,
+  expiresAt: null,
+  setupRequired: null,
+});
 const DEFINITIVE_NOTIFICATION_ERROR_CODES = new Set([
   "unsupported",
   "insecure-context",
@@ -164,7 +172,14 @@ const NAV_ITEMS = [
   },
 ];
 
-const KIDS_SAFE_NAV_ROUTES = new Set(["/kids"]);
+const YOUNG_KIDS_NAV_ROUTES = new Set([
+  "/kids",
+  "/dashboard",
+  "/learn",
+  "/planner",
+  "/analytics",
+  "/report",
+]);
 
 function getTaskNames(schedule = []) {
   return schedule.flatMap((day) => day.tasks?.map((task) => task.task) || []);
@@ -319,6 +334,7 @@ function App() {
     return false;
   });
   const [userProfile, setUserProfile] = useState(null);
+  const [kidsParentAccess, setKidsParentAccess] = useState(LOCKED_KIDS_PARENT_ACCESS);
   const [authLoading, setAuthLoading] = useState(true);
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [notification, setNotification] = useState("");
@@ -401,6 +417,49 @@ function App() {
     [academicLevel, academicTrack, userProfile],
   );
   const isKidsLearner = learnerRoutePolicy.isKidsLearner;
+  const userIdentity = userProfile?.id || userProfile?._id || userProfile?.email || "";
+  const updateKidsParentAccess = useCallback((value = {}) => {
+    const parentAccess = value?.parentAccess || value;
+    setKidsParentAccess((current) => ({
+      ...current,
+      unlocked: Boolean(parentAccess?.unlocked),
+      expiresAt: parentAccess?.expiresAt || null,
+      setupRequired: typeof parentAccess?.setupRequired === "boolean"
+        ? parentAccess.setupRequired
+        : current.setupRequired,
+    }));
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!userIdentity || !learnerRoutePolicy.isYoungKidsLearner) {
+      setKidsParentAccess(LOCKED_KIDS_PARENT_ACCESS);
+      return undefined;
+    }
+
+    api.get("/api/kids/parent-access")
+      .then((payload) => {
+        if (active) updateKidsParentAccess(payload);
+      })
+      .catch(() => {
+        if (active) setKidsParentAccess(LOCKED_KIDS_PARENT_ACCESS);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [learnerRoutePolicy.isYoungKidsLearner, updateKidsParentAccess, userIdentity]);
+
+  useEffect(() => {
+    if (!kidsParentAccess.unlocked || !kidsParentAccess.expiresAt) return undefined;
+    const expiresAt = new Date(kidsParentAccess.expiresAt).getTime();
+    if (!Number.isFinite(expiresAt)) return undefined;
+    const delay = Math.max(0, expiresAt - Date.now());
+    const timer = window.setTimeout(() => {
+      setKidsParentAccess((current) => ({ ...current, unlocked: false, expiresAt: null }));
+    }, Math.min(delay + 100, 2_147_483_647));
+    return () => window.clearTimeout(timer);
+  }, [kidsParentAccess.expiresAt, kidsParentAccess.unlocked]);
 
   const voiceAssistant = useVoiceAssistant({
     academicLevel,
@@ -424,15 +483,70 @@ function App() {
     }),
     [academicLevel, academicTrack, userProfile]
   );
+  const learningCareerEligibility = useMemo(
+    () => getLearningCareerEligibility({
+      ...(userProfile || {}),
+      academicLevel,
+      academicTrack,
+    }),
+    [academicLevel, academicTrack, userProfile]
+  );
   const visibleNavItems = useMemo(
-    () => NAV_ITEMS.filter(
-      (item) => (
-        (!item.resumeOnly || (userProfile && resumeEligibility.enabled))
-        && (!item.kidsOnly || isKidsLearner)
-        && (!isKidsLearner || KIDS_SAFE_NAV_ROUTES.has(item.to))
+    () => NAV_ITEMS
+      .filter(
+        (item) => (
+          (!item.resumeOnly || (userProfile && resumeEligibility.enabled))
+          && (!item.kidsOnly || learnerRoutePolicy.canAccessKidsRoute)
+          && (!learnerRoutePolicy.isYoungKidsLearner || YOUNG_KIDS_NAV_ROUTES.has(item.to))
+        )
       )
-    ),
-    [isKidsLearner, resumeEligibility.enabled, userProfile]
+      .map((item) => (
+        item.to === "/kids" && learnerRoutePolicy.isSchoolChallengeLearner
+          ? { ...item, label: "Knowledge Quest", helper: "Daily General Knowledge and personal scores" }
+          : item
+      )),
+    [learnerRoutePolicy, resumeEligibility.enabled, userProfile]
+  );
+  const dashboardAvailableRoutes = useMemo(() => {
+    const visibleRoutes = new Set(visibleNavItems.map((item) => item.to));
+    const contentRoutes = [
+      ...(visibleRoutes.has("/dashboard") ? [
+        "/dashboard#smart-suggestions",
+        "/dashboard#progress-status",
+        "/dashboard#weekly-review",
+      ] : []),
+      ...(visibleRoutes.has("/subjects") ? ["/subjects#subject-library"] : []),
+      ...(visibleRoutes.has("/learn") && !learnerRoutePolicy.isYoungKidsLearner
+        ? ["/learn#subject-mastery"]
+        : []),
+      ...(visibleRoutes.has("/learn") && learningCareerEligibility.enabled
+        ? ["/learn#placement-prep"]
+        : []),
+      ...(visibleRoutes.has("/analytics") ? ["/analytics#topic-progress"] : []),
+      ...(visibleRoutes.has("/resume-builder")
+        ? ["/resume-builder#resume-history"]
+        : []),
+    ];
+
+    return [
+      ...visibleNavItems,
+      ...contentRoutes,
+      "/settings",
+      ...(!isKidsLearner ? [
+        "/exam",
+        "/exam/about",
+        "/notification-history",
+        "/about",
+      ] : []),
+    ];
+  }, [
+    isKidsLearner,
+    learnerRoutePolicy.isYoungKidsLearner,
+    learningCareerEligibility.enabled,
+    visibleNavItems,
+  ]);
+  const standardOnlyRoute = (element) => (
+    isKidsLearner ? <Navigate replace to={learnerRoutePolicy.homeRoute} /> : element
   );
   const activeRoute = visibleNavItems.find((item) => location.pathname.startsWith(item.to));
   const titleLabel = activeRoute?.label || (
@@ -1339,18 +1453,20 @@ function App() {
                   <span>Exam</span>
                 </NavLink>
               </div>
-              <Chatbot
-                academicLevel={academicLevel}
-                academicTrack={academicTrack}
-                completed={completed}
-                materialBookmarks={materialBookmarks}
-                onReset={resetPlanner}
-                onSaveBookmark={saveMaterialBookmark}
-                schedule={schedule}
-                setDarkMode={setDarkMode}
-                subjects={subjects}
-              />
             </>)}
+            <Chatbot
+              academicLevel={academicLevel}
+              academicTrack={academicTrack}
+              availableRoutes={dashboardAvailableRoutes}
+              childMode={isKidsLearner}
+              completed={completed}
+              materialBookmarks={materialBookmarks}
+              onReset={resetPlanner}
+              onSaveBookmark={saveMaterialBookmark}
+              schedule={schedule}
+              setDarkMode={setDarkMode}
+              subjects={subjects}
+            />
             {!isKidsLearner && <Link
               to="/about"
               className="about-info-btn"
@@ -1381,7 +1497,7 @@ function App() {
                 <span>{userProfile.academicLevel}</span>
               </div>
             </div>
-            {!isKidsLearner && <NavLink
+            {(!isKidsLearner || kidsParentAccess.unlocked) && <NavLink
               to="/settings"
               className={({ isActive }) =>
                 isActive ? "settings-icon-btn active" : "settings-icon-btn"
@@ -1584,11 +1700,14 @@ function App() {
                   <Routes>
                     {userProfile ? (
                       <>
-                        {!isKidsLearner && <Route
+                        <Route
                           element={
                             <DashboardPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
+                              childMode={learnerRoutePolicy.isYoungKidsLearner}
+                              availableRoutes={dashboardAvailableRoutes}
+                              homeRoute={learnerRoutePolicy.homeRoute}
                               completed={completed}
                               metrics={metrics}
                               overviewCards={overviewCards}
@@ -1600,15 +1719,25 @@ function App() {
                             />
                           }
                           path="/dashboard"
-                        />}
+                        />
                         <Route
                           element={
-                            isKidsLearner ? (
+                            learnerRoutePolicy.isYoungKidsLearner ? (
                               <KidsLearningPage
                                 academicLevel={academicLevel}
                                 academicTrack={academicTrack}
+                                onParentAccessChange={updateKidsParentAccess}
+                                parentAccess={kidsParentAccess}
                                 subjects={subjects}
                                 userProfile={userProfile}
+                              />
+                            ) : learnerRoutePolicy.isSchoolChallengeLearner ? (
+                              <SchoolKnowledgePage
+                                grade={learnerRoutePolicy.academicProfile.grade}
+                                userProfile={{
+                                  ...userProfile,
+                                  ...learnerRoutePolicy.academicProfile,
+                                }}
                               />
                             ) : (
                               <Navigate replace to={learnerRoutePolicy.homeRoute} />
@@ -1616,10 +1745,10 @@ function App() {
                           }
                           path="/kids"
                         />
-                        {!isKidsLearner && (
+                        {(
                           <>
                         <Route
-                          element={
+                          element={standardOnlyRoute(
                             <SubjectsPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
@@ -1630,25 +1759,35 @@ function App() {
                               subjects={subjects}
                               userProfile={userProfile}
                             />
-                          }
+                          )}
                           path="/subjects"
                         />
                         <Route
                           element={
                             <LearningRouteBoundary>
-                              <StartLearningPage
-                                academicLevel={academicLevel}
-                                academicTrack={academicTrack}
-                                completed={completed}
-                                schedule={schedule}
-                                scheduleStartDate={scheduleStartDate}
-                                setCompleted={updateCompletedWithRewards}
-                                setNotification={setNotification}
-                                setSchedule={setSchedule}
-                                setSubjects={updateSubjects}
-                                subjects={subjects}
-                                userProfile={userProfile}
-                              />
+                              {learnerRoutePolicy.isYoungKidsLearner ? (
+                                <KidsStartLearningPage
+                                  academicLevel={academicLevel}
+                                  academicTrack={academicTrack}
+                                  setNotification={setNotification}
+                                  subjects={subjects}
+                                  userProfile={userProfile}
+                                />
+                              ) : (
+                                <StartLearningPage
+                                  academicLevel={academicLevel}
+                                  academicTrack={academicTrack}
+                                  completed={completed}
+                                  schedule={schedule}
+                                  scheduleStartDate={scheduleStartDate}
+                                  setCompleted={updateCompletedWithRewards}
+                                  setNotification={setNotification}
+                                  setSchedule={setSchedule}
+                                  setSubjects={updateSubjects}
+                                  subjects={subjects}
+                                  userProfile={userProfile}
+                                />
+                              )}
                             </LearningRouteBoundary>
                           }
                           path="/learn"
@@ -1657,6 +1796,8 @@ function App() {
                           element={
                             <PlannerPage
                               completed={completed}
+                              kidsMode={learnerRoutePolicy.isYoungKidsLearner}
+                              parentAccessGranted={kidsParentAccess.unlocked}
                               schedule={schedule}
                               setCompleted={updateCompletedWithRewards}
                               setSchedule={setSchedule}
@@ -1678,7 +1819,7 @@ function App() {
                           path="/analytics"
                         />
                         <Route
-                          element={
+                          element={standardOnlyRoute(
                             <NotesPage
                               completed={completed}
                               schedule={schedule}
@@ -1687,11 +1828,11 @@ function App() {
                               setNotification={setNotification}
                               setSchedule={setSchedule}
                             />
-                          }
+                          )}
                           path="/notes"
                         />
                         <Route
-                          element={
+                          element={standardOnlyRoute(
                             <QuizPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
@@ -1700,15 +1841,15 @@ function App() {
                               subjects={subjects}
                               userProfile={userProfile}
                             />
-                          }
+                          )}
                           path="/quiz"
                         />
                         <Route
-                          element={<ExamAboutPage />}
+                          element={standardOnlyRoute(<ExamAboutPage />)}
                           path="/exam/about"
                         />
                         <Route
-                          element={
+                          element={standardOnlyRoute(
                             <ExamPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
@@ -1718,7 +1859,7 @@ function App() {
                               tasksToExamEligibility={metrics.tasksToExamEligibility}
                               userProfile={userProfile}
                             />
-                          }
+                          )}
                           path="/exam"
                         />
                         <Route
@@ -1735,7 +1876,9 @@ function App() {
                         />
                         <Route
                           element={
-                            resumeEligibility.enabled ? (
+                            isKidsLearner ? (
+                              <Navigate replace to={learnerRoutePolicy.homeRoute} />
+                            ) : resumeEligibility.enabled ? (
                               <ResumeBuilderPage
                                 academicProfile={{
                                   academicLevel,
@@ -1752,7 +1895,7 @@ function App() {
                           path="/resume-builder"
                         />
                         <Route
-                          element={
+                          element={standardOnlyRoute(
                             <ResourcesPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
@@ -1764,12 +1907,19 @@ function App() {
                               schedule={schedule}
                               subjects={subjects}
                             />
-                          }
+                          )}
                           path="/resources"
                         />
                         <Route
                           element={
-                            <SettingsPage
+                            learnerRoutePolicy.settingsRequiresParentPin && !kidsParentAccess.unlocked ? (
+                              <Navigate
+                                replace
+                                state={{ parentAccess: "settings", returnTo: "/settings" }}
+                                to="/kids"
+                              />
+                            ) : (
+                              <SettingsPage
                               activeVoiceName={voiceAssistant.activeVoiceName}
                               onPreviewVoice={voiceAssistant.previewVoice}
                               setVoicePreferences={voiceAssistant.setVoicePreferences}
@@ -1804,18 +1954,21 @@ function App() {
                               setCursorStyle={setCursorStyle}
                               autoHideTopBar={autoHideTopBar}
                               onAutoHideTopBarChange={handleAutoHideTopBarChange}
+                              kidsParentAccess={kidsParentAccess}
+                              onKidsParentAccessChange={updateKidsParentAccess}
+                              onKidsParentLocked={updateKidsParentAccess}
+                              youngKidsMode={learnerRoutePolicy.isYoungKidsLearner}
                             />
+                            )
                           }
                           path="/settings"
                         />
                         <Route
-                          element={<NotificationHistoryPage />}
+                          element={standardOnlyRoute(<NotificationHistoryPage />)}
                           path="/notification-history"
                         />
                         <Route
-                          element={
-                            <AboutPage />
-                          }
+                          element={standardOnlyRoute(<AboutPage />)}
                           path="/about"
                         />
                           </>

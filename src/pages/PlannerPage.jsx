@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   enableStudyReminders,
@@ -9,7 +10,18 @@ import Reminder from "../components/Reminder";
 import Timetable from "../components/Timetable";
 import WorktreeMapper from "../components/WorktreeMapper";
 
-function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted, scheduleStartDate, setScheduleStartDate }) {
+function PlannerPage({
+  subjects,
+  schedule,
+  setSchedule,
+  completed,
+  setCompleted,
+  scheduleStartDate,
+  setScheduleStartDate,
+  kidsMode = false,
+  parentAccessGranted = true,
+}) {
+  const navigate = useNavigate();
   const [showPermissionBanner, setShowPermissionBanner] = useState(() => {
     return isPushNotificationSupported() && localStorage.getItem("prepmatrix_notifications_enabled") !== "true";
   });
@@ -34,10 +46,10 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
   };
 
   return (
-    <section className="page-stack planner-route-page">
+    <section className={`page-stack planner-route-page${kidsMode ? " is-kids-planner" : ""}`}>
       <div className="section-intro">
-        <span className="section-tag">Planner</span>
-        <h2>Generate, adjust, and recover your schedule</h2>
+        <span className="section-tag">{kidsMode ? "My colorful plan" : "Planner"}</span>
+        <h2>{kidsMode ? "See today's learning path and mark each win" : "Generate, adjust, and recover your schedule"}</h2>
       </div>
 
       {showPermissionBanner && (
@@ -73,7 +85,11 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
       </div>
 
       <Timetable
+        canManageSchedule={!kidsMode || parentAccessGranted}
         completed={completed}
+        onRequestParentAccess={() => navigate("/kids", {
+          state: { parentAccess: "planner", returnTo: "/planner" },
+        })}
         schedule={schedule}
         scheduleStartDate={scheduleStartDate}
         setCompleted={setCompleted}
@@ -82,7 +98,7 @@ function PlannerPage({ subjects, schedule, setSchedule, completed, setCompleted,
         setScheduleStartDate={setScheduleStartDate}
       />
 
-      <WorktreeMapper />
+      <WorktreeMapper variant={kidsMode ? "kids" : "default"} />
     </section>
   );
 }

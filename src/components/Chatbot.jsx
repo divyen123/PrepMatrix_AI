@@ -11,6 +11,7 @@ import {
   normalizeChatMaterialSuggestions,
 } from "../utils/chatMaterialSuggestions";
 import { filterChatSessionsByTitle } from "../utils/chatHistorySearch";
+import { getChatMessageAcceptance } from "../utils/chatMessageBridge";
 import api, { API_BASE } from "../utils/apiClient";
 import {
   CHAT_ATTACHMENT_ACCEPT,
@@ -174,6 +175,7 @@ function ChatMaterialSuggestions({
 function Chatbot({
   academicLevel = "College",
   academicTrack = "General",
+  availableRoutes,
   schedule = [],
   completed = [],
   materialBookmarks = [],
@@ -181,6 +183,7 @@ function Chatbot({
   setDarkMode,
   subjects = [],
   onReset,
+  childMode = false,
 }) {
   const navigate = useNavigate();
   const { hasInsufficientCredits } = useAiQuota();
@@ -667,19 +670,25 @@ function Chatbot({
 
   const sendMessage = useCallback(
     async (message = input, options = {}) => {
-      const selectedAttachments = Array.isArray(options.attachments) ? options.attachments : attachments;
+      const selectedAttachments = childMode
+        ? []
+        : (Array.isArray(options.attachments) ? options.attachments : attachments);
       const cleanMessage = typeof message === "string" ? message.trim() : "";
       const finalMessage = cleanMessage || (selectedAttachments.length ? DEFAULT_ATTACHMENT_PROMPT : "");
-
-      if (!finalMessage || loading || preparingAttachments || isSendingRef.current) {
-        return;
-      }
+      const acceptance = getChatMessageAcceptance({
+        attachmentCount: selectedAttachments.length,
+        loading,
+        message: finalMessage,
+        preparingAttachments,
+        sending: isSendingRef.current,
+      });
+      if (!acceptance.accepted) return acceptance;
 
       const messageAttachments = selectedAttachments.map((attachment) => ({
         ...chatAttachmentMetadata(attachment),
         ...(attachment.type.startsWith("image/") ? { dataUrl: attachment.dataUrl } : {}),
       }));
-      const materialSuggestions = selectedAttachments.length
+      const materialSuggestions = childMode || selectedAttachments.length
         ? []
         : buildChatMaterialSuggestions({
             academicLevel,
@@ -699,10 +708,12 @@ function Chatbot({
       setInput(options.keepInput ? cleanMessage : "");
       setAttachments([]);
       setAttachmentError("");
+      options.onAccepted?.(acceptance);
 
-      const localCommand = selectedAttachments.length
+      const localCommand = childMode || selectedAttachments.length
         ? null
         : resolveLocalAssistantCommand(finalMessage, {
+            availableRoutes,
             metrics,
             onReset,
             setDarkMode,
@@ -718,7 +729,7 @@ function Chatbot({
             text: localCommand.response,
           },
         ]);
-        return;
+        return acceptance;
       }
 
       if (hasInsufficientCredits(AI_FEATURES.CHAT)) {
@@ -730,7 +741,7 @@ function Chatbot({
           text: getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }),
           ...(materialSuggestions.length ? { materials: materialSuggestions } : {}),
         }]);
-        return;
+        return acceptance;
       }
 
       const requestId = ++chatRequestSeqRef.current;
@@ -758,7 +769,7 @@ function Chatbot({
           timeoutMs: selectedAttachments.length ? 105000 : 30000,
           headers: { "Idempotency-Key": createAiIdempotencyKey() },
         });
-        if (!isCurrentRequest()) return;
+        if (!isCurrentRequest()) return acceptance;
 
         const reply = payload.reply?.trim() || "I couldn't generate a response for that request.";
         const returnedMaterials = normalizeChatMaterialSuggestions(payload.materials);
@@ -809,7 +820,7 @@ function Chatbot({
           message: "",
         });
       } catch (err) {
-        if (!isCurrentRequest()) return;
+        if (!isCurrentRequest()) return acceptance;
         console.error("Study assistant error:", err);
         const errorMessage = getAiRequestErrorMessage(err, "Unable to reach the AI assistant.");
         const isApiError = err instanceof Error && err.message && err.message !== "Failed to fetch";
@@ -836,6 +847,7 @@ function Chatbot({
           setLoading(false);
         }
       }
+      return acceptance;
     },
     [
       activeSessionId,
@@ -843,6 +855,8 @@ function Chatbot({
       academicTrack,
       assistantStatus.model,
       attachments,
+      availableRoutes,
+      childMode,
       fetchHistorySearch,
       fetchSessions,
       historySearchQuery,
@@ -898,7 +912,26 @@ function Chatbot({
 
     window.sendToChatbot = (voiceText) => {
       setOpen(true);
-      sendMessage(voiceText);
+      return new Promise((resolve) => {
+        let settled = false;
+        const settle = (result) => {
+          if (settled) return;
+          settled = true;
+          resolve(result || {
+            accepted: false,
+            reason: "error",
+            message: "The AI assistant could not accept that message.",
+          });
+        };
+
+        Promise.resolve(sendMessage(voiceText, { onAccepted: settle }))
+          .then(settle)
+          .catch(() => settle({
+            accepted: false,
+            reason: "error",
+            message: "The AI assistant could not accept that message.",
+          }));
+      });
     };
 
     window.openStudyAssistant = () => setOpen(true);
@@ -909,11 +942,6 @@ function Chatbot({
       window.requestAnimationFrame(() => {
         fileInputRef.current?.click();
       });
-    };
-
-    // Allow the dashboard search bar to start/stop the chatbot's mic
-    window.toggleChatMic = () => {
-      window.requestAnimationFrame(() => handleMicClick());
     };
 
     window.addChatbotAttachments = (files) => {
@@ -930,7 +958,6 @@ function Chatbot({
       delete window.sendToChatbot;
       delete window.openStudyAssistant;
       delete window.triggerChatAttachment;
-      delete window.toggleChatMic;
       delete window.addChatbotAttachments;
       delete window.removeChatbotAttachment;
     };
@@ -980,7 +1007,7 @@ function Chatbot({
     return () => window.removeEventListener("voiceRecordingChange", handler);
   }, []);
 
-  const handleMicClick = () => {
+  const handleMicClick = useCallback(() => {
     const activeRecognition = chatRecognitionRef.current;
     if (activeRecognition) {
       try {
@@ -1075,7 +1102,16 @@ function Chatbot({
         resumeWakeAfterChatMicRef.current = false;
       }
     }
-  };
+  }, [sendMessage]);
+
+  useEffect(() => {
+    window.toggleChatMic = () => {
+      window.requestAnimationFrame(() => handleMicClick());
+    };
+    return () => {
+      delete window.toggleChatMic;
+    };
+  }, [handleMicClick]);
 
   const companionStatus = useMemo(() => {
     if (isVoiceRecording) {
@@ -1452,17 +1488,19 @@ function Chatbot({
                       </div>
                     ) : null}
                     {formatMessageText(message.text)}
-                    <ChatMaterialSuggestions
-                      academicLevel={academicLevel}
-                      academicTrack={academicTrack}
-                      materials={message.materials}
-                      onOpenMaterials={() => {
-                        setOpen(false);
-                        navigate("/resources");
-                      }}
-                      onSaveBookmark={onSaveBookmark}
-                      savedMaterialLinks={savedMaterialLinks}
-                    />
+                    {!childMode ? (
+                      <ChatMaterialSuggestions
+                        academicLevel={academicLevel}
+                        academicTrack={academicTrack}
+                        materials={message.materials}
+                        onOpenMaterials={() => {
+                          setOpen(false);
+                          navigate("/resources");
+                        }}
+                        onSaveBookmark={onSaveBookmark}
+                        savedMaterialLinks={savedMaterialLinks}
+                      />
+                    ) : null}
                     <button
                       aria-label="Copy chat message"
                       className="chat-message-copy-btn"
@@ -1490,7 +1528,7 @@ function Chatbot({
                   </div>
                 ) : null}
 
-                {attachments.length || preparingAttachments ? (
+                {!childMode && (attachments.length || preparingAttachments) ? (
                   <div aria-label="Selected attachments" className="chat-attachment-tray">
                     {attachments.map((attachment) => (
                       <div className="chat-attachment-chip" key={attachment.id}>
@@ -1542,11 +1580,15 @@ function Chatbot({
                       sendMessage();
                     }
                   }}
-                  placeholder={attachments.length ? "Ask about the attached file..." : "Ask anything..."}
+                  placeholder={
+                    childMode
+                      ? "Ask a learning question..."
+                      : (attachments.length ? "Ask about the attached file..." : "Ask anything...")
+                  }
                   value={input}
                   className="chat-input-field"
                 />
-                <button
+                {!childMode ? <button
                   aria-label="Attach images, PDF, or PowerPoint files"
                   className={`chat-icon-btn chat-upload-btn${attachments.length ? " has-attachments" : ""}`}
                   disabled={loading || preparingAttachments || attachments.length >= MAX_CHAT_ATTACHMENTS}
@@ -1556,7 +1598,7 @@ function Chatbot({
                 >
                   {preparingAttachments ? <Loader2 aria-hidden="true" className="spinner" size={16} /> : <Paperclip aria-hidden="true" size={16} />}
                   {attachments.length ? <span className="chat-upload-count">{attachments.length}</span> : null}
-                </button>
+                </button> : null}
                 <button
                   aria-label={isVoiceRecording ? "Stop recording" : "Start voice recording"}
                   className={`chat-icon-btn chat-mic-btn${isVoiceRecording ? " recording" : ""}`}
@@ -1590,4 +1632,3 @@ function Chatbot({
 }
 
 export default Chatbot;
-

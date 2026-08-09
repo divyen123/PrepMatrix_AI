@@ -1,16 +1,31 @@
-import { useState, useRef, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Search, Lightbulb, BarChart2, CalendarCheck, Mic, Paperclip, UploadCloud, X } from "lucide-react";
+import { createElement, useState, useRef, useCallback, useEffect, useId, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ArrowRight, Search, Lightbulb, BarChart2, CalendarCheck, Mic, Paperclip, UploadCloud, X } from "lucide-react";
 import SmartSuggestion from "../components/SmartSuggestion";
 import ProgressBar1 from "../components/Progressbar1";
 import WeeklyReview from "../components/WeeklyReview";
 import SubjectPlanDialog from "../components/SubjectPlanDialog";
+import {
+  buildHomeNavigationRoute,
+  getHomeNavigationSuggestions,
+  resolveHomeNavigationCommand,
+} from "../utils/homeNavigationCommands";
+import { sendDashboardChatMessage } from "../utils/chatMessageBridge";
 
 const PANEL_BUTTONS = [
   { id: "suggestions", label: "Smart suggestions", icon: Lightbulb },
   { id: "progress",    label: "Progress status",   icon: BarChart2 },
   { id: "review",      label: "Weekly review",      icon: CalendarCheck },
 ];
+
+const DASHBOARD_PANEL_HASHES = {
+  "#progress": "progress",
+  "#progress-status": "progress",
+  "#review": "review",
+  "#smart-suggestions": "suggestions",
+  "#suggestions": "suggestions",
+  "#weekly-review": "review",
+};
 
 const CARD_TONES = [
   { glow: "rgba(11,199,177,0.22)",  labelColor: "#24c7b1", bg: "rgba(11,199,177,0.06)" },
@@ -19,18 +34,89 @@ const CARD_TONES = [
   { glow: "rgba(168,85,247,0.22)",  labelColor: "#c084fc", bg: "rgba(168,85,247,0.06)" },
 ];
 
+function getNextNavigationSuggestionIndex(currentIndex, key, count) {
+  if (!count) return -1;
+  if (key === "ArrowDown") return (currentIndex + 1 + count) % count;
+  if (key === "ArrowUp") return currentIndex <= 0 ? count - 1 : currentIndex - 1;
+  return currentIndex;
+}
+
+function getNavigationOptions(suggestions, navigationCommand, currentRoute) {
+  if (!navigationCommand) return suggestions;
+  const commandRoute = buildHomeNavigationRoute(navigationCommand);
+  if (suggestions.some((suggestion) => buildHomeNavigationRoute(suggestion) === commandRoute)) {
+    return suggestions;
+  }
+
+  return [{
+    ...navigationCommand,
+    description: commandRoute === currentRoute
+      ? `You’re already on ${navigationCommand.label}`
+      : `Open ${navigationCommand.label}`,
+  }, ...suggestions].slice(0, 6);
+}
+
+export function DashboardNavigationSuggestions({
+  activeIndex = -1,
+  currentRoute = "",
+  id,
+  navigationCommand = null,
+  onSelect = () => undefined,
+  query = "",
+  suggestions = [],
+}) {
+  const options = getNavigationOptions(suggestions, navigationCommand, currentRoute);
+
+  return (
+    <div className="db-command-menu" id={id} role="listbox" aria-label="Page shortcuts">
+      <div className="db-command-menu-label" aria-hidden="true" role="presentation">
+        Page shortcuts
+      </div>
+      {options.length ? (
+        options.map((suggestion, index) => (
+          <button
+            aria-selected={activeIndex === index}
+            className={`db-command-option${activeIndex === index ? " db-command-option--active" : ""}`}
+            id={`${id}-option-${index}`}
+            key={`${suggestion.route}-${suggestion.label}`}
+            onClick={() => onSelect(suggestion)}
+            onMouseDown={(event) => event.preventDefault()}
+            role="option"
+            tabIndex={-1}
+            type="button"
+          >
+            <span className="db-command-option-copy">
+              <strong>{suggestion.label}</strong>
+              <small>{suggestion.description || `Open ${suggestion.label}`}</small>
+            </span>
+            <ArrowRight aria-hidden="true" size={16} />
+          </button>
+        ))
+      ) : (
+        <div className="db-command-empty" role="status">
+          <strong>No matching page shortcut</strong>
+          <span>Press Enter to ask the AI about “{query}” instead.</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DashboardPage({
   academicLevel,
   academicTrack,
   overviewCards,
-  metrics,
   schedule,
   completed,
   userProfile,
   subjects = [],
   setSubjects,
   hasActiveSchedule,
+  childMode = false,
+  availableRoutes,
+  homeRoute = "/dashboard",
 }) {
+  const location = useLocation();
   const navigate = useNavigate();
   const [showSubjectsPopup, setShowSubjectsPopup] = useState(false);
   const [activePanel, setActivePanel] = useState(null);
@@ -38,11 +124,35 @@ function DashboardPage({
   const [isRecording, setIsRecording]   = useState(false);
   const [isDragging, setIsDragging]     = useState(false);
   const [attachments, setAttachments] = useState([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [submissionNotice, setSubmissionNotice] = useState("");
   const dragDepthRef = useRef(0);
   const inputRef     = useRef(null);
   const recognitionRef = useRef(null);
+  const panelContentRef = useRef(null);
+  const suggestionListId = useId();
+  const searchHelpId = useId();
 
   const [configureSubject, setConfigureSubject] = useState(null);
+
+  useEffect(() => {
+    const panelId = DASHBOARD_PANEL_HASHES[location.hash.toLowerCase()];
+    if (!panelId) return undefined;
+    if (activePanel !== panelId) {
+      setActivePanel(panelId);
+      return undefined;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      panelContentRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      panelContentRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activePanel, location.hash]);
 
   const saveConfiguration = (updatedSubject) => {
     if (typeof setSubjects === "function") {
@@ -63,6 +173,53 @@ function DashboardPage({
     userProfile?.name?.split(" ")[0] ||
     "there";
 
+  const trimmedSearchInput = searchInput.trim();
+  const currentRoute = `${location.pathname}${location.search}${location.hash}`;
+  const navigationSuggestions = useMemo(
+    () => attachments.length
+      ? []
+      : getHomeNavigationSuggestions(trimmedSearchInput, {
+          availableRoutes,
+          currentRoute,
+          homeRoute,
+          limit: 6,
+        }),
+    [attachments.length, availableRoutes, currentRoute, homeRoute, trimmedSearchInput],
+  );
+  const navigationCommand = useMemo(
+    () => attachments.length
+      ? null
+      : resolveHomeNavigationCommand(trimmedSearchInput, {
+          availableRoutes,
+          homeRoute,
+        }),
+    [attachments.length, availableRoutes, homeRoute, trimmedSearchInput],
+  );
+  const navigationOptions = useMemo(
+    () => getNavigationOptions(navigationSuggestions, navigationCommand, currentRoute),
+    [currentRoute, navigationCommand, navigationSuggestions],
+  );
+  const navigationCommandIsCurrent = navigationCommand
+    && buildHomeNavigationRoute(navigationCommand) === currentRoute;
+  const showNavigationSuggestions = suggestionsOpen
+    && attachments.length === 0
+    && !isDragging;
+
+  useEffect(() => {
+    setActiveSuggestionIndex((current) => (
+      current >= navigationOptions.length ? -1 : current
+    ));
+  }, [navigationOptions.length]);
+
+  const openNavigationSuggestion = useCallback((suggestion) => {
+    recognitionRef.current?.stop();
+    navigate(buildHomeNavigationRoute(suggestion));
+    setSearchInput("");
+    setSubmissionNotice("");
+    setSuggestionsOpen(false);
+    setActiveSuggestionIndex(-1);
+  }, [navigate]);
+
   /* ── Listen to attachments from Chatbot ─────────────── */
   useEffect(() => {
     const handler = (e) => setAttachments(e.detail?.attachments || []);
@@ -71,7 +228,7 @@ function DashboardPage({
   }, []);
 
   /* ── Text submit ─────────────────────────────────────────── */
-  const handleSearch = (e) => {
+  const handleSearch = async (e) => {
     e.preventDefault();
     if (isRecording) {
       recognitionRef.current?.stop();
@@ -79,15 +236,65 @@ function DashboardPage({
     const query = searchInput.trim();
     if (!query && attachments.length === 0) {
       if (window.openStudyAssistant) window.openStudyAssistant();
+      setSuggestionsOpen(false);
+      setActiveSuggestionIndex(-1);
       return;
     }
-    if (window.sendToChatbot) window.sendToChatbot(query);
-    else if (window.openStudyAssistant) window.openStudyAssistant();
+    if (navigationCommand) {
+      openNavigationSuggestion(navigationCommand);
+      return;
+    }
+    const delivery = await sendDashboardChatMessage(window.sendToChatbot, query);
+    if (!delivery.accepted) {
+      if (delivery.reason === "unavailable") window.openStudyAssistant?.();
+      setSubmissionNotice(delivery.message);
+      setSuggestionsOpen(false);
+      setActiveSuggestionIndex(-1);
+      window.requestAnimationFrame(() => inputRef.current?.focus());
+      return;
+    }
+
     setSearchInput("");
+    setSubmissionNotice("");
+    setSuggestionsOpen(false);
+    setActiveSuggestionIndex(-1);
+  };
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key === "Escape") {
+      setSuggestionsOpen(false);
+      setActiveSuggestionIndex(-1);
+      return;
+    }
+
+    if (
+      showNavigationSuggestions
+      && (event.key === "ArrowDown" || event.key === "ArrowUp")
+      && navigationOptions.length
+    ) {
+      event.preventDefault();
+      setActiveSuggestionIndex((current) => (
+        getNextNavigationSuggestionIndex(current, event.key, navigationOptions.length)
+      ));
+      return;
+    }
+
+    if (
+      event.key === "Enter"
+      && showNavigationSuggestions
+      && activeSuggestionIndex >= 0
+      && navigationOptions[activeSuggestionIndex]
+    ) {
+      event.preventDefault();
+      openNavigationSuggestion(navigationOptions[activeSuggestionIndex]);
+    }
   };
 
   /* ── Mic button (Local Speech Recognition) ───────────────── */
   const handleMic = () => {
+    setSubmissionNotice("");
+    setSuggestionsOpen(false);
+    setActiveSuggestionIndex(-1);
     if (isRecording) {
       recognitionRef.current?.stop();
       return;
@@ -132,6 +339,9 @@ function DashboardPage({
 
   /* ── File/paperclip button ───────────────────────────────── */
   const handleAttach = () => {
+    setSubmissionNotice("");
+    setSuggestionsOpen(false);
+    setActiveSuggestionIndex(-1);
     if (window.triggerChatAttachment) window.triggerChatAttachment();
     else if (window.openStudyAssistant) window.openStudyAssistant();
   };
@@ -180,8 +390,16 @@ function DashboardPage({
   }, []);
 
   /* ── Panel toggle ────────────────────────────────────────── */
-  const togglePanel = (id) =>
+  const togglePanel = (id) => {
+    if (DASHBOARD_PANEL_HASHES[location.hash.toLowerCase()]) {
+      navigate({
+        pathname: location.pathname,
+        search: location.search,
+        hash: "",
+      }, { replace: true });
+    }
     setActivePanel((prev) => (prev === id ? null : id));
+  };
 
   return (
     <section className="db-page">
@@ -190,14 +408,23 @@ function DashboardPage({
         <h1 className="db-welcome">Welcome, {firstName}!</h1>
         <p className="db-tagline">What would you like to work on today?</p>
 
-        <form
-          className={`db-search-form${isDragging ? " db-search-form--dragging" : ""}`}
-          onSubmit={handleSearch}
-          onDragEnter={handleDragEnter}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
+        <div
+          className="db-command-shell"
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setSuggestionsOpen(false);
+              setActiveSuggestionIndex(-1);
+            }
+          }}
         >
+          <form
+            className={`db-search-form${isDragging ? " db-search-form--dragging" : ""}`}
+            onSubmit={handleSearch}
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
           {/* Drop overlay hint */}
           {isDragging && (
             <div className="db-drop-overlay" aria-hidden="true">
@@ -233,10 +460,26 @@ function DashboardPage({
             ref={inputRef}
             className="db-search-input"
             type="text"
-            placeholder={attachments.length > 0 ? "Ask about your document..." : "Ask your AI study assistant…"}
+            placeholder={attachments.length > 0 ? "Ask about your document..." : "Ask AI or type ‘go to materials’..."}
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            aria-label="Ask AI study assistant"
+            onChange={(event) => {
+              setSearchInput(event.target.value);
+              setSubmissionNotice("");
+              setSuggestionsOpen(true);
+              setActiveSuggestionIndex(-1);
+            }}
+            onKeyDown={handleSearchKeyDown}
+            onFocus={() => setSuggestionsOpen(true)}
+            aria-activedescendant={activeSuggestionIndex >= 0
+              ? `${suggestionListId}-option-${activeSuggestionIndex}`
+              : undefined}
+            aria-autocomplete="list"
+            aria-controls={suggestionListId}
+            aria-describedby={searchHelpId}
+            aria-expanded={showNavigationSuggestions}
+            aria-label="Ask AI or open a page"
+            autoComplete="off"
+            role="combobox"
           />
 
           {/* Paperclip — upload document */}
@@ -273,11 +516,47 @@ function DashboardPage({
 
           {/* Ask button — only when text is typed or files are attached */}
           {(searchInput || attachments.length > 0) && (
-            <button type="submit" className="db-search-send" aria-label="Send">
-              Ask
+            <button
+              type="submit"
+              className="db-search-send"
+              aria-label={navigationCommand
+                ? `${navigationCommandIsCurrent ? "View" : "Open"} ${navigationCommand.label}`
+                : "Ask AI"}
+            >
+              {navigationCommand ? (navigationCommandIsCurrent ? "View" : "Open") : "Ask"}
             </button>
           )}
-        </form>
+          </form>
+
+          <p
+            className={`db-command-help${submissionNotice ? " db-command-help--warning" : ""}`}
+            id={searchHelpId}
+            aria-live="polite"
+          >
+            {submissionNotice
+              || (attachments.length
+              ? "Attached files will be sent to the AI study assistant."
+              : navigationCommand
+                ? navigationCommandIsCurrent
+                  ? `You’re already on ${navigationCommand.label}.`
+                  : `Press Enter to open ${navigationCommand.label}.`
+                : trimmedSearchInput
+                  ? "Choose a page shortcut, or press Enter to ask the AI."
+                  : "Try “go to materials”, “open planner”, or ask a study question.")}
+          </p>
+
+          {showNavigationSuggestions && (
+            <DashboardNavigationSuggestions
+              activeIndex={activeSuggestionIndex}
+              currentRoute={currentRoute}
+              id={suggestionListId}
+              navigationCommand={navigationCommand}
+              onSelect={openNavigationSuggestion}
+              query={trimmedSearchInput}
+              suggestions={navigationSuggestions}
+            />
+          )}
+        </div>
       </div>
 
       {/* ── Overview Cards ──────────────────────────────────── */}
@@ -295,7 +574,10 @@ function DashboardPage({
                 cursor:               "pointer",
               }}
               onClick={() => {
-                if (card.label.toLowerCase().includes("subject")) setShowSubjectsPopup((prev) => !prev);
+                if (card.label.toLowerCase().includes("subject")) {
+                  if (childMode) navigate("/learn");
+                  else setShowSubjectsPopup((prev) => !prev);
+                }
                 else if (card.label.toLowerCase().includes("planned")) navigate("/planner");
                 else if (card.label.toLowerCase().includes("remaining")) navigate("/analytics#topic-progress");
                 else navigate("/analytics");
@@ -305,7 +587,10 @@ function DashboardPage({
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  if (card.label.toLowerCase().includes("subject")) setShowSubjectsPopup((prev) => !prev);
+                  if (card.label.toLowerCase().includes("subject")) {
+                    if (childMode) navigate("/learn");
+                    else setShowSubjectsPopup((prev) => !prev);
+                  }
                   else if (card.label.toLowerCase().includes("planned")) navigate("/planner");
                   else if (card.label.toLowerCase().includes("remaining")) navigate("/analytics#topic-progress");
                   else navigate("/analytics");
@@ -330,14 +615,20 @@ function DashboardPage({
             onClick={() => togglePanel(id)}
             aria-pressed={activePanel === id}
           >
-            <Icon size={14} />
+            {createElement(Icon, { size: 14 })}
             {label}
           </button>
         ))}
       </div>
 
       {/* ── Panel Content ───────────────────────────────────── */}
-      <div className={`db-panel-content${activePanel ? " db-panel-content--visible" : ""}`}>
+      <div
+        aria-label={activePanel ? `${PANEL_BUTTONS.find((panel) => panel.id === activePanel)?.label} panel` : undefined}
+        className={`db-panel-content${activePanel ? " db-panel-content--visible" : ""}`}
+        ref={panelContentRef}
+        role={activePanel ? "region" : undefined}
+        tabIndex={activePanel ? -1 : undefined}
+      >
         {activePanel === "suggestions" && (
           <div className="db-panel-inner db-panel-enter" key="suggestions">
             <SmartSuggestion
@@ -371,10 +662,10 @@ function DashboardPage({
           <h3>Your Subjects</h3>
           <button
             className="primary-btn db-subjects-open-btn"
-            onClick={() => navigate("/subjects#subject-library")}
+            onClick={() => navigate(childMode ? "/learn" : "/subjects#subject-library")}
             type="button"
           >
-            Open subjects
+            {childMode ? "Start learning" : "Open subjects"}
           </button>
         </div>
         

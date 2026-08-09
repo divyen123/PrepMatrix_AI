@@ -20,8 +20,10 @@
   flex-direction: column;
   overflow: hidden;
   color: var(--text);
-  background: var(--bg, #f3f0e8);
-  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--text) 10%);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(var(--accent-rgb), 0.12), transparent 34%),
+    var(--surface-strong);
+  border: 1px solid var(--border);
   border-radius: 26px;
   box-shadow:
     0 34px 110px rgba(0, 0, 0, 0.48),
@@ -36,7 +38,6 @@
   align-items: start;
   gap: 14px;
   padding: 22px 24px 19px;
-  background: color-mix(in srgb, var(--bg) 94%, var(--accent) 6%);
   border-bottom: 1px solid var(--border);
 }
 
@@ -97,7 +98,7 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-close {
   place-items: center !important;
   padding: 0 !important;
   color: var(--text-muted) !important;
-  background: color-mix(in srgb, var(--bg) 90%, var(--text) 10%) !important;
+  background: var(--surface-muted) !important;
   border: 1px solid var(--border) !important;
   border-radius: 12px !important;
   box-shadow: none !important;
@@ -106,6 +107,7 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-close {
 body .learning-subject-mastery-dialog .learning-subject-mastery-close:hover,
 body .learning-subject-mastery-dialog .learning-subject-mastery-close:focus-visible {
   color: var(--text) !important;
+  background: var(--surface) !important;
   border-color: rgba(var(--accent-rgb), 0.42) !important;
   outline: 3px solid rgba(var(--accent-rgb), 0.14);
   transform: none;
@@ -116,7 +118,6 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-close:focus-visi
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   padding: 16px 24px 0;
-  background: var(--bg);
 }
 
 .learning-subject-mastery-summary article {
@@ -127,7 +128,7 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-close:focus-visi
   column-gap: 8px;
   row-gap: 2px;
   padding: 12px 14px;
-  background: color-mix(in srgb, var(--bg) 88%, var(--text) 12%);
+  background: var(--surface-muted);
   border: 1px solid var(--border);
   border-radius: 15px;
 }
@@ -161,7 +162,6 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-close:focus-visi
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   padding: 16px 24px 20px;
-  background: var(--bg);
 }
 
 .learning-subject-mastery-list {
@@ -171,7 +171,7 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-close:focus-visi
 
 .learning-subject-mastery-row {
   padding: 17px;
-  background: color-mix(in srgb, var(--bg) 91%, var(--text) 9%);
+  background: var(--surface-muted);
   border: 1px solid var(--border);
   border-radius: 18px;
 }
@@ -222,7 +222,7 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-close:focus-visi
   height: 7px;
   margin: 13px 0 10px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg) 78%, var(--text) 22%);
+  background: color-mix(in srgb, var(--text) 14%, transparent);
   border-radius: 999px;
 }
 
@@ -283,7 +283,7 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-close:focus-visi
   padding: 6px 9px;
   overflow: hidden;
   color: var(--text);
-  background: color-mix(in srgb, var(--bg) 82%, var(--accent) 18%);
+  background: rgba(var(--accent-rgb), 0.11);
   border: 1px solid rgba(var(--accent-rgb), 0.2);
   border-radius: 999px;
   font-size: 0.72rem;
@@ -299,7 +299,7 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-close:focus-visi
 
 .learning-subject-mastery-topic.is-more {
   color: var(--text-muted);
-  background: color-mix(in srgb, var(--bg) 88%, var(--text) 12%);
+  background: var(--surface);
   border-color: var(--border);
 }
 
@@ -315,7 +315,7 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-close:focus-visi
   justify-items: center;
   padding: 42px 20px;
   text-align: center;
-  background: color-mix(in srgb, var(--bg) 91%, var(--text) 9%);
+  background: var(--surface-muted);
   border: 1px dashed var(--border);
   border-radius: 18px;
 }
@@ -325,7 +325,7 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-close:focus-visi
   justify-items: center;
   padding: 42px 20px;
   text-align: center;
-  background: color-mix(in srgb, var(--bg) 91%, var(--text) 9%);
+  background: var(--surface-muted);
   border: 1px solid var(--border);
   border-radius: 18px;
 }
@@ -360,7 +360,7 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-state button {
   margin-top: 15px;
   padding: 0.55rem 0.95rem !important;
   color: var(--text) !important;
-  background: color-mix(in srgb, var(--bg) 80%, var(--accent) 20%) !important;
+  background: rgba(var(--accent-rgb), 0.11) !important;
   border: 1px solid rgba(var(--accent-rgb), 0.3) !important;
   border-radius: 11px !important;
   box-shadow: none !important;
@@ -401,7 +401,7 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-state button {
   justify-content: space-between;
   gap: 16px;
   padding: 15px 24px;
-  background: color-mix(in srgb, var(--bg) 94%, var(--accent) 6%);
+  background: var(--surface-strong);
   border-top: 1px solid var(--border);
 }
 
@@ -415,19 +415,52 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-footer button {
   min-width: 92px !important;
   min-height: 40px !important;
   padding: 0.65rem 1rem !important;
-  color: var(--bg) !important;
-  background: var(--accent) !important;
-  border: 1px solid var(--accent) !important;
+  color: var(--text) !important;
+  background: rgba(var(--accent-rgb), 0.14) !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.28) !important;
   border-radius: 12px !important;
   box-shadow: none !important;
 }
 
 body .learning-subject-mastery-dialog .learning-subject-mastery-footer button:hover,
 body .learning-subject-mastery-dialog .learning-subject-mastery-footer button:focus-visible {
-  background: var(--accent-strong) !important;
-  border-color: var(--accent-strong) !important;
+  background: rgba(var(--accent-rgb), 0.22) !important;
+  border-color: rgba(var(--accent-rgb), 0.42) !important;
   outline: 3px solid rgba(var(--accent-rgb), 0.16);
   transform: none;
+}
+
+body.has-bg-image:not(.no-glass-cards) .learning-subject-mastery-dialog {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(var(--accent-rgb), 0.14), transparent 34%),
+    rgba(var(--bg-surface-rgb), 0.94) !important;
+  border-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(24px) saturate(118%);
+  -webkit-backdrop-filter: blur(24px) saturate(118%);
+}
+
+body.has-bg-image .learning-subject-mastery-summary article,
+body.has-bg-image .learning-subject-mastery-row,
+body.has-bg-image .learning-subject-mastery-empty,
+body.has-bg-image .learning-subject-mastery-state {
+  background: rgba(var(--bg-surface-rgb), 0.52);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.has-bg-image .learning-subject-mastery-header,
+body.has-bg-image .learning-subject-mastery-footer {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.has-bg-image .learning-subject-mastery-footer {
+  background: rgba(var(--bg-surface-rgb), 0.78);
+}
+
+body.has-bg-image.no-glass-cards .learning-subject-mastery-dialog,
+body.has-bg-image.no-glass-cards .learning-subject-mastery-footer {
+  background: rgba(var(--bg-surface-rgb), 0.985) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 @keyframes learningSubjectMasteryBackdropIn {

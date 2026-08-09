@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import api from "../utils/apiClient";
+import { getLearnerRoutePolicy } from "../utils/learnerRouting";
 import PrepMatrixGuideDialog from "./PrepMatrixGuideDialog";
 
 function FirstLoginGuideCoordinator() {
@@ -28,14 +29,39 @@ function FirstLoginGuideCoordinator() {
     const checkWhenWorkspaceIsReady = () => {
       if (generation !== checkGenerationRef.current) return;
 
+      let pinSetupPending = false;
+      try {
+        pinSetupPending = window.sessionStorage.getItem("prepmatrix_kids_pin_setup_pending") === "true";
+      } catch {
+        // The server remains authoritative when browser storage is unavailable.
+      }
+      if (pinSetupPending) {
+        return;
+      }
+
       if (document.querySelector(".entry-splash")) {
         timerId = window.setTimeout(checkWhenWorkspaceIsReady, 120);
         return;
       }
 
       api.me()
-        .then(({ user }) => {
+        .then(async ({ user }) => {
           if (generation !== checkGenerationRef.current) return;
+          if (getLearnerRoutePolicy(user).isYoungKidsLearner) {
+            try {
+              const status = await api.get("/api/kids/parent-access");
+              if (status?.parentAccess?.setupRequired) {
+                try {
+                  window.sessionStorage.setItem("prepmatrix_kids_pin_setup_pending", "true");
+                } catch {
+                  // The Kids route still opens setup from the server response.
+                }
+                return;
+              }
+            } catch {
+              // The main kids route owns access errors and recovery messaging.
+            }
+          }
           checkedSessionRef.current = true;
           if (!user?.needsOnboardingGuide) return;
           setUserName(user.username || "");
@@ -46,10 +72,20 @@ function FirstLoginGuideCoordinator() {
         });
     };
 
+    const resumeAfterPinSetup = () => {
+      try {
+        window.sessionStorage.removeItem("prepmatrix_kids_pin_setup_pending");
+      } catch {
+        // The in-memory event is enough to resume the guide.
+      }
+      checkWhenWorkspaceIsReady();
+    };
+    window.addEventListener("prepmatrixKidsPinSetupComplete", resumeAfterPinSetup);
     checkWhenWorkspaceIsReady();
     return () => {
       checkGenerationRef.current += 1;
       if (timerId) window.clearTimeout(timerId);
+      window.removeEventListener("prepmatrixKidsPinSetupComplete", resumeAfterPinSetup);
     };
   }, [isAuthRoute]);
 

@@ -45,6 +45,23 @@ test("preserves Notes and natural Materials-page navigation", () => {
   });
 });
 
+test("preserves scoped subject metadata when assistant navigation builds a route", () => {
+  const scenarios = [
+    ["Open materials for Data Analytics", "/resources?subject=data%20analytics"],
+    ["Quiz me on Operating Systems", "/quiz?subject=operating%20systems"],
+  ];
+
+  scenarios.forEach(([message, expectedRoute]) => {
+    let navigatedTo = null;
+    const result = resolveLocalAssistantCommand(message, {
+      navigate: (route) => { navigatedTo = route; },
+    });
+
+    assert.equal(navigatedTo, expectedRoute, message);
+    assert.ok(result, message);
+  });
+});
+
 test("opens Kids Play & Learn using child-friendly aliases", () => {
   const scenarios = ["Open kids zone", "Show me the learning games", "Go to play and learn"];
 
@@ -57,4 +74,27 @@ test("opens Kids Play & Learn using child-friendly aliases", () => {
     assert.equal(navigatedTo, "/kids", message);
     assert.match(result.response, /Kids Play & Learn/);
   });
+});
+
+test("uses account-aware route labels and blocks unavailable assistant navigation", () => {
+  let navigatedTo = null;
+  const knowledgeQuest = resolveLocalAssistantCommand("Open knowledge quest", {
+    availableRoutes: [{
+      to: "/kids",
+      label: "Knowledge Quest",
+      helper: "Daily General Knowledge and personal scores",
+    }],
+    navigate: (route) => { navigatedTo = route; },
+  });
+
+  assert.equal(navigatedTo, "/kids");
+  assert.match(knowledgeQuest.response, /Opening Knowledge Quest/);
+
+  navigatedTo = null;
+  const unavailableResume = resolveLocalAssistantCommand("Open resume builder", {
+    availableRoutes: ["/dashboard", "/learn"],
+    navigate: (route) => { navigatedTo = route; },
+  });
+  assert.equal(unavailableResume, null);
+  assert.equal(navigatedTo, null);
 });

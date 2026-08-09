@@ -1,4 +1,5 @@
 export const VOICE_PREFERENCES_STORAGE_KEY = "prepmatrix_voice_preferences_v1";
+export const WAKE_MODE_STORAGE_KEY = "prepmatrix_wake_mode";
 
 export const VOICE_RATE_MIN = 0.7;
 export const VOICE_RATE_MAX = 1.5;
@@ -157,6 +158,30 @@ export function storeVoicePreferences(value, storage) {
       VOICE_PREFERENCES_STORAGE_KEY,
       JSON.stringify(normalized)
     );
+  } catch {
+    // Browser privacy settings can block device-local preference storage.
+  }
+
+  return normalized;
+}
+
+export function readStoredWakeMode(storage) {
+  const targetStorage = storage === undefined ? getDefaultStorage() : storage;
+  if (!targetStorage?.getItem) return false;
+
+  try {
+    return targetStorage.getItem(WAKE_MODE_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function storeWakeMode(enabled, storage) {
+  const normalized = Boolean(enabled);
+  const targetStorage = storage === undefined ? getDefaultStorage() : storage;
+
+  try {
+    targetStorage?.setItem?.(WAKE_MODE_STORAGE_KEY, normalized ? "true" : "false");
   } catch {
     // Browser privacy settings can block device-local preference storage.
   }

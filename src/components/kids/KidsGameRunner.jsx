@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import {
   KIDS_GAME_TYPES,
+  buildKidsResponseSnapshot,
   getKidsCopy,
   getLocalized,
   isKidsResponseCorrect,
@@ -160,7 +161,7 @@ export default function KidsGameRunner({
 
   const saveCurrentResponse = () => {
     if (!ready || feedback) return;
-    const nextResponses = { ...responses, [currentItem.id]: draft };
+    const nextResponses = buildKidsResponseSnapshot(responses, currentItem.id, draft);
     setResponses(nextResponses);
     if (hasLocalAnswer) {
       const correct = isKidsResponseCorrect(currentItem.answer, draft);
@@ -173,8 +174,9 @@ export default function KidsGameRunner({
   const moveToNext = () => {
     if (!feedback) return;
     if (isLast) {
+      const finalResponses = buildKidsResponseSnapshot(responses, currentItem.id, draft);
       onComplete({
-        responses,
+        responses: finalResponses,
         durationSeconds: Math.max(1, Math.round((Date.now() - startedAtRef.current) / 1000)),
       });
       return;
@@ -246,7 +248,7 @@ export default function KidsGameRunner({
           {(currentItem.leftItems || []).map((leftItem) => {
             const leftValue = entryValue(leftItem);
             return (
-              <label key={leftValue}>
+              <label className={draft[leftValue] ? "is-selected" : ""} key={leftValue}>
                 <span>{entryVisual(leftItem)} {entryLabel(leftItem)}</span>
                 <select
                   aria-label={`${copy.selectFor} ${entryLabel(leftItem)}`}
@@ -328,19 +330,28 @@ export default function KidsGameRunner({
       const tiles = Array.isArray(currentItem.tiles)
         ? currentItem.tiles
         : String(currentItem.scrambled || "").split("");
+      const normalizedDraft = String(draft || "").toLocaleUpperCase();
       return (
         <div className="kids-scramble-board">
           <div aria-label="Letter tiles" className="kids-letter-tiles">
-            {tiles.map((tile, index) => (
-              <button
-                disabled={Boolean(feedback)}
-                key={`${tile}-${index}`}
-                onClick={() => setDraft((current) => `${current}${tile}`)}
-                type="button"
-              >
-                {tile}
-              </button>
-            ))}
+            {tiles.map((tile, index) => {
+              const normalizedTile = String(tile).toLocaleUpperCase();
+              const occurrence = tiles.slice(0, index + 1)
+                .filter((candidate) => String(candidate).toLocaleUpperCase() === normalizedTile).length;
+              const selected = [...normalizedDraft].filter((candidate) => candidate === normalizedTile).length >= occurrence;
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={selected ? "is-selected" : ""}
+                  disabled={Boolean(feedback) || selected}
+                  key={`${tile}-${index}`}
+                  onClick={() => setDraft((current) => `${current}${tile}`)}
+                  type="button"
+                >
+                  {tile}
+                </button>
+              );
+            })}
           </div>
           <label>
             <span>{copy.typeAnswer}</span>

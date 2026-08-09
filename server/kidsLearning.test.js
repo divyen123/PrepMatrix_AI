@@ -344,10 +344,13 @@ class FakeCollection {
 async function withKidsRoutes(run) {
   const attempts = new FakeCollection();
   const settings = new FakeCollection();
+  const sessions = new FakeCollection();
+  let currentTime = new Date("2026-08-01T12:00:00.000Z");
   const db = {
     collection(name) {
       if (name === KIDS_ATTEMPTS_COLLECTION) return attempts;
       if (name === KIDS_PARENT_SETTINGS_COLLECTION) return settings;
+      if (name === "sessions") return sessions;
       throw new Error(`Unexpected collection: ${name}`);
     },
   };
@@ -356,20 +359,42 @@ async function withKidsRoutes(run) {
   const requireAuth = (handler) => async (req, res) => {
     const userId = String(req.headers.authorization || "").replace(/^Bearer\s+/iu, "");
     if (!userId) return res.status(401).json({ error: "Login required." });
-    req.user = { _id: userId };
+    const grade = String(req.headers["x-test-grade"] || (userId === "parent-one" ? "Class 3" : "Class 2"));
+    const academicLevel = String(req.headers["x-test-academic-level"] || "Primary School");
+    req.user = { _id: userId, academicLevel, grade };
+    req.sessionToken = `session-${userId}`;
+    let session = await sessions.findOne({ token: req.sessionToken });
+    if (!session) {
+      await sessions.insertOne({
+        token: req.sessionToken,
+        userId,
+        createdAt: currentTime,
+        expiresAt: new Date(currentTime.getTime() + 86_400_000),
+      });
+      session = await sessions.findOne({ token: req.sessionToken });
+    }
+    req.session = session;
     return handler(req, res);
   };
   registerKidsLearningRoutes(app, {
     getDb: async () => db,
     requireAuth,
-    now: () => new Date("2026-08-01T12:00:00.000Z"),
+    now: () => new Date(currentTime),
   });
   const server = await new Promise((resolve) => {
     const listener = app.listen(0, "127.0.0.1", () => resolve(listener));
   });
   const { port } = server.address();
   try {
-    await run({ baseUrl: `http://127.0.0.1:${port}`, attempts, settings });
+    await run({
+      baseUrl: `http://127.0.0.1:${port}`,
+      attempts,
+      settings,
+      sessions,
+      setNow(value) {
+        currentTime = new Date(value);
+      },
+    });
   } finally {
     await new Promise((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());
@@ -378,8 +403,10 @@ async function withKidsRoutes(run) {
   }
 }
 
-function authOptions(userId, method = "GET", body = null) {
+function authOptions(userId, method = "GET", body = null, profile = {}) {
   const options = { method, headers: { Authorization: `Bearer ${userId}` } };
+  if (profile.grade) options.headers["X-Test-Grade"] = profile.grade;
+  if (profile.academicLevel) options.headers["X-Test-Academic-Level"] = profile.academicLevel;
   if (body !== null) {
     options.headers["Content-Type"] = "application/json";
     options.body = JSON.stringify(body);
@@ -543,10 +570,91 @@ test("Kids routes authenticate, filter sanitized packs, score on the server, and
   });
 });
 
+test("Kids routes enforce the registered Kindergarten-to-Class-3 cohort and grade band", async () => {
+  await withKidsRoutes(async ({ baseUrl, attempts }) => {
+    const earlyProfile = { academicLevel: "Early Years / Kindergarten", grade: "UKG" };
+    const earlyResponse = await fetch(`${baseUrl}/api/kids/profile`, authOptions("early-child", "GET", null, earlyProfile));
+    assert.equal(earlyResponse.status, 200);
+    const earlyPayload = await earlyResponse.json();
+    assert.equal(earlyPayload.profile.gradeBand, "early-years");
+    assert.deepEqual(earlyPayload.parentAccess, {
+      unlocked: false,
+      expiresAt: null,
+      setupRequired: true,
+    });
+    assert.equal(JSON.stringify(earlyPayload).includes("pinHash"), false);
+
+    const classThreeProfile = { academicLevel: "Primary School", grade: "Class 3" };
+    const classThreePacks = await fetch(
+      `${baseUrl}/api/kids/packs?gradeBand=class3-5`,
+      authOptions("class-three", "GET", null, classThreeProfile),
+    );
+    assert.equal(classThreePacks.status, 200);
+    assert.equal((await classThreePacks.json()).packs.every((pack) => pack.gradeBand === "class3-5"), true);
+
+    const mismatchedQuery = await fetch(
+      `${baseUrl}/api/kids/packs?gradeBand=class1-2`,
+      authOptions("class-three", "GET", null, classThreeProfile),
+    );
+    assert.equal(mismatchedQuery.status, 403);
+    assert.equal((await mismatchedQuery.json()).code, "KIDS_GRADE_BAND_LOCKED");
+
+    const mismatchedDaily = await fetch(
+      `${baseUrl}/api/kids/daily-mission?gradeBand=class1-2`,
+      authOptions("class-three", "GET", null, classThreeProfile),
+    );
+    assert.equal(mismatchedDaily.status, 403);
+    assert.equal((await mismatchedDaily.json()).code, "KIDS_GRADE_BAND_LOCKED");
+
+    const earlyPack = KIDS_CURATED_PACKS.find((pack) => pack.gradeBand === "early-years");
+    const crossGradeAttempt = await fetch(`${baseUrl}/api/kids/attempts`, authOptions(
+      "class-three",
+      "POST",
+      {
+        packId: earlyPack.id,
+        responses: earlyPack.items.map((item) => ({
+          itemId: item.id,
+          response: correctResponse(earlyPack, item),
+        })),
+      },
+      classThreeProfile,
+    ));
+    assert.equal(crossGradeAttempt.status, 403);
+    assert.equal((await crossGradeAttempt.json()).code, "KIDS_PACK_GRADE_MISMATCH");
+    assert.equal(attempts.documents.length, 0);
+
+    const ineligibleProfiles = [
+      ["class-four", { academicLevel: "Primary School", grade: "Class 4" }],
+      ["class-six", { academicLevel: "Middle School", grade: "Class 6" }],
+      ["college", { academicLevel: "Undergraduate / Bachelor's", grade: "none" }],
+    ];
+    for (const [userId, profile] of ineligibleProfiles) {
+      const response = await fetch(`${baseUrl}/api/kids/profile`, authOptions(userId, "GET", null, profile));
+      assert.equal(response.status, 403, userId);
+      assert.equal((await response.json()).code, "KIDS_YOUNG_PROFILE_REQUIRED", userId);
+    }
+  });
+});
+
 test("profile, daily mission, parent settings, and PIN verification share persisted controls", async () => {
-  await withKidsRoutes(async ({ baseUrl }) => {
+  await withKidsRoutes(async ({ baseUrl, setNow }) => {
+    const lockedGradeResponse = await fetch(`${baseUrl}/api/kids/parent-settings`, authOptions("parent-one", "PUT", {
+      gradeBand: "class1-2",
+    }));
+    assert.equal(lockedGradeResponse.status, 400);
+    assert.equal((await lockedGradeResponse.json()).code, "KIDS_GRADE_BAND_LOCKED");
+
+    const unconfiguredProtectedUpdate = await fetch(
+      `${baseUrl}/api/kids/parent-settings`,
+      authOptions("parent-one", "PUT", { dailyPlayLimitMinutes: 60 }),
+    );
+    assert.equal(unconfiguredProtectedUpdate.status, 409);
+    assert.equal(
+      (await unconfiguredProtectedUpdate.json()).code,
+      "KIDS_PARENT_PIN_SETUP_REQUIRED",
+    );
+
     const updateResponse = await fetch(`${baseUrl}/api/kids/parent-settings`, authOptions("parent-one", "PUT", {
-      gradeBand: "class3-5",
       childNickname: "Mira",
       language: "hi",
       dailyPlayLimitMinutes: 40,
@@ -557,8 +665,19 @@ test("profile, daily mission, parent settings, and PIN verification share persis
     const updated = await updateResponse.json();
     assert.equal(updateResponse.status, 200);
     assert.equal(updated.settings.childNickname, "Mira");
+    assert.equal(updated.settings.gradeBand, "class3-5");
     assert.equal(updated.settings.parentPinConfigured, true);
     assert.equal("pinHash" in updated.settings, false);
+    assert.equal(updated.parentAccess.unlocked, true);
+    assert.equal(updated.parentAccess.setupRequired, false);
+
+    const initialAccess = await fetch(`${baseUrl}/api/kids/parent-access`, authOptions("parent-one"));
+    assert.equal((await initialAccess.json()).parentAccess.unlocked, true);
+    const initialLock = await fetch(
+      `${baseUrl}/api/kids/parent-access/lock`,
+      authOptions("parent-one", "POST", {}),
+    );
+    assert.equal((await initialLock.json()).parentAccess.unlocked, false);
 
     const languageOnly = await fetch(`${baseUrl}/api/kids/parent-settings`, authOptions("parent-one", "PUT", {
       language: "en",
@@ -588,7 +707,18 @@ test("profile, daily mission, parent settings, and PIN verification share persis
     });
     const correctPin = await fetch(`${baseUrl}/api/kids/parent-settings/verify-pin`, authOptions("parent-one", "POST", { pin: "4826" }));
     assert.equal(correctPin.status, 200);
-    assert.deepEqual(await correctPin.json(), { verified: true });
+    const correctPinPayload = await correctPin.json();
+    assert.equal(correctPinPayload.verified, true);
+    assert.equal(correctPinPayload.parentAccess.unlocked, true);
+    assert.equal(correctPinPayload.parentAccess.setupRequired, false);
+
+    setNow("2026-08-01T12:16:00.000Z");
+    const expiredAccess = await fetch(`${baseUrl}/api/kids/parent-access`, authOptions("parent-one"));
+    assert.deepEqual((await expiredAccess.json()).parentAccess, {
+      unlocked: false,
+      expiresAt: null,
+      setupRequired: false,
+    });
 
     const correctCurrentPin = await fetch(`${baseUrl}/api/kids/parent-settings`, authOptions("parent-one", "PUT", {
       childNickname: "Mira Two",
@@ -607,6 +737,12 @@ test("profile, daily mission, parent settings, and PIN verification share persis
     const mission = await missionResponse.json();
     assert.equal(mission.mission.subject, "Science");
     assert.equal(JSON.stringify(mission).includes('"answer"'), false);
+
+    const relock = await fetch(
+      `${baseUrl}/api/kids/parent-access/lock`,
+      authOptions("parent-one", "POST", {}),
+    );
+    assert.equal((await relock.json()).parentAccess.unlocked, false);
 
     const wrongVerifyRequest = () => fetch(
       `${baseUrl}/api/kids/parent-settings/verify-pin`,

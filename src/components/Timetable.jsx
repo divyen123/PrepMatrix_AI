@@ -18,6 +18,8 @@ function Timetable({
   setCompleted,
   scheduleStartDate,
   setScheduleStartDate,
+  canManageSchedule = true,
+  onRequestParentAccess,
 }) {
   const [examDate, setExamDate] = useState("");
   const [planMode, setPlanMode] = useState("balanced");
@@ -25,6 +27,13 @@ function Timetable({
   const [previousSchedule, setPreviousSchedule] = useState(null);
   const [lastAction, setLastAction] = useState(null); // "rebalance" | "backlog"
   const [showGenerateForm, setShowGenerateForm] = useState(schedule.length === 0);
+
+  const requestParentAccess = useCallback(() => {
+    onRequestParentAccess?.();
+    toast.info("A parent PIN is needed to create or change the schedule.", {
+      toastId: "planner-parent-access",
+    });
+  }, [onRequestParentAccess]);
 
   useEffect(() => {
     if (schedule.length === 0) {
@@ -47,6 +56,10 @@ function Timetable({
   }, [completed, schedule]);
 
   const generate = useCallback(() => {
+    if (!canManageSchedule) {
+      requestParentAccess();
+      return;
+    }
     if (!examDate || subjects.length === 0) {
       toast.error("Add at least one subject and select an exam date.", {
         toastId: "planner-missing-inputs",
@@ -92,7 +105,16 @@ function Timetable({
       const audio = new Audio(successSound);
       audio.play().catch(() => {});
     }, 450);
-  }, [examDate, getBacklogTasks, planMode, setSchedule, setScheduleStartDate, subjects]);
+  }, [
+    canManageSchedule,
+    examDate,
+    getBacklogTasks,
+    planMode,
+    requestParentAccess,
+    setSchedule,
+    setScheduleStartDate,
+    subjects,
+  ]);
 
   useEffect(() => {
     window.plannerActions = { generate };
@@ -149,6 +171,10 @@ function Timetable({
   };
 
   const handleMissedTasks = () => {
+    if (!canManageSchedule) {
+      requestParentAccess();
+      return;
+    }
     setPreviousSchedule(structuredClone(schedule));
     setLastAction("backlog");
     const updatedSchedule = structuredClone(schedule);
@@ -183,6 +209,10 @@ function Timetable({
   };
 
   const rebalanceSchedule = () => {
+    if (!canManageSchedule) {
+      requestParentAccess();
+      return;
+    }
     setPreviousSchedule(structuredClone(schedule));
     setLastAction("rebalance");
     const updated = structuredClone(schedule);
@@ -203,6 +233,10 @@ function Timetable({
   };
 
   const handleUndo = () => {
+    if (!canManageSchedule) {
+      requestParentAccess();
+      return;
+    }
     if (previousSchedule) {
       setSchedule(previousSchedule);
       setPreviousSchedule(null);
@@ -226,6 +260,17 @@ function Timetable({
 
       <div className="timetable-topbar">
         {showGenerateForm ? (
+          !canManageSchedule ? (
+            <div className="planner-parent-lock" role="status">
+              <div>
+                <strong>Grown-up setup needed</strong>
+                <p>A parent can enter the Parent PIN to create this learning schedule.</p>
+              </div>
+              <button className="action-btn" onClick={requestParentAccess} type="button">
+                Open Parent Corner
+              </button>
+            </div>
+          ) : (
           <>
             <div className="form-grid planner-target-grid">
               <label className="field-stack compact-field">
@@ -266,6 +311,7 @@ function Timetable({
               )}
             </div>
           </>
+          )
         ) : (
           <div className="timetable-actions">
             <button className="secondary-btn action-btn" onClick={downloadPDF} type="button" title="Export PDF" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
@@ -289,7 +335,17 @@ function Timetable({
                 ↩ Undo
               </button>
             )}
-            <button className="action-btn new-schedule-btn" onClick={() => setShowGenerateForm(true)} type="button">
+            <button
+              className="action-btn new-schedule-btn"
+              onClick={() => {
+                if (!canManageSchedule) {
+                  requestParentAccess();
+                  return;
+                }
+                setShowGenerateForm(true);
+              }}
+              type="button"
+            >
               <span className="desktop-only-text">New schedule</span>
               <span className="mobile-only-text">New schedule</span>
             </button>

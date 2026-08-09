@@ -67,7 +67,7 @@ const MOOD_PRESETS = [
   }
 ];
 
-function WorktreeMapper() {
+function WorktreeMapper({ variant = "default" }) {
   const [activeTab, setActiveTab] = useState("presets"); // "presets" | "builder"
   const [activePresetId, setActivePresetId] = useState("unwind-calm");
   const [nodes, setNodes] = useState(MOOD_PRESETS[0].nodes);
@@ -519,7 +519,7 @@ function WorktreeMapper() {
   };
 
   const renderContent = () => (
-    <div className={`worktree-container card ${isFullscreen ? "fullscreen-modal-mode" : ""}`} onWheel={(e) => { if (isFullscreen) e.stopPropagation(); }}>
+    <div className={`worktree-container card worktree-variant--${variant} ${isFullscreen ? "fullscreen-modal-mode" : ""}`} onWheel={(e) => { if (isFullscreen) e.stopPropagation(); }}>
       {/* Scoped toast container for fullscreen mode */}
       {isFullscreen && (
         <ToastContainer
