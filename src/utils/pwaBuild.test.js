@@ -140,10 +140,10 @@ test("PWA manifest references valid install icons and same-scope shortcuts", () 
   assert.equal(manifest.name, "PrepMatrix AI");
 
   const expectedIcons = new Map([
-    ["/pwa/icon-192.png", 192],
-    ["/pwa/icon-512.png", 512],
-    ["/pwa/icon-maskable-192.png", 192],
-    ["/pwa/icon-maskable-512.png", 512],
+    ["/pwa/brand-icon-192.png", 192],
+    ["/pwa/brand-icon-512.png", 512],
+    ["/pwa/brand-icon-maskable-192.png", 192],
+    ["/pwa/brand-icon-maskable-512.png", 512],
   ]);
   assert.equal(manifest.icons.length, expectedIcons.size);
   assert.equal(manifest.icons.some(({ purpose }) => purpose === "any"), true);
@@ -160,7 +160,7 @@ test("PWA manifest references valid install icons and same-scope shortcuts", () 
   }
 
   const supplementalIcons = [
-    ["../../public/pwa/apple-touch-icon-180.png", 180],
+    ["../../public/pwa/brand-apple-touch-icon-180.png", 180],
     ["../../public/pwa/notification-badge-96.png", 96],
   ];
   for (const [relativePath, expectedSize] of supplementalIcons) {
@@ -189,7 +189,7 @@ test("Vite asset manifest is deterministic, complete, and excludes public heavyw
   const publicInputs = [
     { fileName: "public/sw.js", contents: "const version = '__PREPMATRIX_BUILD_VERSION__'" },
     { fileName: "public/manifest.webmanifest", contents: "{\"name\":\"PrepMatrix\"}" },
-    { fileName: "public/pwa/icon-192.png", contents: Uint8Array.from([1, 2, 3]) },
+    { fileName: "public/pwa/brand-icon-192.png", contents: Uint8Array.from([1, 2, 3]) },
   ];
   const first = createPwaAssetManifest(bundle, publicInputs);
   const reordered = createPwaAssetManifest(
@@ -209,7 +209,7 @@ test("Vite asset manifest is deterministic, complete, and excludes public heavyw
   );
   assert.notEqual(
     createPwaAssetManifest(bundle, publicInputs.map((input) => (
-      input.fileName === "public/pwa/icon-192.png" ? { ...input, contents: Uint8Array.from([1, 2, 4]) } : input
+      input.fileName === "public/pwa/brand-icon-192.png" ? { ...input, contents: Uint8Array.from([1, 2, 4]) } : input
     ))).version,
     first.version,
   );
@@ -237,7 +237,7 @@ test("service worker precaches the complete production shell and waits for updat
   const cachedPaths = [...harness.cacheStores.get(shellName).entries.keys()];
   assert.equal(cachedPaths.includes("/index.html"), true);
   assert.equal(cachedPaths.includes("/manifest.webmanifest"), true);
-  assert.equal(cachedPaths.includes("/pwa/icon-512.png"), true);
+  assert.equal(cachedPaths.includes("/pwa/brand-icon-512.png"), true);
   assert.equal(cachedPaths.includes("/asset-manifest.json"), true);
   assert.equal(cachedPaths.includes("/assets/app-123.js"), true);
   assert.equal(cachedPaths.includes("/assets/page-456.css"), true);

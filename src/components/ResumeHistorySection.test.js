@@ -3,6 +3,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
+import { reconcileResumeHistorySearch } from "../utils/resumeHistory.js";
 
 const entries = [
   {
@@ -61,7 +62,7 @@ test("renders an accessible horizontal resume history with selection and delete 
   }
 });
 
-test("renders loading, error, and empty history states", async () => {
+test("renders loading and error states without adding empty-history controls", async () => {
   const vite = await createServer({
     appType: "custom",
     logLevel: "silent",
@@ -86,8 +87,16 @@ test("renders loading, error, and empty history states", async () => {
     assert.match(errorMarkup, /Resume history is unavailable/u);
     assert.match(errorMarkup, /Please try again\./u);
     assert.match(errorMarkup, /> Retry</u);
-    assert.match(emptyMarkup, /No generated resumes yet/u);
-    assert.match(emptyMarkup, /Generate a PDF to save your first editable resume version here\./u);
+    assert.match(emptyMarkup, /Resume history/u);
+    assert.doesNotMatch(emptyMarkup, /Search resume history/u);
+    assert.doesNotMatch(emptyMarkup, /No generated resumes yet/u);
+    assert.doesNotMatch(emptyMarkup, /Generate a PDF to save your first editable resume version here\./u);
+    assert.doesNotMatch(emptyMarkup, /resume-history-state--empty/u);
+
+    let staleQuery = reconcileResumeHistorySearch("Grace", false);
+    assert.equal(staleQuery, "");
+    staleQuery = reconcileResumeHistorySearch(staleQuery, true);
+    assert.equal(staleQuery, "");
   } finally {
     await vite.close();
   }

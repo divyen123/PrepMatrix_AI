@@ -26,6 +26,10 @@
   margin-bottom: 16px;
 }
 
+.resume-history-section.is-empty .resume-history-header {
+  margin-bottom: 0;
+}
+
 .resume-history-heading {
   min-width: 0;
   display: flex;
@@ -116,16 +120,22 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--resume-history-accent) 12%, transparent);
 }
 
-.resume-history-search input {
+body .resume-history-section .resume-history-search input[type="search"],
+body .resume-history-section .resume-history-search input[type="search"]:focus {
   width: 100%;
   min-width: 0;
   min-height: 36px;
-  padding: 0;
+  padding: 0 !important;
   color: var(--text);
-  background: transparent;
-  border: 0;
-  outline: 0;
-  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   font-size: 0.78rem;
 }
 

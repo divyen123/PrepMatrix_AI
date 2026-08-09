@@ -96,7 +96,7 @@ function ReportPage({ completed, materialBookmarks, schedule, subjects, userProf
     ? "Stable"
     : metrics.completionRate >= 40
       ? "Watchlist"
-      : "Needs recovery";
+      : "";
   const strongestSignal = metrics.morningCompleted >= metrics.eveningCompleted
     ? "Morning sessions are currently stronger."
     : "Evening sessions are currently stronger.";
@@ -436,7 +436,7 @@ function ReportPage({ completed, materialBookmarks, schedule, subjects, userProf
       <div className="report-grid">
         <article className="card report-panel">
           <span className="section-tag">Planner report</span>
-          <h3>{riskLevel}</h3>
+          {riskLevel && <h3>{riskLevel}</h3>}
           <div className="report-stat-grid">
             <div><strong>{subjects.length}</strong><span>Subjects</span></div>
             <div><strong>{metrics.totalTasks}</strong><span>Tasks</span></div>
@@ -489,4 +489,3 @@ function ReportPage({ completed, materialBookmarks, schedule, subjects, userProf
 }
 
 export default ReportPage;
-

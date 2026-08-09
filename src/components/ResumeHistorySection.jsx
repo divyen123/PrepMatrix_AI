@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   Clock3,
@@ -11,7 +11,10 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { filterResumeHistory } from "../utils/resumeHistory";
+import {
+  filterResumeHistory,
+  reconcileResumeHistorySearch,
+} from "../utils/resumeHistory";
 import "./ResumeHistorySection.css";
 
 function formatHistoryDate(value) {
@@ -49,8 +52,16 @@ export default function ResumeHistorySection({
     () => filterResumeHistory(normalizedEntries, search),
     [normalizedEntries, search],
   );
+  const hasHistory = normalizedEntries.length > 0;
+  const isEmpty = !loading && !error && !hasHistory;
   const query = search.trim();
   const interactionLocked = loading || Boolean(busyAction);
+
+  useEffect(() => {
+    if (!hasHistory) {
+      setSearch((currentSearch) => reconcileResumeHistorySearch(currentSearch, hasHistory));
+    }
+  }, [hasHistory]);
 
   const runAction = async (key, callback) => {
     if (actionLockRef.current) return false;
@@ -85,7 +96,10 @@ export default function ResumeHistorySection({
   };
 
   return (
-    <section className="resume-history-section" aria-labelledby="resume-history-title">
+    <section
+      className={"resume-history-section" + (isEmpty ? " is-empty" : "")}
+      aria-labelledby="resume-history-title"
+    >
       <header className="resume-history-header">
         <div className="resume-history-heading">
           <span className="resume-history-heading__icon" aria-hidden="true">
@@ -103,29 +117,31 @@ export default function ResumeHistorySection({
         </div>
 
         <div className="resume-history-header-actions">
-          <label className="resume-history-search">
-            <Search aria-hidden="true" size={15} />
-            <span className="resume-history-sr-only">Search resume history</span>
-            <input
-              aria-controls="resume-history-list"
-              disabled={loading || normalizedEntries.length === 0}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search resumes"
-              type="search"
-              value={search}
-            />
-            {search && (
-              <button
-                aria-label="Clear resume history search"
-                className="resume-history-search__clear"
-                disabled={interactionLocked}
-                onClick={() => setSearch("")}
-                type="button"
-              >
-                <X aria-hidden="true" size={14} strokeWidth={2.8} />
-              </button>
-            )}
-          </label>
+          {hasHistory && (
+            <label className="resume-history-search">
+              <Search aria-hidden="true" size={15} />
+              <span className="resume-history-sr-only">Search resume history</span>
+              <input
+                aria-controls="resume-history-list"
+                disabled={loading}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search resumes"
+                type="search"
+                value={search}
+              />
+              {search && (
+                <button
+                  aria-label="Clear resume history search"
+                  className="resume-history-search__clear"
+                  disabled={interactionLocked}
+                  onClick={() => setSearch("")}
+                  type="button"
+                >
+                  <X aria-hidden="true" size={14} strokeWidth={2.8} />
+                </button>
+              )}
+            </label>
+          )}
 
           {deleteAllConfirmOpen ? (
             <div
@@ -197,13 +213,7 @@ export default function ResumeHistorySection({
             </button>
           )}
         </div>
-      ) : normalizedEntries.length === 0 ? (
-        <div className="resume-history-state resume-history-state--empty">
-          <FileText aria-hidden="true" size={24} />
-          <strong>No generated resumes yet</strong>
-          <span>Generate a PDF to save your first editable resume version here.</span>
-        </div>
-      ) : filteredEntries.length === 0 ? (
+      ) : normalizedEntries.length === 0 ? null : filteredEntries.length === 0 ? (
         <div className="resume-history-state resume-history-state--empty">
           <Search aria-hidden="true" size={24} />
           <strong>No matching resumes</strong>

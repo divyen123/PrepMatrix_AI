@@ -2023,7 +2023,7 @@ function createCareerRouteHarness({
   };
 }
 
-test("replays completed career analysis before eligibility and provider checks", async () => {
+test("replays completed career analysis after current eligibility and before provider checks", async () => {
   let fetchCalls = 0;
   const replayPayload = {
     notebook: { id: "507f1f77bcf86cd799439011" },
@@ -2043,7 +2043,6 @@ test("replays completed career analysis before eligibility and provider checks",
     aiQuota,
     geminiConfig: { available: false, message: "Gemini unavailable." },
     groqConfig: { available: false, message: "Groq unavailable." },
-    user: { academicLevel: "High School", degree: "", department: "" },
     fetchImpl: async () => {
       fetchCalls += 1;
       return geminiNotebookResponse();
@@ -2057,6 +2056,33 @@ test("replays completed career analysis before eligibility and provider checks",
   assert.equal(fetchCalls, 0);
   assert.equal(harness.dbCalls, 1);
   assert.equal(aiQuota.calls.lookup.length, 1);
+  assert.equal(aiQuota.calls.reserve.length, 0);
+});
+
+test("rejects a career-analysis replay when the current profile is no longer college-eligible", async () => {
+  const aiQuota = createTestAiQuota({
+    lookup: async () => ({
+      state: "replay",
+      eventId: "completed-career-event",
+      cost: 5,
+      quota: { ...TEST_QUOTA, used: 5, reserved: 0 },
+      replayPayload: {
+        notebook: { id: "507f1f77bcf86cd799439011" },
+        topicAnalysis: { targetRole: "Backend intern", topics: [] },
+      },
+    }),
+  });
+  const harness = createCareerRouteHarness({
+    aiQuota,
+    user: { academicLevel: "Diploma / Vocational", degree: "Diploma", department: "IT" },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.body.code, "LEARNING_CAREER_NOT_ELIGIBLE");
+  assert.equal(harness.dbCalls, 0);
+  assert.equal(aiQuota.calls.lookup.length, 0);
   assert.equal(aiQuota.calls.reserve.length, 0);
 });
 
@@ -2177,25 +2203,43 @@ test("falls back to Groq for career analysis after a Gemini transport failure", 
   assert.equal(harness.updates.length, 0);
 });
 
-test("rejects career analysis for an ineligible learner profile before provider work", async () => {
-  let fetchCalls = 0;
-  const harness = createCareerRouteHarness({
-    fetchImpl: async () => {
-      fetchCalls += 1;
-      return geminiNotebookResponse(validCareerTopicAnalysis());
-    },
-    user: {
+test("rejects career analysis for non-college learner profiles before provider work", async () => {
+  const ineligibleProfiles = [
+    {
       academicLevel: "Class 10",
       academicTrack: "CBSE",
       degree: "",
       department: "",
     },
-  });
+    {
+      academicLevel: "Diploma / Vocational",
+      academicTrack: "Diploma / Vocational",
+      degree: "Diploma in Computer Engineering",
+      department: "Computer Science",
+    },
+    {
+      academicLevel: "Professional / Certification",
+      academicTrack: "Professional Certification",
+      degree: "PMP",
+      department: "",
+    },
+  ];
 
-  const res = await harness.analyze();
+  for (const user of ineligibleProfiles) {
+    let fetchCalls = 0;
+    const harness = createCareerRouteHarness({
+      fetchImpl: async () => {
+        fetchCalls += 1;
+        return geminiNotebookResponse(validCareerTopicAnalysis());
+      },
+      user,
+    });
 
-  assert.equal(res.statusCode, 403);
-  assert.equal(res.body.code, "LEARNING_CAREER_NOT_ELIGIBLE");
-  assert.equal(harness.dbCalls, 0);
-  assert.equal(fetchCalls, 0);
+    const res = await harness.analyze();
+
+    assert.equal(res.statusCode, 403);
+    assert.equal(res.body.code, "LEARNING_CAREER_NOT_ELIGIBLE");
+    assert.equal(harness.dbCalls, 0);
+    assert.equal(fetchCalls, 0);
+  }
 });

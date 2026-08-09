@@ -1568,6 +1568,14 @@ export function registerLearningNotebookRoutes(app, {
       }
 
       const notebookId = objectIdFromParam(req.params.id);
+      const careerEligibility = getLearningCareerEligibility(req.user);
+      if (!careerEligibility.enabled) {
+        return res.status(403).json({
+          code: "LEARNING_CAREER_NOT_ELIGIBLE",
+          error: careerEligibility.reason,
+        });
+      }
+
       const lookupResult = await lookupLearningAiAction(aiQuota, req, "career_analysis");
       setLearningQuotaHeaders(res, aiQuota, lookupResult?.quota, lookupResult?.cost);
       if (lookupResult?.state === "replay") {
@@ -1576,13 +1584,6 @@ export function registerLearningNotebookRoutes(app, {
         return res.json(payload);
       }
 
-      const careerEligibility = getLearningCareerEligibility(req.user);
-      if (!careerEligibility.enabled) {
-        return res.status(403).json({
-          code: "LEARNING_CAREER_NOT_ELIGIBLE",
-          error: careerEligibility.reason,
-        });
-      }
       const targetRole = cleanInline(req.body?.targetRole, 160)
         || careerEligibility.field
         || "Placement or internship role";

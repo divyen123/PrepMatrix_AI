@@ -1,20 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#14b8a6"/>
-      <stop offset="100%" stop-color="#0d9488"/>
+    <linearGradient id="bg" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="44%" stop-color="#00a6c8"/>
+      <stop offset="100%" stop-color="#6d5dfc"/>
     </linearGradient>
-    <radialGradient id="shine" cx="0.3" cy="0.2" r="0.8">
-      <stop offset="0%" stop-color="rgba(255,255,255,0.35)"/>
-      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-    </radialGradient>
   </defs>
-  <!-- Rounded square background -->
-  <rect width="48" height="48" rx="14" fill="url(#bg)"/>
-  <!-- Subtle glass shine -->
-  <rect width="48" height="48" rx="14" fill="url(#shine)"/>
-  <!-- Border highlight -->
-  <rect x="0.5" y="0.5" width="47" height="47" rx="13.5" stroke="rgba(255,255,255,0.4)" stroke-width="1" fill="none"/>
-  <!-- Letter P -->
+  <circle cx="24" cy="24" r="22" fill="url(#bg)"/>
+  <circle cx="24" cy="24" r="21.5" stroke="rgba(255,255,255,0.44)"/>
   <text x="24" y="35" text-anchor="middle" font-family="'Space Grotesk', 'Inter', sans-serif" font-size="32" font-weight="800" fill="white" letter-spacing="-0.04em">P</text>
 </svg>

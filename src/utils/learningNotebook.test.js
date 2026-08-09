@@ -235,6 +235,22 @@ test("gates career preparation by academic category and field", () => {
     degree: "MBA",
     department: "Finance",
   });
+  const diploma = getLearningCareerEligibility({
+    academicLevel: "Diploma / Vocational",
+    academicTrack: "Diploma / Vocational",
+    degree: "Diploma in Computer Engineering",
+    department: "Computer Science",
+  });
+  const professionalCertification = getLearningCareerEligibility({
+    academicLevel: "Professional / Certification",
+    academicTrack: "Professional Certification",
+    degree: "PMP",
+  });
+  const examPreparation = getLearningCareerEligibility({
+    academicLevel: "Competitive Exam Preparation",
+    academicTrack: "Competitive Exams",
+    degree: "GATE",
+  });
 
   assert.deepEqual(
     { enabled: school.enabled, codingRelevant: school.codingRelevant },
@@ -248,6 +264,11 @@ test("gates career preparation by academic category and field", () => {
     { enabled: businessDegree.enabled, codingRelevant: businessDegree.codingRelevant },
     { enabled: true, codingRelevant: false },
   );
+  assert.deepEqual(
+    [diploma, professionalCertification, examPreparation].map((item) => item.enabled),
+    [false, false, false],
+  );
+  assert.match(diploma.reason, /college and higher-education degree profiles/i);
   assert.equal(getLearningCareerEligibility({}).enabled, false);
 });
 

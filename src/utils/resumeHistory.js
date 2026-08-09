@@ -97,6 +97,10 @@ export function filterResumeHistory(value, query = "") {
   ].some((field) => String(field || "").toLocaleLowerCase().includes(needle)));
 }
 
+export function reconcileResumeHistorySearch(search, hasHistory) {
+  return hasHistory ? search : "";
+}
+
 export function loadResumeHistoryEntry(entry, currentBuilder, options = {}) {
   const normalizedEntry = normalizeResumeHistoryEntry(entry, { now: options.now });
   const current = normalizeResumeBuilderState(

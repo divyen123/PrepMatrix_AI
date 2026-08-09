@@ -76,6 +76,7 @@ import {
   mergePlacementDraft,
 } from "../utils/placementPreparation";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
+import { getLearningCareerEligibility } from "../utils/learningNotebook";
 import {
   LEARNING_PRIVACY_CONSENT_VERSION,
   acceptLearningPrivacyConsent,
@@ -495,6 +496,22 @@ function careerItems(value) {
   return cleanText(value, 500) ? [cleanText(value, 500)] : [];
 }
 
+function placementInputValues(notebook, draft, userProfile = {}) {
+  const matchingDraft = draft?.notebookId === notebook?.id ? draft : null;
+  const analysis = matchingDraft?.analysis || notebook?.careerPreparation?.topicAnalysis || null;
+  const topics = listFrom(analysis?.topics)
+    .map((topic) => cleanText(topic?.title || topic, 140))
+    .filter(Boolean)
+    .slice(0, 12);
+  return {
+    role: cleanText(
+      analysis?.targetRole || userProfile?.primaryGoal || userProfile?.careerGoal,
+      160,
+    ),
+    topics: topics.join("\n"),
+  };
+}
+
 function formatNotebookDate(value) {
   const date = new Date(value || Date.now());
   if (Number.isNaN(date.getTime())) return "Recently updated";
@@ -535,11 +552,13 @@ function StartLearningPage({
   const masterySaveSequenceRef = useRef(0);
   const notebookSaveChainRef = useRef(Promise.resolve());
   const activeNotebookRef = useRef(null);
+  const careerAnalysisRequestRef = useRef({ notebookId: "", pending: false, sequence: 0 });
   const [notebooks, setNotebooks] = useState([]);
   const [notebooksLoading, setNotebooksLoading] = useState(true);
   const [notebooksError, setNotebooksError] = useState("");
   const [activeNotebook, setActiveNotebook] = useState(null);
   const [workspaceView, setWorkspaceView] = useState("intake");
+  const [intakeMode, setIntakeMode] = useState("notebook");
   const [careerRole, setCareerRole] = useState("");
   const [careerTopics, setCareerTopics] = useState("");
   const [careerAnalyzing, setCareerAnalyzing] = useState(false);
@@ -585,6 +604,16 @@ function StartLearningPage({
   const [noteSavingKeys, setNoteSavingKeys] = useState(() => new Set());
   const noteSavingKeysRef = useRef(new Set());
   const [masteryClock, setMasteryClock] = useState(() => Date.now());
+
+  const careerEligibility = useMemo(
+    () => getLearningCareerEligibility({
+      ...userProfile,
+      academicLevel,
+      academicTrack,
+    }),
+    [academicLevel, academicTrack, userProfile],
+  );
+  const placementEligible = careerEligibility.enabled;
 
   const savedSubjectNames = useMemo(
     () => normalizeSubjectNames(subjects),
@@ -645,6 +674,21 @@ function StartLearningPage({
   useEffect(() => {
     activeNotebookRef.current = activeNotebook;
   }, [activeNotebook]);
+
+  useEffect(() => {
+    if (placementEligible) return;
+    careerAnalysisRequestRef.current = {
+      notebookId: "",
+      pending: false,
+      sequence: careerAnalysisRequestRef.current.sequence + 1,
+    };
+    setCareerAnalyzing(false);
+    setIntakeMode("notebook");
+    setWorkspaceView((current) => {
+      if (current !== "career") return current;
+      return activeNotebookRef.current ? "notebook" : "intake";
+    });
+  }, [placementEligible]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setMasteryClock(Date.now()), 60_000);
@@ -746,8 +790,11 @@ function StartLearningPage({
     [schedule, scheduleStartDate],
   );
   const careerVisible = useMemo(
-    () => careerProfileAllows(activeNotebook?.careerPreparation),
-    [activeNotebook?.careerPreparation],
+    () => placementEligible && (
+      careerProfileAllows(activeNotebook?.careerPreparation)
+      || careerDraft?.notebookId === activeNotebook?.id
+    ),
+    [activeNotebook?.careerPreparation, activeNotebook?.id, careerDraft?.notebookId, placementEligible],
   );
   const careerFoundationTopics = useMemo(
     () => careerTopicCards(activeNotebook?.careerPreparation?.skills, DEFAULT_CAREER_FOUNDATIONS),
@@ -774,20 +821,57 @@ function StartLearningPage({
   const careerAnalysisIsDraft = Boolean(activeCareerDraft && careerAnalysisReady);
 
   const selectNotebook = useCallback((value) => {
+    if (careerAnalyzing || saving) return;
     const normalized = normalizeNotebook(value);
     setActiveNotebook(normalized);
     setWorkspaceView("notebook");
     setCareerError("");
-    setCareerDraft(null);
     setDirty(false);
     setActiveTab("studio");
     setExpandedChapters(new Set(normalized.chapters.slice(0, 1).map((chapter) => chapter.id)));
     setSelectedNodeId(normalized.chapters[0]?.id || "");
 
-  }, []);
+  }, [careerAnalyzing, saving]);
+
+  const selectPlacementNotebook = (notebookId) => {
+    if (careerAnalyzing || saving) return;
+    if (careerDraft && careerDraft.notebookId !== notebookId) {
+      const message = "Save the current placement draft before choosing another notebook.";
+      setCareerError(message);
+      setNotification?.(message);
+      return;
+    }
+    const notebook = notebooks.find((item) => item.id === notebookId);
+    if (!notebook) return;
+    const normalized = normalizeNotebook(notebook);
+    const fields = placementInputValues(normalized, careerDraft, userProfile);
+    activeNotebookRef.current = normalized;
+    setActiveNotebook(normalized);
+    setCareerError("");
+    setCareerRole(fields.role);
+    setCareerTopics(fields.topics);
+  };
+
+  const openPlacementIntake = () => {
+    if (!placementEligible || careerAnalyzing || saving) return;
+    const draftNotebook = careerDraft
+      ? notebooks.find((notebook) => notebook.id === careerDraft.notebookId)
+      : null;
+    const targetNotebook = draftNotebook || activeNotebook || notebooks[0] || null;
+    if (targetNotebook) {
+      selectPlacementNotebook(targetNotebook.id);
+    } else {
+      const fields = placementInputValues(null, null, userProfile);
+      setCareerRole(fields.role);
+      setCareerTopics(fields.topics);
+    }
+    setCareerError("");
+    setIntakeMode("placement");
+    setWorkspaceView("intake");
+  };
 
   const openCareerWorkspace = () => {
-    if (!activeNotebook) return;
+    if (!activeNotebook || !careerVisible) return;
     setCareerRole((current) => current || cleanText(
       activeNotebook.careerPreparation?.topicAnalysis?.targetRole
         || userProfile?.primaryGoal
@@ -798,9 +882,11 @@ function StartLearningPage({
     setWorkspaceView("career");
   };
 
-  const addCareerTopic = (title) => {
+  const addCareerTopic = (title, { openIntake = false } = {}) => {
+    if (careerAnalyzing || saving) return;
     const cleanTitle = cleanText(title, 140);
     if (!cleanTitle) return;
+    if (openIntake) openPlacementIntake();
     setCareerTopics((current) => {
       const topics = parseCareerTopics(current);
       if (topics.some((topic) => topic.toLocaleLowerCase() === cleanTitle.toLocaleLowerCase())) {
@@ -834,6 +920,27 @@ function StartLearningPage({
       if (analysisTimerRef.current) window.clearInterval(analysisTimerRef.current);
     };
   }, [loadNotebooks]);
+
+  useEffect(() => {
+    if (
+      intakeMode !== "placement"
+      || activeNotebook
+      || careerAnalyzing
+      || saving
+      || !notebooks.length
+    ) return;
+    const notebook = careerDraft
+      ? notebooks.find((item) => item.id === careerDraft.notebookId)
+      : notebooks[0];
+    if (!notebook) return;
+    const normalized = normalizeNotebook(notebook);
+    const fields = placementInputValues(normalized, careerDraft, userProfile);
+    activeNotebookRef.current = normalized;
+    setActiveNotebook(normalized);
+    setCareerRole(fields.role);
+    setCareerTopics(fields.topics);
+    setCareerError("");
+  }, [activeNotebook, careerAnalyzing, careerDraft, intakeMode, notebooks, saving, userProfile]);
 
   useEffect(() => {
     if (!plannerDialogOpen) return;
@@ -1125,18 +1232,29 @@ function StartLearningPage({
     runNotebookAnalysis(analysisRequest);
   };
 
-  const runCareerAnalysis = async ({ targetRole, topics }) => {
+  const runCareerAnalysis = async ({ notebookId, targetRole, topics }) => {
     if (hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)) {
       setCareerError(getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }));
       return;
     }
 
-    if (!activeNotebook?.id || careerAnalyzing) return;
+    const requestNotebookId = cleanText(notebookId, 120);
+    if (!requestNotebookId || careerAnalysisRequestRef.current.pending) return;
+    if (activeNotebookRef.current?.id !== requestNotebookId) {
+      setCareerError("The placement notebook changed. Review the selected notebook and try again.");
+      return;
+    }
+    const sequence = careerAnalysisRequestRef.current.sequence + 1;
+    careerAnalysisRequestRef.current = {
+      notebookId: requestNotebookId,
+      pending: true,
+      sequence,
+    };
     setCareerAnalyzing(true);
     setCareerError("");
     try {
       const payload = await api.post(
-        `/api/learning-notebooks/${encodeURIComponent(activeNotebook.id)}/career-analyze`,
+        `/api/learning-notebooks/${encodeURIComponent(requestNotebookId)}/career-analyze`,
         {
           targetRole,
           topics,
@@ -1151,30 +1269,57 @@ function StartLearningPage({
         },
       );
       if (!mountedRef.current) return;
+      const currentRequest = careerAnalysisRequestRef.current;
+      if (
+        currentRequest.sequence !== sequence
+        || currentRequest.notebookId !== requestNotebookId
+        || activeNotebookRef.current?.id !== requestNotebookId
+      ) return;
       const draft = createPlacementDraft(payload, {
-        notebookId: activeNotebook.id,
+        notebookId: requestNotebookId,
         requestedTopics: topics,
         targetRole,
       });
       setCareerDraft(draft);
       setCareerRole(draft.analysis.targetRole || targetRole);
       setCareerTopics(topics.join("\n"));
+      setWorkspaceView("career");
       setNotification?.("Your preparation draft is ready. Save it to keep it with this notebook.");
     } catch (error) {
-      if (mountedRef.current) {
+      const currentRequest = careerAnalysisRequestRef.current;
+      if (
+        mountedRef.current
+        && currentRequest.sequence === sequence
+        && currentRequest.notebookId === requestNotebookId
+        && activeNotebookRef.current?.id === requestNotebookId
+      ) {
         setCareerError(getAiRequestErrorMessage(error, "Placement topics could not be analyzed."));
       }
     } finally {
-      if (mountedRef.current) setCareerAnalyzing(false);
+      const currentRequest = careerAnalysisRequestRef.current;
+      if (mountedRef.current && currentRequest.sequence === sequence) {
+        careerAnalysisRequestRef.current = { ...currentRequest, pending: false };
+        setCareerAnalyzing(false);
+      }
     }
   };
 
   const analyzeCareerTopics = () => {
-    if (!activeNotebook?.id) {
-      setCareerError("Open a learning notebook before preparing placement topics.");
+    if (!placementEligible) {
+      setCareerError(careerEligibility.reason);
+      return;
+    }
+    const notebookId = activeNotebook?.id || "";
+    if (!notebookId) {
+      setCareerError("Choose a saved notebook for this placement preparation.");
+      return;
+    }
+    if (careerDraft && careerDraft.notebookId !== notebookId) {
+      setCareerError("Save the current placement draft before analyzing a different notebook.");
       return;
     }
     const request = {
+      notebookId,
       targetRole: cleanText(careerRole, 160),
       topics: parseCareerTopics(careerTopics),
     };
@@ -1695,6 +1840,7 @@ function StartLearningPage({
   const persistActiveNotebook = async ({
     errorMessage = "The notebook could not be saved.",
     expectedRevision = "",
+    reconcileListById = false,
     snapshot: requestedSnapshot,
     successMessage = "Learning notebook saved.",
   } = {}) => {
@@ -1714,12 +1860,19 @@ function StartLearningPage({
       const normalized = normalizeNotebook(payload?.notebook || snapshot);
       const revisionMatches = activeNotebookRef.current?.id === snapshot.id
         && activeNotebookRef.current?.updatedAt === baselineRevision;
-      setNotebooks((current) => current.map((notebook) => (
-        notebook.id === normalized.id
-          && (revisionMatches || notebook.updatedAt === baselineRevision)
-          ? normalized
-          : notebook
-      )));
+      setNotebooks((current) => {
+        let matched = false;
+        const next = current.map((notebook) => {
+          if (notebook.id !== normalized.id) return notebook;
+          matched = true;
+          return reconcileListById
+            || revisionMatches
+            || notebook.updatedAt === baselineRevision
+            ? normalized
+            : notebook;
+        });
+        return reconcileListById && !matched ? [normalized, ...next] : next;
+      });
       if (revisionMatches) {
         activeNotebookRef.current = normalized;
         setActiveNotebook(normalized);
@@ -1764,11 +1917,11 @@ function StartLearningPage({
     const result = await persistActiveNotebook({
       errorMessage: "The placement preparation could not be saved.",
       expectedRevision: snapshot.updatedAt,
+      reconcileListById: true,
       snapshot,
       successMessage: "Placement preparation saved and available in Saved notebooks.",
     });
-    const activeChangedNotebook = activeNotebookRef.current?.id !== activeCareerDraft.notebookId;
-    if (result && (result.applied || activeChangedNotebook)) {
+    if (result) {
       setCareerDraft((current) => (
         current && `${current.notebookId}:${current.generatedAt}` === draftIdentity
           ? null
@@ -1778,15 +1931,18 @@ function StartLearningPage({
   };
 
   const deleteNotebook = async (notebookId) => {
+    if (careerAnalyzing || saving) return;
     setDeletingId(notebookId);
     try {
       await api.delete(`/api/learning-notebooks/${encodeURIComponent(notebookId)}`, { timeoutMs: 30000 });
       if (!mountedRef.current) return;
       setNotebooks((current) => current.filter((notebook) => notebook.id !== notebookId));
+      setCareerDraft((current) => (
+        current?.notebookId === notebookId ? null : current
+      ));
       if (activeNotebook?.id === notebookId) {
         activeNotebookRef.current = null;
         setActiveNotebook(null);
-        setCareerDraft(null);
         setWorkspaceView("intake");
       }
       setDeleteCandidateId("");
@@ -2278,6 +2434,28 @@ function StartLearningPage({
       <div className={`learning-workspace is-${workspaceView}`}>
         <aside className="learning-source-rail" aria-label="Sources and saved notebooks">
           <section className="card learning-intake-source-panel">
+          <div aria-label="Start Learning inputs" className="learning-intake-tabs" role="group">
+            <button
+              aria-pressed={intakeMode === "notebook"}
+              className={intakeMode === "notebook" ? "is-active" : ""}
+              onClick={() => setIntakeMode("notebook")}
+              type="button"
+            >
+              <BookOpenCheck size={15} /> Notebook preparation
+            </button>
+            {placementEligible && (
+              <button
+                aria-pressed={intakeMode === "placement"}
+                className={intakeMode === "placement" ? "is-active" : ""}
+                onClick={openPlacementIntake}
+                type="button"
+              >
+                <BriefcaseBusiness size={15} /> Placement prep
+              </button>
+            )}
+          </div>
+          {intakeMode === "notebook" ? (
+          <>
           <div className="learning-panel-heading">
             <div>
               <span className="section-tag">Sources</span>
@@ -2558,7 +2736,104 @@ function StartLearningPage({
               />
             </div>
           )}
+          </>
+          ) : (
+          <div className="learning-placement-intake">
+            <div className="learning-panel-heading">
+              <div>
+                <span className="section-tag"><Sparkles size={13} /> Personalized analysis</span>
+                <h3>Build your placement preparation</h3>
+                <p>
+                  Choose where to save the guide, then enter the role and interview topics you
+                  want explained.
+                </p>
+              </div>
+              <span className="learning-count">{parseCareerTopics(careerTopics).length}/12</span>
+            </div>
 
+            <label className="learning-field">
+              <span>Save with notebook</span>
+              <select
+                disabled={careerAnalyzing || saving || notebooksLoading || !notebooks.length}
+                onChange={(event) => selectPlacementNotebook(event.target.value)}
+                value={activeNotebook?.id || ""}
+              >
+                <option disabled value="">
+                  {notebooksLoading ? "Loading saved notebooks..." : "Choose a saved notebook"}
+                </option>
+                {notebooks.map((notebook) => (
+                  <option key={notebook.id} value={notebook.id}>{notebook.title}</option>
+                ))}
+              </select>
+              <small>
+                Placement results are stored with this notebook and become view-only when you
+                reopen it from Saved notebooks.
+              </small>
+            </label>
+
+            {!notebooksLoading && !notebooks.length && (
+              <p className="learning-placement-notebook-note">
+                Build and save a notebook first so your placement preparation has a study workspace.
+              </p>
+            )}
+
+            <div className="learning-career-fields">
+              <label className="learning-field">
+                <span>Target role</span>
+                <input
+                  disabled={careerAnalyzing || saving}
+                  onChange={(event) => setCareerRole(event.target.value)}
+                  placeholder="e.g. Software engineering intern"
+                  value={careerRole}
+                />
+              </label>
+              <label className="learning-field">
+                <span>Topics to analyze</span>
+                <textarea
+                  disabled={careerAnalyzing || saving}
+                  onChange={(event) => setCareerTopics(event.target.value)}
+                  placeholder={"Arrays and strings\nOperating systems\nProject walkthrough"}
+                  rows={6}
+                  value={careerTopics}
+                />
+                <small>Separate topics with commas or new lines. Add up to 12.</small>
+              </label>
+            </div>
+
+            <div className="learning-placement-suggestions" aria-label="Suggested placement topics">
+              <span>Quick add</span>
+              <div>
+                {[...careerFoundationTopics.slice(0, 3), ...careerCodingTopics.slice(0, 3)].map((topic) => (
+                  <button
+                    disabled={careerAnalyzing || saving}
+                    key={topic.id || topic.title}
+                    onClick={() => addCareerTopic(topic.title)}
+                    type="button"
+                  >
+                    <Plus size={13} /> {topic.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {careerError && <p className="learning-inline-error" role="alert">{careerError}</p>}
+            <button
+              className="learning-career-analyze"
+              disabled={
+                careerAnalyzing
+                || saving
+                || !activeNotebook?.id
+                || hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)
+              }
+              onClick={analyzeCareerTopics}
+              type="button"
+            >
+              {careerAnalyzing ? <LoaderCircle className="spinner" size={17} /> : <BrainCircuit size={17} />}
+              {careerAnalyzing ? "Analyzing preparation topics..." : "Analyze preparation topics"}
+              <AiCreditCost feature={AI_FEATURES.CAREER_ANALYSIS} />
+            </button>
+          </div>
+          )}
           </section>
           <section className={`learning-saved-panel${noSavedNotebooks ? " is-empty" : " card"}`}>
           {!noSavedNotebooks && (
@@ -2585,6 +2860,7 @@ function StartLearningPage({
                 <button
                   aria-current={activeNotebook?.id === notebook.id ? "page" : undefined}
                   className="learning-notebook-select"
+                  disabled={careerAnalyzing || saving}
                   onClick={() => selectNotebook(notebook)}
                   type="button"
                 >
@@ -2592,7 +2868,7 @@ function StartLearningPage({
                   <span>
                     <strong>{notebook.title}</strong>
                     <small>{notebook.chapters.length} chapters · {formatNotebookDate(notebook.updatedAt)}</small>
-                    {hasSavedPlacementPreparation(notebook) && (
+                    {placementEligible && hasSavedPlacementPreparation(notebook) && (
                       <small className="learning-notebook-prep-badge">
                         <BriefcaseBusiness aria-hidden="true" size={12} /> Placement prep saved
                       </small>
@@ -2603,7 +2879,7 @@ function StartLearningPage({
                   <div className="learning-delete-confirm">
                     <button
                       aria-label={`Confirm deleting ${notebook.title}`}
-                      disabled={deletingId === notebook.id}
+                      disabled={careerAnalyzing || saving || deletingId === notebook.id}
                       onClick={() => deleteNotebook(notebook.id)}
                       type="button"
                     >
@@ -2611,6 +2887,7 @@ function StartLearningPage({
                     </button>
                     <button
                       aria-label="Cancel delete"
+                      disabled={careerAnalyzing || saving}
                       onClick={() => setDeleteCandidateId("")}
                       type="button"
                     >
@@ -2621,6 +2898,7 @@ function StartLearningPage({
                   <button
                     aria-label={`Delete ${notebook.title}`}
                     className="learning-notebook-delete"
+                    disabled={careerAnalyzing || saving}
                     onClick={() => setDeleteCandidateId(notebook.id)}
                     type="button"
                   >
@@ -3283,7 +3561,7 @@ function StartLearningPage({
                 </div>
                 <div className="learning-career-topic-grid">
                   {careerFoundationTopics.slice(0, 8).map((topic) => (
-                    <button key={topic.id || topic.title} onClick={() => addCareerTopic(topic.title)} type="button">
+                    <button key={topic.id || topic.title} onClick={() => addCareerTopic(topic.title, { openIntake: true })} type="button">
                       <span><Plus size={13} /></span>
                       <strong>{topic.title}</strong>
                       <small>{topic.summary || "Add this area to your personalized preparation guide."}</small>
@@ -3302,7 +3580,7 @@ function StartLearningPage({
                 </div>
                 <div className="learning-career-topic-grid">
                   {careerCodingTopics.slice(0, 8).map((topic) => (
-                    <button key={topic.id || topic.title} onClick={() => addCareerTopic(topic.title)} type="button">
+                    <button key={topic.id || topic.title} onClick={() => addCareerTopic(topic.title, { openIntake: true })} type="button">
                       <span><Plus size={13} /></span>
                       <strong>{topic.title}</strong>
                       <small>{topic.summary || "Add this coding pattern to your personalized preparation guide."}</small>
@@ -3310,50 +3588,6 @@ function StartLearningPage({
                   ))}
                 </div>
               </article>
-            </section>
-
-            <section className="card learning-career-form">
-              <div className="learning-panel-heading">
-                <div>
-                  <span className="section-tag"><Sparkles size={13} /> Personalized analysis</span>
-                  <h3>Choose what you want explained</h3>
-                  <p>Add topics from above or enter your own role-specific interview areas.</p>
-                </div>
-                <span className="learning-count">{parseCareerTopics(careerTopics).length}/12</span>
-              </div>
-              <div className="learning-career-fields">
-                <label className="learning-field">
-                  <span>Target role</span>
-                  <input
-                    disabled={careerAnalyzing}
-                    onChange={(event) => setCareerRole(event.target.value)}
-                    placeholder="e.g. Software engineering intern"
-                    value={careerRole}
-                  />
-                </label>
-                <label className="learning-field">
-                  <span>Topics to analyze</span>
-                  <textarea
-                    disabled={careerAnalyzing}
-                    onChange={(event) => setCareerTopics(event.target.value)}
-                    placeholder={"Arrays and strings\nOperating systems\nProject walkthrough"}
-                    rows={5}
-                    value={careerTopics}
-                  />
-                  <small>Separate topics with commas or new lines. Add up to 12.</small>
-                </label>
-              </div>
-              {careerError && <p className="learning-inline-error" role="alert">{careerError}</p>}
-              <button
-                className="learning-career-analyze"
-                disabled={careerAnalyzing || hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)}
-                onClick={analyzeCareerTopics}
-                type="button"
-              >
-                {careerAnalyzing ? <LoaderCircle className="spinner" size={17} /> : <BrainCircuit size={17} />}
-                {careerAnalyzing ? "Analyzing preparation topics..." : "Analyze preparation topics"}
-                <AiCreditCost feature={AI_FEATURES.CAREER_ANALYSIS} />
-              </button>
             </section>
 
             {careerAnalysisReady && (

@@ -69,6 +69,22 @@ function mix(from, to, amount) {
   return from + (to - from) * amount;
 }
 
+const BRAND_GRADIENT_STOPS = [
+  { offset: 0, color: [15, 118, 110] },
+  { offset: 0.44, color: [0, 166, 200] },
+  { offset: 1, color: [109, 93, 252] },
+];
+
+function brandGradient(u, v) {
+  const position = Math.max(0, Math.min(1, (u + v) / 2));
+  const endIndex = BRAND_GRADIENT_STOPS.findIndex(({ offset }) => position <= offset);
+  const end = BRAND_GRADIENT_STOPS[endIndex === -1 ? BRAND_GRADIENT_STOPS.length - 1 : endIndex];
+  const start = BRAND_GRADIENT_STOPS[Math.max(0, (endIndex === -1 ? BRAND_GRADIENT_STOPS.length : endIndex) - 1)];
+  const range = end.offset - start.offset;
+  const amount = range > 0 ? (position - start.offset) / range : 0;
+  return start.color.map((channel, index) => mix(channel, end.color[index], amount));
+}
+
 function roundedRectangle(x, y, left, top, right, bottom, radius) {
   const closestX = Math.max(left + radius, Math.min(right - radius, x));
   const closestY = Math.max(top + radius, Math.min(bottom - radius, y));
@@ -99,35 +115,49 @@ function letterCoverage(x, y, size, scale) {
   return hits / (samples * samples);
 }
 
-function createBrandIcon(size, { maskable = false } = {}) {
+function circleCoverage(x, y, size, radius) {
+  let hits = 0;
+  const samples = 4;
+  for (let sampleY = 0; sampleY < samples; sampleY += 1) {
+    for (let sampleX = 0; sampleX < samples; sampleX += 1) {
+      const u = (x + (sampleX + 0.5) / samples) / size;
+      const v = (y + (sampleY + 0.5) / samples) / size;
+      if (Math.hypot(u - 0.5, v - 0.5) <= radius) hits += 1;
+    }
+  }
+  return hits / (samples * samples);
+}
+
+function createBrandIcon(size, { fullBleed = false } = {}) {
   const pixels = Buffer.alloc(size * size * 4);
-  const letterScale = maskable ? 0.82 : 0.94;
+  const radius = 0.46;
+  const letterScale = fullBleed ? 0.72 : 0.78;
 
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       const u = (x + 0.5) / size;
       const v = (y + 0.5) / size;
-      const diagonal = Math.max(0, Math.min(1, (u + v) / 2));
-      const shineDistance = Math.hypot(u - 0.24, v - 0.16);
-      const shine = Math.max(0, 1 - shineDistance / 0.72) * 0.27;
-      const vignette = Math.max(0, Math.hypot(u - 0.5, v - 0.5) - 0.28) * 0.18;
-      let red = mix(20, 13, diagonal);
-      let green = mix(184, 148, diagonal);
-      let blue = mix(166, 136, diagonal);
-      red = mix(red, 255, shine) * (1 - vignette);
-      green = mix(green, 255, shine) * (1 - vignette);
-      blue = mix(blue, 255, shine) * (1 - vignette);
+      const localU = fullBleed ? u : Math.max(0, Math.min(1, (u - (0.5 - radius)) / (radius * 2)));
+      const localV = fullBleed ? v : Math.max(0, Math.min(1, (v - (0.5 - radius)) / (radius * 2)));
+      let [red, green, blue] = brandGradient(localU, localV);
+      const distance = Math.hypot(u - 0.5, v - 0.5);
+      const border = !fullBleed && distance >= radius - 0.012 ? 0.35 : 0;
+      red = mix(red, 255, border);
+      green = mix(green, 255, border);
+      blue = mix(blue, 255, border);
 
       const coverage = letterCoverage(x, y, size, letterScale);
       red = mix(red, 255, coverage);
       green = mix(green, 255, coverage);
       blue = mix(blue, 255, coverage);
 
+      const iconCoverage = fullBleed ? 1 : circleCoverage(x, y, size, radius);
+
       const offset = (y * size + x) * 4;
       pixels[offset] = clampByte(red);
       pixels[offset + 1] = clampByte(green);
       pixels[offset + 2] = clampByte(blue);
-      pixels[offset + 3] = 255;
+      pixels[offset + 3] = clampByte(iconCoverage * 255);
     }
   }
 
@@ -158,11 +188,11 @@ function createNotificationBadge(size) {
 }
 
 const outputs = [
-  ["icon-192.png", createBrandIcon(192)],
-  ["icon-512.png", createBrandIcon(512)],
-  ["icon-maskable-192.png", createBrandIcon(192, { maskable: true })],
-  ["icon-maskable-512.png", createBrandIcon(512, { maskable: true })],
-  ["apple-touch-icon-180.png", createBrandIcon(180)],
+  ["brand-icon-192.png", createBrandIcon(192)],
+  ["brand-icon-512.png", createBrandIcon(512)],
+  ["brand-icon-maskable-192.png", createBrandIcon(192, { fullBleed: true })],
+  ["brand-icon-maskable-512.png", createBrandIcon(512, { fullBleed: true })],
+  ["brand-apple-touch-icon-180.png", createBrandIcon(180, { fullBleed: true })],
   ["notification-badge-96.png", createNotificationBadge(96)],
 ];
 

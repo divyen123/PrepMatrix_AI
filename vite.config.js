@@ -8,11 +8,11 @@ export const PWA_BUILD_VERSION_PLACEHOLDER = "__PREPMATRIX_BUILD_VERSION__"
 export const PWA_PUBLIC_FINGERPRINT_PATHS = Object.freeze([
   "public/sw.js",
   "public/manifest.webmanifest",
-  "public/pwa/icon-192.png",
-  "public/pwa/icon-512.png",
-  "public/pwa/icon-maskable-192.png",
-  "public/pwa/icon-maskable-512.png",
-  "public/pwa/apple-touch-icon-180.png",
+  "public/pwa/brand-icon-192.png",
+  "public/pwa/brand-icon-512.png",
+  "public/pwa/brand-icon-maskable-192.png",
+  "public/pwa/brand-icon-maskable-512.png",
+  "public/pwa/brand-apple-touch-icon-180.png",
   "public/pwa/notification-badge-96.png",
 ])
 

@@ -11,13 +11,11 @@ export const MAX_LEARNING_MIND_MAP_NODES = 180;
 export const MAX_LEARNING_CAREER_TOPICS = 12;
 
 const CAREER_ELIGIBLE_BANDS = new Set([
-  "diploma",
   "undergraduate",
   "postgraduate",
   "doctoral",
   "medical",
   "law",
-  "professional",
 ]);
 
 const CODING_PROFILE_PATTERN = /\b(?:ai|artificial intelligence|computer|computing|data|electronics|engineering|information technology|it|machine learning|programming|software)\b/iu;
@@ -157,7 +155,7 @@ export function getLearningCareerEligibility(profile = {}) {
       enabled: false,
       codingRelevant: false,
       field: "",
-      reason: "Career preparation needs a completed post-secondary learner profile.",
+      reason: "Career preparation needs a completed college or higher-education degree profile.",
     };
   }
 
@@ -183,7 +181,7 @@ export function getLearningCareerEligibility(profile = {}) {
     field,
     reason: enabled
       ? `Career preparation is tailored to ${field || academic.academicLevel}.`
-      : "Career preparation is shown only for post-secondary, vocational, or professional study categories.",
+      : "Career preparation is shown only for college and higher-education degree profiles.",
   };
 }
 

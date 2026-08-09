@@ -12,11 +12,11 @@ const SHELL_PATHS = [
   "/index.html",
   "/favicon.svg",
   "/manifest.webmanifest",
-  "/pwa/icon-192.png",
-  "/pwa/icon-512.png",
-  "/pwa/icon-maskable-192.png",
-  "/pwa/icon-maskable-512.png",
-  "/pwa/apple-touch-icon-180.png",
+  "/pwa/brand-icon-192.png",
+  "/pwa/brand-icon-512.png",
+  "/pwa/brand-icon-maskable-192.png",
+  "/pwa/brand-icon-maskable-512.png",
+  "/pwa/brand-apple-touch-icon-180.png",
   "/pwa/notification-badge-96.png",
 ];
 const PRIVATE_PATH_PREFIXES = [
@@ -252,7 +252,7 @@ self.addEventListener("push", (event) => {
 
   const title = payload.title || "PrepMatrix AI Reminder";
   const body = payload.body || "You haven't completed any study tasks today! Start preparing now!";
-  const icon = "/pwa/icon-192.png";
+  const icon = "/pwa/brand-icon-192.png";
   const badge = "/pwa/notification-badge-96.png";
   const targetUrl = safeAppPath(payload.url, "/planner");
   const tag = typeof payload.tag === "string" && payload.tag.length <= 80
