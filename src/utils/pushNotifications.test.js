@@ -488,24 +488,36 @@ test("test notifications use the device/version returned by the just-synced subs
   });
 });
 
-test("service worker activates its update immediately and claims open clients", async () => {
+test("service worker waits for update approval and claims open clients after activation", async () => {
   const harness = createServiceWorkerHarness();
   let installWork;
   let activateWork;
+  let messageWork;
 
   harness.listeners.get("install")({
     waitUntil: (promise) => {
       installWork = promise;
     },
   });
+  await installWork;
+  assert.equal(harness.lifecycle.skippedWaiting, 0);
+
+  harness.listeners.get("message")({
+    data: { type: "SKIP_WAITING" },
+    waitUntil: (promise) => {
+      messageWork = promise;
+    },
+  });
+  await messageWork;
+  assert.equal(harness.lifecycle.skippedWaiting, 1);
+
   harness.listeners.get("activate")({
     waitUntil: (promise) => {
       activateWork = promise;
     },
   });
-  await Promise.all([installWork, activateWork]);
+  await activateWork;
 
-  assert.equal(harness.lifecycle.skippedWaiting, 1);
   assert.equal(harness.lifecycle.claimed, 1);
 });
 

@@ -7,8 +7,8 @@ import {
   TRACK_OPTIONS,
   academicProfilePayload,
   isSchoolAcademicLevel,
-  normalizeAcademicProfile,
 } from "../utils/academicProfile";
+import { getLearnerHomeRoute } from "../utils/learnerRouting";
 import api from "../utils/apiClient";
 import Antigravity from "../components/Antigravity";
 
@@ -82,11 +82,7 @@ function AuthPage({ onLogin }) {
       }
 
       onLogin(result.user, result.workspace);
-      const learnerProfile = normalizeAcademicProfile(result.user || {});
-      const nextRoute = learnerProfile.band === "early" || learnerProfile.band === "primary"
-        ? "/kids"
-        : "/dashboard";
-      navigate(nextRoute, { replace: true });
+      navigate(getLearnerHomeRoute(result.user), { replace: true });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Authentication failed.");
     } finally {

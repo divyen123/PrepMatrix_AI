@@ -52,6 +52,7 @@ import {
   academicProfilePayload,
   normalizeAcademicProfile,
 } from "./utils/academicProfile";
+import { getLearnerRoutePolicy } from "./utils/learnerRouting";
 import {
   getResumeEligibility,
   normalizeResumeBuilderState,
@@ -68,6 +69,7 @@ import { SidebarStudyPet } from "./components/StudyPet";
 import GoalReminderCenter from "./components/GoalReminderCenter";
 import SidebarProximityNav from "./components/SidebarProximityNav";
 import LearningRouteBoundary from "./components/LearningRouteBoundary";
+import PwaManager from "./components/PwaManager";
 import "./App.css";
 import "./components/GoalReminderCenter.css";
 import { ToastContainer, toast } from "react-toastify";
@@ -390,15 +392,15 @@ function App() {
     return clearTopBarHideTimeout;
   }, [autoHideTopBar, clearTopBarHideTimeout]);
 
-  const activeLearnerProfile = useMemo(
-    () => normalizeAcademicProfile({
+  const learnerRoutePolicy = useMemo(
+    () => getLearnerRoutePolicy({
       ...(userProfile || {}),
       academicLevel,
       academicTrack,
     }),
     [academicLevel, academicTrack, userProfile],
   );
-  const isKidsLearner = activeLearnerProfile.band === "early" || activeLearnerProfile.band === "primary";
+  const isKidsLearner = learnerRoutePolicy.isKidsLearner;
 
   const voiceAssistant = useVoiceAssistant({
     academicLevel,
@@ -893,19 +895,6 @@ function App() {
   }, [darkMode, isAuthRoute]);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js", {
-        scope: "/",
-        updateViaCache: "none",
-      })
-        .then((reg) => {
-          console.log("Service Worker registered successfully with scope:", reg.scope);
-        })
-        .catch((err) => {
-          console.warn("Service Worker registration failed:", err);
-        });
-    }
-
     const handleSWMessage = (event) => {
       if (event.data && event.data.type === "SHOW_TOAST") {
         toast.info(event.data.message, {
@@ -1276,7 +1265,7 @@ function App() {
           inert={logoutTransitionPhase !== "idle" ? true : undefined}
         >
           <div className="sidebar-header">
-            <Link to={isKidsLearner ? "/kids" : "/dashboard"} className="workspace-logo-wrap" aria-label="PrepMatrix">
+            <Link to={learnerRoutePolicy.homeRoute} className="workspace-logo-wrap" aria-label="PrepMatrix">
               <span className="workspace-logo-mark" aria-hidden="true">P</span>
               <h1 className="workspace-logo-title">PrepMatrix</h1>
             </Link>
@@ -1612,19 +1601,23 @@ function App() {
                           }
                           path="/dashboard"
                         />}
-                        {!isKidsLearner && (
-                          <>
                         <Route
                           element={
-                            <KidsLearningPage
-                              academicLevel={academicLevel}
-                              academicTrack={academicTrack}
-                              subjects={subjects}
-                              userProfile={userProfile}
-                            />
+                            isKidsLearner ? (
+                              <KidsLearningPage
+                                academicLevel={academicLevel}
+                                academicTrack={academicTrack}
+                                subjects={subjects}
+                                userProfile={userProfile}
+                              />
+                            ) : (
+                              <Navigate replace to={learnerRoutePolicy.homeRoute} />
+                            )
                           }
                           path="/kids"
                         />
+                        {!isKidsLearner && (
+                          <>
                         <Route
                           element={
                             <SubjectsPage
@@ -1827,7 +1820,7 @@ function App() {
                         />
                           </>
                         )}
-                        <Route element={<Navigate replace to={isKidsLearner ? "/kids" : "/dashboard"} />} path="*" />
+                        <Route element={<Navigate replace to={learnerRoutePolicy.homeRoute} />} path="*" />
                       </>
                     ) : (
                       <Route element={<Navigate replace to="/login" />} path="*" />
@@ -1895,6 +1888,7 @@ function App() {
         position="top-right"
         toastClassName="prepmatrix-toast"
       />
+      <PwaManager />
     </div>
   );
 }

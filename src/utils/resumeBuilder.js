@@ -330,7 +330,7 @@ export function getResumeQuota(value, now = Date.now()) {
 }
 
 export function recordResumeGeneration(state, now = Date.now()) {
-  const normalized = normalizeResumeBuilderState(state);
+  const normalized = normalizeResumeBuilderState(state, {}, { now });
   const quota = getResumeQuota(normalized.generationTimestamps, now);
   if (!quota.canGenerate) return normalized;
   return {
@@ -346,7 +346,7 @@ export function normalizeResumeBuilderState(value, profile = {}, options = {}) {
   return {
     draft: normalizeResumeDraft(source.draft, profile, options),
     layout: normalizeResumeLayout(source.layout),
-    generationTimestamps: activeResumeGenerations(source.generationTimestamps),
+    generationTimestamps: activeResumeGenerations(source.generationTimestamps, options.now ?? Date.now()),
     lastGeneratedAt: cleanLine(source.lastGeneratedAt, 40) || null,
     updatedAt: cleanLine(source.updatedAt, 40) || null,
   };

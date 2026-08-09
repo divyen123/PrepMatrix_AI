@@ -2077,7 +2077,7 @@ test("career analysis requires current privacy consent before database or provid
   assert.equal(fetchCalls, 0);
 });
 
-test("uses Gemini structured output for career topics and persists normalized analysis", async () => {
+test("uses Gemini structured output for career topics and returns a normalized transient draft", async () => {
   const requests = [];
   const harness = createCareerRouteHarness({
     fetchImpl: async (url, options) => {
@@ -2102,22 +2102,28 @@ test("uses Gemini structured output for career topics and persists normalized an
     requests[0].body.contents[0].parts[0].text,
     /Requested career topic data, in required output order: \["Arrays","Graphs"\]/u,
   );
-  assert.equal(harness.updates.length, 1);
-  const persisted = harness.updates[0].update.$set.careerPreparation.topicAnalysis;
-  assert.equal(persisted.targetRole, "Backend engineering intern");
-  assert.deepEqual(persisted.topics.map((topic) => topic.title), ["Arrays", "Graphs"]);
-  assert.ok(persisted.topics[0].explanation.length > 20);
-  assert.equal(res.body.notebook.careerPreparation.topicAnalysis.topics.length, 2);
+  assert.match(
+    requests[0].body.contents[0].parts[0].text,
+    /implementation outline, time and space complexity, important edge cases/u,
+  );
+  assert.equal(harness.updates.length, 0);
+  assert.equal(res.body.transient, true);
+  assert.equal(res.body.notebook.careerPreparation.topicAnalysis.topics.length, 0);
+  assert.equal(res.body.topicAnalysis.targetRole, "Backend engineering intern");
+  assert.deepEqual(res.body.topicAnalysis.topics.map((topic) => topic.title), ["Arrays", "Graphs"]);
+  assert.ok(res.body.topicAnalysis.topics[0].explanation.length > 20);
   assert.equal(res.body.topicAnalysis.preparationPlan.length, 1);
   assert.equal(res.body.providerModel, DEFAULT_GEMINI_LEARNING_MODEL);
   assert.equal(harness.aiQuota.calls.reserve.length, 1);
   assert.equal(harness.aiQuota.calls.reserve[0].feature, "career_analysis");
   assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.deepEqual(harness.aiQuota.calls.commit[0].replayPayload, res.body);
+  assert.equal(harness.aiQuota.calls.commit[0].resultRef.type, "career_analysis_draft");
   assert.equal(harness.aiQuota.calls.refund.length, 0);
   assert.equal(res.headers["X-AI-Credit-Cost"], "5");
 });
 
-test("restores career data and refunds when quota commit fails", async () => {
+test("refunds without writing career data when transient quota commit fails", async () => {
   const aiQuota = createTestAiQuota({
     commit: async () => {
       const error = new Error("AI credit storage unavailable.");
@@ -2138,7 +2144,7 @@ test("restores career data and refunds when quota commit fails", async () => {
   assert.equal(res.statusCode, 503);
   assert.equal(res.body.code, "AI_QUOTA_UNAVAILABLE");
   assert.equal(res.body.creditsRefunded, true);
-  assert.equal(harness.updates.length, 2);
+  assert.equal(harness.updates.length, 0);
   assert.equal(aiQuota.calls.commit.length, 1);
   assert.equal(aiQuota.calls.commit[0].reservationToken, "reservation-1");
   assert.equal(aiQuota.calls.refund.length, 1);
@@ -2168,7 +2174,7 @@ test("falls back to Groq for career analysis after a Gemini transport failure", 
   assert.equal(groqRequests[0].model, "llama-3.3-70b-versatile");
   assert.equal(groqRequests[0].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
   assert.equal(res.body.providerModel, "llama-3.3-70b-versatile");
-  assert.equal(harness.updates.length, 1);
+  assert.equal(harness.updates.length, 0);
 });
 
 test("rejects career analysis for an ineligible learner profile before provider work", async () => {

@@ -47,6 +47,7 @@ import { normalizeResumeBuilderState } from "../src/utils/resumeBuilder.js";
 import {
   RESUME_GENERATIONS_COLLECTION,
   RESUME_GENERATION_LOCKS_COLLECTION,
+  RESUME_HISTORY_COLLECTION,
   registerResumeBuilderRoutes,
 } from "./resumeBuilderRoutes.js";
 import {
@@ -229,6 +230,11 @@ async function getDb() {
           { unique: true, partialFilterExpression: { requestId: { $type: "string" } } },
         ),
         db.collection(RESUME_GENERATION_LOCKS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+        db.collection(RESUME_HISTORY_COLLECTION).createIndex({ userId: 1, updatedAt: -1, _id: -1 }),
+        db.collection(RESUME_HISTORY_COLLECTION).createIndex(
+          { userId: 1, requestId: 1 },
+          { unique: true, partialFilterExpression: { requestId: { $type: "string" } } },
+        ),
         db.collection("scheduledReminderDeliveries").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         db.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex({ userId: 1, createdAt: -1, _id: -1 }),
         db.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex({ userId: 1, readAt: 1 }),
@@ -844,6 +850,7 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
     db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteMany({ userId }),
     db.collection("questionPapers").deleteMany({ userId }),
     db.collection(RESUME_GENERATIONS_COLLECTION).deleteMany({ userId }),
+    db.collection(RESUME_HISTORY_COLLECTION).deleteMany({ userId }),
     db.collection(RESUME_GENERATION_LOCKS_COLLECTION).deleteMany({ _id: `resume-generation:${String(userId)}` }),
     db.collection(AI_USAGE_EVENTS_COLLECTION).deleteMany({ userId }),
     db.collection(AI_QUOTA_LOCKS_COLLECTION).deleteMany({ userId }),

@@ -514,7 +514,7 @@ function LearningStudyStudio({
         <aside className="learning-studio-coach" aria-label="Contextual AI learning coach">
           <div className="learning-studio-coach__heading">
             <span><Sparkles size={17} /></span>
-            <div><strong>AI Coach</strong><small>Focused on {currentNode.title}</small></div>
+            <strong>AI Coach</strong>
           </div>
           <div className="learning-studio-coach__actions">
             {COACH_ACTIONS.map((action) => {
@@ -527,7 +527,9 @@ function LearningStudyStudio({
           {coachState.response ? (
             <div className="learning-studio-coach__response">
               <span>{coachState.label || "Coach guidance"}</span>
-              {String(coachState.response).split(/\n{2,}/).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+              <div className="learning-studio-coach__response-copy">
+                {String(coachState.response).split(/\n{2,}/).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+              </div>
               <button disabled={coachNoteSaving} onClick={() => onSaveToNotes?.(currentNode, coachNoteOverride)} type="button"><NotebookPen size={14} /> {coachNoteSaving ? "Saving..." : "Save guidance"}</button>
             </div>
           ) : (
@@ -550,19 +552,10 @@ function LearningStudyStudio({
               setMisconceptionDraft("");
             }}>
               <input aria-label="Add a misconception" onChange={(event) => setMisconceptionDraft(event.target.value)} placeholder="What still feels unclear?" value={misconceptionDraft} />
-              <button aria-label="Add misconception" disabled={!misconceptionDraft.trim()} type="submit"><Check size={13} /></button>
+              <button aria-label="Add misconception" disabled={!misconceptionDraft.trim()} type="submit"><Check size={18} /></button>
             </form>
           </section>
 
-          <section className="learning-studio-reviewqueue">
-            <div><strong>Review queue</strong><span>{reviewQueue.length}</span></div>
-            {reviewQueue.slice(0, 3).map((item) => (
-              <button key={item.id} onClick={() => { onSelectNode?.(item.id); onStartSession?.(item.id); }} type="button">
-                <RotateCcw size={13} /><span><strong>{item.title}</strong><small>{item.reviewLabel || "Due for recall"}</small></span>
-              </button>
-            ))}
-            {!reviewQueue.length ? <small>Nothing due now. Your next review will appear here automatically.</small> : null}
-          </section>
         </aside>
       </div>
     </div>

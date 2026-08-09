@@ -1,4 +1,10 @@
 .mastery-flow-shell {
+  --mastery-tone-new: var(--text-muted);
+  --mastery-tone-ready: var(--accent);
+  --mastery-tone-learning: color-mix(in srgb, var(--accent) 58%, var(--text));
+  --mastery-tone-learned: color-mix(in srgb, var(--accent) 76%, var(--surface-strong));
+  --mastery-tone-review: var(--warning);
+  --mastery-tone-mastered: color-mix(in srgb, var(--accent) 82%, var(--text));
   display: grid;
   gap: 12px;
 }
@@ -12,10 +18,10 @@
 
 .mastery-flow-legend span {
   align-items: center;
-  background: rgba(246, 250, 249, 0.94);
-  border: 1px solid rgba(32, 90, 87, 0.11);
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  color: #52666a;
+  color: var(--text-muted);
   display: inline-flex;
   font-size: 0.72rem;
   font-weight: 750;
@@ -33,23 +39,62 @@
 
 .mastery-flow-canvas {
   background:
-    radial-gradient(circle at 16% 15%, rgba(48, 180, 160, 0.12), transparent 27%),
-    linear-gradient(145deg, rgba(249, 253, 252, 0.98), rgba(235, 247, 244, 0.92));
-  border: 1px solid rgba(20, 102, 94, 0.15);
+    radial-gradient(circle at 16% 15%, rgba(var(--accent-rgb), 0.13), transparent 27%),
+    linear-gradient(145deg, var(--surface-strong), var(--surface-muted));
+  border: 1px solid var(--border);
   border-radius: 22px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--surface-strong) 78%, transparent);
   height: clamp(520px, 68vh, 760px);
   min-height: 520px;
   overflow: hidden;
 }
 
+.mastery-flow-canvas .react-flow {
+  color: var(--text);
+}
+
+.mastery-flow-canvas .react-flow__controls {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--text) 12%, transparent);
+  overflow: hidden;
+}
+
+.mastery-flow-canvas .react-flow__controls-button {
+  background: var(--surface-strong);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  fill: currentColor;
+}
+
+.mastery-flow-canvas .react-flow__controls-button:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.mastery-flow-canvas .react-flow__controls-button:last-child {
+  border-bottom: 0;
+}
+
+.mastery-flow-canvas .react-flow__node {
+  cursor: default;
+}
+
+.mastery-flow-canvas .react-flow__node.draggable {
+  cursor: grab;
+}
+
+.mastery-flow-canvas .react-flow__node.dragging {
+  cursor: grabbing;
+}
+
 .mastery-flow-node {
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid color-mix(in srgb, var(--mastery-node-tone) 42%, #d5e2e0);
+  background: var(--surface-strong);
+  border: 1px solid color-mix(in srgb, var(--mastery-node-tone) 42%, var(--border));
   border-left: 5px solid var(--mastery-node-tone);
   border-radius: 15px;
-  box-shadow: 0 12px 30px rgba(21, 63, 65, 0.1);
-  color: #1d363a;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text);
   display: grid;
   gap: 7px;
   min-height: 100px;
@@ -66,7 +111,7 @@
 }
 
 .mastery-flow-node.is-notebook {
-  background: linear-gradient(145deg, #0d7069, #11545c);
+  background: linear-gradient(145deg, var(--accent), color-mix(in srgb, var(--accent) 82%, var(--text)));
   border: 0;
   color: #fff;
   width: 244px;
@@ -80,7 +125,7 @@
 }
 
 .mastery-flow-node__kind {
-  color: #6c7d80;
+  color: var(--text-muted);
   font-size: 0.62rem;
   font-weight: 850;
   letter-spacing: 0.11em;
@@ -89,12 +134,13 @@
 
 .mastery-flow-node.is-notebook .mastery-flow-node__kind,
 .mastery-flow-node.is-notebook small {
-  color: rgba(255, 255, 255, 0.7);
+  color: inherit;
+  opacity: 0.74;
 }
 
 .mastery-flow-node__planner {
   align-items: center;
-  background: color-mix(in srgb, var(--mastery-node-tone) 13%, white);
+  background: color-mix(in srgb, var(--mastery-node-tone) 13%, var(--surface-strong));
   border-radius: 7px;
   color: var(--mastery-node-tone);
   display: inline-flex;
@@ -110,7 +156,7 @@
 }
 
 .mastery-flow-node small {
-  color: #728488;
+  color: var(--text-muted);
   font-size: 0.69rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -118,7 +164,7 @@
 }
 
 .mastery-flow-node__status {
-  color: #52676b;
+  color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 760;
 }
@@ -131,7 +177,7 @@
 }
 
 .mastery-flow-node__meter {
-  background: #e7efed;
+  background: var(--surface-muted);
   border-radius: 999px;
   height: 5px;
   overflow: hidden;
@@ -146,47 +192,9 @@
 
 .mastery-flow-node .react-flow__handle {
   background: var(--mastery-node-tone);
-  border: 2px solid #fff;
+  border: 2px solid var(--surface-strong);
   height: 10px;
   width: 10px;
-}
-
-.mastery-flow-hint {
-  color: #6c8083;
-  font-size: 0.74rem;
-  margin: 0;
-  text-align: center;
-}
-
-body.dark .mastery-flow-canvas,
-body.has-bg-image .mastery-flow-canvas {
-  background: linear-gradient(145deg, rgba(10, 28, 31, 0.98), rgba(12, 42, 43, 0.94));
-  border-color: rgba(109, 217, 199, 0.18);
-}
-
-body.dark .mastery-flow-node,
-body.has-bg-image .mastery-flow-node {
-  background: rgba(18, 38, 42, 0.97);
-  color: #e8f3f1;
-}
-
-body.dark .mastery-flow-node.is-notebook,
-body.has-bg-image .mastery-flow-node.is-notebook {
-  background: linear-gradient(145deg, #0e7f76, #103d48);
-}
-
-body.dark .mastery-flow-node__kind,
-body.dark .mastery-flow-node small,
-body.has-bg-image .mastery-flow-node__kind,
-body.has-bg-image .mastery-flow-node small {
-  color: #9fb3b4;
-}
-
-body.dark .mastery-flow-legend span,
-body.has-bg-image .mastery-flow-legend span {
-  background: rgba(14, 36, 39, 0.92);
-  border-color: rgba(130, 220, 203, 0.15);
-  color: #c3d4d3;
 }
 
 @media (max-width: 760px) {

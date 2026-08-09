@@ -46,7 +46,7 @@ test("renders a generated notebook in the Study Studio", async () => {
     ]);
 
     const markup = renderToStaticMarkup(React.createElement(LearningStudyStudio, {
-      coachState: {},
+      coachState: { label: "Coach guidance", response: "Use a compact worked example." },
       isSavingNote: () => false,
       nodes,
       notebook,
@@ -58,6 +58,10 @@ test("renders a generated notebook in the Study Studio", async () => {
     assert.match(markup, /Adaptive session/u);
     assert.match(markup, /Foundations/u);
     assert.match(markup, /AI Coach/u);
+    assert.match(markup, /Use a compact worked example\./u);
+    assert.match(markup, /Save guidance/u);
+    assert.doesNotMatch(markup, /Focused on/u);
+    assert.doesNotMatch(markup, /Review queue/u);
   } finally {
     await vite.close();
   }

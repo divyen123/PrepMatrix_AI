@@ -204,6 +204,25 @@ const api = {
     method: "POST",
     body: JSON.stringify(body),
   }),
+  getResumeHistory: () => request("/api/resume-builder/history"),
+  getResumeHistoryItem: (id) => request(
+    `/api/resume-builder/history/${encodeURIComponent(id)}`,
+  ),
+  createResumeHistory: (body) => request("/api/resume-builder/history", {
+    method: "POST",
+    body: JSON.stringify(body),
+  }),
+  updateResumeHistory: (id, body) => request(
+    `/api/resume-builder/history/${encodeURIComponent(id)}`,
+    { method: "PUT", body: JSON.stringify(body) },
+  ),
+  deleteResumeHistory: (id) => request(
+    `/api/resume-builder/history/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  ),
+  clearResumeHistory: () => request("/api/resume-builder/history", {
+    method: "DELETE",
+  }),
   getNotes: () => request("/api/notes"),
   createNote: (note) => request("/api/notes", { method: "POST", body: JSON.stringify({ note }) }),
   saveNotes: (notes) => request("/api/notes", { method: "PUT", body: JSON.stringify({ notes }) }),

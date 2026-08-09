@@ -33,6 +33,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import ResumeHistorySection from "../components/ResumeHistorySection";
 import api from "../utils/apiClient";
 import {
   RESUME_ACCENTS,
@@ -45,6 +46,12 @@ import {
   normalizeResumeDraft,
   validateResumeDraft,
 } from "../utils/resumeBuilder";
+import {
+  createResumeHistorySnapshot,
+  loadResumeHistoryEntry,
+  normalizeResumeHistory,
+  normalizeResumeHistoryEntry,
+} from "../utils/resumeHistory";
 import { createResumePdf, getResumePdfFilename } from "../utils/resumePdf";
 import "./ResumeBuilderPage.css";
 
@@ -487,11 +494,17 @@ export default function ResumeBuilderPage({
   const [quotaLoading, setQuotaLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [resumeHistory, setResumeHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState("");
+  const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [previewFullscreenOpen, setPreviewFullscreenOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const noticeTimer = useRef(null);
   const generationRequestRef = useRef(null);
+  const historyLoadSequenceRef = useRef(0);
+  const historyOpenSequenceRef = useRef(0);
   const resetDialogRef = useRef(null);
   const resetCancelRef = useRef(null);
   const resetTriggerRef = useRef(null);
@@ -523,6 +536,30 @@ export default function ResumeBuilderPage({
     setPreviewFullscreenOpen(false);
     window.requestAnimationFrame(() => previewFullscreenTriggerRef.current?.focus({ preventScroll: true }));
   }, []);
+
+  const loadResumeHistory = useCallback(async () => {
+    const sequence = ++historyLoadSequenceRef.current;
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const payload = await api.getResumeHistory();
+      if (historyLoadSequenceRef.current !== sequence) return;
+      setResumeHistory(normalizeResumeHistory(payload?.history));
+    } catch (error) {
+      if (historyLoadSequenceRef.current !== sequence) return;
+      setHistoryError(error instanceof Error ? error.message : "Resume history could not be loaded.");
+    } finally {
+      if (historyLoadSequenceRef.current === sequence) setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadResumeHistory();
+    return () => {
+      historyLoadSequenceRef.current += 1;
+      historyOpenSequenceRef.current += 1;
+    };
+  }, [loadResumeHistory]);
 
   useEffect(
     () => () => {
@@ -729,6 +766,63 @@ export default function ResumeBuilderPage({
     });
   };
 
+  const openResumeHistoryEntry = async (entry) => {
+    const sequence = ++historyOpenSequenceRef.current;
+    try {
+      const payload = await api.getResumeHistoryItem(entry.id);
+      if (historyOpenSequenceRef.current !== sequence) return;
+      const savedResume = normalizeResumeHistoryEntry(payload?.resume);
+      onResumeBuilderChange?.((current) => loadResumeHistoryEntry(savedResume, current, {
+        now: new Date().toISOString(),
+        profile: { ...userProfile, ...academicProfile },
+      }));
+      setSelectedHistoryId(savedResume.id);
+      setValidationErrors({});
+      setActiveSection("profile");
+      setMobileView("edit");
+      announce("success", `${savedResume.name} loaded. Edit it and choose Re-generate PDF when ready.`);
+      window.requestAnimationFrame(() => {
+        const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+        document.querySelector(".resume-builder-workspace")?.scrollIntoView({
+          behavior: reduceMotion ? "auto" : "smooth",
+          block: "start",
+        });
+      });
+    } catch (error) {
+      if (historyOpenSequenceRef.current !== sequence) return;
+      announce("error", error instanceof Error ? error.message : "This resume could not be opened.");
+      throw error;
+    }
+  };
+
+  const deleteResumeHistoryEntry = async (id) => {
+    try {
+      await api.deleteResumeHistory(id);
+      setResumeHistory((current) => current.filter((entry) => entry.id !== id));
+      if (selectedHistoryId === id) setSelectedHistoryId("");
+      announce("success", "Resume removed from history.");
+    } catch (error) {
+      announce("error", error instanceof Error ? error.message : "The resume could not be deleted.");
+      throw error;
+    }
+  };
+
+  const clearResumeHistory = async () => {
+    try {
+      const payload = await api.clearResumeHistory();
+      setResumeHistory([]);
+      setSelectedHistoryId("");
+      const deletedCount = Number(payload?.deletedCount || 0);
+      announce(
+        "success",
+        deletedCount === 1 ? "1 resume removed from history." : `${deletedCount} resumes removed from history.`,
+      );
+    } catch (error) {
+      announce("error", error instanceof Error ? error.message : "Resume history could not be cleared.");
+      throw error;
+    }
+  };
+
   const handleReset = () => {
     setResetConfirmOpen(true);
   };
@@ -747,6 +841,7 @@ export default function ResumeBuilderPage({
     skillsInputRef.current = "";
     setSkillsInput("");
     setValidationErrors({});
+    setSelectedHistoryId("");
     setActiveSection("profile");
     announce("success", "Resume draft reset.");
   };
@@ -775,22 +870,54 @@ export default function ResumeBuilderPage({
     try {
       const pdf = createResumePdf(validation.draft, layout);
       generationRequestRef.current ||= createResumeItemId("generation");
+      const requestId = generationRequestRef.current;
+      const wasRegeneration = Boolean(selectedHistoryId);
       const result = await api.generateResume({
-        requestId: generationRequestRef.current,
+        requestId,
       });
-      pdf.save(getResumePdfFilename(validation.draft));
-      generationRequestRef.current = null;
       const nextQuota = result?.quota || result;
       setQuota(nextQuota);
+      const generatedAt = result?.generation?.generatedAt || new Date().toISOString();
       updateBuilder((current) => ({
         ...current,
         draft: validation.draft,
-        lastGeneratedAt: new Date().toISOString(),
+        lastGeneratedAt: generatedAt,
         generationTimestamps: Array.isArray(nextQuota?.timestamps)
           ? nextQuota.timestamps
           : current.generationTimestamps,
       }));
-      announce("success", `Resume generated. ${nextQuota?.remaining ?? Math.max(0, (quota?.remaining || 1) - 1)} weekly slots remaining.`);
+
+      let historySaveError = null;
+      try {
+        const snapshot = createResumeHistorySnapshot({
+          draft: validation.draft,
+          generatedAt,
+          layout,
+          requestId,
+          sourceGenerationId: result?.generation?.id,
+        });
+        const historyPayload = await api.createResumeHistory(snapshot);
+        const savedResume = normalizeResumeHistoryEntry(historyPayload?.resume);
+        setResumeHistory((current) => normalizeResumeHistory([savedResume, ...current]));
+        setSelectedHistoryId(savedResume.id);
+      } catch (error) {
+        historySaveError = error;
+      }
+
+      pdf.save(getResumePdfFilename(validation.draft));
+      if (!historySaveError) generationRequestRef.current = null;
+      if (historySaveError) {
+        announce(
+          "error",
+          "PDF generated, but its history card could not be saved. Choose Generate again to retry without using another weekly slot.",
+        );
+      } else {
+        const action = wasRegeneration ? "re-generated" : "generated";
+        announce(
+          "success",
+          `Resume ${action} and saved to history. ${nextQuota?.remaining ?? Math.max(0, (quota?.remaining || 1) - 1)} weekly slots remaining.`,
+        );
+      }
     } catch (error) {
       const nextQuota = error?.details?.quota || error?.data?.quota || error?.quota;
       if (nextQuota) setQuota(nextQuota);
@@ -1326,7 +1453,11 @@ export default function ResumeBuilderPage({
             </button>
             <button type="button" className="resume-generate-button" onClick={handleGenerate} disabled={generating || quotaLoading || quotaRemaining <= 0}>
               {generating ? <span className="resume-button-spinner" /> : <Download size={18} />}
-              {generating ? "Generating…" : quotaRemaining > 0 ? "Generate PDF" : "Weekly limit reached"}
+              {generating
+                ? selectedHistoryId ? "Re-generating…" : "Generating…"
+                : quotaRemaining > 0
+                  ? selectedHistoryId ? "Re-generate PDF" : "Generate PDF"
+                  : "Weekly limit reached"}
             </button>
           </div>
         </aside>
@@ -1336,6 +1467,17 @@ export default function ResumeBuilderPage({
         <ShieldCheck aria-hidden="true" size={15} />
         <p><strong>Your draft stays private.</strong> Previewing and editing do not use your weekly limit.</p>
       </div>
+
+      <ResumeHistorySection
+        entries={resumeHistory}
+        error={historyError}
+        loading={historyLoading}
+        onDelete={deleteResumeHistoryEntry}
+        onDeleteAll={clearResumeHistory}
+        onRetry={loadResumeHistory}
+        onSelect={openResumeHistoryEntry}
+        selectedId={selectedHistoryId}
+      />
 
       {notice && (
         <div className={`resume-builder-notice resume-builder-notice--${notice.type}`} role="status" aria-live="polite">

@@ -1,33 +1,34 @@
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import {
   Background,
+  ControlButton,
   Controls,
   Handle,
   MarkerType,
-  MiniMap,
   Position,
   ReactFlow,
+  useNodesState,
 } from "@xyflow/react";
-import { CalendarCheck2, CheckCircle2, CircleDot, Clock3, RotateCcw } from "lucide-react";
+import { CalendarCheck2, CheckCircle2, CircleDot, Clock3, Lock, RotateCcw, Unlock } from "lucide-react";
 import "@xyflow/react/dist/style.css";
 import "./LearningMasteryMap.css";
 
 const STATUS_META = {
-  new: { label: "New", color: "#8b9aa4", icon: CircleDot },
-  ready: { label: "Ready", color: "#2f80ed", icon: CircleDot },
-  learning: { label: "Learning", color: "#8b5cf6", icon: Clock3 },
-  learned: { label: "Learned", color: "#0f9f8f", icon: CheckCircle2 },
-  review_due: { label: "Review due", color: "#e58b2a", icon: RotateCcw },
-  mastered: { label: "Mastered", color: "#22a06b", icon: CheckCircle2 },
+  new: { label: "New", color: "var(--mastery-tone-new)", icon: CircleDot },
+  ready: { label: "Ready", color: "var(--mastery-tone-ready)", icon: CircleDot },
+  learning: { label: "Learning", color: "var(--mastery-tone-learning)", icon: Clock3 },
+  learned: { label: "Learned", color: "var(--mastery-tone-learned)", icon: CheckCircle2 },
+  review_due: { label: "Review due", color: "var(--mastery-tone-review)", icon: RotateCcw },
+  mastered: { label: "Mastered", color: "var(--mastery-tone-mastered)", icon: CheckCircle2 },
 };
 
 function progressFrom(source, nodeId) {
-  if (source instanceof Map) return source.get(nodeId) || {};
+  if (source instanceof globalThis.Map) return source.get(nodeId) || {};
   return source?.[nodeId] || {};
 }
 
 function plannerFrom(source, nodeId) {
-  if (source instanceof Map) return source.get(nodeId) || {};
+  if (source instanceof globalThis.Map) return source.get(nodeId) || {};
   return source?.[nodeId] || {};
 }
 
@@ -174,6 +175,18 @@ function LearningMasteryMap({
     () => buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId),
     [notebook, plannerByNodeId, progressByNodeId, selectedNodeId],
   );
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [renderNodes, setRenderNodes, onNodesChange] = useNodesState(flow.nodes);
+
+  useEffect(() => {
+    setRenderNodes((current) => {
+      const positions = new globalThis.Map(current.map((node) => [node.id, node.position]));
+      return flow.nodes.map((node) => ({
+        ...node,
+        position: positions.get(node.id) || node.position,
+      }));
+    });
+  }, [flow.nodes, setRenderNodes]);
 
   return (
     <section className="mastery-flow-shell" aria-label="Interactive mastery map">
@@ -184,32 +197,39 @@ function LearningMasteryMap({
       </div>
       <div className="mastery-flow-canvas">
         <ReactFlow
-          colorMode="light"
           edges={flow.edges}
+          elementsSelectable={isUnlocked}
           fitView
           fitViewOptions={{ padding: 0.18, minZoom: 0.42, maxZoom: 1.1 }}
           maxZoom={1.45}
           minZoom={0.28}
-          nodes={flow.nodes}
+          nodes={renderNodes}
           nodesConnectable={false}
-          nodesDraggable
+          nodesDraggable={isUnlocked}
           nodesFocusable
           nodeTypes={nodeTypes}
           onNodeClick={(_, node) => onSelectNode?.(node.id)}
           onNodeDoubleClick={(_, node) => onStartNode?.(node.id)}
+          onNodesChange={onNodesChange}
           proOptions={{ hideAttribution: true }}
         >
-          <Background color="#b8d9d4" gap={22} size={1.15} />
-          <MiniMap
-            maskColor="rgba(235, 247, 244, 0.78)"
-            nodeColor={(node) => (STATUS_META[node.data?.status] || STATUS_META.new).color}
-            pannable
-            zoomable
-          />
-          <Controls position="bottom-right" showInteractive={false} />
+          <Background color="rgba(var(--accent-rgb), 0.24)" gap={22} size={1.15} />
+          <Controls
+            aria-label="Mastery map zoom and node lock controls"
+            position="bottom-left"
+            showFitView={false}
+            showInteractive={false}
+          >
+            <ControlButton
+              aria-label={isUnlocked ? "Lock mastery map node positions" : "Unlock mastery map node positions"}
+              onClick={() => setIsUnlocked((current) => !current)}
+              title={isUnlocked ? "Lock mastery map node positions" : "Unlock mastery map node positions"}
+            >
+              {isUnlocked ? <Lock aria-hidden="true" size={14} /> : <Unlock aria-hidden="true" size={14} />}
+            </ControlButton>
+          </Controls>
         </ReactFlow>
       </div>
-      <p className="mastery-flow-hint">Select a concept to inspect it. Double-click to begin a focused study session.</p>
     </section>
   );
 }

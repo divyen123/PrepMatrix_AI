@@ -1,5 +1,36 @@
-const OFFLINE_CACHE_NAME = "prepmatrix-offline-v1";
-const OFFLINE_SHELL_PATHS = ["/", "/index.html", "/favicon.svg"];
+const BUILD_VERSION = "__PREPMATRIX_BUILD_VERSION__";
+const SHELL_CACHE_NAME = `prepmatrix-pwa-shell-${BUILD_VERSION}`;
+const RUNTIME_CACHE_NAME = `prepmatrix-pwa-runtime-${BUILD_VERSION}`;
+const OWNED_CACHE_PREFIXES = [
+  "prepmatrix-pwa-shell-",
+  "prepmatrix-pwa-runtime-",
+  "prepmatrix-offline-",
+];
+const BUILD_ASSET_MANIFEST_PATH = "/asset-manifest.json";
+const SHELL_PATHS = [
+  "/",
+  "/index.html",
+  "/favicon.svg",
+  "/manifest.webmanifest",
+  "/pwa/icon-192.png",
+  "/pwa/icon-512.png",
+  "/pwa/icon-maskable-192.png",
+  "/pwa/icon-maskable-512.png",
+  "/pwa/apple-touch-icon-180.png",
+  "/pwa/notification-badge-96.png",
+];
+const PRIVATE_PATH_PREFIXES = [
+  "/api/",
+  "/attachments/",
+  "/downloads/",
+  "/exports/",
+  "/generated/",
+  "/private/",
+  "/uploads/",
+  "/user-content/",
+];
+const PRIVATE_FILE_PATTERN = /\.(?:docx?|pdf|pptx?|xlsx?|zip)$/i;
+const RUNTIME_CACHE_MAX_ENTRIES = 72;
 
 function safeAppPath(value, fallback = "/") {
   if (typeof value !== "string") return fallback;
@@ -22,71 +53,188 @@ function clientMatchesAppPath(clientUrl, appPath) {
   }
 }
 
+function responseIsPublicAndCacheable(response) {
+  if (!response?.ok || !["basic", "default"].includes(response.type)) return false;
+  const cacheControl = response.headers?.get?.("Cache-Control")?.toLowerCase() || "";
+  const contentDisposition = response.headers?.get?.("Content-Disposition")?.toLowerCase() || "";
+  return !cacheControl.includes("no-store")
+    && !cacheControl.includes("private")
+    && !contentDisposition.includes("attachment");
+}
+
+function normalizeBuildAssetPath(value) {
+  if (typeof value !== "string") return null;
+  try {
+    const parsed = new URL(value, self.location.origin);
+    if (parsed.origin !== self.location.origin) return null;
+    if (!parsed.pathname.startsWith("/assets/")) return null;
+    if (parsed.pathname.startsWith("/assets/backgrounds/")) return null;
+    if (parsed.pathname.startsWith("/assets/pets/")) return null;
+    return parsed.pathname;
+  } catch {
+    return null;
+  }
+}
+
+async function loadBuildAssetManifest() {
+  try {
+    const response = await fetch(BUILD_ASSET_MANIFEST_PATH, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    if (!responseIsPublicAndCacheable(response)) return null;
+    const cacheResponse = response.clone();
+    const payload = await response.json();
+    const assets = Array.isArray(payload?.assets)
+      ? payload.assets.map(normalizeBuildAssetPath).filter(Boolean)
+      : [];
+    return { assets: [...new Set(assets)], response: cacheResponse };
+  } catch {
+    // Vite development does not emit asset-manifest.json. Core shell caching
+    // remains available there, while production builds verify this artifact.
+    return null;
+  }
+}
+
+async function fetchAndCache(cache, path) {
+  const response = await fetch(path, { cache: "reload", credentials: "same-origin" });
+  if (!responseIsPublicAndCacheable(response)) {
+    throw new Error(`Could not precache ${path}`);
+  }
+  await cache.put(path, response.clone());
+}
+
+async function precacheShell() {
+  if (!self.caches) return;
+  const cache = await self.caches.open(SHELL_CACHE_NAME);
+  const buildManifest = await loadBuildAssetManifest();
+  const paths = [...new Set([
+    ...SHELL_PATHS,
+    ...(buildManifest?.assets || []),
+  ])];
+
+  await Promise.all(paths.map((path) => fetchAndCache(cache, path)));
+  if (buildManifest?.response) {
+    await cache.put(BUILD_ASSET_MANIFEST_PATH, buildManifest.response);
+  }
+}
+
 self.addEventListener("install", (event) => {
-  const prepareOfflineShell = self.caches
-    ? self.caches.open(OFFLINE_CACHE_NAME).then((cache) => (
-        Promise.allSettled(OFFLINE_SHELL_PATHS.map((path) => cache.add(path)))
-      ))
-    : Promise.resolve();
-  event.waitUntil(prepareOfflineShell.then(() => self.skipWaiting()));
+  event.waitUntil(precacheShell());
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "SKIP_WAITING") return;
+  const activation = self.skipWaiting();
+  if (typeof event.waitUntil === "function") event.waitUntil(activation);
+});
+
+function cacheIsOwned(name) {
+  return OWNED_CACHE_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
+
 self.addEventListener("activate", (event) => {
+  const currentCaches = new Set([SHELL_CACHE_NAME, RUNTIME_CACHE_NAME]);
   const removeOldCaches = self.caches
     ? self.caches.keys().then((keys) => Promise.all(
         keys
-          .filter((key) => key.startsWith("prepmatrix-offline-") && key !== OFFLINE_CACHE_NAME)
+          .filter((key) => cacheIsOwned(key) && !currentCaches.has(key))
           .map((key) => self.caches.delete(key)),
       ))
     : Promise.resolve();
   event.waitUntil(removeOldCaches.then(() => self.clients.claim()));
 });
 
-async function cacheSuccessfulResponse(cache, key, response) {
-  if (response?.ok && (response.type === "basic" || response.type === "default")) {
-    await cache.put(key, response.clone()).catch(() => undefined);
-  }
-  return response;
+function requestHasHeader(request, headerName) {
+  return Boolean(request.headers?.has?.(headerName));
+}
+
+function pathIsPrivate(pathname) {
+  if (pathname === "/api") return true;
+  if (PRIVATE_FILE_PATTERN.test(pathname)) return true;
+  return PRIVATE_PATH_PREFIXES.some((prefix) => (
+    pathname === prefix.slice(0, -1) || pathname.startsWith(prefix)
+  ));
+}
+
+function requestMustUseNetwork(request, url) {
+  return !self.caches
+    || request.method !== "GET"
+    || url.origin !== self.location.origin
+    || requestHasHeader(request, "Authorization")
+    || requestHasHeader(request, "Range")
+    || pathIsPrivate(url.pathname);
+}
+
+async function matchPublicCache(request) {
+  const shell = await self.caches.open(SHELL_CACHE_NAME);
+  const shellMatch = await shell.match(request);
+  if (shellMatch) return shellMatch;
+  const runtime = await self.caches.open(RUNTIME_CACHE_NAME);
+  return runtime.match(request);
+}
+
+async function trimRuntimeCache(cache) {
+  const keys = await cache.keys();
+  const excess = keys.length - RUNTIME_CACHE_MAX_ENTRIES;
+  if (excess <= 0) return;
+  await Promise.all(keys.slice(0, excess).map((key) => cache.delete(key)));
+}
+
+async function putRuntimeResponse(request, response) {
+  if (!responseIsPublicAndCacheable(response)) return;
+  const cache = await self.caches.open(RUNTIME_CACHE_NAME);
+  await cache.delete(request).catch(() => false);
+  await cache.put(request, response.clone());
+  await trimRuntimeCache(cache);
 }
 
 async function networkFirstNavigation(request) {
-  const cache = await self.caches.open(OFFLINE_CACHE_NAME);
   try {
-    const response = await fetch(request);
-    if (response?.ok) {
-      await cacheSuccessfulResponse(cache, "/index.html", response);
-    }
-    return response;
+    return await fetch(request);
   } catch {
-    return cache.match(request)
-      .then((cached) => cached || cache.match("/index.html"))
-      .then((cached) => cached || cache.match("/"));
+    const cache = await self.caches.open(SHELL_CACHE_NAME);
+    return (await cache.match("/index.html")) || cache.match("/");
   }
 }
 
 async function cacheFirstAsset(request) {
-  const cache = await self.caches.open(OFFLINE_CACHE_NAME);
-  const cached = await cache.match(request);
-  const refresh = fetch(request)
-    .then((response) => cacheSuccessfulResponse(cache, request, response))
-    .catch(() => cached);
-  return cached || refresh;
+  const cached = await matchPublicCache(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  await putRuntimeResponse(request, response);
+  return response;
+}
+
+async function staleWhileRevalidateAsset(request, event) {
+  const cached = await matchPublicCache(request);
+  const refresh = fetch(request).then(async (response) => {
+    await putRuntimeResponse(request, response);
+    return response;
+  });
+
+  if (!cached) return refresh;
+  event.waitUntil(refresh.catch(() => undefined));
+  return cached;
 }
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
-  if (!self.caches || request.method !== "GET") return;
-
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+  if (requestMustUseNetwork(request, url)) return;
 
   if (request.mode === "navigate") {
     event.respondWith(networkFirstNavigation(request));
     return;
   }
 
-  if (["script", "style", "image", "font", "audio"].includes(request.destination)) {
+  if (["script", "style", "font", "audio", "worker"].includes(request.destination)) {
     event.respondWith(cacheFirstAsset(request));
+    return;
+  }
+
+  if (request.destination === "image") {
+    event.respondWith(staleWhileRevalidateAsset(request, event));
   }
 });
 
@@ -104,8 +252,8 @@ self.addEventListener("push", (event) => {
 
   const title = payload.title || "PrepMatrix AI Reminder";
   const body = payload.body || "You haven't completed any study tasks today! Start preparing now!";
-  const icon = "/favicon.svg";
-  const badge = "/favicon.svg";
+  const icon = "/pwa/icon-192.png";
+  const badge = "/pwa/notification-badge-96.png";
   const targetUrl = safeAppPath(payload.url, "/planner");
   const tag = typeof payload.tag === "string" && payload.tag.length <= 80
     ? payload.tag

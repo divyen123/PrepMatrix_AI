@@ -5,7 +5,7 @@
 
 .learning-studio-sessionbar {
   align-items: center;
-  background: linear-gradient(125deg, #0e5f5b, #143e4b);
+  background: linear-gradient(125deg, var(--accent), color-mix(in srgb, var(--accent) 82%, var(--text)));
   border-radius: 18px;
   color: #fff;
   display: flex;
@@ -69,8 +69,8 @@
 .learning-studio-outline,
 .learning-studio-canvas,
 .learning-studio-coach {
-  background: rgba(252, 254, 253, 0.92);
-  border: 1px solid rgba(25, 99, 92, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 20px;
   min-width: 0;
 }
@@ -81,26 +81,24 @@
 
 .learning-studio-panel-heading,
 .learning-studio-coach__heading,
-.learning-studio-misconceptions > div:first-child,
-.learning-studio-reviewqueue > div:first-child {
+.learning-studio-misconceptions > div:first-child {
   align-items: center;
   display: flex;
   justify-content: space-between;
 }
 
 .learning-studio-panel-heading > div { display: grid; gap: 2px; }
-.learning-studio-panel-heading span,
-.learning-studio-coach__heading small {
-  color: #77898b;
+.learning-studio-panel-heading span {
+  color: var(--text-muted);
   font-size: 0.66rem;
 }
-.learning-studio-panel-heading strong { color: #2e4548; font-size: 0.78rem; }
+.learning-studio-panel-heading strong { color: var(--text); font-size: 0.78rem; }
 .learning-studio-panel-heading > button {
   align-items: center;
-  background: #e7f4f1;
-  border: 0;
+  background: var(--accent-soft);
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
   border-radius: 9px;
-  color: #0d756c;
+  color: var(--accent);
   display: inline-flex;
   height: 32px;
   justify-content: center;
@@ -425,19 +423,47 @@
 .learning-studio-receipt p { color: #637677; font-size: 0.66rem; margin: 0; }
 .learning-studio-receipt > b { color: #0d776d; font-size: 1rem; }
 
-.learning-studio-coach { display: flex; flex-direction: column; gap: 13px; }
-.learning-studio-coach__heading { justify-content: flex-start; gap: 8px; }
-.learning-studio-coach__heading > span { align-items: center; background: linear-gradient(145deg, #dcf5ef, #ebe8ff); border-radius: 10px; color: #0d7a70; display: inline-flex; height: 35px; justify-content: center; width: 35px; }
-.learning-studio-coach__heading div { display: grid; gap: 2px; min-width: 0; }
-.learning-studio-coach__heading strong { color: #2b484b; font-size: 0.8rem; }
-.learning-studio-coach__heading small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.learning-studio-coach__actions { display: grid; gap: 5px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.learning-studio-coach {
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.learning-studio-coach__heading {
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.learning-studio-coach__heading > span {
+  align-items: center;
+  background: var(--accent-soft);
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  border-radius: 10px;
+  color: var(--accent);
+  display: inline-flex;
+  height: 35px;
+  justify-content: center;
+  width: 35px;
+}
+
+.learning-studio-coach__heading strong {
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.learning-studio-coach__actions {
+  display: grid;
+  gap: 5px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .learning-studio-coach__actions button {
   align-items: center;
-  background: #f4f8f7;
-  border: 1px solid #e0eae8;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
   border-radius: 9px;
-  color: #4b6366;
+  color: var(--text-muted);
   display: flex;
   font-size: 0.63rem;
   font-weight: 720;
@@ -446,63 +472,415 @@
   padding: 6px 7px;
   text-align: left;
 }
-.learning-studio-coach__actions button:hover { border-color: #69bbae; color: #08766c; }
+
+.learning-studio-coach__actions button:hover {
+  background: var(--accent-soft);
+  border-color: rgba(var(--accent-rgb), 0.34);
+  color: var(--accent);
+}
+
+.learning-studio-coach__actions button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
 .learning-studio-coach__thinking,
-.learning-studio-coach__error { align-items: center; border-radius: 10px; display: flex; font-size: 0.68rem; gap: 7px; margin: 0; padding: 9px; }
-.learning-studio-coach__thinking { background: #edf8f5; color: #41706b; }
-.learning-studio-coach__error { background: #fff0f1; color: #a94750; }
-.learning-studio-coach__empty { color: #748688; font-size: 0.69rem; line-height: 1.55; margin: 0; }
-.learning-studio-coach__response { background: #eef7f5; border-radius: 12px; display: grid; gap: 7px; max-height: 270px; overflow: auto; padding: 10px; }
-.learning-studio-coach__response > span { color: #0c7b70; font-size: 0.63rem; font-weight: 850; text-transform: uppercase; }
-.learning-studio-coach__response p { color: #496265; font-size: 0.68rem; line-height: 1.55; margin: 0; white-space: pre-line; }
-.learning-studio-coach__response button { align-items: center; align-self: start; background: #fff; border: 1px solid #d7e5e2; border-radius: 8px; color: #476365; display: inline-flex; font-size: 0.62rem; gap: 5px; padding: 6px 8px; }
+.learning-studio-coach__error {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  font-size: 0.68rem;
+  gap: 7px;
+  margin: 0;
+  padding: 9px;
+}
 
-.learning-studio-misconceptions,
-.learning-studio-reviewqueue { border-top: 1px solid #e5edeb; display: grid; gap: 7px; padding-top: 11px; }
-.learning-studio-misconceptions > div strong,
-.learning-studio-reviewqueue > div strong { color: #344f52; font-size: 0.71rem; }
-.learning-studio-misconceptions > div span,
-.learning-studio-reviewqueue > div span { background: #edf4f2; border-radius: 999px; color: #6c7d7f; font-size: 0.59rem; font-weight: 800; padding: 4px 7px; }
-.learning-studio-misconceptions article { align-items: flex-start; background: #fff7eb; border-radius: 9px; color: #9b6928; display: grid; gap: 5px; grid-template-columns: auto 1fr auto; padding: 7px; }
-.learning-studio-misconceptions article p { color: #6f604e; font-size: 0.64rem; line-height: 1.45; margin: 0; }
-.learning-studio-misconceptions article button { background: transparent; border: 0; color: #987c58; padding: 1px; }
-.learning-studio-misconceptions > small,
-.learning-studio-reviewqueue > small { color: #7d8d8f; font-size: 0.64rem; line-height: 1.5; }
-.learning-studio-misconceptions form { display: grid; gap: 5px; grid-template-columns: 1fr auto; }
-.learning-studio-misconceptions input { border-radius: 8px; font-size: 0.64rem; min-width: 0; padding: 7px 8px; }
-.learning-studio-misconceptions form button { align-items: center; background: #0f7a70; border: 0; border-radius: 8px; color: #fff; display: inline-flex; justify-content: center; width: 31px; }
-.learning-studio-reviewqueue > button { align-items: center; background: transparent; border: 0; border-radius: 8px; color: #6f7f81; display: grid; gap: 6px; grid-template-columns: auto 1fr; padding: 6px; text-align: left; }
-.learning-studio-reviewqueue > button:hover { background: #f1f7f6; color: #0c786e; }
-.learning-studio-reviewqueue > button span { background: transparent; display: grid; gap: 2px; padding: 0; }
-.learning-studio-reviewqueue > button strong { color: #40585b; font-size: 0.65rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.learning-studio-reviewqueue > button small { color: #869496; font-size: 0.58rem; }
+.learning-studio-coach__thinking {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 
-.learning-studio-empty { color: #728386; padding: 48px; text-align: center; }
+.learning-studio-coach__error {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-muted));
+  color: var(--danger);
+}
 
-body.dark .learning-studio-outline,
-body.dark .learning-studio-canvas,
-body.dark .learning-studio-coach,
-body.has-bg-image .learning-studio-outline,
-body.has-bg-image .learning-studio-canvas,
-body.has-bg-image .learning-studio-coach { background: rgba(14, 31, 35, 0.94); border-color: rgba(119, 218, 200, 0.13); }
-body.dark .learning-studio-welcome h3,
-body.dark .learning-studio-stage h3,
-body.dark .learning-studio-panel-heading strong,
-body.dark .learning-studio-coach__heading strong,
-body.has-bg-image .learning-studio-welcome h3,
-body.has-bg-image .learning-studio-stage h3,
-body.has-bg-image .learning-studio-panel-heading strong,
-body.has-bg-image .learning-studio-coach__heading strong { color: #e8f2f1; }
-body.dark .learning-studio-stage textarea,
-body.dark .learning-studio-misconceptions input,
-body.has-bg-image .learning-studio-stage textarea,
-body.has-bg-image .learning-studio-misconceptions input { background: rgba(15, 38, 41, 0.96); border-color: rgba(139, 213, 201, 0.17); color: #e2efed; }
-body.dark .learning-studio-explanation,
-body.dark .learning-studio-reveal,
-body.dark .learning-studio-lab,
-body.has-bg-image .learning-studio-explanation,
-body.has-bg-image .learning-studio-reveal,
-body.has-bg-image .learning-studio-lab { background: rgba(21, 48, 50, 0.82); color: #c6d8d6; }
+.learning-studio-coach__empty {
+  color: var(--text-muted);
+  font-size: 0.69rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.learning-studio-coach__response {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  display: grid;
+  gap: 9px;
+  padding: 11px;
+}
+
+.learning-studio-coach__response > span {
+  color: var(--accent);
+  font-size: 0.63rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.learning-studio-coach__response-copy {
+  display: grid;
+  gap: 7px;
+  max-height: 210px;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.learning-studio-coach__response p {
+  color: var(--text);
+  font-size: 0.68rem;
+  line-height: 1.58;
+  margin: 0;
+  white-space: pre-line;
+}
+
+.learning-studio-coach__response > button {
+  align-items: center;
+  background: var(--accent-soft);
+  border: 1px solid rgba(var(--accent-rgb), 0.28);
+  border-radius: 9px;
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 0.65rem;
+  font-weight: 800;
+  gap: 6px;
+  justify-self: start;
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+.learning-studio-coach__response > button:hover {
+  background: rgba(var(--accent-rgb), 0.18);
+  border-color: rgba(var(--accent-rgb), 0.44);
+}
+
+.learning-studio-coach__response > button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.learning-studio-misconceptions {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.learning-studio-misconceptions > div strong {
+  color: var(--text);
+  font-size: 0.71rem;
+}
+
+.learning-studio-misconceptions > div span {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.59rem;
+  font-weight: 800;
+  padding: 4px 7px;
+}
+
+.learning-studio-misconceptions article {
+  align-items: flex-start;
+  background: color-mix(in srgb, var(--warning) 11%, var(--surface-muted));
+  border: 1px solid color-mix(in srgb, var(--warning) 22%, var(--border));
+  border-radius: 9px;
+  color: var(--warning);
+  display: grid;
+  gap: 6px;
+  grid-template-columns: auto 1fr auto;
+  padding: 8px;
+}
+
+.learning-studio-misconceptions article p {
+  color: var(--text);
+  font-size: 0.64rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.learning-studio-misconceptions article button {
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  padding: 1px;
+}
+
+.learning-studio-misconceptions > small {
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  line-height: 1.5;
+}
+
+.learning-studio-misconceptions form {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr auto;
+}
+
+.learning-studio-misconceptions input {
+  background: var(--surface-strong);
+  border-color: var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.64rem;
+  min-width: 0;
+  padding: 7px 8px;
+}
+
+.learning-studio-misconceptions form button {
+  align-items: center;
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  display: inline-flex;
+  justify-content: center;
+  width: 31px;
+}
+
+.learning-studio-misconceptions form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+/* Theme-aware Studio surfaces */
+.learning-studio-outline,
+.learning-studio-canvas,
+.learning-studio-coach {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.learning-studio-outline__list button {
+  color: var(--text-muted);
+}
+
+.learning-studio-outline__list button:hover,
+.learning-studio-outline__list button.is-active {
+  background: var(--accent-soft);
+  border-color: rgba(var(--accent-rgb), 0.2);
+  color: var(--accent);
+}
+
+.learning-studio-outline__list button small {
+  color: var(--text-muted);
+}
+
+.learning-studio-stepper div {
+  color: var(--text-muted);
+}
+
+.learning-studio-stepper div:not(:last-child)::after {
+  background: var(--border);
+}
+
+.learning-studio-stepper span {
+  background: var(--surface-muted);
+}
+
+.learning-studio-stepper .is-active,
+.learning-studio-stepper .is-done {
+  color: var(--accent);
+}
+
+.learning-studio-stepper .is-active span {
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.1);
+}
+
+.learning-studio-stepper .is-done span,
+.learning-studio-stepper .is-done::after {
+  background: var(--accent) !important;
+  color: #fff;
+}
+
+.learning-studio-welcome__icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.learning-studio-welcome h3,
+.learning-studio-stage h3 {
+  color: var(--text);
+}
+
+.learning-studio-welcome > p,
+.learning-studio-stage > p {
+  color: var(--text-muted);
+}
+
+.learning-studio-welcome__facts span {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.learning-studio-primary,
+.learning-studio-teach-score button {
+  background: linear-gradient(120deg, var(--accent), color-mix(in srgb, var(--accent) 82%, var(--text)));
+}
+
+.learning-studio-explanation {
+  background: var(--surface-muted);
+  border-left-color: var(--accent);
+  color: var(--text);
+}
+
+.learning-studio-keypoints span {
+  background: var(--surface-muted);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.learning-studio-keypoints b {
+  color: var(--accent);
+}
+
+.learning-studio-stage textarea,
+.learning-studio-misconceptions input {
+  background: var(--surface-strong);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.learning-studio-stage textarea:focus,
+.learning-studio-misconceptions input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.11);
+}
+
+.learning-studio-reveal,
+.learning-studio-teach-score {
+  background: var(--surface-muted);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.learning-studio-reveal > strong,
+.learning-studio-reveal > span,
+.learning-studio-reveal p,
+.learning-studio-teach-score strong,
+.learning-studio-teach-score p,
+.learning-studio-teach-score small {
+  color: var(--text);
+}
+
+.learning-studio-teach-score.is-strong {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-muted));
+  border-color: rgba(var(--accent-rgb), 0.22);
+}
+
+.learning-studio-teach-score.is-gap {
+  background: color-mix(in srgb, var(--warning) 11%, var(--surface-muted));
+  border-color: color-mix(in srgb, var(--warning) 24%, var(--border));
+}
+
+.learning-studio-rating-grid button,
+.learning-studio-lab__chips button {
+  background: var(--surface-strong);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.learning-studio-rating-grid button:hover,
+.learning-studio-lab__chips button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.learning-studio-lab {
+  background: linear-gradient(145deg, var(--surface-muted), var(--surface));
+  border-color: var(--border);
+}
+
+.learning-studio-lab__badge,
+.learning-studio-lab label strong,
+.learning-studio-confidence strong {
+  color: var(--accent);
+}
+
+.learning-studio-lab h4 {
+  color: var(--text);
+}
+
+.learning-studio-lab p,
+.learning-studio-lab label span,
+.learning-studio-confidence label {
+  color: var(--text-muted);
+}
+
+.learning-studio-voice-field button {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.learning-studio-proof-card {
+  background:
+    radial-gradient(circle at top right, rgba(var(--accent-rgb), 0.14), transparent 42%),
+    var(--surface-muted);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.learning-studio-proof-card > svg,
+.learning-studio-receipt > b {
+  color: var(--accent);
+}
+
+.learning-studio-proof-card p {
+  color: var(--text-muted);
+}
+
+.learning-studio-actiondock {
+  border-top-color: var(--border);
+}
+
+.learning-studio-actiondock > button,
+.learning-studio-actiondock .learning-completion-action {
+  background: var(--surface-muted);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.learning-studio-actiondock > button:hover,
+.learning-studio-actiondock .learning-completion-action:hover {
+  background: var(--accent-soft);
+  border-color: rgba(var(--accent-rgb), 0.28);
+  color: var(--accent);
+}
+
+.learning-studio-receipt {
+  background: linear-gradient(120deg, var(--accent-soft), var(--surface-muted));
+  border-color: rgba(var(--accent-rgb), 0.18);
+}
+
+.learning-studio-receipt > span {
+  background: var(--surface-strong);
+  color: var(--accent);
+}
+
+.learning-studio-receipt small,
+.learning-studio-receipt p {
+  color: var(--text-muted);
+}
+
+.learning-studio-receipt strong {
+  color: var(--text);
+}
+.learning-studio-empty { color: var(--text-muted); padding: 48px; text-align: center; }
 
 @keyframes studio-pulse {
   50% { box-shadow: 0 0 0 7px rgba(196, 61, 75, 0.13); }

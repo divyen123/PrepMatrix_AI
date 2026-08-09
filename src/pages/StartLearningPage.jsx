@@ -20,6 +20,7 @@ import {
   Save,
   ShieldCheck,
   Sparkles,
+  Target,
   Trash2,
   UploadCloud,
   X,
@@ -31,6 +32,7 @@ import { createPortal } from "react-dom";
 import { jsPDF } from "jspdf";
 import { useNavigate } from "react-router-dom";
 import LearningMasteryMap from "../components/LearningMasteryMap";
+import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDialog";
 import LearningStudyStudio from "../components/LearningStudyStudio";
 import api from "../utils/apiClient";
 import {
@@ -66,6 +68,13 @@ import {
 } from "../utils/learningMastery";
 import { buildLearningTopicNote } from "../utils/learningNoteIntegration";
 import { buildMaterialGuidePath } from "../utils/materialGuideNavigation";
+import {
+  buildPlacementActionTarget,
+  buildPlacementChatPrompt,
+  createPlacementDraft,
+  hasSavedPlacementPreparation,
+  mergePlacementDraft,
+} from "../utils/placementPreparation";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import {
   LEARNING_PRIVACY_CONSENT_VERSION,
@@ -535,6 +544,7 @@ function StartLearningPage({
   const [careerTopics, setCareerTopics] = useState("");
   const [careerAnalyzing, setCareerAnalyzing] = useState(false);
   const [careerError, setCareerError] = useState("");
+  const [careerDraft, setCareerDraft] = useState(null);
   const [sources, setSources] = useState([]);
   const [sourceError, setSourceError] = useState("");
   const [preparingSources, setPreparingSources] = useState(false);
@@ -564,10 +574,12 @@ function StartLearningPage({
   const [subtopicComposer, setSubtopicComposer] = useState({ chapterId: "", topicId: "", value: "" });
   const [plannerDialogOpen, setPlannerDialogOpen] = useState(false);
   const [plannerNodeId, setPlannerNodeId] = useState("");
+  const [plannerCustomNode, setPlannerCustomNode] = useState(null);
   const [plannerDateKey, setPlannerDateKey] = useState("");
   const [plannerError, setPlannerError] = useState("");
   const [privacyConsentOpen, setPrivacyConsentOpen] = useState(false);
   const [masterySaving, setMasterySaving] = useState(false);
+  const [masteryDialogOpen, setMasteryDialogOpen] = useState(false);
   const [coachState, setCoachState] = useState({ loading: false, error: "", response: "", label: "" });
   const [latestReceipt, setLatestReceipt] = useState(null);
   const [noteSavingKeys, setNoteSavingKeys] = useState(() => new Set());
@@ -640,6 +652,13 @@ function StartLearningPage({
   }, []);
 
   const nodes = useMemo(() => learningNodes(activeNotebook), [activeNotebook]);
+  const masteryNotebooks = useMemo(() => {
+    if (!activeNotebook) return notebooks;
+    return [
+      activeNotebook,
+      ...notebooks.filter((notebook) => notebook.id !== activeNotebook.id),
+    ];
+  }, [activeNotebook, notebooks]);
   const activeLearningProject = useMemo(() => ({
     id: activeNotebook?.id || "",
     subjectName: activeNotebook?.subjectName || "",
@@ -743,16 +762,23 @@ function StartLearningPage({
     ),
     [activeNotebook?.careerPreparation],
   );
-  const careerAnalysis = activeNotebook?.careerPreparation?.topicAnalysis || null;
+  const activeCareerDraft = careerDraft?.notebookId === activeNotebook?.id
+    ? careerDraft
+    : null;
+  const careerAnalysis = activeCareerDraft?.analysis
+    || activeNotebook?.careerPreparation?.topicAnalysis
+    || null;
   const careerAnalysisReady = Boolean(
     careerAnalysis && listFrom(careerAnalysis.topics).some((topic) => cleanText(topic?.title || topic, 180)),
   );
+  const careerAnalysisIsDraft = Boolean(activeCareerDraft && careerAnalysisReady);
 
   const selectNotebook = useCallback((value) => {
     const normalized = normalizeNotebook(value);
     setActiveNotebook(normalized);
     setWorkspaceView("notebook");
     setCareerError("");
+    setCareerDraft(null);
     setDirty(false);
     setActiveTab("studio");
     setExpandedChapters(new Set(normalized.chapters.slice(0, 1).map((chapter) => chapter.id)));
@@ -1125,16 +1151,15 @@ function StartLearningPage({
         },
       );
       if (!mountedRef.current) return;
-      const normalized = normalizeNotebook(payload?.notebook);
-      setActiveNotebook(normalized);
-      setNotebooks((current) => [
-        normalized,
-        ...current.filter((notebook) => notebook.id !== normalized.id),
-      ]);
-      setCareerRole(targetRole);
+      const draft = createPlacementDraft(payload, {
+        notebookId: activeNotebook.id,
+        requestedTopics: topics,
+        targetRole,
+      });
+      setCareerDraft(draft);
+      setCareerRole(draft.analysis.targetRole || targetRole);
       setCareerTopics(topics.join("\n"));
-      setDirty(false);
-      setNotification?.("Your placement preparation guide is ready.");
+      setNotification?.("Your preparation draft is ready. Save it to keep it with this notebook.");
     } catch (error) {
       if (mountedRef.current) {
         setCareerError(getAiRequestErrorMessage(error, "Placement topics could not be analyzed."));
@@ -1668,26 +1693,30 @@ function StartLearningPage({
   };
 
   const persistActiveNotebook = async ({
-    successMessage = "Learning notebook saved.",
     errorMessage = "The notebook could not be saved.",
+    expectedRevision = "",
+    snapshot: requestedSnapshot,
+    successMessage = "Learning notebook saved.",
   } = {}) => {
-    if (!activeNotebook?.id || saving) return;
+    const snapshot = requestedSnapshot || activeNotebook;
+    if (!snapshot?.id || saving) return null;
+    const baselineRevision = expectedRevision || snapshot.updatedAt;
     if (masteryAutosaveTimerRef.current) {
       window.clearTimeout(masteryAutosaveTimerRef.current);
       masteryAutosaveTimerRef.current = null;
     }
     ++masterySaveSequenceRef.current;
     setMasterySaving(false);
-    const snapshot = activeNotebook;
     setSaving(true);
     try {
       const payload = await enqueueNotebookPatch(snapshot);
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) return null;
       const normalized = normalizeNotebook(payload?.notebook || snapshot);
       const revisionMatches = activeNotebookRef.current?.id === snapshot.id
-        && activeNotebookRef.current?.updatedAt === snapshot.updatedAt;
+        && activeNotebookRef.current?.updatedAt === baselineRevision;
       setNotebooks((current) => current.map((notebook) => (
-        notebook.id === normalized.id && notebook.updatedAt === snapshot.updatedAt
+        notebook.id === normalized.id
+          && (revisionMatches || notebook.updatedAt === baselineRevision)
           ? normalized
           : notebook
       )));
@@ -1699,10 +1728,12 @@ function StartLearningPage({
       setNotification?.(
         revisionMatches ? successMessage : `${successMessage} Newer changes are still being saved.`,
       );
+      return { applied: revisionMatches, notebook: normalized };
     } catch (error) {
       if (mountedRef.current) {
         setNotification?.(error instanceof Error ? error.message : errorMessage);
       }
+      return null;
     } finally {
       if (mountedRef.current) setSaving(false);
     }
@@ -1710,10 +1741,41 @@ function StartLearningPage({
 
   const saveNotebook = () => persistActiveNotebook();
 
-  const saveCareerPreparation = () => persistActiveNotebook({
-    successMessage: "Placement preparation saved.",
-    errorMessage: "The placement preparation could not be saved.",
-  });
+  const saveCareerPreparation = async () => {
+    if (!activeNotebook?.id || !activeCareerDraft) {
+      setNotification?.("Analyze placement topics before saving a preparation guide.");
+      return;
+    }
+
+    let snapshot;
+    try {
+      snapshot = mergePlacementDraft(activeNotebook, activeCareerDraft, {
+        savedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      setNotification?.(error instanceof Error ? error.message : "The preparation draft could not be saved.");
+      return;
+    }
+
+    const draftIdentity = `${activeCareerDraft.notebookId}:${activeCareerDraft.generatedAt}`;
+    activeNotebookRef.current = snapshot;
+    setActiveNotebook(snapshot);
+    setDirty(true);
+    const result = await persistActiveNotebook({
+      errorMessage: "The placement preparation could not be saved.",
+      expectedRevision: snapshot.updatedAt,
+      snapshot,
+      successMessage: "Placement preparation saved and available in Saved notebooks.",
+    });
+    const activeChangedNotebook = activeNotebookRef.current?.id !== activeCareerDraft.notebookId;
+    if (result && (result.applied || activeChangedNotebook)) {
+      setCareerDraft((current) => (
+        current && `${current.notebookId}:${current.generatedAt}` === draftIdentity
+          ? null
+          : current
+      ));
+    }
+  };
 
   const deleteNotebook = async (notebookId) => {
     setDeletingId(notebookId);
@@ -1722,7 +1784,9 @@ function StartLearningPage({
       if (!mountedRef.current) return;
       setNotebooks((current) => current.filter((notebook) => notebook.id !== notebookId));
       if (activeNotebook?.id === notebookId) {
+        activeNotebookRef.current = null;
         setActiveNotebook(null);
+        setCareerDraft(null);
         setWorkspaceView("intake");
       }
       setDeleteCandidateId("");
@@ -1944,15 +2008,57 @@ function StartLearningPage({
     }));
   };
 
+  const closePlannerDialog = () => {
+    setPlannerDialogOpen(false);
+    setPlannerCustomNode(null);
+    setPlannerError("");
+  };
+
   const openPlannerForNode = (node) => {
     if (!node) return;
-    setSelectedNodeId(node.id);
+    const isNotebookNode = nodes.some((item) => item.id === node.id);
+    if (isNotebookNode) setSelectedNodeId(node.id);
+    setPlannerCustomNode(isNotebookNode ? null : node);
     setPlannerNodeId(node.id);
     setPlannerDateKey(dateOptions[0]?.dateKey || "");
     setPlannerError("");
     setPlannerDialogOpen(true);
   };
 
+  const placementActionTarget = (topic, item, kind, index) => buildPlacementActionTarget({
+    codingRelevant: activeNotebook?.careerPreparation?.codingRelevant,
+    index,
+    item,
+    kind,
+    notebook: activeNotebook,
+    targetRole: careerAnalysis?.targetRole || careerRole,
+    topic,
+  });
+
+  const placementNoteOptions = (target) => ({
+    details: target.explanation,
+    title: target.title,
+  });
+
+  const savePlacementItem = (target) => saveLearningTopicToNotes(
+    target,
+    placementNoteOptions(target),
+  );
+
+  const askPlacementItemAI = (target, topic) => {
+    if (!target || !activeNotebook) return;
+    window.dispatchEvent(new CustomEvent("openPrepMatrixAIChat", {
+      detail: {
+        createNewChat: true,
+        message: buildPlacementChatPrompt({
+          notebook: activeNotebook,
+          target,
+          targetRole: careerAnalysis?.targetRole || careerRole,
+          topic,
+        }),
+      },
+    }));
+  };
   const toggleLearningNodeCompletion = (node) => {
     const state = completionStateByNodeId.get(node?.id);
     if (!node || !state?.isScheduled) {
@@ -2019,7 +2125,9 @@ function StartLearningPage({
   };
 
   const addToPlanner = () => {
-    const node = nodes.find((item) => item.id === plannerNodeId);
+    const node = plannerCustomNode?.id === plannerNodeId
+      ? plannerCustomNode
+      : nodes.find((item) => item.id === plannerNodeId);
     if (!node || !plannerDateKey || !activeNotebook) {
       setPlannerError("Choose a learning unit and an available date.");
       return;
@@ -2046,8 +2154,7 @@ function StartLearningPage({
       ));
       setCompleted?.([...new Set(migratedCompleted)]);
     }
-    setPlannerDialogOpen(false);
-    setPlannerError("");
+    closePlannerDialog();
     setNotification?.(
       result.moved
         ? `${node.title} moved to ${result.dateKey}.`
@@ -2111,7 +2218,21 @@ function StartLearningPage({
           : "card learning-hero"}
       >
         <div className="learning-hero-copy">
-          <span className="section-tag"><Sparkles size={14} /> AI learning workspace</span>
+          <div className="learning-hero-eyebrow">
+            <span className="section-tag"><Sparkles size={14} /> AI learning workspace</span>
+            <button
+              aria-controls="learning-subject-mastery-dialog"
+              aria-expanded={masteryDialogOpen}
+              aria-haspopup="dialog"
+              aria-label="Open subject mastery"
+              className="learning-mastery-trigger"
+              onClick={() => setMasteryDialogOpen(true)}
+              title="Subject mastery"
+              type="button"
+            >
+              <Target aria-hidden="true" size={18} />
+            </button>
+          </div>
           <h2>Start Learning</h2>
         </div>
         <div className="learning-hero-metrics" aria-label="Learning notebook summary">
@@ -2471,6 +2592,11 @@ function StartLearningPage({
                   <span>
                     <strong>{notebook.title}</strong>
                     <small>{notebook.chapters.length} chapters · {formatNotebookDate(notebook.updatedAt)}</small>
+                    {hasSavedPlacementPreparation(notebook) && (
+                      <small className="learning-notebook-prep-badge">
+                        <BriefcaseBusiness aria-hidden="true" size={12} /> Placement prep saved
+                      </small>
+                    )}
                   </span>
                 </button>
                 {deleteCandidateId === notebook.id ? (
@@ -2754,7 +2880,6 @@ function StartLearningPage({
                     <div className="learning-outline-toolbar">
                       <div>
                         <h3>Editable learning path</h3>
-                        <p>Refine the structure before saving or syncing it to Subjects.</p>
                       </div>
                       <div>
                         <button aria-label="Add chapter" onClick={() => setChapterComposerOpen(true)} title="Add chapter" type="button">
@@ -3015,12 +3140,7 @@ function StartLearningPage({
 
                 {activeTab === "map" && (
                   <div className="learning-map-view" role="tabpanel">
-                    <div className="learning-map-toolbar">
-                      <div>
-                        <h3>Interactive mastery worktree</h3>
-                        <p>Move through prerequisites, inspect learning evidence, and double-click any node to start studying.</p>
-                      </div>
-                    </div>
+
                     <LearningMasteryMap
                       notebook={activeNotebook}
                       onSelectNode={setSelectedNodeId}
@@ -3245,17 +3365,22 @@ function StartLearningPage({
                     <p>{careerAnalysis.overview}</p>
                   </div>
                   <div className="learning-career-results-actions">
+                    <span className={`learning-career-draft-status${careerAnalysisIsDraft ? " is-draft" : " is-saved"}`}>
+                      {careerAnalysisIsDraft ? "Unsaved draft" : "Saved in notebook"}
+                    </span>
                     <span className="learning-count">{listFrom(careerAnalysis.topics).length}</span>
                     <button
-                      aria-label="Save placement preparation"
+                      aria-label={careerAnalysisIsDraft ? "Save placement preparation" : "Placement preparation saved"}
                       className="learning-career-save"
-                      disabled={saving || careerAnalyzing}
+                      disabled={!careerAnalysisIsDraft || saving || careerAnalyzing}
                       onClick={saveCareerPreparation}
-                      title="Save placement preparation"
+                      title={careerAnalysisIsDraft ? "Save placement preparation" : "Saved in this notebook"}
                       type="button"
                     >
-                      {saving ? <LoaderCircle className="spinner" size={16} /> : <Save size={16} />}
-                      <span>{saving ? "Saving..." : "Save preparation"}</span>
+                      {saving
+                        ? <LoaderCircle className="spinner" size={16} />
+                        : careerAnalysisIsDraft ? <Save size={16} /> : <Check size={16} />}
+                      <span>{saving ? "Saving..." : careerAnalysisIsDraft ? "Save preparation" : "Saved"}</span>
                     </button>
                   </div>
                 </div>
@@ -3271,18 +3396,67 @@ function StartLearningPage({
                       {listFrom(topic?.interviewQuestions).length > 0 && (
                         <div>
                           <h5>Interview checks</h5>
-                          {listFrom(topic.interviewQuestions).map((question, questionIndex) => (
-                            <details key={question?.id || question?.question || questionIndex}>
-                              <summary>{cleanText(question?.question || question, 500)}</summary>
-                              <p>{cleanText(question?.guidance, 1200)}</p>
-                            </details>
-                          ))}
+                          {listFrom(topic.interviewQuestions).map((question, questionIndex) => {
+                            const target = placementActionTarget(topic, question, "interview", questionIndex);
+                            const noteOptions = placementNoteOptions(target);
+                            return (
+                              <details className="learning-career-item-details" key={target.id}>
+                                <summary>{cleanText(question?.question || question, 500)}</summary>
+                                {target.explanation.split(/\n{2,}/).map((paragraph, guidanceIndex) => (
+                                  <p key={`${target.id}-guidance-${guidanceIndex}`}>{paragraph}</p>
+                                ))}
+                                <div className="learning-career-item-actions">
+                                  <button
+                                    disabled={isLearningNoteSaving(target, noteOptions)}
+                                    onClick={() => savePlacementItem(target)}
+                                    type="button"
+                                  >
+                                    <Save size={14} /> {isLearningNoteSaving(target, noteOptions) ? "Saving..." : "Save"}
+                                  </button>
+                                  <button onClick={() => askPlacementItemAI(target, topic)} type="button">
+                                    <MessageSquareText size={14} /> Ask AI
+                                  </button>
+                                  <button onClick={() => openPlannerForNode(target)} type="button">
+                                    <CalendarPlus size={14} /> Add to planner
+                                  </button>
+                                </div>
+                              </details>
+                            );
+                          })}
                         </div>
                       )}
                       {listFrom(topic?.practiceSteps).length > 0 && (
                         <div>
                           <h5>Practice next</h5>
-                          <ol>{listFrom(topic.practiceSteps).map((step) => <li key={cleanText(step, 500)}>{cleanText(step, 500)}</li>)}</ol>
+                          <div className="learning-career-practice-list">
+                            {listFrom(topic.practiceSteps).map((step, stepIndex) => {
+                              const target = placementActionTarget(topic, step, "practice", stepIndex);
+                              const noteOptions = placementNoteOptions(target);
+                              return (
+                                <details className="learning-career-item-details" key={target.id}>
+                                  <summary>{cleanText(step?.title || step?.text || step, 500)}</summary>
+                                  {target.explanation.split(/\n{2,}/).map((paragraph, guidanceIndex) => (
+                                    <p key={`${target.id}-guidance-${guidanceIndex}`}>{paragraph}</p>
+                                  ))}
+                                  <div className="learning-career-item-actions">
+                                    <button
+                                      disabled={isLearningNoteSaving(target, noteOptions)}
+                                      onClick={() => savePlacementItem(target)}
+                                      type="button"
+                                    >
+                                      <Save size={14} /> {isLearningNoteSaving(target, noteOptions) ? "Saving..." : "Save"}
+                                    </button>
+                                    <button onClick={() => askPlacementItemAI(target, topic)} type="button">
+                                      <MessageSquareText size={14} /> Ask AI
+                                    </button>
+                                    <button onClick={() => openPlannerForNode(target)} type="button">
+                                      <CalendarPlus size={14} /> Add to planner
+                                    </button>
+                                  </div>
+                                </details>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </article>
@@ -3308,6 +3482,16 @@ function StartLearningPage({
           </section>
         )}
       </div>
+
+      <LearningSubjectMasteryDialog
+        error={notebooksError}
+        loading={notebooksLoading}
+        notebooks={masteryNotebooks}
+        now={new Date(masteryClock).toISOString()}
+        onClose={() => setMasteryDialogOpen(false)}
+        onRetry={loadNotebooks}
+        open={masteryDialogOpen}
+      />
 
       {privacyConsentOpen && typeof document !== "undefined" && createPortal(
         <div
@@ -3383,7 +3567,7 @@ function StartLearningPage({
         <div
           className="learning-dialog-backdrop"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setPlannerDialogOpen(false);
+            if (event.target === event.currentTarget) closePlannerDialog();
           }}
           role="presentation"
         >
@@ -3399,7 +3583,7 @@ function StartLearningPage({
                 <h3 id="learning-planner-title">Schedule a learning unit</h3>
                 <p>Choose exactly what to study and place it on a real available schedule date.</p>
               </div>
-              <button aria-label="Close planner dialog" onClick={() => setPlannerDialogOpen(false)} type="button">
+              <button aria-label="Close planner dialog" onClick={closePlannerDialog} type="button">
                 <X size={17} />
               </button>
             </div>
@@ -3412,6 +3596,11 @@ function StartLearningPage({
                 }}
                 value={plannerNodeId}
               >
+                {plannerCustomNode && !nodes.some((node) => node.id === plannerCustomNode.id) && (
+                  <option value={plannerCustomNode.id}>
+                    {plannerCustomNode.chapterName ? `${plannerCustomNode.chapterName} - ` : ""}{plannerCustomNode.title}
+                  </option>
+                )}
                 {nodes.map((node) => (
                   <option key={node.id} value={node.id}>
                     {node.chapterName ? `${node.chapterName} · ` : ""}{node.title}
@@ -3444,8 +3633,8 @@ function StartLearningPage({
               </p>
             )}
             <div className="learning-dialog-actions">
-              <button onClick={() => setPlannerDialogOpen(false)} type="button">Cancel</button>
-              <button disabled={!nodes.length || !dateOptions.length} onClick={addToPlanner} type="button">
+              <button onClick={closePlannerDialog} type="button">Cancel</button>
+              <button disabled={(!nodes.length && !plannerCustomNode) || !dateOptions.length} onClick={addToPlanner} type="button">
                 <CalendarPlus size={16} /> Add to planner
               </button>
             </div>

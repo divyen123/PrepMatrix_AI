@@ -1049,55 +1049,6 @@ async function rollbackInsertedLearningArtifact(
   throw error;
 }
 
-function storedValueFilter(value) {
-  return value === undefined ? { $exists: false } : value;
-}
-
-function restoreStoredField(update, name, value) {
-  if (value === undefined) {
-    update.$unset = { ...(update.$unset || {}), [name]: "" };
-  } else {
-    update.$set = { ...(update.$set || {}), [name]: value };
-  }
-}
-
-async function rollbackCareerAnalysisWrite(collection, {
-  commitError,
-  notebookId,
-  priorCareerPreparation,
-  priorUpdatedAt,
-  userId,
-  writtenCareerPreparation,
-  writtenUpdatedAt,
-}) {
-  const restoreUpdate = {};
-  restoreStoredField(restoreUpdate, "careerPreparation", priorCareerPreparation);
-  restoreStoredField(restoreUpdate, "updatedAt", priorUpdatedAt);
-  try {
-    const rollback = await collection.updateOne(
-      {
-        _id: notebookId,
-        userId,
-        careerPreparation: writtenCareerPreparation,
-        updatedAt: writtenUpdatedAt,
-      },
-      restoreUpdate,
-    );
-    if (rollback?.matchedCount === 1) return;
-  } catch (rollbackError) {
-    const error = learningQuotaUnavailableError(
-      "AI credit tracking failed and the saved career analysis could not be safely restored.",
-    );
-    error.cause = rollbackError;
-    throw error;
-  }
-  const error = learningQuotaUnavailableError(
-    "AI credit tracking failed and the saved career analysis could not be safely restored.",
-  );
-  error.cause = commitError;
-  throw error;
-}
-
 function learningRequestIdempotencyKey(req) {
   return cleanInline(
     req?.get?.("Idempotency-Key")
@@ -1595,7 +1546,6 @@ export function registerLearningNotebookRoutes(app, {
 
   app.post("/api/learning-notebooks/:id/career-analyze", requireAuth(async (req, res) => {
     let reservation = null;
-    let persisted = false;
     try {
       const privacyConsent = req.body?.privacyConsent;
       if (
@@ -1726,92 +1676,28 @@ export function registerLearningNotebookRoutes(app, {
         requestedTopics,
         targetRole,
       });
-      const updatedAt = now();
-      const priorCareerPreparation = existing.careerPreparation;
-      const priorUpdatedAt = existing.updatedAt;
-      const writtenUpdatedAt = new Date(updatedAt);
-      const normalizedNotebook = normalizeLearningNotebook(
-        {
-          ...existing,
-          careerPreparation: {
-            ...(existing.careerPreparation && typeof existing.careerPreparation === "object"
-              ? existing.careerPreparation
-              : {}),
-            topicAnalysis,
-          },
-        },
-        {
-          id: String(notebookId),
-          profile: req.user,
-          sources: existing.sources,
-          createdAt: existing.createdAt,
-          updatedAt,
-          model: existing.model,
-          subjectName: existing.subjectName,
-        },
-      );
-
-      const persistence = await collection.updateOne(
-        {
-          _id: notebookId,
-          userId: req.user._id,
-          careerPreparation: storedValueFilter(priorCareerPreparation),
-          updatedAt: storedValueFilter(priorUpdatedAt),
-        },
-        {
-          $set: {
-            careerPreparation: normalizedNotebook.careerPreparation,
-            updatedAt: writtenUpdatedAt,
-          },
-        },
-      );
-      if (persistence?.matchedCount !== 1) {
-        throw learningQuotaUnavailableError(
-          "The learning notebook changed before the career analysis could be saved.",
-        );
-      }
-      persisted = true;
-      const responseNotebook = notebookResponse({
-        ...existing,
-        _id: notebookId,
-        careerPreparation: normalizedNotebook.careerPreparation,
-        updatedAt,
-      }, req.user);
       const payload = {
-        notebook: responseNotebook,
-        topicAnalysis: responseNotebook.careerPreparation.topicAnalysis,
+        notebook: notebookResponse(existing, req.user),
+        topicAnalysis,
         providerModel,
+        transient: true,
       };
-      let committed;
-      try {
-        committed = await aiQuota.commit({
-          eventId: reservation.eventId,
-          reservationToken: reservation.reservationToken,
-          resultRef: {
-            type: "career_analysis",
-            id: String(notebookId),
-            providerModel,
-          },
-        });
-      } catch (commitError) {
-        await rollbackCareerAnalysisWrite(collection, {
-          commitError,
-          notebookId,
-          priorCareerPreparation,
-          priorUpdatedAt,
-          userId: req.user._id,
-          writtenCareerPreparation: normalizedNotebook.careerPreparation,
-          writtenUpdatedAt,
-        });
-        persisted = false;
-        throw commitError;
-      }
+      const committed = await aiQuota.commit({
+        eventId: reservation.eventId,
+        reservationToken: reservation.reservationToken,
+        replayPayload: payload,
+        resultRef: {
+          type: "career_analysis_draft",
+          id: String(notebookId),
+          providerModel,
+        },
+      });
       setLearningQuotaHeaders(res, aiQuota, committed?.quota, reservation.cost);
       return res.json(payload);
     } catch (error) {
       let finalError = error;
       let creditsRefunded = false;
-      if (reservation?.state === "reserved" && !persisted) {
+      if (reservation?.state === "reserved") {
         const refund = await refundLearningAiAction(aiQuota, res, reservation, error);
         creditsRefunded = refund.refunded;
         if (refund.error) finalError = refund.error;
@@ -2203,7 +2089,7 @@ function buildCareerAnalysisPrompts({
     .filter(Boolean)
     .slice(0, 36);
   const codingRule = careerEligibility.codingRelevant
-    ? "Include coding-screen patterns and implementation-oriented practice where they are relevant to the requested topic."
+    ? "For every coding-relevant requested topic, include an implementation outline, time and space complexity, important edge cases, and concise language-appropriate pseudocode or a short code sketch where useful, plus coding-screen practice."
     : "Do not force coding advice into non-coding topics; use domain exercises, cases, or portfolio practice instead.";
   const responseShape = [
     "{",
