@@ -160,6 +160,10 @@ function resolvePageCommand(spokenText = "") {
     return { type: "navigate", route: "/kids", response: "Opening Kids Play and Learn." };
   }
 
+  if (/\b(open|go to)\s+(?:the\s+)?(?:kids\s+)?(?:ai\s+|study\s+)?chat\b/.test(normalized)) {
+    return { type: "chat", response: "Opening AI Chat." };
+  }
+
   if (/\b(open|go to)\s+planner\b/.test(normalized)) {
     return { type: "navigate", route: "/planner", response: "Opening planner page." };
   }
@@ -575,6 +579,19 @@ export default function useVoiceAssistant({
 
     try {
       const pageCommand = resolvePageCommand(cleanText);
+
+      if (pageCommand?.type === "chat") {
+        window.dispatchEvent(new CustomEvent("openPrepMatrixAIChat"));
+        setReply(pageCommand.response);
+        setOverlayReply(pageCommand.response);
+        if (speakReply) {
+          speakWakeReply(cleanAssistantTextForSpeech(pageCommand.response), { closeOverlay: true, resumeWake: true });
+        } else {
+          hideOverlay();
+          scheduleWakeRestart();
+        }
+        return;
+      }
 
       if (pageCommand?.type === "navigate") {
         navigate(pageCommand.route);

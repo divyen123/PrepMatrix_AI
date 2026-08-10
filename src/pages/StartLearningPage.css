@@ -3659,27 +3659,74 @@ body .learning-career-topic-grid button {
   transition: border-color 180ms ease, background 180ms ease;
 }
 
-.learning-career-item-details[open] {
+.learning-career-item-details.is-open {
   background: var(--surface-muted) !important;
   border-color: rgba(var(--accent-rgb), 0.28) !important;
 }
 
-.learning-career-item-details summary {
+body .learning-career-item-trigger {
+  display: grid;
+  width: 100%;
   min-height: 44px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
   padding: 11px 13px !important;
   color: var(--text) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none !important;
   cursor: pointer;
   font-size: 0.87rem !important;
   font-weight: 760 !important;
   line-height: 1.48 !important;
+  text-align: left;
+  transform: none !important;
 }
 
-.learning-career-item-details summary:focus-visible {
+body .learning-career-item-trigger:hover,
+body .learning-career-item-trigger:focus-visible {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+}
+
+body .learning-career-item-trigger:focus-visible {
   outline: 2px solid rgba(var(--accent-rgb), 0.55);
   outline-offset: -3px;
 }
 
-.learning-career-item-details > p {
+.learning-career-item-chevron {
+  flex: 0 0 auto;
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.learning-career-item-details.is-open .learning-career-item-chevron {
+  transform: rotate(90deg);
+}
+
+.learning-career-item-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    grid-template-rows 300ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 180ms ease;
+}
+
+.learning-career-item-details.is-open .learning-career-item-panel {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.learning-career-item-content {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.learning-career-item-content > p {
   margin: 0 !important;
   padding: 0 13px 10px;
   color: var(--text-muted) !important;

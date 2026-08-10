@@ -23,6 +23,7 @@ function SubjectsPage({
   userProfile,
   onAcademicProfileChange,
   profileLocked = false,
+  kidsMode = false,
 }) {
   const addSubjectRef = useRef(null);
   const subjectLibraryRef = useRef(null);
@@ -106,7 +107,7 @@ function SubjectsPage({
 
             {profileLocked ? (
               <div className="academic-profile-note" role="note">
-                A parent can change the learner stage from the full account settings. Kids Mode keeps this learning path protected.
+                The registered class, learning stage, and curriculum are fixed for this child account. Subject planning cannot change them.
               </div>
             ) : (
             <div className="profile-select-grid academic-profile-grid">
@@ -180,7 +181,7 @@ function SubjectsPage({
 
             <p className="academic-profile-note">
               {profileLocked
-                ? "Subjects can still be added and organised here without changing the protected learning stage."
+                ? "Add and organise subjects here. A parent PIN is still required before creating or changing the study schedule."
                 : "Changes save automatically and appear in Settings, Exam, Quiz, Materials, and the study assistant."}
             </p>
           </section>
@@ -189,7 +190,12 @@ function SubjectsPage({
             <AddSubject subjects={subjects} setSubjects={setSubjects} />
           </div>
           <div className="subject-page-anchor" ref={subjectLibraryRef}>
-            <SubjectList hasActiveSchedule={hasActiveSchedule} subjects={subjects} setSubjects={setSubjects} />
+            <SubjectList
+              hasActiveSchedule={hasActiveSchedule}
+              kidsMode={kidsMode}
+              setSubjects={setSubjects}
+              subjects={subjects}
+            />
           </div>
         </div>
 

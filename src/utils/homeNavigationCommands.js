@@ -2,9 +2,11 @@ import { isMaterialSuggestionRequest } from "./chatMaterialSuggestions.js";
 
 const NAVIGATION_LEAD_PATTERN = /^(?:(?:please|kindly)\s+)?(?:(?:can|could|would|will)\s+you\s+)?(?:take\s+me(?:\s+to)?|bring\s+me(?:\s+to)?|send\s+me(?:\s+to)?|go(?:\s+to)?|head\s+to|navigate(?:\s+to)?|switch\s+to|move\s+to|open(?:\s+up)?|show(?:\s+me)?|view|visit|launch|access|display|see)\s+/;
 const HOME_ALIASES = new Set(["home", "homepage", "home page", "main page"]);
+export const GOAL_REMINDER_SHORTCUT_ROUTE = "/dashboard#goals-reminders";
 const DEFAULT_SUGGESTION_ROUTE_PRIORITY = Object.freeze([
   "/learn",
   "/planner",
+  GOAL_REMINDER_SHORTCUT_ROUTE,
   "/resources",
   "/analytics",
   "/quiz",
@@ -14,6 +16,7 @@ const DEFAULT_SUGGESTION_ROUTE_PRIORITY = Object.freeze([
   "/notes",
   "/resume-builder",
   "/kids",
+  "/ai-chat",
   "/settings",
   "/notification-history",
   "/about",
@@ -28,6 +31,7 @@ function defineDestination({
   description,
   aliases,
   content = false,
+  defaultShortcut = false,
   intentPatterns = [],
 }) {
   const normalizedAliases = Array.from(new Set([label, ...aliases].map(normalizeHomeNavigationInput)));
@@ -38,6 +42,7 @@ function defineDestination({
     label,
     description,
     content,
+    defaultShortcut,
     aliases: Object.freeze(normalizedAliases),
     intentPatterns: Object.freeze(intentPatterns),
   });
@@ -90,6 +95,28 @@ const DESTINATIONS = Object.freeze([
     ],
   }),
   defineDestination({
+    id: "goals-reminders",
+    route: GOAL_REMINDER_SHORTCUT_ROUTE,
+    label: "Goals & Reminders",
+    description: "Goals, scheduled reminders, and quick to-dos",
+    content: true,
+    defaultShortcut: true,
+    aliases: [
+      "goal",
+      "goals",
+      "reminder",
+      "reminders",
+      "goal reminder",
+      "goal reminders",
+      "goals and reminders",
+      "goals reminders",
+      "quick to dos",
+    ],
+    intentPatterns: [
+      /\b(?:open|show|view|check|manage|add|create)\s+(?:my\s+|the\s+|a\s+)?(?:goals?|reminders?|goals?\s+(?:and\s+)?reminders?)\b/,
+    ],
+  }),
+  defineDestination({
     id: "kids",
     route: "/kids",
     label: "Play & Learn",
@@ -107,6 +134,23 @@ const DESTINATIONS = Object.freeze([
     ],
     intentPatterns: [
       /\b(?:play|start|open|show)\s+(?:a\s+|the\s+)?(?:learning\s+)?(?:game|adventure|knowledge\s+quest)\b/,
+    ],
+  }),
+  defineDestination({
+    id: "ai-chat",
+    route: "/ai-chat",
+    label: "AI Chat",
+    description: "Age-appropriate learning questions and explanations",
+    aliases: [
+      "ai chat",
+      "kids ai chat",
+      "learning helper",
+      "study chat",
+      "chat helper",
+    ],
+    intentPatterns: [
+      /\b(?:open|show|start|launch)\s+(?:the\s+)?(?:kids\s+)?(?:ai\s+|study\s+)?chat\b/,
+      /\b(?:open|show|start)\s+(?:my\s+)?learning\s+helper\b/,
     ],
   }),
   defineDestination({
@@ -394,6 +438,7 @@ export const HOME_NAVIGATION_DESTINATIONS = Object.freeze(
     label: destination.label,
     description: destination.description,
     content: destination.content,
+    defaultShortcut: destination.defaultShortcut,
     aliases: destination.aliases,
   }))
 );
@@ -407,6 +452,15 @@ export function normalizeHomeNavigationInput(value = "") {
     .replace(/[^a-z0-9\s']/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function getGoalReminderShortcutRoutes({
+  hasDashboard = false,
+  isKidsLearner = false,
+} = {}) {
+  return hasDashboard && !isKidsLearner
+    ? [GOAL_REMINDER_SHORTCUT_ROUTE]
+    : [];
 }
 
 export function buildHomeNavigationRoute(result = {}) {
@@ -858,7 +912,9 @@ export function getHomeNavigationSuggestions(input = "", {
   if (!safeLimit || !destinations.length) return [];
 
   if (!parsed.target) {
-    const pageDestinations = destinations.filter(({ content }) => !content);
+    const pageDestinations = destinations.filter(
+      ({ content, defaultShortcut }) => !content || defaultShortcut
+    );
     const configuredHome = pageDestinations.find(({ route }) => route === homeRoute);
     const priorityIndex = (route) => {
       const index = DEFAULT_SUGGESTION_ROUTE_PRIORITY.indexOf(route);

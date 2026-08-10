@@ -87,6 +87,7 @@ function PlannerPage({
       <Timetable
         canManageSchedule={!kidsMode || parentAccessGranted}
         completed={completed}
+        onOpenSubjects={() => navigate("/subjects#subject-library")}
         onRequestParentAccess={() => navigate("/kids", {
           state: { parentAccess: "planner", returnTo: "/planner" },
         })}

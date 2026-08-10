@@ -20,6 +20,7 @@ import {
   Settings as SettingsIcon,
   Info,
   Gamepad2,
+  MessageCircle,
   PanelLeft,
   PanelLeftClose,
   ChevronLeft,
@@ -43,6 +44,7 @@ import {
   resolveEffectiveDarkMode,
 } from "./utils/appearanceTheme";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
+import { readStoredActiveExamAttemptId } from "./utils/examTiming";
 import {
   normalizeMaterialBookmark,
   normalizeMaterialBookmarks,
@@ -52,8 +54,17 @@ import {
   academicProfilePayload,
   normalizeAcademicProfile,
 } from "./utils/academicProfile";
-import { getLearnerRoutePolicy } from "./utils/learnerRouting";
+import {
+  getLearnerRoutePolicy,
+  getYoungKidsParentRouteDecision,
+  isYoungKidsNavRoute,
+} from "./utils/learnerRouting";
+import {
+  SUBJECT_SCHEDULE_MUTATION_MODES,
+  getSubjectScheduleMutationMode,
+} from "./utils/subjectWorkspace";
 import { getLearningCareerEligibility } from "./utils/learningNotebook";
+import { getGoalReminderShortcutRoutes } from "./utils/homeNavigationCommands";
 import {
   getResumeEligibility,
   normalizeResumeBuilderState,
@@ -105,6 +116,7 @@ const StartLearningPage = lazyRetry(() => import("./pages/StartLearningPage"));
 const PlannerPage = lazyRetry(() => import("./pages/PlannerPage"));
 const QuizPage = lazyRetry(() => import("./pages/QuizPage"));
 const KidsLearningPage = lazyRetry(() => import("./pages/KidsLearningPage"));
+const KidsAiChatPage = lazyRetry(() => import("./pages/KidsAiChatPage"));
 const KidsStartLearningPage = lazyRetry(() => import("./pages/KidsStartLearningPage"));
 const SchoolKnowledgePage = lazyRetry(() => import("./pages/SchoolKnowledgePage"));
 const ReportPage = lazyRetry(() => import("./pages/ReportPage"));
@@ -128,6 +140,7 @@ const LOCKED_KIDS_PARENT_ACCESS = Object.freeze({
   unlocked: false,
   expiresAt: null,
   setupRequired: null,
+  resolved: false,
 });
 const DEFINITIVE_NOTIFICATION_ERROR_CODES = new Set([
   "unsupported",
@@ -155,12 +168,14 @@ function notificationErrorIsDefinitive(error) {
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", helper: "Overview and momentum", icon: LayoutDashboard },
   { to: "/kids", label: "Play & Learn", helper: "Games, adventures, and rewards", icon: Gamepad2, kidsOnly: true },
+  { to: "/ai-chat", label: "AI Chat", helper: "Safe learning questions and explanations", icon: MessageCircle, youngKidsOnly: true },
   { to: "/subjects", label: "Subjects", helper: "Manage chapters and load", icon: BookOpen },
   { to: "/learn", label: "Start Learning", helper: "Upload, map, and revise", icon: BookOpenCheck },
   { to: "/planner", label: "Planner", helper: "Generate and rebalance work", icon: Calendar },
   { to: "/analytics", label: "Analytics", helper: "Progress, readiness, patterns", icon: TrendingUp },
   { to: "/notes", label: "Notes", helper: "Doubts and left topics", icon: StickyNote },
   { to: "/quiz", label: "Quiz", helper: "Topic-level checks", icon: Trophy },
+  { to: "/exam", label: "Exam", helper: "Parent-guided tests and papers", icon: ClipboardList, youngKidsOnly: true },
   { to: "/report", label: "Report", helper: "Planner intelligence", icon: ClipboardList },
   { to: "/resources", label: "Materials", helper: "Suggested study resources", icon: Library },
   {
@@ -171,15 +186,6 @@ const NAV_ITEMS = [
     resumeOnly: true,
   },
 ];
-
-const YOUNG_KIDS_NAV_ROUTES = new Set([
-  "/kids",
-  "/dashboard",
-  "/learn",
-  "/planner",
-  "/analytics",
-  "/report",
-]);
 
 function getTaskNames(schedule = []) {
   return schedule.flatMap((day) => day.tasks?.map((task) => task.task) || []);
@@ -335,6 +341,9 @@ function App() {
   });
   const [userProfile, setUserProfile] = useState(null);
   const [kidsParentAccess, setKidsParentAccess] = useState(LOCKED_KIDS_PARENT_ACCESS);
+  const [activeExamAttemptId, setActiveExamAttemptId] = useState(() => (
+    typeof window === "undefined" ? "" : readStoredActiveExamAttemptId(window.localStorage)
+  ));
   const [authLoading, setAuthLoading] = useState(true);
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [notification, setNotification] = useState("");
@@ -422,6 +431,7 @@ function App() {
     const parentAccess = value?.parentAccess || value;
     setKidsParentAccess((current) => ({
       ...current,
+      resolved: true,
       unlocked: Boolean(parentAccess?.unlocked),
       expiresAt: parentAccess?.expiresAt || null,
       setupRequired: typeof parentAccess?.setupRequired === "boolean"
@@ -442,7 +452,7 @@ function App() {
         if (active) updateKidsParentAccess(payload);
       })
       .catch(() => {
-        if (active) setKidsParentAccess(LOCKED_KIDS_PARENT_ACCESS);
+        if (active) setKidsParentAccess({ ...LOCKED_KIDS_PARENT_ACCESS, resolved: true });
       });
 
     return () => {
@@ -466,7 +476,7 @@ function App() {
     academicTrack,
     schedule,
     completed,
-    disabled: authLoading || !userProfile || isKidsLearner,
+    disabled: authLoading || !userProfile,
   });
 
   const metrics = useMemo(
@@ -497,7 +507,8 @@ function App() {
         (item) => (
           (!item.resumeOnly || (userProfile && resumeEligibility.enabled))
           && (!item.kidsOnly || learnerRoutePolicy.canAccessKidsRoute)
-          && (!learnerRoutePolicy.isYoungKidsLearner || YOUNG_KIDS_NAV_ROUTES.has(item.to))
+          && (!item.youngKidsOnly || learnerRoutePolicy.isYoungKidsLearner)
+          && (!learnerRoutePolicy.isYoungKidsLearner || isYoungKidsNavRoute(item.to))
         )
       )
       .map((item) => (
@@ -515,6 +526,10 @@ function App() {
         "/dashboard#progress-status",
         "/dashboard#weekly-review",
       ] : []),
+      ...getGoalReminderShortcutRoutes({
+        hasDashboard: visibleRoutes.has("/dashboard"),
+        isKidsLearner,
+      }),
       ...(visibleRoutes.has("/subjects") ? ["/subjects#subject-library"] : []),
       ...(visibleRoutes.has("/learn") && !learnerRoutePolicy.isYoungKidsLearner
         ? ["/learn#subject-mastery"]
@@ -532,11 +547,11 @@ function App() {
       ...visibleNavItems,
       ...contentRoutes,
       "/settings",
+      "/about",
       ...(!isKidsLearner ? [
         "/exam",
         "/exam/about",
         "/notification-history",
-        "/about",
       ] : []),
     ];
   }, [
@@ -548,6 +563,28 @@ function App() {
   const standardOnlyRoute = (element) => (
     isKidsLearner ? <Navigate replace to={learnerRoutePolicy.homeRoute} /> : element
   );
+  const parentGuidedKidsRoute = (
+    element,
+    returnTo,
+    feature,
+    { allowActiveExamAttempt = false } = {},
+  ) => {
+    const decision = getYoungKidsParentRouteDecision({
+      hasActiveExamAttempt: allowActiveExamAttempt && Boolean(activeExamAttemptId),
+      isYoungKidsLearner: learnerRoutePolicy.isYoungKidsLearner,
+      parentAccess: kidsParentAccess,
+      route: returnTo,
+    });
+    if (decision === "allowed") return element;
+    if (decision === "pending") return <RouteLoading />;
+    return (
+      <Navigate
+        replace
+        state={{ parentAccess: feature, returnTo }}
+        to="/kids"
+      />
+    );
+  };
   const activeRoute = visibleNavItems.find((item) => location.pathname.startsWith(item.to));
   const titleLabel = activeRoute?.label || (
     location.pathname.startsWith("/exam/about") ? "Exam Guide" :
@@ -673,7 +710,15 @@ function App() {
   const updateSubjects = (nextSubjects, options = {}) => {
     const normalizedSubjects = Array.isArray(nextSubjects) ? nextSubjects : [];
     setSubjects(normalizedSubjects);
-    if (options.preserveSchedule) {
+    const scheduleMutationMode = getSubjectScheduleMutationMode({
+      isYoungKidsLearner: learnerRoutePolicy.isYoungKidsLearner,
+      parentAccessGranted: kidsParentAccess.unlocked,
+      preserveSchedule: options.preserveSchedule,
+    });
+    if (scheduleMutationMode === SUBJECT_SCHEDULE_MUTATION_MODES.KEEP) {
+      return;
+    }
+    if (scheduleMutationMode === SUBJECT_SCHEDULE_MUTATION_MODES.RECONCILE) {
       const reconciled = reconcileScheduleWithSubjects(
         schedule,
         completed,
@@ -1467,14 +1512,14 @@ function App() {
               setDarkMode={setDarkMode}
               subjects={subjects}
             />
-            {!isKidsLearner && <Link
+            <Link
               to="/about"
               className="about-info-btn"
               title="About application"
               aria-label="About application"
             >
               <Info size={16} />
-            </Link>}
+            </Link>
           </div>
 
           <div className="sidebar-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
@@ -1572,16 +1617,16 @@ function App() {
             </div>
 
             <div className="topbar-right">
-              {!isKidsLearner && <AiCreditIndicator />}
+              <AiCreditIndicator />
               {/* Global browser VoiceAssistant service */}
-              {!isKidsLearner && <VoiceAssistant
+              <VoiceAssistant
                 academicLevel={academicLevel}
                 academicTrack={academicTrack}
                 completed={completed}
                 schedule={schedule}
                 hidden
                 assistant={voiceAssistant}
-              />}
+              />
 
 
               {!isKidsLearner && <button
@@ -1745,21 +1790,30 @@ function App() {
                           }
                           path="/kids"
                         />
+                        <Route
+                          element={
+                            learnerRoutePolicy.isYoungKidsLearner
+                              ? <KidsAiChatPage />
+                              : <Navigate replace to={learnerRoutePolicy.homeRoute} />
+                          }
+                          path="/ai-chat"
+                        />
                         {(
                           <>
                         <Route
-                          element={standardOnlyRoute(
+                          element={
                             <SubjectsPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
                               hasActiveSchedule={schedule.length > 0}
+                              kidsMode={learnerRoutePolicy.isYoungKidsLearner}
                               onAcademicProfileChange={updateAcademicProfile}
-                              profileLocked={isKidsLearner}
+                              profileLocked={learnerRoutePolicy.isYoungKidsLearner}
                               setSubjects={updateSubjects}
                               subjects={subjects}
                               userProfile={userProfile}
                             />
-                          )}
+                          }
                           path="/subjects"
                         />
                         <Route
@@ -1832,7 +1886,7 @@ function App() {
                           path="/notes"
                         />
                         <Route
-                          element={standardOnlyRoute(
+                          element={parentGuidedKidsRoute(
                             <QuizPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
@@ -1840,25 +1894,34 @@ function App() {
                               schedule={schedule}
                               subjects={subjects}
                               userProfile={userProfile}
-                            />
+                            />,
+                            "/quiz",
+                            "quiz",
                           )}
                           path="/quiz"
                         />
                         <Route
-                          element={standardOnlyRoute(<ExamAboutPage />)}
+                          element={parentGuidedKidsRoute(<ExamAboutPage />, "/exam/about", "exam")}
                           path="/exam/about"
                         />
                         <Route
-                          element={standardOnlyRoute(
+                          element={parentGuidedKidsRoute(
                             <ExamPage
+                              activeAttemptId={activeExamAttemptId}
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
                               examReadiness={metrics.completionRate}
                               isExamEligible={metrics.isExamEligible}
+                              onActiveAttemptChange={setActiveExamAttemptId}
+                              parentAccessGranted={kidsParentAccess.unlocked}
                               subjects={subjects}
                               tasksToExamEligibility={metrics.tasksToExamEligibility}
                               userProfile={userProfile}
-                            />
+                              youngKidsMode={learnerRoutePolicy.isYoungKidsLearner}
+                            />,
+                            "/exam",
+                            "exam",
+                            { allowActiveExamAttempt: true },
                           )}
                           path="/exam"
                         />
@@ -1967,10 +2030,7 @@ function App() {
                           element={standardOnlyRoute(<NotificationHistoryPage />)}
                           path="/notification-history"
                         />
-                        <Route
-                          element={standardOnlyRoute(<AboutPage />)}
-                          path="/about"
-                        />
+                        <Route element={<AboutPage />} path="/about" />
                           </>
                         )}
                         <Route element={<Navigate replace to={learnerRoutePolicy.homeRoute} />} path="*" />
@@ -2017,7 +2077,7 @@ function App() {
         </div>
       )}
 
-      {!isKidsLearner && voiceAssistant.voiceStatus !== "idle" && (
+      {voiceAssistant.voiceStatus !== "idle" && (
         <VoiceAssistantOverlay
           voiceStatus={voiceAssistant.voiceStatus}
           lastText={voiceAssistant.lastText}

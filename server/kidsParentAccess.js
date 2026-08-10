@@ -59,6 +59,35 @@ export async function readParentAccess(db, sessionToken, options = {}) {
   return parentAccessStatus(session || {}, options);
 }
 
+export async function readYoungKidsParentFeatureAccess(db, {
+  user = {},
+  sessionToken = "",
+  parentSettingsCollection = "kidsParentSettings",
+  now = new Date(),
+} = {}) {
+  const profile = getYoungKidsAccessProfile(user);
+  if (!profile.eligible) {
+    return {
+      allowed: true,
+      required: false,
+      parentAccess: null,
+    };
+  }
+
+  const parentSettings = await db.collection(parentSettingsCollection)
+    .findOne({ userId: user?._id });
+  const parentAccess = await readParentAccess(db, sessionToken, {
+    parentPinConfigured: Boolean(parentSettings?.pinHash && parentSettings?.pinSalt),
+    now,
+  });
+
+  return {
+    allowed: parentAccess.unlocked,
+    required: true,
+    parentAccess,
+  };
+}
+
 export async function grantParentAccess(db, sessionToken, {
   parentPinConfigured = true,
   now = new Date(),

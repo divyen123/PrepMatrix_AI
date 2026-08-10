@@ -801,11 +801,20 @@ export function hasGeneratedLearningNotebookDepth(value, options = {}) {
   if (!hasLearningNotebookShape(value)) return false;
   const minimumTopicsPerChapter = Math.max(1, Number.parseInt(options.minimumTopicsPerChapter, 10) || 6);
   const minimumSubtopicsPerTopic = Math.max(1, Number.parseInt(options.minimumSubtopicsPerTopic, 10) || 3);
+  const exactTopicsPerChapter = Math.max(0, Number.parseInt(options.exactTopicsPerChapter, 10) || 0);
+  const exactSubtopicsPerTopic = Math.max(0, Number.parseInt(options.exactSubtopicsPerTopic, 10) || 0);
   const minimumExamplesPerTopic = Math.max(1, Number.parseInt(options.minimumExamplesPerTopic, 10) || 1);
   const minimumExamplesPerSubtopic = Math.max(1, Number.parseInt(options.minimumExamplesPerSubtopic, 10) || 1);
+  const minimumKeyPointsPerTopic = Math.max(1, Number.parseInt(options.minimumKeyPointsPerTopic, 10) || 4);
+  const minimumKeyPointsPerSubtopic = Math.max(1, Number.parseInt(options.minimumKeyPointsPerSubtopic, 10) || 2);
+  const minimumLearningObjectivesPerTopic = Math.max(0, Number.parseInt(options.minimumLearningObjectivesPerTopic, 10) || 0);
+  const minimumApplicationsPerTopic = Math.max(0, Number.parseInt(options.minimumApplicationsPerTopic, 10) || 0);
+  const minimumCommonMistakesPerTopic = Math.max(0, Number.parseInt(options.minimumCommonMistakesPerTopic, 10) || 0);
+  const minimumRevisionTipsPerTopic = Math.max(0, Number.parseInt(options.minimumRevisionTipsPerTopic, 10) || 0);
   const minimumImportantQuestions = Math.max(1, Number.parseInt(options.minimumImportantQuestions, 10) || 8);
   const minimumNoteSections = Math.max(1, Number.parseInt(options.minimumNoteSections, 10) || 4);
   const expectedChapterCount = Math.max(0, Number.parseInt(options.expectedChapterCount, 10) || 0);
+  const exactChapterCount = Math.max(0, Number.parseInt(options.exactChapterCount, 10) || 0);
   const minimumChapterSummaryLength = Math.max(1, Number.parseInt(options.minimumChapterSummaryLength, 10) || 40);
   const minimumTopicExplanationLength = Math.max(1, Number.parseInt(options.minimumTopicExplanationLength, 10) || 120);
   const minimumSubtopicExplanationLength = Math.max(1, Number.parseInt(options.minimumSubtopicExplanationLength, 10) || 60);
@@ -814,20 +823,27 @@ export function hasGeneratedLearningNotebookDepth(value, options = {}) {
   });
 
   if (expectedChapterCount && normalized.chapters.length < expectedChapterCount) return false;
+  if (exactChapterCount && normalized.chapters.length !== exactChapterCount) return false;
   if (!hasMinimumItems(normalized.importantQuestions, minimumImportantQuestions)) return false;
   if (!hasMinimumItems(normalized.revisedNotes, minimumNoteSections)) return false;
 
   return normalized.chapters.every((chapter) => (
     hasDetailedText(chapter.summary, minimumChapterSummaryLength)
     && hasMinimumItems(chapter.topics, minimumTopicsPerChapter)
+    && (!exactTopicsPerChapter || chapter.topics.length === exactTopicsPerChapter)
     && chapter.topics.every((topic) => (
       hasDetailedText(topic.explanation, minimumTopicExplanationLength)
-      && hasMinimumItems(topic.keyPoints, 4)
+      && (!minimumLearningObjectivesPerTopic || hasMinimumItems(topic.learningObjectives, minimumLearningObjectivesPerTopic))
+      && hasMinimumItems(topic.keyPoints, minimumKeyPointsPerTopic)
       && hasMinimumItems(topic.examples, minimumExamplesPerTopic)
+      && (!minimumApplicationsPerTopic || hasMinimumItems(topic.applications, minimumApplicationsPerTopic))
+      && (!minimumCommonMistakesPerTopic || hasMinimumItems(topic.commonMistakes, minimumCommonMistakesPerTopic))
+      && (!minimumRevisionTipsPerTopic || hasMinimumItems(topic.revisionTips, minimumRevisionTipsPerTopic))
       && hasMinimumItems(topic.subtopics, minimumSubtopicsPerTopic)
+      && (!exactSubtopicsPerTopic || topic.subtopics.length === exactSubtopicsPerTopic)
       && topic.subtopics.every((subtopic) => (
         hasDetailedText(subtopic.explanation, minimumSubtopicExplanationLength)
-        && hasMinimumItems(subtopic.keyPoints, 2)
+        && hasMinimumItems(subtopic.keyPoints, minimumKeyPointsPerSubtopic)
         && hasMinimumItems(subtopic.examples, minimumExamplesPerSubtopic)
       ))
     ))

@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  GOAL_REMINDER_SHORTCUT_ROUTE,
   HOME_NAVIGATION_DESTINATIONS,
   buildHomeNavigationRoute,
+  getGoalReminderShortcutRoutes,
   getHomeNavigationSuggestions,
   normalizeHomeNavigationInput,
   resolveHomeNavigationCommand,
@@ -29,6 +31,7 @@ const STANDARD_CONTENT_ROUTES = new Set([
   "/dashboard#smart-suggestions",
   "/dashboard#progress-status",
   "/dashboard#weekly-review",
+  GOAL_REMINDER_SHORTCUT_ROUTE,
   "/subjects#subject-library",
   "/learn#subject-mastery",
   "/analytics#topic-progress",
@@ -38,7 +41,7 @@ const STANDARD_CONTENT_ROUTES = new Set([
 test("uses only real application routes in the destination catalog", () => {
   assert.deepEqual(
     new Set(HOME_NAVIGATION_DESTINATIONS.map(({ route }) => route.split("#", 1)[0])),
-    new Set([...STANDARD_ROUTES, "/kids"])
+    new Set([...STANDARD_ROUTES, "/kids", "/ai-chat"])
   );
   assert.deepEqual(
     HOME_NAVIGATION_DESTINATIONS.filter(({ content }) => content).map(({ route }) => route),
@@ -46,6 +49,7 @@ test("uses only real application routes in the destination catalog", () => {
       "/dashboard#smart-suggestions",
       "/dashboard#progress-status",
       "/dashboard#weekly-review",
+      GOAL_REMINDER_SHORTCUT_ROUTE,
       "/subjects#subject-library",
       "/learn#subject-mastery",
       "/learn#placement-prep",
@@ -154,6 +158,9 @@ test("resolves supported page content to stable in-page anchors", () => {
     ["show smart suggestions", "/dashboard#smart-suggestions"],
     ["check my progress status", "/dashboard#progress-status"],
     ["open weekly review", "/dashboard#weekly-review"],
+    ["go to goals", GOAL_REMINDER_SHORTCUT_ROUTE],
+    ["open reminders", GOAL_REMINDER_SHORTCUT_ROUTE],
+    ["goal reminder", GOAL_REMINDER_SHORTCUT_ROUTE],
     ["browse subject library", "/subjects#subject-library"],
     ["show subject mastery", "/learn#subject-mastery"],
     ["show my topic mastery", "/analytics#topic-progress"],
@@ -177,6 +184,19 @@ test("resolves supported page content to stable in-page anchors", () => {
 });
 
 test("requires exact account availability for gated content destinations", () => {
+  assert.equal(
+    resolveHomeNavigationCommand("open reminders", {
+      availableRoutes: ["/dashboard"],
+    }),
+    null
+  );
+  assert.equal(
+    resolveHomeNavigationCommand("open reminders", {
+      availableRoutes: ["/dashboard", GOAL_REMINDER_SHORTCUT_ROUTE],
+    })?.route,
+    GOAL_REMINDER_SHORTCUT_ROUTE
+  );
+
   assert.equal(
     resolveHomeNavigationCommand("open placement prep", {
       availableRoutes: ["/learn"],
@@ -235,14 +255,80 @@ test("never resolves or suggests a route unavailable to the current account", ()
   );
 
   const kidsOnly = resolveHomeNavigationCommand("open kids zone", {
-    availableRoutes: (route) => route === "/kids",
+    availableRoutes: (route) => route === "/kids" || route === "/ai-chat",
   });
   assert.equal(kidsOnly?.route, "/kids");
+  assert.equal(
+    resolveHomeNavigationCommand("open kids AI chat", {
+      availableRoutes: (route) => route === "/kids" || route === "/ai-chat",
+    })?.route,
+    "/ai-chat"
+  );
   assert.equal(
     resolveHomeNavigationCommand("open planner", {
       availableRoutes: (route) => route === "/kids",
     }),
     null
+  );
+});
+
+test("kids dashboard commands can open Subjects and its library without exposing Materials", () => {
+  const kidsRoutes = [
+    "/dashboard",
+    "/kids",
+    "/ai-chat",
+    "/subjects",
+    "/subjects#subject-library",
+    "/learn",
+    "/planner",
+  ];
+
+  assert.equal(
+    resolveHomeNavigationCommand("open subjects", { availableRoutes: kidsRoutes })?.route,
+    "/subjects",
+  );
+  assert.equal(
+    resolveHomeNavigationCommand("browse subject library", { availableRoutes: kidsRoutes })?.route,
+    "/subjects#subject-library",
+  );
+  assert.equal(
+    resolveHomeNavigationCommand("open materials", { availableRoutes: kidsRoutes }),
+    null,
+  );
+  assert.equal(
+    resolveHomeNavigationCommand("open reminders", { availableRoutes: kidsRoutes }),
+    null,
+  );
+  assert.equal(
+    getHomeNavigationSuggestions("", {
+      availableRoutes: kidsRoutes,
+      limit: 10,
+    }).some(({ route }) => route === GOAL_REMINDER_SHORTCUT_ROUTE),
+    false,
+  );
+});
+
+test("only exposes the Goals & Reminders shortcut when its dialog is available", () => {
+  assert.deepEqual(
+    getGoalReminderShortcutRoutes({
+      hasDashboard: true,
+      isKidsLearner: false,
+    }),
+    [GOAL_REMINDER_SHORTCUT_ROUTE],
+  );
+  assert.deepEqual(
+    getGoalReminderShortcutRoutes({
+      hasDashboard: true,
+      isKidsLearner: true,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    getGoalReminderShortcutRoutes({
+      hasDashboard: false,
+      isKidsLearner: false,
+    }),
+    [],
   );
 });
 
@@ -361,6 +447,24 @@ test("returns accessible defaults for an empty autocomplete query", () => {
     })[0]?.route,
     "/planner"
   );
+
+  const dashboardShortcuts = getHomeNavigationSuggestions("", {
+    availableRoutes: new Set([...STANDARD_ROUTES, ...STANDARD_CONTENT_ROUTES]),
+    currentRoute: "/dashboard",
+    limit: 6,
+  });
+  assert.deepEqual(
+    dashboardShortcuts.map(({ route }) => route),
+    [
+      "/learn",
+      "/planner",
+      GOAL_REMINDER_SHORTCUT_ROUTE,
+      "/resources",
+      "/analytics",
+      "/quiz",
+    ],
+  );
+  assert.equal(dashboardShortcuts[2]?.label, "Goals & Reminders");
 });
 
 test("does not hijack ordinary study questions or invent unknown routes", () => {

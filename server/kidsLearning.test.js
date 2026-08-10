@@ -654,6 +654,16 @@ test("profile, daily mission, parent settings, and PIN verification share persis
       "KIDS_PARENT_PIN_SETUP_REQUIRED",
     );
 
+    const unconfiguredLanguageUpdate = await fetch(
+      `${baseUrl}/api/kids/parent-settings`,
+      authOptions("parent-one", "PUT", { language: "hi" }),
+    );
+    assert.equal(unconfiguredLanguageUpdate.status, 409);
+    assert.equal(
+      (await unconfiguredLanguageUpdate.json()).code,
+      "KIDS_PARENT_PIN_SETUP_REQUIRED",
+    );
+
     const updateResponse = await fetch(`${baseUrl}/api/kids/parent-settings`, authOptions("parent-one", "PUT", {
       childNickname: "Mira",
       language: "hi",
@@ -682,8 +692,8 @@ test("profile, daily mission, parent settings, and PIN verification share persis
     const languageOnly = await fetch(`${baseUrl}/api/kids/parent-settings`, authOptions("parent-one", "PUT", {
       language: "en",
     }));
-    assert.equal(languageOnly.status, 200);
-    assert.equal((await languageOnly.json()).settings.language, "en");
+    assert.equal(languageOnly.status, 403);
+    assert.equal((await languageOnly.json()).code, "KIDS_PARENT_PIN_REQUIRED");
 
     const missingCurrentPin = await fetch(`${baseUrl}/api/kids/parent-settings`, authOptions("parent-one", "PUT", {
       childNickname: "Mira Two",
@@ -711,6 +721,12 @@ test("profile, daily mission, parent settings, and PIN verification share persis
     assert.equal(correctPinPayload.verified, true);
     assert.equal(correctPinPayload.parentAccess.unlocked, true);
     assert.equal(correctPinPayload.parentAccess.setupRequired, false);
+
+    const authorizedLanguageUpdate = await fetch(`${baseUrl}/api/kids/parent-settings`, authOptions("parent-one", "PUT", {
+      language: "en",
+    }));
+    assert.equal(authorizedLanguageUpdate.status, 200);
+    assert.equal((await authorizedLanguageUpdate.json()).settings.language, "en");
 
     setNow("2026-08-01T12:16:00.000Z");
     const expiredAccess = await fetch(`${baseUrl}/api/kids/parent-access`, authOptions("parent-one"));

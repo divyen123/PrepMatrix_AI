@@ -32,6 +32,7 @@ import { createPortal } from "react-dom";
 import { jsPDF } from "jspdf";
 import { useLocation, useNavigate } from "react-router-dom";
 import LearningMasteryMap from "../components/LearningMasteryMap";
+import PlacementPrepDisclosure from "../components/PlacementPrepDisclosure";
 import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDialog";
 import LearningStudyStudio from "../components/LearningStudyStudio";
 import api from "../utils/apiClient";
@@ -3655,8 +3656,10 @@ function StartLearningPage({
                             const target = placementActionTarget(topic, question, "interview", questionIndex);
                             const noteOptions = placementNoteOptions(target);
                             return (
-                              <details className="learning-career-item-details" key={target.id}>
-                                <summary>{cleanText(question?.question || question, 500)}</summary>
+                              <PlacementPrepDisclosure
+                                key={target.id}
+                                label={cleanText(question?.question || question, 500)}
+                              >
                                 {target.explanation.split(/\n{2,}/).map((paragraph, guidanceIndex) => (
                                   <p key={`${target.id}-guidance-${guidanceIndex}`}>{paragraph}</p>
                                 ))}
@@ -3675,7 +3678,7 @@ function StartLearningPage({
                                     <CalendarPlus size={14} /> Add to planner
                                   </button>
                                 </div>
-                              </details>
+                              </PlacementPrepDisclosure>
                             );
                           })}
                         </div>
@@ -3688,8 +3691,10 @@ function StartLearningPage({
                               const target = placementActionTarget(topic, step, "practice", stepIndex);
                               const noteOptions = placementNoteOptions(target);
                               return (
-                                <details className="learning-career-item-details" key={target.id}>
-                                  <summary>{cleanText(step?.title || step?.text || step, 500)}</summary>
+                                <PlacementPrepDisclosure
+                                  key={target.id}
+                                  label={cleanText(step?.title || step?.text || step, 500)}
+                                >
                                   {target.explanation.split(/\n{2,}/).map((paragraph, guidanceIndex) => (
                                     <p key={`${target.id}-guidance-${guidanceIndex}`}>{paragraph}</p>
                                   ))}
@@ -3708,7 +3713,7 @@ function StartLearningPage({
                                       <CalendarPlus size={14} /> Add to planner
                                     </button>
                                   </div>
-                                </details>
+                                </PlacementPrepDisclosure>
                               );
                             })}
                           </div>

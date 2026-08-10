@@ -14,7 +14,7 @@ import SubjectPlanDialog from "./SubjectPlanDialog";
 import { normalizeStudyPreferences, normalizeSubjectTopics } from "../utils/subjectPlanning";
 import "./SubjectList.css";
 
-function SubjectList({ hasActiveSchedule = false, subjects, setSubjects }) {
+function SubjectList({ hasActiveSchedule = false, kidsMode = false, subjects, setSubjects }) {
   const navigate = useNavigate();
   const [editIndex, setEditIndex] = useState(null);
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState(null);
@@ -119,10 +119,10 @@ function SubjectList({ hasActiveSchedule = false, subjects, setSubjects }) {
         </div>
         <button
           className="primary-btn"
-          onClick={() => navigate("/resources")}
+          onClick={() => navigate(kidsMode ? "/planner" : "/resources")}
           type="button"
         >
-          Open materials
+          {kidsMode ? "Open planner" : "Open materials"}
         </button>
       </div>
 

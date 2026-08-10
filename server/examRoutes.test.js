@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { ObjectId } from "mongodb";
 import registerExamRoutes, {
   acquireExamStartLock,
   generateExamQuestions,
@@ -404,6 +405,153 @@ function registerRouteHarness(db, { aiQuota } = {}) {
   });
   return routes;
 }
+
+test("every Exam and question-paper endpoint rejects a locked young-kids session before feature work", async () => {
+  const collectionReads = [];
+  const db = {
+    collection(name) {
+      collectionReads.push(name);
+      if (name === "kidsParentSettings") {
+        return {
+          findOne: async () => ({
+            userId: "child-2",
+            pinHash: "hash",
+            pinSalt: "salt",
+          }),
+        };
+      }
+      if (name === "sessions") {
+        return {
+          findOne: async () => ({ token: "locked-child", userId: "child-2" }),
+        };
+      }
+      if (name === "examAttempts") {
+        return { findOne: async () => null };
+      }
+      throw new Error(`Feature work ran before parent authorization: ${name}`);
+    },
+  };
+  const routes = registerRouteHarness(db, { aiQuota: createTestAiQuota() });
+  assert.equal(routes.size, 14);
+
+  for (const [route, handler] of routes) {
+    const res = createRouteResponse();
+    await handler({
+      body: {},
+      headers: {},
+      params: { id: "64b000000000000000000001" },
+      sessionToken: "locked-child",
+      user: {
+        _id: "child-2",
+        academicLevel: "Primary School",
+        grade: "Class 2",
+      },
+    }, res);
+
+    assert.equal(res.statusCode, 403, route);
+    assert.equal(res.body?.code, "KIDS_PARENT_ACCESS_REQUIRED", route);
+    assert.equal(res.body?.parentAccess?.unlocked, false, route);
+    assert.equal(res.headers["Cache-Control"], "no-store", route);
+  }
+
+  assert.deepEqual(
+    [...new Set(collectionReads)],
+    ["kidsParentSettings", "sessions", "examAttempts"],
+  );
+});
+
+test("an owned active attempt continues at minute 16 after the parent PIN expires while unrelated Exam routes stay locked", async () => {
+  const now = Date.now();
+  const attemptId = new ObjectId("64b000000000000000000111");
+  const userId = "child-active";
+  const attempt = {
+    _id: attemptId,
+    userId,
+    examId: new ObjectId("64b000000000000000000112"),
+    status: "in_progress",
+    startedAt: new Date(now - 16 * 60 * 1000),
+    expiresAt: new Date(now + 44 * 60 * 1000),
+    answers: {},
+    violationCount: 0,
+    violations: [],
+  };
+  const exam = {
+    _id: attempt.examId,
+    userId,
+    title: "Parent-started maths exam",
+    subjectName: "Maths",
+    questionCount: 1,
+    durationMinutes: 60,
+    difficulty: "easy",
+    questions: [{
+      id: "q1",
+      prompt: "What is 2 + 2?",
+      options: ["3", "4", "5", "6"],
+      answerIndex: 1,
+      explanation: "Two plus two equals four.",
+    }],
+  };
+  const db = {
+    collection(name) {
+      if (name === "kidsParentSettings") {
+        return { findOne: async () => ({ userId, pinHash: "hash", pinSalt: "salt" }) };
+      }
+      if (name === "sessions") {
+        return {
+          findOne: async () => ({
+            token: "expired-parent-session",
+            userId,
+            parentAccessUntil: new Date(now - 60_000),
+          }),
+        };
+      }
+      if (name === "examAttempts") {
+        return {
+          async findOne(filter) {
+            if (!sameId(filter._id, attempt._id) || !sameId(filter.userId, userId)) return null;
+            if (filter.status && filter.status !== attempt.status) return null;
+            return attempt;
+          },
+          async updateOne(_filter, update) {
+            Object.assign(attempt, update.$set || {});
+            return { matchedCount: 1, modifiedCount: 1 };
+          },
+        };
+      }
+      if (name === "exams") {
+        return { findOne: async () => exam };
+      }
+      throw new Error(`Unexpected collection: ${name}`);
+    },
+  };
+  const routes = registerRouteHarness(db, { aiQuota: createTestAiQuota() });
+  const request = {
+    body: { answers: { q1: 1 } },
+    headers: {},
+    params: { id: attemptId.toString() },
+    sessionToken: "expired-parent-session",
+    user: { _id: userId, academicLevel: "Primary School", grade: "Class 2" },
+  };
+
+  const autosaveResponse = createRouteResponse();
+  await routes.get("PUT /api/exam-attempts/:id/answers")(request, autosaveResponse);
+  assert.equal(autosaveResponse.statusCode, 200);
+  assert.deepEqual(autosaveResponse.body?.attempt?.answers, { q1: 1 });
+
+  const unrelatedResponse = createRouteResponse();
+  await routes.get("GET /api/exams")(request, unrelatedResponse);
+  assert.equal(unrelatedResponse.statusCode, 403);
+  assert.equal(unrelatedResponse.body?.code, "KIDS_PARENT_ACCESS_REQUIRED");
+
+  const submitResponse = createRouteResponse();
+  await routes.get("POST /api/exam-attempts/:id/submit")(request, submitResponse);
+  assert.equal(submitResponse.statusCode, 200);
+  assert.equal(submitResponse.body?.attempt?.status, "submitted");
+
+  const finishedAttemptResponse = createRouteResponse();
+  await routes.get("PUT /api/exam-attempts/:id/answers")(request, finishedAttemptResponse);
+  assert.equal(finishedAttemptResponse.statusCode, 403);
+});
 
 test("status, generation preflight, and start endpoint enforce the same limit contract", async () => {
   const userId = "limited-user";

@@ -68,6 +68,7 @@ import {
   getYoungKidsAccessProfile,
   kidsWorkspaceScheduleChanged,
   readParentAccess,
+  readYoungKidsParentFeatureAccess,
 } from "./kidsParentAccess.js";
 import {
   AI_QUOTA_LOCKS_COLLECTION,
@@ -614,6 +615,26 @@ function requireAuth(handler) {
       return res.status(500).json({ error: "The request could not be completed." });
     }
   };
+}
+
+function requireParentGuidedFeature(featureLabel, handler) {
+  return requireAuth(async (req, res) => {
+    const db = await getDb();
+    const access = await readYoungKidsParentFeatureAccess(db, {
+      user: req.user,
+      sessionToken: req.sessionToken,
+      parentSettingsCollection: KIDS_PARENT_SETTINGS_COLLECTION,
+    });
+    if (!access.allowed) {
+      res.set("Cache-Control", "no-store");
+      return res.status(403).json({
+        code: "KIDS_PARENT_ACCESS_REQUIRED",
+        error: `Parent Corner access is required to use ${featureLabel}.`,
+        parentAccess: access.parentAccess,
+      });
+    }
+    return handler(req, res);
+  });
 }
 
 
@@ -1360,7 +1381,7 @@ app.delete("/api/worktrees/:id", requireAuth(async (req, res) => {
   }
 }));
 
-app.get("/api/quizzes", requireAuth(async (req, res) => {
+app.get("/api/quizzes", requireParentGuidedFeature("Quiz", async (req, res) => {
   const db = await getDb();
   const attempts = await db.collection("quizAttempts").find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(50).toArray();
   res.json({ attempts: attempts.map(({ _id, ...attempt }) => {
@@ -1371,13 +1392,13 @@ app.get("/api/quizzes", requireAuth(async (req, res) => {
 
 
 
-app.delete("/api/quizzes", requireAuth(async (req, res) => {
+app.delete("/api/quizzes", requireParentGuidedFeature("Quiz", async (req, res) => {
   const db = await getDb();
   const result = await db.collection("quizAttempts").deleteMany({ userId: req.user._id });
   res.json({ ok: true, deletedCount: result.deletedCount });
 }));
 
-app.delete("/api/quizzes/:id", requireAuth(async (req, res) => {
+app.delete("/api/quizzes/:id", requireParentGuidedFeature("Quiz", async (req, res) => {
   const attemptId = String(req.params.id || "").trim();
   if (!ObjectId.isValid(attemptId)) {
     return res.status(400).json({ error: "Invalid quiz attempt id." });
@@ -1396,7 +1417,7 @@ app.delete("/api/quizzes/:id", requireAuth(async (req, res) => {
   return res.json({ ok: true, id: attemptId });
 }));
 
-app.post("/api/quizzes/generate", requireAuth(async (req, res) => {
+app.post("/api/quizzes/generate", requireParentGuidedFeature("Quiz", async (req, res) => {
   let reservation = null;
   try {
     const topic = String(req.body?.topic || "").trim();
@@ -1560,7 +1581,7 @@ app.post("/api/quizzes/generate", requireAuth(async (req, res) => {
     return res.status(500).json({ error: "Quiz generation failed." });
   }
 }));
-app.post("/api/quizzes", requireAuth(async (req, res) => {
+app.post("/api/quizzes", requireParentGuidedFeature("Quiz", async (req, res) => {
   const db = await getDb();
   const academicProfileSnapshot = academicProfilePayload({ ...req.user, ...(req.body || {}) });
   const attempt = {

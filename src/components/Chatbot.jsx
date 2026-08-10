@@ -12,6 +12,7 @@ import {
 } from "../utils/chatMaterialSuggestions";
 import { filterChatSessionsByTitle } from "../utils/chatHistorySearch";
 import { getChatMessageAcceptance } from "../utils/chatMessageBridge";
+import { getChatExperienceCopy } from "../utils/chatExperience";
 import api, { API_BASE } from "../utils/apiClient";
 import {
   CHAT_ATTACHMENT_ACCEPT,
@@ -187,6 +188,7 @@ function Chatbot({
 }) {
   const navigate = useNavigate();
   const { hasInsufficientCredits } = useAiQuota();
+  const chatExperience = getChatExperienceCopy(childMode);
   const scrollRef = useRef(null);
   const chatRecognitionRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -261,11 +263,11 @@ function Chatbot({
     model: "llama-3.1-8b-instant",
     message: "",
   });
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState(() => [
     {
       id: "intro",
       role: "assistant",
-      text: "Study assistant is ready. Ask for strategy, summaries, or planner-based advice.",
+      text: getChatExperienceCopy(childMode).intro,
     },
   ]);
 
@@ -480,13 +482,13 @@ function Chatbot({
       {
         id: "intro",
         role: "assistant",
-        text: "Study assistant is ready. Ask for strategy, summaries, or planner-based advice.",
+        text: chatExperience.intro,
       },
     ]);
     if (window.innerWidth <= 768) {
       setHistoryOpen(false);
     }
-  }, [invalidateViewWork]);
+  }, [chatExperience.intro, invalidateViewWork]);
 
   useEffect(() => {
     const handleOpenChat = (event) => {
@@ -573,6 +575,7 @@ function Chatbot({
   ]);
 
   const prepareAttachmentFiles = useCallback(async (files) => {
+    if (childMode) return;
     const selectedFiles = Array.from(files || []);
     if (!selectedFiles.length) return;
 
@@ -607,7 +610,7 @@ function Chatbot({
     } finally {
       if (isCurrentPreparation()) setPreparingAttachments(false);
     }
-  }, [attachments]);
+  }, [attachments, childMode]);
 
   const handleAttachmentInputChange = useCallback((event) => {
     const selectedFiles = Array.from(event.target.files || []);
@@ -624,16 +627,24 @@ function Chatbot({
     if (!hasChatFileDrag(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
+    if (childMode) {
+      event.dataTransfer.dropEffect = "none";
+      return;
+    }
     attachmentDragDepthRef.current += 1;
     setIsDraggingFiles(true);
-  }, []);
+  }, [childMode]);
 
   const handleChatDragOver = useCallback((event) => {
     if (!hasChatFileDrag(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
+    if (childMode) {
+      event.dataTransfer.dropEffect = "none";
+      return;
+    }
     event.dataTransfer.dropEffect = loading || preparingAttachments ? "none" : "copy";
-  }, [loading, preparingAttachments]);
+  }, [childMode, loading, preparingAttachments]);
 
   const handleChatDragLeave = useCallback((event) => {
     if (attachmentDragDepthRef.current === 0) return;
@@ -649,6 +660,7 @@ function Chatbot({
     if (!isFileDrop) return;
     event.preventDefault();
     event.stopPropagation();
+    if (childMode) return;
 
     const droppedFiles = getChatDroppedFiles(event.dataTransfer);
     if (!droppedFiles.length) return;
@@ -657,7 +669,7 @@ function Chatbot({
       return;
     }
     void prepareAttachmentFiles(droppedFiles);
-  }, [clearAttachmentDragState, loading, prepareAttachmentFiles, preparingAttachments]);
+  }, [childMode, clearAttachmentDragState, loading, prepareAttachmentFiles, preparingAttachments]);
 
   useEffect(() => {
     if (!open) clearAttachmentDragState();
@@ -1163,7 +1175,12 @@ function Chatbot({
       {open ? createPortal(
         <>
           <div className="chat-modal-backdrop" onClick={() => setOpen(false)} role="presentation" />
-          <section className="chatbot sidebar-chatbot-portal">
+          <section
+            aria-label={chatExperience.heading}
+            aria-modal="true"
+            className={`chatbot sidebar-chatbot-portal${childMode ? " is-kids-chat" : ""}`}
+            role="dialog"
+          >
             <div className="chat-pet-rail">
               <ChatStudyPet message={companionStatus.message} state={companionStatus.state} />
             </div>
@@ -1447,8 +1464,8 @@ function Chatbot({
                     )}
                   </button>
                   <div className="chat-heading-copy">
-                    <strong>{activeSessionId ? activeSessionTitle : "Study assistant"}</strong>
-                    <span>Planner-aware study support</span>
+                    <strong>{activeSessionId ? activeSessionTitle : chatExperience.heading}</strong>
+                    <span>{chatExperience.subtitle}</span>
                   </div>
                 </div>
 

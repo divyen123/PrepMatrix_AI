@@ -1,5 +1,14 @@
 export const MINIMUM_EXAM_SUBMIT_MINUTES = 15;
 export const MINIMUM_EXAM_SUBMIT_MS = MINIMUM_EXAM_SUBMIT_MINUTES * 60 * 1000;
+export const ACTIVE_EXAM_ATTEMPT_STORAGE_KEY = "prepmatrix_active_exam_attempt";
+
+export function readStoredActiveExamAttemptId(storage) {
+  try {
+    return String(storage?.getItem(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY) || "").trim();
+  } catch {
+    return "";
+  }
+}
 
 function validTimestamp(value) {
   if (value === null || value === undefined || value === "") return null;

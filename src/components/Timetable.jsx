@@ -19,6 +19,7 @@ function Timetable({
   scheduleStartDate,
   setScheduleStartDate,
   canManageSchedule = true,
+  onOpenSubjects = () => {},
   onRequestParentAccess,
 }) {
   const [examDate, setExamDate] = useState("");
@@ -272,6 +273,17 @@ function Timetable({
             </div>
           ) : (
           <>
+            {subjects.length === 0 && (
+              <div className="planner-subjects-empty" role="note">
+                <div>
+                  <strong>Add a subject first</strong>
+                  <p>Your schedule uses the chapters and difficulty saved on the Subjects page.</p>
+                </div>
+                <button className="secondary-btn action-btn" onClick={onOpenSubjects} type="button">
+                  Open Subjects
+                </button>
+              </div>
+            )}
             <div className="form-grid planner-target-grid">
               <label className="field-stack compact-field">
                 Exam date
@@ -290,7 +302,7 @@ function Timetable({
             </div>
 
             <div className="timetable-actions">
-              <button className="action-btn" disabled={loading} onClick={generate} type="button">
+              <button className="action-btn" disabled={loading || subjects.length === 0} onClick={generate} type="button">
                 {loading ? (
                   <span className="spinner" />
                 ) : (

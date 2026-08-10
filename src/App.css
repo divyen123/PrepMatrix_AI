@@ -12078,6 +12078,24 @@ body.worktree-fullscreen-active .workspace-topbar {
   font-size: 0.84rem;
 }
 
+.planner-subjects-empty {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.planner-subjects-empty p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
 .is-kids-planner .schedule-card,
 .worktree-variant--kids {
   border-color: rgba(56, 189, 248, 0.34);
@@ -12126,7 +12144,8 @@ body.worktree-fullscreen-active .workspace-topbar {
 }
 
 @media (max-width: 720px) {
-  .planner-parent-lock {
+  .planner-parent-lock,
+  .planner-subjects-empty {
     align-items: stretch;
     flex-direction: column;
   }
@@ -20563,6 +20582,10 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 
   .topbar-right > .ai-credit-indicator {
     display: none !important;
+  }
+
+  .app-container.is-kids-mode .topbar-right > .ai-credit-indicator {
+    display: block !important;
   }
 
   .workspace-topbar .hamburger-btn,

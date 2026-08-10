@@ -549,14 +549,25 @@ function LearningStudyStudio({
             <div><strong>Misconception radar</strong><span>{misconceptions.length}</span></div>
             <small>Keep uncertain ideas visible until they are resolved.</small>
           </div>
-          <div className="learning-studio-misconceptions__list">
-            {misconceptions.length ? misconceptions.map((item) => (
-              <article key={item.id || item.text}>
-                <CircleAlert aria-hidden="true" size={17} />
-                <p>{item.text || item.label}</p>
-                <button aria-label={`Resolve ${item.text || item.label}`} onClick={() => onResolveMisconception?.(currentNode.id, item.id)} title="Mark resolved" type="button"><X size={17} /></button>
-              </article>
-            )) : <small>No recurring gaps recorded for this concept.</small>}
+          <div
+            aria-label={misconceptions.length
+              ? "Saved misconceptions. Scroll horizontally to review all cards."
+              : "Saved misconceptions"}
+            className="learning-studio-misconceptions__rail"
+            role={misconceptions.length ? "region" : undefined}
+            tabIndex={misconceptions.length ? 0 : undefined}
+          >
+            {misconceptions.length ? (
+              <div className="learning-studio-misconceptions__list" role="list">
+                {misconceptions.map((item) => (
+                  <article key={item.id || item.text} role="listitem">
+                    <CircleAlert aria-hidden="true" size={18} />
+                    <p title={item.text || item.label}>{item.text || item.label}</p>
+                    <button aria-label={`Resolve ${item.text || item.label}`} onClick={() => onResolveMisconception?.(currentNode.id, item.id)} title="Mark resolved" type="button"><X size={17} /></button>
+                  </article>
+                ))}
+              </div>
+            ) : <small>No recurring gaps recorded for this concept.</small>}
           </div>
           <form onSubmit={(event) => {
             event.preventDefault();

@@ -12,6 +12,7 @@ import {
   MINIMUM_EXAM_SUBMIT_MS,
   MINIMUM_EXAM_SUBMIT_MINUTES,
 } from "../src/utils/examTiming.js";
+import { readYoungKidsParentFeatureAccess } from "./kidsParentAccess.js";
 
 const EXAM_QUESTION_COUNT = 40;
 const EXAM_DURATION_MINUTES = 60;
@@ -1001,7 +1002,37 @@ async function loadQuestionPaperReplay(db, userId, reservation) {
 export default function registerExamRoutes(app, dependencies) {
   const { aiQuota, getDb, requireAuth, getGroqConfigStatus, groqModel } = dependencies;
 
-  app.post("/api/exams/generate", requireAuth(async (req, res) => {
+  const parentGuidedRoute = (handler, { allowActiveAttempt = false } = {}) => requireAuth(async (req, res) => {
+    const db = await getDb();
+    const access = await readYoungKidsParentFeatureAccess(db, {
+      user: req.user,
+      sessionToken: req.sessionToken,
+    });
+    if (!access.allowed) {
+      const attemptId = allowActiveAttempt ? toObjectId(req.params?.id) : null;
+      const ownedActiveAttempt = attemptId
+        ? await db.collection("examAttempts").findOne({
+          _id: attemptId,
+          userId: req.user._id,
+          status: "in_progress",
+        })
+        : null;
+      if (ownedActiveAttempt) return handler(req, res);
+
+      res.set("Cache-Control", "no-store");
+      return res.status(403).json({
+        code: "KIDS_PARENT_ACCESS_REQUIRED",
+        error: "Parent Corner access is required to use Exam.",
+        parentAccess: access.parentAccess,
+      });
+    }
+    return handler(req, res);
+  });
+  const activeAttemptRoute = (handler) => parentGuidedRoute(handler, {
+    allowActiveAttempt: true,
+  });
+
+  app.post("/api/exams/generate", parentGuidedRoute(async (req, res) => {
     let reservation = null;
     let persisted = false;
     try {
@@ -1119,7 +1150,7 @@ export default function registerExamRoutes(app, dependencies) {
     }
   }));
 
-  app.get("/api/exams/start-limit", requireAuth(async (req, res) => {
+  app.get("/api/exams/start-limit", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
     const limitState = await loadExamStartLimit(db, req.user._id);
     return res.json({
@@ -1133,13 +1164,13 @@ export default function registerExamRoutes(app, dependencies) {
     });
   }));
 
-  app.get("/api/exams", requireAuth(async (req, res) => {
+  app.get("/api/exams", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
     const exams = await db.collection("exams").find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(30).toArray();
     res.json({ exams: exams.map(examMetadata) });
   }));
 
-  app.post("/api/exams/:id/start", requireAuth(async (req, res) => {
+  app.post("/api/exams/:id/start", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
     const examId = toObjectId(req.params.id);
     if (!examId) return res.status(404).json({ error: "Exam not found." });
@@ -1202,14 +1233,14 @@ export default function registerExamRoutes(app, dependencies) {
     }
   }));
 
-  app.get("/api/exam-attempts/:id", requireAuth(async (req, res) => {
+  app.get("/api/exam-attempts/:id", activeAttemptRoute(async (req, res) => {
     const db = await getDb();
     const { attempt, exam } = await loadAttemptAndExam(db, req.user._id, req.params.id);
     if (!attempt || !exam) return res.status(404).json({ error: "Exam attempt not found." });
     return res.json({ attempt: attempt.status === "in_progress" ? activeAttemptPayload(attempt, exam) : resultSummary(attempt, exam, false) });
   }));
 
-  app.put("/api/exam-attempts/:id/answers", requireAuth(async (req, res) => {
+  app.put("/api/exam-attempts/:id/answers", activeAttemptRoute(async (req, res) => {
     const db = await getDb();
     const { attempt, exam } = await loadAttemptAndExam(db, req.user._id, req.params.id);
     if (!attempt || !exam) return res.status(404).json({ error: "Exam attempt not found." });
@@ -1234,7 +1265,7 @@ export default function registerExamRoutes(app, dependencies) {
     });
   }));
 
-  app.post("/api/exam-attempts/:id/violations", requireAuth(async (req, res) => {
+  app.post("/api/exam-attempts/:id/violations", activeAttemptRoute(async (req, res) => {
     const db = await getDb();
     let { attempt, exam } = await loadAttemptAndExam(db, req.user._id, req.params.id);
     if (!attempt || !exam) return res.status(404).json({ error: "Exam attempt not found." });
@@ -1277,7 +1308,7 @@ export default function registerExamRoutes(app, dependencies) {
     });
   }));
 
-  app.post("/api/exam-attempts/:id/submit", requireAuth(async (req, res) => {
+  app.post("/api/exam-attempts/:id/submit", activeAttemptRoute(async (req, res) => {
     const db = await getDb();
     const { attempt: loadedAttempt, exam } = await loadAttemptAndExam(db, req.user._id, req.params.id);
     let attempt = loadedAttempt;
@@ -1317,7 +1348,7 @@ export default function registerExamRoutes(app, dependencies) {
     return res.json({ attempt: resultSummary(attempt, exam), result: resultSummary(attempt, exam) });
   }));
 
-  app.get("/api/exam-results", requireAuth(async (req, res) => {
+  app.get("/api/exam-results", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
     const expiredAttempts = await db.collection("examAttempts").find({
       userId: req.user._id,
@@ -1344,14 +1375,14 @@ export default function registerExamRoutes(app, dependencies) {
     return res.json({ results: attempts.map((attempt) => resultSummary(attempt, examMap.get(attempt.examId?.toString()), false)) });
   }));
 
-  app.get("/api/exam-results/:id", requireAuth(async (req, res) => {
+  app.get("/api/exam-results/:id", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
     const { attempt, exam } = await loadAttemptAndExam(db, req.user._id, req.params.id);
     if (!attempt || !exam || !["submitted", "auto_submitted"].includes(attempt.status)) return res.status(404).json({ error: "Exam result not found." });
     return res.json({ result: resultSummary(attempt, exam, true) });
   }));
 
-  app.post("/api/question-papers/generate", requireAuth(async (req, res) => {
+  app.post("/api/question-papers/generate", parentGuidedRoute(async (req, res) => {
     let reservation = null;
     let persisted = false;
     try {
@@ -1514,13 +1545,13 @@ export default function registerExamRoutes(app, dependencies) {
     }
   }));
 
-  app.get("/api/question-papers", requireAuth(async (req, res) => {
+  app.get("/api/question-papers", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
     const papers = await db.collection("questionPapers").find({ userId: req.user._id }).project({ userId: 0, questions: 0, sections: 0, answerKey: 0 }).sort({ createdAt: -1 }).limit(50).toArray();
     return res.json({ papers: papers.map((paper) => ({ ...paper, id: publicId(paper), _id: undefined })) });
   }));
 
-  app.get("/api/question-papers/:id", requireAuth(async (req, res) => {
+  app.get("/api/question-papers/:id", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
     const paperId = toObjectId(req.params.id);
     if (!paperId) return res.status(404).json({ error: "Question paper not found." });
@@ -1532,7 +1563,7 @@ export default function registerExamRoutes(app, dependencies) {
     return res.json({ paper: safePaper });
   }));
 
-  app.delete("/api/question-papers/:id", requireAuth(async (req, res) => {
+  app.delete("/api/question-papers/:id", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
     const paperId = toObjectId(req.params.id);
     if (!paperId) return res.status(404).json({ error: "Question paper not found." });

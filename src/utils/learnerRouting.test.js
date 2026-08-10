@@ -3,8 +3,12 @@ import assert from "node:assert/strict";
 import {
   KIDS_HOME_ROUTE,
   STANDARD_HOME_ROUTE,
+  YOUNG_KIDS_NAV_ROUTES,
   getLearnerHomeRoute,
   getLearnerRoutePolicy,
+  getYoungKidsParentRouteDecision,
+  isYoungKidsNavRoute,
+  isYoungKidsParentGuidedRoute,
 } from "./learnerRouting.js";
 
 test("routes early-years through Class 3 learners to Play & Learn", () => {
@@ -18,9 +22,68 @@ test("routes early-years through Class 3 learners to Play & Learn", () => {
     assert.equal(policy.isYoungKidsLearner, true);
     assert.equal(policy.canUseParentCorner, true);
     assert.equal(policy.canAccessKidsRoute, true);
+    assert.equal(policy.quizRequiresParentPin, true);
+    assert.equal(policy.examRequiresParentPin, true);
     assert.equal(policy.homeRoute, KIDS_HOME_ROUTE);
     assert.equal(getLearnerHomeRoute(profile), KIDS_HOME_ROUTE);
   });
+});
+
+test("only allows known Parent Corner return routes", () => {
+  ["/planner", "/settings", "/quiz", "/exam", "/exam/about"].forEach((route) => {
+    assert.equal(isYoungKidsParentGuidedRoute(route), true, route);
+  });
+  ["/kids", "/dashboard", "https://example.com", "//example.com", "/quiz?next=/settings"].forEach((route) => {
+    assert.equal(isYoungKidsParentGuidedRoute(route), false, route);
+  });
+});
+
+test("young kids can reach Subjects without exposing unavailable school or career modules", () => {
+  assert.equal(isYoungKidsNavRoute("/subjects"), true);
+  assert.equal(isYoungKidsNavRoute("/resources"), false);
+  assert.equal(isYoungKidsNavRoute("/resume-builder"), false);
+  assert.ok(YOUNG_KIDS_NAV_ROUTES.includes("/subjects"));
+});
+
+test("keeps parent-guided routes pending until the server session resolves and relocks immediately", () => {
+  assert.equal(getYoungKidsParentRouteDecision({
+    isYoungKidsLearner: true,
+    parentAccess: { resolved: false, unlocked: false },
+  }), "pending");
+  assert.equal(getYoungKidsParentRouteDecision({
+    isYoungKidsLearner: true,
+    parentAccess: { resolved: true, unlocked: false },
+  }), "locked");
+  assert.equal(getYoungKidsParentRouteDecision({
+    isYoungKidsLearner: true,
+    parentAccess: { resolved: true, unlocked: true },
+  }), "allowed");
+  assert.equal(getYoungKidsParentRouteDecision({
+    isYoungKidsLearner: false,
+    parentAccess: { resolved: true, unlocked: false },
+  }), "allowed");
+});
+
+test("allows only an already-started exam to continue after Parent Corner expires", () => {
+  const lockedParentAccess = { resolved: true, unlocked: false };
+  assert.equal(getYoungKidsParentRouteDecision({
+    isYoungKidsLearner: true,
+    parentAccess: lockedParentAccess,
+    route: "/exam",
+    hasActiveExamAttempt: true,
+  }), "allowed");
+  assert.equal(getYoungKidsParentRouteDecision({
+    isYoungKidsLearner: true,
+    parentAccess: lockedParentAccess,
+    route: "/exam/about",
+    hasActiveExamAttempt: true,
+  }), "locked");
+  assert.equal(getYoungKidsParentRouteDecision({
+    isYoungKidsLearner: true,
+    parentAccess: lockedParentAccess,
+    route: "/quiz",
+    hasActiveExamAttempt: true,
+  }), "locked");
 });
 
 test("gives Classes 4 through 8 a school challenge without young-kids controls", () => {

@@ -1,0 +1,112 @@
+.kids-ai-chat-page {
+  width: min(1080px, 100%);
+  margin-inline: auto;
+}
+
+.kids-ai-chat-hero {
+  min-height: 320px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(24px, 5vw, 58px);
+  padding: clamp(28px, 6vw, 68px);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 86% 18%, rgba(56, 189, 248, 0.16), transparent 32%),
+    radial-gradient(circle at 12% 88%, rgba(139, 92, 246, 0.16), transparent 38%),
+    linear-gradient(135deg, rgba(8, 18, 34, 0.94), rgba(17, 24, 45, 0.92));
+}
+
+.kids-ai-chat-orb {
+  width: clamp(92px, 12vw, 132px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(165, 180, 252, 0.34);
+  border-radius: 34%;
+  color: #dbeafe;
+  background: linear-gradient(145deg, rgba(139, 92, 246, 0.42), rgba(14, 165, 233, 0.34));
+  box-shadow: 0 22px 56px rgba(14, 165, 233, 0.16);
+}
+
+.kids-ai-chat-copy {
+  max-width: 660px;
+}
+
+.kids-ai-chat-copy .section-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.kids-ai-chat-copy h2 {
+  margin: 14px 0 10px;
+  font-size: clamp(2rem, 5vw, 4rem);
+}
+
+.kids-ai-chat-copy p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: clamp(1rem, 1.7vw, 1.16rem);
+  line-height: 1.7;
+}
+
+body .kids-ai-chat-open {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 24px;
+  padding: 0 20px;
+  border: 1px solid rgba(125, 211, 252, 0.34);
+  border-radius: 15px;
+  color: #eff6ff;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.76), rgba(2, 132, 199, 0.76));
+}
+
+.kids-ai-chat-guidance {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.kids-ai-chat-guidance .card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px;
+  background: rgba(var(--bg-surface-rgb, 15, 23, 42), 0.84);
+}
+
+.kids-ai-chat-guidance svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.kids-ai-chat-guidance strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.kids-ai-chat-guidance p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+@media (max-width: 700px) {
+  .kids-ai-chat-hero {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .kids-ai-chat-orb {
+    width: 82px;
+  }
+
+  .kids-ai-chat-guidance {
+    grid-template-columns: 1fr;
+  }
+}

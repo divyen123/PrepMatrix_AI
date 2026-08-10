@@ -3,6 +3,8 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
+import { getDashboardCommandExampleCopy } from "../utils/dashboardCommandExamples.js";
+import { runDashboardGoalReminderShortcut } from "../utils/dashboardGoalReminderShortcut.js";
 
 test("renders page shortcuts as an accessible keyboard-selectable list", async () => {
   const vite = await createServer({
@@ -110,4 +112,71 @@ test("renders an explicit action instead of an AI fallback for the current page"
   } finally {
     await vite.close();
   }
+});
+
+test("opens the existing Goals & Reminders center and consumes its dashboard hash", async () => {
+  const navigationCalls = [];
+  const cancelledFrames = [];
+  let openCount = 0;
+
+  const cleanup = runDashboardGoalReminderShortcut({
+    cancel: (frame) => cancelledFrames.push(frame),
+    location: {
+      pathname: "/dashboard",
+      search: "?focus=today",
+      hash: "#GOALS-REMINDERS",
+    },
+    navigate: (...args) => navigationCalls.push(args),
+    openCenter: () => {
+      openCount += 1;
+    },
+    schedule: (callback) => {
+      callback();
+      return 42;
+    },
+  });
+
+  assert.equal(openCount, 1);
+  assert.deepEqual(navigationCalls, [[{
+    pathname: "/dashboard",
+    search: "?focus=today",
+    hash: "",
+  }, { replace: true }]]);
+  cleanup();
+  assert.deepEqual(cancelledFrames, [42]);
+
+  assert.equal(
+    runDashboardGoalReminderShortcut({
+      location: {
+        pathname: "/dashboard",
+        hash: "#weekly-review",
+      },
+      openCenter: () => {
+        openCount += 1;
+      },
+    }),
+    undefined,
+  );
+  assert.equal(openCount, 1);
+});
+
+test("uses only reachable dashboard command examples", () => {
+  const kidsCopy = getDashboardCommandExampleCopy([
+    "/dashboard",
+    "/subjects",
+    "/planner",
+  ]);
+  const standardCopy = getDashboardCommandExampleCopy([
+    "/dashboard",
+    "/resources",
+    "/subjects",
+    "/planner",
+  ]);
+
+  assert.match(kidsCopy.placeholder, /go to subjects/u);
+  assert.match(kidsCopy.helper, /open planner/u);
+  assert.doesNotMatch(`${kidsCopy.placeholder} ${kidsCopy.helper}`, /materials/iu);
+
+  assert.match(standardCopy.placeholder, /go to materials/u);
+  assert.match(standardCopy.helper, /go to materials/u);
 });

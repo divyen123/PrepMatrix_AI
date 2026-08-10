@@ -10,6 +10,8 @@ import {
   getHomeNavigationSuggestions,
   resolveHomeNavigationCommand,
 } from "../utils/homeNavigationCommands";
+import { getDashboardCommandExampleCopy } from "../utils/dashboardCommandExamples";
+import { runDashboardGoalReminderShortcut } from "../utils/dashboardGoalReminderShortcut";
 import { sendDashboardChatMessage } from "../utils/chatMessageBridge";
 
 const PANEL_BUTTONS = [
@@ -154,6 +156,13 @@ function DashboardPage({
     return () => window.cancelAnimationFrame(frame);
   }, [activePanel, location.hash]);
 
+  useEffect(() => runDashboardGoalReminderShortcut({
+    cancel: (frame) => window.cancelAnimationFrame(frame),
+    location,
+    navigate,
+    schedule: (callback) => window.requestAnimationFrame(callback),
+  }), [location, navigate]);
+
   const saveConfiguration = (updatedSubject) => {
     if (typeof setSubjects === "function") {
       const idx = subjects.findIndex((s) => s.name === updatedSubject.name);
@@ -172,6 +181,11 @@ function DashboardPage({
     userProfile?.username?.split(" ")[0] ||
     userProfile?.name?.split(" ")[0] ||
     "there";
+
+  const commandExampleCopy = useMemo(
+    () => getDashboardCommandExampleCopy(availableRoutes),
+    [availableRoutes],
+  );
 
   const trimmedSearchInput = searchInput.trim();
   const currentRoute = `${location.pathname}${location.search}${location.hash}`;
@@ -460,7 +474,7 @@ function DashboardPage({
             ref={inputRef}
             className="db-search-input"
             type="text"
-            placeholder={attachments.length > 0 ? "Ask about your document..." : "Ask AI or type ‘go to materials’..."}
+            placeholder={attachments.length > 0 ? "Ask about your document..." : commandExampleCopy.placeholder}
             value={searchInput}
             onChange={(event) => {
               setSearchInput(event.target.value);
@@ -542,7 +556,7 @@ function DashboardPage({
                   : `Press Enter to open ${navigationCommand.label}.`
                 : trimmedSearchInput
                   ? "Choose a page shortcut, or press Enter to ask the AI."
-                  : "Try “go to materials”, “open planner”, or ask a study question.")}
+                  : commandExampleCopy.helper)}
           </p>
 
           {showNavigationSuggestions && (
@@ -662,10 +676,10 @@ function DashboardPage({
           <h3>Your Subjects</h3>
           <button
             className="primary-btn db-subjects-open-btn"
-            onClick={() => navigate(childMode ? "/learn" : "/subjects#subject-library")}
+            onClick={() => navigate("/subjects#subject-library")}
             type="button"
           >
-            {childMode ? "Start learning" : "Open subjects"}
+            Open subjects
           </button>
         </div>
         

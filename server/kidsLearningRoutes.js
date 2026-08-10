@@ -491,9 +491,8 @@ export function registerKidsLearningRoutes(app, {
     const db = await getDb();
     const collection = db.collection(KIDS_PARENT_SETTINGS_COLLECTION);
     const existing = await collection.findOne({ userId: req.user._id });
-    const publicSettingKeys = new Set(["language"]);
     const requestedKeys = Object.keys(req.body || {}).filter((key) => key !== "currentParentPin");
-    const changesProtectedSettings = requestedKeys.some((key) => !publicSettingKeys.has(key));
+    const changesProtectedSettings = requestedKeys.length > 0;
     const hasExistingParentPin = Boolean(existing?.pinHash && existing?.pinSalt);
     const isCreatingParentPin = Object.prototype.hasOwnProperty.call(req.body || {}, "parentPin");
     if (!hasExistingParentPin && changesProtectedSettings && !isCreatingParentPin) {

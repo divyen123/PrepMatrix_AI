@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   KIDS_PARENT_ACCESS_TTL_MS,
   getYoungKidsAccessProfile,
@@ -7,6 +8,7 @@ import {
   kidsWorkspaceScheduleChanged,
   parentAccessStatus,
   readParentAccess,
+  readYoungKidsParentFeatureAccess,
   revokeParentAccess,
 } from "./kidsParentAccess.js";
 
@@ -19,6 +21,10 @@ test("planner access distinguishes schedule mutations from ordinary child progre
   assert.equal(kidsWorkspaceScheduleChanged(existing, {
     schedule: structuredClone(existing.schedule),
     completed: ["Read a story"],
+  }), false);
+  assert.equal(kidsWorkspaceScheduleChanged(existing, {
+    schedule: structuredClone(existing.schedule),
+    subjects: [{ name: "English", chapters: 4, difficulty: "easy" }],
   }), false);
   assert.equal(kidsWorkspaceScheduleChanged(existing, {
     schedule: [{ day: "Day 1", tasks: [{ task: "New maths plan", time: "10:00" }] }],
@@ -120,4 +126,85 @@ test("grant, read, and revoke store short-lived access on the authenticated sess
   });
   assert.equal(sessions[0].parentAccessUntil, undefined);
   assert.equal(sessions[0].parentAccessGrantedAt, undefined);
+});
+
+test("parent-guided features require an active server session only for Kindergarten through Class 3", async () => {
+  const now = new Date("2026-08-09T10:00:00.000Z");
+  const sessions = [
+    { token: "locked-child", userId: "child-locked" },
+    {
+      token: "unlocked-child",
+      userId: "child-unlocked",
+      parentAccessUntil: new Date(now.getTime() + 60_000),
+    },
+  ];
+  const settings = [
+    { userId: "child-locked", pinHash: "hash", pinSalt: "salt" },
+    { userId: "child-unlocked", pinHash: "hash", pinSalt: "salt" },
+  ];
+  const db = {
+    collection(name) {
+      if (name === "kidsParentSettings") {
+        return {
+          async findOne(filter) {
+            return settings.find((entry) => entry.userId === filter.userId) || null;
+          },
+        };
+      }
+      if (name === "sessions") {
+        return {
+          async findOne(filter) {
+            return sessions.find((session) => session.token === filter.token) || null;
+          },
+        };
+      }
+      throw new Error(`Unexpected collection: ${name}`);
+    },
+  };
+
+  const locked = await readYoungKidsParentFeatureAccess(db, {
+    user: { _id: "child-locked", academicLevel: "Primary School", grade: "Class 2" },
+    sessionToken: "locked-child",
+    now,
+  });
+  assert.equal(locked.required, true);
+  assert.equal(locked.allowed, false);
+  assert.deepEqual(locked.parentAccess, {
+    unlocked: false,
+    expiresAt: null,
+    setupRequired: false,
+  });
+
+  const unlocked = await readYoungKidsParentFeatureAccess(db, {
+    user: { _id: "child-unlocked", academicLevel: "Primary School", grade: "Class 3" },
+    sessionToken: "unlocked-child",
+    now,
+  });
+  assert.equal(unlocked.required, true);
+  assert.equal(unlocked.allowed, true);
+  assert.equal(unlocked.parentAccess.unlocked, true);
+
+  const olderLearner = await readYoungKidsParentFeatureAccess(db, {
+    user: { _id: "class-four", academicLevel: "Primary School", grade: "Class 4" },
+    sessionToken: "missing",
+    now,
+  });
+  assert.deepEqual(olderLearner, {
+    allowed: true,
+    required: false,
+    parentAccess: null,
+  });
+});
+
+test("all Quiz API registrations use the Parent Corner guard", async () => {
+  const source = await readFile(new URL("./index.js", import.meta.url), "utf8");
+  const quizRegistrations = source.match(
+    /app\.(?:get|post|delete)\("\/api\/quizzes(?:\/:id|\/generate)?",\s*requireParentGuidedFeature\("Quiz"/gu,
+  ) || [];
+
+  assert.equal(quizRegistrations.length, 5);
+  assert.doesNotMatch(
+    source,
+    /app\.(?:get|post|delete)\("\/api\/quizzes(?:\/:id|\/generate)?",\s*requireAuth/gu,
+  );
 });

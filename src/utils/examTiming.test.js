@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  ACTIVE_EXAM_ATTEMPT_STORAGE_KEY,
   canManuallySubmitExam,
   getExamMinimumSubmitAt,
   getExamMinimumSubmitRemainingSeconds,
   MINIMUM_EXAM_SUBMIT_MS,
+  readStoredActiveExamAttemptId,
 } from "./examTiming.js";
 
 const STARTED_AT = "2026-07-12T10:00:00.000Z";
@@ -42,4 +44,19 @@ test("remaining seconds use ceiling and reach zero at the boundary", () => {
 test("missing authoritative timestamps fail closed", () => {
   assert.equal(getExamMinimumSubmitAt({}), null);
   assert.equal(canManuallySubmitExam({}, STARTED_AT_MS), false);
+});
+
+test("reads a bounded active-attempt identifier without failing on unavailable storage", () => {
+  assert.equal(readStoredActiveExamAttemptId({
+    getItem(key) {
+      assert.equal(key, ACTIVE_EXAM_ATTEMPT_STORAGE_KEY);
+      return "  attempt-123  ";
+    },
+  }), "attempt-123");
+  assert.equal(readStoredActiveExamAttemptId({
+    getItem() {
+      throw new Error("storage blocked");
+    },
+  }), "");
+  assert.equal(readStoredActiveExamAttemptId(null), "");
 });

@@ -7,7 +7,6 @@ import {
   Clock3,
   Coins,
   Gamepad2,
-  Languages,
   Medal,
   RotateCcw,
   Settings,
@@ -19,6 +18,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import api from "../utils/apiClient";
+import { isYoungKidsParentGuidedRoute } from "../utils/learnerRouting";
 import {
   KIDS_AGE_BANDS,
   KIDS_GAME_TYPES,
@@ -161,6 +161,40 @@ function formatReviewAnswer(value, gameType) {
     return Object.entries(value).map(([key, answer]) => `${key} → ${answer}`).join(" · ");
   }
   return String(value ?? "").trim() || "No answer";
+}
+
+export function KidsLearningHeroToolbar({
+  syncStatus,
+  copy,
+  onOpenParentCorner,
+}) {
+  const statusLabel = syncStatus === "synced"
+    ? copy.synced
+    : syncStatus === "offline"
+      ? copy.offline
+      : copy.loading;
+
+  return (
+    <div className="kids-hero-toolbar">
+      <span className={`kids-sync-status is-${syncStatus}`}>
+        {syncStatus === "loading"
+          ? <RotateCcw aria-hidden="true" className="kids-spin" size={15} />
+          : syncStatus === "synced"
+            ? <Wifi aria-hidden="true" size={15} />
+            : <WifiOff aria-hidden="true" size={15} />}
+        {statusLabel}
+      </span>
+      <button
+        aria-label={copy.parentCorner}
+        className="kids-parent-button"
+        onClick={onOpenParentCorner}
+        type="button"
+      >
+        <ShieldCheck aria-hidden="true" size={16} />
+        <span>{copy.parentCorner}</span>
+      </button>
+    </div>
+  );
 }
 
 function KidsLearningPageContent({
@@ -690,11 +724,9 @@ function KidsLearningPageContent({
       language: nextSettings.language === "hi" ? "hi" : "en",
     };
     setSettings(normalized);
-    const requestBody = options.publicOnly
-      ? { language: normalized.language }
-      : parentSettingsBody(normalized, {
-        ...(options.currentParentPin ? { currentParentPin: options.currentParentPin } : {}),
-      });
+    const requestBody = parentSettingsBody(normalized, {
+      ...(options.currentParentPin ? { currentParentPin: options.currentParentPin } : {}),
+    });
     try {
       const payload = await api.put("/api/kids/parent-settings", requestBody);
       const savedSettings = normalizeServerSettings(payload?.settings, normalized);
@@ -714,7 +746,7 @@ function KidsLearningPageContent({
       setRegistrationPinSetupPending(false);
     }
     const returnTo = location.state?.returnTo;
-    if (returnTo === "/planner" || returnTo === "/settings") {
+    if (isYoungKidsParentGuidedRoute(returnTo)) {
       navigate(returnTo, { replace: true, state: null });
     }
   };
@@ -776,21 +808,11 @@ function KidsLearningPageContent({
       <div aria-hidden="true" className="kids-page-confetti"><i>✦</i><i>●</i><i>▲</i><i>★</i><i>●</i></div>
 
       <header className="kids-hero">
-        <div className="kids-hero-toolbar">
-          <span className={`kids-sync-status is-${syncStatus}`}>
-            {syncStatus === "loading" ? <RotateCcw aria-hidden="true" className="kids-spin" size={15} /> : syncStatus === "synced" ? <Wifi aria-hidden="true" size={15} /> : <WifiOff aria-hidden="true" size={15} />}
-            {syncStatus === "synced" ? copy.synced : syncStatus === "offline" ? copy.offline : copy.loading}
-          </span>
-          <div className="kids-language-switch" aria-label={copy.language} role="group">
-            <Languages aria-hidden="true" size={17} />
-            <button aria-pressed={settings.language === "en"} onClick={() => saveParentSettings({ ...settings, language: "en" }, { publicOnly: true })} type="button">EN</button>
-            <button aria-pressed={settings.language === "hi"} onClick={() => saveParentSettings({ ...settings, language: "hi" }, { publicOnly: true })} type="button">हिं</button>
-          </div>
-          <button className="kids-parent-button" onClick={() => setParentCornerOpen(true)} type="button">
-            <ShieldCheck aria-hidden="true" size={18} />
-            <span>{copy.parentCorner}</span>
-          </button>
-        </div>
+        <KidsLearningHeroToolbar
+          copy={copy}
+          onOpenParentCorner={() => setParentCornerOpen(true)}
+          syncStatus={syncStatus}
+        />
 
         <div className="kids-hero-content">
           <div className="kids-hero-copy">

@@ -644,38 +644,88 @@
 }
 
 .learning-studio-misconceptions__heading > small,
-.learning-studio-misconceptions__list > small {
+.learning-studio-misconceptions__rail > small {
   color: var(--text-muted);
   font-size: 0.64rem;
   line-height: 1.5;
 }
 
+.learning-studio-misconceptions__rail {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 9px;
+  scrollbar-color: color-mix(in srgb, var(--accent) 52%, var(--border)) var(--surface-muted);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.learning-studio-misconceptions__rail:focus-visible {
+  border-radius: 10px;
+  outline: 2px solid rgba(var(--accent-rgb), 0.72);
+  outline-offset: 3px;
+}
+
+.learning-studio-misconceptions__rail::-webkit-scrollbar {
+  height: 8px;
+}
+
+.learning-studio-misconceptions__rail::-webkit-scrollbar-track {
+  background: var(--surface-muted);
+  border-radius: 999px;
+}
+
+.learning-studio-misconceptions__rail::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 52%, var(--border));
+  border: 2px solid var(--surface-muted);
+  border-radius: 999px;
+}
+
 .learning-studio-misconceptions__list {
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
-  min-width: 0;
+  min-width: max-content;
+  width: max-content;
 }
 
 .learning-studio-misconceptions article {
-  align-items: center;
+  align-content: start;
+  aspect-ratio: 1 / 1;
   background: color-mix(in srgb, var(--warning) 11%, var(--surface-muted));
   border: 1px solid color-mix(in srgb, var(--warning) 22%, var(--border));
   border-radius: 12px;
+  box-sizing: border-box;
   color: var(--warning);
   display: grid;
-  flex: 1 1 220px;
-  gap: 9px;
-  grid-template-columns: 18px minmax(0, 1fr) 30px;
-  min-height: 44px;
-  padding: 6px 7px 6px 10px;
+  flex: 0 0 clamp(132px, 12vw, 152px);
+  gap: 7px;
+  grid-template-columns: 20px minmax(0, 1fr) 30px;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: clamp(132px, 12vw, 152px);
+  overflow: hidden;
+  padding: 9px;
+}
+
+.learning-studio-misconceptions article > svg {
+  align-self: center;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .learning-studio-misconceptions article p {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
   color: var(--text);
+  display: -webkit-box;
   font-size: 0.64rem;
+  grid-column: 1 / -1;
+  grid-row: 2;
   line-height: 1.45;
   margin: 0;
+  max-height: calc(1.45em * 4);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
 }
 
 .learning-studio-misconceptions article button {
@@ -685,10 +735,24 @@
   border-radius: 50%;
   color: var(--text-muted);
   display: inline-flex;
+  grid-column: 3;
+  grid-row: 1;
   height: 30px;
   justify-content: center;
+  justify-self: end;
   padding: 0;
   width: 30px;
+}
+
+.learning-studio-misconceptions article button:hover {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--danger) 46%, var(--border));
+  color: var(--danger);
+}
+
+.learning-studio-misconceptions article button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--danger) 76%, white);
+  outline-offset: 2px;
 }
 
 .learning-studio-misconceptions form {

@@ -57,8 +57,10 @@ import {
 import { EXAM_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 import { academicProfilePayload } from "../utils/academicProfile";
 import {
+  ACTIVE_EXAM_ATTEMPT_STORAGE_KEY,
   getExamMinimumSubmitRemainingSeconds,
   MINIMUM_EXAM_SUBMIT_MINUTES,
+  readStoredActiveExamAttemptId,
 } from "../utils/examTiming";
 import "./ExamPage.css";
 
@@ -74,7 +76,6 @@ const DEFAULT_MARK_BLUEPRINTS = {
   90: { 1: 5, 3: 2, 4: 1, 5: 2, 10: 5, 15: 1 },
   100: { 1: 5, 3: 2, 4: 1, 5: 2, 10: 6, 15: 1 },
 };
-const ACTIVE_ATTEMPT_KEY = "prepmatrix_active_exam_attempt";
 const VISITED_QUESTIONS_KEY_PREFIX = "prepmatrix_exam_visited_";
 const TIMER_STORAGE_KEY = "prepmatrix_exam_timer_v1";
 const PREPARATION_CENTER_SECONDS = 8;
@@ -145,7 +146,7 @@ function readVisitedQuestions(resource) {
 }
 
 function clearAttemptStorage(attemptId) {
-  localStorage.removeItem(ACTIVE_ATTEMPT_KEY);
+  localStorage.removeItem(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY);
   if (attemptId) localStorage.removeItem(visitedQuestionsStorageKey(attemptId));
 }
 
@@ -1311,13 +1312,17 @@ function ExamPreparationNotice({ subjectName }) {
 }
 
 function ExamPage({
+  activeAttemptId: persistedActiveAttemptId = "",
   subjects = [],
   academicLevel = "College",
   academicTrack = "General",
   userProfile = {},
   examReadiness = 0,
   isExamEligible: examEligibilityOverride,
+  onActiveAttemptChange,
+  parentAccessGranted = true,
   tasksToExamEligibility = 0,
+  youngKidsMode = false,
 }) {
   const { hasInsufficientCredits } = useAiQuota();
   const navigate = useNavigate();
@@ -1338,12 +1343,17 @@ function ExamPage({
   const [difficulty, setDifficulty] = useState("medium");
   const [preparedExam, setPreparedExam] = useState(null);
   const [activeAttempt, setActiveAttempt] = useState(null);
+  const [attemptRecoveryPending, setAttemptRecoveryPending] = useState(() => Boolean(
+    persistedActiveAttemptId
+      || (typeof window !== "undefined" && readStoredActiveExamAttemptId(window.localStorage)),
+  ));
   const [isPreparing, setIsPreparing] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [results, setResults] = useState([]);
   const [papers, setPapers] = useState([]);
   const [examStartLimit, setExamStartLimit] = useState(null);
   const [paperMinutes, setPaperMinutes] = useState(60);
+  const continuationOnly = youngKidsMode && !parentAccessGranted;
 
   useEffect(() => {
     if (!subjectName && names.length) setSubjectName(names[0]);
@@ -1390,26 +1400,49 @@ function ExamPage({
   }, []);
 
   useEffect(() => {
+    if (continuationOnly) return;
     loadResults();
     loadPapers();
     loadExamStartLimit();
-  }, [loadExamStartLimit, loadPapers, loadResults]);
+  }, [continuationOnly, loadExamStartLimit, loadPapers, loadResults]);
 
   useEffect(() => {
-    const attemptId = localStorage.getItem(ACTIVE_ATTEMPT_KEY);
-    if (!attemptId) return;
+    const attemptId = persistedActiveAttemptId
+      || readStoredActiveExamAttemptId(window.localStorage);
+    if (!attemptId) {
+      setAttemptRecoveryPending(false);
+      return;
+    }
+    if (activeAttempt && getId(activeAttempt) === attemptId) {
+      setAttemptRecoveryPending(false);
+      return;
+    }
+    setAttemptRecoveryPending(true);
     api.get("/api/exam-attempts/" + attemptId)
       .then((payload) => {
         const attempt = normalizeAttempt(unwrapOne(payload, ["attempt"]));
-        if (attempt.status === "in_progress") setActiveAttempt(attempt);
-        else {
-          localStorage.removeItem(ACTIVE_ATTEMPT_KEY);
+        if (attempt.status === "in_progress") {
+          setActiveAttempt(attempt);
+          onActiveAttemptChange?.(attempt.id);
+        } else {
+          localStorage.removeItem(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY);
+          onActiveAttemptChange?.("");
           setSection("results");
-          loadResults();
+          if (!continuationOnly) loadResults();
         }
       })
-      .catch(() => localStorage.removeItem(ACTIVE_ATTEMPT_KEY));
-  }, [loadResults]);
+      .catch(() => {
+        localStorage.removeItem(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY);
+        onActiveAttemptChange?.("");
+      })
+      .finally(() => setAttemptRecoveryPending(false));
+  }, [
+    activeAttempt,
+    continuationOnly,
+    loadResults,
+    onActiveAttemptChange,
+    persistedActiveAttemptId,
+  ]);
 
   const prepareExam = async () => {
     if (preparingRef.current) return;
@@ -1481,8 +1514,9 @@ function ExamPage({
       }
       const payload = await api.post("/api/exams/" + examId + "/start", {});
       const attempt = normalizeAttempt(unwrapOne(payload, ["attempt"]));
-      localStorage.setItem(ACTIVE_ATTEMPT_KEY, attempt.id);
+      localStorage.setItem(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY, attempt.id);
       setActiveAttempt(attempt);
+      onActiveAttemptChange?.(attempt.id);
       loadExamStartLimit();
     } catch (error) {
       if (enteredForStart && document.fullscreenElement) {
@@ -1498,16 +1532,37 @@ function ExamPage({
 
   const finishExam = useCallback(() => {
     setActiveAttempt(null);
+    onActiveAttemptChange?.("");
     setPreparedExam(null);
-    setSection("results");
-    loadResults();
-    loadExamStartLimit();
-  }, [loadExamStartLimit, loadResults]);
+    if (!continuationOnly) {
+      setSection("results");
+      loadResults();
+      loadExamStartLimit();
+    }
+  }, [continuationOnly, loadExamStartLimit, loadResults, onActiveAttemptChange]);
 
   const handlePaperLoaded = (paper) => {
     const minutes = Number(paper?.recommendedTimeMinutes || paper?.durationMinutes || 60);
     setPaperMinutes(minutes);
   };
+
+  if (activeAttempt) {
+    return <ExamRunner initialAttempt={activeAttempt} onFinished={finishExam} />;
+  }
+
+  if (continuationOnly) {
+    return (
+      <section className="card loading-card route-loading-card" role="status" aria-live="polite">
+        <span className="section-tag">Secure exam</span>
+        <h2>{attemptRecoveryPending ? "Restoring the active attempt..." : "Parent Corner access required"}</h2>
+        <p className="card-subtext">
+          {attemptRecoveryPending
+            ? "Checking the server-authorized exam session without interrupting its timer."
+            : "This saved attempt is no longer active. Return to Parent Corner to use Exam again."}
+        </p>
+      </section>
+    );
+  }
 
   const pendingResults = results.filter(isResultLocked).length;
   const releasedResults = results.length - pendingResults;
@@ -1688,7 +1743,6 @@ function ExamPage({
       )}
 
       {isPreparing && <ExamPreparationNotice subjectName={subjectName} />}
-      {activeAttempt && <ExamRunner initialAttempt={activeAttempt} onFinished={finishExam} />}
     </section>
   );
 }

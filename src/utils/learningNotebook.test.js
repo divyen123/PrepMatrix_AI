@@ -304,10 +304,74 @@ test("recognizes only the strict generated notebook envelope", () => {
 test("requires rich depth for new generations while preserving legacy notebooks", () => {
   const legacy = generatedNotebook();
   const rich = richlyGeneratedNotebook();
+  const youngKidsMinimum = structuredClone(rich);
+  youngKidsMinimum.chapters.forEach((chapter) => {
+    chapter.topics.forEach((topic) => {
+      topic.keyPoints = topic.keyPoints.slice(0, 2);
+      topic.subtopics.forEach((subtopic) => {
+        subtopic.keyPoints = subtopic.keyPoints.slice(0, 1);
+      });
+    });
+  });
 
   assert.equal(hasLearningNotebookShape(legacy), true);
   assert.equal(hasGeneratedLearningNotebookDepth(legacy), false);
   assert.equal(hasGeneratedLearningNotebookDepth(rich), true);
+  assert.equal(hasGeneratedLearningNotebookDepth(youngKidsMinimum), false);
+  assert.equal(hasGeneratedLearningNotebookDepth(youngKidsMinimum, {
+    minimumKeyPointsPerTopic: 2,
+    minimumKeyPointsPerSubtopic: 1,
+  }), true);
+
+  const strictChildOptions = {
+    exactChapterCount: rich.chapters.length,
+    exactTopicsPerChapter: rich.chapters[0].topics.length,
+    exactSubtopicsPerTopic: rich.chapters[0].topics[0].subtopics.length,
+    minimumLearningObjectivesPerTopic: 3,
+    minimumApplicationsPerTopic: 2,
+    minimumCommonMistakesPerTopic: 2,
+    minimumRevisionTipsPerTopic: 2,
+  };
+  assert.equal(hasGeneratedLearningNotebookDepth(rich, strictChildOptions), true);
+
+  const extraChapter = structuredClone(rich);
+  extraChapter.chapters.push({
+    ...structuredClone(extraChapter.chapters[0]),
+    id: "chapter-extra",
+    title: "Extra chapter",
+  });
+  assert.equal(hasGeneratedLearningNotebookDepth(extraChapter, strictChildOptions), false);
+
+  const extraTopic = structuredClone(rich);
+  extraTopic.chapters[0].topics.push({
+    ...structuredClone(extraTopic.chapters[0].topics[0]),
+    id: "topic-extra",
+    title: "Extra topic",
+  });
+  assert.equal(hasGeneratedLearningNotebookDepth(extraTopic, strictChildOptions), false);
+
+  const extraSubtopic = structuredClone(rich);
+  extraSubtopic.chapters[0].topics[0].subtopics.push({
+    ...structuredClone(extraSubtopic.chapters[0].topics[0].subtopics[0]),
+    id: "subtopic-extra",
+    title: "Extra subtopic",
+  });
+  assert.equal(hasGeneratedLearningNotebookDepth(extraSubtopic, strictChildOptions), false);
+
+  for (const field of [
+    "learningObjectives",
+    "applications",
+    "commonMistakes",
+    "revisionTips",
+  ]) {
+    const missingDetail = structuredClone(rich);
+    missingDetail.chapters[0].topics[0][field] = [];
+    assert.equal(
+      hasGeneratedLearningNotebookDepth(missingDetail, strictChildOptions),
+      false,
+      field,
+    );
+  }
 
   const normalized = normalizeLearningNotebook(rich, { subjectName: "Operating Systems" });
   const topic = normalized.chapters[0].topics[0];

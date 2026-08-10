@@ -13,6 +13,7 @@ import {
   MAX_LEARNING_PROMPT_CHARS,
   MAX_LEARNING_COMPLETION_TOKENS,
   MAX_GROQ_LEARNING_COMPLETION_TOKENS,
+  buildLearningNotebookDepthTargets,
   compactLearningSourceMaterial,
   MAX_LEARNING_VISION_TEXT_CHARS,
   MAX_LEARNING_TEXT_SOURCE_CHARS,
@@ -179,6 +180,84 @@ function validGeneratedNotebook() {
     }],
     mindMap: {
       nodes: [{ id: "root", label: "Data Structures", parentId: null, kind: "root" }],
+      edges: [],
+    },
+    coverageWarnings: [],
+    careerPreparation: {
+      focus: "",
+      skills: [],
+      interviewQuestions: [],
+      codingTopics: [],
+    },
+  };
+}
+
+function validYoungKidsLesson({ generationSize = "low" } = {}) {
+  const highDetail = generationSize === "high";
+  const topicCount = highDetail ? 5 : 3;
+  const subtopicCount = highDetail ? 2 : 1;
+  const topics = Array.from({ length: topicCount }, (_, topicIndex) => {
+    const topicNumber = topicIndex + 1;
+    const title = `Plant learning idea ${topicNumber}`;
+    return {
+      id: `topic-${topicNumber}`,
+      title,
+      summary: `${title} explains one simple part of how plants make and use food.`,
+      explanation: highDetail
+        ? `${title} uses sunlight, water, and air to explain photosynthesis in clear steps. The example follows a familiar garden plant through the day, shows what each part contributes, and helps the child connect healthy leaves with the food a plant makes.`
+        : `${title} explains photosynthesis with a familiar garden plant. Sunlight, water, and air help its leaves make food so the plant can grow.`,
+      importance: "high",
+      learningObjectives: highDetail
+        ? ["Name what a plant needs.", "Describe what leaves do.", "Share an example."]
+        : ["Name what a plant needs.", "Tell what leaves do."],
+      keyPoints: highDetail
+        ? ["Leaves use sunlight.", "Roots take in water.", "Air helps make food."]
+        : ["Leaves use sunlight.", "Roots take in water."],
+      examples: ["Watch a sunny window plant and notice how its leaves face the light."],
+      applications: ["Caring for a classroom plant"],
+      commonMistakes: ["Thinking roots collect sunlight"],
+      revisionTips: ["Draw the sun, roots, and leaves"],
+      subtopics: Array.from({ length: subtopicCount }, (_, subtopicIndex) => ({
+        id: `topic-${topicNumber}-subtopic-${subtopicIndex + 1}`,
+        title: `${title} step ${subtopicIndex + 1}`,
+        summary: "One small photosynthesis step.",
+        explanation: highDetail
+          ? "This step shows how a leaf uses light together with water and air to help the plant make food and grow."
+          : "A leaf uses light, water, and air to help the plant make food.",
+        keyPoints: highDetail
+          ? ["Light reaches the leaf.", "The plant makes food."]
+          : ["Light reaches the leaf."],
+        examples: ["Point to the leaf that receives sunlight."],
+      })),
+    };
+  });
+  const questionCount = highDetail ? 4 : 1;
+  const noteCount = highDetail ? 5 : 3;
+  return {
+    title: "Science - Photosynthesis",
+    overview: "A short, child-friendly lesson about how green plants make food and grow.",
+    importantQuestions: Array.from({ length: questionCount }, (_, index) => ({
+      id: `question-${index + 1}`,
+      question: `What helps a plant in learning idea ${index + 1}?`,
+      answer: "Sunlight, water, and air help its leaves make food.",
+      whyItMatters: "It checks the main lesson idea.",
+      difficulty: "easy",
+    })),
+    revisedNotes: Array.from({ length: noteCount }, (_, index) => ({
+      id: `revised-note-${index + 1}`,
+      title: topics[index % topics.length].title,
+      content: topics[index % topics.length].explanation,
+      keyPoints: topics[index % topics.length].keyPoints,
+      revisionTips: topics[index % topics.length].revisionTips,
+    })),
+    chapters: [{
+      id: "chapter-1",
+      title: "Photosynthesis",
+      summary: "Plants use their leaves, roots, sunlight, water, and air to make food and keep growing.",
+      topics,
+    }],
+    mindMap: {
+      nodes: [{ id: "root", label: "Photosynthesis", parentId: null, kind: "root", order: 0 }],
       edges: [],
     },
     coverageWarnings: [],
@@ -943,7 +1022,7 @@ function createLearningRouteHarness({
     stored,
     get dbCalls() { return dbCalls; },
     get prepareCalls() { return prepareCalls; },
-    async analyze(body = {}) {
+    async analyze(body = {}, userOverrides = {}) {
       const req = {
         body: {
           privacyConsent: {
@@ -961,6 +1040,7 @@ function createLearningRouteHarness({
           academicLevel: "Undergraduate / Bachelor's",
           degree: "B.Tech",
           department: "IT",
+          ...userOverrides,
         },
         headers: { "idempotency-key": TEST_IDEMPOTENCY_KEY },
       };
@@ -987,7 +1067,7 @@ function createLearningRouteHarness({
   };
 }
 
-test("maps kids Low and High lesson sizes to compact and full provider schemas", async () => {
+test("keeps optional generation sizes on the existing standard notebook contracts", async () => {
   async function requestedTopicsFor(generationSize) {
     let requestBody = null;
     const harness = createLearningRouteHarness({
@@ -1019,8 +1099,209 @@ test("maps kids Low and High lesson sizes to compact and full provider schemas",
     return requestBody.messages.map((message) => message.content).join("\n");
   }
 
-  assert.match(await requestedGroqPrompt("Low"), /70-110 words/u);
-  assert.match(await requestedGroqPrompt("High"), /180-320 words/u);
+  const standardLowPrompt = await requestedGroqPrompt("Low");
+  const standardHighPrompt = await requestedGroqPrompt("High");
+  assert.match(standardLowPrompt, /70-110 words/u);
+  assert.match(standardHighPrompt, /180-320 words/u);
+  assert.match(
+    standardHighPrompt,
+    /Put important exam, placement, or conceptual questions first/u,
+  );
+});
+
+test("uses smaller, meaningfully different Low and High contracts only for authenticated K-3 learners", async () => {
+  const cases = [
+    {
+      generationSize: "low",
+      expected: { topics: 3, subtopics: 1, questions: 1, notes: 3, topicPoints: 2 },
+    },
+    {
+      generationSize: "high",
+      expected: { topics: 5, subtopics: 2, questions: 4, notes: 5, topicPoints: 3 },
+    },
+  ];
+
+  for (const { generationSize, expected } of cases) {
+    let requestBody = null;
+    const harness = createLearningRouteHarness({
+      fetchImpl: async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return geminiNotebookResponse(validYoungKidsLesson({ generationSize }));
+      },
+    });
+
+    const response = await harness.analyze({
+      academicLevel: "Undergraduate / Bachelor's",
+      generationSize,
+      learnerProfile: {
+        academicLevel: "Undergraduate / Bachelor's",
+        grade: "",
+      },
+      subjectName: "Science",
+      chapterNames: ["Photosynthesis"],
+    }, {
+      academicLevel: "Primary School",
+      grade: "Class 2",
+    });
+
+    assert.equal(response.statusCode, 201, generationSize);
+    const schema = requestBody.generationConfig.responseJsonSchema;
+    const topicSchema = schema.properties.chapters.items.properties.topics;
+    const topicItem = topicSchema.items;
+    assert.equal(topicSchema.minItems, expected.topics, generationSize);
+    assert.equal(topicSchema.maxItems, expected.topics, generationSize);
+    assert.equal(topicItem.properties.subtopics.minItems, expected.subtopics, generationSize);
+    assert.equal(topicItem.properties.keyPoints.minItems, expected.topicPoints, generationSize);
+    assert.equal(schema.properties.importantQuestions.minItems, expected.questions, generationSize);
+    assert.equal(schema.properties.revisedNotes.minItems, expected.notes, generationSize);
+    const systemPrompt = requestBody.systemInstruction.parts[0].text;
+    assert.match(systemPrompt, /server-verified Kindergarten through Class 3/iu);
+    const prompt = requestBody.contents[0].parts.at(-1).text;
+    assert.match(prompt, /Server-verified young learner class: "Class 2"/u);
+    assert.doesNotMatch(prompt, /Undergraduate \/ Bachelor's/u);
+    assert.match(prompt, /Keep every practice question friendly, concrete/iu);
+    assert.doesNotMatch(
+      `${systemPrompt}\n${prompt}`,
+      /(?:prioriti[sz]e|prepare|include|practice|focus)[^.\n]{0,80}(?:placement|career|resume|interview)/iu,
+    );
+    assert.equal(harness.stored.length, 1, generationSize);
+    assert.equal(harness.aiQuota.calls.commit.length, 1, generationSize);
+    assert.equal(harness.aiQuota.calls.refund.length, 0, generationSize);
+  }
+});
+
+test("accepts a schema-minimum K-3 Low lesson through Groq and persists it without a refund", async () => {
+  let requestBody = null;
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async (_url, options) => {
+      requestBody = JSON.parse(options.body);
+      return groqNotebookResponse(validYoungKidsLesson({ generationSize: "low" }));
+    },
+  });
+
+  const response = await harness.analyze({
+    generationSize: "low",
+    subjectName: "Science",
+    chapterNames: ["Photosynthesis"],
+  }, {
+    academicLevel: "Primary School",
+    grade: "Class 2",
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.match(requestBody.messages[0].content, /server-verified Kindergarten through Class 3/iu);
+  assert.equal(response.body.notebook.chapters[0].topics.length, 3);
+  assert.equal(response.body.notebook.chapters[0].topics[0].keyPoints.length, 2);
+  assert.equal(response.body.notebook.chapters[0].topics[0].subtopics[0].keyPoints.length, 1);
+  assert.equal(harness.stored.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("rejects oversized or schema-incomplete K-3 Groq lessons and refunds the reservation", async () => {
+  const invalidLessons = [
+    {
+      name: "extra chapter",
+      mutate(notebook) {
+        notebook.chapters.push({
+          ...structuredClone(notebook.chapters[0]),
+          id: "chapter-extra",
+          title: "Extra chapter",
+        });
+      },
+    },
+    {
+      name: "extra topic",
+      mutate(notebook) {
+        notebook.chapters[0].topics.push({
+          ...structuredClone(notebook.chapters[0].topics[0]),
+          id: "topic-extra",
+          title: "Extra topic",
+        });
+      },
+    },
+    {
+      name: "extra subtopic",
+      mutate(notebook) {
+        notebook.chapters[0].topics[0].subtopics.push({
+          ...structuredClone(notebook.chapters[0].topics[0].subtopics[0]),
+          id: "subtopic-extra",
+          title: "Extra subtopic",
+        });
+      },
+    },
+    {
+      name: "missing required topic detail",
+      mutate(notebook) {
+        notebook.chapters[0].topics[0].applications = [];
+      },
+    },
+  ];
+
+  for (const invalidCase of invalidLessons) {
+    const notebook = validYoungKidsLesson({ generationSize: "low" });
+    invalidCase.mutate(notebook);
+    const harness = createLearningRouteHarness({
+      geminiConfig: { available: false },
+      fetchImpl: async () => groqNotebookResponse(notebook),
+    });
+
+    const response = await harness.analyze({
+      generationSize: "low",
+      subjectName: "Science",
+      chapterNames: ["Photosynthesis"],
+    }, {
+      academicLevel: "Primary School",
+      grade: "Class 2",
+    });
+
+    assert.equal(response.statusCode, 502, invalidCase.name);
+    assert.equal(response.body.code, "LEARNING_OUTPUT_INVALID", invalidCase.name);
+    assert.equal(response.body.creditsRefunded, true, invalidCase.name);
+    assert.equal(harness.stored.length, 0, invalidCase.name);
+    assert.equal(harness.aiQuota.calls.commit.length, 0, invalidCase.name);
+    assert.equal(harness.aiQuota.calls.refund.length, 1, invalidCase.name);
+  }
+});
+
+test("defaults authenticated K-3 requests without a generation size to the safe Low contract", async () => {
+  let requestBody = null;
+  const harness = createLearningRouteHarness({
+    fetchImpl: async (_url, options) => {
+      requestBody = JSON.parse(options.body);
+      return geminiNotebookResponse(validYoungKidsLesson({ generationSize: "low" }));
+    },
+  });
+
+  const response = await harness.analyze({
+    subjectName: "Science",
+    chapterNames: ["Photosynthesis"],
+  }, {
+    academicLevel: "Primary School",
+    grade: "Class 3",
+  });
+
+  assert.equal(response.statusCode, 201);
+  const schema = requestBody.generationConfig.responseJsonSchema;
+  assert.equal(schema.properties.chapters.items.properties.topics.minItems, 3);
+  assert.equal(schema.properties.chapters.items.properties.topics.items.properties.subtopics.minItems, 1);
+  assert.equal(schema.properties.importantQuestions.minItems, 1);
+  assert.match(requestBody.contents[0].parts.at(-1).text, /Server-verified young learner class: "Class 3"/u);
+});
+
+test("keeps the standard generation-size depth contract unchanged for non-K-3 profiles", () => {
+  const standardLow = buildLearningNotebookDepthTargets(["Photosynthesis"], { compact: true });
+  const standardHigh = buildLearningNotebookDepthTargets(["Photosynthesis"], { compact: false });
+
+  assert.deepEqual(
+    [standardLow.topicsPerChapter, standardLow.subtopicsPerTopic, standardLow.minimumImportantQuestions],
+    [4, 2, 5],
+  );
+  assert.deepEqual(
+    [standardHigh.topicsPerChapter, standardHigh.subtopicsPerTopic, standardHigh.minimumImportantQuestions],
+    [8, 4, 10],
+  );
 });
 
 test("rejects oversized and underspecified learning prompts before AI work", async () => {
