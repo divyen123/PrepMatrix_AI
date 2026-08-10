@@ -8,12 +8,13 @@ const baseSnapshot = {
   canInstall: false,
   error: "",
   installBusy: false,
+  installDetectionPending: false,
   installDismissed: false,
-  installedNoticeDismissed: false,
   installedThisSession: false,
   iosGuideDismissed: false,
   isIos: false,
   isIosSafari: false,
+  isInstalled: false,
   isOnline: true,
   isStandalone: false,
   updateBusy: false,
@@ -60,6 +61,29 @@ test("shows the native install action only while the browser provides an install
   assert.match(installMarkup, />Install app</u);
   assert.match(installMarkup, />Not now</u);
   assert.equal(unavailableMarkup, "");
+});
+
+test("renders no install-related dock once the app is installed", async () => {
+  const detectedMarkup = await renderDock({
+    ...baseSnapshot,
+    canInstall: true,
+    isInstalled: true,
+  });
+  const acceptedMarkup = await renderDock({
+    ...baseSnapshot,
+    canInstall: false,
+    installedThisSession: true,
+    isInstalled: true,
+  });
+  const pendingMarkup = await renderDock({
+    ...baseSnapshot,
+    canInstall: true,
+    installDetectionPending: true,
+  });
+
+  assert.equal(detectedMarkup, "");
+  assert.equal(acceptedMarkup, "");
+  assert.equal(pendingMarkup, "");
 });
 
 test("uses guidance instead of a fake native install action on iOS and iPadOS", async () => {

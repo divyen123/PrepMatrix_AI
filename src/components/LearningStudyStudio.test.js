@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -41,7 +42,10 @@ test("renders a generated notebook in the Study Studio", async () => {
       },
     ];
     const progressByNodeId = new Map([
-      ["chapter-1", { status: "ready" }],
+      ["chapter-1", {
+        status: "ready",
+        misconceptions: [{ id: "mean-median", label: "Confuses mean and median" }],
+      }],
       ["topic-1", { status: "ready" }],
     ]);
 
@@ -60,9 +64,31 @@ test("renders a generated notebook in the Study Studio", async () => {
     assert.match(markup, /AI Coach/u);
     assert.match(markup, /Use a compact worked example\./u);
     assert.match(markup, /Save guidance/u);
+    assert.match(markup, /learning-studio-coach__controls/u);
+    assert.match(markup, /learning-studio-coach__body/u);
+    assert.match(markup, /aria-label="Misconception radar"/u);
+    assert.match(markup, /learning-studio-misconceptions__list/u);
+    assert.match(markup, /aria-label="Resolve Confuses mean and median"/u);
+    assert.ok(
+      markup.indexOf("learning-studio-misconceptions") > markup.indexOf("learning-studio-coach"),
+      "the misconception radar should render below the AI Coach",
+    );
     assert.doesNotMatch(markup, /Focused on/u);
     assert.doesNotMatch(markup, /Review queue/u);
   } finally {
     await vite.close();
   }
+});
+
+test("uses theme-aware horizontal support panels and fixed circular radar controls", () => {
+  const stylesheet = readFileSync(
+    new URL("./LearningStudyStudio.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(stylesheet, /\.learning-studio-sessionbar\s*\{[\s\S]*?var\(--surface\)/u);
+  assert.match(stylesheet, /\.learning-studio-coach\s*\{[\s\S]*?grid-column:\s*1\s*\/\s*-1/u);
+  assert.match(stylesheet, /\.learning-studio-misconceptions\s*\{[\s\S]*?grid-column:\s*1\s*\/\s*-1/u);
+  assert.match(stylesheet, /\.learning-studio-misconceptions article button\s*\{[\s\S]*?border-radius:\s*50%/u);
+  assert.match(stylesheet, /\.learning-studio-misconceptions form button\s*\{[\s\S]*?height:\s*32px[\s\S]*?width:\s*32px/u);
 });

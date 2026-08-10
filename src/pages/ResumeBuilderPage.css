@@ -1066,6 +1066,36 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
   font-size: 0.83rem;
 }
 
+.resume-preview-panel__tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.resume-builder-page .resume-preview-new-button {
+  display: inline-flex;
+  width: auto !important;
+  height: 34px;
+  min-width: 0 !important;
+  min-height: 34px !important;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 10px !important;
+  color: var(--resume-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.resume-builder-page .resume-preview-new-button:hover:not(:disabled),
+.resume-builder-page .resume-preview-new-button:focus-visible {
+  color: var(--text, #eef3fb);
+  background: color-mix(in srgb, var(--resume-accent-ui) 10%, var(--resume-panel-strong));
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--resume-accent-ui) 18%, transparent);
+}
+
 .resume-builder-page .resume-preview-expand-button {
   min-width: 34px !important;
   min-height: 34px !important;

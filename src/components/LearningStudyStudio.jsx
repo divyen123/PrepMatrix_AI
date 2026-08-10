@@ -512,51 +512,62 @@ function LearningStudyStudio({
         </main>
 
         <aside className="learning-studio-coach" aria-label="Contextual AI learning coach">
-          <div className="learning-studio-coach__heading">
-            <span><Sparkles size={17} /></span>
-            <strong>AI Coach</strong>
-          </div>
-          <div className="learning-studio-coach__actions">
-            {COACH_ACTIONS.map((action) => {
-              const Icon = action.icon;
-              return <button disabled={coachState.loading} key={action.id} onClick={() => onCoachAction?.(action.id, currentNode)} type="button"><Icon size={14} />{action.label}</button>;
-            })}
-          </div>
-          {coachState.loading ? <div className="learning-studio-coach__thinking"><BrainCircuit className="spinner" size={17} /> Coach is preparing focused guidance...</div> : null}
-          {coachState.error ? <p className="learning-studio-coach__error"><CircleAlert size={14} />{coachState.error}</p> : null}
-          {coachState.response ? (
-            <div className="learning-studio-coach__response">
-              <span>{coachState.label || "Coach guidance"}</span>
-              <div className="learning-studio-coach__response-copy">
-                {String(coachState.response).split(/\n{2,}/).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+          <div className="learning-studio-coach__controls">
+            <div className="learning-studio-coach__heading">
+              <span><Sparkles size={17} /></span>
+              <div>
+                <strong>AI Coach</strong>
+                <small>Focused guidance for this learning stage</small>
               </div>
-              <button disabled={coachNoteSaving} onClick={() => onSaveToNotes?.(currentNode, coachNoteOverride)} type="button"><NotebookPen size={14} /> {coachNoteSaving ? "Saving..." : "Save guidance"}</button>
             </div>
-          ) : (
-            <p className="learning-studio-coach__empty">Choose a focused action. The coach receives this concept and your current learning stage-not a blank chat.</p>
-          )}
+            <div className="learning-studio-coach__actions">
+              {COACH_ACTIONS.map((action) => {
+                const Icon = action.icon;
+                return <button disabled={coachState.loading} key={action.id} onClick={() => onCoachAction?.(action.id, currentNode)} type="button"><Icon size={14} />{action.label}</button>;
+              })}
+            </div>
+          </div>
+          <div className="learning-studio-coach__body">
+            {coachState.loading ? <div className="learning-studio-coach__thinking"><BrainCircuit className="spinner" size={17} /> Coach is preparing focused guidance...</div> : null}
+            {coachState.error ? <p className="learning-studio-coach__error"><CircleAlert size={14} />{coachState.error}</p> : null}
+            {coachState.response ? (
+              <div className="learning-studio-coach__response">
+                <span>{coachState.label || "Coach guidance"}</span>
+                <div className="learning-studio-coach__response-copy">
+                  {String(coachState.response).split(/\n{2,}/).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                </div>
+                <button disabled={coachNoteSaving} onClick={() => onSaveToNotes?.(currentNode, coachNoteOverride)} type="button"><NotebookPen size={14} /> {coachNoteSaving ? "Saving..." : "Save guidance"}</button>
+              </div>
+            ) : (
+              <p className="learning-studio-coach__empty">Choose a focused action. The coach receives this concept and your current learning stage-not a blank chat.</p>
+            )}
+          </div>
+        </aside>
 
-          <section className="learning-studio-misconceptions">
+        <section className="learning-studio-misconceptions" aria-label="Misconception radar">
+          <div className="learning-studio-misconceptions__heading">
             <div><strong>Misconception radar</strong><span>{misconceptions.length}</span></div>
+            <small>Keep uncertain ideas visible until they are resolved.</small>
+          </div>
+          <div className="learning-studio-misconceptions__list">
             {misconceptions.length ? misconceptions.map((item) => (
               <article key={item.id || item.text}>
-                <CircleAlert size={14} />
+                <CircleAlert aria-hidden="true" size={17} />
                 <p>{item.text || item.label}</p>
-                <button aria-label={`Resolve ${item.text || item.label}`} onClick={() => onResolveMisconception?.(currentNode.id, item.id)} title="Mark resolved" type="button"><X size={12} /></button>
+                <button aria-label={`Resolve ${item.text || item.label}`} onClick={() => onResolveMisconception?.(currentNode.id, item.id)} title="Mark resolved" type="button"><X size={17} /></button>
               </article>
             )) : <small>No recurring gaps recorded for this concept.</small>}
-            <form onSubmit={(event) => {
-              event.preventDefault();
-              if (!misconceptionDraft.trim()) return;
-              onAddMisconception?.(currentNode.id, misconceptionDraft.trim());
-              setMisconceptionDraft("");
-            }}>
-              <input aria-label="Add a misconception" onChange={(event) => setMisconceptionDraft(event.target.value)} placeholder="What still feels unclear?" value={misconceptionDraft} />
-              <button aria-label="Add misconception" disabled={!misconceptionDraft.trim()} type="submit"><Check size={18} /></button>
-            </form>
-          </section>
-
-        </aside>
+          </div>
+          <form onSubmit={(event) => {
+            event.preventDefault();
+            if (!misconceptionDraft.trim()) return;
+            onAddMisconception?.(currentNode.id, misconceptionDraft.trim());
+            setMisconceptionDraft("");
+          }}>
+            <input aria-label="Add a misconception" onChange={(event) => setMisconceptionDraft(event.target.value)} placeholder="What still feels unclear?" value={misconceptionDraft} />
+            <button aria-label="Add misconception" disabled={!misconceptionDraft.trim()} title="Add misconception" type="submit"><Check size={22} strokeWidth={2.7} /></button>
+          </form>
+        </section>
       </div>
     </div>
   );

@@ -4,12 +4,30 @@ export const PWA_SERVICE_WORKER_OPTIONS = Object.freeze({
   updateViaCache: "none",
 });
 export const PWA_UPDATE_CHECK_THROTTLE_MS = 60_000;
+export const PWA_INSTALLED_STORAGE_KEY = "prepmatrix:pwa-installed";
+
+const INSTALLED_DISPLAY_MODES = Object.freeze([
+  "standalone",
+  "minimal-ui",
+  "fullscreen",
+  "window-controls-overlay",
+]);
+
+function getWindowStorage(windowRef) {
+  try {
+    return windowRef?.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
 
 function getDefaultRuntime() {
+  const windowRef = typeof window !== "undefined" ? window : null;
   return {
     documentRef: typeof document !== "undefined" ? document : null,
     navigatorRef: typeof navigator !== "undefined" ? navigator : null,
-    windowRef: typeof window !== "undefined" ? window : null,
+    storageRef: getWindowStorage(windowRef),
+    windowRef,
   };
 }
 
@@ -31,30 +49,43 @@ export function isSafariBrowser(navigatorRef) {
     && !/(CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo)/i.test(userAgent);
 }
 
-export function isStandaloneDisplay({ navigatorRef, windowRef } = {}) {
+export function isStandaloneDisplay({ documentRef, navigatorRef, windowRef } = {}) {
   if (navigatorRef?.standalone === true) return true;
-  try {
-    return Boolean(windowRef?.matchMedia?.("(display-mode: standalone)")?.matches);
-  } catch {
-    return false;
+  if (navigatorRef?.windowControlsOverlay?.visible === true) return true;
+  if (String(documentRef?.referrer || "").startsWith("android-app://")) return true;
+
+  for (const displayMode of INSTALLED_DISPLAY_MODES) {
+    try {
+      if (windowRef?.matchMedia?.(`(display-mode: ${displayMode})`)?.matches) return true;
+    } catch {
+      // Some embedded browsers throw for unsupported media features.
+    }
   }
+  return false;
 }
 
 export function createPwaSnapshot(runtime = {}) {
   const defaults = getDefaultRuntime();
+  const documentRef = runtime.documentRef ?? defaults.documentRef;
   const navigatorRef = runtime.navigatorRef ?? defaults.navigatorRef;
+  const storageRef = runtime.storageRef ?? defaults.storageRef;
   const windowRef = runtime.windowRef ?? defaults.windowRef;
-  const isStandalone = isStandaloneDisplay({ navigatorRef, windowRef });
+  const isStandalone = isStandaloneDisplay({ documentRef, navigatorRef, windowRef });
+  const hasInstalledMarker = readInstalledMarker(storageRef);
+  const isInstalled = isStandalone || hasInstalledMarker;
+  const supportsInstalledAppsCheck = typeof navigatorRef?.getInstalledRelatedApps === "function";
 
   return {
     canInstall: false,
     error: "",
     installBusy: false,
     installDismissed: false,
-    installedNoticeDismissed: false,
     installedThisSession: false,
+    installDetectionPending: !isStandalone && supportsInstalledAppsCheck,
+    installDetectionVerified: isStandalone,
     isIos: isIosDevice(navigatorRef),
     isIosSafari: isSafariBrowser(navigatorRef),
+    isInstalled,
     isOnline: navigatorRef?.onLine !== false,
     isStandalone,
     iosGuideDismissed: false,
@@ -69,10 +100,11 @@ export function createPwaSnapshot(runtime = {}) {
 export function selectPwaSurface(snapshot = {}) {
   if (snapshot.updateReady && !snapshot.updateDismissed) return "update";
   if (snapshot.isOnline === false) return "offline";
-  if (snapshot.installedThisSession && !snapshot.installedNoticeDismissed) return "installed";
   if (
     snapshot.canInstall
     && !snapshot.installDismissed
+    && !snapshot.installDetectionPending
+    && !snapshot.isInstalled
     && !snapshot.isStandalone
     && !snapshot.installedThisSession
   ) {
@@ -81,6 +113,8 @@ export function selectPwaSurface(snapshot = {}) {
   if (
     snapshot.isIos
     && !snapshot.iosGuideDismissed
+    && !snapshot.installDetectionPending
+    && !snapshot.isInstalled
     && !snapshot.isStandalone
     && !snapshot.installedThisSession
     && !snapshot.canInstall
@@ -88,6 +122,30 @@ export function selectPwaSurface(snapshot = {}) {
     return "ios";
   }
   return null;
+}
+
+function readInstalledMarker(storageRef) {
+  try {
+    return storageRef?.getItem?.(PWA_INSTALLED_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeInstalledMarker(storageRef) {
+  try {
+    storageRef?.setItem?.(PWA_INSTALLED_STORAGE_KEY, "1");
+  } catch {
+    // Storage can be blocked in private or embedded contexts. Runtime detection remains available.
+  }
+}
+
+function clearInstalledMarker(storageRef) {
+  try {
+    storageRef?.removeItem?.(PWA_INSTALLED_STORAGE_KEY);
+  } catch {
+    // The async related-app check still remains authoritative for this page load.
+  }
 }
 
 function addEventListener(target, type, listener, options) {
@@ -114,6 +172,7 @@ export function createPwaLifecycleController(options = {}) {
   const windowRef = options.windowRef ?? defaults.windowRef;
   const documentRef = options.documentRef ?? defaults.documentRef;
   const navigatorRef = options.navigatorRef ?? defaults.navigatorRef;
+  const storageRef = options.storageRef ?? defaults.storageRef;
   const serviceWorkerRef = options.serviceWorkerRef ?? navigatorRef?.serviceWorker ?? null;
   const now = options.now || (() => Date.now());
   const updateThrottleMs = Math.max(
@@ -124,7 +183,7 @@ export function createPwaLifecycleController(options = {}) {
     ? options.onError
     : (error) => console.warn("PWA lifecycle warning:", error);
 
-  let snapshot = createPwaSnapshot({ navigatorRef, windowRef });
+  let snapshot = createPwaSnapshot({ documentRef, navigatorRef, storageRef, windowRef });
   let deferredInstallPrompt = null;
   let registration = null;
   let waitingWorker = null;
@@ -139,6 +198,8 @@ export function createPwaLifecycleController(options = {}) {
   let updateCheckPromise = null;
   let reloadRequested = false;
   let hasReloaded = false;
+  let installedAppsCheckPromise = null;
+  let installedAppsCheckGeneration = Number.NEGATIVE_INFINITY;
 
   const publish = (patch) => {
     const nextSnapshot = { ...snapshot, ...patch };
@@ -155,6 +216,115 @@ export function createPwaLifecycleController(options = {}) {
     } catch {
       // Diagnostic callbacks must never interrupt PWA lifecycle handling.
     }
+  };
+
+  const rememberInstalled = () => {
+    writeInstalledMarker(storageRef);
+    deferredInstallPrompt = null;
+  };
+
+  const refreshInstalledState = async () => {
+    const requestGeneration = generation;
+    const canCommit = () => started && generation === requestGeneration;
+    const isStandalone = isStandaloneDisplay({ documentRef, navigatorRef, windowRef });
+    const hasInstalledMarker = readInstalledMarker(storageRef);
+    if (isStandalone) {
+      rememberInstalled();
+      publish({
+        canInstall: false,
+        installDetectionPending: false,
+        installDetectionVerified: true,
+        installDismissed: true,
+        iosGuideDismissed: true,
+        isInstalled: true,
+        isStandalone,
+      });
+      return true;
+    }
+    if (snapshot.installedThisSession) {
+      publish({
+        canInstall: false,
+        installDetectionPending: false,
+        installDetectionVerified: false,
+        installDismissed: true,
+        iosGuideDismissed: true,
+        isInstalled: true,
+        isStandalone,
+      });
+      return true;
+    }
+
+    if (typeof navigatorRef?.getInstalledRelatedApps !== "function") {
+      publish({
+        canInstall: hasInstalledMarker ? false : Boolean(deferredInstallPrompt?.prompt),
+        installDetectionPending: false,
+        installDetectionVerified: false,
+        ...(hasInstalledMarker ? {
+          installDismissed: true,
+          iosGuideDismissed: true,
+        } : {}),
+        isInstalled: hasInstalledMarker,
+        isStandalone,
+      });
+      return hasInstalledMarker;
+    }
+
+    if (
+      installedAppsCheckPromise
+      && installedAppsCheckGeneration === requestGeneration
+    ) {
+      return installedAppsCheckPromise;
+    }
+    publish({
+      installDetectionPending: true,
+      installDetectionVerified: false,
+      isStandalone,
+    });
+    const checkPromise = Promise.resolve()
+      .then(() => navigatorRef.getInstalledRelatedApps())
+      .then((relatedApps) => {
+        if (!canCommit()) return snapshot.isInstalled;
+        const isInstalled = Array.isArray(relatedApps) && relatedApps.length > 0;
+        if (isInstalled) rememberInstalled();
+        else clearInstalledMarker(storageRef);
+        publish({
+          canInstall: isInstalled ? false : Boolean(deferredInstallPrompt?.prompt),
+          installDetectionPending: false,
+          installDetectionVerified: true,
+          ...(isInstalled ? {
+            installDismissed: true,
+            iosGuideDismissed: true,
+          } : {}),
+          isInstalled,
+          isStandalone,
+        });
+        return isInstalled;
+      })
+      .catch((error) => {
+        if (!canCommit()) return snapshot.isInstalled;
+        publish({
+          canInstall: hasInstalledMarker ? false : Boolean(deferredInstallPrompt?.prompt),
+          installDetectionPending: false,
+          installDetectionVerified: false,
+          ...(hasInstalledMarker ? {
+            installDismissed: true,
+            iosGuideDismissed: true,
+          } : {}),
+          isInstalled: hasInstalledMarker,
+          isStandalone,
+        });
+        reportError(error);
+        return hasInstalledMarker;
+      })
+      .finally(() => {
+        if (installedAppsCheckPromise === checkPromise) {
+          installedAppsCheckPromise = null;
+          installedAppsCheckGeneration = Number.NEGATIVE_INFINITY;
+        }
+      });
+    installedAppsCheckPromise = checkPromise;
+    installedAppsCheckGeneration = requestGeneration;
+    return checkPromise;
   };
 
   const setWaitingWorker = (worker) => {
@@ -224,10 +394,31 @@ export function createPwaLifecycleController(options = {}) {
 
   const handleBeforeInstallPrompt = (event) => {
     event?.preventDefault?.();
-    if (snapshot.isStandalone || snapshot.installedThisSession) return;
+    const isStandalone = isStandaloneDisplay({ documentRef, navigatorRef, windowRef });
+    if (
+      isStandalone
+      || snapshot.installedThisSession
+    ) {
+      return;
+    }
+    if (
+      snapshot.isInstalled
+      && snapshot.installDetectionVerified
+      && !snapshot.installDetectionPending
+    ) {
+      return;
+    }
+    if (snapshot.isInstalled && !snapshot.installDetectionVerified) {
+      clearInstalledMarker(storageRef);
+      publish({
+        installDismissed: false,
+        installDetectionVerified: false,
+        isInstalled: false,
+      });
+    }
     deferredInstallPrompt = event;
     publish({
-      canInstall: Boolean(event?.prompt),
+      canInstall: !snapshot.installDetectionPending && Boolean(event?.prompt),
       error: "",
       installBusy: false,
       installDismissed: false,
@@ -236,25 +427,34 @@ export function createPwaLifecycleController(options = {}) {
   };
 
   const handleAppInstalled = () => {
-    deferredInstallPrompt = null;
+    rememberInstalled();
     publish({
       canInstall: false,
       error: "",
       installBusy: false,
       installDismissed: true,
-      installedNoticeDismissed: false,
       installedThisSession: true,
+      installDetectionPending: false,
+      installDetectionVerified: true,
+      isInstalled: true,
       iosGuideDismissed: true,
     });
   };
 
   const handleDisplayModeChange = () => {
-    const isStandalone = isStandaloneDisplay({ navigatorRef, windowRef });
-    if (isStandalone) deferredInstallPrompt = null;
+    void refreshInstalledState();
+  };
+
+  const handleInstallMarkerChange = (event) => {
+    if (event?.key !== PWA_INSTALLED_STORAGE_KEY || event?.newValue !== "1") return;
+    rememberInstalled();
     publish({
-      canInstall: isStandalone ? false : Boolean(deferredInstallPrompt?.prompt),
-      isStandalone,
-      ...(isStandalone ? { installDismissed: true, iosGuideDismissed: true } : {}),
+      canInstall: false,
+      installDetectionPending: false,
+      installDetectionVerified: false,
+      installDismissed: true,
+      iosGuideDismissed: true,
+      isInstalled: true,
     });
   };
 
@@ -266,8 +466,13 @@ export function createPwaLifecycleController(options = {}) {
   const handleOffline = () => publish({ isOnline: false });
 
   const handleVisibilityChange = () => {
-    if (documentRef?.visibilityState === "visible") void checkForUpdate();
+    if (documentRef?.visibilityState === "visible") {
+      void refreshInstalledState();
+      void checkForUpdate();
+    }
   };
+
+  const handleWindowFocus = () => void refreshInstalledState();
 
   const handleControllerChange = () => {
     if (!reloadRequested || hasReloaded) return;
@@ -281,24 +486,33 @@ export function createPwaLifecycleController(options = {}) {
     generation += 1;
     const activeGeneration = generation;
 
-    let standaloneQuery = null;
-    try {
-      standaloneQuery = windowRef?.matchMedia?.("(display-mode: standalone)") || null;
-    } catch {
-      standaloneQuery = null;
-    }
+    const displayModeQueries = INSTALLED_DISPLAY_MODES.map((displayMode) => {
+      try {
+        return windowRef?.matchMedia?.(`(display-mode: ${displayMode})`) || null;
+      } catch {
+        return null;
+      }
+    });
 
     lifecycleCleanups = [
       addEventListener(windowRef, "beforeinstallprompt", handleBeforeInstallPrompt),
       addEventListener(windowRef, "appinstalled", handleAppInstalled),
       addEventListener(windowRef, "online", handleOnline),
       addEventListener(windowRef, "offline", handleOffline),
+      addEventListener(windowRef, "focus", handleWindowFocus),
+      addEventListener(windowRef, "pageshow", handleWindowFocus),
+      addEventListener(windowRef, "storage", handleInstallMarkerChange),
       addEventListener(documentRef, "visibilitychange", handleVisibilityChange),
       addEventListener(serviceWorkerRef, "controllerchange", handleControllerChange),
-      addMediaQueryListener(standaloneQuery, handleDisplayModeChange),
+      ...displayModeQueries.map((query) => addMediaQueryListener(query, handleDisplayModeChange)),
     ];
 
-    if (!serviceWorkerRef?.register) return null;
+    const installedStatePromise = refreshInstalledState();
+
+    if (!serviceWorkerRef?.register) {
+      await installedStatePromise;
+      return null;
+    }
 
     try {
       const nextRegistration = await serviceWorkerRef.register(
@@ -307,7 +521,10 @@ export function createPwaLifecycleController(options = {}) {
       );
       if (!started || activeGeneration !== generation) return nextRegistration;
       observeRegistration(nextRegistration);
-      await checkForUpdate({ force: true });
+      await Promise.all([
+        checkForUpdate({ force: true }),
+        installedStatePromise,
+      ]);
       return nextRegistration;
     } catch (error) {
       if (started && activeGeneration === generation) {
@@ -328,6 +545,8 @@ export function createPwaLifecycleController(options = {}) {
     installingWorkerCleanup = null;
     registrationUpdateCleanup?.();
     registrationUpdateCleanup = null;
+    installedAppsCheckPromise = null;
+    installedAppsCheckGeneration = Number.NEGATIVE_INFINITY;
   };
 
   const install = async () => {
@@ -347,8 +566,10 @@ export function createPwaLifecycleController(options = {}) {
         installBusy: false,
         installDismissed: true,
         ...(outcome === "accepted" ? {
-          installedNoticeDismissed: false,
           installedThisSession: true,
+          installDetectionPending: false,
+          installDetectionVerified: false,
+          isInstalled: true,
         } : {}),
       });
       return { outcome, platform: choice?.platform || "" };
@@ -387,13 +608,11 @@ export function createPwaLifecycleController(options = {}) {
 
   const dismissInstall = () => publish({ installDismissed: true });
   const dismissIosGuide = () => publish({ iosGuideDismissed: true });
-  const dismissInstalledNotice = () => publish({ installedNoticeDismissed: true });
 
   return {
     applyUpdate,
     checkForUpdate,
     dismissInstall,
-    dismissInstalledNotice,
     dismissIosGuide,
     dismissUpdate,
     getSnapshot: () => snapshot,

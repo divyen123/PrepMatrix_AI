@@ -1,12 +1,20 @@
 .mastery-flow-shell {
-  --mastery-tone-new: var(--text-muted);
-  --mastery-tone-ready: var(--accent);
-  --mastery-tone-learning: color-mix(in srgb, var(--accent) 58%, var(--text));
-  --mastery-tone-learned: color-mix(in srgb, var(--accent) 76%, var(--surface-strong));
-  --mastery-tone-review: var(--warning);
-  --mastery-tone-mastered: color-mix(in srgb, var(--accent) 82%, var(--text));
+  --mastery-tone-new: rgb(123 135 150);
+  --mastery-tone-ready: rgb(82 139 190);
+  --mastery-tone-learning: rgb(139 112 185);
+  --mastery-tone-learned: rgb(67 148 151);
+  --mastery-tone-review: rgb(194 139 64);
+  --mastery-tone-mastered: rgb(72 153 104);
   display: grid;
   gap: 12px;
+}
+
+.mastery-flow-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
 }
 
 .mastery-flow-legend {
@@ -18,10 +26,10 @@
 
 .mastery-flow-legend span {
   align-items: center;
-  background: var(--surface-strong);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-strong) 94%, var(--legend-tone) 6%);
+  border: 1px solid color-mix(in srgb, var(--legend-tone) 24%, var(--border));
   border-radius: 999px;
-  color: var(--text-muted);
+  color: color-mix(in srgb, var(--legend-tone) 38%, var(--text));
   display: inline-flex;
   font-size: 0.72rem;
   font-weight: 750;
@@ -37,16 +45,62 @@
   width: 7px;
 }
 
+.mastery-flow-fullscreen {
+  align-items: center;
+  background: color-mix(in srgb, var(--surface-strong) 94%, var(--accent) 6%);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  color: var(--text-muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 38px;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0;
+  width: 38px;
+}
+
+.mastery-flow-fullscreen:hover,
+.mastery-flow-fullscreen:focus-visible {
+  background: color-mix(in srgb, var(--surface-strong) 88%, var(--accent) 12%);
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+  color: var(--accent);
+}
+
 .mastery-flow-canvas {
   background:
-    radial-gradient(circle at 16% 15%, rgba(var(--accent-rgb), 0.13), transparent 27%),
-    linear-gradient(145deg, var(--surface-strong), var(--surface-muted));
+    radial-gradient(circle at 16% 15%, rgba(var(--accent-rgb), 0.08), transparent 27%),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--surface-strong) 96%, var(--accent) 4%),
+      color-mix(in srgb, var(--surface) 97%, var(--bg) 3%)
+    );
   border: 1px solid var(--border);
   border-radius: 22px;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--surface-strong) 78%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent),
+    0 18px 50px color-mix(in srgb, var(--bg) 28%, transparent);
   height: clamp(520px, 68vh, 760px);
   min-height: 520px;
   overflow: hidden;
+}
+
+.mastery-flow-shell.is-fullscreen {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(var(--accent-rgb), 0.1), transparent 34%),
+    linear-gradient(145deg, var(--bg), var(--bg-secondary));
+  grid-template-rows: auto minmax(0, 1fr);
+  inset: 0;
+  overflow: hidden;
+  padding: clamp(14px, 2vw, 28px);
+  position: fixed;
+  z-index: 1400;
+}
+
+.mastery-flow-shell.is-fullscreen .mastery-flow-canvas {
+  border-radius: 18px;
+  height: 100%;
+  min-height: 0;
 }
 
 .mastery-flow-canvas .react-flow {
@@ -76,8 +130,13 @@
   border-bottom: 0;
 }
 
+.mastery-flow-shell.is-locked .react-flow__pane,
 .mastery-flow-canvas .react-flow__node {
   cursor: default;
+}
+
+.mastery-flow-shell.is-locked .react-flow__node {
+  pointer-events: none;
 }
 
 .mastery-flow-canvas .react-flow__node.draggable {
@@ -89,11 +148,20 @@
 }
 
 .mastery-flow-node {
-  background: var(--surface-strong);
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--surface-strong) 94%, var(--mastery-node-tone) 6%),
+      color-mix(in srgb, var(--surface) 97%, var(--mastery-node-tone) 3%)
+    );
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid color-mix(in srgb, var(--mastery-node-tone) 42%, var(--border));
   border-left: 5px solid var(--mastery-node-tone);
   border-radius: 15px;
-  box-shadow: 0 12px 30px color-mix(in srgb, var(--text) 10%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent),
+    0 12px 30px color-mix(in srgb, var(--bg) 28%, transparent);
   color: var(--text);
   display: grid;
   gap: 7px;
@@ -103,7 +171,7 @@
   width: 230px;
 }
 
-.mastery-flow-node:hover,
+.mastery-flow-shell.is-unlocked .mastery-flow-node:hover,
 .mastery-flow-node.is-selected {
   border-color: var(--mastery-node-tone);
   box-shadow: 0 18px 38px color-mix(in srgb, var(--mastery-node-tone) 19%, transparent);
@@ -111,9 +179,15 @@
 }
 
 .mastery-flow-node.is-notebook {
-  background: linear-gradient(145deg, var(--accent), color-mix(in srgb, var(--accent) 82%, var(--text)));
-  border: 0;
-  color: #fff;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--surface-strong) 88%, var(--mastery-node-tone) 12%),
+      color-mix(in srgb, var(--surface) 94%, var(--mastery-node-tone) 6%)
+    );
+  border: 1px solid color-mix(in srgb, var(--mastery-node-tone) 48%, var(--border));
+  border-left: 5px solid var(--mastery-node-tone);
+  color: var(--text);
   width: 244px;
 }
 
@@ -134,8 +208,8 @@
 
 .mastery-flow-node.is-notebook .mastery-flow-node__kind,
 .mastery-flow-node.is-notebook small {
-  color: inherit;
-  opacity: 0.74;
+  color: var(--text-muted);
+  opacity: 1;
 }
 
 .mastery-flow-node__planner {
@@ -198,6 +272,10 @@
 }
 
 @media (max-width: 760px) {
+  .mastery-flow-header {
+    align-items: flex-start;
+  }
+
   .mastery-flow-canvas {
     border-radius: 17px;
     height: 64vh;
@@ -212,5 +290,14 @@
 
   .mastery-flow-legend span {
     flex: 0 0 auto;
+  }
+
+  .mastery-flow-shell.is-fullscreen {
+    padding: 10px;
+  }
+
+  .mastery-flow-shell.is-fullscreen .mastery-flow-canvas {
+    height: 100%;
+    min-height: 0;
   }
 }

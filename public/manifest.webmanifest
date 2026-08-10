@@ -12,6 +12,13 @@
   "theme_color": "#0b8f74",
   "categories": ["education", "productivity"],
   "prefer_related_applications": false,
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "/manifest.webmanifest",
+      "id": "https://prep-matrix-ai.vercel.app/"
+    }
+  ],
   "icons": [
     {
       "src": "/pwa/brand-icon-192.png",

@@ -20708,6 +20708,8 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 }
 
 .db-command-menu {
+  --db-command-menu-bg: color-mix(in srgb, var(--bg) 88%, #ffffff);
+  --db-command-option-bg: color-mix(in srgb, var(--db-command-menu-bg) 94%, var(--text));
   position: absolute;
   top: calc(100% + 0.45rem);
   right: 0;
@@ -20721,12 +20723,24 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   border: 1px solid var(--border);
   border-radius: 18px;
   background:
-    linear-gradient(145deg, var(--accent-soft), transparent 42%),
-    var(--surface-strong);
-  box-shadow: 0 22px 55px rgba(3, 7, 18, 0.32);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
+    linear-gradient(145deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 42%),
+    var(--db-command-menu-bg);
+  box-shadow:
+    0 22px 55px rgba(3, 7, 18, 0.38),
+    0 0 0 1px color-mix(in srgb, var(--text) 5%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   text-align: left;
+}
+
+body.dark .db-command-menu {
+  --db-command-menu-bg: color-mix(in srgb, var(--bg) 88%, #05080e);
+}
+
+body.has-bg-image .db-command-menu {
+  --db-command-menu-bg: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  --db-command-option-bg: color-mix(in srgb, rgb(var(--bg-surface-rgb, 18, 27, 45)) 90%, #ffffff);
+  border-color: color-mix(in srgb, #ffffff 15%, rgb(var(--bg-surface-rgb, 18, 27, 45)));
 }
 
 .db-command-menu-label {
@@ -20746,9 +20760,9 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   width: 100%;
   min-height: 0;
   padding: 0.68rem 0.72rem;
-  border: 1px solid transparent;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   border-radius: 12px;
-  background: transparent;
+  background: var(--db-command-option-bg);
   box-shadow: none;
   color: var(--text);
   cursor: pointer;
@@ -20763,8 +20777,8 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 .db-command-option:hover,
 .db-command-option--active,
 .db-command-option[aria-selected="true"] {
-  border-color: var(--border);
-  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: color-mix(in srgb, var(--db-command-menu-bg) 88%, var(--accent));
   color: var(--accent);
   transform: translateX(2px);
 }
@@ -20802,7 +20816,8 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   gap: 0.22rem;
   padding: 0.72rem;
   border-radius: 12px;
-  background: var(--surface-muted);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: var(--db-command-option-bg);
   color: var(--text);
 }
 

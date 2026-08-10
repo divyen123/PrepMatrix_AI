@@ -352,6 +352,19 @@ export function normalizeResumeBuilderState(value, profile = {}, options = {}) {
   };
 }
 
+export function createFreshResumeBuilderState(value, profile = {}, options = {}) {
+  const now = Number.isFinite(Number(options.now)) ? Number(options.now) : Date.now();
+  const current = normalizeResumeBuilderState(value, {}, { now });
+  const fresh = normalizeResumeBuilderState(null, profile, { ...options, now });
+
+  return {
+    ...fresh,
+    generationTimestamps: current.generationTimestamps,
+    lastGeneratedAt: current.lastGeneratedAt,
+    updatedAt: new Date(now).toISOString(),
+  };
+}
+
 export function getResumeEligibility(profile = {}) {
   const normalized = normalizeAcademicProfile(profile);
   if (normalized.schoolType === "school") {

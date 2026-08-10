@@ -28,3 +28,38 @@ test("renders an accessible loading state without exposing parent PIN fields", a
     await vite.close();
   }
 });
+
+test("renders child experience choices as accessible on and off switches", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { KidsExperienceSwitch } = await vite.ssrLoadModule(
+      "/src/components/kids/KidsPerformanceSettings.jsx",
+    );
+    const enabledMarkup = renderToStaticMarkup(React.createElement(KidsExperienceSwitch, {
+      checked: true,
+      label: "Read questions aloud",
+      onChange: () => {},
+    }));
+    const disabledMarkup = renderToStaticMarkup(React.createElement(KidsExperienceSwitch, {
+      checked: false,
+      label: "Show countdown to child",
+      onChange: () => {},
+    }));
+
+    assert.match(enabledMarkup, /role="switch"/u);
+    assert.match(enabledMarkup, /aria-label="Read questions aloud"/u);
+    assert.match(enabledMarkup, /checked=""/u);
+    assert.match(enabledMarkup, />On</u);
+    assert.match(disabledMarkup, /role="switch"/u);
+    assert.match(disabledMarkup, /aria-label="Show countdown to child"/u);
+    assert.doesNotMatch(disabledMarkup, /checked=""/u);
+    assert.match(disabledMarkup, />Off</u);
+  } finally {
+    await vite.close();
+  }
+});

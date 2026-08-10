@@ -3,11 +3,46 @@ import test from "node:test";
 import {
   RESUME_WEEKLY_LIMIT,
   RESUME_WINDOW_MS,
+  createFreshResumeBuilderState,
   getResumeEligibility,
   getResumeQuota,
   normalizeResumeBuilderState,
   recordResumeGeneration,
 } from "./resumeBuilder.js";
+
+test("starts a fresh resume without changing PDF usage metadata", () => {
+  const now = Date.UTC(2026, 7, 10, 10);
+  const generatedAt = new Date(now - 60_000).toISOString();
+  const current = normalizeResumeBuilderState({
+    draft: {
+      personal: {
+        fullName: "Saved Candidate",
+        headline: "Loaded resume",
+        email: "saved@example.com",
+      },
+      summary: "This content came from resume history.",
+      skills: ["React"],
+    },
+    layout: { template: "compact", accent: "#5b7cfa" },
+    generationTimestamps: [generatedAt],
+    lastGeneratedAt: generatedAt,
+  }, {}, { now });
+
+  const fresh = createFreshResumeBuilderState(current, {
+    username: "New Candidate",
+    email: "new@example.com",
+  }, { mode: "editing", now });
+
+  assert.equal(fresh.draft.personal.fullName, "New Candidate");
+  assert.equal(fresh.draft.personal.email, "new@example.com");
+  assert.equal(fresh.draft.personal.headline, "");
+  assert.equal(fresh.draft.summary, "");
+  assert.deepEqual(fresh.draft.skills, []);
+  assert.equal(fresh.layout.template, "modern");
+  assert.deepEqual(fresh.generationTimestamps, [generatedAt]);
+  assert.equal(fresh.lastGeneratedAt, generatedAt);
+  assert.equal(fresh.updatedAt, new Date(now).toISOString());
+});
 
 test("resume builder enables requested career categories", () => {
   assert.equal(getResumeEligibility({ academicTrack: "Computer Science & IT" }).enabled, true);

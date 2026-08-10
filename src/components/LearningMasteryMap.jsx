@@ -1,4 +1,5 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Background,
   ControlButton,
@@ -9,18 +10,19 @@ import {
   ReactFlow,
   useNodesState,
 } from "@xyflow/react";
-import { CalendarCheck2, CheckCircle2, CircleDot, Clock3, Lock, RotateCcw, Unlock } from "lucide-react";
+import {
+  CalendarCheck2,
+  Lock,
+  Maximize2,
+  Minimize2,
+  Unlock,
+} from "lucide-react";
 import "@xyflow/react/dist/style.css";
 import "./LearningMasteryMap.css";
-
-const STATUS_META = {
-  new: { label: "New", color: "var(--mastery-tone-new)", icon: CircleDot },
-  ready: { label: "Ready", color: "var(--mastery-tone-ready)", icon: CircleDot },
-  learning: { label: "Learning", color: "var(--mastery-tone-learning)", icon: Clock3 },
-  learned: { label: "Learned", color: "var(--mastery-tone-learned)", icon: CheckCircle2 },
-  review_due: { label: "Review due", color: "var(--mastery-tone-review)", icon: RotateCcw },
-  mastered: { label: "Mastered", color: "var(--mastery-tone-mastered)", icon: CheckCircle2 },
-};
+import {
+  getMasteryMapInteractionProps,
+  MASTERY_STATUS_META,
+} from "./LearningMasteryMap.config";
 
 function progressFrom(source, nodeId) {
   if (source instanceof globalThis.Map) return source.get(nodeId) || {};
@@ -33,11 +35,11 @@ function plannerFrom(source, nodeId) {
 }
 
 function MasteryNode({ data, selected }) {
-  const status = STATUS_META[data.status] || STATUS_META.new;
+  const status = MASTERY_STATUS_META[data.status] || MASTERY_STATUS_META.new;
   const StatusIcon = status.icon;
   return (
     <article
-      className={`mastery-flow-node is-${data.type}${selected || data.isSelected ? " is-selected" : ""}`}
+      className={`mastery-flow-node is-${data.type} has-status-${data.status}${selected || data.isSelected ? " is-selected" : ""}`}
       style={{ "--mastery-node-tone": status.color }}
     >
       {data.type !== "notebook" ? <Handle type="target" position={Position.Left} /> : null}
@@ -96,7 +98,7 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
   };
 
   const connect = (source, target, status = "new") => {
-    const tone = (STATUS_META[status] || STATUS_META.new).color;
+    const tone = (MASTERY_STATUS_META[status] || MASTERY_STATUS_META.new).color;
     edges.push({
       id: `${source}->${target}`,
       source,
@@ -176,7 +178,12 @@ function LearningMasteryMap({
     [notebook, plannerByNodeId, progressByNodeId, selectedNodeId],
   );
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [renderNodes, setRenderNodes, onNodesChange] = useNodesState(flow.nodes);
+  const shellRef = useRef(null);
+  const fullscreenToggleRef = useRef(null);
+  const restoreFocusRef = useRef(null);
+  const interactionProps = getMasteryMapInteractionProps(isUnlocked);
 
   useEffect(() => {
     setRenderNodes((current) => {
@@ -188,42 +195,121 @@ function LearningMasteryMap({
     });
   }, [flow.nodes, setRenderNodes]);
 
-  return (
-    <section className="mastery-flow-shell" aria-label="Interactive mastery map">
-      <div className="mastery-flow-legend" aria-label="Mastery states">
-        {Object.entries(STATUS_META).map(([key, item]) => (
-          <span key={key} style={{ "--legend-tone": item.color }}><i />{item.label}</span>
-        ))}
+  useEffect(() => {
+    if (!isFullscreen || typeof document === "undefined") return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusToggle = () => fullscreenToggleRef.current?.focus();
+    const focusFrame = globalThis.requestAnimationFrame?.(focusToggle);
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsFullscreen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(shellRef.current?.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) || []);
+      if (!focusable.length) {
+        event.preventDefault();
+        shellRef.current?.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      if (focusFrame !== undefined) globalThis.cancelAnimationFrame?.(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      globalThis.requestAnimationFrame?.(() => {
+        const restoreTarget = restoreFocusRef.current;
+        if (restoreTarget?.isConnected) restoreTarget.focus();
+        else document.querySelector('[data-mastery-fullscreen-toggle="true"]')?.focus();
+      });
+    };
+  }, [isFullscreen]);
+
+  const toggleFullscreen = () => {
+    if (!isFullscreen && typeof document !== "undefined") {
+      restoreFocusRef.current = document.activeElement;
+    }
+    setIsFullscreen((current) => !current);
+  };
+
+  const masteryMap = (
+    <section
+      aria-label={isFullscreen ? "Mastery map fullscreen" : "Interactive mastery map"}
+      aria-modal={isFullscreen ? "true" : undefined}
+      className={`mastery-flow-shell${isUnlocked ? " is-unlocked" : " is-locked"}${isFullscreen ? " is-fullscreen" : ""}`}
+      ref={shellRef}
+      role={isFullscreen ? "dialog" : undefined}
+      tabIndex={isFullscreen ? -1 : undefined}
+    >
+      <div className="mastery-flow-header">
+        <div className="mastery-flow-legend" aria-label="Mastery states">
+          {Object.entries(MASTERY_STATUS_META).map(([key, item]) => (
+            <span key={key} style={{ "--legend-tone": item.color }}><i />{item.label}</span>
+          ))}
+        </div>
+        <button
+          aria-label={isFullscreen ? "Exit mastery map fullscreen" : "Open mastery map fullscreen"}
+          aria-pressed={isFullscreen}
+          className="mastery-flow-fullscreen"
+          data-mastery-fullscreen-toggle="true"
+          onClick={toggleFullscreen}
+          ref={fullscreenToggleRef}
+          title={isFullscreen ? "Exit fullscreen" : "View fullscreen"}
+          type="button"
+        >
+          {isFullscreen ? <Minimize2 aria-hidden="true" size={16} /> : <Maximize2 aria-hidden="true" size={16} />}
+        </button>
       </div>
       <div className="mastery-flow-canvas">
         <ReactFlow
+          {...interactionProps}
+          deleteKeyCode={null}
           edges={flow.edges}
-          elementsSelectable={isUnlocked}
           fitView
           fitViewOptions={{ padding: 0.18, minZoom: 0.42, maxZoom: 1.1 }}
+          key={isFullscreen ? "mastery-fullscreen" : "mastery-inline"}
           maxZoom={1.45}
           minZoom={0.28}
+          multiSelectionKeyCode={isUnlocked ? undefined : null}
           nodes={renderNodes}
           nodesConnectable={false}
-          nodesDraggable={isUnlocked}
-          nodesFocusable
           nodeTypes={nodeTypes}
-          onNodeClick={(_, node) => onSelectNode?.(node.id)}
-          onNodeDoubleClick={(_, node) => onStartNode?.(node.id)}
-          onNodesChange={onNodesChange}
+          onNodeClick={isUnlocked ? ((_, node) => onSelectNode?.(node.id)) : undefined}
+          onNodeDoubleClick={isUnlocked ? ((_, node) => onStartNode?.(node.id)) : undefined}
+          onNodesChange={isUnlocked ? onNodesChange : undefined}
           proOptions={{ hideAttribution: true }}
         >
-          <Background color="rgba(var(--accent-rgb), 0.24)" gap={22} size={1.15} />
+          <Background color="rgba(var(--accent-rgb), 0.2)" gap={22} size={1.05} />
           <Controls
-            aria-label="Mastery map zoom and node lock controls"
+            aria-label="Mastery map interaction controls"
             position="bottom-left"
-            showFitView={false}
+            showFitView={isUnlocked}
             showInteractive={false}
+            showZoom={isUnlocked}
           >
             <ControlButton
-              aria-label={isUnlocked ? "Lock mastery map node positions" : "Unlock mastery map node positions"}
+              aria-label={isUnlocked ? "Lock all mastery map interactions" : "Unlock mastery map interactions"}
               onClick={() => setIsUnlocked((current) => !current)}
-              title={isUnlocked ? "Lock mastery map node positions" : "Unlock mastery map node positions"}
+              title={isUnlocked ? "Lock map interactions" : "Unlock map interactions"}
             >
               {isUnlocked ? <Lock aria-hidden="true" size={14} /> : <Unlock aria-hidden="true" size={14} />}
             </ControlButton>
@@ -232,6 +318,10 @@ function LearningMasteryMap({
       </div>
     </section>
   );
+
+  return isFullscreen && typeof document !== "undefined"
+    ? createPortal(masteryMap, document.body)
+    : masteryMap;
 }
 
 export default LearningMasteryMap;

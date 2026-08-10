@@ -138,6 +138,12 @@ test("PWA manifest references valid install icons and same-scope shortcuts", () 
   assert.equal(manifest.scope, "/");
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.name, "PrepMatrix AI");
+  assert.equal(manifest.prefer_related_applications, false);
+  assert.deepEqual(manifest.related_applications, [{
+    platform: "webapp",
+    url: "/manifest.webmanifest",
+    id: "https://prep-matrix-ai.vercel.app/",
+  }]);
 
   const expectedIcons = new Map([
     ["/pwa/brand-icon-192.png", 192],

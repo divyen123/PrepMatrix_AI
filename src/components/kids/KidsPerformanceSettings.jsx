@@ -55,6 +55,30 @@ function progressOverview(progress = {}) {
   };
 }
 
+export function KidsExperienceSwitch({ checked, icon: Icon, label, onChange }) {
+  return (
+    <label className="kids-performance-toggle-row">
+      <span className="kids-performance-toggle-copy">
+        {Icon ? <Icon aria-hidden="true" size={18} /> : null}
+        <span>{label}</span>
+      </span>
+      <span className="kids-performance-switch-control">
+        <input
+          aria-label={label}
+          checked={checked}
+          onChange={(event) => onChange?.(event.target.checked)}
+          role="switch"
+          type="checkbox"
+        />
+        <span aria-hidden="true" className="kids-performance-switch-track" />
+        <span aria-hidden="true" className="kids-performance-switch-status">
+          {checked ? "On" : "Off"}
+        </span>
+      </span>
+    </label>
+  );
+}
+
 export default function KidsPerformanceSettings({
   userProfile = {},
   onParentAccessChange,
@@ -257,24 +281,18 @@ export default function KidsPerformanceSettings({
 
         <fieldset className="kids-performance-toggles">
           <legend>Child experience</legend>
-          <label>
-            <span><Volume2 aria-hidden="true" size={18} /> Read questions aloud</span>
-            <input
-              checked={settings.audioEnabled}
-              onChange={(event) => update("audioEnabled", event.target.checked)}
-              role="switch"
-              type="checkbox"
-            />
-          </label>
-          <label>
-            <span><Clock3 aria-hidden="true" size={18} /> Show countdown to child</span>
-            <input
-              checked={settings.timerVisible}
-              onChange={(event) => update("timerVisible", event.target.checked)}
-              role="switch"
-              type="checkbox"
-            />
-          </label>
+          <KidsExperienceSwitch
+            checked={settings.audioEnabled}
+            icon={Volume2}
+            label="Read questions aloud"
+            onChange={(checked) => update("audioEnabled", checked)}
+          />
+          <KidsExperienceSwitch
+            checked={settings.timerVisible}
+            icon={Clock3}
+            label="Show countdown to child"
+            onChange={(checked) => update("timerVisible", checked)}
+          />
         </fieldset>
 
         <fieldset className="kids-performance-language">

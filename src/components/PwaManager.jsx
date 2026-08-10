@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  CheckCircle2,
   Download,
   RefreshCw,
   Share2,
@@ -16,7 +15,6 @@ import "./PwaManager.css";
 function SurfaceIcon({ surface }) {
   if (surface === "update") return <RefreshCw aria-hidden="true" size={21} />;
   if (surface === "offline") return <WifiOff aria-hidden="true" size={21} />;
-  if (surface === "installed") return <CheckCircle2 aria-hidden="true" size={21} />;
   if (surface === "ios") return <Share2 aria-hidden="true" size={21} />;
   return <Download aria-hidden="true" size={21} />;
 }
@@ -24,7 +22,6 @@ function SurfaceIcon({ surface }) {
 export function PwaStatusDock({
   onApplyUpdate,
   onDismissInstall,
-  onDismissInstalled,
   onDismissIosGuide,
   onDismissUpdate,
   onInstall,
@@ -38,11 +35,6 @@ export function PwaStatusDock({
       eyebrow: "Installable app",
       title: "Install PrepMatrix",
       detail: "Open your study workspace from your home screen or app menu.",
-    },
-    installed: {
-      eyebrow: "Ready to launch",
-      title: "PrepMatrix installed",
-      detail: "You can now open PrepMatrix from your home screen or app menu.",
     },
     ios: {
       eyebrow: "Add to Home Screen",
@@ -135,15 +127,6 @@ export function PwaStatusDock({
           </button>
         )}
 
-        {surface === "installed" && (
-          <button
-            className="pwa-status-dock__secondary pwa-status-dock__acknowledge"
-            onClick={onDismissInstalled}
-            type="button"
-          >
-            Done
-          </button>
-        )}
       </div>
 
       {surface === "install" && (
@@ -152,9 +135,7 @@ export function PwaStatusDock({
           className="pwa-status-dock__close"
           onClick={surface === "install"
             ? onDismissInstall
-            : surface === "ios"
-              ? onDismissIosGuide
-              : onDismissInstalled}
+            : onDismissIosGuide}
           type="button"
         >
           <X aria-hidden="true" size={15} />
@@ -185,7 +166,6 @@ export default function PwaManager({ runtime }) {
     <PwaStatusDock
       onApplyUpdate={() => void controller.applyUpdate()}
       onDismissInstall={controller.dismissInstall}
-      onDismissInstalled={controller.dismissInstalledNotice}
       onDismissIosGuide={controller.dismissIosGuide}
       onDismissUpdate={controller.dismissUpdate}
       onInstall={() => void controller.install()}

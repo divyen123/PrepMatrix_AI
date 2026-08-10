@@ -40,6 +40,7 @@ import {
   RESUME_SECTIONS,
   RESUME_TEMPLATES,
   RESUME_WEEKLY_LIMIT,
+  createFreshResumeBuilderState,
   createResumeItemId,
   getResumeQuota,
   normalizeResumeBuilderState,
@@ -827,23 +828,30 @@ export default function ResumeBuilderPage({
     setResetConfirmOpen(true);
   };
 
-  const confirmReset = () => {
-    closeResetConfirm();
-    onResumeBuilderChange?.((current) => {
-      const normalized = normalizeResumeBuilderState(null, { ...userProfile, ...academicProfile }, EDITING_NORMALIZE_OPTIONS);
-      return {
-        ...normalized,
-        generationTimestamps: current?.generationTimestamps || [],
-        lastGeneratedAt: current?.lastGeneratedAt || null,
-        updatedAt: new Date().toISOString(),
-      };
-    });
+  const startFreshResume = (message) => {
+    historyOpenSequenceRef.current += 1;
+    generationRequestRef.current = null;
+    onResumeBuilderChange?.((current) => createFreshResumeBuilderState(
+      current,
+      { ...userProfile, ...academicProfile },
+      { ...EDITING_NORMALIZE_OPTIONS, now: Date.now() },
+    ));
     skillsInputRef.current = "";
     setSkillsInput("");
     setValidationErrors({});
     setSelectedHistoryId("");
     setActiveSection("profile");
-    announce("success", "Resume draft reset.");
+    setMobileView("edit");
+    announce("success", message);
+  };
+
+  const handleNewResume = () => {
+    startFreshResume("New resume ready. Saved versions and weekly allowance are unchanged.");
+  };
+
+  const confirmReset = () => {
+    closeResetConfirm();
+    startFreshResume("Resume draft reset.");
   };
 
   const handleGenerate = async () => {
@@ -1417,19 +1425,32 @@ export default function ResumeBuilderPage({
         <aside className="resume-preview-panel">
           <header className="resume-preview-panel__header">
             <div><span>Live preview</span><strong>A4 · {RESUME_TEMPLATES.find((item) => item.id === layout.template)?.label}</strong></div>
-            <button
-              aria-controls="resume-preview-fullscreen-dialog"
-              aria-expanded={previewFullscreenOpen}
-              aria-haspopup="dialog"
-              aria-label="Open full screen resume preview"
-              className="resume-icon-button resume-preview-expand-button"
-              onClick={() => setPreviewFullscreenOpen(true)}
-              ref={previewFullscreenTriggerRef}
-              title="Open full screen preview"
-              type="button"
-            >
-              <Maximize2 aria-hidden="true" size={16} />
-            </button>
+            <div className="resume-preview-panel__tools">
+              <button
+                aria-label="Start a new resume"
+                className="resume-icon-button resume-preview-new-button"
+                disabled={generating}
+                onClick={handleNewResume}
+                title="Start a new resume; saved versions are kept"
+                type="button"
+              >
+                <Plus aria-hidden="true" size={15} />
+                <span>New</span>
+              </button>
+              <button
+                aria-controls="resume-preview-fullscreen-dialog"
+                aria-expanded={previewFullscreenOpen}
+                aria-haspopup="dialog"
+                aria-label="Open full screen resume preview"
+                className="resume-icon-button resume-preview-expand-button"
+                onClick={() => setPreviewFullscreenOpen(true)}
+                ref={previewFullscreenTriggerRef}
+                title="Open full screen preview"
+                type="button"
+              >
+                <Maximize2 aria-hidden="true" size={16} />
+              </button>
+            </div>
           </header>
           <div className="resume-preview-stage">
             <ResumePreview draft={previewDraft} layout={layout} />
