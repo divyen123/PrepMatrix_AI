@@ -1465,7 +1465,7 @@ function App() {
             </div>
           </div>
           <SidebarProximityNav
-            items={visibleNavItems.filter((item) => item.to !== "/ai-chat")}
+            items={visibleNavItems.filter((item) => item.to !== "/ai-chat" && item.to !== "/exam")}
             onNavigate={() => setSidebarOpen(false)}
           />
           
@@ -1508,19 +1508,19 @@ function App() {
                 <FloatingAnalytics completed={completed} schedule={schedule} subjects={subjects} />
               </div>
               </Suspense>
-              <div className="sidebar-widget-cell sidebar-exam-widget">
-                <NavLink
-                  aria-label="Open exam workspace"
-                  className={({ isActive }) => `exam-widget-btn${isActive ? " active" : ""}`}
-                  onClick={() => setSidebarOpen(false)}
-                  title="Exam workspace"
-                  to="/exam"
-                >
-                  <ClipboardList aria-hidden="true" size={15} strokeWidth={2.25} />
-                  <span>Exam</span>
-                </NavLink>
-              </div>
             </>)}
+            <div className="sidebar-widget-cell sidebar-exam-widget">
+              <NavLink
+                aria-label="Open exam workspace"
+                className={({ isActive }) => `exam-widget-btn${isActive ? " active" : ""}`}
+                onClick={() => setSidebarOpen(false)}
+                title="Exam workspace"
+                to="/exam"
+              >
+                <ClipboardList aria-hidden="true" size={15} strokeWidth={2.25} />
+                <span>Exam</span>
+              </NavLink>
+            </div>
             <Chatbot
               academicLevel={academicLevel}
               academicTrack={academicTrack}
