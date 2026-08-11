@@ -1465,11 +1465,16 @@ function App() {
             </div>
           </div>
           <SidebarProximityNav
-            items={visibleNavItems}
+            items={visibleNavItems.filter((item) => item.to !== "/ai-chat")}
             onNavigate={() => setSidebarOpen(false)}
           />
           
           <div className="sidebar-widgets">
+            {isKidsLearner && (
+              <div className="sidebar-companion-row">
+                <SidebarStudyPet />
+              </div>
+            )}
             {!isKidsLearner && (<>
               <div className="sidebar-companion-row">
               <SidebarStudyPet />
