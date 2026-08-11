@@ -74,6 +74,11 @@ test("renders a generated notebook in the Study Studio", async () => {
     assert.match(markup, /class="learning-studio-misconceptions__rail" role="region" tabindex="0"/u);
     assert.match(markup, /learning-studio-misconceptions__list/u);
     assert.match(markup, /class="learning-studio-misconceptions__list" role="list"/u);
+    assert.match(markup, /class="learning-studio-misconceptions__controls"[\s\S]*?<form[\s\S]*?aria-label="Add a misconception"/u);
+    assert.ok(
+      markup.indexOf("learning-studio-misconceptions__controls") < markup.indexOf("learning-studio-misconceptions__rail"),
+      "radar controls should precede the saved-card rail",
+    );
     assert.equal((markup.match(/role="listitem"/gu) || []).length, 2);
     assert.match(markup, /<p title="Confuses mean and median">Confuses mean and median<\/p>/u);
     assert.match(markup, /aria-label="Resolve Confuses mean and median"/u);
@@ -98,10 +103,11 @@ test("uses theme-aware horizontal support panels and fixed circular radar contro
   assert.match(stylesheet, /\.learning-studio-sessionbar\s*\{[\s\S]*?var\(--surface\)/u);
   assert.match(stylesheet, /\.learning-studio-coach\s*\{[\s\S]*?grid-column:\s*1\s*\/\s*-1/u);
   assert.match(stylesheet, /\.learning-studio-misconceptions\s*\{[\s\S]*?grid-column:\s*1\s*\/\s*-1/u);
+  assert.match(stylesheet, /\.learning-studio-misconceptions__controls\s*\{[\s\S]*?display:\s*grid[\s\S]*?gap:\s*12px/u);
   assert.match(stylesheet, /\.learning-studio-misconceptions__rail\s*\{[\s\S]*?overflow-x:\s*auto[\s\S]*?scrollbar-gutter:\s*stable/u);
   assert.match(stylesheet, /\.learning-studio-misconceptions__list\s*\{[\s\S]*?display:\s*flex[\s\S]*?width:\s*max-content/u);
-  assert.match(stylesheet, /\.learning-studio-misconceptions article\s*\{[\s\S]*?aspect-ratio:\s*1\s*\/\s*1[\s\S]*?flex:\s*0\s+0\s+clamp\([\s\S]*?height:\s*clamp\([\s\S]*?overflow:\s*hidden/u);
-  assert.match(stylesheet, /\.learning-studio-misconceptions article p\s*\{[\s\S]*?-webkit-line-clamp:\s*4[\s\S]*?max-height:\s*calc\(1\.45em\s*\*\s*4\)[\s\S]*?text-overflow:\s*ellipsis/u);
+  assert.match(stylesheet, /\.learning-studio-misconceptions article\s*\{[\s\S]*?aspect-ratio:\s*1\s*\/\s*1[\s\S]*?flex:\s*0\s+0\s+clamp\(104px[\s\S]*?height:\s*clamp\(104px[\s\S]*?overflow:\s*hidden/u);
+  assert.match(stylesheet, /\.learning-studio-misconceptions article p\s*\{[\s\S]*?-webkit-line-clamp:\s*3[\s\S]*?max-height:\s*calc\(1\.45em\s*\*\s*3\)[\s\S]*?text-overflow:\s*ellipsis/u);
   assert.match(stylesheet, /\.learning-studio-misconceptions article button\s*\{[\s\S]*?border-radius:\s*50%/u);
   assert.match(stylesheet, /\.learning-studio-misconceptions form button\s*\{[\s\S]*?height:\s*32px[\s\S]*?width:\s*32px/u);
 });

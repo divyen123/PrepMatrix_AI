@@ -545,9 +545,20 @@ function LearningStudyStudio({
         </aside>
 
         <section className="learning-studio-misconceptions" aria-label="Misconception radar">
-          <div className="learning-studio-misconceptions__heading">
-            <div><strong>Misconception radar</strong><span>{misconceptions.length}</span></div>
-            <small>Keep uncertain ideas visible until they are resolved.</small>
+          <div className="learning-studio-misconceptions__controls">
+            <div className="learning-studio-misconceptions__heading">
+              <div><strong>Misconception radar</strong><span>{misconceptions.length}</span></div>
+              <small>Keep uncertain ideas visible until they are resolved.</small>
+            </div>
+            <form onSubmit={(event) => {
+              event.preventDefault();
+              if (!misconceptionDraft.trim()) return;
+              onAddMisconception?.(currentNode.id, misconceptionDraft.trim());
+              setMisconceptionDraft("");
+            }}>
+              <input aria-label="Add a misconception" onChange={(event) => setMisconceptionDraft(event.target.value)} placeholder="What still feels unclear?" value={misconceptionDraft} />
+              <button aria-label="Add misconception" disabled={!misconceptionDraft.trim()} title="Add misconception" type="submit"><Check size={22} strokeWidth={2.7} /></button>
+            </form>
           </div>
           <div
             aria-label={misconceptions.length
@@ -569,15 +580,6 @@ function LearningStudyStudio({
               </div>
             ) : <small>No recurring gaps recorded for this concept.</small>}
           </div>
-          <form onSubmit={(event) => {
-            event.preventDefault();
-            if (!misconceptionDraft.trim()) return;
-            onAddMisconception?.(currentNode.id, misconceptionDraft.trim());
-            setMisconceptionDraft("");
-          }}>
-            <input aria-label="Add a misconception" onChange={(event) => setMisconceptionDraft(event.target.value)} placeholder="What still feels unclear?" value={misconceptionDraft} />
-            <button aria-label="Add misconception" disabled={!misconceptionDraft.trim()} title="Add misconception" type="submit"><Check size={22} strokeWidth={2.7} /></button>
-          </form>
         </section>
       </div>
     </div>
