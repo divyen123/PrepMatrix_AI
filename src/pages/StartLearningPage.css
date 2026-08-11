@@ -2703,9 +2703,9 @@ body .learning-completion-action:hover {
 }
 
 body .learning-completion-action.is-complete {
-  color: #f8fffd !important;
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: rgba(var(--accent-rgb), 0.18) !important;
+  border-color: rgba(var(--accent-rgb), 0.32) !important;
 }
 
 body .learning-completion-action.is-unscheduled {
@@ -3503,7 +3503,7 @@ body .learning-page .learning-content-card::before {
 }
 
 body .learning-page .learning-content-card:hover::before {
-  opacity: 0.5 !important;
+  opacity: 0.32 !important;
   transform: translateX(0) !important;
 }
 

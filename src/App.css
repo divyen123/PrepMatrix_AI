@@ -8786,7 +8786,7 @@ button:hover,
 .report-hero-card::before,
 .auth-card::before {
   height: 100% !important;
-  opacity: 0.65 !important;
+  opacity: 0.38 !important;
   z-index: 0 !important;
   background:
     linear-gradient(115deg, transparent 0 24%, rgba(255, 255, 255, 0.24) 34%, transparent 46%),
