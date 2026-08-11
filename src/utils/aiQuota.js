@@ -21,7 +21,7 @@ export const AI_DEFAULT_COSTS = Object.freeze({
 export const AI_FEATURE_LABELS = Object.freeze({
   [AI_FEATURES.CHAT]: "Study chat or voice question",
   [AI_FEATURES.QUIZ]: "Quiz generation",
-  [AI_FEATURES.CAREER_ANALYSIS]: "Career-topic analysis",
+  [AI_FEATURES.CAREER_ANALYSIS]: "Professional-topic analysis",
   [AI_FEATURES.LEARNING_NOTEBOOK]: "Learning notebook",
   [AI_FEATURES.SECURE_EXAM]: "Secure exam preparation",
   [AI_FEATURES.QUESTION_PAPER]: "Question paper",

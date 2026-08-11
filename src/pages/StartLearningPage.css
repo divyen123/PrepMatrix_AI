@@ -2255,6 +2255,10 @@ body .learning-page .learning-intake-choice-card.is-placement {
   --choice-rgb: 124, 92, 246;
 }
 
+body .learning-page .learning-intake-choice-card.is-medical {
+  --choice-rgb: 41, 168, 150;
+}
+
 .learning-intake-choice-card > span {
   display: grid;
   width: 42px;
@@ -2430,6 +2434,10 @@ body .learning-page .learning-saved-kind-card.is-placement {
   --saved-kind-rgb: 124, 92, 246;
 }
 
+body .learning-page .learning-saved-kind-card.is-medical {
+  --saved-kind-rgb: 41, 168, 150;
+}
+
 .learning-saved-kind-card > span {
   display: grid;
   width: 34px;
@@ -2465,13 +2473,19 @@ body .learning-page .learning-saved-kind-card:focus-visible {
   transform: none !important;
 }
 
-.learning-notebook-row.is-placement {
+.learning-notebook-row.is-placement,
+.learning-notebook-row.is-medical {
   grid-template-columns: minmax(0, 1fr);
 }
 
 .learning-notebook-row.is-placement .learning-notebook-select > span:first-child {
   color: rgb(124, 92, 246);
   background: rgba(124, 92, 246, 0.12);
+}
+
+.learning-notebook-row.is-medical .learning-notebook-select > span:first-child {
+  color: rgb(41, 168, 150);
+  background: rgba(41, 168, 150, 0.12);
 }
 
 .learning-placement-source-label {
@@ -2514,18 +2528,22 @@ body .learning-page .learning-saved-panel.card:hover::before {
 }
 
 .learning-workspace.is-intake .learning-notebook-stage,
-.learning-career-workspace {
+.learning-career-workspace,
+.learning-medical-workspace {
   display: none;
 }
 
 .learning-workspace.is-notebook,
-.learning-workspace.is-career {
+.learning-workspace.is-career,
+.learning-workspace.is-medical {
   grid-template-columns: minmax(0, 1fr);
 }
 
 .learning-workspace.is-notebook .learning-source-rail,
 .learning-workspace.is-career .learning-source-rail,
-.learning-workspace.is-career .learning-notebook-stage {
+.learning-workspace.is-medical .learning-source-rail,
+.learning-workspace.is-career .learning-notebook-stage,
+.learning-workspace.is-medical .learning-notebook-stage {
   display: none;
 }
 
@@ -2534,6 +2552,10 @@ body .learning-page .learning-saved-panel.card:hover::before {
 }
 
 .learning-workspace.is-career .learning-career-workspace {
+  display: grid;
+}
+
+.learning-workspace.is-medical .learning-medical-workspace {
   display: grid;
 }
 

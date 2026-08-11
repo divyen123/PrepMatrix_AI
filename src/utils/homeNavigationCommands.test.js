@@ -34,6 +34,7 @@ const STANDARD_CONTENT_ROUTES = new Set([
   GOAL_REMINDER_SHORTCUT_ROUTE,
   "/subjects#subject-library",
   "/learn#subject-mastery",
+  "/learn#medical-training",
   "/analytics#topic-progress",
   "/resume-builder#resume-history",
 ]);
@@ -53,6 +54,7 @@ test("uses only real application routes in the destination catalog", () => {
       "/subjects#subject-library",
       "/learn#subject-mastery",
       "/learn#placement-prep",
+      "/learn#medical-training",
       "/analytics#topic-progress",
       "/resume-builder#resume-history",
     ]
@@ -215,6 +217,40 @@ test("requires exact account availability for gated content destinations", () =>
   });
   assert.equal(eligiblePlacement?.route, "/learn#placement-prep");
   assert.equal(eligiblePlacement?.metadata.destinationId, "placement-prep");
+
+  ["medical training", "open medical reasoning", "start clinical reasoning", "open health sciences training"]
+    .forEach((input) => {
+      assert.equal(
+        resolveHomeNavigationCommand(input, {
+          availableRoutes: ["/learn"],
+        }),
+        null,
+        input,
+      );
+      const eligibleMedical = resolveHomeNavigationCommand(input, {
+        availableRoutes: ["/learn", "/learn#medical-training"],
+      });
+      assert.equal(eligibleMedical?.route, "/learn#medical-training", input);
+      assert.equal(eligibleMedical?.metadata.destinationId, "medical-training", input);
+    });
+  assert.equal(
+    getHomeNavigationSuggestions("clinical reasoning", {
+      availableRoutes: ["/learn"],
+    }).length,
+    0,
+  );
+  assert.equal(
+    resolveHomeNavigationCommand("open placement prep", {
+      availableRoutes: ["/learn", "/learn#medical-training"],
+    }),
+    null,
+  );
+  assert.equal(
+    resolveHomeNavigationCommand("open medical training", {
+      availableRoutes: ["/learn", "/learn#placement-prep"],
+    }),
+    null,
+  );
 
   assert.equal(
     resolveHomeNavigationCommand("open subject mastery", {

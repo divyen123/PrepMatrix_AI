@@ -20,6 +20,7 @@ import {
   Save,
   ShieldCheck,
   Sparkles,
+  Stethoscope,
   Target,
   Trash2,
   UploadCloud,
@@ -35,6 +36,8 @@ import LearningMasteryMap from "../components/LearningMasteryMap";
 import PlacementPrepDisclosure from "../components/PlacementPrepDisclosure";
 import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDialog";
 import LearningStudyStudio from "../components/LearningStudyStudio";
+import MedicalTrainingLab from "../components/MedicalTrainingLab";
+import MedicalTrainingLabIntake from "../components/MedicalTrainingLabIntake";
 import api from "../utils/apiClient";
 import {
   AI_FEATURES,
@@ -76,14 +79,31 @@ import {
   mergePlacementDraft,
 } from "../utils/placementPreparation";
 import {
+  MEDICAL_TRAINING_STARTERS,
+  buildMedicalTrainingActionTarget,
+  buildMedicalTrainingChatPrompt,
+  createMedicalTrainingDraft,
+  getMedicalTrainingInputValues,
+  getSavedMedicalTrainingAnalysis,
+  getSavedMedicalTrainingNotes,
+  mergeMedicalTrainingDraft,
+} from "../utils/medicalTrainingClient.js";
+import {
   getSavedPlacementNotes,
   getStartLearningArtifactKind,
+  isMedicalTrainingHash,
   isPlacementPrepHash,
 } from "../utils/startLearningWorkspace";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
-import { getLearningCareerEligibility } from "../utils/learningNotebook";
+import {
+  getLearningCareerEligibility,
+  getLearningMedicalTrainingEligibility,
+  getLearningPreparationMode,
+} from "../utils/learningNotebook";
 import {
   LEARNING_PRIVACY_CONSENT_VERSION,
+  MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
+  MEDICAL_TRAINING_PRIVACY_CONSENT_VERSION,
   acceptLearningPrivacyConsent,
   hasLearningPrivacyConsent,
 } from "../utils/learningPrivacyConsent";
@@ -339,6 +359,10 @@ function normalizeNotebook(value = {}) {
       source.careerPreparation && typeof source.careerPreparation === "object"
         ? source.careerPreparation
         : null,
+    medicalTraining:
+      source.medicalTraining && typeof source.medicalTraining === "object"
+        ? source.medicalTraining
+        : null,
     updatedAt: source.updatedAt || source.createdAt || new Date().toISOString(),
   };
 }
@@ -539,6 +563,7 @@ function StartLearningPage({
   const notebookSaveChainRef = useRef(Promise.resolve());
   const activeNotebookRef = useRef(null);
   const careerAnalysisRequestRef = useRef({ notebookId: "", pending: false, sequence: 0 });
+  const medicalAnalysisRequestRef = useRef({ notebookId: "", pending: false, sequence: 0 });
   const [notebooks, setNotebooks] = useState([]);
   const [notebooksLoading, setNotebooksLoading] = useState(true);
   const [notebooksError, setNotebooksError] = useState("");
@@ -550,6 +575,11 @@ function StartLearningPage({
   const [careerAnalyzing, setCareerAnalyzing] = useState(false);
   const [careerError, setCareerError] = useState("");
   const [careerDraft, setCareerDraft] = useState(null);
+  const [medicalFocus, setMedicalFocus] = useState("");
+  const [medicalTopics, setMedicalTopics] = useState("");
+  const [medicalAnalyzing, setMedicalAnalyzing] = useState(false);
+  const [medicalError, setMedicalError] = useState("");
+  const [medicalDraft, setMedicalDraft] = useState(null);
   const [sources, setSources] = useState([]);
   const [sourceError, setSourceError] = useState("");
   const [preparingSources, setPreparingSources] = useState(false);
@@ -591,17 +621,34 @@ function StartLearningPage({
   const noteSavingKeysRef = useRef(new Set());
   const [masteryClock, setMasteryClock] = useState(() => Date.now());
 
-  const careerEligibility = useMemo(
-    () => getLearningCareerEligibility({
+  const preparationProfile = useMemo(
+    () => ({
       ...userProfile,
       academicLevel,
       academicTrack,
     }),
     [academicLevel, academicTrack, userProfile],
   );
-  const placementEligible = careerEligibility.enabled;
+  const careerEligibility = useMemo(
+    () => getLearningCareerEligibility(preparationProfile),
+    [preparationProfile],
+  );
+  const medicalEligibility = useMemo(
+    () => getLearningMedicalTrainingEligibility(preparationProfile),
+    [preparationProfile],
+  );
+  const preparationMode = useMemo(
+    () => getLearningPreparationMode(preparationProfile),
+    [preparationProfile],
+  );
+  const placementEligible = preparationMode === "placement" && careerEligibility.enabled;
+  const medicalEligible = preparationMode === "medical" && medicalEligibility.enabled;
   const savedPlacementNotes = useMemo(
     () => getSavedPlacementNotes(notebooks),
+    [notebooks],
+  );
+  const savedMedicalTrainingNotes = useMemo(
+    () => getSavedMedicalTrainingNotes(notebooks),
     [notebooks],
   );
   const activeArtifactKind = getStartLearningArtifactKind({ intakeMode, workspaceView });
@@ -611,6 +658,18 @@ function StartLearningPage({
     if (hash === "#subject-mastery") {
       setMasteryDialogOpen(true);
       return;
+    }
+    if (isMedicalTrainingHash(location.hash) && medicalEligible) {
+      setMedicalError("");
+      setIntakeMode("medical");
+      setWorkspaceView("intake");
+      const frame = window.requestAnimationFrame(() => {
+        document.getElementById("medical-training")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+      return () => window.cancelAnimationFrame(frame);
     }
     if (!isPlacementPrepHash(location.hash) || !placementEligible) return;
 
@@ -624,7 +683,7 @@ function StartLearningPage({
       });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [location.hash, placementEligible]);
+  }, [location.hash, medicalEligible, placementEligible]);
 
   const savedSubjectNames = useMemo(
     () => normalizeSubjectNames(subjects),
@@ -694,7 +753,7 @@ function StartLearningPage({
       sequence: careerAnalysisRequestRef.current.sequence + 1,
     };
     setCareerAnalyzing(false);
-    setIntakeMode(null);
+    setIntakeMode((current) => (current === "placement" ? null : current));
     setWorkspaceView((current) => {
       if (current !== "career") return current;
       return "intake";
@@ -703,6 +762,21 @@ function StartLearningPage({
       navigate("/learn", { replace: true });
     }
   }, [location.hash, navigate, placementEligible]);
+
+  useEffect(() => {
+    if (medicalEligible) return;
+    medicalAnalysisRequestRef.current = {
+      notebookId: "",
+      pending: false,
+      sequence: medicalAnalysisRequestRef.current.sequence + 1,
+    };
+    setMedicalAnalyzing(false);
+    setIntakeMode((current) => (current === "medical" ? null : current));
+    setWorkspaceView((current) => (current === "medical" ? "intake" : current));
+    if (isMedicalTrainingHash(location.hash)) {
+      navigate("/learn", { replace: true });
+    }
+  }, [location.hash, medicalEligible, navigate]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setMasteryClock(Date.now()), 60_000);
@@ -834,9 +908,20 @@ function StartLearningPage({
     careerAnalysis && listFrom(careerAnalysis.topics).some((topic) => cleanText(topic?.title || topic, 180)),
   );
   const careerAnalysisIsDraft = Boolean(activeCareerDraft && careerAnalysisReady);
+  const activeMedicalDraft = medicalDraft?.notebookId === activeNotebook?.id
+    ? medicalDraft
+    : null;
+  const medicalAnalysis = activeMedicalDraft?.analysis
+    || getSavedMedicalTrainingAnalysis(activeNotebook)
+    || null;
+  const medicalAnalysisReady = Boolean(
+    medicalAnalysis && listFrom(medicalAnalysis.modules).some((module) => cleanText(module?.title, 180)),
+  );
+  const medicalAnalysisIsDraft = Boolean(activeMedicalDraft && medicalAnalysisReady);
+  const medicalVisible = Boolean(medicalEligible && medicalAnalysisReady);
 
   const selectNotebook = useCallback((value) => {
-    if (careerAnalyzing || saving) return;
+    if (careerAnalyzing || medicalAnalyzing || saving) return;
     const normalized = normalizeNotebook(value);
     setActiveNotebook(normalized);
     setWorkspaceView("notebook");
@@ -846,10 +931,10 @@ function StartLearningPage({
     setExpandedChapters(new Set(normalized.chapters.slice(0, 1).map((chapter) => chapter.id)));
     setSelectedNodeId(normalized.chapters[0]?.id || "");
 
-  }, [careerAnalyzing, saving]);
+  }, [careerAnalyzing, medicalAnalyzing, saving]);
 
   const selectPlacementNotebook = (notebookId) => {
-    if (careerAnalyzing || saving) return false;
+    if (careerAnalyzing || medicalAnalyzing || saving) return false;
     if (careerDraft && careerDraft.notebookId !== notebookId) {
       const message = "Save the current placement draft before choosing another notebook.";
       setCareerError(message);
@@ -868,15 +953,35 @@ function StartLearningPage({
     return true;
   };
 
+  const selectMedicalNotebook = (notebookId) => {
+    if (careerAnalyzing || medicalAnalyzing || saving) return false;
+    if (medicalDraft && medicalDraft.notebookId !== notebookId) {
+      const message = "Save the current medical training draft before choosing another notebook.";
+      setMedicalError(message);
+      setNotification?.(message);
+      return false;
+    }
+    const notebook = notebooks.find((item) => item.id === notebookId);
+    if (!notebook) return false;
+    const normalized = normalizeNotebook(notebook);
+    const fields = getMedicalTrainingInputValues(normalized, medicalDraft, userProfile);
+    activeNotebookRef.current = normalized;
+    setActiveNotebook(normalized);
+    setMedicalError("");
+    setMedicalFocus(fields.focus);
+    setMedicalTopics(fields.topics);
+    return true;
+  };
+
   const openNotebookIntake = () => {
-    if (analyzing || careerAnalyzing || saving) return;
+    if (analyzing || careerAnalyzing || medicalAnalyzing || saving) return;
     setAnalysisError("");
     setIntakeMode("notebook");
     setWorkspaceView("intake");
   };
 
   const openPlacementIntake = () => {
-    if (!placementEligible || careerAnalyzing || saving) return;
+    if (!placementEligible || careerAnalyzing || medicalAnalyzing || saving) return;
     const draftNotebook = careerDraft
       ? notebooks.find((notebook) => notebook.id === careerDraft.notebookId)
       : null;
@@ -893,11 +998,29 @@ function StartLearningPage({
     setWorkspaceView("intake");
   };
 
+  const openMedicalIntake = () => {
+    if (!medicalEligible || careerAnalyzing || medicalAnalyzing || saving) return;
+    const draftNotebook = medicalDraft
+      ? notebooks.find((notebook) => notebook.id === medicalDraft.notebookId)
+      : null;
+    const targetNotebook = draftNotebook || activeNotebook || notebooks[0] || null;
+    if (targetNotebook) {
+      selectMedicalNotebook(targetNotebook.id);
+    } else {
+      const fields = getMedicalTrainingInputValues(null, null, userProfile);
+      setMedicalFocus(fields.focus);
+      setMedicalTopics(fields.topics);
+    }
+    setMedicalError("");
+    setIntakeMode("medical");
+    setWorkspaceView("intake");
+  };
+
   const returnToPreparationChoice = () => {
-    if (analyzing || careerAnalyzing || saving) return;
+    if (analyzing || careerAnalyzing || medicalAnalyzing || saving) return;
     setWorkspaceView("intake");
     setIntakeMode(null);
-    if (isPlacementPrepHash(location.hash)) {
+    if (isPlacementPrepHash(location.hash) || isMedicalTrainingHash(location.hash)) {
       navigate("/learn", { replace: true });
     }
   };
@@ -908,12 +1031,32 @@ function StartLearningPage({
     setWorkspaceView("career");
   };
 
+  const openSavedMedicalTraining = (note) => {
+    if (!note?.notebookId || !selectMedicalNotebook(note.notebookId)) return;
+    setIntakeMode("medical");
+    setWorkspaceView("medical");
+  };
+
   const addCareerTopic = (title, { openIntake = false } = {}) => {
     if (careerAnalyzing || saving) return;
     const cleanTitle = cleanText(title, 140);
     if (!cleanTitle) return;
     if (openIntake) openPlacementIntake();
     setCareerTopics((current) => {
+      const topics = parseCareerTopics(current);
+      if (topics.some((topic) => topic.toLocaleLowerCase() === cleanTitle.toLocaleLowerCase())) {
+        return topics.join("\n");
+      }
+      return [...topics, cleanTitle].slice(0, 12).join("\n");
+    });
+  };
+
+  const addMedicalTopic = (title, { openIntake = false } = {}) => {
+    if (medicalAnalyzing || saving) return;
+    const cleanTitle = cleanText(title, 140);
+    if (!cleanTitle) return;
+    if (openIntake) openMedicalIntake();
+    setMedicalTopics((current) => {
       const topics = parseCareerTopics(current);
       if (topics.some((topic) => topic.toLocaleLowerCase() === cleanTitle.toLocaleLowerCase())) {
         return topics.join("\n");
@@ -967,6 +1110,27 @@ function StartLearningPage({
     setCareerTopics(fields.topics);
     setCareerError("");
   }, [activeNotebook, careerAnalyzing, careerDraft, intakeMode, notebooks, saving, userProfile]);
+
+  useEffect(() => {
+    if (
+      intakeMode !== "medical"
+      || activeNotebook
+      || medicalAnalyzing
+      || saving
+      || !notebooks.length
+    ) return;
+    const notebook = medicalDraft
+      ? notebooks.find((item) => item.id === medicalDraft.notebookId)
+      : notebooks[0];
+    if (!notebook) return;
+    const normalized = normalizeNotebook(notebook);
+    const fields = getMedicalTrainingInputValues(normalized, medicalDraft, userProfile);
+    activeNotebookRef.current = normalized;
+    setActiveNotebook(normalized);
+    setMedicalFocus(fields.focus);
+    setMedicalTopics(fields.topics);
+    setMedicalError("");
+  }, [activeNotebook, intakeMode, medicalAnalyzing, medicalDraft, notebooks, saving, userProfile]);
 
   useEffect(() => {
     if (!plannerDialogOpen) return;
@@ -1362,6 +1526,116 @@ function StartLearningPage({
     runCareerAnalysis(request);
   };
 
+  const runMedicalAnalysis = async ({ notebookId, trainingFocus, topics }) => {
+    if (hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)) {
+      setMedicalError(getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }));
+      return;
+    }
+
+    const requestNotebookId = cleanText(notebookId, 120);
+    if (!requestNotebookId || medicalAnalysisRequestRef.current.pending) return;
+    if (activeNotebookRef.current?.id !== requestNotebookId) {
+      setMedicalError("The medical training source changed. Review the selected source and try again.");
+      return;
+    }
+    const sequence = medicalAnalysisRequestRef.current.sequence + 1;
+    medicalAnalysisRequestRef.current = {
+      notebookId: requestNotebookId,
+      pending: true,
+      sequence,
+    };
+    setMedicalAnalyzing(true);
+    setMedicalError("");
+    try {
+      const payload = await api.post(
+        `/api/learning-notebooks/${encodeURIComponent(requestNotebookId)}/medical-training-analyze`,
+        {
+          trainingFocus,
+          topics,
+          privacyConsent: {
+            accepted: true,
+            kind: MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
+            version: MEDICAL_TRAINING_PRIVACY_CONSENT_VERSION,
+          },
+        },
+        {
+          timeoutMs: 120000,
+          headers: { "Idempotency-Key": createAiIdempotencyKey() },
+        },
+      );
+      if (!mountedRef.current) return;
+      const currentRequest = medicalAnalysisRequestRef.current;
+      if (
+        currentRequest.sequence !== sequence
+        || currentRequest.notebookId !== requestNotebookId
+        || activeNotebookRef.current?.id !== requestNotebookId
+      ) return;
+      const draft = createMedicalTrainingDraft(payload, {
+        notebookId: requestNotebookId,
+        requestedTopics: topics,
+        trainingFocus,
+      });
+      setMedicalDraft(draft);
+      setMedicalFocus(draft.analysis.trainingTitle || trainingFocus);
+      setMedicalTopics(topics.join("\n"));
+      setWorkspaceView("medical");
+      setNotification?.("Your conceptual reasoning draft is ready. Save it as Medical training.");
+    } catch (error) {
+      const currentRequest = medicalAnalysisRequestRef.current;
+      if (
+        mountedRef.current
+        && currentRequest.sequence === sequence
+        && currentRequest.notebookId === requestNotebookId
+        && activeNotebookRef.current?.id === requestNotebookId
+      ) {
+        setMedicalError(getAiRequestErrorMessage(error, "Medical training could not be generated."));
+      }
+    } finally {
+      const currentRequest = medicalAnalysisRequestRef.current;
+      if (mountedRef.current && currentRequest.sequence === sequence) {
+        medicalAnalysisRequestRef.current = { ...currentRequest, pending: false };
+        setMedicalAnalyzing(false);
+      }
+    }
+  };
+
+  const analyzeMedicalTopics = () => {
+    if (!medicalEligible) {
+      setMedicalError(medicalEligibility.reason);
+      return;
+    }
+    const notebookId = activeNotebook?.id || "";
+    if (!notebookId) {
+      setMedicalError("Choose a saved health-science notebook for this Medical training.");
+      return;
+    }
+    if (medicalDraft && medicalDraft.notebookId !== notebookId) {
+      setMedicalError("Save the current Medical training draft before analyzing a different notebook.");
+      return;
+    }
+    const request = {
+      notebookId,
+      trainingFocus: cleanText(medicalFocus, 160)
+        || medicalEligibility.disciplineLabel
+        || "Health-science conceptual reasoning",
+      topics: parseCareerTopics(medicalTopics),
+    };
+    if (!request.topics.length) {
+      setMedicalError("Add at least one medical or health-science concept to train.");
+      return;
+    }
+    setMedicalError("");
+    if (!hasLearningPrivacyConsent(userProfile?.id, {
+      kind: MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
+      version: MEDICAL_TRAINING_PRIVACY_CONSENT_VERSION,
+    })) {
+      pendingAnalysisRef.current = { kind: "medical", request };
+      setPrivacyConsentOpen(true);
+      return;
+    }
+    runMedicalAnalysis(request);
+  };
+
   const declinePrivacyConsent = () => {
     pendingAnalysisRef.current = null;
     setPrivacyConsentOpen(false);
@@ -1374,11 +1648,18 @@ function StartLearningPage({
       return;
     }
 
-    acceptLearningPrivacyConsent(userProfile?.id);
+    acceptLearningPrivacyConsent(userProfile?.id, pending.kind === "medical"
+      ? {
+          kind: MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
+          version: MEDICAL_TRAINING_PRIVACY_CONSENT_VERSION,
+        }
+      : undefined);
     pendingAnalysisRef.current = null;
     setPrivacyConsentOpen(false);
     if (pending.kind === "career") {
       runCareerAnalysis(pending.request);
+    } else if (pending.kind === "medical") {
+      runMedicalAnalysis(pending.request);
     } else {
       runNotebookAnalysis(pending.request || pending);
     }
@@ -1956,14 +2237,53 @@ function StartLearningPage({
     }
   };
 
+  const saveMedicalTraining = async () => {
+    if (!activeNotebook?.id || !activeMedicalDraft) {
+      setNotification?.("Build a Medical training session before saving it.");
+      return;
+    }
+
+    let snapshot;
+    try {
+      snapshot = mergeMedicalTrainingDraft(activeNotebook, activeMedicalDraft, {
+        savedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      setNotification?.(error instanceof Error ? error.message : "The Medical training draft could not be saved.");
+      return;
+    }
+
+    const draftIdentity = `${activeMedicalDraft.notebookId}:${activeMedicalDraft.generatedAt}`;
+    activeNotebookRef.current = snapshot;
+    setActiveNotebook(snapshot);
+    setDirty(true);
+    const result = await persistActiveNotebook({
+      errorMessage: "Medical training could not be saved.",
+      expectedRevision: snapshot.updatedAt,
+      reconcileListById: true,
+      snapshot,
+      successMessage: "Medical training saved and available in Saved medical training.",
+    });
+    if (result) {
+      setMedicalDraft((current) => (
+        current && `${current.notebookId}:${current.generatedAt}` === draftIdentity
+          ? null
+          : current
+      ));
+    }
+  };
+
   const deleteNotebook = async (notebookId) => {
-    if (careerAnalyzing || saving) return;
+    if (careerAnalyzing || medicalAnalyzing || saving) return;
     setDeletingId(notebookId);
     try {
       await api.delete(`/api/learning-notebooks/${encodeURIComponent(notebookId)}`, { timeoutMs: 30000 });
       if (!mountedRef.current) return;
       setNotebooks((current) => current.filter((notebook) => notebook.id !== notebookId));
       setCareerDraft((current) => (
+        current?.notebookId === notebookId ? null : current
+      ));
+      setMedicalDraft((current) => (
         current?.notebookId === notebookId ? null : current
       ));
       if (activeNotebook?.id === notebookId) {
@@ -2241,6 +2561,56 @@ function StartLearningPage({
       },
     }));
   };
+
+  const medicalActionTarget = (module, item, kind, index) => buildMedicalTrainingActionTarget({
+    focus: medicalAnalysis?.trainingTitle || medicalFocus,
+    index,
+    item,
+    kind,
+    module,
+    notebook: activeNotebook,
+  });
+
+  const saveMedicalItem = (target, reasoning = {}) => {
+    const answer = cleanText(reasoning?.answer, 5_000);
+    const prompt = cleanText(reasoning?.prompt, 900);
+    const reference = cleanText(
+      reasoning?.reference || target?.explanation,
+      4_000,
+    );
+    return saveLearningTopicToNotes(target, {
+      details: [
+        prompt ? ["Reasoning prompt", prompt].join("\n") : "",
+        answer ? ["My reasoning", answer].join("\n") : "",
+        reference ? ["Reference reasoning and safety framework", reference].join("\n") : "",
+      ].filter(Boolean).join("\n\n"),
+      title: target.title,
+    });
+  };
+
+  const askMedicalItemAI = (target, module) => {
+    if (!target || !activeNotebook || !module) return;
+    if (medicalAnalysisIsDraft) {
+      setNotification?.("Save this Medical training before opening its audited study-coach session.");
+      return;
+    }
+    window.dispatchEvent(new CustomEvent("openPrepMatrixAIChat", {
+      detail: {
+        context: {
+          artifact: "medical-training",
+          mode: "education-only",
+          notebookId: target.metadata?.notebookId,
+          moduleId: target.metadata?.moduleId,
+        },
+        createNewChat: true,
+        message: buildMedicalTrainingChatPrompt({
+          focus: medicalAnalysis?.trainingTitle || medicalFocus,
+          module,
+          target,
+        }),
+      },
+    }));
+  };
   const toggleLearningNodeCompletion = (node) => {
     const state = completionStateByNodeId.get(node?.id);
     if (!node || !state?.isScheduled) {
@@ -2395,9 +2765,14 @@ function StartLearningPage({
   const noSavedPlacementNotes = !notebooksLoading
     && !notebooksError
     && savedPlacementNotes.length === 0;
+  const noSavedMedicalTraining = !notebooksLoading
+    && !notebooksError
+    && savedMedicalTrainingNotes.length === 0;
   const savedPanelEmpty = activeArtifactKind === "placement"
     ? noSavedPlacementNotes
-    : noSavedNotebooks;
+    : activeArtifactKind === "medical"
+      ? noSavedMedicalTraining
+      : noSavedNotebooks;
   return (
     <div className="learning-page">
       <section
@@ -2431,13 +2806,13 @@ function StartLearningPage({
         {workspaceView !== "intake" && activeNotebook && (
           <nav className="learning-hero-controls" aria-label="Start Learning view">
             <div className="learning-workspace-context">
-              {workspaceView === "career"
-                ? <BriefcaseBusiness aria-hidden="true" size={15} />
-                : <BookOpenCheck aria-hidden="true" size={15} />}
+              {workspaceView === "career" ? <BriefcaseBusiness aria-hidden="true" size={15} />
+                : workspaceView === "medical" ? <Stethoscope aria-hidden="true" size={15} />
+                  : <BookOpenCheck aria-hidden="true" size={15} />}
               <span>
-                {workspaceView === "career"
-                  ? "Placement preparation"
-                  : "Notebook preparation"}
+                {workspaceView === "career" ? "Placement preparation"
+                  : workspaceView === "medical" ? "Medical training"
+                    : "Notebook preparation"}
               </span>
             </div>
             <button
@@ -2455,14 +2830,23 @@ function StartLearningPage({
 
       <div className={`learning-workspace is-${workspaceView}`}>
         <aside className="learning-source-rail" aria-label="Sources and saved work">
-          <section className="card learning-intake-source-panel" id="placement-prep">
+          <section
+            className="card learning-intake-source-panel"
+            id={intakeMode === "medical" ? "medical-training" : "placement-prep"}
+          >
           {intakeMode === null ? (
             <div className="learning-intake-choice">
               <div className="learning-panel-heading">
                 <div>
                   <span className="section-tag">Choose a workspace</span>
                   <h3>What do you want to prepare?</h3>
-                  <p>Keep course notebooks and placement notes in separate workspaces.</p>
+                  <p>
+                    {medicalEligible
+                      ? "Keep course notebooks and Medical training in separate workspaces."
+                      : placementEligible
+                        ? "Keep course notebooks and placement notes in separate workspaces."
+                        : "Build and revisit focused course notebooks in one learning workspace."}
+                  </p>
                 </div>
               </div>
               <div className="learning-intake-choice-grid">
@@ -2490,18 +2874,31 @@ function StartLearningPage({
                     <ChevronRight aria-hidden="true" size={18} />
                   </button>
                 )}
+                {medicalEligible && (
+                  <button
+                    className="learning-intake-choice-card is-medical"
+                    onClick={openMedicalIntake}
+                    type="button"
+                  >
+                    <span><Stethoscope aria-hidden="true" size={21} /></span>
+                    <strong>Medical training</strong>
+                    <small>Practice fictional cases, conceptual reasoning, evidence, uncertainty, and safety.</small>
+                    <em>{savedMedicalTrainingNotes.length} saved</em>
+                    <ChevronRight aria-hidden="true" size={18} />
+                  </button>
+                )}
               </div>
             </div>
           ) : (
             <div className="learning-intake-flow-bar">
               <div>
-                {intakeMode === "placement"
-                  ? <BriefcaseBusiness aria-hidden="true" size={16} />
-                  : <BookOpenCheck aria-hidden="true" size={16} />}
+                {intakeMode === "placement" ? <BriefcaseBusiness aria-hidden="true" size={16} />
+                  : intakeMode === "medical" ? <Stethoscope aria-hidden="true" size={16} />
+                    : <BookOpenCheck aria-hidden="true" size={16} />}
                 <strong>
-                  {intakeMode === "placement"
-                    ? "Placement preparation"
-                    : "Notebook preparation"}
+                  {intakeMode === "placement" ? "Placement preparation"
+                    : intakeMode === "medical" ? "Medical training"
+                      : "Notebook preparation"}
                 </strong>
               </div>
               <button
@@ -2796,6 +3193,37 @@ function StartLearningPage({
             </div>
           )}
           </>
+          ) : intakeMode === "medical" ? (
+          <MedicalTrainingLabIntake
+            analyzing={medicalAnalyzing}
+            canAnalyze={Boolean(
+              activeNotebook?.id
+              && parseCareerTopics(medicalTopics).length
+              && !medicalAnalyzing
+              && !saving
+              && !hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)
+            )}
+            error={medicalError}
+            focus={medicalFocus}
+            notebooks={notebooks}
+            notebooksLoading={notebooksLoading}
+            onAnalyze={analyzeMedicalTopics}
+            onFocusChange={(value) => {
+              setMedicalFocus(value);
+              setMedicalError("");
+            }}
+            onNotebookChange={selectMedicalNotebook}
+            onQuickAdd={addMedicalTopic}
+            onTopicsChange={(value) => {
+              setMedicalTopics(value);
+              setMedicalError("");
+            }}
+            saving={saving}
+            selectedNotebookId={activeNotebook?.id || ""}
+            suggestedTopics={MEDICAL_TRAINING_STARTERS}
+            topicCount={parseCareerTopics(medicalTopics).length}
+            topics={medicalTopics}
+          />
           ) : intakeMode === "placement" ? (
           <div className="learning-placement-intake">
             <div className="learning-panel-heading">
@@ -2896,13 +3324,13 @@ function StartLearningPage({
           <section className="card learning-saved-panel">
           <div className="learning-saved-heading">
             <div>
-              {activeArtifactKind === "placement"
-                ? <BriefcaseBusiness aria-hidden="true" size={16} />
-                : <Layers3 aria-hidden="true" size={16} />}
+              {activeArtifactKind === "placement" ? <BriefcaseBusiness aria-hidden="true" size={16} />
+                : activeArtifactKind === "medical" ? <Stethoscope aria-hidden="true" size={16} />
+                  : <Layers3 aria-hidden="true" size={16} />}
               <strong>
-                {activeArtifactKind === "placement"
-                  ? "Saved placement notes"
-                  : activeArtifactKind === "notebook" ? "Saved notebooks" : "Saved work"}
+                {activeArtifactKind === "placement" ? "Saved placement notes"
+                  : activeArtifactKind === "medical" ? "Saved Medical training"
+                    : activeArtifactKind === "notebook" ? "Saved notebooks" : "Saved work"}
               </strong>
             </div>
             {notebooksLoading && <LoaderCircle aria-label="Loading saved work" className="spinner" size={15} />}
@@ -2929,13 +3357,21 @@ function StartLearningPage({
                   <ChevronRight aria-hidden="true" size={16} />
                 </button>
               )}
+              {medicalEligible && (
+                <button className="learning-saved-kind-card is-medical" onClick={openMedicalIntake} type="button">
+                  <span><Stethoscope aria-hidden="true" size={17} /></span>
+                  <strong>{savedMedicalTrainingNotes.length}</strong>
+                  <small>Saved Medical training</small>
+                  <ChevronRight aria-hidden="true" size={16} />
+                </button>
+              )}
             </div>
           )}
           {activeArtifactKind !== null && savedPanelEmpty && (
             <p className="learning-notebooks-empty-message">
-              {activeArtifactKind === "placement"
-                ? "No saved placement notes yet"
-                : "No saved notebooks yet"}
+              {activeArtifactKind === "placement" ? "No saved placement notes yet"
+                : activeArtifactKind === "medical" ? "No saved Medical training yet"
+                  : "No saved notebooks yet"}
             </p>
           )}
           {activeArtifactKind === "notebook" && (
@@ -3010,6 +3446,31 @@ function StartLearningPage({
                     <span>
                       <strong>{note.title}</strong>
                       <small>{note.topicCount} topics · {formatNotebookDate(note.updatedAt)}</small>
+                      <small className="learning-placement-source-label">From {note.notebook.title}</small>
+                    </span>
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+          {activeArtifactKind === "medical" && (
+            <div className="learning-notebook-list">
+              {savedMedicalTrainingNotes.map((note) => (
+                <article
+                  className={`learning-notebook-row is-medical${activeNotebook?.id === note.notebookId && workspaceView === "medical" ? " is-active" : ""}`}
+                  key={note.id}
+                >
+                  <button
+                    aria-current={activeNotebook?.id === note.notebookId && workspaceView === "medical" ? "page" : undefined}
+                    className="learning-notebook-select"
+                    disabled={medicalAnalyzing || saving}
+                    onClick={() => openSavedMedicalTraining(note)}
+                    type="button"
+                  >
+                    <span><Stethoscope aria-hidden="true" size={16} /></span>
+                    <span>
+                      <strong>{note.title}</strong>
+                      <small>{note.topicCount} modules · {formatNotebookDate(note.updatedAt)}</small>
                       <small className="learning-placement-source-label">From {note.notebook.title}</small>
                     </span>
                   </button>
@@ -3550,6 +4011,29 @@ function StartLearningPage({
             </>
           )}
         </section>
+        {activeNotebook && medicalVisible && (
+          <section className="learning-medical-workspace" aria-label="Medical training and conceptual reasoning">
+            <MedicalTrainingLab
+              analysis={medicalAnalysis}
+              analyzing={medicalAnalyzing}
+              focus={medicalAnalysis?.trainingTitle || medicalFocus}
+              getActionTarget={medicalActionTarget}
+              isDraft={medicalAnalysisIsDraft}
+              isItemSaving={(target) => isLearningNoteSaving(target, {
+                details: target.explanation,
+                title: target.title,
+              })}
+              onAddToPlanner={openPlannerForNode}
+              onAskAI={askMedicalItemAI}
+              onQuickAdd={(title) => addMedicalTopic(title, { openIntake: true })}
+              onSaveDraft={saveMedicalTraining}
+              onSaveItem={saveMedicalItem}
+              saving={saving}
+              suggestedTopics={MEDICAL_TRAINING_STARTERS}
+              topicCount={parseCareerTopics(medicalTopics).length}
+            />
+          </section>
+        )}
         {activeNotebook && careerVisible && (
           <section className="learning-career-workspace" aria-label="Placement and internship preparation">
             <section className="card learning-career-intro">
@@ -3781,26 +4265,50 @@ function StartLearningPage({
             </div>
 
             <div className="learning-privacy-copy" id="learning-privacy-description">
-              <p>
-                To build a notebook or placement-preparation guide, PrepMatrix sends uploaded
-                PDFs, images, notes, prompts, subjects, chapters, target roles, or topics you enter,
-                together with relevant academic-profile context, to Google Gemini for AI processing.
-              </p>
-              <p>
-                If Gemini cannot complete the request, the same information may be sent to
-                Groq as a fallback.
-              </p>
-              <p>
-                PrepMatrix saves the generated notebook and source metadata, such as file name,
-                type, size, and coverage. Raw uploaded or typed source contents are not saved in
-                notebook records. Placement topics and their generated preparation guide are saved
-                with the notebook so you can return to them.
-              </p>
+              {pendingAnalysisRef.current?.kind === "medical" ? (
+                <>
+                  <p>
+                    To build Medical training, PrepMatrix sends only the academic training focus,
+                    concept labels, and relevant registered academic-profile context to Google
+                    Gemini for AI processing. The selected notebook is an owned save location; its
+                    uploaded source contents are not included in this Medical training request.
+                  </p>
+                  <p>
+                    If Gemini cannot complete the request, the same focus, concept labels, and
+                    academic context may be sent to Groq as a fallback.
+                  </p>
+                  <p>
+                    The generated reasoning guide stays a draft until you explicitly save it. Use
+                    fictional or de-identified academic scenarios only. Never enter patient names,
+                    records, images, contact details, identifiers, symptoms, or requests for diagnosis,
+                    dosing, prescribing, treatment, or emergency decisions.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    To build a notebook or placement-preparation guide, PrepMatrix sends uploaded
+                    PDFs, images, notes, prompts, subjects, chapters, target roles, or topics you enter,
+                    together with relevant academic-profile context, to Google Gemini for AI processing.
+                  </p>
+                  <p>
+                    If Gemini cannot complete the request, the same information may be sent to
+                    Groq as a fallback.
+                  </p>
+                  <p>
+                    PrepMatrix saves the generated notebook and source metadata, such as file name,
+                    type, size, and coverage. Raw uploaded or typed source contents are not saved in
+                    notebook records. Placement topics and their generated preparation guide are saved
+                    with the notebook so you can return to them.
+                  </p>
+                </>
+              )}
             </div>
 
             <p className="learning-privacy-warning">
-              Only continue with material you are allowed to share. Avoid confidential,
-              sensitive, or personally identifying information.
+              {pendingAnalysisRef.current?.kind === "medical"
+                ? "Educational conceptual practice only; not medical advice or clinical decision support."
+                : "Only continue with material you are allowed to share. Avoid confidential, sensitive, or personally identifying information."}
             </p>
 
             <div className="learning-dialog-actions learning-privacy-actions">

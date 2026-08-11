@@ -231,6 +231,23 @@ const DESTINATIONS = Object.freeze([
     ],
   }),
   defineDestination({
+    id: "medical-training",
+    route: "/learn#medical-training",
+    label: "Medical Training",
+    description: "Interactive conceptual reasoning, fictional cases, and viva practice",
+    content: true,
+    aliases: [
+      "medical training",
+      "medical reasoning",
+      "clinical reasoning",
+      "health sciences training",
+    ],
+    intentPatterns: [
+      /\b(?:show|open|view|start|begin)\s+(?:my\s+|the\s+)?(?:medical\s+training|(?:medical|clinical)\s+reasoning|health\s+sciences?\s+training)\b/,
+      /\bpractice\s+(?:medical|clinical)\s+(?:concepts?|reasoning)\b/,
+    ],
+  }),
+  defineDestination({
     id: "planner",
     route: "/planner",
     label: "Planner",

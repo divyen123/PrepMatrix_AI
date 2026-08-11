@@ -6,8 +6,9 @@ function cleanText(value, maxLength = 180) {
 
 export function getStartLearningArtifactKind({ intakeMode, workspaceView } = {}) {
   if (workspaceView === "career") return "placement";
+  if (workspaceView === "medical") return "medical";
   if (workspaceView === "notebook") return "notebook";
-  return intakeMode === "placement" || intakeMode === "notebook" ? intakeMode : null;
+  return ["medical", "notebook", "placement"].includes(intakeMode) ? intakeMode : null;
 }
 
 export function getSavedPlacementNotes(notebooks = []) {
@@ -30,4 +31,8 @@ export function getSavedPlacementNotes(notebooks = []) {
 
 export function isPlacementPrepHash(value) {
   return String(value || "").trim().toLocaleLowerCase() === "#placement-prep";
+}
+
+export function isMedicalTrainingHash(value) {
+  return String(value || "").trim().toLocaleLowerCase() === "#medical-training";
 }

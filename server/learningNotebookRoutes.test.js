@@ -26,7 +26,12 @@ import {
   requestLearningVisionText,
   registerLearningNotebookRoutes,
 } from "./learningNotebookRoutes.js";
-import { LEARNING_PRIVACY_CONSENT_VERSION } from "../src/utils/learningPrivacyConsent.js";
+import { MEDICAL_TRAINING_EDUCATIONAL_NOTICE } from "../src/utils/learningNotebook.js";
+import {
+  LEARNING_PRIVACY_CONSENT_VERSION,
+  MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
+  MEDICAL_TRAINING_PRIVACY_CONSENT_VERSION,
+} from "../src/utils/learningPrivacyConsent.js";
 
 const TEST_IDEMPOTENCY_KEY = "9f0c91cc-6c62-4a41-8c44-b6a364cc31f8";
 
@@ -1107,6 +1112,133 @@ test("keeps optional generation sizes on the existing standard notebook contract
     standardHighPrompt,
     /Put important exam, placement, or conceptual questions first/u,
   );
+});
+
+test("uses medical no-placement and no-dose prompts for advanced medical ordinary notebooks", async () => {
+  const medicalProfiles = [
+    {
+      label: "postgraduate medicine",
+      profile: {
+        academicLevel: "Postgraduate / Master's",
+        academicTrack: "Medical & Health Sciences",
+        degree: "MD Medicine",
+        department: "Internal Medicine",
+      },
+      body: {
+        subjectName: "Pathophysiology",
+        chapterNames: ["Inflammation"],
+      },
+    },
+    {
+      label: "doctoral public health",
+      profile: {
+        academicLevel: "Doctoral / PhD",
+        academicTrack: "Medical & Health Sciences",
+        degree: "PhD in Public Health",
+        department: "Epidemiology",
+      },
+      body: {
+        subjectName: "Epidemiology",
+        chapterNames: ["Study design"],
+      },
+    },
+  ];
+
+  for (const { label, profile, body } of medicalProfiles) {
+    let requestBody = null;
+    const harness = createLearningRouteHarness({
+      fetchImpl: async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return geminiNotebookResponse();
+      },
+    });
+
+    const response = await harness.analyze(body, profile);
+
+    assert.equal(response.statusCode, 201, label);
+    const systemPrompt = requestBody.systemInstruction.parts[0].text;
+    const userPrompt = requestBody.contents[0].parts.at(-1).text;
+    const combinedPrompt = `${systemPrompt}\n${userPrompt}`;
+    assert.match(
+      systemPrompt,
+      /Placement preparation is replaced by a separate Medical training workflow/iu,
+      label,
+    );
+    assert.match(
+      systemPrompt,
+      /do not add placement, internship, resume, or job-interview guidance/iu,
+      label,
+    );
+    assert.match(
+      userPrompt,
+      /Put important exam and conceptual-reasoning questions first/iu,
+      label,
+    );
+    assert.match(
+      userPrompt,
+      /Do not frame this ordinary notebook as placement preparation/iu,
+      label,
+    );
+    assert.match(
+      userPrompt,
+      /do not .*provide diagnosis, prescribing, dosing, treatment, or patient-specific advice/iu,
+      label,
+    );
+    assert.doesNotMatch(
+      combinedPrompt,
+      /Put important exam, placement, or conceptual questions first/iu,
+      label,
+    );
+    assert.doesNotMatch(
+      combinedPrompt,
+      /(?:recommend|prescribe|administer|take)\s+\d+(?:\.\d+)?\s*(?:mg|mcg|ug|g|ml|units?)/iu,
+      label,
+    );
+    assert.equal(response.body.notebook.careerPreparation.enabled, false, label);
+    assert.equal(response.body.notebook.medicalTraining.enabled, true, label);
+    assert.equal(harness.stored.length, 1, label);
+    assert.equal(harness.aiQuota.calls.refund.length, 0, label);
+  }
+});
+
+test("keeps ordinary nonmedical postgraduate notebooks placement-aware", async () => {
+  let requestBody = null;
+  const harness = createLearningRouteHarness({
+    fetchImpl: async (_url, options) => {
+      requestBody = JSON.parse(options.body);
+      return geminiNotebookResponse();
+    },
+  });
+
+  const response = await harness.analyze({
+    subjectName: "Corporate Finance",
+    chapterNames: ["Capital budgeting"],
+  }, {
+    academicLevel: "Postgraduate / Master's",
+    academicTrack: "Business & Management",
+    degree: "MBA",
+    department: "Finance",
+  });
+
+  assert.equal(response.statusCode, 201);
+  const systemPrompt = requestBody.systemInstruction.parts[0].text;
+  const userPrompt = requestBody.contents[0].parts.at(-1).text;
+  assert.match(
+    systemPrompt,
+    /Career preparation is enabled for this profile and must be tailored to: "Finance"/u,
+  );
+  assert.match(
+    userPrompt,
+    /Put important exam, placement, or conceptual questions first/u,
+  );
+  assert.doesNotMatch(
+    `${systemPrompt}\n${userPrompt}`,
+    /separate Medical training workflow|diagnosis, prescribing, dosing/iu,
+  );
+  assert.equal(response.body.notebook.careerPreparation.enabled, true);
+  assert.equal(response.body.notebook.medicalTraining.enabled, false);
+  assert.equal(harness.stored.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
 });
 
 test("uses smaller, meaningfully different Low and High contracts only for authenticated K-3 learners", async () => {
@@ -2252,6 +2384,94 @@ function validCareerTopicAnalysis(topics = ["Arrays", "Graphs"]) {
   };
 }
 
+function validMedicalTrainingAnalysis(topics = ["Fluid balance", "Tissue perfusion"]) {
+  return {
+    trainingTitle: "Conceptual clinical reasoning",
+    overview: "Use fictional cases to compare mechanisms, evidence, uncertainty, and safety principles.",
+    educationalNotice: MEDICAL_TRAINING_EDUCATIONAL_NOTICE,
+    modules: topics.map((title, index) => ({
+      id: `medical-module-${index + 1}`,
+      title,
+      conceptOverview: `${title} is explored through mechanism, evidence interpretation, and explicit uncertainty.`,
+      whyItMatters: `${title} supports safe, structured conceptual reasoning within the learner's verified discipline.`,
+      fictionalCase: {
+        summary: `A fictional, non-identifying classroom scenario illustrates a pattern related to ${title}.`,
+        learningObjective: `Compare conceptual explanations for the fictional ${title} pattern.`,
+      },
+      reasoningSteps: [
+        {
+          id: `medical-module-${index + 1}-reasoning-1`,
+          prompt: "Identify the governing concepts and relevant variables.",
+          explanation: "Start with mechanism and describe what the conceptual model predicts.",
+        },
+        {
+          id: `medical-module-${index + 1}-reasoning-2`,
+          prompt: "Compare the plausible educational hypotheses.",
+          explanation: "Keep uncertainty visible and identify evidence that separates the options.",
+        },
+        {
+          id: `medical-module-${index + 1}-reasoning-3`,
+          prompt: "Reassess the model using the fictional evidence.",
+          explanation: "Explain which findings strengthen or weaken each conceptual option.",
+        },
+      ],
+      differentials: [{
+        name: "Mechanism-based conceptual option",
+        rationale: "The option follows from the modeled physiology in the fictional scenario.",
+        distinguishingClues: ["A fictional trend", "A modeled relationship"],
+      }],
+      investigations: [{
+        name: "Conceptual evidence check",
+        rationale: "The check tests a prediction made by the educational model.",
+        expectedPattern: "A fictional pattern that would support one option over another.",
+      }],
+      managementPrinciples: [
+        "Compare monitoring, communication, and supervision principles at a high level.",
+      ],
+      redFlags: [
+        "Recognize conceptual patterns that require qualified supervision and escalation.",
+      ],
+      vivaChecks: [
+        {
+          id: `medical-module-${index + 1}-viva-1`,
+          question: `Which mechanism best explains the fictional ${title} pattern?`,
+          guidance: "State the model, evidence, uncertainty, and a reasonable alternative.",
+        },
+        {
+          id: `medical-module-${index + 1}-viva-2`,
+          question: "Which new evidence would most change your reasoning?",
+          guidance: "Choose discriminating evidence and explain its conceptual effect.",
+        },
+      ],
+      practiceSteps: [
+        "Draw the mechanism as a concept map.",
+        "Compare two fictional hypotheses in an evidence table.",
+        "Explain how one new fictional finding changes the reasoning.",
+      ],
+    })),
+    trainingPlan: [
+      {
+        id: "medical-phase-1",
+        title: "Mechanism foundations",
+        description: "Build an accurate conceptual model before interpreting cases.",
+        actions: ["Map the governing variables.", "Review key relationships."],
+      },
+      {
+        id: "medical-phase-2",
+        title: "Fictional case reasoning",
+        description: "Compare alternatives while keeping uncertainty explicit.",
+        actions: ["Create an evidence table.", "Identify discriminating clues."],
+      },
+      {
+        id: "medical-phase-3",
+        title: "Viva and reflection",
+        description: "Practice concise explanations and reflect on safety boundaries.",
+        actions: ["Complete the viva checks.", "Summarize the education-only boundary."],
+      },
+    ],
+  };
+}
+
 function createCareerRouteHarness({
   fetchImpl,
   geminiConfig = { available: true, apiKey: "gemini-key" },
@@ -2343,6 +2563,77 @@ function createCareerRouteHarness({
         },
       };
       await routes.get("POST /api/learning-notebooks/:id/career-analyze")(req, res);
+      return res;
+    },
+    async analyzeMedical(body = {}) {
+      const req = {
+        body: {
+          privacyConsent: {
+            accepted: true,
+            kind: MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
+            version: MEDICAL_TRAINING_PRIVACY_CONSENT_VERSION,
+          },
+          trainingFocus: "Conceptual clinical reasoning",
+          topics: "Fluid balance, Tissue perfusion",
+          ...body,
+        },
+        params: { id: "507f1f77bcf86cd799439011" },
+        user: {
+          _id: "user-1",
+          academicLevel: "Medical / Health Sciences",
+          academicTrack: "Medical & Health Sciences",
+          degree: "MBBS",
+          department: "Medicine",
+          ...user,
+        },
+        headers: { "idempotency-key": TEST_IDEMPOTENCY_KEY },
+      };
+      const res = {
+        body: null,
+        headers: {},
+        statusCode: 200,
+        set(name, value) {
+          this.headers[name] = String(value);
+          return this;
+        },
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
+        json(payload) {
+          this.body = payload;
+          return this;
+        },
+      };
+      await routes.get("POST /api/learning-notebooks/:id/medical-training-analyze")(req, res);
+      return res;
+    },
+    async patchNotebook(notebook = {}) {
+      const req = {
+        body: { notebook },
+        params: { id: "507f1f77bcf86cd799439011" },
+        user: {
+          _id: "user-1",
+          academicLevel: "Medical / Health Sciences",
+          academicTrack: "Medical & Health Sciences",
+          degree: "MBBS",
+          department: "Medicine",
+          ...user,
+        },
+      };
+      const res = {
+        body: null,
+        statusCode: 200,
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
+        json(payload) {
+          this.body = payload;
+          return this;
+        },
+      };
+      await routes.get("PATCH /api/learning-notebooks/:id")(req, res);
       return res;
     },
   };
@@ -2548,6 +2839,12 @@ test("rejects career analysis for non-college learner profiles before provider w
       degree: "PMP",
       department: "",
     },
+    {
+      academicLevel: "Medical / Health Sciences",
+      academicTrack: "Medical & Health Sciences",
+      degree: "MBBS",
+      department: "Medicine",
+    },
   ];
 
   for (const user of ineligibleProfiles) {
@@ -2567,4 +2864,374 @@ test("rejects career analysis for non-college learner profiles before provider w
     assert.equal(harness.dbCalls, 0);
     assert.equal(fetchCalls, 0);
   }
+});
+
+test("requires the dedicated Medical Training privacy acknowledgement before any AI work", async () => {
+  const harness = createCareerRouteHarness();
+  const res = await harness.analyzeMedical({
+    privacyConsent: {
+      accepted: true,
+      version: LEARNING_PRIVACY_CONSENT_VERSION,
+    },
+  });
+
+  assert.equal(res.statusCode, 428);
+  assert.equal(res.body.code, "LEARNING_PRIVACY_CONSENT_REQUIRED");
+  assert.equal(res.body.consentKind, MEDICAL_TRAINING_PRIVACY_CONSENT_KIND);
+  assert.equal(res.body.consentVersion, MEDICAL_TRAINING_PRIVACY_CONSENT_VERSION);
+  assert.equal(harness.dbCalls, 0);
+  assert.equal(harness.aiQuota.calls.lookup.length, 0);
+  assert.equal(harness.aiQuota.calls.reserve.length, 0);
+});
+
+test("uses discipline-aware Gemini output for a transient medical training draft without persistence", async () => {
+  const requests = [];
+  const harness = createCareerRouteHarness({
+    user: {
+      academicLevel: "Medical / Health Sciences",
+      academicTrack: "Medical & Health Sciences",
+      degree: "B.Sc Nursing",
+      department: "Nursing",
+    },
+    fetchImpl: async (url, options) => {
+      requests.push({ url, body: JSON.parse(options.body) });
+      return geminiNotebookResponse(
+        validMedicalTrainingAnalysis(["Fluid balance", "Tissue perfusion"]),
+      );
+    },
+  });
+
+  const res = await harness.analyzeMedical({
+    trainingFocus: "Nursing assessment reasoning",
+    topics: "Fluid balance, Tissue perfusion",
+  });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(requests.length, 1);
+  assert.match(requests[0].url, /generativelanguage\.googleapis\.com/u);
+  assert.equal(
+    requests[0].body.generationConfig.responseJsonSchema.properties.educationalNotice.type,
+    "string",
+  );
+  assert.match(
+    requests[0].body.contents[0].parts[0].text,
+    /Authoritative discipline mode: "nursing" \("Nursing"\)/u,
+  );
+  assert.match(
+    requests[0].body.contents[0].parts[0].text,
+    /Never assume physician diagnosis or prescribing scope/u,
+  );
+  assert.equal(harness.updates.length, 0);
+  assert.equal(res.body.transient, true);
+  assert.equal(res.body.trainingKind, "medical");
+  assert.equal(res.body.medicalTraining.educationalNotice, MEDICAL_TRAINING_EDUCATIONAL_NOTICE);
+  assert.deepEqual(
+    res.body.medicalTraining.modules.map((module) => module.title),
+    ["Fluid balance", "Tissue perfusion"],
+  );
+  assert.equal(res.body.notebook.medicalTraining.topicAnalysis.modules.length, 0);
+  assert.equal(harness.aiQuota.calls.lookup.length, 1);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.reserve[0].feature, "career_analysis");
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.deepEqual(harness.aiQuota.calls.commit[0].replayPayload, res.body);
+  assert.equal(harness.aiQuota.calls.commit[0].resultRef.type, "medical_training_draft");
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+  assert.equal(res.headers["X-AI-Credit-Cost"], "5");
+});
+
+test("accepts explicitly inapplicable management and safety arrays without inventing care guidance", async () => {
+  const nonClinical = validMedicalTrainingAnalysis(["Biostatistical bias", "Population sampling"]);
+  nonClinical.modules.forEach((module) => {
+    module.managementPrinciples = [];
+    module.redFlags = [];
+  });
+  const harness = createCareerRouteHarness({
+    fetchImpl: async () => geminiNotebookResponse(nonClinical),
+    user: {
+      academicLevel: "Postgraduate / Master's",
+      academicTrack: "Medical & Health Sciences",
+      degree: "MPH",
+      department: "Public Health",
+    },
+  });
+
+  const res = await harness.analyzeMedical({
+    trainingFocus: "Public-health reasoning",
+    topics: "Biostatistical bias, Population sampling",
+  });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.medicalTraining.modules[0].managementPrinciples.length, 0);
+  assert.equal(res.body.medicalTraining.modules[0].redFlags.length, 0);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("rejects nonmedical profiles and personal medical advice before quota, database, or provider work", async () => {
+  let nonmedicalFetchCalls = 0;
+  const nonmedical = createCareerRouteHarness({
+    user: {
+      academicLevel: "Undergraduate / Bachelor's",
+      academicTrack: "Engineering & Technology",
+      degree: "B.Tech",
+      department: "Computer Science",
+    },
+    fetchImpl: async () => {
+      nonmedicalFetchCalls += 1;
+      return geminiNotebookResponse(validMedicalTrainingAnalysis());
+    },
+  });
+
+  const nonmedicalRes = await nonmedical.analyzeMedical();
+
+  assert.equal(nonmedicalRes.statusCode, 403);
+  assert.equal(nonmedicalRes.body.code, "LEARNING_MEDICAL_TRAINING_NOT_ELIGIBLE");
+  assert.equal(nonmedical.dbCalls, 0);
+  assert.equal(nonmedicalFetchCalls, 0);
+  assert.equal(nonmedical.aiQuota.calls.lookup.length, 0);
+  assert.equal(nonmedical.aiQuota.calls.reserve.length, 0);
+
+  let adviceFetchCalls = 0;
+  const personalAdvice = createCareerRouteHarness({
+    fetchImpl: async () => {
+      adviceFetchCalls += 1;
+      return geminiNotebookResponse(validMedicalTrainingAnalysis(["Cardiovascular physiology"]));
+    },
+  });
+
+  const adviceRes = await personalAdvice.analyzeMedical({
+    trainingFocus: "What should I take for my chest pain?",
+    topics: "Cardiovascular physiology",
+  });
+
+  assert.equal(adviceRes.statusCode, 400);
+  assert.equal(adviceRes.body.code, "LEARNING_MEDICAL_PERSONAL_ADVICE_NOT_ALLOWED");
+  assert.equal(personalAdvice.dbCalls, 0);
+  assert.equal(adviceFetchCalls, 0);
+  assert.equal(personalAdvice.aiQuota.calls.lookup.length, 0);
+  assert.equal(personalAdvice.aiQuota.calls.reserve.length, 0);
+
+  const patientIdentifier = createCareerRouteHarness({
+    fetchImpl: async () => {
+      adviceFetchCalls += 1;
+      return geminiNotebookResponse(validMedicalTrainingAnalysis(["Cardiovascular physiology"]));
+    },
+  });
+  for (const topics of [
+    "Patient name: Example Person; MRN: 12345; chest pain",
+    "Patient name is Example Person",
+    "MRN ABC123",
+    "Date of birth is 12 May 2000",
+  ]) {
+    const identifierRes = await patientIdentifier.analyzeMedical({ topics });
+    assert.equal(identifierRes.statusCode, 400);
+    assert.equal(identifierRes.body.code, "LEARNING_MEDICAL_PERSONAL_ADVICE_NOT_ALLOWED");
+  }
+  assert.equal(patientIdentifier.dbCalls, 0);
+  assert.equal(patientIdentifier.aiQuota.calls.lookup.length, 0);
+  assert.equal(patientIdentifier.aiQuota.calls.reserve.length, 0);
+  assert.equal(adviceFetchCalls, 0);
+});
+
+test("rejects unsafe client-supplied Medical training before notebook persistence", async () => {
+  const unsafe = validMedicalTrainingAnalysis(["Fluid balance"]);
+  unsafe.modules[0].managementPrinciples = ["Start aspirin immediately."];
+  const harness = createCareerRouteHarness();
+
+  const res = await harness.patchNotebook({
+    medicalTraining: {
+      enabled: true,
+      topicAnalysis: unsafe,
+    },
+  });
+
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.code, "LEARNING_MEDICAL_TRAINING_UNSAFE");
+  assert.equal(harness.updates.length, 0);
+
+  const legacyHarness = createCareerRouteHarness();
+  const legacyRes = await legacyHarness.patchNotebook({
+    careerPreparation: {
+      topicAnalysis: {
+        targetRole: "Legacy clinical preparation",
+        overview: "Legacy content.",
+        topics: [{
+          id: "legacy-topic",
+          title: "Tissue perfusion",
+          explanation: "Start aspirin immediately.",
+          interviewQuestions: [],
+          practiceSteps: [],
+        }],
+        preparationPlan: [],
+      },
+    },
+  });
+
+  assert.equal(legacyRes.statusCode, 400);
+  assert.equal(legacyRes.body.code, "LEARNING_MEDICAL_TRAINING_UNSAFE");
+  assert.equal(legacyHarness.updates.length, 0);
+});
+
+test("rejects unsafe medical model output and refunds its reserved credits", async () => {
+  const unsafe = validMedicalTrainingAnalysis(["Fluid balance", "Tissue perfusion"]);
+  unsafe.modules[0].managementPrinciples = ["Give 50 mg aspirin immediately."];
+  let fetchCalls = 0;
+  const harness = createCareerRouteHarness({
+    groqConfig: { available: false, message: "Groq unavailable." },
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return geminiNotebookResponse(unsafe);
+    },
+  });
+
+  const res = await harness.analyzeMedical();
+
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.body.code, "LEARNING_OUTPUT_INVALID");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.match(res.body.error, /credits were refunded/iu);
+  assert.equal(fetchCalls, 1);
+  assert.equal(harness.updates.length, 0);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+  assert.equal(harness.aiQuota.calls.refund[0].reservationToken, "reservation-1");
+});
+
+test("rejects a no-dose treatment recommendation from medical training output", async () => {
+  const unsafe = validMedicalTrainingAnalysis(["Fluid balance", "Tissue perfusion"]);
+  unsafe.modules[0].managementPrinciples = ["Recommended treatment: aspirin."];
+  const harness = createCareerRouteHarness({
+    groqConfig: { available: false, message: "Groq unavailable." },
+    fetchImpl: async () => geminiNotebookResponse(unsafe),
+  });
+
+  const res = await harness.analyzeMedical();
+
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.body.code, "LEARNING_OUTPUT_INVALID");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.equal(harness.updates.length, 0);
+  assert.equal(harness.aiQuota.calls.commit.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("rejects identifying medical training output before commit and refunds credits", async () => {
+  const unsafe = validMedicalTrainingAnalysis(["Fluid balance", "Tissue perfusion"]);
+  unsafe.modules[0].fictionalCase.summary = "Patient name: Example Person; MRN: 12345.";
+  const harness = createCareerRouteHarness({
+    groqConfig: { available: false, message: "Groq unavailable." },
+    fetchImpl: async () => geminiNotebookResponse(unsafe),
+  });
+
+  const res = await harness.analyzeMedical();
+
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.body.code, "LEARNING_OUTPUT_INVALID");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.equal(harness.updates.length, 0);
+  assert.equal(harness.aiQuota.calls.commit.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("rejects newline diagnosis headings after structured JSON parsing and refunds credits", async () => {
+  const unsafe = validMedicalTrainingAnalysis(["Fluid balance", "Tissue perfusion"]);
+  unsafe.modules[0].conceptOverview = "### Final diagnosis\nMyocardial infarction.";
+  const harness = createCareerRouteHarness({
+    groqConfig: { available: false, message: "Groq unavailable." },
+    fetchImpl: async () => geminiNotebookResponse(unsafe),
+  });
+
+  const res = await harness.analyzeMedical();
+
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.body.code, "LEARNING_OUTPUT_INVALID");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.equal(harness.updates.length, 0);
+  assert.equal(harness.aiQuota.calls.commit.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("rejects empty core medical teaching content before commit and refunds credits", async () => {
+  const incomplete = validMedicalTrainingAnalysis(["Fluid balance", "Tissue perfusion"]);
+  incomplete.modules[0].reasoningSteps[0].explanation = " ";
+  incomplete.trainingPlan[0].actions = [];
+  const harness = createCareerRouteHarness({
+    groqConfig: { available: false, message: "Groq unavailable." },
+    fetchImpl: async () => geminiNotebookResponse(incomplete),
+  });
+
+  const res = await harness.analyzeMedical();
+
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.body.code, "LEARNING_OUTPUT_INVALID");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.equal(harness.updates.length, 0);
+  assert.equal(harness.aiQuota.calls.commit.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("rejects replaying a placement-analysis idempotency result through medical training", async () => {
+  let fetchCalls = 0;
+  const aiQuota = createTestAiQuota({
+    lookup: async () => ({
+      state: "replay",
+      eventId: "completed-placement-event",
+      cost: 5,
+      quota: { ...TEST_QUOTA, used: 5, reserved: 0 },
+      replayPayload: {
+        notebook: { id: "507f1f77bcf86cd799439011" },
+        topicAnalysis: validCareerTopicAnalysis(["Arrays", "Graphs"]),
+        providerModel: "saved-model",
+        transient: true,
+      },
+    }),
+  });
+  const harness = createCareerRouteHarness({
+    aiQuota,
+    geminiConfig: { available: false, message: "Gemini unavailable." },
+    groqConfig: { available: false, message: "Groq unavailable." },
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return geminiNotebookResponse(validMedicalTrainingAnalysis());
+    },
+  });
+
+  const res = await harness.analyzeMedical();
+
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.code, "AI_IDEMPOTENCY_KEY_CONFLICT");
+  assert.equal(fetchCalls, 0);
+  assert.equal(harness.dbCalls, 1);
+  assert.equal(aiQuota.calls.lookup.length, 1);
+  assert.equal(aiQuota.calls.reserve.length, 0);
+  assert.equal(aiQuota.calls.commit.length, 0);
+  assert.equal(aiQuota.calls.refund.length, 0);
+});
+
+test("refunds without persisting a medical draft when transient quota commit fails", async () => {
+  const aiQuota = createTestAiQuota({
+    commit: async () => {
+      const error = new Error("AI credit storage unavailable.");
+      error.status = 503;
+      error.code = "AI_QUOTA_UNAVAILABLE";
+      throw error;
+    },
+  });
+  const harness = createCareerRouteHarness({
+    aiQuota,
+    fetchImpl: async () => geminiNotebookResponse(validMedicalTrainingAnalysis()),
+  });
+
+  const res = await harness.analyzeMedical();
+
+  assert.equal(res.statusCode, 503);
+  assert.equal(res.body.code, "AI_QUOTA_UNAVAILABLE");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.equal(harness.updates.length, 0);
+  assert.equal(aiQuota.calls.commit.length, 1);
+  assert.equal(aiQuota.calls.commit[0].reservationToken, "reservation-1");
+  assert.equal(aiQuota.calls.refund.length, 1);
+  assert.equal(aiQuota.calls.refund[0].reservationToken, "reservation-1");
 });

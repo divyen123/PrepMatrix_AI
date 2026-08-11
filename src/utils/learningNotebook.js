@@ -9,14 +9,60 @@ export const MAX_LEARNING_TOPICS = 36;
 export const MAX_LEARNING_SUBTOPICS = 12;
 export const MAX_LEARNING_MIND_MAP_NODES = 180;
 export const MAX_LEARNING_CAREER_TOPICS = 12;
+export const MEDICAL_TRAINING_EDUCATIONAL_NOTICE =
+  "Educational conceptual practice only; not medical advice, diagnosis, treatment, prescribing, dosing, or emergency guidance.";
 
 const CAREER_ELIGIBLE_BANDS = new Set([
   "undergraduate",
   "postgraduate",
   "doctoral",
-  "medical",
   "law",
 ]);
+
+const MEDICAL_TRAINING_HIGHER_ED_BANDS = new Set([
+  "undergraduate",
+  "postgraduate",
+  "doctoral",
+  "medical",
+]);
+
+const MEDICAL_PROFILE_PATTERN = /\b(?:medical|medicine|health sciences?|mbbs|bds|bams|bhms|md|ms surgery|dentistry|dental|oral health|nursing|nurse|pharmacy|pharmacology|pharm d|physiotherapy|physical therapy|rehabilitation|occupational therapy|public health|epidemiology|community health|mph|allied health|medical laboratory|clinical laboratory|laboratory medicine|radiography|medical imaging|optometry|speech therapy|respiratory therapy|audiology|nutrition|dietetics|paramedic|emergency medical|dialysis|perfusion|anesthesia technology|operation theatre|prosthetics|orthotics)\b/u;
+
+const MEDICAL_DISCIPLINES = Object.freeze({
+  medicine: "Clinical medicine",
+  dentistry: "Dentistry",
+  nursing: "Nursing",
+  pharmacy: "Pharmacy",
+  rehabilitation: "Rehabilitation and physiotherapy",
+  "public-health": "Public health",
+  "allied-health": "Allied health sciences",
+  "health-sciences": "Health sciences",
+});
+
+function medicalDisciplineForProfile(academic) {
+  const text = [academic.degree, academic.department, academic.academicTrack]
+    .filter(Boolean).join(" ").toLocaleLowerCase();
+  if (/\b(?:bds|dentistry|dental|oral health)\b/u.test(text)) return "dentistry";
+  if (/\b(?:nursing|nurse|bsc nurs|msc nurs)\b/u.test(text)) return "nursing";
+  if (/\b(?:pharmacy|pharmacology|pharm d|b pharm|m pharm|pharmacist)\b/u.test(text)) return "pharmacy";
+  if (/\b(?:physiotherapy|physical therapy|rehabilitation|occupational therapy|bpt|mpt)\b/u.test(text)) return "rehabilitation";
+  if (/\b(?:public health|epidemiology|community health|mph)\b/u.test(text)) return "public-health";
+  if (/\b(?:allied health|laboratory|radiography|imaging|optometry|speech therapy|respiratory therapy|audiology|nutrition|dietetics|paramedic|emergency medical|dialysis|perfusion|anesthesia technology|operation theatre|prosthetics|orthotics)\b/u.test(text)) return "allied-health";
+  if (/\b(?:mbbs|medicine|medical|md |ms |surgery|physician)\b/u.test(text)) return "medicine";
+  return "health-sciences";
+}
+
+function isMedicalTrainingProfile(academic) {
+  if (academic?.schoolType === "school" || !MEDICAL_TRAINING_HIGHER_ED_BANDS.has(academic?.band)) {
+    return false;
+  }
+  if (academic.band === "medical") return true;
+  const profileText = [academic.academicTrack, academic.degree, academic.department]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase();
+  return MEDICAL_PROFILE_PATTERN.test(profileText);
+}
 
 const CODING_PROFILE_PATTERN = /\b(?:ai|artificial intelligence|computer|computing|data|electronics|engineering|information technology|it|machine learning|programming|software)\b/iu;
 const DIFFICULTIES = new Set(["easy", "medium", "hard"]);
@@ -167,7 +213,8 @@ export function getLearningCareerEligibility(profile = {}) {
       || academic.academicLevel,
     180,
   );
-  const enabled = CAREER_ELIGIBLE_BANDS.has(academic.band);
+  const medicalTrainingProfile = isMedicalTrainingProfile(academic);
+  const enabled = CAREER_ELIGIBLE_BANDS.has(academic.band) && !medicalTrainingProfile;
   const codingText = [
     academic.degree,
     academic.department,
@@ -181,8 +228,37 @@ export function getLearningCareerEligibility(profile = {}) {
     field,
     reason: enabled
       ? `Career preparation is tailored to ${field || academic.academicLevel}.`
-      : "Career preparation is shown only for college and higher-education degree profiles.",
+      : medicalTrainingProfile
+        ? "Placement preparation is replaced by Medical training for medical and health-sciences profiles."
+        : "Career preparation is shown only for eligible college and higher-education degree profiles.",
   };
+}
+
+export function getLearningMedicalTrainingEligibility(profile = {}) {
+  const hasExplicitProfile = [profile?.academicLevel, profile?.academicTrack, profile?.degree, profile?.department]
+    .some((value) => cleanInline(value, 160));
+  if (!hasExplicitProfile) {
+    return { enabled: false, field: "", disciplineMode: "", disciplineLabel: "", reason: "Medical training needs a completed medical or health-sciences profile." };
+  }
+  const academic = normalizeAcademicProfile(profile);
+  const field = cleanInline(academic.department || academic.degree || (academic.academicTrack !== "General" ? academic.academicTrack : "") || academic.academicLevel, 180);
+  const enabled = isMedicalTrainingProfile(academic);
+  const disciplineMode = enabled ? medicalDisciplineForProfile(academic) : "";
+  return {
+    enabled,
+    field,
+    disciplineMode,
+    disciplineLabel: MEDICAL_DISCIPLINES[disciplineMode] || "",
+    reason: enabled
+      ? `Medical training is calibrated to ${field || academic.academicLevel}.`
+      : "Medical training is available only for verified medical and health-sciences profiles.",
+  };
+}
+
+export function getLearningPreparationMode(profile = {}) {
+  if (getLearningMedicalTrainingEligibility(profile).enabled) return "medical";
+  if (getLearningCareerEligibility(profile).enabled) return "placement";
+  return "notebook";
 }
 
 function normalizeImportantQuestions(value) {
@@ -742,9 +818,135 @@ export function normalizeLearningCareerTopicAnalysis(value = {}, options = {}) {
   };
 }
 
-function normalizeCareerPreparation(value, profile) {
+function normalizeMedicalFictionalCase(value) {
+  const source = value && typeof value === "object" ? value : { summary: value };
+  return {
+    summary: cleanContent(source.summary ?? source.case ?? source.scenario, 1800),
+    learningObjective: cleanContent(source.learningObjective ?? source.objective, 700),
+  };
+}
+
+function normalizeMedicalReasoningSteps(value, moduleId) {
+  const rows = Array.isArray(value) ? value : [];
+  return rows.slice(0, 8).flatMap((item, index) => {
+    const source = item && typeof item === "object" ? item : { prompt: item };
+    const prompt = cleanContent(source.prompt ?? source.title ?? source.step ?? source.text, 700);
+    const explanation = cleanContent(source.explanation ?? source.reasoning ?? source.guidance, 1800);
+    if (!prompt && !explanation) return [];
+    return [{ id: cleanIdentifier(source.id, `${moduleId}-reasoning-${index + 1}`), prompt: prompt || `Reasoning step ${index + 1}`, explanation }];
+  });
+}
+
+function normalizeMedicalDifferentials(value) {
+  const rows = Array.isArray(value) ? value : [];
+  return rows.slice(0, 8).flatMap((item) => {
+    const source = item && typeof item === "object" ? item : { name: item };
+    const name = cleanInline(source.name ?? source.title ?? source.hypothesis, 180);
+    if (!name) return [];
+    return [{
+      name,
+      rationale: cleanContent(source.rationale ?? source.reasoning ?? source.explanation, 1200),
+      distinguishingClues: normalizeStringList(source.distinguishingClues ?? source.clues ?? source.features, { maxItems: 6, maxLength: 360 }),
+    }];
+  });
+}
+
+function normalizeMedicalInvestigations(value) {
+  const rows = Array.isArray(value) ? value : [];
+  return rows.slice(0, 8).flatMap((item) => {
+    const source = item && typeof item === "object" ? item : { name: item };
+    const name = cleanInline(source.name ?? source.title ?? source.assessment, 180);
+    if (!name) return [];
+    return [{
+      name,
+      rationale: cleanContent(source.rationale ?? source.reasoning ?? source.purpose, 1200),
+      expectedPattern: cleanContent(source.expectedPattern ?? source.expectedFinding ?? source.interpretation, 800),
+    }];
+  });
+}
+
+export function normalizeLearningMedicalTrainingAnalysis(value = {}, options = {}) {
+  const source = value && typeof value === "object" ? value : {};
+  const requestedTopics = normalizeLearningCareerTopics(options.requestedTopics);
+  const rows = Array.isArray(source.modules) ? source.modules : [];
+  const maximum = requestedTopics.length || MAX_LEARNING_CAREER_TOPICS;
+  const modules = [];
+  for (let index = 0; index < maximum; index += 1) {
+    const requestedTitle = requestedTopics[index];
+    const matchingRow = requestedTitle
+      ? rows.find((item) => item && typeof item === "object" && cleanInline(item.title ?? item.name, 180).toLocaleLowerCase() === requestedTitle.toLocaleLowerCase()) || rows[index]
+      : rows[index];
+    const item = matchingRow && typeof matchingRow === "object" ? matchingRow : { title: matchingRow };
+    const title = requestedTitle || cleanInline(item.title ?? item.name, 180);
+    if (!title) continue;
+    const moduleId = cleanIdentifier(item.id, `medical-module-${index + 1}`);
+    modules.push({
+      id: moduleId,
+      title,
+      conceptOverview: cleanContent(item.conceptOverview ?? item.explanation ?? item.overview, 3000),
+      whyItMatters: cleanContent(item.whyItMatters ?? item.reason ?? item.importance, 1000),
+      fictionalCase: normalizeMedicalFictionalCase(item.fictionalCase ?? item.case),
+      reasoningSteps: normalizeMedicalReasoningSteps(item.reasoningSteps ?? item.reasoning, moduleId),
+      differentials: normalizeMedicalDifferentials(item.differentials ?? item.hypotheses),
+      investigations: normalizeMedicalInvestigations(item.investigations ?? item.evidenceChecks ?? item.assessments),
+      managementPrinciples: normalizeStringList(item.managementPrinciples ?? item.scopePrinciples, { maxItems: 8, maxLength: 500 }),
+      redFlags: normalizeStringList(item.redFlags ?? item.safetySignals, { maxItems: 8, maxLength: 420 }),
+      vivaChecks: normalizeCareerTopicQuestions(item.vivaChecks ?? item.questions, moduleId),
+      practiceSteps: normalizeStringList(item.practiceSteps ?? item.drills, { maxItems: 8, maxLength: 500 }),
+    });
+  }
+  return {
+    trainingTitle: cleanInline(options.trainingFocus ?? source.trainingTitle ?? source.targetRole, 180),
+    overview: cleanContent(source.overview ?? source.summary, 3000),
+    educationalNotice: MEDICAL_TRAINING_EDUCATIONAL_NOTICE,
+    modules,
+    trainingPlan: normalizeCareerPreparationPlan(source.trainingPlan ?? source.preparationPlan ?? source.plan),
+  };
+}
+
+function convertLegacyCareerAnalysisToMedical(value = {}) {
+  const legacy = normalizeLearningCareerTopicAnalysis(value);
+  return normalizeLearningMedicalTrainingAnalysis({
+    trainingTitle: legacy.targetRole || "Medical training",
+    overview: legacy.overview,
+    modules: legacy.topics.map((topic) => ({
+      id: topic.id,
+      title: topic.title,
+      conceptOverview: topic.explanation,
+      whyItMatters: topic.whyItMatters,
+      fictionalCase: { summary: "", learningObjective: "" },
+      reasoningSteps: topic.practiceSteps.map((step, index) => ({ id: `${topic.id}-reasoning-${index + 1}`, prompt: step, explanation: "" })),
+      differentials: [], investigations: [], managementPrinciples: [], redFlags: [],
+      vivaChecks: topic.interviewQuestions,
+      practiceSteps: topic.practiceSteps,
+    })),
+    trainingPlan: legacy.preparationPlan,
+  });
+}
+
+function normalizeMedicalTraining(value, profile, legacyCareerPreparation, { preserveLegacy = false } = {}) {
+  const eligibility = getLearningMedicalTrainingEligibility(profile);
+  const empty = normalizeLearningMedicalTrainingAnalysis();
+  if (!eligibility.enabled) return { ...eligibility, legacySource: false, topicAnalysis: empty };
+  const source = value && typeof value === "object" ? value : {};
+  const ownAnalysis = normalizeLearningMedicalTrainingAnalysis(source.topicAnalysis ?? source.analysis ?? source);
+  const legacyAnalysis = preserveLegacy
+    ? convertLegacyCareerAnalysisToMedical(legacyCareerPreparation?.topicAnalysis)
+    : empty;
+  const useLegacy = ownAnalysis.modules.length === 0 && legacyAnalysis.modules.length > 0;
+  return {
+    ...eligibility,
+    legacySource: useLegacy,
+    topicAnalysis: useLegacy ? legacyAnalysis : ownAnalysis,
+  };
+}
+
+function normalizeCareerPreparation(value, profile, options = {}) {
   const eligibility = getLearningCareerEligibility(profile);
   if (!eligibility.enabled) {
+    const preserveMedicalLegacy = options.preserveMedicalLegacy === true
+      && getLearningMedicalTrainingEligibility(profile).enabled;
+    const legacySource = value && typeof value === "object" ? value : {};
     return {
       enabled: false,
       codingRelevant: false,
@@ -754,7 +956,9 @@ function normalizeCareerPreparation(value, profile) {
       skills: [],
       interviewQuestions: [],
       codingTopics: [],
-      topicAnalysis: normalizeLearningCareerTopicAnalysis(),
+      topicAnalysis: preserveMedicalLegacy
+        ? normalizeLearningCareerTopicAnalysis(legacySource.topicAnalysis)
+        : normalizeLearningCareerTopicAnalysis(),
     };
   }
 
@@ -905,6 +1109,13 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
     careerPreparation: normalizeCareerPreparation(
       source?.careerPreparation,
       options.profile || {},
+      { preserveMedicalLegacy: options.preserveLegacyMedicalCareer === true },
+    ),
+    medicalTraining: normalizeMedicalTraining(
+      source?.medicalTraining,
+      options.profile || {},
+      source?.careerPreparation,
+      { preserveLegacy: options.preserveLegacyMedicalCareer === true },
     ),
     sources: normalizeSources(options.sources ?? source?.sources ?? source?.sourceFiles),
     learningState: normalizeLearningState(

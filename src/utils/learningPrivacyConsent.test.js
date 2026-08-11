@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   LEARNING_PRIVACY_CONSENT_VERSION,
+  MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
+  MEDICAL_TRAINING_PRIVACY_CONSENT_VERSION,
   acceptLearningPrivacyConsent,
   getLearningPrivacyConsentStorageKey,
   hasLearningPrivacyConsent,
@@ -56,6 +58,33 @@ test("requires fresh consent when the disclosure version changes", () => {
   assert.equal(
     hasLearningPrivacyConsent(accountId, { storage, version: "notice-v2" }),
     false,
+  );
+});
+
+test("keeps Medical Training consent separate from notebook and placement consent", () => {
+  const storage = createStorage();
+  const accountId = "student-medical-consent";
+  const medicalOptions = {
+    kind: MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
+    storage,
+    version: MEDICAL_TRAINING_PRIVACY_CONSENT_VERSION,
+  };
+
+  acceptLearningPrivacyConsent(accountId, { storage });
+  assert.equal(hasLearningPrivacyConsent(accountId, { storage }), true);
+  assert.equal(hasLearningPrivacyConsent(accountId, medicalOptions), false);
+
+  const medicalConsent = acceptLearningPrivacyConsent(accountId, medicalOptions);
+  assert.deepEqual(medicalConsent, {
+    accepted: true,
+    acceptedAt: medicalConsent.acceptedAt,
+    kind: MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
+    version: MEDICAL_TRAINING_PRIVACY_CONSENT_VERSION,
+  });
+  assert.equal(hasLearningPrivacyConsent(accountId, medicalOptions), true);
+  assert.notEqual(
+    getLearningPrivacyConsentStorageKey(accountId),
+    getLearningPrivacyConsentStorageKey(accountId, medicalOptions),
   );
 });
 

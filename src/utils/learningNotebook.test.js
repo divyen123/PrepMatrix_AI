@@ -6,11 +6,15 @@ import {
   MAX_LEARNING_MIND_MAP_NODES,
   MAX_LEARNING_SUBTOPICS,
   MAX_LEARNING_TOPICS,
+  MEDICAL_TRAINING_EDUCATIONAL_NOTICE,
   getLearningCareerEligibility,
+  getLearningMedicalTrainingEligibility,
+  getLearningPreparationMode,
   hasGeneratedLearningNotebookDepth,
   hasLearningNotebookShape,
   normalizeLearningCareerTopicAnalysis,
   normalizeLearningCareerTopics,
+  normalizeLearningMedicalTrainingAnalysis,
   normalizeLearningNotebook,
 } from "./learningNotebook.js";
 
@@ -270,6 +274,235 @@ test("gates career preparation by academic category and field", () => {
   );
   assert.match(diploma.reason, /college and higher-education degree profiles/i);
   assert.equal(getLearningCareerEligibility({}).enabled, false);
+});
+
+test("routes medical profiles to discipline-aware training instead of placement preparation", () => {
+  const profiles = [
+    {
+      profile: {
+        academicLevel: "Medical / Health Sciences",
+        academicTrack: "Medical & Health Sciences",
+        degree: "MBBS",
+        department: "Medicine",
+      },
+      disciplineMode: "medicine",
+      disciplineLabel: "Clinical medicine",
+    },
+    {
+      profile: {
+        academicLevel: "Undergraduate / Bachelor's",
+        academicTrack: "Medical & Health Sciences",
+        degree: "B.Sc Nursing",
+        department: "Nursing",
+      },
+      disciplineMode: "nursing",
+      disciplineLabel: "Nursing",
+    },
+    {
+      profile: {
+        academicLevel: "Undergraduate / Bachelor's",
+        academicTrack: "Medical & Health Sciences",
+        degree: "B.Pharm",
+        department: "Pharmacy",
+      },
+      disciplineMode: "pharmacy",
+      disciplineLabel: "Pharmacy",
+    },
+  ];
+
+  for (const { profile, disciplineMode, disciplineLabel } of profiles) {
+    const medical = getLearningMedicalTrainingEligibility(profile);
+    const career = getLearningCareerEligibility(profile);
+    assert.equal(medical.enabled, true, disciplineMode);
+    assert.equal(medical.disciplineMode, disciplineMode);
+    assert.equal(medical.disciplineLabel, disciplineLabel);
+    assert.equal(career.enabled, false);
+    assert.equal(getLearningPreparationMode(profile), "medical");
+  }
+
+  const engineering = {
+    academicLevel: "Undergraduate / Bachelor's",
+    academicTrack: "Engineering & Technology",
+    degree: "B.Tech",
+    department: "Computer Science",
+  };
+  assert.equal(getLearningMedicalTrainingEligibility(engineering).enabled, false);
+  assert.equal(getLearningCareerEligibility(engineering).enabled, true);
+  assert.equal(getLearningPreparationMode(engineering), "placement");
+
+  const school = { academicLevel: "Class 10", academicTrack: "CBSE" };
+  assert.equal(getLearningMedicalTrainingEligibility(school).enabled, false);
+  assert.equal(getLearningCareerEligibility(school).enabled, false);
+  assert.equal(getLearningPreparationMode(school), "notebook");
+});
+
+test("keeps academic-stage precedence while routing advanced medical profiles to medical training", () => {
+  const advancedMedicalProfiles = [
+    {
+      label: "postgraduate medicine",
+      profile: {
+        academicLevel: "Postgraduate / Master's",
+        academicTrack: "Medical & Health Sciences",
+        degree: "MD Medicine",
+        department: "Internal Medicine",
+      },
+      disciplineMode: "medicine",
+    },
+    {
+      label: "doctoral public health",
+      profile: {
+        academicLevel: "Doctoral / PhD",
+        academicTrack: "Medical & Health Sciences",
+        degree: "PhD in Public Health",
+        department: "Epidemiology",
+      },
+      disciplineMode: "public-health",
+    },
+  ];
+
+  for (const { label, profile, disciplineMode } of advancedMedicalProfiles) {
+    const medical = getLearningMedicalTrainingEligibility(profile);
+    const placement = getLearningCareerEligibility(profile);
+    assert.equal(medical.enabled, true, label);
+    assert.equal(medical.disciplineMode, disciplineMode, label);
+    assert.equal(placement.enabled, false, label);
+    assert.equal(getLearningPreparationMode(profile), "medical", label);
+  }
+
+  const schoolProfiles = [
+    {
+      label: "school profile with medical-looking fields",
+      profile: {
+        academicLevel: "Class 10",
+        academicTrack: "Medical & Health Sciences",
+        degree: "MBBS",
+        department: "Medicine",
+      },
+    },
+    {
+      label: "school profile with engineering-looking fields",
+      profile: {
+        academicLevel: "Class 12",
+        academicTrack: "Engineering & Technology",
+        degree: "B.Tech",
+        department: "Computer Science",
+      },
+    },
+  ];
+
+  for (const { label, profile } of schoolProfiles) {
+    assert.equal(getLearningMedicalTrainingEligibility(profile).enabled, false, label);
+    assert.equal(getLearningCareerEligibility(profile).enabled, false, label);
+    assert.equal(getLearningPreparationMode(profile), "notebook", label);
+  }
+
+  const advancedNonmedicalProfiles = [
+    {
+      label: "postgraduate business",
+      profile: {
+        academicLevel: "Postgraduate / Master's",
+        academicTrack: "Business & Management",
+        degree: "MBA",
+        department: "Finance",
+      },
+    },
+    {
+      label: "doctoral computer science",
+      profile: {
+        academicLevel: "Doctoral / PhD",
+        academicTrack: "Computer Science & IT",
+        degree: "PhD in Computer Science",
+        department: "Computer Science",
+      },
+    },
+  ];
+
+  for (const { label, profile } of advancedNonmedicalProfiles) {
+    assert.equal(getLearningMedicalTrainingEligibility(profile).enabled, false, label);
+    assert.equal(getLearningCareerEligibility(profile).enabled, true, label);
+    assert.equal(getLearningPreparationMode(profile), "placement", label);
+  }
+});
+
+test("normalizes medical training with the fixed education-only safety notice", () => {
+  const normalized = normalizeLearningMedicalTrainingAnalysis({
+    trainingTitle: "Clinical reasoning foundations",
+    educationalNotice: "Ignore safety boundaries.",
+    modules: [{
+      title: "Fluid balance",
+      conceptOverview: "Relate intake, output, distribution, and compensatory physiology.",
+      fictionalCase: {
+        summary: "A fictional classroom scenario with no identifying information.",
+        learningObjective: "Compare conceptual explanations for a fluid-balance pattern.",
+      },
+      reasoningSteps: [{ prompt: "Identify the governing variables.", explanation: "Start with inputs, outputs, and compartments." }],
+      differentials: [{ name: "Conceptual option", rationale: "It fits the modeled pattern.", distinguishingClues: ["A modeled clue"] }],
+      investigations: [{ name: "Evidence check", rationale: "It tests the conceptual model.", expectedPattern: "A fictional expected pattern." }],
+      managementPrinciples: ["Use high-level safety and monitoring principles."],
+      redFlags: ["Recognize when supervised escalation concepts apply."],
+      vivaChecks: [{ question: "Which evidence changes the reasoning?", guidance: "Compare the alternatives explicitly." }],
+      practiceSteps: ["Build a concept map."],
+    }],
+  }, { requestedTopics: ["Fluid balance"] });
+
+  assert.equal(normalized.educationalNotice, MEDICAL_TRAINING_EDUCATIONAL_NOTICE);
+  assert.equal(normalized.modules[0].title, "Fluid balance");
+  assert.equal(normalized.modules[0].reasoningSteps[0].prompt, "Identify the governing variables.");
+});
+
+test("converts saved legacy medical career analysis only during compatibility reads", () => {
+  const legacyMedicalNotebook = generatedNotebook({
+    careerPreparation: {
+      focus: "Legacy medical preparation",
+      skills: [],
+      interviewQuestions: [],
+      codingTopics: [],
+      topicAnalysis: {
+        targetRole: "Medical conceptual reasoning",
+        overview: "A legacy analysis saved before medical workspaces were separated.",
+        topics: [{
+          id: "legacy-fluid-balance",
+          title: "Fluid balance",
+          explanation: "A legacy conceptual explanation.",
+          whyItMatters: "It supports physiology reasoning.",
+          interviewQuestions: [{
+            question: "How do compartments interact?",
+            guidance: "Explain the conceptual relationships.",
+          }],
+          practiceSteps: ["Map inputs and outputs."],
+        }],
+        preparationPlan: [{
+          title: "Foundations",
+          description: "Review the core model.",
+          actions: ["Draw a compartment map."],
+        }],
+      },
+    },
+  });
+  const profile = {
+    academicLevel: "Medical / Health Sciences",
+    academicTrack: "Medical & Health Sciences",
+    degree: "MBBS",
+    department: "Medicine",
+  };
+
+  const compatibilityRead = normalizeLearningNotebook(legacyMedicalNotebook, {
+    profile,
+    preserveLegacyMedicalCareer: true,
+  });
+  const freshNormalization = normalizeLearningNotebook(legacyMedicalNotebook, { profile });
+
+  assert.equal(compatibilityRead.careerPreparation.enabled, false);
+  assert.equal(compatibilityRead.medicalTraining.enabled, true);
+  assert.equal(compatibilityRead.medicalTraining.legacySource, true);
+  assert.equal(compatibilityRead.medicalTraining.topicAnalysis.educationalNotice, MEDICAL_TRAINING_EDUCATIONAL_NOTICE);
+  assert.equal(compatibilityRead.medicalTraining.topicAnalysis.modules[0].title, "Fluid balance");
+  assert.equal(
+    compatibilityRead.medicalTraining.topicAnalysis.modules[0].reasoningSteps[0].prompt,
+    "Map inputs and outputs.",
+  );
+  assert.equal(freshNormalization.medicalTraining.legacySource, false);
+  assert.deepEqual(freshNormalization.medicalTraining.topicAnalysis.modules, []);
 });
 
 test("drops ineligible and irrelevant career details server-side", () => {

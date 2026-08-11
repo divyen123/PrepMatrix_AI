@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   getSavedPlacementNotes,
   getStartLearningArtifactKind,
+  isMedicalTrainingHash,
   isPlacementPrepHash,
 } from "./startLearningWorkspace.js";
 
@@ -38,8 +39,17 @@ test("resolves the visible artifact kind from intake and workspace state", () =>
   assert.equal(getStartLearningArtifactKind({ workspaceView: "intake", intakeMode: null }), null);
   assert.equal(getStartLearningArtifactKind({ workspaceView: "intake", intakeMode: "notebook" }), "notebook");
   assert.equal(getStartLearningArtifactKind({ workspaceView: "intake", intakeMode: "placement" }), "placement");
+  assert.equal(getStartLearningArtifactKind({ workspaceView: "intake", intakeMode: "medical" }), "medical");
   assert.equal(getStartLearningArtifactKind({ workspaceView: "notebook", intakeMode: "placement" }), "notebook");
   assert.equal(getStartLearningArtifactKind({ workspaceView: "career", intakeMode: "notebook" }), "placement");
+  assert.equal(getStartLearningArtifactKind({ workspaceView: "medical", intakeMode: "notebook" }), "medical");
+});
+
+test("only identifies the Medical training deep link for targeted route clearing", () => {
+  assert.equal(isMedicalTrainingHash("#medical-training"), true);
+  assert.equal(isMedicalTrainingHash(" #MEDICAL-TRAINING "), true);
+  assert.equal(isMedicalTrainingHash("#placement-prep"), false);
+  assert.equal(isMedicalTrainingHash("#subject-mastery"), false);
 });
 
 test("only identifies the placement deep link for targeted route clearing", () => {

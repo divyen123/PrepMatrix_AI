@@ -63,7 +63,10 @@ import {
   SUBJECT_SCHEDULE_MUTATION_MODES,
   getSubjectScheduleMutationMode,
 } from "./utils/subjectWorkspace";
-import { getLearningCareerEligibility } from "./utils/learningNotebook";
+import {
+  getLearningCareerEligibility,
+  getLearningMedicalTrainingEligibility,
+} from "./utils/learningNotebook";
 import { getGoalReminderShortcutRoutes } from "./utils/homeNavigationCommands";
 import {
   getResumeEligibility,
@@ -501,6 +504,14 @@ function App() {
     }),
     [academicLevel, academicTrack, userProfile]
   );
+  const learningMedicalTrainingEligibility = useMemo(
+    () => getLearningMedicalTrainingEligibility({
+      ...(userProfile || {}),
+      academicLevel,
+      academicTrack,
+    }),
+    [academicLevel, academicTrack, userProfile]
+  );
   const visibleNavItems = useMemo(
     () => NAV_ITEMS
       .filter(
@@ -534,8 +545,13 @@ function App() {
       ...(visibleRoutes.has("/learn") && !learnerRoutePolicy.isYoungKidsLearner
         ? ["/learn#subject-mastery"]
         : []),
-      ...(visibleRoutes.has("/learn") && learningCareerEligibility.enabled
+      ...(visibleRoutes.has("/learn")
+        && learningCareerEligibility.enabled
+        && !learningMedicalTrainingEligibility.enabled
         ? ["/learn#placement-prep"]
+        : []),
+      ...(visibleRoutes.has("/learn") && learningMedicalTrainingEligibility.enabled
+        ? ["/learn#medical-training"]
         : []),
       ...(visibleRoutes.has("/analytics") ? ["/analytics#topic-progress"] : []),
       ...(visibleRoutes.has("/resume-builder")
@@ -558,6 +574,7 @@ function App() {
     isKidsLearner,
     learnerRoutePolicy.isYoungKidsLearner,
     learningCareerEligibility.enabled,
+    learningMedicalTrainingEligibility.enabled,
     visibleNavItems,
   ]);
   const standardOnlyRoute = (element) => (

@@ -17,6 +17,13 @@ import {
 } from "./chatAttachments.js";
 import { buildChatSessionListFilter } from "./chatSessionSearch.js";
 import {
+  buildMedicalTrainingChatSystemRule,
+  hasMedicalTrainingModule,
+  hasUnsafeMedicalTrainingChatOutput,
+  requestsPersonalMedicalTrainingAdvice,
+  resolveMedicalTrainingChatSessionContext,
+} from "./medicalTrainingChat.js";
+import {
   normalizeGoalReminderData,
   normalizeGoalReminderSettings,
 } from "./goalReminderWorkspace.js";
@@ -31,6 +38,11 @@ import {
   normalizeChatMaterialSuggestions,
 } from "../src/utils/chatMaterialSuggestions.js";
 import { normalizeMaterialBookmarks } from "../src/utils/materialBookmarks.js";
+import { getLearningMedicalTrainingEligibility } from "../src/utils/learningNotebook.js";
+import {
+  normalizeChatAssistantContext,
+  sameChatAssistantContext,
+} from "../src/utils/chatAssistantContext.js";
 import {
   isNotificationMutationRequestAllowed,
   parseAdditionalPushHosts,
@@ -1639,7 +1651,7 @@ app.get("/api/chat-sessions", requireAuth(async (req, res) => {
   const filter = buildChatSessionListFilter(req.user._id, req.query.q);
   const sessions = await db.collection("chatSessions")
     .find(filter)
-    .project({ _id: 1, title: 1, createdAt: 1, updatedAt: 1 })
+    .project({ _id: 1, title: 1, assistantContext: 1, createdAt: 1, updatedAt: 1 })
     .sort({ updatedAt: -1 })
     .toArray();
   res.json({ sessions });
@@ -1722,6 +1734,10 @@ app.delete("/api/chat-sessions/:id", requireAuth(async (req, res) => {
   }
 }));
 
+function chatReplayContextMatches(payload, assistantContext) {
+  return sameChatAssistantContext(payload?.assistantContext, assistantContext);
+}
+
 app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
   let reservation = null;
   let allowQuotaRefund = true;
@@ -1732,10 +1748,22 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
       source = "chat",
       sessionId = null,
       plannerContext = {},
+      assistantContext: rawAssistantContext = null,
       attachments: rawAttachments = [],
       materials: rawMaterialSuggestions = [],
     } = req.body ?? {};
     const cleanMessage = typeof message === "string" ? message.trim() : "";
+    const assistantContextProvided = Object.prototype.hasOwnProperty.call(
+      req.body ?? {},
+      "assistantContext",
+    ) && rawAssistantContext !== null;
+    const requestedAssistantContext = normalizeChatAssistantContext(rawAssistantContext);
+    if (assistantContextProvided && !requestedAssistantContext) {
+      return res.status(400).json({
+        code: "MEDICAL_TRAINING_CHAT_CONTEXT_INVALID",
+        error: "A valid Medical training notebook and module are required.",
+      });
+    }
     const attachments = decodeChatAttachments(rawAttachments);
     const youngKidsChat = getYoungKidsAccessProfile(req.user).eligible;
     if (youngKidsChat && attachments.length) {
@@ -1746,6 +1774,124 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
     }
     if (!cleanMessage && !attachments.length) {
       return res.status(400).json({ error: "A message or attachment is required." });
+    }
+
+    let medicalTrainingEligibility = null;
+    if (requestedAssistantContext) {
+      medicalTrainingEligibility = getLearningMedicalTrainingEligibility(req.user);
+      if (!medicalTrainingEligibility.enabled) {
+        return res.status(403).json({
+          code: "MEDICAL_TRAINING_CHAT_NOT_ELIGIBLE",
+          error: medicalTrainingEligibility.reason,
+        });
+      }
+      if (attachments.length) {
+        return res.status(400).json({
+          code: "MEDICAL_TRAINING_CHAT_ATTACHMENTS_DISABLED",
+          error: "Medical training chat does not accept files or patient records.",
+        });
+      }
+      if (requestsPersonalMedicalTrainingAdvice(cleanMessage)) {
+        return res.status(400).json({
+          code: "MEDICAL_TRAINING_PERSONAL_ADVICE_NOT_ALLOWED",
+          error: "Medical training accepts fictional, de-identified academic concepts only. Remove patient identifiers; it cannot assess a real person or provide diagnosis, treatment, prescribing, dosing, or emergency guidance.",
+        });
+      }
+    }
+
+    const db = await getDb();
+    let session = null;
+    let isNewSession = false;
+    if (sessionId) {
+      try {
+        session = await db.collection("chatSessions").findOne({
+          _id: new ObjectId(sessionId),
+          userId: req.user._id,
+        });
+      } catch {
+        // Ordinary invalid session identifiers retain the existing new-chat fallback.
+      }
+    }
+    if (sessionId && !session && requestedAssistantContext) {
+      return res.status(404).json({
+        code: "MEDICAL_TRAINING_CHAT_SESSION_NOT_FOUND",
+        error: "The Medical training conversation was not found.",
+      });
+    }
+
+    const storedAssistantContext = normalizeChatAssistantContext(session?.assistantContext);
+    const resolvedAssistantContext = resolveMedicalTrainingChatSessionContext({
+      requestedContext: requestedAssistantContext,
+      storedContext: storedAssistantContext,
+      hasSession: Boolean(session),
+    });
+    if (resolvedAssistantContext.error) {
+      return res.status(409).json({
+        code: "MEDICAL_TRAINING_CHAT_CONTEXT_MISMATCH",
+        error: resolvedAssistantContext.error,
+      });
+    }
+    const assistantContext = resolvedAssistantContext.context;
+
+    if (assistantContext) {
+      medicalTrainingEligibility ||= getLearningMedicalTrainingEligibility(req.user);
+      if (!medicalTrainingEligibility.enabled) {
+        return res.status(403).json({
+          code: "MEDICAL_TRAINING_CHAT_NOT_ELIGIBLE",
+          error: medicalTrainingEligibility.reason,
+        });
+      }
+      if (!requestedAssistantContext && attachments.length) {
+        return res.status(400).json({
+          code: "MEDICAL_TRAINING_CHAT_ATTACHMENTS_DISABLED",
+          error: "Medical training chat does not accept files or patient records.",
+        });
+      }
+      if (!requestedAssistantContext && requestsPersonalMedicalTrainingAdvice(cleanMessage)) {
+        return res.status(400).json({
+          code: "MEDICAL_TRAINING_PERSONAL_ADVICE_NOT_ALLOWED",
+          error: "Medical training accepts fictional, de-identified academic concepts only. Remove patient identifiers; it cannot assess a real person or provide diagnosis, treatment, prescribing, dosing, or emergency guidance.",
+        });
+      }
+      const ownedNotebook = await db.collection(LEARNING_NOTEBOOKS_COLLECTION).findOne(
+        {
+          _id: new ObjectId(assistantContext.notebookId),
+          userId: req.user._id,
+        },
+        {
+          projection: {
+            _id: 1,
+            careerPreparation: 1,
+            medicalTraining: 1,
+          },
+        },
+      );
+      if (!ownedNotebook) {
+        return res.status(404).json({
+          code: "MEDICAL_TRAINING_CHAT_NOTEBOOK_NOT_FOUND",
+          error: "The Medical training notebook was not found.",
+        });
+      }
+      if (!hasMedicalTrainingModule(ownedNotebook, assistantContext.moduleId, req.user)) {
+        return res.status(404).json({
+          code: "MEDICAL_TRAINING_CHAT_MODULE_NOT_FOUND",
+          error: "The Medical training module was not found in this saved notebook.",
+        });
+      }
+    }
+
+    if (!session) {
+      isNewSession = true;
+      const titleSource = cleanMessage || attachments[0]?.name || "New Chat";
+      session = {
+        _id: new ObjectId(),
+        userId: req.user._id,
+        title: titleSource.substring(0, 40) || "New Chat",
+        messages: [],
+        ...(assistantContext ? { assistantContext } : {}),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
     }
 
     const requestId = aiQuotaRequestId(req);
@@ -1759,6 +1905,12 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
       if (!priorRequest.replayPayload) {
         throw createStructuredAiError(503, "AI_QUOTA_UNAVAILABLE", "The saved chat replay is unavailable.");
       }
+      if (!chatReplayContextMatches(priorRequest.replayPayload, assistantContext)) {
+        return res.status(409).json({
+          code: "AI_IDEMPOTENCY_KEY_CONFLICT",
+          error: "That idempotency key was already used for a different chat context.",
+        });
+      }
       return res.json({ ...priorRequest.replayPayload, idempotent: true });
     }
 
@@ -1771,7 +1923,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
     }
 
     const effectiveMessage = cleanMessage || DEFAULT_ATTACHMENT_PROMPT;
-    const materialSuggestions = !youngKidsChat && isMaterialSuggestionRequest(effectiveMessage)
+    const materialSuggestions = !youngKidsChat && !assistantContext && isMaterialSuggestionRequest(effectiveMessage)
       ? normalizeChatMaterialSuggestions(rawMaterialSuggestions)
       : [];
     const cleanNormalizedMessage = typeof normalizedMessage === "string" ? normalizedMessage.trim() : "";
@@ -1786,7 +1938,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
           "Answer the most likely academic question from the key topic. If a term sounds wrong but has a close academic match, briefly proceed with that interpretation instead of refusing. Ask for clarification only if there is no plausible academic topic.",
         ].filter(Boolean).join("\n")
       : effectiveMessage;
-    const attachmentContext = attachments.length
+    const attachmentContext = attachments.length && !assistantContext
       ? await prepareChatAttachmentContext(attachments)
       : null;
     const userContent = attachmentContext
@@ -1795,31 +1947,6 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
     const requestModel = attachmentContext?.visionImages?.length
       ? GROQ_VISION_MODEL
       : GROQ_CHAT_MODEL;
-    const db = await getDb();
-    let session = null;
-    let isNewSession = false;
-    if (sessionId) {
-      try {
-        session = await db.collection("chatSessions").findOne({
-          _id: new ObjectId(sessionId),
-          userId: req.user._id,
-        });
-      } catch {
-        // Invalid ObjectId falls back to a new session.
-      }
-    }
-    if (!session) {
-      isNewSession = true;
-      const titleSource = cleanMessage || attachments[0]?.name || "New Chat";
-      session = {
-        _id: new ObjectId(),
-        userId: req.user._id,
-        title: titleSource.substring(0, 40) || "New Chat",
-        messages: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-    }
     const learnerContext = buildLearnerAcademicContext(req.user);
     const contextSummary = [
       "Academic stage: " + learnerContext.academicLevel,
@@ -1829,22 +1956,29 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
       learnerContext.department ? "Department or specialization: " + learnerContext.department : "",
       "Explanation depth: " + learnerContext.stageGuidance,
       "Keep academic explanations and examples within this learner stage. Do not assume prerequisites or professional knowledge beyond it.",
-      "Total tasks: " + (plannerContext.totalTasks ?? 0),
-      "Completed tasks: " + (plannerContext.completedTasks ?? 0),
-      "Remaining tasks: " + (plannerContext.remainingTasks ?? 0),
-      "Completion rate: " + (plannerContext.completionRate ?? 0) + "%",
-      "Weak subject: " + (plannerContext.weakSubject || "Unknown"),
-      "Next pending task: " + (plannerContext.firstPendingTask || "None"),
-      "Today's tasks: " + ((plannerContext.todayTasks || []).join(", ") || "None"),
-      "Subject breakdown: " + (plannerContext.subjectBreakdown?.length
-        ? plannerContext.subjectBreakdown.join("; ")
-        : "No subject breakdown available"),
+      ...(assistantContext
+        ? []
+        : [
+            "Total tasks: " + (plannerContext.totalTasks ?? 0),
+            "Completed tasks: " + (plannerContext.completedTasks ?? 0),
+            "Remaining tasks: " + (plannerContext.remainingTasks ?? 0),
+            "Completion rate: " + (plannerContext.completionRate ?? 0) + "%",
+            "Weak subject: " + (plannerContext.weakSubject || "Unknown"),
+            "Next pending task: " + (plannerContext.firstPendingTask || "None"),
+            "Today's tasks: " + ((plannerContext.todayTasks || []).join(", ") || "None"),
+            "Subject breakdown: " + (plannerContext.subjectBreakdown?.length
+              ? plannerContext.subjectBreakdown.join("; ")
+              : "No subject breakdown available"),
+          ]),
     ].filter(Boolean).join("\n");
     const safeHistory = (session.messages || [])
       .filter((item) => item
         && typeof item.text === "string"
         && typeof item.role === "string"
-        && (item.role === "user" || item.role === "assistant"))
+        && (item.role === "user" || item.role === "assistant")
+        && (assistantContext
+          ? item.source === "medical_training"
+          : item.source !== "medical_training"))
       .slice(-8)
       .map((item) => {
         const attachmentNames = Array.isArray(item.attachments)
@@ -1871,6 +2005,12 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
       if (!quotaResult.replayPayload) {
         throw createStructuredAiError(503, "AI_QUOTA_UNAVAILABLE", "The saved chat replay is unavailable.");
       }
+      if (!chatReplayContextMatches(quotaResult.replayPayload, assistantContext)) {
+        return res.status(409).json({
+          code: "AI_IDEMPOTENCY_KEY_CONFLICT",
+          error: "That idempotency key was already used for a different chat context.",
+        });
+      }
       return res.json({ ...quotaResult.replayPayload, idempotent: true });
     }
     reservation = quotaResult;
@@ -1893,7 +2033,18 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
                 ? " YOUNG CHILD MODE: The learner is in Kindergarten through Class 3. Use short, warm sentences and familiar examples. Keep every reply age-appropriate and learning-focused. Never request personal contact details, precise location, secrets, photos, purchases, external links, or private conversation. Encourage asking a trusted grown-up when a request involves safety, health, money, identity, or the outside world."
                 : ""),
           },
-          { role: "system", content: "Current planner context:\n" + contextSummary },
+          ...(assistantContext
+            ? [{
+                role: "system",
+                content: buildMedicalTrainingChatSystemRule(medicalTrainingEligibility),
+              }]
+            : []),
+          {
+            role: "system",
+            content: (assistantContext
+              ? "Current verified learner context:\n"
+              : "Current planner context:\n") + contextSummary,
+          },
           ...(materialSuggestionContext
             ? [{ role: "system", content: materialSuggestionContext }]
             : []),
@@ -1913,6 +2064,13 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
         "The AI service returned an empty study-assistant response. Please try again.",
       );
     }
+    if (assistantContext && hasUnsafeMedicalTrainingChatOutput(outputText)) {
+      throw createStructuredAiError(
+        502,
+        "AI_MEDICAL_TRAINING_OUTPUT_UNSAFE",
+        "The assistant returned content outside the Medical training education-only boundary.",
+      );
+    }
     const userMessageId = "user-" + Date.now();
     const assistantMessageId = "assistant-" + Date.now();
     const userMsg = {
@@ -1920,6 +2078,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
       role: "user",
       text: effectiveMessage,
       ...(attachmentContext?.metadata?.length ? { attachments: attachmentContext.metadata } : {}),
+      ...(assistantContext ? { source: "medical_training", assistantContext } : {}),
       createdAt: new Date(),
     };
     const assistantMsg = {
@@ -1927,6 +2086,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
       role: "assistant",
       text: outputText,
       ...(materialSuggestions.length ? { materials: materialSuggestions } : {}),
+      ...(assistantContext ? { source: "medical_training", assistantContext } : {}),
       createdAt: new Date(),
     };
     const updatedMessages = [...(session.messages || []), userMsg, assistantMsg];
@@ -1995,6 +2155,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
       model: requestModel,
       sessionId: session._id.toString(),
       sessionTitle: titleUpdate.title || session.title,
+      ...(assistantContext ? { assistantContext } : {}),
       ...(materialSuggestions.length ? { materials: materialSuggestions } : {}),
     };
     let committed;

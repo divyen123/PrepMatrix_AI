@@ -58,7 +58,7 @@ const FEATURE_ALIASES = Object.freeze({
 const FEATURE_LABELS = Object.freeze({
   [AI_FEATURES.CHAT]: "Study chat or voice question",
   [AI_FEATURES.QUIZ]: "Quiz generation",
-  [AI_FEATURES.CAREER_ANALYSIS]: "Career-topic analysis",
+  [AI_FEATURES.CAREER_ANALYSIS]: "Professional-topic analysis",
   [AI_FEATURES.LEARNING_NOTEBOOK]: "Learning notebook",
   [AI_FEATURES.SECURE_EXAM]: "Secure exam preparation",
   [AI_FEATURES.QUESTION_PAPER]: "Question paper",

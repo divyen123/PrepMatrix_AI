@@ -13,6 +13,7 @@ import {
 import { filterChatSessionsByTitle } from "../utils/chatHistorySearch";
 import { getChatMessageAcceptance } from "../utils/chatMessageBridge";
 import { getChatExperienceCopy } from "../utils/chatExperience";
+import { normalizeChatAssistantContext } from "../utils/chatAssistantContext";
 import api, { API_BASE } from "../utils/apiClient";
 import {
   CHAT_ATTACHMENT_ACCEPT,
@@ -242,6 +243,7 @@ function Chatbot({
   const [attachmentError, setAttachmentError] = useState("");
   const [preparingAttachments, setPreparingAttachments] = useState(false);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const [assistantContext, setAssistantContext] = useState(null);
   
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -449,6 +451,7 @@ function Chatbot({
       && sessionLoadSeqRef.current === loadId;
     setAttachments([]);
     setAttachmentError("");
+    setAssistantContext(null);
     setLoading(true);
     try {
       const data = await api.getChatSession(sessionId);
@@ -458,6 +461,7 @@ function Chatbot({
         setActiveSessionId(session._id);
         setActiveSessionTitle(session.title);
         setMessages(session.messages || []);
+        setAssistantContext(normalizeChatAssistantContext(session.assistantContext));
         if (window.innerWidth <= 768) {
           setHistoryOpen(false);
         }
@@ -471,11 +475,12 @@ function Chatbot({
   }, [invalidateViewWork]);
 
   // Clear states to start a new chat
-  const handleNewChat = useCallback(() => {
+  const handleNewChat = useCallback((nextContext = null) => {
     invalidateViewWork();
     setLoading(false);
     setAttachments([]);
     setAttachmentError("");
+    setAssistantContext(normalizeChatAssistantContext(nextContext));
     setActiveSessionId(null);
     setActiveSessionTitle("New Chat");
     setMessages([
@@ -493,8 +498,9 @@ function Chatbot({
   useEffect(() => {
     const handleOpenChat = (event) => {
       setOpen(true);
-      if (event.detail?.createNewChat) {
-        handleNewChat();
+      const nextContext = normalizeChatAssistantContext(event.detail?.context);
+      if (event.detail?.createNewChat || nextContext) {
+        handleNewChat(nextContext);
       }
       if (event.detail?.message) {
         setInput(event.detail.message);
@@ -576,6 +582,10 @@ function Chatbot({
 
   const prepareAttachmentFiles = useCallback(async (files) => {
     if (childMode) return;
+    if (assistantContext) {
+      setAttachmentError("Medical training chat does not accept files or patient records.");
+      return;
+    }
     const selectedFiles = Array.from(files || []);
     if (!selectedFiles.length) return;
 
@@ -610,7 +620,7 @@ function Chatbot({
     } finally {
       if (isCurrentPreparation()) setPreparingAttachments(false);
     }
-  }, [attachments, childMode]);
+  }, [assistantContext, attachments, childMode]);
 
   const handleAttachmentInputChange = useCallback((event) => {
     const selectedFiles = Array.from(event.target.files || []);
@@ -627,24 +637,24 @@ function Chatbot({
     if (!hasChatFileDrag(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
-    if (childMode) {
+    if (childMode || assistantContext) {
       event.dataTransfer.dropEffect = "none";
       return;
     }
     attachmentDragDepthRef.current += 1;
     setIsDraggingFiles(true);
-  }, [childMode]);
+  }, [assistantContext, childMode]);
 
   const handleChatDragOver = useCallback((event) => {
     if (!hasChatFileDrag(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
-    if (childMode) {
+    if (childMode || assistantContext) {
       event.dataTransfer.dropEffect = "none";
       return;
     }
     event.dataTransfer.dropEffect = loading || preparingAttachments ? "none" : "copy";
-  }, [childMode, loading, preparingAttachments]);
+  }, [assistantContext, childMode, loading, preparingAttachments]);
 
   const handleChatDragLeave = useCallback((event) => {
     if (attachmentDragDepthRef.current === 0) return;
@@ -660,7 +670,7 @@ function Chatbot({
     if (!isFileDrop) return;
     event.preventDefault();
     event.stopPropagation();
-    if (childMode) return;
+    if (childMode || assistantContext) return;
 
     const droppedFiles = getChatDroppedFiles(event.dataTransfer);
     if (!droppedFiles.length) return;
@@ -669,7 +679,7 @@ function Chatbot({
       return;
     }
     void prepareAttachmentFiles(droppedFiles);
-  }, [childMode, clearAttachmentDragState, loading, prepareAttachmentFiles, preparingAttachments]);
+  }, [assistantContext, childMode, clearAttachmentDragState, loading, prepareAttachmentFiles, preparingAttachments]);
 
   useEffect(() => {
     if (!open) clearAttachmentDragState();
@@ -682,7 +692,7 @@ function Chatbot({
 
   const sendMessage = useCallback(
     async (message = input, options = {}) => {
-      const selectedAttachments = childMode
+      const selectedAttachments = childMode || assistantContext
         ? []
         : (Array.isArray(options.attachments) ? options.attachments : attachments);
       const cleanMessage = typeof message === "string" ? message.trim() : "";
@@ -700,7 +710,7 @@ function Chatbot({
         ...chatAttachmentMetadata(attachment),
         ...(attachment.type.startsWith("image/") ? { dataUrl: attachment.dataUrl } : {}),
       }));
-      const materialSuggestions = childMode || selectedAttachments.length
+      const materialSuggestions = childMode || assistantContext || selectedAttachments.length
         ? []
         : buildChatMaterialSuggestions({
             academicLevel,
@@ -722,7 +732,7 @@ function Chatbot({
       setAttachmentError("");
       options.onAccepted?.(acceptance);
 
-      const localCommand = childMode || selectedAttachments.length
+      const localCommand = childMode || assistantContext || selectedAttachments.length
         ? null
         : resolveLocalAssistantCommand(finalMessage, {
             availableRoutes,
@@ -770,6 +780,7 @@ function Chatbot({
           message: finalMessage,
           sessionId: originSessionId,
           plannerContext,
+          assistantContext,
           materials: materialSuggestions,
           attachments: selectedAttachments.map(({ name, type, size, dataUrl }) => ({
             name,
@@ -782,6 +793,8 @@ function Chatbot({
           headers: { "Idempotency-Key": createAiIdempotencyKey() },
         });
         if (!isCurrentRequest()) return acceptance;
+        const returnedAssistantContext = normalizeChatAssistantContext(payload.assistantContext);
+        if (returnedAssistantContext) setAssistantContext(returnedAssistantContext);
 
         const reply = payload.reply?.trim() || "I couldn't generate a response for that request.";
         const returnedMaterials = normalizeChatMaterialSuggestions(payload.materials);
@@ -840,6 +853,8 @@ function Chatbot({
         if (!options.keepInput) setInput(cleanMessage);
         const replyText = isApiError
           ? `Error: ${errorMessage}`
+          : assistantContext
+            ? "Medical training chat is temporarily unavailable. Keep this as a fictional, de-identified conceptual exercise and retry shortly."
           : selectedAttachments.length
             ? "I couldn't reach the assistant to analyze that file. Your files are still attached below so you can retry."
             : buildFallbackReply(finalMessage, metrics);
@@ -865,6 +880,7 @@ function Chatbot({
       activeSessionId,
       academicLevel,
       academicTrack,
+      assistantContext,
       assistantStatus.model,
       attachments,
       availableRoutes,
@@ -950,6 +966,10 @@ function Chatbot({
 
     // Allow the dashboard search bar to open the chatbot's file picker
     window.triggerChatAttachment = () => {
+      if (assistantContext) {
+        setAttachmentError("Medical training chat does not accept files or patient records.");
+        return;
+      }
       // Give the panel a frame to mount before clicking the hidden input
       window.requestAnimationFrame(() => {
         fileInputRef.current?.click();
@@ -973,7 +993,7 @@ function Chatbot({
       delete window.addChatbotAttachments;
       delete window.removeChatbotAttachment;
     };
-  }, [fetchSessions, handleSelectSession, sendMessage, prepareAttachmentFiles]);
+  }, [assistantContext, fetchSessions, handleSelectSession, sendMessage, prepareAttachmentFiles]);
 
   // Broadcast attachment count to the dashboard so it can show a badge
   useEffect(() => {
@@ -1505,7 +1525,7 @@ function Chatbot({
                       </div>
                     ) : null}
                     {formatMessageText(message.text)}
-                    {!childMode ? (
+                    {!childMode && !assistantContext ? (
                       <ChatMaterialSuggestions
                         academicLevel={academicLevel}
                         academicTrack={academicTrack}
@@ -1545,7 +1565,7 @@ function Chatbot({
                   </div>
                 ) : null}
 
-                {!childMode && (attachments.length || preparingAttachments) ? (
+                {!childMode && !assistantContext && (attachments.length || preparingAttachments) ? (
                   <div aria-label="Selected attachments" className="chat-attachment-tray">
                     {attachments.map((attachment) => (
                       <div className="chat-attachment-chip" key={attachment.id}>
@@ -1600,12 +1620,14 @@ function Chatbot({
                   placeholder={
                     childMode
                       ? "Ask a learning question..."
+                      : assistantContext
+                        ? "Ask about this fictional conceptual exercise..."
                       : (attachments.length ? "Ask about the attached file..." : "Ask anything...")
                   }
                   value={input}
                   className="chat-input-field"
                 />
-                {!childMode ? <button
+                {!childMode && !assistantContext ? <button
                   aria-label="Attach images, PDF, or PowerPoint files"
                   className={`chat-icon-btn chat-upload-btn${attachments.length ? " has-attachments" : ""}`}
                   disabled={loading || preparingAttachments || attachments.length >= MAX_CHAT_ATTACHMENTS}
