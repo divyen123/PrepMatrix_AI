@@ -392,7 +392,7 @@ function KidsStartLearningPage({
                 <p className="kids-start-eyebrow">Quick check</p>
                 <h3>Can you answer these?</h3>
                 <ol>
-                  {notebook.importantQuestions.slice(0, 4).map((question) => (
+                  {notebook.importantQuestions.slice(0, 5).map((question) => (
                     <li key={question.id}>{question.question}</li>
                   ))}
                 </ol>

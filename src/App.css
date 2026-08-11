@@ -129,6 +129,7 @@ select:focus {
 
 .app-container {
   position: relative;
+  z-index: 1;
   min-height: 100vh;
   padding: 28px;
   overflow: hidden;
@@ -10651,6 +10652,24 @@ body.has-bg-image::after {
   transition: filter 0.3s ease, inset 0.3s ease;
 }
 
+
+.background-theme-transition-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 1.1s ease-in-out;
+  will-change: opacity;
+}
+
+.background-theme-transition-layer.is-fading {
+  opacity: 0;
+}
 /* Dark overlay to control background brightness Ã¢â‚¬â€ sits above image, below content */
 body.has-bg-image::before {
   content: "";
@@ -10931,6 +10950,8 @@ body.has-bg-image .auth-layout {
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬ Background Preset & Palette Option Buttons (Settings Appearance) Ã¢â€â‚¬Ã¢â€â‚¬ */
 button.bg-preset-thumbnail-btn {
+  background-image: linear-gradient(to top, rgba(0, 0, 0, 0.86), rgba(0, 0, 0, 0.04)),
+    var(--background-thumbnail-image, linear-gradient(135deg, #27324a, #111827)) !important;
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
@@ -21447,4 +21468,174 @@ body.dark .db-search-input:focus,
 .highlight-pulse {
   animation: highlightPulse 1s ease-out;
   border-radius: inherit;
+}
+
+/* Kids quick launchers and Parent Corner exit controls. */
+.sidebar-kids-launchers {
+  align-items: center;
+  gap: 12px;
+}
+
+body .sidebar-game-town-link {
+  display: grid;
+  flex: 0 0 60px;
+  place-items: center;
+  width: 60px;
+  height: 62px;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  text-decoration: none;
+  transform: none;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), filter 220ms ease;
+}
+
+body .sidebar-game-town-link img {
+  display: block;
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 12px rgba(0, 0, 0, 0.24));
+  pointer-events: none;
+}
+
+body .sidebar-game-town-link:hover,
+body .sidebar-game-town-link:focus-visible {
+  filter: saturate(1.08) brightness(1.04);
+  transform: translateY(-1px) scale(1.04);
+}
+
+body .sidebar-game-town-link.active {
+  filter: drop-shadow(0 0 8px rgba(var(--accent-rgb), 0.32));
+}
+
+body .sidebar-game-town-link:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.8);
+  outline-offset: 3px;
+}
+
+.sidebar-footer-actions {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.parent-corner-lock-control {
+  position: relative;
+}
+
+body .parent-corner-lock-btn {
+  display: grid !important;
+  place-items: center !important;
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  color: #f5b942 !important;
+  background: rgba(245, 185, 66, 0.12) !important;
+  border: 1px solid rgba(245, 185, 66, 0.3) !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .parent-corner-lock-btn:hover,
+body .parent-corner-lock-btn[aria-expanded="true"] {
+  color: #ffd678 !important;
+  background: rgba(245, 185, 66, 0.2) !important;
+  border-color: rgba(245, 185, 66, 0.5) !important;
+  transform: translateY(-1px) scale(1.04) !important;
+}
+
+.parent-corner-lock-confirmation {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 70;
+  width: min(286px, calc(100vw - 32px));
+  padding: 14px;
+  color: var(--text);
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  box-shadow: var(--shadow-strong);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  animation: resetPopoverIn 180ms var(--ease-out) both;
+}
+
+.parent-corner-lock-confirmation::after {
+  position: absolute;
+  right: 12px;
+  bottom: -6px;
+  width: 11px;
+  height: 11px;
+  content: "";
+  background: inherit;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+
+.parent-corner-lock-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.parent-corner-lock-copy > span {
+  display: grid;
+  flex: 0 0 34px;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #f5b942;
+  background: rgba(245, 185, 66, 0.13);
+  border-radius: 11px;
+}
+
+.parent-corner-lock-copy strong {
+  display: block;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.86rem;
+}
+
+.parent-corner-lock-copy p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.parent-corner-lock-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+body .parent-corner-lock-actions button {
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  font-size: 0.68rem !important;
+}
+
+body .parent-corner-lock-confirm-btn {
+  color: #fff8e8 !important;
+  background: rgba(191, 121, 14, 0.72) !important;
+  border-color: rgba(245, 185, 66, 0.52) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body .sidebar-game-town-link,
+  .parent-corner-lock-confirmation {
+    animation: none !important;
+    transition: none !important;
+  }
 }

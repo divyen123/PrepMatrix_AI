@@ -1016,6 +1016,10 @@ export function hasGeneratedLearningNotebookDepth(value, options = {}) {
   const minimumCommonMistakesPerTopic = Math.max(0, Number.parseInt(options.minimumCommonMistakesPerTopic, 10) || 0);
   const minimumRevisionTipsPerTopic = Math.max(0, Number.parseInt(options.minimumRevisionTipsPerTopic, 10) || 0);
   const minimumImportantQuestions = Math.max(1, Number.parseInt(options.minimumImportantQuestions, 10) || 8);
+  const requestedMaximumImportantQuestions = Number.parseInt(options.maximumImportantQuestions, 10);
+  const maximumImportantQuestions = Number.isInteger(requestedMaximumImportantQuestions)
+    ? Math.max(minimumImportantQuestions, requestedMaximumImportantQuestions)
+    : Number.POSITIVE_INFINITY;
   const minimumNoteSections = Math.max(1, Number.parseInt(options.minimumNoteSections, 10) || 4);
   const expectedChapterCount = Math.max(0, Number.parseInt(options.expectedChapterCount, 10) || 0);
   const exactChapterCount = Math.max(0, Number.parseInt(options.exactChapterCount, 10) || 0);
@@ -1029,6 +1033,7 @@ export function hasGeneratedLearningNotebookDepth(value, options = {}) {
   if (expectedChapterCount && normalized.chapters.length < expectedChapterCount) return false;
   if (exactChapterCount && normalized.chapters.length !== exactChapterCount) return false;
   if (!hasMinimumItems(normalized.importantQuestions, minimumImportantQuestions)) return false;
+  if (normalized.importantQuestions.length > maximumImportantQuestions) return false;
   if (!hasMinimumItems(normalized.revisedNotes, minimumNoteSections)) return false;
 
   return normalized.chapters.every((chapter) => (

@@ -199,7 +199,7 @@ function validGeneratedNotebook() {
 
 function validYoungKidsLesson({ generationSize = "low" } = {}) {
   const highDetail = generationSize === "high";
-  const topicCount = highDetail ? 5 : 3;
+  const topicCount = highDetail ? 6 : 4;
   const subtopicCount = highDetail ? 2 : 1;
   const topics = Array.from({ length: topicCount }, (_, topicIndex) => {
     const topicNumber = topicIndex + 1;
@@ -218,7 +218,10 @@ function validYoungKidsLesson({ generationSize = "low" } = {}) {
       keyPoints: highDetail
         ? ["Leaves use sunlight.", "Roots take in water.", "Air helps make food."]
         : ["Leaves use sunlight.", "Roots take in water."],
-      examples: ["Watch a sunny window plant and notice how its leaves face the light."],
+      examples: [
+        "Watch a sunny window plant and notice how its leaves face the light.",
+        "Compare a watered plant with a dry plant and notice which one stays firm.",
+      ],
       applications: ["Caring for a classroom plant"],
       commonMistakes: ["Thinking roots collect sunlight"],
       revisionTips: ["Draw the sun, roots, and leaves"],
@@ -236,8 +239,8 @@ function validYoungKidsLesson({ generationSize = "low" } = {}) {
       })),
     };
   });
-  const questionCount = highDetail ? 4 : 1;
-  const noteCount = highDetail ? 5 : 3;
+  const questionCount = highDetail ? 5 : 4;
+  const noteCount = highDetail ? 6 : 4;
   return {
     title: "Science - Photosynthesis",
     overview: "A short, child-friendly lesson about how green plants make food and grow.",
@@ -1245,11 +1248,11 @@ test("uses smaller, meaningfully different Low and High contracts only for authe
   const cases = [
     {
       generationSize: "low",
-      expected: { topics: 3, subtopics: 1, questions: 1, notes: 3, topicPoints: 2 },
+      expected: { topics: 4, subtopics: 1, questions: 4, notes: 4, topicPoints: 2 },
     },
     {
       generationSize: "high",
-      expected: { topics: 5, subtopics: 2, questions: 4, notes: 5, topicPoints: 3 },
+      expected: { topics: 6, subtopics: 2, questions: 5, notes: 6, topicPoints: 3 },
     },
   ];
 
@@ -1284,12 +1287,19 @@ test("uses smaller, meaningfully different Low and High contracts only for authe
     assert.equal(topicSchema.maxItems, expected.topics, generationSize);
     assert.equal(topicItem.properties.subtopics.minItems, expected.subtopics, generationSize);
     assert.equal(topicItem.properties.keyPoints.minItems, expected.topicPoints, generationSize);
+    assert.equal(topicItem.properties.examples.minItems, 2, generationSize);
     assert.equal(schema.properties.importantQuestions.minItems, expected.questions, generationSize);
+    assert.equal(schema.properties.importantQuestions.maxItems, expected.questions, generationSize);
     assert.equal(schema.properties.revisedNotes.minItems, expected.notes, generationSize);
     const systemPrompt = requestBody.systemInstruction.parts[0].text;
     assert.match(systemPrompt, /server-verified Kindergarten through Class 3/iu);
     const prompt = requestBody.contents[0].parts.at(-1).text;
     assert.match(prompt, /Server-verified young learner class: "Class 2"/u);
+    assert.match(prompt, /at least 2 different concrete examples/iu);
+    assert.match(
+      prompt,
+      new RegExp(`exactly ${expected.questions} different friendly practice questions`, "iu"),
+    );
     assert.doesNotMatch(prompt, /Undergraduate \/ Bachelor's/u);
     assert.match(prompt, /Keep every practice question friendly, concrete/iu);
     assert.doesNotMatch(
@@ -1323,10 +1333,12 @@ test("accepts a schema-minimum K-3 Low lesson through Groq and persists it witho
 
   assert.equal(response.statusCode, 201);
   assert.match(requestBody.messages[0].content, /server-verified Kindergarten through Class 3/iu);
-  assert.equal(response.body.notebook.chapters[0].topics.length, 3);
+  assert.equal(response.body.notebook.chapters[0].topics.length, 4);
   assert.equal(response.body.notebook.chapters[0].topics[0].keyPoints.length, 2);
   assert.equal(response.body.notebook.chapters[0].topics[0].subtopics[0].keyPoints.length, 1);
+  assert.equal(response.body.notebook.chapters[0].topics[0].examples.length, 2);
   assert.equal(harness.stored.length, 1);
+  assert.equal(response.body.notebook.importantQuestions.length, 4);
   assert.equal(harness.aiQuota.calls.commit.length, 1);
   assert.equal(harness.aiQuota.calls.refund.length, 0);
 });
@@ -1367,6 +1379,22 @@ test("rejects oversized or schema-incomplete K-3 Groq lessons and refunds the re
       name: "missing required topic detail",
       mutate(notebook) {
         notebook.chapters[0].topics[0].applications = [];
+      },
+    },
+    {
+      name: "too few quick-check questions",
+      mutate(notebook) {
+        notebook.importantQuestions.pop();
+      },
+    },
+    {
+      name: "extra quick-check question",
+      mutate(notebook) {
+        notebook.importantQuestions.push({
+          ...structuredClone(notebook.importantQuestions[0]),
+          id: "question-extra",
+          question: "Can you share one more plant fact?",
+        });
       },
     },
   ];
@@ -1416,9 +1444,10 @@ test("defaults authenticated K-3 requests without a generation size to the safe 
 
   assert.equal(response.statusCode, 201);
   const schema = requestBody.generationConfig.responseJsonSchema;
-  assert.equal(schema.properties.chapters.items.properties.topics.minItems, 3);
+  assert.equal(schema.properties.chapters.items.properties.topics.minItems, 4);
   assert.equal(schema.properties.chapters.items.properties.topics.items.properties.subtopics.minItems, 1);
-  assert.equal(schema.properties.importantQuestions.minItems, 1);
+  assert.equal(schema.properties.importantQuestions.minItems, 4);
+  assert.equal(schema.properties.importantQuestions.maxItems, 4);
   assert.match(requestBody.contents[0].parts.at(-1).text, /Server-verified young learner class: "Class 3"/u);
 });
 

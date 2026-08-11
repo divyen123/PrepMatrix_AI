@@ -23,7 +23,21 @@ import {
 } from "../utils/academicProfile";
 import { normalizeResumeBuilderState } from "../utils/resumeBuilder";
 import { normalizeMaterialBookmarks } from "../utils/materialBookmarks";
-import BACKGROUND_PRESETS from "../utils/backgroundPresets";
+import BACKGROUND_PRESETS, {
+  CUSTOM_BACKGROUND_ACCENT_STORAGE_KEY,
+  CUSTOM_BACKGROUND_DATA_STORAGE_KEY,
+  CUSTOM_BACKGROUND_ID,
+  CUSTOM_BACKGROUND_MAX_DATA_URL_LENGTH,
+  CUSTOM_BACKGROUND_SURFACE_STORAGE_KEY,
+  KIDS_BACKGROUND_PRESETS,
+  createCustomBackgroundPreset,
+  isKidsBackgroundGalleryEligible,
+  isKidsBackgroundPresetId,
+  isSafeCustomBackgroundDataUrl,
+  readStoredCustomBackgroundPreset,
+  resolveBackgroundPresetForProfile,
+} from "../utils/backgroundPresets";
+import { runAppearanceStorageTransaction } from "../utils/appearanceStorage";
 import {
   BACKGROUND_IMAGE_BLUR_MAX_PX,
   BACKGROUND_IMAGE_BLUR_STORAGE_KEY,
@@ -70,6 +84,151 @@ const VOICE_RANGE_PREVIEW_KEYS = new Set([
   "PageDown",
   "PageUp",
 ]);
+
+const CUSTOM_BACKGROUND_ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const CUSTOM_BACKGROUND_MAX_FILE_BYTES = 12 * 1024 * 1024;
+const CUSTOM_BACKGROUND_INITIAL_MAX_EDGE = 1920;
+const CUSTOM_BACKGROUND_MAX_SOURCE_PIXELS = 40_000_000;
+let backgroundThemeFallbackTimer = null;
+let backgroundThemeTransitionLayer = null;
+
+function loadCustomBackgroundImage(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => resolve({ image, objectUrl });
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("We could not read that image. Try another JPG, PNG, or WebP file."));
+    };
+    image.src = objectUrl;
+  });
+}
+
+function deriveCustomBackgroundColors(image) {
+  const sampleCanvas = document.createElement("canvas");
+  sampleCanvas.width = 40;
+  sampleCanvas.height = 40;
+  const sampleContext = sampleCanvas.getContext("2d", { willReadFrequently: true });
+  if (!sampleContext) {
+    return { accentRgb: "120, 160, 210", surfaceRgb: "12, 18, 32" };
+  }
+
+  sampleContext.drawImage(image, 0, 0, sampleCanvas.width, sampleCanvas.height);
+  const pixels = sampleContext.getImageData(0, 0, sampleCanvas.width, sampleCanvas.height).data;
+  const totals = [0, 0, 0];
+  let samples = 0;
+  for (let index = 0; index < pixels.length; index += 4) {
+    if (pixels[index + 3] < 96) continue;
+    totals[0] += pixels[index];
+    totals[1] += pixels[index + 1];
+    totals[2] += pixels[index + 2];
+    samples += 1;
+  }
+  if (!samples) {
+    return { accentRgb: "120, 160, 210", surfaceRgb: "12, 18, 32" };
+  }
+
+  const average = totals.map((total) => total / samples);
+  const accent = average.map((channel) => Math.min(235, Math.max(82, Math.round(channel * 0.72 + 72))));
+  const surface = average.map((channel) => Math.min(58, Math.max(5, Math.round(channel * 0.2))));
+  return {
+    accentRgb: accent.join(", "),
+    surfaceRgb: surface.join(", "),
+  };
+}
+
+async function prepareCustomBackgroundImage(file) {
+  if (!file || !CUSTOM_BACKGROUND_ALLOWED_TYPES.has(file.type)) {
+    throw new Error("Choose a JPG, PNG, or WebP image for your background.");
+  }
+  if (file.size <= 0 || file.size > CUSTOM_BACKGROUND_MAX_FILE_BYTES) {
+    throw new Error("Choose an image smaller than 12 MB.");
+  }
+
+  const { image, objectUrl } = await loadCustomBackgroundImage(file);
+  try {
+    if (
+      !image.naturalWidth || !image.naturalHeight
+      || image.naturalWidth * image.naturalHeight > CUSTOM_BACKGROUND_MAX_SOURCE_PIXELS
+    ) {
+      throw new Error("That image is too large to prepare safely. Try a smaller one.");
+    }
+    const colors = deriveCustomBackgroundColors(image);
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const maxEdge = Math.round(CUSTOM_BACKGROUND_INITIAL_MAX_EDGE * (0.8 ** attempt));
+      const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight));
+      const width = Math.max(1, Math.round(image.naturalWidth * scale));
+      const height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Your browser could not prepare that background image.");
+      context.fillStyle = "#0b1020";
+      context.fillRect(0, 0, width, height);
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+      context.drawImage(image, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/webp", Math.max(0.62, 0.84 - attempt * 0.05));
+      if (
+        dataUrl.length <= CUSTOM_BACKGROUND_MAX_DATA_URL_LENGTH
+        && isSafeCustomBackgroundDataUrl(dataUrl)
+      ) {
+        return { file: dataUrl, ...colors };
+      }
+    }
+    throw new Error("That image is too detailed to save locally. Try a smaller image.");
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function runBackgroundThemeTransition(update) {
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  if (reduceMotion) {
+    update();
+    return;
+  }
+
+  backgroundThemeTransitionLayer?.remove();
+  if (backgroundThemeFallbackTimer !== null) window.clearTimeout(backgroundThemeFallbackTimer);
+
+  const rootStyles = window.getComputedStyle(document.documentElement);
+  const bodyStyles = window.getComputedStyle(document.body);
+  const transitionLayer = document.createElement("div");
+  transitionLayer.className = "background-theme-transition-layer";
+  transitionLayer.setAttribute("aria-hidden", "true");
+
+  if (document.body.classList.contains("has-bg-image")) {
+    const oldImage = rootStyles.getPropertyValue("--bg-image").trim();
+    const oldOverlay = rootStyles.getPropertyValue("--bg-overlay-opacity").trim() || "0.55";
+    const oldBrightness = rootStyles.getPropertyValue("--bg-brightness").trim() || "1";
+    const oldBlur = rootStyles.getPropertyValue("--bg-image-blur").trim() || "0px";
+    const oldInset = rootStyles.getPropertyValue("--bg-image-blur-inset").trim() || "0px";
+    transitionLayer.classList.add("has-image");
+    transitionLayer.style.inset = oldInset;
+    transitionLayer.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, ${oldOverlay}), rgba(0, 0, 0, ${oldOverlay})), ${oldImage}`;
+    transitionLayer.style.filter = `brightness(${oldBrightness}) blur(${oldBlur})`;
+  } else {
+    transitionLayer.style.backgroundColor = bodyStyles.backgroundColor;
+    transitionLayer.style.backgroundImage = bodyStyles.backgroundImage;
+    transitionLayer.style.backgroundPosition = bodyStyles.backgroundPosition;
+    transitionLayer.style.backgroundSize = bodyStyles.backgroundSize;
+  }
+
+  document.body.appendChild(transitionLayer);
+  backgroundThemeTransitionLayer = transitionLayer;
+  update();
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => transitionLayer.classList.add("is-fading"));
+  });
+  backgroundThemeFallbackTimer = window.setTimeout(() => {
+    transitionLayer.remove();
+    if (backgroundThemeTransitionLayer === transitionLayer) backgroundThemeTransitionLayer = null;
+    backgroundThemeFallbackTimer = null;
+  }, 1250);
+}
 
 
 function applyBackgroundImageBlurVariables(value, hasBackgroundImage) {
@@ -242,6 +401,10 @@ function SettingsPage({
     academicLevel: academicLevel || userProfile?.academicLevel,
     academicTrack: academicTrack || userProfile?.academicTrack,
   });
+  const kidsBackgroundsEligible = isKidsBackgroundGalleryEligible(
+    initialAcademicProfile,
+    youngKidsMode,
+  );
   // Account settings state
   const [username, setUsername] = useState(userProfile?.username || "");
   const [age, setAge] = useState(userProfile?.age || "");
@@ -588,9 +751,33 @@ function SettingsPage({
   const [backgroundImageBlur, setBackgroundImageBlur] = useState(() =>
     normalizeBackgroundImageBlurPx(localStorage.getItem(BACKGROUND_IMAGE_BLUR_STORAGE_KEY))
   );
-  const hasSelectedBackgroundImage = BACKGROUND_PRESETS.some(
-    ({ id }) => id === bgImageId
+  const [showKidsBackgrounds, setShowKidsBackgrounds] = useState(() => (
+    kidsBackgroundsEligible
+    && KIDS_BACKGROUND_PRESETS.some(({ id }) => id === localStorage.getItem("prepmatrix_bg_image_id"))
+  ));
+  const [customBackgroundPreset, setCustomBackgroundPreset] = useState(() => (
+    readStoredCustomBackgroundPreset() || null
+  ));
+  const [customBackgroundStatus, setCustomBackgroundStatus] = useState("");
+  const [customBackgroundBusy, setCustomBackgroundBusy] = useState(false);
+  const customBackgroundInputRef = useRef(null);
+  const customBackgroundRequestRef = useRef(0);
+  const customBackgroundMountedRef = useRef(true);
+  const selectedBackgroundPreset = resolveBackgroundPresetForProfile(
+    bgImageId,
+    {
+      customPreset: customBackgroundPreset || undefined,
+      kidsBackgroundsEligible,
+    },
   );
+  const hasSelectedBackgroundImage = Boolean(selectedBackgroundPreset);
+  const kidsGalleryActive = kidsBackgroundsEligible && showKidsBackgrounds;
+  const displayedBackgroundPresets = kidsGalleryActive
+    ? KIDS_BACKGROUND_PRESETS
+    : BACKGROUND_PRESETS;
+  const galleryBackgroundPresets = customBackgroundPreset
+    ? [...displayedBackgroundPresets, customBackgroundPreset]
+    : displayedBackgroundPresets;
 
   // Color Palette state
   const [customColorLight, setCustomColorLight] = useState("#078f78");
@@ -610,6 +797,20 @@ function SettingsPage({
 
   const savedRef = useRef(false);
   const deleteConfirmRef = useRef(null);
+
+  useEffect(() => {
+    customBackgroundMountedRef.current = true;
+    return () => {
+      customBackgroundMountedRef.current = false;
+      customBackgroundRequestRef.current += 1;
+      if (backgroundThemeFallbackTimer !== null) {
+        window.clearTimeout(backgroundThemeFallbackTimer);
+        backgroundThemeFallbackTimer = null;
+      }
+      backgroundThemeTransitionLayer?.remove();
+      backgroundThemeTransitionLayer = null;
+    };
+  }, []);
 
   // Dynamic Typography Helpers
   const applyFontFamilyVars = (style) => {
@@ -703,11 +904,16 @@ function SettingsPage({
     bgOverlayOpacity: parseFloat(localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55"),
     glassOpacity: parseFloat(localStorage.getItem("prepmatrix_glass_opacity") || "0.6"),
     backgroundImageBlur: normalizeBackgroundImageBlurPx(localStorage.getItem(BACKGROUND_IMAGE_BLUR_STORAGE_KEY)),
+    kidsBackgroundsEligible,
   });
 
   // 1. Real-time preview of style options on change
   useEffect(() => {
-    const imgPreset = BACKGROUND_PRESETS.find(({ id }) => id === bgImageId);
+    savedRef.current = false;
+    const imgPreset = resolveBackgroundPresetForProfile(bgImageId, {
+      customPreset: customBackgroundPreset || undefined,
+      kidsBackgroundsEligible,
+    });
     const isDark = resolveEffectiveDarkMode(darkMode, Boolean(imgPreset));
     document.body.classList.toggle("dark", isDark);
     document.documentElement.classList.toggle("dark", isDark);
@@ -799,17 +1005,18 @@ function SettingsPage({
 
   }, [
     darkMode, accentRgbLight, accentRgbDark, transparency, contrast, fontSize, cardSize,
-    bgLight, bgDark, glassyCards, glassyButtons, fontFamilyStyle, fontWeightStyle, bgImageId, bgOverlayOpacity, glassOpacity, backgroundImageBlur
+    bgLight, bgDark, glassyCards, glassyButtons, fontFamilyStyle, fontWeightStyle, bgImageId,
+    bgOverlayOpacity, glassOpacity, backgroundImageBlur, customBackgroundPreset, kidsBackgroundsEligible
   ]);
 
   // 2. Revert styles on unmount if changes were not saved
   useEffect(() => {
-    const initialSnapshot = initialSettings.current;
-
     return () => {
       if (!savedRef.current) {
-        const init = initialSnapshot;
-        const imgPreset = BACKGROUND_PRESETS.find(({ id }) => id === init.bgImageId);
+        const init = initialSettings.current;
+        const imgPreset = resolveBackgroundPresetForProfile(init.bgImageId, {
+          kidsBackgroundsEligible: init.kidsBackgroundsEligible,
+        });
         const isDark = resolveEffectiveDarkMode(init.darkMode, Boolean(imgPreset));
         setDarkMode(init.darkMode);
         document.body.classList.toggle("dark", isDark);
@@ -1253,7 +1460,10 @@ function SettingsPage({
   const applyAppearanceStyles = (theme, font, card, rgbLight, rgbDark, opacity, borderOp, bgL, bgD, glassC, glassB, fontS, fontW, bgImgId, bgOvOpacity, glassOp, bgImageBlur) => {
     // 1. Theme
     localStorage.setItem("prepmatrix_default_theme", theme);
-    const imgPreset = BACKGROUND_PRESETS.find(({ id }) => id === bgImgId);
+    const imgPreset = resolveBackgroundPresetForProfile(bgImgId, {
+      customPreset: customBackgroundPreset || undefined,
+      kidsBackgroundsEligible,
+    });
     const isDark = resolveEffectiveDarkMode(theme === "dark", Boolean(imgPreset));
 
     document.body.classList.toggle("dark", isDark);
@@ -1328,7 +1538,11 @@ function SettingsPage({
     applyFontFamilyVars(fontS);
     applyFontWeightVars(fontW);
 
-    localStorage.setItem("prepmatrix_bg_image_id", imgPreset ? bgImgId : "");
+    const preserveIneligibleKidsTheme = isKidsBackgroundPresetId(bgImgId)
+      && !kidsBackgroundsEligible;
+    if (!preserveIneligibleKidsTheme) {
+      localStorage.setItem("prepmatrix_bg_image_id", imgPreset ? bgImgId : "");
+    }
     localStorage.setItem("prepmatrix_bg_overlay_opacity", String(bgOvOpacity));
     localStorage.setItem("prepmatrix_glass_opacity", String(glassOp));
     const normalizedBackgroundImageBlur = normalizeBackgroundImageBlurPx(bgImageBlur);
@@ -1362,12 +1576,145 @@ function SettingsPage({
     }
   };
 
+  const persistCustomBackground = () => {
+    if (!customBackgroundPreset) return true;
+    localStorage.setItem(CUSTOM_BACKGROUND_DATA_STORAGE_KEY, customBackgroundPreset.file);
+    localStorage.setItem(CUSTOM_BACKGROUND_ACCENT_STORAGE_KEY, customBackgroundPreset.accentRgb);
+    localStorage.setItem(CUSTOM_BACKGROUND_SURFACE_STORAGE_KEY, customBackgroundPreset.surfaceRgb);
+    return true;
+  };
+
+  const selectBackgroundTheme = (nextId, nextCustomPreset = customBackgroundPreset) => {
+    const nextPreset = resolveBackgroundPresetForProfile(nextId, {
+      customPreset: nextCustomPreset || undefined,
+      kidsBackgroundsEligible,
+    });
+    const resolvedId = nextPreset ? nextId : "";
+    runBackgroundThemeTransition(() => {
+      if (nextId === CUSTOM_BACKGROUND_ID && nextPreset) {
+        setCustomBackgroundPreset(nextPreset);
+      }
+      setBgImageId(resolvedId);
+
+      const isDark = resolveEffectiveDarkMode(darkMode, Boolean(nextPreset));
+      document.body.classList.toggle("dark", isDark);
+      document.documentElement.classList.toggle("dark", isDark);
+      if (nextPreset) {
+        document.body.classList.add("has-bg-image");
+        document.documentElement.style.setProperty("--bg-image", `url(${nextPreset.file})`);
+        document.documentElement.style.setProperty("--bg-surface-rgb", nextPreset.surfaceRgb);
+        const mappedOverlay = (bgOverlayOpacity * 0.5).toString();
+        const brightness = Math.pow(Math.max(0, 1 - bgOverlayOpacity * 0.5), 4.5);
+        document.documentElement.style.setProperty("--bg-overlay-opacity", mappedOverlay);
+        document.body.style.setProperty("--bg-overlay-opacity", mappedOverlay);
+        document.documentElement.style.setProperty("--bg-brightness", brightness.toString());
+        document.body.style.setProperty("--bg-brightness", brightness.toString());
+        document.documentElement.style.setProperty("--accent-rgb", nextPreset.accentRgb);
+        document.body.style.setProperty("--accent-rgb", nextPreset.accentRgb);
+        document.documentElement.style.setProperty("--accent", `rgb(${nextPreset.accentRgb})`);
+        document.body.style.setProperty("--accent", `rgb(${nextPreset.accentRgb})`);
+      } else {
+        const activeRgb = isDark ? accentRgbDark : accentRgbLight;
+        document.body.classList.remove("has-bg-image");
+        document.documentElement.style.removeProperty("--bg-image");
+        document.documentElement.style.removeProperty("--bg-surface-rgb");
+        document.documentElement.style.removeProperty("--bg-overlay-opacity");
+        document.body.style.removeProperty("--bg-overlay-opacity");
+        document.documentElement.style.removeProperty("--bg-brightness");
+        document.body.style.removeProperty("--bg-brightness");
+        document.documentElement.style.setProperty("--accent-rgb", activeRgb);
+        document.body.style.setProperty("--accent-rgb", activeRgb);
+        document.documentElement.style.setProperty("--accent", `rgb(${activeRgb})`);
+        document.body.style.setProperty("--accent", `rgb(${activeRgb})`);
+      }
+      applyBackgroundImageBlurVariables(backgroundImageBlur, Boolean(nextPreset));
+    });
+  };
+
+  const handleCustomBackgroundChange = async (event) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+
+    const requestId = customBackgroundRequestRef.current + 1;
+    customBackgroundRequestRef.current = requestId;
+    const requestIsCurrent = () => (
+      customBackgroundMountedRef.current
+      && customBackgroundRequestRef.current === requestId
+    );
+    setCustomBackgroundBusy(true);
+    setCustomBackgroundStatus("Preparing your image for this device...");
+    try {
+      const preparedImage = await prepareCustomBackgroundImage(file);
+      if (!requestIsCurrent()) return;
+      const preset = createCustomBackgroundPreset(preparedImage);
+      if (!preset) throw new Error("That image could not be used as a background.");
+      selectBackgroundTheme(CUSTOM_BACKGROUND_ID, preset);
+      setCustomBackgroundStatus("Custom background ready. Save appearance to keep it on this device.");
+    } catch (error) {
+      if (!requestIsCurrent()) return;
+      const message = error instanceof Error ? error.message : "That image could not be used.";
+      setCustomBackgroundStatus(message);
+      toast.error(message);
+    } finally {
+      if (requestIsCurrent()) setCustomBackgroundBusy(false);
+    }
+  };
+
   // Save appearance settings
   const handleSaveAppearance = () => {
-    savedRef.current = true; // Mark as saved to prevent unmount reversion
+    if (customBackgroundBusy) {
+      toast.info("Wait for your custom background to finish preparing.");
+      return;
+    }
+    if (bgImageId === CUSTOM_BACKGROUND_ID && !customBackgroundPreset) {
+      savedRef.current = false;
+      setCustomBackgroundStatus("Choose a custom image before saving this theme.");
+      toast.error("Choose a custom background image first.");
+      return;
+    }
 
-    applyAppearanceStyles(
-      darkMode ? "dark" : "light",
+    savedRef.current = false;
+    let persistedBgImageId = bgImageId;
+    try {
+      runAppearanceStorageTransaction(localStorage, () => {
+        if (persistCustomBackground() === false) {
+          throw new Error("Custom background storage failed.");
+        }
+
+        applyAppearanceStyles(
+          darkMode ? "dark" : "light",
+          fontSize,
+          cardSize,
+          accentRgbLight,
+          accentRgbDark,
+          transparency,
+          contrast,
+          bgLight,
+          bgDark,
+          glassyCards,
+          glassyButtons,
+          fontFamilyStyle,
+          fontWeightStyle,
+          bgImageId,
+          bgOverlayOpacity,
+          glassOpacity,
+          backgroundImageBlur
+        );
+        persistedBgImageId = localStorage.getItem("prepmatrix_bg_image_id") || "";
+      });
+    } catch {
+      savedRef.current = false;
+      if (bgImageId === CUSTOM_BACKGROUND_ID) {
+        setCustomBackgroundStatus("Appearance changes were not saved. Your previous settings are still available.");
+      }
+      toast.error("Could not save appearance settings. Your previous saved settings were restored.");
+      return;
+    }
+
+    initialSettings.current = {
+      darkMode,
       fontSize,
       cardSize,
       accentRgbLight,
@@ -1378,14 +1725,15 @@ function SettingsPage({
       bgDark,
       glassyCards,
       glassyButtons,
-      fontFamilyStyle,
-      fontWeightStyle,
-      bgImageId,
+      fontStyle: fontFamilyStyle,
+      fontWeight: fontWeightStyle,
+      bgImageId: persistedBgImageId,
       bgOverlayOpacity,
       glassOpacity,
-      backgroundImageBlur
-    );
-
+      backgroundImageBlur: normalizeBackgroundImageBlurPx(backgroundImageBlur),
+      kidsBackgroundsEligible,
+    };
+    savedRef.current = true;
 
     toast.success("Appearance configurations applied successfully!");
   };
@@ -1966,16 +2314,61 @@ function SettingsPage({
 
           {/* Background Image Picker */}
           <div className="settings-appearance-section" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "18px" }}>
-            <span className="card-subtext" style={{ fontSize: "0.8rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
-              <ImageIcon size={14} /> Background Theme
-            </span>
+            <div className="background-theme-heading-row">
+              <span className="card-subtext background-theme-heading">
+                <ImageIcon aria-hidden="true" size={14} /> Background Theme
+              </span>
+              <div className="background-theme-actions">
+                {kidsBackgroundsEligible && (
+                  <button
+                    aria-pressed={kidsGalleryActive}
+                    className="background-theme-action-btn"
+                    onClick={() => setShowKidsBackgrounds((current) => !current)}
+                    type="button"
+                  >
+                    {kidsGalleryActive ? "Default themes" : "Suggest for kids"}
+                  </button>
+                )}
+                <input
+                  accept="image/jpeg,image/png,image/webp"
+                  aria-label="Choose a custom background image"
+                  className="custom-background-input"
+                  onChange={handleCustomBackgroundChange}
+                  ref={customBackgroundInputRef}
+                  type="file"
+                />
+                <button
+                  aria-describedby={customBackgroundStatus ? "custom-background-status" : undefined}
+                  className="background-theme-action-btn"
+                  disabled={customBackgroundBusy}
+                  onClick={() => customBackgroundInputRef.current?.click()}
+                  type="button"
+                >
+                  <Upload aria-hidden="true" size={14} />
+                  {customBackgroundBusy ? "Preparing..." : "Custom"}
+                </button>
+              </div>
+            </div>
             <p className="card-subtext" style={{ marginBottom: "12px", fontSize: "0.82rem" }}>
-              Choose an image background or use the color palette theme. Image backgrounds automatically set matching theme colours.
+              {kidsGalleryActive
+                ? "Pick a playful background chosen for younger learners, or upload your own image."
+                : "Choose an image background, use the color palette theme, or upload your own. Image themes automatically set matching colours."}
             </p>
-            <div className="settings-bg-presets-grid" style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: "10px", overflowX: "hidden", padding: "0 2px 6px", minWidth: 0 }}>
+            {customBackgroundStatus && (
+              <p aria-live="polite" className="custom-background-status" id="custom-background-status">
+                {customBackgroundStatus}
+              </p>
+            )}
+            <div
+              className={`settings-bg-presets-grid ${kidsGalleryActive ? "is-kids-gallery" : "is-default-gallery"}`}
+              key={kidsGalleryActive ? "kids-backgrounds" : "default-backgrounds"}
+              style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: "10px", overflowX: "hidden", padding: "0 2px 6px", minWidth: 0 }}
+            >
               {/* None / Color Palette option */}
-              <button
-                onClick={() => setBgImageId("")}
+              {!kidsGalleryActive && <button
+                aria-label="Use the color palette background"
+                aria-pressed={bgImageId === ""}
+                onClick={() => selectBackgroundTheme("")}
                 type="button"
                 className="bg-palette-thumbnail-btn"
                 style={{
@@ -1997,18 +2390,21 @@ function SettingsPage({
               >
                 <Palette size={15} /> Color Palette
                 {bgImageId === "" && <Check size={12} style={{ position: "absolute", top: "5px", right: "5px", color: "var(--accent)" }} />}
-              </button>
+              </button>}
 
               {/* Image thumbnails */}
-              {BACKGROUND_PRESETS.map((preset) => {
+              {galleryBackgroundPresets.map((preset) => {
                 const isActive = bgImageId === preset.id;
                 return (
                   <button
+                    aria-label={`Use ${preset.name} background`}
+                    aria-pressed={isActive}
                     key={preset.id}
-                    onClick={() => setBgImageId(preset.id)}
+                    onClick={() => selectBackgroundTheme(preset.id, preset)}
                     type="button"
                     className={`bg-preset-thumbnail-btn bg-preset-${preset.id}`}
                     style={{
+                      "--background-thumbnail-image": `url("${preset.file}")`,
                       aspectRatio: "16 / 10",
                       border: isActive ? `2.5px solid rgb(${preset.accentRgb})` : "1.5px solid var(--border)",
                       borderRadius: "12px",
@@ -2042,7 +2438,7 @@ function SettingsPage({
             </div>
 
             {/* Brightness/Dimness Slider — only visible when an image bg is selected */}
-            {bgImageId && (
+            {hasSelectedBackgroundImage && (
               <div style={{ marginTop: "14px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
                   <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text)" }}>Background Brightness</span>

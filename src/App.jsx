@@ -19,6 +19,7 @@ import {
   X,
   Settings as SettingsIcon,
   Info,
+  LockKeyhole,
   Gamepad2,
   MessageCircle,
   PanelLeft,
@@ -37,7 +38,7 @@ import {
   getPushNotificationDiagnostic,
   reconcileStudyReminders,
 } from "./utils/pushNotifications";
-import BACKGROUND_PRESETS from "./utils/backgroundPresets";
+import { resolveBackgroundPresetForProfile } from "./utils/backgroundPresets";
 import {
   BACKGROUND_IMAGE_BLUR_STORAGE_KEY,
   resolveBackgroundImageBlurPx,
@@ -68,6 +69,7 @@ import {
   getLearningMedicalTrainingEligibility,
 } from "./utils/learningNotebook";
 import { getGoalReminderShortcutRoutes } from "./utils/homeNavigationCommands";
+import { getPrimarySidebarNavItems } from "./utils/sidebarNavigation";
 import {
   getResumeEligibility,
   normalizeResumeBuilderState,
@@ -325,6 +327,9 @@ function App() {
   const logoutTransitionTimeoutRef = useRef(null);
   const logoutInFlightRef = useRef(false);
   const resetConfirmRef = useRef(null);
+  const parentLockTriggerRef = useRef(null);
+  const parentLockDialogRef = useRef(null);
+  const parentLockWasOpenRef = useRef(false);
   const profilePreviewTimerRef = useRef(null);
   const topBarHideTimeoutRef = useRef(null);
   const [subjects, setSubjects] = useState([]);
@@ -353,6 +358,8 @@ function App() {
   const [completionReward, setCompletionReward] = useState(null);
   const [entrySplash, setEntrySplash] = useState(true);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [parentLockConfirmOpen, setParentLockConfirmOpen] = useState(false);
+  const [parentLockWorking, setParentLockWorking] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [logoutTransitionPhase, setLogoutTransitionPhase] = useState("idle");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -443,6 +450,34 @@ function App() {
     }));
   }, []);
 
+  const confirmKidsParentLock = useCallback(async () => {
+    if (parentLockWorking) return;
+
+    setParentLockWorking(true);
+    try {
+      const payload = await api.post("/api/kids/parent-access/lock", {});
+      updateKidsParentAccess(payload?.parentAccess || { unlocked: false });
+      toast.success("Parent Corner locked.");
+      setParentLockConfirmOpen(false);
+      setSidebarOpen(false);
+    } catch {
+      toast.error("Could not exit Parent Corner. Check your connection and try again.");
+    } finally {
+      setParentLockWorking(false);
+    }
+  }, [parentLockWorking, updateKidsParentAccess]);
+
+  useEffect(() => {
+    const wasOpen = parentLockWasOpenRef.current;
+    parentLockWasOpenRef.current = parentLockConfirmOpen;
+
+    if (parentLockConfirmOpen) {
+      parentLockDialogRef.current?.focus();
+    } else if (wasOpen) {
+      parentLockTriggerRef.current?.focus();
+    }
+  }, [parentLockConfirmOpen]);
+
   useEffect(() => {
     let active = true;
     if (!userIdentity || !learnerRoutePolicy.isYoungKidsLearner) {
@@ -528,6 +563,12 @@ function App() {
           : item
       )),
     [learnerRoutePolicy, resumeEligibility.enabled, userProfile]
+  );
+  const primarySidebarNavItems = useMemo(
+    () => getPrimarySidebarNavItems(visibleNavItems, {
+      isYoungKidsLearner: learnerRoutePolicy.isYoungKidsLearner,
+    }),
+    [learnerRoutePolicy.isYoungKidsLearner, visibleNavItems],
   );
   const dashboardAvailableRoutes = useMemo(() => {
     const visibleRoutes = new Set(visibleNavItems.map((item) => item.to));
@@ -1052,7 +1093,13 @@ function App() {
 
   useEffect(() => {
     const backgroundImageId = localStorage.getItem("prepmatrix_bg_image_id") || "";
-    const hasBackgroundImage = !isAuthRoute && BACKGROUND_PRESETS.some(({ id }) => id === backgroundImageId);
+    const hasBackgroundImage = !isAuthRoute && Boolean(resolveBackgroundPresetForProfile(
+      backgroundImageId,
+      {
+        profile: learnerRoutePolicy.academicProfile,
+        youngKidsMode: learnerRoutePolicy.isYoungKidsLearner,
+      },
+    ));
     const effectiveDarkMode = resolveEffectiveDarkMode(darkMode, hasBackgroundImage);
 
     document.body.classList.toggle("dark", effectiveDarkMode);
@@ -1068,7 +1115,7 @@ function App() {
     
     document.documentElement.style.setProperty("--accent", `rgb(${activeRgb})`);
     document.body.style.setProperty("--accent", `rgb(${activeRgb})`);
-  }, [darkMode, isAuthRoute]);
+  }, [darkMode, isAuthRoute, learnerRoutePolicy.academicProfile, learnerRoutePolicy.isYoungKidsLearner]);
 
   useEffect(() => {
     const handleSWMessage = (event) => {
@@ -1189,7 +1236,12 @@ function App() {
 
   useEffect(() => {
     const bgImgId = localStorage.getItem("prepmatrix_bg_image_id") || "";
-    const imgPreset = !isAuthRoute ? BACKGROUND_PRESETS.find(({ id }) => id === bgImgId) : undefined;
+    const imgPreset = !isAuthRoute
+      ? resolveBackgroundPresetForProfile(bgImgId, {
+        profile: learnerRoutePolicy.academicProfile,
+        youngKidsMode: learnerRoutePolicy.isYoungKidsLearner,
+      })
+      : undefined;
     const effectiveDarkMode = resolveEffectiveDarkMode(darkMode, Boolean(imgPreset));
 
     document.body.classList.toggle("dark", effectiveDarkMode);
@@ -1360,7 +1412,7 @@ function App() {
       document.documentElement.style.removeProperty("--bg-brightness");
       document.body.style.removeProperty("--bg-brightness");
     }
-  }, [darkMode, isAuthRoute]);
+  }, [darkMode, isAuthRoute, learnerRoutePolicy.academicProfile, learnerRoutePolicy.isYoungKidsLearner]);
 
   useEffect(() => {
     document.title = `PrepMatrix | ${titleLabel}`;
@@ -1465,14 +1517,24 @@ function App() {
             </div>
           </div>
           <SidebarProximityNav
-            items={visibleNavItems.filter((item) => item.to !== "/ai-chat" && item.to !== "/exam")}
+            items={primarySidebarNavItems}
             onNavigate={() => setSidebarOpen(false)}
           />
           
           <div className="sidebar-widgets">
             {isKidsLearner && (
-              <div className="sidebar-companion-row">
+              <div aria-label="Kids quick launchers" className="sidebar-companion-row sidebar-kids-launchers">
                 <SidebarStudyPet />
+                <NavLink
+                  aria-label="Open Game Town"
+                  className={({ isActive }) => `sidebar-game-town-link${isActive ? " active" : ""}`}
+                  onClick={() => setSidebarOpen(false)}
+                  title="Play and learn in Game Town"
+                  to="/kids"
+                >
+                  <img alt="" aria-hidden="true" src="/kids/game-town-gamepad.png" />
+                  <span className="sr-only">Game Town</span>
+                </NavLink>
               </div>
             )}
             {!isKidsLearner && (<>
@@ -1564,25 +1626,69 @@ function App() {
                 <span>{userProfile.academicLevel}</span>
               </div>
             </div>
-            {(!isKidsLearner || kidsParentAccess.unlocked) && <NavLink
-              to="/settings"
-              className={({ isActive }) =>
-                isActive ? "settings-icon-btn active" : "settings-icon-btn"
-              }
-              title="Settings"
-              aria-label="Settings"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "36px",
-                height: "36px",
-                borderRadius: "50%",
-                transition: "all 0.2s"
-              }}
-            >
-              <SettingsIcon size={18} />
-            </NavLink>}
+            <div className="sidebar-footer-actions">
+              {isKidsLearner && kidsParentAccess.unlocked && (
+                <div className="parent-corner-lock-control">
+                  <button
+                    aria-controls="parent-corner-lock-confirmation"
+                    aria-expanded={parentLockConfirmOpen}
+                    aria-haspopup="dialog"
+                    aria-label="Exit Parent Corner"
+                    className="parent-corner-lock-btn"
+                    onClick={() => setParentLockConfirmOpen((open) => !open)}
+                    ref={parentLockTriggerRef}
+                    title="Exit Parent Corner"
+                    type="button"
+                  >
+                    <LockKeyhole aria-hidden="true" size={18} />
+                  </button>
+                  {parentLockConfirmOpen && (
+                    <div
+                      aria-labelledby="parent-corner-lock-title"
+                      className="parent-corner-lock-confirmation"
+                      id="parent-corner-lock-confirmation"
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") setParentLockConfirmOpen(false);
+                      }}
+                      ref={parentLockDialogRef}
+                      role="dialog"
+                      tabIndex={-1}
+                    >
+                      <div className="parent-corner-lock-copy">
+                        <span aria-hidden="true"><LockKeyhole size={18} /></span>
+                        <div>
+                          <strong id="parent-corner-lock-title">Exit Parent Corner?</strong>
+                          <p>Settings and parent-only tools will be locked again.</p>
+                        </div>
+                      </div>
+                      <div className="parent-corner-lock-actions">
+                        <button disabled={parentLockWorking} onClick={() => setParentLockConfirmOpen(false)} type="button">
+                          Stay here
+                        </button>
+                        <button
+                          className="parent-corner-lock-confirm-btn"
+                          disabled={parentLockWorking}
+                          onClick={confirmKidsParentLock}
+                          type="button"
+                        >
+                          {parentLockWorking ? "Locking..." : "Lock & exit"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {(!isKidsLearner || kidsParentAccess.unlocked) && <NavLink
+                to="/settings"
+                className={({ isActive }) =>
+                  isActive ? "settings-icon-btn active" : "settings-icon-btn"
+                }
+                title="Settings"
+                aria-label="Settings"
+              >
+                <SettingsIcon size={18} />
+              </NavLink>}
+            </div>
             {sidebarCollapsed && (
               <button
                 className="sidebar-collapse-btn"

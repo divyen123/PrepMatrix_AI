@@ -21,3 +21,13 @@ test("keeps the kids Subjects route usable while the registered class remains lo
   assert.match(subjectsPageSource, /registered class, learning stage, and curriculum are fixed/i);
   assert.match(subjectListSource, /kidsMode \? "\/planner" : "\/resources"/);
 });
+
+test("moves focus into the Parent Corner exit confirmation and restores the trigger", () => {
+  assert.match(appSource, /const parentLockTriggerRef = useRef\(null\)/);
+  assert.match(appSource, /const parentLockDialogRef = useRef\(null\)/);
+  assert.match(appSource, /parentLockDialogRef\.current\?\.focus\(\)/);
+  assert.match(appSource, /parentLockTriggerRef\.current\?\.focus\(\)/);
+  assert.match(appSource, /ref=\{parentLockTriggerRef\}/);
+  assert.match(appSource, /ref=\{parentLockDialogRef\}[\s\S]*?role="dialog"[\s\S]*?tabIndex=\{-1\}/);
+  assert.match(appSource, /event\.key === "Escape"[\s\S]*?setParentLockConfirmOpen\(false\)/);
+});

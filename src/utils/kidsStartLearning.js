@@ -12,12 +12,12 @@ export const KIDS_LESSON_GENERATION_SIZES = Object.freeze([
   Object.freeze({
     id: "low",
     label: "Low",
-    description: "A quick lesson with a few key ideas and one mini check.",
+    description: "A focused lesson with four key ideas, examples, and a four-question check.",
   }),
   Object.freeze({
     id: "high",
     label: "High",
-    description: "A fuller lesson with more examples, activities, and practice.",
+    description: "A fuller lesson with six key ideas, extra examples, and five practice questions.",
   }),
 ]);
 
@@ -42,8 +42,8 @@ export function buildKidsLessonRequest({
 
   const size = normalizeKidsLessonGenerationSize(generationSize);
   const lessonShape = size === "high"
-    ? "Create a fuller, playful lesson with four to six small ideas, clear step-by-step explanations, several familiar examples, two short activities, and a friendly practice check."
-    : "Create a quick, playful lesson with two or three small ideas, one familiar example, one tiny activity, and a friendly practice check.";
+    ? "Create a fuller, playful lesson with six distinct small ideas, clear step-by-step explanations, at least two familiar examples for each idea, two short activities, and five different friendly practice questions."
+    : "Create a focused, playful lesson with four distinct small ideas, clear explanations, at least two familiar examples for each idea, one short activity, and four different friendly practice questions.";
   const registeredClass = cleanText(
     userProfile?.grade
       || userProfile?.classLevel

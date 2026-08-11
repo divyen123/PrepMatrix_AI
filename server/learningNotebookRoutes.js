@@ -137,7 +137,7 @@ export function buildYoungKidsLessonDepthTargets(
   const expectedChapterCount = normalizedChapterNames.length;
   const planningChapterCount = expectedChapterCount || 1;
   const highDetail = normalizeLearningGenerationSize(generationSize) === "high";
-  const topicsPerChapter = highDetail ? 5 : 3;
+  const topicsPerChapter = highDetail ? 6 : 4;
   const subtopicsPerTopic = highDetail ? 2 : 1;
 
   return {
@@ -151,21 +151,22 @@ export function buildYoungKidsLessonDepthTargets(
     minimumCommonMistakesPerTopic: 1,
     maximumCommonMistakesPerTopic: highDetail ? 3 : 2,
     minimumExamplesPerSubtopic: 1,
-    minimumExamplesPerTopic: 1,
-    minimumImportantQuestions: highDetail ? 4 : 1,
+    minimumExamplesPerTopic: 2,
+    minimumImportantQuestions: highDetail ? 5 : 4,
+    maximumImportantQuestions: highDetail ? 5 : 4,
     minimumKeyPointsPerSubtopic: highDetail ? 2 : 1,
     maximumKeyPointsPerSubtopic: highDetail ? 4 : 3,
     minimumKeyPointsPerTopic: highDetail ? 3 : 2,
     maximumKeyPointsPerTopic: highDetail ? 5 : 4,
     minimumLearningObjectivesPerTopic: highDetail ? 3 : 2,
     maximumLearningObjectivesPerTopic: highDetail ? 4 : 3,
-    minimumNoteSections: highDetail ? 5 : 3,
+    minimumNoteSections: highDetail ? 6 : 4,
     minimumRevisionTipsPerTopic: 1,
     maximumRevisionTipsPerTopic: highDetail ? 3 : 2,
     minimumSubtopicsPerTopic: subtopicsPerTopic,
     minimumTopicsPerChapter: topicsPerChapter,
     minimumChapterSummaryLength: 20,
-    minimumTopicExplanationLength: highDetail ? 80 : 45,
+    minimumTopicExplanationLength: highDetail ? 100 : 65,
     minimumSubtopicExplanationLength: highDetail ? 40 : 20,
     subtopicsPerTopic,
     topicsPerChapter,
@@ -981,7 +982,7 @@ function buildGenerationPrompts({
   const youngKidsLesson = depthTargets.youngKidsLesson === true;
   const highDetailKidsLesson = youngKidsLesson && depthTargets.topicsPerChapter >= 5;
   const topicExplanationLength = youngKidsLesson
-    ? (highDetailKidsLesson ? "60-100 words" : "30-60 words")
+    ? (highDetailKidsLesson ? "80-120 words" : "45-75 words")
     : compactOutput
       ? "70-110 words"
       : depthTargets.planningChapterCount <= 2 ? "180-320 words" : "120-220 words";
@@ -991,7 +992,7 @@ function buildGenerationPrompts({
       ? "35-60 words"
       : depthTargets.planningChapterCount <= 2 ? "80-150 words" : "60-110 words";
   const topicDetailRule = youngKidsLesson
-    ? "For every topic, write a " + topicExplanationLength + " child-friendly explanation using short sentences and a familiar example. Include " + depthTargets.minimumLearningObjectivesPerTopic + "-" + depthTargets.maximumLearningObjectivesPerTopic + " simple learning goals, " + depthTargets.minimumKeyPointsPerTopic + "-" + depthTargets.maximumKeyPointsPerTopic + " clear key points, at least one concrete example, and at least one application, common mistake, and revision tip."
+    ? "For every topic, write a " + topicExplanationLength + " child-friendly explanation using short sentences and familiar situations. Include " + depthTargets.minimumLearningObjectivesPerTopic + "-" + depthTargets.maximumLearningObjectivesPerTopic + " simple learning goals, " + depthTargets.minimumKeyPointsPerTopic + "-" + depthTargets.maximumKeyPointsPerTopic + " clear key points, at least " + depthTargets.minimumExamplesPerTopic + " different concrete examples, and at least one application, common mistake, and revision tip."
     : compactOutput
     ? "For every topic, write a " + topicExplanationLength + " teaching explanation covering definition, intuition, how it works, and when it is used. Include 2-3 learning objectives, 4-5 specific key points, " + depthTargets.minimumExamplesPerTopic + " worked example, 1-2 applications, 1-2 common mistakes, and 1-2 actionable revision tips."
     : "For every topic, write a " + topicExplanationLength + " teaching explanation covering definition, intuition, how it works, relationships, and when it is used. Include 3-5 learning objectives, 4-7 specific key points, " + depthTargets.minimumExamplesPerTopic + " worked examples, 2-4 applications, 2-4 common mistakes, and 2-4 actionable revision tips.";
@@ -1001,7 +1002,7 @@ function buildGenerationPrompts({
     ? "For every subtopic, write a " + subtopicExplanationLength + " explanation, 2-3 recall-ready key points, and at least " + depthTargets.minimumExamplesPerSubtopic + " concrete example."
     : "For every subtopic, write a " + subtopicExplanationLength + " explanation, 2-5 recall-ready key points, and at least " + depthTargets.minimumExamplesPerSubtopic + " concrete example.";
   const notesAndQuestionsRule = youngKidsLesson
-    ? "Create at least " + depthTargets.minimumNoteSections + " short revised-note cards and " + depthTargets.minimumImportantQuestions + " friendly practice " + (depthTargets.minimumImportantQuestions === 1 ? "question" : "questions") + " with clear answers."
+    ? "Create at least " + depthTargets.minimumNoteSections + " short revised-note cards and exactly " + depthTargets.minimumImportantQuestions + " different friendly practice questions with clear answers. Mix simple recall, an everyday example, and one small apply-or-explain question without repeating the same idea."
     : compactOutput
     ? "Create at least " + depthTargets.minimumNoteSections + " focused revised-note sections with examples, and at least " + depthTargets.minimumImportantQuestions + " important questions with concise model answers and why each matters."
     : "Create at least " + depthTargets.minimumNoteSections + " revised-note sections with multi-paragraph explanations and examples, and at least " + depthTargets.minimumImportantQuestions + " important questions with complete model answers and why each matters.";
@@ -2301,7 +2302,10 @@ export function buildLearningNotebookResponseSchema(depthTargets = buildLearning
   const exactChapterCount = Math.max(0, Number(depthTargets.exactChapterCount) || 0);
 
   schema.properties.importantQuestions.minItems = depthTargets.minimumImportantQuestions;
-  schema.properties.importantQuestions.maxItems = 20;
+  schema.properties.importantQuestions.maxItems = Math.max(
+    depthTargets.minimumImportantQuestions,
+    Number(depthTargets.maximumImportantQuestions) || 20,
+  );
   schema.properties.revisedNotes.minItems = depthTargets.minimumNoteSections;
   schema.properties.revisedNotes.maxItems = 24;
   schema.properties.chapters.minItems = exactChapterCount || expectedChapterCount || 1;

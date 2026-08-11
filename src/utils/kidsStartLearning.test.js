@@ -25,7 +25,10 @@ test("builds a small, child-safe notebook request from only subject, topic, and 
   assert.equal(request.generationSize, "low");
   assert.deepEqual(request.attachments, []);
   assert.deepEqual(request.textSources, []);
-  assert.match(request.learningPrompt, /quick, playful lesson/i);
+  assert.match(request.learningPrompt, /focused, playful lesson/i);
+  assert.match(request.learningPrompt, /four distinct small ideas/i);
+  assert.match(request.learningPrompt, /four different friendly practice questions/i);
+  assert.match(request.learningPrompt, /at least two familiar examples for each idea/i);
   assert.match(request.learningPrompt, /registered class level \(Class 2\)/i);
   assert.match(request.learningPrompt, /avoid career, placement, interview, and resume/i);
   assert.equal("careerRole" in request, false);
@@ -40,6 +43,8 @@ test("high generation size asks for a fuller lesson and invalid sizes fall back 
   });
   assert.equal(high.generationSize, "high");
   assert.match(high.learningPrompt, /fuller, playful lesson/i);
+  assert.match(high.learningPrompt, /six distinct small ideas/i);
+  assert.match(high.learningPrompt, /five different friendly practice questions/i);
   assert.equal(normalizeKidsLessonGenerationSize("giant"), "low");
 });
 

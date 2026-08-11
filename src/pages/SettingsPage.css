@@ -273,6 +273,80 @@
   font-size: 0.72rem !important;
 }
 
+.settings-page .background-theme-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 7px;
+}
+
+.settings-page .background-theme-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin: 0 !important;
+  color: var(--text) !important;
+  font-size: 0.72rem !important;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.settings-page .background-theme-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  min-width: 0;
+}
+
+.settings-page .background-theme-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 29px !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  font-size: 0.68rem !important;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.settings-page .background-theme-action-btn[aria-pressed="true"] {
+  border-color: rgba(var(--accent-rgb), 0.48);
+  background: rgba(var(--accent-rgb), 0.22);
+  color: var(--accent);
+}
+
+.settings-page .custom-background-input {
+  display: none;
+}
+
+.settings-page .custom-background-status {
+  margin: -2px 0 9px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.settings-page .settings-bg-presets-grid {
+  animation: settingsBackgroundGalleryIn 0.38s ease both;
+}
+
+@keyframes settingsBackgroundGalleryIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-page .settings-bg-presets-grid {
+    animation: none;
+  }
+}
+
 .settings-page .settings-bg-presets-grid {
   gap: 7px !important;
   padding-bottom: 3px !important;
@@ -432,6 +506,16 @@
 
   .settings-page .settings-bg-presets-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .settings-page .background-theme-heading-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .settings-page .background-theme-actions {
+    justify-content: flex-start;
+    width: 100%;
   }
 
   .settings-page button.bg-preset-thumbnail-btn,

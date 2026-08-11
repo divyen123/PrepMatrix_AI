@@ -564,6 +564,7 @@ test("requires rich depth for new generations while preserving legacy notebooks"
     minimumApplicationsPerTopic: 2,
     minimumCommonMistakesPerTopic: 2,
     minimumRevisionTipsPerTopic: 2,
+    maximumImportantQuestions: rich.importantQuestions.length,
   };
   assert.equal(hasGeneratedLearningNotebookDepth(rich, strictChildOptions), true);
 
@@ -590,6 +591,14 @@ test("requires rich depth for new generations while preserving legacy notebooks"
     title: "Extra subtopic",
   });
   assert.equal(hasGeneratedLearningNotebookDepth(extraSubtopic, strictChildOptions), false);
+
+  const extraQuestion = structuredClone(rich);
+  extraQuestion.importantQuestions.push({
+    ...structuredClone(extraQuestion.importantQuestions[0]),
+    id: "question-extra",
+    question: "One question beyond the configured maximum?",
+  });
+  assert.equal(hasGeneratedLearningNotebookDepth(extraQuestion, strictChildOptions), false);
 
   for (const field of [
     "learningObjectives",
