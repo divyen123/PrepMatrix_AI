@@ -1251,6 +1251,26 @@ body.dark .task-chip {
   background: var(--surface-muted);
 }
 
+.chat-message-link {
+  color: var(--accent-strong);
+  font-weight: 750;
+  text-decoration: underline;
+  text-decoration-color: rgba(var(--accent-rgb), 0.52);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.chat-message-link:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+.chat-message-link:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .chat-message.user {
   align-self: flex-end;
   background: rgba(11, 143, 116, 0.16);
@@ -10640,15 +10660,17 @@ body.has-bg-image {
 body.has-bg-image::after {
   content: "";
   position: fixed;
-  inset: var(--bg-image-blur-inset, 0px);
+  inset: calc(var(--bg-image-blur-inset, 0px) + var(--bg-image-backdrop-inset-extra, 0px));
   z-index: -2;
   background-image: var(--bg-image);
   background-size: cover;
-  background-position: center;
+  background-position: var(--bg-image-position, center);
   background-attachment: fixed;
   background-repeat: no-repeat;
   pointer-events: none;
-  filter: brightness(var(--bg-brightness, 1)) blur(var(--bg-image-blur, 0px));
+  filter:
+    brightness(var(--bg-brightness, 1))
+    blur(calc(var(--bg-image-blur, 0px) + var(--bg-image-backdrop-blur-extra, 0px)));
   transition: filter 0.3s ease, inset 0.3s ease;
 }
 
@@ -10676,9 +10698,20 @@ body.has-bg-image::before {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: rgba(0, 0, 0, var(--bg-overlay-opacity, 0.55));
+  background-color: transparent;
+  background-image:
+    linear-gradient(
+      rgba(0, 0, 0, var(--bg-overlay-opacity, 0.55)),
+      rgba(0, 0, 0, var(--bg-overlay-opacity, 0.55))
+    ),
+    var(--bg-image-foreground, none);
+  background-position: center, var(--bg-image-foreground-position, center);
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% 100%, var(--bg-image-foreground-size, cover);
+  background-attachment: fixed, fixed;
   pointer-events: none;
-  transition: background 0.3s ease;
+  filter: brightness(var(--bg-image-foreground-brightness, 1));
+  transition: background 0.3s ease, filter 0.3s ease;
 }
 
 /* Remove radial-gradient background from body when image is set */
@@ -10952,9 +10985,10 @@ body.has-bg-image .auth-layout {
 button.bg-preset-thumbnail-btn {
   background-image: linear-gradient(to top, rgba(0, 0, 0, 0.86), rgba(0, 0, 0, 0.04)),
     var(--background-thumbnail-image, linear-gradient(135deg, #27324a, #111827)) !important;
-  background-size: cover !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
+  background-color: #111827 !important;
+  background-size: 100% 100%, var(--background-thumbnail-size, cover) !important;
+  background-position: center, var(--background-thumbnail-position, center) !important;
+  background-repeat: no-repeat, no-repeat !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }

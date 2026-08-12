@@ -8,6 +8,9 @@ export const PWA_BUILD_VERSION_PLACEHOLDER = "__PREPMATRIX_BUILD_VERSION__"
 export const PWA_PUBLIC_FINGERPRINT_PATHS = Object.freeze([
   "public/sw.js",
   "public/manifest.webmanifest",
+  "public/mediapipe/vision_wasm_internal.js",
+  "public/mediapipe/vision_wasm_internal.wasm",
+  "public/models/blaze-face-full-range.tflite",
   "public/pwa/brand-icon-192.png",
   "public/pwa/brand-icon-512.png",
   "public/pwa/brand-icon-maskable-192.png",

@@ -7,12 +7,21 @@ export const CUSTOM_BACKGROUND_ID = "custom-background";
 export const CUSTOM_BACKGROUND_DATA_STORAGE_KEY = "prepmatrix_custom_bg_data";
 export const CUSTOM_BACKGROUND_ACCENT_STORAGE_KEY = "prepmatrix_custom_bg_accent_rgb";
 export const CUSTOM_BACKGROUND_SURFACE_STORAGE_KEY = "prepmatrix_custom_bg_surface_rgb";
+export const CUSTOM_BACKGROUND_LAYOUT_STORAGE_KEY = "prepmatrix_custom_bg_layout_v1";
 export const CUSTOM_BACKGROUND_MAX_DATA_URL_LENGTH = 2_400_000;
 
 const DEFAULT_CUSTOM_ACCENT_RGB = "120, 160, 210";
 const DEFAULT_CUSTOM_SURFACE_RGB = "12, 18, 32";
 const SAFE_DATA_IMAGE_PREFIX = /^data:image\/(?:jpeg|png|webp);base64,/i;
 const SAFE_RGB_VALUE = /^(?:\d{1,3},\s*){2}\d{1,3}$/;
+const DEFAULT_CUSTOM_BACKGROUND_LAYOUT = Object.freeze({
+  version: 1,
+  mode: "contain",
+  focalX: 0.5,
+  focalY: 0.5,
+  faceAware: false,
+  sourceAspect: 1,
+});
 
 const BACKGROUND_PRESETS = [
   {
@@ -118,7 +127,47 @@ export function isSafeCustomBackgroundDataUrl(value) {
   return payload.length > 0 && !/[^a-z\d+/=]/i.test(payload);
 }
 
-export function createCustomBackgroundPreset({ file, accentRgb, surfaceRgb } = {}) {
+export function normalizeCustomBackgroundLayout(value) {
+  let layout = value;
+  if (typeof layout === "string") {
+    try {
+      layout = JSON.parse(layout);
+    } catch {
+      return { ...DEFAULT_CUSTOM_BACKGROUND_LAYOUT };
+    }
+  }
+  if (!layout || typeof layout !== "object" || layout.version !== 1) {
+    return { ...DEFAULT_CUSTOM_BACKGROUND_LAYOUT };
+  }
+
+  const focalX = Number(layout.focalX);
+  const focalY = Number(layout.focalY);
+  const sourceAspect = Number(layout.sourceAspect);
+  if (
+    !["cover", "contain"].includes(layout.mode)
+    || !Number.isFinite(focalX) || focalX < 0 || focalX > 1
+    || !Number.isFinite(focalY) || focalY < 0 || focalY > 1
+    || !Number.isFinite(sourceAspect) || sourceAspect < 0.05 || sourceAspect > 20
+  ) {
+    return { ...DEFAULT_CUSTOM_BACKGROUND_LAYOUT };
+  }
+
+  return {
+    version: 1,
+    mode: layout.mode,
+    focalX,
+    focalY,
+    faceAware: layout.faceAware === true,
+    sourceAspect,
+  };
+}
+
+export function createCustomBackgroundPreset({
+  file,
+  accentRgb,
+  surfaceRgb,
+  layout,
+} = {}) {
   if (!isSafeCustomBackgroundDataUrl(file)) return undefined;
   return {
     id: CUSTOM_BACKGROUND_ID,
@@ -127,6 +176,7 @@ export function createCustomBackgroundPreset({ file, accentRgb, surfaceRgb } = {
     accentRgb: normalizeRgb(accentRgb, DEFAULT_CUSTOM_ACCENT_RGB),
     surfaceRgb: normalizeRgb(surfaceRgb, DEFAULT_CUSTOM_SURFACE_RGB),
     custom: true,
+    layout: normalizeCustomBackgroundLayout(layout),
   };
 }
 
@@ -137,6 +187,7 @@ export function readStoredCustomBackgroundPreset(storage = globalThis?.localStor
       file: storage.getItem(CUSTOM_BACKGROUND_DATA_STORAGE_KEY) || "",
       accentRgb: storage.getItem(CUSTOM_BACKGROUND_ACCENT_STORAGE_KEY) || "",
       surfaceRgb: storage.getItem(CUSTOM_BACKGROUND_SURFACE_STORAGE_KEY) || "",
+      layout: storage.getItem(CUSTOM_BACKGROUND_LAYOUT_STORAGE_KEY) || undefined,
     });
   } catch {
     return undefined;

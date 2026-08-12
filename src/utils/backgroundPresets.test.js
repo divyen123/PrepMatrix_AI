@@ -91,5 +91,13 @@ test("reads a persisted custom background without trusting malformed values", ()
     accentRgb: "44, 88, 132",
     surfaceRgb: "8, 16, 24",
     custom: true,
+    layout: {
+      version: 1,
+      mode: "contain",
+      focalX: 0.5,
+      focalY: 0.5,
+      faceAware: false,
+      sourceAspect: 1,
+    },
   });
 });

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@langchain/anthropic": "^1.4.1",
+    "@mediapipe/tasks-vision": "^1.0.1",
     "@react-three/fiber": "^9.6.1",
     "@xyflow/react": "^12.11.2",
     "axios": "^1.14.0",

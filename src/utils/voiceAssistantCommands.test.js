@@ -20,6 +20,44 @@ test("turns a natural YouTube search request into one allowlisted external inten
   });
 });
 
+test("treats speech-recognition 'ask' as search only after an explicit website command", () => {
+  const scenarios = [
+    ["go to YouTube and ask REST API.", "REST API"],
+    ["open You Tube and then ask for beginner algebra", "beginner algebra"],
+  ];
+
+  scenarios.forEach(([spokenText, query]) => {
+    const intent = resolveVoiceAssistantCommand(spokenText);
+    assert.equal(intent?.type, "external", spokenText);
+    assert.equal(intent?.service, "youtube", spokenText);
+    assert.equal(intent?.query, query, spokenText);
+    const url = new URL(intent?.url);
+    assert.equal(url.origin, "https://www.youtube.com", spokenText);
+    assert.equal(url.pathname, "/results", spokenText);
+    assert.equal(url.searchParams.get("search_query"), query, spokenText);
+  });
+
+  assert.equal(resolveVoiceAssistantCommand("ask AI about REST APIs"), null);
+  assert.equal(
+    resolveVoiceAssistantCommand("ask me whether YouTube has REST API tutorials"),
+    null,
+  );
+});
+
+test("keeps the speech-only ask alias inside explicit website commands", () => {
+  const missingQuery = resolveVoiceAssistantCommand("go to YouTube and ask");
+  assert.equal(missingQuery.type, "clarify");
+  assert.match(missingQuery.response, /what would you like me to search for/iu);
+
+  assert.equal(
+    resolveVoiceAssistantCommand("ask YouTube for REST API"),
+    null,
+  );
+  assert.equal(
+    resolveVoiceAssistantCommand("go to YouTube and asking about REST API"),
+    null,
+  );
+});
 test("understands common natural phrasings for external searches", () => {
   const scenarios = [
     ["search You Tube for Newton's laws", "youtube", "Newton's laws"],

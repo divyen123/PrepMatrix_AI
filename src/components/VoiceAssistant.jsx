@@ -31,7 +31,7 @@ function VoiceAssistant({ hidden = false, assistant }) {
         aria-label={assistant.isListening ? "Listening - Click to stop" : "Ask with Voice"}
         className={`icon-shell-btn voice-icon-btn ${assistant.isListening ? "recording" : ""}`}
         disabled={assistant.isListening || assistant.isProcessing}
-        onClick={assistant.askWithVoice}
+        onClick={() => assistant.askWithVoice()}
         title={assistant.isListening ? "Listening..." : "Ask with Voice"}
         type="button"
       >
@@ -66,7 +66,7 @@ function VoiceAssistant({ hidden = false, assistant }) {
           <button
             className={`voice-record-btn ${assistant.isListening ? "recording" : ""}`}
             disabled={assistant.isListening || assistant.isProcessing}
-            onClick={assistant.askWithVoice}
+            onClick={() => assistant.askWithVoice()}
             type="button"
           >
             {assistant.isListening ? "Listening..." : "Ask with Voice"}

@@ -40,6 +40,10 @@ import {
 } from "./utils/pushNotifications";
 import { resolveBackgroundPresetForProfile } from "./utils/backgroundPresets";
 import {
+  applyBackgroundPresentation,
+  clearBackgroundPresentation,
+} from "./utils/backgroundPresentation";
+import {
   BACKGROUND_IMAGE_BLUR_STORAGE_KEY,
   resolveBackgroundImageBlurPx,
   resolveEffectiveDarkMode,
@@ -1398,6 +1402,7 @@ function App() {
     if (imgPreset) {
       document.body.classList.add("has-bg-image");
       document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
+      applyBackgroundPresentation([document.documentElement, document.body], imgPreset);
       document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
       const parsedOvOp = parseFloat(bgOvOp);
       const mappedOverlay = (parsedOvOp * 0.5).toString();
@@ -1414,6 +1419,7 @@ function App() {
     } else {
       document.body.classList.remove("has-bg-image");
       document.documentElement.style.removeProperty("--bg-image");
+      clearBackgroundPresentation([document.documentElement, document.body]);
       document.documentElement.style.removeProperty("--bg-surface-rgb");
       document.documentElement.style.removeProperty("--bg-overlay-opacity");
       document.body.style.removeProperty("--bg-overlay-opacity");
@@ -1945,6 +1951,7 @@ function App() {
                               childMode={learnerRoutePolicy.isYoungKidsLearner}
                               availableRoutes={dashboardAvailableRoutes}
                               homeRoute={learnerRoutePolicy.homeRoute}
+                              voiceAssistant={voiceAssistant}
                               completed={completed}
                               metrics={metrics}
                               overviewCards={overviewCards}

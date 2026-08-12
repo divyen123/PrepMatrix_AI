@@ -3,7 +3,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import vm from "node:vm";
-import { createPwaAssetManifest } from "../../vite.config.js";
+import {
+  createPwaAssetManifest,
+  PWA_PUBLIC_FINGERPRINT_PATHS,
+} from "../../vite.config.js";
 
 const manifestUrl = new URL("../../public/manifest.webmanifest", import.meta.url);
 const workerSource = readFileSync(new URL("../../public/sw.js", import.meta.url), "utf8");
@@ -221,6 +224,23 @@ test("Vite asset manifest is deterministic, complete, and excludes public heavyw
   );
 });
 
+test("face-detection runtime assets are self-hosted and participate in PWA build versioning", () => {
+  const faceAssetPaths = [
+    "public/mediapipe/vision_wasm_internal.js",
+    "public/mediapipe/vision_wasm_internal.wasm",
+    "public/models/blaze-face-full-range.tflite",
+  ];
+
+  for (const assetPath of faceAssetPaths) {
+    assert.equal(PWA_PUBLIC_FINGERPRINT_PATHS.includes(assetPath), true);
+    assert.equal(
+      existsSync(fileURLToPath(new URL(`../../${assetPath}`, import.meta.url))),
+      true,
+      `Missing self-hosted face-detection asset: ${assetPath}`,
+    );
+  }
+});
+
 test("service worker precaches the complete production shell and waits for update approval", async () => {
   const harness = createWorkerHarness({
     manifestAssets: [
@@ -244,6 +264,9 @@ test("service worker precaches the complete production shell and waits for updat
   assert.equal(cachedPaths.includes("/index.html"), true);
   assert.equal(cachedPaths.includes("/manifest.webmanifest"), true);
   assert.equal(cachedPaths.includes("/pwa/brand-icon-512.png"), true);
+  assert.equal(cachedPaths.includes("/mediapipe/vision_wasm_internal.js"), false);
+  assert.equal(cachedPaths.includes("/mediapipe/vision_wasm_internal.wasm"), false);
+  assert.equal(cachedPaths.includes("/models/blaze-face-full-range.tflite"), false);
   assert.equal(cachedPaths.includes("/asset-manifest.json"), true);
   assert.equal(cachedPaths.includes("/assets/app-123.js"), true);
   assert.equal(cachedPaths.includes("/assets/page-456.css"), true);
@@ -313,6 +336,20 @@ test("service worker bypasses authenticated, API, cross-origin, range, and user-
   });
   assert.equal((await publicAssetResponse).ok, true);
   assert.deepEqual(harness.fetchCalls, ["/assets/app.js"]);
+
+  let faceModelResponse;
+  harness.listeners.get("fetch")({
+    request: workerRequest("/models/blaze-face-full-range.tflite"),
+    respondWith: (promise) => {
+      faceModelResponse = promise;
+    },
+    waitUntil: () => undefined,
+  });
+  assert.equal((await faceModelResponse).ok, true);
+  assert.deepEqual(harness.fetchCalls, [
+    "/assets/app.js",
+    "/models/blaze-face-full-range.tflite",
+  ]);
 });
 
 test("production worker source retains a single deterministic build-version placeholder", () => {

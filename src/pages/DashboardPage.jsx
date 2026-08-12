@@ -117,13 +117,13 @@ function DashboardPage({
   childMode = false,
   availableRoutes,
   homeRoute = "/dashboard",
+  voiceAssistant,
 }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [showSubjectsPopup, setShowSubjectsPopup] = useState(false);
   const [activePanel, setActivePanel] = useState(null);
   const [searchInput, setSearchInput]   = useState("");
-  const [isRecording, setIsRecording]   = useState(false);
   const [isDragging, setIsDragging]     = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
@@ -131,7 +131,6 @@ function DashboardPage({
   const [submissionNotice, setSubmissionNotice] = useState("");
   const dragDepthRef = useRef(0);
   const inputRef     = useRef(null);
-  const recognitionRef = useRef(null);
   const panelContentRef = useRef(null);
   const suggestionListId = useId();
   const searchHelpId = useId();
@@ -206,6 +205,7 @@ function DashboardPage({
       : resolveHomeNavigationCommand(trimmedSearchInput, {
           availableRoutes,
           homeRoute,
+          allowContentIntents: false,
         }),
     [attachments.length, availableRoutes, homeRoute, trimmedSearchInput],
   );
@@ -226,7 +226,6 @@ function DashboardPage({
   }, [navigationOptions.length]);
 
   const openNavigationSuggestion = useCallback((suggestion) => {
-    recognitionRef.current?.stop();
     navigate(buildHomeNavigationRoute(suggestion));
     setSearchInput("");
     setSubmissionNotice("");
@@ -244,9 +243,7 @@ function DashboardPage({
   /* ── Text submit ─────────────────────────────────────────── */
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (isRecording) {
-      recognitionRef.current?.stop();
-    }
+    if (voiceAssistant?.isCommandListening || voiceAssistant?.isProcessing) return;
     const query = searchInput.trim();
     if (!query && attachments.length === 0) {
       if (window.openStudyAssistant) window.openStudyAssistant();
@@ -304,54 +301,41 @@ function DashboardPage({
     }
   };
 
-  /* ── Mic button (Local Speech Recognition) ───────────────── */
   const handleMic = () => {
     setSubmissionNotice("");
     setSuggestionsOpen(false);
     setActiveSuggestionIndex(-1);
-    if (isRecording) {
-      recognitionRef.current?.stop();
+
+    if (!voiceAssistant?.supported) {
+      setSubmissionNotice("Voice recognition is not supported in this browser.");
       return;
     }
+    if (voiceAssistant.isCommandListening || voiceAssistant.isProcessing) return;
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setSearchInput("Voice recognition is not supported in this browser.");
-      return;
-    }
+    const hasAttachments = attachments.length > 0;
+    voiceAssistant.askWithVoice({
+      onTranscript: async (spokenText) => {
+        if (!hasAttachments) {
+          setSearchInput("");
+          return;
+        }
+        setSearchInput(spokenText);
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognition.lang = "en-IN";
-    recognitionRef.current = recognition;
+        const delivery = await sendDashboardChatMessage(window.sendToChatbot, spokenText);
+        if (!delivery.accepted) {
+          if (delivery.reason === "unavailable") window.openStudyAssistant?.();
+          setSubmissionNotice(delivery.message);
+          window.requestAnimationFrame(() => inputRef.current?.focus());
+          return;
+        }
 
-    recognition.onstart = () => setIsRecording(true);
-    recognition.onend = () => {
-      setIsRecording(false);
-      recognitionRef.current = null;
-    };
-    recognition.onerror = () => {
-      setIsRecording(false);
-      recognitionRef.current = null;
-    };
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .map((res) => res[0]?.transcript || "")
-        .join(" ")
-        .trim();
-      if (transcript) setSearchInput(transcript);
-    };
-
-    try {
-      recognition.start();
-    } catch {
-      setIsRecording(false);
-    }
+        setSearchInput("");
+        setSubmissionNotice("");
+      },
+      processTranscript: !hasAttachments,
+    });
   };
 
-  /* ── File/paperclip button ───────────────────────────────── */
   const handleAttach = () => {
     setSubmissionNotice("");
     setSuggestionsOpen(false);
@@ -516,12 +500,13 @@ function DashboardPage({
           {/* Mic */}
           <button
             type="button"
-            className={`db-search-action-btn db-mic-btn${isRecording ? " db-mic-btn--active" : ""}`}
+            className={`db-search-action-btn db-mic-btn${voiceAssistant?.isCommandListening ? " db-mic-btn--active" : ""}`}
+            disabled={voiceAssistant?.isCommandListening || voiceAssistant?.isProcessing}
             onClick={handleMic}
-            title={isRecording ? "Stop recording" : "Voice input"}
-            aria-label={isRecording ? "Stop recording" : "Voice input"}
+            title={voiceAssistant?.isCommandListening ? "Listening..." : "Voice input"}
+            aria-label={voiceAssistant?.isCommandListening ? "Listening to voice input" : "Voice input"}
           >
-            {isRecording ? (
+            {voiceAssistant?.isCommandListening ? (
               <span className="db-mic-pulse" aria-hidden="true" />
             ) : (
               <Mic size={16} />
@@ -533,6 +518,7 @@ function DashboardPage({
             <button
               type="submit"
               className="db-search-send"
+              disabled={voiceAssistant?.isCommandListening || voiceAssistant?.isProcessing}
               aria-label={navigationCommand
                 ? `${navigationCommandIsCurrent ? "View" : "Open"} ${navigationCommand.label}`
                 : "Ask AI"}

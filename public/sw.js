@@ -7,6 +7,11 @@ const OWNED_CACHE_PREFIXES = [
   "prepmatrix-offline-",
 ];
 const BUILD_ASSET_MANIFEST_PATH = "/asset-manifest.json";
+const FACE_DETECTION_ASSET_PATHS = [
+  "/mediapipe/vision_wasm_internal.js",
+  "/mediapipe/vision_wasm_internal.wasm",
+  "/models/blaze-face-full-range.tflite",
+];
 const SHELL_PATHS = [
   "/",
   "/index.html",
@@ -166,6 +171,10 @@ function requestMustUseNetwork(request, url) {
     || pathIsPrivate(url.pathname);
 }
 
+function pathIsFaceDetectionAsset(pathname) {
+  return FACE_DETECTION_ASSET_PATHS.includes(pathname);
+}
+
 async function matchPublicCache(request) {
   const shell = await self.caches.open(SHELL_CACHE_NAME);
   const shellMatch = await shell.match(request);
@@ -225,6 +234,11 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(networkFirstNavigation(request));
+    return;
+  }
+
+  if (pathIsFaceDetectionAsset(url.pathname)) {
+    event.respondWith(cacheFirstAsset(request));
     return;
   }
 

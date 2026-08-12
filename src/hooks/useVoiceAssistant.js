@@ -187,6 +187,7 @@ export default function useVoiceAssistant({
 
   const [wakeMode, setWakeModeState] = useState(readStoredWakeMode);
   const [isListening, setIsListening] = useState(false);
+  const [isCommandListening, setIsCommandListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [reply, setReply] = useState("");
@@ -282,6 +283,7 @@ export default function useVoiceAssistant({
     commandRecognitionRef.current = null;
     detachAndStopRecognition(recognition);
     setIsListening(false);
+    setIsCommandListening(false);
     emitVoiceRecordingChange(false);
   }, [clearCommandTimeout, detachAndStopRecognition, emitVoiceRecordingChange]);
 
@@ -839,8 +841,12 @@ export default function useVoiceAssistant({
     startWakeListeningRef.current = startWakeListening;
   }, [startWakeListening]);
 
-  const askWithVoice = useCallback(() => {
+  const askWithVoice = useCallback((options = {}) => {
     if (disabled) return;
+    const onTranscript = typeof options?.onTranscript === "function"
+      ? options.onTranscript
+      : null;
+    const processTranscript = options?.processTranscript !== false;
     const recognition = createRecognition(false, { interimResults: false, maxAlternatives: 5 });
     if (!recognition) return;
 
@@ -853,12 +859,20 @@ export default function useVoiceAssistant({
     setError("");
     setVoiceStatus("listening");
 
+    let captured = false;
+
     recognition.onstart = () => {
       setIsListening(true);
+      setIsCommandListening(true);
     };
 
     recognition.onresult = (event) => {
-      const spokenText = selectVoiceRecognitionTranscript(event.results, (candidate) => (
+      if (captured) return;
+      const finalResults = Array.from(event.results || [])
+        .filter((result) => result?.isFinal !== false);
+      if (!finalResults.length) return;
+
+      const spokenText = selectVoiceRecognitionTranscript(finalResults, (candidate) => (
         resolveVoiceAssistantCommand(candidate, {
           allowExternalNavigation,
           availableRoutes,
@@ -868,16 +882,35 @@ export default function useVoiceAssistant({
       ));
 
       if (spokenText) {
+        captured = true;
         commandRecognitionRef.current = null;
         setIsListening(false);
+        setIsCommandListening(false);
         emitVoiceRecordingChange(false);
-        processSpokenText(spokenText, { speakReply: true });
+        try {
+          const callbackResult = onTranscript?.(spokenText);
+          if (callbackResult && typeof callbackResult.catch === "function") {
+            callbackResult.catch(() => undefined);
+          }
+        } catch {
+          // A display callback must never prevent the recognized command from running.
+        }
+
+        if (processTranscript) {
+          processSpokenText(spokenText, { speakReply: true });
+        } else {
+          setTranscript(spokenText);
+          hideOverlay();
+          scheduleWakeRestart();
+        }
       }
     };
 
     recognition.onerror = (event) => {
+      if (captured) return;
       commandRecognitionRef.current = null;
       setIsListening(false);
+      setIsCommandListening(false);
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         setError("Microphone permission is required for voice recognition.");
         setVoiceStatus("error");
@@ -891,9 +924,13 @@ export default function useVoiceAssistant({
     };
 
     recognition.onend = () => {
-      commandRecognitionRef.current = null;
+      if (commandRecognitionRef.current === recognition) {
+        commandRecognitionRef.current = null;
+      }
       setIsListening(false);
-      if (!processingRef.current) {
+      setIsCommandListening(false);
+      if (!captured && !processingRef.current) {
+        hideOverlay();
         scheduleWakeRestart();
       }
     };
@@ -903,6 +940,7 @@ export default function useVoiceAssistant({
     } catch {
       commandRecognitionRef.current = null;
       setIsListening(false);
+      setIsCommandListening(false);
       setError("Microphone permission is required for voice recognition.");
       setVoiceStatus("error");
       scheduleWakeRestart();
@@ -1009,6 +1047,7 @@ export default function useVoiceAssistant({
     dismissOverlay,
     error,
     isListening,
+    isCommandListening,
     isProcessing,
     reply,
     overlayReply,

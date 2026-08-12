@@ -27,6 +27,7 @@ import BACKGROUND_PRESETS, {
   CUSTOM_BACKGROUND_ACCENT_STORAGE_KEY,
   CUSTOM_BACKGROUND_DATA_STORAGE_KEY,
   CUSTOM_BACKGROUND_ID,
+  CUSTOM_BACKGROUND_LAYOUT_STORAGE_KEY,
   CUSTOM_BACKGROUND_MAX_DATA_URL_LENGTH,
   CUSTOM_BACKGROUND_SURFACE_STORAGE_KEY,
   KIDS_BACKGROUND_PRESETS,
@@ -37,6 +38,12 @@ import BACKGROUND_PRESETS, {
   readStoredCustomBackgroundPreset,
   resolveBackgroundPresetForProfile,
 } from "../utils/backgroundPresets";
+import {
+  applyBackgroundPresentation,
+  clearBackgroundPresentation,
+  getBackgroundThumbnailPresentationVariables,
+} from "../utils/backgroundPresentation";
+import { detectCustomBackgroundLayout } from "../utils/customBackgroundFaceDetection";
 import { runAppearanceStorageTransaction } from "../utils/appearanceStorage";
 import {
   BACKGROUND_IMAGE_BLUR_MAX_PX,
@@ -154,6 +161,7 @@ async function prepareCustomBackgroundImage(file) {
     ) {
       throw new Error("That image is too large to prepare safely. Try a smaller one.");
     }
+    const layout = await detectCustomBackgroundLayout(image);
     const colors = deriveCustomBackgroundColors(image);
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const maxEdge = Math.round(CUSTOM_BACKGROUND_INITIAL_MAX_EDGE * (0.8 ** attempt));
@@ -175,7 +183,7 @@ async function prepareCustomBackgroundImage(file) {
         dataUrl.length <= CUSTOM_BACKGROUND_MAX_DATA_URL_LENGTH
         && isSafeCustomBackgroundDataUrl(dataUrl)
       ) {
-        return { file: dataUrl, ...colors };
+        return { file: dataUrl, ...colors, layout };
       }
     }
     throw new Error("That image is too detailed to save locally. Try a smaller image.");
@@ -202,13 +210,25 @@ function runBackgroundThemeTransition(update) {
 
   if (document.body.classList.contains("has-bg-image")) {
     const oldImage = rootStyles.getPropertyValue("--bg-image").trim();
+    const oldPosition = rootStyles.getPropertyValue("--bg-image-position").trim() || "center";
+    const oldForeground = rootStyles.getPropertyValue("--bg-image-foreground").trim();
+    const oldForegroundSize = rootStyles.getPropertyValue("--bg-image-foreground-size").trim() || "cover";
+    const oldForegroundPosition = rootStyles.getPropertyValue("--bg-image-foreground-position").trim() || "center";
     const oldOverlay = rootStyles.getPropertyValue("--bg-overlay-opacity").trim() || "0.55";
     const oldBrightness = rootStyles.getPropertyValue("--bg-brightness").trim() || "1";
     const oldBlur = rootStyles.getPropertyValue("--bg-image-blur").trim() || "0px";
     const oldInset = rootStyles.getPropertyValue("--bg-image-blur-inset").trim() || "0px";
     transitionLayer.classList.add("has-image");
     transitionLayer.style.inset = oldInset;
-    transitionLayer.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, ${oldOverlay}), rgba(0, 0, 0, ${oldOverlay})), ${oldImage}`;
+    if (oldForeground && oldForeground !== "none") {
+      transitionLayer.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, ${oldOverlay}), rgba(0, 0, 0, ${oldOverlay})), ${oldImage}, ${oldImage}`;
+      transitionLayer.style.backgroundSize = `100% 100%, ${oldForegroundSize}, cover`;
+      transitionLayer.style.backgroundPosition = `center, ${oldForegroundPosition}, ${oldPosition}`;
+    } else {
+      transitionLayer.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, ${oldOverlay}), rgba(0, 0, 0, ${oldOverlay})), ${oldImage}`;
+      transitionLayer.style.backgroundSize = "100% 100%, cover";
+      transitionLayer.style.backgroundPosition = `center, ${oldPosition}`;
+    }
     transitionLayer.style.filter = `brightness(${oldBrightness}) blur(${oldBlur})`;
   } else {
     transitionLayer.style.backgroundColor = bodyStyles.backgroundColor;
@@ -978,6 +998,7 @@ function SettingsPage({
     if (imgPreset) {
       document.body.classList.add("has-bg-image");
       document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
+      applyBackgroundPresentation([document.documentElement, document.body], imgPreset);
       document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
       const mappedOverlay = (bgOverlayOpacity * 0.5).toString();
       document.documentElement.style.setProperty("--bg-overlay-opacity", mappedOverlay);
@@ -992,6 +1013,7 @@ function SettingsPage({
     } else {
       document.body.classList.remove("has-bg-image");
       document.documentElement.style.removeProperty("--bg-image");
+      clearBackgroundPresentation([document.documentElement, document.body]);
       document.documentElement.style.removeProperty("--bg-surface-rgb");
       document.documentElement.style.removeProperty("--bg-overlay-opacity");
       document.body.style.removeProperty("--bg-overlay-opacity");
@@ -1081,6 +1103,7 @@ function SettingsPage({
         if (imgPreset) {
           document.body.classList.add("has-bg-image");
           document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
+          applyBackgroundPresentation([document.documentElement, document.body], imgPreset);
           document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
           const initOverlay = (init.bgOverlayOpacity * 0.5).toString();
           document.documentElement.style.setProperty("--bg-overlay-opacity", initOverlay);
@@ -1095,6 +1118,7 @@ function SettingsPage({
         } else {
           document.body.classList.remove("has-bg-image");
           document.documentElement.style.removeProperty("--bg-image");
+          clearBackgroundPresentation([document.documentElement, document.body]);
           document.documentElement.style.removeProperty("--bg-surface-rgb");
           document.documentElement.style.removeProperty("--bg-overlay-opacity");
           document.body.style.removeProperty("--bg-overlay-opacity");
@@ -1554,6 +1578,7 @@ function SettingsPage({
     if (imgPreset) {
       document.body.classList.add("has-bg-image");
       document.documentElement.style.setProperty("--bg-image", `url(${imgPreset.file})`);
+      applyBackgroundPresentation([document.documentElement, document.body], imgPreset);
       document.documentElement.style.setProperty("--bg-surface-rgb", imgPreset.surfaceRgb);
       const saveOverlay = (bgOvOpacity * 0.5).toString();
       document.documentElement.style.setProperty("--bg-overlay-opacity", saveOverlay);
@@ -1568,6 +1593,7 @@ function SettingsPage({
     } else {
       document.body.classList.remove("has-bg-image");
       document.documentElement.style.removeProperty("--bg-image");
+      clearBackgroundPresentation([document.documentElement, document.body]);
       document.documentElement.style.removeProperty("--bg-surface-rgb");
       document.documentElement.style.removeProperty("--bg-overlay-opacity");
       document.body.style.removeProperty("--bg-overlay-opacity");
@@ -1581,6 +1607,7 @@ function SettingsPage({
     localStorage.setItem(CUSTOM_BACKGROUND_DATA_STORAGE_KEY, customBackgroundPreset.file);
     localStorage.setItem(CUSTOM_BACKGROUND_ACCENT_STORAGE_KEY, customBackgroundPreset.accentRgb);
     localStorage.setItem(CUSTOM_BACKGROUND_SURFACE_STORAGE_KEY, customBackgroundPreset.surfaceRgb);
+    localStorage.setItem(CUSTOM_BACKGROUND_LAYOUT_STORAGE_KEY, JSON.stringify(customBackgroundPreset.layout));
     return true;
   };
 
@@ -1602,6 +1629,7 @@ function SettingsPage({
       if (nextPreset) {
         document.body.classList.add("has-bg-image");
         document.documentElement.style.setProperty("--bg-image", `url(${nextPreset.file})`);
+        applyBackgroundPresentation([document.documentElement, document.body], nextPreset);
         document.documentElement.style.setProperty("--bg-surface-rgb", nextPreset.surfaceRgb);
         const mappedOverlay = (bgOverlayOpacity * 0.5).toString();
         const brightness = Math.pow(Math.max(0, 1 - bgOverlayOpacity * 0.5), 4.5);
@@ -1617,6 +1645,7 @@ function SettingsPage({
         const activeRgb = isDark ? accentRgbDark : accentRgbLight;
         document.body.classList.remove("has-bg-image");
         document.documentElement.style.removeProperty("--bg-image");
+        clearBackgroundPresentation([document.documentElement, document.body]);
         document.documentElement.style.removeProperty("--bg-surface-rgb");
         document.documentElement.style.removeProperty("--bg-overlay-opacity");
         document.body.style.removeProperty("--bg-overlay-opacity");
@@ -1651,7 +1680,13 @@ function SettingsPage({
       const preset = createCustomBackgroundPreset(preparedImage);
       if (!preset) throw new Error("That image could not be used as a background.");
       selectBackgroundTheme(CUSTOM_BACKGROUND_ID, preset);
-      setCustomBackgroundStatus("Custom background ready. Save appearance to keep it on this device.");
+      setCustomBackgroundStatus(
+        preset.layout.faceAware
+          ? "Faces found. Smart framing will keep everyone visible. Save appearance to keep it on this device."
+          : preset.layout.mode === "contain"
+            ? "Full-image framing ready. Save appearance to keep it on this device."
+            : "Custom background ready. Save appearance to keep it on this device.",
+      );
     } catch (error) {
       if (!requestIsCurrent()) return;
       const message = error instanceof Error ? error.message : "That image could not be used.";
@@ -2405,6 +2440,7 @@ function SettingsPage({
                     className={`bg-preset-thumbnail-btn bg-preset-${preset.id}`}
                     style={{
                       "--background-thumbnail-image": `url("${preset.file}")`,
+                      ...getBackgroundThumbnailPresentationVariables(preset),
                       aspectRatio: "16 / 10",
                       border: isActive ? `2.5px solid rgb(${preset.accentRgb})` : "1.5px solid var(--border)",
                       borderRadius: "12px",

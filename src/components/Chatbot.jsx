@@ -12,6 +12,7 @@ import {
 } from "../utils/chatMaterialSuggestions";
 import { filterChatSessionsByTitle } from "../utils/chatHistorySearch";
 import { getChatMessageAcceptance } from "../utils/chatMessageBridge";
+import { tokenizeChatMessageInline } from "../utils/chatMessageLinks";
 import { getChatExperienceCopy } from "../utils/chatExperience";
 import { normalizeChatAssistantContext } from "../utils/chatAssistantContext";
 import api, { API_BASE } from "../utils/apiClient";
@@ -55,55 +56,68 @@ import {
   Search,
 } from "lucide-react";
 
-function formatMessageText(text) {
+function formatMessageText(text, { linksAllowed = true, youtubeContext = false } = {}) {
   if (!text) return "";
-  
+
   const blocks = text.split(/\n/);
-  
+  const parseInline = (value, enableYouTubeTitleLinks = false) => (
+    tokenizeChatMessageInline(value, {
+      linksAllowed,
+      youtubeContext: youtubeContext && enableYouTubeTitleLinks,
+    }).map((token, index) => {
+      if (token.type === "strong") {
+        return <strong key={`strong-${index}`}>{token.value}</strong>;
+      }
+      if (token.type === "link") {
+        return (
+          <a
+            className="chat-message-link"
+            href={token.href}
+            key={`link-${index}`}
+            rel="noopener noreferrer nofollow"
+            target="_blank"
+          >
+            {token.value}
+          </a>
+        );
+      }
+      return token.value;
+    })
+  );
+
   return blocks.map((block, idx) => {
-    let cleanBlock = block.trim();
+    const cleanBlock = block.trim();
     if (!cleanBlock) return <div key={idx} className="chat-spacer" style={{ height: "8px" }} />;
-    
+
     const isBullet = cleanBlock.startsWith("* ") || cleanBlock.startsWith("- ");
     const numMatch = cleanBlock.match(/^(\d+)\.\s+(.*)/);
-    
-    const parseBold = (str) => {
-      const parts = str.split(/\*\*([^*]+)\*\*/g);
-      return parts.map((part, i) => {
-        if (i % 2 === 1) {
-          return <strong key={i}>{part}</strong>;
-        }
-        return part;
-      });
-    };
-    
+
     if (isBullet) {
       const content = cleanBlock.substring(2);
       return (
         <ul key={idx} className="chat-bullet-list" style={{ margin: "4px 0", paddingLeft: "20px" }}>
-          <li style={{ listStyleType: "disc" }}>{parseBold(content)}</li>
+          <li style={{ listStyleType: "disc" }}>{parseInline(content, true)}</li>
         </ul>
       );
     }
-    
+
     if (numMatch) {
       const num = numMatch[1];
       const content = numMatch[2];
       return (
         <ol key={idx} className="chat-num-list" style={{ margin: "4px 0", paddingLeft: "20px" }} start={num}>
-          <li style={{ listStyleType: "decimal" }}>{parseBold(content)}</li>
+          <li style={{ listStyleType: "decimal" }}>{parseInline(content, true)}</li>
         </ol>
       );
     }
-    
+
     return (
       <p key={idx} className="chat-paragraph" style={{ margin: "6px 0" }}>
-        {parseBold(block)}
+        {parseInline(block)}
       </p>
     );
   });
 }
-
 function ChatMaterialSuggestions({
   academicLevel,
   academicTrack,
@@ -1524,7 +1538,12 @@ function Chatbot({
                         })}
                       </div>
                     ) : null}
-                    {formatMessageText(message.text)}
+                    {formatMessageText(message.text, {
+                      linksAllowed: !childMode,
+                      youtubeContext: !childMode
+                        && message.role === "assistant"
+                        && /\byou\s*tube\b|\byoutube\b/iu.test(message.text),
+                    })}
                     {!childMode && !assistantContext ? (
                       <ChatMaterialSuggestions
                         academicLevel={academicLevel}

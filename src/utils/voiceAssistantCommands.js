@@ -41,6 +41,7 @@ const ALLOWED_EXTERNAL_TARGETS = new Map([
 const COMMAND_PREFIX_PATTERN = String.raw`(?:hey\s+(?:prep|prep\s*matrix)[,\s]*)?(?:please\s+)?`;
 const OPEN_VERB_PATTERN = String.raw`(?:open|launch|visit|go\s+to|take\s+me\s+to)`;
 const SEARCH_VERB_PATTERN = String.raw`(?:search|find|look\s+up)`;
+const SPOKEN_SERVICE_SEARCH_VERB_PATTERN = String.raw`(?:search|find|look\s+up|ask)\b`;
 
 function normalizeCommandSurface(value = "") {
   return String(value)
@@ -79,7 +80,7 @@ function resolveServiceRequest(rawText, service) {
   const serviceSuffix = String.raw`(?:\s+(?:website|site)|\s+dot\s+com|\.com)?`;
   const patterns = [
     new RegExp(
-      `^${COMMAND_PREFIX_PATTERN}${OPEN_VERB_PATTERN}\\s+(?:the\\s+)?${alias}${serviceSuffix}(?:\\s+(?:and(?:\\s+then)?|then))?\\s+${SEARCH_VERB_PATTERN}(?:\\s+(?:for|about))?\\s*(.*)$`,
+      `^${COMMAND_PREFIX_PATTERN}${OPEN_VERB_PATTERN}\\s+(?:the\\s+)?${alias}${serviceSuffix}(?:\\s+(?:and(?:\\s+then)?|then))?\\s+${SPOKEN_SERVICE_SEARCH_VERB_PATTERN}(?:\\s+(?:for|about))?\\s*(.*)$`,
       "iu",
     ),
     new RegExp(
