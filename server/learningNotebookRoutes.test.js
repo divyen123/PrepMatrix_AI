@@ -21,6 +21,7 @@ import {
   normalizeLearningGenerationSize,
   normalizeLearningPrompt,
   normalizeLearningRequestedOutline,
+  providerRetryDelayMs,
   requestGeminiLearningNotebookJson,
   requestLearningNotebookJson,
   requestLearningVisionText,
@@ -40,6 +41,93 @@ test("normalizes optional kids lesson generation sizes", () => {
   assert.equal(normalizeLearningGenerationSize("HIGH"), "high");
   assert.equal(normalizeLearningGenerationSize("medium"), null);
   assert.equal(normalizeLearningGenerationSize(undefined), null);
+});
+
+test("honors provider reset hints instead of truncating them to a short retry", () => {
+  const responseWithHeaders = (headers = {}) => ({
+    headers: {
+      get(name) {
+        return headers[String(name).toLocaleLowerCase()] ?? null;
+      },
+    },
+  });
+  const deadline = Date.now() + 90_000;
+
+  assert.equal(
+    providerRetryDelayMs(
+      responseWithHeaders({ "retry-after": "30" }),
+      {},
+      0,
+      { deadline },
+    ),
+    30_000,
+  );
+  assert.equal(
+    providerRetryDelayMs(
+      responseWithHeaders({ "x-ratelimit-reset-tokens": "59s" }),
+      {},
+      0,
+      { deadline },
+    ),
+    59_000,
+  );
+  assert.equal(
+    providerRetryDelayMs(
+      responseWithHeaders({ "x-ratelimit-reset-tokens": "12.5s" }),
+      {},
+      0,
+      { deadline },
+    ),
+    12_500,
+  );
+  assert.equal(
+    providerRetryDelayMs(
+      responseWithHeaders(),
+      { error: { details: [{ retryDelay: "9s" }] } },
+      0,
+      { deadline },
+    ),
+    9_000,
+  );
+
+  const providerRetryBudget = { remainingAdvertisedWaitMs: 65_000 };
+  assert.equal(
+    providerRetryDelayMs(
+      responseWithHeaders({ "x-ratelimit-reset-tokens": "59s" }),
+      {},
+      0,
+      { deadline, providerRetryBudget },
+    ),
+    59_000,
+  );
+  assert.equal(providerRetryBudget.remainingAdvertisedWaitMs, 6_000);
+  assert.equal(
+    providerRetryDelayMs(
+      responseWithHeaders({ "x-ratelimit-reset-tokens": "59s" }),
+      {},
+      0,
+      { deadline, providerRetryBudget },
+    ),
+    6_000,
+  );
+  assert.equal(providerRetryBudget.remainingAdvertisedWaitMs, 0);
+  assert.equal(
+    providerRetryDelayMs(
+      responseWithHeaders({ "x-ratelimit-reset-tokens": "59s" }),
+      {},
+      0,
+      { deadline, providerRetryBudget },
+    ),
+    0,
+  );
+  const fallbackDelay = providerRetryDelayMs(
+    responseWithHeaders(),
+    {},
+    0,
+    { deadline, providerRetryBudget },
+  );
+  assert.ok(fallbackDelay >= 650 && fallbackDelay <= 800);
+  assert.equal(providerRetryBudget.remainingAdvertisedWaitMs, 0);
 });
 const DEFAULT_GEMINI_LEARNING_MODEL_CHAIN = [
   DEFAULT_GEMINI_LEARNING_MODEL,
@@ -712,12 +800,21 @@ test("compacts dense ASCII sources with a byte-safe Groq token upper bound", () 
 
 test("retries one provider token-rate rejection with a smaller completion budget", async () => {
   const requests = [];
+  const requestTimes = [];
   const fetchImpl = async (_url, options) => {
+    requestTimes.push(Date.now());
     requests.push(JSON.parse(options.body));
     if (requests.length === 1) {
       return {
         ok: false,
         status: 413,
+        headers: {
+          get(name) {
+            return String(name).toLocaleLowerCase() === "x-ratelimit-reset-tokens"
+              ? "0.02s"
+              : null;
+          },
+        },
         json: async () => ({
           error: { code: "rate_limit_exceeded", type: "tokens" },
         }),
@@ -741,6 +838,7 @@ test("retries one provider token-rate rejection with a smaller completion budget
   });
 
   assert.equal(requests.length, 2);
+  assert.ok(requestTimes[1] - requestTimes[0] >= 15);
   assert.equal(requests[0].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
   assert.equal(requests[1].max_tokens, LEARNING_RETRY_COMPLETION_TOKENS);
 });
@@ -775,12 +873,15 @@ test("strictly reduces a dynamically capped token-budget retry", async () => {
   assert.deepEqual(requests.map((request) => request.max_tokens), [4_000, 3_500]);
 });
 
-test("retries an ordinary provider 429 once and succeeds", async () => {
+test("retries an ordinary provider 429 once with a fresh timeout and succeeds", async () => {
   let attempts = 0;
+  const signals = [];
   const notebook = await requestLearningNotebookJson({
     apiKey: "test-key",
-    fetchImpl: async () => {
+    deadline: Date.now() + 5_000,
+    fetchImpl: async (_url, options) => {
       attempts += 1;
+      signals.push(options.signal);
       return attempts === 1
         ? providerRateLimitResponse()
         : groqNotebookResponse();
@@ -791,6 +892,7 @@ test("retries an ordinary provider 429 once and succeeds", async () => {
   });
 
   assert.equal(attempts, 2);
+  assert.notEqual(signals[0], signals[1]);
   assert.ok(notebook.title);
 });
 
@@ -880,14 +982,23 @@ test("does not retry a token-budget rejection at the minimum completion budget",
 
 test("classifies repeated Groq token-rate 413 responses as provider throttling", async () => {
   let attempts = 0;
+  const providerRetryBudget = { remainingAdvertisedWaitMs: 100 };
+  const requestTimes = [];
   await assert.rejects(
     () => requestLearningNotebookJson({
       apiKey: "test-key",
+      providerRetryBudget,
       fetchImpl: async () => {
         attempts += 1;
+        requestTimes.push(Date.now());
         return {
           ok: false,
           status: 413,
+          headers: {
+            get: (name) => String(name).toLocaleLowerCase() === "x-ratelimit-reset-tokens"
+              ? "0.02s"
+              : null,
+          },
           json: async () => ({
             error: {
               code: "rate_limit_exceeded",
@@ -904,6 +1015,8 @@ test("classifies repeated Groq token-rate 413 responses as provider throttling",
     (error) => error.code === "LEARNING_PROVIDER_RATE_LIMIT" && error.status === 429,
   );
   assert.equal(attempts, 2);
+  assert.ok(requestTimes[1] - requestTimes[0] >= 15);
+  assert.equal(providerRetryBudget.remainingAdvertisedWaitMs, 80);
 });
 
 test("keeps a true Groq context rejection distinct from provider throttling", async () => {
@@ -974,6 +1087,7 @@ function createLearningRouteHarness({
   groqLearningModels,
   logger = { warn() {} },
   prepareAttachmentContext,
+  providerAdvertisedWaitBudgetMs,
   aiQuota = createTestAiQuota(),
 } = {}) {
   const routes = new Map();
@@ -987,8 +1101,9 @@ function createLearningRouteHarness({
   const collection = {
     countDocuments: async () => 0,
     insertOne: async (document) => {
-      stored.push({ ...document, _id: "notebook-1" });
-      return { insertedId: "notebook-1" };
+      const insertedId = `notebook-${stored.length + 1}`;
+      stored.push({ ...document, _id: insertedId });
+      return { insertedId };
     },
     deleteOne: async (filter) => {
       const index = stored.findIndex((document) => (
@@ -1010,6 +1125,7 @@ function createLearningRouteHarness({
       dbCalls += 1;
       return { collection: () => collection };
     },
+    providerAdvertisedWaitBudgetMs,
     getGeminiConfigStatus: () => geminiConfig,
     getGroqConfigStatus: () => groqConfig,
     groqLearningModel,
@@ -1030,7 +1146,7 @@ function createLearningRouteHarness({
     stored,
     get dbCalls() { return dbCalls; },
     get prepareCalls() { return prepareCalls; },
-    async analyze(body = {}, userOverrides = {}) {
+    async analyze(body = {}, userOverrides = {}, requestId = TEST_IDEMPOTENCY_KEY) {
       const req = {
         body: {
           privacyConsent: {
@@ -1050,7 +1166,7 @@ function createLearningRouteHarness({
           department: "IT",
           ...userOverrides,
         },
-        headers: { "idempotency-key": TEST_IDEMPOTENCY_KEY },
+        headers: { "idempotency-key": requestId },
       };
       const res = {
         body: null,
@@ -1074,6 +1190,46 @@ function createLearningRouteHarness({
     },
   };
 }
+
+test("recovers a second distinct lesson after the provider reset without refunding it", async () => {
+  let providerCalls = 0;
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    groqLearningModel: "groq-repeat-test",
+    groqLearningModels: ["groq-repeat-test"],
+    fetchImpl: async () => {
+      providerCalls += 1;
+      if (providerCalls === 2) return providerRateLimitResponse("0.01");
+      return groqNotebookResponse();
+    },
+  });
+
+  const first = await harness.analyze(
+    { subjectName: "Mathematics", chapterNames: ["Fractions"] },
+    {},
+    "2038b6a5-a7e1-4284-83bd-0ba635a46f21",
+  );
+  const second = await harness.analyze(
+    { subjectName: "Environmental Studies", chapterNames: ["Photosynthesis"] },
+    {},
+    "7a2d06b1-0bd2-41b8-bd4b-f0750a8271b9",
+  );
+
+  assert.equal(first.statusCode, 201);
+  assert.equal(second.statusCode, 201);
+  assert.notEqual(first.body.notebook.id, second.body.notebook.id);
+  assert.equal(providerCalls, 3);
+  assert.equal(harness.stored.length, 2);
+  assert.deepEqual(
+    harness.aiQuota.calls.reserve.map(({ requestId }) => requestId),
+    [
+      "2038b6a5-a7e1-4284-83bd-0ba635a46f21",
+      "7a2d06b1-0bd2-41b8-bd4b-f0750a8271b9",
+    ],
+  );
+  assert.equal(harness.aiQuota.calls.commit.length, 2);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
 
 test("keeps optional generation sizes on the existing standard notebook contracts", async () => {
   async function requestedTopicsFor(generationSize) {
@@ -1949,6 +2105,45 @@ test("crosses directly to Groq after one invalid Gemini API-key response", async
   assert.equal(harness.aiQuota.calls.refund.length, 0);
 });
 
+test("shares one advertised-wait budget across Gemini candidates before Groq fallback", async () => {
+  const geminiModels = ["gemini-rate-primary", "gemini-rate-secondary"];
+  const attempts = [];
+  const startedAt = Date.now();
+  const harness = createLearningRouteHarness({
+    geminiLearningModel: geminiModels[0],
+    geminiLearningModels: geminiModels,
+    providerAdvertisedWaitBudgetMs: 30,
+    fetchImpl: async (url, options) => {
+      if (url.includes("generativelanguage.googleapis.com")) {
+        const match = url.match(/\/models\/([^:]+):generateContent$/u);
+        attempts.push({
+          provider: "gemini",
+          model: decodeURIComponent(match?.[1] || ""),
+        });
+        return providerRateLimitResponse("0.02");
+      }
+      const request = JSON.parse(options.body);
+      attempts.push({ provider: "groq", model: request.model });
+      return groqNotebookResponse();
+    },
+  });
+
+  const res = await harness.analyze();
+  const elapsedMs = Date.now() - startedAt;
+
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(attempts, [
+    ...geminiModels.flatMap((model) => [
+      { provider: "gemini", model },
+      { provider: "gemini", model },
+    ]),
+    { provider: "groq", model: DEFAULT_GROQ_LEARNING_MODEL },
+  ]);
+  assert.ok(elapsedMs >= 25 && elapsedMs < 500);
+  assert.equal(res.body.notebook.model, DEFAULT_GROQ_LEARNING_MODEL);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
 test("tries every Gemini candidate before the second configured Groq model succeeds", async () => {
   const geminiModels = ["gemini-test-primary", "gemini-test-secondary"];
   const groqModels = ["groq-test-primary", "groq-test-secondary"];
@@ -2163,6 +2358,30 @@ test("returns the public provider-rate-limit error and refunds after repeated Gr
   assert.equal(res.body.creditsRefunded, true);
   assert.match(res.body.error, /credits were refunded/i);
   assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("keeps an earlier rate limit when a later model has a transport failure", async () => {
+  let fetchCalls = 0;
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    groqLearningModel: "groq-rate-limited",
+    groqLearningModels: ["groq-rate-limited", "groq-transport-failure"],
+    fetchImpl: async (_url, options) => {
+      fetchCalls += 1;
+      const { model } = JSON.parse(options.body);
+      if (model === "groq-rate-limited") return providerRateLimitResponse();
+      throw new TypeError("temporary connection failure");
+    },
+  });
+
+  const res = await harness.analyze();
+
+  assert.equal(fetchCalls, 3);
+  assert.equal(res.statusCode, 429);
+  assert.equal(res.body.code, "AI_PROVIDER_RATE_LIMITED");
+  assert.equal(res.body.creditsRefunded, true);
   assert.equal(harness.aiQuota.calls.commit.length, 0);
   assert.equal(harness.aiQuota.calls.refund.length, 1);
 });

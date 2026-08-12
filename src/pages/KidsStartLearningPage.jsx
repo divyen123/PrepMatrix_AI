@@ -24,6 +24,7 @@ import {
   hasLearningPrivacyConsent,
   LEARNING_PRIVACY_CONSENT_VERSION,
 } from "../utils/learningPrivacyConsent";
+import { LEARNING_NOTEBOOK_REQUEST_TIMEOUT_MS } from "../utils/learningNotebookRequest";
 import {
   buildKidsLessonRequest,
   KIDS_LESSON_GENERATION_SIZES,
@@ -186,7 +187,7 @@ function KidsStartLearningPage({
           version: LEARNING_PRIVACY_CONSENT_VERSION,
         },
       }, {
-        timeoutMs: 120000,
+        timeoutMs: LEARNING_NOTEBOOK_REQUEST_TIMEOUT_MS,
         headers: { "Idempotency-Key": createAiIdempotencyKey() },
       });
       if (!mountedRef.current) return;

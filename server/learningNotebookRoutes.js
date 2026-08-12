@@ -73,7 +73,8 @@ const GROQ_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GEMINI_GENERATE_CONTENT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const PROVIDER_TIMEOUT_MS = 75_000;
 const PROVIDER_RETRY_BASE_DELAY_MS = 650;
-const PROVIDER_RETRY_MAX_DELAY_MS = 2_500;
+const PROVIDER_RETRY_MAX_DELAY_MS = 65_000;
+const PROVIDER_RETRY_DEADLINE_BUFFER_MS = 500;
 const MIN_GEMINI_LEARNING_PROSE_LENGTH = 20;
 const PROVIDER_TRANSIENT_RETRY_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 // GPT-OSS Free-tier models have an 8K tokens-per-minute limit. Keep the
@@ -459,22 +460,91 @@ function isProviderSizeLimit(response, payload) {
     || message.includes("request too large");
 }
 
-function providerRetryDelayMs(response) {
-  const retryAfter = cleanInline(response?.headers?.get?.("retry-after"), 80);
-  let delayMs = Number.NaN;
+function parseProviderDelayMs(value, { allowHttpDate = false } = {}) {
+  const text = cleanInline(value, 120).toLocaleLowerCase();
+  if (!text) return Number.NaN;
+  if (/^\d+(?:\.\d+)?$/u.test(text)) return Number(text) * 1_000;
 
-  if (retryAfter) {
-    const retryAfterSeconds = Number(retryAfter);
-    delayMs = Number.isFinite(retryAfterSeconds)
-      ? retryAfterSeconds * 1_000
-      : Date.parse(retryAfter) - Date.now();
+  const unitMs = { ms: 1, s: 1_000, m: 60_000, h: 3_600_000 };
+  const durationMatches = [...text.matchAll(/(\d+(?:\.\d+)?)(ms|s|m|h)/gu)];
+  if (durationMatches.length) {
+    return durationMatches.reduce(
+      (total, match) => total + Number(match[1]) * unitMs[match[2]],
+      0,
+    );
   }
 
-  if (!Number.isFinite(delayMs)) {
-    delayMs = PROVIDER_RETRY_BASE_DELAY_MS + Math.floor(Math.random() * 151);
+  if (allowHttpDate) {
+    const parsedDate = Date.parse(text);
+    if (Number.isFinite(parsedDate)) return parsedDate - Date.now();
   }
+  return Number.NaN;
+}
 
-  return Math.min(PROVIDER_RETRY_MAX_DELAY_MS, Math.max(0, Math.round(delayMs)));
+function providerPayloadRetryDelayMs(payload = {}) {
+  const details = Array.isArray(payload?.error?.details) ? payload.error.details : [];
+  return details.reduce((longest, detail) => {
+    const delay = parseProviderDelayMs(detail?.retryDelay ?? detail?.metadata?.retryDelay);
+    if (!Number.isFinite(delay)) return longest;
+    return Number.isFinite(longest)
+      ? Math.max(longest, delay)
+      : delay;
+  }, Number.NaN);
+}
+
+export function providerRetryDelayMs(
+  response,
+  payload = {},
+  attempt = 0,
+  { deadline, providerRetryBudget, useFallback = true } = {},
+) {
+  const retryAfterValue = cleanInline(response?.headers?.get?.("retry-after"), 120);
+  const tokenResetValue = cleanInline(
+    response?.headers?.get?.("x-ratelimit-reset-tokens"),
+    120,
+  );
+  const retryAfter = parseProviderDelayMs(retryAfterValue, { allowHttpDate: true });
+  const tokenReset = parseProviderDelayMs(tokenResetValue);
+  const payloadDelay = providerPayloadRetryDelayMs(payload);
+  const advertisedDelays = [retryAfter, tokenReset, payloadDelay].filter(Number.isFinite);
+  const hasAdvertisedDelay = advertisedDelays.length > 0;
+  const fallback = PROVIDER_RETRY_BASE_DELAY_MS * (2 ** Math.max(0, attempt))
+    + Math.floor(Math.random() * 151);
+  const requestedDelay = hasAdvertisedDelay
+    ? Math.max(0, ...advertisedDelays)
+    : useFallback ? fallback : 0;
+  let boundedDelay = Math.min(
+    PROVIDER_RETRY_MAX_DELAY_MS,
+    Math.max(0, Math.round(requestedDelay)),
+  );
+
+  const resolvedDeadline = Number(deadline);
+  if (Number.isFinite(resolvedDeadline)) {
+    boundedDelay = Math.min(
+      boundedDelay,
+      Math.max(0, resolvedDeadline - Date.now() - PROVIDER_RETRY_DEADLINE_BUFFER_MS),
+    );
+  }
+  if (hasAdvertisedDelay && providerRetryBudget) {
+    const remaining = Math.max(0, Number(providerRetryBudget.remainingAdvertisedWaitMs) || 0);
+    boundedDelay = Math.min(boundedDelay, remaining);
+    providerRetryBudget.remainingAdvertisedWaitMs = remaining - boundedDelay;
+  }
+  return boundedDelay;
+}
+
+async function waitForProviderRetry(delayMs, deadline) {
+  const requestedDelay = Math.max(0, Number(delayMs) || 0);
+  if (!requestedDelay) return;
+  const resolvedDeadline = Number(deadline);
+  const remaining = Number.isFinite(resolvedDeadline)
+    ? resolvedDeadline - Date.now() - PROVIDER_RETRY_DEADLINE_BUFFER_MS
+    : requestedDelay;
+  if (remaining <= 0) throw learningGenerationTimeoutError();
+  const waitMs = Math.min(requestedDelay, remaining);
+  await new Promise((resolve) => setTimeout(resolve, waitMs));
+  if (waitMs < requestedDelay) throw learningGenerationTimeoutError();
+  assertLearningGenerationDeadline(deadline);
 }
 
 function isRetryableTransientProviderResponse(response, payload = {}) {
@@ -485,10 +555,18 @@ function isRetryableTransientProviderResponse(response, payload = {}) {
     || isProviderRateLimit(response, payload);
 }
 
-async function fetchProviderJsonWithRetryRaw(fetchImpl, url, options) {
+async function fetchProviderJsonWithRetryRaw(
+  fetchImpl,
+  url,
+  options,
+  { deadline, providerRetryBudget } = {},
+) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    options?.signal?.throwIfAborted?.();
-    const response = await fetchImpl(url, options);
+    const requestOptions = Number.isFinite(Number(deadline))
+      ? { ...options, signal: learningRequestSignal(deadline) }
+      : options;
+    requestOptions?.signal?.throwIfAborted?.();
+    const response = await fetchImpl(url, requestOptions);
     const payload = await response.json().catch(() => ({}));
 
     if (
@@ -496,9 +574,13 @@ async function fetchProviderJsonWithRetryRaw(fetchImpl, url, options) {
       && attempt === 0
       && isRetryableTransientProviderResponse(response, payload)
     ) {
-      await new Promise((resolve) => {
-        setTimeout(resolve, providerRetryDelayMs(response));
-      });
+      await waitForProviderRetry(
+        providerRetryDelayMs(response, payload, attempt, {
+          deadline,
+          providerRetryBudget,
+        }),
+        deadline,
+      );
       continue;
     }
 
@@ -515,10 +597,15 @@ async function fetchProviderJsonWithRetry(
   fetchImpl,
   url,
   options,
-  { deadline } = {},
+  { deadline, providerRetryBudget } = {},
 ) {
   try {
-    return await fetchProviderJsonWithRetryRaw(fetchImpl, url, options);
+    return await fetchProviderJsonWithRetryRaw(
+      fetchImpl,
+      url,
+      options,
+      { deadline, providerRetryBudget },
+    );
   } catch (error) {
     const resolvedDeadline = Number(deadline);
     const isAbort = error?.name === "TimeoutError" || error?.name === "AbortError";
@@ -738,7 +825,9 @@ export async function requestLearningNotebookJson({
   deadline,
   fetchImpl = globalThis.fetch,
   maxAttempts = 2,
+  hasModelFallback = false,
   model,
+  providerRetryBudget,
   systemPrompt,
   userContent,
   validateNotebook = hasLearningNotebookShape,
@@ -790,14 +879,28 @@ export async function requestLearningNotebookJson({
         signal,
         body: JSON.stringify(body),
       },
-      { deadline },
+      { deadline, providerRetryBudget },
     );
 
     if (!response.ok) {
+      const tokenBudgetRateLimited = isProviderTokenBudgetLimit(response, payload);
       const retryableTokenBudgetFailure = (
         isProviderSizeLimit(response, payload)
-        || isProviderTokenBudgetLimit(response, payload)
+        || tokenBudgetRateLimited
       ) && hasSmallerRetryBudget;
+      const willRetryAfterRateLimit = (
+        hasRetryAttempt && retryableTokenBudgetFailure
+      ) || hasModelFallback;
+      if (tokenBudgetRateLimited && willRetryAfterRateLimit) {
+        await waitForProviderRetry(
+          providerRetryDelayMs(response, payload, attempt, {
+            deadline,
+            providerRetryBudget,
+            useFallback: false,
+          }),
+          deadline,
+        );
+      }
       if (hasRetryAttempt && response.status === 400 && isGroqJsonFailure(payload)) {
         continue;
       }
@@ -833,6 +936,7 @@ export async function requestLearningVisionText({
   deadline,
   fetchImpl = globalThis.fetch,
   model,
+  providerRetryBudget,
   subjectName,
   visionImages = [],
 }) {
@@ -878,7 +982,7 @@ export async function requestLearningVisionText({
       signal: learningRequestSignal(deadline),
       body: JSON.stringify(body),
     },
-    { deadline },
+    { deadline, providerRetryBudget },
   );
   if (!response.ok) throw createProviderError(response, payload);
   const text = normalizeSourceText(payload?.choices?.[0]?.message?.content || "");
@@ -1434,6 +1538,7 @@ export function registerLearningNotebookRoutes(app, {
   geminiLearningModel = DEFAULT_GEMINI_LEARNING_MODEL,
   geminiLearningModels,
   generationDeadlineMs = LEARNING_GENERATION_DEADLINE_MS,
+  providerAdvertisedWaitBudgetMs = PROVIDER_RETRY_MAX_DELAY_MS,
   groqLearningModel,
   groqLearningModels,
   groqModel,
@@ -1447,6 +1552,10 @@ export function registerLearningNotebookRoutes(app, {
   const resolvedGenerationDeadlineMs = Number.isFinite(requestedGenerationDeadlineMs)
     ? Math.max(0, requestedGenerationDeadlineMs)
     : LEARNING_GENERATION_DEADLINE_MS;
+  const requestedProviderAdvertisedWaitBudgetMs = Number(providerAdvertisedWaitBudgetMs);
+  const resolvedProviderAdvertisedWaitBudgetMs = Number.isFinite(requestedProviderAdvertisedWaitBudgetMs)
+    ? Math.max(0, Math.min(PROVIDER_RETRY_MAX_DELAY_MS, requestedProviderAdvertisedWaitBudgetMs))
+    : PROVIDER_RETRY_MAX_DELAY_MS;
   app.get("/api/learning-notebooks", requireAuth(async (req, res) => {
     try {
       const db = await getDb();
@@ -1574,6 +1683,9 @@ export function registerLearningNotebookRoutes(app, {
       }
       reservation = quotaResult;
       const generationDeadline = Date.now() + resolvedGenerationDeadlineMs;
+      const providerRetryBudget = {
+        remainingAdvertisedWaitMs: resolvedProviderAdvertisedWaitBudgetMs,
+      };
 
       const manualMode = !hasSources;
       const learnerContext = buildLearnerAcademicContext(req.user);
@@ -1599,6 +1711,7 @@ export function registerLearningNotebookRoutes(app, {
               medicalTrainingEligibility,
               manualMode,
               model,
+              providerRetryBudget,
               requestedOutline,
               subjectName,
               textSources,
@@ -1614,37 +1727,42 @@ export function registerLearningNotebookRoutes(app, {
               provider: "gemini",
             }, error);
             if (!canTryOtherProvider) throw error;
-            geminiFailure = error;
+            geminiFailure = preferLearningProviderFailure(geminiFailure, error);
             if (!canTryNextModel) break;
           }
         }
       }
       if (!generationResult && groqAvailable && chapterNames.length <= MAX_GROQ_LEARNING_CHAPTERS) {
-        generationResult = await generateLearningNotebookWithGroq({
-          apiKey: groqConfig.apiKey,
-          attachments,
-          careerEligibility,
-          chapterNames,
-          compactOutput,
-          depthTargets: lessonDepthTargets,
-          deadline: generationDeadline,
-          fetchImpl,
-          groqLearningModel,
-          groqLearningModels,
-          groqModel,
-          groqVisionModel,
-          learningPrompt,
-          learnerContext,
-          medicalTrainingEligibility,
-          logger,
-          manualMode,
-          prepareAttachmentContext,
-          providerPhase: geminiFailure ? "fallback" : "primary",
-          requestedOutline,
-          subjectName,
-          textSources,
-          youngKidsProfile: youngKidsLesson ? youngKidsProfile : null,
-        });
+        try {
+          generationResult = await generateLearningNotebookWithGroq({
+            apiKey: groqConfig.apiKey,
+            attachments,
+            careerEligibility,
+            chapterNames,
+            compactOutput,
+            depthTargets: lessonDepthTargets,
+            deadline: generationDeadline,
+            fetchImpl,
+            groqLearningModel,
+            groqLearningModels,
+            groqModel,
+            groqVisionModel,
+            learningPrompt,
+            learnerContext,
+            medicalTrainingEligibility,
+            logger,
+            manualMode,
+            prepareAttachmentContext,
+            providerPhase: geminiFailure ? "fallback" : "primary",
+            providerRetryBudget,
+            requestedOutline,
+            subjectName,
+            textSources,
+            youngKidsProfile: youngKidsLesson ? youngKidsProfile : null,
+          });
+        } catch (error) {
+          throw preferLearningProviderFailure(geminiFailure, error);
+        }
       }
       if (!generationResult) {
         if (geminiFailure) throw geminiFailure;
@@ -1813,7 +1931,7 @@ export function registerLearningNotebookRoutes(app, {
           providerModel = geminiLearningModel || DEFAULT_GEMINI_LEARNING_MODEL;
         } catch (error) {
           if (!isLearningProviderFallbackError(error)) throw error;
-          geminiFailure = error;
+          geminiFailure = preferLearningProviderFailure(geminiFailure, error);
         }
       }
 
@@ -1976,7 +2094,7 @@ export function registerLearningNotebookRoutes(app, {
           });
         } catch (error) {
           if (!isLearningProviderFallbackError(error)) throw error;
-          geminiFailure = error;
+          geminiFailure = preferLearningProviderFailure(geminiFailure, error);
         }
       }
       if (!generated && groqAvailable) {
@@ -2893,6 +3011,7 @@ export async function requestGeminiLearningNotebookJson({
   deadline,
   fetchImpl = globalThis.fetch,
   model = DEFAULT_GEMINI_LEARNING_MODEL,
+  providerRetryBudget,
   responseSchema = LEARNING_NOTEBOOK_RESPONSE_SCHEMA,
   systemPrompt,
   userPrompt,
@@ -2920,7 +3039,7 @@ export async function requestGeminiLearningNotebookJson({
         generationConfig: geminiStructuredOutputConfig(responseSchema),
       }),
     },
-    { deadline },
+    { deadline, providerRetryBudget },
   );
   if (!response.ok) throw createGeminiProviderError(response, payload);
 
@@ -3187,6 +3306,7 @@ async function generateLearningNotebookWithGemini({
   medicalTrainingEligibility,
   manualMode,
   model,
+  providerRetryBudget,
   requestedOutline,
   subjectName,
   textSources,
@@ -3213,6 +3333,7 @@ async function generateLearningNotebookWithGemini({
     deadline,
     fetchImpl,
     model,
+    providerRetryBudget,
     responseSchema: buildLearningNotebookResponseSchema(prompts.depthTargets),
     systemPrompt: prompts.systemPrompt,
     validateNotebook: (value) => hasGeneratedLearningNotebookDepth(value, {
@@ -3259,6 +3380,7 @@ async function generateLearningNotebookWithGroq({
   manualMode,
   prepareAttachmentContext,
   providerPhase = "primary",
+  providerRetryBudget,
   requestedOutline,
   subjectName,
   textSources,
@@ -3280,6 +3402,7 @@ async function generateLearningNotebookWithGroq({
         deadline,
         fetchImpl,
         model: groqVisionModel,
+        providerRetryBudget,
         subjectName,
         visionImages: attachmentContext.visionImages,
       });
@@ -3347,7 +3470,9 @@ async function generateLearningNotebookWithGroq({
         deadline,
         fetchImpl,
         maxAttempts: models.length > 1 ? 1 : 2,
+        hasModelFallback: index + 1 < models.length,
         model: candidateModel,
+        providerRetryBudget,
         systemPrompt: prompts.systemPrompt,
         userContent,
         validateNotebook: (value) => hasGeneratedLearningNotebookDepth(
@@ -3358,7 +3483,7 @@ async function generateLearningNotebookWithGroq({
       model = candidateModel;
       break;
     } catch (error) {
-      lastError = error;
+      lastError = preferLearningProviderFailure(lastError, error);
       logLearningProviderFailure(logger, {
         model: candidateModel,
         phase: index === 0 ? providerPhase : "secondary",
@@ -3392,6 +3517,30 @@ async function generateLearningNotebookWithGroq({
       ...(visionReadWarning ? [visionReadWarning] : []),
     ],
   };
+}
+
+function isLearningRateLimitError(error) {
+  const code = cleanInline(error?.code, 100);
+  return code === "LEARNING_PROVIDER_RATE_LIMIT"
+    || code === "AI_PROVIDER_RATE_LIMITED";
+}
+
+function preferLearningProviderFailure(currentError, nextError) {
+  if (!currentError) return nextError;
+  if (!nextError) return currentError;
+  const nextIsGenericFallbackFailure = isLearningTransportError(nextError)
+    || (
+      nextError instanceof LearningNotebookError
+      && nextError.modelFallbackAllowed !== false
+      && (
+        nextError.code === "LEARNING_PROVIDER_ERROR"
+        || nextError.code === "LEARNING_OUTPUT_INVALID"
+      )
+    );
+  if (isLearningRateLimitError(currentError) && nextIsGenericFallbackFailure) {
+    return currentError;
+  }
+  return nextError;
 }
 
 function isLearningTransportError(error) {

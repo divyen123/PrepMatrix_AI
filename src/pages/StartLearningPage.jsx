@@ -100,6 +100,7 @@ import {
   getLearningMedicalTrainingEligibility,
   getLearningPreparationMode,
 } from "../utils/learningNotebook";
+import { LEARNING_NOTEBOOK_REQUEST_TIMEOUT_MS } from "../utils/learningNotebookRequest";
 import {
   LEARNING_PRIVACY_CONSENT_VERSION,
   MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
@@ -1379,7 +1380,7 @@ function StartLearningPage({
           version: LEARNING_PRIVACY_CONSENT_VERSION,
         },
       }, {
-        timeoutMs: 120000,
+        timeoutMs: LEARNING_NOTEBOOK_REQUEST_TIMEOUT_MS,
         headers: { "Idempotency-Key": createAiIdempotencyKey() },
       });
       if (!mountedRef.current) return;

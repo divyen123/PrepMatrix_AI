@@ -1533,7 +1533,6 @@ function App() {
                   to="/kids"
                 >
                   <img alt="" aria-hidden="true" src="/kids/game-town-gamepad.png" />
-                  <span className="sr-only">Game Town</span>
                 </NavLink>
               </div>
             )}
