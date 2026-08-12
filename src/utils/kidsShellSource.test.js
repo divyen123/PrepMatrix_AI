@@ -31,3 +31,37 @@ test("moves focus into the Parent Corner exit confirmation and restores the trig
   assert.match(appSource, /ref=\{parentLockDialogRef\}[\s\S]*?role="dialog"[\s\S]*?tabIndex=\{-1\}/);
   assert.match(appSource, /event\.key === "Escape"[\s\S]*?setParentLockConfirmOpen\(false\)/);
 });
+
+test("moves the Parent Corner exit launcher only when the sidebar is expanded", () => {
+  assert.match(
+    appSource,
+    /kidsParentAccess\.unlocked && !sidebarCollapsed[\s\S]*?parent-corner-lock-control--expanded/,
+  );
+  assert.match(
+    appSource,
+    /kidsParentAccess\.unlocked && sidebarCollapsed[\s\S]*?parent-corner-lock-control--collapsed/,
+  );
+  assert.match(
+    appStyles,
+    /\.parent-corner-lock-control--expanded\s*\{[\s\S]*?margin-left:\s*auto;/,
+  );
+  assert.match(
+    appStyles,
+    /\.is-sidebar-collapsed\s+\.parent-corner-lock-control--collapsed\s+\.parent-corner-lock-confirmation\s*\{[\s\S]*?left:\s*calc\(100% \+ 12px\);/,
+  );
+});
+
+test("keeps the Parent Corner exit confirmation fully opaque in every theme", () => {
+  assert.match(
+    appStyles,
+    /\.parent-corner-lock-confirmation\s*\{[\s\S]*?opacity:\s*1\s*!important;[\s\S]*?background:\s*var\(--parent-lock-popover-bg\)\s*!important;[\s\S]*?backdrop-filter:\s*none\s*!important;/,
+  );
+  assert.match(
+    appStyles,
+    /body\.dark\s+\.parent-corner-lock-confirmation\s*\{[\s\S]*?--parent-lock-popover-bg:\s*#111a2b;/,
+  );
+  assert.match(
+    appStyles,
+    /body\.has-bg-image\s+\.parent-corner-lock-confirmation\s*\{[\s\S]*?--parent-lock-popover-bg:\s*rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\);/,
+  );
+});

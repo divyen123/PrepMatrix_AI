@@ -1500,7 +1500,10 @@ function App() {
             <div className="sidebar-header-actions">
               <button
                 className="sidebar-collapse-btn"
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                onClick={() => {
+                  setParentLockConfirmOpen(false);
+                  setSidebarCollapsed(!sidebarCollapsed);
+                }}
                 aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 type="button"
               >
@@ -1534,6 +1537,57 @@ function App() {
                 >
                   <img alt="" aria-hidden="true" src="/kids/game-town-gamepad.png" />
                 </NavLink>
+                {kidsParentAccess.unlocked && !sidebarCollapsed && (
+                  <div className="parent-corner-lock-control parent-corner-lock-control--expanded">
+                    <button
+                      aria-controls="parent-corner-lock-confirmation"
+                      aria-expanded={parentLockConfirmOpen}
+                      aria-haspopup="dialog"
+                      aria-label="Exit Parent Corner"
+                      className="parent-corner-lock-btn"
+                      onClick={() => setParentLockConfirmOpen((open) => !open)}
+                      ref={parentLockTriggerRef}
+                      title="Exit Parent Corner"
+                      type="button"
+                    >
+                      <LockKeyhole aria-hidden="true" size={18} />
+                    </button>
+                    {parentLockConfirmOpen && (
+                      <div
+                        aria-labelledby="parent-corner-lock-title"
+                        className="parent-corner-lock-confirmation"
+                        id="parent-corner-lock-confirmation"
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") setParentLockConfirmOpen(false);
+                        }}
+                        ref={parentLockDialogRef}
+                        role="dialog"
+                        tabIndex={-1}
+                      >
+                        <div className="parent-corner-lock-copy">
+                          <span aria-hidden="true"><LockKeyhole size={18} /></span>
+                          <div>
+                            <strong id="parent-corner-lock-title">Exit Parent Corner?</strong>
+                            <p>Settings and parent-only tools will be locked again.</p>
+                          </div>
+                        </div>
+                        <div className="parent-corner-lock-actions">
+                          <button disabled={parentLockWorking} onClick={() => setParentLockConfirmOpen(false)} type="button">
+                            Stay here
+                          </button>
+                          <button
+                            className="parent-corner-lock-confirm-btn"
+                            disabled={parentLockWorking}
+                            onClick={confirmKidsParentLock}
+                            type="button"
+                          >
+                            {parentLockWorking ? "Locking..." : "Lock & exit"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             {!isKidsLearner && (<>
@@ -1626,8 +1680,8 @@ function App() {
               </div>
             </div>
             <div className="sidebar-footer-actions">
-              {isKidsLearner && kidsParentAccess.unlocked && (
-                <div className="parent-corner-lock-control">
+              {isKidsLearner && kidsParentAccess.unlocked && sidebarCollapsed && (
+                <div className="parent-corner-lock-control parent-corner-lock-control--collapsed">
                   <button
                     aria-controls="parent-corner-lock-confirmation"
                     aria-expanded={parentLockConfirmOpen}
@@ -1691,7 +1745,10 @@ function App() {
             {sidebarCollapsed && (
               <button
                 className="sidebar-collapse-btn"
-                onClick={() => setSidebarCollapsed(false)}
+                onClick={() => {
+                  setParentLockConfirmOpen(false);
+                  setSidebarCollapsed(false);
+                }}
                 aria-label="Expand sidebar"
                 title="Expand sidebar"
                 type="button"

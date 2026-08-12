@@ -21639,3 +21639,92 @@ body .parent-corner-lock-confirm-btn {
     transition: none !important;
   }
 }
+
+/* Parent Corner exit: expanded launcher sits with the kids quick actions,
+   while the collapsed launcher retains its existing footer position. */
+.parent-corner-lock-control {
+  z-index: 300;
+}
+
+.parent-corner-lock-control--expanded {
+  flex: 0 0 36px;
+  margin-left: auto;
+}
+
+.parent-corner-lock-confirmation {
+  --parent-lock-popover-bg: #ffffff;
+  --parent-lock-popover-border: rgba(39, 55, 84, 0.18);
+  --parent-lock-popover-ink: #101828;
+  --parent-lock-popover-muted: #526078;
+  --parent-lock-popover-action: #f1f4f9;
+  z-index: 320;
+  width: min(228px, calc(100vw - 32px));
+  box-sizing: border-box;
+  isolation: isolate;
+  opacity: 1 !important;
+  color: var(--parent-lock-popover-ink);
+  background: var(--parent-lock-popover-bg) !important;
+  border-color: var(--parent-lock-popover-border);
+  box-shadow: 0 20px 52px rgba(4, 9, 20, 0.32), 0 4px 14px rgba(4, 9, 20, 0.18);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.dark .parent-corner-lock-confirmation {
+  --parent-lock-popover-bg: #111a2b;
+  --parent-lock-popover-border: rgba(204, 219, 255, 0.18);
+  --parent-lock-popover-ink: #f7fbff;
+  --parent-lock-popover-muted: #a8b4c8;
+  --parent-lock-popover-action: #1d2940;
+}
+
+body.has-bg-image .parent-corner-lock-confirmation {
+  --parent-lock-popover-bg: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  --parent-lock-popover-border: rgba(255, 255, 255, 0.18);
+  --parent-lock-popover-ink: #f4f6fb;
+  --parent-lock-popover-muted: #c0c8d7;
+  --parent-lock-popover-action: rgb(35, 45, 63);
+}
+
+.parent-corner-lock-confirmation::after {
+  background: var(--parent-lock-popover-bg);
+  border-right-color: var(--parent-lock-popover-border);
+  border-bottom-color: var(--parent-lock-popover-border);
+}
+
+.app-shell-layout.is-sidebar-collapsed .parent-corner-lock-control--collapsed .parent-corner-lock-confirmation {
+  right: auto;
+  bottom: 0;
+  left: calc(100% + 12px);
+  width: min(228px, calc(100vw - 112px));
+}
+
+.app-shell-layout.is-sidebar-collapsed .parent-corner-lock-control--collapsed .parent-corner-lock-confirmation::after {
+  right: auto;
+  bottom: 12px;
+  left: -6px;
+  border-right: 0;
+  border-bottom: 1px solid var(--parent-lock-popover-border);
+  border-left: 1px solid var(--parent-lock-popover-border);
+}
+
+.parent-corner-lock-copy strong {
+  color: var(--parent-lock-popover-ink);
+}
+
+.parent-corner-lock-copy p {
+  color: var(--parent-lock-popover-muted);
+}
+
+body .parent-corner-lock-actions button {
+  color: var(--parent-lock-popover-ink) !important;
+  background: var(--parent-lock-popover-action) !important;
+  border-color: var(--parent-lock-popover-border) !important;
+  box-shadow: none !important;
+}
+
+body .parent-corner-lock-confirm-btn {
+  color: #fff8e8 !important;
+  background: #a9680d !important;
+  border-color: rgba(245, 185, 66, 0.52) !important;
+}
