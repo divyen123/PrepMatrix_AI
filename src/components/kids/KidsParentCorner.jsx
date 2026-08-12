@@ -183,7 +183,7 @@ export default function KidsParentCorner({
       <section
         aria-labelledby="kids-parent-title"
         aria-modal="true"
-        className="kids-parent-dialog"
+        className={`kids-parent-dialog${unlocked ? "" : " kids-parent-dialog--pin-gate"}`}
         ref={dialogRef}
         role="dialog"
         tabIndex={-1}
@@ -206,8 +206,8 @@ export default function KidsParentCorner({
             <span aria-hidden="true" className="kids-pin-icon"><KeyRound size={30} /></span>
             <h3>{hasPin ? copy.enterPin : copy.setupPin}</h3>
             <p>{copy.pinHelp}</p>
-            <label>
-              <span className="sr-only">{hasPin ? copy.enterPin : copy.setupPin}</span>
+            <label className="kids-pin-label">
+              <span>{hasPin ? copy.enterPin : copy.setupPin}</span>
               <div>
                 <input
                   autoComplete={hasPin ? "current-password" : "new-password"}

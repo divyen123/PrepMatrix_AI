@@ -1478,6 +1478,11 @@
   outline: none;
   animation: kids-dialog-in 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.08) both;
 }
+.kids-parent-dialog--pin-gate {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(650px, calc(100dvh - 40px));
+}
+
 
 .kids-parent-dialog > header {
   position: relative;
@@ -1503,22 +1508,22 @@
 .kids-pin-gate {
   display: grid;
   justify-items: center;
-  width: min(100%, 430px);
+  width: min(100%, 360px);
   margin: 0 auto;
-  padding: clamp(32px, 7vw, 66px) 22px;
+  padding: clamp(24px, 4.5vw, 40px) 20px 32px;
   text-align: center;
   overflow-y: auto;
 }
 
-.kids-pin-icon { display: grid; width: 70px; height: 70px; margin-bottom: 14px; place-items: center; border-radius: 22px; color: var(--kids-purple); background: linear-gradient(145deg, var(--kids-purple-soft), var(--kids-blue-soft)); }
-.kids-pin-gate h3 { margin-bottom: 7px; font-size: 1.4rem; }
-.kids-pin-gate > p { max-width: 340px; margin-bottom: 18px; color: var(--kids-muted); font-size: 0.84rem; line-height: 1.55; }
-.kids-pin-gate > label { width: min(100%, 260px); }
+.kids-pin-icon { display: grid; width: 58px; height: 58px; margin-bottom: 12px; place-items: center; border-radius: 18px; color: var(--kids-purple); background: linear-gradient(145deg, var(--kids-purple-soft), var(--kids-blue-soft)); }
+.kids-pin-gate h3 { margin: 0 0 6px; font-size: 1.22rem; }
+.kids-pin-gate > p { max-width: 320px; margin: 0 0 16px; color: var(--kids-muted); font-size: 0.8rem; line-height: 1.5; }
+.kids-pin-gate > label { display: grid; gap: 7px; width: min(100%, 250px); color: var(--kids-ink); font-size: 0.76rem; font-weight: 800; text-align: left; }
 .kids-pin-gate > label > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
-.kids-pin-gate input { min-height: 56px; border: 2px solid rgba(101, 88, 217, 0.2); color: var(--kids-ink); background: var(--kids-panel-soft); box-shadow: none; font-size: 1.35rem; font-weight: 900; letter-spacing: 0.25em; text-align: center; }
-.kids-pin-gate label button { min-width: 54px; min-height: 54px; padding: 8px; border: 1px solid var(--kids-line); border-radius: 15px; color: var(--kids-muted); background: var(--kids-panel-soft); box-shadow: none; }
+.kids-pin-gate input { min-height: 48px; border: 2px solid rgba(101, 88, 217, 0.2); color: var(--kids-ink); background: var(--kids-panel-soft); box-shadow: none; font-size: 1.18rem; font-weight: 900; letter-spacing: 0.25em; text-align: center; }
+body .kids-pin-gate label button { min-width: 48px !important; min-height: 48px !important; padding: 7px !important; border: 1px solid var(--kids-line) !important; border-radius: 13px !important; color: var(--kids-muted) !important; background: var(--kids-panel-soft) !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 .kids-pin-error { width: 100%; margin: 11px 0 0 !important; color: var(--kids-red) !important; font-size: 0.76rem !important; font-weight: 800; }
-.kids-pin-gate > .kids-parent-primary { width: min(100%, 260px); margin-top: 14px; }
+.kids-pin-gate > .kids-parent-primary { width: min(100%, 250px); min-height: 44px !important; margin-top: 12px; padding: 7px 14px !important; font-size: 0.7rem !important; }
 
 .kids-parent-content {
   display: grid;
@@ -1824,6 +1829,7 @@ body.has-bg-image.no-glass-cards .kids-parent-dialog { -webkit-backdrop-filter: 
   .kids-results-card > button { grid-column: 1 / -1; width: 100%; }
   .kids-parent-backdrop { place-items: center; padding: 12px; }
   .kids-parent-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); border-radius: 24px; }
+  .kids-parent-dialog--pin-gate { width: min(560px, calc(100vw - 24px)); }
   .kids-parent-content { padding: 12px; }
 }
 
@@ -1859,6 +1865,7 @@ body.has-bg-image.no-glass-cards .kids-parent-dialog { -webkit-backdrop-filter: 
   .kids-question-visual { min-height: 90px; }
   .kids-tap-board > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kids-sort-board fieldset > div { grid-template-columns: 1fr; }
+  .kids-pin-gate { padding: 22px 16px 26px; }
   .kids-sequence-board li { grid-template-columns: 32px minmax(0, 1fr); }
   .kids-sequence-board li > div { grid-column: 1 / -1; justify-content: flex-end; }
   .kids-parent-dialog > header { padding: 13px 14px; }
