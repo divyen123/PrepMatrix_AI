@@ -3,6 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import api from "../utils/apiClient";
 import {
+  openExternalVoiceUrl,
+  resolveVoiceAssistantCommand,
+} from "../utils/voiceAssistantCommands";
+import { resolveVoicePlannerAnswer } from "../utils/voicePlannerAnswers";
+import { selectVoiceRecognitionTranscript } from "../utils/voiceRecognition";
+import {
   AI_FEATURES,
   createAiIdempotencyKey,
   getAiRequestErrorMessage,
@@ -149,66 +155,17 @@ function cleanAssistantTextForSpeech(text = "") {
     .trim();
 }
 
-function resolvePageCommand(spokenText = "") {
-  const normalized = normalizeVoiceText(spokenText);
-
-  if (/\b(open|go to)\s+(home|dashboard)\b/.test(normalized)) {
-    return { type: "navigate", route: "/dashboard", response: normalized.includes("home") ? "Opening home page." : "Opening dashboard page." };
-  }
-
-  if (/\b(open|go to)\s+(kids|kids zone|play and learn|learning games|game world)\b/.test(normalized)) {
-    return { type: "navigate", route: "/kids", response: "Opening Kids Play and Learn." };
-  }
-
-  if (/\b(open|go to)\s+(?:the\s+)?(?:kids\s+)?(?:ai\s+|study\s+)?chat\b/.test(normalized)) {
-    return { type: "chat", response: "Opening AI Chat." };
-  }
-
-  if (/\b(open|go to)\s+planner\b/.test(normalized)) {
-    return { type: "navigate", route: "/planner", response: "Opening planner page." };
-  }
-
-  if (/\b(open|go to)\s+subjects?\b/.test(normalized)) {
-    return { type: "navigate", route: "/subjects", response: "Opening subjects page." };
-  }
-
-  if (/\b(open|go to)\s+analytics\b/.test(normalized)) {
-    return { type: "navigate", route: "/analytics", response: "Opening analytics page." };
-  }
-
-  if (/\b(open|go to)\s+quiz\b/.test(normalized)) {
-    return { type: "navigate", route: "/quiz", response: "Opening quiz page." };
-  }
-
-  if (/\b(open|go to)\s+notes?\b/.test(normalized)) {
-    return { type: "navigate", route: "/notes", response: "Opening notes page." };
-  }
-
-  if (/\b(open|go to)\s+profile\b/.test(normalized)) {
-    return { type: "navigate", route: "/settings", response: "Opening profile settings." };
-  }
-
-  if (/\b(open|go to)\s+settings\b/.test(normalized)) {
-    return { type: "navigate", route: "/settings", response: "Opening settings page." };
-  }
-
-  if (/\bscroll\s+down\b/.test(normalized)) {
-    return { type: "scroll", top: Math.round(window.innerHeight * 0.75), response: "Scrolling down." };
-  }
-
-  if (/\bscroll\s+up\b/.test(normalized)) {
-    return { type: "scroll", top: -Math.round(window.innerHeight * 0.75), response: "Scrolling up." };
-  }
-
-  return null;
-}
 
 export default function useVoiceAssistant({
   academicLevel = "College",
   academicTrack = "General",
   schedule = [],
   completed = [],
+  allowExternalNavigation = true,
+  availableRoutes,
   disabled = false,
+  homeRoute = "/dashboard",
+  setDarkMode,
 } = {}) {
   const navigate = useNavigate();
   const { hasInsufficientCredits } = useAiQuota();
@@ -578,7 +535,33 @@ export default function useVoiceAssistant({
     setError("");
 
     try {
-      const pageCommand = resolvePageCommand(cleanText);
+      const pageCommand = resolveVoiceAssistantCommand(cleanText, {
+        allowExternalNavigation,
+        availableRoutes,
+        homeRoute,
+        viewportHeight: window.innerHeight,
+      });
+
+      if (pageCommand?.type === "external") {
+        setReply(pageCommand.response);
+        setOverlayReply(pageCommand.response);
+        if (!openExternalVoiceUrl(pageCommand.url)) {
+          throw new Error(`I could not safely open ${pageCommand.service}.`);
+        }
+        return;
+      }
+
+      if (pageCommand?.type === "clarify") {
+        setReply(pageCommand.response);
+        setOverlayReply(pageCommand.response);
+        if (speakReply) {
+          speakWakeReply(cleanAssistantTextForSpeech(pageCommand.response), { closeOverlay: false, resumeWake: true });
+        } else {
+          setVoiceStatus("answered");
+          scheduleWakeRestart();
+        }
+        return;
+      }
 
       if (pageCommand?.type === "chat") {
         window.dispatchEvent(new CustomEvent("openPrepMatrixAIChat"));
@@ -607,7 +590,8 @@ export default function useVoiceAssistant({
       }
 
       if (pageCommand?.type === "scroll") {
-        window.scrollBy({ top: pageCommand.top, behavior: "smooth" });
+        const scrollMethod = pageCommand.mode === "to" ? "scrollTo" : "scrollBy";
+        window[scrollMethod]({ top: pageCommand.top, behavior: "smooth" });
         setReply(pageCommand.response);
         setOverlayReply(pageCommand.response);
         if (speakReply) {
@@ -619,7 +603,20 @@ export default function useVoiceAssistant({
         return;
       }
 
-      const quickAnswer = resolveQuickVoiceAnswer(cleanText);
+      if (pageCommand?.type === "theme") {
+        setDarkMode?.(pageCommand.darkMode);
+        setReply(pageCommand.response);
+        setOverlayReply(pageCommand.response);
+        if (speakReply) {
+          speakWakeReply(cleanAssistantTextForSpeech(pageCommand.response), { closeOverlay: true, resumeWake: true });
+        } else {
+          hideOverlay();
+          scheduleWakeRestart();
+        }
+        return;
+      }
+
+      const quickAnswer = resolveQuickVoiceAnswer(cleanText) || resolveVoicePlannerAnswer(cleanText, metrics);
       const assistantResult = quickAnswer
         ? { reply: quickAnswer, sessionId: null }
         : await sendQuestionToAssistant(cleanText);
@@ -652,7 +649,7 @@ export default function useVoiceAssistant({
       processingRef.current = false;
       setIsProcessing(false);
     }
-  }, [hideOverlay, invalidateActiveSpeech, navigate, scheduleWakeRestart, sendQuestionToAssistant, setVoiceStatus, speakWakeReply]);
+  }, [allowExternalNavigation, availableRoutes, hideOverlay, homeRoute, invalidateActiveSpeech, metrics, navigate, scheduleWakeRestart, sendQuestionToAssistant, setDarkMode, setVoiceStatus, speakWakeReply]);
 
   const createRecognition = useCallback((continuous, { interimResults = false, maxAlternatives = 5 } = {}) => {
     const SpeechRecognition = getRecognitionConstructor();
@@ -707,10 +704,14 @@ export default function useVoiceAssistant({
 
     recognition.onresult = (event) => {
       clearCommandTimeout();
-      const spokenText = Array.from(event.results)
-        .map((result) => result[0]?.transcript || "")
-        .join(" ")
-        .trim();
+      const spokenText = selectVoiceRecognitionTranscript(event.results, (candidate) => (
+        resolveVoiceAssistantCommand(candidate, {
+          allowExternalNavigation,
+          availableRoutes,
+          homeRoute,
+          viewportHeight: window.innerHeight,
+        }) || resolveQuickVoiceAnswer(candidate) || resolveVoicePlannerAnswer(candidate, metrics)
+      ));
 
       if (spokenText) {
         captured = true;
@@ -753,7 +754,7 @@ export default function useVoiceAssistant({
       hideOverlay();
       scheduleWakeRestart();
     }
-  }, [clearCommandTimeout, createRecognition, detachAndStopRecognition, disabled, emitVoiceRecordingChange, hideOverlay, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
+  }, [allowExternalNavigation, availableRoutes, clearCommandTimeout, createRecognition, detachAndStopRecognition, disabled, emitVoiceRecordingChange, hideOverlay, homeRoute, metrics, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
 
   const startWakeListening = useCallback(() => {
     if (disabled || !wakeModeRef.current) return;
@@ -857,10 +858,14 @@ export default function useVoiceAssistant({
     };
 
     recognition.onresult = (event) => {
-      const spokenText = Array.from(event.results)
-        .map((result) => result[0]?.transcript || "")
-        .join(" ")
-        .trim();
+      const spokenText = selectVoiceRecognitionTranscript(event.results, (candidate) => (
+        resolveVoiceAssistantCommand(candidate, {
+          allowExternalNavigation,
+          availableRoutes,
+          homeRoute,
+          viewportHeight: window.innerHeight,
+        }) || resolveQuickVoiceAnswer(candidate) || resolveVoicePlannerAnswer(candidate, metrics)
+      ));
 
       if (spokenText) {
         commandRecognitionRef.current = null;
@@ -902,7 +907,7 @@ export default function useVoiceAssistant({
       setVoiceStatus("error");
       scheduleWakeRestart();
     }
-  }, [createRecognition, disabled, emitVoiceRecordingChange, hideOverlay, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
+  }, [allowExternalNavigation, availableRoutes, createRecognition, disabled, emitVoiceRecordingChange, hideOverlay, homeRoute, metrics, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
 
   useEffect(() => {
     if (disabled) {

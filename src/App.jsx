@@ -509,14 +509,6 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [kidsParentAccess.expiresAt, kidsParentAccess.unlocked]);
 
-  const voiceAssistant = useVoiceAssistant({
-    academicLevel,
-    academicTrack,
-    schedule,
-    completed,
-    disabled: authLoading || !userProfile,
-  });
-
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
     [schedule, completed]
@@ -618,6 +610,22 @@ function App() {
     learningMedicalTrainingEligibility.enabled,
     visibleNavItems,
   ]);
+  const voiceAvailableRoutes = useMemo(
+    () => [...dashboardAvailableRoutes, "/ai-chat"],
+    [dashboardAvailableRoutes],
+  );
+  const voiceAssistant = useVoiceAssistant({
+    academicLevel,
+    academicTrack,
+    schedule,
+    completed,
+    allowExternalNavigation: !learnerRoutePolicy.isYoungKidsLearner || kidsParentAccess.unlocked,
+    availableRoutes: voiceAvailableRoutes,
+    disabled: authLoading || !userProfile,
+    homeRoute: learnerRoutePolicy.homeRoute,
+    setDarkMode,
+  });
+
   const standardOnlyRoute = (element) => (
     isKidsLearner ? <Navigate replace to={learnerRoutePolicy.homeRoute} /> : element
   );

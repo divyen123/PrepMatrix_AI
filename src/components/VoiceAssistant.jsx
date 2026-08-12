@@ -58,7 +58,7 @@ function VoiceAssistant({ hidden = false, assistant }) {
       </div>
 
       <p className="assistant-summary">
-        Use Wake Mode with Hey Prep, Prep Matrix, or Hey PrepMatrix while the app is open, or ask once with the voice button.
+        Use Wake Mode with Hey Prep, Prep Matrix, or Hey PrepMatrix while the app is open, or ask once with the voice button. Try: Hey Prep, search YouTube for photosynthesis; open my planner; or switch to dark mode.
       </p>
 
       <div className="assistant-toolbar">
