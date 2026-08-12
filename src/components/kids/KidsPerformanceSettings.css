@@ -448,3 +448,99 @@
     transition: none;
   }
 }
+
+/* Plain light mode: inherit the application palette while preserving the
+   dedicated dark and image-background presentation above. */
+body:not(.dark):not(.has-bg-image) .kids-performance-settings {
+  --kids-panel-accent: var(--accent);
+  --kids-panel-mint: var(--accent);
+  color: var(--text);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(var(--accent-rgb), 0.1), transparent 34%),
+    linear-gradient(145deg, var(--surface-strong), var(--surface));
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-header-icon {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border-color: rgba(var(--accent-rgb), 0.24);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-header small {
+  color: var(--accent-strong);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-header h2,
+body:not(.dark):not(.has-bg-image) .kids-performance-overview strong,
+body:not(.dark):not(.has-bg-image) .kids-performance-field > span,
+body:not(.dark):not(.has-bg-image) .kids-performance-toggles legend,
+body:not(.dark):not(.has-bg-image) .kids-performance-language legend,
+body:not(.dark):not(.has-bg-image) .kids-performance-toggle-copy,
+body:not(.dark):not(.has-bg-image) .kids-performance-language label {
+  color: var(--text);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-overview article,
+body:not(.dark):not(.has-bg-image) .kids-performance-toggles,
+body:not(.dark):not(.has-bg-image) .kids-performance-language {
+  background: var(--surface-muted);
+  border-color: var(--border);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-toggle-row,
+body:not(.dark):not(.has-bg-image) .kids-performance-language label {
+  background: var(--surface-strong);
+  border-color: var(--border);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-field input,
+body:not(.dark):not(.has-bg-image) .kids-performance-field select {
+  color: var(--text) !important;
+  background: var(--surface-strong) !important;
+  border-color: var(--border) !important;
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-field input[readonly] {
+  color: var(--text-muted) !important;
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-field select option {
+  color: var(--text);
+  background: var(--surface-strong);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-switch-control input:checked ~ .kids-performance-switch-status {
+  color: var(--accent-strong);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-save {
+  color: #fff !important;
+  background: var(--gradient-primary) !important;
+  border-color: rgba(var(--accent-rgb), 0.28) !important;
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-lock {
+  color: var(--text) !important;
+  background: var(--surface-strong) !important;
+  border-color: var(--border) !important;
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-message.is-error {
+  color: var(--danger);
+  background: rgba(209, 67, 97, 0.09);
+  border-color: rgba(209, 67, 97, 0.24);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-message.is-error button {
+  color: var(--danger) !important;
+  background: rgba(209, 67, 97, 0.08) !important;
+  border-color: rgba(209, 67, 97, 0.22) !important;
+}
+
+body:not(.dark):not(.has-bg-image) .kids-performance-message.is-success {
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.09);
+  border-color: rgba(15, 118, 110, 0.22);
+}

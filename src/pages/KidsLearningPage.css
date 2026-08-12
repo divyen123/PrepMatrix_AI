@@ -2013,3 +2013,136 @@ body.has-bg-image .kids-result-review small {
 .kids-route-recovery h2,
 .kids-route-recovery p { margin: 0; }
 .kids-route-recovery p { max-width: 48ch; color: var(--muted); line-height: 1.6; }
+
+/* Parent Corner is portaled under body, so it needs its own complete light
+   palette instead of relying on .kids-learning-page inheritance. */
+body:not(.dark):not(.has-bg-image) .kids-parent-backdrop {
+  --kids-ink: var(--text, #101828);
+  --kids-muted: var(--text-muted, #62708a);
+  --kids-panel: rgba(255, 255, 255, 0.96);
+  --kids-panel-solid: #fff;
+  --kids-panel-soft: rgba(238, 243, 251, 0.78);
+  --kids-line: rgba(39, 55, 84, 0.14);
+  --kids-purple: #6558d9;
+  --kids-purple-dark: #5046c5;
+  --kids-purple-soft: #eeecff;
+  --kids-blue: #1689d8;
+  --kids-blue-soft: #e5f5ff;
+  --kids-green: #16876d;
+  --kids-green-soft: #e5f8f1;
+  --kids-red: #c43d5c;
+  --kids-red-soft: #ffebf0;
+  background: rgba(226, 232, 240, 0.7);
+  -webkit-backdrop-filter: blur(16px) saturate(1.05);
+  backdrop-filter: blur(16px) saturate(1.05);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog {
+  color: var(--kids-ink);
+  background: var(--kids-panel);
+  border-color: var(--kids-line);
+  box-shadow: 0 38px 100px rgba(35, 48, 75, 0.22);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog > header,
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog > footer {
+  background: rgba(248, 250, 252, 0.96);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog h2,
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog h3,
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog strong {
+  color: var(--kids-ink);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-parent-section-title,
+body:not(.dark):not(.has-bg-image) .kids-parent-section-title h3,
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog > header small {
+  color: var(--kids-purple);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-parent-field select,
+body:not(.dark):not(.has-bg-image) .kids-pin-gate input {
+  color: var(--kids-ink) !important;
+  background: var(--kids-panel-solid) !important;
+  border-color: var(--kids-line) !important;
+}
+
+body:not(.dark):not(.has-bg-image) .kids-parent-field select option {
+  color: var(--kids-ink);
+  background: var(--kids-panel-solid);
+}
+
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog .kids-parent-primary {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--kids-purple), var(--kids-purple-dark)) !important;
+  border-color: rgba(80, 70, 197, 0.28) !important;
+}
+
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog .kids-parent-primary:hover:not(:disabled) {
+  color: #fff !important;
+  background: linear-gradient(135deg, #7165e3, #4940b8) !important;
+}
+
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog .kids-parent-secondary,
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog > footer button,
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog > header > button {
+  color: var(--kids-muted) !important;
+  background: var(--kids-panel-solid) !important;
+  border-color: var(--kids-line) !important;
+  box-shadow: none !important;
+}
+
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog .kids-parent-secondary:hover:not(:disabled) {
+  color: var(--kids-purple-dark) !important;
+  background: var(--kids-purple-soft) !important;
+  border-color: rgba(101, 88, 217, 0.28) !important;
+}
+
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog > header > button:hover:not(:disabled) {
+  color: var(--kids-red) !important;
+  background: var(--kids-red-soft) !important;
+  border-color: rgba(196, 61, 92, 0.22) !important;
+}
+
+body:not(.dark):not(.has-bg-image) .kids-parent-dialog > footer .kids-parent-settings-link {
+  color: var(--kids-purple-dark) !important;
+  background: var(--kids-purple-soft) !important;
+  border-color: rgba(101, 88, 217, 0.24) !important;
+}
+
+.kids-parent-dialog button:disabled {
+  opacity: 0.64;
+  cursor: not-allowed;
+  filter: saturate(0.7);
+}
+
+.kids-parent-dialog :is(button, input, select):focus-visible {
+  outline: 3px solid rgba(22, 137, 216, 0.68);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kids-parent-backdrop,
+  .kids-parent-dialog,
+  .kids-parent-dialog *,
+  .kids-parent-dialog *::before,
+  .kids-parent-dialog *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .kids-parent-dialog,
+  .kids-parent-dialog button,
+  .kids-parent-dialog input,
+  .kids-parent-dialog select {
+    border: 1px solid CanvasText;
+  }
+
+  .kids-parent-dialog :is(button, input, select):focus-visible {
+    outline-color: Highlight;
+  }
+}
