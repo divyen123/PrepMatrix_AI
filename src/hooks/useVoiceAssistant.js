@@ -30,6 +30,7 @@ import {
 const UNSUPPORTED_MESSAGE = "Voice recognition is not supported in this browser. Please try Chrome or Edge.";
 const COMMAND_TIMEOUT_MS = 8500;
 const WAKE_RESTART_DELAY_MS = 450;
+const RECOGNITION_RELEASE_TIMEOUT_MS = 900;
 
 const WAKE_WORDS = [
   "hey prep",
@@ -175,9 +176,18 @@ export default function useVoiceAssistant({
   const commandTimeoutRef = useRef(null);
   const wakeModeRef = useRef(disabled ? false : readStoredWakeMode());
   const processingRef = useRef(false);
+  const manualCaptureRef = useRef(null);
+  const mountedRef = useRef(true);
   const startWakeListeningRef = useRef(null);
   const activeSpeechRef = useRef(null);
   const previewSpeechRef = useRef(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const metrics = useMemo(() => getPlannerMetrics(schedule, completed), [schedule, completed]);
   const plannerContext = useMemo(
@@ -268,6 +278,45 @@ export default function useVoiceAssistant({
     }
   }, []);
 
+  const releaseRecognition = useCallback((recognition, { abort = false } = {}) => {
+    if (!recognition) return Promise.resolve();
+
+    return new Promise((resolve) => {
+      let released = false;
+      let releaseTimer = null;
+      const finishRelease = () => {
+        if (released) return;
+        released = true;
+        if (releaseTimer) window.clearTimeout(releaseTimer);
+        recognition.onstart = null;
+        recognition.onend = null;
+        recognition.onerror = null;
+        recognition.onresult = null;
+        resolve();
+      };
+
+      recognition.onstart = null;
+      recognition.onerror = null;
+      recognition.onresult = null;
+      recognition.onend = finishRelease;
+      releaseTimer = window.setTimeout(finishRelease, RECOGNITION_RELEASE_TIMEOUT_MS);
+
+      const requestRelease = (method) => {
+        try {
+          if (typeof recognition[method] !== "function") return false;
+          recognition[method]();
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      const primaryMethod = abort ? "abort" : "stop";
+      const fallbackMethod = abort ? "stop" : "abort";
+      if (!requestRelease(primaryMethod)) requestRelease(fallbackMethod);
+    });
+  }, []);
+
   const pauseWakeRecognition = useCallback(() => {
     clearWakeRestartTimer();
     const recognition = wakeRecognitionRef.current;
@@ -279,6 +328,9 @@ export default function useVoiceAssistant({
 
   const stopCommandRecognition = useCallback(() => {
     clearCommandTimeout();
+    const manualCapture = manualCaptureRef.current;
+    manualCaptureRef.current = null;
+    manualCapture?.cancel?.();
     const recognition = commandRecognitionRef.current;
     commandRecognitionRef.current = null;
     detachAndStopRecognition(recognition);
@@ -287,13 +339,34 @@ export default function useVoiceAssistant({
     emitVoiceRecordingChange(false);
   }, [clearCommandTimeout, detachAndStopRecognition, emitVoiceRecordingChange]);
 
+  const canQueueWakeRestart = useCallback(() => (
+    !disabled && mountedRef.current && wakeModeRef.current
+  ), [disabled]);
+
+  const hasTransientMicOwner = useCallback(() => Boolean(
+    manualCaptureRef.current
+    || previewSpeechRef.current
+    || commandRecognitionRef.current
+    || processingRef.current
+    || activeSpeechRef.current
+  ), []);
+
   const scheduleWakeRestart = useCallback((delay = WAKE_RESTART_DELAY_MS) => {
     clearWakeRestartTimer();
-    if (disabled || !wakeModeRef.current) return;
-    wakeRestartTimerRef.current = window.setTimeout(() => {
+    if (!canQueueWakeRestart()) return;
+
+    const retryWakeStart = () => {
+      wakeRestartTimerRef.current = null;
+      if (!canQueueWakeRestart()) return;
+      if (hasTransientMicOwner()) {
+        wakeRestartTimerRef.current = window.setTimeout(retryWakeStart, WAKE_RESTART_DELAY_MS);
+        return;
+      }
       startWakeListeningRef.current?.();
-    }, delay);
-  }, [clearWakeRestartTimer, disabled]);
+    };
+
+    wakeRestartTimerRef.current = window.setTimeout(retryWakeStart, delay);
+  }, [canQueueWakeRestart, clearWakeRestartTimer, hasTransientMicOwner]);
 
   const hideOverlay = useCallback(() => {
     setVoiceStatus("idle");
@@ -550,6 +623,7 @@ export default function useVoiceAssistant({
         if (!openExternalVoiceUrl(pageCommand.url)) {
           throw new Error(`I could not safely open ${pageCommand.service}.`);
         }
+        setVoiceStatus("answered");
         return;
       }
 
@@ -650,6 +724,7 @@ export default function useVoiceAssistant({
     } finally {
       processingRef.current = false;
       setIsProcessing(false);
+      scheduleWakeRestart();
     }
   }, [allowExternalNavigation, availableRoutes, hideOverlay, homeRoute, invalidateActiveSpeech, metrics, navigate, scheduleWakeRestart, sendQuestionToAssistant, setDarkMode, setVoiceStatus, speakWakeReply]);
 
@@ -759,7 +834,15 @@ export default function useVoiceAssistant({
   }, [allowExternalNavigation, availableRoutes, clearCommandTimeout, createRecognition, detachAndStopRecognition, disabled, emitVoiceRecordingChange, hideOverlay, homeRoute, metrics, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
 
   const startWakeListening = useCallback(() => {
-    if (disabled || !wakeModeRef.current) return;
+    if (
+      disabled
+      || !mountedRef.current
+      || !wakeModeRef.current
+      || manualCaptureRef.current
+      || commandRecognitionRef.current
+      || processingRef.current
+      || activeSpeechRef.current
+    ) return;
 
     const recognition = createRecognition(true, { interimResults: false, maxAlternatives: 5 });
     if (!recognition) return;
@@ -842,110 +925,181 @@ export default function useVoiceAssistant({
   }, [startWakeListening]);
 
   const askWithVoice = useCallback((options = {}) => {
-    if (disabled) return;
+    if (disabled || manualCaptureRef.current) return;
     const onTranscript = typeof options?.onTranscript === "function"
       ? options.onTranscript
       : null;
     const processTranscript = options?.processTranscript !== false;
-    const recognition = createRecognition(false, { interimResults: false, maxAlternatives: 5 });
-    if (!recognition) return;
-
-    pauseWakeRecognition();
-    stopCommandRecognition();
-    commandRecognitionRef.current = recognition;
+    const session = { cancelled: false };
+    session.cancel = () => {
+      session.cancelled = true;
+    };
+    manualCaptureRef.current = session;
+    clearWakeRestartTimer();
+    invalidateActiveSpeech();
+    setIsCommandListening(true);
+    setIsListening(false);
+    emitVoiceRecordingChange(true);
     setTranscript("");
     setReply("");
     setOverlayReply("");
     setError("");
     setVoiceStatus("listening");
 
-    let captured = false;
+    const runCapture = async () => {
+      const previousWakeRecognition = wakeRecognitionRef.current;
+      const previousCommandRecognition = commandRecognitionRef.current;
+      wakeRecognitionRef.current = null;
+      commandRecognitionRef.current = null;
+      clearCommandTimeout();
+      await Promise.all([
+        releaseRecognition(previousWakeRecognition, { abort: true }),
+        releaseRecognition(previousCommandRecognition, { abort: true }),
+      ]);
+      if (session.cancelled || !mountedRef.current || manualCaptureRef.current !== session || disabled) return;
 
-    recognition.onstart = () => {
-      setIsListening(true);
-      setIsCommandListening(true);
-    };
-
-    recognition.onresult = (event) => {
-      if (captured) return;
-      const finalResults = Array.from(event.results || [])
-        .filter((result) => result?.isFinal !== false);
-      if (!finalResults.length) return;
-
-      const spokenText = selectVoiceRecognitionTranscript(finalResults, (candidate) => (
-        resolveVoiceAssistantCommand(candidate, {
-          allowExternalNavigation,
-          availableRoutes,
-          homeRoute,
-          viewportHeight: window.innerHeight,
-        }) || resolveQuickVoiceAnswer(candidate) || resolveVoicePlannerAnswer(candidate, metrics)
-      ));
-
-      if (spokenText) {
-        captured = true;
-        commandRecognitionRef.current = null;
-        setIsListening(false);
+      const recognition = createRecognition(false, { interimResults: false, maxAlternatives: 5 });
+      if (!recognition) {
+        if (manualCaptureRef.current === session) manualCaptureRef.current = null;
         setIsCommandListening(false);
         emitVoiceRecordingChange(false);
-        try {
-          const callbackResult = onTranscript?.(spokenText);
-          if (callbackResult && typeof callbackResult.catch === "function") {
-            callbackResult.catch(() => undefined);
-          }
-        } catch {
-          // A display callback must never prevent the recognized command from running.
-        }
-
-        if (processTranscript) {
-          processSpokenText(spokenText, { speakReply: true });
-        } else {
-          setTranscript(spokenText);
-          hideOverlay();
-          scheduleWakeRestart();
-        }
+        scheduleWakeRestart();
+        return;
       }
-    };
 
-    recognition.onerror = (event) => {
-      if (captured) return;
-      commandRecognitionRef.current = null;
-      setIsListening(false);
-      setIsCommandListening(false);
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      commandRecognitionRef.current = recognition;
+      let captured = false;
+      let ended = false;
+      let processingPromise = Promise.resolve();
+      let finalizePromise = null;
+      let recognitionError = false;
+      let resumeWakeAfterCapture = true;
+
+      const finishCapture = () => {
+        if (finalizePromise) return finalizePromise;
+        clearCommandTimeout();
+        finalizePromise = (async () => {
+          try {
+            await processingPromise;
+          } catch {
+            // Recognition cleanup must complete even if transcript processing fails unexpectedly.
+          } finally {
+            if (commandRecognitionRef.current === recognition) commandRecognitionRef.current = null;
+            if (manualCaptureRef.current === session) manualCaptureRef.current = null;
+            const shouldFinalizeUi = mountedRef.current && !session.cancelled;
+            if (shouldFinalizeUi) {
+              setIsListening(false);
+              setIsCommandListening(false);
+              emitVoiceRecordingChange(false);
+              if (!captured && !processingRef.current && !recognitionError) hideOverlay();
+              if (resumeWakeAfterCapture) scheduleWakeRestart();
+            }
+          }
+        })();
+        return finalizePromise;
+      };
+
+      const stopAfterResult = () => {
+        try {
+          recognition.stop();
+        } catch {
+          finishCapture();
+        }
+      };
+
+      recognition.onstart = () => {
+        if (session.cancelled || manualCaptureRef.current !== session) return;
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event) => {
+        if (captured || session.cancelled || manualCaptureRef.current !== session) return;
+        const finalResults = Array.from(event.results || [])
+          .filter((result) => result?.isFinal !== false);
+        if (!finalResults.length) return;
+
+        const spokenText = selectVoiceRecognitionTranscript(finalResults, (candidate) => (
+          resolveVoiceAssistantCommand(candidate, {
+            allowExternalNavigation,
+            availableRoutes,
+            homeRoute,
+            viewportHeight: window.innerHeight,
+          }) || resolveQuickVoiceAnswer(candidate) || resolveVoicePlannerAnswer(candidate, metrics)
+        ));
+        if (!spokenText) return;
+
+        captured = true;
+        processingPromise = (async () => {
+          try {
+            await onTranscript?.(spokenText);
+          } catch {
+            // Display or attachment delivery failures must not strand microphone ownership.
+          }
+
+          if (session.cancelled || !mountedRef.current || manualCaptureRef.current !== session) return;
+
+          if (processTranscript) {
+            await processSpokenText(spokenText, { speakReply: true });
+          } else {
+            setTranscript(spokenText);
+            hideOverlay();
+          }
+        })();
+        stopAfterResult();
+        if (ended) finishCapture();
+      };
+
+      recognition.onerror = (event) => {
+        if (session.cancelled || manualCaptureRef.current !== session) return;
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          recognitionError = true;
+          resumeWakeAfterCapture = false;
+          setError("Microphone permission is required for voice recognition.");
+          setVoiceStatus("error");
+        } else if (event.error !== "aborted" && event.error !== "no-speech") {
+          setError(`Voice recognition error: ${event.error}.`);
+          recognitionError = true;
+          setVoiceStatus("error");
+        } else if (!captured) {
+          hideOverlay();
+        }
+      };
+
+      recognition.onend = () => {
+        ended = true;
+        finishCapture();
+      };
+
+      clearCommandTimeout();
+      commandTimeoutRef.current = window.setTimeout(() => {
+        if (manualCaptureRef.current !== session) return;
+        releaseRecognition(recognition, { abort: true }).finally(() => {
+          if (manualCaptureRef.current === session) finishCapture();
+        });
+      }, COMMAND_TIMEOUT_MS);
+
+      try {
+        recognition.start();
+      } catch {
+        recognitionError = true;
+        resumeWakeAfterCapture = false;
         setError("Microphone permission is required for voice recognition.");
         setVoiceStatus("error");
-      } else if (event.error !== "aborted" && event.error !== "no-speech") {
-        setError(`Voice recognition error: ${event.error}.`);
-        setVoiceStatus("error");
-      } else {
-        hideOverlay();
-      }
-      scheduleWakeRestart();
-    };
-
-    recognition.onend = () => {
-      if (commandRecognitionRef.current === recognition) {
-        commandRecognitionRef.current = null;
-      }
-      setIsListening(false);
-      setIsCommandListening(false);
-      if (!captured && !processingRef.current) {
-        hideOverlay();
-        scheduleWakeRestart();
+        finishCapture();
       }
     };
 
-    try {
-      recognition.start();
-    } catch {
-      commandRecognitionRef.current = null;
+    runCapture().catch(() => {
+      if (manualCaptureRef.current !== session) return;
+      manualCaptureRef.current = null;
       setIsListening(false);
       setIsCommandListening(false);
+      emitVoiceRecordingChange(false);
       setError("Microphone permission is required for voice recognition.");
       setVoiceStatus("error");
       scheduleWakeRestart();
-    }
-  }, [allowExternalNavigation, availableRoutes, createRecognition, disabled, emitVoiceRecordingChange, hideOverlay, homeRoute, metrics, pauseWakeRecognition, processSpokenText, scheduleWakeRestart, setVoiceStatus, stopCommandRecognition]);
+    });
+  }, [allowExternalNavigation, availableRoutes, clearCommandTimeout, clearWakeRestartTimer, createRecognition, disabled, emitVoiceRecordingChange, hideOverlay, homeRoute, invalidateActiveSpeech, metrics, processSpokenText, releaseRecognition, scheduleWakeRestart, setVoiceStatus]);
 
   useEffect(() => {
     if (disabled) {
@@ -1028,15 +1182,18 @@ export default function useVoiceAssistant({
   }, [clearWakeRestartTimer, disabled, hideOverlay, invalidateActiveSpeech, pauseWakeRecognition, scheduleWakeRestart, stopCommandRecognition, wakeMode]);
 
   useEffect(() => {
-    const isUserCommandRecording = isListening && !wakeMode && (voiceStatus === "listening" || voiceStatus === "awake");
+    const isUserCommandRecording = isCommandListening
+      && (voiceStatus === "listening" || voiceStatus === "awake");
     emitVoiceRecordingChange(isUserCommandRecording);
-  }, [emitVoiceRecordingChange, isListening, voiceStatus, wakeMode]);
+  }, [emitVoiceRecordingChange, isCommandListening, voiceStatus]);
 
-  useEffect(() => () => {
-    clearWakeRestartTimer();
-    stopCommandRecognition();
-    pauseWakeRecognition();
-    invalidateActiveSpeech();
+  useEffect(() => {
+    return () => {
+      clearWakeRestartTimer();
+      stopCommandRecognition();
+      pauseWakeRecognition();
+      invalidateActiveSpeech();
+    };
   }, [clearWakeRestartTimer, invalidateActiveSpeech, pauseWakeRecognition, stopCommandRecognition]);
 
   const isAwake = voiceStatus === "awake" || voiceStatus === "listening" || voiceStatus === "processing" || voiceStatus === "speaking" || voiceStatus === "answered";
