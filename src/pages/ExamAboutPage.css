@@ -329,6 +329,13 @@
   grid-column: 1 / -1;
 }
 
+.exam-guide-focus {
+  border-color: rgba(var(--accent-rgb), 0.28) !important;
+  background:
+    radial-gradient(circle at 92% 12%, rgba(var(--accent-rgb), 0.14), transparent 30%),
+    color-mix(in srgb, var(--surface-strong) 90%, transparent) !important;
+}
+
 .exam-guide-component__heading {
   gap: 11px;
 }
@@ -415,6 +422,35 @@
   color: var(--text-secondary);
   font-size: 0.67rem;
   line-height: 1.5;
+}
+
+.exam-guide-focus-panel {
+  padding: 18px;
+  color: var(--accent);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  border-radius: 14px;
+  background: rgba(var(--accent-rgb), 0.07);
+}
+
+.exam-guide-focus-panel .exam-guide-kicker {
+  margin: 0 0 0 7px;
+  vertical-align: middle;
+}
+
+.exam-guide-focus-panel h3 {
+  margin: 12px 0 10px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.exam-guide-focus-panel ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 0.67rem;
+  line-height: 1.55;
 }
 
 .exam-guide-checklist {

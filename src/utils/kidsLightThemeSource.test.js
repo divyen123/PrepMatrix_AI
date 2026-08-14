@@ -111,7 +111,7 @@ test("Parent Corner PIN gate uses a compact dialog, spaced label, and smaller co
   );
   assert.match(
     kidsLearningCss,
-    /\.kids-parent-dialog--pin-gate \{[\s\S]*?width: min\(620px, calc\(100vw - 32px\)\);[\s\S]*?max-height: min\(650px, calc\(100dvh - 40px\)\);/,
+    /\.kids-parent-dialog--pin-gate \{[\s\S]*?width: min\(520px, calc\(100vw - 32px\)\);[\s\S]*?max-height: min\(560px, calc\(100dvh - 32px\)\);/,
   );
   assert.match(
     kidsLearningCss,

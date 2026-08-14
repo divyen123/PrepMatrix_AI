@@ -9,6 +9,7 @@ import {
   Calendar,
   ClipboardList,
   Coins,
+  Eye,
   GraduationCap,
   Library,
   Mic,
@@ -18,6 +19,7 @@ import {
   RefreshCcw,
   Sparkles,
   StickyNote,
+  TimerReset,
   TrendingUp,
   Trophy,
 } from "lucide-react";
@@ -36,13 +38,15 @@ const FEATURES = [
   { icon: BrainCircuit, title: "AI Learning Notebooks", desc: "Turns files or chapter lists into important questions, revised notes, editable outlines, and exportable mind maps." },
   { icon: StickyNote, title: "Interactive Study Notes", desc: "Saves chapter summaries, doubts, and left-over topics for every subject." },
   { icon: Library, title: "Curated Study Materials", desc: "Organizes useful videos, articles, links, and bookmarked references." },
-  { icon: Trophy, title: "Interactive Quizzes", desc: "Generates topic-level quizzes with score tracking and difficulty-aware practice." },
+  { icon: Trophy, title: "Interactive Quizzes & Battles", desc: "Generates topic practice and private asynchronous 10-question duels with server-scored results, XP, and badges." },
   { icon: GraduationCap, title: "Secure Exam Workspace", desc: "Runs secure 40-question exams, creates custom papers, and exports delayed results and achievement certificates." },
   { icon: TrendingUp, title: "Comprehensive Analytics", desc: "Shows completion progress, task distribution, readiness signals, and weekly momentum." },
   { icon: ClipboardList, title: "PDF Report Generation", desc: "Creates reports with task metrics, subject breakdowns, and productivity trends." },
   { icon: Network, title: "Worktree Mind Map", desc: "Builds visual study trees with parent links, presets, and fullscreen controls." },
   { icon: Mic, title: "Wake Assistant", desc: "Provides hands-free voice help and page commands through the focused assistant overlay." },
   { icon: Palette, title: "Appearance Customization", desc: "Adjusts backgrounds, brightness, layout scale, and the overall workspace theme." },
+  { icon: Eye, title: "Distraction-Aware Focus Rooms", desc: "Uses opt-in, on-device vision to spot possible prolonged look-away or phone use and give a gentle voice nudge without uploading camera frames." },
+  { icon: TimerReset, title: "Predictive Memory Reviews", desc: "Predicts when concepts are nearing their forgetting point and adds three-minute micro-quizzes to the daily planner." },
 ];
 
 const CREDIT_ACTIONS = Object.values(AI_FEATURES);

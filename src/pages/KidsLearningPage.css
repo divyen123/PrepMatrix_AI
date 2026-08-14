@@ -1479,10 +1479,9 @@
   animation: kids-dialog-in 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.08) both;
 }
 .kids-parent-dialog--pin-gate {
-  width: min(620px, calc(100vw - 32px));
-  max-height: min(650px, calc(100dvh - 40px));
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(560px, calc(100dvh - 32px));
 }
-
 
 .kids-parent-dialog > header {
   position: relative;
@@ -1505,19 +1504,22 @@
 .kids-parent-dialog > header > button { min-width: 44px; min-height: 44px; padding: 7px; border: 1px solid var(--kids-line); border-radius: 14px; color: var(--kids-muted); background: var(--kids-panel-soft); box-shadow: none; }
 .kids-parent-dialog > header > button:hover { color: var(--kids-red); border-color: rgba(196, 61, 92, 0.2); background: var(--kids-red-soft); }
 
+.kids-parent-dialog--pin-gate > header { padding: 14px 16px; }
+.kids-parent-dialog--pin-gate > header > div > span { width: 38px; height: 38px; border-radius: 12px; }
+
 .kids-pin-gate {
   display: grid;
   justify-items: center;
-  width: min(100%, 360px);
+  width: min(100%, 330px);
   margin: 0 auto;
-  padding: clamp(24px, 4.5vw, 40px) 20px 32px;
+  padding: clamp(20px, 3vw, 28px) 18px 24px;
   text-align: center;
   overflow-y: auto;
 }
 
-.kids-pin-icon { display: grid; width: 58px; height: 58px; margin-bottom: 12px; place-items: center; border-radius: 18px; color: var(--kids-purple); background: linear-gradient(145deg, var(--kids-purple-soft), var(--kids-blue-soft)); }
+.kids-pin-icon { display: grid; width: 52px; height: 52px; margin-bottom: 10px; place-items: center; border-radius: 16px; color: var(--kids-purple); background: linear-gradient(145deg, var(--kids-purple-soft), var(--kids-blue-soft)); }
 .kids-pin-gate h3 { margin: 0 0 6px; font-size: 1.22rem; }
-.kids-pin-gate > p { max-width: 320px; margin: 0 0 16px; color: var(--kids-muted); font-size: 0.8rem; line-height: 1.5; }
+.kids-pin-gate > p { max-width: 320px; margin: 0 0 12px; color: var(--kids-muted); font-size: 0.8rem; line-height: 1.5; }
 .kids-pin-gate > label { display: grid; gap: 7px; width: min(100%, 250px); color: var(--kids-ink); font-size: 0.76rem; font-weight: 800; text-align: left; }
 .kids-pin-gate > label > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
 .kids-pin-gate input { min-height: 48px; border: 2px solid rgba(101, 88, 217, 0.2); color: var(--kids-ink); background: var(--kids-panel-soft); box-shadow: none; font-size: 1.18rem; font-weight: 900; letter-spacing: 0.25em; text-align: center; }
@@ -1829,7 +1831,7 @@ body.has-bg-image.no-glass-cards .kids-parent-dialog { -webkit-backdrop-filter: 
   .kids-results-card > button { grid-column: 1 / -1; width: 100%; }
   .kids-parent-backdrop { place-items: center; padding: 12px; }
   .kids-parent-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); border-radius: 24px; }
-  .kids-parent-dialog--pin-gate { width: min(560px, calc(100vw - 24px)); }
+  .kids-parent-dialog--pin-gate { width: min(500px, calc(100vw - 32px)); max-height: min(560px, calc(100dvh - 24px)); }
   .kids-parent-content { padding: 12px; }
 }
 
@@ -1865,7 +1867,7 @@ body.has-bg-image.no-glass-cards .kids-parent-dialog { -webkit-backdrop-filter: 
   .kids-question-visual { min-height: 90px; }
   .kids-tap-board > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kids-sort-board fieldset > div { grid-template-columns: 1fr; }
-  .kids-pin-gate { padding: 22px 16px 26px; }
+  .kids-pin-gate { padding: 18px 14px 20px; }
   .kids-sequence-board li { grid-template-columns: 32px minmax(0, 1fr); }
   .kids-sequence-board li > div { grid-column: 1 / -1; justify-content: flex-end; }
   .kids-parent-dialog > header { padding: 13px 14px; }

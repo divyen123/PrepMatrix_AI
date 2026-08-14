@@ -3,10 +3,12 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpenCheck,
+  Camera,
   CheckCircle2,
   Clock3,
   Code2,
   Download,
+  Eye,
   FileCheck2,
   FilePlus2,
   Flag,
@@ -16,10 +18,13 @@ import {
   Pause,
   Play,
   ShieldAlert,
+  ShieldCheck,
+  Smartphone,
   Sparkles,
   Target,
   TimerReset,
   Trophy,
+  Volume2,
 } from "lucide-react";
 import "./ExamAboutPage.css";
 
@@ -38,7 +43,7 @@ function ExamAboutPage() {
         <div className="exam-guide-hero__content">
           <div>
             <h2>Know the rules before you start.</h2>
-            <p>Take a secure online exam, build printable AI papers, review delayed results, earn certificates, and practice with an offline timer.</p>
+            <p>Take a secure online exam with an optional on-device focus monitor, build printable AI papers, review delayed results, earn certificates, and practice with an offline timer.</p>
             <button className="exam-guide-primary" onClick={() => navigate("/exam")} type="button">
               Open Exam workspace <ArrowRight size={16} />
             </button>
@@ -56,6 +61,7 @@ function ExamAboutPage() {
         <a href="#exam-guide-limits"><ShieldAlert size={15} /> Limits</a>
         <a href="#exam-guide-workflow"><Target size={15} /> Workflow</a>
         <a href="#exam-guide-attend"><ListChecks size={15} /> Attend Exam</a>
+        <a href="#exam-guide-focus"><Eye size={15} /> Focus Room</a>
         <a href="#exam-guide-paper"><FilePlus2 size={15} /> Generate Paper</a>
         <a href="#exam-guide-results"><Trophy size={15} /> Results</a>
         <a href="#exam-guide-timer"><TimerReset size={15} /> Offline Timer</a>
@@ -87,7 +93,7 @@ function ExamAboutPage() {
         <div className="exam-guide-steps">
           <article><b>1</b><div><strong>Add subjects</strong><p>Save subjects with useful chapter or syllabus details.</p></div></article>
           <article><b>2</b><div><strong>Choose a mode</strong><p>Take an online exam or design a printable paper.</p></div></article>
-          <article><b>3</b><div><strong>Attempt or export</strong><p>Finish in fullscreen or download the paper and key.</p></div></article>
+          <article><b>3</b><div><strong>Attempt or export</strong><p>Finish in fullscreen, optionally enable the local focus monitor, or download the paper and key.</p></div></article>
           <article><b>4</b><div><strong>Review</strong><p>Open released results or reuse saved papers offline.</p></div></article>
         </div>
       </section>
@@ -119,10 +125,38 @@ function ExamAboutPage() {
           </div>
         </article>
 
+        <article className="card exam-guide-component exam-guide-focus is-wide" id="exam-guide-focus">
+          <div className="exam-guide-component__heading">
+            <span className="exam-guide-icon"><Eye size={21} /></span>
+            <div><span className="exam-guide-kicker">Component 02</span><h2>Distraction-Aware Focus Room</h2></div>
+          </div>
+          <p className="exam-guide-lead">An optional, advisory focus monitor that runs entirely in your browser while you take the exam.</p>
+          <div className="exam-guide-detail-columns">
+            <div className="exam-guide-detail-list">
+              <div><Camera size={17} /><span><strong>Opt in first</strong>Your camera stays off until you enable the private monitor. It requests video only, never microphone audio.</span></div>
+              <div><Eye size={17} /><span><strong>Check attention locally</strong>On-device models can notice a prolonged look-away or sustained absence after a short grace period.</span></div>
+              <div><Smartphone size={17} /><span><strong>Notice possible phone use</strong>The local detector can flag a visible phone without sending frames to PrepMatrix.</span></div>
+              <div><Volume2 size={17} /><span><strong>Give a gentle reminder</strong>After 30 continuous seconds, the Voice Assistant asks you to return to the current exam subject.</span></div>
+            </div>
+            <aside className="exam-guide-focus-panel">
+              <ShieldCheck size={22} />
+              <span className="exam-guide-kicker">Privacy + exam behavior</span>
+              <h3>Advisory only, never recorded</h3>
+              <ul>
+                <li>Camera frames and detections are not recorded, uploaded, or saved.</li>
+                <li>Pausing the monitor or hiding the page turns the camera off.</li>
+                <li>Lighting, camera angle, occlusion, and device support can affect detection accuracy.</li>
+                <li>Focus reminders do not change your score, warning count, or submission state.</li>
+                <li>Fullscreen and tab-switch integrity rules still apply separately.</li>
+              </ul>
+            </aside>
+          </div>
+        </article>
+
         <article className="card exam-guide-component" id="exam-guide-paper">
           <div className="exam-guide-component__heading">
             <span className="exam-guide-icon"><FilePlus2 size={21} /></span>
-            <div><span className="exam-guide-kicker">Component 02</span><h2>Generate Question Paper</h2></div>
+            <div><span className="exam-guide-kicker">Component 03</span><h2>Generate Question Paper</h2></div>
           </div>
           <p className="exam-guide-lead">Build a printable paper with an exact mark allocation and optional answer key.</p>
           <ul className="exam-guide-checklist">
@@ -138,7 +172,7 @@ function ExamAboutPage() {
         <article className="card exam-guide-component" id="exam-guide-results">
           <div className="exam-guide-component__heading">
             <span className="exam-guide-icon"><Trophy size={21} /></span>
-            <div><span className="exam-guide-kicker">Component 03</span><h2>View Results</h2></div>
+            <div><span className="exam-guide-kicker">Component 04</span><h2>View Results</h2></div>
           </div>
           <p className="exam-guide-lead">Results unlock 72 hours after submission or automatic time expiry.</p>
           <ul className="exam-guide-checklist">
@@ -153,7 +187,7 @@ function ExamAboutPage() {
         <article className="card exam-guide-component" id="exam-guide-timer">
           <div className="exam-guide-component__heading">
             <span className="exam-guide-icon"><TimerReset size={21} /></span>
-            <div><span className="exam-guide-kicker">Component 04</span><h2>Offline Exam Timer</h2></div>
+            <div><span className="exam-guide-kicker">Component 05</span><h2>Offline Exam Timer</h2></div>
           </div>
           <p className="exam-guide-lead">Use the timer while solving downloaded papers or studying without starting the secure online exam.</p>
           <div className="exam-guide-timer-modes">
@@ -167,7 +201,7 @@ function ExamAboutPage() {
         <article className="card exam-guide-component">
           <div className="exam-guide-component__heading">
             <span className="exam-guide-icon"><Download size={21} /></span>
-            <div><span className="exam-guide-kicker">Component 05</span><h2>Saved Papers & Exports</h2></div>
+            <div><span className="exam-guide-kicker">Component 06</span><h2>Saved Papers & Exports</h2></div>
           </div>
           <p className="exam-guide-lead">Every generated question paper is saved to your account for quick reuse.</p>
           <ul className="exam-guide-checklist">
