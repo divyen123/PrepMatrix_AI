@@ -12,6 +12,8 @@ export const PWA_PUBLIC_FINGERPRINT_PATHS = Object.freeze([
   "public/mediapipe/vision_wasm_internal.wasm",
   "public/models/blaze-face-full-range.tflite",
   "public/pwa/brand-icon-192.png",
+  "public/models/face_landmarker.task",
+  "public/models/efficientdet_lite0.tflite",
   "public/pwa/brand-icon-512.png",
   "public/pwa/brand-icon-maskable-192.png",
   "public/pwa/brand-icon-maskable-512.png",

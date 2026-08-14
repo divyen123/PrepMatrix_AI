@@ -633,6 +633,7 @@ export function createAiQuotaService({
 
         const { periodStart, resetAt } = periodFor(at);
         const reservationExpiresAt = new Date(at.getTime() + config.reservationTtlMs);
+
         const reservationToken = crypto.randomUUID();
         const expiresAt = new Date(resetAt.getTime() + config.eventRetentionMs);
         let eventId;

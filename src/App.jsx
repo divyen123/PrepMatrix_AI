@@ -64,6 +64,7 @@ import {
   getYoungKidsParentRouteDecision,
   isYoungKidsNavRoute,
 } from "./utils/learnerRouting";
+import { buildLoginRedirect } from "./utils/authReturnTo";
 import {
   SUBJECT_SCHEDULE_MUTATION_MODES,
   getSubjectScheduleMutationMode,
@@ -2065,6 +2066,7 @@ function App() {
                           element={
                             <AnalyticsPage
                               completed={completed}
+                              quizBattlesEnabled={!learnerRoutePolicy.isYoungKidsLearner}
                               schedule={schedule}
                               subjects={subjects}
                             />
@@ -2235,7 +2237,15 @@ function App() {
                         <Route element={<Navigate replace to={learnerRoutePolicy.homeRoute} />} path="*" />
                       </>
                     ) : (
-                      <Route element={<Navigate replace to="/login" />} path="*" />
+                      <Route
+                        element={(
+                          <Navigate
+                            replace
+                            to={buildLoginRedirect(location.pathname, location.search, location.hash)}
+                          />
+                        )}
+                        path="*"
+                      />
                     )}
                   </Routes>
                 </Suspense>

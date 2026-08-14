@@ -34,6 +34,8 @@ import { jsPDF } from "jspdf";
 import { useLocation, useNavigate } from "react-router-dom";
 import LearningMasteryMap from "../components/LearningMasteryMap";
 import PlacementPrepDisclosure from "../components/PlacementPrepDisclosure";
+import DistractionAwareFocusRoom from "../components/DistractionAwareFocusRoom";
+import { speakFocusNudge } from "../utils/focusRoomNudge";
 import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDialog";
 import LearningStudyStudio from "../components/LearningStudyStudio";
 import MedicalTrainingLab from "../components/MedicalTrainingLab";
@@ -548,6 +550,12 @@ function StartLearningPage({
   setSubjects,
   setNotification,
 }) {
+  const handleFocusNudge = useCallback(({ message }) => {
+    const announced = typeof window !== "undefined"
+      && window.studyVoiceAssistant?.announce?.(message);
+    if (!announced) speakFocusNudge(message);
+  }, []);
+
   const { hasInsufficientCredits } = useAiQuota();
   const location = useLocation();
   const navigate = useNavigate();
@@ -3566,6 +3574,17 @@ function StartLearningPage({
                   </button>
                 </div>
               </section>
+
+              <DistractionAwareFocusRoom
+                onNudge={handleFocusNudge}
+                subject={activeNotebook.subjectName || activeNotebook.title}
+                title="Distraction-aware study room"
+                userName={userProfile.username || userProfile.email}
+                visionConfig={{
+                  faceLandmarkerModelPath: "/models/face_landmarker.task",
+                  phoneDetectorModelPath: "/models/efficientdet_lite0.tflite",
+                }}
+              />
 
               {activeTab === "notes" && (
               <section className="card learning-question-priority">

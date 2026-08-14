@@ -2,10 +2,11 @@ import { useEffect } from "react";
 import { Mic } from "lucide-react";
 
 function VoiceAssistant({ hidden = false, assistant }) {
-  const { askWithVoice, pauseWakeMode, setWakeMode } = assistant;
+  const { announce, askWithVoice, pauseWakeMode, setWakeMode } = assistant;
 
   useEffect(() => {
     window.studyVoiceAssistant = {
+      announce,
       askWithVoice,
       startRecording: askWithVoice,
       toggleRecording: askWithVoice,
@@ -19,7 +20,7 @@ function VoiceAssistant({ hidden = false, assistant }) {
     return () => {
       delete window.studyVoiceAssistant;
     };
-  }, [askWithVoice, pauseWakeMode, setWakeMode]);
+  }, [announce, askWithVoice, pauseWakeMode, setWakeMode]);
 
   if (hidden) {
     if (assistant.wakeMode) {

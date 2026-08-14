@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
-import { Download, Search, Trash2, Check, X } from "lucide-react";
+import { Download, Search, Trash2, Check, X, Swords } from "lucide-react";
 import api from "../utils/apiClient";
+import QuizBattlesPanel from "../components/quiz-battles/QuizBattlesPanel";
 import {
   AI_FEATURES,
   createAiIdempotencyKey,
@@ -18,6 +19,8 @@ import {
 } from "../utils/academicProfile";
 import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 import { getRankedQuizSubjects } from "../utils/quizSubjectOptions";
+import { getLearnerRoutePolicy } from "../utils/learnerRouting";
+import { quizBattleInviteCodeFromHash } from "../utils/quizBattleUi";
 
 const QUIZ_HISTORY_PER_PAGE = 6;
 
@@ -35,6 +38,8 @@ function rankSearchMatch(fields, query) {
 }
 
 function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], schedule = [], completed = [] }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { hasInsufficientCredits } = useAiQuota();
   const [topic, setTopic] = useState("");
   const [subjectName, setSubjectName] = useState("");
@@ -56,8 +61,58 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [pendingInviteCode, setPendingInviteCode] = useState(
+    () => searchParams.get("join") || quizBattleInviteCodeFromHash(window.location.hash),
+  );
   const hasInitializedSubject = useRef(false);
+  const isYoungKidsLearner = getLearnerRoutePolicy({
+    ...userProfile,
+    academicLevel,
+    academicTrack,
+  }).isYoungKidsLearner;
+  const battleTabActive = !isYoungKidsLearner && (
+    searchParams.get("tab") === "battles"
+    || Boolean(searchParams.get("join"))
+    || Boolean(searchParams.get("battle"))
+  );
+
+  const updateQuizRoute = (mode, battleId = "") => {
+    const next = new URLSearchParams(searchParams);
+    if (mode === "battles") next.set("tab", "battles");
+    else next.delete("tab");
+    if (battleId) next.set("battle", battleId);
+    else next.delete("battle");
+    if (mode !== "battles") {
+      next.delete("join");
+      setPendingInviteCode("");
+    }
+    setSearchParams(next, { replace: true });
+  };
+
+  useEffect(() => {
+    const inviteCode = searchParams.get("join") || quizBattleInviteCodeFromHash(location.hash);
+    if (!inviteCode) return;
+    setPendingInviteCode(inviteCode);
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", "battles");
+    next.delete("join");
+    navigate({
+      pathname: location.pathname,
+      search: next.toString() ? `?${next.toString()}` : "",
+      hash: "",
+    }, { replace: true });
+  }, [location.hash, location.pathname, navigate, searchParams]);
+
+  const handleQuizTabKeyDown = (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const nextMode = event.key === "ArrowRight" || event.key === "End" ? "battles" : "solo";
+    updateQuizRoute(nextMode);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`quiz-tab-${nextMode}`)?.focus();
+    });
+  };
 
   useEffect(() => {
     if (hasInitializedSubject.current) return;
@@ -354,9 +409,72 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
     <section className="page-stack quiz-page">
       <div className="section-intro">
         <span className="section-tag">Quiz lab</span>
-        <h2>Generate topic-only AI quizzes</h2>
+        <h2>Practice solo or challenge a friend</h2>
       </div>
 
+      {!isYoungKidsLearner && (
+        <div
+          aria-label="Quiz mode"
+          className="quiz-mode-tabs"
+          onKeyDown={handleQuizTabKeyDown}
+          role="tablist"
+        >
+          <button
+            aria-controls="quiz-panel-solo"
+            aria-selected={!battleTabActive}
+            id="quiz-tab-solo"
+            onClick={() => updateQuizRoute("solo")}
+            role="tab"
+            tabIndex={battleTabActive ? -1 : 0}
+            type="button"
+          >
+            <Check aria-hidden="true" size={17} />
+            Solo quiz
+          </button>
+          <button
+            aria-controls="quiz-panel-battles"
+            aria-selected={battleTabActive}
+            id="quiz-tab-battles"
+            onClick={() => updateQuizRoute("battles")}
+            role="tab"
+            tabIndex={battleTabActive ? 0 : -1}
+            type="button"
+          >
+            <Swords aria-hidden="true" size={17} />
+            Quiz Battles
+          </button>
+        </div>
+      )}
+
+      {battleTabActive ? (
+        <div
+          aria-labelledby="quiz-tab-battles"
+          id="quiz-panel-battles"
+          role="tabpanel"
+        >
+          <QuizBattlesPanel
+            completed={completed}
+            initialBattleId={searchParams.get("battle") || ""}
+            initialInviteCode={pendingInviteCode}
+            onBattleRouteChange={(battleId) => updateQuizRoute("battles", battleId)}
+            onInviteConsumed={(battleId) => {
+              setPendingInviteCode("");
+              const next = new URLSearchParams(searchParams);
+              next.set("tab", "battles");
+              next.delete("join");
+              if (battleId) next.set("battle", battleId);
+              setSearchParams(next, { replace: true });
+            }}
+            schedule={schedule}
+            subjects={subjects}
+          />
+        </div>
+      ) : (
+        <div
+          aria-labelledby={isYoungKidsLearner ? undefined : "quiz-tab-solo"}
+          id="quiz-panel-solo"
+          role={isYoungKidsLearner ? undefined : "tabpanel"}
+        >
       <section className="card quiz-builder-card">
         <div>
           <span className="section-tag">Adaptive setup</span>
@@ -764,6 +882,8 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
           </div>
         )}
       </section>
+        </div>
+      )}
     </section>
   );
 }

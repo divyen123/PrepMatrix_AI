@@ -1,5 +1,10 @@
 import { ObjectId } from "mongodb";
 import {
+  learningNotebookRevisionFilter,
+  mergeLearningNotebookProgress,
+  nextLearningNotebookRevisionDate,
+} from "./learningNotebookProgressMerge.js";
+import {
   ChatAttachmentError,
   buildChatAttachmentUserContent,
   decodeChatAttachments,
@@ -75,6 +80,7 @@ const PROVIDER_TIMEOUT_MS = 75_000;
 const PROVIDER_RETRY_BASE_DELAY_MS = 650;
 const PROVIDER_RETRY_MAX_DELAY_MS = 65_000;
 const PROVIDER_RETRY_DEADLINE_BUFFER_MS = 500;
+const MAX_LEARNING_NOTEBOOK_PATCH_RETRIES = 3;
 const MIN_GEMINI_LEARNING_PROSE_LENGTH = 20;
 const PROVIDER_TRANSIENT_RETRY_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 // GPT-OSS Free-tier models have an 8K tokens-per-minute limit. Keep the
@@ -2164,16 +2170,6 @@ export function registerLearningNotebookRoutes(app, {
       const notebookId = objectIdFromParam(req.params.id);
       const db = await getDb();
       const collection = db.collection(LEARNING_NOTEBOOKS_COLLECTION);
-      const existing = await collection.findOne({
-        _id: notebookId,
-        userId: req.user._id,
-      });
-      if (!existing) {
-        return res.status(404).json({
-          code: "LEARNING_NOTEBOOK_NOT_FOUND",
-          error: "Learning notebook not found.",
-        });
-      }
       if (
         Object.prototype.hasOwnProperty.call(req.body.notebook, "medicalTraining")
         && hasUnsafeMedicalTrainingOutput(req.body.notebook.medicalTraining)
@@ -2184,37 +2180,66 @@ export function registerLearningNotebookRoutes(app, {
         });
       }
 
-      const updatedAt = now();
-      const normalized = normalizeLearningNotebook(
-        { ...existing, ...req.body.notebook },
-        {
-          id: String(existing._id),
-          profile: req.user,
-          sources: existing.sources,
-          createdAt: existing.createdAt,
+      for (let attempt = 0; attempt < MAX_LEARNING_NOTEBOOK_PATCH_RETRIES; attempt += 1) {
+        const existing = await collection.findOne({
+          _id: notebookId,
+          userId: req.user._id,
+        });
+        if (!existing) {
+          return res.status(404).json({
+            code: "LEARNING_NOTEBOOK_NOT_FOUND",
+            error: "Learning notebook not found.",
+          });
+        }
+
+        const updatedAt = nextLearningNotebookRevisionDate(now(), existing.updatedAt);
+        const mergedProgress = mergeLearningNotebookProgress(existing, req.body.notebook);
+        const normalized = normalizeLearningNotebook(
+          {
+            ...existing,
+            ...req.body.notebook,
+            ...mergedProgress,
+          },
+          {
+            id: String(existing._id),
+            profile: req.user,
+            sources: existing.sources,
+            createdAt: existing.createdAt,
+            updatedAt,
+            model: existing.model,
+            preserveLegacyMedicalCareer: true,
+          },
+        );
+        if (hasUnsafeMedicalTrainingOutput(normalized.medicalTraining?.topicAnalysis)) {
+          return res.status(400).json({
+            code: "LEARNING_MEDICAL_TRAINING_UNSAFE",
+            error: "Saved Medical training must remain fictional, de-identified, and education-only. Remove patient identifiers, diagnosis, prescribing, dosing, treatment, or emergency guidance.",
+          });
+        }
+        const document = persistenceDocument(
+          normalized,
+          req.user._id,
           updatedAt,
-          model: existing.model,
-          preserveLegacyMedicalCareer: true,
-        },
-      );
-      if (hasUnsafeMedicalTrainingOutput(normalized.medicalTraining?.topicAnalysis)) {
-        return res.status(400).json({
-          code: "LEARNING_MEDICAL_TRAINING_UNSAFE",
-          error: "Saved Medical training must remain fictional, de-identified, and education-only. Remove patient identifiers, diagnosis, prescribing, dosing, treatment, or emergency guidance.",
+          existing.createdAt,
+        );
+        const update = await collection.updateOne(
+          {
+            _id: notebookId,
+            userId: req.user._id,
+            ...learningNotebookRevisionFilter(existing),
+          },
+          { $set: document },
+        );
+        if (update.matchedCount !== 1) continue;
+
+        return res.json({
+          notebook: notebookResponse({ _id: notebookId, ...document }, req.user),
         });
       }
-      const document = persistenceDocument(
-        normalized,
-        req.user._id,
-        updatedAt,
-        existing.createdAt,
-      );
-      await collection.updateOne(
-        { _id: notebookId, userId: req.user._id },
-        { $set: document },
-      );
-      return res.json({
-        notebook: notebookResponse({ _id: notebookId, ...document }, req.user),
+
+      return res.status(409).json({
+        code: "LEARNING_NOTEBOOK_SAVE_CONFLICT",
+        error: "Learning progress changed while this notebook was being saved. Please retry.",
       });
     } catch (error) {
       return sendLearningError(res, error);

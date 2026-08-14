@@ -11,6 +11,8 @@ const FACE_DETECTION_ASSET_PATHS = [
   "/mediapipe/vision_wasm_internal.js",
   "/mediapipe/vision_wasm_internal.wasm",
   "/models/blaze-face-full-range.tflite",
+  "/models/face_landmarker.task",
+  "/models/efficientdet_lite0.tflite",
 ];
 const SHELL_PATHS = [
   "/",

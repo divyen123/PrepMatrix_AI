@@ -235,6 +235,38 @@ const api = {
     body: JSON.stringify(body),
   }),
   saveQuizAttempt: (body) => request("/api/quizzes", { method: "POST", body: JSON.stringify(body) }),
+  getQuizBattles: () => request("/api/quiz-battles"),
+  getQuizBattle: (id) => request(`/api/quiz-battles/${encodeURIComponent(id)}`),
+  getQuizBattleStats: () => request("/api/quiz-battles/stats"),
+  previewQuizBattleInvite: (code) => request(
+    `/api/quiz-battles/invites/${encodeURIComponent(code)}/preview`,
+    { method: "POST", body: JSON.stringify({}) },
+  ),
+  createQuizBattle: (body, options = {}) => request("/api/quiz-battles", {
+    ...options,
+    method: "POST",
+    body: JSON.stringify(body),
+  }),
+  acceptQuizBattleInvite: (code) => request(
+    `/api/quiz-battles/invites/${encodeURIComponent(code)}/accept`,
+    { method: "POST", body: JSON.stringify({}) },
+  ),
+  cancelQuizBattle: (id) => request(
+    `/api/quiz-battles/${encodeURIComponent(id)}/cancel`,
+    { method: "POST", body: JSON.stringify({}) },
+  ),
+  startQuizBattle: (id) => request(
+    `/api/quiz-battles/${encodeURIComponent(id)}/start`,
+    { method: "POST", body: JSON.stringify({}) },
+  ),
+  saveQuizBattleAnswers: (id, answers, options = {}) => request(
+    `/api/quiz-battles/${encodeURIComponent(id)}/answers`,
+    { ...options, method: "PUT", body: JSON.stringify({ answers }) },
+  ),
+  submitQuizBattle: (id, answers) => request(
+    `/api/quiz-battles/${encodeURIComponent(id)}/submit`,
+    { method: "POST", body: JSON.stringify({ answers }) },
+  ),
   updateProfile: (body) => request("/api/auth/profile", { method: "PUT", body: JSON.stringify(body) }),
   getChatSessions: (query = "") => {
     const normalizedQuery = typeof query === "string" ? query.trim() : "";

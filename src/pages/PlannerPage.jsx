@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
@@ -9,6 +9,8 @@ import {
 import Reminder from "../components/Reminder";
 import Timetable from "../components/Timetable";
 import WorktreeMapper from "../components/WorktreeMapper";
+import PredictiveMemoryReview from "../components/PredictiveMemoryReview";
+import api from "../utils/apiClient";
 
 function PlannerPage({
   subjects,
@@ -26,6 +28,54 @@ function PlannerPage({
     return isPushNotificationSupported() && localStorage.getItem("prepmatrix_notifications_enabled") !== "true";
   });
   const [enablingReminders, setEnablingReminders] = useState(false);
+  const [memoryNotebooks, setMemoryNotebooks] = useState([]);
+
+  useEffect(() => {
+    if (kidsMode) {
+      setMemoryNotebooks([]);
+      return undefined;
+    }
+    let active = true;
+    api.get("/api/learning-notebooks")
+      .then((payload) => {
+        if (active) setMemoryNotebooks(Array.isArray(payload?.notebooks) ? payload.notebooks : []);
+      })
+      .catch(() => {
+        if (active) setMemoryNotebooks([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [kidsMode]);
+
+  const handleMemoryNotebookUpdated = useCallback(async (payload) => {
+    const notebookId = String(payload?.notebook?.id || payload?.candidate?.notebookId || "").trim();
+    const nodeId = String(payload?.nodeId || payload?.candidate?.nodeId || "").trim();
+    const clientRecord = payload?.notebook?.memoryDecayState?.records?.[nodeId];
+    const quizId = String(payload?.quizId || clientRecord?.lastQuizId || "").trim();
+    if (!notebookId || !nodeId || !quizId) {
+      throw new Error("This memory review is missing its notebook reference.");
+    }
+
+    const response = await api.post(
+      `/api/learning-notebooks/${encodeURIComponent(notebookId)}/memory-quizzes/${encodeURIComponent(quizId)}/complete`,
+      {
+        nodeId,
+        score: payload.score,
+        confidence: payload.confidence,
+        durationMinutes: payload.durationMinutes || 3,
+      },
+    );
+    if (!response?.notebook) throw new Error("The saved memory review could not be reloaded.");
+    setMemoryNotebooks((current) => {
+      const exists = current.some((notebook) => notebook.id === response.notebook.id);
+      return exists
+        ? current.map((notebook) => (notebook.id === response.notebook.id ? response.notebook : notebook))
+        : [response.notebook, ...current];
+    });
+    return response.notebook;
+  }, []);
+
 
   const handleEnableReminders = async () => {
     if (enablingReminders) return;
@@ -78,6 +128,18 @@ function PlannerPage({
             </button>
           </div>
         </article>
+      )}
+
+      {!kidsMode && (
+        <PredictiveMemoryReview
+          completed={completed}
+          notebooks={memoryNotebooks}
+          onNotebookUpdated={handleMemoryNotebookUpdated}
+          schedule={schedule}
+          scheduleStartDate={scheduleStartDate}
+          setCompleted={setCompleted}
+          setSchedule={setSchedule}
+        />
       )}
 
       <div className="planner-support-strip">

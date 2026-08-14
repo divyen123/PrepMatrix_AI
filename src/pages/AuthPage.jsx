@@ -9,6 +9,7 @@ import {
   isSchoolAcademicLevel,
 } from "../utils/academicProfile";
 import { getLearnerRoutePolicy } from "../utils/learnerRouting";
+import { authSwitchTarget, safeAuthReturnTo } from "../utils/authReturnTo";
 import api from "../utils/apiClient";
 import Antigravity from "../components/Antigravity";
 
@@ -95,7 +96,11 @@ function AuthPage({ onLogin }) {
         }
       }
       onLogin(result.user, result.workspace);
-      navigate(routePolicy.homeRoute, { replace: true });
+      const returnTo = safeAuthReturnTo(location.search);
+      navigate(
+        returnTo && !routePolicy.isYoungKidsLearner ? returnTo : routePolicy.homeRoute,
+        { replace: true },
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Authentication failed.");
     } finally {
@@ -260,9 +265,9 @@ function AuthPage({ onLogin }) {
 
         <div className="auth-switch">
           {isRegister ? (
-            <span>Already have a profile? <Link to="/login">Login</Link></span>
+            <span>Already have a profile? <Link to={authSwitchTarget("/login", location.search)}>Login</Link></span>
           ) : (
-            <span>New to PrepMatrix? <Link to="/register">Create account</Link></span>
+            <span>New to PrepMatrix? <Link to={authSwitchTarget("/register", location.search)}>Create account</Link></span>
           )}
         </div>
       </article>

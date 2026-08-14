@@ -1,0 +1,407 @@
+.focus-room-panel {
+  --focus-room-accent: var(--accent, #0b8f74);
+  --focus-room-accent-soft: var(--accent-soft, rgba(11, 143, 116, 0.12));
+  --focus-room-status: #64748b;
+  position: relative;
+  display: grid;
+  gap: 16px;
+  padding: clamp(18px, 2.4vw, 24px);
+  overflow: hidden;
+  color: var(--text, #152033);
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--focus-room-status) 11%, transparent), transparent 38%),
+    var(--surface, rgba(255, 255, 255, 0.76));
+  border: 1px solid var(--border, rgba(17, 24, 39, 0.09));
+  border-radius: 24px;
+  box-shadow: var(--shadow, 0 20px 50px rgba(15, 23, 42, 0.12));
+  isolation: isolate;
+}
+.focus-room-panel--attentive {
+  --focus-room-status: #0b8f74;
+}
+
+.focus-room-panel--distracted {
+  --focus-room-status: #d97706;
+}
+
+.focus-room-panel--unknown {
+  --focus-room-status: #2563eb;
+}
+
+.focus-room-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.focus-room-heading-icon,
+.focus-room-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--focus-room-status);
+  background: color-mix(in srgb, var(--focus-room-status) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--focus-room-status) 22%, transparent);
+}
+
+.focus-room-heading-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+}
+
+.focus-room-eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--focus-room-status);
+  font-size: 0.67rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.focus-room-heading h2 {
+  margin: 0;
+  color: var(--text, #152033);
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+  line-height: 1.2;
+}
+
+.focus-room-local-badge,
+.focus-room-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.focus-room-local-badge {
+  padding: 7px 10px;
+  color: var(--focus-room-accent);
+  background: var(--focus-room-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--focus-room-accent) 20%, transparent);
+}
+
+.focus-room-local-badge > span,
+.focus-room-live-pill > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.focus-room-body {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(250px, 1.2fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.focus-room-body--no-preview {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.focus-room-preview {
+  position: relative;
+  min-height: 176px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--focus-room-status) 16%, transparent), transparent 34%),
+    color-mix(in srgb, var(--text, #152033) 8%, var(--surface-strong, #fff));
+  border: 1px solid var(--border, rgba(17, 24, 39, 0.09));
+  border-radius: 18px;
+}
+
+.focus-room-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 176px;
+  object-fit: cover;
+  opacity: 0;
+  transform: scaleX(-1);
+  transition: opacity 0.2s ease;
+}
+
+.focus-room-preview.is-live .focus-room-video {
+  opacity: 1;
+}
+
+.focus-room-preview-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  color: var(--text-muted, #5c6980);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.focus-room-live-pill {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 6px 9px;
+  color: #d1fae5;
+  background: rgba(4, 25, 22, 0.72);
+  border: 1px solid rgba(167, 243, 208, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.focus-room-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.focus-room-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--focus-room-status) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--focus-room-status) 14%, transparent);
+  border-radius: 15px;
+}
+
+.focus-room-status-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+}
+
+.focus-room-status strong {
+  display: block;
+  margin-top: 1px;
+  color: var(--text, #152033);
+  font-size: 0.91rem;
+}
+
+.focus-room-status p,
+.focus-room-privacy-note {
+  margin: 3px 0 0;
+  color: var(--text-muted, #5c6980);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.focus-room-countdown {
+  display: grid;
+  gap: 6px;
+  color: #a16207;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.focus-room-progress-track {
+  height: 5px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--focus-room-status) 15%, transparent);
+  border-radius: 999px;
+}
+
+.focus-room-progress-track span {
+  display: block;
+  height: 100%;
+  background: var(--focus-room-status);
+  border-radius: inherit;
+  transition: width 0.35s linear;
+}
+
+.focus-room-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 10px;
+  color: var(--danger, #b8324b);
+  background: color-mix(in srgb, var(--danger, #b8324b) 8%, transparent);
+  border-radius: 11px;
+  font-size: 0.73rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.focus-room-error svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.focus-room-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.focus-room-capabilities > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  color: var(--text-muted, #5c6980);
+  background: var(--surface-muted, rgba(15, 23, 42, 0.04));
+  border: 1px solid var(--border, rgba(17, 24, 39, 0.09));
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.focus-room-actions {
+  margin-top: auto;
+}
+
+.focus-room-button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+.focus-room-panel--exam {
+  gap: 9px;
+  padding: 12px;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.focus-room-panel--exam .focus-room-heading {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.focus-room-panel--exam .focus-room-heading-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.focus-room-panel--exam .focus-room-heading h2 {
+  font-size: 0.82rem;
+}
+
+.focus-room-panel--exam .focus-room-local-badge {
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding: 5px 7px;
+}
+
+.focus-room-panel--exam .focus-room-status {
+  padding: 8px;
+}
+
+.focus-room-panel--exam .focus-room-capabilities,
+.focus-room-panel--exam .focus-room-privacy-note {
+  display: none;
+}
+
+.focus-room-panel--exam .focus-room-button {
+  min-height: 34px;
+  padding: 0 9px !important;
+  font-size: 0.67rem;
+}
+
+  min-height: 41px;
+  padding: 0 14px !important;
+  border-radius: 12px !important;
+  cursor: pointer;
+  font: 800 0.76rem/1 "Inter", sans-serif;
+  transition: transform 0.18s ease, filter 0.18s ease, border-color 0.18s ease;
+}
+
+.focus-room-button--primary {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--focus-room-accent), #0f766e) !important;
+  border: 1px solid transparent !important;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--focus-room-accent) 24%, transparent) !important;
+}
+
+.focus-room-button--secondary {
+  color: var(--text, #152033) !important;
+  background: var(--surface-strong, rgba(255, 255, 255, 0.9)) !important;
+  border: 1px solid var(--border, rgba(17, 24, 39, 0.09)) !important;
+  box-shadow: none !important;
+}
+
+.focus-room-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+.focus-room-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--focus-room-accent) 28%, transparent);
+  outline-offset: 2px;
+}
+
+.focus-room-button:disabled {
+  cursor: wait;
+  opacity: 0.66;
+}
+
+.focus-room-privacy-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding-top: 13px;
+  border-top: 1px solid var(--border, rgba(17, 24, 39, 0.09));
+}
+
+.focus-room-privacy-note svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--focus-room-accent);
+}
+
+.focus-room-subject {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.focus-room-panel .is-spinning {
+  animation: focus-room-spin 1s linear infinite;
+}
+
+@keyframes focus-room-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 660px) {
+  .focus-room-heading {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .focus-room-local-badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .focus-room-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .focus-room-preview,
+  .focus-room-video {
+    min-height: 196px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus-room-panel *,
+  .focus-room-panel *::before,
+  .focus-room-panel *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

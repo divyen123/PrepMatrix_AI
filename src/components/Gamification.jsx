@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
+import { combinedMomentumXp } from "../utils/quizBattleUi";
 
 const BADGE_META = {
   "Getting started": {
@@ -42,12 +43,24 @@ function getBadge(xp) {
   return "Getting started";
 }
 
-function Gamification({ completed, schedule }) {
+function Gamification({
+  battleStats,
+  battleStatsError = "",
+  battleStatsEnabled = true,
+  battleStatsLoading = false,
+  completed,
+  onRetryBattleStats,
+  schedule,
+}) {
   const navigate = useNavigate();
   const metrics = getPlannerMetrics(schedule, completed);
-  const xp = completed.length * 10;
-  const level = Math.floor(xp / 100) + 1;
-  const levelProgress = xp % 100;
+  const momentumXp = combinedMomentumXp(
+    completed.length,
+    battleStatsEnabled ? battleStats?.battleXp : 0,
+  );
+  const xp = momentumXp.totalXp;
+  const level = momentumXp.level;
+  const levelProgress = momentumXp.levelProgress;
 
   const todayTasks = schedule[0]?.tasks || [];
   const todayCompleted = todayTasks.filter((task) =>
@@ -90,6 +103,45 @@ function Gamification({ completed, schedule }) {
         </div>
       </div>
 
+      <div className="momentum-xp-breakdown" aria-label="XP sources">
+        <span>
+          Planner XP
+          <strong>{momentumXp.plannerXp}</strong>
+        </span>
+        {battleStatsEnabled && (
+          <span>
+            Battle XP
+            <strong>{battleStatsLoading ? "…" : momentumXp.battleXp}</strong>
+          </span>
+        )}
+      </div>
+
+      {battleStatsEnabled && battleStatsError && (
+        <div className="momentum-xp-warning" role="status">
+          <span>Battle XP could not be refreshed. Planner XP is still available.</span>
+          <button onClick={onRetryBattleStats} type="button">Retry</button>
+        </div>
+      )}
+
+      {battleStatsEnabled && Number(battleStats?.played) > 0 && (
+        <div className="battle-record-strip" aria-label="Quiz Battle record">
+          <span>{battleStats.played} played</span>
+          <span>{battleStats.wins}W</span>
+          <span>{battleStats.draws}D</span>
+          <span>{battleStats.losses}L</span>
+          {battleStats.uncontested > 0 && <span>{battleStats.uncontested} uncontested</span>}
+          {battleStats.perfectScores > 0 && <span>{battleStats.perfectScores} perfect</span>}
+        </div>
+      )}
+
+      {battleStatsEnabled && battleStats?.badges?.length > 0 && (
+        <div className="battle-badge-strip" aria-label="Quiz Battle badges">
+          {battleStats.badges.map((battleBadge) => (
+            <span key={battleBadge}>⚔️ {battleBadge}</span>
+          ))}
+        </div>
+      )}
+
       {metrics.isExamEligible && (
         <div className="exam-eligibility-achievement" role="status">
           <strong>🏆 Exam-ready achievement</strong>
@@ -129,7 +181,7 @@ function Gamification({ completed, schedule }) {
       </div>
 
       <p className="card-desc">
-        Complete tasks to unlock stronger badges, higher levels, and brighter streak rewards.
+        Complete planner tasks and Quiz Battles to unlock stronger badges and higher levels.
       </p>
     </section>
   );

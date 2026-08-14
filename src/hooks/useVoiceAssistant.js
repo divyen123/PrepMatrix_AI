@@ -438,6 +438,27 @@ export default function useVoiceAssistant({
     voicePreferences,
   ]);
 
+  const announce = useCallback((text, { resumeWake = true } = {}) => {
+    const message = String(text || "").trim();
+    if (!message || disabled) return false;
+
+    pauseWakeRecognition();
+    stopCommandRecognition();
+    setError("");
+    setLastText("");
+    setOverlayReply(message);
+    setLatestChatSessionId(null);
+    setVoiceStatus("answered");
+    speakWakeReply(message, { closeOverlay: false, resumeWake });
+    return true;
+  }, [
+    disabled,
+    pauseWakeRecognition,
+    setVoiceStatus,
+    speakWakeReply,
+    stopCommandRecognition,
+  ]);
+
 
   const previewVoice = useCallback((preferenceOverrides) => {
     if (
@@ -1200,6 +1221,7 @@ export default function useVoiceAssistant({
 
   return {
     activeVoiceName,
+    announce,
     askWithVoice,
     dismissOverlay,
     error,

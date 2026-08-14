@@ -1,5 +1,6 @@
 import { normalizeAcademicProfile } from "./academicProfile.js";
 import { normalizeLearningState } from "./learningMastery.js";
+import { normalizeLearningMemoryState } from "./learningMemoryDecay.js";
 
 export const MAX_LEARNING_NOTEBOOKS_PER_USER = 30;
 export const MAX_LEARNING_SOURCES = 3;
@@ -1091,6 +1092,25 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
     options.updatedAt ?? source?.updatedAt,
     now,
   );
+  const learningNotebookContext = {
+    ...(notebookId ? { id: notebookId } : {}),
+    subjectName,
+    chapters,
+    createdAt,
+    updatedAt,
+  };
+  const learningState = normalizeLearningState(
+    source?.learningState ?? source?.masteryState ?? source?.learningProgress,
+    { notebook: learningNotebookContext, now },
+  );
+  const memoryDecayState = normalizeLearningMemoryState(
+    source?.memoryDecayState ?? source?.learningMemoryState ?? {},
+    {
+      notebook: { ...learningNotebookContext, learningState },
+      learningState,
+      now,
+    },
+  );
 
   return {
     ...(notebookId ? { id: notebookId } : {}),
@@ -1123,19 +1143,8 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
       { preserveLegacy: options.preserveLegacyMedicalCareer === true },
     ),
     sources: normalizeSources(options.sources ?? source?.sources ?? source?.sourceFiles),
-    learningState: normalizeLearningState(
-      source?.learningState ?? source?.masteryState ?? source?.learningProgress,
-      {
-        notebook: {
-          ...(notebookId ? { id: notebookId } : {}),
-          subjectName,
-          chapters,
-          createdAt,
-          updatedAt,
-        },
-        now,
-      },
-    ),
+    learningState,
+    memoryDecayState,
     model: cleanInline(options.model ?? source?.model, 120),
     createdAt,
     updatedAt,

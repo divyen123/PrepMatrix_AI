@@ -71,11 +71,15 @@ import {
   registerLearningNotebookRoutes,
 } from "./learningNotebookRoutes.js";
 import { registerLearningNoteRoutes } from "./learningNoteRoutes.js";
+import { registerLearningMemoryRoutes } from "./learningMemoryRoutes.js";
 import {
   KIDS_ATTEMPTS_COLLECTION,
   KIDS_PARENT_SETTINGS_COLLECTION,
 } from "./kidsLearning.js";
 import registerKidsLearningRoutes from "./kidsLearningRoutes.js";
+import registerQuizBattleRoutes, {
+  cleanupQuizBattleUserData,
+} from "./quizBattleRoutes.js";
 import {
   getYoungKidsAccessProfile,
   kidsWorkspaceScheduleChanged,
@@ -898,29 +902,51 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
     return res.status(401).json({ error: "Incorrect password. Account was not deleted." });
   }
 
-  await Promise.all([
-    db.collection("workspaces").deleteMany({ userId }),
-    db.collection("notes").deleteMany({ userId }),
-    db.collection("quizAttempts").deleteMany({ userId }),
-    db.collection(KIDS_ATTEMPTS_COLLECTION).deleteMany({ userId }),
-    db.collection(KIDS_PARENT_SETTINGS_COLLECTION).deleteMany({ userId }),
-    db.collection("worktrees").deleteMany({ userId }),
-    db.collection("chatSessions").deleteMany({ userId }),
-    db.collection("exams").deleteMany({ userId }),
-    db.collection(LEARNING_NOTEBOOKS_COLLECTION).deleteMany({ userId }),
-    db.collection("examAttempts").deleteMany({ userId }),
-    db.collection("examStartLocks").deleteMany({ userId }),
-    db.collection("scheduledReminderDeliveries").deleteMany({ userId }),
-    db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteMany({ userId }),
-    db.collection("questionPapers").deleteMany({ userId }),
-    db.collection(RESUME_GENERATIONS_COLLECTION).deleteMany({ userId }),
-    db.collection(RESUME_HISTORY_COLLECTION).deleteMany({ userId }),
-    db.collection(RESUME_GENERATION_LOCKS_COLLECTION).deleteMany({ _id: `resume-generation:${String(userId)}` }),
-    db.collection(AI_USAGE_EVENTS_COLLECTION).deleteMany({ userId }),
-    db.collection(AI_QUOTA_LOCKS_COLLECTION).deleteMany({ userId }),
-    db.collection("sessions").deleteMany({ userId }),
-    db.collection("users").deleteOne({ _id: userId }),
-  ]);
+  const deletingAt = new Date();
+  const deletionClaim = await db.collection("users").updateOne(
+    { _id: userId, deletingAt: { $exists: false } },
+    { $set: { deletingAt, updatedAt: deletingAt } },
+  );
+  if (deletionClaim.matchedCount !== 1) {
+    return res.status(409).json({
+      code: "ACCOUNT_DELETION_IN_PROGRESS",
+      error: "Account deletion is already in progress.",
+    });
+  }
+
+  try {
+    await cleanupQuizBattleUserData(db, userId);
+
+    await Promise.all([
+      db.collection("workspaces").deleteMany({ userId }),
+      db.collection("notes").deleteMany({ userId }),
+      db.collection("quizAttempts").deleteMany({ userId }),
+      db.collection(KIDS_ATTEMPTS_COLLECTION).deleteMany({ userId }),
+      db.collection(KIDS_PARENT_SETTINGS_COLLECTION).deleteMany({ userId }),
+      db.collection("worktrees").deleteMany({ userId }),
+      db.collection("chatSessions").deleteMany({ userId }),
+      db.collection("exams").deleteMany({ userId }),
+      db.collection(LEARNING_NOTEBOOKS_COLLECTION).deleteMany({ userId }),
+      db.collection("examAttempts").deleteMany({ userId }),
+      db.collection("examStartLocks").deleteMany({ userId }),
+      db.collection("scheduledReminderDeliveries").deleteMany({ userId }),
+      db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteMany({ userId }),
+      db.collection("questionPapers").deleteMany({ userId }),
+      db.collection(RESUME_GENERATIONS_COLLECTION).deleteMany({ userId }),
+      db.collection(RESUME_HISTORY_COLLECTION).deleteMany({ userId }),
+      db.collection(RESUME_GENERATION_LOCKS_COLLECTION).deleteMany({ _id: `resume-generation:${String(userId)}` }),
+      db.collection(AI_USAGE_EVENTS_COLLECTION).deleteMany({ userId }),
+      db.collection(AI_QUOTA_LOCKS_COLLECTION).deleteMany({ userId }),
+      db.collection("sessions").deleteMany({ userId }),
+    ]);
+    await db.collection("users").deleteOne({ _id: userId, deletingAt });
+  } catch (error) {
+    await db.collection("users").updateOne(
+      { _id: userId, deletingAt },
+      { $unset: { deletingAt: "" }, $set: { updatedAt: new Date() } },
+    ).catch(() => undefined);
+    throw error;
+  }
 
   clearSessionCookie(res);
   res.json({ ok: true });
@@ -1264,6 +1290,21 @@ registerLearningNotebookRoutes(app, {
   groqLearningModels: GROQ_LEARNING_MODELS,
   groqModel: GROQ_CHAT_MODEL,
   groqVisionModel: GROQ_VISION_MODEL,
+  requireAuth,
+});
+
+registerLearningMemoryRoutes(app, {
+  getDb,
+  mutationSecurity: requireNotificationMutationSecurity,
+  requireAuth,
+});
+
+registerQuizBattleRoutes(app, {
+  aiQuota,
+  getDb,
+  getGroqConfigStatus,
+  groqModel: GROQ_CHAT_MODEL,
+  mutationSecurity: requireNotificationMutationSecurity,
   requireAuth,
 });
 

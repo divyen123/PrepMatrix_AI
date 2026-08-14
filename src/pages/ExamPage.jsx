@@ -36,6 +36,8 @@ import {
   Trophy,
   X,
 } from "lucide-react";
+import DistractionAwareFocusRoom from "../components/DistractionAwareFocusRoom";
+import { speakFocusNudge } from "../utils/focusRoomNudge";
 import api from "../utils/apiClient";
 import {
   AI_FEATURES,
@@ -270,7 +272,7 @@ function notifyTimer(title, body) {
   }
 }
 
-function ExamRunner({ initialAttempt, onFinished }) {
+function ExamRunner({ initialAttempt, onFinished, userProfile = {} }) {
   const [attempt, setAttempt] = useState(() => normalizeAttempt(initialAttempt));
   const [answers, setAnswers] = useState(() => normalizeAttempt(initialAttempt).answers);
   const [flagged, setFlagged] = useState(() => new Set());
@@ -290,6 +292,12 @@ function ExamRunner({ initialAttempt, onFinished }) {
   const lastViolationRef = useRef(0);
   const autosaveReadyRef = useRef(false);
   const saveQueueRef = useRef(Promise.resolve());
+  const handleFocusNudge = useCallback(({ message }) => {
+    const announced = typeof window !== "undefined"
+      && window.studyVoiceAssistant?.announce?.(message);
+    if (!announced) speakFocusNudge(message);
+  }, []);
+
   const timedSubmitRef = useRef(false);
   const submittingRef = useRef(false);
   const questions = attempt.questions || [];
@@ -477,6 +485,19 @@ function ExamRunner({ initialAttempt, onFinished }) {
             <strong>{answeredCount} / {questions.length || 40} answered</strong>
           </div>
           <div className="exam-progress-track"><i style={{ width: ((answeredCount / Math.max(questions.length, 1)) * 100) + "%" }} /></div>
+          <DistractionAwareFocusRoom
+            className="focus-room-panel--exam"
+            onNudge={handleFocusNudge}
+            showPreview={false}
+            subject={attempt.subjectName || attempt.exam?.subjectName || "this exam"}
+            title="Advisory focus monitor"
+            userName={userProfile.username || userProfile.email}
+            visionConfig={{
+              faceLandmarkerModelPath: "/models/face_landmarker.task",
+              phoneDetectorModelPath: "/models/efficientdet_lite0.tflite",
+            }}
+          />
+
           <div className="exam-question-map" aria-label="Question navigation">
             {questions.map((question, index) => {
               const isAnswered = answers[question.id] !== undefined;
@@ -1547,7 +1568,7 @@ function ExamPage({
   };
 
   if (activeAttempt) {
-    return <ExamRunner initialAttempt={activeAttempt} onFinished={finishExam} />;
+    return <ExamRunner initialAttempt={activeAttempt} onFinished={finishExam} userProfile={userProfile} />;
   }
 
   if (continuationOnly) {
