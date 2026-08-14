@@ -725,3 +725,24 @@
     width: 100% !important;
   }
 }
+.settings-academic-profile-note {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 0.82rem;
+}
+
+.settings-academic-profile-note p {
+  margin: 0;
+}
+
+.settings-academic-profile-note .secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 8px;
+  min-height: 44px;
+}

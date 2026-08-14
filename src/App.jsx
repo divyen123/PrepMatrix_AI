@@ -717,7 +717,9 @@ function App() {
     const nextAcademicProfile = normalizeAcademicProfile({
       ...profile,
       academicLevel: profileIsGeneric && workspaceLevel ? workspaceLevel : profileLevel || workspaceLevel,
-      academicTrack: profileTrack && profileTrack !== "General" ? profileTrack : workspaceTrack || profileTrack,
+      academicTrack: profileIsGeneric && (!profileTrack || profileTrack === "General")
+        ? workspaceTrack || profileTrack
+        : profileTrack,
     });
     setSubjects(nextSubjects);
     setSchedule(nextSchedule);
@@ -1084,8 +1086,6 @@ function App() {
         subjects,
         schedule,
         completed,
-        academicLevel,
-        academicTrack,
         materialBookmarks,
         resumeBuilder,
         goalReminderData,
@@ -1102,7 +1102,7 @@ function App() {
         window.clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [academicLevel, academicTrack, completed, darkMode, goalReminderData, goalReminderSettings, materialBookmarks, resumeBuilder, schedule, subjects, userProfile, workspaceLoaded, scheduleStartDate]);
+  }, [completed, darkMode, goalReminderData, goalReminderSettings, materialBookmarks, resumeBuilder, schedule, subjects, userProfile, workspaceLoaded, scheduleStartDate]);
 
   useEffect(() => {
     const backgroundImageId = localStorage.getItem("prepmatrix_bg_image_id") || "";
@@ -2007,7 +2007,6 @@ function App() {
                               academicTrack={academicTrack}
                               hasActiveSchedule={schedule.length > 0}
                               kidsMode={learnerRoutePolicy.isYoungKidsLearner}
-                              onAcademicProfileChange={updateAcademicProfile}
                               profileLocked={learnerRoutePolicy.isYoungKidsLearner}
                               setSubjects={updateSubjects}
                               subjects={subjects}
@@ -2175,15 +2174,8 @@ function App() {
                           path="/resources"
                         />
                         <Route
-                          element={
-                            learnerRoutePolicy.settingsRequiresParentPin && !kidsParentAccess.unlocked ? (
-                              <Navigate
-                                replace
-                                state={{ parentAccess: "settings", returnTo: "/settings" }}
-                                to="/kids"
-                              />
-                            ) : (
-                              <SettingsPage
+                          element={parentGuidedKidsRoute(
+                            <SettingsPage
                               activeVoiceName={voiceAssistant.activeVoiceName}
                               onPreviewVoice={voiceAssistant.previewVoice}
                               setVoicePreferences={voiceAssistant.setVoicePreferences}
@@ -2222,9 +2214,10 @@ function App() {
                               onKidsParentAccessChange={updateKidsParentAccess}
                               onKidsParentLocked={updateKidsParentAccess}
                               youngKidsMode={learnerRoutePolicy.isYoungKidsLearner}
-                            />
-                            )
-                          }
+                            />,
+                            "/settings",
+                            "settings",
+                          )}
                           path="/settings"
                         />
                         <Route

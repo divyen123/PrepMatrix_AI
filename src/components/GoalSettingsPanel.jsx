@@ -72,7 +72,6 @@ function GoalSettingsPanel({
         <div>
           <span className="section-tag">GOALS</span>
           <h3><Target aria-hidden="true" size={20} /> Study Goals & Reminders</h3>
-          <p className="card-subtext">Set measurable study targets, track performance, and turn those targets into useful reminders.</p>
         </div>
         <button
           className="goal-settings-open-btn"

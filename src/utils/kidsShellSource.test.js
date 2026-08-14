@@ -22,6 +22,20 @@ test("keeps the kids Subjects route usable while the registered class remains lo
   assert.match(subjectListSource, /kidsMode \? "\/planner" : "\/resources"/);
 });
 
+test("keeps the registered academic profile read-only on Subjects", () => {
+  assert.doesNotMatch(subjectsPageSource, /profile-select-grid academic-profile-grid/);
+  assert.doesNotMatch(subjectsPageSource, /<select/);
+  assert.match(subjectsPageSource, /Manage academic profile in Settings/);
+  assert.match(subjectsPageSource, /still add, edit, and organise all subjects/i);
+});
+
+test("waits for server Parent Corner state before guarding Settings", () => {
+  assert.match(
+    appSource,
+    /parentGuidedKidsRoute\(\s*<SettingsPage[\s\S]*?"\/settings",\s*"settings"/,
+  );
+});
+
 test("moves focus into the Parent Corner exit confirmation and restores the trigger", () => {
   assert.match(appSource, /const parentLockTriggerRef = useRef\(null\)/);
   assert.match(appSource, /const parentLockDialogRef = useRef\(null\)/);

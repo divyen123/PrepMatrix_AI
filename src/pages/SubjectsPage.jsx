@@ -5,9 +5,6 @@ import AddSubject from "../components/AddSubject";
 import SubjectList from "../components/SubjectList";
 import SubjectSnapshotDialog from "../components/SubjectSnapshotDialog";
 import {
-  ACADEMIC_LEVEL_OPTIONS,
-  SCHOOL_CLASS_OPTIONS,
-  TRACK_OPTIONS,
   isSchoolAcademicLevel,
   normalizeAcademicProfile,
 } from "../utils/academicProfile";
@@ -16,12 +13,9 @@ function SubjectsPage({
   academicLevel,
   academicTrack,
   hasActiveSchedule = false,
-  setAcademicLevel,
-  setAcademicTrack,
   subjects,
   setSubjects,
   userProfile,
-  onAcademicProfileChange,
   profileLocked = false,
   kidsMode = false,
 }) {
@@ -38,10 +32,6 @@ function SubjectsPage({
   const qualification = isSchoolLearner
     ? academicProfile.grade || academicProfile.academicLevel
     : academicProfile.degree || academicProfile.academicLevel;
-  const updateAcademicProfile = onAcademicProfileChange || ((patch) => {
-    if (patch.academicLevel) setAcademicLevel?.(patch.academicLevel);
-    if (patch.academicTrack) setAcademicTrack?.(patch.academicTrack);
-  });
   const snapshotMetrics = [
     {
       desktopLabel: "Total subjects",
@@ -105,85 +95,19 @@ function SubjectsPage({
 
 
 
-            {profileLocked ? (
-              <div className="academic-profile-note" role="note">
-                The registered class, learning stage, and curriculum are fixed for this child account. Subject planning cannot change them.
-              </div>
-            ) : (
-            <div className="profile-select-grid academic-profile-grid">
-              <label className="field-stack class-select-field">
-                Academic stage
-                <select
-                  onChange={(event) => {
-                    const nextLevel = event.target.value;
-                    const nextIsSchool = isSchoolAcademicLevel(nextLevel);
-                    updateAcademicProfile({
-                      academicLevel: nextLevel,
-                      schoolType: nextIsSchool ? "school" : "college",
-                      grade: nextIsSchool ? academicProfile.grade : "",
-                      degree: nextIsSchool ? "" : academicProfile.degree,
-                    });
-                  }}
-                  value={academicProfile.academicLevel}
-                >
-                  {ACADEMIC_LEVEL_OPTIONS.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="field-stack class-select-field">
-                {isSchoolLearner ? "Exact class" : "Degree / qualification"}
-                {isSchoolLearner ? (
-                  <select
-                    onChange={(event) => updateAcademicProfile({ grade: event.target.value, schoolType: "school" })}
-                    value={academicProfile.grade}
-                  >
-                    <option value="">Choose class</option>
-                    {SCHOOL_CLASS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-                  </select>
-                ) : (
-                  <input
-                    onChange={(event) => updateAcademicProfile({ degree: event.target.value, schoolType: "college" })}
-                    placeholder="e.g. B.Tech IT, MBBS, LLB, M.Sc"
-                    value={academicProfile.degree}
-                  />
-                )}
-              </label>
-
-              <label className="field-stack class-select-field">
-                Board / curriculum / field
-                <select
-                  onChange={(event) => updateAcademicProfile({ academicTrack: event.target.value })}
-                  value={academicProfile.academicTrack}
-                >
-                  {!TRACK_OPTIONS.includes(academicProfile.academicTrack) && (
-                    <option value={academicProfile.academicTrack}>{academicProfile.academicTrack}</option>
-                  )}
-                  {TRACK_OPTIONS.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </label>
-
-              {!isSchoolLearner && (
-                <label className="field-stack class-select-field">
-                  Department / specialization
-                  <input
-                    onChange={(event) => updateAcademicProfile({ department: event.target.value })}
-                    placeholder="e.g. Cardiology, Constitutional Law, Data Science"
-                    value={academicProfile.department}
-                  />
-                </label>
-              )}
+            <div className="academic-profile-note" role="note">
+              <p>
+                {profileLocked
+                  ? "The registered class, learning stage, and curriculum are fixed on Subjects. Open Parent Corner and Settings to correct them."
+                  : "Your registered academic profile is read-only on Subjects so every study module stays consistent."}
+              </p>
+              {!profileLocked ? <Link to="/settings">Manage academic profile in Settings</Link> : null}
+              <p>
+                {profileLocked
+                  ? "Add and organise subjects here. A parent PIN is still required before creating or changing the study schedule."
+                  : "You can still add, edit, and organise all subjects below."}
+              </p>
             </div>
-            )}
-
-            <p className="academic-profile-note">
-              {profileLocked
-                ? "Add and organise subjects here. A parent PIN is still required before creating or changing the study schedule."
-                : "Changes save automatically and appear in Settings, Exam, Quiz, Materials, and the study assistant."}
-            </p>
           </section>
 
           <div className="subject-page-anchor" ref={addSubjectRef}>

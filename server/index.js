@@ -87,6 +87,14 @@ import {
   readYoungKidsParentFeatureAccess,
 } from "./kidsParentAccess.js";
 import {
+  ACADEMIC_PROFILE_LOCKS_COLLECTION,
+  acquireAcademicProfileMutationLock,
+  academicProfileHasChanged,
+  academicProfileRestoreSnapshot,
+  sanitizeAcademicProfileRestore,
+  shouldCaptureAcademicProfileRestore,
+} from "./academicProfileRestore.js";
+import {
   AI_QUOTA_LOCKS_COLLECTION,
   AI_USAGE_EVENTS_COLLECTION,
   AiQuotaError,
@@ -237,6 +245,7 @@ async function getDb() {
         db.collection("sessions").createIndex({ token: 1 }, { unique: true }),
         db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         db.collection("workspaces").createIndex({ userId: 1 }, { unique: true }),
+        db.collection(ACADEMIC_PROFILE_LOCKS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         db.collection("notes").createIndex({ userId: 1 }, { unique: true }),
         db.collection("quizAttempts").createIndex({ userId: 1, createdAt: -1 }),
         db.collection("chatSessions").createIndex({ userId: 1, updatedAt: -1 }),
@@ -370,6 +379,7 @@ function isValidEmail(email = "") {
 function sanitizeUser(user) {
   if (!user) return null;
   const academicProfile = normalizeAcademicProfile(user);
+  const academicProfileRestore = sanitizeAcademicProfileRestore(user.academicProfileRestore);
   return {
     id: user._id.toString(),
     username: user.username,
@@ -382,6 +392,7 @@ function sanitizeUser(user) {
     schoolType: academicProfile.schoolType,
     grade: academicProfile.grade,
     degree: academicProfile.degree,
+    academicProfileRestore,
     profileImage: user.profileImage || "",
     needsOnboardingGuide: user.onboardingGuidePending === true,
     createdAt: user.createdAt,
@@ -416,7 +427,9 @@ function normalizeWorkspace(doc, user) {
   const academicProfile = normalizeAcademicProfile({
     ...user,
     academicLevel: userLevelIsGeneric && workspaceLevel ? workspaceLevel : userLevel || workspaceLevel,
-    academicTrack: userTrack && userTrack !== "General" ? userTrack : workspaceTrack || userTrack,
+    academicTrack: userLevelIsGeneric && (!userTrack || userTrack === "General")
+      ? workspaceTrack || userTrack
+      : userTrack,
   });
   return {
     subjects: Array.isArray(doc?.subjects) ? doc.subjects : [],
@@ -433,21 +446,8 @@ function normalizeWorkspace(doc, user) {
   };
 }
 
-async function mirrorWorkspaceAcademicProfile(db, user, workspaceUpdate) {
-  if (!("academicLevel" in workspaceUpdate) && !("academicTrack" in workspaceUpdate)) return;
-  const academicProfile = normalizeAcademicProfile({
-    ...user,
-    academicLevel: workspaceUpdate.academicLevel ?? user?.academicLevel,
-    academicTrack: workspaceUpdate.academicTrack ?? user?.academicTrack,
-  });
-  await db.collection("users").updateOne(
-    { _id: user._id },
-    { $set: { ...academicProfilePayload(academicProfile), updatedAt: new Date() } },
-  );
-}
-
-async function requireYoungKidsScheduleAccess(req, res, db, update) {
-  const kidsProfile = getYoungKidsAccessProfile(req.user);
+async function requireYoungKidsScheduleAccess(req, res, db, update, user = req.user) {
+  const kidsProfile = getYoungKidsAccessProfile(user);
   if (!kidsProfile.eligible) return true;
 
   const existingWorkspace = await db.collection("workspaces").findOne({ userId: req.user._id });
@@ -902,54 +902,67 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
     return res.status(401).json({ error: "Incorrect password. Account was not deleted." });
   }
 
-  const deletingAt = new Date();
-  const deletionClaim = await db.collection("users").updateOne(
-    { _id: userId, deletingAt: { $exists: false } },
-    { $set: { deletingAt, updatedAt: deletingAt } },
-  );
-  if (deletionClaim.matchedCount !== 1) {
+  const profileMutationLock = await acquireAcademicProfileMutationLock(db, userId);
+  if (!profileMutationLock) {
+    res.set("Retry-After", "1");
     return res.status(409).json({
-      code: "ACCOUNT_DELETION_IN_PROGRESS",
-      error: "Account deletion is already in progress.",
+      code: "PROFILE_UPDATE_IN_PROGRESS",
+      error: "Another account update is in progress. Please try deleting the account again.",
     });
   }
 
   try {
-    await cleanupQuizBattleUserData(db, userId);
+    const deletingAt = new Date();
+    const deletionClaim = await db.collection("users").updateOne(
+      { _id: userId, deletingAt: { $exists: false } },
+      { $set: { deletingAt, updatedAt: deletingAt } },
+    );
+    if (deletionClaim.matchedCount !== 1) {
+      return res.status(409).json({
+        code: "ACCOUNT_DELETION_IN_PROGRESS",
+        error: "Account deletion is already in progress.",
+      });
+    }
 
-    await Promise.all([
-      db.collection("workspaces").deleteMany({ userId }),
-      db.collection("notes").deleteMany({ userId }),
-      db.collection("quizAttempts").deleteMany({ userId }),
-      db.collection(KIDS_ATTEMPTS_COLLECTION).deleteMany({ userId }),
-      db.collection(KIDS_PARENT_SETTINGS_COLLECTION).deleteMany({ userId }),
-      db.collection("worktrees").deleteMany({ userId }),
-      db.collection("chatSessions").deleteMany({ userId }),
-      db.collection("exams").deleteMany({ userId }),
-      db.collection(LEARNING_NOTEBOOKS_COLLECTION).deleteMany({ userId }),
-      db.collection("examAttempts").deleteMany({ userId }),
-      db.collection("examStartLocks").deleteMany({ userId }),
-      db.collection("scheduledReminderDeliveries").deleteMany({ userId }),
-      db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteMany({ userId }),
-      db.collection("questionPapers").deleteMany({ userId }),
-      db.collection(RESUME_GENERATIONS_COLLECTION).deleteMany({ userId }),
-      db.collection(RESUME_HISTORY_COLLECTION).deleteMany({ userId }),
-      db.collection(RESUME_GENERATION_LOCKS_COLLECTION).deleteMany({ _id: `resume-generation:${String(userId)}` }),
-      db.collection(AI_USAGE_EVENTS_COLLECTION).deleteMany({ userId }),
-      db.collection(AI_QUOTA_LOCKS_COLLECTION).deleteMany({ userId }),
-      db.collection("sessions").deleteMany({ userId }),
-    ]);
-    await db.collection("users").deleteOne({ _id: userId, deletingAt });
-  } catch (error) {
-    await db.collection("users").updateOne(
-      { _id: userId, deletingAt },
-      { $unset: { deletingAt: "" }, $set: { updatedAt: new Date() } },
-    ).catch(() => undefined);
-    throw error;
+    try {
+      await cleanupQuizBattleUserData(db, userId);
+
+      await Promise.all([
+        db.collection("workspaces").deleteMany({ userId }),
+        db.collection("notes").deleteMany({ userId }),
+        db.collection("quizAttempts").deleteMany({ userId }),
+        db.collection(KIDS_ATTEMPTS_COLLECTION).deleteMany({ userId }),
+        db.collection(KIDS_PARENT_SETTINGS_COLLECTION).deleteMany({ userId }),
+        db.collection("worktrees").deleteMany({ userId }),
+        db.collection("chatSessions").deleteMany({ userId }),
+        db.collection("exams").deleteMany({ userId }),
+        db.collection(LEARNING_NOTEBOOKS_COLLECTION).deleteMany({ userId }),
+        db.collection("examAttempts").deleteMany({ userId }),
+        db.collection("examStartLocks").deleteMany({ userId }),
+        db.collection("scheduledReminderDeliveries").deleteMany({ userId }),
+        db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteMany({ userId }),
+        db.collection("questionPapers").deleteMany({ userId }),
+        db.collection(RESUME_GENERATIONS_COLLECTION).deleteMany({ userId }),
+        db.collection(RESUME_HISTORY_COLLECTION).deleteMany({ userId }),
+        db.collection(RESUME_GENERATION_LOCKS_COLLECTION).deleteMany({ _id: `resume-generation:${String(userId)}` }),
+        db.collection(AI_USAGE_EVENTS_COLLECTION).deleteMany({ userId }),
+        db.collection(AI_QUOTA_LOCKS_COLLECTION).deleteMany({ userId }),
+        db.collection("sessions").deleteMany({ userId }),
+      ]);
+      await db.collection("users").deleteOne({ _id: userId, deletingAt });
+    } catch (error) {
+      await db.collection("users").updateOne(
+        { _id: userId, deletingAt },
+        { $unset: { deletingAt: "" }, $set: { updatedAt: new Date() } },
+      ).catch(() => undefined);
+      throw error;
+    }
+
+    clearSessionCookie(res);
+    return res.json({ ok: true });
+  } finally {
+    await profileMutationLock.release().catch(() => undefined);
   }
-
-  clearSessionCookie(res);
-  res.json({ ok: true });
 }));
 
 app.get("/api/auth/me", async (req, res) => {
@@ -1071,6 +1084,7 @@ app.post("/api/auth/check-password", requireAuth(async (req, res) => {
 }));
 
 app.put("/api/auth/profile", requireAuth(async (req, res) => {
+  let profileMutationLock = null;
   try {
     const {
       username,
@@ -1085,12 +1099,29 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
     } = req.body ?? {};
 
     const db = await getDb();
+    profileMutationLock = await acquireAcademicProfileMutationLock(db, req.user._id);
+    if (!profileMutationLock) {
+      res.set("Retry-After", "1");
+      return res.status(409).json({
+        error: "Another account update is already in progress. Please try again.",
+        code: "PROFILE_UPDATE_IN_PROGRESS",
+      });
+    }
+    const currentUser = await db.collection("users").findOne({ _id: req.user._id });
+    if (!currentUser) return res.status(404).json({ error: "User not found." });
+    if (currentUser.deletingAt) {
+      return res.status(409).json({
+        error: "Account deletion is already in progress.",
+        code: "ACCOUNT_DELETION_IN_PROGRESS",
+      });
+    }
     const update = {};
+    const unset = {};
     const requestedProfile = req.body ?? {};
 
     if (username) update.username = username.trim();
 
-    if (email && email.trim() !== req.user.email) {
+    if (email && email.trim() !== currentUser.email) {
       if (!isValidEmail(email)) {
         return res.status(400).json({ error: "Enter a valid email address." });
       }
@@ -1104,10 +1135,10 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
 
     if (password) {
       if (otp) {
-        if (!req.user.currentOtp || req.user.currentOtp !== otp) {
+        if (!currentUser.currentOtp || currentUser.currentOtp !== otp) {
           return res.status(400).json({ error: "Invalid OTP code." });
         }
-        if (req.user.otpExpiresAt && new Date() > new Date(req.user.otpExpiresAt)) {
+        if (currentUser.otpExpiresAt && new Date() > new Date(currentUser.otpExpiresAt)) {
           return res.status(400).json({ error: "OTP code has expired." });
         }
         update.currentOtp = null;
@@ -1118,7 +1149,7 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
         if (!currentPassword) {
           return res.status(400).json({ error: "Current password is required to set a new password." });
         }
-        if (!verifyPassword(currentPassword, req.user.passwordHash)) {
+        if (!verifyPassword(currentPassword, currentUser.passwordHash)) {
           return res.status(401).json({ error: "Current password is incorrect." });
         }
       }
@@ -1134,25 +1165,61 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
     if (age !== undefined) update.age = age === null ? null : Number(age);
     if (institutionName) update.institutionName = institutionName.trim();
     const academicKeys = ["schoolType", "academicLevel", "academicTrack", "department", "grade", "degree"];
-    const hasAcademicUpdate = academicKeys.some((key) => Object.prototype.hasOwnProperty.call(requestedProfile, key));
+    const restoreAcademicProfile = requestedProfile.restoreAcademicProfile === true;
+    const hasAcademicFields = academicKeys.some((key) => Object.prototype.hasOwnProperty.call(requestedProfile, key));
+    const hasAcademicUpdate = hasAcademicFields || restoreAcademicProfile;
     if (hasAcademicUpdate) {
-      const currentAcademic = normalizeAcademicProfile(req.user);
-      const requestedAcademic = normalizeAcademicProfile({ ...req.user, ...requestedProfile });
-      if (getYoungKidsAccessProfile(req.user).eligible) {
-        const changesLockedProfile = [
-          "schoolType",
-          "academicLevel",
-          "academicTrack",
-          "grade",
-        ].some((key) => currentAcademic[key] !== requestedAcademic[key]);
-        if (changesLockedProfile) {
+      const currentAcademic = normalizeAcademicProfile(currentUser);
+      if (restoreAcademicProfile && hasAcademicFields) {
+        return res.status(400).json({
+          error: "Restore the saved academic profile without sending replacement academic fields.",
+          code: "ACADEMIC_PROFILE_RESTORE_CONFLICT",
+        });
+      }
+
+      const savedAcademic = restoreAcademicProfile
+        ? sanitizeAcademicProfileRestore(currentUser.academicProfileRestore)
+        : null;
+      if (restoreAcademicProfile && !savedAcademic) {
+        return res.status(409).json({
+          error: "No previous academic profile is available to restore. Choose the correct stage and details manually.",
+          code: "ACADEMIC_PROFILE_RESTORE_UNAVAILABLE",
+        });
+      }
+
+      const requestedAcademic = normalizeAcademicProfile({
+        ...currentUser,
+        ...(restoreAcademicProfile ? savedAcademic : requestedProfile),
+      });
+      const academicChanged = academicProfileHasChanged(currentAcademic, requestedAcademic);
+      const currentIsYoungKids = getYoungKidsAccessProfile(currentAcademic).eligible;
+      const requestedIsYoungKids = getYoungKidsAccessProfile(requestedAcademic).eligible;
+
+      if (currentIsYoungKids && academicChanged) {
+        const parentFeatureAccess = await readYoungKidsParentFeatureAccess(db, {
+          user: currentUser,
+          sessionToken: req.sessionToken,
+          parentSettingsCollection: KIDS_PARENT_SETTINGS_COLLECTION,
+        });
+        if (!parentFeatureAccess.allowed) {
+          res.set("Cache-Control", "no-store");
           return res.status(403).json({
-            error: "This child account's registered class and curriculum are locked.",
-            code: "KIDS_ACADEMIC_PROFILE_LOCKED",
+            error: "Open Parent Corner before changing or restoring this child account's academic profile.",
+            code: "KIDS_PARENT_ACCESS_REQUIRED",
+            parentAccess: parentFeatureAccess.parentAccess,
           });
         }
       }
+
       Object.assign(update, academicProfilePayload(requestedAcademic));
+      if (shouldCaptureAcademicProfileRestore(currentAcademic, requestedAcademic)) {
+        update.academicProfileRestore = {
+          ...academicProfileRestoreSnapshot(currentAcademic),
+          capturedAt: new Date(),
+        };
+      } else if (currentIsYoungKids && !requestedIsYoungKids && academicChanged) {
+        unset.academicProfileRestore = "";
+      }
     }
     if (profileImage !== undefined) {
       if (typeof profileImage !== "string") {
@@ -1169,24 +1236,36 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
 
     update.updatedAt = new Date();
 
-    await db.collection("users").updateOne(
-      { _id: req.user._id },
-      { $set: update }
+    const userMutation = { $set: update };
+    if (Object.keys(unset).length) userMutation.$unset = unset;
+    const userUpdateResult = await db.collection("users").updateOne(
+      { _id: req.user._id, deletingAt: { $exists: false } },
+      userMutation,
     );
+    if (userUpdateResult.matchedCount !== 1) {
+      return res.status(409).json({
+        error: "Account deletion started before the profile could be saved.",
+        code: "ACCOUNT_DELETION_IN_PROGRESS",
+      });
+    }
 
     if (hasAcademicUpdate) {
-      await db.collection("workspaces").updateOne(
-        { userId: req.user._id },
-        {
-          $set: {
-            academicLevel: update.academicLevel,
-            academicTrack: update.academicTrack,
-            updatedAt: new Date(),
+      try {
+        await db.collection("workspaces").updateOne(
+          { userId: req.user._id },
+          {
+            $set: {
+              academicLevel: update.academicLevel,
+              academicTrack: update.academicTrack,
+              updatedAt: new Date(),
+            },
+            $setOnInsert: { userId: req.user._id },
           },
-          $setOnInsert: { userId: req.user._id },
-        },
-        { upsert: true },
-      );
+          { upsert: true },
+        );
+      } catch (workspaceError) {
+        console.warn("Academic profile saved; workspace mirror will be repaired from the user profile.", workspaceError);
+      }
     }
 
     const updatedUser = await db.collection("users").findOne({ _id: req.user._id });
@@ -1200,38 +1279,34 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
     res.json({ user: sanitizeUser(updatedUser) });
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : "Profile update failed." });
+  } finally {
+    await profileMutationLock?.release().catch(() => undefined);
   }
 }));
 
 app.put("/api/workspace", requireAuth(async (req, res) => {
-  const db = await getDb();
-  const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "darkMode", "scheduleStartDate"];
-  const update = allowed.reduce((next, key) => {
-    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
-    return next;
-  }, { updatedAt: new Date() });
-  for (const key of ["subjects", "schedule", "completed", "materialBookmarks"]) {
-    if (key in update && !Array.isArray(update[key])) update[key] = [];
-  }
-  if ("materialBookmarks" in update) update.materialBookmarks = normalizeMaterialBookmarks(update.materialBookmarks);
-  if ("goalReminderData" in update) update.goalReminderData = normalizeGoalReminderData(update.goalReminderData);
-  if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);
-  if ("resumeBuilder" in update) update.resumeBuilder = normalizeResumeBuilderState(update.resumeBuilder, req.user);
-  if (!(await requireYoungKidsScheduleAccess(req, res, db, update))) return;
-  await db.collection("workspaces").updateOne(
-    { userId: req.user._id },
-    { $set: update, $setOnInsert: { userId: req.user._id } },
-    { upsert: true }
-  );
-  await mirrorWorkspaceAcademicProfile(db, req.user, update);
-  const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
-  res.json({ workspace: normalizeWorkspace(workspace, req.user) });
-}));
-
-app.post("/api/workspace/import", requireAuth(async (req, res) => {
+  let profileMutationLock = null;
   try {
     const db = await getDb();
-    const allowed = ["subjects", "schedule", "completed", "academicLevel", "academicTrack", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "darkMode", "scheduleStartDate"];
+    profileMutationLock = await acquireAcademicProfileMutationLock(db, req.user._id);
+    if (!profileMutationLock) {
+      res.set("Retry-After", "1");
+      return res.status(409).json({
+        error: "Another account update is in progress. Please try saving again.",
+        code: "USER_DATA_UPDATE_IN_PROGRESS",
+      });
+    }
+    const activeUser = await db.collection("users").findOne({
+      _id: req.user._id,
+      deletingAt: { $exists: false },
+    });
+    if (!activeUser) {
+      return res.status(409).json({
+        error: "Account deletion is already in progress.",
+        code: "ACCOUNT_DELETION_IN_PROGRESS",
+      });
+    }
+    const allowed = ["subjects", "schedule", "completed", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "darkMode", "scheduleStartDate"];
     const update = allowed.reduce((next, key) => {
       if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
       return next;
@@ -1242,18 +1317,66 @@ app.post("/api/workspace/import", requireAuth(async (req, res) => {
     if ("materialBookmarks" in update) update.materialBookmarks = normalizeMaterialBookmarks(update.materialBookmarks);
     if ("goalReminderData" in update) update.goalReminderData = normalizeGoalReminderData(update.goalReminderData);
     if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);
-    if ("resumeBuilder" in update) update.resumeBuilder = normalizeResumeBuilderState(update.resumeBuilder, req.user);
-    if (!(await requireYoungKidsScheduleAccess(req, res, db, update))) return;
+    if ("resumeBuilder" in update) update.resumeBuilder = normalizeResumeBuilderState(update.resumeBuilder, activeUser);
+    if (!(await requireYoungKidsScheduleAccess(req, res, db, update, activeUser))) return;
+    await db.collection("workspaces").updateOne(
+      { userId: req.user._id },
+      { $set: update, $setOnInsert: { userId: req.user._id } },
+      { upsert: true },
+    );
+    const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
+    return res.json({ workspace: normalizeWorkspace(workspace, activeUser) });
+  } finally {
+    await profileMutationLock?.release().catch(() => undefined);
+  }
+}));
+
+app.post("/api/workspace/import", requireAuth(async (req, res) => {
+  let profileMutationLock = null;
+  try {
+    const db = await getDb();
+    profileMutationLock = await acquireAcademicProfileMutationLock(db, req.user._id);
+    if (!profileMutationLock) {
+      res.set("Retry-After", "1");
+      return res.status(409).json({
+        error: "Another account update is in progress. Please try importing again.",
+        code: "USER_DATA_UPDATE_IN_PROGRESS",
+      });
+    }
+    const activeUser = await db.collection("users").findOne({
+      _id: req.user._id,
+      deletingAt: { $exists: false },
+    });
+    if (!activeUser) {
+      return res.status(409).json({
+        error: "Account deletion is already in progress.",
+        code: "ACCOUNT_DELETION_IN_PROGRESS",
+      });
+    }
+    const allowed = ["subjects", "schedule", "completed", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "darkMode", "scheduleStartDate"];
+    const update = allowed.reduce((next, key) => {
+      if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
+      return next;
+    }, { updatedAt: new Date() });
+    for (const key of ["subjects", "schedule", "completed", "materialBookmarks"]) {
+      if (key in update && !Array.isArray(update[key])) update[key] = [];
+    }
+    if ("materialBookmarks" in update) update.materialBookmarks = normalizeMaterialBookmarks(update.materialBookmarks);
+    if ("goalReminderData" in update) update.goalReminderData = normalizeGoalReminderData(update.goalReminderData);
+    if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);
+    if ("resumeBuilder" in update) update.resumeBuilder = normalizeResumeBuilderState(update.resumeBuilder, activeUser);
+    if (!(await requireYoungKidsScheduleAccess(req, res, db, update, activeUser))) return;
     await db.collection("workspaces").updateOne(
       { userId: req.user._id },
       { $set: update, $setOnInsert: { userId: req.user._id } },
       { upsert: true }
     );
-    await mirrorWorkspaceAcademicProfile(db, req.user, update);
     const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
-    res.json({ workspace: normalizeWorkspace(workspace, req.user) });
+    res.json({ workspace: normalizeWorkspace(workspace, activeUser) });
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : "Workspace import failed." });
+  } finally {
+    await profileMutationLock?.release().catch(() => undefined);
   }
 }));
 

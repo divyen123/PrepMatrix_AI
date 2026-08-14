@@ -21,6 +21,14 @@ import {
   isSchoolAcademicLevel,
   normalizeAcademicProfile,
 } from "../utils/academicProfile";
+import {
+  buildSettingsAcademicSaveProfile,
+  createSettingsAcademicDrafts,
+  getActiveSettingsAcademicDraft,
+  hydrateSettingsAcademicDrafts,
+  switchSettingsAcademicStage,
+  updateSettingsAcademicDraft,
+} from "../utils/settingsAcademicDrafts";
 import { normalizeResumeBuilderState } from "../utils/resumeBuilder";
 import { normalizeMaterialBookmarks } from "../utils/materialBookmarks";
 import BACKGROUND_PRESETS, {
@@ -429,27 +437,55 @@ function SettingsPage({
   const [username, setUsername] = useState(userProfile?.username || "");
   const [age, setAge] = useState(userProfile?.age || "");
   const [institutionName, setInstitutionName] = useState(userProfile?.institutionName || "");
-  const [educationStage, setEducationStage] = useState(initialAcademicProfile.academicLevel);
-  const [profileTrack, setProfileTrack] = useState(initialAcademicProfile.academicTrack);
-  const [department, setDepartment] = useState(initialAcademicProfile.department);
-  const [grade, setGrade] = useState(initialAcademicProfile.grade);
-  const [degree, setDegree] = useState(initialAcademicProfile.degree);
+  const [academicDrafts, setAcademicDrafts] = useState(() => createSettingsAcademicDrafts(
+    initialAcademicProfile,
+    userProfile?.academicProfileRestore,
+  ));
+  const activeAcademicDraft = getActiveSettingsAcademicDraft(academicDrafts);
+  const educationStage = academicDrafts.activeStage;
+  const profileTrack = activeAcademicDraft.academicTrack;
+  const department = activeAcademicDraft.department;
+  const grade = activeAcademicDraft.grade;
+  const degree = activeAcademicDraft.degree;
   const [profileImage, setProfileImage] = useState(userProfile?.profileImage || "");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [restoringAcademicProfile, setRestoringAcademicProfile] = useState(false);
   const profileImageInputRef = useRef(null);
+  const academicProfileEditable = !youngKidsMode || Boolean(kidsParentAccess?.unlocked);
+
+  const updateAcademicDraft = (patch) => {
+    setAcademicDrafts((current) => updateSettingsAcademicDraft(current, patch));
+  };
+
+  const handleEducationStageChange = (nextStage) => {
+    setAcademicDrafts((current) => switchSettingsAcademicStage(current, nextStage));
+  };
 
   useEffect(() => {
     const normalizedProfile = normalizeAcademicProfile({
-      ...userProfile,
       academicLevel: academicLevel || userProfile?.academicLevel,
       academicTrack: academicTrack || userProfile?.academicTrack,
+      department: userProfile?.department,
+      degree: userProfile?.degree,
+      grade: userProfile?.grade,
+      schoolType: userProfile?.schoolType,
     });
-    setEducationStage(normalizedProfile.academicLevel);
-    setProfileTrack(normalizedProfile.academicTrack);
-    setDepartment(normalizedProfile.department);
-    setGrade(normalizedProfile.grade);
-    setDegree(normalizedProfile.degree);
-  }, [academicLevel, academicTrack, userProfile]);
+    setAcademicDrafts((current) => hydrateSettingsAcademicDrafts(
+      current,
+      normalizedProfile,
+      userProfile?.academicProfileRestore,
+    ));
+  }, [
+    academicLevel,
+    academicTrack,
+    userProfile?.academicLevel,
+    userProfile?.academicTrack,
+    userProfile?.department,
+    userProfile?.degree,
+    userProfile?.grade,
+    userProfile?.schoolType,
+    userProfile?.academicProfileRestore,
+  ]);
 
   useEffect(() => {
     setInstitutionName(userProfile?.institutionName || "");
@@ -1173,17 +1209,10 @@ function SettingsPage({
 
   // Save profile & account settings (with loading guard and proper error handling)
   const handleSaveAccount = async () => {
-    if (savingProfile) return;
+    if (savingProfile || restoringAcademicProfile) return;
     setSavingProfile(true);
     try {
-      const normalizedAcademic = normalizeAcademicProfile({
-        academicLevel: educationStage,
-        academicTrack: profileTrack,
-        department,
-        grade,
-        degree,
-        institutionName,
-      });
+      const normalizedAcademic = buildSettingsAcademicSaveProfile(academicDrafts, institutionName);
       const payload = {
         username,
         age: Number(age) || null,
@@ -1207,6 +1236,26 @@ function SettingsPage({
       toast.error(error?.message || "Failed to update profile.");
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const handleRestoreAcademicProfile = async () => {
+    if (savingProfile || restoringAcademicProfile || !academicProfileEditable) return;
+    setRestoringAcademicProfile(true);
+    try {
+      const response = await api.updateProfile({ restoreAcademicProfile: true });
+      setUserProfile(response.user);
+      if (onAcademicProfileChange) {
+        onAcademicProfileChange(response.user, { persist: false });
+      } else {
+        setAcademicLevel?.(response.user.academicLevel);
+        setAcademicTrack?.(response.user.academicTrack);
+      }
+      toast.success("Previous academic profile restored.");
+    } catch (error) {
+      toast.error(error?.message || "Could not restore the previous academic profile.");
+    } finally {
+      setRestoringAcademicProfile(false);
     }
   };
 
@@ -1417,8 +1466,6 @@ function SettingsPage({
         }
         if (data.goalReminderData) setGoalReminderData(normalizePlannerData(data.goalReminderData));
         if (data.goalReminderSettings) setGoalReminderSettings(normalizePlannerSettings(data.goalReminderSettings));
-        if (data.academicLevel) setAcademicLevel(data.academicLevel);
-        if (data.academicTrack) setAcademicTrack(data.academicTrack);
         if (typeof data.darkMode === "boolean") setDarkMode(data.darkMode);
         toast.success("Backup imported and workspace restored!");
       } catch {
@@ -1826,7 +1873,6 @@ function SettingsPage({
               <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
                 <User size={20} className="status-success" /> Profile & Institution
               </h3>
-              <p className="card-subtext account-card-description">Update your personal details and academic institution properties.</p>
             </div>
 
             <div className="profile-photo-control">
@@ -1887,9 +1933,9 @@ function SettingsPage({
             <label className="field-stack">
               <span>Academic Stage</span>
               <select
-                disabled={youngKidsMode}
+                disabled={!academicProfileEditable}
                 value={educationStage}
-                onChange={(e) => setEducationStage(e.target.value)}
+                onChange={(e) => handleEducationStageChange(e.target.value)}
               >
                 {[...new Set([educationStage, ...ACADEMIC_LEVEL_OPTIONS].filter(Boolean))].map((option) => (
                   <option key={option} value={option}>{option}</option>
@@ -1911,9 +1957,9 @@ function SettingsPage({
               <label className="field-stack">
                 <span>Grade / Class</span>
                 <select
-                  disabled={youngKidsMode}
+                  disabled={!academicProfileEditable}
                   value={grade}
-                  onChange={(e) => setGrade(e.target.value)}
+                  onChange={(e) => updateAcademicDraft({ grade: e.target.value })}
                 >
                   <option value="">Select class</option>
                   {[...new Set([grade, ...SCHOOL_CLASS_OPTIONS].filter(Boolean))].map((option) => (
@@ -1925,15 +1971,16 @@ function SettingsPage({
               <label className="field-stack">
                 <span>Degree / Major</span>
                 <input
+                  disabled={!academicProfileEditable}
                   value={degree}
-                  onChange={(e) => setDegree(e.target.value)}
+                  onChange={(e) => updateAcademicDraft({ degree: e.target.value })}
                   placeholder="e.g. B.Tech IT, MBBS, LLB, M.Sc"
                 />
               </label>
             )}
             <label className="field-stack">
               <span>{isSchoolAcademicLevel(educationStage) ? "Board / Curriculum" : "Field / Stream"}</span>
-              <select disabled={youngKidsMode} value={profileTrack} onChange={(e) => setProfileTrack(e.target.value)}>
+              <select disabled={!academicProfileEditable} value={profileTrack} onChange={(e) => updateAcademicDraft({ academicTrack: e.target.value })}>
                 {[...new Set([profileTrack, ...TRACK_OPTIONS].filter(Boolean))].map((option) => (
                   <option key={option} value={option}>{option}</option>
                 ))}
@@ -1942,18 +1989,41 @@ function SettingsPage({
           </div>
 
           {youngKidsMode ? (
-            <p className="card-subtext" role="note">
-              The learning stage, registered class, and curriculum are locked to this child account.
-            </p>
+            <div className="academic-profile-note settings-academic-profile-note" role="note">
+              <p>
+                {academicProfileEditable
+                  ? "Parent Corner is open. You can correct this account's registered stage, class, and curriculum here."
+                  : "Open Parent Corner to change this account's registered stage, class, or curriculum."}
+              </p>
+              {academicProfileEditable && userProfile?.academicProfileRestore ? (
+                <button
+                  className="secondary-btn"
+                  disabled={savingProfile || restoringAcademicProfile}
+                  onClick={handleRestoreAcademicProfile}
+                  type="button"
+                >
+                  <History aria-hidden="true" size={16} />
+                  {restoringAcademicProfile
+                    ? "Restoring..."
+                    : `Restore ${userProfile.academicProfileRestore.academicLevel}`}
+                </button>
+              ) : academicProfileEditable ? (
+                <p>
+                  Select your previous academic stage to recover a compatible saved field or stream,
+                  then re-enter any degree or department details that were not retained.
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           {!isSchoolAcademicLevel(educationStage) && (
             <label className="field-stack">
               <span>Specialization / Department</span>
               <input
+                disabled={!academicProfileEditable}
                 list="settings-department-options"
                 value={department}
-                onChange={(e) => setDepartment(e.target.value)}
+                onChange={(e) => updateAcademicDraft({ department: e.target.value })}
                 placeholder="e.g. Information Technology, Cardiology, Constitutional Law"
               />
               <datalist id="settings-department-options">
@@ -1964,7 +2034,7 @@ function SettingsPage({
 
           <button
             onClick={handleSaveAccount}
-            disabled={savingProfile}
+            disabled={savingProfile || restoringAcademicProfile || !academicProfileEditable}
             style={{ alignSelf: "flex-end", display: "flex", alignItems: "center", gap: "8px", opacity: savingProfile ? 0.6 : 1 }}
           >
             <Save size={16} /> {savingProfile ? "Saving..." : "Save Profile"}
@@ -1978,7 +2048,6 @@ function SettingsPage({
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
               <Shield size={20} className="status-warning" /> Credentials & Security
             </h3>
-            <p className="card-subtext">Update your login email and choose a strong password.</p>
           </div>
 
           <label className="field-stack">
@@ -2147,7 +2216,6 @@ function SettingsPage({
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
               <Settings2 size={20} className="status-success" /> System Preferences & Toggles
             </h3>
-            <p className="card-subtext">Configure top bar visibility, study sounds, assistant voice, wake mode, and notification preferences.</p>
           </div>
 
           <div className="settings-auto-hide-topbar">
@@ -2262,7 +2330,6 @@ function SettingsPage({
               <p aria-live="polite">
                 <span>Active browser voice</span>
                 <strong>{activeVoiceName || "Browser default voice"}</strong>
-                <small>Release a slider to hear the change. Pitch response depends on the browser voice.</small>
               </p>
               <button
                 className="secondary-btn assistant-voice-preview-btn"
@@ -2344,7 +2411,6 @@ function SettingsPage({
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
               <Palette size={20} className="status-success" /> Custom Color Palette & Layout
             </h3>
-            <p className="card-subtext">Change default startup theme, font/card scales, and set color values with transparency & contrast controls.</p>
           </div>
 
           {/* Background Image Picker */}
@@ -2384,11 +2450,11 @@ function SettingsPage({
                 </button>
               </div>
             </div>
-            <p className="card-subtext" style={{ marginBottom: "12px", fontSize: "0.82rem" }}>
-              {kidsGalleryActive
-                ? "Pick a playful background chosen for younger learners, or upload your own image."
-                : "Choose an image background, use the color palette theme, or upload your own. Image themes automatically set matching colours."}
-            </p>
+            {kidsGalleryActive && (
+              <p className="card-subtext" style={{ marginBottom: "12px", fontSize: "0.82rem" }}>
+                Pick a playful background chosen for younger learners, or upload your own image.
+              </p>
+            )}
             {customBackgroundStatus && (
               <p aria-live="polite" className="custom-background-status" id="custom-background-status">
                 {customBackgroundStatus}
@@ -2774,7 +2840,6 @@ function SettingsPage({
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
               <Download size={20} className="status-warning" /> Data Management & Danger Zone
             </h3>
-            <p className="card-subtext">Export, import, or reset your study workspace data.</p>
           </div>
 
           <div className="form-grid">
