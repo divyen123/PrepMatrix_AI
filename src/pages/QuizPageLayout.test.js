@@ -18,10 +18,14 @@ test("keeps one accessible quiz mode tablist available across both panels", () =
   assert.match(pageSource, /!isYoungKidsLearner && \([\s\S]*?role="tablist"/u);
 });
 
-test("places compact tabs in the solo builder header and preserves mobile targets", () => {
+test("uses compact, theme-aware tabs and spaces the solo quiz panels", () => {
   assert.match(pageSource, /className="quiz-builder-header"[\s\S]*?Build a quiz from your exact topic/u);
+  assert.match(pageSource, /className="quiz-solo-panel"[\s\S]*?id="quiz-panel-solo"/u);
+  assert.match(battleStyles, /\.quiz-solo-panel\s*\{[\s\S]*?display:\s*grid[\s\S]*?gap:\s*18px/u);
   assert.match(battleStyles, /\.quiz-mode-shell\.is-solo\.has-mode-tabs > \.quiz-mode-tabs\s*\{[\s\S]*?position:\s*absolute[\s\S]*?right:\s*var\(--card-padding/u);
-  assert.match(battleStyles, /body \.quiz-page \.quiz-mode-tabs button\s*\{[\s\S]*?min-height:\s*38px[\s\S]*?padding:\s*7px 12px !important/u);
-  assert.match(battleStyles, /@media \(max-width: 760px\)[\s\S]*?body \.quiz-page \.quiz-mode-tabs button\s*\{[\s\S]*?min-height:\s*44px/u);
+  assert.match(battleStyles, /body \.quiz-page \.quiz-mode-tabs button\s*\{[\s\S]*?min-height:\s*32px[\s\S]*?padding:\s*5px 9px !important/u);
+  assert.match(battleStyles, /body\.has-bg-image \.quiz-mode-tabs\s*\{[\s\S]*?background:\s*rgba\(var\(--bg-surface-rgb/u);
+  assert.match(battleStyles, /button\[aria-selected="true"\]\s*\{[\s\S]*?background:\s*rgba\(var\(--accent-rgb\), 0\.16\)/u);
+  assert.match(battleStyles, /@media \(max-width: 760px\)[\s\S]*?body \.quiz-page \.quiz-mode-tabs button\s*\{[\s\S]*?min-height:\s*38px/u);
   assert.match(battleStyles, /\.quiz-mode-shell\.is-battles > \.quiz-mode-tabs\s*\{[\s\S]*?justify-self:\s*end/u);
 });

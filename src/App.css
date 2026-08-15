@@ -3340,16 +3340,17 @@ body.dark .weekly-day-track {
 }
 
 .academic-manage-btn {
+  align-self: end;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
-  padding: 0 14px;
+  min-height: 38px;
+  padding: 0 12px;
   color: var(--accent);
   border: 1px solid rgba(var(--accent-rgb), 0.24);
   border-radius: 12px;
   background: rgba(var(--accent-rgb), 0.08);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 850;
   line-height: 1;
   text-decoration: none;
@@ -3415,6 +3416,11 @@ body.dark .weekly-day-track {
 @media (max-width: 720px) {
   .academic-profile-heading {
     align-items: flex-start;
+  }
+
+  .academic-manage-btn {
+    align-self: start;
+    min-height: 40px;
   }
 
   .academic-profile-summary {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, History } from "lucide-react";
 import api, { ACADEMIC_PROFILE_DELETE_TIMEOUT_MS } from "../utils/apiClient";
 import GoalSettingsPanel from "../components/GoalSettingsPanel";
@@ -429,6 +429,7 @@ function SettingsPage({
   onKidsParentLocked,
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const assistantVoicePreferences = normalizeVoicePreferences(voicePreferences);
   const updateVoicePreference = (key, value) => {
     setVoicePreferences?.((currentPreferences) => ({
@@ -494,12 +495,15 @@ function SettingsPage({
   const [deleteProfileSelectionDataId, setDeleteProfileSelectionDataId] = useState("");
   const [profileDeletionGuidance, setProfileDeletionGuidance] = useState(null);
   const profileImageInputRef = useRef(null);
+  const profileCardRef = useRef(null);
   const profileSaveButtonRef = useRef(null);
   const deleteProfileButtonRef = useRef(null);
   const promptedDeletionRetryRef = useRef("");
   const profileMutationInFlightRef = useRef(false);
   const academicActionDismissTimerRef = useRef(null);
   const deleteProfileDismissTimerRef = useRef(null);
+  const profileCardHighlightTimerRef = useRef(null);
+  const [profileCardHighlighted, setProfileCardHighlighted] = useState(false);
   const academicProfileEditable = !youngKidsMode || Boolean(kidsParentAccess?.unlocked);
   const academicFieldsEditable = academicProfileEditable && !hasTwoProfiles;
   const pendingDeletionProfile = academicProfiles.find((profile) => profile.deletionPending)
@@ -515,6 +519,38 @@ function SettingsPage({
     || visitingAcademicProfile
     || deletingAcademicProfile
     || workspaceTransitioning;
+
+  useEffect(() => () => {
+    if (profileCardHighlightTimerRef.current) {
+      clearTimeout(profileCardHighlightTimerRef.current);
+    }
+  }, []);
+
+  const profileCardHighlightRequested = location.state?.highlightProfileInstitution === true;
+
+  useEffect(() => {
+    if (!profileCardHighlightRequested) return;
+
+    profileCardRef.current?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    setProfileCardHighlighted(true);
+    if (profileCardHighlightTimerRef.current) {
+      clearTimeout(profileCardHighlightTimerRef.current);
+    }
+    profileCardHighlightTimerRef.current = window.setTimeout(() => {
+      setProfileCardHighlighted(false);
+      profileCardHighlightTimerRef.current = null;
+    }, 1100);
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: null,
+    });
+  }, [
+    location.hash,
+    location.pathname,
+    location.search,
+    navigate,
+    profileCardHighlightRequested,
+  ]);
 
   useEffect(() => () => {
     if (academicActionDismissTimerRef.current) {
@@ -2211,7 +2247,11 @@ function SettingsPage({
         ) : null}
         
         {/* Profile Card */}
-        <div className="card settings-card settings-account-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div
+          className={`card settings-card settings-account-card${profileCardHighlighted ? " is-arrival-highlighted" : ""}`}
+          ref={profileCardRef}
+          style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+        >
           <div className="settings-account-header">
             <div className="settings-account-copy">
               <span className="section-tag" style={{ marginBottom: '12px' }}>ACCOUNT</span>

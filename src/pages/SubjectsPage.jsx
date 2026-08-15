@@ -86,6 +86,7 @@ function SubjectsPage({
               <Link
                 aria-label="Manage academic profile in Settings"
                 className="academic-manage-btn"
+                state={{ highlightProfileInstitution: true }}
                 to="/settings"
               >
                 Manage

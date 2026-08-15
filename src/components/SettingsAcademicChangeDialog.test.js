@@ -59,6 +59,14 @@ test("keeps the confirmation portal mounted for smooth close transitions", () =>
   assert.match(stylesheet, /\.settings-academic-confirm-backdrop\s*\{[\s\S]*?transition:/u);
   assert.match(stylesheet, /\.settings-academic-confirm-backdrop\.is-closed\s*\{[\s\S]*?opacity:\s*0/u);
   assert.match(stylesheet, /width:\s*min\(420px, 100%\)/u);
+  assert.match(stylesheet, /background:\s*rgba\(3, 8, 18, 0\.76\)\s*!important/u);
+  assert.match(stylesheet, /backdrop-filter:\s*blur\(18px\) saturate\(72%\) brightness\(72%\)\s*!important/u);
+  assert.match(stylesheet, /linear-gradient\(var\(--bg\), var\(--bg\)\) padding-box/u);
+  assert.match(
+    stylesheet,
+    /body\.has-bg-image:not\(\.no-glass-cards\) \.confirm-modal\.settings-academic-confirm/u,
+  );
+  assert.match(stylesheet, /linear-gradient\(rgb\(var\(--bg-surface-rgb\)\), rgb\(var\(--bg-surface-rgb\)\)\) padding-box/u);
 });
 
 test("keeps the frozen change rows until the exit transition finishes", () => {

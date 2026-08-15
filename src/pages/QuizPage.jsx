@@ -480,6 +480,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
         </div>
       ) : (
         <div
+          className="quiz-solo-panel"
           aria-labelledby={isYoungKidsLearner ? undefined : "quiz-tab-solo"}
           id="quiz-panel-solo"
           role={isYoungKidsLearner ? undefined : "tabpanel"}
