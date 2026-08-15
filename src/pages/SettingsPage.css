@@ -228,6 +228,201 @@ body.has-bg-image .settings-data-info-tooltip {
   transition-delay: 0s;
 }
 
+.settings-account-title-row {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.settings-account-title-row > h3 {
+  min-width: 0;
+}
+
+.settings-profile-info {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+body .settings-page .settings-profile-info-trigger {
+  display: grid;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0 !important;
+  place-items: center;
+  color: var(--text-muted);
+  border: 0 !important;
+  border-radius: 50%;
+  background: transparent !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transform: none !important;
+}
+
+body .settings-page .settings-profile-info-trigger:hover,
+body .settings-page .settings-profile-info-trigger[aria-expanded="true"] {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.1) !important;
+}
+
+body .settings-page .settings-profile-info-trigger:focus-visible {
+  color: var(--accent);
+  outline: 2px solid rgba(var(--accent-rgb), 0.72);
+  outline-offset: 2px;
+}
+
+.settings-profile-info-panel {
+  --settings-profile-info-bg: #ffffff;
+  --settings-profile-info-border: rgba(39, 55, 84, 0.18);
+  --settings-profile-info-ink: #172333;
+  --settings-profile-info-muted: #526078;
+  --settings-profile-info-item-bg: #f4f7fb;
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 60;
+  display: grid;
+  width: min(370px, calc(100vw - 48px));
+  max-height: min(70vh, 580px);
+  padding: 16px;
+  gap: 14px;
+  overflow-y: auto;
+  color: var(--settings-profile-info-ink);
+  border: 1px solid var(--settings-profile-info-border);
+  border-radius: 16px;
+  background: var(--settings-profile-info-bg) !important;
+  box-shadow: 0 24px 60px rgba(4, 9, 20, 0.28), 0 7px 18px rgba(4, 9, 20, 0.16);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  isolation: isolate;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-6px) scale(0.985);
+  transform-origin: top left;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 0s linear 180ms;
+}
+
+body.dark .settings-profile-info-panel {
+  --settings-profile-info-bg: #111a2b;
+  --settings-profile-info-border: rgba(204, 219, 255, 0.18);
+  --settings-profile-info-ink: #f7fbff;
+  --settings-profile-info-muted: #a8b4c8;
+  --settings-profile-info-item-bg: #1b2940;
+}
+
+body.has-bg-image .settings-profile-info-panel {
+  --settings-profile-info-bg: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  --settings-profile-info-border: rgba(255, 255, 255, 0.18);
+  --settings-profile-info-ink: #f4f6fb;
+  --settings-profile-info-muted: #c0c8d7;
+  --settings-profile-info-item-bg: rgb(35, 45, 63);
+}
+
+.settings-profile-info-panel.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
+}
+
+.settings-profile-info-panel-header {
+  display: grid;
+  gap: 3px;
+}
+
+.settings-profile-info-panel-header strong {
+  color: var(--settings-profile-info-ink);
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.settings-profile-info-panel-header span {
+  color: var(--settings-profile-info-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.settings-profile-info-section {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--settings-profile-info-border);
+}
+
+.settings-profile-info-section-label {
+  color: var(--settings-profile-info-ink);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.settings-profile-info-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0;
+}
+
+.settings-profile-info-list > div {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--settings-profile-info-border);
+  border-radius: 10px;
+  background: var(--settings-profile-info-item-bg);
+}
+
+.settings-profile-info-list dt,
+.settings-profile-info-list dd {
+  margin: 0;
+}
+
+.settings-profile-info-list dt {
+  color: var(--settings-profile-info-muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.settings-profile-info-list dd {
+  margin-top: 3px;
+  color: var(--settings-profile-info-ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .settings-profile-info-panel {
+    width: min(360px, calc(100vw - 40px));
+  }
+
+  .settings-profile-info-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-profile-info-panel {
+    transition: opacity 120ms linear, visibility 0s linear 120ms;
+    transform: none;
+  }
+
+  .settings-profile-info-panel.is-open {
+    transform: none;
+  }
+}
+
 .settings-page .settings-card .card-subtext,
 .settings-page .goal-settings-card .card-subtext {
   font-size: 0.74rem !important;

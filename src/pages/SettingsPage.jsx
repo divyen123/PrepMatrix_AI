@@ -5,6 +5,7 @@ import api, { ACADEMIC_PROFILE_DELETE_TIMEOUT_MS } from "../utils/apiClient";
 import GoalSettingsPanel from "../components/GoalSettingsPanel";
 import KidsPerformanceSettings from "../components/kids/KidsPerformanceSettings";
 import SettingsDataInfo from "../components/SettingsDataInfo";
+import SettingsProfileInfo from "../components/SettingsProfileInfo";
 import SettingsAcademicChangeDialog from "../components/SettingsAcademicChangeDialog";
 import SettingsAcademicProfileDeleteDialog from "../components/SettingsAcademicProfileDeleteDialog";
 import {
@@ -2255,9 +2256,26 @@ function SettingsPage({
           <div className="settings-account-header">
             <div className="settings-account-copy">
               <span className="section-tag" style={{ marginBottom: '12px' }}>ACCOUNT</span>
-              <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-                <User size={20} className="status-success" /> Profile & Institution
-              </h3>
+              <div className="settings-account-title-row">
+                <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                  <User size={20} className="status-success" /> Profile & Institution
+                </h3>
+                <SettingsProfileInfo
+                  academicProfile={{
+                    academicLevel: educationStage,
+                    academicTrack: profileTrack,
+                    degree,
+                    department,
+                    grade,
+                    institutionName,
+                  }}
+                  activeProfileLabel={activeAcademicProfileSlot?.label || "Profile A"}
+                  completed={completed}
+                  schedule={schedule}
+                  subjects={subjects}
+                  userProfile={userProfile}
+                />
+              </div>
             </div>
 
             <div className="profile-photo-control">
