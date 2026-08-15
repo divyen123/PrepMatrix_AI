@@ -1,4 +1,8 @@
 import { ObjectId } from "mongodb";
+import {
+  academicProfileFilter,
+  withAcademicProfileWriteFence,
+} from "./profileDataScope.js";
 
 export const NOTIFICATION_HISTORY_COLLECTION = "notificationHistory";
 export const NOTIFICATION_HISTORY_LIMIT = 100;
@@ -38,9 +42,9 @@ export function publicNotificationHistoryRecord(document) {
   };
 }
 
-export async function pruneNotificationHistory(collection, userId) {
+export async function pruneNotificationHistory(collection, userId, academicProfileId) {
   const staleDocuments = await collection
-    .find({ userId })
+    .find({ userId, academicProfileId })
     .sort({ createdAt: -1, _id: -1 })
     .skip(NOTIFICATION_HISTORY_LIMIT)
     .project({ _id: 1 })
@@ -49,6 +53,7 @@ export async function pruneNotificationHistory(collection, userId) {
 
   const result = await collection.deleteMany({
     userId,
+    academicProfileId,
     _id: { $in: staleDocuments.map((document) => document._id) },
   });
   return result.deletedCount || 0;
@@ -57,6 +62,7 @@ export async function pruneNotificationHistory(collection, userId) {
 export async function recordNotificationHistory({
   collection,
   userId,
+  academicProfileId,
   eventKey = "",
   kind,
   title,
@@ -67,6 +73,7 @@ export async function recordNotificationHistory({
   const normalizedCreatedAt = validDate(createdAt);
   const document = {
     userId,
+    academicProfileId,
     kind: safeText(kind, 80) || "notification",
     title: safeText(title, 160) || "PrepMatrix AI",
     body: safeText(body, 500),
@@ -77,12 +84,12 @@ export async function recordNotificationHistory({
 
   if (!normalizedEventKey) {
     const result = await collection.insertOne(document);
-    await pruneNotificationHistory(collection, userId);
+    await pruneNotificationHistory(collection, userId, academicProfileId);
     return { inserted: true, id: result.insertedId };
   }
 
   const result = await collection.updateOne(
-    { userId, eventKey: normalizedEventKey },
+    { userId, academicProfileId, eventKey: normalizedEventKey },
     {
       $setOnInsert: {
         ...document,
@@ -92,7 +99,7 @@ export async function recordNotificationHistory({
     { upsert: true },
   );
   const inserted = result.upsertedCount === 1;
-  if (inserted) await pruneNotificationHistory(collection, userId);
+  if (inserted) await pruneNotificationHistory(collection, userId, academicProfileId);
   return {
     inserted,
     id: result.upsertedId || null,
@@ -132,13 +139,14 @@ export function registerNotificationHistoryRoutes(app, {
   mutationSecurity,
   requireAuth,
   now = () => new Date(),
+  withProfileWriteFence = withAcademicProfileWriteFence,
 }) {
   app.get("/api/notifications/history", requireAuth(async (req, res) => {
     const db = await getDb();
     const collection = db.collection(NOTIFICATION_HISTORY_COLLECTION);
-    const filter = { userId: req.user._id };
+    const filter = academicProfileFilter(req);
     const unreadFilter = {
-      userId: req.user._id,
+      ...academicProfileFilter(req),
       $or: [
         { readAt: { $exists: false } },
         { readAt: null },
@@ -147,7 +155,7 @@ export function registerNotificationHistoryRoutes(app, {
     const [documents, unreadCount] = await Promise.all([
       collection
         .find(filter)
-        .project({ userId: 0, eventKey: 0 })
+        .project({ userId: 0, academicProfileId: 0, eventKey: 0 })
         .sort({ createdAt: -1, _id: -1 })
         .limit(NOTIFICATION_HISTORY_LIMIT)
         .toArray(),
@@ -171,7 +179,7 @@ export function registerNotificationHistoryRoutes(app, {
 
       const db = await getDb();
       const collection = db.collection(NOTIFICATION_HISTORY_COLLECTION);
-      const filter = { _id: notificationId, userId: req.user._id };
+      const filter = academicProfileFilter(req, { _id: notificationId });
       const existing = await collection.findOne(filter);
       if (!existing) {
         return res.status(404).json({ error: "Notification not found." });
@@ -179,7 +187,7 @@ export function registerNotificationHistoryRoutes(app, {
 
       if (!validDate(existing.readAt)) {
         const readAt = validDate(now()) || new Date();
-        await collection.updateOne(
+        await withProfileWriteFence(db, req, () => collection.updateOne(
           {
             ...filter,
             $or: [
@@ -188,7 +196,7 @@ export function registerNotificationHistoryRoutes(app, {
             ],
           },
           { $set: { readAt } },
-        );
+        ));
         existing.readAt = readAt;
       }
 
@@ -204,9 +212,13 @@ export function registerNotificationHistoryRoutes(app, {
     requireAuth(async (req, res) => {
       res.set("Cache-Control", "no-store");
       const db = await getDb();
-      const result = await db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteMany({
-        userId: req.user._id,
-      });
+      const result = await withProfileWriteFence(
+        db,
+        req,
+        () => db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteMany(
+          academicProfileFilter(req),
+        ),
+      );
       return res.json({
         success: true,
         deletedCount: result.deletedCount || 0,
@@ -223,10 +235,13 @@ export function registerNotificationHistoryRoutes(app, {
       if (!notificationId) return invalidIdResponse(res);
 
       const db = await getDb();
-      const result = await db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteOne({
-        _id: notificationId,
-        userId: req.user._id,
-      });
+      const result = await withProfileWriteFence(
+        db,
+        req,
+        () => db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteOne(
+          academicProfileFilter(req, { _id: notificationId }),
+        ),
+      );
       if (result.deletedCount !== 1) {
         return res.status(404).json({ error: "Notification not found." });
       }

@@ -33,7 +33,14 @@ import VoiceAssistant from "./components/VoiceAssistant";
 import VoiceAssistantOverlay from "./components/VoiceAssistantOverlay";
 import { AiCreditIndicator } from "./components/AiQuotaProvider";
 import useVoiceAssistant from "./hooks/useVoiceAssistant";
-import api, { clearStoredAuthState, HAS_CONFIGURED_API } from "./utils/apiClient";
+import api, {
+  ACADEMIC_PROFILE_DELETE_TIMEOUT_MS,
+  AUTH_RECOVERY_TIMEOUT_MS,
+  clearStoredAuthState,
+  getApiAcademicProfileScope,
+  HAS_CONFIGURED_API,
+  setApiAcademicProfileScope,
+} from "./utils/apiClient";
 import {
   getPushNotificationDiagnostic,
   reconcileStudyReminders,
@@ -59,6 +66,17 @@ import {
   academicProfilePayload,
   normalizeAcademicProfile,
 } from "./utils/academicProfile";
+import { buildAcademicProfileDeletePayload } from "./utils/academicProfileSlots";
+import {
+  clearAcademicProfileBrowserData,
+  clearOwnedLegacyAcademicProfileBrowserData,
+  clearPendingAcademicProfileActions,
+  getAcademicProfileDataId,
+  isValidAcademicProfileDataId,
+  legacyAcademicProfileOwnerStorageKey,
+  resolveAcademicProfileContext,
+} from "./utils/academicProfileScope";
+import { recoverAcademicProfileTransitionAfterFailure } from "./utils/academicProfileTransitionRecovery";
 import {
   getLearnerRoutePolicy,
   getYoungKidsParentRouteDecision,
@@ -325,6 +343,13 @@ function RouteLoading() {
 function App() {
   const location = useLocation();
   const saveTimeoutRef = useRef(null);
+  const workspaceSavePromiseRef = useRef(Promise.resolve());
+  const workspaceScopeEpochRef = useRef(0);
+  const workspaceMutationInFlightRef = useRef(false);
+  const academicProfileDeletionRetryRef = useRef(null);
+  const academicProfileEventRevisionRef = useRef(0);
+  const currentUserProfileRef = useRef(null);
+  const applyWorkspaceRef = useRef(null);
   const academicProfileSaveRef = useRef(null);
   const academicProfileRevisionRef = useRef(0);
   const rewardTimeoutRef = useRef(null);
@@ -353,12 +378,12 @@ function App() {
     return false;
   });
   const [userProfile, setUserProfile] = useState(null);
+  const [profileContext, setProfileContext] = useState(() => resolveAcademicProfileContext());
   const [kidsParentAccess, setKidsParentAccess] = useState(LOCKED_KIDS_PARENT_ACCESS);
-  const [activeExamAttemptId, setActiveExamAttemptId] = useState(() => (
-    typeof window === "undefined" ? "" : readStoredActiveExamAttemptId(window.localStorage)
-  ));
+  const [activeExamAttemptId, setActiveExamAttemptId] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
+  const [workspaceTransitioning, setWorkspaceTransitioning] = useState(false);
   const [notification, setNotification] = useState("");
   const [completionReward, setCompletionReward] = useState(null);
   const [entrySplash, setEntrySplash] = useState(true);
@@ -442,6 +467,7 @@ function App() {
   );
   const isKidsLearner = learnerRoutePolicy.isKidsLearner;
   const userIdentity = userProfile?.id || userProfile?._id || userProfile?.email || "";
+  const activeAcademicProfileDataId = profileContext?.dataId || "";
   const updateKidsParentAccess = useCallback((value = {}) => {
     const parentAccess = value?.parentAccess || value;
     setKidsParentAccess((current) => ({
@@ -490,7 +516,7 @@ function App() {
       return undefined;
     }
 
-    api.get("/api/kids/parent-access")
+    api.get("/api/kids/parent-access", { academicProfileId: activeAcademicProfileDataId })
       .then((payload) => {
         if (active) updateKidsParentAccess(payload);
       })
@@ -501,7 +527,7 @@ function App() {
     return () => {
       active = false;
     };
-  }, [learnerRoutePolicy.isYoungKidsLearner, updateKidsParentAccess, userIdentity]);
+  }, [activeAcademicProfileDataId, learnerRoutePolicy.isYoungKidsLearner, updateKidsParentAccess, userIdentity]);
 
   useEffect(() => {
     if (!kidsParentAccess.unlocked || !kidsParentAccess.expiresAt) return undefined;
@@ -620,6 +646,7 @@ function App() {
     [dashboardAvailableRoutes],
   );
   const voiceAssistant = useVoiceAssistant({
+    academicProfileDataId: activeAcademicProfileDataId,
     academicLevel,
     academicTrack,
     schedule,
@@ -695,7 +722,21 @@ function App() {
     setProfilePreviewSide((side) => (side === "photo" ? "logo" : "photo"));
   };
 
-  const applyWorkspace = (workspace = {}, profile = null) => {
+  const applyWorkspace = (workspace = {}, profile = null, requestedContext = null) => {
+    const nextProfileContext = resolveAcademicProfileContext(
+      requestedContext || workspace?.profileContext || {},
+      profile || {},
+    );
+    const workspaceProfileId = String(
+      workspace?.academicProfileId || workspace?.profileContext?.academicProfileId || "",
+    ).trim();
+    if (
+      workspaceProfileId
+      && nextProfileContext.dataId
+      && workspaceProfileId !== nextProfileContext.dataId
+    ) {
+      throw new Error("The server returned a workspace for a different academic profile.");
+    }
     const nextSubjects = Array.isArray(workspace?.subjects)
       ? workspace.subjects.filter((subject) => subject && typeof subject === "object")
       : [];
@@ -709,13 +750,19 @@ function App() {
             : [],
         }))
       : [];
-    const profileLevel = String(profile?.academicLevel || "").trim();
+    const selectedProfile = Array.isArray(profile?.academicProfiles)
+      ? profile.academicProfiles.find((item) => (
+        getAcademicProfileDataId(item) === nextProfileContext.dataId
+      ))
+      : null;
+    const effectiveProfile = { ...(profile || {}), ...(selectedProfile || {}) };
+    const profileLevel = String(effectiveProfile?.academicLevel || "").trim();
     const workspaceLevel = String(workspace?.academicLevel || "").trim();
-    const profileTrack = String(profile?.academicTrack || "").trim();
+    const profileTrack = String(effectiveProfile?.academicTrack || "").trim();
     const workspaceTrack = String(workspace?.academicTrack || "").trim();
     const profileIsGeneric = !profileLevel || /^(school|college|college \/ university)$/i.test(profileLevel);
     const nextAcademicProfile = normalizeAcademicProfile({
-      ...profile,
+      ...effectiveProfile,
       academicLevel: profileIsGeneric && workspaceLevel ? workspaceLevel : profileLevel || workspaceLevel,
       academicTrack: profileIsGeneric && (!profileTrack || profileTrack === "General")
         ? workspaceTrack || profileTrack
@@ -729,6 +776,14 @@ function App() {
     if (profile) {
       setUserProfile((current) => ({ ...(current || profile), ...nextAcademicProfile }));
     }
+    setProfileContext(nextProfileContext);
+    setApiAcademicProfileScope(nextProfileContext);
+    if (typeof window !== "undefined" && nextProfileContext.dataId && profile) {
+      const legacyOwnerKey = legacyAcademicProfileOwnerStorageKey(profile);
+      if (legacyOwnerKey && !window.localStorage.getItem(legacyOwnerKey)) {
+        window.localStorage.setItem(legacyOwnerKey, nextProfileContext.dataId);
+      }
+    }
     setMaterialBookmarks(normalizeMaterialBookmarks(workspace?.materialBookmarks));
     setResumeBuilder(normalizeResumeBuilderState(workspace?.resumeBuilder, {
       ...(profile || {}),
@@ -740,7 +795,140 @@ function App() {
     setGoalReminderSettings(nextGoalReminderSettings);
     setDarkMode(Boolean(workspace.darkMode));
     setScheduleStartDate(workspace.scheduleStartDate || null);
+    setActiveExamAttemptId(
+      typeof window === "undefined"
+        ? ""
+        : readStoredActiveExamAttemptId(window.localStorage, nextProfileContext.dataId),
+    );
   };
+  currentUserProfileRef.current = userProfile;
+  applyWorkspaceRef.current = applyWorkspace;
+
+  useEffect(() => {
+    let disposed = false;
+    let retryTimer = null;
+
+    const recoverAuthoritativeWorkspace = async (revision) => {
+      if (disposed || revision !== academicProfileEventRevisionRef.current) return;
+      if (workspaceMutationInFlightRef.current) {
+        retryTimer = window.setTimeout(
+          () => recoverAuthoritativeWorkspace(revision),
+          120,
+        );
+        return;
+      }
+
+      workspaceMutationInFlightRef.current = true;
+      setWorkspaceTransitioning(true);
+      try {
+        await workspaceSavePromiseRef.current;
+        if (disposed || revision !== academicProfileEventRevisionRef.current) return;
+
+        const recovered = await api.me({ academicProfileId: null });
+        if (disposed || revision !== academicProfileEventRevisionRef.current) return;
+        const recoveredUser = recovered?.user;
+        const recoveredContext = resolveAcademicProfileContext(
+          recovered?.profileContext || {},
+          recoveredUser || {},
+        );
+        if (!recoveredUser || !recoveredContext.dataId) {
+          throw new Error("The active academic profile could not be refreshed.");
+        }
+
+        const rememberedDeletion = academicProfileDeletionRetryRef.current;
+        if (
+          rememberedDeletion?.id
+          && !recoveredUser.academicProfiles?.some(
+            (profile) => (
+              profile?.id === rememberedDeletion.id
+              && getAcademicProfileDataId(profile) === rememberedDeletion.dataId
+            ),
+          )
+        ) {
+          academicProfileDeletionRetryRef.current = null;
+        }
+
+        workspaceScopeEpochRef.current += 1;
+        setCompletionReward(null);
+        setResetConfirmOpen(false);
+        setKidsParentAccess(LOCKED_KIDS_PARENT_ACCESS);
+        setUserProfile(recoveredUser);
+        applyWorkspaceRef.current?.(
+          recovered?.workspace || {},
+          recoveredUser,
+          recoveredContext,
+        );
+        setWorkspaceLoaded(true);
+      } catch (error) {
+        if (!disposed && revision === academicProfileEventRevisionRef.current) {
+          setWorkspaceLoaded(false);
+          setNotification(error instanceof Error
+            ? error.message
+            : "The active academic profile changed in another tab. Refresh to continue.");
+        }
+      } finally {
+        workspaceMutationInFlightRef.current = false;
+        if (!disposed && revision === academicProfileEventRevisionRef.current) {
+          setWorkspaceTransitioning(false);
+        }
+      }
+    };
+
+    const handleAcademicProfileStorageEvent = (event) => {
+      if (event.key !== "prepmatrix_academic_profile_event" || !event.newValue) return;
+      let payload;
+      try {
+        payload = JSON.parse(event.newValue);
+      } catch {
+        return;
+      }
+      const deletedDataId = String(payload?.deletedDataId || "").trim();
+      const eventProfileDataId = String(payload?.profileDataId || "").trim();
+      if (
+        !Number.isFinite(Number(payload?.at))
+        || (deletedDataId && !isValidAcademicProfileDataId(deletedDataId))
+        || (!deletedDataId && !isValidAcademicProfileDataId(eventProfileDataId))
+      ) return;
+
+      if (deletedDataId) {
+        clearAcademicProfileBrowserData(deletedDataId);
+        clearOwnedLegacyAcademicProfileBrowserData(
+          currentUserProfileRef.current || {},
+          deletedDataId,
+        );
+      }
+      clearPendingAcademicProfileActions(deletedDataId);
+      workspaceScopeEpochRef.current += 1;
+      setWorkspaceLoaded(false);
+      if (saveTimeoutRef.current) {
+        window.clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+
+      const revision = academicProfileEventRevisionRef.current + 1;
+      academicProfileEventRevisionRef.current = revision;
+      if (currentUserProfileRef.current) recoverAuthoritativeWorkspace(revision);
+    };
+
+    window.addEventListener("storage", handleAcademicProfileStorageEvent);
+    return () => {
+      disposed = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
+      window.removeEventListener("storage", handleAcademicProfileStorageEvent);
+    };
+  }, []);
+
+  const workspaceSnapshot = () => ({
+    subjects,
+    schedule,
+    completed,
+    materialBookmarks,
+    resumeBuilder,
+    goalReminderData,
+    goalReminderSettings,
+    darkMode,
+    scheduleStartDate,
+  });
 
   const updateAcademicProfile = useCallback((patch = {}, options = {}) => {
     const normalized = normalizeAcademicProfile({
@@ -780,6 +968,240 @@ function App() {
     return normalized;
   }, [academicLevel, academicTrack, userProfile]);
 
+  const runAcademicProfileTransition = async (payload, { deletedProfile = null } = {}) => {
+    if (workspaceMutationInFlightRef.current) {
+      throw new Error("Another workspace change is still in progress.");
+    }
+
+    const previousContext = profileContext;
+    const previousDataId = previousContext?.dataId || "";
+    workspaceMutationInFlightRef.current = true;
+    setWorkspaceTransitioning(true);
+    setWorkspaceLoaded(false);
+
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    try {
+      await workspaceSavePromiseRef.current;
+      if (previousDataId) {
+        const finalSave = api.saveWorkspace(workspaceSnapshot(), {
+          academicProfileId: previousDataId,
+        });
+        workspaceSavePromiseRef.current = finalSave.catch(() => undefined);
+        await finalSave;
+      }
+
+      const response = await api.updateProfile(payload, {
+        academicProfileId: previousDataId || null,
+        ...(deletedProfile ? { timeoutMs: ACADEMIC_PROFILE_DELETE_TIMEOUT_MS } : {}),
+      });
+      const nextUser = response?.user;
+      if (!nextUser) throw new Error("The updated academic profile could not be loaded.");
+      const nextContext = resolveAcademicProfileContext(response?.profileContext || {}, nextUser);
+      if (!nextContext.dataId) {
+        throw new Error("The updated academic profile is missing its data scope.");
+      }
+
+      workspaceScopeEpochRef.current += 1;
+      clearPendingAcademicProfileActions();
+      setCompletionReward(null);
+      setResetConfirmOpen(false);
+      setKidsParentAccess(LOCKED_KIDS_PARENT_ACCESS);
+      setUserProfile(nextUser);
+      applyWorkspace(response?.workspace || {}, nextUser, nextContext);
+
+      if (deletedProfile?.dataId) {
+        academicProfileDeletionRetryRef.current = null;
+        clearAcademicProfileBrowserData(deletedProfile.dataId);
+        clearOwnedLegacyAcademicProfileBrowserData(nextUser, deletedProfile.dataId);
+      }
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem("prepmatrix_academic_profile_event", JSON.stringify({
+            at: Date.now(),
+            deletedDataId: deletedProfile?.dataId || "",
+            profileDataId: nextContext.dataId,
+          }));
+        } catch {
+          // The server response remains authoritative when browser storage is unavailable.
+        }
+      }
+      setWorkspaceLoaded(true);
+      return response;
+    } catch (error) {
+        if (deletedProfile?.id) {
+          academicProfileDeletionRetryRef.current = {
+            id: deletedProfile.id,
+            dataId: deletedProfile.dataId || "",
+          };
+        }
+        try {
+          const {
+            recovered,
+            recoveredUser,
+            recoveredContext,
+            committed,
+          } = await recoverAcademicProfileTransitionAfterFailure({
+            loadAuthoritativeState: (options) => api.me(options),
+            timeoutMs: AUTH_RECOVERY_TIMEOUT_MS,
+            payload,
+            previousDataId,
+            deletedProfile,
+          });
+
+          let recoveredTarget = null;
+          let deletionCompleted = false;
+          if (deletedProfile?.id) {
+            recoveredTarget = recoveredUser.academicProfiles?.find(
+              (profile) => (
+                profile?.id === deletedProfile.id
+                && getAcademicProfileDataId(profile) === deletedProfile.dataId
+              ),
+            );
+            deletionCompleted = !recoveredTarget;
+            if (recoveredTarget?.deletionPending) {
+              academicProfileDeletionRetryRef.current = {
+                id: recoveredTarget.id,
+                dataId: getAcademicProfileDataId(recoveredTarget)
+                  || deletedProfile.dataId
+                  || "",
+              };
+            } else {
+              academicProfileDeletionRetryRef.current = null;
+            }
+          }
+
+          workspaceScopeEpochRef.current += 1;
+          clearPendingAcademicProfileActions();
+          setCompletionReward(null);
+          setResetConfirmOpen(false);
+          setKidsParentAccess(LOCKED_KIDS_PARENT_ACCESS);
+          setUserProfile(recoveredUser);
+          applyWorkspace(recovered?.workspace || {}, recoveredUser, recoveredContext);
+
+          const recoveredDeletionDataId = getAcademicProfileDataId(recoveredTarget)
+            || deletedProfile?.dataId
+            || "";
+          const deletionScopeChanged = deletionCompleted
+            || Boolean(recoveredTarget?.deletionPending);
+          if (deletionScopeChanged && recoveredDeletionDataId) {
+            clearAcademicProfileBrowserData(recoveredDeletionDataId);
+            clearOwnedLegacyAcademicProfileBrowserData(
+              recoveredUser,
+              recoveredDeletionDataId,
+            );
+          }
+          if (typeof window !== "undefined") {
+            const deletedDataId = deletionScopeChanged ? recoveredDeletionDataId : "";
+            try {
+              window.localStorage.setItem("prepmatrix_academic_profile_event", JSON.stringify({
+                at: Date.now(),
+                deletedDataId,
+                deletionState: deletedProfile
+                  ? deletionCompleted
+                    ? "completed"
+                    : recoveredTarget?.deletionPending
+                      ? "pending"
+                      : "unchanged"
+                  : undefined,
+                transitionState: committed ? "committed" : "unchanged",
+                profileDataId: recoveredContext.dataId,
+              }));
+            } catch {
+              // The recovered server state remains authoritative.
+            }
+          }
+
+          setWorkspaceLoaded(true);
+          if (deletionCompleted) return recovered;
+          if (committed) return recovered;
+        } catch (recoveryError) {
+          setWorkspaceLoaded(false);
+          setNotification(recoveryError instanceof Error
+            ? recoveryError.message
+            : "The active academic profile could not be recovered.");
+        }
+        throw error;
+    } finally {
+      workspaceMutationInFlightRef.current = false;
+      setWorkspaceTransitioning(false);
+    }
+  };
+
+  const createAcademicProfile = (payload) => runAcademicProfileTransition(payload);
+  const visitAcademicProfile = (profile) => runAcademicProfileTransition({
+    visitAcademicProfileId: profile?.id,
+  });
+  const deleteAcademicProfile = (profile) => {
+    const payload = buildAcademicProfileDeletePayload(profile);
+    if (!payload) throw new Error("The selected academic profile is missing its immutable data scope.");
+    return runAcademicProfileTransition(payload, { deletedProfile: profile });
+  };
+
+  const importActiveProfileWorkspace = async (backup = {}) => {
+    if (
+      !activeAcademicProfileDataId
+      || workspaceTransitioning
+      || workspaceMutationInFlightRef.current
+    ) {
+      throw new Error("The active academic profile is not ready.");
+    }
+
+    const requestedAcademicProfileId = activeAcademicProfileDataId;
+    const requestedEpoch = workspaceScopeEpochRef.current;
+    const scopeIsCurrent = () => (
+      requestedEpoch === workspaceScopeEpochRef.current
+      && requestedAcademicProfileId === getApiAcademicProfileScope()
+    );
+    let importAccepted = false;
+    workspaceMutationInFlightRef.current = true;
+    setWorkspaceTransitioning(true);
+    setWorkspaceLoaded(false);
+
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    try {
+      await workspaceSavePromiseRef.current;
+      if (!scopeIsCurrent()) {
+        throw new Error("The active academic profile changed before the workspace update started.");
+      }
+
+      const importRequest = api.importWorkspace(backup, {
+        academicProfileId: requestedAcademicProfileId,
+      });
+      workspaceSavePromiseRef.current = importRequest.catch(() => undefined);
+      const response = await importRequest;
+      importAccepted = true;
+      if (!scopeIsCurrent()) {
+        throw new Error("The active academic profile changed while the workspace update was running.");
+      }
+
+      const responseContext = resolveAcademicProfileContext(
+        response?.profileContext || profileContext,
+        userProfile || {},
+      );
+      if (responseContext.dataId !== requestedAcademicProfileId) {
+        throw new Error("The imported workspace belongs to a different academic profile.");
+      }
+      workspaceScopeEpochRef.current += 1;
+      applyWorkspace(response?.workspace || {}, userProfile, responseContext);
+      setWorkspaceLoaded(true);
+      return response;
+    } catch (error) {
+      if (!importAccepted && scopeIsCurrent()) setWorkspaceLoaded(true);
+      throw error;
+    } finally {
+      workspaceMutationInFlightRef.current = false;
+      setWorkspaceTransitioning(false);
+    }
+  };
+
   const updateSubjects = (nextSubjects, options = {}) => {
     const normalizedSubjects = Array.isArray(nextSubjects) ? nextSubjects : [];
     setSubjects(normalizedSubjects);
@@ -809,9 +1231,9 @@ function App() {
     setScheduleStartDate(null);
   };
 
-  const handleLogin = (profile, workspace) => {
+  const handleLogin = (profile, workspace, requestedContext = null) => {
     setUserProfile(profile);
-    applyWorkspace(workspace, profile);
+    applyWorkspace(workspace, profile, requestedContext);
     setWorkspaceLoaded(true);
     setNotification(`Welcome, ${profile.username}.`);
 
@@ -1022,7 +1444,7 @@ function App() {
       .then((payload) => {
         if (!isMounted) return;
         setUserProfile(payload.user);
-        applyWorkspace(payload.workspace, payload.user);
+        applyWorkspace(payload.workspace, payload.user, payload.profileContext);
         setWorkspaceLoaded(true);
 
         // Trigger entry splash on session recovery (same as explicit login)
@@ -1073,7 +1495,13 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!userProfile || !workspaceLoaded) {
+    if (
+      !userProfile
+      || !workspaceLoaded
+      || workspaceTransitioning
+      || workspaceMutationInFlightRef.current
+      || !activeAcademicProfileDataId
+    ) {
       return undefined;
     }
 
@@ -1081,8 +1509,9 @@ function App() {
       window.clearTimeout(saveTimeoutRef.current);
     }
 
-    saveTimeoutRef.current = window.setTimeout(() => {
-      api.saveWorkspace({
+    const requestedAcademicProfileId = activeAcademicProfileDataId;
+    const requestedEpoch = workspaceScopeEpochRef.current;
+    const snapshot = {
         subjects,
         schedule,
         completed,
@@ -1092,7 +1521,19 @@ function App() {
         goalReminderSettings,
         darkMode,
         scheduleStartDate,
-      }).catch((error) => {
+      };
+
+    saveTimeoutRef.current = window.setTimeout(() => {
+      saveTimeoutRef.current = null;
+      const saveRequest = api.saveWorkspace(snapshot, {
+        academicProfileId: requestedAcademicProfileId,
+      });
+      workspaceSavePromiseRef.current = saveRequest.catch(() => undefined);
+      saveRequest.catch((error) => {
+        if (
+          requestedEpoch !== workspaceScopeEpochRef.current
+          || requestedAcademicProfileId !== getApiAcademicProfileScope()
+        ) return;
         setNotification(error instanceof Error ? error.message : "Could not save workspace.");
       });
     }, 350);
@@ -1102,7 +1543,21 @@ function App() {
         window.clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [completed, darkMode, goalReminderData, goalReminderSettings, materialBookmarks, resumeBuilder, schedule, subjects, userProfile, workspaceLoaded, scheduleStartDate]);
+  }, [
+    activeAcademicProfileDataId,
+    completed,
+    darkMode,
+    goalReminderData,
+    goalReminderSettings,
+    materialBookmarks,
+    resumeBuilder,
+    schedule,
+    scheduleStartDate,
+    subjects,
+    userProfile,
+    workspaceLoaded,
+    workspaceTransitioning,
+  ]);
 
   useEffect(() => {
     const backgroundImageId = localStorage.getItem("prepmatrix_bg_image_id") || "";
@@ -1652,6 +2107,8 @@ function App() {
               </NavLink>
             </div>
             <Chatbot
+              key={activeAcademicProfileDataId || "no-academic-profile"}
+              academicProfileDataId={activeAcademicProfileDataId}
               academicLevel={academicLevel}
               academicTrack={academicTrack}
               availableRoutes={dashboardAvailableRoutes}
@@ -1938,7 +2395,7 @@ function App() {
               </Suspense>
             )
           ) : (
-            <div className="route-stage" key={location.pathname}>
+            <div className="route-stage" key={`${location.pathname}:${activeAcademicProfileDataId}`}>
               {authLoading ? null : (
                 <Suspense fallback={<RouteLoading />}>
                   <Routes>
@@ -1947,6 +2404,7 @@ function App() {
                         <Route
                           element={
                             <DashboardPage
+                              academicProfileDataId={activeAcademicProfileDataId}
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
                               childMode={learnerRoutePolicy.isYoungKidsLearner}
@@ -1969,6 +2427,7 @@ function App() {
                           element={
                             learnerRoutePolicy.isYoungKidsLearner ? (
                               <KidsLearningPage
+                                academicProfileDataId={activeAcademicProfileDataId}
                                 academicLevel={academicLevel}
                                 academicTrack={academicTrack}
                                 onParentAccessChange={updateKidsParentAccess}
@@ -1978,6 +2437,7 @@ function App() {
                               />
                             ) : learnerRoutePolicy.isSchoolChallengeLearner ? (
                               <SchoolKnowledgePage
+                                academicProfileDataId={activeAcademicProfileDataId}
                                 grade={learnerRoutePolicy.academicProfile.grade}
                                 userProfile={{
                                   ...userProfile,
@@ -2007,7 +2467,6 @@ function App() {
                               academicTrack={academicTrack}
                               hasActiveSchedule={schedule.length > 0}
                               kidsMode={learnerRoutePolicy.isYoungKidsLearner}
-                              profileLocked={learnerRoutePolicy.isYoungKidsLearner}
                               setSubjects={updateSubjects}
                               subjects={subjects}
                               userProfile={userProfile}
@@ -2028,6 +2487,7 @@ function App() {
                                 />
                               ) : (
                                 <StartLearningPage
+                                  academicProfileDataId={activeAcademicProfileDataId}
                                   academicLevel={academicLevel}
                                   academicTrack={academicTrack}
                                   completed={completed}
@@ -2048,6 +2508,7 @@ function App() {
                         <Route
                           element={
                             <PlannerPage
+                              academicProfileDataId={activeAcademicProfileDataId}
                               completed={completed}
                               kidsMode={learnerRoutePolicy.isYoungKidsLearner}
                               parentAccessGranted={kidsParentAccess.unlocked}
@@ -2064,6 +2525,7 @@ function App() {
                         <Route
                           element={
                             <AnalyticsPage
+                              academicProfileDataId={activeAcademicProfileDataId}
                               completed={completed}
                               quizBattlesEnabled={!learnerRoutePolicy.isYoungKidsLearner}
                               schedule={schedule}
@@ -2075,6 +2537,7 @@ function App() {
                         <Route
                           element={standardOnlyRoute(
                             <NotesPage
+                              academicProfileDataId={activeAcademicProfileDataId}
                               completed={completed}
                               schedule={schedule}
                               scheduleStartDate={scheduleStartDate}
@@ -2088,6 +2551,7 @@ function App() {
                         <Route
                           element={parentGuidedKidsRoute(
                             <QuizPage
+                              academicProfileDataId={activeAcademicProfileDataId}
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
                               completed={completed}
@@ -2107,6 +2571,7 @@ function App() {
                         <Route
                           element={parentGuidedKidsRoute(
                             <ExamPage
+                              academicProfileDataId={activeAcademicProfileDataId}
                               activeAttemptId={activeExamAttemptId}
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
@@ -2143,6 +2608,7 @@ function App() {
                               <Navigate replace to={learnerRoutePolicy.homeRoute} />
                             ) : resumeEligibility.enabled ? (
                               <ResumeBuilderPage
+                                academicProfileDataId={activeAcademicProfileDataId}
                                 academicProfile={{
                                   academicLevel,
                                   academicTrack,
@@ -2183,6 +2649,14 @@ function App() {
                               userProfile={userProfile}
                               setUserProfile={setUserProfile}
                               onAcademicProfileChange={updateAcademicProfile}
+                              academicProfileDataId={activeAcademicProfileDataId}
+                              profileContext={profileContext}
+                              onCreateAcademicProfile={createAcademicProfile}
+                              onVisitAcademicProfile={visitAcademicProfile}
+                              onDeleteAcademicProfile={deleteAcademicProfile}
+                              academicProfileDeletionRetryTarget={academicProfileDeletionRetryRef.current}
+                              onImportActiveProfileWorkspace={importActiveProfileWorkspace}
+                              workspaceTransitioning={workspaceTransitioning}
                               darkMode={darkMode}
                               setDarkMode={setDarkMode}
                               subjects={subjects}

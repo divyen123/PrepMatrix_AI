@@ -8,7 +8,7 @@ import {
   buildScheduledReminderPayload,
   claimScheduledReminderDelivery,
   getDueScheduledReminderOccurrences,
-  runScheduledReminderPushSweep,
+  runScheduledReminderPushSweep as runScheduledReminderPushSweepProduction,
 } from "./scheduledReminderPushService.js";
 
 const DEVICE_ONE = "00000000-0000-4000-8000-000000000001";
@@ -16,6 +16,14 @@ const DEVICE_TWO = "00000000-0000-4000-8000-000000000002";
 const CLAIM_ONE = "10000000-0000-4000-8000-000000000001";
 const CLAIM_TWO = "10000000-0000-4000-8000-000000000002";
 const DUE_NOW = new Date("2026-07-16T12:30:00.000Z");
+
+function runScheduledReminderPushSweep(options) {
+  return runScheduledReminderPushSweepProduction({
+    ...options,
+    withProfileWriteFence: options?.withProfileWriteFence
+      || (async (_db, _req, write) => write()),
+  });
+}
 
 function validSubscription(index = 1) {
   return {
@@ -132,6 +140,7 @@ function createSweepDb({
         if (name === "users") {
           return {
             find: () => ({ toArray: async () => users }),
+            findOne: async ({ _id }) => users.find((user) => user._id === _id) || null,
             updateOne: userUpdate || (async () => ({ modifiedCount: 1 })),
           };
         }
@@ -183,6 +192,7 @@ test("claims a new occurrence once and can reclaim only after the claim becomes 
   const first = await claimScheduledReminderDelivery({
     collection,
     userId: "user-one",
+    academicProfileId: "legacy:user-one:profile-a",
     deviceId: DEVICE_ONE,
     occurrence,
     now: DUE_NOW,
@@ -191,6 +201,7 @@ test("claims a new occurrence once and can reclaim only after the claim becomes 
   const duplicate = await claimScheduledReminderDelivery({
     collection,
     userId: "user-one",
+    academicProfileId: "legacy:user-one:profile-a",
     deviceId: DEVICE_ONE,
     occurrence,
     now: new Date(DUE_NOW.getTime() + 60_000),
@@ -199,6 +210,7 @@ test("claims a new occurrence once and can reclaim only after the claim becomes 
   const reclaimed = await claimScheduledReminderDelivery({
     collection,
     userId: "user-one",
+    academicProfileId: "legacy:user-one:profile-a",
     deviceId: DEVICE_ONE,
     occurrence,
     now: new Date(DUE_NOW.getTime() + 6 * 60_000),

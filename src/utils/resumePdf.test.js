@@ -173,8 +173,14 @@ test("fills a representative page like the responsive editor preview", () => {
     balancedCompact.contentBottom >= 274 &&
       balancedCompact.contentBottom <= 279
   );
-  assert.ok(balanced.contentBottom >= 278 && balanced.contentBottom <= 280);
-  assert.ok(largeAiry.contentBottom >= 278 && largeAiry.contentBottom <= 280);
+  assert.ok(
+    balanced.contentBottom >= 278 &&
+      balanced.contentBottom <= 297 - balanced.metrics.bottomMargin
+  );
+  assert.ok(
+    largeAiry.contentBottom >= 278 &&
+      largeAiry.contentBottom <= 297 - largeAiry.metrics.bottomMargin
+  );
   assert.equal(compact.renderScale, 1);
   assert.equal(balancedCompact.renderScale, 1);
   assert.ok(balanced.renderScale < 1);
@@ -192,7 +198,10 @@ test("fits a representative two-project student resume onto one A4 page", () => 
   assert.equal(pdf.getNumberOfPages(), 1);
   assert.equal(pdf.__resumeLayout.pageCount, 1);
   assert.ok(pdf.__resumeLayout.renderScale < 1);
-  assert.ok(pdf.__resumeLayout.contentBottom <= 280);
+  assert.ok(
+    pdf.__resumeLayout.contentBottom <=
+      297 - pdf.__resumeLayout.metrics.bottomMargin
+  );
 });
 test("does not stretch a sparse resume", () => {
   const pdf = createResumePdf(

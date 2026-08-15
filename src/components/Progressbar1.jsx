@@ -3,8 +3,9 @@ import confetti from "canvas-confetti";
 import { toast } from "react-toastify";
 import successSound from "../assets/success.mp3";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
+import { academicProfileStorageKey } from "../utils/academicProfileScope";
 
-function ProgressBar1({ schedule, completed }) {
+function ProgressBar1({ academicProfileDataId = "", schedule, completed }) {
   const safeSchedule = useMemo(() => (Array.isArray(schedule) ? schedule : []), [schedule]);
   const safeCompleted = Array.isArray(completed) ? completed : [];
   const metrics = getPlannerMetrics(schedule, completed);
@@ -39,8 +40,12 @@ function ProgressBar1({ schedule, completed }) {
       .sort()
       .join("|");
 
-    return `prepmatrix-plan-completed:${metrics.totalTasks}:${taskNames}`;
-  }, [metrics.totalTasks, safeSchedule]);
+    return academicProfileStorageKey(
+      academicProfileDataId,
+      "plan-completed",
+      `${metrics.totalTasks}:${taskNames}`,
+    ) || `prepmatrix-plan-completed:${metrics.totalTasks}:${taskNames}`;
+  }, [academicProfileDataId, metrics.totalTasks, safeSchedule]);
 
   useEffect(() => {
     if (progress === 100 && metrics.totalTasks > 0) {

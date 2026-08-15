@@ -189,6 +189,7 @@ function ChatMaterialSuggestions({
 }
 
 function Chatbot({
+  academicProfileDataId = "",
   academicLevel = "College",
   academicTrack = "General",
   availableRoutes,
@@ -749,6 +750,7 @@ function Chatbot({
       const localCommand = childMode || assistantContext || selectedAttachments.length
         ? null
         : resolveLocalAssistantCommand(finalMessage, {
+            academicProfileId: academicProfileDataId,
             availableRoutes,
             metrics,
             onReset,
@@ -897,6 +899,7 @@ function Chatbot({
       assistantContext,
       assistantStatus.model,
       attachments,
+      academicProfileDataId,
       availableRoutes,
       childMode,
       fetchHistorySearch,

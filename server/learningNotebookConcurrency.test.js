@@ -167,7 +167,11 @@ test("PATCH retries a revision race and merges both writers' progress", async ()
   registerLearningNotebookRoutes(app, {
     getDb: async () => ({ collection: () => collection }),
     now: () => new Date("2026-07-05T10:03:00.000Z"),
-    requireAuth: (handler) => handler,
+    withProfileWriteFence: async (_db, _req, write) => write(),
+    requireAuth: (handler) => async (req, res) => {
+      req.academicProfileId ||= `legacy:${req.user?._id}:profile-a`;
+      return handler(req, res);
+    },
   });
   const req = {
     body: { notebook: staleClientSnapshot },
@@ -220,7 +224,11 @@ test("PATCH returns a retryable conflict after three revision races", async () =
       }),
     }),
     now: () => new Date("2026-07-05T10:01:00.000Z"),
-    requireAuth: (handler) => handler,
+    withProfileWriteFence: async (_db, _req, write) => write(),
+    requireAuth: (handler) => async (req, res) => {
+      req.academicProfileId ||= `legacy:${req.user?._id}:profile-a`;
+      return handler(req, res);
+    },
   });
   const res = response();
 

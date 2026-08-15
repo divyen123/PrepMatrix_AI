@@ -3,6 +3,10 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import {
   recordNotificationHistorySafely,
 } from "./notificationHistory.js";
+import {
+  academicProfileContext,
+  assertAcademicProfileWritable,
+} from "./profileDataScope.js";
 
 const DEFAULT_TRUSTED_PUSH_HOSTS = Object.freeze([
   "fcm.googleapis.com",
@@ -578,6 +582,13 @@ export async function runDailyReminderSweep({
     }
     summary.devicesExamined += devices.length;
     if (devices.length === 0) continue;
+    let profileContext;
+    try {
+      profileContext = academicProfileContext(user);
+    } catch {
+      summary.skipped += devices.length;
+      continue;
+    }
 
     let workspacePromise = null;
     for (const device of devices) {
@@ -591,7 +602,10 @@ export async function runDailyReminderSweep({
           continue;
         }
         summary.eligible += 1;
-        workspacePromise ||= workspacesCollection.findOne({ userId: user._id });
+        workspacePromise ||= workspacesCollection.findOne({
+          userId: user._id,
+          academicProfileId: profileContext.academicProfileId,
+        });
         const workspace = await workspacePromise;
         const eligibility = getReminderEligibility(workspace, clock.localTime);
         if (!eligibility.ready) {
@@ -666,9 +680,14 @@ export async function runDailyReminderSweep({
         const marked = await usersCollection.updateOne(success.filter, success.update);
         if (marked.modifiedCount === 1) summary.sent += 1;
         else summary.raced += 1;
+        await assertAcademicProfileWritable(db, {
+          user: { _id: user._id },
+          academicProfileId: profileContext.academicProfileId,
+        });
         await recordNotificationHistorySafely({
           db,
           userId: user._id,
+          academicProfileId: profileContext.academicProfileId,
           eventKey: `${notification.kind}:${clock.date}`,
           kind: notification.kind,
           title: notification.title,

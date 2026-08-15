@@ -67,6 +67,7 @@ function rewardLines(reward) {
 }
 
 export default function QuizBattlesPanel({
+  academicProfileDataId = "",
   completed = [],
   initialBattleId = "",
   initialInviteCode = "",
@@ -149,7 +150,10 @@ export default function QuizBattlesPanel({
     const snapshot = { ...nextAnswers };
     const queued = saveChainRef.current
       .catch(() => undefined)
-      .then(() => api.saveQuizBattleAnswers(battleId, snapshot, options));
+      .then(() => api.saveQuizBattleAnswers(battleId, snapshot, {
+        ...options,
+        academicProfileId: academicProfileDataId,
+      }));
     saveChainRef.current = queued.catch(() => undefined);
     queued
       .then((payload) => {
@@ -163,7 +167,7 @@ export default function QuizBattlesPanel({
         setSaveState("Save failed — final submission will still send your answers");
       });
     return queued;
-  }, [syncServerClock]);
+  }, [academicProfileDataId, syncServerClock]);
 
   const flushPendingSave = useCallback(({ keepalive = false } = {}) => {
     if (saveTimerRef.current) {
@@ -185,7 +189,7 @@ export default function QuizBattlesPanel({
   const refreshList = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const payload = await api.getQuizBattles();
+      const payload = await api.getQuizBattles({ academicProfileId: academicProfileDataId });
       syncServerClock(payload);
       if (!mountedRef.current) return [];
       setBattles(Array.isArray(payload?.battles) ? payload.battles : []);
@@ -201,13 +205,13 @@ export default function QuizBattlesPanel({
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [syncServerClock]);
+  }, [academicProfileDataId, syncServerClock]);
 
   const openBattle = useCallback(async (battleId, { silent = false } = {}) => {
     if (!battleId) return null;
     if (!silent) setBusyAction(`open:${battleId}`);
     try {
-      const payload = await api.getQuizBattle(battleId);
+      const payload = await api.getQuizBattle(battleId, { academicProfileId: academicProfileDataId });
       syncServerClock(payload);
       if (!mountedRef.current) return null;
       const nextBattle = payload.battle || null;
@@ -231,7 +235,7 @@ export default function QuizBattlesPanel({
     } finally {
       if (!silent) setBusyAction("");
     }
-  }, [hydrateAnswers, syncServerClock]);
+  }, [academicProfileDataId, hydrateAnswers, syncServerClock]);
 
   useEffect(() => {
     void refreshList();
@@ -264,7 +268,7 @@ export default function QuizBattlesPanel({
     if (code.length !== 10) return;
     let active = true;
     setBusyAction("preview");
-    api.previewQuizBattleInvite(code)
+    api.previewQuizBattleInvite(code, { academicProfileId: academicProfileDataId })
       .then((payload) => {
         syncServerClock(payload);
         if (active && requestToken === previewRequestRef.current) {
@@ -283,7 +287,7 @@ export default function QuizBattlesPanel({
     return () => {
       active = false;
     };
-  }, [initialInviteCode, syncServerClock]);
+  }, [academicProfileDataId, initialInviteCode, syncServerClock]);
 
   useEffect(() => {
     const refreshVisible = () => {
@@ -358,6 +362,7 @@ export default function QuizBattlesPanel({
         topic: createTopic,
         difficulty: createDifficulty,
       }, {
+        academicProfileId: academicProfileDataId,
         headers: { "Idempotency-Key": createAiIdempotencyKey() },
         timeoutMs: 240_000,
       });
@@ -391,7 +396,7 @@ export default function QuizBattlesPanel({
     setInvitePreview(null);
     const requestToken = ++previewRequestRef.current;
     try {
-      const payload = await api.previewQuizBattleInvite(code);
+      const payload = await api.previewQuizBattleInvite(code, { academicProfileId: academicProfileDataId });
       syncServerClock(payload);
       if (requestToken !== previewRequestRef.current || !mountedRef.current) return;
       setInvitePreview(payload.invite ? { ...payload.invite, inviteCode: code } : null);
@@ -408,7 +413,7 @@ export default function QuizBattlesPanel({
     setError("");
     try {
       const acceptedCode = invitePreview?.inviteCode || joinCode;
-      const payload = await api.acceptQuizBattleInvite(acceptedCode);
+      const payload = await api.acceptQuizBattleInvite(acceptedCode, { academicProfileId: academicProfileDataId });
       syncServerClock(payload);
       if (!mountedRef.current) return;
       setSelectedBattle(payload.battle);
@@ -431,7 +436,7 @@ export default function QuizBattlesPanel({
     if (!window.confirm("Cancel this pending battle? Generated quiz credits are not refunded.")) return;
     setBusyAction("cancel");
     try {
-      const payload = await api.cancelQuizBattle(selectedBattle.id);
+      const payload = await api.cancelQuizBattle(selectedBattle.id, { academicProfileId: academicProfileDataId });
       syncServerClock(payload);
       setSelectedBattle(payload.battle);
       selectedBattleRef.current = payload.battle;
@@ -449,7 +454,7 @@ export default function QuizBattlesPanel({
     setBusyAction("start");
     setError("");
     try {
-      const payload = await api.startQuizBattle(selectedBattle.id);
+      const payload = await api.startQuizBattle(selectedBattle.id, { academicProfileId: academicProfileDataId });
       syncServerClock(payload);
       setSelectedBattle(payload.battle);
       selectedBattleRef.current = payload.battle;
@@ -493,7 +498,11 @@ export default function QuizBattlesPanel({
     setBusyAction("submit");
     setError("");
     try {
-      const payload = await api.submitQuizBattle(selectedBattle.id, submissionAnswers);
+      const payload = await api.submitQuizBattle(
+        selectedBattle.id,
+        submissionAnswers,
+        { academicProfileId: academicProfileDataId },
+      );
       syncServerClock(payload);
       setSelectedBattle(payload.battle);
       selectedBattleRef.current = payload.battle;

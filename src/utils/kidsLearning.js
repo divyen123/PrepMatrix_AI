@@ -1,3 +1,5 @@
+import { academicProfileStorageKey } from "./academicProfileScope.js";
+
 export const KIDS_STORAGE_VERSION = 1;
 export const KIDS_STORAGE_PREFIX = "prepmatrix_kids_v1";
 
@@ -1355,7 +1357,12 @@ export function isValidParentPin(pin) {
   return /^\d{4}$/.test(String(pin || ""));
 }
 
-export function getKidsStorageKey(userProfile = {}) {
+export function getKidsStorageKey(userProfile = {}, academicProfileDataId = "") {
+  const scopedKey = academicProfileStorageKey(
+    academicProfileDataId || userProfile?.dataId || userProfile?.academicProfileId,
+    "kids-local",
+  );
+  if (scopedKey) return scopedKey;
   const identifier = String(userProfile?.id || userProfile?._id || userProfile?.email || "local");
   let hash = 0;
   for (let index = 0; index < identifier.length; index += 1) hash = Math.imul(31, hash) + identifier.charCodeAt(index) | 0;

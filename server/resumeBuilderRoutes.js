@@ -5,6 +5,11 @@ import {
   normalizeResumeLayout,
 } from "../src/utils/resumeBuilder.js";
 import { normalizeAcademicProfile } from "../src/utils/academicProfile.js";
+import {
+  academicProfileFilter,
+  getRequestAcademicProfileId,
+  withAcademicProfileWriteFence,
+} from "./profileDataScope.js";
 
 export const RESUME_GENERATIONS_COLLECTION = "resumeGenerations";
 export const RESUME_GENERATION_LOCKS_COLLECTION = "resumeGenerationLocks";
@@ -132,9 +137,9 @@ export function publicResumeHistorySummary(document = {}) {
   };
 }
 
-export async function pruneResumeHistory(collection, userId) {
+export async function pruneResumeHistory(collection, userId, academicProfileId) {
   const staleDocuments = await collection
-    .find({ userId })
+    .find({ userId, academicProfileId })
     .sort({ updatedAt: -1, _id: -1 })
     .skip(RESUME_HISTORY_LIMIT)
     .project({ _id: 1 })
@@ -142,6 +147,7 @@ export async function pruneResumeHistory(collection, userId) {
   if (!staleDocuments.length) return 0;
   const result = await collection.deleteMany({
     userId,
+    academicProfileId,
     _id: { $in: staleDocuments.map(({ _id }) => _id) },
   });
   return result.deletedCount || 0;
@@ -226,7 +232,12 @@ function sendQuotaHeaders(res, quota) {
   if (quota.resetAt) res.set("X-Resume-Quota-Reset-At", quota.resetAt);
 }
 
-export function registerResumeBuilderRoutes(app, { getDb, requireAuth, now = () => new Date() }) {
+export function registerResumeBuilderRoutes(app, {
+  getDb,
+  requireAuth,
+  now = () => new Date(),
+  withProfileWriteFence = withAcademicProfileWriteFence,
+}) {
   const invalidHistoryId = (res) => res.status(400).json({
     error: "The resume history ID is invalid.",
     code: "INVALID_RESUME_HISTORY_ID",
@@ -270,7 +281,7 @@ export function registerResumeBuilderRoutes(app, { getDb, requireAuth, now = () 
       try {
         const db = await getDb();
         const documents = await db.collection(RESUME_HISTORY_COLLECTION)
-          .find({ userId: req.user._id })
+          .find(academicProfileFilter(req))
           .sort({ updatedAt: -1, _id: -1 })
           .limit(RESUME_HISTORY_LIMIT)
           .toArray();
@@ -293,10 +304,9 @@ export function registerResumeBuilderRoutes(app, { getDb, requireAuth, now = () 
       if (!historyId) return invalidHistoryId(res);
       try {
         const db = await getDb();
-        const document = await db.collection(RESUME_HISTORY_COLLECTION).findOne({
-          _id: historyId,
-          userId: req.user._id,
-        });
+        const document = await db.collection(RESUME_HISTORY_COLLECTION).findOne(
+          academicProfileFilter(req, { _id: historyId }),
+        );
         if (!document) {
           return res.status(404).json({
             error: "Resume history item not found.",
@@ -319,11 +329,11 @@ export function registerResumeBuilderRoutes(app, { getDb, requireAuth, now = () 
         const snapshot = normalizeResumeHistorySnapshot(req.body, { now: recordedAt });
         const db = await getDb();
         const collection = db.collection(RESUME_HISTORY_COLLECTION);
+        const academicProfileId = getRequestAcademicProfileId(req);
         if (snapshot.requestId) {
-          const existing = await collection.findOne({
-            userId: req.user._id,
-            requestId: snapshot.requestId,
-          });
+          const existing = await collection.findOne(
+            academicProfileFilter(req, { requestId: snapshot.requestId }),
+          );
           if (existing) {
             return res.json({
               resume: publicResumeHistoryRecord(existing),
@@ -334,25 +344,32 @@ export function registerResumeBuilderRoutes(app, { getDb, requireAuth, now = () 
 
         const document = {
           userId: req.user._id,
+          academicProfileId,
           ...snapshot,
           createdAt: recordedAt,
         };
         let result;
         try {
-          result = await collection.insertOne(document);
+          result = await withProfileWriteFence(
+            db,
+            req,
+            async () => {
+              const inserted = await collection.insertOne(document);
+              await pruneResumeHistory(collection, req.user._id, academicProfileId);
+              return inserted;
+            },
+          );
         } catch (error) {
           if (error?.code !== 11000 || !snapshot.requestId) throw error;
-          const existing = await collection.findOne({
-            userId: req.user._id,
-            requestId: snapshot.requestId,
-          });
+          const existing = await collection.findOne(
+            academicProfileFilter(req, { requestId: snapshot.requestId }),
+          );
           if (!existing) throw error;
           return res.json({
             resume: publicResumeHistoryRecord(existing),
             idempotent: true,
           });
         }
-        await pruneResumeHistory(collection, req.user._id);
         return res.status(201).json({
           resume: publicResumeHistoryRecord({ _id: result.insertedId, ...document }),
           idempotent: false,
@@ -370,7 +387,7 @@ export function registerResumeBuilderRoutes(app, { getDb, requireAuth, now = () 
     try {
       const db = await getDb();
       const collection = db.collection(RESUME_HISTORY_COLLECTION);
-      const filter = { _id: historyId, userId: req.user._id };
+      const filter = academicProfileFilter(req, { _id: historyId });
       const existing = await collection.findOne(filter);
       if (!existing) {
         return res.status(404).json({
@@ -393,7 +410,11 @@ export function registerResumeBuilderRoutes(app, { getDb, requireAuth, now = () 
           : source.sourceGenerationId,
         requestId: source.requestId === undefined ? existing.requestId : source.requestId,
       }, { now: validDate(now()) || new Date() });
-      await collection.updateOne(filter, { $set: snapshot });
+      await withProfileWriteFence(
+        db,
+        req,
+        () => collection.updateOne(filter, { $set: snapshot }),
+      );
       return res.json({
         resume: publicResumeHistoryRecord({ ...existing, ...snapshot }),
       });
@@ -411,9 +432,13 @@ export function registerResumeBuilderRoutes(app, { getDb, requireAuth, now = () 
       res.set("Cache-Control", "no-store");
       try {
         const db = await getDb();
-        const result = await db.collection(RESUME_HISTORY_COLLECTION).deleteMany({
-          userId: req.user._id,
-        });
+        const result = await withProfileWriteFence(
+          db,
+          req,
+          () => db.collection(RESUME_HISTORY_COLLECTION).deleteMany(
+            academicProfileFilter(req),
+          ),
+        );
         return res.json({ success: true, deletedCount: result.deletedCount || 0 });
       } catch (error) {
         return sendHistoryError(res, error);
@@ -429,10 +454,13 @@ export function registerResumeBuilderRoutes(app, { getDb, requireAuth, now = () 
       if (!historyId) return invalidHistoryId(res);
       try {
         const db = await getDb();
-        const result = await db.collection(RESUME_HISTORY_COLLECTION).deleteOne({
-          _id: historyId,
-          userId: req.user._id,
-        });
+        const result = await withProfileWriteFence(
+          db,
+          req,
+          () => db.collection(RESUME_HISTORY_COLLECTION).deleteOne(
+            academicProfileFilter(req, { _id: historyId }),
+          ),
+        );
         if (result.deletedCount !== 1) {
           return res.status(404).json({
             error: "Resume history item not found.",

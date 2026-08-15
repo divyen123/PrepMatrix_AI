@@ -76,8 +76,11 @@ import {
   KIDS_ATTEMPTS_COLLECTION,
   KIDS_PARENT_SETTINGS_COLLECTION,
 } from "./kidsLearning.js";
-import registerKidsLearningRoutes from "./kidsLearningRoutes.js";
+import registerKidsLearningRoutes, {
+  KIDS_PROFILE_SETTINGS_COLLECTION,
+} from "./kidsLearningRoutes.js";
 import registerQuizBattleRoutes, {
+  cleanupQuizBattleAcademicProfileData,
   cleanupQuizBattleUserData,
 } from "./quizBattleRoutes.js";
 import {
@@ -89,11 +92,35 @@ import {
 import {
   ACADEMIC_PROFILE_LOCKS_COLLECTION,
   acquireAcademicProfileMutationLock,
-  academicProfileHasChanged,
-  academicProfileRestoreSnapshot,
-  sanitizeAcademicProfileRestore,
-  shouldCaptureAcademicProfileRestore,
 } from "./academicProfileRestore.js";
+import {
+  ACADEMIC_PROFILE_DATA_VERSION,
+  ACADEMIC_PROFILE_KEYS,
+  AcademicProfileMutationError,
+  academicProfileSnapshot,
+  beginAcademicProfileDeletion,
+  createInitialAcademicProfiles,
+  deriveAcademicProfilesState,
+  finalizeAcademicProfileDeletionState,
+  transitionAcademicProfiles,
+} from "./academicProfiles.js";
+import {
+  AcademicProfileDataPurgeError,
+  ACADEMIC_PROFILE_DELETION_TOMBSTONES_COLLECTION,
+  AcademicProfileScopeError,
+  academicProfileContext,
+  academicProfileFilter,
+  assertAcademicProfileWritable,
+  attachAcademicProfileRequestContext,
+  backfillLegacyAcademicProfileData,
+  completeAcademicProfileDeletionTombstone,
+  markAcademicProfileDeletionTombstone,
+  reconcileAcademicProfileDeletionTombstones,
+  withAcademicProfileWriteFence,
+  migrateProfileScopedUniqueIndexes,
+  purgeAcademicProfileData,
+  setQuizBattleAcademicProfileCleanup,
+} from "./profileDataScope.js";
 import {
   AI_QUOTA_LOCKS_COLLECTION,
   AI_USAGE_EVENTS_COLLECTION,
@@ -103,6 +130,7 @@ import {
 } from "./aiQuota.js";
 
 dotenv.config();
+setQuizBattleAcademicProfileCleanup(cleanupQuizBattleAcademicProfileData);
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const environmentVapidSubject = process.env.VAPID_SUBJECT?.trim() || "";
@@ -239,21 +267,20 @@ async function getDb() {
       await client.connect();
       const db = client.db(MONGODB_DB);
       try {
+      await migrateProfileScopedUniqueIndexes(db);
       await Promise.all([
         db.collection("users").createIndex({ usernameKey: 1 }, { unique: true }),
         db.collection("users").createIndex({ emailKey: 1 }, { unique: true, partialFilterExpression: { emailKey: { $type: "string" } } }),
         db.collection("sessions").createIndex({ token: 1 }, { unique: true }),
         db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-        db.collection("workspaces").createIndex({ userId: 1 }, { unique: true }),
         db.collection(ACADEMIC_PROFILE_LOCKS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-        db.collection("notes").createIndex({ userId: 1 }, { unique: true }),
-        db.collection("quizAttempts").createIndex({ userId: 1, createdAt: -1 }),
-        db.collection("chatSessions").createIndex({ userId: 1, updatedAt: -1 }),
-        db.collection("exams").createIndex({ userId: 1, createdAt: -1 }),
-        db.collection("examAttempts").createIndex({ userId: 1, updatedAt: -1 }),
-        db.collection("examAttempts").createIndex({ userId: 1, startedAt: -1 }),
-        db.collection("examAttempts").createIndex({ userId: 1, examId: 1 }, { unique: true }),
-        db.collection("examAttempts").createIndex({ userId: 1, resultAvailableAt: -1 }),
+        db.collection("worktrees").createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
+        db.collection("quizAttempts").createIndex({ userId: 1, academicProfileId: 1, createdAt: -1 }),
+        db.collection("chatSessions").createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
+        db.collection("exams").createIndex({ userId: 1, academicProfileId: 1, createdAt: -1 }),
+        db.collection("examAttempts").createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
+        db.collection("examAttempts").createIndex({ userId: 1, academicProfileId: 1, startedAt: -1 }),
+        db.collection("examAttempts").createIndex({ userId: 1, academicProfileId: 1, resultAvailableAt: -1 }),
         db.collection("examStartLocks").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         db.collection(RESUME_GENERATIONS_COLLECTION).createIndex({ userId: 1, generatedAt: -1 }),
         db.collection(RESUME_GENERATIONS_COLLECTION).createIndex(
@@ -261,48 +288,19 @@ async function getDb() {
           { unique: true, partialFilterExpression: { requestId: { $type: "string" } } },
         ),
         db.collection(RESUME_GENERATION_LOCKS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-        db.collection(RESUME_HISTORY_COLLECTION).createIndex({ userId: 1, updatedAt: -1, _id: -1 }),
-        db.collection(RESUME_HISTORY_COLLECTION).createIndex(
-          { userId: 1, requestId: 1 },
-          { unique: true, partialFilterExpression: { requestId: { $type: "string" } } },
-        ),
+        db.collection(RESUME_HISTORY_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1, _id: -1 }),
         db.collection("scheduledReminderDeliveries").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-        db.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex({ userId: 1, createdAt: -1, _id: -1 }),
-        db.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex({ userId: 1, readAt: 1 }),
-        db.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex(
-          { userId: 1, eventKey: 1 },
-          {
-            unique: true,
-            partialFilterExpression: { eventKey: { $type: "string" } },
-          },
-        ),
-        db.collection("questionPapers").createIndex({ userId: 1, createdAt: -1 }),
-        db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, updatedAt: -1 }),
-        db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, subjectName: 1 }),
-        db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex({ userId: 1, completedAt: -1 }),
-        db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex({ userId: 1, packId: 1, completedAt: -1 }),
-        db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex(
-          { userId: 1, clientAttemptId: 1 },
-          {
-            unique: true,
-            partialFilterExpression: { clientAttemptId: { $type: "string" } },
-          },
-        ),
-        db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex(
-          { userId: 1, mode: 1, localDate: 1 },
-          {
-            unique: true,
-            partialFilterExpression: {
-              mode: "daily",
-              localDate: { $type: "string" },
-            },
-          },
-        ),
+        db.collection("scheduledReminderDeliveries").createIndex({ userId: 1, academicProfileId: 1, expiresAt: 1 }),
+        db.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, createdAt: -1, _id: -1 }),
+        db.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, readAt: 1 }),
+        db.collection("questionPapers").createIndex({ userId: 1, academicProfileId: 1, createdAt: -1 }),
+        db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
+        db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, subjectName: 1 }),
+        db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, completedAt: -1 }),
+        db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, packId: 1, completedAt: -1 }),
         db.collection(KIDS_PARENT_SETTINGS_COLLECTION).createIndex({ userId: 1 }, { unique: true }),
-        db.collection(AI_USAGE_EVENTS_COLLECTION).createIndex(
-          { userId: 1, requestId: 1 },
-          { unique: true },
-        ),
+        db.collection(KIDS_PROFILE_SETTINGS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1 }, { unique: true }),
+        db.collection(ACADEMIC_PROFILE_DELETION_TOMBSTONES_COLLECTION).createIndex({ nextReconcileAt: 1 }),
         db.collection(AI_USAGE_EVENTS_COLLECTION).createIndex({ userId: 1, periodStart: 1, status: 1, reservationExpiresAt: 1 }),
         db.collection(AI_USAGE_EVENTS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         db.collection(AI_QUOTA_LOCKS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
@@ -379,7 +377,7 @@ function isValidEmail(email = "") {
 function sanitizeUser(user) {
   if (!user) return null;
   const academicProfile = normalizeAcademicProfile(user);
-  const academicProfileRestore = sanitizeAcademicProfileRestore(user.academicProfileRestore);
+  const academicProfilesState = deriveAcademicProfilesState(user);
   return {
     id: user._id.toString(),
     username: user.username,
@@ -392,7 +390,8 @@ function sanitizeUser(user) {
     schoolType: academicProfile.schoolType,
     grade: academicProfile.grade,
     degree: academicProfile.degree,
-    academicProfileRestore,
+    academicProfiles: academicProfilesState.academicProfiles,
+    activeAcademicProfileId: academicProfilesState.activeAcademicProfileId,
     profileImage: user.profileImage || "",
     needsOnboardingGuide: user.onboardingGuidePending === true,
     createdAt: user.createdAt,
@@ -401,8 +400,10 @@ function sanitizeUser(user) {
 
 function defaultWorkspace(user) {
   const academicProfile = normalizeAcademicProfile(user);
+  const profileContext = deriveAcademicProfilesState(user).activeProfile;
   return {
     userId: user._id,
+    academicProfileId: profileContext.dataId,
     subjects: [],
     schedule: [],
     completed: [],
@@ -412,7 +413,6 @@ function defaultWorkspace(user) {
     resumeBuilder: normalizeResumeBuilderState(null, user),
     goalReminderData: normalizeGoalReminderData(),
     goalReminderSettings: normalizeGoalReminderSettings(),
-    darkMode: false,
     scheduleStartDate: null,
     updatedAt: new Date(),
   };
@@ -441,16 +441,252 @@ function normalizeWorkspace(doc, user) {
     resumeBuilder: normalizeResumeBuilderState(doc?.resumeBuilder, { ...user, ...academicProfile }),
     goalReminderData: normalizeGoalReminderData(doc?.goalReminderData),
     goalReminderSettings: normalizeGoalReminderSettings(doc?.goalReminderSettings),
-    darkMode: Boolean(doc?.darkMode),
+    darkMode: typeof user?.sharedDarkMode === "boolean" ? user.sharedDarkMode : Boolean(doc?.darkMode),
     scheduleStartDate: doc?.scheduleStartDate || null,
   };
+}
+
+async function ensureActiveProfileWorkspace(db, user) {
+  const profileContext = academicProfileContext(user);
+  const filter = {
+    userId: user._id,
+    academicProfileId: profileContext.academicProfileId,
+  };
+  await db.collection("workspaces").updateOne(
+    filter,
+    { $setOnInsert: defaultWorkspace(user) },
+    { upsert: true },
+  );
+  await db.collection("notes").updateOne(
+    filter,
+    { $setOnInsert: { ...filter, notes: [], updatedAt: new Date() } },
+    { upsert: true },
+  );
+  const workspace = await db.collection("workspaces").findOne(filter);
+  return { workspace, profileContext };
+}
+
+async function acquireAcademicProfileLockOrThrow(db, userId) {
+  const lock = await acquireAcademicProfileMutationLock(db, userId);
+  if (lock) return lock;
+  throw new AcademicProfileMutationError(
+    409,
+    "PROFILE_UPDATE_IN_PROGRESS",
+    "Another profile update is already in progress. Try again.",
+  );
+}
+
+async function deleteAcademicProfileData(db, currentUser, {
+  deleteAcademicProfileId,
+  deleteAcademicProfileDataId,
+  sessionToken,
+} = {}) {
+  const requestedSlotId = String(deleteAcademicProfileId || "").trim();
+  const requestedDataId = String(deleteAcademicProfileDataId || "").trim();
+  if (!requestedDataId) {
+    throw new AcademicProfileMutationError(
+      400,
+      "ACADEMIC_PROFILE_DATA_ID_REQUIRED",
+      "Reload before deleting this academic profile.",
+    );
+  }
+
+  const context = {
+    userId: currentUser._id,
+    academicProfileId: requestedDataId,
+  };
+  let pending = null;
+  let completedRetry = false;
+  let startLock = await acquireAcademicProfileLockOrThrow(db, currentUser._id);
+  try {
+    const freshUser = await db.collection("users").findOne({
+      _id: currentUser._id,
+      deletingAt: { $exists: false },
+    });
+    if (!freshUser) {
+      throw new AcademicProfileMutationError(
+        409,
+        "ACCOUNT_DELETION_IN_PROGRESS",
+        "Account deletion is already in progress.",
+      );
+    }
+
+    const currentState = deriveAcademicProfilesState(freshUser);
+    const selectedProfile = currentState.academicProfiles.find(
+      (profile) => profile.id === requestedSlotId,
+    );
+    if (!selectedProfile) {
+      const tombstone = await db.collection("academicProfileDeletionTombstones").findOne({
+        userId: currentUser._id,
+        academicProfileId: requestedDataId,
+        slotId: requestedSlotId,
+        status: { $in: ["pending", "completed"] },
+      });
+      if (!tombstone) {
+        throw new AcademicProfileMutationError(
+          409,
+          "ACADEMIC_PROFILE_CONTEXT_CHANGED",
+          "That profile was replaced. Reload before deleting it.",
+        );
+      }
+      completedRetry = true;
+    } else {
+      const freshCurrentIsYoungKids = getYoungKidsAccessProfile(currentState.activeProfile).eligible;
+      const selectedIsYoungKids = getYoungKidsAccessProfile(selectedProfile).eligible;
+      if (freshCurrentIsYoungKids || selectedIsYoungKids) {
+        const parentFeatureAccess = await readYoungKidsParentFeatureAccess(db, {
+          user: selectedIsYoungKids
+            ? { ...selectedProfile, _id: freshUser._id }
+            : freshUser,
+          sessionToken,
+          parentSettingsCollection: KIDS_PARENT_SETTINGS_COLLECTION,
+        });
+        if (!parentFeatureAccess.allowed) {
+          throw new AcademicProfileMutationError(
+            403,
+            "KIDS_PARENT_ACCESS_REQUIRED",
+            "Open Parent Corner before deleting this child account's academic profile.",
+          );
+        }
+      }
+
+      pending = beginAcademicProfileDeletion(freshUser, requestedSlotId, {
+        targetDataId: requestedDataId,
+      });
+      const pendingAt = new Date();
+      const pendingUpdate = await db.collection("users").updateOne(
+        {
+          _id: currentUser._id,
+          deletingAt: { $exists: false },
+          academicProfiles: {
+            $elemMatch: {
+              id: pending.targetProfile.id,
+              dataId: pending.targetProfile.dataId,
+            },
+          },
+        },
+        {
+          $set: {
+            ...academicProfileSnapshot(pending.activeProfile),
+            academicProfiles: pending.academicProfiles,
+            activeAcademicProfileId: pending.activeAcademicProfileId,
+            academicProfileDataVersion: ACADEMIC_PROFILE_DATA_VERSION,
+            updatedAt: pendingAt,
+          },
+          $unset: { academicProfileRestore: "" },
+        },
+      );
+      if (pendingUpdate.matchedCount !== 1) {
+        throw new AcademicProfileMutationError(
+          409,
+          "ACADEMIC_PROFILE_CONTEXT_CHANGED",
+          "The profile changed before deletion started. Reload and try again.",
+        );
+      }
+      await markAcademicProfileDeletionTombstone(db, context, {
+        slotId: pending.targetProfile.id,
+        operationId: pending.deletionPending.operationId,
+      });
+    }
+  } finally {
+    await startLock.release().catch(() => undefined);
+    startLock = null;
+  }
+
+  // Purge without the academic lock: battle cleanup may acquire action locks.
+  // Pending state makes all fenced writes reject while cleanup is running.
+  await purgeAcademicProfileData(db, context);
+
+  if (completedRetry) {
+    let retryFinalLock = await acquireAcademicProfileLockOrThrow(db, currentUser._id);
+    try {
+      const updatedUser = await db.collection("users").findOne({
+        _id: currentUser._id,
+        deletingAt: { $exists: false },
+      });
+      if (!updatedUser) {
+        throw new AcademicProfileMutationError(
+          409,
+          "ACCOUNT_DELETION_IN_PROGRESS",
+          "Account deletion started before the profile deletion retry could finish.",
+        );
+      }
+      await completeAcademicProfileDeletionTombstone(db, context);
+      const activeProfileData = await ensureActiveProfileWorkspace(db, updatedUser);
+      return { user: updatedUser, ...activeProfileData, retried: true };
+    } finally {
+      await retryFinalLock.release().catch(() => undefined);
+      retryFinalLock = null;
+    }
+  }
+
+  let finalLock = await acquireAcademicProfileLockOrThrow(db, currentUser._id);
+  try {
+    const pendingUser = await db.collection("users").findOne({
+      _id: currentUser._id,
+      deletingAt: { $exists: false },
+    });
+    if (!pendingUser) {
+      throw new AcademicProfileDataPurgeError("The profile deletion state could not be reloaded.");
+    }
+
+    let finalized;
+    try {
+      finalized = finalizeAcademicProfileDeletionState(pendingUser, {
+        targetDataId: pending.targetProfile.dataId,
+        operationId: pending.deletionPending.operationId,
+      });
+    } catch (error) {
+      throw new AcademicProfileDataPurgeError(
+        "The data was removed, but profile deletion still needs to be finalized. Try again.",
+        { cause: error },
+      );
+    }
+
+    const finalizedAt = new Date();
+    const finalizedUpdate = await db.collection("users").updateOne(
+      {
+        _id: currentUser._id,
+        academicProfiles: {
+          $elemMatch: {
+            dataId: pending.targetProfile.dataId,
+            "deletionPending.operationId": pending.deletionPending.operationId,
+          },
+        },
+      },
+      {
+        $set: {
+          ...academicProfileSnapshot(finalized.activeProfile),
+          academicProfiles: finalized.academicProfiles,
+          activeAcademicProfileId: finalized.activeAcademicProfileId,
+          academicProfileDataVersion: ACADEMIC_PROFILE_DATA_VERSION,
+          updatedAt: finalizedAt,
+        },
+        $unset: { academicProfileRestore: "" },
+      },
+    );
+    if (finalizedUpdate.matchedCount !== 1) {
+      throw new AcademicProfileDataPurgeError(
+        "The data was removed, but profile deletion still needs to be finalized. Try again.",
+      );
+    }
+
+    await completeAcademicProfileDeletionTombstone(db, context);
+    const updatedUser = await db.collection("users").findOne({ _id: currentUser._id });
+    if (!updatedUser) throw new AcademicProfileDataPurgeError("The remaining profile could not be loaded.");
+    const activeProfileData = await ensureActiveProfileWorkspace(db, updatedUser);
+    return { user: updatedUser, ...activeProfileData, retried: false };
+  } finally {
+    await finalLock.release().catch(() => undefined);
+    finalLock = null;
+  }
 }
 
 async function requireYoungKidsScheduleAccess(req, res, db, update, user = req.user) {
   const kidsProfile = getYoungKidsAccessProfile(user);
   if (!kidsProfile.eligible) return true;
 
-  const existingWorkspace = await db.collection("workspaces").findOne({ userId: req.user._id });
+  const existingWorkspace = await db.collection("workspaces").findOne(academicProfileFilter(req));
   if (!kidsWorkspaceScheduleChanged(existingWorkspace, update)) return true;
 
   const parentSettings = await db.collection(KIDS_PARENT_SETTINGS_COLLECTION)
@@ -495,8 +731,11 @@ async function getAuthenticatedSession(req) {
   const session = await db.collection("sessions").findOne({ token, expiresAt: { $gt: new Date() } });
   if (!session) return { user: null, token, session: null, reason: "expired" };
 
-  const user = await db.collection("users").findOne({ _id: session.userId });
-  if (!user) return { user: null, token, session, reason: "missing_user" };
+  const storedUser = await db.collection("users").findOne({ _id: session.userId });
+  if (!storedUser) return { user: null, token, session, reason: "missing_user" };
+  const { user } = await backfillLegacyAcademicProfileData(db, storedUser, {
+    dataVersion: ACADEMIC_PROFILE_DATA_VERSION,
+  });
 
   if (user.passwordChangedAt && session.createdAt && new Date(session.createdAt) < new Date(user.passwordChangedAt)) {
     return { user: null, token, session, reason: "password_changed" };
@@ -624,9 +863,13 @@ function requireAuth(handler) {
       req.user = auth.user;
       req.sessionToken = auth.token;
       req.session = auth.session;
+      attachAcademicProfileRequestContext(req);
       setSessionCookie(res, auth.token);
       return handler(req, res);
     } catch (error) {
+      if (error instanceof AcademicProfileScopeError) {
+        return res.status(error.status).json({ error: error.message, code: error.code });
+      }
       console.error("Authenticated request failed:", error instanceof Error ? error.name : "UnknownError");
       return res.status(500).json({ error: "The request could not be completed." });
     }
@@ -826,6 +1069,7 @@ app.post("/api/auth/register", async (req, res) => {
       return res.status(400).json({ error: "Choose the learner's exact class." });
     }
     const db = await getDb();
+    const initialAcademicProfiles = createInitialAcademicProfiles(academicProfile);
     const userDoc = {
       username: displayNameFromEmail(email),
       usernameKey: emailKey(email),
@@ -834,6 +1078,10 @@ app.post("/api/auth/register", async (req, res) => {
       passwordHash: hashPassword(password),
       institutionName: institutionName.trim(),
       ...academicProfilePayload(academicProfile),
+      academicProfiles: initialAcademicProfiles.academicProfiles,
+      activeAcademicProfileId: initialAcademicProfiles.activeAcademicProfileId,
+      academicProfileDataVersion: ACADEMIC_PROFILE_DATA_VERSION,
+      sharedDarkMode: false,
       onboardingGuidePending: true,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -841,10 +1089,25 @@ app.post("/api/auth/register", async (req, res) => {
     const result = await db.collection("users").insertOne(userDoc);
     const user = { ...userDoc, _id: result.insertedId };
     await db.collection("workspaces").insertOne(defaultWorkspace(user));
-    await db.collection("notes").insertOne({ userId: user._id, notes: [], updatedAt: new Date() });
+    await db.collection("notes").insertOne({
+      userId: user._id,
+      academicProfileId: initialAcademicProfiles.activeProfile.dataId,
+      notes: [],
+      updatedAt: new Date(),
+    });
     const token = await createSession(user._id);
     setSessionCookie(res, token);
-    return res.status(201).json({ token, user: sanitizeUser(user), workspace: normalizeWorkspace(null, user) });
+    return res.status(201).json({
+      token,
+      user: sanitizeUser(user),
+      workspace: normalizeWorkspace(null, user),
+      profileContext: {
+        slotId: initialAcademicProfiles.activeProfile.id,
+        academicProfileId: initialAcademicProfiles.activeProfile.dataId,
+        dataId: initialAcademicProfiles.activeProfile.dataId,
+        version: ACADEMIC_PROFILE_DATA_VERSION,
+      },
+    });
   } catch (error) {
     if (error?.code === 11000) return res.status(409).json({ error: "A user with this email already exists." });
     return res.status(500).json({ error: error instanceof Error ? error.message : "Registration failed." });
@@ -855,14 +1118,21 @@ app.post("/api/auth/login", async (req, res) => {
   try {
     const { email = "", password = "" } = req.body ?? {};
     const db = await getDb();
-    const user = await db.collection("users").findOne({ $or: [{ emailKey: emailKey(email) }, { usernameKey: emailKey(email) }] });
-    if (!user || !verifyPassword(password, user.passwordHash)) {
+    const storedUser = await db.collection("users").findOne({ $or: [{ emailKey: emailKey(email) }, { usernameKey: emailKey(email) }] });
+    if (!storedUser || !verifyPassword(password, storedUser.passwordHash)) {
       return res.status(401).json({ error: "Email or password is incorrect." });
     }
+    const { user } = await backfillLegacyAcademicProfileData(db, storedUser, {
+      dataVersion: ACADEMIC_PROFILE_DATA_VERSION,
+    });
     const token = await createSession(user._id);
     setSessionCookie(res, token);
-    const workspace = await db.collection("workspaces").findOne({ userId: user._id });
-    return res.json({ token, user: sanitizeUser(user), workspace: normalizeWorkspace(workspace, user) });
+    const profileContext = academicProfileContext(user);
+    const workspace = await db.collection("workspaces").findOne({
+      userId: user._id,
+      academicProfileId: profileContext.academicProfileId,
+    });
+    return res.json({ token, user: sanitizeUser(user), workspace: normalizeWorkspace(workspace, user), profileContext });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Login failed." });
   }
@@ -933,6 +1203,8 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
         db.collection("quizAttempts").deleteMany({ userId }),
         db.collection(KIDS_ATTEMPTS_COLLECTION).deleteMany({ userId }),
         db.collection(KIDS_PARENT_SETTINGS_COLLECTION).deleteMany({ userId }),
+        db.collection(KIDS_PROFILE_SETTINGS_COLLECTION).deleteMany({ userId }),
+        db.collection(ACADEMIC_PROFILE_DELETION_TOMBSTONES_COLLECTION).deleteMany({ userId }),
         db.collection("worktrees").deleteMany({ userId }),
         db.collection("chatSessions").deleteMany({ userId }),
         db.collection("exams").deleteMany({ userId }),
@@ -947,6 +1219,7 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
         db.collection(RESUME_GENERATION_LOCKS_COLLECTION).deleteMany({ _id: `resume-generation:${String(userId)}` }),
         db.collection(AI_USAGE_EVENTS_COLLECTION).deleteMany({ userId }),
         db.collection(AI_QUOTA_LOCKS_COLLECTION).deleteMany({ userId }),
+        db.collection("quizBattleRewardLedger").deleteMany({ userId }),
         db.collection("sessions").deleteMany({ userId }),
       ]);
       await db.collection("users").deleteOne({ _id: userId, deletingAt });
@@ -978,8 +1251,12 @@ app.get("/api/auth/me", async (req, res) => {
 
     setSessionCookie(res, auth.token);
     const db = await getDb();
-    const workspace = await db.collection("workspaces").findOne({ userId: auth.user._id });
-    return res.json({ token: auth.token, user: sanitizeUser(auth.user), workspace: normalizeWorkspace(workspace, auth.user) });
+    const profileContext = academicProfileContext(auth.user);
+    const workspace = await db.collection("workspaces").findOne({
+      userId: auth.user._id,
+      academicProfileId: profileContext.academicProfileId,
+    });
+    return res.json({ token: auth.token, user: sanitizeUser(auth.user), workspace: normalizeWorkspace(workspace, auth.user), profileContext });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Could not load profile." });
   }
@@ -1164,63 +1441,88 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
 
     if (age !== undefined) update.age = age === null ? null : Number(age);
     if (institutionName) update.institutionName = institutionName.trim();
-    const academicKeys = ["schoolType", "academicLevel", "academicTrack", "department", "grade", "degree"];
+    const academicKeys = ACADEMIC_PROFILE_KEYS;
     const restoreAcademicProfile = requestedProfile.restoreAcademicProfile === true;
     const hasAcademicFields = academicKeys.some((key) => Object.prototype.hasOwnProperty.call(requestedProfile, key));
-    const hasAcademicUpdate = hasAcademicFields || restoreAcademicProfile;
-    if (hasAcademicUpdate) {
-      const currentAcademic = normalizeAcademicProfile(currentUser);
-      if (restoreAcademicProfile && hasAcademicFields) {
-        return res.status(400).json({
-          error: "Restore the saved academic profile without sending replacement academic fields.",
-          code: "ACADEMIC_PROFILE_RESTORE_CONFLICT",
-        });
-      }
-
-      const savedAcademic = restoreAcademicProfile
-        ? sanitizeAcademicProfileRestore(currentUser.academicProfileRestore)
-        : null;
-      if (restoreAcademicProfile && !savedAcademic) {
-        return res.status(409).json({
-          error: "No previous academic profile is available to restore. Choose the correct stage and details manually.",
-          code: "ACADEMIC_PROFILE_RESTORE_UNAVAILABLE",
-        });
-      }
-
-      const requestedAcademic = normalizeAcademicProfile({
-        ...currentUser,
-        ...(restoreAcademicProfile ? savedAcademic : requestedProfile),
+    const hasVisitAction = Object.prototype.hasOwnProperty.call(requestedProfile, "visitAcademicProfileId");
+    const hasDeleteAction = Object.prototype.hasOwnProperty.call(requestedProfile, "deleteAcademicProfileId");
+    const hasAcademicMutation = hasAcademicFields
+      || hasVisitAction
+      || hasDeleteAction
+      || restoreAcademicProfile;
+    const currentAcademic = normalizeAcademicProfile(currentUser);
+    const requestedAcademic = hasAcademicFields
+      ? normalizeAcademicProfile({ ...currentUser, ...requestedProfile })
+      : null;
+    if (hasDeleteAction && (hasAcademicFields || hasVisitAction || restoreAcademicProfile)) {
+      throw new AcademicProfileMutationError(
+        400,
+        "ACADEMIC_PROFILE_ACTION_CONFLICT",
+        "Delete the academic profile separately from other academic changes.",
+      );
+    }
+    const academicTransition = hasDeleteAction
+      ? null
+      : transitionAcademicProfiles(currentUser, {
+        requestedAcademic,
+        visitAcademicProfileId: hasVisitAction
+          ? requestedProfile.visitAcademicProfileId
+          : undefined,
+        restoreAcademicProfile,
       });
-      const academicChanged = academicProfileHasChanged(currentAcademic, requestedAcademic);
-      const currentIsYoungKids = getYoungKidsAccessProfile(currentAcademic).eligible;
-      const requestedIsYoungKids = getYoungKidsAccessProfile(requestedAcademic).eligible;
 
-      if (currentIsYoungKids && academicChanged) {
+    if (hasAcademicMutation) {
+      const currentIsYoungKids = getYoungKidsAccessProfile(currentAcademic).eligible;
+      const currentProfileState = deriveAcademicProfilesState(currentUser);
+      const targetSlotId = hasDeleteAction
+        ? requestedProfile.deleteAcademicProfileId
+        : hasVisitAction
+          ? requestedProfile.visitAcademicProfileId
+          : academicTransition.activeProfile.id;
+      const targetProfile = currentProfileState.academicProfiles.find((profile) => profile.id === targetSlotId)
+        || academicTransition?.activeProfile
+        || currentProfileState.activeProfile;
+      const targetIsYoungKids = getYoungKidsAccessProfile(targetProfile).eligible;
+      const requiresParentAccess = (currentIsYoungKids && (hasDeleteAction || academicTransition?.activeAcademicChanged))
+        || (hasDeleteAction && targetIsYoungKids);
+
+      if (requiresParentAccess) {
         const parentFeatureAccess = await readYoungKidsParentFeatureAccess(db, {
-          user: currentUser,
+          user: targetIsYoungKids
+            ? { ...targetProfile, _id: currentUser._id }
+            : currentUser,
           sessionToken: req.sessionToken,
           parentSettingsCollection: KIDS_PARENT_SETTINGS_COLLECTION,
         });
         if (!parentFeatureAccess.allowed) {
           res.set("Cache-Control", "no-store");
           return res.status(403).json({
-            error: "Open Parent Corner before changing or restoring this child account's academic profile.",
+            error: "Open Parent Corner before changing, visiting, or deleting this child account's academic profile.",
             code: "KIDS_PARENT_ACCESS_REQUIRED",
             parentAccess: parentFeatureAccess.parentAccess,
           });
         }
       }
 
-      Object.assign(update, academicProfilePayload(requestedAcademic));
-      if (shouldCaptureAcademicProfileRestore(currentAcademic, requestedAcademic)) {
-        update.academicProfileRestore = {
-          ...academicProfileRestoreSnapshot(currentAcademic),
-          capturedAt: new Date(),
-        };
-      } else if (currentIsYoungKids && !requestedIsYoungKids && academicChanged) {
-        unset.academicProfileRestore = "";
+      if (hasDeleteAction) {
+        await profileMutationLock.release().catch(() => undefined);
+        profileMutationLock = null;
+        const deleted = await deleteAcademicProfileData(db, currentUser, {
+          ...requestedProfile,
+          sessionToken: req.sessionToken,
+        });
+        return res.json({
+          user: sanitizeUser(deleted.user),
+          workspace: normalizeWorkspace(deleted.workspace, deleted.user),
+          profileContext: deleted.profileContext,
+        });
       }
+
+      Object.assign(update, academicProfileSnapshot(academicTransition.activeProfile));
     }
+    update.academicProfiles = academicTransition.academicProfiles;
+    update.activeAcademicProfileId = academicTransition.activeAcademicProfileId;
+    unset.academicProfileRestore = "";
     if (profileImage !== undefined) {
       if (typeof profileImage !== "string") {
         return res.status(400).json({ error: "Profile image must be a valid image string." });
@@ -1249,35 +1551,40 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
       });
     }
 
-    if (hasAcademicUpdate) {
-      try {
-        await db.collection("workspaces").updateOne(
-          { userId: req.user._id },
-          {
-            $set: {
-              academicLevel: update.academicLevel,
-              academicTrack: update.academicTrack,
-              updatedAt: new Date(),
-            },
-            $setOnInsert: { userId: req.user._id },
-          },
-          { upsert: true },
-        );
-      } catch (workspaceError) {
-        console.warn("Academic profile saved; workspace mirror will be repaired from the user profile.", workspaceError);
-      }
-    }
-
     const updatedUser = await db.collection("users").findOne({ _id: req.user._id });
+    const activeProfileData = hasAcademicMutation
+      ? await ensureActiveProfileWorkspace(db, updatedUser)
+      : null;
 
     if (password) {
       const token = await createSession(req.user._id);
       setSessionCookie(res, token);
-      return res.json({ token, user: sanitizeUser(updatedUser), passwordChanged: true });
+      return res.json({
+        token,
+        user: sanitizeUser(updatedUser),
+        passwordChanged: true,
+        ...(activeProfileData ? {
+          workspace: normalizeWorkspace(activeProfileData.workspace, updatedUser),
+          profileContext: activeProfileData.profileContext,
+        } : {}),
+      });
     }
 
-    res.json({ user: sanitizeUser(updatedUser) });
+    res.json({
+      user: sanitizeUser(updatedUser),
+      ...(activeProfileData ? {
+        workspace: normalizeWorkspace(activeProfileData.workspace, updatedUser),
+        profileContext: activeProfileData.profileContext,
+      } : {}),
+    });
   } catch (error) {
+    if (error instanceof AcademicProfileMutationError) {
+      return res.status(error.status).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof AcademicProfileDataPurgeError) {
+      res.set("Retry-After", "1");
+      return res.status(error.status).json({ error: error.message, code: error.code });
+    }
     res.status(500).json({ error: error instanceof Error ? error.message : "Profile update failed." });
   } finally {
     await profileMutationLock?.release().catch(() => undefined);
@@ -1306,7 +1613,11 @@ app.put("/api/workspace", requireAuth(async (req, res) => {
         code: "ACCOUNT_DELETION_IN_PROGRESS",
       });
     }
-    const allowed = ["subjects", "schedule", "completed", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "darkMode", "scheduleStartDate"];
+    await assertAcademicProfileWritable(db, req);
+    const requestedDarkMode = Object.prototype.hasOwnProperty.call(req.body ?? {}, "darkMode")
+      ? Boolean(req.body.darkMode)
+      : activeUser.sharedDarkMode;
+    const allowed = ["subjects", "schedule", "completed", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "scheduleStartDate"];
     const update = allowed.reduce((next, key) => {
       if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
       return next;
@@ -1319,12 +1630,19 @@ app.put("/api/workspace", requireAuth(async (req, res) => {
     if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);
     if ("resumeBuilder" in update) update.resumeBuilder = normalizeResumeBuilderState(update.resumeBuilder, activeUser);
     if (!(await requireYoungKidsScheduleAccess(req, res, db, update, activeUser))) return;
+    if (typeof requestedDarkMode === "boolean") {
+      await db.collection("users").updateOne(
+        { _id: req.user._id, deletingAt: { $exists: false } },
+        { $set: { sharedDarkMode: requestedDarkMode, updatedAt: new Date() } },
+      );
+      activeUser.sharedDarkMode = requestedDarkMode;
+    }
     await db.collection("workspaces").updateOne(
-      { userId: req.user._id },
-      { $set: update, $setOnInsert: { userId: req.user._id } },
+      academicProfileFilter(req),
+      { $set: update, $setOnInsert: academicProfileFilter(req) },
       { upsert: true },
     );
-    const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
+    const workspace = await db.collection("workspaces").findOne(academicProfileFilter(req));
     return res.json({ workspace: normalizeWorkspace(workspace, activeUser) });
   } finally {
     await profileMutationLock?.release().catch(() => undefined);
@@ -1353,7 +1671,11 @@ app.post("/api/workspace/import", requireAuth(async (req, res) => {
         code: "ACCOUNT_DELETION_IN_PROGRESS",
       });
     }
-    const allowed = ["subjects", "schedule", "completed", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "darkMode", "scheduleStartDate"];
+    await assertAcademicProfileWritable(db, req);
+    const requestedDarkMode = Object.prototype.hasOwnProperty.call(req.body ?? {}, "darkMode")
+      ? Boolean(req.body.darkMode)
+      : activeUser.sharedDarkMode;
+    const allowed = ["subjects", "schedule", "completed", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "scheduleStartDate"];
     const update = allowed.reduce((next, key) => {
       if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
       return next;
@@ -1366,12 +1688,19 @@ app.post("/api/workspace/import", requireAuth(async (req, res) => {
     if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);
     if ("resumeBuilder" in update) update.resumeBuilder = normalizeResumeBuilderState(update.resumeBuilder, activeUser);
     if (!(await requireYoungKidsScheduleAccess(req, res, db, update, activeUser))) return;
+    if (typeof requestedDarkMode === "boolean") {
+      await db.collection("users").updateOne(
+        { _id: req.user._id, deletingAt: { $exists: false } },
+        { $set: { sharedDarkMode: requestedDarkMode, updatedAt: new Date() } },
+      );
+      activeUser.sharedDarkMode = requestedDarkMode;
+    }
     await db.collection("workspaces").updateOne(
-      { userId: req.user._id },
-      { $set: update, $setOnInsert: { userId: req.user._id } },
+      academicProfileFilter(req),
+      { $set: update, $setOnInsert: academicProfileFilter(req) },
       { upsert: true }
     );
-    const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
+    const workspace = await db.collection("workspaces").findOne(academicProfileFilter(req));
     res.json({ workspace: normalizeWorkspace(workspace, activeUser) });
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : "Workspace import failed." });
@@ -1394,11 +1723,13 @@ registerNotificationHistoryRoutes(app, {
   getDb,
   mutationSecurity: requireNotificationMutationSecurity,
   requireAuth,
+  withProfileWriteFence: withAcademicProfileWriteFence,
 });
 
 registerResumeBuilderRoutes(app, {
   getDb,
   requireAuth,
+  withProfileWriteFence: withAcademicProfileWriteFence,
 });
 
 
@@ -1414,12 +1745,14 @@ registerLearningNotebookRoutes(app, {
   groqModel: GROQ_CHAT_MODEL,
   groqVisionModel: GROQ_VISION_MODEL,
   requireAuth,
+  withProfileWriteFence: withAcademicProfileWriteFence,
 });
 
 registerLearningMemoryRoutes(app, {
   getDb,
   mutationSecurity: requireNotificationMutationSecurity,
   requireAuth,
+  withProfileWriteFence: withAcademicProfileWriteFence,
 });
 
 registerQuizBattleRoutes(app, {
@@ -1439,6 +1772,7 @@ registerKidsLearningRoutes(app, {
 registerLearningNoteRoutes(app, {
   getDb,
   requireAuth,
+  withProfileWriteFence: withAcademicProfileWriteFence,
 });
 app.post("/api/internal/notifications/daily-reminders", async (req, res) => {
   res.set("Cache-Control", "no-store");
@@ -1460,18 +1794,19 @@ app.post("/api/internal/notifications/daily-reminders", async (req, res) => {
 
 app.get("/api/notes", requireAuth(async (req, res) => {
   const db = await getDb();
-  const doc = await db.collection("notes").findOne({ userId: req.user._id });
+  const doc = await db.collection("notes").findOne(academicProfileFilter(req));
   res.json({ notes: doc?.notes || [] });
 }));
 
 app.put("/api/notes", requireAuth(async (req, res) => {
   const db = await getDb();
+  await assertAcademicProfileWritable(db, req);
   const notes = Array.isArray(req.body?.notes) ? req.body.notes : [];
-  await db.collection("notes").updateOne(
-    { userId: req.user._id },
-    { $set: { notes, updatedAt: new Date() }, $setOnInsert: { userId: req.user._id } },
-    { upsert: true }
-  );
+  await withAcademicProfileWriteFence(db, req, () => db.collection("notes").updateOne(
+    academicProfileFilter(req),
+    { $set: { notes, updatedAt: new Date() }, $setOnInsert: academicProfileFilter(req) },
+    { upsert: true },
+  ));
   res.json({ notes });
 }));
 
@@ -1479,7 +1814,7 @@ app.get("/api/worktrees", requireAuth(async (req, res) => {
   try {
     const db = await getDb();
     const list = await db.collection("worktrees")
-      .find({ userId: req.user._id })
+      .find(academicProfileFilter(req))
       .sort({ updatedAt: -1 })
       .toArray();
     res.json({
@@ -1497,18 +1832,24 @@ app.get("/api/worktrees", requireAuth(async (req, res) => {
 app.post("/api/worktrees", requireAuth(async (req, res) => {
   try {
     const db = await getDb();
+    await assertAcademicProfileWritable(db, req);
     const { name, nodes } = req.body;
     if (!name || !Array.isArray(nodes)) {
       return res.status(400).json({ error: "Missing name or nodes" });
     }
     const doc = {
       userId: req.user._id,
+      academicProfileId: req.academicProfileId,
       name,
       nodes,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    const result = await db.collection("worktrees").insertOne(doc);
+    const result = await withAcademicProfileWriteFence(
+      db,
+      req,
+      () => db.collection("worktrees").insertOne(doc),
+    );
     res.status(201).json({
       id: result.insertedId.toString(),
       name,
@@ -1524,13 +1865,18 @@ app.post("/api/worktrees", requireAuth(async (req, res) => {
 app.put("/api/worktrees/:id", requireAuth(async (req, res) => {
   try {
     const db = await getDb();
+    await assertAcademicProfileWritable(db, req);
     const { name, nodes } = req.body;
     if (!name || !Array.isArray(nodes)) {
       return res.status(400).json({ error: "Missing name or nodes" });
     }
-    const result = await db.collection("worktrees").updateOne(
-      { _id: new ObjectId(req.params.id), userId: req.user._id },
-      { $set: { name, nodes, updatedAt: new Date() } }
+    const result = await withAcademicProfileWriteFence(
+      db,
+      req,
+      () => db.collection("worktrees").updateOne(
+        academicProfileFilter(req, { _id: new ObjectId(req.params.id) }),
+        { $set: { name, nodes, updatedAt: new Date() } },
+      ),
     );
     if (result.matchedCount === 0) {
       return res.status(404).json({ error: "Worktree not found" });
@@ -1544,10 +1890,14 @@ app.put("/api/worktrees/:id", requireAuth(async (req, res) => {
 app.delete("/api/worktrees/:id", requireAuth(async (req, res) => {
   try {
     const db = await getDb();
-    const result = await db.collection("worktrees").deleteOne({
-      _id: new ObjectId(req.params.id),
-      userId: req.user._id
-    });
+    await assertAcademicProfileWritable(db, req);
+    const result = await withAcademicProfileWriteFence(
+      db,
+      req,
+      () => db.collection("worktrees").deleteOne({
+        ...academicProfileFilter(req, { _id: new ObjectId(req.params.id) }),
+      }),
+    );
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: "Worktree not found" });
     }
@@ -1559,7 +1909,7 @@ app.delete("/api/worktrees/:id", requireAuth(async (req, res) => {
 
 app.get("/api/quizzes", requireParentGuidedFeature("Quiz", async (req, res) => {
   const db = await getDb();
-  const attempts = await db.collection("quizAttempts").find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(50).toArray();
+  const attempts = await db.collection("quizAttempts").find(academicProfileFilter(req)).sort({ createdAt: -1 }).limit(50).toArray();
   res.json({ attempts: attempts.map(({ _id, ...attempt }) => {
     delete attempt.userId;
     return { id: _id.toString(), ...attempt };
@@ -1570,7 +1920,12 @@ app.get("/api/quizzes", requireParentGuidedFeature("Quiz", async (req, res) => {
 
 app.delete("/api/quizzes", requireParentGuidedFeature("Quiz", async (req, res) => {
   const db = await getDb();
-  const result = await db.collection("quizAttempts").deleteMany({ userId: req.user._id });
+  await assertAcademicProfileWritable(db, req);
+  const result = await withAcademicProfileWriteFence(
+    db,
+    req,
+    () => db.collection("quizAttempts").deleteMany(academicProfileFilter(req)),
+  );
   res.json({ ok: true, deletedCount: result.deletedCount });
 }));
 
@@ -1581,10 +1936,14 @@ app.delete("/api/quizzes/:id", requireParentGuidedFeature("Quiz", async (req, re
   }
 
   const db = await getDb();
-  const result = await db.collection("quizAttempts").deleteOne({
-    _id: new ObjectId(attemptId),
-    userId: req.user._id,
-  });
+  await assertAcademicProfileWritable(db, req);
+  const result = await withAcademicProfileWriteFence(
+    db,
+    req,
+    () => db.collection("quizAttempts").deleteOne({
+      ...academicProfileFilter(req, { _id: new ObjectId(attemptId) }),
+    }),
+  );
 
   if (result.deletedCount === 0) {
     return res.status(404).json({ error: "Quiz attempt not found." });
@@ -1608,6 +1967,7 @@ app.post("/api/quizzes/generate", requireParentGuidedFeature("Quiz", async (req,
     const requestId = aiQuotaRequestId(req);
     const priorRequest = await aiQuota.lookup({
       userId: req.user._id,
+      academicProfileId: req.academicProfileId,
       feature: "quiz",
       requestId,
     });
@@ -1655,6 +2015,7 @@ app.post("/api/quizzes/generate", requireParentGuidedFeature("Quiz", async (req,
 
     const quotaResult = await aiQuota.reserve({
       userId: req.user._id,
+      academicProfileId: req.academicProfileId,
       feature: "quiz",
       requestId,
     });
@@ -1717,12 +2078,14 @@ app.post("/api/quizzes/generate", requireParentGuidedFeature("Quiz", async (req,
       );
     }
 
+    const db = await getDb();
+    await assertAcademicProfileWritable(db, req);
     const resultPayload = { questions, limit, model: GROQ_CHAT_MODEL, topic, subjectName };
-    const committed = await aiQuota.commit({
+    const committed = await withAcademicProfileWriteFence(db, req, () => aiQuota.commit({
       eventId: reservation.eventId,
       reservationToken: reservation.reservationToken,
       replayPayload: resultPayload,
-    });
+    }));
     setAiQuotaHeaders(res, committed.quota, reservation.cost);
     return res.json(resultPayload);
   } catch (error) {
@@ -1759,9 +2122,11 @@ app.post("/api/quizzes/generate", requireParentGuidedFeature("Quiz", async (req,
 }));
 app.post("/api/quizzes", requireParentGuidedFeature("Quiz", async (req, res) => {
   const db = await getDb();
+  await assertAcademicProfileWritable(db, req);
   const academicProfileSnapshot = academicProfilePayload({ ...req.user, ...(req.body || {}) });
   const attempt = {
     userId: req.user._id,
+    academicProfileId: req.academicProfileId,
     ...academicProfileSnapshot,
     academicProfileSnapshot,
     subjectName: req.body?.subjectName || "General study",
@@ -1772,7 +2137,11 @@ app.post("/api/quizzes", requireParentGuidedFeature("Quiz", async (req, res) => 
     answers: req.body?.answers || {},
     createdAt: new Date(),
   };
-  const result = await db.collection("quizAttempts").insertOne(attempt);
+  const result = await withAcademicProfileWriteFence(
+    db,
+    req,
+    () => db.collection("quizAttempts").insertOne(attempt),
+  );
   const safeAttempt = { ...attempt };
   delete safeAttempt.userId;
   res.status(201).json({ attempt: { id: result.insertedId.toString(), ...safeAttempt } });
@@ -1812,7 +2181,10 @@ app.get("/api/study-assistant/status", (_req, res) => {
 // Chat History Endpoints
 app.get("/api/chat-sessions", requireAuth(async (req, res) => {
   const db = await getDb();
-  const filter = buildChatSessionListFilter(req.user._id, req.query.q);
+  const filter = {
+    ...buildChatSessionListFilter(req.user._id, req.query.q),
+    academicProfileId: req.academicProfileId,
+  };
   const sessions = await db.collection("chatSessions")
     .find(filter)
     .project({ _id: 1, title: 1, assistantContext: 1, createdAt: 1, updatedAt: 1 })
@@ -1825,8 +2197,7 @@ app.get("/api/chat-sessions/:id", requireAuth(async (req, res) => {
   try {
     const db = await getDb();
     const session = await db.collection("chatSessions").findOne({
-      _id: new ObjectId(req.params.id),
-      userId: req.user._id
+      ...academicProfileFilter(req, { _id: new ObjectId(req.params.id) })
     });
     if (!session) return res.status(404).json({ error: "Chat session not found." });
     res.json({ session });
@@ -1838,15 +2209,21 @@ app.get("/api/chat-sessions/:id", requireAuth(async (req, res) => {
 app.post("/api/chat-sessions", requireAuth(async (req, res) => {
   try {
     const db = await getDb();
+    await assertAcademicProfileWritable(db, req);
     const { title = "New Chat", messages = [] } = req.body ?? {};
     const newSession = {
       userId: req.user._id,
+      academicProfileId: req.academicProfileId,
       title: title.trim().substring(0, 100),
       messages,
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    const result = await db.collection("chatSessions").insertOne(newSession);
+    const result = await withAcademicProfileWriteFence(
+      db,
+      req,
+      () => db.collection("chatSessions").insertOne(newSession),
+    );
     res.status(201).json({
       session: {
         id: result.insertedId.toString(),
@@ -1862,11 +2239,16 @@ app.post("/api/chat-sessions", requireAuth(async (req, res) => {
 app.put("/api/chat-sessions/:id", requireAuth(async (req, res) => {
   try {
     const db = await getDb();
+    await assertAcademicProfileWritable(db, req);
     const { title = "" } = req.body ?? {};
     if (!title.trim()) return res.status(400).json({ error: "Title is required." });
-    const result = await db.collection("chatSessions").updateOne(
-      { _id: new ObjectId(req.params.id), userId: req.user._id },
-      { $set: { title: title.trim().substring(0, 100), updatedAt: new Date() } }
+    const result = await withAcademicProfileWriteFence(
+      db,
+      req,
+      () => db.collection("chatSessions").updateOne(
+        academicProfileFilter(req, { _id: new ObjectId(req.params.id) }),
+        { $set: { title: title.trim().substring(0, 100), updatedAt: new Date() } },
+      ),
     );
     if (result.matchedCount === 0) {
       return res.status(404).json({ error: "Chat session not found or unauthorized." });
@@ -1879,16 +2261,25 @@ app.put("/api/chat-sessions/:id", requireAuth(async (req, res) => {
 
 app.delete("/api/chat-sessions", requireAuth(async (req, res) => {
   const db = await getDb();
-  const result = await db.collection("chatSessions").deleteMany({ userId: req.user._id });
+  await assertAcademicProfileWritable(db, req);
+  const result = await withAcademicProfileWriteFence(
+    db,
+    req,
+    () => db.collection("chatSessions").deleteMany(academicProfileFilter(req)),
+  );
   res.json({ ok: true, deletedCount: result.deletedCount });
 }));
 app.delete("/api/chat-sessions/:id", requireAuth(async (req, res) => {
   try {
     const db = await getDb();
-    const result = await db.collection("chatSessions").deleteOne({
-      _id: new ObjectId(req.params.id),
-      userId: req.user._id
-    });
+    await assertAcademicProfileWritable(db, req);
+    const result = await withAcademicProfileWriteFence(
+      db,
+      req,
+      () => db.collection("chatSessions").deleteOne({
+        ...academicProfileFilter(req, { _id: new ObjectId(req.params.id) }),
+      }),
+    );
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: "Chat session not found or unauthorized." });
     }
@@ -1969,8 +2360,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
     if (sessionId) {
       try {
         session = await db.collection("chatSessions").findOne({
-          _id: new ObjectId(sessionId),
-          userId: req.user._id,
+          ...academicProfileFilter(req, { _id: new ObjectId(sessionId) }),
         });
       } catch {
         // Ordinary invalid session identifiers retain the existing new-chat fallback.
@@ -2021,6 +2411,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
         {
           _id: new ObjectId(assistantContext.notebookId),
           userId: req.user._id,
+          academicProfileId: req.academicProfileId,
         },
         {
           projection: {
@@ -2050,6 +2441,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
       session = {
         _id: new ObjectId(),
         userId: req.user._id,
+        academicProfileId: req.academicProfileId,
         title: titleSource.substring(0, 40) || "New Chat",
         messages: [],
         ...(assistantContext ? { assistantContext } : {}),
@@ -2061,6 +2453,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
     const requestId = aiQuotaRequestId(req);
     const priorRequest = await aiQuota.lookup({
       userId: req.user._id,
+      academicProfileId: req.academicProfileId,
       feature: "chat",
       requestId,
     });
@@ -2161,6 +2554,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
 
     const quotaResult = await aiQuota.reserve({
       userId: req.user._id,
+      academicProfileId: req.academicProfileId,
       feature: "chat",
       requestId,
     });
@@ -2235,6 +2629,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
         "The assistant returned content outside the Medical training education-only boundary.",
       );
     }
+    await assertAcademicProfileWritable(db, req);
     const userMessageId = "user-" + Date.now();
     const assistantMessageId = "assistant-" + Date.now();
     const userMsg = {
@@ -2262,8 +2657,9 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
     }
     const updatedAt = new Date();
     const chatSessions = db.collection("chatSessions");
-    let persistence;
-    if (isNewSession) {
+    return withAcademicProfileWriteFence(db, req, async () => {
+      let persistence;
+      if (isNewSession) {
       const insertResult = await chatSessions.insertOne({
         ...session,
         messages: updatedMessages,
@@ -2285,6 +2681,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
         {
           _id: session._id,
           userId: req.user._id,
+          academicProfileId: req.academicProfileId,
           ...(hasPreviousUpdatedAt
             ? { updatedAt: session.updatedAt }
             : { updatedAt: { $exists: false } }),
@@ -2344,6 +2741,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
           const rollback = await chatSessions.deleteOne({
             _id: session._id,
             userId: req.user._id,
+            academicProfileId: req.academicProfileId,
             updatedAt,
           });
           rollbackSucceeded = rollback?.deletedCount === 1;
@@ -2359,6 +2757,7 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
             {
               _id: session._id,
               userId: req.user._id,
+              academicProfileId: req.academicProfileId,
               updatedAt,
             },
             {
@@ -2384,8 +2783,9 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
       throw commitError;
     }
 
-    setAiQuotaHeaders(res, committed.quota, reservation.cost);
-    return res.json(resultPayload);
+      setAiQuotaHeaders(res, committed.quota, reservation.cost);
+      return res.json(resultPayload);
+    });
   } catch (error) {
     if (error instanceof ChatAttachmentError && !reservation) {
       return res.status(error.status).json({ code: error.code, error: error.message });
@@ -2472,6 +2872,102 @@ if (ENABLE_IN_PROCESS_REMINDERS) {
 } else {
   console.log("[Web Push] In-process reminder scheduling is disabled; use the protected external scheduler endpoint.");
 }
+async function finalizeReconciledAcademicProfileDeletion(db, tombstone, context) {
+  if (tombstone.status === "completed") return;
+  const lock = await acquireAcademicProfileMutationLock(db, context.userId);
+  if (!lock) {
+    throw new AcademicProfileMutationError(
+      409,
+      "PROFILE_UPDATE_IN_PROGRESS",
+      "Profile deletion finalization will be retried.",
+    );
+  }
+  try {
+    const user = await db.collection("users").findOne({
+      _id: context.userId,
+      deletingAt: { $exists: false },
+    });
+    if (!user) return;
+    const state = deriveAcademicProfilesState(user);
+    const target = state.academicProfiles.find(
+      (profile) => profile.dataId === context.academicProfileId,
+    );
+    if (!target) {
+      await completeAcademicProfileDeletionTombstone(db, context);
+      return;
+    }
+    if (
+      !target.deletionPending
+      || target.id !== tombstone.slotId
+      || target.deletionPending.operationId !== tombstone.operationId
+    ) {
+      throw new AcademicProfileMutationError(
+        409,
+        "ACADEMIC_PROFILE_DELETION_STATE_CHANGED",
+        "The pending deletion no longer matches its immutable tombstone.",
+      );
+    }
+    const finalized = finalizeAcademicProfileDeletionState(user, {
+      targetDataId: context.academicProfileId,
+      operationId: tombstone.operationId,
+    });
+    const finalizedAt = new Date();
+    const result = await db.collection("users").updateOne(
+      {
+        _id: context.userId,
+        academicProfiles: {
+          $elemMatch: {
+            dataId: context.academicProfileId,
+            "deletionPending.operationId": tombstone.operationId,
+          },
+        },
+      },
+      {
+        $set: {
+          ...academicProfileSnapshot(finalized.activeProfile),
+          academicProfiles: finalized.academicProfiles,
+          activeAcademicProfileId: finalized.activeAcademicProfileId,
+          academicProfileDataVersion: ACADEMIC_PROFILE_DATA_VERSION,
+          updatedAt: finalizedAt,
+        },
+        $unset: { academicProfileRestore: "" },
+      },
+    );
+    if (result.matchedCount !== 1) {
+      throw new AcademicProfileDataPurgeError(
+        "The reconciled profile deletion could not be finalized.",
+      );
+    }
+    await completeAcademicProfileDeletionTombstone(db, context);
+  } finally {
+    await lock.release().catch(() => undefined);
+  }
+}
+async function runAcademicProfileDeletionReconcileSweep() {
+  try {
+    const db = await getDb();
+    await reconcileAcademicProfileDeletionTombstones(db, {
+      limit: 25,
+      afterPurge: finalizeReconciledAcademicProfileDeletion,
+    });
+  } catch (error) {
+    console.error(
+      "[Academic Profiles] Deletion reconciliation failed:",
+      error instanceof Error ? error.name : "UnknownError",
+    );
+  }
+}
+
+const academicProfileDeletionReconcileTimer = setInterval(
+  runAcademicProfileDeletionReconcileSweep,
+  15 * 60 * 1000,
+);
+academicProfileDeletionReconcileTimer.unref?.();
+const academicProfileDeletionStartupTimer = setTimeout(
+  runAcademicProfileDeletionReconcileSweep,
+  20_000,
+);
+academicProfileDeletionStartupTimer.unref?.();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2480,6 +2976,7 @@ registerExamRoutes(app, {
   aiQuota,
   getDb,
   requireAuth,
+  withProfileWriteFence: withAcademicProfileWriteFence,
   getGroqConfigStatus,
   groqModel: GROQ_CHAT_MODEL,
 });

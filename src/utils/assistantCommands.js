@@ -57,6 +57,7 @@ export function resolveLocalAssistantCommand(rawText, options = {}) {
     onReset,
     navigate,
     availableRoutes,
+    academicProfileId = "",
   } = options;
 
   const normalized = normalizeAssistantText(rawText);
@@ -69,7 +70,7 @@ export function resolveLocalAssistantCommand(rawText, options = {}) {
   if (addDoubtMatch && normalized.includes("note")) {
     const topic = addDoubtMatch[1].replace(/\b(and|then|please)\b/g, "").trim();
     if (topic) {
-      window.pendingVoiceNote = { topic };
+      window.pendingVoiceNote = { topic, academicProfileId };
       navigate?.("/notes");
       return {
         response: `Opening Notes and saving a doubt about ${topic}.`,
@@ -85,7 +86,7 @@ export function resolveLocalAssistantCommand(rawText, options = {}) {
     normalized.includes("create timetable")
   ) {
     navigate?.("/planner");
-    window.plannerAutoGenerateRequested = true;
+    window.plannerAutoGenerateRequested = { academicProfileId };
     window.setTimeout(() => window.plannerActions?.generate?.(), 450);
     return {
       response: "Opening Planner and trying to generate the schedule. If no exam date is selected, choose one first.",
@@ -240,4 +241,3 @@ export function buildFallbackReply(message, metrics) {
     "The AI chat service is unavailable right now, but your planner data is still available locally."
   );
 }
-

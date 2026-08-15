@@ -21,12 +21,14 @@ import {
   applySchoolKnowledgeResult,
   buildSchoolKnowledgeDailyChallenge,
   getSchoolKnowledgeDateKey,
+  getSchoolKnowledgeStorageKey,
   getSchoolKnowledgeUserKey,
   loadSchoolKnowledgeProgress,
   millisecondsUntilNextSchoolKnowledgeDay,
   saveSchoolKnowledgeProgress,
   scoreSchoolKnowledgeChallenge,
 } from "../utils/schoolKnowledge";
+import { legacyAcademicProfileOwnerStorageKey } from "../utils/academicProfileScope";
 import "./SchoolKnowledgePage.css";
 
 function getDefaultStorage(providedStorage) {
@@ -67,6 +69,7 @@ function resultMessage(percentage) {
 }
 
 function SchoolKnowledgePage({
+  academicProfileDataId = "",
   userProfile = {},
   grade,
   questionCount = 8,
@@ -81,7 +84,10 @@ function SchoolKnowledgePage({
 
   const resolvedStorage = useMemo(() => getDefaultStorage(storage), [storage]);
   const profileIdentifier = userProfile?.id || userProfile?._id || userProfile?.email || "local-learner";
-  const persistenceProfile = useMemo(() => ({ id: profileIdentifier }), [profileIdentifier]);
+  const persistenceProfile = useMemo(() => ({
+    dataId: academicProfileDataId,
+    id: profileIdentifier,
+  }), [academicProfileDataId, profileIdentifier]);
   const classNumber = resolveGrade(grade, userProfile);
   const userKey = getSchoolKnowledgeUserKey(persistenceProfile);
   const dateKey = getSchoolKnowledgeDateKey(now);
@@ -91,9 +97,25 @@ function SchoolKnowledgePage({
     questionCount,
     userKey,
   }), [classNumber, dateKey, questionCount, userKey]);
-  const [progress, setProgress] = useState(() => (
-    loadSchoolKnowledgeProgress(resolvedStorage, persistenceProfile)
-  ));
+  const [progress, setProgress] = useState(() => {
+    const scopedKey = getSchoolKnowledgeStorageKey(persistenceProfile);
+    const legacyProfile = { id: profileIdentifier };
+    const legacyKey = getSchoolKnowledgeStorageKey(legacyProfile);
+    if (
+      academicProfileDataId
+      && resolvedStorage?.getItem(legacyAcademicProfileOwnerStorageKey(userProfile))
+        === academicProfileDataId
+      && scopedKey !== legacyKey
+      && !resolvedStorage?.getItem(scopedKey)
+      && resolvedStorage?.getItem(legacyKey)
+    ) {
+      const legacyProgress = loadSchoolKnowledgeProgress(resolvedStorage, legacyProfile);
+      saveSchoolKnowledgeProgress(resolvedStorage, persistenceProfile, legacyProgress);
+      resolvedStorage.removeItem(legacyKey);
+      return legacyProgress;
+    }
+    return loadSchoolKnowledgeProgress(resolvedStorage, persistenceProfile);
+  });
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);

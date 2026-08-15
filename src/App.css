@@ -3324,13 +3324,14 @@ body.dark .weekly-day-track {
 }
 
 .class-profile-card {
+  display: grid;
   gap: 18px;
 }
 
 .academic-profile-heading {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 16px;
 }
 
@@ -3338,18 +3339,26 @@ body.dark .weekly-day-track {
   margin: 6px 0 0;
 }
 
-.academic-sync-badge {
+.academic-manage-btn {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 14px;
   color: var(--accent);
   border: 1px solid rgba(var(--accent-rgb), 0.24);
-  border-radius: 999px;
+  border-radius: 12px;
   background: rgba(var(--accent-rgb), 0.08);
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   font-weight: 850;
+  line-height: 1;
+  text-decoration: none;
   white-space: nowrap;
+}
+
+.academic-manage-btn:hover {
+  border-color: rgba(var(--accent-rgb), 0.42);
+  background: rgba(var(--accent-rgb), 0.14);
 }
 
 .academic-profile-summary {
@@ -3406,7 +3415,6 @@ body.dark .weekly-day-track {
 @media (max-width: 720px) {
   .academic-profile-heading {
     align-items: flex-start;
-    flex-direction: column;
   }
 
   .academic-profile-summary {

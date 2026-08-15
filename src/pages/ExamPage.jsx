@@ -59,11 +59,16 @@ import {
 import { EXAM_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 import { academicProfilePayload } from "../utils/academicProfile";
 import {
-  ACTIVE_EXAM_ATTEMPT_STORAGE_KEY,
+  clearStoredActiveExamAttemptId,
   getExamMinimumSubmitRemainingSeconds,
   MINIMUM_EXAM_SUBMIT_MINUTES,
   readStoredActiveExamAttemptId,
+  storeActiveExamAttemptId,
 } from "../utils/examTiming";
+import {
+  academicProfileStorageKey,
+  legacyAcademicProfileOwnerStorageKey,
+} from "../utils/academicProfileScope";
 import "./ExamPage.css";
 
 const TOTAL_MARK_OPTIONS = [30, 40, 50, 60, 70, 80, 90, 100];
@@ -128,16 +133,19 @@ function formatClock(totalSeconds) {
   return String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0");
 }
 
-function visitedQuestionsStorageKey(attemptId) {
-  return VISITED_QUESTIONS_KEY_PREFIX + attemptId;
+function visitedQuestionsStorageKey(attemptId, academicProfileId = "") {
+  return academicProfileStorageKey(academicProfileId, "exam-visited", attemptId)
+    || VISITED_QUESTIONS_KEY_PREFIX + attemptId;
 }
 
-function readVisitedQuestions(resource) {
+function readVisitedQuestions(resource, academicProfileId = "") {
   const attempt = normalizeAttempt(resource);
   const visited = new Set();
   if (typeof window !== "undefined" && attempt.id) {
     try {
-      const saved = JSON.parse(localStorage.getItem(visitedQuestionsStorageKey(attempt.id)) || "[]");
+      const saved = JSON.parse(localStorage.getItem(
+        visitedQuestionsStorageKey(attempt.id, academicProfileId),
+      ) || "[]");
       if (Array.isArray(saved)) saved.forEach((questionId) => visited.add(questionId));
     } catch {
       // Ignore invalid local navigation state and start with the visible question.
@@ -147,9 +155,11 @@ function readVisitedQuestions(resource) {
   return visited;
 }
 
-function clearAttemptStorage(attemptId) {
-  localStorage.removeItem(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY);
-  if (attemptId) localStorage.removeItem(visitedQuestionsStorageKey(attemptId));
+function clearAttemptStorage(attemptId, academicProfileId = "") {
+  clearStoredActiveExamAttemptId(localStorage, academicProfileId);
+  if (attemptId) {
+    localStorage.removeItem(visitedQuestionsStorageKey(attemptId, academicProfileId));
+  }
 }
 
 function preparationEstimate(elapsedSeconds) {
@@ -272,11 +282,14 @@ function notifyTimer(title, body) {
   }
 }
 
-function ExamRunner({ initialAttempt, onFinished, userProfile = {} }) {
+function ExamRunner({ academicProfileDataId = "", initialAttempt, onFinished, userProfile = {} }) {
   const [attempt, setAttempt] = useState(() => normalizeAttempt(initialAttempt));
   const [answers, setAnswers] = useState(() => normalizeAttempt(initialAttempt).answers);
   const [flagged, setFlagged] = useState(() => new Set());
-  const [visited, setVisited] = useState(() => readVisitedQuestions(initialAttempt));
+  const [visited, setVisited] = useState(() => readVisitedQuestions(
+    initialAttempt,
+    academicProfileDataId,
+  ));
   const [questionIndex, setQuestionIndex] = useState(0);
   const [remaining, setRemaining] = useState(3600);
   const [minimumSubmitRemaining, setMinimumSubmitRemaining] = useState(() => (
@@ -316,8 +329,11 @@ function ExamRunner({ initialAttempt, onFinished, userProfile = {} }) {
 
   useEffect(() => {
     if (!attemptId) return;
-    localStorage.setItem(visitedQuestionsStorageKey(attemptId), JSON.stringify([...visited]));
-  }, [attemptId, visited]);
+    localStorage.setItem(
+      visitedQuestionsStorageKey(attemptId, academicProfileDataId),
+      JSON.stringify([...visited]),
+    );
+  }, [academicProfileDataId, attemptId, visited]);
 
   const submitExam = useCallback(async (reason = "manual") => {
     const submitWaitSeconds = getExamMinimumSubmitRemainingSeconds(attempt);
@@ -331,7 +347,7 @@ function ExamRunner({ initialAttempt, onFinished, userProfile = {} }) {
     try {
       const payload = await api.post("/api/exam-attempts/" + attemptId + "/submit", { answers, reason });
       const submitted = normalizeAttempt(unwrapOne(payload, ["attempt", "result"]));
-      clearAttemptStorage(attemptId);
+      clearAttemptStorage(attemptId, academicProfileDataId);
       if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
       toast.success(reason === "manual" ? "Exam submitted successfully." : "Exam submitted automatically.");
       onFinished(submitted, reason);
@@ -342,7 +358,7 @@ function ExamRunner({ initialAttempt, onFinished, userProfile = {} }) {
       setIsSubmitting(false);
       setConfirmSubmit(false);
     }
-  }, [answers, attempt, attemptId, onFinished]);
+  }, [academicProfileDataId, answers, attempt, attemptId, onFinished]);
 
   const registerViolation = useCallback(async (type) => {
     const now = Date.now();
@@ -358,14 +374,14 @@ function ExamRunner({ initialAttempt, onFinished, userProfile = {} }) {
       setWarning(payload?.warning || "Exam focus violation " + count + " of 3. A fourth violation submits the exam.");
       if (payload?.autoSubmitted) {
         const submitted = normalizeAttempt(payload?.attempt || attempt);
-        clearAttemptStorage(attemptId);
+        clearAttemptStorage(attemptId, academicProfileDataId);
         if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
         onFinished(submitted, "violation_limit");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not record the exam warning.");
     }
-  }, [answers, attempt, attemptId, onFinished]);
+  }, [academicProfileDataId, answers, attempt, attemptId, onFinished]);
 
   const enterFullscreen = useCallback(async () => {
     if (!runnerRef.current || document.fullscreenElement) return;
@@ -607,9 +623,19 @@ function ExamRunner({ initialAttempt, onFinished, userProfile = {} }) {
   );
 }
 
-function readTimerState() {
+function readTimerState(academicProfileDataId = "", migrateLegacy = false) {
   try {
-    const saved = JSON.parse(localStorage.getItem(TIMER_STORAGE_KEY) || "null");
+    const timerKey = academicProfileStorageKey(academicProfileDataId, "exam-timer")
+      || TIMER_STORAGE_KEY;
+    let raw = localStorage.getItem(timerKey);
+    if (!raw && migrateLegacy && academicProfileDataId && timerKey !== TIMER_STORAGE_KEY) {
+      raw = localStorage.getItem(TIMER_STORAGE_KEY);
+      if (raw) {
+        localStorage.setItem(timerKey, raw);
+        localStorage.removeItem(TIMER_STORAGE_KEY);
+      }
+    }
+    const saved = JSON.parse(raw || "null");
     if (saved && typeof saved === "object") return saved;
   } catch {
     // Ignore invalid local timer state.
@@ -625,8 +651,13 @@ function readTimerState() {
   };
 }
 
-function OfflineExamTimer({ paperMinutes = 60 }) {
-  const [timer, setTimer] = useState(readTimerState);
+function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, paperMinutes = 60 }) {
+  const timerStorageKey = academicProfileStorageKey(academicProfileDataId, "exam-timer")
+    || TIMER_STORAGE_KEY;
+  const [timer, setTimer] = useState(() => readTimerState(
+    academicProfileDataId,
+    migrateLegacy,
+  ));
   const presets = useMemo(() => ({
     pomodoro: { label: "25 / 5 Pomodoro", focus: 25 * 60, break: 5 * 60 },
     extended: { label: "50 / 10 Focus", focus: 50 * 60, break: 10 * 60 },
@@ -635,8 +666,8 @@ function OfflineExamTimer({ paperMinutes = 60 }) {
   const preset = presets[timer.preset] || presets.pomodoro;
 
   useEffect(() => {
-    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(timer));
-  }, [timer]);
+    localStorage.setItem(timerStorageKey, JSON.stringify(timer));
+  }, [timer, timerStorageKey]);
 
   useEffect(() => {
     if (!timer.running || !timer.endsAt) return undefined;
@@ -1333,6 +1364,7 @@ function ExamPreparationNotice({ subjectName }) {
 }
 
 function ExamPage({
+  academicProfileDataId = "",
   activeAttemptId: persistedActiveAttemptId = "",
   subjects = [],
   academicLevel = "College",
@@ -1366,7 +1398,10 @@ function ExamPage({
   const [activeAttempt, setActiveAttempt] = useState(null);
   const [attemptRecoveryPending, setAttemptRecoveryPending] = useState(() => Boolean(
     persistedActiveAttemptId
-      || (typeof window !== "undefined" && readStoredActiveExamAttemptId(window.localStorage)),
+      || (typeof window !== "undefined" && readStoredActiveExamAttemptId(
+        window.localStorage,
+        academicProfileDataId,
+      )),
   ));
   const [isPreparing, setIsPreparing] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -1375,6 +1410,9 @@ function ExamPage({
   const [examStartLimit, setExamStartLimit] = useState(null);
   const [paperMinutes, setPaperMinutes] = useState(60);
   const continuationOnly = youngKidsMode && !parentAccessGranted;
+  const mayMigrateLegacyState = typeof window !== "undefined"
+    && window.localStorage.getItem(legacyAcademicProfileOwnerStorageKey(userProfile))
+      === academicProfileDataId;
 
   useEffect(() => {
     if (!subjectName && names.length) setSubjectName(names[0]);
@@ -1429,7 +1467,7 @@ function ExamPage({
 
   useEffect(() => {
     const attemptId = persistedActiveAttemptId
-      || readStoredActiveExamAttemptId(window.localStorage);
+      || readStoredActiveExamAttemptId(window.localStorage, academicProfileDataId);
     if (!attemptId) {
       setAttemptRecoveryPending(false);
       return;
@@ -1446,19 +1484,20 @@ function ExamPage({
           setActiveAttempt(attempt);
           onActiveAttemptChange?.(attempt.id);
         } else {
-          localStorage.removeItem(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY);
+          clearStoredActiveExamAttemptId(window.localStorage, academicProfileDataId);
           onActiveAttemptChange?.("");
           setSection("results");
           if (!continuationOnly) loadResults();
         }
       })
       .catch(() => {
-        localStorage.removeItem(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY);
+        clearStoredActiveExamAttemptId(window.localStorage, academicProfileDataId);
         onActiveAttemptChange?.("");
       })
       .finally(() => setAttemptRecoveryPending(false));
   }, [
     activeAttempt,
+    academicProfileDataId,
     continuationOnly,
     loadResults,
     onActiveAttemptChange,
@@ -1535,7 +1574,7 @@ function ExamPage({
       }
       const payload = await api.post("/api/exams/" + examId + "/start", {});
       const attempt = normalizeAttempt(unwrapOne(payload, ["attempt"]));
-      localStorage.setItem(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY, attempt.id);
+      storeActiveExamAttemptId(window.localStorage, academicProfileDataId, attempt.id);
       setActiveAttempt(attempt);
       onActiveAttemptChange?.(attempt.id);
       loadExamStartLimit();
@@ -1568,7 +1607,7 @@ function ExamPage({
   };
 
   if (activeAttempt) {
-    return <ExamRunner initialAttempt={activeAttempt} onFinished={finishExam} userProfile={userProfile} />;
+    return <ExamRunner academicProfileDataId={academicProfileDataId} initialAttempt={activeAttempt} onFinished={finishExam} userProfile={userProfile} />;
   }
 
   if (continuationOnly) {
@@ -1760,7 +1799,11 @@ function ExamPage({
       {section === "results" && <ResultsPanel onRefresh={loadResults} results={results} userProfile={userProfile} />}
 
       {(section === "overview" || section === "paper") && (
-        <OfflineExamTimer paperMinutes={paperMinutes} />
+        <OfflineExamTimer
+          academicProfileDataId={academicProfileDataId}
+          migrateLegacy={mayMigrateLegacyState}
+          paperMinutes={paperMinutes}
+        />
       )}
 
       {isPreparing && <ExamPreparationNotice subjectName={subjectName} />}

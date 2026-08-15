@@ -1,6 +1,10 @@
 import { ObjectId } from "mongodb";
 import { normalizeLearningNotebook } from "../src/utils/learningNotebook.js";
 import { applyPredictiveMemoryQuizResult } from "../src/utils/learningMemoryResults.js";
+import {
+  academicProfileFilter,
+  withAcademicProfileWriteFence,
+} from "./profileDataScope.js";
 
 const LEARNING_NOTEBOOKS_COLLECTION = "learningNotebooks";
 const MAX_COMPLETION_RETRIES = 3;
@@ -79,6 +83,7 @@ export function registerLearningMemoryRoutes(app, {
   requireAuth,
   mutationSecurity = (_req, _res, next) => next(),
   now = () => new Date(),
+  withProfileWriteFence = withAcademicProfileWriteFence,
 } = {}) {
   if (!app?.post) throw new TypeError("An Express app is required.");
   if (typeof getDb !== "function") throw new TypeError("A database provider is required.");
@@ -108,10 +113,9 @@ export function registerLearningMemoryRoutes(app, {
         const completedAt = now();
 
         for (let attempt = 0; attempt < MAX_COMPLETION_RETRIES; attempt += 1) {
-          const existing = await collection.findOne({
-            _id: notebookId,
-            userId: req.user._id,
-          });
+          const existing = await collection.findOne(
+            academicProfileFilter(req, { _id: notebookId }),
+          );
           if (!existing) {
             return memoryError(res, 404, "LEARNING_NOTEBOOK_NOT_FOUND", "Learning notebook not found.");
           }
@@ -144,19 +148,22 @@ export function registerLearningMemoryRoutes(app, {
             });
           }
 
-          const update = await collection.updateOne(
-            {
-              _id: notebookId,
-              userId: req.user._id,
-              ...revisionFilter(existing),
-            },
-            {
-              $set: {
-                learningState: applied.learningState,
-                memoryDecayState: applied.memoryDecayState,
-                updatedAt: completedAt,
+          const update = await withProfileWriteFence(
+            db,
+            req,
+            () => collection.updateOne(
+              academicProfileFilter(req, {
+                _id: notebookId,
+                ...revisionFilter(existing),
+              }),
+              {
+                $set: {
+                  learningState: applied.learningState,
+                  memoryDecayState: applied.memoryDecayState,
+                  updatedAt: completedAt,
+                },
               },
-            },
+            ),
           );
           if (update.matchedCount !== 1) continue;
 

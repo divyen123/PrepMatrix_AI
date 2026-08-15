@@ -76,8 +76,10 @@ async function withRoutes({
     pushTestCooldownMs: 60_000,
     requireAuth: (handler) => async (req, res) => {
       req.user = { _id: USER_ID };
+      req.academicProfileId = `legacy:${USER_ID}:profile-a`;
       return handler(req, res);
     },
+    withProfileWriteFence: async (_db, _req, write) => write(),
     webpush: { sendNotification },
   });
 

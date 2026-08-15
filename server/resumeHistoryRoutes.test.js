@@ -183,6 +183,7 @@ async function withResumeRoutes(collection, run, options = {}) {
       _id: userId,
       academicLevel: userId === USER_SCHOOL ? "Primary School" : "Undergraduate / Bachelor's",
     };
+    req.academicProfileId = `legacy:${userId}:profile-a`;
     try {
       return await handler(req, res);
     } catch (error) {
@@ -199,6 +200,7 @@ async function withResumeRoutes(collection, run, options = {}) {
     }),
     now: () => RECORDED_AT,
     requireAuth,
+    withProfileWriteFence: async (_db, _req, write) => write(),
   });
 
   const server = await new Promise((resolve) => {
@@ -396,6 +398,7 @@ test("bulk delete and retention pruning affect only the selected user's history"
   const documents = Array.from({ length: RESUME_HISTORY_LIMIT + 3 }, (_, index) => ({
     _id: new ObjectId(),
     userId: USER_ONE,
+    academicProfileId: `legacy:${USER_ONE}:profile-a`,
     ...normalizeResumeHistorySnapshot({ draft: draft(`Resume ${index}`) }, {
       now: new Date(RECORDED_AT.getTime() + index * 1_000),
     }),
@@ -403,13 +406,18 @@ test("bulk delete and retention pruning affect only the selected user's history"
   documents.push({
     _id: new ObjectId(),
     userId: USER_TWO,
+    academicProfileId: `legacy:${USER_TWO}:profile-a`,
     ...normalizeResumeHistorySnapshot({ draft: draft("Foreign resume") }, { now: RECORDED_AT }),
   });
   const collection = new MemoryResumeHistoryCollection(documents);
   const generationCollection = {
     documents: [{ _id: "quota-record-2", userId: USER_ONE, requestId: "generation-2" }],
   };
-  const pruned = await pruneResumeHistory(collection, USER_ONE);
+  const pruned = await pruneResumeHistory(
+    collection,
+    USER_ONE,
+    `legacy:${USER_ONE}:profile-a`,
+  );
   assert.equal(pruned, 3);
   assert.equal(collection.documents.filter(({ userId }) => userId === USER_ONE).length, RESUME_HISTORY_LIMIT);
   assert.equal(collection.documents.some(({ userId }) => userId === USER_TWO), true);

@@ -103,10 +103,13 @@ export function reconcileResumeHistorySearch(search, hasHistory) {
 
 export function loadResumeHistoryEntry(entry, currentBuilder, options = {}) {
   const normalizedEntry = normalizeResumeHistoryEntry(entry, { now: options.now });
+  const normalizationNow = new Date(options.now).getTime();
   const current = normalizeResumeBuilderState(
     currentBuilder,
     options.profile || {},
-    EDITING_OPTIONS,
+    Number.isFinite(normalizationNow)
+      ? { ...EDITING_OPTIONS, now: normalizationNow }
+      : EDITING_OPTIONS,
   );
   return {
     ...current,

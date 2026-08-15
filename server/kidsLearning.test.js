@@ -21,7 +21,11 @@ import {
   summarizeKidsProgress,
   verifyKidsParentPin,
 } from "./kidsLearning.js";
-import { registerKidsLearningRoutes } from "./kidsLearningRoutes.js";
+import {
+  KIDS_PROFILE_SETTINGS_COLLECTION,
+  migrateLegacyKidsProfileSettings,
+  registerKidsLearningRoutes,
+} from "./kidsLearningRoutes.js";
 
 function correctResponse(pack, item) {
   if (pack.gameType === "count-tap") return item.tapItems.slice(0, item.targetCount).map(({ id }) => id);
@@ -316,7 +320,9 @@ class FakeCollection {
 
   async insertOne(document) {
     if (document.clientAttemptId && this.documents.some((item) => (
-      sameValue(item.userId, document.userId) && item.clientAttemptId === document.clientAttemptId
+      sameValue(item.userId, document.userId)
+      && sameValue(item.academicProfileId, document.academicProfileId)
+      && item.clientAttemptId === document.clientAttemptId
     ))) {
       const error = new Error("duplicate");
       error.code = 11000;
@@ -341,15 +347,59 @@ class FakeCollection {
   }
 }
 
+test("legacy Kids settings migrate once into the active profile while the PIN stays shared", async () => {
+  const security = new FakeCollection([{
+    userId: "legacy-child",
+    childNickname: "Mira",
+    language: "hi",
+    dailyPlayLimitMinutes: 45,
+    allowedSubjects: ["Maths"],
+    pinHash: "shared-hash",
+    pinSalt: "shared-salt",
+    pinIterations: 120000,
+    createdAt: new Date("2026-07-01T00:00:00.000Z"),
+  }]);
+  const profiles = new FakeCollection();
+  const db = {
+    collection(name) {
+      if (name === KIDS_PARENT_SETTINGS_COLLECTION) return security;
+      if (name === KIDS_PROFILE_SETTINGS_COLLECTION) return profiles;
+      throw new Error(`Unexpected collection: ${name}`);
+    },
+  };
+  const context = {
+    userId: "legacy-child",
+    academicProfileId: "academic-profile:legacy-active",
+  };
+
+  const first = await migrateLegacyKidsProfileSettings(db, context, {
+    now: () => new Date("2026-08-15T00:00:00.000Z"),
+  });
+  const second = await migrateLegacyKidsProfileSettings(db, context);
+
+  assert.equal(first.migrated, true);
+  assert.equal(second.migrated, false);
+  assert.equal(profiles.documents.length, 1);
+  assert.equal(profiles.documents[0].childNickname, "Mira");
+  assert.equal(profiles.documents[0].language, "hi");
+  assert.deepEqual(profiles.documents[0].allowedSubjects, ["Maths"]);
+  assert.equal("pinHash" in profiles.documents[0], false);
+  assert.equal(security.documents[0].pinHash, "shared-hash");
+  assert.equal("childNickname" in security.documents[0], false);
+  assert.equal("dailyPlayLimitMinutes" in security.documents[0], false);
+});
+
 async function withKidsRoutes(run) {
   const attempts = new FakeCollection();
   const settings = new FakeCollection();
+  const profileSettings = new FakeCollection();
   const sessions = new FakeCollection();
   let currentTime = new Date("2026-08-01T12:00:00.000Z");
   const db = {
     collection(name) {
       if (name === KIDS_ATTEMPTS_COLLECTION) return attempts;
       if (name === KIDS_PARENT_SETTINGS_COLLECTION) return settings;
+      if (name === KIDS_PROFILE_SETTINGS_COLLECTION) return profileSettings;
       if (name === "sessions") return sessions;
       throw new Error(`Unexpected collection: ${name}`);
     },
@@ -362,6 +412,7 @@ async function withKidsRoutes(run) {
     const grade = String(req.headers["x-test-grade"] || (userId === "parent-one" ? "Class 3" : "Class 2"));
     const academicLevel = String(req.headers["x-test-academic-level"] || "Primary School");
     req.user = { _id: userId, academicLevel, grade };
+    req.academicProfileId = String(req.headers["x-test-profile-id"] || `legacy:${userId}:profile-a`);
     req.sessionToken = `session-${userId}`;
     let session = await sessions.findOne({ token: req.sessionToken });
     if (!session) {
@@ -380,6 +431,7 @@ async function withKidsRoutes(run) {
     getDb: async () => db,
     requireAuth,
     now: () => new Date(currentTime),
+    writeFence: async (_db, _req, operation) => operation(),
   });
   const server = await new Promise((resolve) => {
     const listener = app.listen(0, "127.0.0.1", () => resolve(listener));
@@ -389,6 +441,7 @@ async function withKidsRoutes(run) {
     await run({
       baseUrl: `http://127.0.0.1:${port}`,
       attempts,
+      profileSettings,
       settings,
       sessions,
       setNow(value) {
@@ -407,6 +460,7 @@ function authOptions(userId, method = "GET", body = null, profile = {}) {
   const options = { method, headers: { Authorization: `Bearer ${userId}` } };
   if (profile.grade) options.headers["X-Test-Grade"] = profile.grade;
   if (profile.academicLevel) options.headers["X-Test-Academic-Level"] = profile.academicLevel;
+  if (profile.academicProfileId) options.headers["X-Test-Profile-Id"] = profile.academicProfileId;
   if (body !== null) {
     options.headers["Content-Type"] = "application/json";
     options.body = JSON.stringify(body);
@@ -784,5 +838,62 @@ test("profile, daily mission, parent settings, and PIN verification share persis
       code: "KIDS_PARENT_PIN_RATE_LIMITED",
       retryAfterSeconds: 900,
     });
+  });
+});
+test("Kids settings and attempts stay isolated by immutable academic profile while the PIN remains shared", async () => {
+  await withKidsRoutes(async ({ baseUrl, attempts, profileSettings }) => {
+    const userId = "profile-isolation-child";
+    const profileA = { academicProfileId: "academic-profile:profile-a" };
+    const profileB = { academicProfileId: "academic-profile:profile-b" };
+    const pack = KIDS_CURATED_PACKS.find(({ gradeBand }) => gradeBand === "class1-2");
+    const responses = pack.items.map((item) => ({
+      itemId: item.id,
+      response: correctResponse(pack, item),
+    }));
+
+    const settingsAResponse = await fetch(
+      `${baseUrl}/api/kids/parent-settings`,
+      authOptions(userId, "PUT", {
+        childNickname: "Profile A Child",
+        parentPin: "4826",
+      }, profileA),
+    );
+    assert.equal(settingsAResponse.status, 200);
+
+    const attemptAResponse = await fetch(
+      `${baseUrl}/api/kids/attempts`,
+      authOptions(userId, "POST", {
+        packId: pack.id,
+        clientAttemptId: "profile-a-attempt",
+        responses,
+      }, profileA),
+    );
+    assert.equal(attemptAResponse.status, 201);
+
+    const profileBResponse = await fetch(
+      `${baseUrl}/api/kids/profile`,
+      authOptions(userId, "GET", null, profileB),
+    );
+    const profileBPayload = await profileBResponse.json();
+    assert.equal(profileBResponse.status, 200);
+    assert.equal(profileBPayload.profile.childNickname, "Learner");
+    assert.equal(profileBPayload.progress.totalAttempts, 0);
+    assert.equal(profileBPayload.settings.parentPinConfigured, true);
+
+    const settingsBResponse = await fetch(
+      `${baseUrl}/api/kids/parent-settings`,
+      authOptions(userId, "PUT", { childNickname: "Profile B Child" }, profileB),
+    );
+    assert.equal(settingsBResponse.status, 200);
+
+    const profileAResponse = await fetch(
+      `${baseUrl}/api/kids/profile`,
+      authOptions(userId, "GET", null, profileA),
+    );
+    const profileAPayload = await profileAResponse.json();
+    assert.equal(profileAPayload.profile.childNickname, "Profile A Child");
+    assert.equal(profileAPayload.progress.totalAttempts, 1);
+    assert.equal(attempts.documents.length, 1);
+    assert.equal(profileSettings.documents.length, 2);
   });
 });

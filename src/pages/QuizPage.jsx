@@ -37,7 +37,7 @@ function rankSearchMatch(fields, query) {
   }, 0);
 }
 
-function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], schedule = [], completed = [] }) {
+function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, userProfile, subjects = [], schedule = [], completed = [] }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { hasInsufficientCredits } = useAiQuota();
@@ -132,7 +132,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
 
     setIsHistoryLoading(true);
 
-    api.getQuizzes()
+    api.getQuizzes({ academicProfileId: academicProfileDataId })
       .then((payload) => {
         if (isMounted) setAttempts(payload.attempts || []);
       })
@@ -146,7 +146,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [academicProfileDataId]);
 
 
 
@@ -337,6 +337,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
         topic: cleanTopic,
         limit: questionLimit,
       }, {
+        academicProfileId: academicProfileDataId,
         headers: { "Idempotency-Key": createAiIdempotencyKey() },
         timeoutMs: 120000,
       });
@@ -366,7 +367,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
         score,
         questions,
         answers,
-      });
+      }, { academicProfileId: academicProfileDataId });
 
       setResult(payload.attempt);
       setAttempts((current) => [payload.attempt, ...current]);
@@ -380,7 +381,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
 
     try {
       setSaveError("");
-      await api.clearQuizHistory();
+      await api.clearQuizHistory({ academicProfileId: academicProfileDataId });
       setAttempts([]);
       setHistoryPage(1);
       setPendingDeleteAttemptId(null);
@@ -395,7 +396,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
     try {
       setSaveError("");
       setDeletingAttemptId(attemptId);
-      await api.deleteQuizAttempt(attemptId);
+      await api.deleteQuizAttempt(attemptId, { academicProfileId: academicProfileDataId });
       setAttempts((current) => current.filter((attempt) => attempt.id !== attemptId));
       setPendingDeleteAttemptId((current) => current === attemptId ? null : current);
     } catch (error) {
@@ -412,6 +413,13 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
         <h2>Practice solo or challenge a friend</h2>
       </div>
 
+      <div
+        className={[
+          "quiz-mode-shell",
+          battleTabActive ? "is-battles" : "is-solo",
+          !isYoungKidsLearner ? "has-mode-tabs" : "",
+        ].filter(Boolean).join(" ")}
+      >
       {!isYoungKidsLearner && (
         <div
           aria-label="Quiz mode"
@@ -428,7 +436,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
             tabIndex={battleTabActive ? -1 : 0}
             type="button"
           >
-            <Check aria-hidden="true" size={17} />
+            <Check aria-hidden="true" size={15} />
             Solo quiz
           </button>
           <button
@@ -440,7 +448,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
             tabIndex={battleTabActive ? 0 : -1}
             type="button"
           >
-            <Swords aria-hidden="true" size={17} />
+            <Swords aria-hidden="true" size={15} />
             Quiz Battles
           </button>
         </div>
@@ -453,6 +461,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
           role="tabpanel"
         >
           <QuizBattlesPanel
+            academicProfileDataId={academicProfileDataId}
             completed={completed}
             initialBattleId={searchParams.get("battle") || ""}
             initialInviteCode={pendingInviteCode}
@@ -476,7 +485,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
           role={isYoungKidsLearner ? undefined : "tabpanel"}
         >
       <section className="card quiz-builder-card">
-        <div>
+        <div className="quiz-builder-header">
           <span className="section-tag">Adaptive setup</span>
           <h3>Build a quiz from your exact topic</h3>
         </div>
@@ -884,6 +893,7 @@ function QuizPage({ academicLevel, academicTrack, userProfile, subjects = [], sc
       </section>
         </div>
       )}
+      </div>
     </section>
   );
 }

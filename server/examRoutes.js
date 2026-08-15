@@ -13,6 +13,12 @@ import {
   MINIMUM_EXAM_SUBMIT_MINUTES,
 } from "../src/utils/examTiming.js";
 import { readYoungKidsParentFeatureAccess } from "./kidsParentAccess.js";
+import {
+  academicProfileFilter,
+  assertAcademicProfileWritable,
+  getRequestAcademicProfileId,
+  withAcademicProfileWriteFence,
+} from "./profileDataScope.js";
 
 const EXAM_QUESTION_COUNT = 40;
 const EXAM_DURATION_MINUTES = 60;
@@ -685,7 +691,12 @@ async function finalizeAttempt(db, attempt, exam, reason = "manual", answerPatch
   const submissionReason = reason === "violation_limit" || reason === "time_expired" ? reason : "manual";
   const status = submissionReason === "manual" ? "submitted" : "auto_submitted";
   await db.collection("examAttempts").updateOne(
-    { _id: attempt._id, userId: attempt.userId, status: "in_progress" },
+    {
+      _id: attempt._id,
+      userId: attempt.userId,
+      academicProfileId: attempt.academicProfileId,
+      status: "in_progress",
+    },
     { $set: {
       answers,
       score,
@@ -699,18 +710,22 @@ async function finalizeAttempt(db, attempt, exam, reason = "manual", answerPatch
       updatedAt: now,
     } },
   );
-  return db.collection("examAttempts").findOne({ _id: attempt._id, userId: attempt.userId });
+  return db.collection("examAttempts").findOne({
+    _id: attempt._id,
+    userId: attempt.userId,
+    academicProfileId: attempt.academicProfileId,
+  });
 }
 
-async function loadAttemptAndExam(db, userId, attemptId) {
+async function loadAttemptAndExam(db, userId, academicProfileId, attemptId, finalizeExpiredAttempt) {
   const objectId = toObjectId(attemptId);
   if (!objectId) return {};
-  let attempt = await db.collection("examAttempts").findOne({ _id: objectId, userId });
+  let attempt = await db.collection("examAttempts").findOne({ _id: objectId, userId, academicProfileId });
   if (!attempt) return {};
-  const exam = await db.collection("exams").findOne({ _id: attempt.examId, userId });
+  const exam = await db.collection("exams").findOne({ _id: attempt.examId, userId, academicProfileId });
   if (!exam) return { attempt };
   if (attempt.status === "in_progress" && new Date(attempt.expiresAt).getTime() <= Date.now()) {
-    attempt = await finalizeAttempt(db, attempt, exam, "time_expired");
+    attempt = await finalizeExpiredAttempt(attempt, exam);
   }
   return { attempt, exam };
 }
@@ -841,9 +856,9 @@ function aiQuotaUnavailableError(message = "AI credit tracking is temporarily un
   return error;
 }
 
-async function rollbackInsertedAiArtifact(collection, insertedId, userId, commitError, artifactName) {
+async function rollbackInsertedAiArtifact(collection, insertedId, userId, academicProfileId, commitError, artifactName) {
   try {
-    const rollback = await collection.deleteOne({ _id: insertedId, userId });
+    const rollback = await collection.deleteOne({ _id: insertedId, userId, academicProfileId });
     if (rollback?.deletedCount === 1) return;
   } catch (rollbackError) {
     const error = aiQuotaUnavailableError(
@@ -881,6 +896,7 @@ async function lookupAiAction(aiQuota, req, feature) {
   try {
     const result = await aiQuota.lookup({
       userId: req.user._id,
+      academicProfileId: getRequestAcademicProfileId(req),
       feature,
       requestId,
     });
@@ -898,6 +914,7 @@ async function reserveAiAction(aiQuota, req, feature, requestId = requestIdempot
   try {
     return await aiQuota.reserve({
       userId: req.user._id,
+      academicProfileId: getRequestAcademicProfileId(req),
       feature,
       requestId,
     });
@@ -987,20 +1004,41 @@ function questionPaperResponse(paper) {
   const safePaper = { ...paper, id: publicId(paper) };
   delete safePaper._id;
   delete safePaper.userId;
+  delete safePaper.academicProfileId;
   return { paper: safePaper };
 }
 
-async function loadQuestionPaperReplay(db, userId, reservation) {
+async function loadQuestionPaperReplay(db, userId, academicProfileId, reservation) {
   if (reservation?.replayPayload) return reservation.replayPayload;
   const paperId = toObjectId(reservation?.resultRef?.id);
   if (!paperId) throw aiQuotaUnavailableError("The saved question paper replay is unavailable.");
-  const paper = await db.collection("questionPapers").findOne({ _id: paperId, userId });
+  const paper = await db.collection("questionPapers").findOne({ _id: paperId, userId, academicProfileId });
   if (!paper) throw aiQuotaUnavailableError("The saved question paper replay is unavailable.");
   return questionPaperResponse(paper);
 }
 
 export default function registerExamRoutes(app, dependencies) {
-  const { aiQuota, getDb, requireAuth, getGroqConfigStatus, groqModel } = dependencies;
+  const {
+    aiQuota,
+    assertProfileWritable = assertAcademicProfileWritable,
+    getDb,
+    withProfileWriteFence = withAcademicProfileWriteFence,
+    requireAuth,
+    getGroqConfigStatus,
+    groqModel,
+  } = dependencies;
+
+  const loadScopedAttemptAndExam = (db, req, attemptId) => loadAttemptAndExam(
+    db,
+    req.user._id,
+    getRequestAcademicProfileId(req),
+    attemptId,
+    (attempt, exam) => withProfileWriteFence(
+      db,
+      req,
+      () => finalizeAttempt(db, attempt, exam, "time_expired"),
+    ),
+  );
 
   const parentGuidedRoute = (handler, { allowActiveAttempt = false } = {}) => requireAuth(async (req, res) => {
     const db = await getDb();
@@ -1014,6 +1052,7 @@ export default function registerExamRoutes(app, dependencies) {
         ? await db.collection("examAttempts").findOne({
           _id: attemptId,
           userId: req.user._id,
+          academicProfileId: getRequestAcademicProfileId(req),
           status: "in_progress",
         })
         : null;
@@ -1056,9 +1095,10 @@ export default function registerExamRoutes(app, dependencies) {
         });
       }
       const db = await getDb();
+      const academicProfileId = getRequestAcademicProfileId(req);
       const limitState = await loadExamStartLimit(db, req.user._id);
       if (limitState.reached) return sendExamStartLimitError(res, limitState);
-      const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
+      const workspace = await db.collection("workspaces").findOne(academicProfileFilter(req));
       const eligibility = getWorkspaceExamEligibility(workspace);
       if (!eligibility.isExamEligible) return sendExamEligibilityError(res, eligibility);
       const subject = (workspace?.subjects || []).find((item) => cleanText(item?.name).toLowerCase() === requestedSubject.toLowerCase());
@@ -1086,9 +1126,11 @@ export default function registerExamRoutes(app, dependencies) {
       }
       reservation = quotaResult;
       const questions = await generateExamQuestions(config, groqModel, context);
+      await assertProfileWritable(db, req);
       const now = new Date();
       const exam = {
         userId: req.user._id,
+        academicProfileId,
         title: `${subject.name} - 40 Question Exam`,
         subjectName: subject.name,
         subjectSnapshot: { name: subject.name, chapters: Number(subject.chapters || 0), difficulty: subject.difficulty || "medium" },
@@ -1104,29 +1146,34 @@ export default function registerExamRoutes(app, dependencies) {
         updatedAt: now,
       };
       const exams = db.collection("exams");
-      const result = await exams.insertOne(exam);
-      exam._id = result.insertedId;
-      persisted = true;
+      let result;
       const payload = { exam: examMetadata(exam) };
       let committed;
-      try {
-        committed = await aiQuota.commit({
-          eventId: reservation.eventId,
-          reservationToken: reservation.reservationToken,
-          replayPayload: payload,
-          resultRef: { type: "secure_exam", id: publicId(exam) },
-        });
-      } catch (commitError) {
-        await rollbackInsertedAiArtifact(
-          exams,
-          result.insertedId,
-          req.user._id,
-          commitError,
-          "secure exam",
-        );
-        persisted = false;
-        throw commitError;
-      }
+      await withProfileWriteFence(db, req, async () => {
+        result = await exams.insertOne(exam);
+        exam._id = result.insertedId;
+        persisted = true;
+        payload.exam = examMetadata(exam);
+        try {
+          committed = await aiQuota.commit({
+            eventId: reservation.eventId,
+            reservationToken: reservation.reservationToken,
+            replayPayload: payload,
+            resultRef: { type: "secure_exam", id: publicId(exam) },
+          });
+        } catch (commitError) {
+          await rollbackInsertedAiArtifact(
+            exams,
+            result.insertedId,
+            req.user._id,
+            academicProfileId,
+            commitError,
+            "secure exam",
+          );
+          persisted = false;
+          throw commitError;
+        }
+      });
       setAiQuotaHeaders(res, aiQuota, committed?.quota, reservation.cost);
       return res.status(201).json(payload);
     } catch (error) {
@@ -1166,19 +1213,26 @@ export default function registerExamRoutes(app, dependencies) {
 
   app.get("/api/exams", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
-    const exams = await db.collection("exams").find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(30).toArray();
+    const exams = await db.collection("exams").find(academicProfileFilter(req)).sort({ createdAt: -1 }).limit(30).toArray();
     res.json({ exams: exams.map(examMetadata) });
   }));
 
   app.post("/api/exams/:id/start", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
+    const academicProfileId = getRequestAcademicProfileId(req);
     const examId = toObjectId(req.params.id);
     if (!examId) return res.status(404).json({ error: "Exam not found." });
-    const exam = await db.collection("exams").findOne({ _id: examId, userId: req.user._id });
+    const exam = await db.collection("exams").findOne(academicProfileFilter(req, { _id: examId }));
     if (!exam) return res.status(404).json({ error: "Exam not found." });
-    let attempt = await db.collection("examAttempts").findOne({ userId: req.user._id, examId });
+    let attempt = await db.collection("examAttempts").findOne(academicProfileFilter(req, { examId }));
     if (attempt) {
-      if (attempt.status === "in_progress" && new Date(attempt.expiresAt).getTime() <= Date.now()) attempt = await finalizeAttempt(db, attempt, exam, "time_expired");
+      if (attempt.status === "in_progress" && new Date(attempt.expiresAt).getTime() <= Date.now()) {
+        attempt = await withProfileWriteFence(
+          db,
+          req,
+          () => finalizeAttempt(db, attempt, exam, "time_expired"),
+        );
+      }
       if (attempt.status !== "in_progress") return res.status(409).json({ error: "This exam has already been submitted.", attempt: resultSummary(attempt, exam) });
       return res.json({ attempt: activeAttemptPayload(attempt, exam) });
     }
@@ -1194,14 +1248,20 @@ export default function registerExamRoutes(app, dependencies) {
     try {
       // Recheck under the per-user lock so duplicate clicks are idempotent and
       // concurrent requests for different exams cannot both pass the limit.
-      attempt = await db.collection("examAttempts").findOne({ userId: req.user._id, examId });
+      attempt = await db.collection("examAttempts").findOne(academicProfileFilter(req, { examId }));
       if (attempt) {
-        if (attempt.status === "in_progress" && new Date(attempt.expiresAt).getTime() <= Date.now()) attempt = await finalizeAttempt(db, attempt, exam, "time_expired");
+        if (attempt.status === "in_progress" && new Date(attempt.expiresAt).getTime() <= Date.now()) {
+          attempt = await withProfileWriteFence(
+            db,
+            req,
+            () => finalizeAttempt(db, attempt, exam, "time_expired"),
+          );
+        }
         if (attempt.status !== "in_progress") return res.status(409).json({ error: "This exam has already been submitted.", attempt: resultSummary(attempt, exam) });
         return res.json({ attempt: activeAttemptPayload(attempt, exam) });
       }
 
-      const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
+      const workspace = await db.collection("workspaces").findOne(academicProfileFilter(req));
       const eligibility = getWorkspaceExamEligibility(workspace);
       if (!eligibility.isExamEligible) return sendExamEligibilityError(res, eligibility);
 
@@ -1211,6 +1271,7 @@ export default function registerExamRoutes(app, dependencies) {
       const startedAt = new Date();
       attempt = {
         userId: req.user._id,
+        academicProfileId,
         examId,
         status: "in_progress",
         startedAt,
@@ -1222,9 +1283,14 @@ export default function registerExamRoutes(app, dependencies) {
         createdAt: startedAt,
         updatedAt: startedAt,
       };
-      const result = await db.collection("examAttempts").insertOne(attempt);
-      attempt._id = result.insertedId;
-      await db.collection("exams").updateOne({ _id: examId, userId: req.user._id }, { $set: { status: "started", updatedAt: startedAt } });
+      await withProfileWriteFence(db, req, async () => {
+        const result = await db.collection("examAttempts").insertOne(attempt);
+        attempt._id = result.insertedId;
+        await db.collection("exams").updateOne(
+          academicProfileFilter(req, { _id: examId }),
+          { $set: { status: "started", updatedAt: startedAt } },
+        );
+      });
       return res.status(201).json({ attempt: activeAttemptPayload(attempt, exam) });
     } finally {
       await releaseExamStartLock(db, lock).catch((error) => {
@@ -1235,22 +1301,22 @@ export default function registerExamRoutes(app, dependencies) {
 
   app.get("/api/exam-attempts/:id", activeAttemptRoute(async (req, res) => {
     const db = await getDb();
-    const { attempt, exam } = await loadAttemptAndExam(db, req.user._id, req.params.id);
+    const { attempt, exam } = await loadScopedAttemptAndExam(db, req, req.params.id);
     if (!attempt || !exam) return res.status(404).json({ error: "Exam attempt not found." });
     return res.json({ attempt: attempt.status === "in_progress" ? activeAttemptPayload(attempt, exam) : resultSummary(attempt, exam, false) });
   }));
 
   app.put("/api/exam-attempts/:id/answers", activeAttemptRoute(async (req, res) => {
     const db = await getDb();
-    const { attempt, exam } = await loadAttemptAndExam(db, req.user._id, req.params.id);
+    const { attempt, exam } = await loadScopedAttemptAndExam(db, req, req.params.id);
     if (!attempt || !exam) return res.status(404).json({ error: "Exam attempt not found." });
     if (attempt.status !== "in_progress") return res.status(409).json({ error: "This exam is no longer active.", attempt: resultSummary(attempt, exam) });
     const answers = sanitizeAnswers(req.body?.answers, exam);
     const updatedAt = new Date();
-    await db.collection("examAttempts").updateOne(
-      { _id: attempt._id, userId: req.user._id, status: "in_progress" },
+    await withProfileWriteFence(db, req, () => db.collection("examAttempts").updateOne(
+      academicProfileFilter(req, { _id: attempt._id, status: "in_progress" }),
       { $set: { answers, updatedAt } },
-    );
+    ));
     const minimumSubmitAt = getExamMinimumSubmitAt(attempt);
     return res.json({
       attempt: {
@@ -1267,7 +1333,7 @@ export default function registerExamRoutes(app, dependencies) {
 
   app.post("/api/exam-attempts/:id/violations", activeAttemptRoute(async (req, res) => {
     const db = await getDb();
-    let { attempt, exam } = await loadAttemptAndExam(db, req.user._id, req.params.id);
+    let { attempt, exam } = await loadScopedAttemptAndExam(db, req, req.params.id);
     if (!attempt || !exam) return res.status(404).json({ error: "Exam attempt not found." });
     if (attempt.status !== "in_progress") return res.json({ autoSubmitted: true, violationCount: attempt.violationCount || 0, attempt: resultSummary(attempt, exam) });
     const eventId = cleanText(req.body?.eventId);
@@ -1276,10 +1342,11 @@ export default function registerExamRoutes(app, dependencies) {
     const duplicate = (attempt.violations || []).some((event) => event.eventId === eventId);
     if (!duplicate) {
       const event = { eventId, type, at: new Date() };
-      await db.collection("examAttempts").updateOne(
+      await withProfileWriteFence(db, req, () => db.collection("examAttempts").updateOne(
         {
           _id: attempt._id,
           userId: req.user._id,
+          academicProfileId: getRequestAcademicProfileId(req),
           status: "in_progress",
           "violations.eventId": { $ne: eventId },
           $or: [
@@ -1288,11 +1355,17 @@ export default function registerExamRoutes(app, dependencies) {
           ],
         },
         { $push: { violations: event }, $inc: { violationCount: 1 }, $set: { updatedAt: event.at } },
+      ));
+      attempt = await db.collection("examAttempts").findOne(
+        academicProfileFilter(req, { _id: attempt._id }),
       );
-      attempt = await db.collection("examAttempts").findOne({ _id: attempt._id, userId: req.user._id });
     }
     if (Number(attempt.violationCount || 0) > MAX_VIOLATIONS) {
-      attempt = await finalizeAttempt(db, attempt, exam, "violation_limit", req.body?.answers);
+      attempt = await withProfileWriteFence(
+        db,
+        req,
+        () => finalizeAttempt(db, attempt, exam, "violation_limit", req.body?.answers),
+      );
       return res.json({
         autoSubmitted: true,
         violationCount: attempt.violationCount,
@@ -1310,7 +1383,7 @@ export default function registerExamRoutes(app, dependencies) {
 
   app.post("/api/exam-attempts/:id/submit", activeAttemptRoute(async (req, res) => {
     const db = await getDb();
-    const { attempt: loadedAttempt, exam } = await loadAttemptAndExam(db, req.user._id, req.params.id);
+    const { attempt: loadedAttempt, exam } = await loadScopedAttemptAndExam(db, req, req.params.id);
     let attempt = loadedAttempt;
     if (!attempt || !exam) return res.status(404).json({ error: "Exam attempt not found." });
     if (attempt.status === "in_progress") {
@@ -1323,7 +1396,11 @@ export default function registerExamRoutes(app, dependencies) {
       );
 
       if (hasExpired) {
-        attempt = await finalizeAttempt(db, attempt, exam, "time_expired", req.body?.answers);
+        attempt = await withProfileWriteFence(
+          db,
+          req,
+          () => finalizeAttempt(db, attempt, exam, "time_expired", req.body?.answers),
+        );
       } else {
         const minimumSubmitAt = getExamMinimumSubmitAt(attempt);
         if (minimumSubmitAt === null) {
@@ -1342,7 +1419,11 @@ export default function registerExamRoutes(app, dependencies) {
             remainingSeconds,
           });
         }
-        attempt = await finalizeAttempt(db, attempt, exam, "manual", req.body?.answers);
+        attempt = await withProfileWriteFence(
+          db,
+          req,
+          () => finalizeAttempt(db, attempt, exam, "manual", req.body?.answers),
+        );
       }
     }
     return res.json({ attempt: resultSummary(attempt, exam), result: resultSummary(attempt, exam) });
@@ -1350,34 +1431,40 @@ export default function registerExamRoutes(app, dependencies) {
 
   app.get("/api/exam-results", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
-    const expiredAttempts = await db.collection("examAttempts").find({
-      userId: req.user._id,
+    const expiredAttempts = await db.collection("examAttempts").find(academicProfileFilter(req, {
       status: "in_progress",
       expiresAt: { $lte: new Date() },
-    }).toArray();
+    })).toArray();
     if (expiredAttempts.length) {
       const expiredExamIds = [...new Set(expiredAttempts.map((attempt) => attempt.examId?.toString()).filter(Boolean))]
         .map((id) => new ObjectId(id));
-      const expiredExams = await db.collection("exams").find({
+      const expiredExams = await db.collection("exams").find(academicProfileFilter(req, {
         _id: { $in: expiredExamIds },
-        userId: req.user._id,
-      }).toArray();
+      })).toArray();
       const expiredExamMap = new Map(expiredExams.map((exam) => [exam._id.toString(), exam]));
-      await Promise.all(expiredAttempts.map((attempt) => {
-        const exam = expiredExamMap.get(attempt.examId?.toString());
-        return exam ? finalizeAttempt(db, attempt, exam, "time_expired") : Promise.resolve();
-      }));
+      await withProfileWriteFence(
+        db,
+        req,
+        () => Promise.all(expiredAttempts.map((attempt) => {
+          const exam = expiredExamMap.get(attempt.examId?.toString());
+          return exam ? finalizeAttempt(db, attempt, exam, "time_expired") : Promise.resolve();
+        })),
+      );
     }
-    const attempts = await db.collection("examAttempts").find({ userId: req.user._id, status: { $in: ["submitted", "auto_submitted"] } }).sort({ submittedAt: -1 }).limit(60).toArray();
+    const attempts = await db.collection("examAttempts").find(
+      academicProfileFilter(req, { status: { $in: ["submitted", "auto_submitted"] } }),
+    ).sort({ submittedAt: -1 }).limit(60).toArray();
     const examIds = [...new Set(attempts.map((attempt) => attempt.examId?.toString()).filter(Boolean))].map((id) => new ObjectId(id));
-    const exams = examIds.length ? await db.collection("exams").find({ _id: { $in: examIds }, userId: req.user._id }).toArray() : [];
+    const exams = examIds.length
+      ? await db.collection("exams").find(academicProfileFilter(req, { _id: { $in: examIds } })).toArray()
+      : [];
     const examMap = new Map(exams.map((exam) => [exam._id.toString(), exam]));
     return res.json({ results: attempts.map((attempt) => resultSummary(attempt, examMap.get(attempt.examId?.toString()), false)) });
   }));
 
   app.get("/api/exam-results/:id", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
-    const { attempt, exam } = await loadAttemptAndExam(db, req.user._id, req.params.id);
+    const { attempt, exam } = await loadScopedAttemptAndExam(db, req, req.params.id);
     if (!attempt || !exam || !["submitted", "auto_submitted"].includes(attempt.status)) return res.status(404).json({ error: "Exam result not found." });
     return res.json({ result: resultSummary(attempt, exam, true) });
   }));
@@ -1403,7 +1490,12 @@ export default function registerExamRoutes(app, dependencies) {
       setAiQuotaHeaders(res, aiQuota, lookupResult?.quota, lookupResult?.cost);
       if (lookupResult?.state === "replay") {
         const replayDb = await getDb();
-        const payload = await loadQuestionPaperReplay(replayDb, req.user._id, lookupResult);
+        const payload = await loadQuestionPaperReplay(
+          replayDb,
+          req.user._id,
+          getRequestAcademicProfileId(req),
+          lookupResult,
+        );
         return res.status(201).json(payload);
       }
 
@@ -1416,7 +1508,8 @@ export default function registerExamRoutes(app, dependencies) {
       }
 
       const db = await getDb();
-      const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
+      const academicProfileId = getRequestAcademicProfileId(req);
+      const workspace = await db.collection("workspaces").findOne(academicProfileFilter(req));
       const selectedSubjects = requestedNames.map((requested) =>
         (workspace?.subjects || []).find((subject) => cleanText(subject?.name).toLowerCase() === requested.toLowerCase()),
       );
@@ -1445,7 +1538,12 @@ export default function registerExamRoutes(app, dependencies) {
       );
       setAiQuotaHeaders(res, aiQuota, quotaResult?.quota, quotaResult?.cost);
       if (quotaResult?.state === "replay") {
-        const payload = await loadQuestionPaperReplay(db, req.user._id, quotaResult);
+        const payload = await loadQuestionPaperReplay(
+          db,
+          req.user._id,
+          academicProfileId,
+          quotaResult,
+        );
         return res.status(201).json(payload);
       }
       reservation = quotaResult;
@@ -1463,9 +1561,11 @@ export default function registerExamRoutes(app, dependencies) {
         });
       }
       const questions = sections.flatMap((section) => section.questions);
+      await assertProfileWritable(db, req);
       const now = new Date();
       const paper = {
         userId: req.user._id,
+        academicProfileId,
         title: cleanText(req.body?.paperTitle, `${context.subjectNames.join(" + ")} Question Paper`),
         paperTitle: cleanText(req.body?.paperTitle, `${context.subjectNames.join(" + ")} Question Paper`),
         institutionName: cleanText(req.body?.institutionName, req.user.institutionName || "PrepMatrix AI"),
@@ -1500,28 +1600,33 @@ export default function registerExamRoutes(app, dependencies) {
         updatedAt: now,
       };
       const questionPapers = db.collection("questionPapers");
-      const result = await questionPapers.insertOne(paper);
-      paper._id = result.insertedId;
-      persisted = true;
-      const payload = questionPaperResponse(paper);
+      let result;
+      let payload;
       let committed;
-      try {
-        committed = await aiQuota.commit({
-          eventId: reservation.eventId,
-          reservationToken: reservation.reservationToken,
-          resultRef: { type: "question_paper", id: publicId(paper) },
-        });
-      } catch (commitError) {
-        await rollbackInsertedAiArtifact(
-          questionPapers,
-          result.insertedId,
-          req.user._id,
-          commitError,
-          "question paper",
-        );
-        persisted = false;
-        throw commitError;
-      }
+      await withProfileWriteFence(db, req, async () => {
+        result = await questionPapers.insertOne(paper);
+        paper._id = result.insertedId;
+        persisted = true;
+        payload = questionPaperResponse(paper);
+        try {
+          committed = await aiQuota.commit({
+            eventId: reservation.eventId,
+            reservationToken: reservation.reservationToken,
+            resultRef: { type: "question_paper", id: publicId(paper) },
+          });
+        } catch (commitError) {
+          await rollbackInsertedAiArtifact(
+            questionPapers,
+            result.insertedId,
+            req.user._id,
+            academicProfileId,
+            commitError,
+            "question paper",
+          );
+          persisted = false;
+          throw commitError;
+        }
+      });
       setAiQuotaHeaders(res, aiQuota, committed?.quota, reservation.cost);
       return res.status(201).json(payload);
     } catch (error) {
@@ -1547,7 +1652,12 @@ export default function registerExamRoutes(app, dependencies) {
 
   app.get("/api/question-papers", parentGuidedRoute(async (req, res) => {
     const db = await getDb();
-    const papers = await db.collection("questionPapers").find({ userId: req.user._id }).project({ userId: 0, questions: 0, sections: 0, answerKey: 0 }).sort({ createdAt: -1 }).limit(50).toArray();
+    const papers = await db.collection("questionPapers")
+      .find(academicProfileFilter(req))
+      .project({ userId: 0, academicProfileId: 0, questions: 0, sections: 0, answerKey: 0 })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .toArray();
     return res.json({ papers: papers.map((paper) => ({ ...paper, id: publicId(paper), _id: undefined })) });
   }));
 
@@ -1555,11 +1665,14 @@ export default function registerExamRoutes(app, dependencies) {
     const db = await getDb();
     const paperId = toObjectId(req.params.id);
     if (!paperId) return res.status(404).json({ error: "Question paper not found." });
-    const paper = await db.collection("questionPapers").findOne({ _id: paperId, userId: req.user._id });
+    const paper = await db.collection("questionPapers").findOne(
+      academicProfileFilter(req, { _id: paperId }),
+    );
     if (!paper) return res.status(404).json({ error: "Question paper not found." });
     const safePaper = { ...paper, id: publicId(paper) };
     delete safePaper._id;
     delete safePaper.userId;
+    delete safePaper.academicProfileId;
     return res.json({ paper: safePaper });
   }));
 
@@ -1567,7 +1680,13 @@ export default function registerExamRoutes(app, dependencies) {
     const db = await getDb();
     const paperId = toObjectId(req.params.id);
     if (!paperId) return res.status(404).json({ error: "Question paper not found." });
-    const result = await db.collection("questionPapers").deleteOne({ _id: paperId, userId: req.user._id });
+    const result = await withProfileWriteFence(
+      db,
+      req,
+      () => db.collection("questionPapers").deleteOne(
+        academicProfileFilter(req, { _id: paperId }),
+      ),
+    );
     if (!result.deletedCount) return res.status(404).json({ error: "Question paper not found." });
     return res.json({ ok: true, id: req.params.id });
   }));

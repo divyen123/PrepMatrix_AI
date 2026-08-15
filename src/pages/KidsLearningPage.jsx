@@ -18,6 +18,10 @@ import {
   WifiOff,
 } from "lucide-react";
 import api from "../utils/apiClient";
+import {
+  academicProfileStorageKey,
+  legacyAcademicProfileOwnerStorageKey,
+} from "../utils/academicProfileScope";
 import { isYoungKidsParentGuidedRoute } from "../utils/learnerRouting";
 import {
   KIDS_AGE_BANDS,
@@ -198,6 +202,7 @@ export function KidsLearningHeroToolbar({
 }
 
 function KidsLearningPageContent({
+  academicProfileDataId = "",
   userProfile = {},
   academicLevel = "",
   academicTrack = "",
@@ -207,10 +212,33 @@ function KidsLearningPageContent({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const storageKey = useMemo(() => getKidsStorageKey(userProfile), [userProfile]);
+  const storageKey = useMemo(
+    () => getKidsStorageKey(userProfile, academicProfileDataId),
+    [academicProfileDataId, userProfile],
+  );
+  const legacyStorageKey = useMemo(() => getKidsStorageKey({
+    ...userProfile,
+    academicProfileId: "",
+    dataId: "",
+  }), [userProfile]);
+  const mayMigrateLegacyState = typeof window !== "undefined"
+    && window.localStorage.getItem(legacyAcademicProfileOwnerStorageKey(userProfile))
+      === academicProfileDataId;
+  const pinSetupStorageKey = academicProfileStorageKey(
+    academicProfileDataId,
+    "kids-pin-setup-pending",
+  ) || "prepmatrix_kids_pin_setup_pending";
   const savedStateRef = useRef(null);
   if (savedStateRef.current === null && typeof window !== "undefined") {
-    savedStateRef.current = loadKidsLocalState(window.localStorage, storageKey) || false;
+    const scopedState = loadKidsLocalState(window.localStorage, storageKey);
+    const legacyState = mayMigrateLegacyState && !scopedState && storageKey !== legacyStorageKey
+      ? loadKidsLocalState(window.localStorage, legacyStorageKey)
+      : null;
+    savedStateRef.current = scopedState || legacyState || false;
+    if (legacyState) {
+      saveKidsLocalState(window.localStorage, storageKey, legacyState);
+      window.localStorage.removeItem(legacyStorageKey);
+    }
   }
   const savedState = savedStateRef.current || null;
   const inferredAgeBand = getKidsAgeBand(userProfile?.grade || academicLevel);
@@ -230,7 +258,8 @@ function KidsLearningPageContent({
   const [registrationPinSetupPending, setRegistrationPinSetupPending] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
-      return window.sessionStorage.getItem("prepmatrix_kids_pin_setup_pending") === "true";
+      return window.sessionStorage.getItem(pinSetupStorageKey) === "true"
+        || window.sessionStorage.getItem("prepmatrix_kids_pin_setup_pending") === "true";
     } catch {
       return false;
     }
@@ -241,17 +270,39 @@ function KidsLearningPageContent({
   const [profileRefreshKey, setProfileRefreshKey] = useState(0);
   const pendingStorageKey = storageKey + ":pending-attempts";
   const [pendingAttempts, setPendingAttempts] = useState(() => (
-    typeof window === "undefined" ? [] : loadPendingAttempts(window.localStorage, pendingStorageKey)
+    typeof window === "undefined"
+      ? []
+      : (() => {
+        const scoped = loadPendingAttempts(window.localStorage, pendingStorageKey);
+        if (scoped.length || storageKey === legacyStorageKey || !mayMigrateLegacyState) return scoped;
+        const legacyKey = legacyStorageKey + ":pending-attempts";
+        const legacy = loadPendingAttempts(window.localStorage, legacyKey);
+        if (legacy.length) window.localStorage.removeItem(legacyKey);
+        return legacy;
+      })()
   ));
   const pendingAttemptsRef = useRef(pendingAttempts);
   const flushingPendingRef = useRef(false);
   const sessionStorageKey = `${storageKey}:session`;
   const initialSessionStateRef = useRef(null);
   if (initialSessionStateRef.current === null) {
+    const legacySessionStorageKey = `${legacyStorageKey}:session`;
+    const hasScopedSession = typeof window !== "undefined"
+      && window.sessionStorage.getItem(sessionStorageKey);
+    const sourceSessionKey = mayMigrateLegacyState && !hasScopedSession && storageKey !== legacyStorageKey
+      ? legacySessionStorageKey
+      : sessionStorageKey;
     initialSessionStateRef.current = initialSessionState(
       typeof window !== "undefined" ? window.sessionStorage : null,
-      sessionStorageKey,
+      sourceSessionKey,
     );
+    if (sourceSessionKey !== sessionStorageKey && typeof window !== "undefined") {
+      window.sessionStorage.setItem(
+        sessionStorageKey,
+        JSON.stringify({ date: localDateKey(), ...initialSessionStateRef.current }),
+      );
+      window.sessionStorage.removeItem(sourceSessionKey);
+    }
   }
   const sessionStartedAtRef = useRef(initialSessionStateRef.current.startedAt);
   const dailyUsedBeforeSessionRef = useRef(initialSessionStateRef.current.dailyBaselineSeconds || 0);
@@ -269,13 +320,14 @@ function KidsLearningPageContent({
     }
     if (parentAccess?.setupRequired === false && registrationPinSetupPending) {
       try {
+        window.sessionStorage.removeItem(pinSetupStorageKey);
         window.sessionStorage.removeItem("prepmatrix_kids_pin_setup_pending");
       } catch {
         // The server state remains authoritative if storage is unavailable.
       }
       setRegistrationPinSetupPending(false);
     }
-  }, [location.state, parentAccess?.setupRequired, registrationPinSetupPending]);
+  }, [location.state, parentAccess?.setupRequired, pinSetupStorageKey, registrationPinSetupPending]);
 
   useEffect(() => {
     const allowedSubjects = SUBJECTS_BY_AGE_BAND[selectedAgeBand] || SUBJECTS_BY_AGE_BAND["class1-2"];
@@ -302,7 +354,9 @@ function KidsLearningPageContent({
     let cancelled = false;
     setSyncStatus("loading");
     const query = new URLSearchParams({ gradeBand: selectedAgeBand, localDate: today });
-    api.get(`/api/kids/profile?${query.toString()}`)
+    api.get(`/api/kids/profile?${query.toString()}`, {
+      academicProfileId: academicProfileDataId,
+    })
       .then((payload) => {
         if (cancelled) return;
         if (payload?.progress) {
@@ -342,6 +396,7 @@ function KidsLearningPageContent({
       cancelled = true;
     };
   }, [
+    academicProfileDataId,
     onParentAccessChange,
     profileRefreshKey,
     selectedAgeBand,
@@ -362,7 +417,9 @@ function KidsLearningPageContent({
     }
     setPacksLoading(true);
     const query = new URLSearchParams({ gradeBand: selectedAgeBand, subject: selectedSubject });
-    api.get(`/api/kids/packs?${query.toString()}`)
+    api.get(`/api/kids/packs?${query.toString()}`, {
+      academicProfileId: academicProfileDataId,
+    })
       .then((payload) => {
         if (cancelled) return;
         const serverPacks = Array.isArray(payload?.packs)
@@ -382,7 +439,7 @@ function KidsLearningPageContent({
     return () => {
       cancelled = true;
     };
-  }, [selectedAgeBand, selectedSubject, settings.language, today]);
+  }, [academicProfileDataId, selectedAgeBand, selectedSubject, settings.language, today]);
 
   useEffect(() => {
     let cancelled = false;
@@ -394,7 +451,9 @@ function KidsLearningPageContent({
       };
     }
     const query = new URLSearchParams({ gradeBand: selectedAgeBand, localDate: today });
-    api.get(`/api/kids/daily-mission?${query.toString()}`)
+    api.get(`/api/kids/daily-mission?${query.toString()}`, {
+      academicProfileId: academicProfileDataId,
+    })
       .then((payload) => {
         if (cancelled || payload?.mission?.items?.length < 5) return;
         setDailyMission({ ...normalizeKidsPack(payload.mission), source: "server" });
@@ -405,7 +464,7 @@ function KidsLearningPageContent({
     return () => {
       cancelled = true;
     };
-  }, [progress, selectedAgeBand, settings.language, today]);
+  }, [academicProfileDataId, progress, selectedAgeBand, settings.language, today]);
 
   useEffect(() => {
     const updateRemaining = () => {
@@ -452,7 +511,11 @@ function KidsLearningPageContent({
     try {
       for (const pendingAttempt of [...pendingAttemptsRef.current]) {
         try {
-          const payload = await api.post("/api/kids/attempts", pendingAttempt);
+          const payload = await api.post(
+            "/api/kids/attempts",
+            pendingAttempt,
+            { academicProfileId: academicProfileDataId },
+          );
           completedIds.add(pendingAttempt.clientAttemptId);
           if (payload?.progress) {
             setProgress((current) => {
@@ -492,7 +555,7 @@ function KidsLearningPageContent({
     } finally {
       flushingPendingRef.current = false;
     }
-  }, []);
+  }, [academicProfileDataId]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -594,7 +657,11 @@ function KidsLearningPageContent({
     };
 
     try {
-      const payload = await api.post("/api/kids/attempts", attemptPayload);
+      const payload = await api.post(
+        "/api/kids/attempts",
+        attemptPayload,
+        { academicProfileId: academicProfileDataId },
+      );
       const evaluation = payload?.evaluation || {};
       let nextProgress = progress;
       setProgress((current) => {
@@ -691,7 +758,11 @@ function KidsLearningPageContent({
   const authorizeParentPin = async (pin, { create = false } = {}) => {
     if (create) {
       try {
-        const payload = await api.put("/api/kids/parent-settings", parentSettingsBody(settings, { parentPin: pin }));
+        const payload = await api.put(
+          "/api/kids/parent-settings",
+          parentSettingsBody(settings, { parentPin: pin }),
+          { academicProfileId: academicProfileDataId },
+        );
         const normalized = normalizeServerSettings(payload?.settings, settings);
         setSettings(normalized);
         setSyncStatus("synced");
@@ -707,7 +778,11 @@ function KidsLearningPageContent({
     }
 
     try {
-      const payload = await api.post("/api/kids/parent-settings/verify-pin", { pin });
+      const payload = await api.post(
+        "/api/kids/parent-settings/verify-pin",
+        { pin },
+        { academicProfileId: academicProfileDataId },
+      );
       setSyncStatus("synced");
       return { ok: true, settings, parentAccess: payload?.parentAccess };
     } catch (error) {
@@ -728,7 +803,11 @@ function KidsLearningPageContent({
       ...(options.currentParentPin ? { currentParentPin: options.currentParentPin } : {}),
     });
     try {
-      const payload = await api.put("/api/kids/parent-settings", requestBody);
+      const payload = await api.put(
+        "/api/kids/parent-settings",
+        requestBody,
+        { academicProfileId: academicProfileDataId },
+      );
       const savedSettings = normalizeServerSettings(payload?.settings, normalized);
       setSettings(savedSettings);
       setSyncStatus("synced");
@@ -753,7 +832,11 @@ function KidsLearningPageContent({
 
   const lockParentAccess = async () => {
     try {
-      const payload = await api.post("/api/kids/parent-access/lock", {});
+      const payload = await api.post(
+        "/api/kids/parent-access/lock",
+        {},
+        { academicProfileId: academicProfileDataId },
+      );
       onParentAccessChange?.(payload?.parentAccess || { unlocked: false });
     } catch {
       onParentAccessChange?.({ unlocked: false });
@@ -959,6 +1042,7 @@ function KidsLearningPageContent({
         open={parentCornerOpen}
         progress={progress}
         requiredSetup={registrationPinSetupPending || parentAccess?.setupRequired === true}
+        pinSetupStorageKey={pinSetupStorageKey}
         sessionAuthorized={Boolean(parentAccess?.unlocked)}
         settings={settings}
       />

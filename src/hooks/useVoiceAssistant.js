@@ -158,6 +158,7 @@ function cleanAssistantTextForSpeech(text = "") {
 
 
 export default function useVoiceAssistant({
+  academicProfileDataId = "",
   academicLevel = "College",
   academicTrack = "General",
   schedule = [],
@@ -181,6 +182,7 @@ export default function useVoiceAssistant({
   const startWakeListeningRef = useRef(null);
   const activeSpeechRef = useRef(null);
   const previewSpeechRef = useRef(null);
+  const academicProfileScopeRef = useRef(academicProfileDataId);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -215,6 +217,23 @@ export default function useVoiceAssistant({
     () => resolvePreferredVoice(speechVoices, voicePreferences)?.name || "",
     [speechVoices, voicePreferences]
   );
+
+  useEffect(() => {
+    if (academicProfileScopeRef.current === academicProfileDataId) return;
+    academicProfileScopeRef.current = academicProfileDataId;
+    processingRef.current = false;
+    manualCaptureRef.current?.cancel?.();
+    manualCaptureRef.current = null;
+    setIsProcessing(false);
+    setTranscript("");
+    setReply("");
+    setOverlayReply("");
+    setLatestChatSessionId(null);
+    setError("");
+    setVoiceStatusState("idle");
+    voiceStatusRef.current = "idle";
+    window.speechSynthesis?.cancel?.();
+  }, [academicProfileDataId]);
 
   const setVoicePreferences = useCallback((nextPreferences) => {
     setVoicePreferencesState((currentPreferences) => {
@@ -602,19 +621,26 @@ export default function useVoiceAssistant({
       throw quotaError;
     }
     const normalizedMessage = normalizeNoisyStudyQuestion(question);
+    const requestedAcademicProfileId = academicProfileDataId;
     const payload = await api.post("/api/study-assistant/chat", {
       message: question,
       normalizedMessage,
       source: "voice",
       plannerContext,
     }, {
+      academicProfileId: requestedAcademicProfileId,
       headers: { "Idempotency-Key": createAiIdempotencyKey() },
     });
+    if (academicProfileScopeRef.current !== requestedAcademicProfileId) {
+      const scopeError = new Error("Academic profile changed while the voice request was running.");
+      scopeError.code = "ACADEMIC_PROFILE_CHANGED";
+      throw scopeError;
+    }
     return {
       reply: payload.reply?.trim() || "I could not generate an answer for that question.",
       sessionId: payload.sessionId || null,
     };
-  }, [disabled, hasInsufficientCredits, plannerContext]);
+  }, [academicProfileDataId, disabled, hasInsufficientCredits, plannerContext]);
 
   const processSpokenText = useCallback(async (spokenText, { speakReply = true } = {}) => {
     const cleanText = spokenText.trim();
@@ -728,6 +754,7 @@ export default function useVoiceAssistant({
         scheduleWakeRestart();
       }
     } catch (err) {
+      if (err?.code === "ACADEMIC_PROFILE_CHANGED") return;
       const rawMessage = err instanceof Error ? err.message : "Unable to complete that voice request.";
       const aiMessage = getAiRequestErrorMessage(err, rawMessage);
       const message = /failed to fetch|network|abort/i.test(rawMessage)

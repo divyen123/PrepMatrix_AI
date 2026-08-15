@@ -11,6 +11,7 @@ import {
 } from "../utils/scheduleDates";
 
 function Timetable({
+  academicProfileDataId = "",
   subjects,
   schedule,
   setSchedule,
@@ -120,15 +121,20 @@ function Timetable({
   useEffect(() => {
     window.plannerActions = { generate };
 
-    if (window.plannerAutoGenerateRequested) {
-      window.plannerAutoGenerateRequested = false;
+    const pendingRequest = window.plannerAutoGenerateRequested;
+    if (pendingRequest) window.plannerAutoGenerateRequested = null;
+    if (
+      pendingRequest
+      && (!pendingRequest.academicProfileId
+        || pendingRequest.academicProfileId === academicProfileDataId)
+    ) {
       window.setTimeout(generate, 350);
     }
 
     return () => {
       delete window.plannerActions;
     };
-  }, [generate]);
+  }, [academicProfileDataId, generate]);
 
   const toggleComplete = (taskName) => {
     const updated = completed.includes(taskName)

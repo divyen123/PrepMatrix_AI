@@ -12,10 +12,10 @@ import TopicTimeline from "../components/TopicTimeline";
 import useLearningInsights from "../hooks/useLearningInsights";
 import useQuizBattleStats from "../hooks/useQuizBattleStats";
 
-function AnalyticsPage({ subjects, schedule, completed, quizBattlesEnabled = true }) {
+function AnalyticsPage({ academicProfileDataId = "", subjects, schedule, completed, quizBattlesEnabled = true }) {
   const location = useLocation();
-  const learning = useLearningInsights();
-  const battles = useQuizBattleStats({ enabled: quizBattlesEnabled });
+  const learning = useLearningInsights({ academicProfileDataId });
+  const battles = useQuizBattleStats({ academicProfileDataId, enabled: quizBattlesEnabled });
 
   useEffect(() => {
     if (location.hash === "#topic-progress") {
@@ -62,7 +62,7 @@ function AnalyticsPage({ subjects, schedule, completed, quizBattlesEnabled = tru
           onRetryBattleStats={battles.reload}
           schedule={schedule}
         />
-        <ProgressBar1 completed={completed} schedule={schedule} />
+        <ProgressBar1 academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} />
         <GoalTracker completed={completed} schedule={schedule} subjects={subjects} />
       </div>
 

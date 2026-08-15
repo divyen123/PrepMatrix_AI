@@ -13,6 +13,23 @@ const SCHOOL_CURRICULUM_TRACKS = new Set([
   "NIOS / Open Schooling",
 ]);
 
+const ACADEMIC_CHANGE_FIELDS = Object.freeze([
+  { key: "academicLevel", label: "Academic stage" },
+  { key: "grade", label: "Grade / class" },
+  { key: "degree", label: "Degree / major" },
+  { key: "academicTrack", label: "Board / field" },
+  { key: "department", label: "Specialization / department" },
+]);
+
+const SEMANTIC_ACADEMIC_KEYS = Object.freeze([
+  "academicLevel",
+  "academicTrack",
+  "schoolType",
+  "grade",
+  "degree",
+  "department",
+]);
+
 function draftFromProfile(input = {}) {
   const profile = normalizeAcademicProfile(input);
   return {
@@ -102,4 +119,34 @@ export function buildSettingsAcademicSaveProfile(state, institutionName = "") {
     institutionName,
     schoolType: school ? "school" : "college",
   });
+}
+
+export function getSettingsAcademicProfileChanges(currentInput = {}, nextInput = {}) {
+  const current = normalizeAcademicProfile(currentInput);
+  const next = normalizeAcademicProfile(nextInput);
+  const hasSemanticChange = SEMANTIC_ACADEMIC_KEYS.some(
+    (key) => current[key] !== next[key],
+  );
+
+  if (!hasSemanticChange) return [];
+
+  const changes = ACADEMIC_CHANGE_FIELDS
+    .filter(({ key }) => current[key] !== next[key])
+    .map(({ key, label }) => ({
+      key,
+      label,
+      before: current[key] || "Not set",
+      after: next[key] || "Not set",
+    }));
+
+  if (changes.length === 0) {
+    changes.push({
+      key: "schoolType",
+      label: "Academic profile type",
+      before: current.schoolType || "Not set",
+      after: next.schoolType || "Not set",
+    });
+  }
+
+  return changes;
 }

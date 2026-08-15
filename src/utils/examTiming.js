@@ -1,13 +1,43 @@
+import { academicProfileStorageKey } from "./academicProfileScope.js";
+
 export const MINIMUM_EXAM_SUBMIT_MINUTES = 15;
 export const MINIMUM_EXAM_SUBMIT_MS = MINIMUM_EXAM_SUBMIT_MINUTES * 60 * 1000;
 export const ACTIVE_EXAM_ATTEMPT_STORAGE_KEY = "prepmatrix_active_exam_attempt";
 
-export function readStoredActiveExamAttemptId(storage) {
+export function getActiveExamAttemptStorageKey(academicProfileId = "") {
+  return academicProfileStorageKey(academicProfileId, "active-exam-attempt")
+    || ACTIVE_EXAM_ATTEMPT_STORAGE_KEY;
+}
+
+export function readStoredActiveExamAttemptId(storage, academicProfileId = "") {
   try {
-    return String(storage?.getItem(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY) || "").trim();
+    const key = getActiveExamAttemptStorageKey(academicProfileId);
+    const scoped = String(storage?.getItem(key) || "").trim();
+    if (scoped || !academicProfileId || key === ACTIVE_EXAM_ATTEMPT_STORAGE_KEY) return scoped;
+    const legacy = String(storage?.getItem(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY) || "").trim();
+    if (legacy) {
+      storage?.setItem(key, legacy);
+      storage?.removeItem(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY);
+    }
+    return legacy;
   } catch {
     return "";
   }
+}
+
+export function storeActiveExamAttemptId(storage, academicProfileId, attemptId) {
+  try {
+    const key = getActiveExamAttemptStorageKey(academicProfileId);
+    const normalized = String(attemptId || "").trim();
+    if (normalized) storage?.setItem(key, normalized);
+    else storage?.removeItem(key);
+  } catch {
+    // The active attempt remains recoverable from the server.
+  }
+}
+
+export function clearStoredActiveExamAttemptId(storage, academicProfileId = "") {
+  storeActiveExamAttemptId(storage, academicProfileId, "");
 }
 
 function validTimestamp(value) {

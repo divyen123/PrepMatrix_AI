@@ -1,3 +1,5 @@
+import { academicProfileStorageKey } from "./academicProfileScope.js";
+
 export const SCHOOL_KNOWLEDGE_STORAGE_VERSION = 1;
 export const SCHOOL_KNOWLEDGE_STORAGE_PREFIX = "prepmatrix_school_knowledge_v1";
 export const SCHOOL_KNOWLEDGE_DAILY_QUESTION_COUNT = 8;
@@ -134,6 +136,11 @@ export function getSchoolKnowledgeUserKey(profile = {}) {
 }
 
 export function getSchoolKnowledgeStorageKey(profile = {}) {
+  const scopedKey = academicProfileStorageKey(
+    profile?.dataId || profile?.academicProfileId,
+    "school-knowledge",
+  );
+  if (scopedKey) return scopedKey;
   return SCHOOL_KNOWLEDGE_STORAGE_PREFIX + ":" + getSchoolKnowledgeUserKey(profile);
 }
 

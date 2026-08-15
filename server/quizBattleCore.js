@@ -192,6 +192,7 @@ export function buildBattleReward({
   return {
     battleId: battle._id,
     userId,
+    academicProfileId: attempt.academicProfileId,
     outcome: !completed ? "incomplete" : isWinner ? "win" : isDraw ? "draw" : isLoser ? "loss" : "expired",
     score: Number(attempt.score) || 0,
     total: QUIZ_BATTLE_QUESTION_COUNT,

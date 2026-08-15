@@ -538,6 +538,7 @@ function pdfFileName(notebook) {
 }
 
 function StartLearningPage({
+  academicProfileDataId = "",
   academicLevel = "College",
   academicTrack = "General",
   userProfile = {},
@@ -1078,7 +1079,10 @@ function StartLearningPage({
     setNotebooksLoading(true);
     setNotebooksError("");
     try {
-      const payload = await api.get("/api/learning-notebooks", { timeoutMs: 30000 });
+      const payload = await api.get("/api/learning-notebooks", {
+        academicProfileId: academicProfileDataId,
+        timeoutMs: 30000,
+      });
       if (!mountedRef.current) return;
       const loaded = listFrom(payload?.notebooks).map(normalizeNotebook);
       setNotebooks(loaded);
@@ -1088,7 +1092,7 @@ function StartLearningPage({
     } finally {
       if (mountedRef.current) setNotebooksLoading(false);
     }
-  }, []);
+  }, [academicProfileDataId]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -1388,6 +1392,7 @@ function StartLearningPage({
           version: LEARNING_PRIVACY_CONSENT_VERSION,
         },
       }, {
+        academicProfileId: academicProfileDataId,
         timeoutMs: LEARNING_NOTEBOOK_REQUEST_TIMEOUT_MS,
         headers: { "Idempotency-Key": createAiIdempotencyKey() },
       });
@@ -1463,6 +1468,7 @@ function StartLearningPage({
           },
         },
         {
+          academicProfileId: academicProfileDataId,
           timeoutMs: 120000,
           headers: { "Idempotency-Key": createAiIdempotencyKey() },
         },
@@ -1568,6 +1574,7 @@ function StartLearningPage({
           },
         },
         {
+          academicProfileId: academicProfileDataId,
           timeoutMs: 120000,
           headers: { "Idempotency-Key": createAiIdempotencyKey() },
         },
@@ -1691,11 +1698,11 @@ function StartLearningPage({
       .then(() => api.patch(
         `/api/learning-notebooks/${encodeURIComponent(snapshot.id)}`,
         { notebook: snapshot },
-        { timeoutMs: 30000 },
+        { academicProfileId: academicProfileDataId, timeoutMs: 30000 },
       ));
     notebookSaveChainRef.current = request.catch(() => undefined);
     return request;
-  }, []);
+  }, [academicProfileDataId]);
 
   const queueMasteryAutosave = useCallback((snapshot) => {
     if (!snapshot?.id) return;
@@ -2005,7 +2012,7 @@ function StartLearningPage({
     noteSavingKeysRef.current.add(candidate.sourceKey);
     setNoteSavingKeys((current) => new Set(current).add(candidate.sourceKey));
     try {
-      const payload = await api.createNote(candidate);
+      const payload = await api.createNote(candidate, { academicProfileId: academicProfileDataId });
       const guidance = Boolean(override.title || override.details);
       const createdMessage = guidance ? "AI guidance saved to Notes." : "Topic saved to Notes.";
       const existingMessage = guidance ? "This guidance is already in Notes." : "This topic is already in Notes.";
@@ -2080,6 +2087,7 @@ function StartLearningPage({
           ),
         },
       }, {
+        academicProfileId: academicProfileDataId,
         timeoutMs: 30000,
         headers: { "Idempotency-Key": createAiIdempotencyKey() },
       });
@@ -2286,7 +2294,10 @@ function StartLearningPage({
     if (careerAnalyzing || medicalAnalyzing || saving) return;
     setDeletingId(notebookId);
     try {
-      await api.delete(`/api/learning-notebooks/${encodeURIComponent(notebookId)}`, { timeoutMs: 30000 });
+      await api.delete(`/api/learning-notebooks/${encodeURIComponent(notebookId)}`, {
+        academicProfileId: academicProfileDataId,
+        timeoutMs: 30000,
+      });
       if (!mountedRef.current) return;
       setNotebooks((current) => current.filter((notebook) => notebook.id !== notebookId));
       setCareerDraft((current) => (

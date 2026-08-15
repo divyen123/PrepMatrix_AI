@@ -59,6 +59,7 @@ async function copyText(text) {
 }
 
 function NotesPage({
+  academicProfileDataId = "",
   completed = [],
   schedule = [],
   scheduleStartDate = "",
@@ -460,7 +461,10 @@ function NotesPage({
       const parsed = window.pendingVoiceNote;
       window.pendingVoiceNote = null;
 
-      if (!parsed?.topic) return;
+      if (
+        !parsed?.topic
+        || (parsed.academicProfileId && parsed.academicProfileId !== academicProfileDataId)
+      ) return;
 
       const voiceNote = {
         id: crypto.randomUUID(),
@@ -474,7 +478,7 @@ function NotesPage({
 
       setNotes((current) => {
         const nextNotes = [voiceNote, ...current];
-        api.saveNotes(nextNotes).catch((error) => {
+        api.saveNotes(nextNotes, { academicProfileId: academicProfileDataId }).catch((error) => {
           setNotification?.(error instanceof Error ? error.message : "Could not save notes.");
         });
         return nextNotes;
@@ -483,14 +487,14 @@ function NotesPage({
     } catch {
       window.pendingVoiceNote = null;
     }
-  }, [setNotification]);
+  }, [academicProfileDataId, setNotification]);
 
   useEffect(() => {
     let isMounted = true;
 
     setIsNotesLoading(true);
 
-    api.getNotes()
+    api.getNotes({ academicProfileId: academicProfileDataId })
       .then((payload) => {
         if (isMounted) setNotes(payload.notes || []);
       })
@@ -504,7 +508,7 @@ function NotesPage({
     return () => {
       isMounted = false;
     };
-  }, [setNotification]);
+  }, [academicProfileDataId, setNotification]);
 
   const plannerStates = useMemo(() => new Map(notes.map((note) => [
     note.id,

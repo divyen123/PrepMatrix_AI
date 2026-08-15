@@ -111,6 +111,7 @@ function sweepDb(users, updateOne, history = new FakeHistoryCollection(), worksp
       if (name === "users") {
         return {
           find: () => ({ toArray: async () => users }),
+          findOne: async ({ _id }) => users.find((user) => user._id === _id) || null,
           updateOne,
         };
       }

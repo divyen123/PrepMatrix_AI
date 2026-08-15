@@ -7,7 +7,7 @@ function errorMessage(error) {
   return "Saved learning progress could not be loaded.";
 }
 
-export default function useLearningInsights() {
+export default function useLearningInsights({ academicProfileDataId = "" } = {}) {
   const [notebooks, setNotebooks] = useState([]);
   const [loadedAt, setLoadedAt] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -23,7 +23,10 @@ export default function useLearningInsights() {
     setLoading(true);
     setError("");
 
-    api.get("/api/learning-notebooks", { timeoutMs: 30000 })
+    api.get("/api/learning-notebooks", {
+      academicProfileId: academicProfileDataId,
+      timeoutMs: 30000,
+    })
       .then((payload) => {
         if (!isCurrent) return;
         setNotebooks(Array.isArray(payload?.notebooks) ? payload.notebooks : []);
@@ -41,7 +44,7 @@ export default function useLearningInsights() {
     return () => {
       isCurrent = false;
     };
-  }, [reloadVersion]);
+  }, [academicProfileDataId, reloadVersion]);
 
   const insights = useMemo(
     () => getLearningInsights(notebooks, {

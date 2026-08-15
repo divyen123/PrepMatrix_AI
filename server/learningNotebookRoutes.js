@@ -39,6 +39,12 @@ import {
   hasUnsafeMedicalTrainingChatOutput,
   requestsPersonalMedicalTrainingAdvice,
 } from "./medicalTrainingChat.js";
+import {
+  academicProfileFilter,
+  assertAcademicProfileWritable,
+  getRequestAcademicProfileId,
+  withAcademicProfileWriteFence,
+} from "./profileDataScope.js";
 
 export const LEARNING_NOTEBOOKS_COLLECTION = "learningNotebooks";
 export const MAX_LEARNING_TEXT_SOURCE_CHARS = 30_000;
@@ -1207,7 +1213,7 @@ function notebookResponse(document, profile) {
   });
 }
 
-function persistenceDocument(notebook, userId, now, existingCreatedAt) {
+function persistenceDocument(notebook, userId, academicProfileId, now, existingCreatedAt) {
   const bounded = { ...notebook };
   delete bounded.id;
   delete bounded.createdAt;
@@ -1218,6 +1224,7 @@ function persistenceDocument(notebook, userId, now, existingCreatedAt) {
   return {
     ...bounded,
     userId,
+    academicProfileId,
     createdAt: existingCreatedAt ? new Date(existingCreatedAt) : new Date(now),
     updatedAt: new Date(now),
   };
@@ -1241,11 +1248,12 @@ async function rollbackInsertedLearningArtifact(
   collection,
   insertedId,
   userId,
+  academicProfileId,
   commitError,
   artifactName,
 ) {
   try {
-    const rollback = await collection.deleteOne({ _id: insertedId, userId });
+    const rollback = await collection.deleteOne({ _id: insertedId, userId, academicProfileId });
     if (rollback?.deletedCount === 1) return;
   } catch (rollbackError) {
     const error = learningQuotaUnavailableError(
@@ -1284,6 +1292,7 @@ async function lookupLearningAiAction(aiQuota, req, feature) {
   try {
     const result = await aiQuota.lookup({
       userId: req.user._id,
+      academicProfileId: getRequestAcademicProfileId(req),
       feature,
       requestId,
     });
@@ -1306,6 +1315,7 @@ async function reserveLearningAiAction(
   try {
     return await aiQuota.reserve({
       userId: req.user._id,
+      academicProfileId: getRequestAcademicProfileId(req),
       feature,
       requestId,
     });
@@ -1337,7 +1347,7 @@ async function refundLearningAiAction(aiQuota, res, reservation, error) {
   }
 }
 
-async function loadNotebookReplay(db, userId, reservation, profile) {
+async function loadNotebookReplay(db, userId, academicProfileId, reservation, profile) {
   if (reservation?.replayPayload) return reservation.replayPayload;
   const id = reservation?.resultRef?.id;
   if (!ObjectId.isValid(id)) {
@@ -1346,6 +1356,7 @@ async function loadNotebookReplay(db, userId, reservation, profile) {
   const notebook = await db.collection(LEARNING_NOTEBOOKS_COLLECTION).findOne({
     _id: new ObjectId(id),
     userId,
+    academicProfileId,
   });
   if (!notebook) {
     throw learningQuotaUnavailableError("The saved learning notebook replay is unavailable.");
@@ -1353,7 +1364,7 @@ async function loadNotebookReplay(db, userId, reservation, profile) {
   return { notebook: notebookResponse(notebook, profile) };
 }
 
-async function loadCareerAnalysisReplay(db, userId, reservation, profile) {
+async function loadCareerAnalysisReplay(db, userId, academicProfileId, reservation, profile) {
   if (reservation?.replayPayload) {
     if (
       reservation.replayPayload?.trainingKind === "medical"
@@ -1373,6 +1384,7 @@ async function loadCareerAnalysisReplay(db, userId, reservation, profile) {
   const notebook = await db.collection(LEARNING_NOTEBOOKS_COLLECTION).findOne({
     _id: new ObjectId(id),
     userId,
+    academicProfileId,
   });
   if (!notebook?.careerPreparation?.topicAnalysis) {
     throw learningQuotaUnavailableError("The saved career analysis replay is unavailable.");
@@ -1385,7 +1397,7 @@ async function loadCareerAnalysisReplay(db, userId, reservation, profile) {
   };
 }
 
-async function loadMedicalTrainingReplay(db, userId, reservation, profile) {
+async function loadMedicalTrainingReplay(db, userId, academicProfileId, reservation, profile) {
   if (reservation?.replayPayload) {
     if (
       reservation.replayPayload?.trainingKind !== "medical"
@@ -1405,6 +1417,7 @@ async function loadMedicalTrainingReplay(db, userId, reservation, profile) {
   const notebook = await db.collection(LEARNING_NOTEBOOKS_COLLECTION).findOne({
     _id: new ObjectId(id),
     userId,
+    academicProfileId,
   });
   if (!notebook?.medicalTraining?.topicAnalysis) {
     throw learningQuotaUnavailableError("The saved medical training replay is unavailable.");
@@ -1537,6 +1550,8 @@ function logLearningProviderFailure(logger, {
 
 export function registerLearningNotebookRoutes(app, {
   aiQuota,
+  assertProfileWritable = assertAcademicProfileWritable,
+  withProfileWriteFence = withAcademicProfileWriteFence,
   fetchImpl = globalThis.fetch,
   getDb,
   getGeminiConfigStatus = () => ({ available: false }),
@@ -1566,7 +1581,7 @@ export function registerLearningNotebookRoutes(app, {
     try {
       const db = await getDb();
       const notebooks = await db.collection(LEARNING_NOTEBOOKS_COLLECTION)
-        .find({ userId: req.user._id })
+        .find(academicProfileFilter(req))
         .sort({ updatedAt: -1 })
         .limit(MAX_LEARNING_NOTEBOOKS_PER_USER)
         .toArray();
@@ -1637,7 +1652,13 @@ export function registerLearningNotebookRoutes(app, {
       setLearningQuotaHeaders(res, aiQuota, lookupResult?.quota, lookupResult?.cost);
       if (lookupResult?.state === "replay") {
         const replayDb = await getDb();
-        const payload = await loadNotebookReplay(replayDb, req.user._id, lookupResult, req.user);
+        const payload = await loadNotebookReplay(
+          replayDb,
+          req.user._id,
+          getRequestAcademicProfileId(req),
+          lookupResult,
+          req.user,
+        );
         return res.status(201).json(payload);
       }
 
@@ -1665,9 +1686,10 @@ export function registerLearningNotebookRoutes(app, {
       }
 
       const db = await getDb();
+      const academicProfileId = getRequestAcademicProfileId(req);
       const collection = db.collection(LEARNING_NOTEBOOKS_COLLECTION);
       const notebookCount = await collection.countDocuments(
-        { userId: req.user._id },
+        academicProfileFilter(req),
         { limit: MAX_LEARNING_NOTEBOOKS_PER_USER },
       );
       if (notebookCount >= MAX_LEARNING_NOTEBOOKS_PER_USER) {
@@ -1684,7 +1706,13 @@ export function registerLearningNotebookRoutes(app, {
       );
       setLearningQuotaHeaders(res, aiQuota, quotaResult?.quota, quotaResult?.cost);
       if (quotaResult?.state === "replay") {
-        const payload = await loadNotebookReplay(db, req.user._id, quotaResult, req.user);
+        const payload = await loadNotebookReplay(
+          db,
+          req.user._id,
+          academicProfileId,
+          quotaResult,
+          req.user,
+        );
         return res.status(201).json(payload);
       }
       reservation = quotaResult;
@@ -1788,30 +1816,41 @@ export function registerLearningNotebookRoutes(app, {
         sources: generationResult.sourceMetadata,
         subjectName,
       });
-      const document = persistenceDocument(notebook, req.user._id, generatedAt);
-      const result = await collection.insertOne(document);
-      persisted = true;
-      const payload = {
-        notebook: notebookResponse({ _id: result.insertedId, ...document }, req.user),
-      };
+      await assertProfileWritable(db, req);
+      const document = persistenceDocument(
+        notebook,
+        req.user._id,
+        academicProfileId,
+        generatedAt,
+      );
+      let result;
+      let payload;
       let committed;
-      try {
-        committed = await aiQuota.commit({
-          eventId: reservation.eventId,
-          reservationToken: reservation.reservationToken,
-          resultRef: { type: "learning_notebook", id: String(result.insertedId) },
-        });
-      } catch (commitError) {
-        await rollbackInsertedLearningArtifact(
-          collection,
-          result.insertedId,
-          req.user._id,
-          commitError,
-          "learning notebook",
-        );
-        persisted = false;
-        throw commitError;
-      }
+      await withProfileWriteFence(db, req, async () => {
+        result = await collection.insertOne(document);
+        persisted = true;
+        payload = {
+          notebook: notebookResponse({ _id: result.insertedId, ...document }, req.user),
+        };
+        try {
+          committed = await aiQuota.commit({
+            eventId: reservation.eventId,
+            reservationToken: reservation.reservationToken,
+            resultRef: { type: "learning_notebook", id: String(result.insertedId) },
+          });
+        } catch (commitError) {
+          await rollbackInsertedLearningArtifact(
+            collection,
+            result.insertedId,
+            req.user._id,
+            academicProfileId,
+            commitError,
+            "learning notebook",
+          );
+          persisted = false;
+          throw commitError;
+        }
+      });
       setLearningQuotaHeaders(res, aiQuota, committed?.quota, reservation.cost);
       return res.status(201).json(payload);
     } catch (error) {
@@ -1868,7 +1907,13 @@ export function registerLearningNotebookRoutes(app, {
       setLearningQuotaHeaders(res, aiQuota, lookupResult?.quota, lookupResult?.cost);
       if (lookupResult?.state === "replay") {
         const replayDb = await getDb();
-        const payload = await loadCareerAnalysisReplay(replayDb, req.user._id, lookupResult, req.user);
+        const payload = await loadCareerAnalysisReplay(
+          replayDb,
+          req.user._id,
+          getRequestAcademicProfileId(req),
+          lookupResult,
+          req.user,
+        );
         return res.json(payload);
       }
 
@@ -1889,10 +1934,9 @@ export function registerLearningNotebookRoutes(app, {
 
       const db = await getDb();
       const collection = db.collection(LEARNING_NOTEBOOKS_COLLECTION);
-      const existing = await collection.findOne({
-        _id: notebookId,
-        userId: req.user._id,
-      });
+      const existing = await collection.findOne(
+        academicProfileFilter(req, { _id: notebookId }),
+      );
       if (!existing) {
         return res.status(404).json({
           code: "LEARNING_NOTEBOOK_NOT_FOUND",
@@ -1907,7 +1951,13 @@ export function registerLearningNotebookRoutes(app, {
       );
       setLearningQuotaHeaders(res, aiQuota, quotaResult?.quota, quotaResult?.cost);
       if (quotaResult?.state === "replay") {
-        const payload = await loadCareerAnalysisReplay(db, req.user._id, quotaResult, req.user);
+        const payload = await loadCareerAnalysisReplay(
+          db,
+          req.user._id,
+          getRequestAcademicProfileId(req),
+          quotaResult,
+          req.user,
+        );
         return res.json(payload);
       }
       reservation = quotaResult;
@@ -1971,7 +2021,8 @@ export function registerLearningNotebookRoutes(app, {
         providerModel,
         transient: true,
       };
-      const committed = await aiQuota.commit({
+      await assertProfileWritable(db, req);
+      const committed = await withProfileWriteFence(db, req, () => aiQuota.commit({
         eventId: reservation.eventId,
         reservationToken: reservation.reservationToken,
         replayPayload: payload,
@@ -1980,7 +2031,7 @@ export function registerLearningNotebookRoutes(app, {
           id: String(notebookId),
           providerModel,
         },
-      });
+      }));
       setLearningQuotaHeaders(res, aiQuota, committed?.quota, reservation.cost);
       return res.json(payload);
     } catch (error) {
@@ -2050,7 +2101,13 @@ export function registerLearningNotebookRoutes(app, {
       setLearningQuotaHeaders(res, aiQuota, lookupResult?.quota, lookupResult?.cost);
       if (lookupResult?.state === "replay") {
         const replayDb = await getDb();
-        return res.json(await loadMedicalTrainingReplay(replayDb, req.user._id, lookupResult, req.user));
+        return res.json(await loadMedicalTrainingReplay(
+          replayDb,
+          req.user._id,
+          getRequestAcademicProfileId(req),
+          lookupResult,
+          req.user,
+        ));
       }
 
       const geminiConfig = getGeminiConfigStatus();
@@ -2066,7 +2123,9 @@ export function registerLearningNotebookRoutes(app, {
 
       const db = await getDb();
       const collection = db.collection(LEARNING_NOTEBOOKS_COLLECTION);
-      const existing = await collection.findOne({ _id: notebookId, userId: req.user._id });
+      const existing = await collection.findOne(
+        academicProfileFilter(req, { _id: notebookId }),
+      );
       if (!existing) {
         return res.status(404).json({ code: "LEARNING_NOTEBOOK_NOT_FOUND", error: "Learning notebook not found." });
       }
@@ -2074,7 +2133,13 @@ export function registerLearningNotebookRoutes(app, {
       const quotaResult = await reserveLearningAiAction(aiQuota, req, "career_analysis", lookupResult.requestId);
       setLearningQuotaHeaders(res, aiQuota, quotaResult?.quota, quotaResult?.cost);
       if (quotaResult?.state === "replay") {
-        return res.json(await loadMedicalTrainingReplay(db, req.user._id, quotaResult, req.user));
+        return res.json(await loadMedicalTrainingReplay(
+          db,
+          req.user._id,
+          getRequestAcademicProfileId(req),
+          quotaResult,
+          req.user,
+        ));
       }
       reservation = quotaResult;
 
@@ -2132,7 +2197,8 @@ export function registerLearningNotebookRoutes(app, {
         transient: true,
         trainingKind: "medical",
       };
-      const committed = await aiQuota.commit({
+      await assertProfileWritable(db, req);
+      const committed = await withProfileWriteFence(db, req, () => aiQuota.commit({
         eventId: reservation.eventId,
         reservationToken: reservation.reservationToken,
         replayPayload: payload,
@@ -2141,7 +2207,7 @@ export function registerLearningNotebookRoutes(app, {
           id: String(notebookId),
           providerModel,
         },
-      });
+      }));
       setLearningQuotaHeaders(res, aiQuota, committed?.quota, reservation.cost);
       return res.json(payload);
     } catch (error) {
@@ -2181,10 +2247,9 @@ export function registerLearningNotebookRoutes(app, {
       }
 
       for (let attempt = 0; attempt < MAX_LEARNING_NOTEBOOK_PATCH_RETRIES; attempt += 1) {
-        const existing = await collection.findOne({
-          _id: notebookId,
-          userId: req.user._id,
-        });
+        const existing = await collection.findOne(
+          academicProfileFilter(req, { _id: notebookId }),
+        );
         if (!existing) {
           return res.status(404).json({
             code: "LEARNING_NOTEBOOK_NOT_FOUND",
@@ -2219,17 +2284,17 @@ export function registerLearningNotebookRoutes(app, {
         const document = persistenceDocument(
           normalized,
           req.user._id,
+          getRequestAcademicProfileId(req),
           updatedAt,
           existing.createdAt,
         );
-        const update = await collection.updateOne(
-          {
+        const update = await withProfileWriteFence(db, req, () => collection.updateOne(
+          academicProfileFilter(req, {
             _id: notebookId,
-            userId: req.user._id,
             ...learningNotebookRevisionFilter(existing),
-          },
+          }),
           { $set: document },
-        );
+        ));
         if (update.matchedCount !== 1) continue;
 
         return res.json({
@@ -2250,10 +2315,13 @@ export function registerLearningNotebookRoutes(app, {
     try {
       const notebookId = objectIdFromParam(req.params.id);
       const db = await getDb();
-      const result = await db.collection(LEARNING_NOTEBOOKS_COLLECTION).deleteOne({
-        _id: notebookId,
-        userId: req.user._id,
-      });
+      const result = await withProfileWriteFence(
+        db,
+        req,
+        () => db.collection(LEARNING_NOTEBOOKS_COLLECTION).deleteOne(
+          academicProfileFilter(req, { _id: notebookId }),
+        ),
+      );
       if (!result.deletedCount) {
         return res.status(404).json({
           code: "LEARNING_NOTEBOOK_NOT_FOUND",

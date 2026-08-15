@@ -1,16 +1,34 @@
 export const API_BASE = (import.meta.env?.VITE_API_URL || "").trim().replace(/\/+$/, "");
 export const HAS_CONFIGURED_API = Boolean(API_BASE);
 export const AUTH_RECOVERY_TIMEOUT_MS = 65000;
+export const ACADEMIC_PROFILE_DELETE_TIMEOUT_MS = 90000;
 export const AI_QUOTA_UPDATED_EVENT = "prepmatrixAiQuotaUpdated";
 export const AI_AUTH_READY_EVENT = "prepmatrixAiAuthReady";
 export const AI_AUTH_CLEARED_EVENT = "prepmatrixAiAuthCleared";
 const AUTH_NOTICE_KEY = "prepmatrix_auth_notice";
 const AI_IDEMPOTENCY_RECOVERY_TTL_MS = 30 * 60 * 1000;
 const pendingAiIdempotencyKeys = new Map();
+let activeAcademicProfileId = "";
 
-async function createAiRequestFingerprint(path, method, body) {
+function normalizeAcademicProfileId(value) {
+  if (typeof value === "string") return value.trim();
+  return String(value?.academicProfileId || value?.dataId || "").trim();
+}
+
+export function setApiAcademicProfileScope(value) {
+  const nextId = normalizeAcademicProfileId(value);
+  if (nextId !== activeAcademicProfileId) pendingAiIdempotencyKeys.clear();
+  activeAcademicProfileId = nextId;
+  return activeAcademicProfileId;
+}
+
+export function getApiAcademicProfileScope() {
+  return activeAcademicProfileId;
+}
+
+async function createAiRequestFingerprint(path, method, body, academicProfileId = "") {
   const input = String(body || "");
-  const prefix = `${String(method || "GET").toUpperCase()}:${path}:`;
+  const prefix = `${String(method || "GET").toUpperCase()}:${path}:${academicProfileId}:`;
   if (globalThis.crypto?.subtle && typeof TextEncoder !== "undefined") {
     const digest = await globalThis.crypto.subtle.digest(
       "SHA-256",
@@ -58,6 +76,7 @@ function finishAiIdempotencyRequest(fingerprint, responsePayload) {
 export function clearStoredAuthState() {
   localStorage.removeItem("prepmatrix_auth_token");
   pendingAiIdempotencyKeys.clear();
+  activeAcademicProfileId = "";
   dispatchWindowEvent(AI_AUTH_CLEARED_EVENT);
 }
 
@@ -110,12 +129,16 @@ function publishQuota(response, payload) {
 }
 
 async function request(path, options = {}) {
+  const requestedAcademicProfileId = options.academicProfileId === null
+    ? ""
+    : normalizeAcademicProfileId(options.academicProfileId) || activeAcademicProfileId;
   const controller = new AbortController();
   const timeoutMs = options.timeoutMs || 15000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   const {
     timeoutMs: _timeoutMs,
+    academicProfileId: _academicProfileId,
     headers: optionHeaders,
     ...fetchOptions
   } = options;
@@ -123,7 +146,12 @@ async function request(path, options = {}) {
   const requestedIdempotencyKey = optionHeaders?.["Idempotency-Key"]
     ?? optionHeaders?.["idempotency-key"];
   const idempotencyFingerprint = requestedIdempotencyKey
-    ? await createAiRequestFingerprint(path, fetchOptions.method, fetchOptions.body)
+    ? await createAiRequestFingerprint(
+      path,
+      fetchOptions.method,
+      fetchOptions.body,
+      requestedAcademicProfileId,
+    )
     : "";
   const stableIdempotencyKey = rememberAiIdempotencyKey(idempotencyFingerprint, requestedIdempotencyKey);
   const headers = {
@@ -132,6 +160,9 @@ async function request(path, options = {}) {
   };
   if (stableIdempotencyKey) {
     headers["Idempotency-Key"] = stableIdempotencyKey;
+  }
+  if (requestedAcademicProfileId && !headers["X-Academic-Profile-Id"] && !headers["x-academic-profile-id"]) {
+    headers["X-Academic-Profile-Id"] = requestedAcademicProfileId;
   }
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
@@ -197,87 +228,91 @@ const api = {
   register: (body) => request("/api/auth/register", { method: "POST", body: JSON.stringify(body) }),
   logout: () => request("/api/auth/logout", { method: "POST", body: JSON.stringify({}) }),
   deleteAccount: (password) => request("/api/auth/account", { method: "DELETE", body: JSON.stringify({ password }) }),
-  saveWorkspace: (body) => request("/api/workspace", { method: "PUT", body: JSON.stringify(body) }),
-  importWorkspace: (body) => request("/api/workspace/import", { method: "POST", body: JSON.stringify(body) }),
-  getResumeBuilderStatus: () => request("/api/resume-builder/status"),
-  generateResume: (body = {}) => request("/api/resume-builder/generate", {
+  saveWorkspace: (body, options = {}) => request("/api/workspace", { ...options, method: "PUT", body: JSON.stringify(body) }),
+  importWorkspace: (body, options = {}) => request("/api/workspace/import", { ...options, method: "POST", body: JSON.stringify(body) }),
+  getResumeBuilderStatus: (options = {}) => request("/api/resume-builder/status", options),
+  generateResume: (body = {}, options = {}) => request("/api/resume-builder/generate", {
+    ...options,
     method: "POST",
     body: JSON.stringify(body),
   }),
-  getResumeHistory: () => request("/api/resume-builder/history"),
-  getResumeHistoryItem: (id) => request(
+  getResumeHistory: (options = {}) => request("/api/resume-builder/history", options),
+  getResumeHistoryItem: (id, options = {}) => request(
     `/api/resume-builder/history/${encodeURIComponent(id)}`,
+    options,
   ),
-  createResumeHistory: (body) => request("/api/resume-builder/history", {
+  createResumeHistory: (body, options = {}) => request("/api/resume-builder/history", {
+    ...options,
     method: "POST",
     body: JSON.stringify(body),
   }),
-  updateResumeHistory: (id, body) => request(
+  updateResumeHistory: (id, body, options = {}) => request(
     `/api/resume-builder/history/${encodeURIComponent(id)}`,
-    { method: "PUT", body: JSON.stringify(body) },
+    { ...options, method: "PUT", body: JSON.stringify(body) },
   ),
-  deleteResumeHistory: (id) => request(
+  deleteResumeHistory: (id, options = {}) => request(
     `/api/resume-builder/history/${encodeURIComponent(id)}`,
-    { method: "DELETE" },
+    { ...options, method: "DELETE" },
   ),
-  clearResumeHistory: () => request("/api/resume-builder/history", {
+  clearResumeHistory: (options = {}) => request("/api/resume-builder/history", {
+    ...options,
     method: "DELETE",
   }),
-  getNotes: () => request("/api/notes"),
-  createNote: (note) => request("/api/notes", { method: "POST", body: JSON.stringify({ note }) }),
-  saveNotes: (notes) => request("/api/notes", { method: "PUT", body: JSON.stringify({ notes }) }),
-  getQuizzes: () => request("/api/quizzes"),
-  clearQuizHistory: () => request("/api/quizzes", { method: "DELETE" }),
-  deleteQuizAttempt: (id) => request(`/api/quizzes/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  getNotes: (options = {}) => request("/api/notes", options),
+  createNote: (note, options = {}) => request("/api/notes", { ...options, method: "POST", body: JSON.stringify({ note }) }),
+  saveNotes: (notes, options = {}) => request("/api/notes", { ...options, method: "PUT", body: JSON.stringify({ notes }) }),
+  getQuizzes: (options = {}) => request("/api/quizzes", options),
+  clearQuizHistory: (options = {}) => request("/api/quizzes", { ...options, method: "DELETE" }),
+  deleteQuizAttempt: (id, options = {}) => request(`/api/quizzes/${encodeURIComponent(id)}`, { ...options, method: "DELETE" }),
   generateQuiz: (body, options = {}) => request("/api/quizzes/generate", {
     ...options,
     method: "POST",
     body: JSON.stringify(body),
   }),
-  saveQuizAttempt: (body) => request("/api/quizzes", { method: "POST", body: JSON.stringify(body) }),
-  getQuizBattles: () => request("/api/quiz-battles"),
-  getQuizBattle: (id) => request(`/api/quiz-battles/${encodeURIComponent(id)}`),
-  getQuizBattleStats: () => request("/api/quiz-battles/stats"),
-  previewQuizBattleInvite: (code) => request(
+  saveQuizAttempt: (body, options = {}) => request("/api/quizzes", { ...options, method: "POST", body: JSON.stringify(body) }),
+  getQuizBattles: (options = {}) => request("/api/quiz-battles", options),
+  getQuizBattle: (id, options = {}) => request(`/api/quiz-battles/${encodeURIComponent(id)}`, options),
+  getQuizBattleStats: (options = {}) => request("/api/quiz-battles/stats", options),
+  previewQuizBattleInvite: (code, options = {}) => request(
     `/api/quiz-battles/invites/${encodeURIComponent(code)}/preview`,
-    { method: "POST", body: JSON.stringify({}) },
+    { ...options, method: "POST", body: JSON.stringify({}) },
   ),
   createQuizBattle: (body, options = {}) => request("/api/quiz-battles", {
     ...options,
     method: "POST",
     body: JSON.stringify(body),
   }),
-  acceptQuizBattleInvite: (code) => request(
+  acceptQuizBattleInvite: (code, options = {}) => request(
     `/api/quiz-battles/invites/${encodeURIComponent(code)}/accept`,
-    { method: "POST", body: JSON.stringify({}) },
+    { ...options, method: "POST", body: JSON.stringify({}) },
   ),
-  cancelQuizBattle: (id) => request(
+  cancelQuizBattle: (id, options = {}) => request(
     `/api/quiz-battles/${encodeURIComponent(id)}/cancel`,
-    { method: "POST", body: JSON.stringify({}) },
+    { ...options, method: "POST", body: JSON.stringify({}) },
   ),
-  startQuizBattle: (id) => request(
+  startQuizBattle: (id, options = {}) => request(
     `/api/quiz-battles/${encodeURIComponent(id)}/start`,
-    { method: "POST", body: JSON.stringify({}) },
+    { ...options, method: "POST", body: JSON.stringify({}) },
   ),
   saveQuizBattleAnswers: (id, answers, options = {}) => request(
     `/api/quiz-battles/${encodeURIComponent(id)}/answers`,
     { ...options, method: "PUT", body: JSON.stringify({ answers }) },
   ),
-  submitQuizBattle: (id, answers) => request(
+  submitQuizBattle: (id, answers, options = {}) => request(
     `/api/quiz-battles/${encodeURIComponent(id)}/submit`,
-    { method: "POST", body: JSON.stringify({ answers }) },
+    { ...options, method: "POST", body: JSON.stringify({ answers }) },
   ),
-  updateProfile: (body) => request("/api/auth/profile", { method: "PUT", body: JSON.stringify(body) }),
-  getChatSessions: (query = "") => {
+  updateProfile: (body, options = {}) => request("/api/auth/profile", { ...options, method: "PUT", body: JSON.stringify(body) }),
+  getChatSessions: (query = "", options = {}) => {
     const normalizedQuery = typeof query === "string" ? query.trim() : "";
     const search = normalizedQuery ? `?q=${encodeURIComponent(normalizedQuery)}` : "";
-    return request(`/api/chat-sessions${search}`);
+    return request(`/api/chat-sessions${search}`, options);
   },
-  getChatSession: (id) => request(`/api/chat-sessions/${id}`),
-  createChatSession: (body) => request("/api/chat-sessions", { method: "POST", body: JSON.stringify(body) }),
-  deleteChatSession: (id) => request(`/api/chat-sessions/${id}`, { method: "DELETE" }),
-  clearChatSessions: () => request("/api/chat-sessions", { method: "DELETE" }),
-  renameChatSession: (id, title) => request(`/api/chat-sessions/${id}`, { method: "PUT", body: JSON.stringify({ title }) }),
+  getChatSession: (id, options = {}) => request(`/api/chat-sessions/${id}`, options),
+  createChatSession: (body, options = {}) => request("/api/chat-sessions", { ...options, method: "POST", body: JSON.stringify(body) }),
+  deleteChatSession: (id, options = {}) => request(`/api/chat-sessions/${id}`, { ...options, method: "DELETE" }),
+  clearChatSessions: (options = {}) => request("/api/chat-sessions", { ...options, method: "DELETE" }),
+  renameChatSession: (id, title, options = {}) => request(`/api/chat-sessions/${id}`, { ...options, method: "PUT", body: JSON.stringify({ title }) }),
   getAiQuota: () => request("/api/ai/quota"),
   get: (path, options = {}) => request(path, options),
   post: (path, body, options = {}) => request(path, { ...options, method: "POST", body: JSON.stringify(body) }),

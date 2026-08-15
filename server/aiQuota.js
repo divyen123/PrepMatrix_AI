@@ -125,6 +125,18 @@ function requireUserId(userId) {
   return userId;
 }
 
+function requireAcademicProfileId(academicProfileId) {
+  const normalized = String(academicProfileId || "").trim();
+  if (!normalized) {
+    throw quotaError(
+      "AI_QUOTA_ACADEMIC_PROFILE_REQUIRED",
+      "An academic profile is required for AI credit usage.",
+      { status: 400 },
+    );
+  }
+  return normalized;
+}
+
 function normalizeFeature(feature, costs) {
   const normalized = String(feature || "").trim();
   if (!Object.hasOwn(costs, normalized)) {
@@ -459,9 +471,10 @@ export function createAiQuotaService({
     }
   }
 
-  async function lookup({ userId, feature, requestId } = {}) {
+  async function lookup({ userId, academicProfileId, feature, requestId } = {}) {
     try {
       const normalizedUserId = requireUserId(userId);
+      const normalizedAcademicProfileId = requireAcademicProfileId(academicProfileId);
       const normalizedFeature = normalizeFeature(feature, config.costs);
       const normalizedRequestId = normalizeRequestId(requestId);
       const cost = config.costs[normalizedFeature];
@@ -472,16 +485,10 @@ export function createAiQuotaService({
         const at = currentTime();
         const existing = await events.findOne({
           userId: normalizedUserId,
+          academicProfileId: normalizedAcademicProfileId,
+          feature: normalizedFeature,
           requestId: normalizedRequestId,
         });
-
-        if (existing && existing.feature !== normalizedFeature) {
-          throw quotaError(
-            "AI_IDEMPOTENCY_KEY_CONFLICT",
-            "This Idempotency-Key was already used for a different AI action.",
-            { status: 409 },
-          );
-        }
 
         if (existing?.status === "committed") {
           return {
@@ -546,9 +553,10 @@ export function createAiQuotaService({
     }
   }
 
-  async function reserve({ userId, feature, requestId } = {}) {
+  async function reserve({ userId, academicProfileId, feature, requestId } = {}) {
     try {
       const normalizedUserId = requireUserId(userId);
+      const normalizedAcademicProfileId = requireAcademicProfileId(academicProfileId);
       const normalizedFeature = normalizeFeature(feature, config.costs);
       const normalizedRequestId = normalizeRequestId(requestId);
       const cost = config.costs[normalizedFeature];
@@ -559,16 +567,10 @@ export function createAiQuotaService({
         const at = currentTime();
         let existing = await events.findOne({
           userId: normalizedUserId,
+          academicProfileId: normalizedAcademicProfileId,
+          feature: normalizedFeature,
           requestId: normalizedRequestId,
         });
-
-        if (existing && existing.feature !== normalizedFeature) {
-          throw quotaError(
-            "AI_IDEMPOTENCY_KEY_CONFLICT",
-            "This Idempotency-Key was already used for a different AI action.",
-            { status: 409 },
-          );
-        }
 
         if (existing?.status === "committed") {
           return {
@@ -645,6 +647,7 @@ export function createAiQuotaService({
             {
               $set: {
                 userId: normalizedUserId,
+                academicProfileId: normalizedAcademicProfileId,
                 requestId: normalizedRequestId,
                 feature: normalizedFeature,
                 cost,
@@ -670,6 +673,7 @@ export function createAiQuotaService({
         } else {
           const result = await events.insertOne({
             userId: normalizedUserId,
+            academicProfileId: normalizedAcademicProfileId,
             requestId: normalizedRequestId,
             feature: normalizedFeature,
             cost,

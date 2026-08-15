@@ -32,6 +32,7 @@ export default function KidsParentCorner({
   onAuthorized,
   onLock,
   onOpenSettings,
+  pinSetupStorageKey = "prepmatrix_kids_pin_setup_pending",
   requiredSetup = false,
   sessionAuthorized = false,
 }) {
@@ -145,6 +146,7 @@ export default function KidsParentCorner({
       onAuthorized?.(outcome);
       if (!hasPin) {
         try {
+          window.sessionStorage.removeItem(pinSetupStorageKey);
           window.sessionStorage.removeItem("prepmatrix_kids_pin_setup_pending");
         } catch {
           // The server-backed parent access state remains authoritative.

@@ -398,8 +398,13 @@ function registerRouteHarness(db, { aiQuota } = {}) {
   }
   registerExamRoutes(app, {
     aiQuota,
+    assertProfileWritable: async () => ({}),
+    withProfileWriteFence: async (_db, _req, write) => write(),
     getDb: async () => db,
-    requireAuth: (handler) => handler,
+    requireAuth: (handler) => async (req, res) => {
+      req.academicProfileId ||= `legacy:${req.user?._id}:profile-a`;
+      return handler(req, res);
+    },
     getGroqConfigStatus: () => ({ available: true, apiKey: "test-key" }),
     groqModel: "test-model",
   });
@@ -862,6 +867,7 @@ test("commits one secure-exam debit after all question batches persist", async (
     assert.equal(aiQuota.calls.reserve.length, 1);
     assert.deepEqual(aiQuota.calls.reserve[0], {
       userId: "user-1",
+      academicProfileId: "legacy:user-1:profile-a",
       feature: "secure_exam",
       requestId: TEST_IDEMPOTENCY_KEY,
     });

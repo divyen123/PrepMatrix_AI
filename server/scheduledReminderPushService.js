@@ -13,6 +13,10 @@ import {
 import {
   recordNotificationHistorySafely,
 } from "./notificationHistory.js";
+import {
+  academicProfileContext,
+  withAcademicProfileWriteFence,
+} from "./profileDataScope.js";
 
 export const SCHEDULED_REMINDER_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 export const SCHEDULED_REMINDER_DELIVERY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -121,15 +125,23 @@ export function buildScheduledReminderPayload(occurrence) {
   });
 }
 
-export function buildScheduledReminderDeliveryId({ userId, deviceId, occurrenceKey }) {
+export function buildScheduledReminderDeliveryId({
+  userId,
+  academicProfileId,
+  deviceId,
+  occurrenceKey,
+}) {
   return createHash("sha256")
-    .update(`${String(userId)}\0${String(deviceId)}\0${String(occurrenceKey)}`)
+    .update(
+      `${String(userId)}\0${String(academicProfileId)}\0${String(deviceId)}\0${String(occurrenceKey)}`,
+    )
     .digest("hex");
 }
 
 export async function claimScheduledReminderDelivery({
   collection,
   userId,
+  academicProfileId,
   deviceId,
   occurrence,
   now = new Date(),
@@ -140,6 +152,7 @@ export async function claimScheduledReminderDelivery({
   const claimId = claimIdFactory();
   const deliveryId = buildScheduledReminderDeliveryId({
     userId,
+    academicProfileId,
     deviceId,
     occurrenceKey: occurrence.occurrenceKey,
   });
@@ -147,6 +160,7 @@ export async function claimScheduledReminderDelivery({
   const document = {
     _id: deliveryId,
     userId,
+    academicProfileId,
     deviceId,
     reminderId: occurrence.reminder.id,
     occurrenceKey: occurrence.occurrenceKey,
@@ -167,6 +181,8 @@ export async function claimScheduledReminderDelivery({
   const reclaimed = await collection.updateOne(
     {
       _id: deliveryId,
+      userId,
+      academicProfileId,
       sentAt: { $exists: false },
       claimedAt: { $lte: staleBefore },
     },
@@ -203,6 +219,7 @@ export async function runScheduledReminderPushSweep({
   logger = console,
   claimIdFactory = randomUUID,
   legacyDeviceIdFactory = randomUUID,
+  withProfileWriteFence = withAcademicProfileWriteFence,
 }) {
   await ensureVapidConfigured();
   const sweepNow = validDate(now);
@@ -260,8 +277,22 @@ export async function runScheduledReminderPushSweep({
     }
     summary.devicesExamined += devices.length;
     if (devices.length === 0) continue;
+    let profileContext;
+    try {
+      profileContext = academicProfileContext(user);
+    } catch {
+      summary.skipped += devices.length;
+      continue;
+    }
+    const profileWriteRequest = {
+      user: { _id: user._id },
+      academicProfileId: profileContext.academicProfileId,
+    };
 
-    const workspace = await workspacesCollection.findOne({ userId: user._id });
+    const workspace = await workspacesCollection.findOne({
+      userId: user._id,
+      academicProfileId: profileContext.academicProfileId,
+    });
     const storedReminders = Array.isArray(workspace?.goalReminderData?.reminders)
       ? workspace.goalReminderData.reminders
       : [];
@@ -290,14 +321,19 @@ export async function runScheduledReminderPushSweep({
         let deliveryId = "";
         let claimId = "";
         try {
-          const claim = await claimScheduledReminderDelivery({
-            collection: deliveriesCollection,
-            userId: user._id,
-            deviceId: device.deviceId,
-            occurrence,
-            now: sweepNow,
-            claimIdFactory,
-          });
+          const claim = await withProfileWriteFence(
+            db,
+            profileWriteRequest,
+            () => claimScheduledReminderDelivery({
+              collection: deliveriesCollection,
+              userId: user._id,
+              academicProfileId: profileContext.academicProfileId,
+              deviceId: device.deviceId,
+              occurrence,
+              now: sweepNow,
+              claimIdFactory,
+            }),
+          );
           if (!claim.claimed) {
             summary.skipped += 1;
             continue;
@@ -308,6 +344,11 @@ export async function runScheduledReminderPushSweep({
 
           const serializedPayload = buildScheduledReminderPayload(occurrence);
           const notification = JSON.parse(serializedPayload);
+          await withProfileWriteFence(
+            db,
+            profileWriteRequest,
+            () => undefined,
+          );
           try {
             await sendNotification(
               { endpoint: device.endpoint, expirationTime: device.expirationTime, keys: device.keys },
@@ -336,19 +377,27 @@ export async function runScheduledReminderPushSweep({
             continue;
           }
 
-          const marked = await markScheduledReminderSent(deliveriesCollection, deliveryId, claimId, sweepNow);
+          const marked = await withProfileWriteFence(
+            db,
+            profileWriteRequest,
+            async () => {
+              const result = await markScheduledReminderSent(deliveriesCollection, deliveryId, claimId, sweepNow);
+              await recordNotificationHistorySafely({
+                db,
+                userId: user._id,
+                academicProfileId: profileContext.academicProfileId,
+                eventKey: `scheduled-reminder:${occurrence.logicalEventKey}`,
+                kind: notification.kind,
+                title: notification.title,
+                body: notification.body,
+                url: notification.url,
+                createdAt: sweepNow,
+              }, logger);
+              return result;
+            },
+          );
           if (marked.modifiedCount === 1) summary.sent += 1;
           else summary.raced += 1;
-          await recordNotificationHistorySafely({
-            db,
-            userId: user._id,
-            eventKey: `scheduled-reminder:${occurrence.logicalEventKey}`,
-            kind: notification.kind,
-            title: notification.title,
-            body: notification.body,
-            url: notification.url,
-            createdAt: sweepNow,
-          }, logger);
           deliveryId = "";
           claimId = "";
         } catch (error) {

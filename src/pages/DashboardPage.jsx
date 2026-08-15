@@ -105,6 +105,7 @@ export function DashboardNavigationSuggestions({
 }
 
 function DashboardPage({
+  academicProfileDataId = "",
   academicLevel,
   academicTrack,
   overviewCards,
@@ -641,7 +642,7 @@ function DashboardPage({
         )}
         {activePanel === "progress" && (
           <div className="db-panel-inner db-panel-enter" key="progress">
-            <ProgressBar1 completed={completed} schedule={schedule} />
+            <ProgressBar1 academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} />
           </div>
         )}
         {activePanel === "review" && (

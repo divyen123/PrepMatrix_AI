@@ -3,49 +3,7 @@ import test from "node:test";
 import {
   ACADEMIC_PROFILE_LOCKS_COLLECTION,
   acquireAcademicProfileMutationLock,
-  academicProfileHasChanged,
-  academicProfileRestoreSnapshot,
-  isYoungKidsAcademicProfile,
-  sanitizeAcademicProfileRestore,
-  shouldCaptureAcademicProfileRestore,
 } from "./academicProfileRestore.js";
-
-const undergraduate = {
-  academicLevel: "Undergraduate / Bachelor's",
-  academicTrack: "Engineering & Technology",
-  degree: "B.Tech",
-  department: "Information Technology",
-};
-
-test("captures the complete non-child profile before entering Kindergarten", () => {
-  const kindergarten = {
-    academicLevel: "Early Years / Kindergarten",
-    academicTrack: "CBSE",
-    grade: "Kindergarten",
-  };
-  assert.equal(shouldCaptureAcademicProfileRestore(undergraduate, kindergarten), true);
-  assert.deepEqual(academicProfileRestoreSnapshot(undergraduate), {
-    academicLevel: "Undergraduate / Bachelor's",
-    academicTrack: "Engineering & Technology",
-    schoolType: "college",
-    grade: "",
-    degree: "B.Tech",
-    department: "Information Technology",
-  });
-});
-
-test("recognizes child profiles and semantic academic changes", () => {
-  assert.equal(isYoungKidsAcademicProfile({ academicLevel: "Primary School", grade: "Class 3" }), true);
-  assert.equal(isYoungKidsAcademicProfile({ academicLevel: "Primary School", grade: "Class 4" }), false);
-  assert.equal(academicProfileHasChanged(undergraduate, { ...undergraduate }), false);
-  assert.equal(academicProfileHasChanged(undergraduate, { ...undergraduate, degree: "B.Sc" }), true);
-});
-
-test("rejects missing restore snapshots instead of inventing a default profile", () => {
-  assert.equal(sanitizeAcademicProfileRestore(null), null);
-  assert.equal(sanitizeAcademicProfileRestore({}), null);
-  assert.equal(sanitizeAcademicProfileRestore({ academicTrack: "CBSE" }), null);
-});
 
 test("serializes academic mutations with an owner-fenced per-user lock", async () => {
   const calls = [];

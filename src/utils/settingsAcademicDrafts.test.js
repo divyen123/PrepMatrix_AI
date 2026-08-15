@@ -4,6 +4,7 @@ import {
   buildSettingsAcademicSaveProfile,
   createSettingsAcademicDrafts,
   getActiveSettingsAcademicDraft,
+  getSettingsAcademicProfileChanges,
   hydrateSettingsAcademicDrafts,
   switchSettingsAcademicStage,
   updateSettingsAcademicDraft,
@@ -81,4 +82,77 @@ test("recovers a legacy higher-education field that was left on a child profile"
   state = createSettingsAcademicDrafts(undergraduate);
   state = switchSettingsAcademicStage(state, "Early Years / Kindergarten");
   assert.equal(getActiveSettingsAcademicDraft(state).academicTrack, "General");
+});
+
+test("summarizes only semantic academic profile changes", () => {
+  const unchanged = getSettingsAcademicProfileChanges(
+    undergraduate,
+    {
+      ...undergraduate,
+      degree: "  B.Tech  ",
+      institutionName: "A different institution",
+    },
+  );
+  assert.deepEqual(unchanged, []);
+
+  const changes = getSettingsAcademicProfileChanges(
+    undergraduate,
+    {
+      academicLevel: "Postgraduate / Master's",
+      academicTrack: "Engineering & Technology",
+      degree: "M.Tech",
+      department: "Computer Science",
+    },
+  );
+
+  assert.deepEqual(changes.map(({ key }) => key), [
+    "academicLevel",
+    "degree",
+    "department",
+  ]);
+  assert.equal(changes[0].before, "Undergraduate / Bachelor's");
+  assert.equal(changes[0].after, "Postgraduate / Master's");
+});
+
+test("includes class and curriculum changes in the confirmation summary", () => {
+  const changes = getSettingsAcademicProfileChanges(
+    {
+      academicLevel: "Primary School",
+      academicTrack: "CBSE",
+      grade: "Class 4",
+      schoolType: "school",
+    },
+    {
+      academicLevel: "Primary School",
+      academicTrack: "State Board",
+      grade: "Class 5",
+      schoolType: "school",
+    },
+  );
+
+  assert.deepEqual(changes.map(({ key }) => key), ["grade", "academicTrack"]);
+});
+
+test("builds current-to-old rows for an academic profile restore preview", () => {
+  const changes = getSettingsAcademicProfileChanges(
+    {
+      academicLevel: "Postgraduate / Master's",
+      academicTrack: "Engineering & Technology",
+      degree: "M.Tech",
+      department: "Computer Science",
+    },
+    undergraduate,
+  );
+
+  assert.deepEqual(changes.map(({ key }) => key), [
+    "academicLevel",
+    "degree",
+    "department",
+  ]);
+  assert.deepEqual(changes[0], {
+    key: "academicLevel",
+    label: "Academic stage",
+    before: "Postgraduate / Master's",
+    after: "Undergraduate / Bachelor's",
+  });
 });

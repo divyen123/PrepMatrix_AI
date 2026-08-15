@@ -13,6 +13,7 @@ import PredictiveMemoryReview from "../components/PredictiveMemoryReview";
 import api from "../utils/apiClient";
 
 function PlannerPage({
+  academicProfileDataId = "",
   subjects,
   schedule,
   setSchedule,
@@ -147,6 +148,7 @@ function PlannerPage({
       </div>
 
       <Timetable
+        academicProfileDataId={academicProfileDataId}
         canManageSchedule={!kidsMode || parentAccessGranted}
         completed={completed}
         onOpenSubjects={() => navigate("/subjects#subject-library")}
@@ -167,4 +169,3 @@ function PlannerPage({
 }
 
 export default PlannerPage;
-

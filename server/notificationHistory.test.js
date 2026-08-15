@@ -159,6 +159,7 @@ async function withHistoryRoutes(collection, run) {
       return res.status(401).json({ error: "Login required." });
     }
     req.user = { _id: token };
+    req.academicProfileId = `legacy:${token}:profile-a`;
     return handler(req, res);
   };
   const mutationSecurity = (req, res, next) => (
@@ -171,6 +172,7 @@ async function withHistoryRoutes(collection, run) {
     mutationSecurity,
     requireAuth,
     now: () => READ_AT,
+    withProfileWriteFence: async (_db, _req, write) => write(),
   });
 
   const server = await new Promise((resolve) => {

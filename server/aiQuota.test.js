@@ -99,6 +99,8 @@ function createFakeDb({
         const duplicateRequest = name === AI_USAGE_EVENTS_COLLECTION
           && store.some((entry) => (
             equal(entry.userId, document.userId)
+            && entry.academicProfileId === document.academicProfileId
+            && entry.feature === document.feature
             && entry.requestId === document.requestId
           ));
         if (duplicateId || duplicateRequest) {
@@ -147,13 +149,24 @@ function createFakeDb({
   };
 }
 
+const PROFILE_A = "academic-profile:profile-a";
+const PROFILE_B = "academic-profile:profile-b";
+
+function withDefaultAcademicProfile(service) {
+  return {
+    ...service,
+    lookup: (input) => service.lookup({ academicProfileId: PROFILE_A, ...input }),
+    reserve: (input) => service.reserve({ academicProfileId: PROFILE_A, ...input }),
+  };
+}
+
 function createHarness({
   initialTime = "2026-07-15T12:00:00.000Z",
   config = {},
   db = createFakeDb(),
 } = {}) {
   let clock = new Date(initialTime);
-  const service = createAiQuotaService({
+  const service = withDefaultAcademicProfile(createAiQuotaService({
     getDb: async () => db,
     now: () => new Date(clock),
     config: {
@@ -163,7 +176,7 @@ function createHarness({
       lockRetryMs: 1,
       ...config,
     },
-  });
+  }));
   return {
     db,
     service,
@@ -293,7 +306,7 @@ test("renews the lock lease while a slow reservation write is in flight", async 
       await new Promise((resolve) => setTimeout(resolve, 120));
     },
   });
-  const service = createAiQuotaService({
+  const service = withDefaultAcademicProfile(createAiQuotaService({
     getDb: async () => db,
     config: {
       limit: 1,
@@ -302,7 +315,7 @@ test("renews the lock lease while a slow reservation write is in flight", async 
       lockWaitMs: 500,
       lockRetryMs: 2,
     },
-  });
+  }));
 
   const firstPromise = service.reserve({
     userId: "student-a",
@@ -655,4 +668,54 @@ test("wraps database failures as an unavailable quota error", async () => {
     },
   });
   await expectQuotaError(service.getStatus("student-a"), "AI_QUOTA_UNAVAILABLE", 503);
+});
+test("scopes idempotent replay by academic profile while keeping quota account-wide", async () => {
+  const { service } = createHarness();
+
+  const profileAReservation = await service.reserve({
+    userId: "student-a",
+    academicProfileId: PROFILE_A,
+    feature: "chat",
+    requestId: IDS.chat1,
+  });
+  await service.commit({
+    eventId: profileAReservation.eventId,
+    reservationToken: profileAReservation.reservationToken,
+    replayPayload: { answer: "profile-a" },
+  });
+
+  const profileBReservation = await service.reserve({
+    userId: "student-a",
+    academicProfileId: PROFILE_B,
+    feature: "chat",
+    requestId: IDS.chat1,
+  });
+  await service.commit({
+    eventId: profileBReservation.eventId,
+    reservationToken: profileBReservation.reservationToken,
+    replayPayload: { answer: "profile-b" },
+  });
+
+  assert.notEqual(profileAReservation.eventId, profileBReservation.eventId);
+  const [profileAReplay, profileBReplay] = await Promise.all([
+    service.lookup({
+      userId: "student-a",
+      academicProfileId: PROFILE_A,
+      feature: "chat",
+      requestId: IDS.chat1,
+    }),
+    service.lookup({
+      userId: "student-a",
+      academicProfileId: PROFILE_B,
+      feature: "chat",
+      requestId: IDS.chat1,
+    }),
+  ]);
+  assert.deepEqual(profileAReplay.replayPayload, { answer: "profile-a" });
+  assert.deepEqual(profileBReplay.replayPayload, { answer: "profile-b" });
+  assert.notEqual(profileAReplay.eventId, profileBReplay.eventId);
+
+  const status = await service.getStatus("student-a");
+  assert.equal(status.used, 2);
+  assert.equal(status.remaining, 98);
 });

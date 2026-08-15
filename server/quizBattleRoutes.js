@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
 import { ObjectId } from "mongodb";
 import { buildLearnerAcademicContext } from "../src/utils/academicProfile.js";
+import { deriveAcademicProfilesState } from "./academicProfiles.js";
 import {
   QUIZ_ELIGIBILITY_THRESHOLD,
   getSubjectQuizEligibility,
@@ -32,6 +33,12 @@ import {
   scoreBattleAnswers,
   summarizeBattleRewards,
 } from "./quizBattleCore.js";
+import {
+  academicProfileFilter,
+  assertAcademicProfileWritable,
+  getRequestAcademicProfileId,
+  withAcademicProfileWriteFence,
+} from "./profileDataScope.js";
 
 const ACTIVE_STATUSES = ["generating", "pending", "active"];
 const MAX_ACTIVE_BATTLES = 5;
@@ -46,6 +53,7 @@ const ACTION_LOCK_RETRY_MS = 40;
 const QUIZ_BATTLE_GENERATION_ATTEMPTS_COLLECTION = "quizBattleGenerationAttempts";
 const QUIZ_BATTLE_GLOBAL_WINDOWS_COLLECTION = "quizBattleGlobalGenerationWindows";
 const QUIZ_BATTLE_FINALIZATION_LOCKS_COLLECTION = "quizBattleFinalizationLocks";
+const QUIZ_BATTLE_REWARD_LEDGER_COLLECTION = "quizBattleRewardLedger";
 const MAX_GLOBAL_GENERATIONS_PER_HOUR = Math.max(
   1,
   Math.min(1000, Number(process.env.QUIZ_BATTLE_MAX_GLOBAL_GENERATIONS_PER_HOUR) || 60),
@@ -67,6 +75,31 @@ function idString(value) {
 
 function sameId(left, right) {
   return Boolean(left && right && idString(left) === idString(right));
+}
+
+function profileParticipantFilter(userId, academicProfileId, extra = {}) {
+  return {
+    ...extra,
+    $and: [
+      ...(Array.isArray(extra.$and) ? extra.$and : []),
+      {
+        $or: [
+          { creatorId: userId, creatorAcademicProfileId: academicProfileId },
+          { inviteeId: userId, inviteeAcademicProfileId: academicProfileId },
+        ],
+      },
+    ],
+  };
+}
+
+function isProfileParticipant(battle, userId, academicProfileId) {
+  return (
+    sameId(battle?.creatorId, userId)
+      && battle?.creatorAcademicProfileId === academicProfileId
+  ) || (
+    sameId(battle?.inviteeId, userId)
+      && battle?.inviteeAcademicProfileId === academicProfileId
+  );
 }
 
 function validObjectId(value, label = "battle") {
@@ -138,30 +171,169 @@ function sendError(aiQuota, res, rawError) {
   });
 }
 
+function missingProfileField(field) {
+  return {
+    $or: [
+      { [field]: { $exists: false } },
+      { [field]: null },
+      { [field]: "" },
+    ],
+  };
+}
+
+function exactIndexKey(indexKey, expectedKey) {
+  const actual = Object.entries(indexKey || {});
+  const expected = Object.entries(expectedKey);
+  return actual.length === expected.length
+    && actual.every(([field, direction], index) => (
+      field === expected[index][0] && direction === expected[index][1]
+    ));
+}
+
+async function currentProfileDataId(db, userId, cache) {
+  const key = idString(userId);
+  if (cache.has(key)) return cache.get(key);
+  const user = await db.collection("users").findOne({ _id: userId });
+  const dataId = user ? deriveAcademicProfilesState(user).activeProfile?.dataId || "" : "";
+  cache.set(key, dataId);
+  return dataId;
+}
+
+export async function backfillLegacyQuizBattleAcademicProfiles(db) {
+  if (!db?.collection) throw new TypeError("Quiz Battle migration requires a database.");
+  const cache = new Map();
+  const migrations = [
+    {
+      collectionName: QUIZ_BATTLES_COLLECTION,
+      userField: "creatorId",
+      profileField: "creatorAcademicProfileId",
+    },
+    {
+      collectionName: QUIZ_BATTLES_COLLECTION,
+      userField: "inviteeId",
+      profileField: "inviteeAcademicProfileId",
+    },
+    {
+      collectionName: QUIZ_BATTLE_ATTEMPTS_COLLECTION,
+      userField: "userId",
+      profileField: "academicProfileId",
+    },
+    {
+      collectionName: QUIZ_BATTLE_REWARDS_COLLECTION,
+      userField: "userId",
+      profileField: "academicProfileId",
+    },
+    {
+      collectionName: QUIZ_BATTLE_GENERATION_ATTEMPTS_COLLECTION,
+      userField: "userId",
+      profileField: "academicProfileId",
+    },
+  ];
+  const updated = {};
+  for (const migration of migrations) {
+    const collection = db.collection(migration.collectionName);
+    const rows = await collection.find({
+      $and: [
+        { [migration.userField]: { $exists: true, $ne: null } },
+        missingProfileField(migration.profileField),
+      ],
+    }).toArray();
+    let count = 0;
+    for (const row of rows) {
+      const dataId = await currentProfileDataId(db, row[migration.userField], cache);
+      if (!dataId) continue;
+      const result = await collection.updateOne(
+        {
+          _id: row._id,
+          [migration.userField]: row[migration.userField],
+          ...missingProfileField(migration.profileField),
+        },
+        { $set: { [migration.profileField]: dataId } },
+      );
+      count += Number(result?.modifiedCount || 0);
+    }
+    updated[`${migration.collectionName}.${migration.profileField}`] = count;
+  }
+  return updated;
+}
+
+async function dropObsoleteQuizBattleUniqueIndexes(db) {
+  const obsolete = [
+    [QUIZ_BATTLES_COLLECTION, [{ creatorId: 1, requestId: 1 }]],
+    [QUIZ_BATTLE_GENERATION_ATTEMPTS_COLLECTION, [{ userId: 1, requestId: 1 }]],
+  ];
+  for (const [collectionName, obsoleteKeys] of obsolete) {
+    const collection = db.collection(collectionName);
+    const indexes = await collection.indexes();
+    for (const index of indexes) {
+      if (
+        index?.unique === true
+        && obsoleteKeys.some((key) => exactIndexKey(index.key, key))
+      ) {
+        await collection.dropIndex(index.name);
+      }
+    }
+  }
+}
+
 export function ensureQuizBattleIndexes(db) {
   if (indexesByDb.has(db)) return indexesByDb.get(db);
-  const promise = Promise.all([
+  const promise = (async () => {
+    await backfillLegacyQuizBattleAcademicProfiles(db);
+    await Promise.all([
     db.collection(QUIZ_BATTLES_COLLECTION).createIndex({ inviteCodeHash: 1 }, {
       unique: true,
       partialFilterExpression: { inviteCodeHash: { $type: "string" } },
     }),
-    db.collection(QUIZ_BATTLES_COLLECTION).createIndex({ creatorId: 1, requestId: 1 }, {
+    db.collection(QUIZ_BATTLES_COLLECTION).createIndex({
+      creatorId: 1,
+      creatorAcademicProfileId: 1,
+      requestId: 1,
+    }, {
       unique: true,
       partialFilterExpression: { requestId: { $type: "string" } },
     }),
-    db.collection(QUIZ_BATTLES_COLLECTION).createIndex({ participantIds: 1, status: 1, updatedAt: -1 }),
-    db.collection(QUIZ_BATTLES_COLLECTION).createIndex({ creatorId: 1, createdAt: -1 }),
+    db.collection(QUIZ_BATTLES_COLLECTION).createIndex({
+      creatorId: 1,
+      creatorAcademicProfileId: 1,
+      status: 1,
+      updatedAt: -1,
+    }),
+    db.collection(QUIZ_BATTLES_COLLECTION).createIndex({
+      inviteeId: 1,
+      inviteeAcademicProfileId: 1,
+      status: 1,
+      updatedAt: -1,
+    }),
+    db.collection(QUIZ_BATTLES_COLLECTION).createIndex({
+      creatorId: 1,
+      creatorAcademicProfileId: 1,
+      createdAt: -1,
+    }),
     db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).createIndex({ battleId: 1, userId: 1 }, { unique: true }),
-    db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).createIndex({ userId: 1, startedAt: -1 }),
+    db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).createIndex({
+      userId: 1,
+      academicProfileId: 1,
+      startedAt: -1,
+    }),
     db.collection(QUIZ_BATTLE_REWARDS_COLLECTION).createIndex({ battleId: 1, userId: 1 }, { unique: true }),
-    db.collection(QUIZ_BATTLE_REWARDS_COLLECTION).createIndex({ userId: 1, awardedAt: -1 }),
+    db.collection(QUIZ_BATTLE_REWARDS_COLLECTION).createIndex({
+      userId: 1,
+      academicProfileId: 1,
+      awardedAt: -1,
+    }),
     db.collection(QUIZ_BATTLE_REWARDS_COLLECTION).createIndex(
-      { userId: 1, rewardDate: 1, rewardSlot: 1 },
+      { userId: 1, academicProfileId: 1, rewardDate: 1, rewardSlot: 1 },
       {
         unique: true,
         partialFilterExpression: { rewardSlot: { $type: "int" } },
       },
     ),
+    db.collection(QUIZ_BATTLE_REWARD_LEDGER_COLLECTION).createIndex(
+      { userId: 1, rewardDate: 1, rewardSlot: 1 },
+      { unique: true },
+    ),
+    db.collection(QUIZ_BATTLE_REWARD_LEDGER_COLLECTION).createIndex({ awardedAt: -1 }),
     db.collection(QUIZ_BATTLE_CREATE_LOCKS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db.collection(QUIZ_BATTLE_ACTION_LOCKS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db.collection(QUIZ_BATTLE_FINALIZATION_LOCKS_COLLECTION).createIndex(
@@ -169,7 +341,7 @@ export function ensureQuizBattleIndexes(db) {
       { expireAfterSeconds: 0 },
     ),
     db.collection(QUIZ_BATTLE_GENERATION_ATTEMPTS_COLLECTION).createIndex(
-      { userId: 1, requestId: 1 },
+      { userId: 1, academicProfileId: 1, requestId: 1 },
       { unique: true },
     ),
     db.collection(QUIZ_BATTLE_GENERATION_ATTEMPTS_COLLECTION).createIndex({ userId: 1, createdAt: -1 }),
@@ -184,7 +356,9 @@ export function ensureQuizBattleIndexes(db) {
     db.collection(QUIZ_BATTLE_PROVIDER_SLOTS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db.collection(QUIZ_BATTLE_JOIN_FAILURES_COLLECTION).createIndex({ userId: 1, createdAt: -1 }),
     db.collection(QUIZ_BATTLE_JOIN_FAILURES_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-  ]).catch((error) => {
+    ]);
+    await dropObsoleteQuizBattleUniqueIndexes(db);
+  })().catch((error) => {
     indexesByDb.delete(db);
     throw error;
   });
@@ -239,9 +413,15 @@ function attemptQuestions(battle, attempt) {
   }).filter(Boolean);
 }
 
-function roleFor(battle, userId) {
-  if (sameId(battle.creatorId, userId)) return "creator";
-  if (sameId(battle.inviteeId, userId)) return "invitee";
+function roleFor(battle, userId, academicProfileId = "") {
+  if (
+    sameId(battle.creatorId, userId)
+    && (!academicProfileId || battle.creatorAcademicProfileId === academicProfileId)
+  ) return "creator";
+  if (
+    sameId(battle.inviteeId, userId)
+    && (!academicProfileId || battle.inviteeAcademicProfileId === academicProfileId)
+  ) return "invitee";
   return "participant";
 }
 
@@ -274,8 +454,15 @@ function ownOutcome(battle, userId) {
   return "expired";
 }
 
-function baseBattlePayload(battle, userId, ownAttempt, ownReward, now = new Date()) {
-  const role = roleFor(battle, userId);
+function baseBattlePayload(
+  battle,
+  userId,
+  ownAttempt,
+  ownReward,
+  now = new Date(),
+  academicProfileId = "",
+) {
+  const role = roleFor(battle, userId, academicProfileId);
   const terminal = battle.status === "completed" || battle.status === "expired";
   return {
     id: publicBattleId(battle),
@@ -319,9 +506,26 @@ function baseBattlePayload(battle, userId, ownAttempt, ownReward, now = new Date
   };
 }
 
-export function battleDetailPayload(battle, userId, attempts, ownReward, now = new Date()) {
-  const ownAttempt = attempts.find((attempt) => sameId(attempt.userId, userId));
-  const base = baseBattlePayload(battle, userId, ownAttempt, ownReward, now);
+export function battleDetailPayload(
+  battle,
+  userId,
+  attempts,
+  ownReward,
+  now = new Date(),
+  academicProfileId = "",
+) {
+  const ownAttempt = attempts.find((attempt) => (
+    sameId(attempt.userId, userId)
+    && (!academicProfileId || attempt.academicProfileId === academicProfileId)
+  ));
+  const base = baseBattlePayload(
+    battle,
+    userId,
+    ownAttempt,
+    ownReward,
+    now,
+    academicProfileId,
+  );
   if (ownAttempt) {
     base.attempt = {
       id: publicBattleId(ownAttempt),
@@ -636,6 +840,7 @@ async function insertBattleWithUniqueCode(db, document) {
       if (error?.code !== 11000) throw error;
       const existing = await collection.findOne({
         creatorId: document.creatorId,
+        creatorAcademicProfileId: document.creatorAcademicProfileId,
         requestId: document.requestId,
       });
       if (existing) return existing;
@@ -654,15 +859,22 @@ async function activateGeneratedBattle(db, battle) {
   return { ...battle, status: "pending", updatedAt: now };
 }
 
-async function reconcileGeneratingBattles(db, aiQuota, userId) {
+async function reconcileGeneratingBattles(
+  db,
+  aiQuota,
+  userId,
+  academicProfileId,
+  commit = (operation) => operation(),
+) {
   const generating = await db.collection(QUIZ_BATTLES_COLLECTION)
-    .find({ creatorId: userId, status: "generating" })
+    .find({ creatorId: userId, creatorAcademicProfileId: academicProfileId, status: "generating" })
     .limit(10)
     .toArray();
   for (const battle of generating) {
     try {
       const quotaState = await aiQuota.lookup({
         userId,
+        academicProfileId,
         feature: "quiz",
         requestId: battle.requestId,
       });
@@ -670,12 +882,12 @@ async function reconcileGeneratingBattles(db, aiQuota, userId) {
         ? quotaState.resultRef.id
         : null;
       if (quotaState.state === "replay" && committedBattleId === publicBattleId(battle)) {
-        await activateGeneratedBattle(db, battle);
+        await commit(() => activateGeneratedBattle(db, battle));
       } else if (quotaState.state === "none") {
-        await db.collection(QUIZ_BATTLES_COLLECTION).deleteOne({
+        await commit(() => db.collection(QUIZ_BATTLES_COLLECTION).deleteOne({
           _id: battle._id,
           status: "generating",
-        });
+        }));
       }
     } catch (error) {
       if (error?.code !== "AI_REQUEST_IN_PROGRESS") throw error;
@@ -685,7 +897,12 @@ async function reconcileGeneratingBattles(db, aiQuota, userId) {
 
 async function insertRewardWithDailySlot(db, battle, attempt, outcome, awardedAt) {
   const rewards = db.collection(QUIZ_BATTLE_REWARDS_COLLECTION);
-  const existing = await rewards.findOne({ battleId: battle._id, userId: attempt.userId });
+  const rewardFilter = {
+    battleId: battle._id,
+    userId: attempt.userId,
+    academicProfileId: attempt.academicProfileId,
+  };
+  const existing = await rewards.findOne(rewardFilter);
   if (existing) return existing;
 
   await assertAccountActive(db, attempt.userId);
@@ -703,7 +920,7 @@ async function insertRewardWithDailySlot(db, battle, attempt, outcome, awardedAt
       return { ...incomplete, _id: result.insertedId };
     } catch (error) {
       if (error?.code !== 11000) throw error;
-      return rewards.findOne({ battleId: battle._id, userId: attempt.userId });
+      return rewards.findOne(rewardFilter);
     }
   }
 
@@ -717,11 +934,23 @@ async function insertRewardWithDailySlot(db, battle, attempt, outcome, awardedAt
       rewardEligible: true,
     });
     try {
+      await db.collection(QUIZ_BATTLE_REWARD_LEDGER_COLLECTION).insertOne({
+        userId: attempt.userId,
+        rewardDate: reward.rewardDate,
+        rewardSlot: slot,
+        awardedAt,
+      });
+    } catch (error) {
+      if (error?.code === 11000) continue;
+      throw error;
+    }
+
+    try {
       const result = await rewards.insertOne(reward);
       return { ...reward, _id: result.insertedId };
     } catch (error) {
       if (error?.code !== 11000) throw error;
-      const duplicate = await rewards.findOne({ battleId: battle._id, userId: attempt.userId });
+      const duplicate = await rewards.findOne(rewardFilter);
       if (duplicate) return duplicate;
     }
   }
@@ -738,7 +967,7 @@ async function insertRewardWithDailySlot(db, battle, attempt, outcome, awardedAt
     return { ...capped, _id: result.insertedId };
   } catch (error) {
     if (error?.code !== 11000) throw error;
-    return rewards.findOne({ battleId: battle._id, userId: attempt.userId });
+    return rewards.findOne(rewardFilter);
   }
 }
 
@@ -827,40 +1056,45 @@ async function maybeFinalizeBattleUnlocked(db, battleId, now = new Date()) {
   return battle;
 }
 
-async function maybeFinalizeBattle(db, battleId, now = new Date()) {
-  return withBattleLock(
+async function maybeFinalizeBattle(
+  db,
+  battleId,
+  now = new Date(),
+  commit = (operation) => operation(),
+) {
+  return commit(() => withBattleLock(
     db,
     battleId,
     () => maybeFinalizeBattleUnlocked(db, battleId, now),
-  );
+  ));
 }
 
-async function reconcileUserBattles(db, userId, now = new Date()) {
+async function reconcileUserBattles(db, userId, academicProfileId, now = new Date(), commit) {
   const battles = await db.collection(QUIZ_BATTLES_COLLECTION)
-    .find({
-      participantIds: userId,
+    .find(profileParticipantFilter(userId, academicProfileId, {
       $or: [
         { status: { $in: ACTIVE_STATUSES } },
         { status: { $in: ["completed", "expired"] }, rewardsState: { $ne: "awarded" } },
       ],
-    })
+    }))
     .toArray();
-  await Promise.all(battles.map((battle) => maybeFinalizeBattle(db, battle._id, now)));
+  for (const battle of battles) {
+    await maybeFinalizeBattle(db, battle._id, now, commit);
+  }
 }
 
-async function loadBattleForUser(db, rawId, userId, now = new Date()) {
+async function loadBattleForUser(db, rawId, userId, academicProfileId, now = new Date(), commit) {
   const battleId = rawId instanceof ObjectId ? rawId : validObjectId(rawId);
-  await maybeFinalizeBattle(db, battleId, now);
-  const battle = await db.collection(QUIZ_BATTLES_COLLECTION).findOne({
-    _id: battleId,
-    participantIds: userId,
-  });
+  await maybeFinalizeBattle(db, battleId, now, commit);
+  const battle = await db.collection(QUIZ_BATTLES_COLLECTION).findOne(
+    profileParticipantFilter(userId, academicProfileId, { _id: battleId }),
+  );
   if (!battle) throw battleError(404, "QUIZ_BATTLE_NOT_FOUND", "Battle not found.");
   const attempts = await db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION)
     .find({ battleId })
     .toArray();
   const ownReward = await db.collection(QUIZ_BATTLE_REWARDS_COLLECTION)
-    .findOne({ battleId, userId });
+    .findOne({ battleId, userId, academicProfileId });
   return { battle, attempts, ownReward };
 }
 
@@ -886,13 +1120,15 @@ async function recordJoinFailure(db, userId, now = new Date()) {
   });
 }
 
-async function findInvite(db, code, userId, now = new Date()) {
+async function findInvite(db, code, userId, academicProfileId, now = new Date()) {
   await joinFailureAllowed(db, userId, now);
   const battle = await db.collection(QUIZ_BATTLES_COLLECTION)
     .findOne({ inviteCodeHash: inviteCodeHash(code) });
   const validPending = battle?.status === "pending"
     && new Date(battle.inviteExpiresAt).getTime() > now.getTime();
-  const alreadyJoined = battle?.status === "active" && sameId(battle.inviteeId, userId);
+  const alreadyJoined = battle?.status === "active"
+    && sameId(battle.inviteeId, userId)
+    && battle.inviteeAcademicProfileId === academicProfileId;
   if (!validPending && !alreadyJoined) {
     await recordJoinFailure(db, userId, now);
     throw battleError(404, "QUIZ_BATTLE_INVITE_INVALID", "This battle invite is invalid or no longer available.");
@@ -900,7 +1136,7 @@ async function findInvite(db, code, userId, now = new Date()) {
   return battle;
 }
 
-function invitePreviewPayload(battle, userId) {
+function invitePreviewPayload(battle, userId, academicProfileId) {
   return {
     battleId: publicBattleId(battle),
     status: battle.status,
@@ -912,8 +1148,170 @@ function invitePreviewPayload(battle, userId) {
     durationMinutes: Math.round(QUIZ_BATTLE_ATTEMPT_MS / 60_000),
     inviteExpiresAt: battle.inviteExpiresAt,
     ownInvite: sameId(battle.creatorId, userId),
-    alreadyJoined: sameId(battle.inviteeId, userId),
+    alreadyJoined: sameId(battle.inviteeId, userId)
+      && battle.inviteeAcademicProfileId === academicProfileId,
   };
+}
+
+async function cleanupQuizBattleAcademicProfileDataUnlocked(
+  db,
+  userId,
+  academicProfileId,
+) {
+  const battlesCollection = db.collection(QUIZ_BATTLES_COLLECTION);
+  const attemptsCollection = db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION);
+  const rewardsCollection = db.collection(QUIZ_BATTLE_REWARDS_COLLECTION);
+  const listedBattles = await battlesCollection
+    .find(profileParticipantFilter(userId, academicProfileId))
+    .toArray();
+
+  for (const listedBattle of listedBattles) {
+    await withBattleLock(db, listedBattle._id, async () => {
+      const battle = await battlesCollection.findOne(
+        profileParticipantFilter(userId, academicProfileId, { _id: listedBattle._id }),
+      );
+      if (!battle) return;
+      const removesCreator = sameId(battle.creatorId, userId)
+        && battle.creatorAcademicProfileId === academicProfileId;
+      const removesInvitee = sameId(battle.inviteeId, userId)
+        && battle.inviteeAcademicProfileId === academicProfileId;
+      if (!removesCreator && !removesInvitee) return;
+
+      const creatorSurvives = Boolean(battle.creatorId) && !removesCreator;
+      const inviteeSurvives = Boolean(battle.inviteeId) && !removesInvitee;
+      await Promise.all([
+        attemptsCollection.deleteMany({ userId, academicProfileId, battleId: battle._id }),
+        rewardsCollection.deleteMany({ userId, academicProfileId, battleId: battle._id }),
+      ]);
+
+      if (!creatorSurvives && !inviteeSurvives) {
+        await Promise.all([
+          battlesCollection.deleteOne({ _id: battle._id }),
+          attemptsCollection.deleteMany({ battleId: battle._id }),
+          rewardsCollection.deleteMany({ battleId: battle._id }),
+        ]);
+        return;
+      }
+
+      const survivorIds = [
+        ...(creatorSurvives ? [battle.creatorId] : []),
+        ...(inviteeSurvives ? [battle.inviteeId] : []),
+      ];
+      const set = {
+        participantIds: survivorIds,
+        updatedAt: new Date(),
+        opponentDeleted: true,
+      };
+      const unset = {
+        academicProfileSnapshot: "",
+        inviteCode: "",
+        inviteCodeHash: "",
+      };
+      if (removesCreator) {
+        set.creatorId = null;
+        set.creatorAcademicProfileId = null;
+        set.creatorDisplayName = "Deleted profile";
+        unset.requestId = "";
+      }
+      if (removesInvitee) {
+        set.inviteeId = null;
+        set.inviteeAcademicProfileId = null;
+        set.inviteeDisplayName = "Deleted profile";
+      }
+      if (battle.status === "generating" || battle.status === "pending" || battle.status === "active") {
+        set.status = "cancelled";
+        set.cancelReason = "participant_profile_deleted";
+        unset.result = "";
+        unset.rewardsState = "";
+      }
+      if (
+        battle.status !== "generating"
+        && battle.status !== "pending"
+        && battle.status !== "active"
+        && sameId(battle.result?.winnerUserId, userId)
+        && (removesCreator || removesInvitee)
+      ) {
+        set["result.winnerUserId"] = null;
+        set["result.winnerDeleted"] = true;
+      }
+      await battlesCollection.updateOne(
+        { _id: battle._id },
+        { $set: set, $unset: unset },
+      );
+    });
+  }
+
+  await Promise.all([
+    attemptsCollection.deleteMany({ userId, academicProfileId }),
+    rewardsCollection.deleteMany({ userId, academicProfileId }),
+    db.collection(QUIZ_BATTLE_GENERATION_ATTEMPTS_COLLECTION).updateMany(
+      { userId, academicProfileId },
+      {
+        $set: { profileDeletedAt: new Date() },
+        $unset: { battleId: "", questions: "", resultRef: "", replayPayload: "" },
+      },
+    ),
+  ]);
+  return verifyQuizBattleAcademicProfileCleanup(db, { userId, academicProfileId });
+}
+
+export async function verifyQuizBattleAcademicProfileCleanup(
+  db,
+  { userId, academicProfileId } = {},
+) {
+  const [attempts, rewards, participantReferences, generationContent] = await Promise.all([
+    db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION)
+      .countDocuments({ userId, academicProfileId }, { limit: 1 }),
+    db.collection(QUIZ_BATTLE_REWARDS_COLLECTION)
+      .countDocuments({ userId, academicProfileId }, { limit: 1 }),
+    db.collection(QUIZ_BATTLES_COLLECTION).countDocuments({
+      $or: [
+        { creatorId: userId, creatorAcademicProfileId: academicProfileId },
+        { inviteeId: userId, inviteeAcademicProfileId: academicProfileId },
+      ],
+    }, { limit: 1 }),
+    db.collection(QUIZ_BATTLE_GENERATION_ATTEMPTS_COLLECTION).countDocuments({
+      userId,
+      academicProfileId,
+      $or: [
+        { battleId: { $exists: true } },
+        { questions: { $exists: true } },
+        { resultRef: { $exists: true } },
+        { replayPayload: { $exists: true } },
+      ],
+    }, { limit: 1 }),
+  ]);
+  const remaining = {
+    attempts,
+    rewards,
+    participantReferences,
+    generationContent,
+  };
+  if (Object.values(remaining).some((count) => Number(count) > 0)) {
+    throw battleError(
+      503,
+      "QUIZ_BATTLE_PROFILE_DELETE_INCOMPLETE",
+      "Quiz Battle profile data could not be deleted completely.",
+      { remaining },
+    );
+  }
+  return { verified: true, remaining };
+}
+
+export async function cleanupQuizBattleAcademicProfileData(
+  db,
+  { userId, academicProfileId } = {},
+) {
+  if (!db || !userId || !academicProfileId) {
+    throw new TypeError("Quiz Battle profile cleanup requires db, userId, and academicProfileId.");
+  }
+  await ensureQuizBattleIndexes(db);
+  return withUserActionLock(
+    db,
+    userId,
+    () => cleanupQuizBattleAcademicProfileDataUnlocked(db, userId, academicProfileId),
+    { allowDeleting: true },
+  );
 }
 
 async function cleanupQuizBattleUserDataUnlocked(db, userId) {
@@ -996,6 +1394,8 @@ export async function cleanupQuizBattleUserData(db, userId) {
 
 export function registerQuizBattleRoutes(app, {
   aiQuota,
+  assertProfileWritable = assertAcademicProfileWritable,
+  writeFence = withAcademicProfileWriteFence,
   getDb,
   getGroqConfigStatus,
   groqModel,
@@ -1019,7 +1419,14 @@ export function registerQuizBattleRoutes(app, {
       const db = await getDb();
       await ensureQuizBattleIndexes(db);
       await assertAccountActive(db, req.user._id);
-      await reconcileGeneratingBattles(db, aiQuota, req.user._id);
+      req.quizBattleProfileCommit = (operation) => writeFence(db, req, operation);
+      await reconcileGeneratingBattles(
+        db,
+        aiQuota,
+        req.user._id,
+        getRequestAcademicProfileId(req),
+        req.quizBattleProfileCommit,
+      );
       return await handler(req, res, db);
     } catch (error) {
       return sendError(aiQuota, res, error);
@@ -1029,9 +1436,10 @@ export function registerQuizBattleRoutes(app, {
   const mutation = (path, handler) => app.post(path, mutationSecurity, protectedRoute(handler));
 
   app.get("/api/quiz-battles/stats", protectedRoute(async (req, res, db) => {
-    await reconcileUserBattles(db, req.user._id);
+    const academicProfileId = getRequestAcademicProfileId(req);
+    await reconcileUserBattles(db, req.user._id, academicProfileId, new Date(), req.quizBattleProfileCommit);
     const rewards = await db.collection(QUIZ_BATTLE_REWARDS_COLLECTION)
-      .find({ userId: req.user._id })
+      .find({ userId: req.user._id, academicProfileId })
       .toArray();
     const stats = summarizeBattleRewards(rewards);
     const badges = [
@@ -1045,8 +1453,12 @@ export function registerQuizBattleRoutes(app, {
   mutation("/api/quiz-battles/invites/:code/preview", async (req, res, db) => {
     return withUserActionLock(db, req.user._id, async () => {
     const code = normalizeBattleInviteCode(req.params.code);
-    const battle = await findInvite(db, code, req.user._id);
-    return res.json({ invite: invitePreviewPayload(battle, req.user._id), serverTime: new Date() });
+    const academicProfileId = getRequestAcademicProfileId(req);
+    const battle = await findInvite(db, code, req.user._id, academicProfileId);
+    return res.json({
+      invite: invitePreviewPayload(battle, req.user._id, academicProfileId),
+      serverTime: new Date(),
+    });
     });
   });
 
@@ -1054,23 +1466,45 @@ export function registerQuizBattleRoutes(app, {
     const now = new Date();
     return withUserActionLock(db, req.user._id, async () => {
     const code = normalizeBattleInviteCode(req.params.code);
-    let battle = await findInvite(db, code, req.user._id, now);
+    const academicProfileId = getRequestAcademicProfileId(req);
+    let battle = await findInvite(db, code, req.user._id, academicProfileId, now);
     await assertAccountActive(db, battle.creatorId);
     if (sameId(battle.creatorId, req.user._id)) {
       throw battleError(409, "QUIZ_BATTLE_SELF_JOIN", "You cannot join your own battle.");
     }
-    if (sameId(battle.inviteeId, req.user._id)) {
-      const loaded = await loadBattleForUser(db, battle._id, req.user._id, now);
+    if (
+      sameId(battle.inviteeId, req.user._id)
+      && battle.inviteeAcademicProfileId === academicProfileId
+    ) {
+      const loaded = await loadBattleForUser(
+        db,
+        battle._id,
+        req.user._id,
+        academicProfileId,
+        now,
+        req.quizBattleProfileCommit,
+      );
       return res.json({
-        battle: battleDetailPayload(loaded.battle, req.user._id, loaded.attempts, loaded.ownReward, now),
+        battle: battleDetailPayload(
+          loaded.battle,
+          req.user._id,
+          loaded.attempts,
+          loaded.ownReward,
+          now,
+          academicProfileId,
+        ),
         idempotent: true,
         serverTime: now,
       });
     }
 
-    await reconcileUserBattles(db, req.user._id, now);
+    await reconcileUserBattles(db, req.user._id, academicProfileId, now, req.quizBattleProfileCommit);
     const activeCount = await db.collection(QUIZ_BATTLES_COLLECTION)
-      .countDocuments({ participantIds: req.user._id, status: { $in: ACTIVE_STATUSES } });
+      .countDocuments(profileParticipantFilter(
+        req.user._id,
+        academicProfileId,
+        { status: { $in: ACTIVE_STATUSES } },
+      ));
     if (activeCount >= MAX_ACTIVE_BATTLES) {
       throw battleError(
         429,
@@ -1080,7 +1514,7 @@ export function registerQuizBattleRoutes(app, {
     }
 
     const deadlineAt = new Date(now.getTime() + QUIZ_BATTLE_ACTIVE_MS);
-    const result = await db.collection(QUIZ_BATTLES_COLLECTION).updateOne(
+    const result = await req.quizBattleProfileCommit(() => withBattleLock(db, battle._id, () => db.collection(QUIZ_BATTLES_COLLECTION).updateOne(
       {
         _id: battle._id,
         status: "pending",
@@ -1091,6 +1525,7 @@ export function registerQuizBattleRoutes(app, {
         $set: {
           status: "active",
           inviteeId: req.user._id,
+          inviteeAcademicProfileId: academicProfileId,
           inviteeDisplayName: battleDisplayName(req.user),
           participantIds: [battle.creatorId, req.user._id],
           activatedAt: now,
@@ -1099,16 +1534,33 @@ export function registerQuizBattleRoutes(app, {
         },
         $unset: { inviteCode: "" },
       },
-    );
+    )));
     if (result.matchedCount !== 1) {
       battle = await db.collection(QUIZ_BATTLES_COLLECTION).findOne({ _id: battle._id });
-      if (!sameId(battle?.inviteeId, req.user._id)) {
+      if (
+        !sameId(battle?.inviteeId, req.user._id)
+        || battle?.inviteeAcademicProfileId !== academicProfileId
+      ) {
         throw battleError(404, "QUIZ_BATTLE_INVITE_INVALID", "This battle invite is invalid or no longer available.");
       }
     }
-    const loaded = await loadBattleForUser(db, battle._id, req.user._id, now);
+    const loaded = await loadBattleForUser(
+      db,
+      battle._id,
+      req.user._id,
+      academicProfileId,
+      now,
+      req.quizBattleProfileCommit,
+    );
     return res.json({
-      battle: battleDetailPayload(loaded.battle, req.user._id, loaded.attempts, loaded.ownReward, now),
+      battle: battleDetailPayload(
+        loaded.battle,
+        req.user._id,
+        loaded.attempts,
+        loaded.ownReward,
+        now,
+        academicProfileId,
+      ),
       serverTime: now,
     });
     });
@@ -1116,21 +1568,22 @@ export function registerQuizBattleRoutes(app, {
 
   app.get("/api/quiz-battles", protectedRoute(async (req, res, db) => {
     const now = new Date();
-    await reconcileUserBattles(db, req.user._id, now);
+    const academicProfileId = getRequestAcademicProfileId(req);
+    await reconcileUserBattles(db, req.user._id, academicProfileId, now, req.quizBattleProfileCommit);
     const battles = await db.collection(QUIZ_BATTLES_COLLECTION)
-      .find({ participantIds: req.user._id })
+      .find(profileParticipantFilter(req.user._id, academicProfileId))
       .sort({ updatedAt: -1 })
       .limit(50)
       .toArray();
     const battleIds = battles.map((battle) => battle._id);
     const attempts = battleIds.length
       ? await db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION)
-        .find({ battleId: { $in: battleIds }, userId: req.user._id })
+        .find({ battleId: { $in: battleIds }, userId: req.user._id, academicProfileId })
         .toArray()
       : [];
     const rewards = battleIds.length
       ? await db.collection(QUIZ_BATTLE_REWARDS_COLLECTION)
-        .find({ battleId: { $in: battleIds }, userId: req.user._id })
+        .find({ battleId: { $in: battleIds }, userId: req.user._id, academicProfileId })
         .toArray()
       : [];
     const attemptMap = new Map(attempts.map((attempt) => [idString(attempt.battleId), attempt]));
@@ -1142,6 +1595,7 @@ export function registerQuizBattleRoutes(app, {
         attemptMap.get(idString(battle._id)),
         rewardMap.get(idString(battle._id)),
         now,
+        academicProfileId,
       )),
       serverTime: now,
     });
@@ -1154,11 +1608,13 @@ export function registerQuizBattleRoutes(app, {
     let providerSlot = null;
     let battle = null;
     let commitUncertain = false;
+    const academicProfileId = getRequestAcademicProfileId(req);
     try {
       const input = normalizeBattleCreateInput(req.body);
       const generationRequestId = requestId(req);
       const prior = await aiQuota.lookup({
         userId: req.user._id,
+        academicProfileId,
         feature: "quiz",
         requestId: generationRequestId,
       });
@@ -1171,13 +1627,28 @@ export function registerQuizBattleRoutes(app, {
         const replayBattle = await db.collection(QUIZ_BATTLES_COLLECTION).findOne({
           _id: validObjectId(replayId),
           creatorId: req.user._id,
+          creatorAcademicProfileId: academicProfileId,
         });
         if (!replayBattle) throw battleError(404, "QUIZ_BATTLE_NOT_FOUND", "Battle not found.");
         assertBattleInputMatches(replayBattle, input);
-        await activateGeneratedBattle(db, replayBattle);
-        const loaded = await loadBattleForUser(db, replayId, req.user._id);
+        await req.quizBattleProfileCommit(() => activateGeneratedBattle(db, replayBattle));
+        const loaded = await loadBattleForUser(
+          db,
+          replayId,
+          req.user._id,
+          academicProfileId,
+          new Date(),
+          req.quizBattleProfileCommit,
+        );
         return res.json({
-          battle: battleDetailPayload(loaded.battle, req.user._id, loaded.attempts, loaded.ownReward),
+          battle: battleDetailPayload(
+            loaded.battle,
+            req.user._id,
+            loaded.attempts,
+            loaded.ownReward,
+            new Date(),
+            academicProfileId,
+          ),
           idempotent: true,
           serverTime: new Date(),
         });
@@ -1195,9 +1666,13 @@ export function registerQuizBattleRoutes(app, {
       const now = new Date();
       lock = await acquireCreateLock(db, req.user._id, now);
       actionLock = await acquireUserActionLock(db, req.user._id);
-      await reconcileUserBattles(db, req.user._id, now);
+      await reconcileUserBattles(db, req.user._id, academicProfileId, now, req.quizBattleProfileCommit);
       const activeCount = await db.collection(QUIZ_BATTLES_COLLECTION)
-        .countDocuments({ participantIds: req.user._id, status: { $in: ACTIVE_STATUSES } });
+        .countDocuments(profileParticipantFilter(
+          req.user._id,
+          academicProfileId,
+          { status: { $in: ACTIVE_STATUSES } },
+        ));
       if (activeCount >= MAX_ACTIVE_BATTLES) {
         throw battleError(
           429,
@@ -1217,7 +1692,7 @@ export function registerQuizBattleRoutes(app, {
         );
       }
 
-      const workspace = await db.collection("workspaces").findOne({ userId: req.user._id });
+      const workspace = await db.collection("workspaces").findOne(academicProfileFilter(req));
       const eligibility = getSubjectQuizEligibility(
         input.subjectName,
         workspace?.schedule || [],
@@ -1235,6 +1710,7 @@ export function registerQuizBattleRoutes(app, {
       providerSlot = await acquireProviderSlot(db, now);
       reservation = await aiQuota.reserve({
         userId: req.user._id,
+        academicProfileId,
         feature: "quiz",
         requestId: generationRequestId,
       });
@@ -1245,13 +1721,28 @@ export function registerQuizBattleRoutes(app, {
         const replayBattle = await db.collection(QUIZ_BATTLES_COLLECTION).findOne({
           _id: validObjectId(replayId),
           creatorId: req.user._id,
+          creatorAcademicProfileId: academicProfileId,
         });
         if (!replayBattle) throw battleError(404, "QUIZ_BATTLE_NOT_FOUND", "Battle not found.");
         assertBattleInputMatches(replayBattle, input);
-        await activateGeneratedBattle(db, replayBattle);
-        const loaded = await loadBattleForUser(db, replayId, req.user._id);
+        await req.quizBattleProfileCommit(() => activateGeneratedBattle(db, replayBattle));
+        const loaded = await loadBattleForUser(
+          db,
+          replayId,
+          req.user._id,
+          academicProfileId,
+          new Date(),
+          req.quizBattleProfileCommit,
+        );
         return res.json({
-          battle: battleDetailPayload(loaded.battle, req.user._id, loaded.attempts, loaded.ownReward),
+          battle: battleDetailPayload(
+            loaded.battle,
+            req.user._id,
+            loaded.attempts,
+            loaded.ownReward,
+            new Date(),
+            academicProfileId,
+          ),
           idempotent: true,
           serverTime: new Date(),
         });
@@ -1259,13 +1750,14 @@ export function registerQuizBattleRoutes(app, {
 
       battle = await db.collection(QUIZ_BATTLES_COLLECTION).findOne({
         creatorId: req.user._id,
+        creatorAcademicProfileId: academicProfileId,
         requestId: generationRequestId,
       });
       if (battle) assertBattleInputMatches(battle, input);
       if (!battle) {
         await assertAccountActive(db, req.user._id);
         const repeatedAttempt = await db.collection(QUIZ_BATTLE_GENERATION_ATTEMPTS_COLLECTION)
-          .findOne({ userId: req.user._id, requestId: generationRequestId });
+          .findOne({ userId: req.user._id, academicProfileId, requestId: generationRequestId });
         if (repeatedAttempt) {
           throw battleError(
             409,
@@ -1275,13 +1767,14 @@ export function registerQuizBattleRoutes(app, {
         }
         await claimGlobalGenerationBudget(db, now);
         try {
-          await db.collection(QUIZ_BATTLE_GENERATION_ATTEMPTS_COLLECTION).insertOne({
+          await req.quizBattleProfileCommit(() => db.collection(QUIZ_BATTLE_GENERATION_ATTEMPTS_COLLECTION).insertOne({
             userId: req.user._id,
+            academicProfileId,
             requestId: generationRequestId,
             status: "started",
             createdAt: now,
             expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
-          });
+          }));
         } catch (error) {
           if (error?.code !== 11000) throw error;
           throw battleError(
@@ -1290,16 +1783,21 @@ export function registerQuizBattleRoutes(app, {
             "This generation request was already attempted. Start a new battle request.",
           );
         }
+        await releaseUserActionLock(db, actionLock);
+        actionLock = null;
         const questions = await createGeneratedQuestions({
           config,
           groqModel,
           input,
           user: req.user,
         });
-        await assertAccountActive(db, req.user._id);
-        battle = await insertBattleWithUniqueCode(db, {
+        actionLock = await acquireUserActionLock(db, req.user._id);
+        battle = await req.quizBattleProfileCommit(async () => {
+          const generatedBattle = await insertBattleWithUniqueCode(db, {
           creatorId: req.user._id,
+          creatorAcademicProfileId: academicProfileId,
           inviteeId: null,
+          inviteeAcademicProfileId: null,
           participantIds: [req.user._id],
           creatorDisplayName: battleDisplayName(req.user),
           inviteeDisplayName: null,
@@ -1315,12 +1813,14 @@ export function registerQuizBattleRoutes(app, {
           inviteExpiresAt: new Date(now.getTime() + QUIZ_BATTLE_INVITE_MS),
         });
         await db.collection(QUIZ_BATTLE_GENERATION_ATTEMPTS_COLLECTION).updateOne(
-          { userId: req.user._id, requestId: generationRequestId },
-          { $set: { status: "generated", battleId: battle._id, updatedAt: new Date() } },
+          { userId: req.user._id, academicProfileId, requestId: generationRequestId },
+          { $set: { status: "generated", battleId: generatedBattle._id, updatedAt: new Date() } },
         );
+          return generatedBattle;
+        });
       }
 
-      await assertAccountActive(db, req.user._id);
+      await assertProfileWritable(db, req);
       const commitInput = {
         eventId: reservation.eventId,
         reservationToken: reservation.reservationToken,
@@ -1336,6 +1836,7 @@ export function registerQuizBattleRoutes(app, {
           try {
             const authoritative = await aiQuota.lookup({
               userId: req.user._id,
+              academicProfileId,
               feature: "quiz",
               requestId: generationRequestId,
             });
@@ -1356,9 +1857,16 @@ export function registerQuizBattleRoutes(app, {
       }
       reservation = { ...reservation, state: "committed" };
       setQuotaHeaders(aiQuota, res, committed.quota, reservation.cost);
-      battle = await activateGeneratedBattle(db, battle);
+      battle = await req.quizBattleProfileCommit(() => activateGeneratedBattle(db, battle));
       return res.status(201).json({
-        battle: battleDetailPayload(battle, req.user._id, [], null, now),
+        battle: battleDetailPayload(
+          battle,
+          req.user._id,
+          [],
+          null,
+          now,
+          academicProfileId,
+        ),
         serverTime: now,
       });
     } catch (rawError) {
@@ -1369,6 +1877,7 @@ export function registerQuizBattleRoutes(app, {
           .deleteOne({
             _id: battle._id,
             creatorId: req.user._id,
+            creatorAcademicProfileId: academicProfileId,
             status: { $in: ["generating", "pending"] },
           })
           .catch(() => undefined);
@@ -1397,9 +1906,24 @@ export function registerQuizBattleRoutes(app, {
 
   app.get("/api/quiz-battles/:id", protectedRoute(async (req, res, db) => {
     const now = new Date();
-    const loaded = await loadBattleForUser(db, req.params.id, req.user._id, now);
+    const academicProfileId = getRequestAcademicProfileId(req);
+    const loaded = await loadBattleForUser(
+      db,
+      req.params.id,
+      req.user._id,
+      academicProfileId,
+      now,
+      req.quizBattleProfileCommit,
+    );
     return res.json({
-      battle: battleDetailPayload(loaded.battle, req.user._id, loaded.attempts, loaded.ownReward, now),
+      battle: battleDetailPayload(
+        loaded.battle,
+        req.user._id,
+        loaded.attempts,
+        loaded.ownReward,
+        now,
+        academicProfileId,
+      ),
       serverTime: now,
     });
   }));
@@ -1408,19 +1932,39 @@ export function registerQuizBattleRoutes(app, {
     const battleId = validObjectId(req.params.id);
     const now = new Date();
     return withUserActionLock(db, req.user._id, async () => {
-    const result = await db.collection(QUIZ_BATTLES_COLLECTION).updateOne(
-      { _id: battleId, creatorId: req.user._id, status: "pending" },
+    const academicProfileId = getRequestAcademicProfileId(req);
+    const result = await req.quizBattleProfileCommit(() => db.collection(QUIZ_BATTLES_COLLECTION).updateOne(
+      {
+        _id: battleId,
+        creatorId: req.user._id,
+        creatorAcademicProfileId: academicProfileId,
+        status: "pending",
+      },
       {
         $set: { status: "cancelled", cancelReason: "creator_cancelled", updatedAt: now },
         $unset: { inviteCode: "", inviteCodeHash: "" },
       },
-    );
+    ));
     if (result.matchedCount !== 1) {
       throw battleError(409, "QUIZ_BATTLE_CANNOT_CANCEL", "Only a pending battle can be cancelled by its creator.");
     }
-    const loaded = await loadBattleForUser(db, battleId, req.user._id, now);
+    const loaded = await loadBattleForUser(
+      db,
+      battleId,
+      req.user._id,
+      academicProfileId,
+      now,
+      req.quizBattleProfileCommit,
+    );
     return res.json({
-      battle: battleDetailPayload(loaded.battle, req.user._id, loaded.attempts, loaded.ownReward, now),
+      battle: battleDetailPayload(
+        loaded.battle,
+        req.user._id,
+        loaded.attempts,
+        loaded.ownReward,
+        now,
+        academicProfileId,
+      ),
       serverTime: now,
     });
     });
@@ -1430,12 +1974,13 @@ export function registerQuizBattleRoutes(app, {
     const now = new Date();
     return withUserActionLock(db, req.user._id, async () => {
     const battleId = validObjectId(req.params.id);
-    const battle = await maybeFinalizeBattle(db, battleId, now);
-    if (!battle || !(battle.participantIds || []).some((id) => sameId(id, req.user._id))) {
+    const academicProfileId = getRequestAcademicProfileId(req);
+    const battle = await maybeFinalizeBattle(db, battleId, now, req.quizBattleProfileCommit);
+    if (!battle || !isProfileParticipant(battle, req.user._id, academicProfileId)) {
       throw battleError(404, "QUIZ_BATTLE_NOT_FOUND", "Battle not found.");
     }
     let attempt = await db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION)
-      .findOne({ battleId, userId: req.user._id });
+      .findOne({ battleId, userId: req.user._id, academicProfileId });
     if (!attempt) {
       if (
         battle.status !== "active"
@@ -1465,7 +2010,8 @@ export function registerQuizBattleRoutes(app, {
       const document = {
         battleId,
         userId: req.user._id,
-        role: roleFor(battle, req.user._id),
+        academicProfileId,
+        role: roleFor(battle, req.user._id, academicProfileId),
         status: "in_progress",
         ...ordering,
         answers: {},
@@ -1475,21 +2021,29 @@ export function registerQuizBattleRoutes(app, {
         updatedAt: now,
       };
       try {
-        const result = await db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).insertOne(document);
+        const result = await req.quizBattleProfileCommit(() => db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).insertOne(document));
         attempt = { ...document, _id: result.insertedId };
       } catch (error) {
         if (error?.code !== 11000) throw error;
         attempt = await db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION)
-          .findOne({ battleId, userId: req.user._id });
+          .findOne({ battleId, userId: req.user._id, academicProfileId });
       }
     }
     const attempts = await db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).find({ battleId }).toArray();
     const ownReward = await db.collection(QUIZ_BATTLE_REWARDS_COLLECTION).findOne({
       battleId,
       userId: req.user._id,
+      academicProfileId,
     });
     return res.json({
-      battle: battleDetailPayload(battle, req.user._id, attempts, ownReward, now),
+      battle: battleDetailPayload(
+        battle,
+        req.user._id,
+        attempts,
+        ownReward,
+        now,
+        academicProfileId,
+      ),
       serverTime: now,
     });
     });
@@ -1498,27 +2052,36 @@ export function registerQuizBattleRoutes(app, {
   app.put("/api/quiz-battles/:id/answers", mutationSecurity, protectedRoute(async (req, res, db) => {
     const now = new Date();
     const battleId = validObjectId(req.params.id);
-    const battle = await db.collection(QUIZ_BATTLES_COLLECTION).findOne({
-      _id: battleId,
-      participantIds: req.user._id,
-      status: "active",
-    });
+    const academicProfileId = getRequestAcademicProfileId(req);
+    const battle = await db.collection(QUIZ_BATTLES_COLLECTION).findOne(
+      profileParticipantFilter(req.user._id, academicProfileId, {
+        _id: battleId,
+        status: "active",
+      }),
+    );
     const attempt = await db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).findOne({
       battleId,
       userId: req.user._id,
+      academicProfileId,
     });
     if (!battle || !attempt) {
       throw battleError(404, "QUIZ_BATTLE_ATTEMPT_NOT_FOUND", "Active battle attempt not found.");
     }
     if (attempt.status !== "in_progress" || new Date(attempt.deadlineAt).getTime() <= now.getTime()) {
-      await maybeFinalizeBattle(db, battleId, now);
+      await maybeFinalizeBattle(db, battleId, now, req.quizBattleProfileCommit);
       throw battleError(409, "QUIZ_BATTLE_ATTEMPT_LOCKED", "This battle attempt is already locked.");
     }
     const answers = sanitizeBattleAnswers(req.body?.answers, battle.questions || []);
-    const result = await db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).updateOne(
-      { _id: attempt._id, userId: req.user._id, status: "in_progress", deadlineAt: { $gt: now } },
+    const result = await req.quizBattleProfileCommit(() => db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).updateOne(
+      {
+        _id: attempt._id,
+        userId: req.user._id,
+        academicProfileId,
+        status: "in_progress",
+        deadlineAt: { $gt: now },
+      },
       { $set: { answers, updatedAt: now } },
-    );
+    ));
     if (result.matchedCount !== 1) {
       throw battleError(409, "QUIZ_BATTLE_ATTEMPT_LOCKED", "This battle attempt is already locked.");
     }
@@ -1538,22 +2101,37 @@ export function registerQuizBattleRoutes(app, {
     const now = new Date();
     return withUserActionLock(db, req.user._id, async () => {
     const battleId = validObjectId(req.params.id);
-    let battle = await db.collection(QUIZ_BATTLES_COLLECTION).findOne({
-      _id: battleId,
-      participantIds: req.user._id,
-    });
+    const academicProfileId = getRequestAcademicProfileId(req);
+    let battle = await db.collection(QUIZ_BATTLES_COLLECTION).findOne(
+      profileParticipantFilter(req.user._id, academicProfileId, { _id: battleId }),
+    );
     const attempt = await db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).findOne({
       battleId,
       userId: req.user._id,
+      academicProfileId,
     });
     if (!battle || !attempt) {
       throw battleError(404, "QUIZ_BATTLE_ATTEMPT_NOT_FOUND", "Battle attempt not found.");
     }
     if (attempt.status === "submitted") {
-      battle = await maybeFinalizeBattle(db, battleId, now);
-      const loaded = await loadBattleForUser(db, battleId, req.user._id, now);
+      battle = await maybeFinalizeBattle(db, battleId, now, req.quizBattleProfileCommit);
+      const loaded = await loadBattleForUser(
+        db,
+        battleId,
+        req.user._id,
+        academicProfileId,
+        now,
+        req.quizBattleProfileCommit,
+      );
       return res.json({
-        battle: battleDetailPayload(battle, req.user._id, loaded.attempts, loaded.ownReward, now),
+        battle: battleDetailPayload(
+          battle,
+          req.user._id,
+          loaded.attempts,
+          loaded.ownReward,
+          now,
+          academicProfileId,
+        ),
         idempotent: true,
         serverTime: now,
       });
@@ -1563,16 +2141,17 @@ export function registerQuizBattleRoutes(app, {
       || new Date(attempt.deadlineAt).getTime() <= now.getTime()
       || battle.status !== "active"
     ) {
-      await maybeFinalizeBattle(db, battleId, now);
+      await maybeFinalizeBattle(db, battleId, now, req.quizBattleProfileCommit);
       throw battleError(409, "QUIZ_BATTLE_ATTEMPT_LOCKED", "The attempt deadline has passed.");
     }
 
     const answers = sanitizeBattleAnswers(req.body?.answers, battle.questions || []);
     const score = scoreBattleAnswers(battle.questions || [], answers);
-    const result = await db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).updateOne(
+    const result = await req.quizBattleProfileCommit(() => db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).updateOne(
       {
         _id: attempt._id,
         userId: req.user._id,
+        academicProfileId,
         status: "in_progress",
         deadlineAt: { $gt: now },
       },
@@ -1587,27 +2166,56 @@ export function registerQuizBattleRoutes(app, {
           updatedAt: now,
         },
       },
-    );
+    ));
     if (result.matchedCount !== 1) {
       const concurrentAttempt = await db.collection(QUIZ_BATTLE_ATTEMPTS_COLLECTION).findOne({
         _id: attempt._id,
         userId: req.user._id,
+        academicProfileId,
       });
       if (concurrentAttempt?.status === "submitted") {
-        battle = await maybeFinalizeBattle(db, battleId, now);
-        const loaded = await loadBattleForUser(db, battleId, req.user._id, now);
+        battle = await maybeFinalizeBattle(db, battleId, now, req.quizBattleProfileCommit);
+        const loaded = await loadBattleForUser(
+          db,
+          battleId,
+          req.user._id,
+          academicProfileId,
+          now,
+          req.quizBattleProfileCommit,
+        );
         return res.json({
-          battle: battleDetailPayload(battle, req.user._id, loaded.attempts, loaded.ownReward, now),
+          battle: battleDetailPayload(
+            battle,
+            req.user._id,
+            loaded.attempts,
+            loaded.ownReward,
+            now,
+            academicProfileId,
+          ),
           idempotent: true,
           serverTime: now,
         });
       }
       throw battleError(409, "QUIZ_BATTLE_ATTEMPT_LOCKED", "This attempt was already submitted.");
     }
-    battle = await maybeFinalizeBattle(db, battleId, now);
-    const loaded = await loadBattleForUser(db, battleId, req.user._id, now);
+    battle = await maybeFinalizeBattle(db, battleId, now, req.quizBattleProfileCommit);
+    const loaded = await loadBattleForUser(
+      db,
+      battleId,
+      req.user._id,
+      academicProfileId,
+      now,
+      req.quizBattleProfileCommit,
+    );
     return res.json({
-      battle: battleDetailPayload(battle, req.user._id, loaded.attempts, loaded.ownReward, now),
+      battle: battleDetailPayload(
+        battle,
+        req.user._id,
+        loaded.attempts,
+        loaded.ownReward,
+        now,
+        academicProfileId,
+      ),
       serverTime: now,
     });
     });

@@ -25,8 +25,26 @@ import {
   readParentAccess,
   revokeParentAccess,
 } from "./kidsParentAccess.js";
+import {
+  getRequestAcademicProfileId,
+  withAcademicProfileWriteFence,
+} from "./profileDataScope.js";
 
 const MAX_PROGRESS_ATTEMPTS = 500;
+export const KIDS_PROFILE_SETTINGS_COLLECTION = "kidsProfileSettings";
+const KIDS_PROFILE_SETTING_FIELDS = Object.freeze([
+  "gradeBand",
+  "childNickname",
+  "language",
+  "dailyPlayLimitMinutes",
+  "dailyMissionMinutes",
+  "audioEnabled",
+  "timerVisible",
+  "hintsEnabled",
+  "gentleRetry",
+  "allowedSubjects",
+  "updatedAt",
+]);
 const PARENT_PIN_FAILURE_LIMIT = 5;
 const PARENT_PIN_WINDOW_MS = 15 * 60 * 1000;
 const PARENT_PIN_LOCK_MS = 15 * 60 * 1000;
@@ -134,10 +152,70 @@ function rejectParentGradeBandMutation(payload) {
   }
 }
 
-async function loadParentSettings(db, userId, gradeBand) {
-  const document = await db.collection(KIDS_PARENT_SETTINGS_COLLECTION).findOne({ userId });
+export async function migrateLegacyKidsProfileSettings(
+  db,
+  { userId, academicProfileId } = {},
+  { now = () => new Date() } = {},
+) {
+  if (!db?.collection || !userId || !academicProfileId) {
+    throw new TypeError("Kids settings migration requires db, userId, and academicProfileId.");
+  }
+  const securityCollection = db.collection(KIDS_PARENT_SETTINGS_COLLECTION);
+  const profileCollection = db.collection(KIDS_PROFILE_SETTINGS_COLLECTION);
+  const [securityDocument, existingProfile] = await Promise.all([
+    securityCollection.findOne({ userId }),
+    profileCollection.findOne({ userId, academicProfileId }),
+  ]);
+  const legacyProfileValues = Object.fromEntries(
+    KIDS_PROFILE_SETTING_FIELDS
+      .filter((field) => Object.prototype.hasOwnProperty.call(securityDocument || {}, field))
+      .map((field) => [field, securityDocument[field]]),
+  );
+  const legacyFields = Object.keys(legacyProfileValues);
+  let profileDocument = existingProfile;
+  if (!profileDocument && legacyFields.length) {
+    const migratedAt = now();
+    await profileCollection.updateOne(
+      { userId, academicProfileId },
+      {
+        $setOnInsert: {
+          userId,
+          academicProfileId,
+          ...legacyProfileValues,
+          createdAt: securityDocument?.createdAt || migratedAt,
+          legacySettingsMigratedAt: migratedAt,
+        },
+      },
+      { upsert: true },
+    );
+    profileDocument = await profileCollection.findOne({ userId, academicProfileId });
+  }
+  if (legacyFields.length) {
+    await securityCollection.updateOne(
+      { userId },
+      { $unset: Object.fromEntries(legacyFields.map((field) => [field, ""])) },
+    );
+  }
+  return { securityDocument, profileDocument, migrated: !existingProfile && Boolean(profileDocument) };
+}
+
+async function loadParentSettings(db, userId, academicProfileId, gradeBand) {
+  const { securityDocument, profileDocument } = await migrateLegacyKidsProfileSettings(
+    db,
+    { userId, academicProfileId },
+  );
+  const document = {
+    ...(profileDocument || {}),
+    ...(securityDocument?.pinHash ? {
+      pinHash: securityDocument.pinHash,
+      pinSalt: securityDocument.pinSalt,
+      pinIterations: securityDocument.pinIterations,
+    } : {}),
+  };
   return {
     document,
+    profileDocument,
+    securityDocument,
     settings: {
       ...normalizeKidsParentSettings(document || {}),
       gradeBand,
@@ -145,18 +223,18 @@ async function loadParentSettings(db, userId, gradeBand) {
   };
 }
 
-async function loadAttempts(db, userId) {
+async function loadAttempts(db, userId, academicProfileId) {
   return db.collection(KIDS_ATTEMPTS_COLLECTION)
-    .find({ userId })
+    .find({ userId, academicProfileId })
     .sort({ completedAt: -1, _id: -1 })
     .limit(MAX_PROGRESS_ATTEMPTS)
     .toArray();
 }
 
-async function loadProgress(db, userId, now, todayKey = null, gradeBand) {
+async function loadProgress(db, userId, academicProfileId, now, todayKey = null, gradeBand) {
   const [{ settings }, attempts] = await Promise.all([
-    loadParentSettings(db, userId, gradeBand),
-    loadAttempts(db, userId),
+    loadParentSettings(db, userId, academicProfileId, gradeBand),
+    loadAttempts(db, userId, academicProfileId),
   ]);
   return summarizeKidsProgress(attempts, { now, settings, todayKey });
 }
@@ -184,7 +262,14 @@ function rewardFromAttempt(document) {
 
 async function attemptResponse({ db, document, now, gradeBand, replayed = false }) {
   const pack = getKidsPack(document.packId);
-  const progress = await loadProgress(db, document.userId, now, document.localDate, gradeBand);
+  const progress = await loadProgress(
+    db,
+    document.userId,
+    document.academicProfileId,
+    now,
+    document.localDate,
+    gradeBand,
+  );
   return {
     replayed,
     attempt: publicKidsAttempt(document),
@@ -225,6 +310,7 @@ export function registerKidsLearningRoutes(app, {
   getDb,
   requireAuth,
   now = () => new Date(),
+  writeFence = withAcademicProfileWriteFence,
 }) {
   app.get("/api/kids/packs", requireAuth(kidsRoute(async (req, res) => {
     const gradeBand = lockedGradeBand(req);
@@ -268,7 +354,14 @@ export function registerKidsLearningRoutes(app, {
   app.get("/api/kids/progress", requireAuth(kidsRoute(async (req, res) => {
     const gradeBand = lockedGradeBand(req);
     const db = await getDb();
-    const progress = await loadProgress(db, req.user._id, now(), req.query.localDate, gradeBand);
+    const progress = await loadProgress(
+      db,
+      req.user._id,
+      getRequestAcademicProfileId(req),
+      now(),
+      req.query.localDate,
+      gradeBand,
+    );
     res.set("Cache-Control", "no-store");
     return res.json({ progress });
   })));
@@ -277,7 +370,12 @@ export function registerKidsLearningRoutes(app, {
     const gradeBand = lockedGradeBand(req);
     rejectGradeBandOverride(req.query.gradeBand || req.query.ageBand, gradeBand);
     const db = await getDb();
-    const { settings } = await loadParentSettings(db, req.user._id, gradeBand);
+    const { settings } = await loadParentSettings(
+      db,
+      req.user._id,
+      getRequestAcademicProfileId(req),
+      gradeBand,
+    );
     const mission = missionForSettings(settings, req.query, now(), gradeBand);
     res.set("Cache-Control", "no-store");
     return res.json({ date: mission.missionDate, mission });
@@ -288,9 +386,10 @@ export function registerKidsLearningRoutes(app, {
     rejectGradeBandOverride(req.query.gradeBand || req.query.ageBand, gradeBand);
     const db = await getDb();
     const currentTime = now();
+    const academicProfileId = getRequestAcademicProfileId(req);
     const [{ settings }, attempts] = await Promise.all([
-      loadParentSettings(db, req.user._id, gradeBand),
-      loadAttempts(db, req.user._id),
+      loadParentSettings(db, req.user._id, academicProfileId, gradeBand),
+      loadAttempts(db, req.user._id, academicProfileId),
     ]);
     const progress = summarizeKidsProgress(attempts, {
       now: currentTime,
@@ -329,10 +428,11 @@ export function registerKidsLearningRoutes(app, {
     const db = await getDb();
     const attempts = db.collection(KIDS_ATTEMPTS_COLLECTION);
     const userId = req.user._id;
+    const academicProfileId = getRequestAcademicProfileId(req);
     const completedAt = now();
 
     if (clientAttemptId) {
-      const existing = await attempts.findOne({ userId, clientAttemptId });
+      const existing = await attempts.findOne({ userId, academicProfileId, clientAttemptId });
       if (existing) {
         res.set("Cache-Control", "no-store");
         return res.json(await attemptResponse({
@@ -362,7 +462,7 @@ export function registerKidsLearningRoutes(app, {
           code: "KIDS_LOCAL_DATE_OUT_OF_RANGE",
         });
       }
-      const { settings } = await loadParentSettings(db, userId, gradeBand);
+      const { settings } = await loadParentSettings(db, userId, academicProfileId, gradeBand);
       const expectedMission = missionForSettings(settings, {
         localDate,
       }, completedAt, gradeBand);
@@ -373,6 +473,7 @@ export function registerKidsLearningRoutes(app, {
       }
       const completedToday = await attempts.countDocuments({
         userId,
+        academicProfileId,
         mode: "daily",
         localDate,
       }, { limit: 1 });
@@ -385,7 +486,14 @@ export function registerKidsLearningRoutes(app, {
     }
 
     if (mode === "retry") {
-      const currentProgress = await loadProgress(db, userId, completedAt, localDate, gradeBand);
+      const currentProgress = await loadProgress(
+        db,
+        userId,
+        academicProfileId,
+        completedAt,
+        localDate,
+        gradeBand,
+      );
       const allowedRetryItems = new Set(
         (currentProgress.retryQueue || []).map((entry) => `${entry.packId}:${entry.itemId || entry.id}`),
       );
@@ -404,7 +512,10 @@ export function registerKidsLearningRoutes(app, {
       ? { ...pack, items: pack.items.filter((item) => responseItemIds.has(item.id)) }
       : pack;
     const score = scoreKidsPackAttempt(scoringPack, responses);
-    const previousCompletions = await attempts.countDocuments({ userId, packId: pack.id }, { limit: 1 });
+    const previousCompletions = await attempts.countDocuments(
+      { userId, academicProfileId, packId: pack.id },
+      { limit: 1 },
+    );
     const rewards = calculateKidsRewards({
       scorePercent: score.scorePercent,
       earnedPoints: score.earnedPoints,
@@ -413,6 +524,7 @@ export function registerKidsLearningRoutes(app, {
     });
     const document = {
       userId,
+      academicProfileId,
       ...(clientAttemptId ? { clientAttemptId } : {}),
       contentVersion: KIDS_CONTENT_VERSION,
       packId: pack.id,
@@ -437,12 +549,12 @@ export function registerKidsLearningRoutes(app, {
     };
 
     try {
-      const result = await attempts.insertOne(document);
+      const result = await writeFence(db, req, () => attempts.insertOne(document));
       document._id = result.insertedId;
     } catch (error) {
       if (error?.code !== 11000) throw error;
       if (clientAttemptId) {
-        const existing = await attempts.findOne({ userId, clientAttemptId });
+        const existing = await attempts.findOne({ userId, academicProfileId, clientAttemptId });
         if (existing) {
           res.set("Cache-Control", "no-store");
           return res.json(await attemptResponse({
@@ -476,7 +588,12 @@ export function registerKidsLearningRoutes(app, {
     const gradeBand = lockedGradeBand(req);
     const db = await getDb();
     const currentTime = now();
-    const { settings } = await loadParentSettings(db, req.user._id, gradeBand);
+    const { settings } = await loadParentSettings(
+      db,
+      req.user._id,
+      getRequestAcademicProfileId(req),
+      gradeBand,
+    );
     const parentAccess = await readParentAccess(db, req.sessionToken, {
       parentPinConfigured: settings.parentPinConfigured,
       now: currentTime,
@@ -489,11 +606,17 @@ export function registerKidsLearningRoutes(app, {
     const gradeBand = lockedGradeBand(req);
     rejectParentGradeBandMutation(req.body);
     const db = await getDb();
-    const collection = db.collection(KIDS_PARENT_SETTINGS_COLLECTION);
-    const existing = await collection.findOne({ userId: req.user._id });
+    const academicProfileId = getRequestAcademicProfileId(req);
+    const securityCollection = db.collection(KIDS_PARENT_SETTINGS_COLLECTION);
+    const profileCollection = db.collection(KIDS_PROFILE_SETTINGS_COLLECTION);
+    const {
+      document: existing,
+      profileDocument: existingProfile,
+      securityDocument: existingSecurity,
+    } = await loadParentSettings(db, req.user._id, academicProfileId, gradeBand);
     const requestedKeys = Object.keys(req.body || {}).filter((key) => key !== "currentParentPin");
     const changesProtectedSettings = requestedKeys.length > 0;
-    const hasExistingParentPin = Boolean(existing?.pinHash && existing?.pinSalt);
+    const hasExistingParentPin = Boolean(existingSecurity?.pinHash && existingSecurity?.pinSalt);
     const isCreatingParentPin = Object.prototype.hasOwnProperty.call(req.body || {}, "parentPin");
     if (!hasExistingParentPin && changesProtectedSettings && !isCreatingParentPin) {
       return res.status(409).json({
@@ -509,7 +632,7 @@ export function registerKidsLearningRoutes(app, {
     if (hasExistingParentPin && changesProtectedSettings) {
       if (!parentAccess.unlocked) {
         if (enforcePinAttemptLimit(req, res, currentTime)) return undefined;
-        if (!verifyKidsParentPin(req.body?.currentParentPin, existing)) {
+        if (!verifyKidsParentPin(req.body?.currentParentPin, existingSecurity)) {
           return recordPinFailure(req, res, currentTime, {
             error: "Verify the current parent PIN before changing Kids settings.",
             code: "KIDS_PARENT_PIN_REQUIRED",
@@ -528,15 +651,54 @@ export function registerKidsLearningRoutes(app, {
       currentTime,
     );
     update.set.gradeBand = gradeBand;
-    const operation = {
-      $set: update.set,
-      $setOnInsert: { userId: req.user._id, createdAt: currentTime },
-      ...(Object.keys(update.unset).length ? { $unset: update.unset } : {}),
+    const securityFields = new Set(["pinHash", "pinSalt", "pinIterations"]);
+    const profileSet = Object.fromEntries(
+      Object.entries(update.set).filter(([key]) => !securityFields.has(key)),
+    );
+    const securitySet = Object.fromEntries(
+      Object.entries(update.set).filter(([key]) => securityFields.has(key)),
+    );
+    const securityUnset = Object.fromEntries(
+      Object.entries(update.unset).filter(([key]) => securityFields.has(key)),
+    );
+    await writeFence(db, req, async () => {
+    await profileCollection.updateOne(
+      { userId: req.user._id, academicProfileId },
+      {
+        $set: profileSet,
+        $setOnInsert: {
+          userId: req.user._id,
+          academicProfileId,
+          createdAt: currentTime,
+        },
+      },
+      { upsert: true },
+    );
+    if (Object.keys(securitySet).length || Object.keys(securityUnset).length) {
+      const securityOperation = {
+        ...(Object.keys(securitySet).length ? {
+          $set: { ...securitySet, updatedAt: currentTime },
+        } : {}),
+        $setOnInsert: { userId: req.user._id, createdAt: currentTime },
+        ...(Object.keys(securityUnset).length ? { $unset: securityUnset } : {}),
+      };
+      await securityCollection.updateOne(
+        { userId: req.user._id },
+        securityOperation,
+        { upsert: true },
+      );
+    }
+    });
+    const [storedProfile, storedSecurity] = await Promise.all([
+      profileCollection.findOne({ userId: req.user._id, academicProfileId }),
+      securityCollection.findOne({ userId: req.user._id }),
+    ]);
+    const stored = {
+      ...(storedProfile || existingProfile || profileSet),
+      ...(storedSecurity || existingSecurity || securitySet),
     };
-    await collection.updateOne({ userId: req.user._id }, operation, { upsert: true });
-    const stored = await collection.findOne({ userId: req.user._id });
     const settings = {
-      ...normalizeKidsParentSettings(stored || { ...existing, ...update.set }),
+      ...normalizeKidsParentSettings(stored),
       gradeBand,
     };
     if (req.body?.clearParentPin === true) {
@@ -592,7 +754,12 @@ export function registerKidsLearningRoutes(app, {
     const gradeBand = lockedGradeBand(req);
     const db = await getDb();
     const currentTime = now();
-    const { settings } = await loadParentSettings(db, req.user._id, gradeBand);
+    const { settings } = await loadParentSettings(
+      db,
+      req.user._id,
+      getRequestAcademicProfileId(req),
+      gradeBand,
+    );
     const parentAccess = await readParentAccess(db, req.sessionToken, {
       parentPinConfigured: settings.parentPinConfigured,
       now: currentTime,
@@ -605,7 +772,12 @@ export function registerKidsLearningRoutes(app, {
     const gradeBand = lockedGradeBand(req);
     const db = await getDb();
     const currentTime = now();
-    const { settings } = await loadParentSettings(db, req.user._id, gradeBand);
+    const { settings } = await loadParentSettings(
+      db,
+      req.user._id,
+      getRequestAcademicProfileId(req),
+      gradeBand,
+    );
     const parentAccess = await revokeParentAccess(db, req.sessionToken, {
       parentPinConfigured: settings.parentPinConfigured,
       now: currentTime,

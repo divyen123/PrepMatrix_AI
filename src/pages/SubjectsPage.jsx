@@ -16,7 +16,6 @@ function SubjectsPage({
   subjects,
   setSubjects,
   userProfile,
-  profileLocked = false,
   kidsMode = false,
 }) {
   const addSubjectRef = useRef(null);
@@ -78,13 +77,19 @@ function SubjectsPage({
 
       <div className="page-two-column subjects-page-grid">
         <div className="page-stack">
-          <section className="card class-profile-card">
+          <section className="class-profile-card">
             <div className="academic-profile-heading">
               <div>
                 <span className="section-tag">Learner context</span>
                 <h3>One profile for every study module</h3>
               </div>
-              <span className="academic-sync-badge">Synced with Settings</span>
+              <Link
+                aria-label="Manage academic profile in Settings"
+                className="academic-manage-btn"
+                to="/settings"
+              >
+                Manage
+              </Link>
             </div>
 
             <div className="academic-profile-summary" aria-live="polite">
@@ -95,19 +100,6 @@ function SubjectsPage({
 
 
 
-            <div className="academic-profile-note" role="note">
-              <p>
-                {profileLocked
-                  ? "The registered class, learning stage, and curriculum are fixed on Subjects. Open Parent Corner and Settings to correct them."
-                  : "Your registered academic profile is read-only on Subjects so every study module stays consistent."}
-              </p>
-              {!profileLocked ? <Link to="/settings">Manage academic profile in Settings</Link> : null}
-              <p>
-                {profileLocked
-                  ? "Add and organise subjects here. A parent PIN is still required before creating or changing the study schedule."
-                  : "You can still add, edit, and organise all subjects below."}
-              </p>
-            </div>
           </section>
 
           <div className="subject-page-anchor" ref={addSubjectRef}>

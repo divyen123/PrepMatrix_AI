@@ -9,6 +9,7 @@ import {
   isSchoolAcademicLevel,
 } from "../utils/academicProfile";
 import { getLearnerRoutePolicy } from "../utils/learnerRouting";
+import { academicProfileStorageKey } from "../utils/academicProfileScope";
 import { authSwitchTarget, safeAuthReturnTo } from "../utils/authReturnTo";
 import api from "../utils/apiClient";
 import Antigravity from "../components/Antigravity";
@@ -90,12 +91,20 @@ function AuthPage({ onLogin }) {
       const routePolicy = getLearnerRoutePolicy(result.user);
       if (isRegister && routePolicy.isYoungKidsLearner) {
         try {
+          const profileDataId = result.profileContext?.academicProfileId
+            || result.profileContext?.dataId
+            || "";
+          const pinSetupKey = academicProfileStorageKey(
+            profileDataId,
+            "kids-pin-setup-pending",
+          );
+          if (pinSetupKey) window.sessionStorage.setItem(pinSetupKey, "true");
           window.sessionStorage.setItem("prepmatrix_kids_pin_setup_pending", "true");
         } catch {
           // The Kids route also derives mandatory setup from the server.
         }
       }
-      onLogin(result.user, result.workspace);
+      onLogin(result.user, result.workspace, result.profileContext);
       const returnTo = safeAuthReturnTo(location.search);
       navigate(
         returnTo && !routePolicy.isYoungKidsLearner ? returnTo : routePolicy.homeRoute,

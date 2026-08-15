@@ -15,6 +15,10 @@ import {
 import {
   recordNotificationHistorySafely,
 } from "./notificationHistory.js";
+import {
+  getRequestAcademicProfileId,
+  withAcademicProfileWriteFence,
+} from "./profileDataScope.js";
 
 function clearLegacySubscriptionUpdate() {
   return {
@@ -80,6 +84,7 @@ export function registerPushNotificationRoutes(app, {
   pushTestCooldownMs = 60 * 1000,
   requireAuth,
   webpush,
+  withProfileWriteFence = withAcademicProfileWriteFence,
 }) {
   app.get("/api/notifications/vapid-key", async (_req, res) => {
     try {
@@ -266,20 +271,30 @@ export function registerPushNotificationRoutes(app, {
       try {
         const serializedPayload = buildTestNotificationPayload();
         const notification = JSON.parse(serializedPayload);
+        await withProfileWriteFence(
+          db,
+          req,
+          () => undefined,
+        );
         await webpush.sendNotification(
           publicSubscription(stored.record),
           serializedPayload,
           { TTL: 60, timeout: PUSH_DELIVERY_TIMEOUT_MS },
         );
-        await recordNotificationHistorySafely({
+        await withProfileWriteFence(
           db,
-          userId: req.user._id,
-          kind: notification.kind,
-          title: notification.title,
-          body: notification.body,
-          url: notification.url,
-          createdAt: now,
-        }, logger);
+          req,
+          () => recordNotificationHistorySafely({
+            db,
+            userId: req.user._id,
+            academicProfileId: getRequestAcademicProfileId(req),
+            kind: notification.kind,
+            title: notification.title,
+            body: notification.body,
+            url: notification.url,
+            createdAt: now,
+          }, logger),
+        );
         return res.json({ success: true });
       } catch (error) {
         const statusCode = getPushDeliveryStatus(error);

@@ -484,6 +484,7 @@ function PreviewEntry({ title, date, meta, secondary, highlights = [] }) {
 }
 
 export default function ResumeBuilderPage({
+  academicProfileDataId = "",
   userProfile = {},
   academicProfile = {},
   resumeBuilder,
@@ -543,7 +544,7 @@ export default function ResumeBuilderPage({
     setHistoryLoading(true);
     setHistoryError("");
     try {
-      const payload = await api.getResumeHistory();
+      const payload = await api.getResumeHistory({ academicProfileId: academicProfileDataId });
       if (historyLoadSequenceRef.current !== sequence) return;
       setResumeHistory(normalizeResumeHistory(payload?.history));
     } catch (error) {
@@ -552,7 +553,7 @@ export default function ResumeBuilderPage({
     } finally {
       if (historyLoadSequenceRef.current === sequence) setHistoryLoading(false);
     }
-  }, []);
+  }, [academicProfileDataId]);
 
   useEffect(() => {
     loadResumeHistory();
@@ -683,7 +684,7 @@ export default function ResumeBuilderPage({
     let active = true;
     setQuotaLoading(true);
     api
-      .getResumeBuilderStatus()
+      .getResumeBuilderStatus({ academicProfileId: academicProfileDataId })
       .then((result) => {
         if (!active) return;
         setQuota(result?.quota || result);
@@ -695,7 +696,7 @@ export default function ResumeBuilderPage({
     return () => {
       active = false;
     };
-  }, []);
+  }, [academicProfileDataId]);
 
   const updateBuilder = (producer) => {
     onResumeBuilderChange?.((current) => {
@@ -770,7 +771,7 @@ export default function ResumeBuilderPage({
   const openResumeHistoryEntry = async (entry) => {
     const sequence = ++historyOpenSequenceRef.current;
     try {
-      const payload = await api.getResumeHistoryItem(entry.id);
+      const payload = await api.getResumeHistoryItem(entry.id, { academicProfileId: academicProfileDataId });
       if (historyOpenSequenceRef.current !== sequence) return;
       const savedResume = normalizeResumeHistoryEntry(payload?.resume);
       onResumeBuilderChange?.((current) => loadResumeHistoryEntry(savedResume, current, {
@@ -798,7 +799,7 @@ export default function ResumeBuilderPage({
 
   const deleteResumeHistoryEntry = async (id) => {
     try {
-      await api.deleteResumeHistory(id);
+      await api.deleteResumeHistory(id, { academicProfileId: academicProfileDataId });
       setResumeHistory((current) => current.filter((entry) => entry.id !== id));
       if (selectedHistoryId === id) setSelectedHistoryId("");
       announce("success", "Resume removed from history.");
@@ -810,7 +811,7 @@ export default function ResumeBuilderPage({
 
   const clearResumeHistory = async () => {
     try {
-      const payload = await api.clearResumeHistory();
+      const payload = await api.clearResumeHistory({ academicProfileId: academicProfileDataId });
       setResumeHistory([]);
       setSelectedHistoryId("");
       const deletedCount = Number(payload?.deletedCount || 0);
@@ -882,7 +883,7 @@ export default function ResumeBuilderPage({
       const wasRegeneration = Boolean(selectedHistoryId);
       const result = await api.generateResume({
         requestId,
-      });
+      }, { academicProfileId: academicProfileDataId });
       const nextQuota = result?.quota || result;
       setQuota(nextQuota);
       const generatedAt = result?.generation?.generatedAt || new Date().toISOString();
@@ -904,7 +905,10 @@ export default function ResumeBuilderPage({
           requestId,
           sourceGenerationId: result?.generation?.id,
         });
-        const historyPayload = await api.createResumeHistory(snapshot);
+        const historyPayload = await api.createResumeHistory(
+          snapshot,
+          { academicProfileId: academicProfileDataId },
+        );
         const savedResume = normalizeResumeHistoryEntry(historyPayload?.resume);
         setResumeHistory((current) => normalizeResumeHistory([savedResume, ...current]));
         setSelectedHistoryId(savedResume.id);

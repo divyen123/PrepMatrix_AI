@@ -1,53 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { normalizeAcademicProfile } from "../src/utils/academicProfile.js";
 
 export const ACADEMIC_PROFILE_LOCKS_COLLECTION = "academicProfileLocks";
 const DEFAULT_ACADEMIC_PROFILE_LOCK_TTL_MS = 30_000;
-
-export const RESTORABLE_ACADEMIC_PROFILE_KEYS = Object.freeze([
-  "academicLevel",
-  "academicTrack",
-  "schoolType",
-  "grade",
-  "degree",
-  "department",
-]);
-
-export function academicProfileRestoreSnapshot(input = {}) {
-  const profile = normalizeAcademicProfile(input);
-  return RESTORABLE_ACADEMIC_PROFILE_KEYS.reduce((snapshot, key) => {
-    snapshot[key] = profile[key];
-    return snapshot;
-  }, {});
-}
-
-export function sanitizeAcademicProfileRestore(input) {
-  if (!input || typeof input !== "object" || !String(input.academicLevel || "").trim()) {
-    return null;
-  }
-  return academicProfileRestoreSnapshot(input);
-}
-
-export function academicProfileHasChanged(current = {}, next = {}) {
-  const currentSnapshot = academicProfileRestoreSnapshot(current);
-  const nextSnapshot = academicProfileRestoreSnapshot(next);
-  return RESTORABLE_ACADEMIC_PROFILE_KEYS.some(
-    (key) => currentSnapshot[key] !== nextSnapshot[key],
-  );
-}
-
-export function isYoungKidsAcademicProfile(input = {}) {
-  const profile = normalizeAcademicProfile(input);
-  const classNumber = Number(profile.classNumber) || null;
-  return profile.band === "early"
-    || (classNumber !== null && classNumber >= 1 && classNumber <= 3);
-}
-
-export function shouldCaptureAcademicProfileRestore(current = {}, next = {}) {
-  return !isYoungKidsAcademicProfile(current)
-    && isYoungKidsAcademicProfile(next)
-    && academicProfileHasChanged(current, next);
-}
 
 export async function acquireAcademicProfileMutationLock(db, userId, {
   now = new Date(),

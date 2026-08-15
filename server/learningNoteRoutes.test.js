@@ -11,14 +11,22 @@ class MemoryNotesCollection {
   }
 
   async findOne(query) {
-    if (!this.document || this.document.userId !== query.userId) return null;
+    if (
+      !this.document
+      || this.document.userId !== query.userId
+      || this.document.academicProfileId !== query.academicProfileId
+    ) return null;
     const sourceKey = query["notes.sourceKey"];
     if (sourceKey && !this.document.notes.some((note) => note.sourceKey === sourceKey)) return null;
     return structuredClone(this.document);
   }
 
   async updateOne(query, update) {
-    if (!this.document || this.document.userId !== query.userId) return { modifiedCount: 0 };
+    if (
+      !this.document
+      || this.document.userId !== query.userId
+      || this.document.academicProfileId !== query.academicProfileId
+    ) return { modifiedCount: 0 };
     const excludedSourceKey = query["notes.sourceKey"]?.$ne;
     if (this.document.notes.some((note) => note.sourceKey === excludedSourceKey)) {
       return { modifiedCount: 0 };
@@ -29,7 +37,10 @@ class MemoryNotesCollection {
   }
 
   async insertOne(document) {
-    if (this.document?.userId === document.userId) throw new Error("duplicate user notes document");
+    if (
+      this.document?.userId === document.userId
+      && this.document?.academicProfileId === document.academicProfileId
+    ) throw new Error("duplicate profile notes document");
     this.document = structuredClone(document);
     return { insertedId: "notes-document" };
   }
@@ -51,10 +62,11 @@ function topicNote(overrides = {}) {
 
 test("atomically prepends a learning note and returns the existing note on repeat", async () => {
   const collection = new MemoryNotesCollection();
-  const first = await appendLearningNote(collection, "user-1", topicNote());
+  const first = await appendLearningNote(collection, "user-1", "profile-a", topicNote());
   const repeated = await appendLearningNote(
     collection,
     "user-1",
+    "profile-a",
     topicNote({ id: "different-client-id" }),
   );
 
@@ -74,6 +86,8 @@ test("registers POST /api/notes and reports created versus already saved", async
   };
   registerLearningNoteRoutes(app, {
     getDb: async () => ({ collection: () => collection }),
+    assertProfileWritable: async () => undefined,
+    withProfileWriteFence: async (_db, _req, write) => write(),
     requireAuth: (handler) => handler,
   });
   assert.equal(route.path, "/api/notes");
@@ -90,11 +104,16 @@ test("registers POST /api/notes and reports created versus already saved", async
       return this;
     },
   };
-  await route.handler({ body: { note: topicNote() }, user: { _id: "user-1" } }, response);
+  const request = {
+    academicProfileId: "profile-a",
+    body: { note: topicNote() },
+    user: { _id: "user-1" },
+  };
+  await route.handler(request, response);
   assert.equal(response.statusCode, 201);
   assert.equal(response.body.created, true);
 
-  await route.handler({ body: { note: topicNote() }, user: { _id: "user-1" } }, response);
+  await route.handler(request, response);
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.created, false);
 });

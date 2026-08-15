@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   ACTIVE_EXAM_ATTEMPT_STORAGE_KEY,
+  getActiveExamAttemptStorageKey,
   canManuallySubmitExam,
   getExamMinimumSubmitAt,
   getExamMinimumSubmitRemainingSeconds,
@@ -59,4 +60,18 @@ test("reads a bounded active-attempt identifier without failing on unavailable s
     },
   }), "");
   assert.equal(readStoredActiveExamAttemptId(null), "");
+});
+
+test("migrates the legacy active attempt into the first immutable profile scope", () => {
+  const values = new Map([[ACTIVE_EXAM_ATTEMPT_STORAGE_KEY, "attempt-a"]]);
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    removeItem: (key) => values.delete(key),
+    setItem: (key, value) => values.set(key, String(value)),
+  };
+
+  assert.equal(readStoredActiveExamAttemptId(storage, "data-a"), "attempt-a");
+  assert.equal(values.get(getActiveExamAttemptStorageKey("data-a")), "attempt-a");
+  assert.equal(values.has(ACTIVE_EXAM_ATTEMPT_STORAGE_KEY), false);
+  assert.equal(readStoredActiveExamAttemptId(storage, "data-b"), "");
 });

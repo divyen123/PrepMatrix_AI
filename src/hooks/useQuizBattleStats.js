@@ -5,7 +5,7 @@ import {
   normalizeQuizBattleStats,
 } from "../utils/quizBattleUi";
 
-export default function useQuizBattleStats({ enabled = true } = {}) {
+export default function useQuizBattleStats({ academicProfileDataId = "", enabled = true } = {}) {
   const [stats, setStats] = useState(EMPTY_QUIZ_BATTLE_STATS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -24,7 +24,7 @@ export default function useQuizBattleStats({ enabled = true } = {}) {
     }
     setLoading(true);
     setError("");
-    api.getQuizBattleStats()
+    api.getQuizBattleStats({ academicProfileId: academicProfileDataId })
       .then((payload) => {
         if (active) setStats(normalizeQuizBattleStats(payload?.stats));
       })
@@ -40,7 +40,7 @@ export default function useQuizBattleStats({ enabled = true } = {}) {
     return () => {
       active = false;
     };
-  }, [enabled, revision]);
+  }, [academicProfileDataId, enabled, revision]);
 
   return { stats, loading, error, reload };
 }

@@ -18,15 +18,16 @@ test("keeps the AI credit indicator in the kids top bar on mobile without a dupl
 test("keeps the kids Subjects route usable while the registered class remains locked", () => {
   assert.match(appSource, /kidsMode=\{learnerRoutePolicy\.isYoungKidsLearner\}/);
   assert.doesNotMatch(appSource, /standardOnlyRoute\(\s*<SubjectsPage/);
-  assert.match(subjectsPageSource, /registered class, learning stage, and curriculum are fixed/i);
+  assert.match(subjectsPageSource, /aria-label="Manage academic profile in Settings"/);
   assert.match(subjectListSource, /kidsMode \? "\/planner" : "\/resources"/);
 });
 
 test("keeps the registered academic profile read-only on Subjects", () => {
   assert.doesNotMatch(subjectsPageSource, /profile-select-grid academic-profile-grid/);
   assert.doesNotMatch(subjectsPageSource, /<select/);
-  assert.match(subjectsPageSource, /Manage academic profile in Settings/);
-  assert.match(subjectsPageSource, /still add, edit, and organise all subjects/i);
+  assert.match(subjectsPageSource, /className="academic-manage-btn"/);
+  assert.doesNotMatch(subjectsPageSource, /registered academic profile is read-only/i);
+  assert.doesNotMatch(subjectsPageSource, /still add, edit, and organise all subjects/i);
 });
 
 test("waits for server Parent Corner state before guarding Settings", () => {

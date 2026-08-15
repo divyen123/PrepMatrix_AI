@@ -675,6 +675,8 @@ test("routes scanned inputs through Qwen OCR and Llama structured generation", a
 
   registerLearningNotebookRoutes(app, {
     aiQuota: createTestAiQuota(),
+    assertProfileWritable: async () => ({}),
+    withProfileWriteFence: async (_db, _req, write) => write(),
     fetchImpl,
     getDb: async () => ({ collection: () => collection }),
     getGroqConfigStatus: () => ({ available: true, apiKey: "test-key" }),
@@ -691,7 +693,10 @@ test("routes scanned inputs through Qwen OCR and Llama structured generation", a
         dataUrl: image.dataUrl,
       }],
     }),
-    requireAuth: (handler) => handler,
+    requireAuth: (handler) => async (req, res) => {
+      req.academicProfileId ||= `legacy:${req.user?._id}:profile-a`;
+      return handler(req, res);
+    },
   });
 
   const req = {
@@ -1117,6 +1122,8 @@ function createLearningRouteHarness({
   };
   registerLearningNotebookRoutes(app, {
     aiQuota,
+    assertProfileWritable: async () => ({}),
+    withProfileWriteFence: async (_db, _req, write) => write(),
     fetchImpl,
     geminiLearningModel,
     geminiLearningModels,
@@ -1138,7 +1145,10 @@ function createLearningRouteHarness({
       if (prepareAttachmentContext) return prepareAttachmentContext(attachments);
       return { metadata: [], pdfDocuments: [], visionImages: [] };
     },
-    requireAuth: (handler) => handler,
+    requireAuth: (handler) => async (req, res) => {
+      req.academicProfileId ||= `legacy:${req.user?._id}:profile-a`;
+      return handler(req, res);
+    },
   });
 
   return {
@@ -2753,6 +2763,8 @@ function createCareerRouteHarness({
   };
   registerLearningNotebookRoutes(app, {
     aiQuota,
+    assertProfileWritable: async () => ({}),
+    withProfileWriteFence: async (_db, _req, write) => write(),
     fetchImpl,
     geminiLearningModel: DEFAULT_GEMINI_LEARNING_MODEL,
     getDb: async () => {
@@ -2765,7 +2777,10 @@ function createCareerRouteHarness({
     groqModel: "llama-3.1-8b-instant",
     groqVisionModel: "qwen/qwen3.6-27b",
     now: () => new Date("2026-07-26T12:00:00.000Z"),
-    requireAuth: (handler) => handler,
+    requireAuth: (handler) => async (req, res) => {
+      req.academicProfileId ||= `legacy:${req.user?._id}:profile-a`;
+      return handler(req, res);
+    },
   });
 
   return {
