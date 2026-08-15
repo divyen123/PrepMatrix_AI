@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing } from "lucide-react";
+import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, History } from "lucide-react";
 import api, { ACADEMIC_PROFILE_DELETE_TIMEOUT_MS } from "../utils/apiClient";
 import GoalSettingsPanel from "../components/GoalSettingsPanel";
 import KidsPerformanceSettings from "../components/kids/KidsPerformanceSettings";
@@ -422,6 +422,7 @@ function SettingsPage({
   activeVoiceName, onPreviewVoice, setVoicePreferences, voicePreferences,
   cursorStyle: parentCursorStyle, setCursorStyle: setParentCursorStyle,
   autoHideTopBar, onAutoHideTopBarChange,
+  onBackgroundThemeChange,
   youngKidsMode = false,
   kidsParentAccess = null,
   onKidsParentAccessChange,
@@ -1177,6 +1178,7 @@ function SettingsPage({
     return () => {
       if (!savedRef.current) {
         const init = initialSettings.current;
+        onBackgroundThemeChange?.(init.bgImageId);
         const imgPreset = resolveBackgroundPresetForProfile(init.bgImageId, {
           kidsBackgroundsEligible: init.kidsBackgroundsEligible,
         });
@@ -1273,7 +1275,7 @@ function SettingsPage({
         applyBackgroundImageBlurVariables(init.backgroundImageBlur, Boolean(imgPreset));
       }
     };
-  }, [setDarkMode]);
+  }, [onBackgroundThemeChange, setDarkMode]);
 
   // Persist toggle preferences to localStorage
   useEffect(() => {
@@ -2010,6 +2012,7 @@ function SettingsPage({
         setCustomBackgroundPreset(nextPreset);
       }
       setBgImageId(resolvedId);
+      onBackgroundThemeChange?.(resolvedId);
 
       const isDark = resolveEffectiveDarkMode(darkMode, Boolean(nextPreset));
       document.body.classList.toggle("dark", isDark);
@@ -2157,6 +2160,7 @@ function SettingsPage({
       kidsBackgroundsEligible,
     };
     savedRef.current = true;
+    onBackgroundThemeChange?.(persistedBgImageId);
 
     toast.success("Appearance configurations applied successfully!");
   };
@@ -2281,7 +2285,9 @@ function SettingsPage({
                 </button>
               </div>
             ) : null}
-            {profileDeletionGuidance?.id === inactiveAcademicProfileSlot?.id ? (
+            {profileDeletionGuidance
+              && inactiveAcademicProfileSlot
+              && profileDeletionGuidance.id === inactiveAcademicProfileSlot.id ? (
               <p className="settings-profile-parent-guidance" role="status">
                 Visit <strong>{profileDeletionGuidance.label}</strong>, unlock Parent Corner,
                 then return to Settings and delete that profile.

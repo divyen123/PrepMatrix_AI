@@ -46,6 +46,7 @@ import {
   reconcileStudyReminders,
 } from "./utils/pushNotifications";
 import { resolveBackgroundPresetForProfile } from "./utils/backgroundPresets";
+import { resolveKidsGamepadIcon } from "./utils/backgroundPresets";
 import {
   applyBackgroundPresentation,
   clearBackgroundPresentation,
@@ -377,6 +378,9 @@ function App() {
     if (savedDefault) return savedDefault === "dark";
     return false;
   });
+  const [activeBackgroundImageId, setActiveBackgroundImageId] = useState(
+    () => localStorage.getItem("prepmatrix_bg_image_id") || "",
+  );
   const [userProfile, setUserProfile] = useState(null);
   const [profileContext, setProfileContext] = useState(() => resolveAcademicProfileContext());
   const [kidsParentAccess, setKidsParentAccess] = useState(LOCKED_KIDS_PARENT_ACCESS);
@@ -467,6 +471,7 @@ function App() {
   );
   const isKidsLearner = learnerRoutePolicy.isKidsLearner;
   const userIdentity = userProfile?.id || userProfile?._id || userProfile?.email || "";
+  const kidsGamepadIcon = resolveKidsGamepadIcon(activeBackgroundImageId);
   const activeAcademicProfileDataId = profileContext?.dataId || "";
   const updateKidsParentAccess = useCallback((value = {}) => {
     const parentAccess = value?.parentAccess || value;
@@ -2005,7 +2010,7 @@ function App() {
                   title="Play and learn in Game Town"
                   to="/kids"
                 >
-                  <img alt="" aria-hidden="true" src="/kids/game-town-gamepad.png" />
+                  <img alt="" aria-hidden="true" src={kidsGamepadIcon} />
                 </NavLink>
                 {kidsParentAccess.unlocked && !sidebarCollapsed && (
                   <div className="parent-corner-lock-control parent-corner-lock-control--expanded">
@@ -2661,6 +2666,7 @@ function App() {
                               setDarkMode={setDarkMode}
                               subjects={subjects}
                               schedule={schedule}
+                              onBackgroundThemeChange={setActiveBackgroundImageId}
                               scheduleStartDate={scheduleStartDate}
                               completed={completed}
                               materialBookmarks={materialBookmarks}

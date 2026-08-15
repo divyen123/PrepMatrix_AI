@@ -4,6 +4,7 @@ import test from "node:test";
 
 const appSource = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
 const appStyles = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+const settingsPageSource = readFileSync(new URL("../pages/SettingsPage.jsx", import.meta.url), "utf8");
 const subjectsPageSource = readFileSync(new URL("../pages/SubjectsPage.jsx", import.meta.url), "utf8");
 const subjectListSource = readFileSync(new URL("../components/SubjectList.jsx", import.meta.url), "utf8");
 
@@ -13,6 +14,16 @@ test("keeps the AI credit indicator in the kids top bar on mobile without a dupl
     /\.app-container\.is-kids-mode\s+\.topbar-right\s*>\s*\.ai-credit-indicator\s*\{\s*display:\s*block\s*!important;/,
   );
   assert.doesNotMatch(appSource, /Kids workspace actions/);
+});
+
+test("keeps the Game Town icon synchronized with live kids background previews", () => {
+  assert.match(appSource, /const kidsGamepadIcon = resolveKidsGamepadIcon\(activeBackgroundImageId\)/);
+  assert.match(appSource, /<img alt="" aria-hidden="true" src=\{kidsGamepadIcon\} \/>/);
+  assert.match(appSource, /onBackgroundThemeChange=\{setActiveBackgroundImageId\}/);
+  assert.doesNotMatch(appSource, /src="\/kids\/game-town-gamepad\.png"/);
+  assert.match(settingsPageSource, /onBackgroundThemeChange\?\.\(resolvedId\)/);
+  assert.match(settingsPageSource, /onBackgroundThemeChange\?\.\(init\.bgImageId\)/);
+  assert.match(settingsPageSource, /onBackgroundThemeChange\?\.\(persistedBgImageId\)/);
 });
 
 test("keeps the kids Subjects route usable while the registered class remains locked", () => {

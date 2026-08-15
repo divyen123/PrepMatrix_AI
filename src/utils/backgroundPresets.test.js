@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import test from "node:test";
 import BACKGROUND_PRESETS, {
   CUSTOM_BACKGROUND_ACCENT_STORAGE_KEY,
@@ -6,6 +7,7 @@ import BACKGROUND_PRESETS, {
   CUSTOM_BACKGROUND_ID,
   CUSTOM_BACKGROUND_MAX_DATA_URL_LENGTH,
   CUSTOM_BACKGROUND_SURFACE_STORAGE_KEY,
+  DEFAULT_KIDS_GAMEPAD_ICON,
   KIDS_BACKGROUND_PRESETS,
   createCustomBackgroundPreset,
   isKidsBackgroundGalleryEligible,
@@ -13,6 +15,7 @@ import BACKGROUND_PRESETS, {
   readStoredCustomBackgroundPreset,
   resolveBackgroundPreset,
   resolveBackgroundPresetForProfile,
+  resolveKidsGamepadIcon,
   isKidsBackgroundPresetId,
 } from "./backgroundPresets.js";
 
@@ -23,6 +26,27 @@ test("exposes a separate five-theme kids gallery", () => {
   assert.equal(KIDS_BACKGROUND_PRESETS.length, 5);
   assert.ok(KIDS_BACKGROUND_PRESETS.every(({ id }) => id.startsWith("kids-")));
   assert.equal(resolveBackgroundPreset("kids-sunny-meadow")?.name, "Sunny Meadow");
+});
+
+test("maps each kids background to its matching gamepad palette", () => {
+  const expectedIcons = {
+    "kids-storybook-garden": "/kids/gamepads/gamepad4.png",
+    "kids-sky-adventure": "/kids/gamepads/gamepad5.png",
+    "kids-sunny-meadow": "/kids/gamepads/gamepad2.png",
+    "kids-winter-walk": "/kids/gamepads/gamepad3.png",
+    "kids-night-hero": "/kids/gamepads/gamepad1.png",
+  };
+
+  assert.deepEqual(
+    Object.fromEntries(KIDS_BACKGROUND_PRESETS.map(({ id, gamepadFile }) => [id, gamepadFile])),
+    expectedIcons,
+  );
+  for (const [id, gamepadFile] of Object.entries(expectedIcons)) {
+    assert.equal(resolveKidsGamepadIcon(id), gamepadFile);
+    assert.equal(existsSync(new URL(`../../public${gamepadFile}`, import.meta.url)), true);
+  }
+  assert.equal(resolveKidsGamepadIcon("sunset-valley"), DEFAULT_KIDS_GAMEPAD_ICON);
+  assert.equal(resolveKidsGamepadIcon(""), DEFAULT_KIDS_GAMEPAD_ICON);
 });
 
 test("shows the kids gallery only from early years through Class 5", () => {

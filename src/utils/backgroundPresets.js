@@ -9,6 +9,7 @@ export const CUSTOM_BACKGROUND_ACCENT_STORAGE_KEY = "prepmatrix_custom_bg_accent
 export const CUSTOM_BACKGROUND_SURFACE_STORAGE_KEY = "prepmatrix_custom_bg_surface_rgb";
 export const CUSTOM_BACKGROUND_LAYOUT_STORAGE_KEY = "prepmatrix_custom_bg_layout_v1";
 export const CUSTOM_BACKGROUND_MAX_DATA_URL_LENGTH = 2_400_000;
+export const DEFAULT_KIDS_GAMEPAD_ICON = "/kids/game-town-gamepad.png";
 
 const DEFAULT_CUSTOM_ACCENT_RGB = "120, 160, 210";
 const DEFAULT_CUSTOM_SURFACE_RGB = "12, 18, 32";
@@ -66,6 +67,7 @@ export const KIDS_BACKGROUND_PRESETS = Object.freeze([
     id: "kids-storybook-garden",
     name: "Storybook Garden",
     file: "/backgrounds/kids-storybook-garden.jpg",
+    gamepadFile: "/kids/gamepads/gamepad4.png",
     accentRgb: "255, 186, 64",
     surfaceRgb: "52, 35, 18",
   },
@@ -73,6 +75,7 @@ export const KIDS_BACKGROUND_PRESETS = Object.freeze([
     id: "kids-sky-adventure",
     name: "Sky Adventure",
     file: "/backgrounds/kids-sky-adventure.jpg",
+    gamepadFile: "/kids/gamepads/gamepad5.png",
     accentRgb: "58, 177, 238",
     surfaceRgb: "10, 47, 82",
   },
@@ -80,6 +83,7 @@ export const KIDS_BACKGROUND_PRESETS = Object.freeze([
     id: "kids-sunny-meadow",
     name: "Sunny Meadow",
     file: "/backgrounds/kids-sunny-meadow.jpg",
+    gamepadFile: "/kids/gamepads/gamepad2.png",
     accentRgb: "105, 196, 78",
     surfaceRgb: "31, 63, 22",
   },
@@ -87,6 +91,7 @@ export const KIDS_BACKGROUND_PRESETS = Object.freeze([
     id: "kids-winter-walk",
     name: "Winter Walk",
     file: "/backgrounds/kids-winter-walk.jpg",
+    gamepadFile: "/kids/gamepads/gamepad3.png",
     accentRgb: "116, 150, 224",
     surfaceRgb: "20, 32, 68",
   },
@@ -94,6 +99,7 @@ export const KIDS_BACKGROUND_PRESETS = Object.freeze([
     id: "kids-night-hero",
     name: "Night Hero",
     file: "/backgrounds/kids-night-hero.jpg",
+    gamepadFile: "/kids/gamepads/gamepad1.png",
     accentRgb: "205, 210, 224",
     surfaceRgb: "4, 5, 9",
   },
@@ -202,6 +208,12 @@ export function isKidsBackgroundGalleryEligible(profile = {}, youngKidsMode = fa
 
 export function isKidsBackgroundPresetId(id) {
   return KIDS_BACKGROUND_PRESET_IDS.has(String(id || "").trim());
+}
+
+export function resolveKidsGamepadIcon(id) {
+  const normalizedId = String(id || "").trim();
+  return KIDS_BACKGROUND_PRESETS.find((preset) => preset.id === normalizedId)?.gamepadFile
+    || DEFAULT_KIDS_GAMEPAD_ICON;
 }
 
 export function resolveBackgroundPreset(id, customPreset) {
