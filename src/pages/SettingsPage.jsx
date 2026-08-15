@@ -539,7 +539,7 @@ function SettingsPage({
     profileCardHighlightTimerRef.current = window.setTimeout(() => {
       setProfileCardHighlighted(false);
       profileCardHighlightTimerRef.current = null;
-    }, 1100);
+    }, 2000);
     navigate(`${location.pathname}${location.search}${location.hash}`, {
       replace: true,
       state: null,

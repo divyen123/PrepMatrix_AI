@@ -53,34 +53,51 @@
 }
 
 .settings-page .settings-account-card.is-arrival-highlighted {
-  animation: settings-profile-card-arrival-highlight 1.1s ease-out both;
-  will-change: border-color, box-shadow;
+  animation: settings-profile-card-arrival-highlight 2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  border-color: var(--settings-profile-highlight-border) !important;
+  outline: 2px solid transparent;
+  outline-offset: 0;
+  transform-origin: center;
+  will-change: border-color, box-shadow, outline-offset, transform;
+  z-index: 1;
+}
+
+body:not(.dark) .settings-page .settings-account-card.is-arrival-highlighted {
+  --settings-profile-highlight-border: #172f52;
+  --settings-profile-highlight-halo: rgba(23, 47, 82, 0.24);
+}
+
+body.dark .settings-page .settings-account-card.is-arrival-highlighted {
+  --settings-profile-highlight-border: #7dd3fc;
+  --settings-profile-highlight-halo: rgba(125, 211, 252, 0.32);
 }
 
 @keyframes settings-profile-card-arrival-highlight {
-  0% {
-    border-color: var(--border);
-    box-shadow: var(--shadow);
-  }
-
-  30% {
-    border-color: rgba(var(--accent-rgb), 0.86);
-    box-shadow:
-      0 0 0 5px rgba(var(--accent-rgb), 0.16),
-      0 20px 52px rgba(var(--accent-rgb), 0.18);
-  }
-
+  0%,
   100% {
-    border-color: var(--border);
     box-shadow: var(--shadow);
+    outline-color: transparent;
+    outline-offset: 0;
+    transform: scale(1);
+  }
+
+  16%,
+  72% {
+    box-shadow:
+      0 0 0 6px var(--settings-profile-highlight-halo),
+      0 24px 58px var(--settings-profile-highlight-halo);
+    outline-color: var(--settings-profile-highlight-border);
+    outline-offset: 3px;
+    transform: scale(1.012);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .settings-page .settings-account-card.is-arrival-highlighted {
     animation: none;
-    border-color: rgba(var(--accent-rgb), 0.8) !important;
-    box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.18) !important;
+    box-shadow: 0 0 0 5px var(--settings-profile-highlight-halo) !important;
+    outline-color: var(--settings-profile-highlight-border);
+    outline-offset: 3px;
   }
 }
 
@@ -137,6 +154,10 @@ body .settings-page .settings-data-info-trigger:focus-visible {
 }
 
 .settings-data-info-tooltip {
+  --settings-data-tooltip-bg: #ffffff;
+  --settings-data-tooltip-border: rgba(39, 55, 84, 0.18);
+  --settings-data-tooltip-ink: #172333;
+  --settings-data-tooltip-muted: #526078;
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
@@ -145,12 +166,13 @@ body .settings-page .settings-data-info-trigger:focus-visible {
   width: min(300px, calc(100vw - 48px));
   padding: 13px 14px;
   gap: 7px;
-  color: var(--text);
-  border: 1px solid var(--border);
+  color: var(--settings-data-tooltip-ink);
+  border: 1px solid var(--settings-data-tooltip-border);
   border-radius: 14px;
-  background: var(--surface-strong);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
+  background: var(--settings-data-tooltip-bg) !important;
+  box-shadow: 0 20px 52px rgba(4, 9, 20, 0.24), 0 4px 14px rgba(4, 9, 20, 0.14);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -162,26 +184,40 @@ body .settings-page .settings-data-info-trigger:focus-visible {
     visibility 0s linear 180ms;
 }
 
+body.dark .settings-data-info-tooltip {
+  --settings-data-tooltip-bg: #111a2b;
+  --settings-data-tooltip-border: rgba(204, 219, 255, 0.18);
+  --settings-data-tooltip-ink: #f7fbff;
+  --settings-data-tooltip-muted: #a8b4c8;
+}
+
+body.has-bg-image .settings-data-info-tooltip {
+  --settings-data-tooltip-bg: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  --settings-data-tooltip-border: rgba(255, 255, 255, 0.18);
+  --settings-data-tooltip-ink: #f4f6fb;
+  --settings-data-tooltip-muted: #c0c8d7;
+}
+
 .settings-data-info-tooltip strong {
-  color: var(--text-strong, var(--text));
+  color: var(--settings-data-tooltip-ink);
   font-size: 0.82rem;
   line-height: 1.25;
 }
 
 .settings-data-info-tooltip > span,
 .settings-data-info-tooltip small {
-  color: var(--text-muted);
+  color: var(--settings-data-tooltip-muted);
   font-size: 0.7rem;
   line-height: 1.45;
 }
 
 .settings-data-info-tooltip b {
-  color: var(--text);
+  color: var(--settings-data-tooltip-ink);
 }
 
 .settings-data-info-tooltip small {
   padding-top: 6px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--settings-data-tooltip-border);
 }
 
 .settings-data-info:hover .settings-data-info-tooltip,

@@ -48,6 +48,9 @@ test("opens smoothly on hover or focus without styling the icon as a container",
   assert.match(settingsSource, /Data Management & Danger Zone[\s\S]*?<SettingsDataInfo \/>/u);
   assert.match(stylesheet, /\.settings-data-info-trigger\s*\{[\s\S]*?background:\s*transparent !important/u);
   assert.match(stylesheet, /\.settings-data-info-tooltip\s*\{[\s\S]*?opacity:\s*0[\s\S]*?transform:\s*translateY\(-6px\) scale\(0\.98\)[\s\S]*?transition:/u);
+  assert.match(stylesheet, /\.settings-data-info-tooltip\s*\{[\s\S]*?background:\s*var\(--settings-data-tooltip-bg\) !important[\s\S]*?backdrop-filter:\s*none !important/u);
+  assert.match(stylesheet, /body\.dark \.settings-data-info-tooltip\s*\{[\s\S]*?--settings-data-tooltip-bg:\s*#111a2b;/u);
+  assert.match(stylesheet, /body\.has-bg-image \.settings-data-info-tooltip\s*\{[\s\S]*?--settings-data-tooltip-bg:\s*rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\);/u);
   assert.match(stylesheet, /\.settings-data-info:hover \.settings-data-info-tooltip,[\s\S]*?\.settings-data-info:focus-within \.settings-data-info-tooltip\s*\{[\s\S]*?opacity:\s*1[\s\S]*?visibility:\s*visible/u);
   assert.match(stylesheet, /width:\s*min\(300px, calc\(100vw - 48px\)\)/u);
 });
