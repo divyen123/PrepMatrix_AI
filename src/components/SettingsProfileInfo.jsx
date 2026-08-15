@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Info } from "lucide-react";
 import { isSchoolAcademicLevel } from "../utils/academicProfile";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
@@ -45,7 +46,9 @@ export default function SettingsProfileInfo({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [appSessionSeconds, setAppSessionSeconds] = useState(0);
+  const [panelPosition, setPanelPosition] = useState({ left: 16, top: 16 });
   const containerRef = useRef(null);
+  const panelRef = useRef(null);
   const triggerRef = useRef(null);
   const panelId = useId();
   const metrics = getPlannerMetrics(schedule, completed);
@@ -74,6 +77,31 @@ export default function SettingsProfileInfo({
     ["Institution", displayValue(academicProfile.institutionName || userProfile?.institutionName)],
   ];
 
+  const updatePanelPosition = useCallback(() => {
+    if (typeof window === "undefined" || !triggerRef.current) return;
+
+    const triggerRect = triggerRef.current.getBoundingClientRect();
+    const gutter = 16;
+    const panelWidth = Math.min(
+      panelRef.current?.offsetWidth || 370,
+      Math.max(0, window.innerWidth - gutter * 2),
+    );
+    const panelHeight = Math.min(
+      panelRef.current?.offsetHeight || 480,
+      Math.max(0, window.innerHeight - gutter * 2),
+    );
+    const preferredTop = triggerRect.bottom + 10;
+    const top = preferredTop + panelHeight <= window.innerHeight - gutter
+      ? preferredTop
+      : Math.max(gutter, triggerRect.top - panelHeight - 10);
+    const left = Math.min(
+      Math.max(gutter, triggerRect.left),
+      Math.max(gutter, window.innerWidth - panelWidth - gutter),
+    );
+
+    setPanelPosition({ left, top });
+  }, [setPanelPosition]);
+
   useEffect(() => {
     if (!isOpen) return undefined;
 
@@ -86,8 +114,23 @@ export default function SettingsProfileInfo({
   useEffect(() => {
     if (!isOpen) return undefined;
 
+    updatePanelPosition();
+    window.addEventListener("resize", updatePanelPosition);
+    window.addEventListener("scroll", updatePanelPosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePanelPosition);
+      window.removeEventListener("scroll", updatePanelPosition, true);
+    };
+  }, [isOpen, updatePanelPosition]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
     const handlePointerDown = (event) => {
-      if (!containerRef.current?.contains(event.target)) {
+      if (
+        !containerRef.current?.contains(event.target)
+        && !panelRef.current?.contains(event.target)
+      ) {
         setIsOpen(false);
       }
     };
@@ -105,6 +148,58 @@ export default function SettingsProfileInfo({
     };
   }, [isOpen]);
 
+  const handleToggle = () => {
+    if (isOpen) {
+      setIsOpen(false);
+      return;
+    }
+
+    updatePanelPosition();
+    setIsOpen(true);
+  };
+
+  const panel = (
+    <section
+      aria-hidden={!isOpen}
+      aria-label="Profile and study information"
+      className={["settings-profile-info-panel", isOpen && "is-open"].filter(Boolean).join(" ")}
+      id={panelId}
+      ref={panelRef}
+      role="dialog"
+      style={{
+        "--settings-profile-info-panel-left": String(panelPosition.left) + "px",
+        "--settings-profile-info-panel-top": String(panelPosition.top) + "px",
+      }}
+    >
+      <header className="settings-profile-info-panel-header">
+        <strong>User information</strong>
+        <span>Account, academic profile, and current study snapshot.</span>
+      </header>
+
+      <section className="settings-profile-info-section" aria-label="Academic profile details">
+        <span className="settings-profile-info-section-label">Academic profile</span>
+        <dl className="settings-profile-info-list">
+          {academicRows.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section className="settings-profile-info-section" aria-label="Study activity details">
+        <span className="settings-profile-info-section-label">Study activity</span>
+        <dl className="settings-profile-info-list">
+          <div><dt>Study status</dt><dd>{studyStatus}</dd></div>
+          <div><dt>Plan performance</dt><dd>{performance}</dd></div>
+          <div><dt>Today</dt><dd>{todayStatus}</dd></div>
+          <div><dt>This app session</dt><dd>{formatAppSessionDuration(appSessionSeconds)}</dd></div>
+        </dl>
+      </section>
+    </section>
+  );
+
   return (
     <div className="settings-profile-info" ref={containerRef}>
       <button
@@ -113,7 +208,7 @@ export default function SettingsProfileInfo({
         aria-haspopup="dialog"
         aria-label="Show profile and study information"
         className="settings-profile-info-trigger"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={handleToggle}
         ref={triggerRef}
         title="Profile and study information"
         type="button"
@@ -121,40 +216,7 @@ export default function SettingsProfileInfo({
         <Info aria-hidden="true" size={15} strokeWidth={2.25} />
       </button>
 
-      <section
-        aria-hidden={!isOpen}
-        aria-label="Profile and study information"
-        className={`settings-profile-info-panel${isOpen ? " is-open" : ""}`}
-        id={panelId}
-        role="dialog"
-      >
-        <header className="settings-profile-info-panel-header">
-          <strong>User information</strong>
-          <span>Account, academic profile, and current study snapshot.</span>
-        </header>
-
-        <section className="settings-profile-info-section" aria-label="Academic profile details">
-          <span className="settings-profile-info-section-label">Academic profile</span>
-          <dl className="settings-profile-info-list">
-            {academicRows.map(([label, value]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-
-        <section className="settings-profile-info-section" aria-label="Study activity details">
-          <span className="settings-profile-info-section-label">Study activity</span>
-          <dl className="settings-profile-info-list">
-            <div><dt>Study status</dt><dd>{studyStatus}</dd></div>
-            <div><dt>Plan performance</dt><dd>{performance}</dd></div>
-            <div><dt>Today</dt><dd>{todayStatus}</dd></div>
-            <div><dt>This app session</dt><dd>{formatAppSessionDuration(appSessionSeconds)}</dd></div>
-          </dl>
-        </section>
-      </section>
+      {typeof document === "undefined" ? panel : createPortal(panel, document.body)}
     </div>
   );
 }

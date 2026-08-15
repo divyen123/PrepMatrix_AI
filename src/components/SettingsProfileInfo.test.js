@@ -50,11 +50,16 @@ test("keeps the profile info panel toggleable, opaque, and theme-aware", () => {
   const settingsSource = readFileSync(new URL("../pages/SettingsPage.jsx", import.meta.url), "utf8");
   const stylesheet = readFileSync(new URL("../pages/SettingsPage.css", import.meta.url), "utf8");
 
-  assert.match(componentSource, /setIsOpen\(\(current\) => !current\)/u);
+  assert.match(componentSource, /const handleToggle = \(\) =>/u);
+  assert.match(componentSource, /createPortal\(panel, document\.body\)/u);
   assert.match(componentSource, /aria-expanded=\{isOpen\}/u);
   assert.match(componentSource, /document\.addEventListener\("pointerdown", handlePointerDown\)/u);
+  assert.match(componentSource, /!panelRef\.current\?\.contains\(event\.target\)/u);
+  assert.match(componentSource, /window\.addEventListener\("scroll", updatePanelPosition, true\)/u);
   assert.match(settingsSource, /<SettingsProfileInfo[\s\S]*?academicProfile=\{/u);
+  assert.match(settingsSource, /settings-account-tag-row[\s\S]*?<SettingsProfileInfo/u);
   assert.match(stylesheet, /\.settings-profile-info-panel\s*\{[\s\S]*?background:\s*var\(--settings-profile-info-bg\) !important[\s\S]*?backdrop-filter:\s*none !important/u);
+  assert.match(stylesheet, /\.settings-profile-info-panel\s*\{[\s\S]*?position:\s*fixed[\s\S]*?z-index:\s*2400/u);
   assert.match(stylesheet, /body\.dark \.settings-profile-info-panel\s*\{[\s\S]*?--settings-profile-info-bg:\s*#111a2b;/u);
   assert.match(stylesheet, /body\.has-bg-image \.settings-profile-info-panel\s*\{[\s\S]*?--settings-profile-info-bg:\s*rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\);/u);
   assert.match(stylesheet, /\.settings-profile-info-panel\.is-open\s*\{[\s\S]*?opacity:\s*1[\s\S]*?visibility:\s*visible/u);

@@ -2255,11 +2255,8 @@ function SettingsPage({
         >
           <div className="settings-account-header">
             <div className="settings-account-copy">
-              <span className="section-tag" style={{ marginBottom: '12px' }}>ACCOUNT</span>
-              <div className="settings-account-title-row">
-                <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-                  <User size={20} className="status-success" /> Profile & Institution
-                </h3>
+              <div className="settings-account-tag-row">
+                <span className="section-tag">ACCOUNT</span>
                 <SettingsProfileInfo
                   academicProfile={{
                     academicLevel: educationStage,
@@ -2276,6 +2273,9 @@ function SettingsPage({
                   userProfile={userProfile}
                 />
               </div>
+              <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                <User size={20} className="status-success" /> Profile & Institution
+              </h3>
             </div>
 
             <div className="profile-photo-control">

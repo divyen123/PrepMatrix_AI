@@ -228,17 +228,15 @@ body.has-bg-image .settings-data-info-tooltip {
   transition-delay: 0s;
 }
 
-.settings-account-title-row {
-  position: relative;
-  z-index: 5;
-  display: flex;
+.settings-account-tag-row {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
+  margin-bottom: 12px;
 }
 
-.settings-account-title-row > h3 {
-  min-width: 0;
+.settings-account-tag-row .section-tag {
+  margin-bottom: 0 !important;
 }
 
 .settings-profile-info {
@@ -281,13 +279,14 @@ body .settings-page .settings-profile-info-trigger:focus-visible {
   --settings-profile-info-ink: #172333;
   --settings-profile-info-muted: #526078;
   --settings-profile-info-item-bg: #f4f7fb;
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
-  z-index: 60;
+  position: fixed;
+  top: var(--settings-profile-info-panel-top, 16px);
+  left: var(--settings-profile-info-panel-left, 16px);
+  z-index: 2400;
   display: grid;
-  width: min(370px, calc(100vw - 48px));
-  max-height: min(70vh, 580px);
+  box-sizing: border-box;
+  width: min(370px, calc(100vw - 32px));
+  max-height: min(70dvh, calc(100dvh - 32px));
   padding: 16px;
   gap: 14px;
   overflow-y: auto;
