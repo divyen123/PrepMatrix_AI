@@ -100,8 +100,10 @@ test("renders Settings for one profile without deletion guidance", async () => {
       }),
     ));
 
-    assert.match(markup, /Profile &amp; Institution/u);
+    assert.match(markup, /Profile &amp; Information/u);
     assert.match(markup, /Current: <strong>Profile A<\/strong>/u);
+    assert.match(markup, /href="\/settings\/profiles"/u);
+    assert.match(markup, /aria-label="Learn how Profile A and Profile B work"/u);
     assert.doesNotMatch(markup, /settings-profile-parent-guidance/u);
   } finally {
     await vite?.close();

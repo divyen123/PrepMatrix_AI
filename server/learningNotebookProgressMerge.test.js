@@ -106,6 +106,32 @@ test("unions concurrent attempts on the same node and keeps the newest node proj
   );
 });
 
+test("keeps the newest guided-session stage when legacy session timestamps tie", () => {
+  const session = {
+    id: "guided-session",
+    status: "in_progress",
+    startedAt: "2026-07-05T10:00:00.000Z",
+    activeStartedAt: "2026-07-05T10:00:00.000Z",
+    nodeIds: ["algebra"],
+  };
+  const merged = mergeLearningNotebookProgress({
+    learningState: {
+      updatedAt: "2026-07-05T10:00:01.000Z",
+      activeSessionId: session.id,
+      sessions: [{ ...session, stageIndex: 0 }],
+    },
+  }, {
+    learningState: {
+      updatedAt: "2026-07-05T10:00:02.000Z",
+      activeSessionId: session.id,
+      sessions: [{ ...session, stageIndex: 1 }],
+    },
+  });
+
+  assert.equal(merged.learningState.activeSessionId, session.id);
+  assert.equal(merged.learningState.sessions[0].stageIndex, 1);
+});
+
 test("builds legacy-safe revision filters and monotonically increasing dates", () => {
   const previous = new Date("2026-07-05T10:00:00.000Z");
   assert.deepEqual(learningNotebookRevisionFilter({ updatedAt: previous }), {

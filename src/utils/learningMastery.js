@@ -368,6 +368,7 @@ function normalizeSession(value, index, fallbackTime = "") {
     mode: cleanText(source.mode, 40) || "guided",
     status,
     startedAt,
+    updatedAt: normalizedIso(source.updatedAt, completedAt || pausedAt || activeStartedAt || startedAt),
     completedAt: status === "completed" ? completedAt : "",
     stageIndex: boundedInteger(source.stageIndex, 0, 4, 0),
     pausedAt,
@@ -685,6 +686,7 @@ export function startLearningSession(learningState, input = {}, options = {}) {
     id: source.id || sessionIdentifier(now, state.sessions.length),
     startedAt: now,
     activeStartedAt: now,
+    updatedAt: now,
     accumulatedActiveMs: 0,
     status: "in_progress",
   }, state.sessions.length, now);
@@ -732,6 +734,7 @@ export function updateLearningSession(learningState, input = {}, options = {}) {
   const updated = normalizeSession({
     ...existing,
     stageIndex: source.stageIndex ?? existing.stageIndex,
+    updatedAt: now,
     pausedAt,
     activeStartedAt,
     accumulatedActiveMs,
@@ -804,6 +807,7 @@ export function buildLearningSessionSummary(learningState, sessionId, overrides 
     accumulatedActiveMs: completedActiveMs,
     activeStartedAt: "",
     pausedAt: "",
+    updatedAt: now,
     completedAt: now,
     durationMinutes,
     nodeIds,

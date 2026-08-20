@@ -1,0 +1,561 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Activity,
+  ArrowLeft,
+  BarChart3,
+  BookOpenCheck,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Gauge,
+  GraduationCap,
+  Info,
+  Mail,
+  Pencil,
+  Repeat2,
+  Save,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  UserRound,
+} from "lucide-react";
+import {
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { toast } from "react-toastify";
+import { isSchoolAcademicLevel, normalizeAcademicProfile } from "../utils/academicProfile";
+import { getAcademicProfileSlots } from "../utils/academicProfileSlots";
+import {
+  APP_USAGE_LIMIT_OPTIONS,
+  APP_USAGE_UPDATED_EVENT,
+  buildAppUsageSummary,
+  getAppUsageStorageKey,
+  readAppUsageRecord,
+  resolveAppUsageIdentity,
+  saveAppUsageLimit,
+} from "../utils/appUsage";
+import { getPlannerMetrics } from "../utils/plannerMetrics";
+import { getScheduleDateKey, toLocalDateKey } from "../utils/scheduleDates";
+import "./SettingsProfilePage.css";
+
+function displayValue(value, fallback = "Not set") {
+  const normalized = String(value ?? "").trim();
+  return normalized || fallback;
+}
+
+function formatDate(value, fallback = "Not recorded") {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatDuration(totalSeconds) {
+  const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  if (safeSeconds < 60) return safeSeconds > 0 ? "<1m" : "0m";
+  const totalMinutes = Math.floor(safeSeconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (!hours) return `${minutes}m`;
+  return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+}
+
+function formatAxisMinutes(value) {
+  const minutes = Number(value) || 0;
+  if (minutes >= 60) {
+    const hours = minutes / 60;
+    return `${Number.isInteger(hours) ? hours : hours.toFixed(1)}h`;
+  }
+  return `${Math.round(minutes)}m`;
+}
+
+function UsageTooltip({ active, payload }) {
+  const day = payload?.find((item) => item?.dataKey === "minutes")?.payload;
+  if (!active || !day) return null;
+  return (
+    <div className="settings-profile-chart-tooltip">
+      <span>{day.fullLabel}</span>
+      <strong>{formatDuration(day.seconds)} active</strong>
+    </div>
+  );
+}
+
+function DetailList({ rows }) {
+  return (
+    <dl className="settings-profile-detail-list">
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function usageComparison(todaySeconds, averageSeconds) {
+  if (!todaySeconds && !averageSeconds) return "Insights start building as you use PrepMatrix.";
+  if (!averageSeconds) return "Today is your first recorded active day.";
+  const difference = todaySeconds - averageSeconds;
+  if (Math.abs(difference) < 60) return "Today is close to your selected-range average.";
+  return difference > 0
+    ? `${formatDuration(difference)} above your daily average today.`
+    : `${formatDuration(Math.abs(difference))} below your daily average today.`;
+}
+
+export default function SettingsProfilePage({
+  academicLevel,
+  academicTrack,
+  completed = [],
+  kidsParentAccess = null,
+  onVisitAcademicProfile,
+  schedule = [],
+  scheduleStartDate,
+  subjects = [],
+  userProfile = {},
+  workspaceTransitioning = false,
+  youngKidsMode = false,
+}) {
+  const navigate = useNavigate();
+  const usageIdentity = useMemo(() => resolveAppUsageIdentity(userProfile), [userProfile]);
+  const [usageRecord, setUsageRecord] = useState(() => readAppUsageRecord(usageIdentity));
+  const [rangeDays, setRangeDays] = useState(7);
+  const [limitPanelOpen, setLimitPanelOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
+  const [draftLimit, setDraftLimit] = useState(() => usageRecord.dailyLimitMinutes ?? "");
+  const [switchingProfile, setSwitchingProfile] = useState(false);
+
+  const academicProfile = useMemo(() => normalizeAcademicProfile({
+    ...userProfile,
+    academicLevel: academicLevel || userProfile?.academicLevel,
+    academicTrack: academicTrack || userProfile?.academicTrack,
+  }), [academicLevel, academicTrack, userProfile]);
+  const profileSlots = useMemo(() => getAcademicProfileSlots(userProfile), [userProfile]);
+  const plannerMetrics = useMemo(
+    () => getPlannerMetrics(schedule, completed),
+    [completed, schedule],
+  );
+  const usageSummary = useMemo(
+    () => buildAppUsageSummary(usageRecord, { dayCount: rangeDays }),
+    [rangeDays, usageRecord],
+  );
+
+  useEffect(() => {
+    const refresh = () => setUsageRecord(readAppUsageRecord(usageIdentity));
+    const handleUsageUpdate = (event) => {
+      if (!event?.detail?.identity || event.detail.identity === usageIdentity) refresh();
+    };
+    const handleStorage = (event) => {
+      if (event.key === getAppUsageStorageKey(usageIdentity)) refresh();
+    };
+
+    refresh();
+    setDraftLimit(readAppUsageRecord(usageIdentity).dailyLimitMinutes ?? "");
+    if (typeof window === "undefined") return undefined;
+    const timer = window.setInterval(refresh, 15_000);
+    window.addEventListener(APP_USAGE_UPDATED_EVENT, handleUsageUpdate);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener(APP_USAGE_UPDATED_EVENT, handleUsageUpdate);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [usageIdentity]);
+
+  const completedSet = new Set(Array.isArray(completed) ? completed : []);
+  const todayDateKey = toLocalDateKey(new Date());
+  const todaySchedule = schedule.find((day, index) => (
+    getScheduleDateKey(day, index, scheduleStartDate) === todayDateKey
+  ));
+  const todayTasks = Array.isArray(todaySchedule?.tasks) ? todaySchedule.tasks : [];
+  const todayCompleted = todayTasks.filter((task) => (
+    completedSet.has(task?.task)
+  )).length;
+  const subjectCount = Array.isArray(subjects) ? subjects.length : 0;
+  const activeProfileLabel = profileSlots.activeProfile?.label || "Profile A";
+  const otherProfile = profileSlots.inactiveProfile;
+  const schoolProfile = isSchoolAcademicLevel(academicProfile.academicLevel);
+  const avatarInitial = displayValue(userProfile?.username || userProfile?.email, "P")
+    .charAt(0)
+    .toUpperCase();
+  const limitLabel = usageSummary.dailyLimitSeconds
+    ? `${usageSummary.limitUsedPercent}% of ${formatDuration(usageSummary.dailyLimitSeconds)}`
+    : "No daily limit set";
+  const chartSummary = usageSummary.hasRecordedUsage
+    ? `${formatDuration(usageSummary.totalSeconds)} total with a ${formatDuration(usageSummary.averageSeconds)} daily average over ${rangeDays} days.`
+    : `No active time has been recorded in the last ${rangeDays} days.`;
+
+  const handleSaveLimit = (event) => {
+    event.preventDefault();
+    const minutes = draftLimit === "" ? null : Number(draftLimit);
+    const next = saveAppUsageLimit(usageIdentity, minutes);
+    setUsageRecord(next);
+    setDraftLimit(next.dailyLimitMinutes ?? "");
+    toast.success(next.dailyLimitMinutes
+      ? `Daily usage reminder set to ${formatDuration(next.dailyLimitMinutes * 60)}.`
+      : "Daily usage reminder removed.");
+  };
+
+  const handleChangeProfile = async () => {
+    if (!profileSlots.hasTwoProfiles || !otherProfile?.id) {
+      navigate("/settings", { state: { highlightProfileInstitution: true } });
+      toast.info("Create another academic profile in Settings before switching.");
+      return;
+    }
+    if (youngKidsMode && !kidsParentAccess?.unlocked) {
+      toast.error("Open Parent Corner before changing academic profiles.");
+      return;
+    }
+    if (!onVisitAcademicProfile) {
+      toast.error("Profile switching is unavailable right now.");
+      return;
+    }
+
+    setSwitchingProfile(true);
+    try {
+      await onVisitAcademicProfile(otherProfile);
+      toast.success(`Now viewing ${otherProfile.label}.`);
+    } catch (error) {
+      toast.error(error?.message || "Could not change the academic profile.");
+    } finally {
+      setSwitchingProfile(false);
+    }
+  };
+
+  const accountRows = [
+    ["Full name", displayValue(userProfile?.username)],
+    ["Email address", displayValue(userProfile?.email)],
+    ["Age", userProfile?.age ? String(userProfile.age) : "Not set"],
+    ["Account created", formatDate(userProfile?.createdAt)],
+    ["Account status", "Signed in"],
+  ];
+  const academicRows = [
+    ["Active profile", activeProfileLabel],
+    ["Academic profiles", `${profileSlots.profiles.length} of 2 configured`],
+    ["Academic stage", displayValue(academicProfile.academicLevel)],
+    [schoolProfile ? "Board / curriculum" : "Field / stream", displayValue(academicProfile.academicTrack)],
+    [schoolProfile ? "Grade / class" : "Degree / major", displayValue(schoolProfile ? academicProfile.grade : academicProfile.degree)],
+    ...(schoolProfile ? [] : [["Specialization", displayValue(academicProfile.department)]]),
+    ["Institution", displayValue(academicProfile.institutionName || userProfile?.institutionName)],
+  ];
+  const studyRows = [
+    ["Subjects", `${subjectCount} ${subjectCount === 1 ? "subject" : "subjects"}`],
+    ["Plan progress", plannerMetrics.totalTasks
+      ? `${plannerMetrics.completedTasks}/${plannerMetrics.totalTasks} tasks · ${plannerMetrics.completionRate}%`
+      : "No study plan generated"],
+    ["Today", todayTasks.length
+      ? `${todayCompleted}/${todayTasks.length} planned tasks complete`
+      : "No tasks scheduled"],
+    ["Plan start", formatDate(scheduleStartDate, "Not scheduled")],
+  ];
+
+  return (
+    <section className="settings-profile-page page-stack">
+      <header className="settings-profile-page-header">
+        <button
+          aria-label="Back to Settings"
+          className="settings-profile-back"
+          onClick={() => navigate("/settings")}
+          title="Back to Settings"
+          type="button"
+        >
+          <ArrowLeft aria-hidden="true" size={19} />
+        </button>
+        <div>
+          <span className="settings-profile-eyebrow">Settings / User information</span>
+          <h1>User information</h1>
+          <p>Your account, academic profile, study progress, and private app-activity insights.</p>
+        </div>
+        <span className="settings-profile-local-badge">
+          <ShieldCheck aria-hidden="true" size={15} /> This device
+        </span>
+      </header>
+
+      <section className="settings-profile-hero settings-profile-surface">
+        <div className="settings-profile-identity">
+          <div className={`settings-profile-avatar${userProfile?.profileImage ? " has-image" : ""}`}>
+            {userProfile?.profileImage
+              ? <img alt="" src={userProfile.profileImage} />
+              : <span aria-hidden="true">{avatarInitial}</span>}
+          </div>
+          <div>
+            <span className="settings-profile-status"><i /> Active account</span>
+            <h2>{displayValue(userProfile?.username, "PrepMatrix learner")}</h2>
+            <p><Mail aria-hidden="true" size={14} /> {displayValue(userProfile?.email)}</p>
+            <div className="settings-profile-chips">
+              <span><UserRound aria-hidden="true" size={13} /> {activeProfileLabel}</span>
+              <span><GraduationCap aria-hidden="true" size={13} /> {displayValue(academicProfile.academicLevel)}</span>
+            </div>
+          </div>
+        </div>
+        <div className="settings-profile-actions" aria-label="User information actions">
+          <button
+            aria-expanded={limitPanelOpen}
+            className="settings-profile-action is-secondary"
+            onClick={() => setLimitPanelOpen((current) => !current)}
+            type="button"
+          >
+            <Gauge aria-hidden="true" size={17} /> Show limit used
+          </button>
+          <button
+            aria-expanded={insightsOpen}
+            className="settings-profile-action is-secondary"
+            onClick={() => setInsightsOpen((current) => !current)}
+            type="button"
+          >
+            <Activity aria-hidden="true" size={17} /> Active insights
+          </button>
+          <button
+            className="settings-profile-action is-primary"
+            disabled={switchingProfile || workspaceTransitioning || Boolean(otherProfile?.deletionPending)}
+            onClick={handleChangeProfile}
+            type="button"
+          >
+            <Repeat2 aria-hidden="true" size={17} />
+            {switchingProfile || workspaceTransitioning ? "Changing..." : "Change profile"}
+          </button>
+        </div>
+      </section>
+
+      <section aria-label="Usage overview" className="settings-profile-metrics">
+        <article className="settings-profile-metric settings-profile-surface">
+          <span><Clock3 aria-hidden="true" size={17} /> Today active</span>
+          <strong>{formatDuration(usageSummary.today.seconds)}</strong>
+          <small>Visible and focused app time</small>
+        </article>
+        <article className="settings-profile-metric settings-profile-surface">
+          <span><BarChart3 aria-hidden="true" size={17} /> Daily average</span>
+          <strong>{formatDuration(usageSummary.averageSeconds)}</strong>
+          <small>Across the selected {rangeDays} days</small>
+        </article>
+        <article className="settings-profile-metric settings-profile-surface">
+          <span><CalendarDays aria-hidden="true" size={17} /> Range total</span>
+          <strong>{formatDuration(usageSummary.totalSeconds)}</strong>
+          <small>{usageSummary.activeDays} active {usageSummary.activeDays === 1 ? "day" : "days"}</small>
+        </article>
+        <article className="settings-profile-metric settings-profile-surface">
+          <span><Target aria-hidden="true" size={17} /> Usage limit</span>
+          <strong>{usageSummary.dailyLimitSeconds ? `${usageSummary.limitUsedPercent}%` : "Off"}</strong>
+          <small>{limitLabel}</small>
+        </article>
+      </section>
+
+      <div className="settings-profile-usage-grid">
+        <figure className="settings-profile-chart-card settings-profile-surface">
+          <figcaption>
+            <div>
+              <span className="settings-profile-section-label">Active time</span>
+              <h2>Daily app usage</h2>
+              <p>{chartSummary}</p>
+            </div>
+            <div className="settings-profile-range" aria-label="Usage chart range">
+              {[7, 30].map((days) => (
+                <button
+                  aria-pressed={rangeDays === days}
+                  key={days}
+                  onClick={() => setRangeDays(days)}
+                  type="button"
+                >
+                  {days} days
+                </button>
+              ))}
+            </div>
+          </figcaption>
+          <div
+            aria-label={`Daily active-time chart. ${chartSummary}`}
+            className="settings-profile-chart"
+            role="img"
+          >
+            <ResponsiveContainer
+              height="100%"
+              initialDimension={{ height: 300, width: 800 }}
+              minWidth={0}
+              width="100%"
+            >
+              <ComposedChart data={usageSummary.daily} margin={{ top: 18, right: 10, left: -12, bottom: 4 }}>
+                <CartesianGrid stroke="var(--border)" strokeDasharray="4 7" vertical={false} />
+                <XAxis
+                  axisLine={false}
+                  dataKey="label"
+                  interval={rangeDays === 7 ? 0 : 4}
+                  tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                  tickLine={false}
+                  tickMargin={10}
+                />
+                <YAxis
+                  axisLine={false}
+                  tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                  tickFormatter={formatAxisMinutes}
+                  tickLine={false}
+                  width={48}
+                />
+                <Tooltip content={<UsageTooltip />} cursor={{ fill: "rgba(var(--accent-rgb), 0.08)" }} />
+                {usageSummary.dailyLimitMinutes ? (
+                  <ReferenceLine
+                    stroke="var(--profile-limit-line)"
+                    strokeDasharray="5 5"
+                    y={usageSummary.dailyLimitMinutes}
+                  />
+                ) : null}
+                <Bar dataKey="minutes" fill="var(--accent)" maxBarSize={46} radius={[9, 9, 3, 3]} />
+                <Line
+                  dataKey="averageMinutes"
+                  dot={false}
+                  stroke="var(--profile-average-line)"
+                  strokeDasharray="7 5"
+                  strokeWidth={2.5}
+                  type="monotone"
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="settings-profile-chart-legend" aria-label="Chart legend">
+            <span><i className="is-active" /> Active time</span>
+            <span><i className="is-average" /> Daily average</span>
+            {usageSummary.dailyLimitMinutes ? <span><i className="is-limit" /> Daily limit</span> : null}
+          </div>
+          <ul className="settings-profile-day-strip" aria-label="Recent daily usage values">
+            {usageSummary.daily.slice(-7).map((day) => (
+              <li key={day.dayKey}><span>{day.label}</span><strong>{formatDuration(day.seconds)}</strong></li>
+            ))}
+          </ul>
+        </figure>
+
+        <aside className="settings-profile-limit-card settings-profile-surface">
+          <div>
+            <span className="settings-profile-section-label">Today</span>
+            <h2>Limit progress</h2>
+            <p>See how today compares with your personal reminder.</p>
+          </div>
+          <div
+            aria-label={usageSummary.dailyLimitSeconds
+              ? `${usageSummary.limitUsedPercent}% of today's usage limit used`
+              : "No daily usage limit is set"}
+            className={`settings-profile-usage-ring${usageSummary.dailyLimitSeconds ? " has-limit" : ""}`}
+            role="img"
+            style={{ "--usage-ring-progress": `${usageSummary.limitProgressPercent * 3.6}deg` }}
+          >
+            <div>
+              <strong>{formatDuration(usageSummary.today.seconds)}</strong>
+              <span>{usageSummary.dailyLimitSeconds
+                ? `of ${formatDuration(usageSummary.dailyLimitSeconds)}`
+                : "today"}</span>
+            </div>
+          </div>
+          <div className="settings-profile-limit-copy">
+            <strong>{usageSummary.dailyLimitSeconds
+              ? usageSummary.limitUsedPercent >= 100 ? "Daily reminder reached" : `${100 - usageSummary.limitUsedPercent}% remaining`
+              : "No limit is active"}</strong>
+            <span>{usageSummary.dailyLimitSeconds
+              ? "You stay in control; the reminder does not lock the app."
+              : "Open Show limit used to set a personal reminder."}</span>
+          </div>
+        </aside>
+      </div>
+
+      {limitPanelOpen ? (
+        <section aria-labelledby="usage-limit-heading" className="settings-profile-expandable settings-profile-surface">
+          <div className="settings-profile-expandable-icon"><Gauge aria-hidden="true" size={21} /></div>
+          <div>
+            <span className="settings-profile-section-label">Usage controls</span>
+            <h2 id="usage-limit-heading">Show limit used</h2>
+            <p>Set an optional daily reminder. It reports progress without blocking study sessions or exams.</p>
+          </div>
+          <form className="settings-profile-limit-form" onSubmit={handleSaveLimit}>
+            <label htmlFor="settings-profile-daily-limit">Daily reminder</label>
+            <select
+              id="settings-profile-daily-limit"
+              onChange={(event) => setDraftLimit(event.target.value)}
+              value={draftLimit}
+            >
+              {APP_USAGE_LIMIT_OPTIONS.map((option) => (
+                <option key={option.label} value={option.value ?? ""}>{option.label}</option>
+              ))}
+            </select>
+            <button className="settings-profile-action is-primary" type="submit">
+              <Save aria-hidden="true" size={16} /> Save limit
+            </button>
+          </form>
+        </section>
+      ) : null}
+
+      {insightsOpen ? (
+        <section aria-labelledby="active-insights-heading" className="settings-profile-insights settings-profile-surface">
+          <div className="settings-profile-insights-heading">
+            <div className="settings-profile-expandable-icon"><Sparkles aria-hidden="true" size={21} /></div>
+            <div>
+              <span className="settings-profile-section-label">Pattern review</span>
+              <h2 id="active-insights-heading">Active insights</h2>
+              <p>Plain-language context for the usage chart—not a productivity score.</p>
+            </div>
+          </div>
+          <div className="settings-profile-insight-grid">
+            <article>
+              <strong>{usageSummary.mostActiveDay?.label || "—"}</strong>
+              <span>Most active day</span>
+              <small>{usageSummary.mostActiveDay
+                ? formatDuration(usageSummary.mostActiveDay.seconds)
+                : "No activity recorded yet"}</small>
+            </article>
+            <article>
+              <strong>{usageSummary.activeDays}/{rangeDays}</strong>
+              <span>Active-day consistency</span>
+              <small>Days with visible, focused use</small>
+            </article>
+            <article>
+              <strong>{formatDuration(usageSummary.averageSeconds)}</strong>
+              <span>Average active time</span>
+              <small>{usageComparison(usageSummary.today.seconds, usageSummary.averageSeconds)}</small>
+            </article>
+            <article>
+              <strong>{plannerMetrics.completionRate}%</strong>
+              <span>Study-plan completion</span>
+              <small>{plannerMetrics.totalTasks
+                ? `${plannerMetrics.remainingTasks} tasks remaining`
+                : "Generate a plan to start tracking"}</small>
+            </article>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="settings-profile-details-grid" aria-label="Detailed user information">
+        <article className="settings-profile-detail-card settings-profile-surface">
+          <header><UserRound aria-hidden="true" size={19} /><div><span>Account</span><h2>Personal details</h2></div></header>
+          <DetailList rows={accountRows} />
+          <button className="settings-profile-inline-action" onClick={() => navigate("/settings")} type="button">
+            <Pencil aria-hidden="true" size={15} /> Edit in Settings
+          </button>
+        </article>
+        <article className="settings-profile-detail-card settings-profile-surface">
+          <header><GraduationCap aria-hidden="true" size={19} /><div><span>Academic</span><h2>Profile information</h2></div></header>
+          <DetailList rows={academicRows} />
+        </article>
+        <article className="settings-profile-detail-card settings-profile-surface">
+          <header><BookOpenCheck aria-hidden="true" size={19} /><div><span>Learning</span><h2>Study snapshot</h2></div></header>
+          <DetailList rows={studyRows} />
+        </article>
+      </section>
+
+      <footer className="settings-profile-privacy-note settings-profile-surface">
+        <Info aria-hidden="true" size={18} />
+        <div>
+          <strong>How active time is measured</strong>
+          <span>PrepMatrix records time on this device only while the app window is visible and focused. It does not monitor other apps, websites, or idle background time.</span>
+        </div>
+        <CheckCircle2 aria-hidden="true" className="settings-profile-privacy-check" size={20} />
+      </footer>
+    </section>
+  );
+}

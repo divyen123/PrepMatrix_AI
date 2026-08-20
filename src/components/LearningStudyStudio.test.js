@@ -94,6 +94,86 @@ test("renders a generated notebook in the Study Studio", async () => {
   }
 });
 
+test("renders all five guided stages with clear task-specific content", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { default: LearningStudyStudio } = await vite.ssrLoadModule(
+      "/src/components/LearningStudyStudio.jsx",
+    );
+    const topic = {
+      id: "topic-routing",
+      title: "Message routing",
+      type: "topic",
+      subjectName: "Software architecture",
+      chapterName: "Messaging",
+      summary: "Routing sends each message to the correct destination.",
+      explanation: "A routing rule inspects a message and selects the destination that should receive it.",
+      keyPoints: ["Routing rule", "Destination", "Fallback path"],
+      examples: ["Route urgent messages to the priority queue."],
+      applications: ["An order service sends payment events to the billing worker."],
+    };
+    const notebook = {
+      id: "routing-notebook",
+      subjectName: "Software architecture",
+      chapters: [{
+        id: "chapter-messaging",
+        title: "Messaging",
+        topics: [topic],
+      }],
+    };
+    const sharedProps = {
+      activeSession: {
+        id: "routing-session",
+        nodeId: topic.id,
+        nodeIds: [topic.id],
+        status: "in_progress",
+      },
+      nodes: [topic],
+      notebook,
+      progressByNodeId: { [topic.id]: { status: "learning" } },
+      reviewQueue: [],
+      selectedNode: topic,
+    };
+    const stages = [
+      {
+        stageIndex: 0,
+        patterns: [/Step 1 of 5: Learn/u, /I understand — start Recall/u],
+      },
+      {
+        stageIndex: 1,
+        patterns: [/Step 2 of 5: Recall/u, /Your recalled answer for Message routing/u],
+      },
+      {
+        stageIndex: 2,
+        patterns: [/Step 3 of 5: Practice/u, /Use Message routing in a short scenario/u, /Scenario:/u],
+      },
+      {
+        stageIndex: 3,
+        patterns: [/Step 4 of 5: Teach back/u, /Teach Message routing to a beginner/u, /Voice input is unavailable/u],
+      },
+      {
+        stageIndex: 4,
+        patterns: [/Step 5 of 5: Prove/u, /Your final mastery answer for Message routing/u, /Reveal and compare/u],
+      },
+    ];
+
+    stages.forEach(({ stageIndex, patterns }) => {
+      const markup = renderToStaticMarkup(React.createElement(LearningStudyStudio, {
+        ...sharedProps,
+        activeSession: { ...sharedProps.activeSession, stageIndex },
+      }));
+      patterns.forEach((pattern) => assert.match(markup, pattern));
+    });
+  } finally {
+    await vite.close();
+  }
+});
+
 test("uses theme-aware horizontal support panels and fixed circular radar controls", () => {
   const stylesheet = readFileSync(
     new URL("./LearningStudyStudio.css", import.meta.url),

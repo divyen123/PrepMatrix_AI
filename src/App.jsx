@@ -33,6 +33,7 @@ import VoiceAssistant from "./components/VoiceAssistant";
 import VoiceAssistantOverlay from "./components/VoiceAssistantOverlay";
 import { AiCreditIndicator } from "./components/AiQuotaProvider";
 import useVoiceAssistant from "./hooks/useVoiceAssistant";
+import useAppUsageTracker from "./hooks/useAppUsageTracker";
 import api, {
   ACADEMIC_PROFILE_DELETE_TIMEOUT_MS,
   AUTH_RECOVERY_TIMEOUT_MS,
@@ -111,6 +112,8 @@ import GoalReminderCenter from "./components/GoalReminderCenter";
 import SidebarProximityNav from "./components/SidebarProximityNav";
 import LearningRouteBoundary from "./components/LearningRouteBoundary";
 import PwaManager from "./components/PwaManager";
+import AcademicProfileIntroDialog from "./components/AcademicProfileIntroDialog";
+import { claimFirstProfileBGuide } from "./utils/academicProfileGuide";
 import "./App.css";
 import "./components/GoalReminderCenter.css";
 import { ToastContainer, toast } from "react-toastify";
@@ -153,6 +156,8 @@ const ResourcesPage = lazyRetry(() => import("./pages/ResourcesPage"));
 const SubjectsPage = lazyRetry(() => import("./pages/SubjectsPage"));
 const ResumeBuilderPage = lazyRetry(() => import("./pages/ResumeBuilderPage"));
 const SettingsPage = lazyRetry(() => import("./pages/SettingsPage"));
+const SettingsProfilePage = lazyRetry(() => import("./pages/SettingsProfilePage"));
+const AcademicProfilesGuidePage = lazyRetry(() => import("./pages/AcademicProfilesGuidePage"));
 const NotificationHistoryPage = lazyRetry(() => import("./pages/NotificationHistoryPage"));
 const AboutPage = lazyRetry(() => import("./pages/AboutPage"));
 const ExamPage = lazyRetry(() => import("./pages/ExamPage"));
@@ -400,6 +405,22 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
   const [profilePreviewSide, setProfilePreviewSide] = useState("photo");
+  const [academicProfileIntro, setAcademicProfileIntro] = useState(null);
+  const [academicProfileIntroOpen, setAcademicProfileIntroOpen] = useState(false);
+  const academicProfileIntroTimerRef = useRef(null);
+  const resetAcademicProfileIntro = () => {
+    if (academicProfileIntroTimerRef.current) {
+      window.clearTimeout(academicProfileIntroTimerRef.current);
+      academicProfileIntroTimerRef.current = null;
+    }
+    setAcademicProfileIntroOpen(false);
+    setAcademicProfileIntro(null);
+  };
+  useEffect(() => () => {
+    if (academicProfileIntroTimerRef.current) {
+      window.clearTimeout(academicProfileIntroTimerRef.current);
+    }
+  }, []);
   const [cursorStyle, setCursorStyle] = useState(() => {
     const saved = localStorage.getItem("prepmatrix_cursor_style") || "app-cursor";
     // Migrate old neon-cursor preference to blob-cursor
@@ -471,6 +492,7 @@ function App() {
   );
   const isKidsLearner = learnerRoutePolicy.isKidsLearner;
   const userIdentity = userProfile?.id || userProfile?._id || userProfile?.email || "";
+  useAppUsageTracker(userProfile, Boolean(userIdentity));
   const kidsGamepadIcon = resolveKidsGamepadIcon(activeBackgroundImageId);
   const activeAcademicProfileDataId = profileContext?.dataId || "";
   const updateKidsParentAccess = useCallback((value = {}) => {
@@ -632,6 +654,8 @@ function App() {
       ...visibleNavItems,
       ...contentRoutes,
       "/settings",
+      "/settings/profile",
+      "/settings/profiles",
       "/about",
       ...(!isKidsLearner ? [
         "/exam",
@@ -1136,7 +1160,33 @@ function App() {
     }
   };
 
-  const createAcademicProfile = (payload) => runAcademicProfileTransition(payload);
+  const createAcademicProfile = async (payload) => {
+    const response = await runAcademicProfileTransition(payload);
+    const nextUser = response?.user || {};
+    const nextContext = resolveAcademicProfileContext(response?.profileContext || {}, nextUser);
+    const activeProfile = Array.isArray(nextUser.academicProfiles)
+      ? nextUser.academicProfiles.find((profile) => (
+        getAcademicProfileDataId(profile) === nextContext.dataId
+      ))
+      : null;
+
+    if (activeProfile && claimFirstProfileBGuide(activeProfile)) {
+      const otherProfile = nextUser.academicProfiles.find((profile) => profile !== activeProfile);
+      if (academicProfileIntroTimerRef.current) {
+        window.clearTimeout(academicProfileIntroTimerRef.current);
+      }
+      setAcademicProfileIntro({
+        activeProfileLabel: activeProfile.label || "Profile B",
+        otherProfileLabel: otherProfile?.label || "Profile A",
+        userName: nextUser.username || "",
+      });
+      academicProfileIntroTimerRef.current = window.setTimeout(() => {
+        setAcademicProfileIntroOpen(true);
+        academicProfileIntroTimerRef.current = null;
+      }, 220);
+    }
+    return response;
+  };
   const visitAcademicProfile = (profile) => runAcademicProfileTransition({
     visitAcademicProfileId: profile?.id,
   });
@@ -1264,6 +1314,7 @@ function App() {
     setLogoutTransitionPhase("active");
     setSidebarOpen(false);
     setProfilePreviewOpen(false);
+    resetAcademicProfileIntro();
 
     voiceAssistant.pauseWakeMode?.();
     window.studyVoiceAssistant?.pauseWakeListening?.();
@@ -1308,6 +1359,7 @@ function App() {
   };
 
   const handleAccountDeleted = () => {
+    resetAcademicProfileIntro();
     clearStoredAuthState();
     voiceAssistant.pauseWakeMode?.();
     window.studyVoiceAssistant?.pauseWakeListening?.();
@@ -1326,6 +1378,7 @@ function App() {
   };
 
   const clearAuthenticatedUi = (message = "Please log in again to continue.") => {
+    resetAcademicProfileIntro();
     voiceAssistant.pauseWakeMode?.();
     window.studyVoiceAssistant?.pauseWakeListening?.();
     window.speechSynthesis?.cancel?.();
@@ -2646,6 +2699,38 @@ function App() {
                         />
                         <Route
                           element={parentGuidedKidsRoute(
+                            <AcademicProfilesGuidePage
+                              onVisitAcademicProfile={visitAcademicProfile}
+                              userProfile={userProfile}
+                              workspaceTransitioning={workspaceTransitioning}
+                            />,
+                            "/settings/profiles",
+                            "settings",
+                          )}
+                          path="/settings/profiles"
+                        />
+                        <Route
+                          element={parentGuidedKidsRoute(
+                            <SettingsProfilePage
+                              academicLevel={academicLevel}
+                              academicTrack={academicTrack}
+                              completed={completed}
+                              kidsParentAccess={kidsParentAccess}
+                              onVisitAcademicProfile={visitAcademicProfile}
+                              schedule={schedule}
+                              scheduleStartDate={scheduleStartDate}
+                              subjects={subjects}
+                              userProfile={userProfile}
+                              workspaceTransitioning={workspaceTransitioning}
+                              youngKidsMode={learnerRoutePolicy.isYoungKidsLearner}
+                            />,
+                            "/settings/profile",
+                            "settings",
+                          )}
+                          path="/settings/profile"
+                        />
+                        <Route
+                          element={parentGuidedKidsRoute(
                             <SettingsPage
                               activeVoiceName={voiceAssistant.activeVoiceName}
                               onPreviewVoice={voiceAssistant.previewVoice}
@@ -2758,6 +2843,14 @@ function App() {
           </button>
         </div>
       )}
+
+      <AcademicProfileIntroDialog
+        activeProfileLabel={academicProfileIntro?.activeProfileLabel}
+        onClose={() => setAcademicProfileIntroOpen(false)}
+        open={academicProfileIntroOpen}
+        otherProfileLabel={academicProfileIntro?.otherProfileLabel}
+        userName={academicProfileIntro?.userName}
+      />
 
       {voiceAssistant.voiceStatus !== "idle" && (
         <VoiceAssistantOverlay

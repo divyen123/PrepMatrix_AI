@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, History } from "lucide-react";
 import api, { ACADEMIC_PROFILE_DELETE_TIMEOUT_MS } from "../utils/apiClient";
 import GoalSettingsPanel from "../components/GoalSettingsPanel";
@@ -42,6 +42,7 @@ import {
   academicProfileStorageKey,
   getAcademicProfileDataId,
 } from "../utils/academicProfileScope";
+import { ACADEMIC_PROFILE_GUIDE_ROUTE } from "../utils/academicProfileGuide";
 import { normalizeResumeBuilderState } from "../utils/resumeBuilder";
 import { normalizeMaterialBookmarks } from "../utils/materialBookmarks";
 import BACKGROUND_PRESETS, {
@@ -2255,27 +2256,13 @@ function SettingsPage({
         >
           <div className="settings-account-header">
             <div className="settings-account-copy">
-              <div className="settings-account-tag-row">
-                <span className="section-tag">ACCOUNT</span>
-                <SettingsProfileInfo
-                  academicProfile={{
-                    academicLevel: educationStage,
-                    academicTrack: profileTrack,
-                    degree,
-                    department,
-                    grade,
-                    institutionName,
-                  }}
-                  activeProfileLabel={activeAcademicProfileSlot?.label || "Profile A"}
-                  completed={completed}
-                  schedule={schedule}
-                  subjects={subjects}
-                  userProfile={userProfile}
-                />
+              <span className="section-tag">ACCOUNT</span>
+              <div className="settings-account-title-row">
+                <h3>
+                  <User size={20} className="status-success" /> Profile & Information
+                </h3>
+                <SettingsProfileInfo />
               </div>
-              <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-                <User size={20} className="status-success" /> Profile & Institution
-              </h3>
             </div>
 
             <div className="profile-photo-control">
@@ -2313,9 +2300,18 @@ function SettingsPage({
           </div>
 
           <div className="settings-profile-slot-bar">
-            <p aria-live="polite" className="settings-profile-current-status">
-              Current: <strong>{activeAcademicProfileSlot?.label || "Profile A"}</strong>
-            </p>
+            <div className="settings-profile-slot-heading">
+              <p aria-live="polite" className="settings-profile-current-status">
+                Current: <strong>{activeAcademicProfileSlot?.label || "Profile A"}</strong>
+              </p>
+              <Link
+                aria-label="Learn how Profile A and Profile B work"
+                className="settings-profile-know-more"
+                to={ACADEMIC_PROFILE_GUIDE_ROUTE}
+              >
+                Know more <ArrowRight aria-hidden="true" size={12} />
+              </Link>
+            </div>
             {hasTwoProfiles ? (
               <div className="settings-profile-slot-actions">
                 <button

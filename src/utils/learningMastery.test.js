@@ -191,15 +191,19 @@ test("persists, pauses, resumes, and summarizes a guided learning session", () =
   const session = finished.sessions[0];
 
   assert.equal(paused.sessions[0].stageIndex, 3);
+  assert.equal(started.sessions[0].updatedAt, NOW);
+  assert.equal(paused.sessions[0].updatedAt, "2026-08-01T10:10:00.000Z");
   assert.equal(paused.sessions[0].accumulatedActiveMs, 10 * 60_000);
   assert.equal(paused.sessions[0].activeStartedAt, "");
   assert.equal(resumed.sessions[0].accumulatedActiveMs, 10 * 60_000);
   assert.equal(resumed.sessions[0].activeStartedAt, "2026-08-01T10:12:00.000Z");
+  assert.equal(resumed.sessions[0].updatedAt, "2026-08-01T10:12:00.000Z");
   assert.equal(paused.sessions[0].pausedAt, "2026-08-01T10:10:00.000Z");
   assert.equal(resumed.sessions[0].pausedAt, "");
   assert.equal(attempted.nodes["topic-traversal"].attempts[0].sessionId, "session-arrays");
   assert.equal(session.status, "completed");
   assert.equal(session.stageIndex, 3);
+  assert.equal(session.updatedAt, "2026-08-01T10:30:00.000Z");
   assert.equal(session.pausedAt, "");
   assert.equal(session.durationMinutes, 28);
   assert.equal(session.accumulatedActiveMs, 28 * 60_000);

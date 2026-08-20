@@ -28,11 +28,18 @@ import {
 import "./LearningStudyStudio.css";
 
 const SESSION_STEPS = [
-  { id: "learn", label: "Learn", icon: BookOpenCheck },
-  { id: "recall", label: "Recall", icon: RotateCcw },
-  { id: "practice", label: "Practice", icon: Target },
-  { id: "teach", label: "Teach back", icon: Mic },
-  { id: "prove", label: "Prove", icon: Trophy },
+  { id: "learn", label: "Learn", description: "Understand the key idea", icon: BookOpenCheck },
+  { id: "recall", label: "Recall", description: "Retrieve it from memory", icon: RotateCcw },
+  { id: "practice", label: "Practice", description: "Apply it to a scenario", icon: Target },
+  { id: "teach", label: "Teach back", description: "Explain it in simple words", icon: Mic },
+  { id: "prove", label: "Prove", description: "Complete the mastery check", icon: Trophy },
+];
+
+const SELF_RATINGS = [
+  { id: "again", label: "Again", hint: "I missed most of it" },
+  { id: "hard", label: "Hard", hint: "I recalled some with effort" },
+  { id: "good", label: "Good", hint: "I got the main ideas" },
+  { id: "easy", label: "Easy", hint: "My answer was clear and complete" },
 ];
 
 const COACH_ACTIONS = [
@@ -73,8 +80,22 @@ function nodeAnswer(node) {
   return [
     node?.explanation || node?.summary,
     cleanLines(node?.keyPoints).length ? `Key ideas: ${cleanLines(node.keyPoints).join("; ")}` : "",
+    cleanLines(node?.examples).length ? `Example: ${cleanLines(node.examples).slice(0, 2).join("; ")}` : "",
     cleanLines(node?.applications).length ? `Applications: ${cleanLines(node.applications).join("; ")}` : "",
   ].filter(Boolean).join("\n\n") || `Review the meaning, purpose, and a practical example of ${node?.title || "this concept"}.`;
+}
+
+function SelfRatingButtons({ onRate }) {
+  return (
+    <div className="learning-studio-rating-grid">
+      {SELF_RATINGS.map((rating) => (
+        <button key={rating.id} onClick={() => onRate(rating.id)} type="button">
+          <strong>{rating.label}</strong>
+          <small>{rating.hint}</small>
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function significantTerms(node) {
@@ -108,21 +129,29 @@ function StudyLab({ node, response, onResponseChange }) {
   const [parameter, setParameter] = useState(55);
   const type = studyLabType(node);
   const keyPoints = cleanLines(node?.keyPoints).slice(0, 4);
+  const examples = cleanLines(node?.examples);
+  const applications = cleanLines(node?.applications);
+  const scenario = applications[0] || examples[0] || "";
+  const addStartingPoint = (point) => {
+    const prefix = response.trim() ? `${response.trimEnd()}\n` : "";
+    onResponseChange(`${prefix}${point}: `);
+  };
 
   if (type === "trace") {
     return (
       <div className="learning-studio-lab is-trace">
         <span className="learning-studio-lab__badge">Trace lab</span>
-        <h4>Choose a principle, then trace its effect</h4>
+        <h4>Apply {node?.title || "the concept"} step by step</h4>
+        {scenario ? <p className="learning-studio-lab__scenario"><strong>Scenario:</strong> {scenario}</p> : null}
         <div className="learning-studio-lab__chips">
           {(keyPoints.length ? keyPoints : ["Input", "Transformation", "Output"]).map((point) => (
-            <button key={point} onClick={() => onResponseChange(`I would start with: ${point}. `)} type="button">{point}</button>
+            <button key={point} onClick={() => addStartingPoint(point)} type="button">{point}</button>
           ))}
         </div>
         <textarea
           aria-label="Trace your reasoning"
           onChange={(event) => onResponseChange(event.target.value)}
-          placeholder="Trace the input, decision, output, and one edge case..."
+          placeholder="Explain the input, decision, output, and one edge case..."
           rows={5}
           value={response}
         />
@@ -134,13 +163,14 @@ function StudyLab({ node, response, onResponseChange }) {
     return (
       <div className="learning-studio-lab is-predict">
         <span className="learning-studio-lab__badge">Prediction lab</span>
-        <h4>Predict before revealing an explanation</h4>
+        <h4>Predict how {node?.title || "the concept"} responds to change</h4>
+        {scenario ? <p className="learning-studio-lab__scenario"><strong>Starting scenario:</strong> {scenario}</p> : null}
         <label>
           <span>Change the scenario parameter</span>
           <input onChange={(event) => setParameter(Number(event.target.value))} type="range" min="10" max="100" value={parameter} />
           <strong>{parameter}%</strong>
         </label>
-        <p>If the main input becomes {parameter}%, what changes, what stays constant, and why?</p>
+        <p>Assume a main input becomes {parameter}% of its original value. What changes, what stays constant, and why?</p>
         <textarea
           aria-label="Write your prediction"
           onChange={(event) => onResponseChange(event.target.value)}
@@ -155,10 +185,11 @@ function StudyLab({ node, response, onResponseChange }) {
   return (
     <div className="learning-studio-lab is-connect">
       <span className="learning-studio-lab__badge">Connection lab</span>
-      <h4>Connect the concept to something you already know</h4>
+      <h4>Connect {node?.title || "the concept"} to a real situation</h4>
+      {scenario ? <p className="learning-studio-lab__scenario"><strong>Use this situation:</strong> {scenario}</p> : null}
       <div className="learning-studio-lab__chips">
         {(keyPoints.length ? keyPoints : [node?.title, "Cause", "Effect"]).filter(Boolean).map((point) => (
-          <button key={point} onClick={() => onResponseChange(`${point} connects to `)} type="button">{point}</button>
+          <button key={point} onClick={() => addStartingPoint(point)} type="button">{point}</button>
         ))}
       </div>
       <textarea
@@ -199,12 +230,15 @@ function LearningStudyStudio({
   const [recallResponse, setRecallResponse] = useState("");
   const [practiceResponse, setPracticeResponse] = useState("");
   const [teachResponse, setTeachResponse] = useState("");
+  const [proveResponse, setProveResponse] = useState("");
   const [answerRevealed, setAnswerRevealed] = useState(false);
   const [confidence, setConfidence] = useState(3);
   const [teachResult, setTeachResult] = useState(null);
   const [misconceptionDraft, setMisconceptionDraft] = useState("");
   const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
   const recognitionRef = useRef(null);
+  const voiceCaptureSupported = Boolean(globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition);
 
   const learningNodes = useMemo(() => nodes.filter((node) => node.type !== "notebook"), [nodes]);
   const recommendedNode = useMemo(() => (
@@ -237,9 +271,11 @@ function LearningStudyStudio({
     setRecallResponse("");
     setPracticeResponse("");
     setTeachResponse("");
+    setProveResponse("");
     setAnswerRevealed(false);
     setConfidence(3);
     setTeachResult(null);
+    setVoiceError("");
   }, [activeSession?.id, currentNode?.id]);
 
   useEffect(() => {
@@ -269,6 +305,11 @@ function LearningStudyStudio({
     });
   };
 
+  const updateTeachResponse = (value) => {
+    setTeachResponse(value);
+    setTeachResult(null);
+  };
+
   const toggleVoice = () => {
     if (isListening) {
       recognitionRef.current?.stop?.();
@@ -276,18 +317,25 @@ function LearningStudyStudio({
       return;
     }
     const SpeechRecognition = globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) {
+      setVoiceError("Voice input is unavailable in this browser. Type your explanation instead.");
+      return;
+    }
     const recognition = new SpeechRecognition();
     recognition.lang = "en-US";
     recognition.interimResults = true;
     recognition.continuous = false;
     recognition.onresult = (event) => {
       const transcript = Array.from(event.results).map((result) => result[0]?.transcript || "").join(" ");
-      setTeachResponse(transcript.trim());
+      updateTeachResponse(transcript.trim());
     };
     recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
+    recognition.onerror = () => {
+      setIsListening(false);
+      setVoiceError("Voice input stopped. You can continue by typing your explanation.");
+    };
     recognitionRef.current = recognition;
+    setVoiceError("");
     setIsListening(true);
     recognition.start();
   };
@@ -329,7 +377,7 @@ function LearningStudyStudio({
               {cleanLines(currentNode.keyPoints).map((point, index) => <span key={point}><b>{index + 1}</b>{point}</span>)}
             </div>
           ) : null}
-          <button className="learning-studio-primary" onClick={() => advance()} type="button">Try active recall <ArrowRight size={16} /></button>
+          <button className="learning-studio-primary" onClick={() => advance()} type="button">I understand — start Recall <ArrowRight size={16} /></button>
         </div>
       );
     }
@@ -340,19 +388,25 @@ function LearningStudyStudio({
           <span className="section-tag">Active recall</span>
           <h3>Without looking back, explain {currentNode.title}</h3>
           <p>Writing from memory makes gaps visible. A short answer is enough.</p>
-          <textarea onChange={(event) => setRecallResponse(event.target.value)} placeholder="What I remember is..." rows={7} value={recallResponse} />
+          <textarea
+            aria-label={`Your recalled answer for ${currentNode.title}`}
+            onChange={(event) => setRecallResponse(event.target.value)}
+            placeholder="Write what you remember before viewing the reference answer..."
+            rows={7}
+            value={recallResponse}
+          />
           {!answerRevealed ? (
             <button className="learning-studio-primary" disabled={!recallResponse.trim()} onClick={() => setAnswerRevealed(true)} type="button">Reveal and compare</button>
           ) : (
             <div className="learning-studio-reveal">
               <strong>Reference answer</strong>
               <p>{nodeAnswer(currentNode)}</p>
-              <span>How close was your recall?</span>
-              <div className="learning-studio-rating-grid">
-                {["again", "hard", "good", "easy"].map((rating) => (
-                  <button key={rating} onClick={() => recordAndAdvance({ kind: "recall", response: recallResponse, rating })} type="button">{rating}</button>
-                ))}
-              </div>
+              <span>How close was your answer? Choose one to save Recall and continue to Practice.</span>
+              <SelfRatingButtons onRate={(rating) => recordAndAdvance({
+                kind: "recall",
+                response: recallResponse,
+                rating,
+              })} />
             </div>
           )}
         </div>
@@ -363,13 +417,15 @@ function LearningStudyStudio({
       return (
         <div className="learning-studio-stage">
           <span className="section-tag">Apply</span>
+          <h3>Use {currentNode.title} in a short scenario</h3>
+          <p>Write your reasoning, then rate how confident you feel about the response.</p>
           <StudyLab node={currentNode} onResponseChange={setPracticeResponse} response={practiceResponse} />
           <div className="learning-studio-confidence">
-            <label htmlFor="learning-practice-confidence">Confidence</label>
+            <label htmlFor="learning-practice-confidence">Your confidence</label>
             <input id="learning-practice-confidence" max="5" min="1" onChange={(event) => setConfidence(Number(event.target.value))} type="range" value={confidence} />
             <strong>{confidence}/5</strong>
           </div>
-          <button className="learning-studio-primary" disabled={!practiceResponse.trim()} onClick={() => recordAndAdvance({ kind: "practice", response: practiceResponse, rating: confidence >= 4 ? "good" : "hard" })} type="button">Complete practice <ArrowRight size={16} /></button>
+          <button className="learning-studio-primary" disabled={!practiceResponse.trim()} onClick={() => recordAndAdvance({ kind: "practice", response: practiceResponse, rating: confidence >= 4 ? "good" : "hard" })} type="button">Save Practice — start Teach back <ArrowRight size={16} /></button>
         </div>
       );
     }
@@ -379,13 +435,24 @@ function LearningStudyStudio({
         <div className="learning-studio-stage">
           <span className="section-tag">Teach back</span>
           <h3>Teach {currentNode.title} to a beginner</h3>
-          <p>Explain what it is, why it matters, and one example-using your own words.</p>
+          <p>Explain what it is, why it matters, and one example — using your own words.</p>
           <div className="learning-studio-voice-field">
-            <textarea onChange={(event) => setTeachResponse(event.target.value)} placeholder="Imagine a beginner asked you: what does this mean?" rows={8} value={teachResponse} />
-            <button aria-label={isListening ? "Stop voice capture" : "Explain with voice"} className={isListening ? "is-listening" : ""} onClick={toggleVoice} title={globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition ? "Explain with voice" : "Voice capture is not supported in this browser"} type="button">
+            <textarea
+              aria-label={`Your beginner-friendly explanation of ${currentNode.title}`}
+              onChange={(event) => updateTeachResponse(event.target.value)}
+              placeholder="Imagine a beginner asked: What does this mean, why does it matter, and where is it used?"
+              rows={8}
+              value={teachResponse}
+            />
+            <button aria-label={isListening ? "Stop voice capture" : "Explain with voice"} className={isListening ? "is-listening" : ""} disabled={!voiceCaptureSupported} onClick={toggleVoice} title={voiceCaptureSupported ? "Explain with voice" : "Voice capture is not supported in this browser"} type="button">
               {isListening ? <Square size={15} /> : <Mic size={16} />}
             </button>
           </div>
+          {voiceError || !voiceCaptureSupported ? (
+            <small className="learning-studio-voice-message" role={voiceError ? "alert" : undefined}>
+              {voiceError || "Voice input is unavailable in this browser. Type your explanation instead."}
+            </small>
+          ) : null}
           {!teachResult ? (
             <button
               className="learning-studio-primary"
@@ -398,7 +465,8 @@ function LearningStudyStudio({
               <strong>{teachResult.score}% concept coverage</strong>
               <p>{teachResult.score >= 60 ? "Your explanation covers the central ideas." : "Your explanation has useful foundations, but a few links need another pass."}</p>
               {teachResult.missing.length ? <small>Consider adding: {teachResult.missing.join(", ")}</small> : null}
-              <button onClick={() => recordAndAdvance({ kind: "teach_back", response: teachResponse, score: teachResult.score, rating: teachResult.score >= 75 ? "good" : "hard" })} type="button">Continue to mastery check <ArrowRight size={15} /></button>
+              <small>Edit your explanation above if you want to check it again.</small>
+              <button onClick={() => recordAndAdvance({ kind: "teach_back", response: teachResponse, score: teachResult.score, rating: teachResult.score >= 75 ? "good" : "hard" })} type="button">Save Teach back — start Prove <ArrowRight size={15} /></button>
             </div>
           )}
         </div>
@@ -412,26 +480,29 @@ function LearningStudyStudio({
         <div className="learning-studio-proof-card">
           <FileQuestion size={24} />
           <strong>State the central idea of {currentNode.title}, then give one valid application.</strong>
-          <p>Answer mentally or on paper before revealing the reference.</p>
+          <p>Write an unaided answer below. This response is saved as your final evidence.</p>
         </div>
+        <textarea
+          aria-label={`Your final mastery answer for ${currentNode.title}`}
+          onChange={(event) => setProveResponse(event.target.value)}
+          placeholder="Central idea... One valid application..."
+          readOnly={answerRevealed}
+          rows={6}
+          value={proveResponse}
+        />
         {!answerRevealed ? (
-          <button className="learning-studio-primary" onClick={() => setAnswerRevealed(true)} type="button">Reveal reference</button>
+          <button className="learning-studio-primary" disabled={!proveResponse.trim()} onClick={() => setAnswerRevealed(true)} type="button">Reveal and compare</button>
         ) : (
           <div className="learning-studio-reveal">
             <strong>Reference</strong>
             <p>{nodeAnswer(currentNode)}</p>
-            <span>Rate your unaided answer</span>
-            <div className="learning-studio-rating-grid">
-              {["again", "hard", "good", "easy"].map((rating) => (
-                <button
-                  key={rating}
-                  onClick={() => {
-                    onFinishSession?.({ nodeId: currentNode.id, sessionId: activeSession?.id, rating });
-                  }}
-                  type="button"
-                >{rating}</button>
-              ))}
-            </div>
+            <span>How well did you answer without help? Your choice saves the session and schedules review.</span>
+            <SelfRatingButtons onRate={(rating) => onFinishSession?.({
+              nodeId: currentNode.id,
+              sessionId: activeSession?.id,
+              rating,
+              response: proveResponse,
+            })} />
           </div>
         )}
       </div>
@@ -484,12 +555,18 @@ function LearningStudyStudio({
               {SESSION_STEPS.map((step, index) => {
                 const Icon = step.icon;
                 return (
-                  <div className={index < stageIndex ? "is-done" : index === stageIndex ? "is-active" : ""} key={step.id}>
+                  <div aria-current={index === stageIndex ? "step" : undefined} className={index < stageIndex ? "is-done" : index === stageIndex ? "is-active" : ""} key={step.id} title={step.description}>
                     <span>{index < stageIndex ? <Check size={13} /> : <Icon size={13} />}</span>
                     <small>{step.label}</small>
                   </div>
                 );
               })}
+            </div>
+          ) : null}
+          {sessionMatches ? (
+            <div className="learning-studio-stage-guide" role="status">
+              <strong>Step {stageIndex + 1} of {SESSION_STEPS.length}: {currentStep.label}</strong>
+              <span>{currentStep.description}</span>
             </div>
           ) : null}
           {renderStage()}

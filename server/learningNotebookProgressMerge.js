@@ -49,7 +49,13 @@ function mergeEvidenceRows(currentValue, incomingValue, options) {
     }
     const currentTime = options.time(current);
     const incomingTime = options.time(incoming);
-    const [primary, secondary] = newerFirst(current, incoming, currentTime, incomingTime);
+    const [primary, secondary] = newerFirst(
+      current,
+      incoming,
+      currentTime,
+      incomingTime,
+      Boolean(options.preferIncomingTie),
+    );
     merged.set(id, options.merge
       ? options.merge(primary, secondary)
       : { ...secondary, ...primary });
@@ -162,10 +168,14 @@ function sessionTime(value) {
   );
 }
 
-function mergeSessions(current, incoming) {
+function mergeSessions(current, incoming, stateContext = {}) {
   return mergeEvidenceRows(current, incoming, {
     id: (session, index) => session.id ?? `session-${index + 1}`,
     time: sessionTime,
+    // Older clients did not stamp individual session cursor updates. When both
+    // copies therefore have the same session timestamp, the newer learning-state
+    // revision is authoritative (for example, Learn -> Recall).
+    preferIncomingTie: stateContext.incomingIsNewer,
   });
 }
 
@@ -203,6 +213,7 @@ export function mergeLearningStates(currentValue = {}, incomingValue = {}) {
     sessions: mergeSessions(
       current.sessions ?? current.sessionHistory,
       incoming.sessions ?? incoming.sessionHistory,
+      { incomingIsNewer },
     ),
     activeSessionId: cleanId(primary.activeSessionId),
     ...(Number.isFinite(updatedTime) ? { updatedAt: new Date(updatedTime).toISOString() } : {}),

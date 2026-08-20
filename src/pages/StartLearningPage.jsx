@@ -34,8 +34,6 @@ import { jsPDF } from "jspdf";
 import { useLocation, useNavigate } from "react-router-dom";
 import LearningMasteryMap from "../components/LearningMasteryMap";
 import PlacementPrepDisclosure from "../components/PlacementPrepDisclosure";
-import DistractionAwareFocusRoom from "../components/DistractionAwareFocusRoom";
-import { speakFocusNudge } from "../utils/focusRoomNudge";
 import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDialog";
 import LearningStudyStudio from "../components/LearningStudyStudio";
 import MedicalTrainingLab from "../components/MedicalTrainingLab";
@@ -440,6 +438,25 @@ function learningNodes(notebook) {
     examples: [],
   }];
   (notebook?.chapters || []).forEach((chapter, chapterIndex) => {
+    const chapterTopics = listFrom(chapter.topics);
+    const chapterKeyPoints = chapterTopics.flatMap((topic) => {
+      const points = listFrom(topic?.keyPoints).map((point) => cleanText(point, 260)).filter(Boolean);
+      return points.length ? points : [cleanText(topic?.title, 180)].filter(Boolean);
+    }).slice(0, 8);
+    const chapterExamples = chapterTopics
+      .flatMap((topic) => listFrom(topic?.examples))
+      .map((example) => cleanText(example, 420))
+      .filter(Boolean)
+      .slice(0, 5);
+    const chapterApplications = chapterTopics
+      .flatMap((topic) => listFrom(topic?.applications))
+      .map((application) => cleanText(application, 320))
+      .filter(Boolean)
+      .slice(0, 5);
+    const topicOverview = chapterTopics.map((topic) => cleanText(
+      `${topic?.title || "Topic"}: ${topic?.summary || topic?.explanation || ""}`,
+      520,
+    )).filter(Boolean).slice(0, 6);
     nodes.push({
       id: chapter.id,
       title: chapter.title,
@@ -448,9 +465,10 @@ function learningNodes(notebook) {
       subjectName: notebook.subjectName,
       unitKey: `chapter:${chapterIndex + 1}`,
       summary: chapter.summary,
-      explanation: chapter.summary,
-      keyPoints: [],
-      examples: [],
+      explanation: [chapter.summary, ...topicOverview].filter(Boolean).join("\n\n"),
+      keyPoints: chapterKeyPoints,
+      examples: chapterExamples,
+      applications: chapterApplications,
     });
     chapter.topics.forEach((topic) => {
       nodes.push({
@@ -479,6 +497,7 @@ function learningNodes(notebook) {
           explanation: subtopic.explanation,
           keyPoints: subtopic.keyPoints,
           examples: subtopic.examples,
+          applications: subtopic.applications || topic.applications,
         });
       });
     });
@@ -551,12 +570,6 @@ function StartLearningPage({
   setSubjects,
   setNotification,
 }) {
-  const handleFocusNudge = useCallback(({ message }) => {
-    const announced = typeof window !== "undefined"
-      && window.studyVoiceAssistant?.announce?.(message);
-    if (!announced) speakFocusNudge(message);
-  }, []);
-
   const { hasInsufficientCredits } = useAiQuota();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1741,16 +1754,22 @@ function StartLearningPage({
   }, [enqueueNotebookPatch, setNotification]);
 
   const applyLearningState = (updater) => {
-    if (!activeNotebook?.id) return null;
+    const currentNotebook = activeNotebookRef.current?.id === activeNotebook?.id
+      ? activeNotebookRef.current
+      : activeNotebook;
+    if (!currentNotebook?.id) return null;
     const now = new Date().toISOString();
-    const currentState = normalizeLearningState(activeNotebook.learningState, {
-      notebook: activeNotebook,
+    const currentState = normalizeLearningState(currentNotebook.learningState, {
+      notebook: currentNotebook,
       now,
     });
     const nextState = typeof updater === "function" ? updater(currentState, now) : updater;
     const nextNotebook = {
-      ...activeNotebook,
-      learningState: normalizeLearningState(nextState, { notebook: activeNotebook, now }),
+      ...currentNotebook,
+      learningState: normalizeLearningState(nextState, {
+        notebook: currentNotebook,
+        now,
+      }),
       updatedAt: now,
     };
     activeNotebookRef.current = nextNotebook;
@@ -1919,7 +1938,7 @@ function StartLearningPage({
     return true;
   };
 
-  const finishStudySession = ({ nodeId, sessionId, rating }) => {
+  const finishStudySession = ({ nodeId, sessionId, rating, response }) => {
     const node = nodes.find((item) => item.id === nodeId);
     if (!node || !activeNotebook) return;
     const score = ratingScore(rating);
@@ -1927,6 +1946,7 @@ function StartLearningPage({
       const attempted = recordLearningAttempt(state, {
         nodeId,
         kind: "mastery_check",
+        responseSummary: response,
         score,
         correct: score >= 70,
         confidence: rating === "easy" ? 5 : rating === "good" ? 4 : rating === "hard" ? 2 : 1,
@@ -3585,17 +3605,6 @@ function StartLearningPage({
                   </button>
                 </div>
               </section>
-
-              <DistractionAwareFocusRoom
-                onNudge={handleFocusNudge}
-                subject={activeNotebook.subjectName || activeNotebook.title}
-                title="Distraction-aware study room"
-                userName={userProfile.username || userProfile.email}
-                visionConfig={{
-                  faceLandmarkerModelPath: "/models/face_landmarker.task",
-                  phoneDetectorModelPath: "/models/efficientdet_lite0.tflite",
-                }}
-              />
 
               {activeTab === "notes" && (
               <section className="card learning-question-priority">
