@@ -123,19 +123,25 @@ body.dark .settings-profile-surface {
   min-width: clamp(66px, 8vw, 84px);
   aspect-ratio: 1;
   place-items: center;
-  color: var(--button-text);
-  border: 1px solid rgba(var(--accent-rgb), 0.36);
+  color: var(--accent);
+  border: 0;
   border-radius: 24px;
-  background: var(--brand-gradient);
-  box-shadow: 0 15px 30px rgba(var(--accent-rgb), 0.2);
+  background: transparent;
+  box-shadow: none;
   font-size: 1.8rem;
   font-weight: 850;
   overflow: hidden;
 }
 
+.settings-profile-avatar:not(.has-image) {
+  background: var(--surface-muted);
+}
+
 .settings-profile-avatar img {
+  display: block;
   width: 100%;
   height: 100%;
+  border-radius: inherit;
   object-fit: cover;
 }
 
@@ -224,16 +230,20 @@ body .settings-profile-page .settings-profile-range button:hover {
   transform: translateY(-1px);
 }
 
-body .settings-profile-page .settings-profile-action.is-primary {
-  color: var(--button-text) !important;
-  border-color: rgba(var(--accent-rgb), 0.44) !important;
-  background: var(--brand-gradient) !important;
-  box-shadow: 0 10px 24px rgba(var(--accent-rgb), 0.18) !important;
+body .settings-profile-page .settings-profile-action.is-profile-switch,
+body .settings-profile-dialog .settings-profile-action.is-dialog-confirm {
+  color: color-mix(in srgb, var(--accent) 68%, var(--text)) !important;
+  border-color: rgba(var(--accent-rgb), 0.22) !important;
+  background: rgba(var(--accent-rgb), 0.09) !important;
+  box-shadow: none !important;
 }
 
-body .settings-profile-page .settings-profile-action.is-primary:hover {
-  color: var(--button-text) !important;
-  box-shadow: 0 14px 28px rgba(var(--accent-rgb), 0.24) !important;
+body .settings-profile-page .settings-profile-action.is-profile-switch:hover,
+body .settings-profile-dialog .settings-profile-action.is-dialog-confirm:hover {
+  color: color-mix(in srgb, var(--accent) 78%, var(--text)) !important;
+  border-color: rgba(var(--accent-rgb), 0.34) !important;
+  background: rgba(var(--accent-rgb), 0.14) !important;
+  box-shadow: none !important;
 }
 
 body .settings-profile-page .settings-profile-action:disabled {
@@ -247,6 +257,206 @@ body .settings-profile-page .settings-profile-action:disabled {
   outline: 2px solid rgba(var(--accent-rgb), 0.74);
   outline-offset: 3px;
 }
+
+.settings-profile-dialog-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  padding: clamp(14px, 3vw, 30px);
+  place-items: center;
+  background: rgba(15, 23, 42, 0.52);
+  opacity: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+body.dark .settings-profile-dialog-layer {
+  background: rgba(0, 0, 0, 0.68);
+}
+
+.settings-profile-dialog-layer.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.settings-profile-dialog {
+  position: relative;
+  width: min(100%, 760px);
+  max-height: min(86vh, 760px);
+  padding: clamp(22px, 4vw, 34px);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background:
+    linear-gradient(145deg, rgba(var(--accent-rgb), 0.045), transparent 42%),
+    var(--bg);
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.3);
+  opacity: 0;
+  overflow: auto;
+  outline: none;
+  transform: translateY(16px) scale(0.985);
+  transition:
+    opacity 200ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+body.dark .settings-profile-dialog {
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.58);
+}
+
+body.has-bg-image .settings-profile-dialog {
+  background:
+    linear-gradient(145deg, rgba(var(--accent-rgb), 0.055), transparent 42%),
+    rgb(var(--bg-surface-rgb, 18, 27, 45));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.settings-profile-dialog-layer.is-visible .settings-profile-dialog {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+body .settings-profile-dialog .settings-profile-dialog-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 1;
+  display: grid;
+  width: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0 !important;
+  place-items: center;
+  color: var(--text-muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px;
+  background: var(--surface-muted) !important;
+  box-shadow: none !important;
+}
+
+body .settings-profile-dialog .settings-profile-dialog-close:hover {
+  color: var(--accent) !important;
+  border-color: rgba(var(--accent-rgb), 0.3) !important;
+  background: rgba(var(--accent-rgb), 0.1) !important;
+  transform: none;
+}
+
+.settings-profile-dialog-close:focus-visible,
+.settings-profile-dialog button:focus-visible,
+.settings-profile-dialog select:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.74);
+  outline-offset: 3px;
+}
+
+.settings-profile-dialog h2,
+.settings-profile-dialog p {
+  margin: 0;
+}
+
+.settings-profile-dialog h2 {
+  margin-top: 4px;
+  padding-right: 40px;
+  color: var(--text);
+  font-family: var(--font-family-display, inherit);
+  font-size: clamp(1.2rem, 2.6vw, 1.55rem);
+}
+
+.settings-profile-dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  padding-right: 32px;
+  gap: 13px;
+}
+
+.settings-profile-dialog-heading p {
+  max-width: 620px;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.settings-profile-dialog-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 20px;
+  gap: 10px;
+}
+
+.settings-profile-dialog-stat-grid article {
+  display: grid;
+  min-width: 0;
+  padding: 14px;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-muted);
+}
+
+.settings-profile-dialog-stat-grid span {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 720;
+}
+
+.settings-profile-dialog-stat-grid strong {
+  color: var(--text);
+  font-size: 1.12rem;
+}
+
+.settings-profile-dialog-stat-grid small {
+  color: var(--text-muted);
+  font-size: 0.63rem;
+  line-height: 1.4;
+}
+
+.settings-profile-dialog .settings-profile-limit-form {
+  margin-top: 18px;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--surface-muted);
+}
+
+body .settings-profile-dialog .settings-profile-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px !important;
+  gap: 7px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 780;
+}
+
+.settings-profile-dialog-summary {
+  margin-top: 18px !important;
+  padding: 11px 13px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.settings-profile-dialog .settings-profile-insight-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.settings-profile-dialog-note {
+  margin-top: 14px !important;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  line-height: 1.5;
+}
+
 
 .settings-profile-metrics {
   display: grid;
@@ -870,6 +1080,26 @@ body.has-bg-image .settings-profile-range button[aria-pressed="true"] {
   .settings-profile-insights-heading {
     align-items: flex-start;
   }
+  .settings-profile-dialog-layer {
+    padding: 8px;
+    place-items: end center;
+  }
+
+  .settings-profile-dialog {
+    max-height: 92vh;
+    padding: 22px 17px 18px;
+    border-radius: 20px 20px 14px 14px;
+  }
+
+  .settings-profile-dialog-heading {
+    padding-right: 38px;
+  }
+
+  .settings-profile-dialog-stat-grid,
+  .settings-profile-dialog .settings-profile-insight-grid {
+    grid-template-columns: 1fr;
+  }
+
 }
 
 @media (max-width: 430px) {
@@ -912,7 +1142,10 @@ body.has-bg-image .settings-profile-range button[aria-pressed="true"] {
 @media (prefers-reduced-motion: reduce) {
   .settings-profile-page *,
   .settings-profile-page *::before,
-  .settings-profile-page *::after {
+  .settings-profile-page *::after,
+  .settings-profile-dialog-layer,
+  .settings-profile-dialog-layer *,
+  .settings-profile-dialog-layer *::before {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;

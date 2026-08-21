@@ -103,4 +103,12 @@ test("registers the permanent guide and the once-only animated Profile B intro",
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/u);
   assert.match(stylesheet, /\.academic-profile-intro-backdrop\.is-open/u);
   assert.match(stylesheet, /transition: opacity 240ms ease, transform 240ms/u);
+
+  const primaryGuideRule = stylesheet.match(
+    /body \.academic-profiles-page \.academic-profile-guide-button\.is-primary \{([^}]*)\}/u,
+  )?.[1] ?? "";
+  assert.match(primaryGuideRule, /color: var\(--text\)/u);
+  assert.match(primaryGuideRule, /color-mix\(in srgb, var\(--surface-strong\) 88%, var\(--accent\)\)/u);
+  assert.doesNotMatch(primaryGuideRule, /var\(--brand-gradient\)/u);
+  assert.match(stylesheet, /body\.has-bg-image \.academic-profiles-page \.academic-profile-guide-button\.is-primary \{[\s\S]*?rgb\(var\(--bg-surface-rgb\)\) 88%/u);
 });

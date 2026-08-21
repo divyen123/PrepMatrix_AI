@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -19,6 +20,7 @@ import {
   Sparkles,
   Target,
   UserRound,
+  X,
 } from "lucide-react";
 import {
   Bar,
@@ -115,6 +117,141 @@ function usageComparison(todaySeconds, averageSeconds) {
     : `${formatDuration(Math.abs(difference))} below your daily average today.`;
 }
 
+function UsageDetailDialog({
+  children,
+  describedBy,
+  dialogId,
+  labelledBy,
+  onClose,
+  open,
+  returnFocusRef,
+}) {
+  const [rendered, setRendered] = useState(open);
+  const [entered, setEntered] = useState(false);
+  const dialogRef = useRef(null);
+  const closeTimerRef = useRef(null);
+  const animationFrameRef = useRef(null);
+  const focusReturnRef = useRef(null);
+  const bodyOverflowRef = useRef("");
+  const bodyLockedRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    const restorePage = () => {
+      if (bodyLockedRef.current) {
+        document.body.style.overflow = bodyOverflowRef.current;
+        bodyLockedRef.current = false;
+      }
+      const focusTarget = focusReturnRef.current;
+      if (typeof focusTarget?.focus === "function") focusTarget.focus();
+    };
+
+    if (open) {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+      focusReturnRef.current = returnFocusRef?.current || focusReturnRef.current || document.activeElement;
+      if (!bodyLockedRef.current) {
+        bodyOverflowRef.current = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        bodyLockedRef.current = true;
+      }
+      setRendered(true);
+      animationFrameRef.current = window.requestAnimationFrame(() => {
+        setEntered(true);
+        dialogRef.current?.focus();
+      });
+      return () => window.cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    setEntered(false);
+    if (rendered) {
+      closeTimerRef.current = window.setTimeout(() => {
+        setRendered(false);
+        restorePage();
+      }, 220);
+    }
+    return () => {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    };
+  }, [open, rendered, returnFocusRef]);
+
+  useEffect(() => {
+    if (!open || !rendered || typeof document === "undefined") return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = [...dialogRef.current.querySelectorAll(
+        'a[href], button:not([disabled]), select:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )].filter((element) => !element.hasAttribute("hidden"));
+      if (!focusable.length) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, open, rendered]);
+
+  useEffect(() => () => {
+    if (typeof document === "undefined") return;
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    if (animationFrameRef.current) window.cancelAnimationFrame(animationFrameRef.current);
+    if (bodyLockedRef.current) document.body.style.overflow = bodyOverflowRef.current;
+  }, []);
+
+  if (!rendered || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      aria-hidden={!open || undefined}
+      className={"settings-profile-dialog-layer" + (entered && open ? " is-visible" : "")}
+      inert={!open}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        aria-describedby={describedBy}
+        aria-labelledby={labelledBy}
+        aria-modal="true"
+        className="settings-profile-dialog"
+        id={dialogId}
+        ref={dialogRef}
+        role="dialog"
+        tabIndex={-1}
+      >
+        <button
+          aria-label="Close dialog"
+          className="settings-profile-dialog-close"
+          onClick={onClose}
+          type="button"
+        >
+          <X aria-hidden="true" size={18} />
+        </button>
+        {children}
+      </section>
+    </div>,
+    document.body,
+  );
+}
 export default function SettingsProfilePage({
   academicLevel,
   academicTrack,
@@ -132,10 +269,11 @@ export default function SettingsProfilePage({
   const usageIdentity = useMemo(() => resolveAppUsageIdentity(userProfile), [userProfile]);
   const [usageRecord, setUsageRecord] = useState(() => readAppUsageRecord(usageIdentity));
   const [rangeDays, setRangeDays] = useState(7);
-  const [limitPanelOpen, setLimitPanelOpen] = useState(false);
-  const [insightsOpen, setInsightsOpen] = useState(false);
+  const [activeUsageDialog, setActiveUsageDialog] = useState({ kind: null, open: false });
   const [draftLimit, setDraftLimit] = useState(() => usageRecord.dailyLimitMinutes ?? "");
   const [switchingProfile, setSwitchingProfile] = useState(false);
+  const limitTriggerRef = useRef(null);
+  const insightsTriggerRef = useRef(null);
 
   const academicProfile = useMemo(() => normalizeAcademicProfile({
     ...userProfile,
@@ -302,23 +440,29 @@ export default function SettingsProfilePage({
         </div>
         <div className="settings-profile-actions" aria-label="User information actions">
           <button
-            aria-expanded={limitPanelOpen}
+            aria-controls="settings-profile-usage-dialog"
+            aria-expanded={activeUsageDialog.open && activeUsageDialog.kind === "limit"}
+            aria-haspopup="dialog"
             className="settings-profile-action is-secondary"
-            onClick={() => setLimitPanelOpen((current) => !current)}
+            onClick={() => setActiveUsageDialog({ kind: "limit", open: true })}
+            ref={limitTriggerRef}
             type="button"
           >
             <Gauge aria-hidden="true" size={17} /> Show limit used
           </button>
           <button
-            aria-expanded={insightsOpen}
+            aria-controls="settings-profile-usage-dialog"
+            aria-expanded={activeUsageDialog.open && activeUsageDialog.kind === "insights"}
+            aria-haspopup="dialog"
             className="settings-profile-action is-secondary"
-            onClick={() => setInsightsOpen((current) => !current)}
+            onClick={() => setActiveUsageDialog({ kind: "insights", open: true })}
+            ref={insightsTriggerRef}
             type="button"
           >
             <Activity aria-hidden="true" size={17} /> Active insights
           </button>
           <button
-            className="settings-profile-action is-primary"
+            className="settings-profile-action is-profile-switch"
             disabled={switchingProfile || workspaceTransitioning || Boolean(otherProfile?.deletionPending)}
             onClick={handleChangeProfile}
             type="button"
@@ -465,70 +609,118 @@ export default function SettingsProfilePage({
         </aside>
       </div>
 
-      {limitPanelOpen ? (
-        <section aria-labelledby="usage-limit-heading" className="settings-profile-expandable settings-profile-surface">
+      <UsageDetailDialog
+        describedBy={activeUsageDialog.kind === "limit"
+          ? "usage-limit-description"
+          : "active-insights-description"}
+        dialogId="settings-profile-usage-dialog"
+        labelledBy={activeUsageDialog.kind === "limit"
+          ? "usage-limit-heading"
+          : "active-insights-heading"}
+        onClose={() => setActiveUsageDialog((current) => ({ ...current, open: false }))}
+        open={activeUsageDialog.open}
+        returnFocusRef={activeUsageDialog.kind === "limit" ? limitTriggerRef : insightsTriggerRef}
+      >
+        {activeUsageDialog.kind === "limit" ? (
+          <>
+        <header className="settings-profile-dialog-heading">
           <div className="settings-profile-expandable-icon"><Gauge aria-hidden="true" size={21} /></div>
           <div>
             <span className="settings-profile-section-label">Usage controls</span>
             <h2 id="usage-limit-heading">Show limit used</h2>
-            <p>Set an optional daily reminder. It reports progress without blocking study sessions or exams.</p>
+            <p id="usage-limit-description">
+              Review today’s active time and set an optional reminder without blocking study sessions or exams.
+            </p>
           </div>
-          <form className="settings-profile-limit-form" onSubmit={handleSaveLimit}>
-            <label htmlFor="settings-profile-daily-limit">Daily reminder</label>
-            <select
-              id="settings-profile-daily-limit"
-              onChange={(event) => setDraftLimit(event.target.value)}
-              value={draftLimit}
-            >
-              {APP_USAGE_LIMIT_OPTIONS.map((option) => (
-                <option key={option.label} value={option.value ?? ""}>{option.label}</option>
-              ))}
-            </select>
-            <button className="settings-profile-action is-primary" type="submit">
-              <Save aria-hidden="true" size={16} /> Save limit
-            </button>
-          </form>
-        </section>
-      ) : null}
+        </header>
+        <div className="settings-profile-dialog-stat-grid is-limit-summary">
+          <article>
+            <span>Today active</span>
+            <strong>{formatDuration(usageSummary.today.seconds)}</strong>
+            <small>Visible and focused app time</small>
+          </article>
+          <article>
+            <span>Current reminder</span>
+            <strong>{usageSummary.dailyLimitSeconds
+              ? formatDuration(usageSummary.dailyLimitSeconds)
+              : "Not set"}</strong>
+            <small>{limitLabel}</small>
+          </article>
+          <article>
+            <span>Limit used</span>
+            <strong>{usageSummary.dailyLimitSeconds
+              ? `${usageSummary.limitUsedPercent}%`
+              : "Off"}</strong>
+            <small>{usageSummary.dailyLimitSeconds
+              ? `${Math.max(0, 100 - usageSummary.limitUsedPercent)}% remaining today`
+              : "Choose a reminder below"}</small>
+          </article>
+        </div>
+        <form className="settings-profile-limit-form" onSubmit={handleSaveLimit}>
+          <label htmlFor="settings-profile-daily-limit">Daily reminder</label>
+          <select
+            id="settings-profile-daily-limit"
+            onChange={(event) => setDraftLimit(event.target.value)}
+            value={draftLimit}
+          >
+            {APP_USAGE_LIMIT_OPTIONS.map((option) => (
+              <option key={option.label} value={option.value ?? ""}>{option.label}</option>
+            ))}
+          </select>
+          <button className="settings-profile-action is-dialog-confirm" type="submit">
+            <Save aria-hidden="true" size={16} /> Save limit
+          </button>
+        </form>
+        <p className="settings-profile-dialog-note">
+          This is a private reminder on this device. Reaching it never locks PrepMatrix.
+        </p>
+          </>
+        ) : activeUsageDialog.kind === "insights" ? (
+          <>
 
-      {insightsOpen ? (
-        <section aria-labelledby="active-insights-heading" className="settings-profile-insights settings-profile-surface">
-          <div className="settings-profile-insights-heading">
-            <div className="settings-profile-expandable-icon"><Sparkles aria-hidden="true" size={21} /></div>
-            <div>
-              <span className="settings-profile-section-label">Pattern review</span>
-              <h2 id="active-insights-heading">Active insights</h2>
-              <p>Plain-language context for the usage chart—not a productivity score.</p>
-            </div>
+        <header className="settings-profile-dialog-heading">
+          <div className="settings-profile-expandable-icon"><Sparkles aria-hidden="true" size={21} /></div>
+          <div>
+            <span className="settings-profile-section-label">Pattern review</span>
+            <h2 id="active-insights-heading">Active insights</h2>
+            <p id="active-insights-description">
+              Understand your selected {rangeDays}-day activity range in plain language—not as a productivity score.
+            </p>
           </div>
-          <div className="settings-profile-insight-grid">
-            <article>
-              <strong>{usageSummary.mostActiveDay?.label || "—"}</strong>
-              <span>Most active day</span>
-              <small>{usageSummary.mostActiveDay
-                ? formatDuration(usageSummary.mostActiveDay.seconds)
-                : "No activity recorded yet"}</small>
-            </article>
-            <article>
-              <strong>{usageSummary.activeDays}/{rangeDays}</strong>
-              <span>Active-day consistency</span>
-              <small>Days with visible, focused use</small>
-            </article>
-            <article>
-              <strong>{formatDuration(usageSummary.averageSeconds)}</strong>
-              <span>Average active time</span>
-              <small>{usageComparison(usageSummary.today.seconds, usageSummary.averageSeconds)}</small>
-            </article>
-            <article>
-              <strong>{plannerMetrics.completionRate}%</strong>
-              <span>Study-plan completion</span>
-              <small>{plannerMetrics.totalTasks
-                ? `${plannerMetrics.remainingTasks} tasks remaining`
-                : "Generate a plan to start tracking"}</small>
-            </article>
-          </div>
-        </section>
-      ) : null}
+        </header>
+        <p className="settings-profile-dialog-summary">{chartSummary}</p>
+        <div className="settings-profile-insight-grid">
+          <article>
+            <strong>{usageSummary.mostActiveDay?.label || "—"}</strong>
+            <span>Most active day</span>
+            <small>{usageSummary.mostActiveDay
+              ? formatDuration(usageSummary.mostActiveDay.seconds)
+              : "No activity recorded yet"}</small>
+          </article>
+          <article>
+            <strong>{usageSummary.activeDays}/{rangeDays}</strong>
+            <span>Active-day consistency</span>
+            <small>Days with visible, focused use</small>
+          </article>
+          <article>
+            <strong>{formatDuration(usageSummary.averageSeconds)}</strong>
+            <span>Average active time</span>
+            <small>{usageComparison(usageSummary.today.seconds, usageSummary.averageSeconds)}</small>
+          </article>
+          <article>
+            <strong>{plannerMetrics.completionRate}%</strong>
+            <span>Study-plan completion</span>
+            <small>{plannerMetrics.totalTasks
+              ? `${plannerMetrics.remainingTasks} tasks remaining`
+              : "Generate a plan to start tracking"}</small>
+          </article>
+        </div>
+        <p className="settings-profile-dialog-note">
+          Active time includes only the moments when PrepMatrix is visible and focused on this device.
+        </p>
+          </>
+        ) : null}
+      </UsageDetailDialog>
 
       <section className="settings-profile-details-grid" aria-label="Detailed user information">
         <article className="settings-profile-detail-card settings-profile-surface">
