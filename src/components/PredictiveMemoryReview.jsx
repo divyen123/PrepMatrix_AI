@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BrainCircuit,
   Check,
@@ -16,9 +17,19 @@ import {
   buildMemoryReviewExperience,
   buildMemoryReviewSubmission,
   createMemoryReviewQuiz,
+  mergeMemoryReviewSchedule,
 } from "../utils/learningMemoryReviewExperience.js";
 import { subscribeToLocalDateChanges } from "../utils/localDateRefresh.js";
 import "./PredictiveMemoryReview.css";
+
+const DIALOG_EXIT_DURATION_MS = 240;
+
+function getFocusableElements(container) {
+  if (!container) return [];
+  return Array.from(container.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  )).filter((element) => !element.hasAttribute("hidden"));
+}
 
 function recallLabel(predictedRecall) {
   const percentage = Math.round(Math.min(1, Math.max(0, Number(predictedRecall) || 0)) * 100);
@@ -37,11 +48,16 @@ export default function PredictiveMemoryReview({
   const [today, setToday] = useState(() => new Date());
   const [activeEntry, setActiveEntry] = useState(null);
   const [activeQuiz, setActiveQuiz] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogRendered, setDialogRendered] = useState(false);
+  const [dialogEntered, setDialogEntered] = useState(false);
   const [revealed, setRevealed] = useState({});
   const [ratings, setRatings] = useState({});
   const [confidence, setConfidence] = useState(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
   const experience = useMemo(() => buildMemoryReviewExperience({
     notebooks,
     schedule,
@@ -55,18 +71,28 @@ export default function PredictiveMemoryReview({
 
   useEffect(() => {
     if (experience.changed && typeof setSchedule === "function") {
-      setSchedule(experience.schedule);
+      setSchedule((currentSchedule) => mergeMemoryReviewSchedule(currentSchedule, {
+        notebooks,
+        scheduleStartDate,
+        completed,
+        today,
+        maxDaily: 3,
+      }));
     }
-  }, [experience.changed, experience.schedule, setSchedule]);
+  }, [completed, experience.changed, notebooks, scheduleStartDate, setSchedule, today]);
 
-  const closeQuiz = useCallback(() => {
-    if (isSubmitting) return;
+  const resetQuiz = useCallback(() => {
     setActiveEntry(null);
     setActiveQuiz(null);
     setRevealed({});
     setRatings({});
     setConfidence(3);
     setError("");
+  }, []);
+
+  const closeQuiz = useCallback(() => {
+    if (isSubmitting) return;
+    setDialogOpen(false);
   }, [isSubmitting]);
 
   const openQuiz = useCallback((entry) => {
@@ -81,7 +107,85 @@ export default function PredictiveMemoryReview({
     setRatings({});
     setConfidence(3);
     setError("");
+    setDialogOpen(true);
   }, [experience.dateKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    let animationFrame;
+    let exitTimer;
+
+    if (dialogOpen) {
+      setDialogRendered(true);
+      animationFrame = window.requestAnimationFrame(() => setDialogEntered(true));
+    } else {
+      setDialogEntered(false);
+      if (dialogRendered) {
+        exitTimer = window.setTimeout(() => {
+          setDialogRendered(false);
+          resetQuiz();
+        }, DIALOG_EXIT_DURATION_MS);
+      }
+    }
+
+    return () => {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      if (exitTimer) window.clearTimeout(exitTimer);
+    };
+  }, [dialogOpen, dialogRendered, resetQuiz]);
+
+  useEffect(() => {
+    if (!dialogRendered || typeof document === "undefined") return undefined;
+
+    const previouslyFocused = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    const previousRootOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousRootOverflow;
+      if (previouslyFocused?.isConnected) previouslyFocused.focus?.();
+    };
+  }, [dialogRendered]);
+
+  useEffect(() => {
+    if (!dialogOpen || !dialogRendered || typeof document === "undefined") return undefined;
+
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeQuiz();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = getFocusableElements(dialogRef.current);
+      if (!focusable.length) {
+        event.preventDefault();
+        dialogRef.current?.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeQuiz, dialogOpen, dialogRendered]);
 
   const questions = activeQuiz?.activeRecallPrompts || [];
   const ratedCount = questions.filter((question) => ratings[question.id]).length;
@@ -114,11 +218,7 @@ export default function PredictiveMemoryReview({
           { schedule: experience.schedule },
         ));
       }
-      setActiveEntry(null);
-      setActiveQuiz(null);
-      setRevealed({});
-      setRatings({});
-      setConfidence(3);
+      setDialogOpen(false);
     } catch (submissionError) {
       setError(
         submissionError?.message
@@ -176,26 +276,44 @@ export default function PredictiveMemoryReview({
         ))}
       </div>
 
-      {activeEntry && activeQuiz && (
-        <div className="memory-review-dialog-backdrop" role="presentation">
+      {dialogRendered && activeEntry && activeQuiz && typeof document !== "undefined" && createPortal(
+        <div
+          aria-hidden={!dialogOpen}
+          className={`memory-review-dialog-backdrop${dialogEntered && dialogOpen ? " is-open" : " is-closing"}`}
+          inert={!dialogOpen ? true : undefined}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeQuiz();
+          }}
+          role="presentation"
+        >
           <section
+            aria-describedby="memory-quiz-description"
             aria-labelledby="memory-quiz-title"
             aria-modal="true"
             className="memory-review-dialog"
+            ref={dialogRef}
             role="dialog"
+            tabIndex={-1}
           >
             <header className="memory-review-dialog-heading">
               <div>
                 <span className="memory-review-eyebrow">3-minute active recall</span>
                 <h3 id="memory-quiz-title">{activeEntry.candidate.title}</h3>
-                <p>Answer from memory, reveal the note, then rate your recall honestly.</p>
+                <p id="memory-quiz-description">Answer from memory, reveal the note, then rate your recall honestly.</p>
               </div>
-              <button aria-label="Close memory check" className="memory-review-icon-button" disabled={isSubmitting} onClick={closeQuiz} type="button">
+              <button aria-label="Close memory check" className="memory-review-icon-button" disabled={isSubmitting} onClick={closeQuiz} ref={closeButtonRef} type="button">
                 <X size={19} aria-hidden="true" />
               </button>
             </header>
 
-            <div className="memory-review-progress" aria-label={`${ratedCount} of ${questions.length} prompts rated`}>
+            <div
+              aria-label={`${ratedCount} of ${questions.length} prompts rated`}
+              aria-valuemax={questions.length}
+              aria-valuemin={0}
+              aria-valuenow={ratedCount}
+              className="memory-review-progress"
+              role="progressbar"
+            >
               <span style={{ width: `${questions.length ? (ratedCount / questions.length) * 100 : 0}%` }} />
             </div>
 
@@ -222,7 +340,7 @@ export default function PredictiveMemoryReview({
                         {question.revealAnswer || "Compare this with your saved notebook explanation."}
                       </div>
                     )}
-                    <div className="memory-review-rating" aria-label={`Rate prompt ${index + 1}`}>
+                    <div className="memory-review-rating" aria-label={`Rate prompt ${index + 1}`} role="group">
                       <button
                         aria-pressed={ratings[question.id] === "recalled"}
                         className={ratings[question.id] === "recalled" ? "is-selected" : ""}
@@ -268,7 +386,8 @@ export default function PredictiveMemoryReview({
             </footer>
             {error && <p className="memory-review-error" role="alert">{error}</p>}
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
     </section>
   );

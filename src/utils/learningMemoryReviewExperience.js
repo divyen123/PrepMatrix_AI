@@ -137,6 +137,20 @@ export function buildMemoryReviewExperience(inputValue = {}) {
   };
 }
 
+/**
+ * Resolves a due-review projection against the latest Planner state supplied by
+ * React's functional state updater. Returning the same reference when no task
+ * is added keeps repeated effects idempotent.
+ */
+export function mergeMemoryReviewSchedule(currentScheduleValue = [], inputValue = {}) {
+  const currentSchedule = Array.isArray(currentScheduleValue) ? currentScheduleValue : [];
+  const latestExperience = buildMemoryReviewExperience({
+    ...asObject(inputValue),
+    schedule: currentSchedule,
+  });
+  return latestExperience.changed ? latestExperience.schedule : currentSchedule;
+}
+
 export function createMemoryReviewQuiz(entryValue = {}, options = {}) {
   const entry = asObject(entryValue);
   return buildPredictiveMemoryMicroQuiz(entry.notebook, entry.candidate, {

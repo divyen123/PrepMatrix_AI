@@ -6,6 +6,7 @@ import {
   buildMemoryReviewSubmission,
   createMemoryReviewQuiz,
   isMemoryReviewTaskCompleted,
+  mergeMemoryReviewSchedule,
 } from "./learningMemoryReviewExperience.js";
 
 function notebook() {
@@ -106,6 +107,85 @@ test("keeps an existing memory task idempotent and respects completed task names
   assert.equal(second.entries[0].completed, true);
 });
 
+test("appends a due review without replacing checked or unchecked Planner tasks", () => {
+  const checkedTask = {
+    id: "planner-task-checked",
+    task: "Review algebra",
+    time: "Morning",
+  };
+  const uncheckedTask = {
+    id: "planner-task-unchecked",
+    task: "Practice geometry",
+    time: "Evening",
+  };
+  const laterTask = {
+    id: "planner-task-later",
+    task: "Read chemistry notes",
+    time: "Afternoon",
+  };
+  const schedule = [
+    { day: 1, date: "2026-07-04", tasks: [checkedTask, uncheckedTask] },
+    { day: 2, date: "2026-07-05", tasks: [laterTask] },
+  ];
+  const completed = [checkedTask.task];
+
+  const first = buildMemoryReviewExperience({
+    notebooks: [notebook()],
+    schedule,
+    completed,
+    today: "2026-07-04T08:00:00.000Z",
+  });
+
+  assert.deepEqual(schedule[0].tasks, [checkedTask, uncheckedTask]);
+  assert.deepEqual(schedule[1].tasks, [laterTask]);
+  assert.deepEqual(completed, [checkedTask.task]);
+  assert.deepEqual(first.schedule[0].tasks.slice(0, 2), [checkedTask, uncheckedTask]);
+  assert.deepEqual(first.schedule[1].tasks, [laterTask]);
+  assert.equal(first.schedule[0].tasks.filter((task) => task.source === "memory_review").length, 1);
+  assert.equal(first.schedule[0].tasks.length, 3);
+
+  const second = buildMemoryReviewExperience({
+    notebooks: [notebook()],
+    schedule: first.schedule,
+    completed,
+    today: "2026-07-04T09:00:00.000Z",
+  });
+
+  assert.equal(second.changed, false);
+  assert.deepEqual(second.schedule[0].tasks.slice(0, 2), [checkedTask, uncheckedTask]);
+  assert.deepEqual(second.schedule[1].tasks, [laterTask]);
+  assert.equal(second.schedule[0].tasks.filter((task) => task.source === "memory_review").length, 1);
+  assert.deepEqual(completed, [checkedTask.task]);
+});
+
+
+test("merges a stale review projection into the latest schedule and stays idempotent", () => {
+  const input = {
+    notebooks: [notebook()],
+    completed: ["Review algebra"],
+    today: "2026-07-04T08:00:00.000Z",
+  };
+  const staleProjection = buildMemoryReviewExperience({
+    ...input,
+    schedule: [{ day: 1, date: "2026-07-04", tasks: [] }],
+  });
+  const latestSchedule = [{
+    day: 1,
+    date: "2026-07-04",
+    tasks: [
+      { id: "checked", task: "Review algebra", time: "Morning" },
+      { id: "unchecked", task: "Practice geometry", time: "Evening" },
+    ],
+  }];
+
+  const merged = mergeMemoryReviewSchedule(latestSchedule, input);
+
+  assert.equal(staleProjection.changed, true);
+  assert.deepEqual(merged[0].tasks.slice(0, 2), latestSchedule[0].tasks);
+  assert.equal(merged[0].tasks.filter((task) => task.source === "memory_review").length, 1);
+  assert.deepEqual(input.completed, ["Review algebra"]);
+  assert.equal(mergeMemoryReviewSchedule(merged, input), merged);
+});
 test("supports exact task-ID completion without same-title collisions", () => {
   const taskA = { id: "memory-review-a", task: "Review: Mitosis" };
   const taskB = { id: "memory-review-b", task: "Review: Mitosis" };

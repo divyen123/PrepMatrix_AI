@@ -151,28 +151,68 @@
 }
 
 .memory-review-dialog-backdrop {
+  --memory-accent: var(--accent, #6d5dfc);
+  --memory-accent-soft: color-mix(in srgb, var(--memory-accent) 12%, transparent);
   position: fixed;
-  z-index: 1000;
   inset: 0;
+  z-index: 12000;
   display: grid;
+  isolation: isolate;
   place-items: center;
-  padding: 18px;
-  background: rgba(8, 15, 30, 0.62);
-  backdrop-filter: blur(10px);
+  padding: clamp(12px, 3vw, 28px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgba(15, 23, 42, 0.58);
+  -webkit-backdrop-filter: blur(14px) saturate(0.72) brightness(0.76);
+  backdrop-filter: blur(14px) saturate(0.72) brightness(0.76);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 240ms ease;
+}
+
+body.dark .memory-review-dialog-backdrop {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.memory-review-dialog-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .memory-review-dialog {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   gap: 16px;
   width: min(760px, 100%);
-  max-height: min(860px, calc(100vh - 36px));
+  max-height: min(860px, calc(100dvh - clamp(24px, 6vw, 56px)));
   padding: clamp(18px, 3vw, 26px);
-  overflow: auto;
+  overflow: hidden;
   color: var(--text, #172033);
-  background: var(--surface-strong, #fff);
+  background: var(--bg, #f3f0e8);
   border: 1px solid var(--border, rgba(15, 23, 42, 0.1));
   border-radius: 24px;
   box-shadow: 0 28px 90px rgba(2, 6, 23, 0.35);
+  opacity: 0;
+  outline: none;
+  transform: translateY(18px) scale(0.985);
+  transition:
+    opacity 200ms ease,
+    transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+body.dark .memory-review-dialog {
+  box-shadow: 0 32px 96px rgba(0, 0, 0, 0.62);
+}
+
+body.has-bg-image .memory-review-dialog {
+  background: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.memory-review-dialog-backdrop.is-open .memory-review-dialog {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .memory-review-dialog-heading {
@@ -216,7 +256,12 @@
 
 .memory-review-questions {
   display: grid;
+  min-height: 0;
   gap: 12px;
+  padding: 2px 8px 2px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .memory-review-question {
@@ -373,12 +418,27 @@
     align-items: stretch;
     flex-direction: column;
   }
+
+  .memory-review-dialog-backdrop {
+    padding: 8px;
+  }
+
+  .memory-review-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    padding: 18px 15px;
+    border-radius: 20px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .memory-review-dialog-backdrop,
+  .memory-review-dialog,
   .memory-review-start,
   .memory-review-submit,
   .memory-review-progress span {
-    transition: none;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
