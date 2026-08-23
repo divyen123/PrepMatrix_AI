@@ -56,11 +56,15 @@ test("shows a shortcut row container only for hover or keyboard selection", () =
 
   assert.match(
     stylesheet,
-    /\.db-command-option\s*\{[\s\S]*?border: 1px solid transparent;[\s\S]*?background: transparent;[\s\S]*?transition:[\s\S]*?background 160ms ease,[\s\S]*?border-color 160ms ease,/u,
+    /body \.db-command-menu > button\.db-command-option\s*\{[^}]*border: 1px solid transparent !important;[^}]*background: transparent !important;[^}]*box-shadow: none !important;[^}]*backdrop-filter: none !important;[^}]*transform: none !important;[^}]*transition:[^}]*background 160ms ease,[^}]*border-color 160ms ease,[^}]*transform 160ms ease !important;/u,
   );
   assert.match(
     stylesheet,
-    /\.db-command-option:hover,\s*\.db-command-option:focus-visible,\s*\.db-command-option--active,\s*\.db-command-option\[aria-selected="true"\]\s*\{[\s\S]*?border-color: color-mix\([\s\S]*?background: color-mix\(/u,
+    /body \.db-command-menu > button\.db-command-option::after\s*\{[^}]*content: none !important;[^}]*display: none !important;/u,
+  );
+  assert.match(
+    stylesheet,
+    /body \.db-command-menu > button\.db-command-option:hover,\s*body \.db-command-menu > button\.db-command-option:focus-visible,\s*body \.db-command-menu > button\.db-command-option--active,\s*body \.db-command-menu > button\.db-command-option\[aria-selected="true"\]\s*\{[^}]*border-color: color-mix\([^}]*!important;[^}]*background: color-mix\([^}]*!important;[^}]*transform: translateX\(2px\) !important;/u,
   );
 });
 
