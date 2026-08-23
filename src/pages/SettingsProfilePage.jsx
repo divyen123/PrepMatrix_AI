@@ -55,7 +55,19 @@ function displayValue(value, fallback = "Not set") {
 }
 
 function formatDate(value, fallback = "Not recorded") {
-  const date = value instanceof Date ? value : new Date(value);
+  const normalizedValue = typeof value === "string" ? value.trim() : value;
+  if (normalizedValue === null || normalizedValue === undefined || normalizedValue === "") {
+    return fallback;
+  }
+
+  const isDateKey = typeof normalizedValue === "string"
+    && /^\d{4}-\d{2}-\d{2}$/.test(normalizedValue);
+  const localDateKey = isDateKey ? toLocalDateKey(normalizedValue) : "";
+  if (isDateKey && !localDateKey) return fallback;
+
+  const date = localDateKey
+    ? new Date(`${localDateKey}T12:00:00`)
+    : normalizedValue instanceof Date ? normalizedValue : new Date(normalizedValue);
   if (Number.isNaN(date.getTime())) return fallback;
   return new Intl.DateTimeFormat(undefined, {
     day: "numeric",
@@ -321,6 +333,9 @@ export default function SettingsProfilePage({
   const todayCompleted = todayTasks.filter((task) => (
     completedSet.has(task?.task)
   )).length;
+  const planStartDate = plannerMetrics.hasScheduledPlanner
+    ? getScheduleDateKey(schedule[0], 0, scheduleStartDate)
+    : null;
   const subjectCount = Array.isArray(subjects) ? subjects.length : 0;
   const activeProfileLabel = profileSlots.activeProfile?.label || "Profile A";
   const otherProfile = profileSlots.inactiveProfile;
@@ -396,7 +411,7 @@ export default function SettingsProfilePage({
     ["Today", todayTasks.length
       ? `${todayCompleted}/${todayTasks.length} planned tasks complete`
       : "No tasks scheduled"],
-    ["Plan start", formatDate(scheduleStartDate, "Not scheduled")],
+    ["Plan start", formatDate(planStartDate, "Not scheduled")],
   ];
 
   return (
@@ -448,7 +463,7 @@ export default function SettingsProfilePage({
             ref={limitTriggerRef}
             type="button"
           >
-            <Gauge aria-hidden="true" size={17} /> Show limit used
+            <Gauge aria-hidden="true" size={17} /> Active limit
           </button>
           <button
             aria-controls="settings-profile-usage-dialog"
@@ -604,7 +619,7 @@ export default function SettingsProfilePage({
               : "No limit is active"}</strong>
             <span>{usageSummary.dailyLimitSeconds
               ? "You stay in control; the reminder does not lock the app."
-              : "Open Show limit used to set a personal reminder."}</span>
+              : "Open Active limit to set a personal reminder."}</span>
           </div>
         </aside>
       </div>
@@ -627,7 +642,7 @@ export default function SettingsProfilePage({
           <div className="settings-profile-expandable-icon"><Gauge aria-hidden="true" size={21} /></div>
           <div>
             <span className="settings-profile-section-label">Usage controls</span>
-            <h2 id="usage-limit-heading">Show limit used</h2>
+            <h2 id="usage-limit-heading">Active time</h2>
             <p id="usage-limit-description">
               Review today’s active time and set an optional reminder without blocking study sessions or exams.
             </p>

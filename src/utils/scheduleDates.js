@@ -25,6 +25,10 @@ function parseDateKey(value) {
 }
 
 export function toLocalDateKey(value) {
+  if (value === null || value === undefined || (typeof value === "string" && !value.trim())) {
+    return "";
+  }
+
   const dateKey = parseDateKey(value);
   if (dateKey) return createDateKey(dateKey.year, dateKey.month, dateKey.day);
   if (DATE_KEY_PATTERN.test(String(value || "").trim())) return "";

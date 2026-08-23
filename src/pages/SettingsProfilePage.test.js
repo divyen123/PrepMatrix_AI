@@ -83,18 +83,18 @@ test("renders detailed user information, usage actions, and accessible activity 
         academicTrack: userProfile.academicTrack,
         completed: ["API Design - Unit 1"],
         onVisitAcademicProfile: () => {},
-        schedule: [{ tasks: [
+        schedule: [{ day: 1, date: "2026-08-18", tasks: [
           { task: "API Design - Unit 1" },
           { task: "API Design - Unit 2" },
         ] }],
-        scheduleStartDate: "2026-08-18T00:00:00.000Z",
+        scheduleStartDate: null,
         subjects: [{ name: "API Design" }],
         userProfile,
       }),
     ));
 
     assert.match(markup, /<h1>User information<\/h1>/u);
-    assert.match(markup, /Show limit used/u);
+    assert.match(markup, /Active limit/u);
     assert.match(markup, /Active insights/u);
     assert.match(markup, /Change profile/u);
     assert.match(markup, /Daily app usage/u);
@@ -105,6 +105,27 @@ test("renders detailed user information, usage actions, and accessible activity 
     assert.match(markup, /<dt>Age<\/dt><dd>21<\/dd>/u);
     assert.match(markup, /1 of 2 configured/u);
     assert.match(markup, /It does not monitor other apps, websites, or idle background time\./u);
+
+    const planStart = markup.match(/<dt>Plan start<\/dt><dd>([^<]+)<\/dd>/u);
+    assert.ok(planStart);
+    assert.match(planStart[1], /2026/u);
+    assert.doesNotMatch(planStart[1], /1970/u);
+
+    for (const staleStartDate of [null, "2026-08-18"]) {
+      const emptyPlanMarkup = renderToStaticMarkup(React.createElement(
+        MemoryRouter,
+        { initialEntries: ["/settings/profile"] },
+        React.createElement(SettingsProfilePage, {
+          schedule: [],
+          scheduleStartDate: staleStartDate,
+          subjects: [{ name: "API Design" }],
+          userProfile,
+        }),
+      ));
+
+      assert.match(emptyPlanMarkup, /<dt>Plan start<\/dt><dd>Not scheduled<\/dd>/u);
+      assert.doesNotMatch(emptyPlanMarkup, /1970/u);
+    }
   } finally {
     await vite?.close();
     if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
@@ -131,6 +152,9 @@ test("registers the guarded route, global tracker, responsive charts, and backgr
   assert.doesNotMatch(pageSource, /limitPanelOpen|insightsOpen|setLimitPanelOpen|setInsightsOpen/u);
   assert.match(pageSource, /setActiveUsageDialog\(\{ kind: "limit", open: true \}\)/u);
   assert.match(pageSource, /setActiveUsageDialog\(\{ kind: "insights", open: true \}\)/u);
+  assert.match(pageSource, /<h2 id="usage-limit-heading">Active time<\/h2>/u);
+  assert.match(pageSource, /Open Active limit to set a personal reminder\./u);
+  assert.doesNotMatch(pageSource, /Show limit used/u);
   assert.match(pageSource, /onClose=\{\(\) => setActiveUsageDialog\(\(current\) => \(\{ \.\.\.current, open: false \}\)\)\}/u);
   assert.match(pageSource, /if \(closeTimerRef\.current\) window\.clearTimeout\(closeTimerRef\.current\);[\s\S]*?focusReturnRef\.current = returnFocusRef\?\.current[\s\S]*?if \(!bodyLockedRef\.current\)[\s\S]*?bodyOverflowRef\.current/u);
   assert.match(pageSource, /createPortal\([\s\S]*?aria-modal="true"[\s\S]*?role="dialog"/u);

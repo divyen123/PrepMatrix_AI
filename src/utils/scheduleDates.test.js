@@ -12,6 +12,8 @@ test("normalizes local calendar dates without shifting date-only values", () => 
   assert.equal(toLocalDateKey("2026-04-15"), "2026-04-15");
   assert.equal(toLocalDateKey("2026-02-30"), "");
   assert.equal(toLocalDateKey("not-a-date"), "");
+  assert.equal(toLocalDateKey(null), "");
+  assert.equal(toLocalDateKey(undefined), "");
 });
 
 test("adds days across month and year boundaries", () => {
@@ -38,6 +40,7 @@ test("derives dates for legacy schedule days from the stored start date", () => 
 
 test("keeps the original day-only heading when no valid date is available", () => {
   assert.equal(formatScheduleDayHeading({ day: 2 }, 1), "Day 2");
+  assert.equal(getScheduleDateKey({ day: 1, date: null }, 0, null), "");
 });
 
 test("keeps today's date before the evening planner cutoff", () => {
