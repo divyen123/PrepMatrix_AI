@@ -33,11 +33,16 @@ test("renders the interactive dog companion without the legacy fox emoji", async
   }
 });
 
-test("keeps the page shell transparent and uses audited per-pose crop offsets", async () => {
+test("keeps the page and pet surfaces transparent with audited crop offsets", async () => {
   const cssUrl = new URL("../../../src/pages/KidsLearningPage.css", import.meta.url);
   const css = await readFile(cssUrl, "utf8");
 
   assert.match(css, /\.kids-learning-page \{[\s\S]*?background: transparent;/u);
+  assert.match(
+    css,
+    /body \.kids-learning-page button\.kids-pet-avatar \{[\s\S]*?background: none !important;[\s\S]*?backdrop-filter: none !important;[\s\S]*?box-shadow: none !important;/u,
+  );
+  assert.match(css, /button\.kids-pet-avatar::after \{[\s\S]*?content: none !important;/u);
   assert.match(css, /background-position: 0\.8929% 39\.2113%/u);
   assert.match(css, /background-position: 15\.9598% 67\.1131%/u);
   assert.match(css, /clip-path: inset\(0 0 10px\)/u);

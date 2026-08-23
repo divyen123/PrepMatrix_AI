@@ -907,7 +907,7 @@
   min-width: 0;
 }
 
-.kids-pet-avatar {
+body .kids-learning-page button.kids-pet-avatar {
   position: relative;
   display: grid;
   grid-template-rows: auto auto;
@@ -915,24 +915,35 @@
   width: max-content;
   min-width: 0;
   min-height: 0 !important;
-  padding: 0;
-  border: 0;
-  border-radius: 24px;
-  color: rgba(255, 255, 255, 0.78);
-  background: transparent;
-  box-shadow: none;
+  padding: 0 !important;
+  overflow: visible;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: rgba(255, 255, 255, 0.78) !important;
+  background: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+  appearance: none;
   cursor: pointer;
   transform-origin: 50% 85%;
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), filter 220ms ease;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), filter 220ms ease !important;
 }
 
-.kids-pet-avatar:hover,
-.kids-pet-avatar:focus-visible {
-  border: 0;
-  color: #fff;
-  background: transparent;
-  box-shadow: none;
-  transform: translateY(-4px) scale(1.025);
+body .kids-learning-page button.kids-pet-avatar::after {
+  content: none !important;
+  display: none !important;
+}
+
+body .kids-learning-page button.kids-pet-avatar:hover,
+body .kids-learning-page button.kids-pet-avatar:focus-visible {
+  border: 0 !important;
+  color: #fff !important;
+  background: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+  transform: translateY(-4px) scale(1.025) !important;
 }
 
 .kids-pet-sprite {
