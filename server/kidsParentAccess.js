@@ -2,9 +2,36 @@ import { normalizeAcademicProfile } from "../src/utils/academicProfile.js";
 
 export const KIDS_PARENT_ACCESS_TTL_MS = 15 * 60 * 1000;
 
+function scheduleWithoutTaskProgressMetadata(schedule) {
+  if (!Array.isArray(schedule)) return schedule;
+
+  return schedule.map((day) => {
+    if (!day || typeof day !== "object" || !Array.isArray(day.tasks)) return day;
+
+    return {
+      ...day,
+      tasks: day.tasks.map((task) => {
+        if (
+          !task
+          || typeof task !== "object"
+          || Array.isArray(task)
+          || typeof task.recheckPending !== "boolean"
+        ) {
+          return task;
+        }
+
+        const protectedTask = { ...task };
+        delete protectedTask.recheckPending;
+        return protectedTask;
+      }),
+    };
+  });
+}
+
 export function kidsWorkspaceScheduleChanged(existingWorkspace = {}, update = {}) {
   const scheduleChanged = Object.prototype.hasOwnProperty.call(update, "schedule")
-    && JSON.stringify(existingWorkspace?.schedule || []) !== JSON.stringify(update.schedule || []);
+    && JSON.stringify(scheduleWithoutTaskProgressMetadata(existingWorkspace?.schedule || []))
+      !== JSON.stringify(scheduleWithoutTaskProgressMetadata(update.schedule || []));
   const startDateChanged = Object.prototype.hasOwnProperty.call(update, "scheduleStartDate")
     && String(existingWorkspace?.scheduleStartDate || "") !== String(update.scheduleStartDate || "");
   return scheduleChanged || startDateChanged;

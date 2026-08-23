@@ -1,14 +1,147 @@
 import { useCallback, useEffect, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { Download } from "lucide-react";
+import { Download, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import successSound from "../assets/success.mp3";
 import { generateSchedule } from "../utils/scheduleGenerator";
 import {
+  formatScheduleDate,
   formatScheduleDayHeading,
   getScheduleGenerationWindow,
 } from "../utils/scheduleDates";
+import { subscribeToLocalDateChanges } from "../utils/localDateRefresh";
+import {
+  clearPlannerScheduleState,
+  completePlannerTask,
+  getPlannerDayAvailability,
+  isPlannerTaskCompleted,
+  isPlannerTaskPending,
+  isPlannerTaskRecheckPending,
+  reopenPlannerTask,
+} from "../utils/plannerScheduleProgress";
+
+export function ClearScheduleConfirmation({
+  onCancel = () => {},
+  onDelete = () => {},
+}) {
+  return (
+    <div
+      aria-describedby="clear-schedule-description"
+      aria-labelledby="clear-schedule-title"
+      aria-modal="true"
+      className="planner-clear-confirmation"
+      id="clear-schedule-confirmation"
+      role="alertdialog"
+    >
+      <strong id="clear-schedule-title">Clear this schedule?</strong>
+      <p id="clear-schedule-description">
+        This removes the planner and its completion history. Your subjects stay saved.
+      </p>
+      <div className="planner-clear-confirmation-actions">
+        <button
+          className="planner-clear-cancel-btn"
+          onClick={onCancel}
+          type="button"
+        >
+          Cancel
+        </button>
+        <button
+          className="planner-clear-delete-btn"
+          onClick={onDelete}
+          type="button"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PlannerScheduleDay({
+  completed,
+  dayIndex,
+  item,
+  onComplete,
+  onReschedule,
+  scheduleStartDate,
+  today,
+}) {
+  const availability = getPlannerDayAvailability(
+    item,
+    dayIndex,
+    scheduleStartDate,
+    today,
+  );
+  const lockedDate = formatScheduleDate(availability.dateKey);
+
+  return (
+    <div
+      aria-disabled={availability.isLocked || undefined}
+      className={"day-card planner-day-card" + (availability.isLocked ? " is-locked" : "")}
+    >
+      <div className="day-title">
+        <span>{formatScheduleDayHeading(item, dayIndex, scheduleStartDate)}</span>
+        {availability.isLocked && (
+          <span className="planner-day-locked-badge">
+            {lockedDate
+              ? "Locked until " + lockedDate
+              : "Locked until its scheduled day"}
+          </span>
+        )}
+      </div>
+      {item.tasks?.length === 0 ? (
+        <div className="task-chip revision">Revision block</div>
+      ) : (
+        item.tasks?.map((task, taskIndex) => {
+          const wasCompleted = isPlannerTaskCompleted(task, completed);
+          const isRecheckPending = isPlannerTaskRecheckPending(task);
+          const showCompletedState = wasCompleted && !isRecheckPending;
+
+          return (
+            <div
+              className="task-row planner-task-row"
+              key={task.task + "-" + taskIndex}
+            >
+              <input
+                aria-label={isRecheckPending
+                  ? "Complete " + task.task + " again"
+                  : "Mark " + task.task + " complete"}
+                checked={showCompletedState}
+                disabled={availability.isLocked || showCompletedState}
+                onChange={() => onComplete(dayIndex, taskIndex)}
+                type="checkbox"
+              />
+              <span className="time-slot">{task.time}</span>
+              <span className={showCompletedState ? "task-chip done" : "task-chip"}>
+                <span className="planner-task-label">{task.task}</span>
+                {isRecheckPending && (
+                  <span className="planner-already-completed-badge">
+                    Already completed
+                  </span>
+                )}
+              </span>
+              <span className="planner-task-action-slot">
+                {showCompletedState && (
+                  <button
+                    aria-label={"Reschedule " + task.task}
+                    className="planner-reschedule-btn"
+                    disabled={availability.isLocked}
+                    onClick={() => onReschedule(dayIndex, taskIndex)}
+                    title={"Reschedule " + task.task}
+                    type="button"
+                  >
+                    <RotateCcw aria-hidden="true" size={15} />
+                  </button>
+                )}
+              </span>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
 
 function Timetable({
   academicProfileDataId = "",
@@ -29,6 +162,8 @@ function Timetable({
   const [previousSchedule, setPreviousSchedule] = useState(null);
   const [lastAction, setLastAction] = useState(null); // "rebalance" | "backlog"
   const [showGenerateForm, setShowGenerateForm] = useState(schedule.length === 0);
+  const [showClearConfirmation, setShowClearConfirmation] = useState(false);
+  const [today, setToday] = useState(() => new Date());
 
   const requestParentAccess = useCallback(() => {
     onRequestParentAccess?.();
@@ -40,15 +175,18 @@ function Timetable({
   useEffect(() => {
     if (schedule.length === 0) {
       setShowGenerateForm(true);
+      setShowClearConfirmation(false);
     }
   }, [schedule.length]);
+
+  useEffect(() => subscribeToLocalDateChanges(setToday), []);
 
   const getBacklogTasks = useCallback(() => {
     const backlog = [];
 
     schedule.forEach((day) => {
       day.tasks?.forEach((task) => {
-        if (!completed.includes(task.task)) {
+        if (isPlannerTaskPending(task, completed)) {
           backlog.push({ ...task });
         }
       });
@@ -136,12 +274,60 @@ function Timetable({
     };
   }, [academicProfileDataId, generate]);
 
-  const toggleComplete = (taskName) => {
-    const updated = completed.includes(taskName)
-      ? completed.filter((task) => task !== taskName)
-      : [...completed, taskName];
+  const toggleComplete = (dayIndex, taskIndex) => {
+    const nextState = completePlannerTask(
+      schedule,
+      completed,
+      dayIndex,
+      taskIndex,
+    );
 
-    setCompleted(updated);
+    if (nextState.schedule !== schedule) setSchedule(nextState.schedule);
+    if (nextState.completed !== completed) setCompleted(nextState.completed);
+  };
+
+  const handleRescheduleTask = (dayIndex, taskIndex) => {
+    const updatedSchedule = reopenPlannerTask(
+      schedule,
+      completed,
+      dayIndex,
+      taskIndex,
+    );
+    if (updatedSchedule !== schedule) setSchedule(updatedSchedule);
+  };
+
+  const requestClearSchedule = () => {
+    if (!canManageSchedule) {
+      requestParentAccess();
+      return;
+    }
+    setShowClearConfirmation(true);
+  };
+
+  const handleClearSchedule = () => {
+    if (!canManageSchedule) {
+      setShowClearConfirmation(false);
+      requestParentAccess();
+      return;
+    }
+
+    const clearedState = clearPlannerScheduleState({
+      completed,
+      schedule,
+      scheduleStartDate,
+    });
+
+    setSchedule(clearedState.schedule);
+    setCompleted(clearedState.completed);
+    setScheduleStartDate?.(clearedState.scheduleStartDate);
+    setExamDate("");
+    setPreviousSchedule(null);
+    setLastAction(null);
+    setShowGenerateForm(true);
+    setShowClearConfirmation(false);
+    toast.success("Schedule cleared. Your subjects are still saved.", {
+      toastId: "planner-cleared",
+    });
   };
 
   const downloadPDF = async () => {
@@ -195,7 +381,7 @@ function Timetable({
       const completedTasks = [];
 
       currentDay.tasks.forEach((task) => {
-        if (completed.includes(task.task)) {
+        if (!isPlannerTaskPending(task, completed)) {
           completedTasks.push(task);
           return;
         }
@@ -257,12 +443,33 @@ function Timetable({
   return (
     <section className="card schedule-card">
       <div className="schedule-card-header">
-        <div>
+        <div className="schedule-card-copy">
           <h2>Study schedule</h2>
           <p className="card-subtext">
             Generate a focused timetable, export it, and recover backlog when the week changes.
           </p>
         </div>
+        {schedule.length > 0 && (
+          <div className="planner-clear-control">
+            <button
+              aria-controls="clear-schedule-confirmation"
+              aria-expanded={showClearConfirmation}
+              aria-haspopup="dialog"
+              className="secondary-btn action-btn planner-clear-schedule-btn"
+              onClick={requestClearSchedule}
+              type="button"
+            >
+              <Trash2 aria-hidden="true" size={15} />
+              <span>Clear schedule</span>
+            </button>
+            {showClearConfirmation && (
+              <ClearScheduleConfirmation
+                onCancel={() => setShowClearConfirmation(false)}
+                onDelete={handleClearSchedule}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       <div className="timetable-topbar">
@@ -387,28 +594,17 @@ function Timetable({
         {schedule.length === 0 ? (
           <p className="empty-state">No timetable generated yet.</p>
         ) : (
-          schedule.map((item, index) => (
-            <div className="day-card" key={item.day}>
-              <div className="day-title">
-                {formatScheduleDayHeading(item, index, scheduleStartDate)}
-              </div>
-              {item.tasks?.length === 0 ? (
-                <div className="task-chip revision">Revision block</div>
-              ) : (
-                item.tasks.map((task, index) => (
-                  <div className="task-row" key={`${task.task}-${index}`}>
-                    <input
-                      aria-label={`Mark ${task.task} complete`}
-                      checked={completed.includes(task.task)}
-                      onChange={() => toggleComplete(task.task)}
-                      type="checkbox"
-                    />
-                    <span className="time-slot">{task.time}</span>
-                    <span className={completed.includes(task.task) ? "task-chip done" : "task-chip"}>{task.task}</span>
-                  </div>
-                ))
-              )}
-            </div>
+          schedule.map((item, dayIndex) => (
+            <PlannerScheduleDay
+              completed={completed}
+              dayIndex={dayIndex}
+              item={item}
+              key={item.day ?? dayIndex}
+              onComplete={toggleComplete}
+              onReschedule={handleRescheduleTask}
+              scheduleStartDate={scheduleStartDate}
+              today={today}
+            />
           ))
         )}
       </div>

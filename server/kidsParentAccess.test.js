@@ -34,6 +34,75 @@ test("planner access distinguishes schedule mutations from ordinary child progre
   }), true);
 });
 
+test("planner access treats per-task boolean recheck metadata as ordinary child progress", () => {
+  const existing = {
+    schedule: [{
+      day: "Day 1",
+      tasks: [
+        { task: "Read a story", time: "10:00" },
+        { task: "Practise sums", time: "11:00", recheckPending: true },
+      ],
+    }],
+    scheduleStartDate: "2026-08-09",
+  };
+
+  assert.equal(kidsWorkspaceScheduleChanged(existing, {
+    schedule: [{
+      day: "Day 1",
+      tasks: [
+        { task: "Read a story", time: "10:00", recheckPending: true },
+        { task: "Practise sums", time: "11:00" },
+      ],
+    }],
+  }), false);
+  assert.equal(kidsWorkspaceScheduleChanged(existing, {
+    schedule: [{
+      day: "Day 1",
+      tasks: [
+        { task: "Read a story", time: "10:00", recheckPending: false },
+        { task: "Practise sums", time: "11:00", recheckPending: false },
+      ],
+    }],
+  }), false);
+});
+
+test("planner access still protects real schedule changes mixed with recheck metadata", () => {
+  const existing = {
+    schedule: [{
+      day: "Day 1",
+      tasks: [{ task: "Read a story", time: "10:00" }],
+    }],
+    scheduleStartDate: "2026-08-09",
+  };
+
+  assert.equal(kidsWorkspaceScheduleChanged(existing, {
+    schedule: [{
+      day: "Day 1",
+      tasks: [{ task: "Read a different story", time: "10:00", recheckPending: true }],
+    }],
+  }), true);
+  assert.equal(kidsWorkspaceScheduleChanged(existing, {
+    schedule: [{
+      day: "Day 1",
+      tasks: [{ task: "Read a story", time: "10:00", recheckPending: true }],
+    }],
+    scheduleStartDate: "2026-08-10",
+  }), true);
+  assert.equal(kidsWorkspaceScheduleChanged(existing, {
+    schedule: [{
+      day: "Day 1",
+      recheckPending: true,
+      tasks: [{ task: "Read a story", time: "10:00" }],
+    }],
+  }), true);
+  assert.equal(kidsWorkspaceScheduleChanged(existing, {
+    schedule: [{
+      day: "Day 1",
+      tasks: [{ task: "Read a story", time: "10:00", recheckPending: "true" }],
+    }],
+  }), true);
+});
+
 test("young Kids access is limited to early years and exact Classes 1 through 3", () => {
   const cases = [
     [{ academicLevel: "Early Years / Kindergarten", grade: "UKG" }, true, "early-years"],

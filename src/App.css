@@ -21830,3 +21830,248 @@ body .parent-corner-lock-confirm-btn {
   background: #a9680d !important;
   border-color: rgba(245, 185, 66, 0.52) !important;
 }
+
+/* Planner progression, repeat-completion, and inline clear controls. */
+.schedule-card-header {
+  position: relative;
+}
+
+.planner-clear-control {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+body .planner-clear-schedule-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0.56rem 0.8rem;
+  white-space: nowrap;
+}
+
+.planner-clear-confirmation {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 40;
+  width: min(320px, calc(100vw - 48px));
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--text);
+  background: var(--surface-strong);
+  box-shadow: 0 20px 48px rgba(9, 17, 31, 0.22);
+  backdrop-filter: blur(22px) saturate(1.15);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+}
+
+.planner-clear-confirmation strong {
+  display: block;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.94rem;
+}
+
+.planner-clear-confirmation p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.planner-clear-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+body .planner-clear-confirmation-actions button {
+  min-width: 76px;
+  min-height: 34px;
+  padding: 0.42rem 0.72rem;
+  border-radius: 11px;
+  box-shadow: none !important;
+}
+
+body .planner-clear-delete-btn {
+  color: #b8324b !important;
+  background: rgba(184, 50, 75, 0.1) !important;
+  border-color: rgba(184, 50, 75, 0.25) !important;
+}
+
+body .planner-clear-delete-btn:hover {
+  color: #a8243d !important;
+  background: rgba(184, 50, 75, 0.17) !important;
+  border-color: rgba(184, 50, 75, 0.38) !important;
+}
+
+.planner-day-card .day-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.planner-day-card.is-locked {
+  opacity: 0.58;
+  filter: saturate(0.7);
+}
+
+.planner-day-card.is-locked:hover {
+  transform: none;
+  border-color: var(--border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.planner-day-locked-badge,
+.planner-already-completed-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.planner-day-locked-badge {
+  flex: 0 0 auto;
+  padding: 0.34rem 0.58rem;
+  color: var(--text-muted);
+  background: rgba(120, 132, 153, 0.13);
+  border: 1px solid rgba(120, 132, 153, 0.2);
+}
+
+.task-row.planner-task-row {
+  grid-template-columns: 28px 120px minmax(0, 1fr) 38px;
+}
+
+.planner-task-row .task-chip {
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.planner-task-label {
+  min-width: 0;
+}
+
+.planner-already-completed-badge {
+  padding: 0.3rem 0.52rem;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+}
+
+.planner-task-action-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  min-height: 36px;
+}
+
+body .planner-reschedule-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 !important;
+  border-radius: 11px !important;
+  color: var(--accent) !important;
+  background: rgba(var(--accent-rgb), 0.1) !important;
+  border-color: rgba(var(--accent-rgb), 0.2) !important;
+  box-shadow: none !important;
+}
+
+body .planner-reschedule-btn:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb), 0.18) !important;
+  border-color: rgba(var(--accent-rgb), 0.32) !important;
+  transform: rotate(-18deg) !important;
+  box-shadow: none !important;
+}
+
+body .planner-reschedule-btn::after {
+  display: none;
+}
+
+.planner-task-row input[type="checkbox"]:disabled,
+body .planner-reschedule-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+body .planner-reschedule-btn:disabled:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+@media (min-width: 768.01px) and (max-width: 991.98px) {
+  .task-row.planner-task-row {
+    grid-template-columns: 24px 80px minmax(0, 1fr) 38px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .schedule-card-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .planner-clear-control,
+  body .planner-clear-schedule-btn {
+    width: 100%;
+  }
+
+  body .planner-clear-schedule-btn {
+    justify-content: center;
+  }
+
+  .planner-clear-confirmation {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .task-row.planner-task-row {
+    grid-template-columns: 24px minmax(0, 1fr) 38px !important;
+  }
+
+  .planner-task-row input[type="checkbox"] {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .planner-task-row .time-slot {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .planner-task-row .task-chip {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .planner-task-action-slot {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+}
+
+@media (max-width: 520px) {
+  .planner-day-card .day-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .planner-day-locked-badge {
+    white-space: normal;
+  }
+}
