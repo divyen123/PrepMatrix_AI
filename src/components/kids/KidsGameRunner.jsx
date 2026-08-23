@@ -378,6 +378,8 @@ export default function KidsGameRunner({
   const feedbackMessage = feedback?.status === "correct"
     ? copy.correct
     : feedback?.status === "incorrect" ? copy.incorrect : copy.saved;
+  const petGameLabel = language === "hi" ? gameInfo.labelHi : gameInfo.label;
+  const petMessage = `${petGameLabel} · ${copy.question} ${itemIndex + 1}/${items.length}`;
 
   return (
     <section className="kids-game-shell" aria-labelledby="kids-game-title">
@@ -405,7 +407,8 @@ export default function KidsGameRunner({
           audioEnabled={audioEnabled}
           autoSpeakKey={`${pack.id}:${currentItem.id}`}
           language={language}
-          message={currentItem.audioText || currentItem.audioPrompt || prompt}
+          message={petMessage}
+          speechMessage={currentItem.audioText || currentItem.audioPrompt || prompt}
           state={feedback?.correct ? "celebrate" : feedback?.status === "incorrect" ? "encourage" : "idle"}
         />
 

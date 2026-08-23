@@ -28,13 +28,10 @@
   min-height: min(100vh, 980px);
   margin: 0 auto;
   padding: clamp(14px, 2vw, 28px);
-  overflow: clip;
+  overflow: visible;
   color: var(--kids-ink);
-  border-radius: clamp(20px, 2.6vw, 34px);
-  background:
-    radial-gradient(circle at 8% 3%, rgba(254, 215, 106, 0.28), transparent 25%),
-    radial-gradient(circle at 96% 16%, rgba(124, 210, 255, 0.24), transparent 26%),
-    linear-gradient(180deg, rgba(248, 250, 255, 0.72), rgba(243, 246, 255, 0.42));
+  border-radius: 0;
+  background: transparent;
   font-family: "Manrope", "Noto Sans Devanagari", system-ui, sans-serif;
 }
 
@@ -898,56 +895,98 @@
   text-align: center;
 }
 
-/* Fox tutor */
+/* Interactive dog companion */
 .kids-pet-tutor {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: end;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-items: start;
+  justify-self: end;
+  gap: 8px;
+  width: min(100%, 290px);
   min-width: 0;
 }
 
 .kids-pet-avatar {
   position: relative;
   display: grid;
-  width: 86px;
-  height: 86px;
-  place-items: center;
-  border: 3px solid rgba(255, 255, 255, 0.75);
-  border-radius: 31px 31px 27px 27px;
-  background: linear-gradient(145deg, #fff2c8, #ffc765);
-  box-shadow: 0 14px 28px rgba(39, 33, 107, 0.18);
-  transform: rotate(-2deg);
+  grid-template-rows: auto auto;
+  justify-items: center;
+  width: max-content;
+  min-width: 0;
+  min-height: 0 !important;
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  color: rgba(255, 255, 255, 0.78);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  transform-origin: 50% 85%;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), filter 220ms ease;
 }
 
-.kids-pet-face { font-size: 3.1rem; filter: drop-shadow(0 3px 2px rgba(90, 57, 14, 0.12)); }
+.kids-pet-avatar:hover,
+.kids-pet-avatar:focus-visible {
+  border: 0;
+  color: #fff;
+  background: transparent;
+  box-shadow: none;
+  transform: translateY(-4px) scale(1.025);
+}
 
-.kids-pet-spark {
-  position: absolute;
-  top: -9px;
-  right: -8px;
-  display: grid;
-  width: 27px;
-  height: 27px;
-  place-items: center;
-  border: 2px solid rgba(255, 255, 255, 0.82);
-  border-radius: 50%;
-  color: #76590a;
-  background: #ffe898;
-  font-size: 0.8rem;
-  animation: kids-sparkle 2s ease-in-out infinite;
+.kids-pet-sprite {
+  display: block;
+  width: 124px;
+  aspect-ratio: 2 / 3;
+  background-image: url("/assets/kids/dog-companion-spritesheet.png");
+  background-repeat: no-repeat;
+  background-size: 800% 800%;
+  background-position: 0 0;
+  filter: drop-shadow(0 10px 12px rgba(31, 26, 83, 0.2));
+  image-rendering: auto;
+  transform-origin: 50% 88%;
+  will-change: transform, background-position;
+  animation:
+    kids-dog-idle-frames 5.4s steps(1, end) infinite,
+    kids-dog-float 2.8s ease-in-out infinite;
+}
+
+.kids-pet-action-hint {
+  margin-top: -13px;
+  color: inherit;
+  font-size: 0.62rem;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  opacity: 0.78;
+  text-shadow: 0 1px 8px rgba(31, 26, 83, 0.45);
 }
 
 .kids-pet-bubble {
   position: relative;
+  width: 100%;
   min-width: 0;
-  padding: 14px;
+  padding: 13px 14px;
   border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 20px 20px 20px 6px;
+  border-radius: 18px;
   color: #fff;
   background: rgba(21, 30, 99, 0.25);
   -webkit-backdrop-filter: blur(13px);
   backdrop-filter: blur(13px);
+}
+
+.kids-pet-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.28);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.28);
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
 }
 
 .kids-pet-bubble p { margin: 0 0 9px; color: inherit; font-size: 0.84rem; font-weight: 750; line-height: 1.45; }
@@ -969,12 +1008,26 @@
 
 .kids-audio-button:hover { color: #fff; background: rgba(255, 255, 255, 0.2); }
 
-.kids-pet-tutor.is-compact .kids-pet-avatar { width: 76px; height: 76px; }
-.kids-pet-tutor.is-compact .kids-pet-face { font-size: 2.7rem; }
-.kids-pet-tutor.is-compact .kids-pet-bubble { padding: 12px; }
+.kids-pet-tutor.is-compact .kids-pet-sprite { width: 106px; }
+.kids-pet-tutor.is-compact .kids-pet-bubble { padding: 11px 12px; }
 .kids-pet-tutor.is-compact .kids-pet-bubble p { margin-bottom: 6px; }
-.kids-pet-tutor.is-celebrate .kids-pet-avatar { animation: kids-pet-celebrate 0.7s ease both; }
-.kids-pet-tutor.is-encourage .kids-pet-avatar { animation: kids-pet-nod 0.7s ease both; }
+.kids-pet-tutor.is-celebrate .kids-pet-sprite {
+  animation:
+    kids-dog-celebrate-frames 900ms steps(1, end) both,
+    kids-dog-celebrate-motion 900ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.kids-pet-tutor.is-encourage .kids-pet-sprite {
+  animation:
+    kids-dog-encourage-frames 1.15s steps(1, end) both,
+    kids-dog-encourage-motion 1.15s ease-in-out both;
+}
+.kids-pet-tutor.is-idle:not(.is-interacting) .kids-pet-sprite { clip-path: inset(0 0 10px); }
+.kids-pet-tutor.is-interacting .kids-pet-sprite {
+  clip-path: inset(0);
+  animation:
+    kids-dog-play-frames 1.05s steps(1, end) both,
+    kids-dog-play-motion 1.05s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 
 /* Full-screen game runner */
 .kids-learning-page.is-playing {
@@ -982,10 +1035,7 @@
   max-width: 1380px;
   min-height: calc(100dvh - 130px);
   padding: clamp(10px, 2vw, 24px);
-  background:
-    radial-gradient(circle at 5% 8%, rgba(255, 221, 116, 0.22), transparent 26%),
-    radial-gradient(circle at 96% 10%, rgba(124, 210, 255, 0.23), transparent 27%),
-    linear-gradient(180deg, rgba(248, 250, 255, 0.76), rgba(243, 246, 255, 0.5));
+  background: transparent;
 }
 
 .kids-floating-timer {
@@ -1126,25 +1176,25 @@
 .kids-game-stage > .kids-pet-tutor {
   position: sticky;
   top: 18px;
-  grid-template-columns: 1fr;
-  justify-items: center;
+  justify-self: center;
   align-self: start;
-  padding: clamp(16px, 3vw, 26px);
-  border: 1px solid rgba(101, 88, 217, 0.14);
-  border-radius: 24px;
-  background: linear-gradient(150deg, var(--kids-purple-soft), var(--kids-blue-soft));
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   text-align: center;
 }
 
-.kids-game-stage > .kids-pet-tutor .kids-pet-avatar { width: 104px; height: 104px; }
-.kids-game-stage > .kids-pet-tutor .kids-pet-face { font-size: 3.8rem; }
+.kids-game-stage > .kids-pet-tutor .kids-pet-sprite { width: 142px; }
+.kids-game-stage > .kids-pet-tutor .kids-pet-action-hint { color: var(--kids-muted); text-shadow: none; }
 .kids-game-stage > .kids-pet-tutor .kids-pet-bubble {
   width: 100%;
   border-color: rgba(101, 88, 217, 0.12);
-  border-radius: 19px;
   color: var(--kids-ink);
   background: var(--kids-panel-solid);
 }
+.kids-game-stage > .kids-pet-tutor .kids-pet-bubble::after { border-color: rgba(101, 88, 217, 0.12); }
 .kids-game-stage > .kids-pet-tutor .kids-audio-button { color: var(--kids-purple); border-color: rgba(101, 88, 217, 0.18); background: var(--kids-purple-soft); }
 
 .kids-question-card {
@@ -1660,10 +1710,7 @@ body.dark .kids-learning-page {
   --kids-red-soft: rgba(226, 69, 105, 0.15);
   --kids-shadow: 0 20px 50px rgba(0, 0, 0, 0.26);
   --kids-shadow-hover: 0 24px 58px rgba(0, 0, 0, 0.34);
-  background:
-    radial-gradient(circle at 8% 3%, rgba(245, 181, 55, 0.1), transparent 25%),
-    radial-gradient(circle at 96% 16%, rgba(68, 174, 231, 0.11), transparent 26%),
-    linear-gradient(180deg, rgba(12, 19, 33, 0.72), rgba(15, 24, 41, 0.48));
+  background: transparent;
 }
 
 body.dark .kids-age-options > button.is-selected,
@@ -1721,7 +1768,7 @@ body.has-bg-image .kids-learning-page {
   --kids-green-soft: rgba(48, 189, 145, 0.18);
   --kids-yellow-soft: rgba(245, 181, 55, 0.18);
   --kids-red-soft: rgba(226, 69, 105, 0.18);
-  background: rgba(9, 15, 29, 0.1);
+  background: transparent;
 }
 
 body.has-bg-image .kids-age-selector,
@@ -1775,14 +1822,13 @@ body.has-bg-image.no-glass-cards .kids-parent-dialog { -webkit-backdrop-filter: 
 
 @media (max-width: 900px) {
   .kids-hero-content { grid-template-columns: 1fr; gap: 25px; }
-  .kids-hero-content > .kids-pet-tutor { max-width: 520px; }
+  .kids-hero-content > .kids-pet-tutor { width: min(100%, 300px); max-width: 300px; justify-self: start; }
   .kids-stats-ribbon { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kids-age-options { grid-template-columns: 1fr; }
   .kids-age-options > button { min-height: 88px; }
   .kids-game-stage { grid-template-columns: 1fr; }
-  .kids-game-stage > .kids-pet-tutor { position: static; grid-template-columns: auto minmax(0, 1fr); justify-items: stretch; padding: 14px; text-align: left; }
-  .kids-game-stage > .kids-pet-tutor .kids-pet-avatar { width: 78px; height: 78px; }
-  .kids-game-stage > .kids-pet-tutor .kids-pet-face { font-size: 2.8rem; }
+  .kids-game-stage > .kids-pet-tutor { position: static; width: min(100%, 320px); justify-self: center; padding: 0; text-align: center; }
+  .kids-game-stage > .kids-pet-tutor .kids-pet-sprite { width: 112px; }
   .kids-parent-content { grid-template-columns: 1fr; }
   .kids-results-card { grid-template-columns: auto minmax(0, 1fr) auto; }
   .kids-result-score { grid-column: 1 / 2; }
@@ -1791,7 +1837,7 @@ body.has-bg-image.no-glass-cards .kids-parent-dialog { -webkit-backdrop-filter: 
 }
 
 @media (max-width: 700px) {
-  .kids-learning-page { padding: 10px; border-radius: 20px; }
+  .kids-learning-page { padding: 10px; border-radius: 0; }
   .kids-hero { padding: 16px; border-radius: 22px; }
   .kids-hero-toolbar { flex-wrap: wrap; margin-bottom: 24px; }
   .kids-sync-status { order: 1; }
@@ -1839,9 +1885,9 @@ body.has-bg-image.no-glass-cards .kids-parent-dialog { -webkit-backdrop-filter: 
   .kids-hero-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
   .kids-sync-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kids-parent-button { padding-inline: 9px; }
-  .kids-hero-content > .kids-pet-tutor { grid-template-columns: 62px minmax(0, 1fr); }
-  .kids-pet-tutor.is-compact .kids-pet-avatar { width: 62px; height: 62px; border-radius: 22px; }
-  .kids-pet-tutor.is-compact .kids-pet-face { font-size: 2.2rem; }
+  .kids-hero-content > .kids-pet-tutor { width: min(100%, 270px); }
+  .kids-pet-tutor.is-compact .kids-pet-sprite { width: 84px; }
+  .kids-pet-action-hint { font-size: 0.58rem; }
   .kids-stats-ribbon article { min-height: 64px; padding: 9px; }
   .kids-stats-ribbon article > span { width: 36px; height: 36px; border-radius: 12px; }
   .kids-heading-icon { width: 44px; height: 44px; }
@@ -1859,9 +1905,8 @@ body.has-bg-image.no-glass-cards .kids-parent-dialog { -webkit-backdrop-filter: 
   .kids-game-title small { display: none; }
   .kids-game-title h1 { max-width: 43vw; font-size: 0.9rem; }
   .kids-game-counter { padding-inline: 7px; }
-  .kids-game-stage > .kids-pet-tutor { grid-template-columns: 58px minmax(0, 1fr); }
-  .kids-game-stage > .kids-pet-tutor .kids-pet-avatar { width: 58px; height: 58px; border-width: 2px; border-radius: 20px; }
-  .kids-game-stage > .kids-pet-tutor .kids-pet-face { font-size: 2.1rem; }
+  .kids-game-stage > .kids-pet-tutor { width: min(100%, 270px); }
+  .kids-game-stage > .kids-pet-tutor .kids-pet-sprite { width: 92px; }
   .kids-question-meta span:first-child { display: none; }
   .kids-question-meta { justify-content: flex-end; }
   .kids-question-visual { min-height: 90px; }
@@ -1887,6 +1932,16 @@ body.has-bg-image.no-glass-cards .kids-parent-dialog { -webkit-backdrop-filter: 
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+
+  .kids-pet-sprite {
+    animation: none !important;
+    background-position: 0.8929% 0 !important;
+    clip-path: inset(0 0 10px) !important;
+    transform: none !important;
+  }
+
+  .kids-pet-avatar:hover,
+  .kids-pet-avatar:focus-visible { transform: none !important; }
 }
 
 @media (forced-colors: active) {
@@ -1913,8 +1968,53 @@ body.has-bg-image.no-glass-cards .kids-parent-dialog { -webkit-backdrop-filter: 
 @keyframes kids-result-arrive { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 @keyframes kids-feedback-pop { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
 @keyframes kids-hint-reveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes kids-pet-celebrate { 0%, 100% { transform: rotate(-2deg) translateY(0); } 35% { transform: rotate(5deg) translateY(-9px); } 70% { transform: rotate(-5deg) translateY(-3px); } }
-@keyframes kids-pet-nod { 0%, 100% { transform: rotate(-2deg); } 40% { transform: rotate(4deg) translateY(3px); } 70% { transform: rotate(-4deg); } }
+@keyframes kids-dog-idle-frames {
+  0%, 16% { background-position: 0.8929% 0; }
+  16.01%, 20% { background-position: 16.5179% 0; }
+  20.01%, 49% { background-position: 0.8929% 0; }
+  49.01%, 53% { background-position: 58.9286% 0; }
+  53.01%, 79% { background-position: 0.8929% 0; }
+  79.01%, 83% { background-position: 86.3839% 0; }
+  83.01%, 100% { background-position: 0.8929% 0; }
+}
+@keyframes kids-dog-float {
+  0%, 100% { transform: translateY(0) rotate(-0.8deg); }
+  50% { transform: translateY(-4px) rotate(0.8deg); }
+}
+@keyframes kids-dog-celebrate-frames {
+  0%, 24.99% { background-position: 0.8929% 39.2113%; }
+  25%, 49.99% { background-position: 16.5179% 39.2113%; }
+  50%, 74.99% { background-position: 31.4732% 39.2113%; }
+  75%, 100% { background-position: 0.8929% 39.2113%; }
+}
+@keyframes kids-dog-celebrate-motion {
+  0%, 100% { transform: translateY(0) rotate(0) scale(1); }
+  34% { transform: translateY(-13px) rotate(4deg) scale(1.035, 0.97); }
+  68% { transform: translateY(-3px) rotate(-3deg) scale(0.985, 1.02); }
+}
+@keyframes kids-dog-encourage-frames {
+  0%, 29.99% { background-position: 15.9598% 67.1131%; }
+  30%, 59.99% { background-position: 30.3571% 67.1131%; }
+  60%, 79.99% { background-position: 0.4464% 67.1131%; }
+  80%, 100% { background-position: 15.9598% 67.1131%; }
+}
+@keyframes kids-dog-encourage-motion {
+  0%, 100% { transform: rotate(0) translateY(0); }
+  30% { transform: rotate(-3deg) translateY(2px); }
+  65% { transform: rotate(3deg) translateY(-2px); }
+}
+@keyframes kids-dog-play-frames {
+  0%, 24.99% { background-position: 0.8929% 39.2113%; }
+  25%, 49.99% { background-position: 31.4732% 39.2113%; }
+  50%, 74.99% { background-position: 16.5179% 39.2113%; }
+  75%, 100% { background-position: 0.8929% 39.2113%; }
+}
+@keyframes kids-dog-play-motion {
+  0%, 100% { transform: translateY(0) rotate(0) scale(1); }
+  26% { transform: translateY(-9px) rotate(-5deg) scale(1.025); }
+  56% { transform: translateY(-5px) rotate(5deg) scale(1.04); }
+  78% { transform: translateY(-1px) rotate(-2deg) scale(0.99); }
+}
 @keyframes kids-timer-pulse { 0%, 100% { box-shadow: 0 9px 24px rgba(196, 61, 92, 0.12); } 50% { box-shadow: 0 9px 27px rgba(196, 61, 92, 0.3); } }
 @keyframes kids-count-pop { from { opacity: 0; transform: scale(0.75); } to { opacity: 1; transform: scale(1); } }
 @keyframes kids-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
