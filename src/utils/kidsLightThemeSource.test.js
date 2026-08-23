@@ -109,9 +109,18 @@ test("Parent Corner PIN gate uses a compact dialog, spaced label, and smaller co
     parentCornerSource,
     /<label className="kids-pin-label">[\s\S]*?<span>\{hasPin \? copy\.enterPin : copy\.setupPin\}<\/span>/,
   );
+  assert.doesNotMatch(parentCornerSource, /copy\.pinHelp/u);
   assert.match(
     kidsLearningCss,
-    /\.kids-parent-dialog--pin-gate \{[\s\S]*?width: min\(520px, calc\(100vw - 32px\)\);[\s\S]*?max-height: min\(560px, calc\(100dvh - 32px\)\);/,
+    /\.kids-parent-dialog--pin-gate \{[\s\S]*?width: min\(480px, calc\(100vw - 32px\)\);[\s\S]*?max-height: min\(500px, calc\(100dvh - 32px\)\);/,
+  );
+  assert.match(
+    kidsLearningCss,
+    /\.kids-pin-gate \{[\s\S]*?padding: clamp\(18px, 2\.5vw, 24px\) 16px 20px;/,
+  );
+  assert.match(
+    kidsLearningCss,
+    /@media \(max-width: 700px\) \{[\s\S]*?\.kids-parent-dialog--pin-gate \{ width: min\(480px, calc\(100vw - 32px\)\); max-height: min\(500px, calc\(100dvh - 24px\)\); \}/,
   );
   assert.match(
     kidsLearningCss,

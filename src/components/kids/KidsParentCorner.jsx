@@ -207,7 +207,6 @@ export default function KidsParentCorner({
           <form className="kids-pin-gate" onSubmit={unlock}>
             <span aria-hidden="true" className="kids-pin-icon"><KeyRound size={30} /></span>
             <h3>{hasPin ? copy.enterPin : copy.setupPin}</h3>
-            <p>{copy.pinHelp}</p>
             <label className="kids-pin-label">
               <span>{hasPin ? copy.enterPin : copy.setupPin}</span>
               <div>

@@ -1572,8 +1572,8 @@ body .kids-learning-page button.kids-pet-avatar:focus-visible {
   animation: kids-dialog-in 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.08) both;
 }
 .kids-parent-dialog--pin-gate {
-  width: min(520px, calc(100vw - 32px));
-  max-height: min(560px, calc(100dvh - 32px));
+  width: min(480px, calc(100vw - 32px));
+  max-height: min(500px, calc(100dvh - 32px));
 }
 
 .kids-parent-dialog > header {
@@ -1605,13 +1605,13 @@ body .kids-learning-page button.kids-pet-avatar:focus-visible {
   justify-items: center;
   width: min(100%, 330px);
   margin: 0 auto;
-  padding: clamp(20px, 3vw, 28px) 18px 24px;
+  padding: clamp(18px, 2.5vw, 24px) 16px 20px;
   text-align: center;
   overflow-y: auto;
 }
 
 .kids-pin-icon { display: grid; width: 52px; height: 52px; margin-bottom: 10px; place-items: center; border-radius: 16px; color: var(--kids-purple); background: linear-gradient(145deg, var(--kids-purple-soft), var(--kids-blue-soft)); }
-.kids-pin-gate h3 { margin: 0 0 6px; font-size: 1.22rem; }
+.kids-pin-gate h3 { margin: 0 0 12px; font-size: 1.22rem; }
 .kids-pin-gate > p { max-width: 320px; margin: 0 0 12px; color: var(--kids-muted); font-size: 0.8rem; line-height: 1.5; }
 .kids-pin-gate > label { display: grid; gap: 7px; width: min(100%, 250px); color: var(--kids-ink); font-size: 0.76rem; font-weight: 800; text-align: left; }
 .kids-pin-gate > label > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
@@ -1920,7 +1920,7 @@ body.has-bg-image.no-glass-cards .kids-parent-dialog { -webkit-backdrop-filter: 
   .kids-results-card > button { grid-column: 1 / -1; width: 100%; }
   .kids-parent-backdrop { place-items: center; padding: 12px; }
   .kids-parent-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); border-radius: 24px; }
-  .kids-parent-dialog--pin-gate { width: min(500px, calc(100vw - 32px)); max-height: min(560px, calc(100dvh - 24px)); }
+  .kids-parent-dialog--pin-gate { width: min(480px, calc(100vw - 32px)); max-height: min(500px, calc(100dvh - 24px)); }
   .kids-parent-content { padding: 12px; }
 }
 

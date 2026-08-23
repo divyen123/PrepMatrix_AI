@@ -48,6 +48,14 @@ test("waits for server Parent Corner state before guarding Settings", () => {
   );
 });
 
+test("keeps Notification History behind Parent Corner for kids instead of redirecting them home", () => {
+  assert.match(
+    appSource,
+    /parentGuidedKidsRoute\(\s*<NotificationHistoryPage \/>,\s*"\/notification-history",\s*"settings"/,
+  );
+  assert.doesNotMatch(appSource, /standardOnlyRoute\(\s*<NotificationHistoryPage \/>/);
+});
+
 test("moves focus into the Parent Corner exit confirmation and restores the trigger", () => {
   assert.match(appSource, /const parentLockTriggerRef = useRef\(null\)/);
   assert.match(appSource, /const parentLockDialogRef = useRef\(null\)/);

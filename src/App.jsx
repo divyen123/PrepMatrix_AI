@@ -2786,7 +2786,11 @@ function App() {
                           path="/settings"
                         />
                         <Route
-                          element={standardOnlyRoute(<NotificationHistoryPage />)}
+                          element={parentGuidedKidsRoute(
+                            <NotificationHistoryPage />,
+                            "/notification-history",
+                            "settings",
+                          )}
                           path="/notification-history"
                         />
                         <Route element={<AboutPage />} path="/about" />

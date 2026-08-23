@@ -30,10 +30,17 @@ test("routes early-years through Class 3 learners to Play & Learn", () => {
 });
 
 test("only allows known Parent Corner return routes", () => {
-  ["/planner", "/settings", "/quiz", "/exam", "/exam/about"].forEach((route) => {
+  ["/planner", "/settings", "/notification-history", "/quiz", "/exam", "/exam/about"].forEach((route) => {
     assert.equal(isYoungKidsParentGuidedRoute(route), true, route);
   });
-  ["/kids", "/dashboard", "https://example.com", "//example.com", "/quiz?next=/settings"].forEach((route) => {
+  [
+    "/kids",
+    "/dashboard",
+    "https://example.com",
+    "//example.com",
+    "/quiz?next=/settings",
+    "/notification-history?filter=unread",
+  ].forEach((route) => {
     assert.equal(isYoungKidsParentGuidedRoute(route), false, route);
   });
 });
