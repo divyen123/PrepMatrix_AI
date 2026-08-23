@@ -909,6 +909,8 @@ function KidsLearningPageContent({
             compact
             language={settings.language}
             message={settings.language === "hi" ? "आज हम कौन-सा मिशन करेंगे?" : "Which adventure shall we try today?"}
+            revealBubble
+            showcaseAllActions
           />
         </div>
 
