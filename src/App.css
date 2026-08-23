@@ -21929,6 +21929,13 @@ body .planner-clear-delete-btn:hover {
 }
 
 .planner-day-card.is-locked {
+  opacity: 1;
+  filter: none;
+}
+
+.planner-day-card.is-locked > .task-row,
+.planner-day-card.is-locked > .task-chip.revision,
+.planner-day-card.is-locked .day-title > span:first-child {
   opacity: 0.58;
   filter: saturate(0.7);
 }
@@ -21937,6 +21944,14 @@ body .planner-clear-delete-btn:hover {
   transform: none;
   border-color: var(--border);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.planner-day-lock-controls {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  flex: 0 0 auto;
 }
 
 .planner-day-locked-badge,
@@ -21960,13 +21975,60 @@ body .planner-clear-delete-btn:hover {
   border: 1px solid rgba(120, 132, 153, 0.2);
 }
 
+body .planner-day-unlock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0 !important;
+  color: var(--accent) !important;
+  background: rgba(var(--accent-rgb), 0.11) !important;
+  border-color: rgba(var(--accent-rgb), 0.24) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+body .planner-day-unlock-btn:hover {
+  background: rgba(var(--accent-rgb), 0.2) !important;
+  border-color: rgba(var(--accent-rgb), 0.38) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: none !important;
+}
+
+body .planner-day-unlock-btn::after {
+  display: none;
+}
+
 .task-row.planner-task-row {
-  grid-template-columns: 28px 120px minmax(0, 1fr) 38px;
+  grid-template-columns: 34px 120px minmax(0, 1fr);
+}
+
+.task-row.planner-task-row.is-completed {
+  grid-template-columns: 34px minmax(0, 1fr);
+}
+
+.planner-task-control-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  min-height: 36px;
+}
+
+.planner-task-control-slot input[type="checkbox"] {
+  margin: 0;
 }
 
 .planner-task-row .task-chip {
   flex-wrap: wrap;
   gap: 7px;
+}
+
+.planner-task-row.is-completed .task-chip {
+  grid-column: 2;
 }
 
 .planner-task-label {
@@ -21978,14 +22040,6 @@ body .planner-clear-delete-btn:hover {
   color: var(--accent);
   background: rgba(var(--accent-rgb), 0.12);
   border: 1px solid rgba(var(--accent-rgb), 0.2);
-}
-
-.planner-task-action-slot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  min-height: 36px;
 }
 
 body .planner-reschedule-btn {
@@ -22028,7 +22082,11 @@ body .planner-reschedule-btn:disabled:hover {
 
 @media (min-width: 768.01px) and (max-width: 991.98px) {
   .task-row.planner-task-row {
-    grid-template-columns: 24px 80px minmax(0, 1fr) 38px !important;
+    grid-template-columns: 34px 80px minmax(0, 1fr) !important;
+  }
+
+  .task-row.planner-task-row.is-completed {
+    grid-template-columns: 34px minmax(0, 1fr) !important;
   }
 }
 
@@ -22053,11 +22111,12 @@ body .planner-reschedule-btn:disabled:hover {
     transform: translateX(-50%);
   }
 
-  .task-row.planner-task-row {
-    grid-template-columns: 24px minmax(0, 1fr) 38px !important;
+  .task-row.planner-task-row,
+  .task-row.planner-task-row.is-completed {
+    grid-template-columns: 34px minmax(0, 1fr) !important;
   }
 
-  .planner-task-row input[type="checkbox"] {
+  .planner-task-control-slot {
     grid-column: 1;
     grid-row: 1 / span 2;
   }
@@ -22072,9 +22131,9 @@ body .planner-reschedule-btn:disabled:hover {
     grid-row: 2;
   }
 
-  .planner-task-action-slot {
-    grid-column: 3;
-    grid-row: 1 / span 2;
+  .planner-task-row.is-completed .planner-task-control-slot,
+  .planner-task-row.is-completed .task-chip {
+    grid-row: 1;
   }
 }
 

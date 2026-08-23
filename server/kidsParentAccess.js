@@ -2,36 +2,40 @@ import { normalizeAcademicProfile } from "../src/utils/academicProfile.js";
 
 export const KIDS_PARENT_ACCESS_TTL_MS = 15 * 60 * 1000;
 
-function scheduleWithoutTaskProgressMetadata(schedule) {
+function scheduleWithoutPlannerProgressMetadata(schedule) {
   if (!Array.isArray(schedule)) return schedule;
 
   return schedule.map((day) => {
-    if (!day || typeof day !== "object" || !Array.isArray(day.tasks)) return day;
+    if (!day || typeof day !== "object" || Array.isArray(day)) return day;
 
-    return {
-      ...day,
-      tasks: day.tasks.map((task) => {
-        if (
-          !task
-          || typeof task !== "object"
-          || Array.isArray(task)
-          || typeof task.recheckPending !== "boolean"
-        ) {
-          return task;
-        }
+    const protectedDay = { ...day };
+    delete protectedDay.plannerQuizUnlock;
 
-        const protectedTask = { ...task };
-        delete protectedTask.recheckPending;
-        return protectedTask;
-      }),
-    };
+    if (!Array.isArray(protectedDay.tasks)) return protectedDay;
+
+    protectedDay.tasks = protectedDay.tasks.map((task) => {
+      if (
+        !task
+        || typeof task !== "object"
+        || Array.isArray(task)
+        || typeof task.recheckPending !== "boolean"
+      ) {
+        return task;
+      }
+
+      const protectedTask = { ...task };
+      delete protectedTask.recheckPending;
+      return protectedTask;
+    });
+
+    return protectedDay;
   });
 }
 
 export function kidsWorkspaceScheduleChanged(existingWorkspace = {}, update = {}) {
   const scheduleChanged = Object.prototype.hasOwnProperty.call(update, "schedule")
-    && JSON.stringify(scheduleWithoutTaskProgressMetadata(existingWorkspace?.schedule || []))
-      !== JSON.stringify(scheduleWithoutTaskProgressMetadata(update.schedule || []));
+    && JSON.stringify(scheduleWithoutPlannerProgressMetadata(existingWorkspace?.schedule || []))
+      !== JSON.stringify(scheduleWithoutPlannerProgressMetadata(update.schedule || []));
   const startDateChanged = Object.prototype.hasOwnProperty.call(update, "scheduleStartDate")
     && String(existingWorkspace?.scheduleStartDate || "") !== String(update.scheduleStartDate || "");
   return scheduleChanged || startDateChanged;

@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  PLANNER_QUIZ_UNLOCK_FIELD,
   PLANNER_RECHECK_PENDING_FIELD,
   clearPlannerScheduleState,
   completePlannerTask,
+  completePlannerUnlockQuiz,
   getPlannerDayAvailability,
+  getPlannerDayProgression,
+  getPlannerUnlockQuizContext,
   isPlannerDayCompleted,
   isPlannerTaskCompleted,
   isPlannerTaskPending,
@@ -254,4 +258,261 @@ test("clear removes planner progress but preserves subjects and unrelated profil
   assert.equal(cleared.profileName, "Exam prep");
   assert.deepEqual(state.completed, ["Algebra"]);
   assert.equal(state.scheduleStartDate, "2026-04-15");
+});
+
+test("planner unlock quiz requires exactly 8 of 10 and persists an immutable proof", () => {
+  const schedule = deepFreeze([
+    {
+      day: 1,
+      date: "2999-01-01",
+      tasks: [
+        {
+          subjectName: "Mathematics",
+          task: "Mathematics - Fractions",
+          topic: "Fractions",
+          unitKey: "maths-fractions",
+        },
+        {
+          subjectName: "Science",
+          task: "Science - Cells",
+          topic: "Cells",
+          unitKey: "science-cells",
+        },
+      ],
+    },
+    {
+      day: 2,
+      date: "2999-01-02",
+      tasks: [{ task: "Mathematics - Decimals", topic: "Decimals" }],
+    },
+  ]);
+  const completed = ["Mathematics - Fractions", "Science - Cells"];
+  const options = {
+    now: new Date("2026-08-23T10:00:00.000Z"),
+    scheduleStartDate: "2999-01-01",
+    today: localDate(2026, 8, 23),
+  };
+
+  const context = getPlannerUnlockQuizContext(schedule, 1, options.scheduleStartDate);
+  assert.deepEqual(context.subjects, ["Mathematics", "Science"]);
+  assert.deepEqual(context.topics, ["Fractions", "Cells"]);
+  assert.equal(context.sourceDayIndex, 0);
+
+  const before = getPlannerDayProgression(
+    schedule,
+    completed,
+    1,
+    options.scheduleStartDate,
+    options.today,
+  );
+  assert.equal(before.isLocked, true);
+  assert.equal(before.canAttemptUnlockQuiz, true);
+
+  const failed = completePlannerUnlockQuiz(
+    schedule,
+    completed,
+    1,
+    { score: 7, total: 10 },
+    options,
+  );
+  assert.strictEqual(failed.schedule, schedule);
+  assert.equal(failed.passed, false);
+  assert.equal(failed.percentage, 70);
+  assert.equal(failed.reason, "score-below-threshold");
+
+  const passed = completePlannerUnlockQuiz(
+    schedule,
+    completed,
+    1,
+    { score: 8, total: 10 },
+    options,
+  );
+  assert.notStrictEqual(passed.schedule, schedule);
+  assert.strictEqual(passed.schedule[0], schedule[0]);
+  assert.equal(passed.schedule[1][PLANNER_QUIZ_UNLOCK_FIELD].score, 8);
+  assert.equal(passed.schedule[1][PLANNER_QUIZ_UNLOCK_FIELD].total, 10);
+  assert.equal(schedule[1][PLANNER_QUIZ_UNLOCK_FIELD], undefined);
+  assert.equal(
+    getPlannerDayProgression(
+      passed.schedule,
+      completed,
+      1,
+      options.scheduleStartDate,
+      options.today,
+    ).isQuizUnlocked,
+    true,
+  );
+
+  const invalidTotal = completePlannerUnlockQuiz(
+    schedule,
+    completed,
+    1,
+    { score: 8, total: 9 },
+    options,
+  );
+  assert.strictEqual(invalidTotal.schedule, schedule);
+  assert.equal(invalidTotal.reason, "invalid-result");
+});
+
+test("unlock proof follows the exact source topics but survives a historical recheck", () => {
+  const schedule = [
+    {
+      day: 1,
+      date: "2999-01-01",
+      tasks: [{
+        subjectName: "Physics",
+        task: "Physics - Motion",
+        topic: "Motion",
+        unitKey: "physics-motion",
+      }],
+    },
+    {
+      day: 2,
+      date: "2999-01-02",
+      tasks: [{ task: "Physics - Force", topic: "Force" }],
+    },
+  ];
+  const completed = ["Physics - Motion"];
+  const options = {
+    scheduleStartDate: "2999-01-01",
+    today: localDate(2026, 8, 23),
+  };
+  const unlocked = completePlannerUnlockQuiz(
+    schedule,
+    completed,
+    1,
+    { score: 9, total: 10 },
+    options,
+  ).schedule;
+  const reopenedSource = [
+    {
+      ...unlocked[0],
+      tasks: [{
+        ...unlocked[0].tasks[0],
+        [PLANNER_RECHECK_PENDING_FIELD]: true,
+      }],
+    },
+    unlocked[1],
+  ];
+
+  assert.equal(
+    getPlannerDayProgression(
+      reopenedSource,
+      completed,
+      1,
+      options.scheduleStartDate,
+      options.today,
+    ).isQuizUnlocked,
+    true,
+    "rechecking must not revoke an earned unlock",
+  );
+
+  const changedSource = [
+    {
+      ...unlocked[0],
+      tasks: [{
+        ...unlocked[0].tasks[0],
+        topic: "Accelerated motion",
+      }],
+    },
+    unlocked[1],
+  ];
+  const changedProgression = getPlannerDayProgression(
+    changedSource,
+    completed,
+    1,
+    options.scheduleStartDate,
+    options.today,
+  );
+
+  assert.equal(changedProgression.isQuizUnlocked, false);
+  assert.equal(changedProgression.isLocked, true);
+  assert.notEqual(
+    getPlannerUnlockQuizContext(changedSource, 1, options.scheduleStartDate)
+      .sourceTaskSignature,
+    unlocked[1][PLANNER_QUIZ_UNLOCK_FIELD].sourceTaskSignature,
+  );
+});
+
+test("revision blocks auto-unlock after the last real study day and never become quiz sources", () => {
+  const schedule = [
+    {
+      day: 1,
+      date: "2999-01-01",
+      tasks: [{
+        subjectName: "Biology",
+        task: "Biology - Cell structure",
+        topic: "Cell structure",
+      }],
+    },
+    { day: 2, date: "2999-01-02", tasks: [] },
+    { day: 3, date: "2999-01-03", tasks: [] },
+    {
+      day: 4,
+      date: "2999-01-04",
+      tasks: [{ task: "Biology - Genetics", topic: "Genetics" }],
+    },
+  ];
+  const completed = ["Biology - Cell structure"];
+  const today = localDate(2026, 8, 23);
+
+  const revisionDayTwo = getPlannerDayProgression(
+    schedule,
+    completed,
+    1,
+    "2999-01-01",
+    today,
+  );
+  const revisionDayThree = getPlannerDayProgression(
+    schedule,
+    completed,
+    2,
+    "2999-01-01",
+    today,
+  );
+  const nextStudyDay = getPlannerDayProgression(
+    schedule,
+    completed,
+    3,
+    "2999-01-01",
+    today,
+  );
+
+  assert.equal(revisionDayTwo.isRevisionDay, true);
+  assert.equal(revisionDayTwo.isRevisionAutoUnlocked, true);
+  assert.equal(revisionDayTwo.isLocked, false);
+  assert.equal(revisionDayTwo.canAttemptUnlockQuiz, false);
+
+  assert.equal(revisionDayThree.isRevisionAutoUnlocked, true);
+  assert.equal(revisionDayThree.sourceDayIndex, 0);
+
+  assert.equal(nextStudyDay.isRevisionDay, false);
+  assert.equal(nextStudyDay.isLocked, true);
+  assert.equal(nextStudyDay.canAttemptUnlockQuiz, true);
+  assert.equal(nextStudyDay.sourceDayIndex, 0);
+  assert.deepEqual(nextStudyDay.quizContext.topics, ["Cell structure"]);
+});
+
+test("revision blocks remain locked early until their prior study day is complete", () => {
+  const schedule = [
+    {
+      day: 1,
+      date: "2999-01-01",
+      tasks: [{ task: "Chemistry - Atoms", topic: "Atoms" }],
+    },
+    { day: 2, date: "2999-01-02", tasks: [] },
+  ];
+
+  const progression = getPlannerDayProgression(
+    schedule,
+    [],
+    1,
+    "2999-01-01",
+    localDate(2026, 8, 23),
+  );
+
+  assert.equal(progression.isRevisionDay, true);
+  assert.equal(progression.isRevisionAutoUnlocked, false);
+  assert.equal(progression.isLocked, true);
+  assert.equal(progression.canAttemptUnlockQuiz, false);
 });

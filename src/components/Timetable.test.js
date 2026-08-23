@@ -61,27 +61,29 @@ test("renders completed, reopened, and date-locked planner task states", async (
   });
 
   try {
-    const { default: Timetable } = await vite.ssrLoadModule(
-      "/src/components/Timetable.jsx",
-    );
+    const {
+      PlannerScheduleDay,
+      default: Timetable,
+    } = await vite.ssrLoadModule("/src/components/Timetable.jsx");
+    const schedule = [
+      {
+        day: 1,
+        date: "2999-01-01",
+        tasks: [
+          { task: "Completed lesson", time: "Morning" },
+          { task: "Review lesson", time: "Evening", recheckPending: true },
+        ],
+      },
+      {
+        day: 2,
+        date: "2999-01-02",
+        tasks: [{ task: "Future lesson", time: "Morning" }],
+      },
+    ];
     const markup = renderToStaticMarkup(React.createElement(Timetable, {
       ...baseProps,
       completed: ["Completed lesson", "Review lesson"],
-      schedule: [
-        {
-          day: 1,
-          date: "2999-01-01",
-          tasks: [
-            { task: "Completed lesson", time: "Morning" },
-            { task: "Review lesson", time: "Evening", recheckPending: true },
-          ],
-        },
-        {
-          day: 2,
-          date: "2999-01-02",
-          tasks: [{ task: "Future lesson", time: "Morning" }],
-        },
-      ],
+      schedule,
       scheduleStartDate: "2999-01-01",
       subjects: [{ name: "Maths", chapters: 4, difficulty: "easy" }],
     }));
@@ -100,8 +102,7 @@ test("renders completed, reopened, and date-locked planner task states", async (
 
     assert.match(markup, /Day 1 - 01\/01\/2999/u);
     assert.match(markup, /Day 2 - 02\/01\/2999/u);
-    assert.match(completedCheckbox, /checked=""/u);
-    assert.match(completedCheckbox, /disabled=""/u);
+    assert.equal(completedCheckbox, "");
     assert.match(rescheduleButton, /class="planner-reschedule-btn"/u);
     assert.doesNotMatch(rescheduleButton, /disabled=/u);
 
@@ -109,14 +110,98 @@ test("renders completed, reopened, and date-locked planner task states", async (
     assert.match(markup, /class="planner-already-completed-badge"/u);
     assert.match(markup, />Already completed</u);
 
-    assert.match(
-      markup,
-      /aria-disabled="true" class="day-card planner-day-card is-locked"/u,
-    );
+    assert.match(markup, /class="day-card planner-day-card is-locked"/u);
+    assert.doesNotMatch(markup, /aria-disabled="true"/u);
     assert.match(markup, /class="planner-day-locked-badge"/u);
     assert.match(markup, /Locked until 02\/01\/2999/u);
     assert.match(futureCheckbox, /disabled=""/u);
+    assert.match(
+      markup,
+      /aria-label="Take unlock quiz for Day 2"[^>]*class="planner-day-unlock-btn"/u,
+    );
     assert.match(markup, />Clear schedule</u);
+
+    const completedMarkup = renderToStaticMarkup(React.createElement(
+      PlannerScheduleDay,
+      {
+        completed: ["Completed lesson"],
+        dayIndex: 0,
+        item: {
+          day: 1,
+          date: "2999-01-01",
+          tasks: [{ task: "Completed lesson", time: "Morning · 45 min" }],
+        },
+        onComplete: () => {},
+        onReschedule: () => {},
+        onUnlock: () => {},
+        schedule: [{
+          day: 1,
+          date: "2999-01-01",
+          tasks: [{ task: "Completed lesson", time: "Morning · 45 min" }],
+        }],
+        scheduleStartDate: "2999-01-01",
+        today: new Date(2026, 7, 23),
+      },
+    ));
+
+    assert.match(completedMarkup, /planner-task-row is-completed/u);
+    assert.match(completedMarkup, /aria-label="Reschedule Completed lesson"/u);
+    assert.doesNotMatch(completedMarkup, /<input|time-slot|Morning · 45 min/u);
+  } finally {
+    await vite.close();
+  }
+});
+
+test("revision blocks bypass the quiz icon and later study days skip them as quiz sources", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { PlannerScheduleDay } = await vite.ssrLoadModule(
+      "/src/components/Timetable.jsx",
+    );
+    const schedule = [
+      {
+        day: 1,
+        date: "2999-01-01",
+        tasks: [{
+          subjectName: "Biology",
+          task: "Biology - Cells",
+          topic: "Cells",
+        }],
+      },
+      { day: 2, date: "2999-01-02", tasks: [] },
+      {
+        day: 3,
+        date: "2999-01-03",
+        tasks: [{ task: "Biology - Genetics", time: "Morning · 45 min" }],
+      },
+    ];
+    const sharedProps = {
+      completed: ["Biology - Cells"],
+      onComplete: () => {},
+      onReschedule: () => {},
+      onUnlock: () => {},
+      schedule,
+      scheduleStartDate: "2999-01-01",
+      today: new Date(2026, 7, 23),
+    };
+    const revisionMarkup = renderToStaticMarkup(React.createElement(
+      PlannerScheduleDay,
+      { ...sharedProps, dayIndex: 1, item: schedule[1] },
+    ));
+    const nextStudyMarkup = renderToStaticMarkup(React.createElement(
+      PlannerScheduleDay,
+      { ...sharedProps, dayIndex: 2, item: schedule[2] },
+    ));
+
+    assert.match(revisionMarkup, />Revision block</u);
+    assert.doesNotMatch(revisionMarkup, /is-locked|planner-day-unlock-btn/u);
+    assert.match(nextStudyMarkup, /planner-day-card is-locked/u);
+    assert.match(nextStudyMarkup, /aria-label="Take unlock quiz for Day 3"/u);
   } finally {
     await vite.close();
   }

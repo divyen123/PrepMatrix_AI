@@ -1,6 +1,9 @@
 import { getScheduleDateKey, toLocalDateKey } from "./scheduleDates.js";
 
 export const PLANNER_RECHECK_PENDING_FIELD = "recheckPending";
+export const PLANNER_QUIZ_UNLOCK_FIELD = "plannerQuizUnlock";
+export const PLANNER_UNLOCK_QUIZ_QUESTION_COUNT = 10;
+export const PLANNER_UNLOCK_PASS_PERCENTAGE = 80;
 
 function getTask(schedule, dayIndex, taskIndex) {
   if (!Array.isArray(schedule)) return null;
@@ -13,6 +16,28 @@ function getTask(schedule, dayIndex, taskIndex) {
 function getTaskName(task) {
   if (typeof task?.task !== "string" || !task.task.trim()) return "";
   return task.task;
+}
+
+function cleanText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getStudyTasks(day) {
+  return Array.isArray(day?.tasks)
+    ? day.tasks.filter((task) => getTaskName(task))
+    : [];
+}
+
+function stablePlannerSignature(value) {
+  let hash = 2166136261;
+  const source = String(value || "");
+
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return "v1-" + (hash >>> 0).toString(36);
 }
 
 function updateTask(schedule, dayIndex, taskIndex, update) {
@@ -47,10 +72,128 @@ export function isPlannerTaskPending(task, completed = []) {
 }
 
 export function isPlannerDayCompleted(day, completed = []) {
-  const tasks = Array.isArray(day?.tasks)
-    ? day.tasks.filter((task) => getTaskName(task))
-    : [];
+  const tasks = getStudyTasks(day);
   return tasks.length > 0 && tasks.every((task) => isPlannerTaskCompleted(task, completed));
+}
+
+export function isPlannerRevisionDay(day) {
+  return getStudyTasks(day).length === 0;
+}
+
+export function getPreviousPlannerStudyDayIndex(schedule, targetDayIndex) {
+  if (!Array.isArray(schedule)) return -1;
+  const safeTargetIndex = Math.min(
+    schedule.length,
+    Math.max(0, Number.parseInt(targetDayIndex, 10) || 0),
+  );
+
+  for (let index = safeTargetIndex - 1; index >= 0; index -= 1) {
+    if (!isPlannerRevisionDay(schedule[index])) return index;
+  }
+
+  return -1;
+}
+
+export function getPlannerDayIdentity(day, dayIndex = 0, scheduleStartDate = "") {
+  const safeDayIndex = Math.max(0, Number.parseInt(dayIndex, 10) || 0);
+  const dateKey = getScheduleDateKey(day, safeDayIndex, scheduleStartDate);
+  if (dateKey) return "date:" + dateKey;
+
+  const dayNumber = Number.parseInt(day?.day, 10);
+  return "day:" + (
+    Number.isFinite(dayNumber) && dayNumber > 0
+      ? dayNumber
+      : safeDayIndex + 1
+  );
+}
+
+export function getPlannerStudyDaySignature(
+  day,
+  dayIndex = 0,
+  scheduleStartDate = "",
+) {
+  const tasks = getStudyTasks(day).map((task) => ({
+    source: cleanText(task.source),
+    subjectName: cleanText(task.subjectName),
+    task: getTaskName(task),
+    topic: cleanText(task.topic),
+    unitKey: cleanText(task.unitKey),
+  }));
+
+  return stablePlannerSignature(JSON.stringify({
+    dayKey: getPlannerDayIdentity(day, dayIndex, scheduleStartDate),
+    tasks,
+  }));
+}
+
+export function getPlannerUnlockQuizContext(
+  schedule,
+  targetDayIndex,
+  scheduleStartDate = "",
+) {
+  if (!Array.isArray(schedule)) return null;
+  const safeTargetIndex = Number.parseInt(targetDayIndex, 10);
+  if (
+    !Number.isFinite(safeTargetIndex)
+    || safeTargetIndex < 0
+    || safeTargetIndex >= schedule.length
+  ) {
+    return null;
+  }
+
+  const sourceDayIndex = getPreviousPlannerStudyDayIndex(schedule, safeTargetIndex);
+  if (sourceDayIndex < 0) return null;
+
+  const sourceDay = schedule[sourceDayIndex];
+  const targetDay = schedule[safeTargetIndex];
+  const sourceTasks = getStudyTasks(sourceDay);
+  const subjects = [...new Set(sourceTasks
+    .map((task) => cleanText(task.subjectName))
+    .filter(Boolean))];
+  const topics = [...new Set(sourceTasks
+    .map((task) => cleanText(task.topic) || getTaskName(task))
+    .filter(Boolean))].slice(0, 12);
+  const subjectName = subjects.length === 1
+    ? subjects[0]
+    : subjects.join(", ") || "Mixed study topics";
+  const topic = topics.join("; ").slice(0, 900);
+
+  return {
+    sourceDayIndex,
+    sourceDayKey: getPlannerDayIdentity(sourceDay, sourceDayIndex, scheduleStartDate),
+    sourceDayNumber: Number.parseInt(sourceDay?.day, 10) || sourceDayIndex + 1,
+    sourceTaskSignature: getPlannerStudyDaySignature(
+      sourceDay,
+      sourceDayIndex,
+      scheduleStartDate,
+    ),
+    subjectName,
+    subjects,
+    targetDayIndex: safeTargetIndex,
+    targetDayKey: getPlannerDayIdentity(targetDay, safeTargetIndex, scheduleStartDate),
+    targetDayNumber: Number.parseInt(targetDay?.day, 10) || safeTargetIndex + 1,
+    topic,
+    topics,
+  };
+}
+
+export function isPlannerDayQuizUnlocked(day, context) {
+  const proof = day?.[PLANNER_QUIZ_UNLOCK_FIELD];
+  if (!proof || typeof proof !== "object" || Array.isArray(proof) || !context) {
+    return false;
+  }
+
+  const score = Number(proof.score);
+  const total = Number(proof.total);
+  const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+
+  return proof.version === 1
+    && total === PLANNER_UNLOCK_QUIZ_QUESTION_COUNT
+    && score >= (PLANNER_UNLOCK_PASS_PERCENTAGE / 100) * total
+    && percentage >= PLANNER_UNLOCK_PASS_PERCENTAGE
+    && proof.sourceDayKey === context.sourceDayKey
+    && proof.sourceTaskSignature === context.sourceTaskSignature
+    && proof.targetDayKey === context.targetDayKey;
 }
 
 /**
@@ -76,6 +219,158 @@ export function getPlannerDayAvailability(
     isFirstDay,
     isLocked: !isUnlocked,
     isUnlocked,
+  };
+}
+
+/**
+ * Combines the normal calendar gate with optional early progression. Study
+ * days may be unlocked early by passing the prior study day's quiz. Empty
+ * revision days never require a quiz and become available once the nearest
+ * prior study day is complete.
+ */
+export function getPlannerDayProgression(
+  schedule,
+  completed,
+  dayIndex = 0,
+  scheduleStartDate = "",
+  today = new Date(),
+) {
+  const safeDayIndex = Math.max(0, Number.parseInt(dayIndex, 10) || 0);
+  const day = Array.isArray(schedule) ? schedule[safeDayIndex] : null;
+  const availability = getPlannerDayAvailability(
+    day,
+    safeDayIndex,
+    scheduleStartDate,
+    today,
+  );
+  const isRevisionDay = isPlannerRevisionDay(day);
+  const quizContext = getPlannerUnlockQuizContext(
+    schedule,
+    safeDayIndex,
+    scheduleStartDate,
+  );
+  const sourceDayCompleted = Boolean(
+    quizContext
+    && isPlannerDayCompleted(schedule[quizContext.sourceDayIndex], completed),
+  );
+  const isQuizUnlocked = !isRevisionDay
+    && isPlannerDayQuizUnlocked(day, quizContext);
+  const isRevisionAutoUnlocked = isRevisionDay
+    && sourceDayCompleted;
+  const isUnlocked = availability.isUnlocked
+    || isQuizUnlocked
+    || isRevisionAutoUnlocked;
+
+  return {
+    ...availability,
+    canAttemptUnlockQuiz: !isUnlocked
+      && !isRevisionDay
+      && Boolean(quizContext)
+      && sourceDayCompleted,
+    isLocked: !isUnlocked,
+    isQuizUnlocked,
+    isRevisionAutoUnlocked,
+    isRevisionDay,
+    isUnlocked,
+    quizContext,
+    sourceDayCompleted,
+    sourceDayIndex: quizContext?.sourceDayIndex ?? -1,
+  };
+}
+
+export function completePlannerUnlockQuiz(
+  schedule,
+  completed,
+  targetDayIndex,
+  result = {},
+  {
+    now = new Date(),
+    scheduleStartDate = "",
+    today = new Date(),
+  } = {},
+) {
+  const score = Number(result.score);
+  const total = Number(result.total);
+  const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+  const progression = getPlannerDayProgression(
+    schedule,
+    completed,
+    targetDayIndex,
+    scheduleStartDate,
+    today,
+  );
+
+  if (
+    !Number.isInteger(score)
+    || !Number.isInteger(total)
+    || total !== PLANNER_UNLOCK_QUIZ_QUESTION_COUNT
+    || score < 0
+    || score > total
+  ) {
+    return {
+      passed: false,
+      percentage: 0,
+      reason: "invalid-result",
+      schedule,
+      score: 0,
+      total: PLANNER_UNLOCK_QUIZ_QUESTION_COUNT,
+      unlocked: false,
+    };
+  }
+
+  if (!progression.canAttemptUnlockQuiz || !progression.quizContext) {
+    return {
+      passed: false,
+      percentage,
+      reason: "not-eligible",
+      schedule,
+      score,
+      total,
+      unlocked: false,
+    };
+  }
+
+  const passed = percentage >= PLANNER_UNLOCK_PASS_PERCENTAGE;
+  if (!passed) {
+    return {
+      passed,
+      percentage,
+      reason: "score-below-threshold",
+      schedule,
+      score,
+      total,
+      unlocked: false,
+    };
+  }
+
+  const passedAtDate = now instanceof Date ? now : new Date(now);
+  const passedAt = Number.isFinite(passedAtDate.getTime())
+    ? passedAtDate.toISOString()
+    : new Date().toISOString();
+  const proof = {
+    passedAt,
+    score,
+    sourceDayKey: progression.quizContext.sourceDayKey,
+    sourceTaskSignature: progression.quizContext.sourceTaskSignature,
+    targetDayKey: progression.quizContext.targetDayKey,
+    total,
+    version: 1,
+  };
+  const nextSchedule = schedule.map((day, index) => (
+    index === progression.quizContext.targetDayIndex
+      ? { ...day, [PLANNER_QUIZ_UNLOCK_FIELD]: proof }
+      : day
+  ));
+
+  return {
+    passed,
+    percentage,
+    proof,
+    reason: "passed",
+    schedule: nextSchedule,
+    score,
+    total,
+    unlocked: true,
   };
 }
 

@@ -277,3 +277,38 @@ test("all Quiz API registrations use the Parent Corner guard", async () => {
     /app\.(?:get|post|delete)\("\/api\/quizzes(?:\/:id|\/generate)?",\s*requireAuth/gu,
   );
 });
+
+test("planner access treats validated day-unlock proof as ordinary child progress", () => {
+  const existing = {
+    schedule: [
+      {
+        day: "Day 1",
+        tasks: [{ task: "Read a story", time: "10:00" }],
+      },
+      {
+        day: "Day 2",
+        tasks: [{ task: "Write a summary", time: "11:00" }],
+      },
+    ],
+    scheduleStartDate: "2026-08-09",
+  };
+  const progressOnlyUpdate = structuredClone(existing.schedule);
+  progressOnlyUpdate[1].plannerQuizUnlock = {
+    passedAt: "2026-08-09T10:00:00.000Z",
+    score: 8,
+    sourceDayKey: "date:2026-08-09",
+    sourceTaskSignature: "v1-proof",
+    targetDayKey: "date:2026-08-10",
+    total: 10,
+    version: 1,
+  };
+
+  assert.equal(kidsWorkspaceScheduleChanged(existing, {
+    schedule: progressOnlyUpdate,
+  }), false);
+
+  progressOnlyUpdate[0].tasks[0].task = "Read a different story";
+  assert.equal(kidsWorkspaceScheduleChanged(existing, {
+    schedule: progressOnlyUpdate,
+  }), true);
+});

@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { Download, RotateCcw, Trash2 } from "lucide-react";
+import { Download, LockOpen, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import successSound from "../assets/success.mp3";
+import PlannerUnlockQuizDialog from "./PlannerUnlockQuizDialog";
+import api from "../utils/apiClient";
+import { createAiIdempotencyKey, getAiRequestErrorMessage } from "../utils/aiQuota";
 import { generateSchedule } from "../utils/scheduleGenerator";
 import {
   formatScheduleDate,
@@ -12,9 +15,11 @@ import {
 } from "../utils/scheduleDates";
 import { subscribeToLocalDateChanges } from "../utils/localDateRefresh";
 import {
+  PLANNER_UNLOCK_QUIZ_QUESTION_COUNT,
   clearPlannerScheduleState,
   completePlannerTask,
-  getPlannerDayAvailability,
+  completePlannerUnlockQuiz,
+  getPlannerDayProgression,
   isPlannerTaskCompleted,
   isPlannerTaskPending,
   isPlannerTaskRecheckPending,
@@ -58,39 +63,57 @@ export function ClearScheduleConfirmation({
   );
 }
 
-function PlannerScheduleDay({
+export function PlannerScheduleDay({
   completed,
   dayIndex,
   item,
   onComplete,
   onReschedule,
+  onUnlock,
+  schedule,
   scheduleStartDate,
   today,
 }) {
-  const availability = getPlannerDayAvailability(
-    item,
+  const progression = getPlannerDayProgression(
+    schedule,
+    completed,
     dayIndex,
     scheduleStartDate,
     today,
   );
-  const lockedDate = formatScheduleDate(availability.dateKey);
+  const lockedDate = formatScheduleDate(progression.dateKey);
+  const dayNumber = Number.parseInt(item?.day, 10) || dayIndex + 1;
 
   return (
     <div
-      aria-disabled={availability.isLocked || undefined}
-      className={"day-card planner-day-card" + (availability.isLocked ? " is-locked" : "")}
+      className={"day-card planner-day-card" + (progression.isLocked ? " is-locked" : "")}
     >
       <div className="day-title">
         <span>{formatScheduleDayHeading(item, dayIndex, scheduleStartDate)}</span>
-        {availability.isLocked && (
-          <span className="planner-day-locked-badge">
-            {lockedDate
-              ? "Locked until " + lockedDate
-              : "Locked until its scheduled day"}
+        {progression.isLocked && (
+          <span className="planner-day-lock-controls">
+            <span className="planner-day-locked-badge">
+              {lockedDate
+                ? "Locked until " + lockedDate
+                : "Locked until its scheduled day"}
+            </span>
+            {!progression.isRevisionDay && (
+              <button
+                aria-controls="planner-unlock-quiz-dialog"
+                aria-haspopup="dialog"
+                aria-label={"Take unlock quiz for Day " + dayNumber}
+                className="planner-day-unlock-btn"
+                onClick={() => onUnlock(dayIndex)}
+                title={"Unlock Day " + dayNumber + " with a quiz"}
+                type="button"
+              >
+                <LockOpen aria-hidden="true" size={14} />
+              </button>
+            )}
           </span>
         )}
       </div>
-      {item.tasks?.length === 0 ? (
+      {progression.isRevisionDay ? (
         <div className="task-chip revision">Revision block</div>
       ) : (
         item.tasks?.map((task, taskIndex) => {
@@ -100,39 +123,43 @@ function PlannerScheduleDay({
 
           return (
             <div
-              className="task-row planner-task-row"
+              className={
+                "task-row planner-task-row"
+                + (showCompletedState ? " is-completed" : "")
+              }
               key={task.task + "-" + taskIndex}
             >
-              <input
-                aria-label={isRecheckPending
-                  ? "Complete " + task.task + " again"
-                  : "Mark " + task.task + " complete"}
-                checked={showCompletedState}
-                disabled={availability.isLocked || showCompletedState}
-                onChange={() => onComplete(dayIndex, taskIndex)}
-                type="checkbox"
-              />
-              <span className="time-slot">{task.time}</span>
-              <span className={showCompletedState ? "task-chip done" : "task-chip"}>
-                <span className="planner-task-label">{task.task}</span>
-                {isRecheckPending && (
-                  <span className="planner-already-completed-badge">
-                    Already completed
-                  </span>
-                )}
-              </span>
-              <span className="planner-task-action-slot">
-                {showCompletedState && (
+              <span className="planner-task-control-slot">
+                {showCompletedState ? (
                   <button
                     aria-label={"Reschedule " + task.task}
                     className="planner-reschedule-btn"
-                    disabled={availability.isLocked}
+                    disabled={progression.isLocked}
                     onClick={() => onReschedule(dayIndex, taskIndex)}
                     title={"Reschedule " + task.task}
                     type="button"
                   >
                     <RotateCcw aria-hidden="true" size={15} />
                   </button>
+                ) : (
+                  <input
+                    aria-label={isRecheckPending
+                      ? "Complete " + task.task + " again"
+                      : "Mark " + task.task + " complete"}
+                    checked={false}
+                    disabled={progression.isLocked}
+                    onChange={() => onComplete(dayIndex, taskIndex)}
+                    type="checkbox"
+                  />
+                )}
+              </span>
+              {!showCompletedState && <span className="time-slot">{task.time}</span>}
+              <span className={showCompletedState ? "task-chip done" : "task-chip"}>
+                <span className="planner-task-label">{task.task}</span>
+                {isRecheckPending && (
+                  <span className="planner-already-completed-badge">
+                    Already completed
+                  </span>
                 )}
               </span>
             </div>
@@ -142,7 +169,6 @@ function PlannerScheduleDay({
     </div>
   );
 }
-
 function Timetable({
   academicProfileDataId = "",
   subjects,
@@ -164,6 +190,18 @@ function Timetable({
   const [showGenerateForm, setShowGenerateForm] = useState(schedule.length === 0);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [today, setToday] = useState(() => new Date());
+  const [unlockQuizTarget, setUnlockQuizTarget] = useState(null);
+  const academicProfileIdRef = useRef(academicProfileDataId);
+  const completedRef = useRef(completed);
+  const scheduleRef = useRef(schedule);
+  const scheduleStartDateRef = useRef(scheduleStartDate);
+  const todayRef = useRef(today);
+
+  academicProfileIdRef.current = academicProfileDataId;
+  completedRef.current = completed;
+  scheduleRef.current = schedule;
+  scheduleStartDateRef.current = scheduleStartDate;
+  todayRef.current = today;
 
   const requestParentAccess = useCallback(() => {
     onRequestParentAccess?.();
@@ -180,6 +218,176 @@ function Timetable({
   }, [schedule.length]);
 
   useEffect(() => subscribeToLocalDateChanges(setToday), []);
+
+  const activeUnlockProgression = unlockQuizTarget
+    ? getPlannerDayProgression(
+        schedule,
+        completed,
+        unlockQuizTarget.dayIndex,
+        scheduleStartDate,
+        today,
+      )
+    : null;
+  const activeUnlockContext = activeUnlockProgression?.quizContext || null;
+
+  useEffect(() => {
+    if (!unlockQuizTarget || !activeUnlockProgression) return;
+
+    const contextMatches = activeUnlockContext
+      ? activeUnlockContext.targetDayKey === unlockQuizTarget.targetDayKey
+        && activeUnlockContext.sourceDayKey === unlockQuizTarget.sourceDayKey
+        && activeUnlockContext.sourceTaskSignature === unlockQuizTarget.sourceTaskSignature
+      : !unlockQuizTarget.sourceDayKey && !unlockQuizTarget.sourceTaskSignature;
+    const naturallyUnlocked = !activeUnlockProgression.isLocked
+      && !activeUnlockProgression.isQuizUnlocked;
+
+    if (
+      unlockQuizTarget.academicProfileDataId !== academicProfileDataId
+      || !contextMatches
+      || naturallyUnlocked
+    ) {
+      setUnlockQuizTarget(null);
+    }
+  }, [
+    academicProfileDataId,
+    activeUnlockContext,
+    activeUnlockProgression,
+    unlockQuizTarget,
+  ]);
+
+  const openUnlockQuiz = (dayIndex) => {
+    const progression = getPlannerDayProgression(
+      scheduleRef.current,
+      completedRef.current,
+      dayIndex,
+      scheduleStartDateRef.current,
+      todayRef.current,
+    );
+    const context = progression.quizContext;
+
+    setUnlockQuizTarget({
+      academicProfileDataId: academicProfileIdRef.current,
+      dayIndex,
+      sourceDayKey: context?.sourceDayKey || "",
+      sourceTaskSignature: context?.sourceTaskSignature || "",
+      targetDayKey: context?.targetDayKey || "index:" + dayIndex,
+    });
+  };
+
+  const generateUnlockQuiz = async () => {
+    const target = unlockQuizTarget;
+    const requestProfileId = academicProfileIdRef.current;
+    const currentProgression = target
+      ? getPlannerDayProgression(
+          scheduleRef.current,
+          completedRef.current,
+          target.dayIndex,
+          scheduleStartDateRef.current,
+          todayRef.current,
+        )
+      : null;
+    const context = currentProgression?.quizContext;
+    const contextMatches = Boolean(
+      target
+      && context
+      && target.academicProfileDataId === requestProfileId
+      && target.targetDayKey === context.targetDayKey
+      && target.sourceDayKey === context.sourceDayKey
+      && target.sourceTaskSignature === context.sourceTaskSignature,
+    );
+
+    if (!contextMatches || !currentProgression?.canAttemptUnlockQuiz) {
+      throw new Error("This schedule changed. Close the quiz and open the unlock button again.");
+    }
+
+    try {
+      const payload = await api.generateQuiz({
+        limit: PLANNER_UNLOCK_QUIZ_QUESTION_COUNT,
+        subjectName: context.subjectName,
+        topic: "Completed planner topics from Day "
+          + context.sourceDayNumber
+          + ": "
+          + (context.topic || context.subjectName),
+      }, {
+        academicProfileId: requestProfileId,
+        headers: { "Idempotency-Key": createAiIdempotencyKey() },
+        timeoutMs: 120000,
+      });
+
+      const latestProgression = getPlannerDayProgression(
+        scheduleRef.current,
+        completedRef.current,
+        target.dayIndex,
+        scheduleStartDateRef.current,
+        todayRef.current,
+      );
+      const latestContext = latestProgression.quizContext;
+      if (
+        academicProfileIdRef.current !== requestProfileId
+        || latestContext?.targetDayKey !== target.targetDayKey
+        || latestContext?.sourceDayKey !== target.sourceDayKey
+        || latestContext?.sourceTaskSignature !== target.sourceTaskSignature
+      ) {
+        throw new Error("The planner changed while the quiz was loading. Open the unlock button again.");
+      }
+
+      return payload.questions || [];
+    } catch (error) {
+      throw new Error(getAiRequestErrorMessage(
+        error,
+        "Could not generate the planner unlock quiz.",
+      ));
+    }
+  };
+
+  const completeUnlockQuiz = (quizResult) => {
+    const target = unlockQuizTarget;
+    if (
+      !target
+      || target.academicProfileDataId !== academicProfileIdRef.current
+    ) {
+      return false;
+    }
+
+    const currentSchedule = scheduleRef.current;
+    const progression = getPlannerDayProgression(
+      currentSchedule,
+      completedRef.current,
+      target.dayIndex,
+      scheduleStartDateRef.current,
+      todayRef.current,
+    );
+    const context = progression.quizContext;
+    const contextMatches = Boolean(
+      context
+      && context.targetDayKey === target.targetDayKey
+      && context.sourceDayKey === target.sourceDayKey
+      && context.sourceTaskSignature === target.sourceTaskSignature,
+    );
+
+    if (!contextMatches || !progression.canAttemptUnlockQuiz) return false;
+
+    const update = completePlannerUnlockQuiz(
+      currentSchedule,
+      completedRef.current,
+      target.dayIndex,
+      quizResult,
+      {
+        now: new Date(),
+        scheduleStartDate: scheduleStartDateRef.current,
+        today: todayRef.current,
+      },
+    );
+    if (!update.unlocked) return false;
+
+    scheduleRef.current = update.schedule;
+    setSchedule(update.schedule);
+    toast.success(
+      "Day " + context.targetDayNumber + " unlocked with " + update.score + "/10.",
+      { toastId: "planner-day-quiz-unlocked-" + context.targetDayKey },
+    );
+    return true;
+  };
 
   const getBacklogTasks = useCallback(() => {
     const backlog = [];
@@ -233,6 +441,7 @@ function Timetable({
         startDate,
       });
 
+      setUnlockQuizTarget(null);
       setSchedule(result);
       setScheduleStartDate?.(startDate);
       setLoading(false);
@@ -317,6 +526,7 @@ function Timetable({
       scheduleStartDate,
     });
 
+    setUnlockQuizTarget(null);
     setSchedule(clearedState.schedule);
     setCompleted(clearedState.completed);
     setScheduleStartDate?.(clearedState.scheduleStartDate);
@@ -368,6 +578,7 @@ function Timetable({
       requestParentAccess();
       return;
     }
+    setUnlockQuizTarget(null);
     setPreviousSchedule(structuredClone(schedule));
     setLastAction("backlog");
     const updatedSchedule = structuredClone(schedule);
@@ -406,6 +617,7 @@ function Timetable({
       requestParentAccess();
       return;
     }
+    setUnlockQuizTarget(null);
     setPreviousSchedule(structuredClone(schedule));
     setLastAction("rebalance");
     const updated = structuredClone(schedule);
@@ -602,12 +814,30 @@ function Timetable({
               key={item.day ?? dayIndex}
               onComplete={toggleComplete}
               onReschedule={handleRescheduleTask}
+              onUnlock={openUnlockQuiz}
+              schedule={schedule}
               scheduleStartDate={scheduleStartDate}
               today={today}
             />
           ))
         )}
       </div>
+
+      {unlockQuizTarget && activeUnlockProgression && (
+        <PlannerUnlockQuizDialog
+          canAttempt={Boolean(activeUnlockProgression.canAttemptUnlockQuiz)}
+          context={activeUnlockContext}
+          onClose={() => setUnlockQuizTarget(null)}
+          onGenerate={generateUnlockQuiz}
+          onPassed={completeUnlockQuiz}
+          sessionKey={[
+            unlockQuizTarget.academicProfileDataId,
+            unlockQuizTarget.targetDayKey,
+            unlockQuizTarget.sourceDayKey,
+            unlockQuizTarget.sourceTaskSignature,
+          ].join("|")}
+        />
+      )}
     </section>
   );
 }
