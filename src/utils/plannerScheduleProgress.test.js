@@ -8,6 +8,7 @@ import {
   completePlannerUnlockQuiz,
   getPlannerDayAvailability,
   getPlannerDayProgression,
+  getPlannerNextUnlockCandidateIndex,
   getPlannerUnlockQuizContext,
   isPlannerDayCompleted,
   isPlannerTaskCompleted,
@@ -352,6 +353,137 @@ test("planner unlock quiz requires exactly 8 of 10 and persists an immutable pro
   );
   assert.strictEqual(invalidTotal.schedule, schedule);
   assert.equal(invalidTotal.reason, "invalid-result");
+});
+
+test("generic chapter quiz context preserves each subject and requests clarification", () => {
+  const schedule = [
+    {
+      day: 1,
+      date: "2999-01-01",
+      tasks: [
+        {
+          subjectName: "RestAPI",
+          task: "RestAPI - Chapter 1",
+          topic: "Chapter 1",
+          unitKey: "chapter:1",
+        },
+        {
+          subjectName: "Cloud",
+          task: "Cloud - Chapter 2",
+          topic: "Chapter 2",
+          unitKey: "chapter:2",
+        },
+        {
+          subjectName: "Data analytics",
+          task: "Data analytics - Chapter 1",
+          topic: "Chapter 1",
+          unitKey: "chapter:1",
+        },
+      ],
+    },
+    {
+      day: 2,
+      date: "2999-01-02",
+      tasks: [{ task: "Next topic" }],
+    },
+  ];
+
+  const context = getPlannerUnlockQuizContext(schedule, 1, "2999-01-01");
+
+  assert.deepEqual(context.topics, [
+    "RestAPI — Chapter 1",
+    "Cloud — Chapter 2",
+    "Data analytics — Chapter 1",
+  ]);
+  assert.deepEqual(context.genericTopics, context.topics);
+  assert.equal(context.needsTopicDetails, true);
+  assert.match(context.topic, /RestAPI — Chapter 1; Cloud — Chapter 2/u);
+
+  const legacyContext = getPlannerUnlockQuizContext([
+    {
+      day: 1,
+      tasks: [{ task: "Networking - Chapter 4" }],
+    },
+    {
+      day: 2,
+      tasks: [{ task: "Next topic" }],
+    },
+  ], 1);
+
+  assert.deepEqual(legacyContext.topics, ["Networking — Chapter 4"]);
+  assert.equal(legacyContext.needsTopicDetails, true);
+});
+
+test("only the first locked study day can become the sequential unlock candidate", () => {
+  const schedule = [
+    {
+      day: 1,
+      date: "2999-01-01",
+      tasks: [{ task: "Day 1 topic" }],
+    },
+    {
+      day: 2,
+      date: "2999-01-02",
+      tasks: [{ task: "Day 2 topic" }],
+    },
+    {
+      day: 3,
+      date: "2999-01-03",
+      tasks: [{ task: "Day 3 topic" }],
+    },
+  ];
+  const today = localDate(2026, 8, 23);
+  const options = {
+    scheduleStartDate: "2999-01-01",
+    today,
+  };
+
+  assert.equal(
+    getPlannerNextUnlockCandidateIndex(
+      schedule,
+      [],
+      options.scheduleStartDate,
+      today,
+    ),
+    -1,
+  );
+  assert.equal(
+    getPlannerNextUnlockCandidateIndex(
+      schedule,
+      ["Day 1 topic"],
+      options.scheduleStartDate,
+      today,
+    ),
+    1,
+  );
+
+  const dayTwoUnlocked = completePlannerUnlockQuiz(
+    schedule,
+    ["Day 1 topic"],
+    1,
+    { score: 8, total: 10 },
+    options,
+  ).schedule;
+
+  assert.equal(
+    getPlannerNextUnlockCandidateIndex(
+      dayTwoUnlocked,
+      ["Day 1 topic"],
+      options.scheduleStartDate,
+      today,
+    ),
+    -1,
+    "Day 3 stays unavailable until every Day 2 task is complete",
+  );
+  assert.equal(
+    getPlannerNextUnlockCandidateIndex(
+      dayTwoUnlocked,
+      ["Day 1 topic", "Day 2 topic"],
+      options.scheduleStartDate,
+      today,
+    ),
+    2,
+  );
 });
 
 test("unlock proof follows the exact source topics but survives a historical recheck", () => {

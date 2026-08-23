@@ -20,11 +20,14 @@ import {
   completePlannerTask,
   completePlannerUnlockQuiz,
   getPlannerDayProgression,
+  getPlannerNextUnlockCandidateIndex,
+  getPlannerSessionLabel,
   isPlannerTaskCompleted,
   isPlannerTaskPending,
   isPlannerTaskRecheckPending,
   reopenPlannerTask,
 } from "../utils/plannerScheduleProgress";
+import { buildPlannerUnlockQuizRequest } from "../utils/plannerUnlockQuiz";
 
 export function ClearScheduleConfirmation({
   onCancel = () => {},
@@ -66,6 +69,7 @@ export function ClearScheduleConfirmation({
 export function PlannerScheduleDay({
   completed,
   dayIndex,
+  isUnlockCandidate,
   item,
   onComplete,
   onReschedule,
@@ -83,6 +87,8 @@ export function PlannerScheduleDay({
   );
   const lockedDate = formatScheduleDate(progression.dateKey);
   const dayNumber = Number.parseInt(item?.day, 10) || dayIndex + 1;
+  const canShowUnlockQuiz = progression.canAttemptUnlockQuiz
+    && isUnlockCandidate !== false;
 
   return (
     <div
@@ -97,7 +103,7 @@ export function PlannerScheduleDay({
                 ? "Locked until " + lockedDate
                 : "Locked until its scheduled day"}
             </span>
-            {!progression.isRevisionDay && (
+            {canShowUnlockQuiz && (
               <button
                 aria-controls="planner-unlock-quiz-dialog"
                 aria-haspopup="dialog"
@@ -120,6 +126,7 @@ export function PlannerScheduleDay({
           const wasCompleted = isPlannerTaskCompleted(task, completed);
           const isRecheckPending = isPlannerTaskRecheckPending(task);
           const showCompletedState = wasCompleted && !isRecheckPending;
+          const sessionLabel = getPlannerSessionLabel(task.time);
 
           return (
             <div
@@ -153,7 +160,9 @@ export function PlannerScheduleDay({
                   />
                 )}
               </span>
-              {!showCompletedState && <span className="time-slot">{task.time}</span>}
+              {!showCompletedState && sessionLabel && (
+                <span className="time-slot">{sessionLabel}</span>
+              )}
               <span className={showCompletedState ? "task-chip done" : "task-chip"}>
                 <span className="planner-task-label">{task.task}</span>
                 {isRecheckPending && (
@@ -229,6 +238,12 @@ function Timetable({
       )
     : null;
   const activeUnlockContext = activeUnlockProgression?.quizContext || null;
+  const nextUnlockCandidateDayIndex = getPlannerNextUnlockCandidateIndex(
+    schedule,
+    completed,
+    scheduleStartDate,
+    today,
+  );
 
   useEffect(() => {
     if (!unlockQuizTarget || !activeUnlockProgression) return;
@@ -243,6 +258,7 @@ function Timetable({
 
     if (
       unlockQuizTarget.academicProfileDataId !== academicProfileDataId
+      || unlockQuizTarget.dayIndex !== nextUnlockCandidateDayIndex
       || !contextMatches
       || naturallyUnlocked
     ) {
@@ -252,10 +268,19 @@ function Timetable({
     academicProfileDataId,
     activeUnlockContext,
     activeUnlockProgression,
+    nextUnlockCandidateDayIndex,
     unlockQuizTarget,
   ]);
 
   const openUnlockQuiz = (dayIndex) => {
+    const candidateDayIndex = getPlannerNextUnlockCandidateIndex(
+      scheduleRef.current,
+      completedRef.current,
+      scheduleStartDateRef.current,
+      todayRef.current,
+    );
+    if (dayIndex !== candidateDayIndex) return;
+
     const progression = getPlannerDayProgression(
       scheduleRef.current,
       completedRef.current,
@@ -264,6 +289,7 @@ function Timetable({
       todayRef.current,
     );
     const context = progression.quizContext;
+    if (!progression.canAttemptUnlockQuiz || !context) return;
 
     setUnlockQuizTarget({
       academicProfileDataId: academicProfileIdRef.current,
@@ -274,7 +300,7 @@ function Timetable({
     });
   };
 
-  const generateUnlockQuiz = async () => {
+  const generateUnlockQuiz = async (topicDetails = "") => {
     const target = unlockQuizTarget;
     const requestProfileId = academicProfileIdRef.current;
     const currentProgression = target
@@ -287,6 +313,12 @@ function Timetable({
         )
       : null;
     const context = currentProgression?.quizContext;
+    const currentCandidateDayIndex = getPlannerNextUnlockCandidateIndex(
+      scheduleRef.current,
+      completedRef.current,
+      scheduleStartDateRef.current,
+      todayRef.current,
+    );
     const contextMatches = Boolean(
       target
       && context
@@ -296,18 +328,20 @@ function Timetable({
       && target.sourceTaskSignature === context.sourceTaskSignature,
     );
 
-    if (!contextMatches || !currentProgression?.canAttemptUnlockQuiz) {
+    if (
+      !contextMatches
+      || !currentProgression?.canAttemptUnlockQuiz
+      || target.dayIndex !== currentCandidateDayIndex
+    ) {
       throw new Error("This schedule changed. Close the quiz and open the unlock button again.");
     }
 
     try {
+      const quizRequest = buildPlannerUnlockQuizRequest(context, topicDetails);
       const payload = await api.generateQuiz({
         limit: PLANNER_UNLOCK_QUIZ_QUESTION_COUNT,
-        subjectName: context.subjectName,
-        topic: "Completed planner topics from Day "
-          + context.sourceDayNumber
-          + ": "
-          + (context.topic || context.subjectName),
+        subjectName: quizRequest.subjectName,
+        topic: quizRequest.topic,
       }, {
         academicProfileId: requestProfileId,
         headers: { "Idempotency-Key": createAiIdempotencyKey() },
@@ -322,8 +356,15 @@ function Timetable({
         todayRef.current,
       );
       const latestContext = latestProgression.quizContext;
+      const latestCandidateDayIndex = getPlannerNextUnlockCandidateIndex(
+        scheduleRef.current,
+        completedRef.current,
+        scheduleStartDateRef.current,
+        todayRef.current,
+      );
       if (
         academicProfileIdRef.current !== requestProfileId
+        || target.dayIndex !== latestCandidateDayIndex
         || latestContext?.targetDayKey !== target.targetDayKey
         || latestContext?.sourceDayKey !== target.sourceDayKey
         || latestContext?.sourceTaskSignature !== target.sourceTaskSignature
@@ -358,6 +399,12 @@ function Timetable({
       todayRef.current,
     );
     const context = progression.quizContext;
+    const currentCandidateDayIndex = getPlannerNextUnlockCandidateIndex(
+      currentSchedule,
+      completedRef.current,
+      scheduleStartDateRef.current,
+      todayRef.current,
+    );
     const contextMatches = Boolean(
       context
       && context.targetDayKey === target.targetDayKey
@@ -365,7 +412,13 @@ function Timetable({
       && context.sourceTaskSignature === target.sourceTaskSignature,
     );
 
-    if (!contextMatches || !progression.canAttemptUnlockQuiz) return false;
+    if (
+      !contextMatches
+      || !progression.canAttemptUnlockQuiz
+      || target.dayIndex !== currentCandidateDayIndex
+    ) {
+      return false;
+    }
 
     const update = completePlannerUnlockQuiz(
       currentSchedule,
@@ -810,6 +863,7 @@ function Timetable({
             <PlannerScheduleDay
               completed={completed}
               dayIndex={dayIndex}
+              isUnlockCandidate={dayIndex === nextUnlockCandidateDayIndex}
               item={item}
               key={item.day ?? dayIndex}
               onComplete={toggleComplete}
@@ -825,10 +879,14 @@ function Timetable({
 
       {unlockQuizTarget && activeUnlockProgression && (
         <PlannerUnlockQuizDialog
-          canAttempt={Boolean(activeUnlockProgression.canAttemptUnlockQuiz)}
+          canAttempt={Boolean(
+            activeUnlockProgression.canAttemptUnlockQuiz
+            && unlockQuizTarget.dayIndex === nextUnlockCandidateDayIndex
+          )}
           context={activeUnlockContext}
           onClose={() => setUnlockQuizTarget(null)}
           onGenerate={generateUnlockQuiz}
+          hasScheduledDate={Boolean(activeUnlockProgression.dateKey)}
           onPassed={completeUnlockQuiz}
           sessionKey={[
             unlockQuizTarget.academicProfileDataId,

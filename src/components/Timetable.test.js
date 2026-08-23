@@ -207,6 +207,101 @@ test("revision blocks bypass the quiz icon and later study days skip them as qui
   }
 });
 
+test("shows an unlock icon only for the immediate eligible next study day", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { default: Timetable } = await vite.ssrLoadModule(
+      "/src/components/Timetable.jsx",
+    );
+    const schedule = [
+      {
+        day: 1,
+        date: "2999-01-01",
+        tasks: [{ task: "Day 1 topic", time: "Morning · 45 min" }],
+      },
+      {
+        day: 2,
+        date: "2999-01-02",
+        tasks: [{ task: "Day 2 topic", time: "Morning · 45 min" }],
+      },
+      {
+        day: 3,
+        date: "2999-01-03",
+        tasks: [{ task: "Day 3 topic", time: "Morning · 45 min" }],
+      },
+    ];
+    const renderPlanner = (completed) => renderToStaticMarkup(
+      React.createElement(Timetable, {
+        ...baseProps,
+        completed,
+        schedule,
+        scheduleStartDate: "2999-01-01",
+        subjects: [{ name: "Study subject", chapters: 3, difficulty: "medium" }],
+      }),
+    );
+    const beforeCompletion = renderPlanner([]);
+    const afterDayOne = renderPlanner(["Day 1 topic"]);
+    const unlockDayLabels = [...afterDayOne.matchAll(
+      /aria-label="Take unlock quiz for Day (\d+)"/gu,
+    )].map((match) => Number(match[1]));
+
+    assert.doesNotMatch(beforeCompletion, /Take unlock quiz for Day/u);
+    assert.deepEqual(unlockDayLabels, [2]);
+    assert.doesNotMatch(afterDayOne, /Take unlock quiz for Day 3/u);
+  } finally {
+    await vite.close();
+  }
+});
+
+test("renders active planner time badges without duration text", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { PlannerScheduleDay } = await vite.ssrLoadModule(
+      "/src/components/Timetable.jsx",
+    );
+    const schedule = [{
+      day: 1,
+      date: "2999-01-01",
+      tasks: [
+        { task: "Morning lesson", time: "Morning · 45 min" },
+        { task: "Midday lesson", time: "Midday · 30 min" },
+        { task: "Evening lesson", time: "Evening" },
+      ],
+    }];
+    const markup = renderToStaticMarkup(React.createElement(
+      PlannerScheduleDay,
+      {
+        completed: [],
+        dayIndex: 0,
+        item: schedule[0],
+        onComplete: () => {},
+        onReschedule: () => {},
+        onUnlock: () => {},
+        schedule,
+        scheduleStartDate: "2999-01-01",
+        today: new Date(2026, 7, 23),
+      },
+    ));
+
+    assert.match(markup, /class="time-slot">Morning<\/span>/u);
+    assert.match(markup, /class="time-slot">Midday<\/span>/u);
+    assert.match(markup, /class="time-slot">Evening<\/span>/u);
+    assert.doesNotMatch(markup, /45 min|30 min/u);
+  } finally {
+    await vite.close();
+  }
+});
+
 test("exports the in-place clear schedule confirmation markup", async () => {
   const vite = await createServer({
     appType: "custom",

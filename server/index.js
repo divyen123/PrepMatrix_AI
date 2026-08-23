@@ -9,6 +9,7 @@ import webpush from "web-push";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import registerExamRoutes, { isGroqJsonGenerationFailure } from "./examRoutes.js";
+import { normalizeGeneratedQuestions } from "./generatedQuizQuestions.js";
 import {
   buildChatAttachmentUserContent,
   ChatAttachmentError,
@@ -923,36 +924,6 @@ function parseQuizJson(content = "") {
   }
 }
 
-function normalizeGeneratedQuestions(rawQuestions, limit) {
-  if (!Array.isArray(rawQuestions)) {
-    throw new Error("AI response did not include a questions array.");
-  }
-
-  const questions = rawQuestions.slice(0, limit).map((item, index) => {
-    const options = Array.isArray(item?.options)
-      ? item.options.map((option) => String(option || "").trim()).filter(Boolean).slice(0, 4)
-      : [];
-    const answerIndex = Number(item?.answerIndex);
-
-    if (!String(item?.question || "").trim() || options.length !== 4 || answerIndex < 0 || answerIndex > 3) {
-      throw new Error("AI response included an invalid quiz question.");
-    }
-
-    return {
-      id: `ai-${Date.now()}-${index}`,
-      question: String(item.question).trim(),
-      options,
-      answerIndex,
-      explanation: String(item?.explanation || "Review the correct option and compare it with the topic concept.").trim(),
-    };
-  });
-
-  if (questions.length !== limit) {
-    throw new Error(`AI generated ${questions.length} questions, expected ${limit}.`);
-  }
-
-  return questions;
-}
 function getGroqConfigStatus() {
   if (GROQ_API_KEY) {
     return { available: true, apiKey: GROQ_API_KEY, message: "Groq API key configured.", keySource: "GROQ_API_KEY" };

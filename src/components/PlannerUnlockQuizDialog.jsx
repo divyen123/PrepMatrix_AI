@@ -16,7 +16,9 @@ import {
   PLANNER_UNLOCK_QUIZ_QUESTION_COUNT,
 } from "../utils/plannerScheduleProgress";
 import {
+  PLANNER_UNLOCK_TOPIC_DETAILS_MAX_LENGTH,
   normalizePlannerUnlockQuestions,
+  normalizePlannerUnlockTopicDetails,
   scorePlannerUnlockQuiz,
 } from "../utils/plannerUnlockQuiz";
 import "./PlannerUnlockQuizDialog.css";
@@ -24,6 +26,7 @@ import "./PlannerUnlockQuizDialog.css";
 function PlannerUnlockQuizDialog({
   canAttempt = false,
   context,
+  hasScheduledDate = true,
   onClose = () => {},
   onGenerate = async () => [],
   onPassed = () => {},
@@ -35,6 +38,7 @@ function PlannerUnlockQuizDialog({
   const [isGenerating, setIsGenerating] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [result, setResult] = useState(null);
+  const [topicDetails, setTopicDetails] = useState("");
   const closeButtonRef = useRef(null);
   const dialogRef = useRef(null);
   const generationIdRef = useRef(0);
@@ -42,6 +46,8 @@ function PlannerUnlockQuizDialog({
   const previousFocusRef = useRef(null);
   const titleId = useId();
   const descriptionId = useId();
+  const topicDetailsId = useId();
+  const topicDetailsHelpId = useId();
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -56,6 +62,7 @@ function PlannerUnlockQuizDialog({
     setIsGenerating(false);
     setQuestions([]);
     setResult(null);
+    setTopicDetails("");
 
     return () => {
       if (generationIdRef.current === generationId) {
@@ -86,7 +93,7 @@ function PlannerUnlockQuizDialog({
 
       if (event.key !== "Tab") return;
       const focusable = dialogRef.current?.querySelectorAll(
-        'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
       );
       if (!focusable?.length) {
         event.preventDefault();
@@ -117,13 +124,20 @@ function PlannerUnlockQuizDialog({
 
   const startQuiz = async () => {
     if (!canAttempt || isGenerating) return;
+    const normalizedTopicDetails = normalizePlannerUnlockTopicDetails(topicDetails);
+    if (context?.needsTopicDetails && !normalizedTopicDetails) {
+      setError("Add what the generic chapters or units cover before starting the quiz.");
+      return;
+    }
     const generationId = generationIdRef.current + 1;
     generationIdRef.current = generationId;
     setError("");
     setIsGenerating(true);
 
     try {
-      const generated = normalizePlannerUnlockQuestions(await onGenerate());
+      const generated = normalizePlannerUnlockQuestions(
+        await onGenerate(normalizedTopicDetails),
+      );
       if (generationIdRef.current !== generationId) return;
       if (generated.length !== PLANNER_UNLOCK_QUIZ_QUESTION_COUNT) {
         throw new Error("The quiz did not return all 10 valid questions. Please try again.");
@@ -144,11 +158,13 @@ function PlannerUnlockQuizDialog({
     }
   };
 
-  const restartQuiz = () => {
+  const retryWithNewQuestions = async () => {
     setAnswers({});
     setCurrentQuestionIndex(0);
     setError("");
+    setQuestions([]);
     setResult(null);
+    await startQuiz();
   };
 
   const submitQuiz = () => {
@@ -171,6 +187,8 @@ function PlannerUnlockQuizDialog({
   const missedQuestions = result
     ? questions.filter((question, index) => answers[index] !== question.answerIndex)
     : [];
+  const normalizedTopicDetails = normalizePlannerUnlockTopicDetails(topicDetails);
+  const isTopicDetailsRequired = Boolean(context?.needsTopicDetails);
 
   const dialog = (
     <div
@@ -237,7 +255,9 @@ function PlannerUnlockQuizDialog({
               <p>
                 {result.passed
                   ? "You reached the 80% pass mark. The next study day is ready now."
-                  : "You need at least 8 correct answers. Your scheduled date will still unlock this day normally."}
+                  : hasScheduledDate
+                    ? "You need at least 8 correct answers. Your scheduled date will still unlock this day normally."
+                    : "You need at least 8 correct answers. Generate a fresh quiz and try again."}
               </p>
 
               {!result.passed && missedQuestions.length > 0 && (
@@ -257,9 +277,9 @@ function PlannerUnlockQuizDialog({
 
               <div className="planner-unlock-quiz-result-actions">
                 {!result.passed && (
-                  <button className="planner-unlock-quiz-secondary" onClick={restartQuiz} type="button">
+                  <button className="planner-unlock-quiz-secondary" onClick={retryWithNewQuestions} type="button">
                     <RotateCcw aria-hidden="true" size={15} />
-                    Try same quiz again
+                    Generate new questions
                   </button>
                 )}
                 <button className="planner-unlock-quiz-primary" onClick={() => onCloseRef.current?.()} type="button">
@@ -346,11 +366,37 @@ function PlannerUnlockQuizDialog({
                 </div>
               </div>
 
+              <div className="planner-unlock-quiz-topic-input">
+                <label htmlFor={topicDetailsId}>
+                  Topic or chapter details
+                  <span>{isTopicDetailsRequired ? "Required" : "Optional"}</span>
+                </label>
+                <input
+                  aria-describedby={topicDetailsHelpId}
+                  aria-required={isTopicDetailsRequired}
+                  disabled={isGenerating}
+                  id={topicDetailsId}
+                  maxLength={PLANNER_UNLOCK_TOPIC_DETAILS_MAX_LENGTH}
+                  onChange={(event) => {
+                    setTopicDetails(event.target.value);
+                    if (error) setError("");
+                  }}
+                  placeholder="e.g. REST API: HTTP methods; Cloud: IAM and regions"
+                  type="text"
+                  value={topicDetails}
+                />
+                <p id={topicDetailsHelpId}>
+                  {isTopicDetailsRequired
+                    ? "Some scheduled units only have a chapter or unit number. Add what they cover so the quiz tests the right material."
+                    : "Optionally add a narrower focus. It will clarify—not replace—the scheduled topics above."}
+                </p>
+              </div>
+
               {error && <p className="planner-unlock-quiz-error" role="alert">{error}</p>}
 
               <button
                 className="planner-unlock-quiz-primary planner-unlock-quiz-start"
-                disabled={isGenerating}
+                disabled={isGenerating || (isTopicDetailsRequired && !normalizedTopicDetails)}
                 onClick={startQuiz}
                 type="button"
               >
@@ -367,7 +413,9 @@ function PlannerUnlockQuizDialog({
                 )}
               </button>
               <p className="planner-unlock-quiz-fallback">
-                If the quiz service is unavailable, this day will still unlock on its scheduled date.
+                {hasScheduledDate
+                  ? "If the quiz service is unavailable, this day will still unlock on its scheduled date."
+                  : "This plan has no usable scheduled date. Complete the quiz or generate a new dated schedule."}
               </p>
             </div>
           )}

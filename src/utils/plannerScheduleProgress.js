@@ -22,6 +22,67 @@ function cleanText(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+export function getPlannerSessionLabel(value) {
+  const label = cleanText(String(value || ""));
+  if (!label) return "";
+
+  return label
+    .replace(/\s*[·•]\s*\d+\s*(?:min(?:ute)?s?|m)\s*$/iu, "")
+    .trim();
+}
+
+function getPlannerTaskUnitLabel(task) {
+  const explicitTopic = cleanText(task?.topic);
+  if (explicitTopic) return explicitTopic;
+
+  const taskName = getTaskName(task);
+  const subjectName = cleanText(task?.subjectName);
+  if (!taskName) return "";
+
+  if (subjectName) {
+    const prefix = subjectName + " - ";
+    return taskName.toLocaleLowerCase().startsWith(prefix.toLocaleLowerCase())
+      ? taskName.slice(prefix.length).trim()
+      : taskName;
+  }
+
+  const separatorIndex = taskName.lastIndexOf(" - ");
+  const legacyUnitLabel = separatorIndex >= 0
+    ? taskName.slice(separatorIndex + 3).trim()
+    : "";
+  return isGenericPlannerUnitLabel(legacyUnitLabel)
+    ? legacyUnitLabel
+    : taskName;
+}
+
+function isGenericPlannerUnitLabel(value) {
+  const normalized = cleanText(value)
+    .replace(/\s*[·•]\s*(?:practice|revision|coverage)\s*$/iu, "")
+    .trim();
+
+  return /^(?:chapter|unit|module|lesson|topic|section|part)\s*(?:(?:number|no\.?|#)\s*)?(?:\d+[a-z]?|[ivxlcdm]+)$/iu.test(normalized);
+}
+
+function getPlannerQuizTopicRecord(task) {
+  const taskName = getTaskName(task);
+  const unitLabel = getPlannerTaskUnitLabel(task);
+  const isGeneric = isGenericPlannerUnitLabel(unitLabel);
+  const legacySeparatorIndex = taskName.lastIndexOf(" - ");
+  const subjectName = cleanText(task?.subjectName)
+    || (
+      isGeneric && legacySeparatorIndex > 0
+        ? taskName.slice(0, legacySeparatorIndex).trim()
+        : ""
+    );
+
+  return {
+    isGeneric,
+    label: isGeneric && subjectName
+      ? subjectName + " — " + unitLabel
+      : unitLabel || getTaskName(task),
+  };
+}
+
 function getStudyTasks(day) {
   return Array.isArray(day?.tasks)
     ? day.tasks.filter((task) => getTaskName(task))
@@ -150,9 +211,21 @@ export function getPlannerUnlockQuizContext(
   const subjects = [...new Set(sourceTasks
     .map((task) => cleanText(task.subjectName))
     .filter(Boolean))];
-  const topics = [...new Set(sourceTasks
-    .map((task) => cleanText(task.topic) || getTaskName(task))
-    .filter(Boolean))].slice(0, 12);
+  const topicRecords = sourceTasks.map(getPlannerQuizTopicRecord);
+  const topicKeys = new Set();
+  const topics = topicRecords
+    .map(({ label }) => cleanText(label))
+    .filter((label) => {
+      const key = label.toLocaleLowerCase();
+      if (!key || topicKeys.has(key)) return false;
+      topicKeys.add(key);
+      return true;
+    })
+    .slice(0, 12);
+  const genericTopics = topicRecords
+    .filter(({ isGeneric }) => isGeneric)
+    .map(({ label }) => label)
+    .filter(Boolean);
   const subjectName = subjects.length === 1
     ? subjects[0]
     : subjects.join(", ") || "Mixed study topics";
@@ -167,6 +240,8 @@ export function getPlannerUnlockQuizContext(
       sourceDayIndex,
       scheduleStartDate,
     ),
+    genericTopics,
+    needsTopicDetails: genericTopics.length > 0,
     subjectName,
     subjects,
     targetDayIndex: safeTargetIndex,
@@ -276,6 +351,31 @@ export function getPlannerDayProgression(
     sourceDayCompleted,
     sourceDayIndex: quizContext?.sourceDayIndex ?? -1,
   };
+}
+
+export function getPlannerNextUnlockCandidateIndex(
+  schedule,
+  completed,
+  scheduleStartDate = "",
+  today = new Date(),
+) {
+  if (!Array.isArray(schedule)) return -1;
+
+  for (let dayIndex = 1; dayIndex < schedule.length; dayIndex += 1) {
+    const progression = getPlannerDayProgression(
+      schedule,
+      completed,
+      dayIndex,
+      scheduleStartDate,
+      today,
+    );
+
+    if (progression.isRevisionDay || !progression.isLocked) continue;
+
+    return progression.canAttemptUnlockQuiz ? dayIndex : -1;
+  }
+
+  return -1;
 }
 
 export function completePlannerUnlockQuiz(
