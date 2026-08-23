@@ -80,16 +80,26 @@ test("renders the interactive dog companion without the legacy fox emoji", async
 
 test("splits time across every audited dog action exactly once", () => {
   assert.equal(KIDS_PET_ACTION_CYCLE.length, 64);
-  assert.equal(KIDS_PET_ACTION_CYCLE_DURATION_MS, 41620);
+  assert.equal(KIDS_PET_ACTION_CYCLE_DURATION_MS, 20810);
+  assert.equal(KIDS_PET_ACTION_CYCLE[0].durationMs, KIDS_PET_ACTION_CYCLE[1].durationMs);
   assert.equal(new Set(KIDS_PET_ACTION_CYCLE.map((frame) => frame.id)).size, 64);
   assert.equal(new Set(KIDS_PET_ACTION_CYCLE.map((frame) => frame.position)).size, 64);
   assert.deepEqual(
     KIDS_PET_ACTION_CYCLE.map(({ row, column }) => `${row}:${column}`),
     Array.from({ length: 64 }, (_, index) => `${Math.floor(index / 8)}:${index % 8}`),
   );
-  assert.ok(KIDS_PET_ACTION_CYCLE.every((frame) => frame.durationMs >= 340));
+  assert.ok(KIDS_PET_ACTION_CYCLE.every((frame) => frame.durationMs >= 170));
   assert.ok(KIDS_PET_ACTION_CYCLE.every((frame) => /^\d+px \d+px \d+px \d+px$/u.test(frame.clip)));
-  assert.ok(KIDS_PET_ACTION_CYCLE.filter((frame) => frame.column === 7).every((frame) => frame.durationMs >= 1040));
+  assert.ok(KIDS_PET_ACTION_CYCLE.filter((frame) => frame.column === 7).every((frame) => frame.durationMs >= 520));
+});
+
+test("reschedules the companion after every frame even when durations match", async () => {
+  const componentUrl = new URL("./KidsPetTutor.jsx", import.meta.url);
+  const componentSource = await readFile(componentUrl, "utf8");
+  assert.match(
+    componentSource,
+    /\[actionShowcase, interacting, prefersReducedMotion, showcaseFrame\.durationMs, showcaseFrameIndex\]/u,
+  );
 });
 
 test("keeps the page and pet surfaces transparent with audited crop offsets", async () => {

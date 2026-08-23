@@ -125,7 +125,7 @@ export default function KidsPetTutor({
       setShowcaseFrameIndex((currentIndex) => (currentIndex + 1) % KIDS_PET_ACTION_CYCLE.length);
     }, showcaseFrame.durationMs);
     return () => window.clearTimeout(timer);
-  }, [actionShowcase, interacting, prefersReducedMotion, showcaseFrame.durationMs]);
+  }, [actionShowcase, interacting, prefersReducedMotion, showcaseFrame.durationMs, showcaseFrameIndex]);
 
   useEffect(() => {
     if (!audioEnabled || !autoSpeakKey || lastAutoKeyRef.current === autoSpeakKey) return;
