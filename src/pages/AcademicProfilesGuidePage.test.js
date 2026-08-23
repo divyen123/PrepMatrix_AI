@@ -97,7 +97,8 @@ test("registers the permanent guide and the once-only animated Profile B intro",
   assert.match(dialogSource, /Finish guide/u);
   assert.match(dialogSource, /is-closing/u);
 
-  assert.match(stylesheet, /body\.has-bg-image \.academic-profile-guide-surface/u);
+  assert.match(stylesheet, /body\.has-bg-image:not\(\.no-glass-cards\) \.academic-profile-guide-surface,[\s\S]*?var\(--glass-opacity, 0\.6\)/u);
+  assert.doesNotMatch(stylesheet, /rgba\(var\(--bg-surface-rgb\), 0\.9\)/u);
   assert.match(stylesheet, /body\.has-bg-image\.no-glass-cards \.academic-profile-guide-surface/u);
   assert.match(stylesheet, /@media \(max-width: 560px\)/u);
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/u);

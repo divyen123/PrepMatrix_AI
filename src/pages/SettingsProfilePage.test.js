@@ -164,7 +164,9 @@ test("registers the guarded route, global tracker, responsive charts, and backgr
   assert.match(pageSource, /inert=\{!open\}/u);
   assert.match(pageSource, /getScheduleDateKey\(day, index, scheduleStartDate\)/u);
   assert.match(trackerSource, /APP_USAGE_LIMIT_REACHED_EVENT[\s\S]*?toast\.info/u);
-  assert.match(stylesheet, /body\.has-bg-image \.settings-profile-surface/u);
+  assert.match(stylesheet, /body\.has-bg-image:not\(\.no-glass-cards\) \.settings-profile-surface,[\s\S]*?var\(--glass-opacity, 0\.6\)/u);
+  assert.match(stylesheet, /body\.has-bg-image\.no-glass-cards \.settings-profile-surface,[\s\S]*?background: rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\) !important/u);
+  assert.doesNotMatch(stylesheet, /rgba\(var\(--bg-surface-rgb, 18, 27, 45\), 0\.88\)/u);
   assert.match(stylesheet, /\.settings-profile-avatar[\s\S]*?border: 0;[\s\S]*?background: transparent;[\s\S]*?box-shadow: none;/u);
   assert.match(stylesheet, /\.settings-profile-action\.is-profile-switch[\s\S]*?background: rgba\(var\(--accent-rgb\), 0\.09\) !important/u);
   assert.match(stylesheet, /\.settings-profile-dialog-layer[\s\S]*?pointer-events: none;[\s\S]*?transition: opacity 220ms ease/u);

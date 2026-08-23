@@ -2638,7 +2638,10 @@ function SettingsPage({
         </div>
 
         {/* System Preferences & Toggles */}
-        <div className="card settings-card settings-system-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div
+          className={`card settings-card settings-system-card${youngKidsMode ? " dashboard-full-span" : ""}`}
+          style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+        >
           <div>
             <span className="section-tag" style={{ marginBottom: '12px' }}>SYSTEM</span>
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
@@ -2817,19 +2820,21 @@ function SettingsPage({
           </div>
         </div>
 
-        <GoalSettingsPanel
-          completed={completed}
-          dailyTarget={dailyTarget}
-          onDailyTargetChange={setDailyTarget}
-          onPlannerSettingsChange={handlePlannerSettingsChange}
-          onSaveTargets={handleSaveStudyTargets}
-          onWeeklyReviewChange={setWeeklyReview}
-          plannerData={goalReminderData}
-          plannerSettings={goalReminderSettings}
-          schedule={schedule}
-          scheduleStartDate={scheduleStartDate}
-          weeklyReview={weeklyReview}
-        />
+        {!youngKidsMode ? (
+          <GoalSettingsPanel
+            completed={completed}
+            dailyTarget={dailyTarget}
+            onDailyTargetChange={setDailyTarget}
+            onPlannerSettingsChange={handlePlannerSettingsChange}
+            onSaveTargets={handleSaveStudyTargets}
+            onWeeklyReviewChange={setWeeklyReview}
+            plannerData={goalReminderData}
+            plannerSettings={goalReminderSettings}
+            schedule={schedule}
+            scheduleStartDate={scheduleStartDate}
+            weeklyReview={weeklyReview}
+          />
+        ) : null}
 
 
         {/* Appearance Configuration */}

@@ -1128,11 +1128,11 @@ body .academic-profile-intro-step-nav button.is-active {
   font-weight: 750;
 }
 
-body.has-bg-image .academic-profile-guide-surface,
-body.has-bg-image .academic-profile-intro-dialog {
+body.has-bg-image:not(.no-glass-cards) .academic-profile-guide-surface,
+body.has-bg-image:not(.no-glass-cards) .academic-profile-intro-dialog {
   background:
     radial-gradient(circle at 92% 3%, rgba(var(--profile-b-rgb), 0.13), transparent 28%),
-    rgba(var(--bg-surface-rgb), 0.9);
+    rgba(var(--bg-surface-rgb), var(--glass-opacity, 0.6));
   backdrop-filter: blur(26px) saturate(0.92);
   -webkit-backdrop-filter: blur(26px) saturate(0.92);
 }

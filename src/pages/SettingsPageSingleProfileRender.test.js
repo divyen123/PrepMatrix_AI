@@ -64,47 +64,55 @@ test("renders Settings for one profile without deletion guidance", async () => {
       email: "student@example.com",
       username: "Student",
     };
-    const markup = renderToStaticMarkup(React.createElement(
+    const settingsProps = {
+      academicLevel: userProfile.academicLevel,
+      academicTrack: userProfile.academicTrack,
+      completed: [],
+      darkMode: true,
+      goalReminderData: { goals: [], reminders: [], tasks: [] },
+      goalReminderSettings: {},
+      materialBookmarks: [],
+      onAcademicProfileChange: noop,
+      onAutoHideTopBarChange: noop,
+      onPreviewVoice: noop,
+      resumeBuilder: {},
+      schedule: [],
+      setAcademicLevel: noop,
+      setAcademicTrack: noop,
+      setCompleted: noop,
+      setCursorStyle: noop,
+      setDarkMode: noop,
+      setGoalReminderData: noop,
+      setGoalReminderSettings: noop,
+      setMaterialBookmarks: noop,
+      setNotification: noop,
+      setResumeBuilder: noop,
+      setSchedule: noop,
+      setSubjects: noop,
+      setUserProfile: noop,
+      setVoicePreferences: noop,
+      subjects: [],
+      userProfile,
+      voicePreferences: {},
+    };
+    const renderSettings = (overrides = {}) => renderToStaticMarkup(React.createElement(
       MemoryRouter,
       { initialEntries: ["/settings"] },
-      React.createElement(SettingsPage, {
-        academicLevel: userProfile.academicLevel,
-        academicTrack: userProfile.academicTrack,
-        completed: [],
-        darkMode: true,
-        goalReminderData: { goals: [], reminders: [], tasks: [] },
-        goalReminderSettings: {},
-        materialBookmarks: [],
-        onAcademicProfileChange: noop,
-        onAutoHideTopBarChange: noop,
-        onPreviewVoice: noop,
-        resumeBuilder: {},
-        schedule: [],
-        setAcademicLevel: noop,
-        setAcademicTrack: noop,
-        setCompleted: noop,
-        setCursorStyle: noop,
-        setDarkMode: noop,
-        setGoalReminderData: noop,
-        setGoalReminderSettings: noop,
-        setMaterialBookmarks: noop,
-        setNotification: noop,
-        setResumeBuilder: noop,
-        setSchedule: noop,
-        setSubjects: noop,
-        setUserProfile: noop,
-        setVoicePreferences: noop,
-        subjects: [],
-        userProfile,
-        voicePreferences: {},
-      }),
+      React.createElement(SettingsPage, { ...settingsProps, ...overrides }),
     ));
+    const markup = renderSettings();
 
     assert.match(markup, /Profile &amp; Information/u);
     assert.match(markup, /Current: <strong>Profile A<\/strong>/u);
     assert.match(markup, /href="\/settings\/profiles"/u);
     assert.match(markup, /aria-label="Learn how Profile A and Profile B work"/u);
     assert.doesNotMatch(markup, /settings-profile-parent-guidance/u);
+    assert.match(markup, /Study Goals &amp; Reminders/u);
+    assert.doesNotMatch(markup, /settings-system-card dashboard-full-span/u);
+
+    const kidsMarkup = renderSettings({ youngKidsMode: true });
+    assert.doesNotMatch(kidsMarkup, /Study Goals &amp; Reminders/u);
+    assert.match(kidsMarkup, /settings-system-card dashboard-full-span/u);
   } finally {
     await vite?.close();
     if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
