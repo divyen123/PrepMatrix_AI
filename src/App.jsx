@@ -2593,17 +2593,19 @@ function App() {
                           path="/analytics"
                         />
                         <Route
-                          element={standardOnlyRoute(
+                          element={
                             <NotesPage
                               academicProfileDataId={activeAcademicProfileDataId}
                               completed={completed}
+                              kidsMode={learnerRoutePolicy.isYoungKidsLearner}
+                              parentAccessGranted={kidsParentAccess.unlocked}
                               schedule={schedule}
                               scheduleStartDate={scheduleStartDate}
                               setCompleted={updateCompletedWithRewards}
                               setNotification={setNotification}
                               setSchedule={setSchedule}
                             />
-                          )}
+                          }
                           path="/notes"
                         />
                         <Route

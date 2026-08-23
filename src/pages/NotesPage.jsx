@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { CalendarDays, Check, Copy, Pencil, Search, Trash2, X } from "lucide-react";
 import api from "../utils/apiClient";
 import {
@@ -61,12 +62,15 @@ async function copyText(text) {
 function NotesPage({
   academicProfileDataId = "",
   completed = [],
+  kidsMode = false,
+  parentAccessGranted = true,
   schedule = [],
   scheduleStartDate = "",
   setCompleted,
   setSchedule,
   setNotification,
 }) {
+  const navigate = useNavigate();
   const [notes, setNotes] = useState([]);
   const [topic, setTopic] = useState("");
   const [details, setDetails] = useState("");
@@ -96,6 +100,18 @@ function NotesPage({
   const deleteTriggerRefs = useRef(new Map());
   const noteCardRefs = useRef(new Map());
   const notesListHeadingRef = useRef(null);
+
+  const canManageSchedule = !kidsMode || parentAccessGranted;
+  const requestParentPlannerAccess = () => {
+    setPlannerMenuNoteId(null);
+    setNotification?.("A parent PIN is needed to change the learning schedule.");
+    navigate("/kids", {
+      state: { parentAccess: "planner", returnTo: "/notes" },
+    });
+  };
+  const hasPlannerLinks = (candidateNotes) => (
+    removeNotesFromPlanner(schedule, candidateNotes).changed
+  );
 
   const saveNotes = (nextNotes) => {
     setNotes(nextNotes);
@@ -242,6 +258,10 @@ function NotesPage({
 
   const deleteNote = (id) => {
     const noteToDelete = notes.find((note) => note.id === id);
+    if (noteToDelete && !canManageSchedule && hasPlannerLinks([noteToDelete])) {
+      requestParentPlannerAccess();
+      return;
+    }
     const nextNotes = notes.filter((note) => note.id !== id);
     if (noteToDelete) removePlannerLinks([noteToDelete]);
     saveNotes(nextNotes);
@@ -257,6 +277,10 @@ function NotesPage({
 
   const clearAllNotes = () => {
     if (notes.length === 0) return;
+    if (!canManageSchedule && hasPlannerLinks(notes)) {
+      requestParentPlannerAccess();
+      return;
+    }
     removePlannerLinks(notes);
     setConfirmClearNotes(false);
     setPendingDeleteNoteId(null);
@@ -271,6 +295,10 @@ function NotesPage({
   };
 
   const planNoteForDate = (note, dateKey) => {
+    if (!canManageSchedule) {
+      requestParentPlannerAccess();
+      return;
+    }
     const result = upsertNotePlannerTask(
       schedule,
       note,
@@ -815,6 +843,8 @@ function NotesPage({
                           onClick={() => {
                             if (plannerState.state === "completed") {
                               reopenNote(note, plannerState);
+                            } else if (!canManageSchedule) {
+                              requestParentPlannerAccess();
                             } else {
                               setPlannerMenuNoteId((current) => current === note.id ? null : note.id);
                             }

@@ -4,6 +4,7 @@ import test from "node:test";
 
 const appSource = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
 const appStyles = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+const notesPageSource = readFileSync(new URL("../pages/NotesPage.jsx", import.meta.url), "utf8");
 const settingsPageSource = readFileSync(new URL("../pages/SettingsPage.jsx", import.meta.url), "utf8");
 const subjectsPageSource = readFileSync(new URL("../pages/SubjectsPage.jsx", import.meta.url), "utf8");
 const subjectListSource = readFileSync(new URL("../components/SubjectList.jsx", import.meta.url), "utf8");
@@ -31,6 +32,24 @@ test("keeps the kids Subjects route usable while the registered class remains lo
   assert.doesNotMatch(appSource, /standardOnlyRoute\(\s*<SubjectsPage/);
   assert.match(subjectsPageSource, /aria-label="Manage academic profile in Settings"/);
   assert.match(subjectListSource, /kidsMode \? "\/planner" : "\/resources"/);
+});
+
+test("keeps the Notes page visible and directly usable in kids accounts", () => {
+  assert.match(
+    appSource,
+    /<NotesPage[\s\S]*?kidsMode=\{learnerRoutePolicy\.isYoungKidsLearner\}[\s\S]*?parentAccessGranted=\{kidsParentAccess\.unlocked\}[\s\S]*?path="\/notes"/,
+  );
+  assert.doesNotMatch(appSource, /standardOnlyRoute\(\s*<NotesPage/);
+  assert.match(notesPageSource, /const canManageSchedule = !kidsMode \|\| parentAccessGranted/);
+  assert.match(
+    notesPageSource,
+    /state: \{ parentAccess: "planner", returnTo: "\/notes" \}/,
+  );
+  assert.equal(
+    (notesPageSource.match(/!canManageSchedule && hasPlannerLinks/g) || []).length,
+    2,
+  );
+  assert.match(notesPageSource, /const planNoteForDate[\s\S]*?if \(!canManageSchedule\)/);
 });
 
 test("keeps the registered academic profile read-only on Subjects", () => {

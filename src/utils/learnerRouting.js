@@ -10,12 +10,14 @@ export const YOUNG_KIDS_NAV_ROUTES = Object.freeze([
   "/learn",
   "/planner",
   "/analytics",
+  "/notes",
   "/quiz",
   "/exam",
   "/report",
 ]);
 export const YOUNG_KIDS_PARENT_GUIDED_ROUTES = Object.freeze([
   "/planner",
+  "/notes",
   "/settings",
   "/quiz",
   "/notification-history",

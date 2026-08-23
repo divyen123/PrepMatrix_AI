@@ -30,7 +30,7 @@ test("routes early-years through Class 3 learners to Play & Learn", () => {
 });
 
 test("only allows known Parent Corner return routes", () => {
-  ["/planner", "/settings", "/notification-history", "/quiz", "/exam", "/exam/about"].forEach((route) => {
+  ["/planner", "/notes", "/settings", "/notification-history", "/quiz", "/exam", "/exam/about"].forEach((route) => {
     assert.equal(isYoungKidsParentGuidedRoute(route), true, route);
   });
   [
@@ -40,16 +40,19 @@ test("only allows known Parent Corner return routes", () => {
     "//example.com",
     "/quiz?next=/settings",
     "/notification-history?filter=unread",
+    "/notes?filter=open",
   ].forEach((route) => {
     assert.equal(isYoungKidsParentGuidedRoute(route), false, route);
   });
 });
 
-test("young kids can reach Subjects without exposing unavailable school or career modules", () => {
+test("young kids can reach Subjects and Notes without exposing unavailable school or career modules", () => {
   assert.equal(isYoungKidsNavRoute("/subjects"), true);
+  assert.equal(isYoungKidsNavRoute("/notes"), true);
   assert.equal(isYoungKidsNavRoute("/resources"), false);
   assert.equal(isYoungKidsNavRoute("/resume-builder"), false);
   assert.ok(YOUNG_KIDS_NAV_ROUTES.includes("/subjects"));
+  assert.ok(YOUNG_KIDS_NAV_ROUTES.includes("/notes"));
 });
 
 test("keeps parent-guided routes pending until the server session resolves and relocks immediately", () => {
