@@ -32,7 +32,7 @@ test("renders an accessible per-notebook subject mastery comparison", async () =
           "topic-statistics": {
             nodeId: "topic-statistics",
             nodeType: "topic",
-            status: "learned",
+            status: "learning",
             title: "Descriptive statistics",
             learnedAt: "2026-08-08T08:00:00.000Z",
           },

@@ -130,6 +130,20 @@ function isAchievedStatus(status) {
   return COMPLETION_STATES.has(status);
 }
 
+/**
+ * Returns whether a node has durable learning evidence.
+ * A repeat session may temporarily use the `learning` status, so timestamps remain
+ * the source of truth for an achievement that must not be visually undone.
+ */
+export function hasLearningNodeAchievement(node = {}) {
+  const source = asObject(node);
+  const status = cleanText(source.status ?? source.state, 30).toLocaleLowerCase();
+  return Boolean(normalizedIso(source.learnedAt ?? source.completedAt))
+    || Boolean(normalizedIso(source.masteredAt))
+    || status === "learned"
+    || status === "mastered";
+}
+
 function sessionIdentifier(now, index) {
   return `session-${cleanId(now, "time")}-${index + 1}`;
 }

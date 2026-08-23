@@ -37,8 +37,18 @@ test("renders a fully locked, accessible mastery map with fullscreen access", as
 
     const markup = renderToStaticMarkup(React.createElement(LearningMasteryMap, {
       notebook,
-      plannerByNodeId: new Map(),
-      progressByNodeId: new Map(),
+      plannerByNodeId: new Map([[
+        "topic-1",
+        { isCompleted: true, isScheduled: true },
+      ]]),
+      progressByNodeId: new Map([[
+        "topic-1",
+        {
+          learnedAt: "2026-08-08T08:00:00.000Z",
+          masteryScore: 79,
+          status: "learning",
+        },
+      ]]),
       selectedNodeId: "chapter-1",
     }));
 
@@ -51,6 +61,9 @@ test("renders a fully locked, accessible mastery map with fullscreen access", as
     assert.doesNotMatch(markup, /react-flow__node[^"]*\bdraggable\b/u);
     assert.doesNotMatch(markup, /react-flow__minimap/u);
     assert.doesNotMatch(markup, /mastery-flow-hint/u);
+    assert.match(markup, /has-status-learned/u);
+    assert.doesNotMatch(markup, /has-status-learning/u);
+    assert.match(markup, /Completed in planner/u);
 
     assert.deepEqual(Object.keys(MASTERY_STATUS_META), [
       "new",

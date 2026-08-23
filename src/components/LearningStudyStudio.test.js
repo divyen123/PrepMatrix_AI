@@ -42,14 +42,14 @@ test("renders a generated notebook in the Study Studio", async () => {
       },
     ];
     const progressByNodeId = new Map([
-      ["chapter-1", {
+      ["chapter-1", { status: "ready" }],
+      ["topic-1", {
         status: "ready",
         misconceptions: [
           { id: "mean-median", label: "Confuses mean and median" },
           { id: "sample-population", label: "Mixes up samples and populations" },
         ],
       }],
-      ["topic-1", { status: "ready" }],
     ]);
 
     const markup = renderToStaticMarkup(React.createElement(LearningStudyStudio, {
@@ -64,6 +64,9 @@ test("renders a generated notebook in the Study Studio", async () => {
 
     assert.match(markup, /Adaptive session/u);
     assert.match(markup, /Foundations/u);
+    assert.match(markup, /<h3>Descriptive statistics<\/h3>/u);
+    assert.match(markup, /1 topics/u);
+    assert.match(markup, /Start focused session/u);
     assert.match(markup, /AI Coach/u);
     assert.match(markup, /Use a compact worked example\./u);
     assert.match(markup, /Save guidance/u);
@@ -89,6 +92,24 @@ test("renders a generated notebook in the Study Studio", async () => {
     );
     assert.doesNotMatch(markup, /Focused on/u);
     assert.doesNotMatch(markup, /Review queue/u);
+
+    const restartedMarkup = renderToStaticMarkup(React.createElement(LearningStudyStudio, {
+      coachState: {},
+      nodes,
+      notebook,
+      progressByNodeId: new Map([
+        ["topic-1", {
+          learnedAt: "2026-08-08T08:00:00.000Z",
+          masteryScore: 79,
+          status: "learning",
+        }],
+      ]),
+      reviewQueue: [],
+      selectedNode: nodes[2],
+    }));
+
+    assert.match(restartedMarkup, /Start again/u);
+    assert.doesNotMatch(restartedMarkup, /Start focused session/u);
   } finally {
     await vite.close();
   }

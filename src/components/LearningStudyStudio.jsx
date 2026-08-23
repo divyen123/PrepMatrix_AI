@@ -25,6 +25,7 @@ import {
   WandSparkles,
   X,
 } from "lucide-react";
+import { hasLearningNodeAchievement } from "../utils/learningMastery";
 import "./LearningStudyStudio.css";
 
 const SESSION_STEPS = [
@@ -240,16 +241,21 @@ function LearningStudyStudio({
   const recognitionRef = useRef(null);
   const voiceCaptureSupported = Boolean(globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition);
 
-  const learningNodes = useMemo(() => nodes.filter((node) => node.type !== "notebook"), [nodes]);
+  const learningNodes = useMemo(() => nodes.filter((node) => node.type === "topic"), [nodes]);
+  const topicReviewQueue = useMemo(() => {
+    const topicIds = new Set(learningNodes.map((node) => node.id));
+    return reviewQueue.filter((node) => topicIds.has(node.id));
+  }, [learningNodes, reviewQueue]);
   const recommendedNode = useMemo(() => (
-    reviewQueue[0]
+    topicReviewQueue[0]
     || learningNodes.find((node) => stateFor(progressByNodeId, node.id).status === "learning")
-    || learningNodes.find((node) => stateFor(progressByNodeId, node.id).status !== "mastered")
+    || learningNodes.find((node) => !hasLearningNodeAchievement(stateFor(progressByNodeId, node.id)))
     || learningNodes[0]
     || null
-  ), [learningNodes, progressByNodeId, reviewQueue]);
-  const currentNode = selectedNode?.type === "notebook" ? recommendedNode : selectedNode || recommendedNode;
+  ), [learningNodes, progressByNodeId, topicReviewQueue]);
+  const currentNode = selectedNode?.type === "topic" ? selectedNode : recommendedNode;
   const currentProgress = stateFor(progressByNodeId, currentNode?.id);
+  const hasCompletedTopic = hasLearningNodeAchievement(currentProgress);
   const topicNoteSaving = Boolean(currentNode && isSavingNote?.(currentNode));
   const coachNoteOverride = currentNode && coachState.response ? {
     title: `${currentNode.title} - AI Coach`,
@@ -358,7 +364,7 @@ function LearningStudyStudio({
             <span><Gauge size={14} /> {STATUS_LABELS[currentProgress.status] || "New"}</span>
           </div>
           <button className="learning-studio-primary" onClick={() => onStartSession?.(currentNode.id)} type="button">
-            <Play size={16} /> Start focused session
+            <Play size={16} /> {hasCompletedTopic ? "Start again" : "Start focused session"}
           </button>
         </div>
       );
@@ -517,7 +523,7 @@ function LearningStudyStudio({
           <strong>{sessionMatches ? currentNode.title : `Continue ${notebook?.subjectName || "learning"}`}</strong>
         </div>
         <div className="learning-studio-sessionbar__metrics">
-          <span><CalendarClock size={14} /> {reviewQueue.length} due</span>
+          <span><CalendarClock size={14} /> {topicReviewQueue.length} due</span>
           <span><Clock3 size={14} /> {sessionMatches ? "In progress" : "15-20 min"}</span>
           {sessionMatches ? <button aria-label="Pause session" onClick={() => onPauseSession?.(activeSession)} title="Pause and save session" type="button"><Pause size={15} /></button> : null}
         </div>
@@ -526,13 +532,17 @@ function LearningStudyStudio({
       <div className="learning-studio-layout">
         <aside className="learning-studio-outline" aria-label="Course mastery outline">
           <div className="learning-studio-panel-heading">
-            <div><span>Course path</span><strong>{learningNodes.length} units</strong></div>
+            <div><span>Course path</span><strong>{learningNodes.length} topics</strong></div>
             <button aria-label="Open mastery map" onClick={onOpenMap} title="Open mastery map" type="button"><MapIcon size={16} /></button>
           </div>
           <div className="learning-studio-outline__list">
             {(notebook?.chapters || []).map((chapter) => (
               <section key={chapter.id}>
-                <button className={chapter.id === currentNode.id ? "is-active" : ""} onClick={() => onSelectNode?.(chapter.id)} type="button">
+                <button
+                  className={(chapter.topics || []).some((topic) => topic.id === currentNode.id) ? "is-active" : ""}
+                  onClick={() => onSelectNode?.(chapter.topics?.[0]?.id)}
+                  type="button"
+                >
                   <span className={`is-${stateFor(progressByNodeId, chapter.id).status || "new"}`} />
                   <strong>{chapter.title}</strong>
                   <ChevronRight size={14} />

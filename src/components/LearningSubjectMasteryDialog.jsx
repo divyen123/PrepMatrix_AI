@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import {
   getLearningNodeStatus,
+  hasLearningNodeAchievement,
   normalizeLearningState,
 } from "../utils/learningMastery";
 import "./LearningSubjectMasteryDialog.css";
@@ -24,14 +25,9 @@ function masteryRows(notebooks, now) {
     const source = notebook && typeof notebook === "object" ? notebook : {};
     const state = normalizeLearningState(source.learningState, { notebook: source, now });
     const topics = Object.values(state.nodes).filter((node) => node.nodeType === "topic");
-    const learnedTopics = topics.filter((node) => {
-      const status = getLearningNodeStatus(node, { now });
-      return Boolean(node.learnedAt || node.masteredAt)
-        || status === "learned"
-        || status === "mastered";
-    });
+    const learnedTopics = topics.filter(hasLearningNodeAchievement);
     const masteredTopics = topics.filter((node) => (
-      getLearningNodeStatus(node, { now }) === "mastered"
+      Boolean(node.masteredAt) || getLearningNodeStatus(node, { now }) === "mastered"
     ));
     const totalTopics = topics.length;
     const learnedCount = learnedTopics.length;

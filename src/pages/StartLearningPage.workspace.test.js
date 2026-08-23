@@ -86,3 +86,20 @@ test("styles the workspace chooser and saved-work selectors responsively", () =>
   assert.ok(mobileStyles.includes(".learning-intake-choice-grid {"));
   assert.ok(mobileStyles.includes("grid-template-columns: 1fr;"));
 });
+
+test("opens generated notebooks on a real topic and keeps focused sessions topic-scoped", () => {
+  assert.ok(
+    pageSource.includes(
+      "const firstTopic = normalized.chapters.find((chapter) => chapter.topics.length)?.topics[0];",
+    ),
+  );
+  assert.ok(pageSource.includes('item.id === nodeId && item.type === "topic"'));
+  assert.ok(pageSource.includes('selectedNode?.type === "topic"'));
+
+  const startSessionStart = pageSource.indexOf("const startStudySession =");
+  const startSessionEnd = pageSource.indexOf("const pauseStudySession =", startSessionStart);
+  const startSessionSource = pageSource.slice(startSessionStart, startSessionEnd);
+  assert.ok(startSessionStart >= 0 && startSessionEnd > startSessionStart);
+  assert.equal(startSessionSource.includes("setCompleted"), false);
+  assert.equal(startSessionSource.includes("setLearningPlannerNodeCompletion"), false);
+});

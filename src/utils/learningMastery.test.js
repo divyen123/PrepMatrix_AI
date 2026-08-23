@@ -8,9 +8,11 @@ import {
   getLearningNodeState,
   getLearningNodeStatus,
   getLearningReviewQueue,
+  hasLearningNodeAchievement,
   markLearningNodeLearned,
   normalizeLearningState,
   recordLearningAttempt,
+  setLearningNodeStatus,
   startLearningSession,
   updateLearningSession,
 } from "./learningMastery.js";
@@ -75,6 +77,31 @@ test("normalizes legacy completion/confidence fields without mutating persisted 
   assert.equal(state.nodes["topic-traversal"].confidence, 4);
   assert.equal(state.nodes["topic-traversal"].learnedAt, "2026-07-31T09:00:00.000Z");
   assert.equal(state.nodes["topic-traversal"].review.dueAt, "2026-08-02T09:00:00.000Z");
+});
+
+test("keeps durable topic achievement while a repeat session is in progress", () => {
+  const initial = normalizeLearningState({}, { notebook, now: NOW });
+  const learned = recordLearningAttempt(initial, {
+    nodeId: "topic-traversal",
+    score: 79,
+    confidence: 3,
+  }, { notebook, now: NOW });
+  const learnedAt = learned.nodes["topic-traversal"].learnedAt;
+  const restarted = setLearningNodeStatus(
+    learned,
+    "topic-traversal",
+    "learning",
+    { notebook, now: "2026-08-01T10:05:00.000Z" },
+  );
+
+  assert.equal(restarted.nodes["topic-traversal"].status, "learning");
+  assert.equal(restarted.nodes["topic-traversal"].learnedAt, learnedAt);
+  assert.equal(hasLearningNodeAchievement(restarted.nodes["topic-traversal"]), true);
+  assert.equal(hasLearningNodeAchievement({ status: "learning" }), false);
+  assert.equal(getLearningInsights(
+    [{ ...notebook, learningState: restarted }],
+    { now: "2026-08-01T10:05:00.000Z" },
+  ).learnedTopicCount, 1);
 });
 
 test("schedules deterministic spaced reviews and exposes review-due state", () => {

@@ -23,6 +23,7 @@ import {
   getMasteryMapInteractionProps,
   MASTERY_STATUS_META,
 } from "./LearningMasteryMap.config";
+import { hasLearningNodeAchievement } from "../utils/learningMastery";
 
 function progressFrom(source, nodeId) {
   if (source instanceof globalThis.Map) return source.get(nodeId) || {};
@@ -32,6 +33,14 @@ function progressFrom(source, nodeId) {
 function plannerFrom(source, nodeId) {
   if (source instanceof globalThis.Map) return source.get(nodeId) || {};
   return source?.[nodeId] || {};
+}
+
+function masteryStatus(progress, planner, type) {
+  const rawStatus = progress.status
+    || (planner.isCompleted ? "learned" : type === "notebook" ? "ready" : "new");
+  if (progress.masteredAt || rawStatus === "mastered") return "mastered";
+  if (hasLearningNodeAchievement(progress) || planner.isCompleted) return "learned";
+  return rawStatus;
 }
 
 function MasteryNode({ data, selected }) {
@@ -77,7 +86,7 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
   const pushNode = (source, type, position, hasChildren, subtitle = "") => {
     const progress = progressFrom(progressByNodeId, source.id);
     const planner = plannerFrom(plannerByNodeId, source.id);
-    const status = progress.status || (planner.isCompleted ? "learned" : type === "notebook" ? "ready" : "new");
+    const status = masteryStatus(progress, planner, type);
     flowNodes.push({
       id: source.id,
       type: "mastery",
@@ -95,6 +104,7 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
         isPlannerCompleted: Boolean(planner.isCompleted),
       },
     });
+    return status;
   };
 
   const connect = (source, target, status = "new") => {
@@ -116,19 +126,25 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
     (chapter.topics || []).forEach((topic) => {
       const topicY = cursorY;
       topicCenters.push(topicY);
-      pushNode(
+      const topicStatus = pushNode(
         topic,
         "topic",
         { x: 620, y: topicY },
         Boolean(topic.subtopics?.length),
         chapter.title,
       );
-      connect(chapter.id, topic.id, progressFrom(progressByNodeId, topic.id).status);
+      connect(chapter.id, topic.id, topicStatus);
 
       (topic.subtopics || []).forEach((subtopic, subtopicIndex) => {
         const subtopicY = topicY + subtopicIndex * 92;
-        pushNode(subtopic, "subtopic", { x: 940, y: subtopicY }, false, topic.title);
-        connect(topic.id, subtopic.id, progressFrom(progressByNodeId, subtopic.id).status);
+        const subtopicStatus = pushNode(
+          subtopic,
+          "subtopic",
+          { x: 940, y: subtopicY },
+          false,
+          topic.title,
+        );
+        connect(topic.id, subtopic.id, subtopicStatus);
       });
       cursorY += Math.max(118, (topic.subtopics?.length || 0) * 92 + 28);
     });
@@ -139,14 +155,14 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
     }
     const chapterY = topicCenters.reduce((sum, value) => sum + value, 0) / topicCenters.length;
     chapterCenters.push(chapterY);
-    pushNode(
+    const chapterStatus = pushNode(
       chapter,
       "chapter",
       { x: 300, y: chapterY },
       Boolean(chapter.topics?.length),
       `${chapter.topics?.length || 0} topics`,
     );
-    connect("root", chapter.id, progressFrom(progressByNodeId, chapter.id).status);
+    connect("root", chapter.id, chapterStatus);
     if (cursorY === chapterStart) cursorY += 118;
     if (chapterIndex < notebook.chapters.length - 1) cursorY += 38;
   });

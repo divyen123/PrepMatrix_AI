@@ -2,9 +2,9 @@
   --mastery-tone-new: rgb(123 135 150);
   --mastery-tone-ready: rgb(82 139 190);
   --mastery-tone-learning: rgb(139 112 185);
-  --mastery-tone-learned: rgb(67 148 151);
+  --mastery-tone-learned: rgb(54 158 102);
   --mastery-tone-review: rgb(194 139 64);
-  --mastery-tone-mastered: rgb(72 153 104);
+  --mastery-tone-mastered: rgb(32 123 74);
   display: grid;
   gap: 12px;
 }

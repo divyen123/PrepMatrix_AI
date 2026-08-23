@@ -952,7 +952,8 @@ function StartLearningPage({
     setDirty(false);
     setActiveTab("studio");
     setExpandedChapters(new Set(normalized.chapters.slice(0, 1).map((chapter) => chapter.id)));
-    setSelectedNodeId(normalized.chapters[0]?.id || "");
+    const firstTopic = normalized.chapters.find((chapter) => chapter.topics.length)?.topics[0];
+    setSelectedNodeId(firstTopic?.id || "");
 
   }, [careerAnalyzing, medicalAnalyzing, saving]);
 
@@ -1783,7 +1784,7 @@ function StartLearningPage({
   };
 
   const startStudySession = (nodeId) => {
-    const node = nodes.find((item) => item.id === nodeId && item.type !== "notebook");
+    const node = nodes.find((item) => item.id === nodeId && item.type === "topic");
     if (!node || !activeNotebook) return;
     setSelectedNodeId(node.id);
     setActiveTab("studio");
@@ -4029,7 +4030,7 @@ function StartLearningPage({
                       progressByNodeId={progressByNodeId}
                       selectedNodeId={selectedNodeId}
                     />
-                    {selectedNode && selectedNode.type !== "notebook" && (
+                    {selectedNode?.type === "topic" && (
                       <div className="learning-map-smart-actions" aria-live="polite">
                         <div>
                           <span>{selectedNode.type}</span>
