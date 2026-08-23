@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -145,4 +146,21 @@ test("exports the in-place clear schedule confirmation markup", async () => {
   } finally {
     await vite.close();
   }
+});
+
+test("keeps the clear confirmation above later schedule content and pointer-interactive", async () => {
+  const styles = await readFile(new URL("../App.css", import.meta.url), "utf8");
+
+  assert.match(
+    styles,
+    /\.schedule-card-header\s*\{[^}]*z-index:\s*50;/su,
+  );
+  assert.match(
+    styles,
+    /\.planner-clear-confirmation\s*\{[^}]*z-index:\s*40;[^}]*pointer-events:\s*auto;/su,
+  );
+  assert.match(
+    styles,
+    /body \.planner-clear-confirmation-actions button\s*\{[^}]*pointer-events:\s*auto;/su,
+  );
 });

@@ -21834,6 +21834,7 @@ body .parent-corner-lock-confirm-btn {
 /* Planner progression, repeat-completion, and inline clear controls. */
 .schedule-card-header {
   position: relative;
+  z-index: 50;
 }
 
 .planner-clear-control {
@@ -21865,6 +21866,7 @@ body .planner-clear-schedule-btn {
   box-shadow: 0 20px 48px rgba(9, 17, 31, 0.22);
   backdrop-filter: blur(22px) saturate(1.15);
   -webkit-backdrop-filter: blur(22px) saturate(1.15);
+  pointer-events: auto;
 }
 
 .planner-clear-confirmation strong {
@@ -21885,6 +21887,7 @@ body .planner-clear-schedule-btn {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 14px;
+  pointer-events: auto;
 }
 
 body .planner-clear-confirmation-actions button {
@@ -21893,6 +21896,7 @@ body .planner-clear-confirmation-actions button {
   padding: 0.42rem 0.72rem;
   border-radius: 11px;
   box-shadow: none !important;
+  pointer-events: auto;
 }
 
 body .planner-clear-delete-btn {
