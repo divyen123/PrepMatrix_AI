@@ -20906,9 +20906,9 @@ body.has-bg-image .db-command-menu {
   width: 100%;
   min-height: 0;
   padding: 0.68rem 0.72rem;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border: 1px solid transparent;
   border-radius: 12px;
-  background: var(--db-command-option-bg);
+  background: transparent;
   box-shadow: none;
   color: var(--text);
   cursor: pointer;
@@ -20921,6 +20921,7 @@ body.has-bg-image .db-command-menu {
 }
 
 .db-command-option:hover,
+.db-command-option:focus-visible,
 .db-command-option--active,
 .db-command-option[aria-selected="true"] {
   border-color: color-mix(in srgb, var(--accent) 38%, var(--border));

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -48,6 +49,19 @@ test("renders page shortcuts as an accessible keyboard-selectable list", async (
   } finally {
     await vite.close();
   }
+});
+
+test("shows a shortcut row container only for hover or keyboard selection", () => {
+  const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+
+  assert.match(
+    stylesheet,
+    /\.db-command-option\s*\{[\s\S]*?border: 1px solid transparent;[\s\S]*?background: transparent;[\s\S]*?transition:[\s\S]*?background 160ms ease,[\s\S]*?border-color 160ms ease,/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.db-command-option:hover,\s*\.db-command-option:focus-visible,\s*\.db-command-option--active,\s*\.db-command-option\[aria-selected="true"\]\s*\{[\s\S]*?border-color: color-mix\([\s\S]*?background: color-mix\(/u,
+  );
 });
 
 test("renders a helpful AI fallback when no page shortcut matches", async () => {
