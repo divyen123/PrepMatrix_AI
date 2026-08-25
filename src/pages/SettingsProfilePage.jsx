@@ -20,6 +20,7 @@ import {
   Sparkles,
   Target,
   UserRound,
+  UserRoundPlus,
   X,
 } from "lucide-react";
 import {
@@ -47,6 +48,7 @@ import {
 } from "../utils/appUsage";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { getScheduleDateKey, toLocalDateKey } from "../utils/scheduleDates";
+import AcademicProfileCreateDialog from "../components/AcademicProfileCreateDialog";
 import "./SettingsProfilePage.css";
 
 function displayValue(value, fallback = "Not set") {
@@ -269,6 +271,7 @@ export default function SettingsProfilePage({
   academicTrack,
   completed = [],
   kidsParentAccess = null,
+  onCreateAcademicProfile,
   onVisitAcademicProfile,
   schedule = [],
   scheduleStartDate,
@@ -283,7 +286,9 @@ export default function SettingsProfilePage({
   const [rangeDays, setRangeDays] = useState(7);
   const [activeUsageDialog, setActiveUsageDialog] = useState({ kind: null, open: false });
   const [draftLimit, setDraftLimit] = useState(() => usageRecord.dailyLimitMinutes ?? "");
+  const [createProfileDialogOpen, setCreateProfileDialogOpen] = useState(false);
   const [switchingProfile, setSwitchingProfile] = useState(false);
+  const createProfileTriggerRef = useRef(null);
   const limitTriggerRef = useRef(null);
   const insightsTriggerRef = useRef(null);
 
@@ -361,14 +366,18 @@ export default function SettingsProfilePage({
       : "Daily usage reminder removed.");
   };
 
-  const handleChangeProfile = async () => {
-    if (!profileSlots.hasTwoProfiles || !otherProfile?.id) {
-      navigate("/settings", { state: { highlightProfileInstitution: true } });
-      toast.info("Create another academic profile in Settings before switching.");
-      return;
-    }
+  const handleChangeProfile = async (event) => {
     if (youngKidsMode && !kidsParentAccess?.unlocked) {
       toast.error("Open Parent Corner before changing academic profiles.");
+      return;
+    }
+    if (!profileSlots.hasTwoProfiles || !otherProfile?.id) {
+      if (!onCreateAcademicProfile) {
+        toast.error("Profile creation is unavailable right now.");
+        return;
+      }
+      createProfileTriggerRef.current = event?.currentTarget || null;
+      setCreateProfileDialogOpen(true);
       return;
     }
     if (!onVisitAcademicProfile) {
@@ -477,13 +486,20 @@ export default function SettingsProfilePage({
             <Activity aria-hidden="true" size={17} /> Active insights
           </button>
           <button
+            aria-controls={!profileSlots.hasTwoProfiles ? "academic-profile-create-dialog" : undefined}
+            aria-expanded={!profileSlots.hasTwoProfiles ? createProfileDialogOpen : undefined}
+            aria-haspopup={!profileSlots.hasTwoProfiles ? "dialog" : undefined}
             className="settings-profile-action is-profile-switch"
             disabled={switchingProfile || workspaceTransitioning || Boolean(otherProfile?.deletionPending)}
             onClick={handleChangeProfile}
             type="button"
           >
-            <Repeat2 aria-hidden="true" size={17} />
-            {switchingProfile || workspaceTransitioning ? "Changing..." : "Change profile"}
+            {profileSlots.hasTwoProfiles
+              ? <Repeat2 aria-hidden="true" size={17} />
+              : <UserRoundPlus aria-hidden="true" size={17} />}
+            {profileSlots.hasTwoProfiles
+              ? switchingProfile || workspaceTransitioning ? "Changing..." : "Change profile"
+              : "Create Profile B"}
           </button>
         </div>
       </section>
@@ -763,6 +779,15 @@ export default function SettingsProfilePage({
         </div>
         <CheckCircle2 aria-hidden="true" className="settings-profile-privacy-check" size={20} />
       </footer>
+
+      <AcademicProfileCreateDialog
+        activeProfile={profileSlots.activeProfile || academicProfile}
+        institutionName={academicProfile.institutionName || userProfile?.institutionName}
+        onClose={() => setCreateProfileDialogOpen(false)}
+        onCreateAcademicProfile={onCreateAcademicProfile}
+        open={createProfileDialogOpen}
+        returnFocusRef={createProfileTriggerRef}
+      />
     </section>
   );
 }

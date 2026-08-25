@@ -82,6 +82,7 @@ test("renders detailed user information, usage actions, and accessible activity 
         academicLevel: userProfile.academicLevel,
         academicTrack: userProfile.academicTrack,
         completed: ["API Design - Unit 1"],
+        onCreateAcademicProfile: () => {},
         onVisitAcademicProfile: () => {},
         schedule: [{ day: 1, date: "2026-08-18", tasks: [
           { task: "API Design - Unit 1" },
@@ -96,7 +97,7 @@ test("renders detailed user information, usage actions, and accessible activity 
     assert.match(markup, /<h1>User information<\/h1>/u);
     assert.match(markup, /Active limit/u);
     assert.match(markup, /Active insights/u);
-    assert.match(markup, /Change profile/u);
+    assert.match(markup, /Create Profile B/u);
     assert.match(markup, /Daily app usage/u);
     assert.match(markup, /Daily average/u);
     assert.match(markup, /Profile A/u);
@@ -105,6 +106,34 @@ test("renders detailed user information, usage actions, and accessible activity 
     assert.match(markup, /<dt>Age<\/dt><dd>21<\/dd>/u);
     assert.match(markup, /1 of 2 configured/u);
     assert.match(markup, /It does not monitor other apps, websites, or idle background time\./u);
+
+    const twoProfileMarkup = renderToStaticMarkup(React.createElement(
+      MemoryRouter,
+      { initialEntries: ["/settings/profile"] },
+      React.createElement(SettingsProfilePage, {
+        academicLevel: userProfile.academicLevel,
+        academicTrack: userProfile.academicTrack,
+        onCreateAcademicProfile: () => {},
+        onVisitAcademicProfile: () => {},
+        userProfile: {
+          ...userProfile,
+          academicProfiles: [
+            ...userProfile.academicProfiles,
+            {
+              academicLevel: "Postgraduate / Master's",
+              academicTrack: "Business & Management",
+              dataId: "academic-profile:test:profile-b",
+              degree: "MBA",
+              department: "Management",
+              id: "profile-b",
+              label: "Profile B",
+            },
+          ],
+        },
+      }),
+    ));
+    assert.match(twoProfileMarkup, /Change profile/u);
+    assert.doesNotMatch(twoProfileMarkup, /Create Profile B/u);
 
     const planStart = markup.match(/<dt>Plan start<\/dt><dd>([^<]+)<\/dd>/u);
     assert.ok(planStart);
@@ -146,6 +175,8 @@ test("registers the guarded route, global tracker, responsive charts, and backgr
   assert.match(pageSource, /<ComposedChart[\s\S]*?<Bar[\s\S]*?<Line/u);
   assert.match(pageSource, /saveAppUsageLimit\(usageIdentity, minutes\)/u);
   assert.match(pageSource, /await onVisitAcademicProfile\(otherProfile\)/u);
+  assert.match(pageSource, /<AcademicProfileCreateDialog[\s\S]*?onCreateAcademicProfile=\{onCreateAcademicProfile\}/u);
+  assert.match(appSource, /<SettingsProfilePage[\s\S]*?onCreateAcademicProfile=\{createAcademicProfile\}/u);
   assert.equal((pageSource.match(/aria-controls="settings-profile-usage-dialog"/gu) || []).length, 2);
   assert.equal((pageSource.match(/<UsageDetailDialog\b/gu) || []).length, 1);
   assert.match(pageSource, /const \[activeUsageDialog, setActiveUsageDialog\] = useState\(\{ kind: null, open: false \}\)/u);

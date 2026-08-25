@@ -64,6 +64,26 @@ test("renders an understandable two-profile catalogue with shared and separate b
     assert.match(markup, /Account name, photo, and sign-in/u);
     assert.match(markup, /You are now in Profile B/u);
     assert.match(markup, /Can I create more than two profiles\?/u);
+
+    const singleProfileMarkup = renderToStaticMarkup(React.createElement(
+      MemoryRouter,
+      { initialEntries: ["/settings/profiles"] },
+      React.createElement(AcademicProfilesGuidePage, {
+        onCreateAcademicProfile: () => {},
+        onVisitAcademicProfile: () => {},
+        userProfile: {
+          ...userProfile,
+          activeAcademicProfileId: "profile-a",
+          academicProfiles: [userProfile.academicProfiles[0]],
+          institutionName: "PrepMatrix University",
+        },
+      }),
+    ));
+    assert.equal((singleProfileMarkup.match(/Create Profile B/gu) || []).length, 1);
+    assert.match(singleProfileMarkup, /Manage profiles/u);
+    assert.equal((singleProfileMarkup.match(/aria-controls="academic-profile-create-dialog"/gu) || []).length, 2);
+    assert.equal((singleProfileMarkup.match(/aria-haspopup="dialog"/gu) || []).length, 2);
+
   } finally {
     await vite?.close();
   }
@@ -75,6 +95,10 @@ test("registers the permanent guide and the once-only animated Profile B intro",
     new URL("../components/AcademicProfileIntroDialog.jsx", import.meta.url),
     "utf8",
   );
+  const createDialogSource = readFileSync(
+    new URL("../components/AcademicProfileCreateDialog.jsx", import.meta.url),
+    "utf8",
+  );
   const pageSource = readFileSync(new URL("./AcademicProfilesGuidePage.jsx", import.meta.url), "utf8");
   const settingsSource = readFileSync(new URL("./SettingsPage.jsx", import.meta.url), "utf8");
   const stylesheet = readFileSync(
@@ -84,10 +108,15 @@ test("registers the permanent guide and the once-only animated Profile B intro",
 
   assert.match(appSource, /const createAcademicProfile = async \(payload\) => \{[\s\S]*?await runAcademicProfileTransition\(payload\)[\s\S]*?claimFirstProfileBGuide\(activeProfile\)[\s\S]*?setAcademicProfileIntroOpen\(true\)/u);
   assert.match(appSource, /<AcademicProfilesGuidePage[\s\S]*?path="\/settings\/profiles"/u);
+  assert.match(appSource, /<AcademicProfilesGuidePage[\s\S]*?onCreateAcademicProfile=\{createAcademicProfile\}/u);
+  assert.match(appSource, /<SettingsProfilePage[\s\S]*?onCreateAcademicProfile=\{createAcademicProfile\}/u);
   assert.match(appSource, /<AcademicProfileIntroDialog[\s\S]*?open=\{academicProfileIntroOpen\}/u);
   assert.match(settingsSource, /aria-label="Learn how Profile A and Profile B work"[\s\S]*?to=\{ACADEMIC_PROFILE_GUIDE_ROUTE\}/u);
   assert.match(pageSource, /role="tablist"[\s\S]*?role="tabpanel"/u);
   assert.match(pageSource, /Finish guide/u);
+  assert.match(pageSource, /openCreateProfileDialog\(event\)/u);
+  assert.match(pageSource, /<AcademicProfileCreateDialog[\s\S]*?onCreateAcademicProfile=\{onCreateAcademicProfile\}/u);
+  assert.match(createDialogSource, /await onCreateAcademicProfile\(buildAcademicProfileCreationPayload\(draft\)\)/u);
 
   assert.match(dialogSource, /aria-modal="true"/u);
   assert.match(dialogSource, /role="dialog"/u);
@@ -103,7 +132,8 @@ test("registers the permanent guide and the once-only animated Profile B intro",
   assert.match(stylesheet, /@media \(max-width: 560px\)/u);
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/u);
   assert.match(stylesheet, /\.academic-profile-intro-backdrop\.is-open/u);
-  assert.match(stylesheet, /transition: opacity 240ms ease, transform 240ms/u);
+  assert.match(stylesheet, /transition: opacity 480ms ease, transform 480ms/u);
+  assert.match(appSource, /setAcademicProfileIntroOpen\(true\);[\s\S]*?\}, 650\);/u);
 
   const primaryGuideRule = stylesheet.match(
     /body \.academic-profiles-page \.academic-profile-guide-button\.is-primary \{([^}]*)\}/u,

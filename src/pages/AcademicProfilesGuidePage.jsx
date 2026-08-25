@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
   UserRoundPlus,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import AcademicProfileCreateDialog from "../components/AcademicProfileCreateDialog";
 import {
   describeAcademicProfileSlot,
   getAcademicProfileSlots,
@@ -56,6 +57,7 @@ function profileKind(profile) {
 }
 
 export default function AcademicProfilesGuidePage({
+  onCreateAcademicProfile,
   onVisitAcademicProfile,
   userProfile = {},
   workspaceTransitioning = false,
@@ -65,7 +67,9 @@ export default function AcademicProfilesGuidePage({
   const [selectedKind, setSelectedKind] = useState(() => profileKind(slots.activeProfile));
   const [activeStep, setActiveStep] = useState(0);
   const [guideFinished, setGuideFinished] = useState(false);
+  const [createProfileDialogOpen, setCreateProfileDialogOpen] = useState(false);
   const [switchingProfile, setSwitchingProfile] = useState(false);
+  const createProfileTriggerRef = useRef(null);
   const selectedCopy = PROFILE_COPY[selectedKind];
   const selectedProfile = slots.profiles.find((profile) => profileKind(profile) === selectedKind);
   const activeKind = profileKind(slots.activeProfile);
@@ -98,9 +102,18 @@ export default function AcademicProfilesGuidePage({
     });
   };
 
-  const handleProfileAction = async () => {
+  const openCreateProfileDialog = (event) => {
+    if (!onCreateAcademicProfile) {
+      toast.error("Profile creation is unavailable right now.");
+      return;
+    }
+    createProfileTriggerRef.current = event?.currentTarget || null;
+    setCreateProfileDialogOpen(true);
+  };
+
+  const handleProfileAction = async (event) => {
     if (!slots.hasTwoProfiles) {
-      navigate("/settings", { state: { highlightProfileInstitution: true } });
+      openCreateProfileDialog(event);
       return;
     }
     if (!selectedProfile?.id || selectedProfile.id === slots.activeProfile?.id) {
@@ -230,6 +243,9 @@ export default function AcademicProfilesGuidePage({
             </dl>
           </div>
           <button
+            aria-controls={!slots.hasTwoProfiles ? "academic-profile-create-dialog" : undefined}
+            aria-expanded={!slots.hasTwoProfiles ? createProfileDialogOpen : undefined}
+            aria-haspopup={!slots.hasTwoProfiles ? "dialog" : undefined}
             className="academic-profile-guide-button is-primary"
             disabled={switchingProfile || workspaceTransitioning}
             onClick={handleProfileAction}
@@ -349,10 +365,26 @@ export default function AcademicProfilesGuidePage({
 
       <footer className="academic-profiles-footer academic-profile-guide-surface">
         <div><CircleUserRound aria-hidden="true" size={20} /><span><strong>Remember:</strong> the Current profile label is your safest checkpoint.</span></div>
-        <button className="academic-profile-guide-button is-primary" onClick={() => navigate("/settings")} type="button">
+        <button
+          aria-controls={!slots.hasTwoProfiles ? "academic-profile-create-dialog" : undefined}
+          aria-expanded={!slots.hasTwoProfiles ? createProfileDialogOpen : undefined}
+          aria-haspopup={!slots.hasTwoProfiles ? "dialog" : undefined}
+          className="academic-profile-guide-button is-primary"
+          onClick={(event) => (slots.hasTwoProfiles ? navigate("/settings") : openCreateProfileDialog(event))}
+          type="button"
+        >
           <UserRoundPlus aria-hidden="true" size={16} /> Manage profiles
         </button>
       </footer>
+
+      <AcademicProfileCreateDialog
+        activeProfile={slots.activeProfile}
+        institutionName={userProfile?.institutionName}
+        onClose={() => setCreateProfileDialogOpen(false)}
+        onCreateAcademicProfile={onCreateAcademicProfile}
+        open={createProfileDialogOpen}
+        returnFocusRef={createProfileTriggerRef}
+      />
     </section>
   );
 }

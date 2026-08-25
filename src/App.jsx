@@ -1183,7 +1183,7 @@ function App() {
       academicProfileIntroTimerRef.current = window.setTimeout(() => {
         setAcademicProfileIntroOpen(true);
         academicProfileIntroTimerRef.current = null;
-      }, 220);
+      }, 650);
     }
     return response;
   };
@@ -2702,6 +2702,7 @@ function App() {
                         <Route
                           element={parentGuidedKidsRoute(
                             <AcademicProfilesGuidePage
+                              onCreateAcademicProfile={createAcademicProfile}
                               onVisitAcademicProfile={visitAcademicProfile}
                               userProfile={userProfile}
                               workspaceTransitioning={workspaceTransitioning}
@@ -2718,6 +2719,7 @@ function App() {
                               academicTrack={academicTrack}
                               completed={completed}
                               kidsParentAccess={kidsParentAccess}
+                              onCreateAcademicProfile={createAcademicProfile}
                               onVisitAcademicProfile={visitAcademicProfile}
                               schedule={schedule}
                               scheduleStartDate={scheduleStartDate}

@@ -14,7 +14,7 @@ import {
 import { ACADEMIC_PROFILE_GUIDE_STEPS } from "../utils/academicProfileGuide";
 import "./AcademicProfilesGuide.css";
 
-const EXIT_DURATION_MS = 240;
+const EXIT_DURATION_MS = 480;
 const STEP_ICONS = Object.freeze({
   welcome: Sparkles,
   "profile-a-safe": ShieldCheck,
