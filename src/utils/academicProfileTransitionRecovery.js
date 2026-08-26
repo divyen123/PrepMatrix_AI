@@ -11,6 +11,7 @@ const ACADEMIC_FIELDS = Object.freeze([
   "grade",
   "degree",
   "department",
+  "institutionName",
 ]);
 
 function clean(value) {

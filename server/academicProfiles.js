@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { normalizeAcademicProfile } from "../src/utils/academicProfile.js";
 
 export const ACADEMIC_PROFILE_IDS = Object.freeze(["profile-a", "profile-b"]);
-export const ACADEMIC_PROFILE_DATA_VERSION = 1;
-export const ACADEMIC_PROFILE_KEYS = Object.freeze([
+export const ACADEMIC_PROFILE_DATA_VERSION = 2;
+export const ACADEMIC_PROFILE_CONTEXT_KEYS = Object.freeze([
   "academicLevel",
   "academicTrack",
   "schoolType",
@@ -11,6 +11,11 @@ export const ACADEMIC_PROFILE_KEYS = Object.freeze([
   "degree",
   "department",
 ]);
+export const ACADEMIC_PROFILE_KEYS = Object.freeze([
+  ...ACADEMIC_PROFILE_CONTEXT_KEYS,
+  "institutionName",
+]);
+const ACADEMIC_PROFILE_INSTITUTION_VERSION = 2;
 
 const PROFILE_LABELS = Object.freeze({
   "profile-a": "Profile A",
@@ -62,6 +67,14 @@ export function academicProfileSnapshot(input = {}) {
 export function academicProfileHasChanged(current = {}, next = {}) {
   const currentSnapshot = academicProfileSnapshot(current);
   const nextSnapshot = academicProfileSnapshot(next);
+  return ACADEMIC_PROFILE_CONTEXT_KEYS.some(
+    (key) => currentSnapshot[key] !== nextSnapshot[key],
+  );
+}
+
+function academicProfileSnapshotHasChanged(current = {}, next = {}) {
+  const currentSnapshot = academicProfileSnapshot(current);
+  const nextSnapshot = academicProfileSnapshot(next);
   return ACADEMIC_PROFILE_KEYS.some((key) => currentSnapshot[key] !== nextSnapshot[key]);
 }
 
@@ -103,6 +116,8 @@ export function deriveAcademicProfilesState(user = {}) {
   const currentAcademic = academicProfileSnapshot(user);
   const legacyUserId = String(user?._id || user?.id || "legacy-user");
   const storedProfiles = sanitizeStoredAcademicProfiles(user.academicProfiles, legacyUserId);
+  const institutionStoredPerProfile = Number(user.academicProfileDataVersion || 0)
+    >= ACADEMIC_PROFILE_INSTITUTION_VERSION;
 
   if (storedProfiles.length) {
     const requestedActiveId = ACADEMIC_PROFILE_IDS.includes(user.activeAcademicProfileId)
@@ -112,11 +127,18 @@ export function deriveAcademicProfilesState(user = {}) {
     const activeAcademicProfileId = requestedActiveId
       || matchingProfileId(storedProfiles, currentAcademic)
       || storedProfiles[0].id;
-    const academicProfiles = storedProfiles.map((profile) => (
-      profile.id === activeAcademicProfileId
-        ? academicProfileRecord(profile.id, { ...currentAcademic, dataId: profile.dataId, deletionPending: profile.deletionPending })
-        : profile
-    ));
+    const academicProfiles = storedProfiles.map((profile) => {
+      if (profile.id !== activeAcademicProfileId) return profile;
+      const institutionName = institutionStoredPerProfile
+        ? profile.institutionName
+        : currentAcademic.institutionName || profile.institutionName;
+      return academicProfileRecord(profile.id, {
+        ...currentAcademic,
+        institutionName,
+        dataId: profile.dataId,
+        deletionPending: profile.deletionPending,
+      });
+    });
     return {
       academicProfiles,
       activeAcademicProfileId,
@@ -128,7 +150,10 @@ export function deriveAcademicProfilesState(user = {}) {
   const legacyRestore = sanitizeLegacyAcademicProfileRestore(user.academicProfileRestore);
   if (legacyRestore) {
     const academicProfiles = [
-      academicProfileRecord("profile-a", legacyRestore, { fallbackDataId: `legacy:${legacyUserId}:profile-a` }),
+      academicProfileRecord("profile-a", {
+        ...legacyRestore,
+        institutionName: legacyRestore.institutionName || currentAcademic.institutionName,
+      }, { fallbackDataId: `legacy:${legacyUserId}:profile-a` }),
       academicProfileRecord("profile-b", currentAcademic, { fallbackDataId: `legacy:${legacyUserId}:profile-b` }),
     ];
     return {
@@ -330,11 +355,39 @@ export function transitionAcademicProfiles(user = {}, {
   }
 
   if (requestedAcademic) {
-    const nextAcademic = academicProfileSnapshot(requestedAcademic);
-    if (!academicProfileHasChanged(state.activeProfile, nextAcademic)) {
+    const includesInstitutionName = Object.prototype.hasOwnProperty.call(
+      requestedAcademic,
+      "institutionName",
+    );
+    const nextAcademic = academicProfileSnapshot({
+      ...requestedAcademic,
+      institutionName: includesInstitutionName
+        ? requestedAcademic.institutionName
+        : state.activeProfile.institutionName,
+    });
+    const learningContextChanged = academicProfileHasChanged(state.activeProfile, nextAcademic);
+    if (!academicProfileSnapshotHasChanged(state.activeProfile, nextAcademic)) {
       return {
         ...state,
         action: "unchanged",
+        activeAcademicChanged: false,
+      };
+    }
+    if (!learningContextChanged) {
+      const activeProfile = academicProfileRecord(state.activeProfile.id, {
+        ...state.activeProfile,
+        ...nextAcademic,
+        dataId: state.activeProfile.dataId,
+        deletionPending: state.activeProfile.deletionPending,
+      });
+      const academicProfiles = state.academicProfiles.map((profile) => (
+        profile.id === activeProfile.id ? activeProfile : profile
+      ));
+      return {
+        academicProfiles,
+        activeAcademicProfileId: activeProfile.id,
+        activeProfile,
+        action: "update",
         activeAcademicChanged: false,
       };
     }

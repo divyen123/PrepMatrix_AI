@@ -263,6 +263,7 @@ export async function backfillLegacyAcademicProfileData(db, user, {
       $set: {
         academicProfiles: state.academicProfiles,
         activeAcademicProfileId: state.activeAcademicProfileId,
+        institutionName: activeProfile.institutionName,
         academicLevel: activeProfile.academicLevel,
         academicTrack: activeProfile.academicTrack,
         department: activeProfile.department,

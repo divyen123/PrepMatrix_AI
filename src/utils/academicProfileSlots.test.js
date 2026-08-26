@@ -14,6 +14,7 @@ const profileA = {
   schoolType: "college",
   degree: "B.Tech",
   department: "Information Technology",
+  institutionName: "R.M.K Engineering College",
 };
 
 const profileB = {
@@ -24,6 +25,7 @@ const profileB = {
   schoolType: "college",
   degree: "M.Tech",
   department: "Computer Science",
+  institutionName: "Priyadharshini Dental College",
 };
 
 test("derives a legacy user as a single Profile A", () => {
@@ -42,6 +44,8 @@ test("selects the active and visit-target profiles from the server contract", ()
   assert.equal(result.activeProfile.id, "profile-b");
   assert.equal(result.inactiveProfile.id, "profile-a");
   assert.equal(result.hasTwoProfiles, true);
+  assert.equal(result.activeProfile.institutionName, "Priyadharshini Dental College");
+  assert.equal(result.inactiveProfile.institutionName, "R.M.K Engineering College");
 });
 
 test("preserves the server deletion-pending marker for an exact retry", () => {

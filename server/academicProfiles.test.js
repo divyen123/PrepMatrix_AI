@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  ACADEMIC_PROFILE_DATA_VERSION,
+  ACADEMIC_PROFILE_KEYS,
   AcademicProfileMutationError,
   academicProfileRecord,
   academicProfileSnapshot,
@@ -16,6 +18,7 @@ const undergraduate = {
   academicTrack: "Engineering & Technology",
   degree: "B.Tech",
   department: "Information Technology",
+  institutionName: "R.M.K Engineering College",
 };
 
 const postgraduate = {
@@ -23,6 +26,7 @@ const postgraduate = {
   academicTrack: "Engineering & Technology",
   degree: "M.Tech",
   department: "Artificial Intelligence",
+  institutionName: "Priyadharshini Dental College",
 };
 
 const doctorate = {
@@ -30,6 +34,7 @@ const doctorate = {
   academicTrack: "Engineering & Technology",
   degree: "PhD",
   department: "Artificial Intelligence",
+  institutionName: "National Research Institute",
 };
 
 function expectMutationError(callback, status, code) {
@@ -56,6 +61,9 @@ test("registration creates fixed Profile A metadata and makes it active", () => 
   assert.match(state.activeProfile.dataId, /^academic-profile:/);
   assert.equal(state.activeProfile.degree, "B.Tech");
   assert.equal(state.activeProfile.label, "Profile A");
+  assert.equal(state.activeProfile.institutionName, "R.M.K Engineering College");
+  assert.equal(ACADEMIC_PROFILE_DATA_VERSION, 2);
+  assert.equal(ACADEMIC_PROFILE_KEYS.includes("institutionName"), true);
 });
 
 test("legacy users project their current top-level profile as Profile A without a read-time write", () => {
@@ -92,18 +100,43 @@ test("the active top-level academic fields remain authoritative over an embedded
   assert.equal(state.academicProfiles[0].degree, "B.Tech");
 });
 
+test("version two keeps the active slot institution authoritative", () => {
+  const state = deriveAcademicProfilesState({
+    ...postgraduate,
+    institutionName: "Stale shared institution",
+    academicProfileDataVersion: 2,
+    academicProfiles: [
+      academicProfileRecord("profile-a", undergraduate),
+      academicProfileRecord("profile-b", postgraduate),
+    ],
+    activeAcademicProfileId: "profile-b",
+  });
+
+  assert.equal(
+    state.activeProfile.institutionName,
+    "Priyadharshini Dental College",
+  );
+});
+
 test("a semantic change creates and activates the missing slot, then enforces the two-profile limit", () => {
   const original = {
     ...undergraduate,
-    institutionName: "PrepMatrix University",
     ...createInitialAcademicProfiles(undergraduate),
+    academicProfileDataVersion: 2,
   };
-  const created = transitionAcademicProfiles(original, { requestedAcademic: postgraduate });
+  const created = transitionAcademicProfiles(original, {
+    requestedAcademic: postgraduate,
+  });
   assert.equal(created.action, "create");
   assert.equal(created.activeAcademicProfileId, "profile-b");
   assert.equal(created.activeProfile.degree, "M.Tech");
+  assert.equal(created.activeProfile.institutionName, "Priyadharshini Dental College");
   assert.equal(created.academicProfiles.length, 2);
-  assert.equal(persistedUserAfterTransition(original, created).institutionName, "PrepMatrix University");
+  assert.equal(created.academicProfiles[0].institutionName, "R.M.K Engineering College");
+  assert.equal(
+    persistedUserAfterTransition(original, created).institutionName,
+    "Priyadharshini Dental College",
+  );
 
   expectMutationError(
     () => transitionAcademicProfiles({
@@ -133,24 +166,55 @@ test("semantically unchanged academic details preserve both profiles", () => {
   assert.deepEqual(state.academicProfiles, profiles);
 });
 
+test("updates only the active profile when its institution changes", () => {
+  const profiles = [
+    academicProfileRecord("profile-a", undergraduate),
+    academicProfileRecord("profile-b", postgraduate),
+  ];
+  const user = {
+    ...postgraduate,
+    academicProfiles: profiles,
+    activeAcademicProfileId: "profile-b",
+    academicProfileDataVersion: 2,
+  };
+  const updated = transitionAcademicProfiles(user, {
+    requestedAcademic: {
+      ...postgraduate,
+      institutionName: "Priyadharshini Medical University",
+    },
+  });
+
+  assert.equal(updated.action, "update");
+  assert.equal(updated.activeAcademicChanged, false);
+  assert.equal(updated.academicProfiles.length, 2);
+  assert.equal(updated.academicProfiles[0].institutionName, "R.M.K Engineering College");
+  assert.equal(updated.academicProfiles[1].institutionName, "Priyadharshini Medical University");
+  assert.equal(
+    persistedUserAfterTransition(user, updated).institutionName,
+    "Priyadharshini Medical University",
+  );
+});
+
 test("visiting switches the active slot and is idempotent for the current slot", () => {
   const user = {
     ...postgraduate,
-    institutionName: "PrepMatrix University",
     academicProfiles: [
       academicProfileRecord("profile-a", undergraduate),
       academicProfileRecord("profile-b", postgraduate),
     ],
     activeAcademicProfileId: "profile-b",
+    academicProfileDataVersion: 2,
   };
   const visited = transitionAcademicProfiles(user, { visitAcademicProfileId: "profile-a" });
   assert.equal(visited.activeAcademicChanged, true);
   assert.equal(visited.activeProfile.degree, "B.Tech");
-  assert.equal(persistedUserAfterTransition(user, visited).institutionName, "PrepMatrix University");
+  assert.equal(visited.activeProfile.institutionName, "R.M.K Engineering College");
+  assert.equal(persistedUserAfterTransition(user, visited).institutionName, "R.M.K Engineering College");
 
   const same = transitionAcademicProfiles(user, { visitAcademicProfileId: "profile-b" });
   assert.equal(same.activeAcademicChanged, false);
   assert.equal(same.activeProfile.degree, "M.Tech");
+  assert.equal(same.activeProfile.institutionName, "Priyadharshini Dental College");
 });
 
 test("direct profile transitions cannot delete metadata without the purge saga", () => {

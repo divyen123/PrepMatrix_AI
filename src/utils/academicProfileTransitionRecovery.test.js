@@ -13,6 +13,7 @@ const PROFILE_A = {
   grade: "",
   degree: "B.Tech",
   department: "Information Technology",
+  institutionName: "R.M.K Engineering College",
 };
 
 const PROFILE_B = {
@@ -25,6 +26,7 @@ const PROFILE_B = {
   grade: "",
   degree: "M.Tech",
   department: "Computer Science",
+  institutionName: "Priyadharshini Dental College",
 };
 
 async function recoverAfterCommittedTimeout({ payload, recovered }) {
@@ -58,6 +60,7 @@ test("Create: a committed profile change followed by a client timeout recovers a
     grade: PROFILE_B.grade,
     degree: PROFILE_B.degree,
     department: PROFILE_B.department,
+    institutionName: PROFILE_B.institutionName,
   };
   const recovered = {
     user: {

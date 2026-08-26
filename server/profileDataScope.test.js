@@ -338,10 +338,12 @@ test("legacy backfill assigns untagged records only to the current active profil
     academicLevel: "Postgraduate / Master's",
     academicTrack: "Engineering & Technology",
     degree: "M.Tech",
+    institutionName: "Priyadharshini Dental College",
     academicProfileRestore: {
       academicLevel: "Undergraduate / Bachelor's",
       academicTrack: "Engineering & Technology",
       degree: "B.Tech",
+      institutionName: "R.M.K Engineering College",
     },
   };
   const db = memoryDb({
@@ -351,18 +353,28 @@ test("legacy backfill assigns untagged records only to the current active profil
     aiUsageEvents: [{ userId: "student", status: "committed", cost: 3 }],
   });
   const result = await backfillLegacyAcademicProfileData(db, user, {
-    dataVersion: 1,
+    dataVersion: 2,
     ownedCollections: ["workspaces", "notes"],
     now: () => new Date("2026-08-14T00:00:00.000Z"),
   });
   const activeDataId = result.user.academicProfiles.find((profile) => profile.id === "profile-b").dataId;
   const inactiveDataId = result.user.academicProfiles.find((profile) => profile.id === "profile-a").dataId;
   assert.equal(result.user.activeAcademicProfileId, "profile-b");
+  assert.equal(result.user.institutionName, "Priyadharshini Dental College");
+  assert.equal(
+    result.user.academicProfiles.find((profile) => profile.id === "profile-a").institutionName,
+    "R.M.K Engineering College",
+  );
+  assert.equal(
+    result.user.academicProfiles.find((profile) => profile.id === "profile-b").institutionName,
+    "Priyadharshini Dental College",
+  );
   assert.equal(db.documents.get("workspaces")[0].academicProfileId, activeDataId);
   assert.equal(db.documents.get("notes")[0].academicProfileId, activeDataId);
   assert.equal(db.documents.get("aiUsageEvents")[0].academicProfileId, activeDataId);
   assert.equal(db.documents.get("workspaces").some((item) => item.academicProfileId === inactiveDataId), false);
-  assert.equal(db.documents.get("users")[0].academicProfileDataVersion, 1);
+  assert.equal(db.documents.get("users")[0].academicProfileDataVersion, 2);
+  assert.equal(db.documents.get("users")[0].institutionName, "Priyadharshini Dental College");
 });
 
 test("legacy backfill never marks migration complete after a partial failure", async () => {

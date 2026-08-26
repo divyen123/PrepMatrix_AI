@@ -15,6 +15,7 @@ function normalizeSlot(profile, index) {
     grade: normalized.grade,
     degree: normalized.degree,
     department: normalized.department,
+    institutionName: normalized.institutionName,
     deletionPending: profile?.deletionPending || null,
   };
 }
