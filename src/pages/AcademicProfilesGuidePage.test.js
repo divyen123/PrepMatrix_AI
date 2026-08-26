@@ -18,6 +18,7 @@ test("renders an understandable two-profile catalogue with shared and separate b
         department: "Information Technology",
         id: "profile-a",
         label: "Profile A",
+        displayName: "Engineering",
       },
       {
         academicLevel: "Postgraduate / Master's",
@@ -27,6 +28,7 @@ test("renders an understandable two-profile catalogue with shared and separate b
         department: "Business Analytics",
         id: "profile-b",
         label: "Profile B",
+        displayName: "Medical Studies",
       },
     ],
     email: "student@example.com",
@@ -53,8 +55,8 @@ test("renders an understandable two-profile catalogue with shared and separate b
       }),
     ));
 
-    assert.match(markup, /<h1>How Profile A and Profile B work<\/h1>/u);
-    assert.match(markup, /Current: Profile B/u);
+    assert.match(markup, /<h1>How Engineering and Medical Studies work<\/h1>/u);
+    assert.match(markup, /Current: Medical Studies/u);
     assert.match(markup, /Two profiles, one account/u);
     assert.match(markup, /Interactive profile catalogue/u);
     assert.match(markup, /role="tablist"/u);
@@ -63,11 +65,12 @@ test("renders an understandable two-profile catalogue with shared and separate b
     assert.match(markup, /What stays shared/u);
     assert.match(markup, /Subjects, planner schedule, and completed tasks/u);
     assert.match(markup, /Account name, photo, and sign-in/u);
-    assert.match(markup, /You are now in Profile B/u);
+    assert.match(markup, /You are now in Medical Studies/u);
+    assert.match(markup, /Engineering and Medical Studies are separate workspaces/u);
     assert.match(markup, /Can I create more than two profiles\?/u);
     assert.match(
       markup,
-      /academic-profiles-management-actions[\s\S]*?Visit Profile A[\s\S]*?Delete profile/u,
+      /academic-profiles-management-actions[\s\S]*?Visit Engineering[\s\S]*?Delete profile/u,
     );
     assert.match(
       markup,
@@ -129,7 +132,11 @@ test("registers the permanent guide and the once-only animated Profile B intro",
   assert.match(appSource, /<AcademicProfilesGuidePage[\s\S]*?academicProfileDeletionRetryTarget=\{academicProfileDeletionRetryRef\.current\}/u);
   assert.match(appSource, /<SettingsProfilePage[\s\S]*?onCreateAcademicProfile=\{createAcademicProfile\}/u);
   assert.match(appSource, /<AcademicProfileIntroDialog[\s\S]*?open=\{academicProfileIntroOpen\}/u);
-  assert.match(settingsSource, /aria-label="Learn how Profile A and Profile B work"[\s\S]*?to=\{ACADEMIC_PROFILE_GUIDE_ROUTE\}/u);
+  assert.match(settingsSource, /aria-label="Learn how academic profiles work"[\s\S]*?to=\{ACADEMIC_PROFILE_GUIDE_ROUTE\}/u);
+  assert.match(pageSource, /getAcademicProfileDisplayName\(slots\.activeProfile\)/u);
+  assert.match(pageSource, /getAcademicProfileDisplayName\(slots\.inactiveProfile\)/u);
+  assert.match(appSource, /activeProfileLabel: getAcademicProfileDisplayName\(activeProfile, 1\)/u);
+  assert.match(appSource, /otherProfileLabel: getAcademicProfileDisplayName\(otherProfile/u);
   assert.match(pageSource, /role="tablist"[\s\S]*?role="tabpanel"/u);
   assert.match(pageSource, /Finish guide/u);
   assert.match(pageSource, /openCreateProfileDialog\(event\)/u);

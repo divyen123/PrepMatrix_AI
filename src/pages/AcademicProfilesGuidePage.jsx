@@ -23,6 +23,7 @@ import {
   describeAcademicProfileSlot,
   getAcademicProfileSlots,
 } from "../utils/academicProfileSlots";
+import { getAcademicProfileDisplayName } from "../utils/academicProfileNames";
 import {
   ACADEMIC_PROFILE_GUIDE_STEPS,
   ACADEMIC_PROFILE_SEPARATE_ITEMS,
@@ -57,7 +58,24 @@ const PROFILE_COPY = Object.freeze({
 });
 
 function profileKind(profile) {
-  return String(profile?.label || "").trim().toLocaleLowerCase() === "profile b" ? "b" : "a";
+  return String(profile?.id || "").trim() === "profile-b" ? "b" : "a";
+}
+
+function personalizeProfileCopy(value, profileNames) {
+  return String(value || "").replace(/Profile A|Profile B/gu, (match) => (
+    match === "Profile A" ? profileNames.a : profileNames.b
+  ));
+}
+
+function personalizeGuideSteps(profileNames) {
+  return ACADEMIC_PROFILE_GUIDE_STEPS.map((step) => ({
+    ...step,
+    label: personalizeProfileCopy(step.label, profileNames),
+    title: personalizeProfileCopy(step.title, profileNames),
+    summary: personalizeProfileCopy(step.summary, profileNames),
+    points: step.points.map((point) => personalizeProfileCopy(point, profileNames)),
+    tip: personalizeProfileCopy(step.tip, profileNames),
+  }));
 }
 
 export default function AcademicProfilesGuidePage({
@@ -85,10 +103,18 @@ export default function AcademicProfilesGuidePage({
   const deleteProfileDismissTimerRef = useRef(null);
   const promptedDeletionRetryRef = useRef("");
   const profileMutationInFlightRef = useRef(false);
+  const profileA = slots.profiles.find((profile) => profile.id === "profile-a");
+  const profileB = slots.profiles.find((profile) => profile.id === "profile-b");
+  const profileNames = {
+    a: getAcademicProfileDisplayName(profileA || { id: "profile-a", label: "Profile A" }),
+    b: getAcademicProfileDisplayName(profileB || { id: "profile-b", label: "Profile B" }, 1),
+  };
+  const personalizedGuideSteps = personalizeGuideSteps(profileNames);
   const selectedCopy = PROFILE_COPY[selectedKind];
   const selectedProfile = slots.profiles.find((profile) => profileKind(profile) === selectedKind);
+  const selectedProfileName = profileNames[selectedKind];
   const activeKind = profileKind(slots.activeProfile);
-  const step = ACADEMIC_PROFILE_GUIDE_STEPS[activeStep];
+  const step = personalizedGuideSteps[activeStep];
   const StepIcon = STEP_ICONS[step.id] || Sparkles;
   const pendingDeletionProfile = slots.profiles.find((profile) => profile.deletionPending)
     || slots.profiles.find((profile) => (
@@ -185,9 +211,9 @@ export default function AcademicProfilesGuidePage({
     try {
       await onVisitAcademicProfile(targetProfile);
       setProfileDeletionGuidance(null);
-      toast.success("Now viewing " + targetProfile.label + ".");
+      toast.success("Now viewing " + getAcademicProfileDisplayName(targetProfile) + ".");
     } catch (error) {
-      toast.error(error?.message || "Could not visit " + targetProfile.label + ".");
+      toast.error(error?.message || "Could not visit " + getAcademicProfileDisplayName(targetProfile) + ".");
     } finally {
       profileMutationInFlightRef.current = false;
       setSwitchingProfile(false);
@@ -269,13 +295,13 @@ export default function AcademicProfilesGuidePage({
     try {
       await onDeleteAcademicProfile(selectedProfileForDeletion);
       setProfileDeletionGuidance(null);
-      toast.success(selectedProfileForDeletion.label + " deleted.");
+      toast.success(getAcademicProfileDisplayName(selectedProfileForDeletion) + " deleted.");
       dismissDeleteProfileDialog();
     } catch (error) {
       if (error?.code === "KIDS_PARENT_ACCESS_REQUIRED") {
         const guidance = {
           id: selectedProfileForDeletion.id,
-          label: selectedProfileForDeletion.label || "the child profile",
+          label: getAcademicProfileDisplayName(selectedProfileForDeletion) || "the child profile",
         };
         setProfileDeletionGuidance(guidance);
         dismissDeleteProfileDialog();
@@ -284,7 +310,8 @@ export default function AcademicProfilesGuidePage({
             + ", unlock Parent Corner, then return to this guide to delete it.",
         );
       } else {
-        toast.error(error?.message || "Could not delete " + selectedProfileForDeletion.label + ".");
+        toast.error(error?.message
+          || "Could not delete " + getAcademicProfileDisplayName(selectedProfileForDeletion) + ".");
       }
     } finally {
       profileMutationInFlightRef.current = false;
@@ -298,7 +325,7 @@ export default function AcademicProfilesGuidePage({
       ? "Open profile settings"
       : switchingProfile || workspaceTransitioning
         ? "Switching..."
-        : "Visit " + selectedCopy.title;
+        : "Visit " + selectedProfileName;
   return (
     <section className="academic-profiles-page page-stack">
       <header className="academic-profiles-page-header">
@@ -313,11 +340,11 @@ export default function AcademicProfilesGuidePage({
         </button>
         <div>
           <span className="academic-profile-guide-kicker">Settings / Academic profiles</span>
-          <h1>How Profile A and Profile B work</h1>
+          <h1>How {profileNames.a} and {profileNames.b} work</h1>
           <p>A clear guide to switching between two independent learning workspaces.</p>
         </div>
         <span className="academic-profiles-current-badge">
-          <CheckCircle2 aria-hidden="true" size={15} /> Current: {slots.activeProfile?.label || "Profile A"}
+          <CheckCircle2 aria-hidden="true" size={15} /> Current: {getAcademicProfileDisplayName(slots.activeProfile)}
         </span>
       </header>
 
@@ -326,7 +353,7 @@ export default function AcademicProfilesGuidePage({
           <span className="academic-profile-guide-kicker"><Sparkles aria-hidden="true" size={14} /> Two profiles, one account</span>
           <h2>Keep different study journeys organized—not mixed together.</h2>
           <p>
-            Profile A and Profile B let you use one PrepMatrix account for two academic contexts.
+            {profileNames.a} and {profileNames.b} let you use one PrepMatrix account for two academic contexts.
             Switching changes the active learning workspace while keeping the other profile safe.
           </p>
           <div className="academic-profiles-hero-actions">
@@ -338,10 +365,10 @@ export default function AcademicProfilesGuidePage({
             </Link>
           </div>
         </div>
-        <div className="academic-profiles-orbit" aria-label="Profile A and Profile B are separate workspaces">
-          <div className="is-a"><strong>A</strong><span>Profile A</span><small>Workspace one</small></div>
+        <div className="academic-profiles-orbit" aria-label={`${profileNames.a} and ${profileNames.b} are separate workspaces`}>
+          <div className="is-a"><strong>A</strong><span>{profileNames.a}</span><small>Workspace one</small></div>
           <span><Repeat2 aria-hidden="true" size={22} /><small>Switch</small></span>
-          <div className="is-b"><strong>B</strong><span>Profile B</span><small>Workspace two</small></div>
+          <div className="is-b"><strong>B</strong><span>{profileNames.b}</span><small>Workspace two</small></div>
         </div>
       </section>
 
@@ -372,7 +399,7 @@ export default function AcademicProfilesGuidePage({
                 type="button"
               >
                 <span>{kind.toUpperCase()}</span>
-                <div><strong>{profile.title}</strong><small>{exists ? "Configured" : "Available to create"}</small></div>
+                <div><strong>{profileNames[kind]}</strong><small>{exists ? "Configured" : "Available to create"}</small></div>
                 {activeKind === kind ? <em><Check aria-hidden="true" size={12} /> Current</em> : null}
               </button>
             );
@@ -389,7 +416,7 @@ export default function AcademicProfilesGuidePage({
           <div className="academic-profile-catalogue-letter">{selectedKind.toUpperCase()}</div>
           <div>
             <span>{selectedCopy.eyebrow}</span>
-            <h3>{selectedCopy.title}</h3>
+            <h3>{selectedProfileName}</h3>
             <p>{selectedCopy.summary}</p>
             <dl>
               <div><dt>Best used for</dt><dd>{selectedCopy.useFor}</dd></div>
@@ -431,11 +458,11 @@ export default function AcademicProfilesGuidePage({
             <h2>Learn the workflow one step at a time</h2>
             <p>Nothing changes automatically while you review this guide.</p>
           </div>
-          <span>{activeStep + 1} / {ACADEMIC_PROFILE_GUIDE_STEPS.length}</span>
+          <span>{activeStep + 1} / {personalizedGuideSteps.length}</span>
         </header>
 
         <nav aria-label="Academic profile guide steps" className="academic-profiles-walkthrough-nav">
-          {ACADEMIC_PROFILE_GUIDE_STEPS.map((guideStep, index) => (
+          {personalizedGuideSteps.map((guideStep, index) => (
             <button
               aria-current={activeStep === index ? "step" : undefined}
               className={activeStep === index ? "is-active" : ""}
@@ -485,7 +512,7 @@ export default function AcademicProfilesGuidePage({
             >
               <ArrowLeft aria-hidden="true" size={15} /> Previous
             </button>
-            {activeStep < ACADEMIC_PROFILE_GUIDE_STEPS.length - 1 ? (
+            {activeStep < personalizedGuideSteps.length - 1 ? (
               <button className="academic-profile-guide-button is-primary" onClick={() => chooseStep(activeStep + 1)} type="button">
                 Next step <ArrowRight aria-hidden="true" size={15} />
               </button>
@@ -549,7 +576,7 @@ export default function AcademicProfilesGuidePage({
               <ArrowRight aria-hidden="true" size={15} />
               {switchingProfile
                 ? "Switching..."
-                : "Visit " + (slots.inactiveProfile?.label || "other profile")}
+                : "Visit " + (getAcademicProfileDisplayName(slots.inactiveProfile) || "other profile")}
             </button>
             <button
               aria-controls="settings-profile-delete-dialog"

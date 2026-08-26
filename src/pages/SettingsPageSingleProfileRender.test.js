@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -56,6 +57,7 @@ test("renders Settings for one profile without deletion guidance", async () => {
         department: "IT",
         id: "profile-a",
         label: "Profile A",
+        displayName: "Engineering",
       }],
       academicTrack: "Engineering & Technology",
       activeAcademicProfileId: "profile-a",
@@ -103,9 +105,10 @@ test("renders Settings for one profile without deletion guidance", async () => {
     const markup = renderSettings();
 
     assert.match(markup, /Profile &amp; Information/u);
-    assert.match(markup, /Current: <strong>Profile A<\/strong>/u);
+    assert.match(markup, /Current:<\/span><span class="settings-profile-current-name"><strong>Engineering<\/strong>/u);
+    assert.match(markup, /aria-label="Rename Engineering"/u);
     assert.match(markup, /href="\/settings\/profiles"/u);
-    assert.match(markup, /aria-label="Learn how Profile A and Profile B work"/u);
+    assert.match(markup, /aria-label="Learn how academic profiles work"/u);
     assert.doesNotMatch(markup, /settings-profile-parent-guidance/u);
     assert.match(markup, /Study Goals &amp; Reminders/u);
     assert.doesNotMatch(markup, /settings-system-card dashboard-full-span/u);
@@ -120,4 +123,22 @@ test("renders Settings for one profile without deletion guidance", async () => {
     if (originalStorage) Object.defineProperty(globalThis, "localStorage", originalStorage);
     else delete globalThis.localStorage;
   }
+});
+
+test("wires the inline profile-name editor to an exact, scoped rename request", () => {
+  const source = readFileSync(new URL("./SettingsPage.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /validateAcademicProfileDisplayName\(profileNameDraft\)/u);
+  assert.match(source, /maxLength=\{ACADEMIC_PROFILE_DISPLAY_NAME_MAX_LENGTH\}/u);
+  assert.match(
+    source,
+    /renameAcademicProfileId: activeAcademicProfileSlot\.id,[\s\S]*?renameAcademicProfileDataId: activeAcademicProfileSlot\.dataId,[\s\S]*?academicProfileDisplayName: validation\.value/u,
+  );
+  assert.match(source, /academicProfileId: activeAcademicProfileSlot\.dataId/u);
+  assert.match(source, /event\.key === "Enter"[\s\S]*?saveProfileDisplayName\(\)/u);
+  assert.match(source, /event\.key === "Escape"[\s\S]*?cancelProfileNameEdit\(\)/u);
+  assert.match(source, /aria-label="Save profile name"/u);
+  assert.match(source, /aria-label="Cancel profile name edit"/u);
+  assert.match(source, /setUserProfile\(response\.user\)/u);
+  assert.match(source, /metadataOnly: true/u);
 });

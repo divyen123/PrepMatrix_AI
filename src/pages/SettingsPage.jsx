@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, History } from "lucide-react";
+import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, History, X } from "lucide-react";
 import api from "../utils/apiClient";
 import GoalSettingsPanel from "../components/GoalSettingsPanel";
 import KidsPerformanceSettings from "../components/kids/KidsPerformanceSettings";
@@ -34,6 +34,11 @@ import {
   updateSettingsAcademicDraft,
 } from "../utils/settingsAcademicDrafts";
 import { getAcademicProfileSlots } from "../utils/academicProfileSlots";
+import {
+  ACADEMIC_PROFILE_DISPLAY_NAME_MAX_LENGTH,
+  getAcademicProfileDisplayName,
+  validateAcademicProfileDisplayName,
+} from "../utils/academicProfileNames";
 import { academicProfileStorageKey } from "../utils/academicProfileScope";
 import { ACADEMIC_PROFILE_GUIDE_ROUTE } from "../utils/academicProfileGuide";
 import { normalizeResumeBuilderState } from "../utils/resumeBuilder";
@@ -475,11 +480,16 @@ function SettingsPage({
   const grade = activeAcademicDraft.grade;
   const degree = activeAcademicDraft.degree;
   const [profileImage, setProfileImage] = useState(userProfile?.profileImage || "");
+  const activeProfileDisplayName = getAcademicProfileDisplayName(activeAcademicProfileSlot);
+  const [profileNameDraft, setProfileNameDraft] = useState(activeProfileDisplayName);
+  const [editingProfileName, setEditingProfileName] = useState(false);
+  const [savingProfileName, setSavingProfileName] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [pendingAcademicAction, setPendingAcademicAction] = useState(null);
   const [academicActionDialogOpen, setAcademicActionDialogOpen] = useState(false);
   const profileImageInputRef = useRef(null);
   const profileCardRef = useRef(null);
+  const profileNameInputRef = useRef(null);
   const profileSaveButtonRef = useRef(null);
   const profileMutationInFlightRef = useRef(false);
   const academicActionDismissTimerRef = useRef(null);
@@ -487,7 +497,7 @@ function SettingsPage({
   const [profileCardHighlighted, setProfileCardHighlighted] = useState(false);
   const academicProfileEditable = !youngKidsMode || Boolean(kidsParentAccess?.unlocked);
   const academicFieldsEditable = academicProfileEditable && !hasTwoProfiles;
-  const profileMutationBusy = savingProfile || workspaceTransitioning;
+  const profileMutationBusy = savingProfile || savingProfileName || workspaceTransitioning;
 
   useEffect(() => () => {
     if (profileCardHighlightTimerRef.current) {
@@ -566,6 +576,20 @@ function SettingsPage({
 
   // Security state
   const [email, setEmail] = useState(userProfile?.email || "");
+  useEffect(() => {
+    setProfileNameDraft(activeProfileDisplayName);
+    setEditingProfileName(false);
+  }, [activeAcademicProfileSlot?.dataId, activeProfileDisplayName]);
+
+  useEffect(() => {
+    if (!editingProfileName) return;
+    const frame = window.requestAnimationFrame(() => {
+      profileNameInputRef.current?.focus();
+      profileNameInputRef.current?.select();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [editingProfileName]);
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [isCurrentPasswordCorrect, setIsCurrentPasswordCorrect] = useState(false);
   const [password, setPassword] = useState("");
@@ -1295,6 +1319,80 @@ function SettingsPage({
     }
   };
 
+  const beginProfileNameEdit = () => {
+    if (profileMutationBusy) return;
+    setProfileNameDraft(activeProfileDisplayName);
+    setEditingProfileName(true);
+  };
+
+  const cancelProfileNameEdit = () => {
+    if (savingProfileName) return;
+    setProfileNameDraft(activeProfileDisplayName);
+    setEditingProfileName(false);
+  };
+
+  const saveProfileDisplayName = async () => {
+    if (profileMutationInFlightRef.current || profileMutationBusy) return;
+    const validation = validateAcademicProfileDisplayName(profileNameDraft);
+    if (!validation.valid) {
+      toast.error(validation.error);
+      profileNameInputRef.current?.focus();
+      return;
+    }
+    if (validation.value === activeProfileDisplayName) {
+      setProfileNameDraft(validation.value);
+      setEditingProfileName(false);
+      return;
+    }
+    if (!activeAcademicProfileSlot?.id || !activeAcademicProfileSlot?.dataId) {
+      toast.error("Reload Settings before renaming this profile.");
+      return;
+    }
+
+    profileMutationInFlightRef.current = true;
+    setSavingProfileName(true);
+    try {
+      const response = await api.updateProfile({
+        renameAcademicProfileId: activeAcademicProfileSlot.id,
+        renameAcademicProfileDataId: activeAcademicProfileSlot.dataId,
+        academicProfileDisplayName: validation.value,
+      }, {
+        academicProfileId: activeAcademicProfileSlot.dataId,
+      });
+      setUserProfile(response.user);
+      setProfileNameDraft(validation.value);
+      setEditingProfileName(false);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem("prepmatrix_academic_profile_event", JSON.stringify({
+            at: Date.now(),
+            metadataOnly: true,
+            profileDataId: activeAcademicProfileSlot.dataId,
+          }));
+        } catch {
+          // The server response remains authoritative when browser storage is unavailable.
+        }
+      }
+      toast.success(`Profile renamed to ${validation.value}.`);
+    } catch (error) {
+      toast.error(error?.message || "Could not rename this profile.");
+      profileNameInputRef.current?.focus();
+    } finally {
+      profileMutationInFlightRef.current = false;
+      setSavingProfileName(false);
+    }
+  };
+
+  const handleProfileNameKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveProfileDisplayName();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancelProfileNameEdit();
+    }
+  };
+
   const commitProfileSave = async (payload, { academicMutation = false } = {}) => {
     if (profileMutationInFlightRef.current || profileMutationBusy) return false;
 
@@ -1558,7 +1656,7 @@ function SettingsPage({
       scope: "active-academic-profile",
       profileContext: {
         academicProfileId: academicProfileDataId,
-        label: activeAcademicProfileSlot?.label || profileContext?.label || "Profile A",
+        label: activeProfileDisplayName || profileContext?.label || "Profile A",
       },
       subjects,
       schedule,
@@ -2100,11 +2198,44 @@ function SettingsPage({
 
           <div className="settings-profile-slot-bar">
             <div className="settings-profile-slot-heading">
-              <p aria-live="polite" className="settings-profile-current-status">
-                Current: <strong>{activeAcademicProfileSlot?.label || "Profile A"}</strong>
-              </p>
+              <div aria-live="polite" className="settings-profile-current-status">
+                <span>Current:</span>
+                {editingProfileName ? (
+                  <div className="settings-profile-name-editor">
+                    <input
+                      aria-label="Profile name"
+                      disabled={savingProfileName}
+                      maxLength={ACADEMIC_PROFILE_DISPLAY_NAME_MAX_LENGTH}
+                      onChange={(event) => setProfileNameDraft(event.target.value)}
+                      onKeyDown={handleProfileNameKeyDown}
+                      ref={profileNameInputRef}
+                      value={profileNameDraft}
+                    />
+                    <button aria-label="Save profile name" className="settings-profile-name-action is-save" disabled={savingProfileName} onClick={saveProfileDisplayName} title="Save profile name" type="button">
+                      <Check aria-hidden="true" size={13} />
+                    </button>
+                    <button aria-label="Cancel profile name edit" className="settings-profile-name-action" disabled={savingProfileName} onClick={cancelProfileNameEdit} title="Cancel" type="button">
+                      <X aria-hidden="true" size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <span className="settings-profile-current-name">
+                    <strong>{activeProfileDisplayName}</strong>
+                    <button
+                      aria-label={`Rename ${activeProfileDisplayName}`}
+                      className="settings-profile-name-action is-edit"
+                      disabled={profileMutationBusy}
+                      onClick={beginProfileNameEdit}
+                      title="Rename profile"
+                      type="button"
+                    >
+                      <Pencil aria-hidden="true" size={12} />
+                    </button>
+                  </span>
+                )}
+              </div>
               <Link
-                aria-label="Learn how Profile A and Profile B work"
+                aria-label="Learn how academic profiles work"
                 className="settings-profile-know-more"
                 to={ACADEMIC_PROFILE_GUIDE_ROUTE}
               >
@@ -3271,7 +3402,7 @@ function SettingsPage({
         busy={savingProfile}
         busyLabel="Saving..."
         changes={pendingAcademicAction?.changes || []}
-        description={`This creates ${availableProfileLabel} and keeps ${activeAcademicProfileSlot?.label || "your current profile"}. You can visit either profile afterward.`}
+        description={`This creates ${availableProfileLabel} and keeps ${activeProfileDisplayName || "your current profile"}. You can visit either profile afterward.`}
         dialogId="settings-academic-confirm"
         fallbackFocusRef={profileSaveButtonRef}
         nextLabel={availableProfileLabel}

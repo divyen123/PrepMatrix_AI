@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { normalizeAcademicProfile } from "../src/utils/academicProfile.js";
+import {
+  DEFAULT_ACADEMIC_PROFILE_DISPLAY_NAMES,
+  sanitizeAcademicProfileDisplayName,
+  validateAcademicProfileDisplayName,
+} from "../src/utils/academicProfileNames.js";
 
 export const ACADEMIC_PROFILE_IDS = Object.freeze(["profile-a", "profile-b"]);
 export const ACADEMIC_PROFILE_DATA_VERSION = 2;
@@ -17,10 +22,7 @@ export const ACADEMIC_PROFILE_KEYS = Object.freeze([
 ]);
 const ACADEMIC_PROFILE_INSTITUTION_VERSION = 2;
 
-const PROFILE_LABELS = Object.freeze({
-  "profile-a": "Profile A",
-  "profile-b": "Profile B",
-});
+const PROFILE_LABELS = DEFAULT_ACADEMIC_PROFILE_DISPLAY_NAMES;
 
 export class AcademicProfileMutationError extends Error {
   constructor(status, code, message) {
@@ -94,6 +96,7 @@ export function academicProfileRecord(id, input = {}, { fallbackDataId = `legacy
   return {
     id,
     label: PROFILE_LABELS[id],
+    displayName: sanitizeAcademicProfileDisplayName(input.displayName, PROFILE_LABELS[id]),
     dataId: validDataId(input.dataId) || validDataId(input.profileInstanceId) || fallbackDataId,
     ...academicProfileSnapshot(input),
     ...(deletionPending ? { deletionPending } : {}),
@@ -136,6 +139,7 @@ export function deriveAcademicProfilesState(user = {}) {
         ...currentAcademic,
         institutionName,
         dataId: profile.dataId,
+        displayName: profile.displayName,
         deletionPending: profile.deletionPending,
       });
     });
@@ -310,16 +314,90 @@ function visitProfile(state, requestedId, action = "visit") {
   };
 }
 
+function renameProfile(state, requestedId, requestedDataId, requestedDisplayName) {
+  const id = requireProfileId(requestedId);
+  const target = findProfile(state, id);
+  if (target.deletionPending) {
+    throw new AcademicProfileMutationError(
+      409,
+      "ACADEMIC_PROFILE_DELETION_PENDING",
+      "That academic profile is being deleted and cannot be renamed.",
+    );
+  }
+  if (!requestedDataId) {
+    throw new AcademicProfileMutationError(
+      400,
+      "ACADEMIC_PROFILE_RENAME_INVALID",
+      "Reload the profile before renaming it.",
+    );
+  }
+  if (target.dataId !== String(requestedDataId).trim()) {
+    throw new AcademicProfileMutationError(
+      409,
+      "ACADEMIC_PROFILE_CONTEXT_CHANGED",
+      "That profile was replaced. Reload before renaming it.",
+    );
+  }
+  const validation = validateAcademicProfileDisplayName(requestedDisplayName);
+  if (!validation.valid) {
+    throw new AcademicProfileMutationError(
+      400,
+      "ACADEMIC_PROFILE_NAME_INVALID",
+      validation.error,
+    );
+  }
+  const normalizedName = validation.value.toLocaleLowerCase();
+  const duplicate = ACADEMIC_PROFILE_IDS.find((profileId) => {
+    if (profileId === target.id) return false;
+    const profile = state.academicProfiles.find((candidate) => candidate.id === profileId);
+    const reservedNames = [profile?.displayName, PROFILE_LABELS[profileId]]
+      .filter(Boolean)
+      .map((name) => name.toLocaleLowerCase());
+    return reservedNames.includes(normalizedName);
+  });
+  if (duplicate) {
+    throw new AcademicProfileMutationError(
+      409,
+      "ACADEMIC_PROFILE_NAME_DUPLICATE",
+      "Give each academic profile a different name.",
+    );
+  }
+  if (target.displayName === validation.value) {
+    return { ...state, action: "rename-unchanged", activeAcademicChanged: false };
+  }
+  const renamedProfile = academicProfileRecord(target.id, {
+    ...target,
+    displayName: validation.value,
+  });
+  const academicProfiles = state.academicProfiles.map((profile) => (
+    profile.id === renamedProfile.id ? renamedProfile : profile
+  ));
+  return {
+    academicProfiles,
+    activeAcademicProfileId: state.activeAcademicProfileId,
+    activeProfile: academicProfiles.find((profile) => profile.id === state.activeAcademicProfileId),
+    renamedProfile,
+    action: "rename",
+    activeAcademicChanged: false,
+  };
+}
+
 export function transitionAcademicProfiles(user = {}, {
   requestedAcademic = null,
   visitAcademicProfileId,
   deleteAcademicProfileId,
+  renameAcademicProfileId,
+  renameAcademicProfileDataId,
+  academicProfileDisplayName,
   restoreAcademicProfile = false,
 } = {}) {
   const state = deriveAcademicProfilesState(user);
   const actionCount = [
     visitAcademicProfileId !== undefined,
     deleteAcademicProfileId !== undefined,
+    renameAcademicProfileId !== undefined
+      || renameAcademicProfileDataId !== undefined
+      || academicProfileDisplayName !== undefined,
     restoreAcademicProfile === true,
   ].filter(Boolean).length;
   if (actionCount > 1 || (requestedAcademic && actionCount)) {
@@ -328,6 +406,21 @@ export function transitionAcademicProfiles(user = {}, {
       "ACADEMIC_PROFILE_ACTION_CONFLICT",
       "Visit, delete, restore, and academic-detail changes must be saved separately.",
     );
+  }
+
+  if (
+    renameAcademicProfileId !== undefined
+    || renameAcademicProfileDataId !== undefined
+    || academicProfileDisplayName !== undefined
+  ) {
+    if (renameAcademicProfileId === undefined || renameAcademicProfileDataId === undefined || academicProfileDisplayName === undefined) {
+      throw new AcademicProfileMutationError(
+        400,
+        "ACADEMIC_PROFILE_RENAME_INVALID",
+        "Choose a profile and enter its new name.",
+      );
+    }
+    return renameProfile(state, renameAcademicProfileId, renameAcademicProfileDataId, academicProfileDisplayName);
   }
 
   if (restoreAcademicProfile === true) {

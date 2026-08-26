@@ -12,6 +12,7 @@ import {
   finalizeAcademicProfileDeletionState,
   transitionAcademicProfiles,
 } from "./academicProfiles.js";
+import { ACADEMIC_PROFILE_DISPLAY_NAME_MAX_LENGTH } from "../src/utils/academicProfileNames.js";
 
 const undergraduate = {
   academicLevel: "Undergraduate / Bachelor's",
@@ -36,6 +37,47 @@ const doctorate = {
   department: "Artificial Intelligence",
   institutionName: "National Research Institute",
 };
+
+const PROFILE_A_DATA_ID = "academic-profile:test-data-a";
+const PROFILE_B_DATA_ID = "academic-profile:test-data-b";
+
+function twoProfileUser({
+  activeId = "profile-a",
+  displayNameA = "Profile A",
+  displayNameB = "Profile B",
+  profileA = {},
+  profileB = {},
+} = {}) {
+  const academicProfiles = [
+    academicProfileRecord("profile-a", {
+      ...undergraduate,
+      ...profileA,
+      dataId: PROFILE_A_DATA_ID,
+      displayName: displayNameA,
+    }),
+    academicProfileRecord("profile-b", {
+      ...postgraduate,
+      ...profileB,
+      dataId: PROFILE_B_DATA_ID,
+      displayName: displayNameB,
+    }),
+  ];
+  const activeProfile = academicProfiles.find((profile) => profile.id === activeId);
+  return {
+    ...academicProfileSnapshot(activeProfile),
+    academicProfiles,
+    activeAcademicProfileId: activeProfile.id,
+    academicProfileDataVersion: ACADEMIC_PROFILE_DATA_VERSION,
+  };
+}
+
+function renameProfile(user, profileId, dataId, displayName) {
+  return transitionAcademicProfiles(user, {
+    renameAcademicProfileId: profileId,
+    renameAcademicProfileDataId: dataId,
+    academicProfileDisplayName: displayName,
+  });
+}
 
 function expectMutationError(callback, status, code) {
   assert.throws(callback, (error) => (
@@ -330,4 +372,167 @@ test("deletion pending keeps the target slot fenced until verified finalization"
   assert.equal(finalized.action, "delete-finalized");
   assert.equal(finalized.academicProfiles.length, 1);
   assert.equal(finalized.deletedProfile.dataId, "academic-profile:data-b");
+});
+
+test("renaming normalizes the custom name without changing slot identity, academics, or active state", () => {
+  const user = twoProfileUser({ activeId: "profile-a" });
+  const beforeTarget = user.academicProfiles.find((profile) => profile.id === "profile-a");
+  const beforeOther = user.academicProfiles.find((profile) => profile.id === "profile-b");
+
+  const renamed = renameProfile(
+    user,
+    "profile-a",
+    PROFILE_A_DATA_ID,
+    "  Ｍｅｄｉｃａｌ   –  BDS\n",
+  );
+  const afterTarget = renamed.academicProfiles.find((profile) => profile.id === "profile-a");
+  const afterOther = renamed.academicProfiles.find((profile) => profile.id === "profile-b");
+
+  assert.equal(renamed.action, "rename");
+  assert.equal(renamed.activeAcademicChanged, false);
+  assert.equal(renamed.activeAcademicProfileId, user.activeAcademicProfileId);
+  assert.equal(renamed.activeProfile.id, beforeTarget.id);
+  assert.equal(renamed.activeProfile.dataId, beforeTarget.dataId);
+  assert.equal(afterTarget.displayName, "Medical – BDS");
+  assert.equal(afterTarget.id, beforeTarget.id);
+  assert.equal(afterTarget.label, beforeTarget.label);
+  assert.equal(afterTarget.dataId, beforeTarget.dataId);
+  assert.deepEqual(academicProfileSnapshot(afterTarget), academicProfileSnapshot(beforeTarget));
+  assert.deepEqual(afterOther, beforeOther);
+
+  const persisted = deriveAcademicProfilesState({
+    ...user,
+    academicProfiles: renamed.academicProfiles,
+    activeAcademicProfileId: renamed.activeAcademicProfileId,
+  });
+  assert.equal(persisted.activeProfile.displayName, "Medical – BDS");
+  assert.equal(persisted.activeProfile.id, "profile-a");
+  assert.equal(persisted.activeProfile.dataId, PROFILE_A_DATA_ID);
+});
+
+test("rename rejects a missing or stale immutable data id", () => {
+  const user = twoProfileUser();
+
+  expectMutationError(
+    () => renameProfile(user, "profile-a", "", "Engineering"),
+    400,
+    "ACADEMIC_PROFILE_RENAME_INVALID",
+  );
+  expectMutationError(
+    () => renameProfile(user, "profile-a", "academic-profile:stale-data", "Engineering"),
+    409,
+    "ACADEMIC_PROFILE_CONTEXT_CHANGED",
+  );
+});
+
+test("rename rejects blank, control-only, and overlong custom names", () => {
+  const user = twoProfileUser();
+  const invalidNames = [
+    "",
+    " \n\t ",
+    "\u0000\u0007",
+    "x".repeat(ACADEMIC_PROFILE_DISPLAY_NAME_MAX_LENGTH + 1),
+  ];
+
+  invalidNames.forEach((displayName) => {
+    expectMutationError(
+      () => renameProfile(user, "profile-a", PROFILE_A_DATA_ID, displayName),
+      400,
+      "ACADEMIC_PROFILE_NAME_INVALID",
+    );
+  });
+});
+
+test("rename rejects duplicate names after normalization and case folding", () => {
+  const user = twoProfileUser({
+    displayNameA: "Engineering",
+    displayNameB: "Medicine",
+  });
+
+  expectMutationError(
+    () => renameProfile(user, "profile-b", PROFILE_B_DATA_ID, "  ENGINEERING  "),
+    409,
+    "ACADEMIC_PROFILE_NAME_DUPLICATE",
+  );
+});
+
+test("fixed default names stay reserved for their matching slots", () => {
+  const user = twoProfileUser({
+    displayNameA: "Engineering",
+    displayNameB: "Medicine",
+  });
+
+  expectMutationError(
+    () => renameProfile(user, "profile-a", PROFILE_A_DATA_ID, "Profile B"),
+    409,
+    "ACADEMIC_PROFILE_NAME_DUPLICATE",
+  );
+  expectMutationError(
+    () => renameProfile(user, "profile-b", PROFILE_B_DATA_ID, "Profile A"),
+    409,
+    "ACADEMIC_PROFILE_NAME_DUPLICATE",
+  );
+});
+
+test("rename rejects a profile whose data deletion is pending", () => {
+  const user = twoProfileUser({
+    profileB: {
+      deletionPending: {
+        operationId: "profile-delete:pending-rename",
+        requestedAt: new Date("2026-08-26T00:00:00.000Z"),
+      },
+    },
+  });
+
+  expectMutationError(
+    () => renameProfile(user, "profile-b", PROFILE_B_DATA_ID, "Medicine"),
+    409,
+    "ACADEMIC_PROFILE_DELETION_PENDING",
+  );
+});
+
+test("rename remains isolated from visit, delete, restore, and academic-detail actions", () => {
+  const user = twoProfileUser();
+  const renameAction = {
+    renameAcademicProfileId: "profile-a",
+    renameAcademicProfileDataId: PROFILE_A_DATA_ID,
+    academicProfileDisplayName: "Engineering",
+  };
+
+  [
+    { ...renameAction, visitAcademicProfileId: "profile-b" },
+    { ...renameAction, deleteAcademicProfileId: "profile-b" },
+    { ...renameAction, restoreAcademicProfile: true },
+    { ...renameAction, requestedAcademic: doctorate },
+  ].forEach((request) => {
+    expectMutationError(
+      () => transitionAcademicProfiles(user, request),
+      400,
+      "ACADEMIC_PROFILE_ACTION_CONFLICT",
+    );
+  });
+
+  expectMutationError(
+    () => transitionAcademicProfiles(user, {
+      academicProfileDisplayName: "Engineering",
+      renameAcademicProfileDataId: PROFILE_A_DATA_ID,
+    }),
+    400,
+    "ACADEMIC_PROFILE_RENAME_INVALID",
+  );
+  expectMutationError(
+    () => transitionAcademicProfiles(user, {
+      renameAcademicProfileId: "profile-a",
+      renameAcademicProfileDataId: PROFILE_A_DATA_ID,
+    }),
+    400,
+    "ACADEMIC_PROFILE_RENAME_INVALID",
+  );
+  expectMutationError(
+    () => transitionAcademicProfiles(user, {
+      renameAcademicProfileDataId: PROFILE_A_DATA_ID,
+    }),
+    400,
+    "ACADEMIC_PROFILE_RENAME_INVALID",
+  );
 });

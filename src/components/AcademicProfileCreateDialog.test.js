@@ -142,6 +142,9 @@ test("uses an accessible, animated, compact, responsive dialog with registration
   assert.match(source, /document\.body\.style\.overflow = "hidden"/u);
   assert.match(source, /focusTarget\.focus\(\)/u);
   assert.match(source, /onCreateAcademicProfile\(buildAcademicProfileCreationPayload\(draft\)\)/u);
+  assert.match(source, /const currentProfileName = activeProfile\?\.displayName \|\| activeProfile\?\.label \|\| "Profile A"/u);
+  assert.match(source, /<small>Current<\/small> \{currentProfileName\}/u);
+  assert.match(source, /<small>New<\/small> Profile B/u);
   assert.match(source, /ACADEMIC_PROFILE_CREATE_EXIT_MS = 460/u);
 
   const dialogRule = stylesheet.match(

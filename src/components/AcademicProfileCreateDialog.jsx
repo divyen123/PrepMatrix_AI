@@ -54,6 +54,7 @@ export default function AcademicProfileCreateDialog({
   open = false,
   returnFocusRef,
 }) {
+  const currentProfileName = activeProfile?.displayName || activeProfile?.label || "Profile A";
   const [draft, setDraft] = useState(() => createDraft(institutionName));
   const [entered, setEntered] = useState(false);
   const [error, setError] = useState("");
@@ -249,7 +250,7 @@ export default function AcademicProfileCreateDialog({
         </header>
 
         <div className="academic-profile-create-context" aria-label="Profile relationship">
-          <span><b>A</b><small>Current</small> Profile A</span>
+          <span><b>A</b><small>Current</small> {currentProfileName}</span>
           <ArrowRight aria-hidden="true" size={18} />
           <span className="is-next"><b>B</b><small>New</small> Profile B</span>
         </div>

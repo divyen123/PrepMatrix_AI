@@ -33,6 +33,7 @@ test("renders detailed user information, usage actions, and accessible activity 
       department: "Information Technology",
       id: "profile-a",
       label: "Profile A",
+      displayName: "Engineering",
     }],
     academicTrack: "Engineering & Technology",
     activeAcademicProfileId: "profile-a",
@@ -100,7 +101,7 @@ test("renders detailed user information, usage actions, and accessible activity 
     assert.match(markup, /Create Profile B/u);
     assert.match(markup, /Daily app usage/u);
     assert.match(markup, /Daily average/u);
-    assert.match(markup, /Profile A/u);
+    assert.match(markup, /Engineering/u);
     assert.match(markup, /PrepMatrix University/u);
     assert.match(markup, /1\/2 tasks · 50%/u);
     assert.match(markup, /<dt>Age<\/dt><dd>21<\/dd>/u);
@@ -127,6 +128,7 @@ test("renders detailed user information, usage actions, and accessible activity 
               department: "Management",
               id: "profile-b",
               label: "Profile B",
+              displayName: "Medical Studies",
             },
           ],
         },
@@ -175,6 +177,8 @@ test("registers the guarded route, global tracker, responsive charts, and backgr
   assert.match(pageSource, /<ComposedChart[\s\S]*?<Bar[\s\S]*?<Line/u);
   assert.match(pageSource, /saveAppUsageLimit\(usageIdentity, minutes\)/u);
   assert.match(pageSource, /await onVisitAcademicProfile\(otherProfile\)/u);
+  assert.match(pageSource, /const activeProfileLabel = getAcademicProfileDisplayName\(profileSlots\.activeProfile\)/u);
+  assert.match(pageSource, /Now viewing \$\{getAcademicProfileDisplayName\(otherProfile\)\}/u);
   assert.match(pageSource, /<AcademicProfileCreateDialog[\s\S]*?onCreateAcademicProfile=\{onCreateAcademicProfile\}/u);
   assert.match(appSource, /<SettingsProfilePage[\s\S]*?onCreateAcademicProfile=\{createAcademicProfile\}/u);
   assert.equal((pageSource.match(/aria-controls="settings-profile-usage-dialog"/gu) || []).length, 2);

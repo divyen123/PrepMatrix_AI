@@ -69,6 +69,7 @@ import {
   normalizeAcademicProfile,
 } from "./utils/academicProfile";
 import { buildAcademicProfileDeletePayload } from "./utils/academicProfileSlots";
+import { getAcademicProfileDisplayName } from "./utils/academicProfileNames";
 import {
   clearAcademicProfileBrowserData,
   clearOwnedLegacyAcademicProfileBrowserData,
@@ -1176,8 +1177,8 @@ function App() {
         window.clearTimeout(academicProfileIntroTimerRef.current);
       }
       setAcademicProfileIntro({
-        activeProfileLabel: activeProfile.label || "Profile B",
-        otherProfileLabel: otherProfile?.label || "Profile A",
+        activeProfileLabel: getAcademicProfileDisplayName(activeProfile, 1),
+        otherProfileLabel: getAcademicProfileDisplayName(otherProfile || { id: "profile-a" }, 0),
         userName: nextUser.username || "",
       });
       academicProfileIntroTimerRef.current = window.setTimeout(() => {

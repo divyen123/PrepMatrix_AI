@@ -1,3 +1,5 @@
+import { getAcademicProfileDisplayName } from "./academicProfileNames.js";
+
 const PROFILE_STORAGE_PREFIX = "prepmatrix-profile";
 
 function clean(value) {
@@ -20,16 +22,19 @@ export function getAcademicProfileDataId(profile = {}) {
 export function resolveAcademicProfileContext(input = {}, user = {}) {
   const profiles = Array.isArray(user?.academicProfiles) ? user.academicProfiles : [];
   const requestedDataId = getAcademicProfileDataId(input);
-  const requestedSlotId = clean(
+  const explicitSlotId = clean(
     input?.slotId
       || input?.id
-      || input?.activeAcademicProfileId
-      || user?.activeAcademicProfileId,
+      || input?.activeAcademicProfileId,
   );
-  const activeProfile = profiles.find((profile) => (
-    (requestedDataId && getAcademicProfileDataId(profile) === requestedDataId)
-      || (requestedSlotId && clean(profile?.id) === requestedSlotId)
-  )) || profiles.find((profile) => clean(profile?.id) === clean(user?.activeAcademicProfileId))
+  const requestedSlotId = explicitSlotId || clean(user?.activeAcademicProfileId);
+  const activeProfile = (requestedDataId
+    ? profiles.find((profile) => getAcademicProfileDataId(profile) === requestedDataId)
+    : null)
+    || (explicitSlotId
+      ? profiles.find((profile) => clean(profile?.id) === explicitSlotId)
+      : null)
+    || profiles.find((profile) => clean(profile?.id) === clean(user?.activeAcademicProfileId))
     || profiles[0]
     || null;
   const dataId = requestedDataId || getAcademicProfileDataId(activeProfile);
@@ -38,7 +43,8 @@ export function resolveAcademicProfileContext(input = {}, user = {}) {
     academicProfileId: dataId,
     dataId,
     slotId: clean(activeProfile?.id || requestedSlotId),
-    label: clean(input?.label || activeProfile?.label) || "Profile A",
+    label: clean(input?.label)
+      || getAcademicProfileDisplayName(activeProfile || { id: requestedSlotId }),
     revision: clean(input?.revision || input?.profileRevision),
   };
 }

@@ -34,6 +34,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { getAcademicProfileDisplayName } from "../utils/academicProfileNames";
 import { toast } from "react-toastify";
 import { isSchoolAcademicLevel, normalizeAcademicProfile } from "../utils/academicProfile";
 import { getAcademicProfileSlots } from "../utils/academicProfileSlots";
@@ -342,7 +343,7 @@ export default function SettingsProfilePage({
     ? getScheduleDateKey(schedule[0], 0, scheduleStartDate)
     : null;
   const subjectCount = Array.isArray(subjects) ? subjects.length : 0;
-  const activeProfileLabel = profileSlots.activeProfile?.label || "Profile A";
+  const activeProfileLabel = getAcademicProfileDisplayName(profileSlots.activeProfile);
   const otherProfile = profileSlots.inactiveProfile;
   const schoolProfile = isSchoolAcademicLevel(academicProfile.academicLevel);
   const avatarInitial = displayValue(userProfile?.username || userProfile?.email, "P")
@@ -388,7 +389,7 @@ export default function SettingsProfilePage({
     setSwitchingProfile(true);
     try {
       await onVisitAcademicProfile(otherProfile);
-      toast.success(`Now viewing ${otherProfile.label}.`);
+      toast.success(`Now viewing ${getAcademicProfileDisplayName(otherProfile)}.`);
     } catch (error) {
       toast.error(error?.message || "Could not change the academic profile.");
     } finally {

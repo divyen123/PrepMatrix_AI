@@ -65,6 +65,41 @@ test("legacy data is backfilled on login and authenticated-session loading", () 
   assert.match(source, /await migrateProfileScopedUniqueIndexes\(db\);/);
 });
 
+test("profile rename forwards its complete contract without reloading the active workspace", () => {
+  const start = source.indexOf('app.put("/api/auth/profile"');
+  const end = source.indexOf('app.put("/api/workspace"', start);
+  const flow = source.slice(start, end);
+
+  assert.ok(start >= 0 && end > start);
+  assert.match(
+    flow,
+    /const hasRenameAction = Object\.prototype\.hasOwnProperty\.call\(requestedProfile, "renameAcademicProfileId"\)[\s\S]*?Object\.prototype\.hasOwnProperty\.call\(requestedProfile, "academicProfileDisplayName"\)/u,
+  );
+  assert.match(
+    flow,
+    /const hasAcademicProfileMutation = hasAcademicMutation \|\| hasRenameAction/u,
+  );
+  assert.match(flow, /if \(hasAcademicProfileMutation\) \{/u);
+  assert.match(
+    flow,
+    /renameAcademicProfileId: hasRenameAction[\s\S]*?requestedProfile\.renameAcademicProfileId[\s\S]*?renameAcademicProfileDataId: requestedProfile\.renameAcademicProfileDataId[\s\S]*?academicProfileDisplayName: requestedProfile\.academicProfileDisplayName/u,
+  );
+  assert.match(
+    flow,
+    /update\.academicProfiles = academicTransition\.academicProfiles;[\s\S]*?update\.activeAcademicProfileId = academicTransition\.activeAcademicProfileId;/u,
+  );
+
+  const workspaceDecision = flow.match(
+    /const activeProfileData = ([\s\S]*?);\s*\n\s*if \(password\)/u,
+  );
+  assert.ok(workspaceDecision, "profile update route should have one workspace-loading decision");
+  assert.match(
+    workspaceDecision[1],
+    /hasAcademicMutation[\s\S]*?ensureActiveProfileWorkspace\(db, updatedUser\)[\s\S]*?: null/u,
+  );
+  assert.doesNotMatch(workspaceDecision[1], /hasAcademicProfileMutation/u);
+});
+
 test("inline quiz and chat AI replay calls carry active profile identity", () => {
   const calls = [...source.matchAll(/aiQuota\.(?:lookup|reserve)\(\{([\s\S]*?)\n\s*\}\);/g)]
     .map((match) => match[1])

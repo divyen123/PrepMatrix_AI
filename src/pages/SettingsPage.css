@@ -1031,6 +1031,10 @@ body .settings-page .settings-profile-info-trigger:focus-visible {
 }
 
 .settings-profile-current-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
   margin: 0;
   color: var(--text-muted);
   font-size: 0.76rem;
@@ -1039,6 +1043,80 @@ body .settings-page .settings-profile-info-trigger:focus-visible {
 .settings-profile-current-status strong {
   color: var(--text);
   font-size: 0.8rem;
+}
+
+.settings-profile-current-name,
+.settings-profile-name-editor {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 5px;
+}
+
+.settings-profile-current-name strong {
+  overflow: hidden;
+  max-width: min(220px, 24vw);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-profile-name-editor {
+  animation: settings-profile-name-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.settings-profile-name-editor input {
+  width: clamp(130px, 18vw, 220px);
+  min-height: 30px;
+  padding: 5px 9px;
+  color: var(--text);
+  border: 1px solid rgba(var(--accent-rgb), 0.48);
+  border-radius: 9px;
+  outline: none;
+  background: rgba(var(--accent-rgb), 0.08);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 720;
+  transition: border-color 170ms ease, box-shadow 170ms ease, background 170ms ease;
+}
+
+.settings-profile-name-editor input:focus {
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.13);
+}
+
+.settings-profile-name-action {
+  display: inline-grid !important;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  color: var(--text-muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  transition: color 170ms ease, border-color 170ms ease, background 170ms ease, transform 170ms ease;
+}
+
+.settings-profile-name-action:hover,
+.settings-profile-name-action:focus-visible,
+.settings-profile-name-action.is-save {
+  color: var(--accent) !important;
+  border-color: rgba(var(--accent-rgb), 0.42) !important;
+  background: rgba(var(--accent-rgb), 0.1) !important;
+  outline: none;
+}
+
+.settings-profile-name-action:hover {
+  transform: translateY(-1px);
+}
+
+@keyframes settings-profile-name-in {
+  from { opacity: 0; transform: translateX(-5px) scale(0.98); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
 }
 
 .settings-profile-slot-actions {

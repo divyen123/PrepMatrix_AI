@@ -32,8 +32,9 @@ test("claims the first Profile B guide once for one immutable profile", () => {
   const storage = createStorage();
   const profileB = {
     dataId: "academic-profile:test:profile-b",
+    displayName: "Medical Studies",
     id: "profile-b",
-    label: "Profile B",
+    label: "Profile A",
   };
 
   assert.equal(claimFirstProfileBGuide(profileB, storage), true);
@@ -48,8 +49,9 @@ test("never auto-opens for Profile A and treats recreated Profile B as new", () 
   const storage = createStorage();
   const profileA = {
     dataId: "academic-profile:test:profile-a",
+    displayName: "Profile B",
     id: "profile-a",
-    label: "Profile A",
+    label: "Profile B",
   };
   const firstProfileB = {
     dataId: "academic-profile:test:profile-b-one",

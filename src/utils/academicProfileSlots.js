@@ -1,13 +1,16 @@
 import { normalizeAcademicProfile } from "./academicProfile.js";
 import { getAcademicProfileDataId } from "./academicProfileScope.js";
+import { getAcademicProfileDisplayName } from "./academicProfileNames.js";
 
+const SLOT_IDS = Object.freeze(["profile-a", "profile-b"]);
 const SLOT_LABELS = Object.freeze(["Profile A", "Profile B"]);
 
 function normalizeSlot(profile, index) {
   const normalized = normalizeAcademicProfile(profile || {});
   return {
-    id: String(profile?.id || "").trim(),
+    id: String(profile?.id || SLOT_IDS[index] || "").trim(),
     dataId: getAcademicProfileDataId(profile),
+    displayName: getAcademicProfileDisplayName(profile, index),
     label: String(profile?.label || SLOT_LABELS[index] || `Profile ${index + 1}`).trim(),
     academicLevel: normalized.academicLevel,
     academicTrack: normalized.academicTrack,
@@ -30,10 +33,11 @@ export function getAcademicProfileSlots(userProfile = {}) {
   const requestedActiveId = String(userProfile?.activeAcademicProfileId || "").trim();
   const activeProfile = profiles.find((profile) => profile.id === requestedActiveId)
     || profiles[0];
-  const usedLabels = new Set(profiles.map((profile) => profile.label.toLowerCase()));
-  const availableProfileLabel = SLOT_LABELS.find(
-    (label) => !usedLabels.has(label.toLowerCase()),
-  ) || "New profile";
+  const usedIds = new Set(profiles.map((profile) => profile.id));
+  const availableProfileIndex = SLOT_IDS.findIndex((id) => !usedIds.has(id));
+  const availableProfileLabel = availableProfileIndex >= 0
+    ? SLOT_LABELS[availableProfileIndex]
+    : "New profile";
 
   return {
     profiles,

@@ -9,6 +9,7 @@ const profiles = [
   {
     id: "profile-a",
     label: "Profile A",
+    displayName: "Engineering",
     academicLevel: "Undergraduate / Bachelor's",
     academicTrack: "Engineering & Technology",
     schoolType: "college",
@@ -17,6 +18,7 @@ const profiles = [
   {
     id: "profile-b",
     label: "Profile B",
+    displayName: "Medical Studies",
     academicLevel: "Postgraduate / Master's",
     academicTrack: "Engineering & Technology",
     schoolType: "college",
@@ -48,8 +50,8 @@ test("renders both deletable profiles with a current marker and exact actions", 
     assert.match(markup, /role="alertdialog"/u);
     assert.match(markup, /aria-modal="true"/u);
     assert.match(markup, /Delete an academic profile\?/u);
-    assert.match(markup, /Profile A[\s\S]*?Current/u);
-    assert.match(markup, /Profile B/u);
+    assert.match(markup, /Engineering[\s\S]*?Current/u);
+    assert.match(markup, /Medical Studies/u);
     assert.match(markup, /checked=""[^>]*value="profile-b"/u);
     assert.match(markup, />Cancel<\/button>/u);
     assert.match(markup, />Delete profile<\/button>/u);
@@ -109,8 +111,8 @@ test("marks an incomplete server deletion as retryable", async () => {
       selectedProfileId: "profile-b",
     }));
 
-    assert.match(markup, /Profile B[\s\S]*?Retry deletion/u);
-    assert.match(markup, /Profile B still needs deletion cleanup/u);
+    assert.match(markup, /Medical Studies[\s\S]*?Retry deletion/u);
+    assert.match(markup, /Medical Studies still needs deletion cleanup/u);
     assert.match(markup, /disabled=""[^>]*value="profile-a"/u);
   } finally {
     await vite.close();

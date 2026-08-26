@@ -1417,15 +1417,19 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
     const hasAcademicFields = academicKeys.some((key) => Object.prototype.hasOwnProperty.call(requestedProfile, key));
     const hasVisitAction = Object.prototype.hasOwnProperty.call(requestedProfile, "visitAcademicProfileId");
     const hasDeleteAction = Object.prototype.hasOwnProperty.call(requestedProfile, "deleteAcademicProfileId");
+    const hasRenameAction = Object.prototype.hasOwnProperty.call(requestedProfile, "renameAcademicProfileId")
+      || Object.prototype.hasOwnProperty.call(requestedProfile, "renameAcademicProfileDataId")
+      || Object.prototype.hasOwnProperty.call(requestedProfile, "academicProfileDisplayName");
     const hasAcademicMutation = hasAcademicFields
       || hasVisitAction
       || hasDeleteAction
       || restoreAcademicProfile;
+    const hasAcademicProfileMutation = hasAcademicMutation || hasRenameAction;
     const currentAcademic = normalizeAcademicProfile(currentUser);
     const requestedAcademic = hasAcademicFields
       ? normalizeAcademicProfile({ ...currentUser, ...requestedProfile })
       : null;
-    if (hasDeleteAction && (hasAcademicFields || hasVisitAction || restoreAcademicProfile)) {
+    if (hasDeleteAction && (hasAcademicFields || hasVisitAction || hasRenameAction || restoreAcademicProfile)) {
       throw new AcademicProfileMutationError(
         400,
         "ACADEMIC_PROFILE_ACTION_CONFLICT",
@@ -1439,17 +1443,24 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
         visitAcademicProfileId: hasVisitAction
           ? requestedProfile.visitAcademicProfileId
           : undefined,
+        renameAcademicProfileId: hasRenameAction
+          ? requestedProfile.renameAcademicProfileId
+          : undefined,
+        renameAcademicProfileDataId: requestedProfile.renameAcademicProfileDataId,
+        academicProfileDisplayName: requestedProfile.academicProfileDisplayName,
         restoreAcademicProfile,
       });
 
-    if (hasAcademicMutation) {
+    if (hasAcademicProfileMutation) {
       const currentIsYoungKids = getYoungKidsAccessProfile(currentAcademic).eligible;
       const currentProfileState = deriveAcademicProfilesState(currentUser);
       const targetSlotId = hasDeleteAction
         ? requestedProfile.deleteAcademicProfileId
         : hasVisitAction
           ? requestedProfile.visitAcademicProfileId
-          : academicTransition.activeProfile.id;
+          : hasRenameAction
+            ? requestedProfile.renameAcademicProfileId
+            : academicTransition.activeProfile.id;
       const targetProfile = currentProfileState.academicProfiles.find((profile) => profile.id === targetSlotId)
         || academicTransition?.activeProfile
         || currentProfileState.activeProfile;

@@ -48,6 +48,37 @@ test("selects the active and visit-target profiles from the server contract", ()
   assert.equal(result.inactiveProfile.institutionName, "R.M.K Engineering College");
 });
 
+test("keeps student-defined display names separate from immutable slot labels", () => {
+  const result = getAcademicProfileSlots({
+    academicProfiles: [
+      { ...profileA, displayName: "Engineering" },
+      { ...profileB, displayName: "Medical Studies" },
+    ],
+    activeAcademicProfileId: "profile-b",
+  });
+
+  assert.equal(result.activeProfile.id, "profile-b");
+  assert.equal(result.activeProfile.label, "Profile B");
+  assert.equal(result.activeProfile.displayName, "Medical Studies");
+  assert.equal(result.inactiveProfile.id, "profile-a");
+  assert.equal(result.inactiveProfile.label, "Profile A");
+  assert.equal(result.inactiveProfile.displayName, "Engineering");
+});
+
+test("derives the next default name from the missing slot instead of custom display text", () => {
+  const onlyA = getAcademicProfileSlots({
+    academicProfiles: [{ ...profileA, displayName: "Profile B" }],
+    activeAcademicProfileId: "profile-a",
+  });
+  assert.equal(onlyA.availableProfileLabel, "Profile B");
+
+  const onlyB = getAcademicProfileSlots({
+    academicProfiles: [{ ...profileB, displayName: "Profile A" }],
+    activeAcademicProfileId: "profile-b",
+  });
+  assert.equal(onlyB.availableProfileLabel, "Profile A");
+});
+
 test("preserves the server deletion-pending marker for an exact retry", () => {
   const deletionPending = {
     operationId: "profile-delete:operation-1",

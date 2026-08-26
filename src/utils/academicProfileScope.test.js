@@ -37,16 +37,31 @@ test("resolves the immutable data ID for the active fixed profile slot", () => {
   const user = {
     activeAcademicProfileId: "profile-b",
     academicProfiles: [
-      { id: "profile-a", dataId: "data-a", label: "Profile A" },
-      { id: "profile-b", dataId: "data-b", label: "Profile B" },
+      { id: "profile-a", dataId: "data-a", label: "Profile A", displayName: "Engineering" },
+      { id: "profile-b", dataId: "data-b", label: "Profile B", displayName: "Medical Studies" },
     ],
   };
   const context = resolveAcademicProfileContext({}, user);
   assert.equal(context.slotId, "profile-b");
   assert.equal(context.academicProfileId, "data-b");
+  assert.equal(context.label, "Medical Studies");
   assert.equal(getAcademicProfileDataId(user.academicProfiles[1]), "data-b");
   assert.equal(isValidAcademicProfileDataId("academic-profile:data-b"), true);
   assert.equal(isValidAcademicProfileDataId("bad id"), false);
+});
+
+test("resolves custom names by immutable profile selection and uses the correct slot fallback", () => {
+  const user = {
+    activeAcademicProfileId: "profile-a",
+    academicProfiles: [
+      { id: "profile-a", dataId: "data-a", label: "Profile A", displayName: "Engineering" },
+      { id: "profile-b", dataId: "data-b", label: "Profile B", displayName: "Medical Studies" },
+    ],
+  };
+
+  assert.equal(resolveAcademicProfileContext({ dataId: "data-b" }, user).label, "Medical Studies");
+  assert.equal(resolveAcademicProfileContext({ slotId: "profile-b" }).label, "Profile B");
+  assert.equal(resolveAcademicProfileContext({ slotId: "profile-a" }).label, "Profile A");
 });
 
 test("browser study keys are distinct for profile instances", () => {

@@ -91,9 +91,8 @@ export function getAcademicProfileGuideMarkerKey(profile = {}) {
 }
 
 export function claimFirstProfileBGuide(profile = {}, storageRef) {
-  const label = String(profile?.label || "").trim().toLocaleLowerCase();
   const key = getAcademicProfileGuideMarkerKey(profile);
-  if (label !== "profile b" || !key) return false;
+  if (String(profile?.id || "").trim() !== "profile-b" || !key) return false;
 
   const storage = resolveStorage(storageRef);
   if (!storage) return true;

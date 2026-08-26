@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Trash2 } from "lucide-react";
 import { describeAcademicProfileSlot } from "../utils/academicProfileSlots";
+import { getAcademicProfileDisplayName } from "../utils/academicProfileNames";
 import "./SettingsAcademicProfileDeleteDialog.css";
 
 export default function SettingsAcademicProfileDeleteDialog({
@@ -99,7 +100,7 @@ export default function SettingsAcademicProfileDeleteDialog({
           <h2 id="settings-profile-delete-title">Delete an academic profile?</h2>
           <p id="settings-profile-delete-description">
             {pendingDeletionProfile
-              ? `${pendingDeletionProfile.label} still needs deletion cleanup. Retry that profile to finish. `
+              ? `${getAcademicProfileDisplayName(pendingDeletionProfile)} still needs deletion cleanup. Retry that profile to finish. `
               : "Choose one profile to permanently remove. "}
             Its subjects, planner and completion history,
             notes, quizzes and battles, learning records, exams, saved materials, resume data,
@@ -129,7 +130,7 @@ export default function SettingsAcademicProfileDeleteDialog({
                   value={profile.id}
                 />
                 <span>
-                  <strong>{profile.label}</strong>
+                  <strong>{getAcademicProfileDisplayName(profile)}</strong>
                   <small>{describeAcademicProfileSlot(profile) || "Academic profile"}</small>
                 </span>
                 {isCurrent

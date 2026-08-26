@@ -96,7 +96,9 @@ test("keeps academic editing in Settings and owns two-slot controls in the guide
   );
 
   assert.doesNotMatch(pageSource, /academicProfileRestore|restoreAcademicProfile|Restore old profile/u);
-  assert.match(pageSource, /Current: <strong>\{activeAcademicProfileSlot\?\.label/u);
+  assert.match(pageSource, /const activeProfileDisplayName = getAcademicProfileDisplayName\(activeAcademicProfileSlot\)/u);
+  assert.match(pageSource, /<span>Current:<\/span>/u);
+  assert.match(pageSource, /<strong>\{activeProfileDisplayName\}<\/strong>/u);
   assert.doesNotMatch(pageSource, /settings-profile-slot-actions/u);
   assert.doesNotMatch(pageSource, /handleVisitAcademicProfile|handleRequestDeleteAcademicProfile/u);
   assert.doesNotMatch(pageSource, /<SettingsAcademicProfileDeleteDialog/u);
@@ -105,7 +107,7 @@ test("keeps academic editing in Settings and owns two-slot controls in the guide
     /Two academic profiles are saved\. Delete one profile before editing academic details\./u,
   );
 
-  assert.match(guideSource, /"Visit " \+ \(slots\.inactiveProfile\?\.label/u);
+  assert.match(guideSource, /"Visit " \+ \(getAcademicProfileDisplayName\(slots\.inactiveProfile\)/u);
   assert.match(guideSource, /await onVisitAcademicProfile\(targetProfile\)/u);
   assert.match(guideSource, /await onDeleteAcademicProfile\(selectedProfileForDeletion\)/u);
   assert.match(guideSource, /<SettingsAcademicProfileDeleteDialog/u);
