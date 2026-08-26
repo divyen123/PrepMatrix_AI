@@ -702,6 +702,7 @@ function DashboardPage({
 
       {configureSubject && (
         <SubjectPlanDialog
+          academicProfile={{ ...userProfile, academicLevel, academicTrack }}
           hasActiveSchedule={hasActiveSchedule}
           onClose={() => setConfigureSubject(null)}
           onOpenPlanner={() => navigate("/planner")}

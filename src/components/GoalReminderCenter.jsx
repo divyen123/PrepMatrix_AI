@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 
 import {
   OPEN_GOAL_REMINDER_EVENT,
@@ -124,8 +125,12 @@ function EmptyPlannerState({ icon, title, detail }) {
   );
 }
 
-function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, settings }) {
+function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, onSettingsChange, settings }) {
   const [open, setOpen] = useState(false);
+  const curriculumExamples = useMemo(
+    () => getAcademicProfileExamples(academicProfile),
+    [academicProfile]
+  );
   const [composer, setComposer] = useState("goal");
   const [goalDraft, setGoalDraft] = useState(createGoalDraft);
   const [reminderDraft, setReminderDraft] = useState(createReminderDraft);
@@ -626,7 +631,7 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
 
             {composer === "goal" ? (
               <form className="planner-entry-form" onSubmit={createGoal}>
-                <label className="planner-field planner-field-full"><span>Goal title *</span><input maxLength="120" onChange={(event) => setGoalDraft({ ...goalDraft, title: event.target.value })} placeholder="Complete the physics revision plan" value={goalDraft.title} /></label>
+                <label className="planner-field planner-field-full"><span>Goal title *</span><input maxLength="120" onChange={(event) => setGoalDraft({ ...goalDraft, title: event.target.value })} placeholder={curriculumExamples.goalTitlePlaceholder} value={goalDraft.title} /></label>
                 <label className="planner-field"><span>Target date *</span><input min={today} onChange={(event) => setGoalDraft({ ...goalDraft, targetDate: event.target.value })} type="date" value={goalDraft.targetDate} /></label>
                 <label className="planner-field"><span>Priority</span><select onChange={(event) => setGoalDraft({ ...goalDraft, priority: event.target.value })} value={goalDraft.priority}><option value="low">Low</option><option value="medium">Normal</option><option value="high">High</option></select></label>
                 <label className="planner-field"><span>Category</span><select onChange={(event) => setGoalDraft({ ...goalDraft, category: event.target.value })} value={goalDraft.category}><option value="study">Study</option><option value="exam">Exam</option><option value="project">Project</option><option value="personal">Personal</option></select></label>
@@ -635,7 +640,7 @@ function GoalReminderCenter({ data, onDataChange, onOpen, onSettingsChange, sett
               </form>
             ) : (
               <form className="planner-entry-form" onSubmit={createReminder}>
-                <label className="planner-field planner-field-full"><span>Reminder title *</span><input maxLength="120" onChange={(event) => setReminderDraft({ ...reminderDraft, title: event.target.value })} placeholder="Review chapter 4 flashcards" value={reminderDraft.title} /></label>
+                <label className="planner-field planner-field-full"><span>Reminder title *</span><input maxLength="120" onChange={(event) => setReminderDraft({ ...reminderDraft, title: event.target.value })} placeholder={curriculumExamples.reminderTitlePlaceholder} value={reminderDraft.title} /></label>
                 <label className="planner-field"><span>Date *</span><input min={today} onChange={(event) => setReminderDraft({ ...reminderDraft, date: event.target.value })} type="date" value={reminderDraft.date} /></label>
                 <label className="planner-field"><span>Time</span><input onChange={(event) => setReminderDraft({ ...reminderDraft, time: event.target.value })} type="time" value={reminderDraft.time} /></label>
                 <label className="planner-field"><span>Priority</span><select onChange={(event) => setReminderDraft({ ...reminderDraft, priority: event.target.value })} value={reminderDraft.priority}><option value="low">Low</option><option value="medium">Normal</option><option value="high">High</option></select></label>

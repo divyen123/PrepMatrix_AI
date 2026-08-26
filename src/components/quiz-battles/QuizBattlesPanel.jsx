@@ -24,6 +24,7 @@ import {
   QUIZ_ELIGIBILITY_THRESHOLD,
   getSubjectQuizEligibility,
 } from "../../utils/plannerMetrics";
+import { getAcademicProfileExamples } from "../../utils/academicProfileExamples";
 import {
   groupQuizBattles,
   normalizeQuizBattleInviteCode,
@@ -67,6 +68,7 @@ function rewardLines(reward) {
 }
 
 export default function QuizBattlesPanel({
+  academicProfile = {},
   academicProfileDataId = "",
   completed = [],
   initialBattleId = "",
@@ -77,6 +79,7 @@ export default function QuizBattlesPanel({
   subjects = [],
 }) {
   const { hasInsufficientCredits } = useAiQuota();
+  const curriculumExamples = useMemo(() => getAcademicProfileExamples(academicProfile), [academicProfile]);
   const [battles, setBattles] = useState([]);
   const [selectedBattle, setSelectedBattle] = useState(null);
   const [answers, setAnswers] = useState({});
@@ -939,7 +942,7 @@ export default function QuizBattlesPanel({
                 maxLength={160}
                 minLength={3}
                 onChange={(event) => setCreateTopic(event.target.value)}
-                placeholder="For example: Cell respiration"
+                placeholder={curriculumExamples.battleTopicPlaceholder}
                 required
                 value={createTopic}
               />

@@ -23,7 +23,7 @@ function getSubjectProgress(subjects, schedule, completed) {
   });
 }
 
-function TopicTimeline({ subjects = [], schedule = [], completed = [] }) {
+function TopicTimeline({ subjects = [], schedule = [], completed = [], userProfile = {} }) {
   const laneRef = useRef(null);
   const dragStateRef = useRef({ dragging: false, pointerId: null, startX: 0, scrollLeft: 0 });
   const preventClickRef = useRef(false);
@@ -181,6 +181,7 @@ function TopicTimeline({ subjects = [], schedule = [], completed = [] }) {
       
       {selectedSubject && (
         <SubjectProgressModal
+          academicProfile={userProfile}
           subject={selectedSubject}
           onClose={() => setSelectedSubject(null)}
           schedule={schedule}

@@ -23,6 +23,7 @@ function rankSearchMatch(fields, query) {
 }
 
 function ResourcesHub({
+  academicProfile = {},
   academicLevel = "College",
   academicTrack = "General",
   completed = [],
@@ -44,7 +45,7 @@ function ResourcesHub({
   );
   const metrics = getPlannerMetrics(schedule, completed);
   const materials = guide.subjects.map((subject) =>
-    buildSubjectMaterials(subject, metrics.subjectStats[subject.name], academicLevel, academicTrack)
+    buildSubjectMaterials(subject, metrics.subjectStats[subject.name], academicLevel, academicTrack, academicProfile)
   );
 
   const safeMaterialBookmarks = useMemo(

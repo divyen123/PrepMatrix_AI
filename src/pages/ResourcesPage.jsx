@@ -1,6 +1,7 @@
 ﻿import ResourcesHub from "../components/ResourcesHub";
 
 function ResourcesPage({
+  academicProfile = {},
   academicLevel,
   academicTrack,
   subjects,
@@ -19,6 +20,7 @@ function ResourcesPage({
       </div>
 
       <ResourcesHub
+        academicProfile={academicProfile}
         academicLevel={academicLevel}
         academicTrack={academicTrack}
         completed={completed}

@@ -1,4 +1,5 @@
 import { buildLearnerAcademicContext } from "./academicProfile.js";
+import { resolveAcademicProfileExampleDomain } from "./academicProfileExamples.js";
 
 const SUBJECT_PROFILES = [
   {
@@ -47,6 +48,109 @@ const SUBJECT_PROFILES = [
     recapQuery: "revision summary interview questions",
   },
 ];
+const DEFAULT_SUBJECT_PROFILE = Object.freeze({
+  trackLabel: "Structured learning track",
+  focus: "concept study, notes consolidation, and chapter-wise practice",
+  conceptQuery: "concept tutorial",
+  notesQuery: "notes pdf",
+  practiceQuery: "practice questions",
+  recapQuery: "revision summary",
+});
+const DOMAIN_PROFILE_GROUPS = Object.freeze({
+  health: {
+    focus: "core mechanisms, clinical or practical correlations, diagrams, and evidence-based review",
+    conceptQuery: "lecture clinical correlation diagrams",
+    notesQuery: "medical notes diagrams pdf",
+    practiceQuery: "exam questions clinical cases",
+    recapQuery: "rapid review high yield summary",
+  },
+  law: {
+    focus: "legal principles, authorities, case analysis, and structured application",
+    conceptQuery: "law lecture case analysis",
+    notesQuery: "case notes bare act summary pdf",
+    practiceQuery: "problem questions case analysis",
+    recapQuery: "legal principles revision summary",
+  },
+  business: {
+    focus: "frameworks, calculations, worked cases, and decision-making practice",
+    conceptQuery: "lecture worked examples case study",
+    notesQuery: "business notes formulas frameworks pdf",
+    practiceQuery: "case study problems questions",
+    recapQuery: "revision summary key formulas",
+  },
+  science: {
+    focus: "foundational theory, diagrams, experiments, data interpretation, and worked problems",
+    conceptQuery: "university lecture diagrams",
+    notesQuery: "scientific notes diagrams pdf",
+    practiceQuery: "problems questions with answers",
+    recapQuery: "revision summary concept map",
+  },
+  humanities: {
+    focus: "primary concepts, evidence, interpretations, critical reading, and structured writing",
+    conceptQuery: "lecture concepts evidence",
+    notesQuery: "study notes readings pdf",
+    practiceQuery: "essay questions source analysis",
+    recapQuery: "revision themes summary",
+  },
+  education: {
+    focus: "learning theory, classroom application, inclusive practice, and reflective analysis",
+    conceptQuery: "education lecture classroom examples",
+    notesQuery: "pedagogy notes pdf",
+    practiceQuery: "case questions lesson planning",
+    recapQuery: "teaching theory revision summary",
+  },
+  applied: {
+    focus: "core principles, safe procedures, applied examples, and project-based practice",
+    conceptQuery: "applied lecture worked demonstration",
+    notesQuery: "technical notes standards pdf",
+    practiceQuery: "applied exercises project questions",
+    recapQuery: "practical revision checklist",
+  },
+  school: {
+    focus: "syllabus concepts, familiar examples, diagrams, and class-appropriate practice",
+    conceptQuery: "school chapter explanation",
+    notesQuery: "school chapter notes worksheet pdf",
+    practiceQuery: "class practice questions answers",
+    recapQuery: "school revision summary",
+  },
+});
+const HEALTH_DOMAINS = new Set(["dentistry", "medicine", "nursing", "pharmacy", "physiotherapy", "publicHealth"]);
+const SHORT_SUBJECT_MATCHERS = new Set(["ai", "dl", "ds", "qa", "ui"]);
+const COMPACT_SUBJECT_ALIASES = Object.freeze({
+  ai: ["aiml"],
+  ds: ["dsa"],
+  qa: ["qaqc"],
+  ui: ["uiux"],
+});
+const DOMAIN_TRACK_LABELS = Object.freeze({
+  dentistry: "Dental sciences track",
+  medicine: "Medical sciences track",
+  nursing: "Nursing sciences track",
+  pharmacy: "Pharmaceutical sciences track",
+  physiotherapy: "Physiotherapy track",
+  publicHealth: "Public health track",
+});
+
+function subjectMatcherMatches(subjectName, matcher) {
+  if (!SHORT_SUBJECT_MATCHERS.has(matcher)) return subjectName.includes(matcher);
+  return [matcher, ...(COMPACT_SUBJECT_ALIASES[matcher] || [])].some((term) =>
+    new RegExp(`(?:^|[^a-z0-9])${term}(?:$|[^a-z0-9])`, "u").test(subjectName)
+  );
+}
+
+function getDomainSubjectProfile(academicProfile = {}) {
+  const domain = resolveAcademicProfileExampleDomain(academicProfile);
+  if (HEALTH_DOMAINS.has(domain)) return { ...DOMAIN_PROFILE_GROUPS.health, trackLabel: DOMAIN_TRACK_LABELS[domain] };
+  if (domain === "law") return { ...DOMAIN_PROFILE_GROUPS.law, trackLabel: "Law and case-analysis track" };
+  if (["commerce", "business", "seniorCommerce"].includes(domain)) return { ...DOMAIN_PROFILE_GROUPS.business, trackLabel: "Commerce and business track" };
+  if (["naturalScience", "lifeScience", "seniorScience"].includes(domain)) return { ...DOMAIN_PROFILE_GROUPS.science, trackLabel: "Scientific study track" };
+  if (["humanities", "socialScience", "seniorHumanities"].includes(domain)) return { ...DOMAIN_PROFILE_GROUPS.humanities, trackLabel: "Humanities and social-science track" };
+  if (domain === "education") return { ...DOMAIN_PROFILE_GROUPS.education, trackLabel: "Education and pedagogy track" };
+  if (["engineering", "electronics", "computing", "environment", "architecture", "hospitality", "vocational", "professional"].includes(domain)) return { ...DOMAIN_PROFILE_GROUPS.applied, trackLabel: "Applied learning track" };
+  if (["early", "primary", "middle", "secondary", "senior"].includes(domain)) return { ...DOMAIN_PROFILE_GROUPS.school, trackLabel: "Foundation learning track" };
+  if (domain === "competitive") return { ...DOMAIN_PROFILE_GROUPS.school, trackLabel: "Competitive-exam track" };
+  return DEFAULT_SUBJECT_PROFILE;
+}
 
 const LEVEL_PROFILES = {
   early: {
@@ -110,8 +214,10 @@ function toSearchUrl(query, provider = "google") {
   return `https://www.google.com/search?q=${encoded}`;
 }
 
-export function getLevelProfile(academicLevel = "College") {
-  const learner = buildLearnerAcademicContext({ academicLevel });
+export function getLevelProfile(academicProfile = "College") {
+  const learner = buildLearnerAcademicContext(
+    academicProfile && typeof academicProfile === "object" ? academicProfile : { academicLevel: academicProfile }
+  );
   const schoolProfile = LEVEL_PROFILES[learner.band];
 
   if (!schoolProfile) {
@@ -133,20 +239,13 @@ export function getLevelProfile(academicLevel = "College") {
   };
 }
 
-export function getSubjectProfile(subjectName = "") {
+export function getSubjectProfile(subjectName = "", academicProfile = {}) {
   const normalized = subjectName.toLowerCase();
 
   return (
     SUBJECT_PROFILES.find((profile) =>
-      profile.matchers.some((matcher) => normalized.includes(matcher))
-    ) || {
-      trackLabel: "Structured learning track",
-      focus: "concept study, notes consolidation, and chapter-wise practice",
-      conceptQuery: "concept tutorial",
-      notesQuery: "notes pdf",
-      practiceQuery: "practice questions",
-      recapQuery: "revision summary",
-    }
+      profile.matchers.some((matcher) => subjectMatcherMatches(normalized, matcher))
+    ) || getDomainSubjectProfile(academicProfile)
   );
 }
 
@@ -154,24 +253,41 @@ export function buildSubjectMaterials(
   subject,
   stats = { done: 0, pending: 0, total: 0 },
   academicLevel = "College",
-  academicTrack = "General"
+  academicTrack = "General",
+  academicProfile = {}
 ) {
-  const profile = getSubjectProfile(subject.name);
-  const levelProfile = getLevelProfile(academicLevel);
+  const learner = buildLearnerAcademicContext({
+    ...academicProfile,
+    academicLevel: academicProfile?.academicLevel || academicLevel,
+    academicTrack: academicProfile?.academicTrack || academicTrack,
+  });
+  const profile = getSubjectProfile(subject.name, learner);
+  const levelProfile = getLevelProfile(learner);
   const completedChapters = Math.min(stats.done || 0, subject.chapters);
   const remaining = Math.max(subject.chapters - completedChapters, 0);
   const nextChapter = remaining > 0
     ? Math.min(completedChapters + 1, subject.chapters || 1)
     : subject.chapters || 1;
-  const trackQuery = academicTrack === "General" ? "" : ` ${academicTrack}`;
-  const baseQuery = `${levelProfile.queryPrefix}${trackQuery} ${subject.name} chapter ${nextChapter}`;
+  const pathwayParts = [
+    learner.grade || learner.degree,
+    learner.academicTrack !== "General" ? learner.academicTrack : "",
+    learner.department !== "General / Undeclared" ? learner.department : "",
+  ].filter(Boolean).filter((value, index, values) => (
+    values.findIndex((candidate) => candidate.toLocaleLowerCase() === value.toLocaleLowerCase()) === index
+  ));
+  const audienceParts = [learner.academicLevel, ...pathwayParts]
+    .filter((value, index, values) => values.indexOf(value) === index);
+  const audienceLabel = audienceParts.join(" · ");
+  const pathwayLabel = pathwayParts.join(" · ");
+  const queryContext = pathwayParts.join(" ");
+  const baseQuery = `${levelProfile.queryPrefix}${queryContext ? ` ${queryContext}` : ""} ${subject.name} chapter ${nextChapter}`;
 
   return {
     subject: subject.name,
-    trackLabel: `${levelProfile.label} ${academicTrack === "General" ? "" : `${academicTrack} `}${profile.trackLabel}`,
+    trackLabel: `${levelProfile.label}${pathwayLabel ? ` · ${pathwayLabel}` : ""} · ${profile.trackLabel}`,
     spotlight: remaining > 0
-      ? `Move into Chapter ${nextChapter} next. For ${academicLevel}${academicTrack === "General" ? "" : ` ${academicTrack}`}, focus on ${levelProfile.guidance} with ${profile.focus}.`
-      : `All ${subject.chapters} chapters are complete. For ${academicLevel}${academicTrack === "General" ? "" : ` ${academicTrack}`}, consolidate ${profile.focus} through active recall and spaced revision.`,
+      ? `Move into Chapter ${nextChapter} next. For ${audienceLabel}, focus on ${levelProfile.guidance} with ${profile.focus}.`
+      : `All ${subject.chapters} chapters are complete. For ${audienceLabel}, consolidate ${profile.focus} through active recall and spaced revision.`,
     completionLabel: `${completedChapters}/${subject.chapters} Completed`,
     remaining,
     lanes: [
@@ -179,19 +295,19 @@ export function buildSubjectMaterials(
         title: "Concept lesson",
         provider: "YouTube",
         href: toSearchUrl(`${baseQuery} ${levelProfile.conceptQuery} ${profile.conceptQuery}`, "youtube"),
-        description: `Start with a ${academicLevel} level walkthrough before doing chapter tasks.`,
+        description: `Start with a ${audienceLabel} walkthrough before doing chapter tasks.`,
       },
       {
         title: "Notes and references",
         provider: "Web notes",
         href: toSearchUrl(`${baseQuery} ${levelProfile.notesQuery} ${profile.notesQuery}`),
-        description: "Keep one concise note source open while revising definitions and formulas.",
+        description: "Keep one concise source open while revising key terms, diagrams, evidence, or worked methods.",
       },
       {
         title: "Practice set",
         provider: "Search",
         href: toSearchUrl(`${baseQuery} ${levelProfile.practiceQuery} ${profile.practiceQuery}`),
-        description: "Follow up with level-matched practice immediately after the concept block.",
+        description: "Follow up with profile-matched questions or applied practice immediately after the concept block.",
       },
       {
         title: "Revision recap",
@@ -215,7 +331,7 @@ export function buildSubjectMaterials(
         status,
         focus:
           chapterNumber === nextChapter && remaining > 0
-            ? `Best next ${academicLevel} chapter based on your current planner progress.`
+            ? `Best next ${audienceLabel} chapter based on your current planner progress.`
             : "Keep this chapter in your study lane after the current target.",
       };
     }),

@@ -14,7 +14,13 @@ import SubjectPlanDialog from "./SubjectPlanDialog";
 import { normalizeStudyPreferences, normalizeSubjectTopics } from "../utils/subjectPlanning";
 import "./SubjectList.css";
 
-function SubjectList({ hasActiveSchedule = false, kidsMode = false, subjects, setSubjects }) {
+function SubjectList({
+  academicProfile = {},
+  hasActiveSchedule = false,
+  kidsMode = false,
+  subjects,
+  setSubjects,
+}) {
   const navigate = useNavigate();
   const [editIndex, setEditIndex] = useState(null);
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState(null);
@@ -280,6 +286,7 @@ function SubjectList({ hasActiveSchedule = false, kidsMode = false, subjects, se
 
       {configureIndex !== null && subjects[configureIndex] && (
         <SubjectPlanDialog
+          academicProfile={academicProfile}
           hasActiveSchedule={hasActiveSchedule}
           onClose={() => setConfigureIndex(null)}
           onOpenPlanner={() => navigate("/planner")}

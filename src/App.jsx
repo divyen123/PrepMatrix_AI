@@ -2122,6 +2122,7 @@ function App() {
               <div className="sidebar-companion-row">
               <SidebarStudyPet />
               <GoalReminderCenter
+                academicProfile={learnerRoutePolicy.academicProfile}
                 data={goalReminderData}
                 onDataChange={setGoalReminderData}
                 onOpen={() => setSidebarOpen(false)}
@@ -2166,6 +2167,7 @@ function App() {
             </div>
             <Chatbot
               key={activeAcademicProfileDataId || "no-academic-profile"}
+              academicProfile={learnerRoutePolicy.academicProfile}
               academicProfileDataId={activeAcademicProfileDataId}
               academicLevel={academicLevel}
               academicTrack={academicTrack}
@@ -2566,6 +2568,7 @@ function App() {
                         <Route
                           element={
                             <PlannerPage
+                              academicProfile={learnerRoutePolicy.academicProfile}
                               academicProfileDataId={activeAcademicProfileDataId}
                               completed={completed}
                               kidsMode={learnerRoutePolicy.isYoungKidsLearner}
@@ -2588,6 +2591,7 @@ function App() {
                               quizBattlesEnabled={!learnerRoutePolicy.isYoungKidsLearner}
                               schedule={schedule}
                               subjects={subjects}
+                              userProfile={userProfile}
                             />
                           }
                           path="/analytics"
@@ -2599,6 +2603,7 @@ function App() {
                               completed={completed}
                               kidsMode={learnerRoutePolicy.isYoungKidsLearner}
                               parentAccessGranted={kidsParentAccess.unlocked}
+                              userProfile={userProfile}
                               schedule={schedule}
                               scheduleStartDate={scheduleStartDate}
                               setCompleted={updateCompletedWithRewards}
@@ -2669,10 +2674,7 @@ function App() {
                             ) : resumeEligibility.enabled ? (
                               <ResumeBuilderPage
                                 academicProfileDataId={activeAcademicProfileDataId}
-                                academicProfile={{
-                                  academicLevel,
-                                  academicTrack,
-                                }}
+                                academicProfile={learnerRoutePolicy.academicProfile}
                                 onResumeBuilderChange={setResumeBuilder}
                                 resumeBuilder={resumeBuilder}
                                 userProfile={userProfile}
@@ -2686,6 +2688,7 @@ function App() {
                         <Route
                           element={standardOnlyRoute(
                             <ResourcesPage
+                              academicProfile={learnerRoutePolicy.academicProfile}
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
                               completed={completed}
@@ -2796,7 +2799,7 @@ function App() {
                           )}
                           path="/notification-history"
                         />
-                        <Route element={<AboutPage />} path="/about" />
+                        <Route element={<AboutPage academicProfile={learnerRoutePolicy.academicProfile} />} path="/about" />
                           </>
                         )}
                         <Route element={<Navigate replace to={learnerRoutePolicy.homeRoute} />} path="*" />

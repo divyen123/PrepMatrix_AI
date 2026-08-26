@@ -22,6 +22,7 @@ import {
   normalizeStudyPreferences,
   normalizeSubjectTopics,
 } from "../utils/subjectPlanning";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import "./SubjectPlanDialog.css";
 
 const GOAL_COPY = {
@@ -31,6 +32,7 @@ const GOAL_COPY = {
 };
 
 function SubjectPlanDialog({
+  academicProfile = {},
   hasActiveSchedule = false,
   onClose,
   onOpenPlanner,
@@ -55,6 +57,10 @@ function SubjectPlanDialog({
   const [difficulty, setDifficulty] = useState(subject?.difficulty || "medium");
   const [preferences, setPreferences] = useState(() =>
     normalizeStudyPreferences(subject?.studyPreferences)
+  );
+  const curriculumExamples = useMemo(
+    () => getAcademicProfileExamples(academicProfile),
+    [academicProfile]
   );
 
   useEffect(() => {
@@ -450,7 +456,7 @@ function SubjectPlanDialog({
                       addChapterName();
                     }
                   }}
-                  placeholder="e.g. Network fundamentals"
+                  placeholder={curriculumExamples.subjectPlanChapterPlaceholder}
                   value={chapterNameInput}
                 />
                 <button onClick={addChapterName} type="button">
@@ -522,7 +528,7 @@ function SubjectPlanDialog({
                     addTopic();
                   }
                 }}
-                placeholder={`e.g. Arrays, Limits, Organic reactions`}
+                placeholder={curriculumExamples.subjectPlanTopicsPlaceholder}
                 ref={topicInputRef}
                 value={topicInput}
               />

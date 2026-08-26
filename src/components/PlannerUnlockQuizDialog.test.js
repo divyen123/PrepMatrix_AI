@@ -151,7 +151,7 @@ test("planner unlock dialog explains eligibility and never starts a blocked quiz
     assert.match(eligibleMarkup, /aria-required="false"/u);
     assert.match(
       eligibleMarkup,
-      /placeholder="e\.g\. REST API: HTTP methods; Cloud: IAM and regions"/u,
+      /placeholder="e\.g\. Fractions; Decimals"/u,
     );
     const startButton = eligibleMarkup.match(
       /<button class="planner-unlock-quiz-primary planner-unlock-quiz-start"[^>]*>[\s\S]*?Start 10-question quiz[\s\S]*?<\/button>/u,

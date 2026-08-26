@@ -189,6 +189,7 @@ function ChatMaterialSuggestions({
 }
 
 function Chatbot({
+  academicProfile = {},
   academicProfileDataId = "",
   academicLevel = "College",
   academicTrack = "General",
@@ -232,6 +233,8 @@ function Chatbot({
     () => ({
       academicLevel,
       academicTrack,
+      degree: academicProfile.degree || "",
+      department: academicProfile.department || "",
       totalTasks: metrics.totalTasks,
       completedTasks: metrics.completedTasks,
       remainingTasks: metrics.remainingTasks,
@@ -244,7 +247,7 @@ function Chatbot({
           `${subject}: ${values.done}/${values.total} complete, ${values.pending} pending`
       ),
     }),
-    [academicLevel, academicTrack, metrics]
+    [academicLevel, academicProfile.degree, academicProfile.department, academicTrack, metrics]
   );
 
   const [open, setOpen] = useState(false);
@@ -728,6 +731,7 @@ function Chatbot({
       const materialSuggestions = childMode || assistantContext || selectedAttachments.length
         ? []
         : buildChatMaterialSuggestions({
+            academicProfile,
             academicLevel,
             academicTrack,
             message: finalMessage,
@@ -894,6 +898,7 @@ function Chatbot({
     },
     [
       activeSessionId,
+      academicProfile,
       academicLevel,
       academicTrack,
       assistantContext,

@@ -17,6 +17,7 @@ import {
   academicProfilePayload,
   buildLearnerAcademicContext,
 } from "../utils/academicProfile";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 import { getRankedQuizSubjects } from "../utils/quizSubjectOptions";
 import { getLearnerRoutePolicy } from "../utils/learnerRouting";
@@ -163,6 +164,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     academicLevel,
     academicTrack,
   });
+  const curriculumExamples = getAcademicProfileExamples(learnerContext);
 
   const filteredAttempts = historySearchQuery.trim()
     ? attempts
@@ -315,7 +317,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       return;
     }
     if (!cleanTopic) {
-      setSaveError("Enter the exact topic first, for example: Travelling salesman problem.");
+      setSaveError(`Enter the exact topic first, for example: ${curriculumExamples.topic}.`);
       return;
     }
     if (hasInsufficientCredits(AI_FEATURES.QUIZ)) {
@@ -461,6 +463,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
           role="tabpanel"
         >
           <QuizBattlesPanel
+            academicProfile={learnerContext}
             academicProfileDataId={academicProfileDataId}
             completed={completed}
             initialBattleId={searchParams.get("battle") || ""}
@@ -591,7 +594,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
                 resetGeneratedQuiz();
                 setTopic(event.target.value);
               }}
-              placeholder="Example: Travelling salesman problem"
+              placeholder={curriculumExamples.quizTopicPlaceholder}
               value={topic}
             />
           </label>

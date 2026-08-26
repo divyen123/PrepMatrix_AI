@@ -12,7 +12,7 @@ import TopicTimeline from "../components/TopicTimeline";
 import useLearningInsights from "../hooks/useLearningInsights";
 import useQuizBattleStats from "../hooks/useQuizBattleStats";
 
-function AnalyticsPage({ academicProfileDataId = "", subjects, schedule, completed, quizBattlesEnabled = true }) {
+function AnalyticsPage({ academicProfileDataId = "", subjects, schedule, completed, quizBattlesEnabled = true, userProfile = {} }) {
   const location = useLocation();
   const learning = useLearningInsights({ academicProfileDataId });
   const battles = useQuizBattleStats({ academicProfileDataId, enabled: quizBattlesEnabled });
@@ -63,11 +63,11 @@ function AnalyticsPage({ academicProfileDataId = "", subjects, schedule, complet
           schedule={schedule}
         />
         <ProgressBar1 academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} />
-        <GoalTracker completed={completed} schedule={schedule} subjects={subjects} />
+        <GoalTracker completed={completed} schedule={schedule} subjects={subjects} userProfile={userProfile} />
       </div>
 
       <div id="topic-progress">
-        <TopicTimeline completed={completed} schedule={schedule} subjects={subjects} />
+        <TopicTimeline completed={completed} schedule={schedule} subjects={subjects} userProfile={userProfile} />
       </div>
       <FocusLandscape completed={completed} schedule={schedule} subjects={subjects} />
     </section>

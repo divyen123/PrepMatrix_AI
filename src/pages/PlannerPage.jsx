@@ -13,6 +13,7 @@ import PredictiveMemoryReview from "../components/PredictiveMemoryReview";
 import api from "../utils/apiClient";
 
 function PlannerPage({
+  academicProfile = {},
   academicProfileDataId = "",
   subjects,
   schedule,
@@ -148,6 +149,7 @@ function PlannerPage({
       </div>
 
       <Timetable
+        academicProfile={academicProfile}
         academicProfileDataId={academicProfileDataId}
         canManageSchedule={!kidsMode || parentAccessGranted}
         completed={completed}
@@ -163,7 +165,11 @@ function PlannerPage({
         setScheduleStartDate={setScheduleStartDate}
       />
 
-      <WorktreeMapper variant={kidsMode ? "kids" : "default"} />
+      <WorktreeMapper
+        academicProfile={academicProfile}
+        key={academicProfileDataId || "default-academic-profile"}
+        variant={kidsMode ? "kids" : "default"}
+      />
     </section>
   );
 }

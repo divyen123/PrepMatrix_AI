@@ -179,6 +179,7 @@ export function PlannerScheduleDay({
   );
 }
 function Timetable({
+  academicProfile = {},
   academicProfileDataId = "",
   subjects,
   schedule,
@@ -879,6 +880,7 @@ function Timetable({
 
       {unlockQuizTarget && activeUnlockProgression && (
         <PlannerUnlockQuizDialog
+          academicProfile={academicProfile}
           canAttempt={Boolean(
             activeUnlockProgression.canAttemptUnlockQuiz
             && unlockQuizTarget.dayIndex === nextUnlockCandidateDayIndex

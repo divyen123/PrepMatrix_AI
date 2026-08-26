@@ -47,6 +47,7 @@ import {
   normalizeResumeDraft,
   validateResumeDraft,
 } from "../utils/resumeBuilder";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import {
   createResumeHistorySnapshot,
   loadResumeHistoryEntry,
@@ -513,9 +514,17 @@ export default function ResumeBuilderPage({
   const previewFullscreenDialogRef = useRef(null);
   const previewFullscreenCloseRef = useRef(null);
   const previewFullscreenTriggerRef = useRef(null);
+  const resumeAcademicProfile = useMemo(
+    () => ({ ...userProfile, ...academicProfile }),
+    [academicProfile, userProfile]
+  );
+  const curriculumExamples = useMemo(
+    () => getAcademicProfileExamples(resumeAcademicProfile),
+    [resumeAcademicProfile]
+  );
   const builder = useMemo(
-    () => normalizeResumeBuilderState(resumeBuilder, { ...userProfile, ...academicProfile }, EDITING_NORMALIZE_OPTIONS),
-    [academicProfile, resumeBuilder, userProfile]
+    () => normalizeResumeBuilderState(resumeBuilder, resumeAcademicProfile, EDITING_NORMALIZE_OPTIONS),
+    [resumeAcademicProfile, resumeBuilder]
   );
   const { draft, layout } = builder;
   const previewDraft = useMemo(() => normalizeResumeDraft(draft), [draft]);
@@ -1037,7 +1046,7 @@ export default function ResumeBuilderPage({
                   label="Professional headline"
                   value={draft.personal.headline}
                   onChange={(event) => updatePersonal("headline", event.target.value)}
-                  placeholder="e.g. Information Technology student"
+                  placeholder={`e.g. ${curriculumExamples.resumeHeadlinePlaceholder}`}
                   error={validationErrors.headline}
                 />
                 <InputField
@@ -1124,7 +1133,7 @@ export default function ResumeBuilderPage({
                     onRemove={() => removeArrayItem("experience", item.id)}
                   >
                     <div className="resume-form-grid">
-                      <InputField label="Role" value={item.role} onChange={(event) => updateArrayItem("experience", item.id, { role: event.target.value })} placeholder="Software engineering intern" />
+                      <InputField label="Role" value={item.role} onChange={(event) => updateArrayItem("experience", item.id, { role: event.target.value })} placeholder={curriculumExamples.resumeExperienceRolePlaceholder} />
                       <InputField label="Organization" value={item.organization} onChange={(event) => updateArrayItem("experience", item.id, { organization: event.target.value })} placeholder="Company or organization" />
                       <InputField label="Location" optional value={item.location} onChange={(event) => updateArrayItem("experience", item.id, { location: event.target.value })} placeholder="City or remote" />
                       <div className="resume-date-pair">
@@ -1143,7 +1152,7 @@ export default function ResumeBuilderPage({
                         rows={5}
                         value={item.highlights.join("\n")}
                         onChange={(event) => updateArrayItem("experience", item.id, { highlights: event.target.value.split("\n") })}
-                        placeholder={"Built a reusable dashboard used by 300+ students\nReduced weekly reporting time by 40%"}
+                        placeholder={curriculumExamples.resumeExperienceHighlightsPlaceholder}
                         hint="One achievement per line. Add outcomes or numbers where possible."
                       />
                     </div>
@@ -1170,10 +1179,10 @@ export default function ResumeBuilderPage({
                     onRemove={() => removeArrayItem("projects", item.id)}
                   >
                     <div className="resume-form-grid">
-                      <InputField label="Project name" value={item.name} onChange={(event) => updateArrayItem("projects", item.id, { name: event.target.value })} placeholder="Adaptive study planner" />
-                      <InputField label="Your role" optional value={item.role} onChange={(event) => updateArrayItem("projects", item.id, { role: event.target.value })} placeholder="Product designer & developer" />
-                      <InputField label="Technologies / tools" optional value={item.technologies} onChange={(event) => updateArrayItem("projects", item.id, { technologies: event.target.value })} placeholder="React, Node.js, Figma" />
-                      <InputField label="Project link" optional type="url" value={item.link} onChange={(event) => updateArrayItem("projects", item.id, { link: event.target.value })} placeholder="github.com/you/project" />
+                      <InputField label="Project name" value={item.name} onChange={(event) => updateArrayItem("projects", item.id, { name: event.target.value })} placeholder={curriculumExamples.resumeProjectNamePlaceholder} />
+                      <InputField label="Your role" optional value={item.role} onChange={(event) => updateArrayItem("projects", item.id, { role: event.target.value })} placeholder={curriculumExamples.resumeProjectRolePlaceholder} />
+                      <InputField label="Methods / tools" optional value={item.technologies} onChange={(event) => updateArrayItem("projects", item.id, { technologies: event.target.value })} placeholder={curriculumExamples.resumeToolsPlaceholder} />
+                      <InputField label="Project link" optional type="url" value={item.link} onChange={(event) => updateArrayItem("projects", item.id, { link: event.target.value })} placeholder="Portfolio or project URL" />
                       <div className="resume-date-pair resume-field--full">
                         <InputField label="Start" value={item.startDate} onChange={(event) => updateArrayItem("projects", item.id, { startDate: event.target.value })} placeholder="Jan 2026" />
                         <InputField label="End" optional value={item.endDate} onChange={(event) => updateArrayItem("projects", item.id, { endDate: event.target.value })} placeholder="Mar 2026" />
@@ -1185,7 +1194,7 @@ export default function ResumeBuilderPage({
                         rows={5}
                         value={item.highlights.join("\n")}
                         onChange={(event) => updateArrayItem("projects", item.id, { highlights: event.target.value.split("\n") })}
-                        placeholder={"Designed the complete study planning experience\nImproved schedule accuracy with topic-level inputs"}
+                        placeholder={curriculumExamples.resumeProjectHighlightsPlaceholder}
                         hint="One outcome, contribution, or feature per line."
                       />
                     </div>
@@ -1216,8 +1225,8 @@ export default function ResumeBuilderPage({
                   >
                     <div className="resume-form-grid">
                       <InputField label="Institution" value={item.institution} onChange={(event) => updateArrayItem("education", item.id, { institution: event.target.value })} placeholder="College or university" />
-                      <InputField label="Degree / qualification" value={item.degree} onChange={(event) => updateArrayItem("education", item.id, { degree: event.target.value })} placeholder="Bachelor of Technology" />
-                      <InputField label="Field of study" value={item.field} onChange={(event) => updateArrayItem("education", item.id, { field: event.target.value })} placeholder="Information Technology" />
+                      <InputField label="Degree / qualification" value={item.degree} onChange={(event) => updateArrayItem("education", item.id, { degree: event.target.value })} placeholder={curriculumExamples.resumeDegreePlaceholder} />
+                      <InputField label="Field of study" value={item.field} onChange={(event) => updateArrayItem("education", item.id, { field: event.target.value })} placeholder={curriculumExamples.resumeFieldPlaceholder} />
                       <InputField label="Location" optional value={item.location} onChange={(event) => updateArrayItem("education", item.id, { location: event.target.value })} placeholder="City, State" />
                       <div className="resume-date-pair">
                         <InputField label="Start" value={item.startDate} onChange={(event) => updateArrayItem("education", item.id, { startDate: event.target.value })} placeholder="2022" />
@@ -1231,7 +1240,7 @@ export default function ResumeBuilderPage({
                         rows={4}
                         value={item.highlights.join("\n")}
                         onChange={(event) => updateArrayItem("education", item.id, { highlights: event.target.value.split("\n") })}
-                        placeholder={"Relevant coursework: Data structures, Web engineering\nStudent coordinator, technology club"}
+                        placeholder={`${curriculumExamples.resumeCourseworkPlaceholder}\nStudent coordinator or subject-club contributor`}
                         hint="Optional — one highlight per line."
                       />
                     </div>
@@ -1268,7 +1277,7 @@ export default function ResumeBuilderPage({
                       setValidationErrors((current) => ({ ...current, skills: undefined }));
                     }
                   }}
-                  placeholder="React, Node.js, Data structures, Communication, Figma"
+                  placeholder={curriculumExamples.resumeSkillsPlaceholder}
                   error={validationErrors.skills}
                   hint="Separate skills with commas."
                 />
@@ -1294,7 +1303,7 @@ export default function ResumeBuilderPage({
                 {draft.achievements.map((item, index) => (
                   <RepeatableCard key={item.id} index={index} title={item.title || `Achievement ${index + 1}`} subtitle="Achievement details" onRemove={() => removeArrayItem("achievements", item.id)}>
                     <div className="resume-form-grid">
-                      <InputField label="Title" value={item.title} onChange={(event) => updateArrayItem("achievements", item.id, { title: event.target.value })} placeholder="Hackathon finalist" />
+                      <InputField label="Title" value={item.title} onChange={(event) => updateArrayItem("achievements", item.id, { title: event.target.value })} placeholder={curriculumExamples.resumeAchievementPlaceholder} />
                       <InputField label="Description" textarea rows={3} value={item.description} onChange={(event) => updateArrayItem("achievements", item.id, { description: event.target.value })} placeholder="Explain the achievement and why it matters." />
                     </div>
                   </RepeatableCard>

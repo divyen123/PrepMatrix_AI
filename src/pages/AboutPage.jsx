@@ -65,7 +65,7 @@ function formatCreditReset(value) {
   }).format(date);
 }
 
-function AboutPage() {
+function AboutPage({ academicProfile = {} }) {
   const navigate = useNavigate();
   const [guideOpen, setGuideOpen] = useState(false);
   const { isKnown, loading, quota, refresh } = useAiQuota();
@@ -169,6 +169,7 @@ function AboutPage() {
       <footer className="about-footer">&copy; 2026 PrepMatrix AI &bull; All rights reserved &bull; Tailored for Divyen R M</footer>
 
       <PrepMatrixGuideDialog
+        academicProfile={academicProfile}
         onClose={() => setGuideOpen(false)}
         open={guideOpen}
       />

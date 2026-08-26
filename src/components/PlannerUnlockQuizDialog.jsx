@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
@@ -21,9 +21,11 @@ import {
   normalizePlannerUnlockTopicDetails,
   scorePlannerUnlockQuiz,
 } from "../utils/plannerUnlockQuiz";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import "./PlannerUnlockQuizDialog.css";
 
 function PlannerUnlockQuizDialog({
+  academicProfile = {},
   canAttempt = false,
   context,
   hasScheduledDate = true,
@@ -48,6 +50,20 @@ function PlannerUnlockQuizDialog({
   const descriptionId = useId();
   const topicDetailsId = useId();
   const topicDetailsHelpId = useId();
+  const curriculumExamples = useMemo(
+    () => getAcademicProfileExamples(academicProfile),
+    [academicProfile]
+  );
+  const topicDetailsPlaceholder = useMemo(() => {
+    const scheduledTopics = (Array.isArray(context?.topics) ? context.topics : [])
+      .map((topic) => String(topic || "").trim())
+      .filter((topic) => topic && !/^(?:chapter|unit|module)\s*\d+\b/iu.test(topic))
+      .slice(0, 2);
+    const examples = scheduledTopics.length
+      ? scheduledTopics
+      : [curriculumExamples.topic, curriculumExamples.additionalChapters[0]];
+    return `e.g. ${examples.filter(Boolean).join("; ")}`;
+  }, [context?.topics, curriculumExamples]);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -381,7 +397,7 @@ function PlannerUnlockQuizDialog({
                     setTopicDetails(event.target.value);
                     if (error) setError("");
                   }}
-                  placeholder="e.g. REST API: HTTP methods; Cloud: IAM and regions"
+                  placeholder={topicDetailsPlaceholder}
                   type="text"
                   value={topicDetails}
                 />

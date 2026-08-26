@@ -9,6 +9,7 @@ function FirstLoginGuideCoordinator() {
   const checkGenerationRef = useRef(0);
   const checkedSessionRef = useRef(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [academicProfile, setAcademicProfile] = useState({});
   const [userName, setUserName] = useState("");
   const isAuthRoute = location.pathname === "/login" || location.pathname === "/register";
 
@@ -20,6 +21,7 @@ function FirstLoginGuideCoordinator() {
     if (isAuthRoute) {
       checkedSessionRef.current = false;
       setGuideOpen(false);
+      setAcademicProfile({});
       setUserName("");
       return undefined;
     }
@@ -47,7 +49,8 @@ function FirstLoginGuideCoordinator() {
       api.me()
         .then(async ({ user }) => {
           if (generation !== checkGenerationRef.current) return;
-          if (getLearnerRoutePolicy(user).isYoungKidsLearner) {
+          const routePolicy = getLearnerRoutePolicy(user);
+          if (routePolicy.isYoungKidsLearner) {
             try {
               const status = await api.get("/api/kids/parent-access");
               if (status?.parentAccess?.setupRequired) {
@@ -64,6 +67,7 @@ function FirstLoginGuideCoordinator() {
           }
           checkedSessionRef.current = true;
           if (!user?.needsOnboardingGuide) return;
+          setAcademicProfile(routePolicy.academicProfile);
           setUserName(user.username || "");
           setGuideOpen(true);
         })
@@ -98,6 +102,7 @@ function FirstLoginGuideCoordinator() {
 
   return (
     <PrepMatrixGuideDialog
+      academicProfile={academicProfile}
       onClose={closeGuide}
       open={guideOpen}
       userName={userName}

@@ -16,8 +16,9 @@ import {
   X,
 } from "lucide-react";
 import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 
-function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] }) {
+function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule = [], completed = [] }) {
   const navigate = useNavigate();
   const closeButtonRef = useRef(null);
   const closeTimerRef = useRef(null);
@@ -33,6 +34,10 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
   const [aiGoal, setAiGoal] = useState("concept-review");
   const [aiSessionLength, setAiSessionLength] = useState("40");
   const [aiError, setAiError] = useState("");
+  const curriculumExamples = useMemo(
+    () => getAcademicProfileExamples(academicProfile),
+    [academicProfile]
+  );
   const safeSchedule = useMemo(() => (Array.isArray(schedule) ? schedule : []), [schedule]);
   const safeCompleted = useMemo(() => (Array.isArray(completed) ? completed : []), [completed]);
 
@@ -465,7 +470,7 @@ function SubjectProgressModal({ subject, onClose, schedule = [], completed = [] 
                       setAiChapters(event.target.value);
                       if (aiError) setAiError("");
                     }}
-                    placeholder="Example: Process scheduling, Memory management"
+                    placeholder={curriculumExamples.subjectProgressTopicPlaceholder}
                     ref={askAIChaptersRef}
                     rows={3}
                     value={aiChapters}

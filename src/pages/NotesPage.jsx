@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { CalendarDays, Check, Copy, Pencil, Search, Trash2, X } from "lucide-react";
 import api from "../utils/apiClient";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import {
   getNotePlannerState,
   getScheduleDateOptions,
@@ -64,6 +65,7 @@ function NotesPage({
   completed = [],
   kidsMode = false,
   parentAccessGranted = true,
+  userProfile = {},
   schedule = [],
   scheduleStartDate = "",
   setCompleted,
@@ -100,6 +102,10 @@ function NotesPage({
   const deleteTriggerRefs = useRef(new Map());
   const noteCardRefs = useRef(new Map());
   const notesListHeadingRef = useRef(null);
+  const curriculumExamples = useMemo(
+    () => getAcademicProfileExamples(userProfile),
+    [userProfile],
+  );
 
   const canManageSchedule = !kidsMode || parentAccessGranted;
   const requestParentPlannerAccess = () => {
@@ -1047,7 +1053,7 @@ function NotesPage({
                     <span>Topic</span>
                     <input
                       onChange={(event) => setEditNoteTopic(event.target.value)}
-                      placeholder="Example: Bayes theorem, React hooks, deadlock"
+                      placeholder={curriculumExamples.noteTopicPlaceholder}
                       ref={noteEditTopicRef}
                       type="text"
                       value={editNoteTopic}
@@ -1200,7 +1206,7 @@ function NotesPage({
               Topic
               <input
                 onChange={(event) => setTopic(event.target.value)}
-                placeholder="Example: Bayes theorem, React hooks, deadlock"
+                placeholder={curriculumExamples.noteTopicPlaceholder}
                 type="text"
                 value={topic}
               />

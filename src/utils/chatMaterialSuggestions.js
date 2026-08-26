@@ -311,6 +311,7 @@ export function normalizeChatMaterialSuggestions(raw) {
 }
 
 export function buildChatMaterialSuggestions({
+  academicProfile = {},
   message = "",
   subjects = [],
   metrics = {},
@@ -337,7 +338,8 @@ export function buildChatMaterialSuggestions({
     selectedSubject,
     statsForSubject(metrics, selectedSubject),
     safeAcademicLevel,
-    safeAcademicTrack
+    safeAcademicTrack,
+    academicProfile
   );
 
   return normalizeChatMaterialSuggestions(

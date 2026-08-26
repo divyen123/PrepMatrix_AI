@@ -108,6 +108,7 @@ function SubjectsPage({
           </div>
           <div className="subject-page-anchor" ref={subjectLibraryRef}>
             <SubjectList
+              academicProfile={academicProfile}
               hasActiveSchedule={hasActiveSchedule}
               kidsMode={kidsMode}
               setSubjects={setSubjects}

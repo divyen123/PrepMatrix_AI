@@ -1,9 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { extractSubjectFromTask } from "../utils/plannerMetrics";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 
-function GoalTracker({ completed, schedule, subjects = [] }) {
+function GoalTracker({ completed, schedule, subjects = [], userProfile = {} }) {
   const [goal, setGoal] = useState("");
   const [days, setDays] = useState(5);
+  const curriculumExamples = useMemo(
+    () => getAcademicProfileExamples(userProfile),
+    [userProfile]
+  );
 
   const safeDays = Math.max(1, days);
 
@@ -87,7 +92,7 @@ function GoalTracker({ completed, schedule, subjects = [] }) {
             Goal keyword
             <input
               onChange={(event) => setGoal(event.target.value)}
-              placeholder="Example: Math"
+              placeholder={`Example: ${subjects[0]?.name || curriculumExamples.subject}`}
               type="text"
               value={goal}
             />

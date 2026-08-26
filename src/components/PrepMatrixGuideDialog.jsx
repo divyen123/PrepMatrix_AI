@@ -1,4 +1,4 @@
-import { createElement, useEffect, useRef, useState } from "react";
+import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
@@ -15,6 +15,7 @@ import {
   Target,
   X,
 } from "lucide-react";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 
 const GUIDE_STEPS = [
   {
@@ -39,7 +40,7 @@ const GUIDE_STEPS = [
     action: "Add Subjects",
     summary: "Add every subject that should appear in the study schedule before generating a plan.",
     instructions: [
-      "Enter a clear subject name, such as Mathematics or Data Structures.",
+      "Enter a clear subject name from your current curriculum.",
       "Add the total number of chapters or study units you need to cover.",
       "Set the difficulty to Easy, Medium, or Hard so the planner can balance the workload.",
       "Select Add subject and repeat for the rest of your syllabus. Review or edit entries in Subject library.",
@@ -132,14 +133,29 @@ function getFocusableElements(container) {
   ));
 }
 
-function PrepMatrixGuideDialog({ open, onClose, userName = "", variant = "manual" }) {
+function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName = "", variant = "manual" }) {
   const navigate = useNavigate();
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
   const onCloseRef = useRef(onClose);
   const [activeStep, setActiveStep] = useState(0);
   const isOnboarding = variant === "onboarding";
-  const step = GUIDE_STEPS[activeStep];
+  const curriculumExamples = useMemo(
+    () => getAcademicProfileExamples(academicProfile),
+    [academicProfile]
+  );
+  const guideSteps = useMemo(() => GUIDE_STEPS.map((guideStep, index) => (
+    index === 1
+      ? {
+          ...guideStep,
+          instructions: [
+            `Enter a clear subject name, such as ${curriculumExamples.subject}.`,
+            ...guideStep.instructions.slice(1),
+          ],
+        }
+      : guideStep
+  )), [curriculumExamples.subject]);
+  const step = guideSteps[activeStep];
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -222,7 +238,7 @@ function PrepMatrixGuideDialog({ open, onClose, userName = "", variant = "manual
             <p id="guide-dialog-description">
               {isOnboarding
                 ? "Here’s the quickest path from your first subject to a confident weekly review."
-                : `Follow these ${GUIDE_STEPS.length} steps from first setup to weekly progress review.`}
+                : `Follow these ${guideSteps.length} steps from first setup to weekly progress review.`}
             </p>
           </div>
           <button
@@ -238,12 +254,12 @@ function PrepMatrixGuideDialog({ open, onClose, userName = "", variant = "manual
         </header>
 
         <div className="guide-dialog-progress" aria-hidden="true">
-          <span style={{ width: `${((activeStep + 1) / GUIDE_STEPS.length) * 100}%` }} />
+          <span style={{ width: `${((activeStep + 1) / guideSteps.length) * 100}%` }} />
         </div>
 
         <div className="guide-dialog-body">
           <nav aria-label="Guide steps" className="guide-step-nav">
-            {GUIDE_STEPS.map(({ icon: Icon, label }, index) => (
+            {guideSteps.map(({ icon: Icon, label }, index) => (
               <button
                 aria-current={activeStep === index ? "step" : undefined}
                 className={activeStep === index ? "active" : ""}
@@ -262,7 +278,7 @@ function PrepMatrixGuideDialog({ open, onClose, userName = "", variant = "manual
 
           <article className="guide-step-content" key={step.label}>
             <div className="guide-step-eyebrow">
-              <span>Step {activeStep + 1} of {GUIDE_STEPS.length}</span>
+              <span>Step {activeStep + 1} of {guideSteps.length}</span>
               <span>{step.label}</span>
             </div>
             <h3>{step.title}</h3>
@@ -288,10 +304,10 @@ function PrepMatrixGuideDialog({ open, onClose, userName = "", variant = "manual
           >
             <ArrowLeft aria-hidden="true" size={14} /> Previous
           </button>
-          <span aria-live="polite">{activeStep + 1} / {GUIDE_STEPS.length}</span>
+          <span aria-live="polite">{activeStep + 1} / {guideSteps.length}</span>
           <div>
             <button className="guide-compact-btn route" onClick={goToStepPage} type="button">{step.action}</button>
-            {activeStep < GUIDE_STEPS.length - 1 ? (
+            {activeStep < guideSteps.length - 1 ? (
               <button className="guide-compact-btn primary" onClick={() => setActiveStep((value) => value + 1)} type="button">
                 Next step <ArrowRight aria-hidden="true" size={14} />
               </button>

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { AiCreditCost } from "../components/AiQuotaProvider";
 import api from "../utils/apiClient";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import {
   AI_FEATURES,
   createAiIdempotencyKey,
@@ -161,6 +162,10 @@ function KidsStartLearningPage({
   const [privacyOpen, setPrivacyOpen] = useState(false);
 
   const subjectOptions = useMemo(() => cleanSubjectOptions(subjects), [subjects]);
+  const curriculumExamples = useMemo(
+    () => getAcademicProfileExamples({ ...userProfile, academicLevel, academicTrack }),
+    [academicLevel, academicTrack, userProfile]
+  );
   const accountId = userProfile?.id || userProfile?._id || userProfile?.email || "";
   const ideas = useMemo(() => notebook ? lessonIdeas(notebook) : [], [notebook]);
 
@@ -280,7 +285,7 @@ function KidsStartLearningPage({
                   list="kids-start-subjects"
                   maxLength={120}
                   onChange={(event) => setSubject(event.target.value)}
-                  placeholder="e.g. Science"
+                  placeholder={curriculumExamples.subjectPlaceholder}
                   required
                   value={subject}
                 />
@@ -296,7 +301,7 @@ function KidsStartLearningPage({
                   disabled={generating}
                   maxLength={160}
                   onChange={(event) => setTopic(event.target.value)}
-                  placeholder="e.g. How plants grow"
+                  placeholder={curriculumExamples.topicPlaceholder}
                   required
                   value={topic}
                 />

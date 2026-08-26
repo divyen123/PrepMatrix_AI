@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { 
   Maximize2, 
@@ -25,6 +25,7 @@ import confetti from "canvas-confetti";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import apiClient from "../utils/apiClient";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import { toast, ToastContainer } from "react-toastify";
 
 // Default curated templates
@@ -67,7 +68,11 @@ const MOOD_PRESETS = [
   }
 ];
 
-function WorktreeMapper({ variant = "default" }) {
+function WorktreeMapper({ academicProfile = {}, variant = "default" }) {
+  const curriculumExamples = useMemo(
+    () => getAcademicProfileExamples(academicProfile),
+    [academicProfile]
+  );
   const [activeTab, setActiveTab] = useState("presets"); // "presets" | "builder"
   const [activePresetId, setActivePresetId] = useState("unwind-calm");
   const [nodes, setNodes] = useState(MOOD_PRESETS[0].nodes);
@@ -598,7 +603,7 @@ function WorktreeMapper({ variant = "default" }) {
                 type="text" 
                 value={newNodeLabel} 
                 onChange={(e) => setNewNodeLabel(e.target.value)}
-                placeholder="e.g. Learn React Hooks, Write unit tests..."
+                placeholder={curriculumExamples.worktreeNodePlaceholder}
               />
             </div>
             <div className="field-stack" style={{ position: "relative" }} ref={parentDropdownRef}>

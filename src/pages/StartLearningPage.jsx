@@ -39,6 +39,7 @@ import LearningStudyStudio from "../components/LearningStudyStudio";
 import MedicalTrainingLab from "../components/MedicalTrainingLab";
 import MedicalTrainingLabIntake from "../components/MedicalTrainingLabIntake";
 import api from "../utils/apiClient";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import {
   AI_FEATURES,
   createAiIdempotencyKey,
@@ -651,6 +652,10 @@ function StartLearningPage({
       academicTrack,
     }),
     [academicLevel, academicTrack, userProfile],
+  );
+  const curriculumExamples = useMemo(
+    () => getAcademicProfileExamples(preparationProfile),
+    [preparationProfile],
   );
   const careerEligibility = useMemo(
     () => getLearningCareerEligibility(preparationProfile),
@@ -3045,7 +3050,7 @@ function StartLearningPage({
                 onClick={() => setSubjectPickerOpen(savedSubjectNames.length > 0)}
                 onFocus={() => setSubjectPickerOpen(savedSubjectNames.length > 0)}
                 onKeyDown={handleSubjectPickerKeyDown}
-                placeholder={savedSubjectNames.length ? "Choose or type a subject" : "e.g. Operating Systems"}
+                placeholder={savedSubjectNames.length ? "Choose or type a subject" : curriculumExamples.subjectPlaceholder}
                 ref={subjectInputRef}
                 role="combobox"
                 type="text"
@@ -3131,7 +3136,7 @@ function StartLearningPage({
                     if (!nextChapter.trim()) setScopeTopic("");
                     setAnalysisError("");
                   }}
-                  placeholder={savedChapterOptions.length ? "Choose or type a chapter" : "e.g. CPU Scheduling"}
+                  placeholder={savedChapterOptions.length ? "Choose or type a chapter" : curriculumExamples.chapterPlaceholder}
                   value={scopeChapter}
                 />
                 <datalist id="learning-chapter-options">
@@ -3155,7 +3160,7 @@ function StartLearningPage({
                     setScopeTopic(event.target.value);
                     setAnalysisError("");
                   }}
-                  placeholder={!scopeChapter.trim() ? "Choose a chapter first" : savedTopicOptions.length ? "Choose or type a topic" : "e.g. Round-robin scheduling"}
+                  placeholder={!scopeChapter.trim() ? "Choose a chapter first" : savedTopicOptions.length ? "Choose or type a topic" : curriculumExamples.topicPlaceholder}
                   value={scopeTopic}
                 />
                 <datalist id="learning-topic-options">
@@ -3175,7 +3180,7 @@ function StartLearningPage({
                 setManualChapters(event.target.value);
                 setAnalysisError("");
               }}
-              placeholder={"Processes, Threads\nCPU Scheduling"}
+              placeholder={curriculumExamples.moreChaptersPlaceholder}
               rows={4}
               value={manualChapters}
             />
@@ -3190,7 +3195,7 @@ function StartLearningPage({
                 setLearningPrompt(event.target.value);
                 setAnalysisError("");
               }}
-              placeholder="e.g. Explain deadlocks from first principles, compare prevention and avoidance, and include a worked Banker's algorithm example."
+              placeholder={curriculumExamples.learningPromptPlaceholder}
               rows={5}
               value={learningPrompt}
             />
@@ -3310,7 +3315,7 @@ function StartLearningPage({
                 <input
                   disabled={careerAnalyzing || saving}
                   onChange={(event) => setCareerRole(event.target.value)}
-                  placeholder="e.g. Software engineering intern"
+                  placeholder={`e.g. ${curriculumExamples.placementRolePlaceholder}`}
                   value={careerRole}
                 />
               </label>
@@ -3319,7 +3324,7 @@ function StartLearningPage({
                 <textarea
                   disabled={careerAnalyzing || saving}
                   onChange={(event) => setCareerTopics(event.target.value)}
-                  placeholder={"Arrays and strings\nOperating systems\nProject walkthrough"}
+                  placeholder={curriculumExamples.placementTopicsPlaceholder}
                   rows={6}
                   value={careerTopics}
                 />

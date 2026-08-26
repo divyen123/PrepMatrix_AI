@@ -58,6 +58,7 @@ import {
 } from "../utils/examCertificate";
 import { EXAM_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 import { academicProfilePayload } from "../utils/academicProfile";
+import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import {
   clearStoredActiveExamAttemptId,
   getExamMinimumSubmitRemainingSeconds,
@@ -790,6 +791,10 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
 function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onGenerated }) {
   const { hasInsufficientCredits } = useAiQuota();
   const names = useMemo(() => subjectNames(subjects), [subjects]);
+  const curriculumExamples = useMemo(
+    () => getAcademicProfileExamples({ ...userProfile, academicLevel, academicTrack }),
+    [academicLevel, academicTrack, userProfile],
+  );
   const [selectedSubjects, setSelectedSubjects] = useState(() => names.slice(0, 1));
   const [totalMarks, setTotalMarks] = useState(50);
   const [blueprint, setBlueprint] = useState(() => defaultBlueprint(50));
@@ -819,7 +824,16 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
     userProfile?.department,
     academicTrack,
   ].filter(Boolean).join(" "));
-  const codingHeavy = codingMode === "high" || (codingMode === "auto" && codingDetected);
+  const codingRelevant = curriculumExamples.domain === "computing" || codingDetected;
+  useEffect(() => {
+    if (codingRelevant) return;
+    setProgrammingLanguage("");
+    setQuestionStyle((current) => current === "coding" ? "mixed" : current);
+  }, [codingRelevant]);
+  const effectiveQuestionStyle = !codingRelevant && questionStyle === "coding"
+    ? "mixed"
+    : questionStyle;
+  const codingHeavy = codingRelevant && (codingMode === "high" || (codingMode === "auto" && codingDetected));
   const suggestedMinutes = recommendedDuration(totalMarks, codingHeavy);
   const canGenerate = selectedSubjects.length > 0 && allocatedMarks === totalMarks && !isGenerating
     && !hasInsufficientCredits(AI_FEATURES.QUESTION_PAPER);
@@ -846,9 +860,9 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
         markDistribution: MARK_TYPES.map((marks) => ({ marks, count: Number(blueprint[marks] || 0) })),
         scopeText,
         difficulty,
-        codingEmphasis: codingMode,
-        questionStyle,
-        programmingLanguage,
+        codingEmphasis: codingRelevant ? codingMode : "standard",
+        questionStyle: effectiveQuestionStyle,
+        programmingLanguage: codingRelevant ? programmingLanguage : "",
         paperTitle,
         ...academicProfilePayload({ ...userProfile, academicLevel, academicTrack }),
         institutionName,
@@ -900,22 +914,24 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
           </label>
           <label className="field-stack">
             Question style
-            <select onChange={(event) => setQuestionStyle(event.target.value)} value={questionStyle}>
+            <select onChange={(event) => setQuestionStyle(event.target.value)} value={effectiveQuestionStyle}>
               <option value="mixed">Mixed</option>
               <option value="theory">Theory</option>
               <option value="application">Application</option>
               <option value="numerical">Numerical</option>
-              <option value="coding">Coding</option>
+              {codingRelevant && <option value="coding">Coding</option>}
             </select>
           </label>
-          <label className="field-stack">
-            Coding emphasis
-            <select onChange={(event) => setCodingMode(event.target.value)} value={codingMode}>
-              <option value="auto">Automatic detection</option>
-              <option value="standard">Standard paper</option>
-              <option value="high">Coding-heavy</option>
-            </select>
-          </label>
+          {codingRelevant && (
+            <label className="field-stack">
+              Coding emphasis
+              <select onChange={(event) => setCodingMode(event.target.value)} value={codingMode}>
+                <option value="auto">Automatic detection</option>
+                <option value="standard">Standard paper</option>
+                <option value="high">Coding-heavy</option>
+              </select>
+            </label>
+          )}
         </div>
 
         <fieldset className="exam-subject-picker">
@@ -931,7 +947,7 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
 
         <label className="field-stack exam-field-wide">
           Chapters, topics, or syllabus scope
-          <textarea onChange={(event) => setScopeText(event.target.value)} placeholder="Example: Arrays, linked lists, sorting, and recursion" rows={3} value={scopeText} />
+          <textarea onChange={(event) => setScopeText(event.target.value)} placeholder={curriculumExamples.examScopePlaceholder} rows={3} value={scopeText} />
         </label>
 
         <div className="exam-blueprint">
@@ -963,7 +979,7 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
             Institution
             <input onChange={(event) => setInstitutionName(event.target.value)} placeholder="Institution name" value={institutionName} />
           </label>
-          {(codingHeavy || questionStyle === "coding") && (
+          {codingRelevant && (codingHeavy || effectiveQuestionStyle === "coding") && (
             <label className="field-stack">
               Programming language
               <input onChange={(event) => setProgrammingLanguage(event.target.value)} placeholder="Java, Python, C++..." value={programmingLanguage} />
