@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowRight,
-  GraduationCap,
   LoaderCircle,
   Sparkles,
   UserRoundPlus,
@@ -221,7 +220,6 @@ export default function AcademicProfileCreateDialog({
     >
       <section
         aria-busy={submitting}
-        aria-describedby="academic-profile-create-description"
         aria-labelledby="academic-profile-create-title"
         aria-modal="true"
         className="academic-profile-create-dialog"
@@ -237,9 +235,6 @@ export default function AcademicProfileCreateDialog({
           <div>
             <span><Sparkles aria-hidden="true" size={13} /> Second learning workspace</span>
             <h2 id="academic-profile-create-title">Create Profile B</h2>
-            <p id="academic-profile-create-description">
-              Add a different class, degree, course, or learning path. Your Profile A work stays separate and safe.
-            </p>
           </div>
           <button
             aria-label="Close Profile B setup"
@@ -260,11 +255,6 @@ export default function AcademicProfileCreateDialog({
         </div>
 
         <form className="academic-profile-create-form" onSubmit={handleSubmit}>
-          <div className="academic-profile-create-form-heading">
-            <GraduationCap aria-hidden="true" size={19} />
-            <div><strong>Academic credentials</strong><span>Use the same details you would enter during registration.</span></div>
-          </div>
-
           <div className="academic-profile-create-fields">
             <label className="is-full" htmlFor="profile-b-institution">
               <span>Institution name</span>
@@ -321,7 +311,7 @@ export default function AcademicProfileCreateDialog({
               </label>
             ) : (
               <>
-                <label className="is-full" htmlFor="profile-b-degree">
+                <label htmlFor="profile-b-degree">
                   <span>Degree / qualification</span>
                   <input
                     id="profile-b-degree"
@@ -330,7 +320,7 @@ export default function AcademicProfileCreateDialog({
                     value={draft.degree}
                   />
                 </label>
-                <label className="is-full" htmlFor="profile-b-department">
+                <label htmlFor="profile-b-department">
                   <span>Department / specialization</span>
                   <select
                     id="profile-b-department"
