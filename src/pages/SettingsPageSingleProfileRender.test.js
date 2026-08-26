@@ -127,6 +127,7 @@ test("renders Settings for one profile without deletion guidance", async () => {
 
 test("wires the inline profile-name editor to an exact, scoped rename request", () => {
   const source = readFileSync(new URL("./SettingsPage.jsx", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("./SettingsPage.css", import.meta.url), "utf8");
 
   assert.match(source, /validateAcademicProfileDisplayName\(profileNameDraft\)/u);
   assert.match(source, /maxLength=\{ACADEMIC_PROFILE_DISPLAY_NAME_MAX_LENGTH\}/u);
@@ -141,4 +142,27 @@ test("wires the inline profile-name editor to an exact, scoped rename request", 
   assert.match(source, /aria-label="Cancel profile name edit"/u);
   assert.match(source, /setUserProfile\(response\.user\)/u);
   assert.match(source, /metadataOnly: true/u);
+  assert.match(
+    source,
+    /\{!editingProfileName\s*\?\s*\(\s*<Link[\s\S]*?className="settings-profile-know-more"[\s\S]*?<\/Link>\s*\)\s*:\s*null\}/u,
+  );
+
+  const editActionRule = stylesheet.match(/\.settings-profile-name-action\.is-edit\s*\{([^}]*)\}/u)?.[1] ?? "";
+  assert.match(editActionRule, /color:\s*var\(--text\)\s*!important/u);
+  assert.match(editActionRule, /border:\s*(?:0|none)\s*!important/u);
+  assert.match(editActionRule, /background:\s*(?:none|transparent)\s*!important/u);
+
+  const editActionInteractionRule = stylesheet.match(
+    /\.settings-profile-name-action\.is-edit:hover,\s*\.settings-profile-name-action\.is-edit:focus-visible\s*\{([^}]*)\}/u,
+  )?.[1] ?? "";
+  assert.match(editActionInteractionRule, /color:\s*var\(--accent\)\s*!important/u);
+  assert.match(editActionInteractionRule, /border:\s*(?:0|none)\s*!important/u);
+  assert.match(editActionInteractionRule, /background:\s*(?:none|transparent)\s*!important/u);
+
+  const editActionFocusRules = [
+    ...stylesheet.matchAll(/(?:^|\r?\n)\.settings-profile-name-action\.is-edit:focus-visible\s*\{([^}]*)\}/gu),
+  ];
+  const editActionFocusRule = editActionFocusRules.at(-1)?.[1] ?? "";
+  assert.match(editActionFocusRule, /outline:\s*(?!none\b)[^;]+var\(--accent-rgb\)/u);
+  assert.match(editActionFocusRule, /outline-offset:\s*[1-9][\d.]*px/u);
 });

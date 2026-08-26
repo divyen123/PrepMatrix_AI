@@ -985,6 +985,7 @@ body .settings-page .settings-profile-info-trigger:focus-visible {
 .settings-profile-slot-heading {
   display: flex;
   flex: 1 0 100%;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1112,6 +1113,36 @@ body .settings-page .settings-profile-info-trigger:focus-visible {
 
 .settings-profile-name-action:hover {
   transform: translateY(-1px);
+}
+
+.settings-profile-name-action.is-edit {
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  color: var(--text) !important;
+  border: 0 !important;
+  border-radius: 3px !important;
+  background: none !important;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.52)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.34));
+}
+
+.settings-profile-name-action.is-edit:hover,
+.settings-profile-name-action.is-edit:focus-visible {
+  color: var(--accent) !important;
+  border: 0 !important;
+  background: none !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.58)) drop-shadow(0 0 2px rgba(var(--accent-rgb), 0.34));
+}
+
+.settings-profile-name-action.is-edit:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.72);
+  outline-offset: 2px;
+}
+
+.settings-profile-name-action.is-edit:disabled {
+  color: var(--text-muted) !important;
+  opacity: 0.58;
 }
 
 @keyframes settings-profile-name-in {

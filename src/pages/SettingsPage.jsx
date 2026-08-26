@@ -2229,18 +2229,20 @@ function SettingsPage({
                       title="Rename profile"
                       type="button"
                     >
-                      <Pencil aria-hidden="true" size={12} />
+                      <Pencil aria-hidden="true" size={14} strokeWidth={2.4} />
                     </button>
                   </span>
                 )}
               </div>
-              <Link
-                aria-label="Learn how academic profiles work"
-                className="settings-profile-know-more"
-                to={ACADEMIC_PROFILE_GUIDE_ROUTE}
-              >
-                Know more <ArrowRight aria-hidden="true" size={12} />
-              </Link>
+              {!editingProfileName ? (
+                <Link
+                  aria-label="Learn how academic profiles work"
+                  className="settings-profile-know-more"
+                  to={ACADEMIC_PROFILE_GUIDE_ROUTE}
+                >
+                  Know more <ArrowRight aria-hidden="true" size={12} />
+                </Link>
+              ) : null}
             </div>
           </div>
 
