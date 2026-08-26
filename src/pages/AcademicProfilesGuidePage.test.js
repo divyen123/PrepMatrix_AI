@@ -47,6 +47,7 @@ test("renders an understandable two-profile catalogue with shared and separate b
       MemoryRouter,
       { initialEntries: ["/settings/profiles"] },
       React.createElement(AcademicProfilesGuidePage, {
+        onDeleteAcademicProfile: () => {},
         onVisitAcademicProfile: () => {},
         userProfile,
       }),
@@ -64,12 +65,22 @@ test("renders an understandable two-profile catalogue with shared and separate b
     assert.match(markup, /Account name, photo, and sign-in/u);
     assert.match(markup, /You are now in Profile B/u);
     assert.match(markup, /Can I create more than two profiles\?/u);
+    assert.match(
+      markup,
+      /academic-profiles-management-actions[\s\S]*?Visit Profile A[\s\S]*?Delete profile/u,
+    );
+    assert.match(
+      markup,
+      /Two academic profiles are saved\. Delete one profile before editing academic details\./u,
+    );
+    assert.match(markup, /aria-controls="settings-profile-delete-dialog"/u);
 
     const singleProfileMarkup = renderToStaticMarkup(React.createElement(
       MemoryRouter,
       { initialEntries: ["/settings/profiles"] },
       React.createElement(AcademicProfilesGuidePage, {
         onCreateAcademicProfile: () => {},
+        onDeleteAcademicProfile: () => {},
         onVisitAcademicProfile: () => {},
         userProfile: {
           ...userProfile,
@@ -79,8 +90,13 @@ test("renders an understandable two-profile catalogue with shared and separate b
         },
       }),
     ));
-    assert.equal((singleProfileMarkup.match(/Create Profile B/gu) || []).length, 1);
-    assert.match(singleProfileMarkup, /Manage profiles/u);
+    assert.equal((singleProfileMarkup.match(/Create Profile B/gu) || []).length, 3);
+    assert.doesNotMatch(singleProfileMarkup, /Manage profiles/u);
+    assert.doesNotMatch(singleProfileMarkup, /academic-profiles-management-actions/u);
+    assert.doesNotMatch(
+      singleProfileMarkup,
+      /Two academic profiles are saved\. Delete one profile before editing academic details\./u,
+    );
     assert.equal((singleProfileMarkup.match(/aria-controls="academic-profile-create-dialog"/gu) || []).length, 2);
     assert.equal((singleProfileMarkup.match(/aria-haspopup="dialog"/gu) || []).length, 2);
 
@@ -109,6 +125,8 @@ test("registers the permanent guide and the once-only animated Profile B intro",
   assert.match(appSource, /const createAcademicProfile = async \(payload\) => \{[\s\S]*?await runAcademicProfileTransition\(payload\)[\s\S]*?claimFirstProfileBGuide\(activeProfile\)[\s\S]*?setAcademicProfileIntroOpen\(true\)/u);
   assert.match(appSource, /<AcademicProfilesGuidePage[\s\S]*?path="\/settings\/profiles"/u);
   assert.match(appSource, /<AcademicProfilesGuidePage[\s\S]*?onCreateAcademicProfile=\{createAcademicProfile\}/u);
+  assert.match(appSource, /<AcademicProfilesGuidePage[\s\S]*?onDeleteAcademicProfile=\{deleteAcademicProfile\}/u);
+  assert.match(appSource, /<AcademicProfilesGuidePage[\s\S]*?academicProfileDeletionRetryTarget=\{academicProfileDeletionRetryRef\.current\}/u);
   assert.match(appSource, /<SettingsProfilePage[\s\S]*?onCreateAcademicProfile=\{createAcademicProfile\}/u);
   assert.match(appSource, /<AcademicProfileIntroDialog[\s\S]*?open=\{academicProfileIntroOpen\}/u);
   assert.match(settingsSource, /aria-label="Learn how Profile A and Profile B work"[\s\S]*?to=\{ACADEMIC_PROFILE_GUIDE_ROUTE\}/u);
@@ -116,6 +134,20 @@ test("registers the permanent guide and the once-only animated Profile B intro",
   assert.match(pageSource, /Finish guide/u);
   assert.match(pageSource, /openCreateProfileDialog\(event\)/u);
   assert.match(pageSource, /<AcademicProfileCreateDialog[\s\S]*?onCreateAcademicProfile=\{onCreateAcademicProfile\}/u);
+  assert.match(pageSource, /<SettingsAcademicProfileDeleteDialog[\s\S]*?onConfirm=\{handleDeleteAcademicProfile\}/u);
+  assert.match(pageSource, /await onVisitAcademicProfile\(targetProfile\)/u);
+  assert.match(pageSource, /await onDeleteAcademicProfile\(selectedProfileForDeletion\)/u);
+  assert.match(
+    pageSource,
+    /Two academic profiles are saved\. Delete one profile before editing academic details\./u,
+  );
+  assert.doesNotMatch(settingsSource, /settings-profile-slot-actions/u);
+  assert.doesNotMatch(settingsSource, />\s*Delete profile\s*</u);
+  assert.doesNotMatch(
+    settingsSource,
+    /Two academic profiles are saved\. Delete one profile before editing academic details\./u,
+  );
+  assert.doesNotMatch(settingsSource, /<SettingsAcademicProfileDeleteDialog/u);
   assert.match(createDialogSource, /await onCreateAcademicProfile\(buildAcademicProfileCreationPayload\(draft\)\)/u);
 
   assert.match(dialogSource, /aria-modal="true"/u);
@@ -126,9 +158,25 @@ test("registers the permanent guide and the once-only animated Profile B intro",
   assert.match(dialogSource, /Finish guide/u);
   assert.match(dialogSource, /is-closing/u);
 
-  assert.match(stylesheet, /body\.has-bg-image:not\(\.no-glass-cards\) \.academic-profile-guide-surface,[\s\S]*?var\(--glass-opacity, 0\.6\)/u);
+  assert.match(
+    stylesheet,
+    /body\.has-bg-image:not\(\.no-glass-cards\) \.academic-profile-guide-surface \{[\s\S]*?var\(--glass-opacity, 0\.6\)/u,
+  );
+  assert.doesNotMatch(
+    stylesheet,
+    /body\.has-bg-image:not\(\.no-glass-cards\) \.academic-profile-guide-surface,\s*body\.has-bg-image:not\(\.no-glass-cards\) \.academic-profile-intro-dialog/u,
+  );
   assert.doesNotMatch(stylesheet, /rgba\(var\(--bg-surface-rgb\), 0\.9\)/u);
   assert.match(stylesheet, /body\.has-bg-image\.no-glass-cards \.academic-profile-guide-surface/u);
+
+  const introRule = stylesheet.match(/\.academic-profile-intro-dialog \{([^}]*)\}/u)?.[1] ?? "";
+  assert.match(introRule, /var\(--bg\)/u);
+  assert.match(introRule, /backdrop-filter: none/u);
+  assert.doesNotMatch(introRule, /var\(--surface-strong\)|--glass-opacity/u);
+  assert.match(
+    stylesheet,
+    /body\.has-bg-image \.academic-profile-intro-dialog \{[\s\S]*?rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\) !important;[\s\S]*?backdrop-filter: none !important;[\s\S]*?-webkit-backdrop-filter: none !important;/u,
+  );
   assert.match(stylesheet, /@media \(max-width: 560px\)/u);
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/u);
   assert.match(stylesheet, /\.academic-profile-intro-backdrop\.is-open/u);

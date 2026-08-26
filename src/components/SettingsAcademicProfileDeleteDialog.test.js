@@ -63,7 +63,13 @@ test("keeps the delete dialog mounted for transition, focus return, and keyboard
     new URL("./SettingsAcademicProfileDeleteDialog.jsx", import.meta.url),
     "utf8",
   );
+  const stylesheet = readFileSync(
+    new URL("./SettingsAcademicProfileDeleteDialog.css", import.meta.url),
+    "utf8",
+  );
 
+  assert.match(source, /SettingsAcademicProfileDeleteDialog\.css/u);
+  assert.match(source, /id="settings-profile-delete-dialog"/u);
   assert.match(source, /createPortal\(content, document\.body\)/u);
   assert.match(source, /event\.key === "Escape"/u);
   assert.match(source, /cancelButtonRef\.current\?\.focus/u);
@@ -71,6 +77,12 @@ test("keeps the delete dialog mounted for transition, focus return, and keyboard
   assert.match(source, /fallbackFocusTarget\?\.isConnected/u);
   assert.match(source, /previousFocus\?\.isConnected/u);
   assert.match(source, /busy \|\| !selectedProfileId/u);
+  assert.match(stylesheet, /\.settings-profile-delete-backdrop\.is-open/u);
+  assert.match(
+    stylesheet,
+    /\.settings-profile-delete-dialog\s*\{[\s\S]*?width: min\(420px, 100%\)/u,
+  );
+  assert.match(stylesheet, /body\.has-bg-image \.confirm-modal\.settings-profile-delete-dialog/u);
 });
 
 test("marks an incomplete server deletion as retryable", async () => {

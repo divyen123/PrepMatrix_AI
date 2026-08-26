@@ -7,6 +7,10 @@ const settingsSource = readFileSync(
   new URL("./pages/SettingsPage.jsx", import.meta.url),
   "utf8",
 );
+const guideSource = readFileSync(
+  new URL("./pages/AcademicProfilesGuidePage.jsx", import.meta.url),
+  "utf8",
+);
 
 test("serializes profile transitions and active-profile workspace imports", () => {
   const transitionStart = appSource.indexOf("const runAcademicProfileTransition");
@@ -120,15 +124,16 @@ test("keeps autosave and settings reset behind the shared workspace mutation bou
   );
 });
 
-test("pins Settings deletion retries and open dialogs to an immutable profile incarnation", () => {
-  assert.match(settingsSource, /deleteProfileSelectionDataId/u);
+test("pins guide-page deletion retries and open dialogs to an immutable profile incarnation", () => {
+  assert.match(guideSource, /deleteProfileSelectionDataId/u);
   assert.match(
-    settingsSource,
-    /profile\.id === academicProfileDeletionRetryTarget\?\.id[\s\S]*?getAcademicProfileDataId\(profile\)[\s\S]*?getAcademicProfileDataId\(academicProfileDeletionRetryTarget\)/u,
+    guideSource,
+    /profile\.id === academicProfileDeletionRetryTarget\?\.id[\s\S]*?profile\.dataId === academicProfileDeletionRetryTarget\?\.dataId/u,
   );
   assert.match(
-    settingsSource,
-    /profile\.id === deleteProfileSelection[\s\S]*?getAcademicProfileDataId\(profile\) === deleteProfileSelectionDataId/u,
+    guideSource,
+    /profile\.id === deleteProfileSelection[\s\S]*?profile\.dataId === deleteProfileSelectionDataId/u,
   );
-  assert.match(settingsSource, /That profile changed in another tab/u);
+  assert.match(guideSource, /That profile changed in another tab/u);
+  assert.doesNotMatch(settingsSource, /deleteProfileSelectionDataId/u);
 });

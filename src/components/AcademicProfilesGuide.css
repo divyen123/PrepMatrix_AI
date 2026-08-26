@@ -841,6 +841,50 @@ body .academic-profile-intro-step-nav button:focus-visible {
 .academic-profiles-footer > div svg,
 .academic-profiles-footer > div strong { color: var(--accent); }
 
+.academic-profiles-management-copy {
+  min-width: 0;
+}
+
+.academic-profiles-management-copy > span {
+  display: grid;
+  gap: 3px;
+}
+
+.academic-profiles-management-copy small {
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.academic-profiles-management-copy small[role="note"] {
+  color: var(--text);
+}
+
+.academic-profiles-management-copy .academic-profiles-parent-guidance {
+  margin-top: 3px;
+  color: var(--danger);
+}
+
+.academic-profiles-management-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+body .academic-profiles-management-actions .academic-profile-guide-button.is-danger {
+  color: var(--danger) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  box-shadow: none !important;
+}
+
+body .academic-profiles-management-actions .academic-profile-guide-button.is-danger:hover:not(:disabled),
+body .academic-profiles-management-actions .academic-profile-guide-button.is-danger:focus-visible:not(:disabled) {
+  border-color: rgba(239, 68, 68, 0.48) !important;
+  background: rgba(239, 68, 68, 0.14) !important;
+}
+
 /* First-entry Profile B guide */
 .academic-profile-intro-backdrop {
   position: fixed;
@@ -873,8 +917,10 @@ body .academic-profile-intro-step-nav button:focus-visible {
   border-radius: 25px;
   background:
     radial-gradient(circle at 92% 3%, rgba(var(--profile-b-rgb), 0.13), transparent 28%),
-    var(--surface-strong);
+    var(--bg);
   box-shadow: 0 38px 120px rgba(0, 0, 0, 0.55);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   opacity: 0;
   transform: translateY(18px) scale(0.975);
   transition: opacity 480ms ease, transform 480ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -1128,8 +1174,7 @@ body .academic-profile-intro-step-nav button.is-active {
   font-weight: 750;
 }
 
-body.has-bg-image:not(.no-glass-cards) .academic-profile-guide-surface,
-body.has-bg-image:not(.no-glass-cards) .academic-profile-intro-dialog {
+body.has-bg-image:not(.no-glass-cards) .academic-profile-guide-surface {
   background:
     radial-gradient(circle at 92% 3%, rgba(var(--profile-b-rgb), 0.13), transparent 28%),
     rgba(var(--bg-surface-rgb), var(--glass-opacity, 0.6));
@@ -1137,11 +1182,18 @@ body.has-bg-image:not(.no-glass-cards) .academic-profile-intro-dialog {
   -webkit-backdrop-filter: blur(26px) saturate(0.92);
 }
 
-body.has-bg-image.no-glass-cards .academic-profile-guide-surface,
-body.has-bg-image.no-glass-cards .academic-profile-intro-dialog {
+body.has-bg-image.no-glass-cards .academic-profile-guide-surface {
   background: rgb(var(--bg-surface-rgb)) !important;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+body.has-bg-image .academic-profile-intro-dialog {
+  background:
+    radial-gradient(circle at 92% 3%, rgba(var(--profile-b-rgb), 0.13), transparent 28%),
+    rgb(var(--bg-surface-rgb, 18, 27, 45)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 body.has-bg-image .academic-profiles-page .academic-profile-guide-button.is-primary {
@@ -1290,6 +1342,16 @@ body.no-glass-buttons .academic-profile-intro-step-nav button {
 
   .academic-profiles-footer > .academic-profile-guide-button,
   .academic-profiles-walkthrough-actions > .academic-profile-guide-button {
+    width: 100% !important;
+  }
+
+  .academic-profiles-management-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .academic-profiles-management-actions .academic-profile-guide-button {
     width: 100% !important;
   }
 

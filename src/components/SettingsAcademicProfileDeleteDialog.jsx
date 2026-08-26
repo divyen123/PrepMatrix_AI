@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Trash2 } from "lucide-react";
 import { describeAcademicProfileSlot } from "../utils/academicProfileSlots";
+import "./SettingsAcademicProfileDeleteDialog.css";
 
 export default function SettingsAcademicProfileDeleteDialog({
   activeProfileId = "",
@@ -86,6 +87,7 @@ export default function SettingsAcademicProfileDeleteDialog({
         aria-labelledby="settings-profile-delete-title"
         aria-modal="true"
         className="confirm-modal danger settings-academic-confirm settings-profile-delete-dialog"
+        id="settings-profile-delete-dialog"
         ref={dialogRef}
         role="alertdialog"
       >

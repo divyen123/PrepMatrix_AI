@@ -2702,7 +2702,9 @@ function App() {
                         <Route
                           element={parentGuidedKidsRoute(
                             <AcademicProfilesGuidePage
+                              academicProfileDeletionRetryTarget={academicProfileDeletionRetryRef.current}
                               onCreateAcademicProfile={createAcademicProfile}
+                              onDeleteAcademicProfile={deleteAcademicProfile}
                               onVisitAcademicProfile={visitAcademicProfile}
                               userProfile={userProfile}
                               workspaceTransitioning={workspaceTransitioning}
@@ -2746,9 +2748,6 @@ function App() {
                               academicProfileDataId={activeAcademicProfileDataId}
                               profileContext={profileContext}
                               onCreateAcademicProfile={createAcademicProfile}
-                              onVisitAcademicProfile={visitAcademicProfile}
-                              onDeleteAcademicProfile={deleteAcademicProfile}
-                              academicProfileDeletionRetryTarget={academicProfileDeletionRetryRef.current}
                               onImportActiveProfileWorkspace={importActiveProfileWorkspace}
                               workspaceTransitioning={workspaceTransitioning}
                               darkMode={darkMode}

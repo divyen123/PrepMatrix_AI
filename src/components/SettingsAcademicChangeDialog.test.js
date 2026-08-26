@@ -85,34 +85,44 @@ test("keeps the frozen change rows until the exit transition finishes", () => {
   assert.match(pageSource, /open=\{academicActionDialogOpen\}/u);
 });
 
-test("wires the two-slot academic profile controls without the legacy restore flow", () => {
+test("keeps academic editing in Settings and owns two-slot controls in the guide", () => {
   const pageSource = readFileSync(
     new URL("../pages/SettingsPage.jsx", import.meta.url),
+    "utf8",
+  );
+  const guideSource = readFileSync(
+    new URL("../pages/AcademicProfilesGuidePage.jsx", import.meta.url),
     "utf8",
   );
 
   assert.doesNotMatch(pageSource, /academicProfileRestore|restoreAcademicProfile|Restore old profile/u);
   assert.match(pageSource, /Current: <strong>\{activeAcademicProfileSlot\?\.label/u);
-  assert.match(pageSource, /`Visit \$\{inactiveAcademicProfileSlot\?\.label/u);
-  assert.match(pageSource, /visitAcademicProfileId: targetProfile\.id/u);
-  assert.match(
+  assert.doesNotMatch(pageSource, /settings-profile-slot-actions/u);
+  assert.doesNotMatch(pageSource, /handleVisitAcademicProfile|handleRequestDeleteAcademicProfile/u);
+  assert.doesNotMatch(pageSource, /<SettingsAcademicProfileDeleteDialog/u);
+  assert.doesNotMatch(
     pageSource,
-    /const deletePayload = buildAcademicProfileDeletePayload\(selectedProfile\)/u,
+    /Two academic profiles are saved\. Delete one profile before editing academic details\./u,
   );
+
+  assert.match(guideSource, /"Visit " \+ \(slots\.inactiveProfile\?\.label/u);
+  assert.match(guideSource, /await onVisitAcademicProfile\(targetProfile\)/u);
+  assert.match(guideSource, /await onDeleteAcademicProfile\(selectedProfileForDeletion\)/u);
+  assert.match(guideSource, /<SettingsAcademicProfileDeleteDialog/u);
+  assert.match(
+    guideSource,
+    /const targetProfile = pendingDeletionProfile \|\| slots\.inactiveProfile;[\s\S]*?setDeleteProfileSelection\(targetProfile\.id\);[\s\S]*?setDeleteProfileSelectionDataId\(targetProfile\.dataId\);[\s\S]*?setDeleteDialogOpen\(true\)/u,
+  );
+  assert.match(guideSource, /error\?\.code === "KIDS_PARENT_ACCESS_REQUIRED"/u);
+  assert.match(
+    guideSource,
+    /return to this guide to delete it\./u,
+  );
+
   assert.match(pageSource, /disabled=\{!academicFieldsEditable\}/u);
   assert.match(pageSource, /disabled=\{profileMutationBusy\}/u);
   assert.match(
     pageSource,
     /if \(!academicFieldsEditable\) \{\s*await commitProfileSave\(identityPayload\);\s*return;/u,
-  );
-  assert.match(
-    pageSource,
-    /const targetProfile = pendingDeletionProfile \|\| inactiveAcademicProfileSlot;\s*setDeleteProfileSelection\(targetProfile\.id\);\s*setDeleteProfileSelectionDataId\(getAcademicProfileDataId\(targetProfile\)\);\s*setDeleteProfileDialogOpen\(true\)/u,
-  );
-  assert.match(pageSource, /<SettingsAcademicProfileDeleteDialog/u);
-  assert.match(pageSource, /error\?\.code === "KIDS_PARENT_ACCESS_REQUIRED"/u);
-  assert.match(
-    pageSource,
-    /Visit \$\{guidance\.label\}, unlock Parent Corner, then return to Settings to delete it\./u,
   );
 });

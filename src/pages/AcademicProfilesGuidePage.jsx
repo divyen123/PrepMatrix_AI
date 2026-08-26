@@ -13,10 +13,12 @@ import {
   Repeat2,
   ShieldCheck,
   Sparkles,
+  Trash2,
   UserRoundPlus,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import AcademicProfileCreateDialog from "../components/AcademicProfileCreateDialog";
+import SettingsAcademicProfileDeleteDialog from "../components/SettingsAcademicProfileDeleteDialog";
 import {
   describeAcademicProfileSlot,
   getAcademicProfileSlots,
@@ -34,6 +36,8 @@ const STEP_ICONS = Object.freeze({
   "separate-workspaces": Layers3,
   switching: Repeat2,
 });
+
+const PROFILE_DELETE_EXIT_MS = 180;
 
 const PROFILE_COPY = Object.freeze({
   a: {
@@ -57,7 +61,9 @@ function profileKind(profile) {
 }
 
 export default function AcademicProfilesGuidePage({
+  academicProfileDeletionRetryTarget = null,
   onCreateAcademicProfile,
+  onDeleteAcademicProfile,
   onVisitAcademicProfile,
   userProfile = {},
   workspaceTransitioning = false,
@@ -69,16 +75,67 @@ export default function AcademicProfilesGuidePage({
   const [guideFinished, setGuideFinished] = useState(false);
   const [createProfileDialogOpen, setCreateProfileDialogOpen] = useState(false);
   const [switchingProfile, setSwitchingProfile] = useState(false);
+  const [deletingProfile, setDeletingProfile] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteProfileSelection, setDeleteProfileSelection] = useState("");
+  const [deleteProfileSelectionDataId, setDeleteProfileSelectionDataId] = useState("");
+  const [profileDeletionGuidance, setProfileDeletionGuidance] = useState(null);
   const createProfileTriggerRef = useRef(null);
+  const deleteProfileButtonRef = useRef(null);
+  const deleteProfileDismissTimerRef = useRef(null);
+  const promptedDeletionRetryRef = useRef("");
+  const profileMutationInFlightRef = useRef(false);
   const selectedCopy = PROFILE_COPY[selectedKind];
   const selectedProfile = slots.profiles.find((profile) => profileKind(profile) === selectedKind);
   const activeKind = profileKind(slots.activeProfile);
   const step = ACADEMIC_PROFILE_GUIDE_STEPS[activeStep];
   const StepIcon = STEP_ICONS[step.id] || Sparkles;
+  const pendingDeletionProfile = slots.profiles.find((profile) => profile.deletionPending)
+    || slots.profiles.find((profile) => (
+      profile.id === academicProfileDeletionRetryTarget?.id
+      && profile.dataId === academicProfileDeletionRetryTarget?.dataId
+    ))
+    || null;
+  const pendingDeletionKey = pendingDeletionProfile?.dataId || pendingDeletionProfile?.id || "";
+  const profileMutationBusy = switchingProfile || deletingProfile || workspaceTransitioning;
 
   useEffect(() => {
     setSelectedKind(profileKind(slots.activeProfile));
   }, [slots.activeProfile]);
+
+  useEffect(() => () => {
+    if (deleteProfileDismissTimerRef.current) {
+      window.clearTimeout(deleteProfileDismissTimerRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!pendingDeletionKey) {
+      promptedDeletionRetryRef.current = "";
+      return;
+    }
+    if (
+      !slots.hasTwoProfiles
+      || deleteDialogOpen
+      || deletingProfile
+      || promptedDeletionRetryRef.current === pendingDeletionKey
+    ) return;
+
+    if (deleteProfileDismissTimerRef.current) {
+      window.clearTimeout(deleteProfileDismissTimerRef.current);
+      deleteProfileDismissTimerRef.current = null;
+    }
+    promptedDeletionRetryRef.current = pendingDeletionKey;
+    setDeleteProfileSelection(pendingDeletionProfile.id);
+    setDeleteProfileSelectionDataId(pendingDeletionProfile.dataId);
+    setDeleteDialogOpen(true);
+  }, [
+    deleteDialogOpen,
+    deletingProfile,
+    pendingDeletionKey,
+    pendingDeletionProfile,
+    slots.hasTwoProfiles,
+  ]);
 
   const chooseStep = (index) => {
     setGuideFinished(false);
@@ -111,6 +168,32 @@ export default function AcademicProfilesGuidePage({
     setCreateProfileDialogOpen(true);
   };
 
+  const handleVisitProfile = async (targetProfile) => {
+    if (
+      !targetProfile?.id
+      || targetProfile.id === slots.activeProfile?.id
+      || profileMutationInFlightRef.current
+      || profileMutationBusy
+    ) return;
+    if (!onVisitAcademicProfile) {
+      toast.error("Profile switching is unavailable right now.");
+      return;
+    }
+
+    profileMutationInFlightRef.current = true;
+    setSwitchingProfile(true);
+    try {
+      await onVisitAcademicProfile(targetProfile);
+      setProfileDeletionGuidance(null);
+      toast.success("Now viewing " + targetProfile.label + ".");
+    } catch (error) {
+      toast.error(error?.message || "Could not visit " + targetProfile.label + ".");
+    } finally {
+      profileMutationInFlightRef.current = false;
+      setSwitchingProfile(false);
+    }
+  };
+
   const handleProfileAction = async (event) => {
     if (!slots.hasTwoProfiles) {
       openCreateProfileDialog(event);
@@ -120,19 +203,92 @@ export default function AcademicProfilesGuidePage({
       navigate("/settings", { state: { highlightProfileInstitution: true } });
       return;
     }
-    if (!onVisitAcademicProfile) {
-      toast.error("Profile switching is unavailable right now.");
+    await handleVisitProfile(selectedProfile);
+  };
+
+  const handleDeleteProfileSelectionChange = (profileId) => {
+    const selected = slots.profiles.find((profile) => profile.id === profileId);
+    setDeleteProfileSelection(selected?.id || "");
+    setDeleteProfileSelectionDataId(selected?.dataId || "");
+  };
+
+  const dismissDeleteProfileDialog = () => {
+    setDeleteDialogOpen(false);
+    if (deleteProfileDismissTimerRef.current) {
+      window.clearTimeout(deleteProfileDismissTimerRef.current);
+    }
+    deleteProfileDismissTimerRef.current = window.setTimeout(() => {
+      setDeleteProfileSelection("");
+      setDeleteProfileSelectionDataId("");
+      deleteProfileDismissTimerRef.current = null;
+    }, PROFILE_DELETE_EXIT_MS);
+  };
+
+  const handleRequestDeleteProfile = () => {
+    if (
+      !slots.hasTwoProfiles
+      || profileMutationInFlightRef.current
+      || profileMutationBusy
+    ) return;
+    if (!onDeleteAcademicProfile) {
+      toast.error("Profile deletion is unavailable right now.");
       return;
     }
 
-    setSwitchingProfile(true);
+    if (deleteProfileDismissTimerRef.current) {
+      window.clearTimeout(deleteProfileDismissTimerRef.current);
+      deleteProfileDismissTimerRef.current = null;
+    }
+    const targetProfile = pendingDeletionProfile || slots.inactiveProfile;
+    if (!targetProfile?.id) return;
+    setDeleteProfileSelection(targetProfile.id);
+    setDeleteProfileSelectionDataId(targetProfile.dataId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteAcademicProfile = async () => {
+    const selectedProfileForDeletion = slots.profiles.find((profile) => (
+      profile.id === deleteProfileSelection
+      && profile.dataId === deleteProfileSelectionDataId
+    ));
+    if (!selectedProfileForDeletion && deleteProfileSelection) {
+      dismissDeleteProfileDialog();
+      toast.error("That profile changed in another tab. Review the current profiles before deleting.");
+      return;
+    }
+    if (
+      !slots.hasTwoProfiles
+      || !selectedProfileForDeletion?.id
+      || profileMutationInFlightRef.current
+      || profileMutationBusy
+      || !onDeleteAcademicProfile
+    ) return;
+
+    profileMutationInFlightRef.current = true;
+    setDeletingProfile(true);
     try {
-      await onVisitAcademicProfile(selectedProfile);
-      toast.success(`Now viewing ${selectedProfile.label}.`);
+      await onDeleteAcademicProfile(selectedProfileForDeletion);
+      setProfileDeletionGuidance(null);
+      toast.success(selectedProfileForDeletion.label + " deleted.");
+      dismissDeleteProfileDialog();
     } catch (error) {
-      toast.error(error?.message || `Could not visit ${selectedProfile.label}.`);
+      if (error?.code === "KIDS_PARENT_ACCESS_REQUIRED") {
+        const guidance = {
+          id: selectedProfileForDeletion.id,
+          label: selectedProfileForDeletion.label || "the child profile",
+        };
+        setProfileDeletionGuidance(guidance);
+        dismissDeleteProfileDialog();
+        toast.error(
+          "Visit " + guidance.label
+            + ", unlock Parent Corner, then return to this guide to delete it.",
+        );
+      } else {
+        toast.error(error?.message || "Could not delete " + selectedProfileForDeletion.label + ".");
+      }
     } finally {
-      setSwitchingProfile(false);
+      profileMutationInFlightRef.current = false;
+      setDeletingProfile(false);
     }
   };
 
@@ -142,8 +298,7 @@ export default function AcademicProfilesGuidePage({
       ? "Open profile settings"
       : switchingProfile || workspaceTransitioning
         ? "Switching..."
-        : `Visit ${selectedCopy.title}`;
-
+        : "Visit " + selectedCopy.title;
   return (
     <section className="academic-profiles-page page-stack">
       <header className="academic-profiles-page-header">
@@ -247,7 +402,7 @@ export default function AcademicProfilesGuidePage({
             aria-expanded={!slots.hasTwoProfiles ? createProfileDialogOpen : undefined}
             aria-haspopup={!slots.hasTwoProfiles ? "dialog" : undefined}
             className="academic-profile-guide-button is-primary"
-            disabled={switchingProfile || workspaceTransitioning}
+            disabled={profileMutationBusy}
             onClick={handleProfileAction}
             type="button"
           >
@@ -364,17 +519,65 @@ export default function AcademicProfilesGuidePage({
       </section>
 
       <footer className="academic-profiles-footer academic-profile-guide-surface">
-        <div><CircleUserRound aria-hidden="true" size={20} /><span><strong>Remember:</strong> the Current profile label is your safest checkpoint.</span></div>
-        <button
-          aria-controls={!slots.hasTwoProfiles ? "academic-profile-create-dialog" : undefined}
-          aria-expanded={!slots.hasTwoProfiles ? createProfileDialogOpen : undefined}
-          aria-haspopup={!slots.hasTwoProfiles ? "dialog" : undefined}
-          className="academic-profile-guide-button is-primary"
-          onClick={(event) => (slots.hasTwoProfiles ? navigate("/settings") : openCreateProfileDialog(event))}
-          type="button"
-        >
-          <UserRoundPlus aria-hidden="true" size={16} /> Manage profiles
-        </button>
+        <div className="academic-profiles-management-copy">
+          <CircleUserRound aria-hidden="true" size={20} />
+          <span>
+            <strong>Profile controls</strong>
+            {slots.hasTwoProfiles ? (
+              <small role="note">
+                Two academic profiles are saved. Delete one profile before editing academic details.
+              </small>
+            ) : (
+              <small>Create Profile B when you need a separate class, course, or learning path.</small>
+            )}
+            {profileDeletionGuidance ? (
+              <small className="academic-profiles-parent-guidance" role="status">
+                Visit <b>{profileDeletionGuidance.label}</b>, unlock Parent Corner,
+                then return to this guide to delete it.
+              </small>
+            ) : null}
+          </span>
+        </div>
+        {slots.hasTwoProfiles ? (
+          <div className="academic-profiles-management-actions">
+            <button
+              className="academic-profile-guide-button is-secondary"
+              disabled={profileMutationBusy || Boolean(slots.inactiveProfile?.deletionPending)}
+              onClick={() => handleVisitProfile(slots.inactiveProfile)}
+              type="button"
+            >
+              <ArrowRight aria-hidden="true" size={15} />
+              {switchingProfile
+                ? "Switching..."
+                : "Visit " + (slots.inactiveProfile?.label || "other profile")}
+            </button>
+            <button
+              aria-controls="settings-profile-delete-dialog"
+              aria-expanded={deleteDialogOpen}
+              aria-haspopup="dialog"
+              className="academic-profile-guide-button is-danger"
+              disabled={profileMutationBusy}
+              onClick={handleRequestDeleteProfile}
+              ref={deleteProfileButtonRef}
+              type="button"
+            >
+              <Trash2 aria-hidden="true" size={15} />
+              {deletingProfile ? "Deleting..." : "Delete profile"}
+            </button>
+          </div>
+        ) : (
+          <button
+            aria-controls="academic-profile-create-dialog"
+            aria-expanded={createProfileDialogOpen}
+            aria-haspopup="dialog"
+            className="academic-profile-guide-button is-primary"
+            disabled={profileMutationBusy}
+            onClick={openCreateProfileDialog}
+            type="button"
+          >
+            <UserRoundPlus aria-hidden="true" size={16} /> Create Profile B
+          </button>
+        )}
       </footer>
 
       <AcademicProfileCreateDialog
@@ -385,6 +588,20 @@ export default function AcademicProfilesGuidePage({
         open={createProfileDialogOpen}
         returnFocusRef={createProfileTriggerRef}
       />
+      {slots.hasTwoProfiles || deleteProfileSelection ? (
+        <SettingsAcademicProfileDeleteDialog
+          activeProfileId={slots.activeProfile?.id || ""}
+          busy={deletingProfile}
+          fallbackFocusRef={createProfileTriggerRef}
+          onCancel={dismissDeleteProfileDialog}
+          onConfirm={handleDeleteAcademicProfile}
+          onSelectionChange={handleDeleteProfileSelectionChange}
+          open={deleteDialogOpen}
+          profiles={slots.profiles}
+          returnFocusRef={deleteProfileButtonRef}
+          selectedProfileId={deleteProfileSelection}
+        />
+      ) : null}
     </section>
   );
 }

@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, History } from "lucide-react";
-import api, { ACADEMIC_PROFILE_DELETE_TIMEOUT_MS } from "../utils/apiClient";
+import api from "../utils/apiClient";
 import GoalSettingsPanel from "../components/GoalSettingsPanel";
 import KidsPerformanceSettings from "../components/kids/KidsPerformanceSettings";
 import SettingsDataInfo from "../components/SettingsDataInfo";
 import SettingsProfileInfo from "../components/SettingsProfileInfo";
 import SettingsAcademicChangeDialog from "../components/SettingsAcademicChangeDialog";
-import SettingsAcademicProfileDeleteDialog from "../components/SettingsAcademicProfileDeleteDialog";
 import {
   DEFAULT_GOAL_REMINDER_DATA,
   DEFAULT_GOAL_REMINDER_SETTINGS,
@@ -34,14 +33,8 @@ import {
   switchSettingsAcademicStage,
   updateSettingsAcademicDraft,
 } from "../utils/settingsAcademicDrafts";
-import {
-  buildAcademicProfileDeletePayload,
-  getAcademicProfileSlots,
-} from "../utils/academicProfileSlots";
-import {
-  academicProfileStorageKey,
-  getAcademicProfileDataId,
-} from "../utils/academicProfileScope";
+import { getAcademicProfileSlots } from "../utils/academicProfileSlots";
+import { academicProfileStorageKey } from "../utils/academicProfileScope";
 import { ACADEMIC_PROFILE_GUIDE_ROUTE } from "../utils/academicProfileGuide";
 import { normalizeResumeBuilderState } from "../utils/resumeBuilder";
 import { normalizeMaterialBookmarks } from "../utils/materialBookmarks";
@@ -416,9 +409,6 @@ function SettingsPage({
   academicProfileDataId = "",
   profileContext = null,
   onCreateAcademicProfile,
-  onVisitAcademicProfile,
-  onDeleteAcademicProfile,
-  academicProfileDeletionRetryTarget = null,
   onImportActiveProfileWorkspace,
   workspaceTransitioning = false,
   activeVoiceName, onPreviewVoice, setVoicePreferences, voicePreferences,
@@ -455,9 +445,7 @@ function SettingsPage({
     academicTrack: academicTrack || userProfile?.academicTrack,
   });
   const {
-    profiles: academicProfiles,
     activeProfile: activeAcademicProfileSlot,
-    inactiveProfile: inactiveAcademicProfileSlot,
     hasTwoProfiles,
     availableProfileLabel,
   } = getAcademicProfileSlots(userProfile);
@@ -488,39 +476,18 @@ function SettingsPage({
   const degree = activeAcademicDraft.degree;
   const [profileImage, setProfileImage] = useState(userProfile?.profileImage || "");
   const [savingProfile, setSavingProfile] = useState(false);
-  const [visitingAcademicProfile, setVisitingAcademicProfile] = useState(false);
-  const [deletingAcademicProfile, setDeletingAcademicProfile] = useState(false);
   const [pendingAcademicAction, setPendingAcademicAction] = useState(null);
   const [academicActionDialogOpen, setAcademicActionDialogOpen] = useState(false);
-  const [deleteProfileDialogOpen, setDeleteProfileDialogOpen] = useState(false);
-  const [deleteProfileSelection, setDeleteProfileSelection] = useState("");
-  const [deleteProfileSelectionDataId, setDeleteProfileSelectionDataId] = useState("");
-  const [profileDeletionGuidance, setProfileDeletionGuidance] = useState(null);
   const profileImageInputRef = useRef(null);
   const profileCardRef = useRef(null);
   const profileSaveButtonRef = useRef(null);
-  const deleteProfileButtonRef = useRef(null);
-  const promptedDeletionRetryRef = useRef("");
   const profileMutationInFlightRef = useRef(false);
   const academicActionDismissTimerRef = useRef(null);
-  const deleteProfileDismissTimerRef = useRef(null);
   const profileCardHighlightTimerRef = useRef(null);
   const [profileCardHighlighted, setProfileCardHighlighted] = useState(false);
   const academicProfileEditable = !youngKidsMode || Boolean(kidsParentAccess?.unlocked);
   const academicFieldsEditable = academicProfileEditable && !hasTwoProfiles;
-  const pendingDeletionProfile = academicProfiles.find((profile) => profile.deletionPending)
-    || academicProfiles.find((profile) => (
-      profile.id === academicProfileDeletionRetryTarget?.id
-      && getAcademicProfileDataId(profile)
-        === getAcademicProfileDataId(academicProfileDeletionRetryTarget)
-    ))
-    || null;
-  const pendingDeletionProfileId = pendingDeletionProfile?.id || "";
-  const pendingDeletionProfileDataId = getAcademicProfileDataId(pendingDeletionProfile);
-  const profileMutationBusy = savingProfile
-    || visitingAcademicProfile
-    || deletingAcademicProfile
-    || workspaceTransitioning;
+  const profileMutationBusy = savingProfile || workspaceTransitioning;
 
   useEffect(() => () => {
     if (profileCardHighlightTimerRef.current) {
@@ -558,41 +525,7 @@ function SettingsPage({
     if (academicActionDismissTimerRef.current) {
       clearTimeout(academicActionDismissTimerRef.current);
     }
-    if (deleteProfileDismissTimerRef.current) {
-      clearTimeout(deleteProfileDismissTimerRef.current);
-    }
   }, []);
-
-  useEffect(() => {
-    const retryKey = pendingDeletionProfileDataId || pendingDeletionProfileId;
-    if (!retryKey) {
-      promptedDeletionRetryRef.current = "";
-      return;
-    }
-    if (
-      !hasTwoProfiles
-      || !academicProfileEditable
-      || deleteProfileDialogOpen
-      || deletingAcademicProfile
-      || promptedDeletionRetryRef.current === retryKey
-    ) return;
-
-    if (deleteProfileDismissTimerRef.current) {
-      clearTimeout(deleteProfileDismissTimerRef.current);
-      deleteProfileDismissTimerRef.current = null;
-    }
-    promptedDeletionRetryRef.current = retryKey;
-    setDeleteProfileSelection(pendingDeletionProfileId);
-    setDeleteProfileSelectionDataId(pendingDeletionProfileDataId);
-    setDeleteProfileDialogOpen(true);
-  }, [
-    academicProfileEditable,
-    deleteProfileDialogOpen,
-    deletingAcademicProfile,
-    hasTwoProfiles,
-    pendingDeletionProfileDataId,
-    pendingDeletionProfileId,
-  ]);
 
   const updateAcademicDraft = (patch) => {
     setAcademicDrafts((current) => updateSettingsAcademicDraft(current, patch));
@@ -1466,140 +1399,6 @@ function SettingsPage({
     if (completed) dismissAcademicActionDialog(confirmedPlan);
   };
 
-  const handleVisitAcademicProfile = async () => {
-    const targetProfile = inactiveAcademicProfileSlot;
-    if (
-      !hasTwoProfiles
-      || !targetProfile?.id
-      || profileMutationInFlightRef.current
-      || profileMutationBusy
-      || !academicProfileEditable
-    ) return;
-
-    profileMutationInFlightRef.current = true;
-    setVisitingAcademicProfile(true);
-    try {
-      if (onVisitAcademicProfile) {
-        await onVisitAcademicProfile(targetProfile);
-      } else {
-        const response = await api.updateProfile(
-          { visitAcademicProfileId: targetProfile.id },
-          { academicProfileId: academicProfileDataId || undefined },
-        );
-        applyUpdatedUserProfile(response.user);
-      }
-      setProfileDeletionGuidance(null);
-      toast.success(`Now viewing ${targetProfile.label}.`);
-    } catch (error) {
-      toast.error(error?.message || `Could not visit ${targetProfile.label}.`);
-    } finally {
-      profileMutationInFlightRef.current = false;
-      setVisitingAcademicProfile(false);
-    }
-  };
-  const handleDeleteProfileSelectionChange = (profileId) => {
-    const selectedProfile = academicProfiles.find((profile) => profile.id === profileId);
-    setDeleteProfileSelection(selectedProfile?.id || "");
-    setDeleteProfileSelectionDataId(
-      selectedProfile ? getAcademicProfileDataId(selectedProfile) : "",
-    );
-  };
-
-
-  const dismissDeleteProfileDialog = () => {
-    setDeleteProfileDialogOpen(false);
-    if (deleteProfileDismissTimerRef.current) {
-      clearTimeout(deleteProfileDismissTimerRef.current);
-    }
-    const timerId = setTimeout(() => {
-      setDeleteProfileSelection("");
-      setDeleteProfileSelectionDataId("");
-      if (deleteProfileDismissTimerRef.current === timerId) {
-        deleteProfileDismissTimerRef.current = null;
-      }
-    }, ACADEMIC_CONFIRM_EXIT_MS);
-    deleteProfileDismissTimerRef.current = timerId;
-  };
-
-  const handleRequestDeleteAcademicProfile = () => {
-    if (
-      !hasTwoProfiles
-      || !inactiveAcademicProfileSlot?.id
-      || profileMutationInFlightRef.current
-      || profileMutationBusy
-      || !academicProfileEditable
-    ) return;
-
-    if (deleteProfileDismissTimerRef.current) {
-      clearTimeout(deleteProfileDismissTimerRef.current);
-      deleteProfileDismissTimerRef.current = null;
-    }
-    const targetProfile = pendingDeletionProfile || inactiveAcademicProfileSlot;
-    setDeleteProfileSelection(targetProfile.id);
-    setDeleteProfileSelectionDataId(getAcademicProfileDataId(targetProfile));
-    setDeleteProfileDialogOpen(true);
-  };
-
-  const handleDeleteAcademicProfile = async () => {
-    const selectedProfile = academicProfiles.find(
-      (profile) => (
-        profile.id === deleteProfileSelection
-        && getAcademicProfileDataId(profile) === deleteProfileSelectionDataId
-      ),
-    );
-    if (!selectedProfile && deleteProfileSelection) {
-      dismissDeleteProfileDialog();
-      toast.error("That profile changed in another tab. Review the current profiles before deleting.");
-      return;
-    }
-    if (
-      !hasTwoProfiles
-      || !selectedProfile?.id
-      || profileMutationInFlightRef.current
-      || profileMutationBusy
-      || !academicProfileEditable
-    ) return;
-
-    profileMutationInFlightRef.current = true;
-    setDeletingAcademicProfile(true);
-    try {
-      if (onDeleteAcademicProfile) {
-        await onDeleteAcademicProfile(selectedProfile);
-      } else {
-        const deletePayload = buildAcademicProfileDeletePayload(selectedProfile);
-        if (!deletePayload) throw new Error("This academic profile is missing its data scope.");
-        const response = await api.updateProfile(
-          deletePayload,
-          {
-            academicProfileId: academicProfileDataId || undefined,
-            timeoutMs: ACADEMIC_PROFILE_DELETE_TIMEOUT_MS,
-          },
-        );
-        applyUpdatedUserProfile(response.user);
-      }
-      setProfileDeletionGuidance(null);
-      toast.success(`${selectedProfile.label} deleted.`);
-      dismissDeleteProfileDialog();
-    } catch (error) {
-      if (error?.code === "KIDS_PARENT_ACCESS_REQUIRED") {
-        const guidance = {
-          id: selectedProfile.id,
-          label: selectedProfile.label || "the child profile",
-        };
-        setProfileDeletionGuidance(guidance);
-        dismissDeleteProfileDialog();
-        toast.error(
-          `Visit ${guidance.label}, unlock Parent Corner, then return to Settings to delete it.`,
-        );
-      } else {
-        toast.error(error?.message || `Could not delete ${selectedProfile.label}.`);
-      }
-    } finally {
-      profileMutationInFlightRef.current = false;
-      setDeletingAcademicProfile(false);
-    }
-  };
-
   const persistProfileImage = async (nextImage) => {
     const previousImage = profileImage;
     setProfileImage(nextImage);
@@ -2312,43 +2111,8 @@ function SettingsPage({
                 Know more <ArrowRight aria-hidden="true" size={12} />
               </Link>
             </div>
-            {hasTwoProfiles ? (
-              <div className="settings-profile-slot-actions">
-                <button
-                  className="secondary-btn settings-profile-visit-btn"
-                  disabled={profileMutationBusy || !academicProfileEditable}
-                  onClick={handleVisitAcademicProfile}
-                  title={!academicProfileEditable ? "Open Parent Corner to switch academic profiles." : undefined}
-                  type="button"
-                >
-                  <ArrowRight aria-hidden="true" size={15} />
-                  {visitingAcademicProfile
-                    ? "Switching..."
-                    : `Visit ${inactiveAcademicProfileSlot?.label || "other profile"}`}
-                </button>
-                <button
-                  className="secondary-btn settings-profile-delete-btn"
-                  disabled={profileMutationBusy || !academicProfileEditable}
-                  onClick={handleRequestDeleteAcademicProfile}
-                  ref={deleteProfileButtonRef}
-                  title={!academicProfileEditable ? "Open Parent Corner to delete an academic profile." : undefined}
-                  type="button"
-                >
-                  <Trash2 aria-hidden="true" size={15} />
-                  Delete profile
-                </button>
-              </div>
-            ) : null}
-            {profileDeletionGuidance
-              && inactiveAcademicProfileSlot
-              && profileDeletionGuidance.id === inactiveAcademicProfileSlot.id ? (
-              <p className="settings-profile-parent-guidance" role="status">
-                Visit <strong>{profileDeletionGuidance.label}</strong>, unlock Parent Corner,
-                then return to Settings and delete that profile.
-              </p>
-            ) : null}
           </div>
-          
+
           <div className="form-grid">
             <label className="field-stack">
               <span>Full Name</span>
@@ -2428,14 +2192,12 @@ function SettingsPage({
             </label>
           </div>
 
-          {youngKidsMode || hasTwoProfiles ? (
+          {youngKidsMode && !hasTwoProfiles ? (
             <div className="academic-profile-note settings-academic-profile-note" role="note">
               <p>
                 {!academicProfileEditable
-                  ? "Open Parent Corner to switch, delete, or change this account's academic profile."
-                  : hasTwoProfiles
-                    ? "Two academic profiles are saved. Delete one profile before editing academic details."
-                    : "Parent Corner is open. You can correct this account's registered stage, class, and curriculum here."}
+                  ? "Open Parent Corner before changing this account's academic profile."
+                  : "Parent Corner is open. You can correct this account's registered stage, class, and curriculum here."}
               </p>
             </div>
           ) : null}
@@ -3519,18 +3281,7 @@ function SettingsPage({
         returnFocusRef={profileSaveButtonRef}
         title={`Create ${availableProfileLabel}?`}
       />
-      <SettingsAcademicProfileDeleteDialog
-        activeProfileId={activeAcademicProfileSlot?.id || ""}
-        busy={deletingAcademicProfile}
-        fallbackFocusRef={profileSaveButtonRef}
-        onCancel={dismissDeleteProfileDialog}
-        onConfirm={handleDeleteAcademicProfile}
-        onSelectionChange={handleDeleteProfileSelectionChange}
-        open={deleteProfileDialogOpen}
-        profiles={academicProfiles}
-        returnFocusRef={deleteProfileButtonRef}
-        selectedProfileId={deleteProfileSelection}
-      />
+
     </section>
   );
 }
