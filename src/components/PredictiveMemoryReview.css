@@ -126,7 +126,7 @@
 .memory-review-icon-button {
   font: inherit;
   cursor: pointer;
-  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease, opacity 150ms ease;
+  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease, opacity 150ms ease;
 }
 
 .memory-review-start,
@@ -326,14 +326,58 @@ body.has-bg-image .memory-review-dialog {
 
 .memory-review-rating button.is-selected {
   color: #08745f;
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.32);
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.42);
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.08);
 }
 
 .memory-review-rating button.is-review {
   color: #b45309;
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.42);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.08);
+}
+
+body.dark .memory-review-rating button.is-selected:not(.is-review) {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(110, 231, 183, 0.42);
+}
+
+body.dark .memory-review-rating button.is-review {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(252, 211, 77, 0.42);
+}
+
+.memory-review-rating-guidance {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 10px 0 0;
+  padding: 9px 10px;
+  color: #9a4b08;
   background: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.32);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 9px;
+  font-size: 0.73rem;
+  line-height: 1.45;
+  animation: memory-review-guidance-in 180ms ease-out;
+}
+
+.memory-review-rating-guidance svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.memory-review-rating-guidance strong {
+  font-weight: 850;
+}
+
+body.dark .memory-review-rating-guidance {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(252, 211, 77, 0.32);
 }
 
 .memory-review-dialog-footer,
@@ -393,6 +437,17 @@ body.has-bg-image .memory-review-dialog {
   to { transform: rotate(360deg); }
 }
 
+@keyframes memory-review-guidance-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 640px) {
   .memory-review-heading {
     grid-template-columns: auto minmax(0, 1fr);
@@ -440,5 +495,9 @@ body.has-bg-image .memory-review-dialog {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+
+  .memory-review-rating-guidance {
+    animation: none;
   }
 }

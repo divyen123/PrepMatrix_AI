@@ -73,6 +73,10 @@ import {
 } from "./learningNotebookRoutes.js";
 import { registerLearningNoteRoutes } from "./learningNoteRoutes.js";
 import { registerLearningMemoryRoutes } from "./learningMemoryRoutes.js";
+import registerAppUsageRoutes, {
+  APP_USAGE_COUNTERS_COLLECTION,
+  APP_USAGE_PREFERENCES_COLLECTION,
+} from "./appUsageRoutes.js";
 import {
   KIDS_ATTEMPTS_COLLECTION,
   KIDS_PARENT_SETTINGS_COLLECTION,
@@ -301,6 +305,13 @@ async function getDb() {
         db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, packId: 1, completedAt: -1 }),
         db.collection(KIDS_PARENT_SETTINGS_COLLECTION).createIndex({ userId: 1 }, { unique: true }),
         db.collection(KIDS_PROFILE_SETTINGS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1 }, { unique: true }),
+        db.collection(APP_USAGE_COUNTERS_COLLECTION).createIndex(
+          { userId: 1, sourceId: 1, dayKey: 1 },
+          { unique: true },
+        ),
+        db.collection(APP_USAGE_COUNTERS_COLLECTION).createIndex({ userId: 1, dayKey: 1 }),
+        db.collection(APP_USAGE_COUNTERS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+        db.collection(APP_USAGE_PREFERENCES_COLLECTION).createIndex({ userId: 1 }, { unique: true }),
         db.collection(ACADEMIC_PROFILE_DELETION_TOMBSTONES_COLLECTION).createIndex({ nextReconcileAt: 1 }),
         db.collection(AI_USAGE_EVENTS_COLLECTION).createIndex({ userId: 1, periodStart: 1, status: 1, reservationExpiresAt: 1 }),
         db.collection(AI_USAGE_EVENTS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
@@ -475,6 +486,37 @@ async function acquireAcademicProfileLockOrThrow(db, userId) {
     "PROFILE_UPDATE_IN_PROGRESS",
     "Another profile update is already in progress. Try again.",
   );
+}
+
+async function withAccountWriteFence(db, req, write) {
+  const lock = await acquireAcademicProfileMutationLock(
+    db,
+    req.user._id,
+    { ttlMs: 120_000 },
+  );
+  if (!lock) {
+    throw new AcademicProfileMutationError(
+      409,
+      "PROFILE_UPDATE_IN_PROGRESS",
+      "Another account update is already in progress. App usage will retry automatically.",
+    );
+  }
+  try {
+    const writableUser = await db.collection("users").findOne({
+      _id: req.user._id,
+      deletingAt: { $exists: false },
+    });
+    if (!writableUser) {
+      throw new AcademicProfileMutationError(
+        409,
+        "ACCOUNT_DELETION_IN_PROGRESS",
+        "Account deletion is in progress. App usage will sync if the account remains available.",
+      );
+    }
+    return await write();
+  } finally {
+    await lock.release().catch(() => undefined);
+  }
 }
 
 async function deleteAcademicProfileData(db, currentUser, {
@@ -1175,6 +1217,8 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
         db.collection(KIDS_ATTEMPTS_COLLECTION).deleteMany({ userId }),
         db.collection(KIDS_PARENT_SETTINGS_COLLECTION).deleteMany({ userId }),
         db.collection(KIDS_PROFILE_SETTINGS_COLLECTION).deleteMany({ userId }),
+        db.collection(APP_USAGE_COUNTERS_COLLECTION).deleteMany({ userId }),
+        db.collection(APP_USAGE_PREFERENCES_COLLECTION).deleteMany({ userId }),
         db.collection(ACADEMIC_PROFILE_DELETION_TOMBSTONES_COLLECTION).deleteMany({ userId }),
         db.collection("worktrees").deleteMany({ userId }),
         db.collection("chatSessions").deleteMany({ userId }),
@@ -1706,6 +1750,12 @@ registerNotificationHistoryRoutes(app, {
   mutationSecurity: requireNotificationMutationSecurity,
   requireAuth,
   withProfileWriteFence: withAcademicProfileWriteFence,
+});
+
+registerAppUsageRoutes(app, {
+  getDb,
+  requireAuth,
+  withAccountWriteFence,
 });
 
 registerResumeBuilderRoutes(app, {

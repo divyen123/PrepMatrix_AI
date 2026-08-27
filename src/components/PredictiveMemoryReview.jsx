@@ -23,6 +23,7 @@ import { subscribeToLocalDateChanges } from "../utils/localDateRefresh.js";
 import "./PredictiveMemoryReview.css";
 
 const DIALOG_EXIT_DURATION_MS = 240;
+const REVIEW_GUIDANCE_DURATION_MS = 4000;
 
 function getFocusableElements(container) {
   if (!container) return [];
@@ -53,11 +54,13 @@ export default function PredictiveMemoryReview({
   const [dialogEntered, setDialogEntered] = useState(false);
   const [revealed, setRevealed] = useState({});
   const [ratings, setRatings] = useState({});
+  const [reviewGuidance, setReviewGuidance] = useState({});
   const [confidence, setConfidence] = useState(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
+  const reviewGuidanceTimersRef = useRef(new Map());
   const experience = useMemo(() => buildMemoryReviewExperience({
     notebooks,
     schedule,
@@ -81,14 +84,25 @@ export default function PredictiveMemoryReview({
     }
   }, [completed, experience.changed, notebooks, scheduleStartDate, setSchedule, today]);
 
+  const cancelReviewGuidanceTimers = useCallback(() => {
+    if (typeof window !== "undefined") {
+      reviewGuidanceTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    }
+    reviewGuidanceTimersRef.current.clear();
+  }, []);
+
+  useEffect(() => () => cancelReviewGuidanceTimers(), [cancelReviewGuidanceTimers]);
+
   const resetQuiz = useCallback(() => {
+    cancelReviewGuidanceTimers();
     setActiveEntry(null);
     setActiveQuiz(null);
     setRevealed({});
     setRatings({});
+    setReviewGuidance({});
     setConfidence(3);
     setError("");
-  }, []);
+  }, [cancelReviewGuidanceTimers]);
 
   const closeQuiz = useCallback(() => {
     if (isSubmitting) return;
@@ -105,10 +119,12 @@ export default function PredictiveMemoryReview({
     setActiveQuiz(quiz);
     setRevealed({});
     setRatings({});
+    cancelReviewGuidanceTimers();
+    setReviewGuidance({});
     setConfidence(3);
     setError("");
     setDialogOpen(true);
-  }, [experience.dateKey]);
+  }, [cancelReviewGuidanceTimers, experience.dateKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -190,6 +206,38 @@ export default function PredictiveMemoryReview({
   const questions = activeQuiz?.activeRecallPrompts || [];
   const ratedCount = questions.filter((question) => ratings[question.id]).length;
   const canSubmit = questions.length > 0 && ratedCount === questions.length && !isSubmitting;
+
+  const rateQuestion = useCallback((questionId, rating) => {
+    setRatings((current) => ({ ...current, [questionId]: rating }));
+
+    const activeTimer = reviewGuidanceTimersRef.current.get(questionId);
+    if (activeTimer && typeof window !== "undefined") window.clearTimeout(activeTimer);
+    reviewGuidanceTimersRef.current.delete(questionId);
+
+    if (rating !== "review") {
+      setReviewGuidance((current) => {
+        if (!current[questionId]) return current;
+        const nextGuidance = { ...current };
+        delete nextGuidance[questionId];
+        return nextGuidance;
+      });
+      return;
+    }
+
+    setReviewGuidance((current) => ({ ...current, [questionId]: true }));
+    if (typeof window === "undefined") return;
+
+    const timerId = window.setTimeout(() => {
+      reviewGuidanceTimersRef.current.delete(questionId);
+      setReviewGuidance((current) => {
+        if (!current[questionId]) return current;
+        const nextGuidance = { ...current };
+        delete nextGuidance[questionId];
+        return nextGuidance;
+      });
+    }, REVIEW_GUIDANCE_DURATION_MS);
+    reviewGuidanceTimersRef.current.set(questionId, timerId);
+  }, []);
 
   const submitQuiz = useCallback(async () => {
     if (!activeEntry || !activeQuiz || !canSubmit) return;
@@ -320,6 +368,8 @@ export default function PredictiveMemoryReview({
             <div className="memory-review-questions">
               {questions.map((question, index) => {
                 const isRevealed = Boolean(revealed[question.id]);
+                const showReviewGuidance = Boolean(reviewGuidance[question.id]);
+                const reviewGuidanceId = `memory-review-guidance-${index + 1}`;
                 return (
                   <article className="memory-review-question" key={question.id}>
                     <span className="memory-review-question-number">Prompt {index + 1}</span>
@@ -345,21 +395,37 @@ export default function PredictiveMemoryReview({
                         aria-pressed={ratings[question.id] === "recalled"}
                         className={ratings[question.id] === "recalled" ? "is-selected" : ""}
                         disabled={!isRevealed}
-                        onClick={() => setRatings((current) => ({ ...current, [question.id]: "recalled" }))}
+                        onClick={() => rateQuestion(question.id, "recalled")}
                         type="button"
                       >
                         <Check size={15} aria-hidden="true" />I recalled it
                       </button>
                       <button
+                        aria-describedby={showReviewGuidance ? reviewGuidanceId : undefined}
                         aria-pressed={ratings[question.id] === "review"}
                         className={ratings[question.id] === "review" ? "is-selected is-review" : ""}
                         disabled={!isRevealed}
-                        onClick={() => setRatings((current) => ({ ...current, [question.id]: "review" }))}
+                        onClick={() => rateQuestion(question.id, "review")}
                         type="button"
                       >
                         <RotateCcw size={15} aria-hidden="true" />Review again
                       </button>
                     </div>
+                    {showReviewGuidance && (
+                      <p
+                        aria-atomic="true"
+                        aria-live="polite"
+                        className="memory-review-rating-guidance"
+                        id={reviewGuidanceId}
+                        role="status"
+                      >
+                        <RotateCcw size={15} aria-hidden="true" />
+                        <span>
+                          <strong>Marked for review.</strong>{" "}
+                          Read the answer once, hide it, then try again from memory.
+                        </span>
+                      </p>
+                    )}
                   </article>
                 );
               })}

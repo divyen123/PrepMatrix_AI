@@ -32,7 +32,21 @@ test("whole-account deletion removes profile housekeeping and the global battle 
   assert.ok(start >= 0 && end > start);
   assert.match(flow, /KIDS_PROFILE_SETTINGS_COLLECTION/);
   assert.match(flow, /ACADEMIC_PROFILE_DELETION_TOMBSTONES_COLLECTION/);
+  assert.match(flow, /APP_USAGE_COUNTERS_COLLECTION/);
+  assert.match(flow, /APP_USAGE_PREFERENCES_COLLECTION/);
   assert.match(flow, /collection\("quizBattleRewardLedger"\)\.deleteMany\(\{ userId \}\)/);
+});
+
+test("account usage sync is registered with unique, query, TTL, and preference indexes", () => {
+  assert.match(source, /registerAppUsageRoutes\(app, \{[\s\S]*?withAccountWriteFence/u);
+  assert.match(source, /withAccountWriteFence[\s\S]*?ttlMs: 120_000/u);
+  assert.match(
+    source,
+    /APP_USAGE_COUNTERS_COLLECTION\)\.createIndex\([\s\S]*?userId: 1, sourceId: 1, dayKey: 1[\s\S]*?unique: true/u,
+  );
+  assert.match(source, /APP_USAGE_COUNTERS_COLLECTION\)\.createIndex\(\{ userId: 1, dayKey: 1 \}\)/u);
+  assert.match(source, /APP_USAGE_COUNTERS_COLLECTION\)\.createIndex\(\{ expiresAt: 1 \}, \{ expireAfterSeconds: 0 \}\)/u);
+  assert.match(source, /APP_USAGE_PREFERENCES_COLLECTION\)\.createIndex\(\{ userId: 1 \}, \{ unique: true \}\)/u);
 });
 
 test("incomplete profile deletion remains retryable and successful responses load remaining workspace context", () => {

@@ -106,7 +106,7 @@ test("renders detailed user information, usage actions, and accessible activity 
     assert.match(markup, /1\/2 tasks · 50%/u);
     assert.match(markup, /<dt>Age<\/dt><dd>21<\/dd>/u);
     assert.match(markup, /1 of 2 configured/u);
-    assert.match(markup, /It does not monitor other apps, websites, or idle background time\./u);
+    assert.match(markup, /does not monitor other apps, websites, or idle background time\./u);
 
     const twoProfileMarkup = renderToStaticMarkup(React.createElement(
       MemoryRouter,
@@ -173,6 +173,7 @@ test("registers the guarded route, global tracker, responsive charts, and backgr
   const trackerSource = readFileSync(new URL("../hooks/useAppUsageTracker.js", import.meta.url), "utf8");
 
   assert.match(appSource, /useAppUsageTracker\(userProfile, Boolean\(userIdentity\)\)/u);
+  assert.match(appSource, /requestAppUsageFlush\(\)[\s\S]*?\.then\(\(\) => api\.logout\(\)\)/u);
   assert.match(appSource, /<SettingsProfilePage[\s\S]*?path="\/settings\/profile"/u);
   assert.match(pageSource, /<ComposedChart[\s\S]*?<Bar[\s\S]*?<Line/u);
   assert.match(pageSource, /saveAppUsageLimit\(usageIdentity, minutes\)/u);
@@ -199,6 +200,17 @@ test("registers the guarded route, global tracker, responsive charts, and backgr
   assert.match(pageSource, /inert=\{!open\}/u);
   assert.match(pageSource, /getScheduleDateKey\(day, index, scheduleStartDate\)/u);
   assert.match(trackerSource, /APP_USAGE_LIMIT_REACHED_EVENT[\s\S]*?toast\.info/u);
+  assert.match(trackerSource, /syncAppUsageRecord\(identity, \{ keepalive \}\)/u);
+  assert.match(trackerSource, /APP_USAGE_SYNC_INTERVAL_MS/u);
+  assert.match(trackerSource, /window\.addEventListener\("online", handleOnline\)/u);
+  assert.match(trackerSource, /window\.addEventListener\("blur", handleBlur\)/u);
+  assert.match(trackerSource, /handleBlur[\s\S]*?syncUsage\(\{ force: true \}\)/u);
+  assert.match(trackerSource, /if \(keepalive\)[\s\S]*?syncAppUsageRecord\(identity, \{ keepalive: true \}\)/u);
+  assert.match(trackerSource, /APP_USAGE_FLUSH_REQUEST_EVENT[\s\S]*?handleFlushRequest/u);
+  assert.match(trackerSource, /syncUsage\(\{ force: true, keepalive: true \}\)/u);
+  assert.match(pageSource, /Synced account/u);
+  assert.match(pageSource, /Across your signed-in devices/u);
+  assert.match(pageSource, /syncs it to your account/u);
   assert.match(stylesheet, /body\.has-bg-image:not\(\.no-glass-cards\) \.settings-profile-surface,[\s\S]*?var\(--glass-opacity, 0\.6\)/u);
   assert.match(stylesheet, /body\.has-bg-image\.no-glass-cards \.settings-profile-surface,[\s\S]*?background: rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\) !important/u);
   assert.doesNotMatch(stylesheet, /rgba\(var\(--bg-surface-rgb, 18, 27, 45\), 0\.88\)/u);

@@ -43,6 +43,19 @@ test("exposes progress and prompt ratings with useful semantics", () => {
   assert.match(componentSource, /className="memory-review-rating"[\s\S]*?role="group"/u);
 });
 
+test("confirms recall choices and briefly guides another review", () => {
+  assert.match(componentSource, /const REVIEW_GUIDANCE_DURATION_MS = 4000/u);
+  assert.match(componentSource, /aria-pressed=\{ratings\[question\.id\] === "recalled"\}/u);
+  assert.match(componentSource, /rateQuestion\(question\.id, "recalled"\)/u);
+  assert.match(componentSource, /rateQuestion\(question\.id, "review"\)/u);
+  assert.match(componentSource, /window\.setTimeout\([\s\S]*?REVIEW_GUIDANCE_DURATION_MS/u);
+  assert.match(componentSource, /aria-atomic="true"[\s\S]*?className="memory-review-rating-guidance"[\s\S]*?role="status"/u);
+  assert.match(componentSource, /Marked for review\.[\s\S]*?try again from memory\./u);
+  assert.match(stylesheet, /\.memory-review-rating button\.is-selected \{[\s\S]*?rgba\(16, 185, 129, 0\.14\)/u);
+  assert.match(stylesheet, /\.memory-review-rating button\.is-review \{[\s\S]*?rgba\(245, 158, 11, 0\.14\)/u);
+  assert.match(stylesheet, /\.memory-review-rating-guidance \{[\s\S]*?rgba\(245, 158, 11, 0\.1\)/u);
+});
+
 test("centers an opaque responsive dialog over a dimmed blurred backdrop", () => {
   assert.match(stylesheet, /\.memory-review-dialog-backdrop \{[\s\S]*?position: fixed;[\s\S]*?inset: 0;[\s\S]*?place-items: center;/u);
   assert.match(stylesheet, /backdrop-filter: blur\(14px\) saturate\(0\.72\) brightness\(0\.76\)/u);

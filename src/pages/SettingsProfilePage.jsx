@@ -442,7 +442,7 @@ export default function SettingsProfilePage({
           <p>Your account, academic profile, study progress, and private app-activity insights.</p>
         </div>
         <span className="settings-profile-local-badge">
-          <ShieldCheck aria-hidden="true" size={15} /> This device
+          <ShieldCheck aria-hidden="true" size={15} /> Synced account
         </span>
       </header>
 
@@ -509,7 +509,7 @@ export default function SettingsProfilePage({
         <article className="settings-profile-metric settings-profile-surface">
           <span><Clock3 aria-hidden="true" size={17} /> Today active</span>
           <strong>{formatDuration(usageSummary.today.seconds)}</strong>
-          <small>Visible and focused app time</small>
+          <small>Across your signed-in devices</small>
         </article>
         <article className="settings-profile-metric settings-profile-surface">
           <span><BarChart3 aria-hidden="true" size={17} /> Daily average</span>
@@ -669,7 +669,7 @@ export default function SettingsProfilePage({
           <article>
             <span>Today active</span>
             <strong>{formatDuration(usageSummary.today.seconds)}</strong>
-            <small>Visible and focused app time</small>
+            <small>Synced visible and focused time</small>
           </article>
           <article>
             <span>Current reminder</span>
@@ -704,7 +704,7 @@ export default function SettingsProfilePage({
           </button>
         </form>
         <p className="settings-profile-dialog-note">
-          This is a private reminder on this device. Reaching it never locks PrepMatrix.
+          This reminder setting stays on this device and compares against your synced account activity. Reaching it never locks PrepMatrix.
         </p>
           </>
         ) : activeUsageDialog.kind === "insights" ? (
@@ -748,7 +748,7 @@ export default function SettingsProfilePage({
           </article>
         </div>
         <p className="settings-profile-dialog-note">
-          Active time includes only the moments when PrepMatrix is visible and focused on this device.
+          Active time combines the moments when PrepMatrix is visible and focused across your signed-in devices.
         </p>
           </>
         ) : null}
@@ -776,7 +776,7 @@ export default function SettingsProfilePage({
         <Info aria-hidden="true" size={18} />
         <div>
           <strong>How active time is measured</strong>
-          <span>PrepMatrix records time on this device only while the app window is visible and focused. It does not monitor other apps, websites, or idle background time.</span>
+          <span>Each signed-in device records time only while PrepMatrix is visible and focused, then syncs it to your account. PrepMatrix does not monitor other apps, websites, or idle background time.</span>
         </div>
         <CheckCircle2 aria-hidden="true" className="settings-profile-privacy-check" size={20} />
       </footer>

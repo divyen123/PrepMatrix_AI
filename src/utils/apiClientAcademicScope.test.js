@@ -45,8 +45,11 @@ test("authenticated requests send the captured academic profile data ID", async 
   await api.get("/api/example");
   await api.get("/api/example", { academicProfileId: "data-b" });
   await api.get("/api/account-level", { academicProfileId: null });
+  await api.syncAppUsage({ version: 2, sourceId: "usage-source-test", days: {} });
 
   assert.equal(calls[0].options.headers["X-Academic-Profile-Id"], "data-a");
   assert.equal(calls[1].options.headers["X-Academic-Profile-Id"], "data-b");
   assert.equal("X-Academic-Profile-Id" in calls[2].options.headers, false);
+  assert.equal(calls[3].url.endsWith("/api/app-usage/sync"), true);
+  assert.equal("X-Academic-Profile-Id" in calls[3].options.headers, false);
 });

@@ -230,6 +230,12 @@ const api = {
   deleteAccount: (password) => request("/api/auth/account", { method: "DELETE", body: JSON.stringify({ password }) }),
   saveWorkspace: (body, options = {}) => request("/api/workspace", { ...options, method: "PUT", body: JSON.stringify(body) }),
   importWorkspace: (body, options = {}) => request("/api/workspace/import", { ...options, method: "POST", body: JSON.stringify(body) }),
+  syncAppUsage: (body, options = {}) => request("/api/app-usage/sync", {
+    ...options,
+    academicProfileId: null,
+    method: "POST",
+    body: JSON.stringify(body),
+  }),
   getResumeBuilderStatus: (options = {}) => request("/api/resume-builder/status", options),
   generateResume: (body = {}, options = {}) => request("/api/resume-builder/generate", {
     ...options,

@@ -34,6 +34,7 @@ import VoiceAssistantOverlay from "./components/VoiceAssistantOverlay";
 import { AiCreditIndicator } from "./components/AiQuotaProvider";
 import useVoiceAssistant from "./hooks/useVoiceAssistant";
 import useAppUsageTracker from "./hooks/useAppUsageTracker";
+import { requestAppUsageFlush } from "./utils/appUsageSync";
 import api, {
   ACADEMIC_PROFILE_DELETE_TIMEOUT_MS,
   AUTH_RECOVERY_TIMEOUT_MS,
@@ -165,6 +166,7 @@ const ExamPage = lazyRetry(() => import("./pages/ExamPage"));
 const ExamAboutPage = lazyRetry(() => import("./pages/ExamAboutPage"));
 
 const LOGOUT_TRANSITION_MIN_MS = 700;
+const LOGOUT_USAGE_FLUSH_TIMEOUT_MS = 1_500;
 const LOGOUT_TRANSITION_EXIT_MS = 280;
 const TOPBAR_HIDE_DELAY_MS = 3500;
 
@@ -1325,7 +1327,16 @@ function App() {
     const minimumTransition = new Promise((resolve) => {
       window.setTimeout(resolve, LOGOUT_TRANSITION_MIN_MS);
     });
-    const logoutRequest = api.logout().catch(() => undefined);
+    const usageFlushTimeout = new Promise((resolve) => {
+      window.setTimeout(resolve, LOGOUT_USAGE_FLUSH_TIMEOUT_MS);
+    });
+    const logoutRequest = Promise.race([
+      requestAppUsageFlush(),
+      usageFlushTimeout,
+    ])
+      .catch(() => undefined)
+      .then(() => api.logout())
+      .catch(() => undefined);
 
     await Promise.all([
       logoutRequest,
