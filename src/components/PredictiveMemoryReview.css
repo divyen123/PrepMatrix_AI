@@ -324,30 +324,39 @@ body.has-bg-image .memory-review-dialog {
   font-weight: 800;
 }
 
-.memory-review-rating button.is-selected {
-  color: #08745f;
-  background: rgba(16, 185, 129, 0.14);
-  border-color: rgba(16, 185, 129, 0.42);
-  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.08);
+/*
+ * Keep the confirmed choice visible even when App.css applies its global
+ * !important button theme. aria-pressed is the source of truth for the
+ * selected state, while the extra scope prevents these colors leaking out.
+ */
+body .memory-review-dialog .memory-review-rating > button.is-selected[aria-pressed="true"]:not(.is-review) {
+  color: #065f46 !important;
+  background: rgba(16, 185, 129, 0.2) !important;
+  border-color: rgba(5, 150, 105, 0.62) !important;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.14), 0 5px 14px rgba(16, 185, 129, 0.12) !important;
 }
 
-.memory-review-rating button.is-review {
-  color: #b45309;
-  background: rgba(245, 158, 11, 0.14);
-  border-color: rgba(245, 158, 11, 0.42);
-  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.08);
+body .memory-review-dialog .memory-review-rating > button.is-selected.is-review[aria-pressed="true"] {
+  color: #92400e !important;
+  background: rgba(245, 158, 11, 0.18) !important;
+  border-color: rgba(217, 119, 6, 0.58) !important;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.12), 0 5px 14px rgba(245, 158, 11, 0.1) !important;
 }
 
-body.dark .memory-review-rating button.is-selected:not(.is-review) {
-  color: #6ee7b7;
-  background: rgba(16, 185, 129, 0.16);
-  border-color: rgba(110, 231, 183, 0.42);
+body.dark .memory-review-dialog .memory-review-rating > button.is-selected[aria-pressed="true"]:not(.is-review),
+body.has-bg-image .memory-review-dialog .memory-review-rating > button.is-selected[aria-pressed="true"]:not(.is-review) {
+  color: #a7f3d0 !important;
+  background: rgba(16, 185, 129, 0.24) !important;
+  border-color: rgba(110, 231, 183, 0.58) !important;
+  box-shadow: 0 0 0 1px rgba(110, 231, 183, 0.14), 0 5px 14px rgba(16, 185, 129, 0.16) !important;
 }
 
-body.dark .memory-review-rating button.is-review {
-  color: #fcd34d;
-  background: rgba(245, 158, 11, 0.16);
-  border-color: rgba(252, 211, 77, 0.42);
+body.dark .memory-review-dialog .memory-review-rating > button.is-selected.is-review[aria-pressed="true"],
+body.has-bg-image .memory-review-dialog .memory-review-rating > button.is-selected.is-review[aria-pressed="true"] {
+  color: #fde68a !important;
+  background: rgba(245, 158, 11, 0.22) !important;
+  border-color: rgba(252, 211, 77, 0.56) !important;
+  box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.12), 0 5px 14px rgba(245, 158, 11, 0.14) !important;
 }
 
 .memory-review-rating-guidance {

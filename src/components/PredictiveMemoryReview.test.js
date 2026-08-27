@@ -51,8 +51,18 @@ test("confirms recall choices and briefly guides another review", () => {
   assert.match(componentSource, /window\.setTimeout\([\s\S]*?REVIEW_GUIDANCE_DURATION_MS/u);
   assert.match(componentSource, /aria-atomic="true"[\s\S]*?className="memory-review-rating-guidance"[\s\S]*?role="status"/u);
   assert.match(componentSource, /Marked for review\.[\s\S]*?try again from memory\./u);
-  assert.match(stylesheet, /\.memory-review-rating button\.is-selected \{[\s\S]*?rgba\(16, 185, 129, 0\.14\)/u);
-  assert.match(stylesheet, /\.memory-review-rating button\.is-review \{[\s\S]*?rgba\(245, 158, 11, 0\.14\)/u);
+  assert.match(
+    stylesheet,
+    /body \.memory-review-dialog \.memory-review-rating > button\.is-selected\[aria-pressed="true"\]:not\(\.is-review\) \{[\s\S]*?color: #065f46 !important;[\s\S]*?background: rgba\(16, 185, 129, 0\.2\) !important;[\s\S]*?border-color: rgba\(5, 150, 105, 0\.62\) !important;[\s\S]*?box-shadow: [^;]+ !important;/u,
+  );
+  assert.match(
+    stylesheet,
+    /body \.memory-review-dialog \.memory-review-rating > button\.is-selected\.is-review\[aria-pressed="true"\] \{[\s\S]*?color: #92400e !important;[\s\S]*?background: rgba\(245, 158, 11, 0\.18\) !important;[\s\S]*?border-color: rgba\(217, 119, 6, 0\.58\) !important;[\s\S]*?box-shadow: [^;]+ !important;/u,
+  );
+  assert.match(
+    stylesheet,
+    /body\.dark \.memory-review-dialog[\s\S]*?button\.is-selected\[aria-pressed="true"\]:not\(\.is-review\)[\s\S]*?background: rgba\(16, 185, 129, 0\.24\) !important;/u,
+  );
   assert.match(stylesheet, /\.memory-review-rating-guidance \{[\s\S]*?rgba\(245, 158, 11, 0\.1\)/u);
 });
 
