@@ -35,8 +35,14 @@ function ExamAboutPage() {
     <section className="page-stack exam-guide-page">
       <header className="card exam-guide-hero">
         <div className="exam-guide-hero__topline">
-          <button className="exam-guide-back" onClick={() => navigate("/exam")} type="button">
-            <ArrowLeft size={16} /> Back to Exam
+          <button
+            aria-label="Back to Exam"
+            className="exam-guide-back page-back-control"
+            onClick={() => navigate("/exam")}
+            title="Back to Exam"
+            type="button"
+          >
+            <ArrowLeft aria-hidden="true" size={16} />
           </button>
           <span className="exam-guide-kicker"><GraduationCap size={15} /> Exam workspace guide</span>
         </div>

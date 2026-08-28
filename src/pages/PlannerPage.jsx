@@ -238,7 +238,12 @@ function PlannerPage({
       ) : (
         <>
           <header className="planner-subpage-header">
-            <Link aria-label="Back to Planner workspaces" className="planner-subpage-back" to="/planner">
+            <Link
+              aria-label="Back to Planner workspaces"
+              className="planner-subpage-back page-back-control"
+              title="Back to Planner workspaces"
+              to="/planner"
+            >
               <ArrowLeft aria-hidden="true" size={19} />
             </Link>
             <div className="section-intro">

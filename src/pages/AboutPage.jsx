@@ -77,8 +77,8 @@ function AboutPage({ academicProfile = {} }) {
   return (
     <section className="page-stack about-page-route">
       <div className="about-header-nav">
-        <button aria-label="Go back" className="icon-shell-btn back-nav-btn" onClick={() => navigate(-1)} title="Go back" type="button">
-          <ArrowLeft size={18} />
+        <button aria-label="Go back" className="icon-shell-btn back-nav-btn page-back-control" onClick={() => navigate(-1)} title="Go back" type="button">
+          <ArrowLeft aria-hidden="true" size={18} />
         </button>
         <div>
           <span className="section-tag">About application</span>

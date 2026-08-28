@@ -429,7 +429,7 @@ export default function SettingsProfilePage({
       <header className="settings-profile-page-header">
         <button
           aria-label="Back to Settings"
-          className="settings-profile-back"
+          className="settings-profile-back page-back-control"
           onClick={() => navigate("/settings")}
           title="Back to Settings"
           type="button"

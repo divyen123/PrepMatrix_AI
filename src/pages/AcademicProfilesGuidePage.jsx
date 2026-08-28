@@ -331,7 +331,7 @@ export default function AcademicProfilesGuidePage({
       <header className="academic-profiles-page-header">
         <button
           aria-label="Back to Settings"
-          className="academic-profile-guide-back"
+          className="academic-profile-guide-back page-back-control"
           onClick={() => navigate("/settings")}
           title="Back to Settings"
           type="button"

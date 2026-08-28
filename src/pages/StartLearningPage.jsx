@@ -2863,12 +2863,12 @@ function StartLearningPage({
             </div>
             <button
               aria-label="Back to preparation choices"
-              className="learning-icon-button"
+              className="learning-icon-button page-back-control"
               onClick={returnToPreparationChoice}
               title="Back to preparation choices"
               type="button"
             >
-              <ArrowLeft size={17} />
+              <ArrowLeft aria-hidden="true" size={17} />
             </button>
           </nav>
         )}

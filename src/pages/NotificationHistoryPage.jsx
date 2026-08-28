@@ -434,7 +434,7 @@ function NotificationHistoryPage() {
       <header className="notification-history-header">
         <button
           aria-label="Back to settings"
-          className="notification-history-back"
+          className="notification-history-back page-back-control"
           onClick={() => navigate("/settings")}
           title="Back to settings"
           type="button"
