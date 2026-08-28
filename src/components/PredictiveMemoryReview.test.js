@@ -34,22 +34,39 @@ test("finishes the exact rescheduled memory check only after its notebook save",
   );
 });
 
-test("renders an accessible delete control for every card and dismisses projected reviews safely", () => {
+test("requires an accessible inline confirmation before dismissing a memory check", () => {
   assert.match(componentSource, /import \{[\s\S]*?Trash2,[\s\S]*?\} from "lucide-react"/u);
+  assert.match(componentSource, /const \[pendingDeleteTaskId, setPendingDeleteTaskId\] = useState\(null\)/u);
   assert.match(
     componentSource,
     /setSchedule\(\(currentSchedule\) => dismissMemoryReviewTask\([\s\S]*?mergeMemoryReviewSchedule\(currentSchedule,[\s\S]*?entry\.task,[\s\S]*?dateKey: experience\.dateKey/u,
   );
   assert.match(
     componentSource,
-    /aria-label=\{`Delete memory check for \$\{entry\.candidate\.title\}`\}[\s\S]*?className="memory-review-delete"[\s\S]*?<Trash2/u,
+    /aria-label=\{`Delete memory check for \$\{entry\.candidate\.title\}`\}[\s\S]*?className="memory-review-delete"[\s\S]*?onClick=\{\(\) => setPendingDeleteTaskId\(taskId\)\}[\s\S]*?<Trash2/u,
   );
-  assert.match(componentSource, /experience\.entries\.map\(\(entry\) => \([\s\S]*?memory-review-delete/u);
+  assert.doesNotMatch(
+    componentSource,
+    /className="memory-review-delete"[\s\S]{0,160}?onClick=\{\(\) => deleteReview\(entry\)\}/u,
+  );
+  assert.match(componentSource, /const isConfirmingDelete = pendingDeleteTaskId === taskId/u);
+  assert.match(
+    componentSource,
+    /role="group"[\s\S]*?Delete this check\?[\s\S]*?aria-label=\{`Confirm deleting memory check for \$\{entry\.candidate\.title\}`\}[\s\S]*?autoFocus[\s\S]*?onClick=\{\(\) => deleteReview\(entry\)\}[\s\S]*?<Check/u,
+  );
+  assert.match(
+    componentSource,
+    /aria-label=\{`Cancel deleting memory check for \$\{entry\.candidate\.title\}`\}[\s\S]*?onClick=\{\(\) => cancelDeleteReview\(taskId\)\}[\s\S]*?<X/u,
+  );
+  assert.match(componentSource, /event\.key === "Escape"[\s\S]*?cancelDeleteReview\(taskId\)/u);
   assert.match(
     stylesheet,
     /\.memory-review-list \{[\s\S]*?max-height: 264px;[\s\S]*?overflow-y: auto;[\s\S]*?scrollbar-gutter: stable;/u,
   );
   assert.match(stylesheet, /body \.memory-review-panel \.memory-review-delete \{[\s\S]*?color: var\(--danger\) !important;/u);
+  assert.match(stylesheet, /\.memory-review-delete-confirm \{[\s\S]*?background: color-mix\(in srgb, var\(--danger\) 8%/u);
+  assert.match(stylesheet, /\.memory-review-confirm-button\.is-confirm:focus-visible[\s\S]*?background: var\(--danger\) !important;/u);
+  assert.match(stylesheet, /\.memory-review-confirm-button\.is-cancel:focus-visible[\s\S]*?background: var\(--surface-strong\) !important;/u);
 });
 
 test("supports a standalone note-like card grid with visible loading and empty states", () => {
@@ -58,6 +75,9 @@ test("supports a standalone note-like card grid with visible loading and empty s
     componentSource,
     /className=\{`memory-review-panel\$\{standalone \? " is-standalone" : ""\}`\}/u,
   );
+  assert.match(componentSource, /aria-label=\{standalone \? "Recall sessions" : undefined\}/u);
+  assert.match(componentSource, /aria-labelledby=\{standalone \? undefined : "memory-review-title"\}/u);
+  assert.match(componentSource, /standalone \? \([\s\S]*?memory-review-standalone-toolbar[\s\S]*?\) : \([\s\S]*?<header className="memory-review-heading">/u);
   assert.match(componentSource, /loading \? "Loading" : `\$\{experience\.pendingEntries\.length\} due`/u);
   assert.match(componentSource, /No memory checks are due right now/u);
   assert.match(componentSource, /Memory checks are temporarily unavailable/u);
@@ -67,12 +87,12 @@ test("supports a standalone note-like card grid with visible loading and empty s
   );
   assert.match(
     stylesheet,
-    /\.memory-review-panel\.is-standalone \.memory-review-list \{[\s\S]*?grid-template-columns: repeat\(auto-fill, minmax\(min\(100%, 250px\), 300px\)\);[\s\S]*?max-height: 448px;/u,
+    /\.memory-review-panel\.is-standalone \.memory-review-list \{[\s\S]*?grid-template-columns: repeat\(auto-fill, minmax\(min\(100%, 230px\), 280px\)\);[\s\S]*?gap: 12px;[\s\S]*?max-height: 448px;/u,
   );
   assert.match(stylesheet, /\.memory-review-list \{[\s\S]*?overflow-y: auto;/u);
   assert.match(
     stylesheet,
-    /\.memory-review-panel\.is-standalone \.memory-review-card \{[\s\S]*?min-height: 210px;[\s\S]*?flex-direction: column;[\s\S]*?background:/u,
+    /\.memory-review-panel\.is-standalone \.memory-review-card \{[\s\S]*?min-height: 180px;[\s\S]*?flex-direction: column;[\s\S]*?padding: 16px;[\s\S]*?background:/u,
   );
 });
 

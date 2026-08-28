@@ -579,7 +579,7 @@ function DashboardPage({
                   if (childMode) navigate("/learn");
                   else setShowSubjectsPopup((prev) => !prev);
                 }
-                else if (card.label.toLowerCase().includes("planned")) navigate("/planner");
+                else if (card.label.toLowerCase().includes("planned")) navigate("/planner/schedule");
                 else if (card.label.toLowerCase().includes("remaining")) navigate("/analytics#topic-progress");
                 else navigate("/analytics");
               }}
@@ -592,7 +592,7 @@ function DashboardPage({
                     if (childMode) navigate("/learn");
                     else setShowSubjectsPopup((prev) => !prev);
                   }
-                  else if (card.label.toLowerCase().includes("planned")) navigate("/planner");
+                  else if (card.label.toLowerCase().includes("planned")) navigate("/planner/schedule");
                   else if (card.label.toLowerCase().includes("remaining")) navigate("/analytics#topic-progress");
                   else navigate("/analytics");
                 }

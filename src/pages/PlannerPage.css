@@ -8,7 +8,6 @@
   max-width: 760px;
 }
 
-.planner-hub-intro p,
 .planner-subpage-header .section-intro p {
   max-width: 720px;
   margin: 8px 0 0;
@@ -21,6 +20,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(14px, 2vw, 22px);
+  margin-top: clamp(28px, 4vh, 48px);
 }
 
 .planner-hub-card {
@@ -273,6 +273,10 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
 }
 
 @media (max-width: 640px) {
+  .planner-hub-grid {
+    margin-top: 18px;
+  }
+
   .planner-hub-card {
     min-height: 184px;
     padding: 20px;

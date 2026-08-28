@@ -64,8 +64,11 @@ export default function PredictiveMemoryReview({
   const [confidence, setConfidence] = useState(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [pendingDeleteTaskId, setPendingDeleteTaskId] = useState(null);
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
+  const panelRef = useRef(null);
+  const deleteTriggerRefs = useRef(new Map());
   const reviewGuidanceTimersRef = useRef(new Map());
   const experience = useMemo(() => buildMemoryReviewExperience({
     notebooks,
@@ -133,7 +136,10 @@ export default function PredictiveMemoryReview({
   }, [cancelReviewGuidanceTimers, experience.dateKey]);
 
   const deleteReview = useCallback((entry) => {
-    if (typeof setSchedule !== "function") return;
+    if (typeof setSchedule !== "function") {
+      setPendingDeleteTaskId(null);
+      return;
+    }
     setSchedule((currentSchedule) => dismissMemoryReviewTask(
       mergeMemoryReviewSchedule(currentSchedule, {
         notebooks,
@@ -148,7 +154,18 @@ export default function PredictiveMemoryReview({
         dismissedAt: new Date().toISOString(),
       },
     ));
+    setPendingDeleteTaskId(null);
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => panelRef.current?.focus());
+    }
   }, [completed, experience.dateKey, notebooks, scheduleStartDate, setSchedule, today]);
+
+  const cancelDeleteReview = useCallback((taskId) => {
+    setPendingDeleteTaskId(null);
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => deleteTriggerRefs.current.get(taskId)?.focus());
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -311,22 +328,33 @@ export default function PredictiveMemoryReview({
 
   return (
     <section
+      aria-label={standalone ? "Recall sessions" : undefined}
+      aria-labelledby={standalone ? undefined : "memory-review-title"}
       className={`memory-review-panel${standalone ? " is-standalone" : ""}`}
-      aria-labelledby="memory-review-title"
+      ref={panelRef}
+      tabIndex={-1}
     >
-      <header className="memory-review-heading">
-        <span className="memory-review-heading-icon" aria-hidden="true">
-          <BrainCircuit size={21} />
-        </span>
-        <div>
-          <span className="memory-review-eyebrow">Predictive spaced repetition</span>
-          <h2 id="memory-review-title">Three-minute memory checks</h2>
-          <p>Short reviews appear when a concept is approaching its predicted forgetting point.</p>
+      {standalone ? (
+        <div className="memory-review-standalone-toolbar">
+          <span aria-live="polite" className="memory-review-count" role="status">
+            {loading ? "Loading" : `${experience.pendingEntries.length} due`}
+          </span>
         </div>
-        <span className="memory-review-count">
-          {loading ? "Loading" : `${experience.pendingEntries.length} due`}
-        </span>
-      </header>
+      ) : (
+        <header className="memory-review-heading">
+          <span className="memory-review-heading-icon" aria-hidden="true">
+            <BrainCircuit size={21} />
+          </span>
+          <div>
+            <span className="memory-review-eyebrow">Predictive spaced repetition</span>
+            <h2 id="memory-review-title">Three-minute memory checks</h2>
+            <p>Short reviews appear when a concept is approaching its predicted forgetting point.</p>
+          </div>
+          <span className="memory-review-count">
+            {loading ? "Loading" : `${experience.pendingEntries.length} due`}
+          </span>
+        </header>
+      )}
 
       {error && !activeQuiz && <p className="memory-review-error" role="alert">{error}</p>}
 
@@ -348,41 +376,89 @@ export default function PredictiveMemoryReview({
         </div>
       ) : experience.entries.length ? (
         <div aria-label="Recall session cards" className="memory-review-list">
-          {experience.entries.map((entry) => (
-            <article
-              className={`memory-review-card${entry.completed ? " is-complete" : ""}`}
-              key={entry.task.id}
-            >
-              <div className="memory-review-card-main">
-                <span className="memory-review-subject">{entry.candidate.subjectName}</span>
-                <h3>{entry.candidate.title}</h3>
-                <div className="memory-review-meta">
-                  <span><Clock3 size={14} aria-hidden="true" />3 minutes</span>
-                  <span><Sparkles size={14} aria-hidden="true" />{recallLabel(entry.candidate.predictedRecall)}</span>
+          {experience.entries.map((entry) => {
+            const taskId = String(entry.task.id);
+            const isConfirmingDelete = pendingDeleteTaskId === taskId;
+
+            return (
+              <article
+                className={`memory-review-card${entry.completed ? " is-complete" : ""}${isConfirmingDelete ? " is-confirming-delete" : ""}`}
+                key={entry.task.id}
+              >
+                <div className="memory-review-card-main">
+                  <span className="memory-review-subject">{entry.candidate.subjectName}</span>
+                  <h3>{entry.candidate.title}</h3>
+                  <div className="memory-review-meta">
+                    <span><Clock3 size={14} aria-hidden="true" />3 minutes</span>
+                    <span><Sparkles size={14} aria-hidden="true" />{recallLabel(entry.candidate.predictedRecall)}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="memory-review-card-actions">
-                {entry.completed ? (
-                  <span className="memory-review-complete-label">
-                    <Check size={16} aria-hidden="true" />Completed
-                  </span>
-                ) : (
-                  <button className="memory-review-start" type="button" onClick={() => openQuiz(entry)}>
-                    {entry.recheckPending ? "Review again" : "Start check"} <ChevronRight size={16} aria-hidden="true" />
-                  </button>
-                )}
-                <button
-                  aria-label={`Delete memory check for ${entry.candidate.title}`}
-                  className="memory-review-delete"
-                  onClick={() => deleteReview(entry)}
-                  title="Delete memory check"
-                  type="button"
-                >
-                  <Trash2 aria-hidden="true" size={16} />
-                </button>
-              </div>
-            </article>
-          ))}
+                <div className="memory-review-card-actions">
+                  {isConfirmingDelete ? (
+                    <div
+                      aria-label={`Confirm deleting memory check for ${entry.candidate.title}`}
+                      className="memory-review-delete-confirm"
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          cancelDeleteReview(taskId);
+                        }
+                      }}
+                      role="group"
+                    >
+                      <span className="memory-review-delete-confirm-copy">Delete this check?</span>
+                      <div className="memory-review-delete-confirm-actions">
+                        <button
+                          aria-label={`Confirm deleting memory check for ${entry.candidate.title}`}
+                          autoFocus
+                          className="memory-review-confirm-button is-confirm"
+                          onClick={() => deleteReview(entry)}
+                          title="Confirm delete"
+                          type="button"
+                        >
+                          <Check aria-hidden="true" size={14} />
+                        </button>
+                        <button
+                          aria-label={`Cancel deleting memory check for ${entry.candidate.title}`}
+                          className="memory-review-confirm-button is-cancel"
+                          onClick={() => cancelDeleteReview(taskId)}
+                          title="Cancel"
+                          type="button"
+                        >
+                          <X aria-hidden="true" size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {entry.completed ? (
+                        <span className="memory-review-complete-label">
+                          <Check size={16} aria-hidden="true" />Completed
+                        </span>
+                      ) : (
+                        <button className="memory-review-start" type="button" onClick={() => openQuiz(entry)}>
+                          {entry.recheckPending ? "Review again" : "Start check"} <ChevronRight size={16} aria-hidden="true" />
+                        </button>
+                      )}
+                      <button
+                        aria-label={`Delete memory check for ${entry.candidate.title}`}
+                        className="memory-review-delete"
+                        onClick={() => setPendingDeleteTaskId(taskId)}
+                        ref={(node) => {
+                          if (node) deleteTriggerRefs.current.set(taskId, node);
+                          else deleteTriggerRefs.current.delete(taskId);
+                        }}
+                        title="Delete memory check"
+                        type="button"
+                      >
+                        <Trash2 aria-hidden="true" size={16} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </div>
       ) : (
         <div className="memory-review-empty" role="status">

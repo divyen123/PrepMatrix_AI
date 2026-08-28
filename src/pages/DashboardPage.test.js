@@ -7,6 +7,19 @@ import { createServer } from "vite";
 import { getDashboardCommandExampleCopy } from "../utils/dashboardCommandExamples.js";
 import { runDashboardGoalReminderShortcut } from "../utils/dashboardGoalReminderShortcut.js";
 
+test("opens the Planner schedule subpage from Planned Tasks for mouse and keyboard", () => {
+  const pageSource = readFileSync(new URL("./DashboardPage.jsx", import.meta.url), "utf8");
+  const plannedTaskRoutes = pageSource.match(
+    /card\.label\.toLowerCase\(\)\.includes\("planned"\)\) navigate\("\/planner\/schedule"\)/gu,
+  ) || [];
+
+  assert.equal(plannedTaskRoutes.length, 2);
+  assert.doesNotMatch(
+    pageSource,
+    /card\.label\.toLowerCase\(\)\.includes\("planned"\)\) navigate\("\/planner"\)/u,
+  );
+});
+
 test("renders page shortcuts as an accessible keyboard-selectable list", async () => {
   const vite = await createServer({
     appType: "custom",

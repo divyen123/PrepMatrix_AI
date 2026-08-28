@@ -53,24 +53,36 @@ test("renders the Planner hub and isolates each workspace on its own subpage", a
     assert.match(hubMarkup, /href="\/planner\/schedule"[^>]*>[\s\S]*?<strong>Planner<\/strong>/u);
     assert.match(hubMarkup, /href="\/planner\/worktree"[^>]*>[\s\S]*?<strong>Worktree<\/strong>/u);
     assert.match(hubMarkup, /href="\/planner\/recall"[^>]*>[\s\S]*?<strong>Recall session<\/strong>/u);
-    assert.doesNotMatch(hubMarkup, /Study schedule|worktree-container|memory-review-panel/u);
+    assert.doesNotMatch(
+      hubMarkup,
+      /Open one focused space at a time|Study schedule|worktree-container|memory-review-panel/u,
+    );
 
     const scheduleMarkup = renderRoute("/planner/schedule");
     assert.match(scheduleMarkup, /aria-label="Back to Planner workspaces"[^>]*href="\/planner"/u);
+    assert.match(scheduleMarkup, /<span class="section-tag">Schedule<\/span>/u);
     assert.match(scheduleMarkup, /<h2>Study schedule<\/h2>/u);
     assert.doesNotMatch(scheduleMarkup, /worktree-container|memory-review-panel/u);
 
     const worktreeMarkup = renderRoute("/planner/worktree");
     assert.match(worktreeMarkup, /aria-label="Back to Planner workspaces"[^>]*href="\/planner"/u);
+    assert.match(worktreeMarkup, /<span class="section-tag">Worktree<\/span>/u);
     assert.match(worktreeMarkup, /class="worktree-container card worktree-variant--default/u);
     assert.doesNotMatch(worktreeMarkup, /<h2>Study schedule<\/h2>|memory-review-panel/u);
 
     const recallMarkup = renderRoute("/planner/recall");
     assert.match(recallMarkup, /aria-label="Back to Planner workspaces"[^>]*href="\/planner"/u);
+    assert.match(recallMarkup, /<span class="section-tag">Recall session<\/span>/u);
     assert.match(recallMarkup, /class="memory-review-panel is-standalone"/u);
     assert.match(recallMarkup, /Loading memory checks/u);
     assert.doesNotMatch(recallMarkup, /No memory checks are due right now/u);
-    assert.doesNotMatch(recallMarkup, /<h2>Study schedule<\/h2>|worktree-container/u);
+    assert.doesNotMatch(
+      recallMarkup,
+      /<h2>Study schedule<\/h2>|worktree-container|Open a due card, answer from memory, and rate your recall honestly\.|Predictive spaced repetition|Three-minute memory checks/u,
+    );
+    [scheduleMarkup, worktreeMarkup, recallMarkup].forEach((markup) => {
+      assert.doesNotMatch(markup, /Planner \/ (?:Schedule|Worktree|Recall session)/u);
+    });
 
     const kidsHubMarkup = renderRoute("/planner", { kidsMode: true });
     assert.equal((kidsHubMarkup.match(/class="planner-hub-card is-/gu) || []).length, 2);
@@ -95,6 +107,7 @@ test("registers deep Planner routes and retains accessible themed card behavior"
   assert.match(pageSource, /<nav aria-label="Planner workspaces"/u);
   assert.match(pageSource, /className=\{`planner-hub-card is-\$\{destination\.id\}`\}/u);
   assert.match(stylesheet, /\.planner-hub-grid \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/u);
+  assert.match(stylesheet, /\.planner-hub-grid \{[\s\S]*?margin-top: clamp\(28px, 4vh, 48px\);/u);
   assert.match(stylesheet, /\.planner-hub-card \{[\s\S]*?color-mix[\s\S]*?transition:/u);
   assert.match(stylesheet, /\.planner-hub-card:focus-visible \{[\s\S]*?outline: 3px solid/u);
   assert.match(stylesheet, /@media \(hover: hover\) and \(pointer: fine\) \{[\s\S]*?\.planner-hub-card:hover/u);

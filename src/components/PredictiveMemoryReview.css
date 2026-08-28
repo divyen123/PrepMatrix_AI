@@ -116,6 +116,11 @@
   border-radius: 17px;
 }
 
+.memory-review-card.is-confirming-delete {
+  border-color: color-mix(in srgb, var(--danger) 38%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 7%, transparent);
+}
+
 .memory-review-card.is-complete .memory-review-card-main,
 .memory-review-card.is-complete .memory-review-complete-label {
   opacity: 0.7;
@@ -161,6 +166,75 @@ body .memory-review-panel .memory-review-delete:focus-visible {
 
 body .memory-review-panel .memory-review-delete::after {
   display: none !important;
+}
+
+.memory-review-delete-confirm {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 190px;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 6px 5px 10px;
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface-strong, #fff));
+  border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border));
+  border-radius: 11px;
+}
+
+.memory-review-delete-confirm-copy {
+  color: var(--danger);
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.memory-review-delete-confirm-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+body .memory-review-panel .memory-review-confirm-button {
+  display: inline-grid !important;
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  place-items: center !important;
+  padding: 0 !important;
+  color: var(--text-muted) !important;
+  background: var(--surface-muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+body .memory-review-panel .memory-review-confirm-button.is-confirm {
+  color: var(--danger) !important;
+  border-color: color-mix(in srgb, var(--danger) 34%, transparent) !important;
+}
+
+body .memory-review-panel .memory-review-confirm-button.is-confirm:hover,
+body .memory-review-panel .memory-review-confirm-button.is-confirm:focus-visible {
+  color: #fff !important;
+  background: var(--danger) !important;
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 14%, transparent) !important;
+}
+
+body .memory-review-panel .memory-review-confirm-button.is-cancel:hover,
+body .memory-review-panel .memory-review-confirm-button.is-cancel:focus-visible {
+  color: var(--text) !important;
+  background: var(--surface-strong) !important;
+  border-color: color-mix(in srgb, var(--memory-accent) 34%, var(--border)) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--memory-accent) 12%, transparent) !important;
+}
+
+body .memory-review-panel .memory-review-confirm-button:hover {
+  transform: translateY(-1px);
 }
 
 .memory-review-card h3 {
@@ -225,7 +299,7 @@ body .memory-review-panel .memory-review-delete::after {
 }
 
 .memory-review-panel.is-standalone {
-  gap: 18px;
+  gap: 12px;
   padding: 0;
   background: transparent;
   border: 0;
@@ -235,20 +309,28 @@ body .memory-review-panel .memory-review-delete::after {
   backdrop-filter: none;
 }
 
+.memory-review-standalone-toolbar {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .memory-review-panel.is-standalone .memory-review-list {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 300px));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 280px));
   align-items: stretch;
   justify-content: start;
-  gap: 16px;
+  gap: 12px;
   max-height: 448px;
-  padding: 7px 8px 8px 2px;
+  padding: 5px 8px 7px 2px;
 }
 
 .memory-review-panel.is-standalone .memory-review-card {
-  min-height: 210px;
+  min-height: 180px;
   align-items: stretch;
   flex-direction: column;
-  padding: 18px;
+  gap: 12px;
+  padding: 16px;
   background:
     linear-gradient(
       145deg,
@@ -256,8 +338,8 @@ body .memory-review-panel .memory-review-delete::after {
       color-mix(in srgb, var(--memory-accent) 2%, var(--surface, #fff))
     );
   border-color: color-mix(in srgb, var(--memory-accent) 18%, var(--border));
-  border-radius: 20px;
-  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
   -webkit-backdrop-filter: blur(18px) saturate(1.08);
   backdrop-filter: blur(18px) saturate(1.08);
   transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), border-color 220ms ease, box-shadow 220ms ease;
@@ -270,12 +352,33 @@ body .memory-review-panel .memory-review-delete::after {
 .memory-review-panel.is-standalone .memory-review-card-actions {
   width: 100%;
   margin-top: auto;
+  gap: 7px;
 }
 
 .memory-review-panel.is-standalone .memory-review-start,
 .memory-review-panel.is-standalone .memory-review-complete-label {
   flex: 1 1 auto;
   justify-content: center;
+}
+
+.memory-review-panel.is-standalone .memory-review-start,
+.memory-review-panel.is-standalone .memory-review-complete-label {
+  min-height: 36px;
+  padding: 7px 11px;
+}
+
+.memory-review-panel.is-standalone .memory-review-delete {
+  flex-basis: 36px;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+}
+
+.memory-review-panel.is-standalone .memory-review-delete-confirm {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
 }
 
 .memory-review-panel.is-standalone .memory-review-empty {
@@ -710,6 +813,8 @@ body.dark .memory-review-rating-guidance {
   .memory-review-dialog,
   .memory-review-start,
   .memory-review-submit,
+  .memory-review-delete,
+  .memory-review-confirm-button,
   .memory-review-progress span {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
