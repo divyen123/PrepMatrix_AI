@@ -9,6 +9,7 @@ export const YOUNG_KIDS_NAV_ROUTES = Object.freeze([
   "/subjects",
   "/learn",
   "/planner",
+  "/planner/schedule",
   "/analytics",
   "/notes",
   "/quiz",
@@ -17,6 +18,7 @@ export const YOUNG_KIDS_NAV_ROUTES = Object.freeze([
 ]);
 export const YOUNG_KIDS_PARENT_GUIDED_ROUTES = Object.freeze([
   "/planner",
+  "/planner/schedule",
   "/notes",
   "/settings",
   "/quiz",

@@ -576,6 +576,10 @@ function App() {
   );
 
   const isAuthRoute = location.pathname === "/login" || location.pathname === "/register";
+  const routeStagePathname = location.pathname === "/planner"
+    || location.pathname.startsWith("/planner/")
+    ? "/planner"
+    : location.pathname;
   const resumeEligibility = useMemo(
     () => getResumeEligibility({
       ...(userProfile || {}),
@@ -2467,7 +2471,10 @@ function App() {
               </Suspense>
             )
           ) : (
-            <div className="route-stage" key={`${location.pathname}:${activeAcademicProfileDataId}`}>
+            <div
+              className="route-stage"
+              key={`${routeStagePathname}:${activeAcademicProfileDataId}`}
+            >
               {authLoading ? null : (
                 <Suspense fallback={<RouteLoading />}>
                   <Routes>
@@ -2593,7 +2600,7 @@ function App() {
                               setScheduleStartDate={setScheduleStartDate}
                             />
                           }
-                          path="/planner"
+                          path="/planner/*"
                         />
                         <Route
                           element={

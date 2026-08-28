@@ -10,6 +10,7 @@ import {
   LoaderCircle,
   RotateCcw,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -18,6 +19,7 @@ import {
   buildMemoryReviewSubmission,
   clearMemoryReviewTaskRecheck,
   createMemoryReviewQuiz,
+  dismissMemoryReviewTask,
   mergeMemoryReviewSchedule,
 } from "../utils/learningMemoryReviewExperience.js";
 import { subscribeToLocalDateChanges } from "../utils/localDateRefresh.js";
@@ -46,6 +48,9 @@ export default function PredictiveMemoryReview({
   setCompleted,
   scheduleStartDate = "",
   onNotebookUpdated,
+  loadError = "",
+  loading = false,
+  standalone = false,
 }) {
   const [today, setToday] = useState(() => new Date());
   const [activeEntry, setActiveEntry] = useState(null);
@@ -126,6 +131,24 @@ export default function PredictiveMemoryReview({
     setError("");
     setDialogOpen(true);
   }, [cancelReviewGuidanceTimers, experience.dateKey]);
+
+  const deleteReview = useCallback((entry) => {
+    if (typeof setSchedule !== "function") return;
+    setSchedule((currentSchedule) => dismissMemoryReviewTask(
+      mergeMemoryReviewSchedule(currentSchedule, {
+        notebooks,
+        scheduleStartDate,
+        completed,
+        today,
+        maxDaily: 3,
+      }),
+      entry.task,
+      {
+        dateKey: experience.dateKey,
+        dismissedAt: new Date().toISOString(),
+      },
+    ));
+  }, [completed, experience.dateKey, notebooks, scheduleStartDate, setSchedule, today]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -284,10 +307,13 @@ export default function PredictiveMemoryReview({
     }
   }, [activeEntry, activeQuiz, canSubmit, completed, confidence, experience.schedule, onNotebookUpdated, ratings, setCompleted, setSchedule]);
 
-  if (!experience.entries.length && !error) return null;
+  if (!experience.entries.length && !error && !loadError && !loading && !standalone) return null;
 
   return (
-    <section className="memory-review-panel" aria-labelledby="memory-review-title">
+    <section
+      className={`memory-review-panel${standalone ? " is-standalone" : ""}`}
+      aria-labelledby="memory-review-title"
+    >
       <header className="memory-review-heading">
         <span className="memory-review-heading-icon" aria-hidden="true">
           <BrainCircuit size={21} />
@@ -298,38 +324,75 @@ export default function PredictiveMemoryReview({
           <p>Short reviews appear when a concept is approaching its predicted forgetting point.</p>
         </div>
         <span className="memory-review-count">
-          {experience.pendingEntries.length} due
+          {loading ? "Loading" : `${experience.pendingEntries.length} due`}
         </span>
       </header>
 
       {error && !activeQuiz && <p className="memory-review-error" role="alert">{error}</p>}
 
-      <div className="memory-review-list">
-        {experience.entries.map((entry) => (
-          <article
-            className={`memory-review-card${entry.completed ? " is-complete" : ""}`}
-            key={entry.task.id}
-          >
-            <div className="memory-review-card-main">
-              <span className="memory-review-subject">{entry.candidate.subjectName}</span>
-              <h3>{entry.candidate.title}</h3>
-              <div className="memory-review-meta">
-                <span><Clock3 size={14} aria-hidden="true" />3 minutes</span>
-                <span><Sparkles size={14} aria-hidden="true" />{recallLabel(entry.candidate.predictedRecall)}</span>
+      {loading ? (
+        <div className="memory-review-empty" role="status">
+          <LoaderCircle aria-hidden="true" className="is-spinning" size={20} />
+          <div>
+            <strong>Loading memory checks</strong>
+            <span>Looking for concepts that are ready for a short recall session.</span>
+          </div>
+        </div>
+      ) : loadError ? (
+        <div className="memory-review-empty is-error" role="alert">
+          <BrainCircuit aria-hidden="true" size={22} />
+          <div>
+            <strong>Memory checks are temporarily unavailable</strong>
+            <span>{loadError}</span>
+          </div>
+        </div>
+      ) : experience.entries.length ? (
+        <div aria-label="Recall session cards" className="memory-review-list">
+          {experience.entries.map((entry) => (
+            <article
+              className={`memory-review-card${entry.completed ? " is-complete" : ""}`}
+              key={entry.task.id}
+            >
+              <div className="memory-review-card-main">
+                <span className="memory-review-subject">{entry.candidate.subjectName}</span>
+                <h3>{entry.candidate.title}</h3>
+                <div className="memory-review-meta">
+                  <span><Clock3 size={14} aria-hidden="true" />3 minutes</span>
+                  <span><Sparkles size={14} aria-hidden="true" />{recallLabel(entry.candidate.predictedRecall)}</span>
+                </div>
               </div>
-            </div>
-            {entry.completed ? (
-              <span className="memory-review-complete-label">
-                <Check size={16} aria-hidden="true" />Completed
-              </span>
-            ) : (
-              <button className="memory-review-start" type="button" onClick={() => openQuiz(entry)}>
-                {entry.recheckPending ? "Review again" : "Start check"} <ChevronRight size={16} aria-hidden="true" />
-              </button>
-            )}
-          </article>
-        ))}
-      </div>
+              <div className="memory-review-card-actions">
+                {entry.completed ? (
+                  <span className="memory-review-complete-label">
+                    <Check size={16} aria-hidden="true" />Completed
+                  </span>
+                ) : (
+                  <button className="memory-review-start" type="button" onClick={() => openQuiz(entry)}>
+                    {entry.recheckPending ? "Review again" : "Start check"} <ChevronRight size={16} aria-hidden="true" />
+                  </button>
+                )}
+                <button
+                  aria-label={`Delete memory check for ${entry.candidate.title}`}
+                  className="memory-review-delete"
+                  onClick={() => deleteReview(entry)}
+                  title="Delete memory check"
+                  type="button"
+                >
+                  <Trash2 aria-hidden="true" size={16} />
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="memory-review-empty" role="status">
+          <BrainCircuit aria-hidden="true" size={22} />
+          <div>
+            <strong>No memory checks are due right now</strong>
+            <span>Keep learning from your notebooks. A recall card will appear when a concept approaches its review point.</span>
+          </div>
+        </div>
+      )}
 
       {dialogRendered && activeEntry && activeQuiz && typeof document !== "undefined" && createPortal(
         <div

@@ -1,5 +1,6 @@
 import { getScheduleDateKey, toLocalDateKey } from "./scheduleDates.js";
 import {
+  MEMORY_REVIEW_DISMISSALS_FIELD,
   buildPredictiveMemoryMicroQuiz,
   injectPredictiveMemoryReviews,
 } from "./learningMemoryPlanner.js";
@@ -235,6 +236,61 @@ export function clearMemoryReviewTaskRecheck(scheduleValue, taskValue = {}) {
         }
         return nextTask;
       }),
+    };
+  });
+}
+
+/**
+ * Removes one exact Planner occurrence while retaining a date-scoped dismissal
+ * record. The record stops the predictive injector from recreating the card on
+ * the same day, without erasing completion or notebook learning history.
+ */
+export function dismissMemoryReviewTask(scheduleValue, taskValue = {}, options = {}) {
+  const schedule = Array.isArray(scheduleValue) ? scheduleValue : [];
+  const targetTask = asObject(taskValue);
+  const dateKey = toLocalDateKey(options.dateKey ?? options.now);
+  const notebookId = taskNotebookId(targetTask);
+  const nodeId = taskNodeId(targetTask);
+  if (!dateKey || !notebookId || !nodeId) return schedule;
+
+  const matches = [];
+  schedule.forEach((day, dayIndex) => {
+    asList(day?.tasks).forEach((task, taskIndex) => {
+      if (isScheduledMemoryReview(task) && sameMemoryReviewTask(task, targetTask)) {
+        matches.push({ dayIndex, taskIndex });
+      }
+    });
+  });
+  if (matches.length !== 1) return schedule;
+
+  const [{ dayIndex, taskIndex }] = matches;
+  const taskId = canonicalMemoryReviewTaskId(targetTask.id);
+  const unitKey = canonicalMemoryReviewUnitKey(targetTask.unitKey);
+  const dismissedAt = normalizedIso(options.dismissedAt ?? options.now);
+  const dismissal = {
+    ...(taskId ? { id: taskId } : {}),
+    ...(unitKey ? { unitKey } : {}),
+    dateKey,
+    dismissedAt,
+    memoryDecayStatus: "dismissed",
+    nodeId,
+    notebookId,
+    source: "memory_review",
+  };
+
+  return schedule.map((day, currentDayIndex) => {
+    if (currentDayIndex !== dayIndex) return day;
+    const currentDismissals = asList(day?.[MEMORY_REVIEW_DISMISSALS_FIELD]);
+    const dismissalExists = currentDismissals.some((item) => (
+      toLocalDateKey(item?.dateKey) === dateKey
+      && sameMemoryReviewTask(item, dismissal)
+    ));
+    return {
+      ...day,
+      tasks: day.tasks.filter((task, currentTaskIndex) => currentTaskIndex !== taskIndex),
+      [MEMORY_REVIEW_DISMISSALS_FIELD]: dismissalExists
+        ? currentDismissals
+        : [...currentDismissals, dismissal],
     };
   });
 }

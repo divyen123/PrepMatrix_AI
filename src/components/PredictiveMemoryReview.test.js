@@ -34,6 +34,48 @@ test("finishes the exact rescheduled memory check only after its notebook save",
   );
 });
 
+test("renders an accessible delete control for every card and dismisses projected reviews safely", () => {
+  assert.match(componentSource, /import \{[\s\S]*?Trash2,[\s\S]*?\} from "lucide-react"/u);
+  assert.match(
+    componentSource,
+    /setSchedule\(\(currentSchedule\) => dismissMemoryReviewTask\([\s\S]*?mergeMemoryReviewSchedule\(currentSchedule,[\s\S]*?entry\.task,[\s\S]*?dateKey: experience\.dateKey/u,
+  );
+  assert.match(
+    componentSource,
+    /aria-label=\{`Delete memory check for \$\{entry\.candidate\.title\}`\}[\s\S]*?className="memory-review-delete"[\s\S]*?<Trash2/u,
+  );
+  assert.match(componentSource, /experience\.entries\.map\(\(entry\) => \([\s\S]*?memory-review-delete/u);
+  assert.match(
+    stylesheet,
+    /\.memory-review-list \{[\s\S]*?max-height: 264px;[\s\S]*?overflow-y: auto;[\s\S]*?scrollbar-gutter: stable;/u,
+  );
+  assert.match(stylesheet, /body \.memory-review-panel \.memory-review-delete \{[\s\S]*?color: var\(--danger\) !important;/u);
+});
+
+test("supports a standalone note-like card grid with visible loading and empty states", () => {
+  assert.match(componentSource, /loadError = "",[\s\S]*?loading = false,[\s\S]*?standalone = false/u);
+  assert.match(
+    componentSource,
+    /className=\{`memory-review-panel\$\{standalone \? " is-standalone" : ""\}`\}/u,
+  );
+  assert.match(componentSource, /loading \? "Loading" : `\$\{experience\.pendingEntries\.length\} due`/u);
+  assert.match(componentSource, /No memory checks are due right now/u);
+  assert.match(componentSource, /Memory checks are temporarily unavailable/u);
+  assert.match(
+    stylesheet,
+    /\.memory-review-panel\.is-standalone \{[\s\S]*?padding: 0;[\s\S]*?background: transparent;[\s\S]*?border: 0;[\s\S]*?box-shadow: none;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.memory-review-panel\.is-standalone \.memory-review-list \{[\s\S]*?grid-template-columns: repeat\(auto-fill, minmax\(min\(100%, 250px\), 300px\)\);[\s\S]*?max-height: 448px;/u,
+  );
+  assert.match(stylesheet, /\.memory-review-list \{[\s\S]*?overflow-y: auto;/u);
+  assert.match(
+    stylesheet,
+    /\.memory-review-panel\.is-standalone \.memory-review-card \{[\s\S]*?min-height: 210px;[\s\S]*?flex-direction: column;[\s\S]*?background:/u,
+  );
+});
+
 test("uses an accessible viewport portal with retained close lifecycle", () => {
   assert.match(componentSource, /import \{ createPortal \} from "react-dom"/u);
   assert.match(componentSource, /const DIALOG_EXIT_DURATION_MS = 240/u);

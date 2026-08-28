@@ -7,6 +7,8 @@ import {
   selectLearningMemoryCandidates,
 } from "./learningMemoryDecay.js";
 
+export const MEMORY_REVIEW_DISMISSALS_FIELD = "memoryReviewDismissals";
+
 function asObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
@@ -17,6 +19,12 @@ function asList(value) {
 
 function cleanText(value, maximum = 800) {
   return String(value ?? "").replace(/\s+/gu, " ").trim().slice(0, maximum);
+}
+
+function scheduleMemoryReviewDismissals(scheduleValue = []) {
+  return asList(scheduleValue).flatMap((day) => (
+    asList(day?.[MEMORY_REVIEW_DISMISSALS_FIELD])
+  ));
 }
 
 function normalizedMemoryReviewTask(taskValue = {}) {
@@ -88,6 +96,7 @@ export function injectPredictiveMemoryReviews(inputValue = {}) {
   const today = input.today ?? new Date();
   const dateKey = toLocalDateKey(today);
   const schedule = Array.isArray(input.schedule) ? input.schedule : [];
+  const dismissedReviews = scheduleMemoryReviewDismissals(schedule);
   const dueCandidates = selectLearningMemoryCandidates(input.notebooks, {
     now: today,
     dateKey,
@@ -104,6 +113,7 @@ export function injectPredictiveMemoryReviews(inputValue = {}) {
       now: today,
       scheduleStartDate: input.scheduleStartDate,
       maxPerDay: input.maxDaily ?? DEFAULT_MEMORY_MAX_DAILY_QUIZZES,
+      existingInjections: dismissedReviews,
     },
   );
 

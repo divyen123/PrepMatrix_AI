@@ -30,7 +30,7 @@ test("routes early-years through Class 3 learners to Play & Learn", () => {
 });
 
 test("only allows known Parent Corner return routes", () => {
-  ["/planner", "/notes", "/settings", "/notification-history", "/quiz", "/exam", "/exam/about"].forEach((route) => {
+  ["/planner", "/planner/schedule", "/notes", "/settings", "/notification-history", "/quiz", "/exam", "/exam/about"].forEach((route) => {
     assert.equal(isYoungKidsParentGuidedRoute(route), true, route);
   });
   [
@@ -53,6 +53,7 @@ test("young kids can reach Subjects and Notes without exposing unavailable schoo
   assert.equal(isYoungKidsNavRoute("/resume-builder"), false);
   assert.ok(YOUNG_KIDS_NAV_ROUTES.includes("/subjects"));
   assert.ok(YOUNG_KIDS_NAV_ROUTES.includes("/notes"));
+  assert.ok(YOUNG_KIDS_NAV_ROUTES.includes("/planner/schedule"));
 });
 
 test("keeps parent-guided routes pending until the server session resolves and relocks immediately", () => {

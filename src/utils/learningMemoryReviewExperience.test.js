@@ -6,10 +6,12 @@ import {
   buildMemoryReviewSubmission,
   clearMemoryReviewTaskRecheck,
   createMemoryReviewQuiz,
+  dismissMemoryReviewTask,
   isMemoryReviewTaskCompleted,
   isMemoryReviewTaskPending,
   mergeMemoryReviewSchedule,
 } from "./learningMemoryReviewExperience.js";
+import { MEMORY_REVIEW_DISMISSALS_FIELD } from "./learningMemoryPlanner.js";
 import {
   MEMORY_REVIEW_RECHECK_REVISION_FIELD,
   PLANNER_RECHECK_PENDING_FIELD,
@@ -262,6 +264,104 @@ test("finishing a recheck clears only its exact memory task occurrence", () => {
     clearMemoryReviewTaskRecheck(ambiguousSchedule, ambiguousTask),
     ambiguousSchedule,
     "an idless duplicate is left pending instead of clearing the wrong occurrence",
+  );
+});
+
+test("deletes only the exact memory-check card and preserves a same-title sibling", () => {
+  const task = {
+    id: "memory-review-a",
+    source: "memory_review",
+    notebookId: "notebook-biology",
+    nodeId: "topic-mitosis",
+    task: "3-minute memory check: Biology - Mitosis",
+    unitKey: "memory-review:notebook-biology:topic-mitosis:2026-07-04",
+  };
+  const sameTitle = {
+    ...task,
+    id: "memory-review-b",
+    unitKey: "memory-review:notebook-biology:topic-mitosis:another-occurrence",
+  };
+  const unrelated = { id: "lesson-cells", task: "Biology - Cells" };
+  const schedule = [{ day: 1, date: "2026-07-04", tasks: [task, sameTitle, unrelated] }];
+  const completed = [task.task];
+
+  const dismissed = dismissMemoryReviewTask(schedule, task, {
+    dateKey: "2026-07-04",
+    dismissedAt: "2026-07-04T08:05:00.000Z",
+  });
+
+  assert.notStrictEqual(dismissed, schedule);
+  assert.deepEqual(dismissed[0].tasks, [sameTitle, unrelated]);
+  assert.strictEqual(dismissed[0].tasks[0], sameTitle);
+  assert.strictEqual(dismissed[0].tasks[1], unrelated);
+  assert.deepEqual(completed, [task.task], "deletion does not erase learning history");
+  assert.deepEqual(dismissed[0][MEMORY_REVIEW_DISMISSALS_FIELD], [{
+    id: "memory-review-a",
+    unitKey: "memory-review:notebook-biology:topic-mitosis:2026-07-04",
+    dateKey: "2026-07-04",
+    dismissedAt: "2026-07-04T08:05:00.000Z",
+    memoryDecayStatus: "dismissed",
+    nodeId: "topic-mitosis",
+    notebookId: "notebook-biology",
+    source: "memory_review",
+  }]);
+  assert.equal(schedule[0].tasks.length, 3, "the input schedule remains immutable");
+});
+
+test("a dismissed due review stays gone that day and can return on a later date", () => {
+  const first = buildMemoryReviewExperience({
+    notebooks: [notebook()],
+    schedule: [{ day: 1, date: "2026-07-04", tasks: [] }],
+    scheduleStartDate: "2026-07-04",
+    completed: [],
+    today: "2026-07-04T08:00:00.000Z",
+  });
+  const dismissed = dismissMemoryReviewTask(first.schedule, first.entries[0].task, {
+    dateKey: first.dateKey,
+    dismissedAt: "2026-07-04T08:05:00.000Z",
+  });
+  const sameDay = buildMemoryReviewExperience({
+    notebooks: [notebook()],
+    schedule: dismissed,
+    scheduleStartDate: "2026-07-04",
+    completed: [],
+    today: "2026-07-04T09:00:00.000Z",
+  });
+
+  assert.equal(sameDay.dueCandidates.length, 1, "deletion does not alter memory state");
+  assert.equal(sameDay.entries.length, 0);
+  assert.equal(sameDay.pendingEntries.length, 0);
+  assert.equal(sameDay.changed, false, "the predictive injector honors the dismissal");
+  assert.equal(sameDay.schedule[0].tasks.length, 0);
+
+  const laterDay = buildMemoryReviewExperience({
+    notebooks: [notebook()],
+    schedule: dismissed,
+    scheduleStartDate: "2026-07-04",
+    completed: [],
+    today: "2026-07-05T09:00:00.000Z",
+  });
+  assert.equal(laterDay.entries.length, 1, "a future review occurrence remains eligible");
+  assert.equal(laterDay.entries[0].task.source, "memory_review");
+});
+
+test("refuses to delete ambiguous legacy memory checks", () => {
+  const legacyTask = {
+    source: "memory_review",
+    notebookId: "notebook-biology",
+    nodeId: "topic-mitosis",
+    dueAt: "2026-07-04T08:00:00.000Z",
+    task: "3-minute memory check: Biology - Mitosis",
+  };
+  const schedule = [{
+    day: 1,
+    date: "2026-07-04",
+    tasks: [{ ...legacyTask }, { ...legacyTask }],
+  }];
+
+  assert.strictEqual(
+    dismissMemoryReviewTask(schedule, legacyTask, { dateKey: "2026-07-04" }),
+    schedule,
   );
 });
 
