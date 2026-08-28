@@ -22168,7 +22168,7 @@ body :is(button, a).page-back-control.page-back-control {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   text-decoration: none !important;
-  transform: translateY(-3px) !important;
+  transform: translateY(-2px) !important;
   transition: color 160ms ease, filter 160ms ease, transform 160ms ease !important;
 }
 
@@ -22189,7 +22189,7 @@ body :is(button, a).page-back-control.page-back-control:hover {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  transform: translate(-3px, -3px) !important;
+  transform: translate(-3px, -2px) !important;
 }
 
 body :is(button, a).page-back-control.page-back-control:focus-visible {
@@ -22200,7 +22200,7 @@ body :is(button, a).page-back-control.page-back-control:focus-visible {
   box-shadow: none !important;
   outline: 2px solid color-mix(in srgb, var(--accent) 66%, transparent) !important;
   outline-offset: 2px !important;
-  transform: translateY(-3px) !important;
+  transform: translateY(-2px) !important;
 }
 
 body.has-bg-image :is(button, a).page-back-control.page-back-control,

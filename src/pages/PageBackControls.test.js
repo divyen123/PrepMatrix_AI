@@ -53,7 +53,7 @@ test("shared back styling stays transparent, compact, theme-safe, and keyboard-v
   assert.match(baseRule, /border: 0 !important/u);
   assert.match(baseRule, /box-shadow: none !important/u);
   assert.match(baseRule, /backdrop-filter: none !important/u);
-  assert.match(baseRule, /transform: translateY\(-3px\) !important/u);
+  assert.match(baseRule, /transform: translateY\(-2px\) !important/u);
   assert.match(iconRule, /width: 17px !important/u);
   assert.match(iconRule, /height: 17px !important/u);
   assert.match(hoverRule, /background: transparent !important/u);
