@@ -344,3 +344,15 @@ test("keeps the clear confirmation above later schedule content and pointer-inte
     /body \.planner-clear-confirmation-actions button\s*\{[^}]*pointer-events:\s*auto;/su,
   );
 });
+
+test("lets long schedules grow with complete intrinsic day-card rows", async () => {
+  const componentSource = await readFile(new URL("./Timetable.jsx", import.meta.url), "utf8");
+  const plannerStyles = await readFile(new URL("../pages/PlannerPage.css", import.meta.url), "utf8");
+
+  assert.doesNotMatch(componentSource, /schedule\.length > 8[\s\S]*?maxHeight:\s*"830px"/u);
+  assert.match(componentSource, /<div className="timetable" id="timetable">/u);
+  assert.match(
+    plannerStyles,
+    /\.planner-subpage-content\.is-schedule \.timetable\s*\{[^}]*grid-auto-rows:\s*max-content;[^}]*max-height:\s*none;[^}]*overflow:\s*visible;/su,
+  );
+});

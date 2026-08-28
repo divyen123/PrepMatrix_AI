@@ -844,19 +844,7 @@ function Timetable({
         )}
       </div>
 
-      <div
-        className="timetable"
-        id="timetable"
-        style={
-          schedule.length > 8
-            ? {
-                maxHeight: "830px",
-                overflowY: "auto",
-                paddingRight: "8px",
-              }
-            : {}
-        }
-      >
+      <div className="timetable" id="timetable">
         {schedule.length === 0 ? (
           <p className="empty-state">No timetable generated yet.</p>
         ) : (

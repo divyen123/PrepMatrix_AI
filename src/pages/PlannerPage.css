@@ -244,6 +244,13 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
   align-content: start;
 }
 
+.planner-subpage-content.is-schedule .timetable {
+  grid-auto-rows: max-content;
+  max-height: none;
+  padding-right: 0;
+  overflow: visible;
+}
+
 @keyframes planner-subpage-enter {
   from {
     opacity: 0;
