@@ -55,7 +55,8 @@ test("renders an understandable two-profile catalogue with shared and separate b
       }),
     ));
 
-    assert.match(markup, /<h1>How Engineering and Medical Studies work<\/h1>/u);
+    assert.match(markup, /<h1>How Profile A and Profile B work<\/h1>/u);
+    assert.doesNotMatch(markup, /<h1>How Engineering and Medical Studies work<\/h1>/u);
     assert.match(markup, /Current: Medical Studies/u);
     assert.match(markup, /Two profiles, one account/u);
     assert.match(markup, /Interactive profile catalogue/u);
@@ -189,6 +190,10 @@ test("registers the permanent guide and the once-only animated Profile B intro",
   assert.match(stylesheet, /\.academic-profile-intro-backdrop\.is-open/u);
   assert.match(stylesheet, /transition: opacity 480ms ease, transform 480ms/u);
   assert.match(appSource, /setAcademicProfileIntroOpen\(true\);[\s\S]*?\}, 650\);/u);
+  assert.match(
+    stylesheet,
+    /\.academic-profiles-page-header h1 \{[\s\S]*?white-space: nowrap !important;/u,
+  );
 
   const primaryGuideRule = stylesheet.match(
     /body \.academic-profiles-page \.academic-profile-guide-button\.is-primary \{([^}]*)\}/u,

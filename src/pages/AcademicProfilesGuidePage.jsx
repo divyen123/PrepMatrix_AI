@@ -340,7 +340,7 @@ export default function AcademicProfilesGuidePage({
         </button>
         <div>
           <span className="academic-profile-guide-kicker">Settings / Academic profiles</span>
-          <h1>How {profileNames.a} and {profileNames.b} work</h1>
+          <h1>How Profile A and Profile B work</h1>
           <p>A clear guide to switching between two independent learning workspaces.</p>
         </div>
         <span className="academic-profiles-current-badge">
