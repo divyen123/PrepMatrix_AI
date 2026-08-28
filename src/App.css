@@ -20184,7 +20184,9 @@ body .ai-credit-trigger.is-empty {
   border-radius: 18px;
   background: var(--surface-strong);
   color: var(--text);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
 }
 
 .ai-credit-popover-head {
@@ -20218,6 +20220,19 @@ body .ai-credit-popover-head button {
   display: grid !important;
   place-items: center;
   border-radius: 9px !important;
+  border-color: var(--border) !important;
+  background: var(--surface-muted) !important;
+  color: var(--text-muted) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body .ai-credit-popover-head button:hover,
+body .ai-credit-popover-head button:focus-visible {
+  border-color: rgba(var(--accent-rgb), 0.3) !important;
+  background: rgba(var(--accent-rgb), 0.1) !important;
+  color: var(--text) !important;
 }
 
 .ai-credit-meter {
@@ -20342,8 +20357,35 @@ button .ai-credit-cost {
 }
 
 body.dark .ai-credit-popover {
-  background: #111b2d;
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.48);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+body.no-glass-cards:not(.has-bg-image) .ai-credit-popover {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+body.has-bg-image:not(.no-glass-cards) .ai-credit-popover {
+  background: rgba(
+    var(--bg-surface-rgb, 18, 27, 45),
+    calc(var(--glass-opacity, 0.6) + 0.18)
+  ) !important;
+  border-color: rgba(255, 255, 255, 0.13) !important;
+  box-shadow:
+    0 28px 76px rgba(0, 0, 0, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(28px) saturate(165%) contrast(1.02) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(165%) contrast(1.02) !important;
+}
+
+body.has-bg-image.no-glass-cards .ai-credit-popover {
+  background: rgb(var(--bg-surface-rgb, 18, 27, 45)) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    0 28px 76px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 @media (max-width: 640px) {
