@@ -34,7 +34,7 @@ test("planner access distinguishes schedule mutations from ordinary child progre
   }), true);
 });
 
-test("planner access treats per-task boolean recheck metadata as ordinary child progress", () => {
+test("planner access treats validated per-task recheck metadata as ordinary child progress", () => {
   const existing = {
     schedule: [{
       day: "Day 1",
@@ -51,7 +51,11 @@ test("planner access treats per-task boolean recheck metadata as ordinary child 
       day: "Day 1",
       tasks: [
         { task: "Read a story", time: "10:00", recheckPending: true },
-        { task: "Practise sums", time: "11:00" },
+        {
+          task: "Practise sums",
+          time: "11:00",
+          memoryReviewRecheckRevision: 2,
+        },
       ],
     }],
   }), false);
@@ -60,7 +64,12 @@ test("planner access treats per-task boolean recheck metadata as ordinary child 
       day: "Day 1",
       tasks: [
         { task: "Read a story", time: "10:00", recheckPending: false },
-        { task: "Practise sums", time: "11:00", recheckPending: false },
+        {
+          task: "Practise sums",
+          time: "11:00",
+          recheckPending: false,
+          memoryReviewRecheckRevision: 3,
+        },
       ],
     }],
   }), false);
@@ -99,6 +108,26 @@ test("planner access still protects real schedule changes mixed with recheck met
     schedule: [{
       day: "Day 1",
       tasks: [{ task: "Read a story", time: "10:00", recheckPending: "true" }],
+    }],
+  }), true);
+  assert.equal(kidsWorkspaceScheduleChanged(existing, {
+    schedule: [{
+      day: "Day 1",
+      tasks: [{
+        task: "Read a story",
+        time: "10:00",
+        memoryReviewRecheckRevision: "1",
+      }],
+    }],
+  }), true);
+  assert.equal(kidsWorkspaceScheduleChanged(existing, {
+    schedule: [{
+      day: "Day 1",
+      tasks: [{
+        task: "Read a story",
+        time: "10:00",
+        memoryReviewRecheckRevision: 0,
+      }],
     }],
   }), true);
 });

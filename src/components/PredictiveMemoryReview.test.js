@@ -19,6 +19,21 @@ test("merges due reviews into the latest Planner state instead of replacing it",
   assert.doesNotMatch(componentSource, /setSchedule\(experience\.schedule\)/u);
 });
 
+test("finishes the exact rescheduled memory check only after its notebook save", () => {
+  assert.match(
+    componentSource,
+    /await onNotebookUpdated\(payload\);[\s\S]*?setSchedule\(\(currentSchedule\) => clearMemoryReviewTaskRecheck\([\s\S]*?currentSchedule,[\s\S]*?payload\.task,[\s\S]*?\)\);/u,
+  );
+  assert.match(
+    componentSource,
+    /entry\.recheckPending \? "Review again" : "Start check"/u,
+  );
+  assert.match(
+    componentSource,
+    /typeof setCompleted === "function" && activeEntry\.historicallyCompleted === false/u,
+  );
+});
+
 test("uses an accessible viewport portal with retained close lifecycle", () => {
   assert.match(componentSource, /import \{ createPortal \} from "react-dom"/u);
   assert.match(componentSource, /const DIALOG_EXIT_DURATION_MS = 240/u);

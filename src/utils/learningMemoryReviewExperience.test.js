@@ -4,10 +4,17 @@ import {
   addMemoryReviewTaskCompletion,
   buildMemoryReviewExperience,
   buildMemoryReviewSubmission,
+  clearMemoryReviewTaskRecheck,
   createMemoryReviewQuiz,
   isMemoryReviewTaskCompleted,
+  isMemoryReviewTaskPending,
   mergeMemoryReviewSchedule,
 } from "./learningMemoryReviewExperience.js";
+import {
+  MEMORY_REVIEW_RECHECK_REVISION_FIELD,
+  PLANNER_RECHECK_PENDING_FIELD,
+  reopenPlannerTask,
+} from "./plannerScheduleProgress.js";
 
 function notebook() {
   return {
@@ -107,6 +114,157 @@ test("keeps an existing memory task idempotent and respects completed task names
   assert.equal(second.entries[0].completed, true);
 });
 
+test("a completed memory check becomes actionable when explicitly rescheduled", () => {
+  const completedAt = "2026-07-04T08:03:00.000Z";
+  const first = buildMemoryReviewExperience({
+    notebooks: [notebook()],
+    schedule: [{ day: 1, date: "2026-07-04", tasks: [] }],
+    scheduleStartDate: "2026-07-04",
+    completed: [],
+    today: "2026-07-04T08:00:00.000Z",
+  });
+  const originalEntry = first.entries[0];
+  const originalQuiz = createMemoryReviewQuiz(originalEntry, { dateKey: first.dateKey });
+  const firstResult = buildMemoryReviewSubmission({
+    entry: originalEntry,
+    quiz: originalQuiz,
+    ratings: Object.fromEntries(originalQuiz.activeRecallPrompts.map((question) => (
+      [question.id, "recalled"]
+    ))),
+    confidence: 4,
+    completedAt,
+  });
+  const completed = Object.freeze(["Unrelated completed lesson", originalEntry.task.task]);
+  const taskIndex = first.schedule[0].tasks.findIndex((task) => (
+    task.id === originalEntry.task.id
+  ));
+  const reopenedSchedule = reopenPlannerTask(
+    first.schedule,
+    completed,
+    0,
+    taskIndex,
+  );
+  const reopenedTask = reopenedSchedule[0].tasks[taskIndex];
+
+  const reopened = buildMemoryReviewExperience({
+    notebooks: [firstResult.notebook],
+    schedule: reopenedSchedule,
+    scheduleStartDate: "2026-07-04",
+    completed,
+    today: "2026-07-05T08:00:00.000Z",
+  });
+
+  assert.equal(reopened.dueCandidates.length, 0, "the predictive model moved the concept forward");
+  assert.equal(reopened.entries.length, 1, "a manual recheck overrides predictive due gating");
+  assert.equal(reopened.pendingEntries.length, 1);
+  assert.equal(reopened.entries[0].task.id, originalEntry.task.id);
+  assert.equal(reopened.entries[0].historicallyCompleted, true);
+  assert.equal(reopened.entries[0].recheckPending, true);
+  assert.equal(reopened.entries[0].completed, false);
+  assert.equal(isMemoryReviewTaskCompleted(completed, reopenedTask), true);
+  assert.equal(isMemoryReviewTaskPending(completed, reopenedTask), true);
+  assert.equal(
+    reopenedTask[MEMORY_REVIEW_RECHECK_REVISION_FIELD],
+    1,
+  );
+  assert.deepEqual(completed, ["Unrelated completed lesson", originalEntry.task.task]);
+
+  const recheckQuiz = createMemoryReviewQuiz(reopened.entries[0], {
+    dateKey: reopened.dateKey,
+  });
+  assert.match(recheckQuiz.id, /-recheck-1-[a-z0-9]+$/u);
+  assert.equal(
+    createMemoryReviewQuiz(reopened.entries[0], { dateKey: reopened.dateKey }).id,
+    recheckQuiz.id,
+    "retries of one intentional recheck stay idempotent",
+  );
+  assert.notEqual(recheckQuiz.id, originalQuiz.id);
+
+  const anotherOccurrence = createMemoryReviewQuiz({
+    ...reopened.entries[0],
+    task: {
+      ...reopened.entries[0].task,
+      id: "memory-review-another-occurrence",
+      unitKey: "memory-review:notebook-biology:topic-mitosis:another-occurrence",
+    },
+  }, { dateKey: reopened.dateKey });
+  assert.notEqual(
+    anotherOccurrence.id,
+    recheckQuiz.id,
+    "same-concept rechecks from distinct Planner occurrences must both be recorded",
+  );
+});
+
+test("finishing a recheck clears only its exact memory task occurrence", () => {
+  const task = {
+    id: "memory-review-a",
+    source: "memory_review",
+    notebookId: "notebook-biology",
+    nodeId: "topic-mitosis",
+    task: "3-minute memory check: Biology - Mitosis",
+    [PLANNER_RECHECK_PENDING_FIELD]: true,
+    [MEMORY_REVIEW_RECHECK_REVISION_FIELD]: 2,
+  };
+  const sameTitle = {
+    ...task,
+    id: "memory-review-b",
+    unitKey: "memory-review:notebook-biology:topic-mitosis:another-day",
+    [MEMORY_REVIEW_RECHECK_REVISION_FIELD]: 7,
+  };
+  const unrelated = { id: "lesson-cells", task: "Biology - Cells" };
+  const schedule = [{ day: 1, tasks: [task, sameTitle, unrelated] }];
+
+  const cleared = clearMemoryReviewTaskRecheck(schedule, task);
+
+  assert.notStrictEqual(cleared, schedule);
+  assert.equal(cleared[0].tasks[0][PLANNER_RECHECK_PENDING_FIELD], undefined);
+  assert.equal(
+    cleared[0].tasks[0][MEMORY_REVIEW_RECHECK_REVISION_FIELD],
+    2,
+  );
+  assert.strictEqual(cleared[0].tasks[1], sameTitle);
+  assert.equal(cleared[0].tasks[1][PLANNER_RECHECK_PENDING_FIELD], true);
+  assert.strictEqual(cleared[0].tasks[2], unrelated);
+  assert.strictEqual(clearMemoryReviewTaskRecheck(cleared, task), cleared);
+  assert.equal(schedule[0].tasks[0][PLANNER_RECHECK_PENDING_FIELD], true);
+
+  const legacyTask = {
+    ...task,
+    id: "memory-decay-a",
+    source: "memory-decay",
+    unitKey: "memory-decay:notebook-biology:topic-mitosis:2026-07-04",
+  };
+  delete legacyTask[MEMORY_REVIEW_RECHECK_REVISION_FIELD];
+  const legacySchedule = [{ day: 1, tasks: [legacyTask] }];
+  const projectedLegacyTask = { ...task };
+  delete projectedLegacyTask[MEMORY_REVIEW_RECHECK_REVISION_FIELD];
+  const migrated = clearMemoryReviewTaskRecheck(legacySchedule, projectedLegacyTask);
+  assert.equal(migrated[0].tasks[0][PLANNER_RECHECK_PENDING_FIELD], undefined);
+  assert.equal(
+    migrated[0].tasks[0][MEMORY_REVIEW_RECHECK_REVISION_FIELD],
+    1,
+    "a pending legacy task is migrated after its first successful recheck",
+  );
+
+  const ambiguousTask = {
+    source: "memory_review",
+    notebookId: "notebook-biology",
+    nodeId: "topic-mitosis",
+    dueAt: "2026-07-04T08:00:00.000Z",
+    task: "3-minute memory check: Biology - Mitosis",
+    [PLANNER_RECHECK_PENDING_FIELD]: true,
+  };
+  const ambiguousSchedule = [{
+    day: 1,
+    tasks: [{ ...ambiguousTask }, { ...ambiguousTask }],
+  }];
+  assert.strictEqual(
+    clearMemoryReviewTaskRecheck(ambiguousSchedule, ambiguousTask),
+    ambiguousSchedule,
+    "an idless duplicate is left pending instead of clearing the wrong occurrence",
+  );
+});
+
 test("appends a due review without replacing checked or unchecked Planner tasks", () => {
   const checkedTask = {
     id: "planner-task-checked",
@@ -193,6 +351,11 @@ test("supports exact task-ID completion without same-title collisions", () => {
   assert.equal(isMemoryReviewTaskCompleted([taskA.id], taskA), true);
   assert.equal(isMemoryReviewTaskCompleted([taskA.id], taskB), false);
   assert.equal(isMemoryReviewTaskCompleted([taskA.task], taskB), true);
+  assert.equal(
+    isMemoryReviewTaskCompleted(["memory-decay-a"], taskA),
+    true,
+    "legacy and current memory-task IDs represent the same occurrence",
+  );
 });
 
 test("writes IDs for an ID-aware completion list and text for the legacy Planner", () => {

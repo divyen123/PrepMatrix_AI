@@ -18,13 +18,26 @@ function scheduleWithoutPlannerProgressMetadata(schedule) {
         !task
         || typeof task !== "object"
         || Array.isArray(task)
-        || typeof task.recheckPending !== "boolean"
       ) {
         return task;
       }
 
+      const hasRecheckPending = Object.prototype.hasOwnProperty.call(task, "recheckPending");
+      const hasRecheckRevision = Object.prototype.hasOwnProperty.call(
+        task,
+        "memoryReviewRecheckRevision",
+      );
+      const validRecheckPending = hasRecheckPending
+        && typeof task.recheckPending === "boolean";
+      const validRecheckRevision = hasRecheckRevision
+        && Number.isInteger(task.memoryReviewRecheckRevision)
+        && task.memoryReviewRecheckRevision >= 1
+        && task.memoryReviewRecheckRevision <= 1_000_000;
+      if (!validRecheckPending && !validRecheckRevision) return task;
+
       const protectedTask = { ...task };
-      delete protectedTask.recheckPending;
+      if (validRecheckPending) delete protectedTask.recheckPending;
+      if (validRecheckRevision) delete protectedTask.memoryReviewRecheckRevision;
       return protectedTask;
     });
 

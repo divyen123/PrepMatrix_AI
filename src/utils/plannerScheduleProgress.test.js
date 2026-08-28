@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  MEMORY_REVIEW_RECHECK_REVISION_FIELD,
   PLANNER_QUIZ_UNLOCK_FIELD,
   PLANNER_RECHECK_PENDING_FIELD,
   clearPlannerScheduleState,
@@ -224,6 +225,67 @@ test("rechecking preserves analytics before reopen, while pending, and after fin
   assert.strictEqual(repeated.completed, completed);
   assert.strictEqual(repeated.schedule, result.schedule);
   assert.deepEqual(repeated.completed, ["Algebra", "Geometry"]);
+});
+
+test("each intentional memory-review reopen gets a stable new attempt revision", () => {
+  const completed = ["3-minute memory check: Biology - Mitosis"];
+  const schedule = [{
+    day: 1,
+    tasks: [{
+      id: "memory-review-mitosis",
+      source: "memory_review",
+      task: completed[0],
+    }],
+  }];
+
+  const firstReopen = reopenPlannerTask(schedule, completed, 0, 0);
+  assert.equal(firstReopen[0].tasks[0][PLANNER_RECHECK_PENDING_FIELD], true);
+  assert.equal(
+    firstReopen[0].tasks[0][MEMORY_REVIEW_RECHECK_REVISION_FIELD],
+    1,
+  );
+
+  const firstCompletion = completePlannerTask(firstReopen, completed, 0, 0);
+  assert.strictEqual(firstCompletion.completed, completed);
+  assert.equal(
+    firstCompletion.schedule[0].tasks[0][PLANNER_RECHECK_PENDING_FIELD],
+    undefined,
+  );
+  assert.equal(
+    firstCompletion.schedule[0].tasks[0][MEMORY_REVIEW_RECHECK_REVISION_FIELD],
+    1,
+  );
+
+  const secondReopen = reopenPlannerTask(firstCompletion.schedule, completed, 0, 0);
+  assert.equal(
+    secondReopen[0].tasks[0][MEMORY_REVIEW_RECHECK_REVISION_FIELD],
+    2,
+  );
+  assert.deepEqual(completed, ["3-minute memory check: Biology - Mitosis"]);
+});
+
+test("ID-aware memory completions reopen only their exact Planner occurrence", () => {
+  const taskName = "3-minute memory check: Biology - Mitosis";
+  const schedule = [{
+    day: 1,
+    tasks: [
+      { id: "memory-review-a", source: "memory_review", task: taskName },
+      { id: "memory-review-b", source: "memory_review", task: taskName },
+    ],
+  }];
+  const completed = ["memory-decay-a"];
+
+  assert.equal(isPlannerTaskCompleted(schedule[0].tasks[0], completed), true);
+  assert.equal(isPlannerTaskCompleted(schedule[0].tasks[1], completed), false);
+  const reopened = reopenPlannerTask(schedule, completed, 0, 0);
+  assert.equal(reopened[0].tasks[0][PLANNER_RECHECK_PENDING_FIELD], true);
+  assert.equal(
+    reopened[0].tasks[0][MEMORY_REVIEW_RECHECK_REVISION_FIELD],
+    1,
+  );
+  assert.strictEqual(reopened[0].tasks[1], schedule[0].tasks[1]);
+  assert.strictEqual(reopenPlannerTask(schedule, completed, 0, 1), schedule);
+  assert.deepEqual(completed, ["memory-decay-a"]);
 });
 
 test("first completion appends once while invalid and repeated completions are no-ops", () => {

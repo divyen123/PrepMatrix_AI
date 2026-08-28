@@ -1,6 +1,7 @@
 import { getScheduleDateKey, toLocalDateKey } from "./scheduleDates.js";
 
 export const PLANNER_RECHECK_PENDING_FIELD = "recheckPending";
+export const MEMORY_REVIEW_RECHECK_REVISION_FIELD = "memoryReviewRecheckRevision";
 export const PLANNER_QUIZ_UNLOCK_FIELD = "plannerQuizUnlock";
 export const PLANNER_UNLOCK_QUIZ_QUESTION_COUNT = 10;
 export const PLANNER_UNLOCK_PASS_PERCENTAGE = 80;
@@ -20,6 +21,18 @@ function getTaskName(task) {
 
 function cleanText(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function completionKey(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return cleanText(String(value.taskId ?? value.id ?? value.task ?? value.taskName ?? ""));
+  }
+  return cleanText(String(value ?? ""));
+}
+
+function canonicalPlannerTaskId(value) {
+  return cleanText(String(value ?? ""))
+    .replace(/^memory-decay-/u, "memory-review-");
 }
 
 export function getPlannerSessionLabel(value) {
@@ -120,8 +133,19 @@ function updateTask(schedule, dayIndex, taskIndex, update) {
 }
 
 export function isPlannerTaskCompleted(task, completed = []) {
-  const taskName = getTaskName(task);
-  return Boolean(taskName && Array.isArray(completed) && completed.includes(taskName));
+  const taskName = cleanText(getTaskName(task));
+  const taskId = canonicalPlannerTaskId(task?.id);
+  if ((!taskName && !taskId) || !Array.isArray(completed)) return false;
+  return completed.some((item) => {
+    const key = completionKey(item);
+    return Boolean(
+      key
+      && (
+        key === taskName
+        || (taskId && canonicalPlannerTaskId(key) === taskId)
+      )
+    );
+  });
 }
 
 export function isPlannerTaskRecheckPending(task) {
@@ -483,10 +507,23 @@ export function reopenPlannerTask(schedule, completed, dayIndex, taskIndex) {
     return schedule;
   }
 
-  return updateTask(schedule, dayIndex, taskIndex, (currentTask) => ({
-    ...currentTask,
-    [PLANNER_RECHECK_PENDING_FIELD]: true,
-  }));
+  return updateTask(schedule, dayIndex, taskIndex, (currentTask) => {
+    const reopenedTask = {
+      ...currentTask,
+      [PLANNER_RECHECK_PENDING_FIELD]: true,
+    };
+    if (currentTask.source === "memory_review" || currentTask.source === "memory-decay") {
+      const previousRevision = Number.parseInt(
+        currentTask[MEMORY_REVIEW_RECHECK_REVISION_FIELD],
+        10,
+      );
+      reopenedTask[MEMORY_REVIEW_RECHECK_REVISION_FIELD] = Math.min(
+        Number.isInteger(previousRevision) && previousRevision > 0 ? previousRevision + 1 : 1,
+        1_000_000,
+      );
+    }
+    return reopenedTask;
+  });
 }
 
 /**
@@ -513,7 +550,7 @@ export function completePlannerTask(schedule, completed, dayIndex, taskIndex) {
     return { completed: safeCompleted, schedule: nextSchedule };
   }
 
-  if (safeCompleted.includes(taskName)) {
+  if (isPlannerTaskCompleted(task, safeCompleted)) {
     return { completed: safeCompleted, schedule };
   }
 

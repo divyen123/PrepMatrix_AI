@@ -16,6 +16,7 @@ import {
   addMemoryReviewTaskCompletion,
   buildMemoryReviewExperience,
   buildMemoryReviewSubmission,
+  clearMemoryReviewTaskRecheck,
   createMemoryReviewQuiz,
   mergeMemoryReviewSchedule,
 } from "../utils/learningMemoryReviewExperience.js";
@@ -259,7 +260,13 @@ export default function PredictiveMemoryReview({
       if (typeof onNotebookUpdated === "function") {
         await onNotebookUpdated(payload);
       }
-      if (typeof setCompleted === "function") {
+      if (typeof setSchedule === "function") {
+        setSchedule((currentSchedule) => clearMemoryReviewTaskRecheck(
+          currentSchedule,
+          payload.task,
+        ));
+      }
+      if (typeof setCompleted === "function" && activeEntry.historicallyCompleted === false) {
         setCompleted((currentValue) => addMemoryReviewTaskCompletion(
           Array.isArray(currentValue) ? currentValue : completed,
           payload.task,
@@ -275,7 +282,7 @@ export default function PredictiveMemoryReview({
     } finally {
       setIsSubmitting(false);
     }
-  }, [activeEntry, activeQuiz, canSubmit, completed, confidence, experience.schedule, onNotebookUpdated, ratings, setCompleted]);
+  }, [activeEntry, activeQuiz, canSubmit, completed, confidence, experience.schedule, onNotebookUpdated, ratings, setCompleted, setSchedule]);
 
   if (!experience.entries.length && !error) return null;
 
@@ -317,7 +324,7 @@ export default function PredictiveMemoryReview({
               </span>
             ) : (
               <button className="memory-review-start" type="button" onClick={() => openQuiz(entry)}>
-                Start check <ChevronRight size={16} aria-hidden="true" />
+                {entry.recheckPending ? "Review again" : "Start check"} <ChevronRight size={16} aria-hidden="true" />
               </button>
             )}
           </article>

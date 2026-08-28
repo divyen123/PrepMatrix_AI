@@ -4,6 +4,11 @@ import {
   injectPredictiveMemoryReviews,
 } from "./learningMemoryPlanner.js";
 import { applyPredictiveMemoryQuizResult } from "./learningMemoryResults.js";
+import {
+  MEMORY_REVIEW_RECHECK_REVISION_FIELD,
+  PLANNER_RECHECK_PENDING_FIELD,
+  isPlannerTaskRecheckPending,
+} from "./plannerScheduleProgress.js";
 
 function asObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -15,6 +20,15 @@ function asList(value) {
 
 function cleanText(value, maximum = 800) {
   return String(value ?? "").replace(/\s+/gu, " ").trim().slice(0, maximum);
+}
+
+function stableHash(value) {
+  let hash = 2_166_136_261;
+  for (const character of String(value ?? "")) {
+    hash ^= character.codePointAt(0);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return (hash >>> 0).toString(36);
 }
 
 function normalizedIso(value) {
@@ -31,6 +45,14 @@ function taskNotebookId(task = {}) {
 
 function taskNodeId(task = {}) {
   return cleanText(task.nodeId ?? task.sourceLearningNodeId, 180);
+}
+
+function canonicalMemoryReviewTaskId(value) {
+  return cleanText(value, 220).replace(/^memory-decay-/u, "memory-review-");
+}
+
+function canonicalMemoryReviewUnitKey(value) {
+  return cleanText(value, 520).replace(/^memory-decay:/u, "memory-review:");
 }
 
 function findNotebook(notebooks, notebookId) {
@@ -57,8 +79,104 @@ function completionKey(value) {
 
 function scheduleTaskIds(scheduleValue) {
   return new Set(asList(scheduleValue).flatMap((day) => (
-    asList(day?.tasks).map((task) => cleanText(task?.id, 220)).filter(Boolean)
+    asList(day?.tasks).map((task) => canonicalMemoryReviewTaskId(task?.id)).filter(Boolean)
   )));
+}
+
+function isScheduledMemoryReview(taskValue = {}) {
+  const source = asObject(taskValue).source;
+  return source === "memory_review" || source === "memory-decay";
+}
+
+function memoryReviewTaskKey(taskValue = {}) {
+  const task = asObject(taskValue);
+  const taskId = canonicalMemoryReviewTaskId(task.id);
+  if (taskId) return `id:${taskId}`;
+  const unitKey = canonicalMemoryReviewUnitKey(task.unitKey);
+  if (unitKey) return `unit:${unitKey}`;
+  const notebookId = taskNotebookId(task);
+  const nodeId = taskNodeId(task);
+  const occurrence = cleanText(task.dateKey ?? task.dueAt, 120);
+  if (notebookId && nodeId) return `node:${notebookId}:${nodeId}:${occurrence}`;
+  return `task:${cleanText(task.task, 500)}`;
+}
+
+function uniqueMemoryReviewTasks(tasksValue = []) {
+  const seen = new Set();
+  return asList(tasksValue).filter((task) => {
+    if (!isScheduledMemoryReview(task)) return false;
+    const key = memoryReviewTaskKey(task);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function scheduledCandidate(taskValue, notebookValue) {
+  const task = asObject(taskValue);
+  const notebook = asObject(notebookValue);
+  const notebookId = taskNotebookId(task)
+    || cleanText(notebook.id ?? notebook._id, 180);
+  const nodeId = taskNodeId(task);
+  if (!notebookId || !nodeId) return null;
+  const taskName = cleanText(task.task, 500);
+  const separatorIndex = taskName.lastIndexOf(" - ");
+  const title = cleanText(
+    task.topic
+      ?? task.title
+      ?? (separatorIndex >= 0 ? taskName.slice(separatorIndex + 3) : taskName),
+    180,
+  );
+  const dueAt = cleanText(task.dueAt, 80);
+
+  return {
+    id: `${notebookId}:${nodeId}`,
+    notebookId,
+    nodeId,
+    nodeType: cleanText(task.unitType, 80) || "concept",
+    subjectName: cleanText(task.subjectName ?? notebook.subjectName, 160) || "General study",
+    chapterTitle: cleanText(task.chapterName, 180),
+    title: title || "Memory review",
+    dueAt,
+    dueDateKey: toLocalDateKey(task.dateKey ?? dueAt),
+    predictedRecall: Number(task.predictedRecall) || 0,
+    targetRecall: Number(task.targetRecall) || undefined,
+    reason: "manual-recheck",
+  };
+}
+
+function recheckRevision(taskValue = {}) {
+  const revision = Number.parseInt(
+    asObject(taskValue)[MEMORY_REVIEW_RECHECK_REVISION_FIELD],
+    10,
+  );
+  return Number.isInteger(revision) && revision > 0 ? revision : 0;
+}
+
+function sameMemoryReviewTask(leftValue, rightValue) {
+  const left = asObject(leftValue);
+  const right = asObject(rightValue);
+  const leftId = canonicalMemoryReviewTaskId(left.id);
+  const rightId = canonicalMemoryReviewTaskId(right.id);
+  if (leftId || rightId) return Boolean(leftId && rightId && leftId === rightId);
+  const leftUnitKey = canonicalMemoryReviewUnitKey(left.unitKey);
+  const rightUnitKey = canonicalMemoryReviewUnitKey(right.unitKey);
+  if (leftUnitKey || rightUnitKey) {
+    return Boolean(leftUnitKey && rightUnitKey && leftUnitKey === rightUnitKey);
+  }
+  const leftOccurrence = cleanText(left.dateKey ?? left.dueAt, 120);
+  const rightOccurrence = cleanText(right.dateKey ?? right.dueAt, 120);
+  return Boolean(
+    taskNotebookId(left)
+    && taskNotebookId(left) === taskNotebookId(right)
+    && taskNodeId(left)
+    && taskNodeId(left) === taskNodeId(right)
+    && cleanText(left.task, 500) === cleanText(right.task, 500)
+    && (
+      (!leftOccurrence && !rightOccurrence)
+      || (leftOccurrence && rightOccurrence && leftOccurrence === rightOccurrence)
+    )
+  );
 }
 
 /**
@@ -67,11 +185,57 @@ function scheduleTaskIds(scheduleValue) {
  */
 export function isMemoryReviewTaskCompleted(completedValue, taskValue = {}) {
   const task = asObject(taskValue);
-  const taskId = cleanText(task.id, 220);
+  const taskId = canonicalMemoryReviewTaskId(task.id);
   const taskText = cleanText(task.task, 500);
   return asList(completedValue).some((item) => {
     const key = completionKey(item);
-    return Boolean(key) && (key === taskId || key === taskText);
+    return Boolean(key) && (
+      canonicalMemoryReviewTaskId(key) === taskId
+      || key === taskText
+    );
+  });
+}
+
+export function isMemoryReviewTaskPending(completedValue, taskValue = {}) {
+  return !isMemoryReviewTaskCompleted(completedValue, taskValue)
+    || isPlannerTaskRecheckPending(taskValue);
+}
+
+/** Clears only the submitted memory-review occurrence after its save succeeds. */
+export function clearMemoryReviewTaskRecheck(scheduleValue, taskValue = {}) {
+  const schedule = Array.isArray(scheduleValue) ? scheduleValue : [];
+  const targetTask = asObject(taskValue);
+  const targetRevision = recheckRevision(targetTask);
+  const matches = [];
+  schedule.forEach((day, dayIndex) => {
+    asList(day?.tasks).forEach((task, taskIndex) => {
+      if (
+        isScheduledMemoryReview(task)
+        && isPlannerTaskRecheckPending(task)
+        && sameMemoryReviewTask(task, targetTask)
+        && (targetRevision === 0 || recheckRevision(task) === targetRevision)
+      ) {
+        matches.push({ dayIndex, taskIndex });
+      }
+    });
+  });
+  if (matches.length !== 1) return schedule;
+
+  const [{ dayIndex, taskIndex }] = matches;
+  return schedule.map((day, currentDayIndex) => {
+    if (currentDayIndex !== dayIndex) return day;
+    return {
+      ...day,
+      tasks: day.tasks.map((task, currentTaskIndex) => {
+        if (currentTaskIndex !== taskIndex) return task;
+        const nextTask = { ...task };
+        delete nextTask[PLANNER_RECHECK_PENDING_FIELD];
+        if (!recheckRevision(nextTask)) {
+          nextTask[MEMORY_REVIEW_RECHECK_REVISION_FIELD] = 1;
+        }
+        return nextTask;
+      }),
+    };
   });
 }
 
@@ -87,14 +251,14 @@ export function addMemoryReviewTaskCompletion(
   const completed = asList(completedValue);
   const task = asObject(taskValue);
   if (isMemoryReviewTaskCompleted(completed, task)) return completed;
-  const taskId = cleanText(task.id, 220);
+  const taskId = canonicalMemoryReviewTaskId(task.id);
   const taskText = cleanText(task.task, 500);
   const knownTaskIds = scheduleTaskIds(options.schedule);
   const idAware = completed.some((item) => {
     if (item && typeof item === "object") {
       return Boolean(cleanText(item.taskId ?? item.id, 220));
     }
-    return knownTaskIds.has(cleanText(item, 220));
+    return knownTaskIds.has(canonicalMemoryReviewTaskId(item));
   });
   const nextValue = idAware && taskId ? taskId : taskText;
   return nextValue ? [...completed, nextValue] : completed;
@@ -115,16 +279,27 @@ export function buildMemoryReviewExperience(inputValue = {}) {
   const targetDay = projected.schedule.find((day, index) => (
     getScheduleDateKey(day, index, input.scheduleStartDate) === dateKey
   ));
-  const allTasks = asList(targetDay?.tasks).filter((task) => task?.source === "memory_review");
+  const todayTasks = asList(targetDay?.tasks).filter((task) => task?.source === "memory_review");
+  const reopenedTasks = projected.schedule.flatMap((day) => (
+    asList(day?.tasks).filter((task) => (
+      task?.source === "memory_review" && isPlannerTaskRecheckPending(task)
+    ))
+  ));
+  const allTasks = uniqueMemoryReviewTasks([...todayTasks, ...reopenedTasks]);
   const entries = allTasks.flatMap((task) => {
-    const candidate = findCandidate(projected.dueCandidates, task);
     const notebook = findNotebook(input.notebooks, taskNotebookId(task));
+    const recheckPending = isPlannerTaskRecheckPending(task);
+    const candidate = findCandidate(projected.dueCandidates, task)
+      || (recheckPending ? scheduledCandidate(task, notebook) : null);
     if (!candidate || !notebook || !cleanText(task?.task, 500)) return [];
+    const historicallyCompleted = isMemoryReviewTaskCompleted(input.completed, task);
     return [{
       task,
       candidate,
       notebook,
-      completed: isMemoryReviewTaskCompleted(input.completed, task),
+      historicallyCompleted,
+      recheckPending,
+      completed: historicallyCompleted && !recheckPending,
     }];
   });
 
@@ -153,10 +328,17 @@ export function mergeMemoryReviewSchedule(currentScheduleValue = [], inputValue 
 
 export function createMemoryReviewQuiz(entryValue = {}, options = {}) {
   const entry = asObject(entryValue);
-  return buildPredictiveMemoryMicroQuiz(entry.notebook, entry.candidate, {
+  const quiz = buildPredictiveMemoryMicroQuiz(entry.notebook, entry.candidate, {
     ...options,
     dateKey: options.dateKey,
   });
+  if (!quiz || !isPlannerTaskRecheckPending(entry.task)) return quiz;
+  const revision = recheckRevision(entry.task) || 1;
+  const occurrenceToken = stableHash(memoryReviewTaskKey(entry.task));
+  return {
+    ...quiz,
+    id: `${quiz.id}-recheck-${revision}-${occurrenceToken}`,
+  };
 }
 
 function normalizedRatings(value) {
