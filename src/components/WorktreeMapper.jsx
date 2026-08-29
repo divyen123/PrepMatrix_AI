@@ -904,11 +904,13 @@ function WorktreeMapper({ academicProfile = {}, variant = "default" }) {
                 <div className="history-card-header">
                   <strong>{wt.name}</strong>
                   <button 
+                    aria-label={`Delete ${wt.name} from saved history`}
                     className="delete-history-btn" 
                     onClick={(e) => handleDeleteHistory(e, wt.id)}
                     title="Delete Mind Map"
+                    type="button"
                   >
-                    <Trash2 size={12} />
+                    <Trash2 aria-hidden="true" size={14} />
                   </button>
                 </div>
                 <span>{wt.nodes.length} nodes</span>

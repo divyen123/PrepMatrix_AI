@@ -12363,28 +12363,46 @@ body.worktree-fullscreen-active .workspace-topbar {
   margin-top: auto;
 }
 
-.delete-history-btn {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-muted);
+body button.delete-history-btn {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  flex: 0 0 28px !important;
+  padding: 0 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: color-mix(in srgb, var(--danger) 78%, var(--text-muted)) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   cursor: pointer;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  border-radius: 50%;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
+  overflow: visible;
+  transform: none !important;
+  transition: color 160ms ease, transform 160ms ease !important;
 }
 
-.delete-history-btn:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
+body button.delete-history-btn::before,
+body button.delete-history-btn::after {
+  display: none !important;
+  content: none !important;
+}
+
+body button.delete-history-btn:hover,
+body button.delete-history-btn:focus-visible {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--danger) !important;
+  box-shadow: none !important;
+  transform: scale(1.08) !important;
+}
+
+body button.delete-history-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--danger) 48%, transparent) !important;
+  outline-offset: 1px;
 }
 
 /* Scrollbar styling for saved history */
