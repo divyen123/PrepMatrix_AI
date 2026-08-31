@@ -31,6 +31,17 @@ const DENSITY_LAYOUT = Object.freeze({
   }),
 });
 
+const PDF_TEMPLATE_PROFILES = Object.freeze({
+  modern: Object.freeze({ headerAlignment: "left", headerStyle: "inset", marginTop: 21, nameScale: 1, headingScale: 1 }),
+  classic: Object.freeze({ headerAlignment: "center", headerStyle: "traditional", marginTop: 25, nameScale: 1, headingScale: 1 }),
+  compact: Object.freeze({ headerAlignment: "left", headerStyle: "dense", marginTop: 23, nameScale: 1, headingScale: 1 }),
+  executive: Object.freeze({ headerAlignment: "left", headerStyle: "executive", marginTop: 22, nameScale: 0.95, headingScale: 0.98 }),
+  minimal: Object.freeze({ headerAlignment: "left", headerStyle: "minimal", marginTop: 27, nameScale: 0.92, headingScale: 0.9 }),
+  editorial: Object.freeze({ headerAlignment: "left", headerStyle: "editorial", marginTop: 23, nameScale: 1.08, headingScale: 0.98 }),
+  signature: Object.freeze({ headerAlignment: "center", headerStyle: "signature", marginTop: 27, nameScale: 1.06, headingScale: 0.92 }),
+  horizon: Object.freeze({ headerAlignment: "left", headerStyle: "band", marginTop: 19, nameScale: 1, headingScale: 1 }),
+});
+
 // Minimum render scale — matches the live preview's lower bound so the PDF
 // always tries to fit to a single page the same way the preview does.
 const MIN_SINGLE_PAGE_SCALE = 0.55;
@@ -48,7 +59,7 @@ export function getResumePdfFilename(draft) {
 
 export function getResumePdfMetrics(layoutValue = {}, renderScale = 1) {
   const layout = normalizeResumeLayout(layoutValue);
-  const isCompact = layout.template === "compact";
+  const templateProfile = PDF_TEMPLATE_PROFILES[layout.template] || PDF_TEMPLATE_PROFILES.modern;
   const typographyScale = TYPOGRAPHY_SCALES[layout.typography];
   const density = DENSITY_LAYOUT[layout.density];
   const densityScale =
@@ -56,10 +67,10 @@ export function getResumePdfMetrics(layoutValue = {}, renderScale = 1) {
   const bodyFontSize = BASE_PREVIEW_FONT_PT * 1.02;
   return Object.freeze({
     template: layout.template,
-    headerAlignment: layout.template === "classic" ? "center" : "left",
+    headerAlignment: templateProfile.headerAlignment,
+    headerStyle: templateProfile.headerStyle,
     marginX: 18,
-    marginTop:
-      (isCompact ? 23 : layout.template === "classic" ? 25 : 21) * renderScale,
+    marginTop: templateProfile.marginTop * renderScale,
     bottomMargin: 16,
     typographyScale,
     renderScale,
@@ -74,10 +85,10 @@ export function getResumePdfMetrics(layoutValue = {}, renderScale = 1) {
     metaTopGap: verticalPxToMm(2) * renderScale,
     bulletTopGap: verticalPxToMm(4) * renderScale,
     bulletItemGap: verticalPxToMm(2) * renderScale,
-    nameFontSize: BASE_PREVIEW_FONT_PT * 3.15,
+    nameFontSize: BASE_PREVIEW_FONT_PT * 3.15 * templateProfile.nameScale,
     headlineFontSize: BASE_PREVIEW_FONT_PT * 1.35,
     contactFontSize: BASE_PREVIEW_FONT_PT * 0.92,
-    headingFontSize: BASE_PREVIEW_FONT_PT * 1.24,
+    headingFontSize: BASE_PREVIEW_FONT_PT * 1.24 * templateProfile.headingScale,
     entryTitleFontSize: BASE_PREVIEW_FONT_PT * 1.14,
     entryDateFontSize: BASE_PREVIEW_FONT_PT * 0.86,
     metaFontSize: BASE_PREVIEW_FONT_PT * 0.92,
@@ -133,6 +144,13 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
   const accent = colorToRgb(layout.accent);
   const isClassic = layout.template === "classic";
   const isCompact = layout.template === "compact";
+  const isExecutive = layout.template === "executive";
+  const isMinimal = layout.template === "minimal";
+  const isEditorial = layout.template === "editorial";
+  const isSignature = layout.template === "signature";
+  const isHorizon = layout.template === "horizon";
+  const deepAccent = accent.map((channel) => Math.round(channel * 0.54));
+  const softAccent = accent.map((channel) => Math.round(channel * 0.1 + 245 * 0.9));
   const { typographyScale, densityScale, marginX, marginTop, bottomMargin } = metrics;
   const contentWidth = PAGE.width - marginX * 2;
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
@@ -171,6 +189,16 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
     if (layout.template === "modern") {
       pdf.setFillColor(...accent);
       pdf.rect(0, 0, 6 * CSS_PX_TO_MM, PAGE.height, "F");
+    } else if (isExecutive) {
+      pdf.setFillColor(...accent);
+      pdf.rect(0, 0, PAGE.width, 4 * CSS_PX_TO_MM, "F");
+    } else if (isEditorial) {
+      pdf.setFillColor(...accent);
+      pdf.rect(0, 0, PAGE.width, 10 * CSS_PX_TO_MM, "F");
+    } else if (isSignature) {
+      setDrawColor(accent);
+      pdf.setLineWidth(0.55);
+      pdf.line(marginX, 8.5, PAGE.width - marginX, 8.5);
     }
   };
 
@@ -289,6 +317,7 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
   const sectionHeading = (title) => {
     const headingSize = metrics.headingFontSize;
     const headingLineHeight = lineHeight(headingSize, 1.2);
+    const label = title.toUpperCase();
     const sectionGap =
       renderedSectionCount === 0
         ? metrics.bodyTop + fontHeight(headingSize) * 0.8
@@ -298,17 +327,52 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
     renderedSectionCount += 1;
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(fontSize(headingSize));
+    const headingWidth = pdf.getTextWidth(label);
     if (isClassic) {
       setColor(INK);
-      pdf.text(title.toUpperCase(), marginX, y);
-      const headingWidth = pdf.getTextWidth(title.toUpperCase());
+      pdf.text(label, marginX, y);
       setDrawColor(INK);
       pdf.setLineWidth(0.35);
       pdf.line(marginX + headingWidth + 4, y - 0.8, PAGE.width - marginX, y - 0.8);
+    } else if (isExecutive) {
+      pdf.setFillColor(...accent);
+      pdf.rect(marginX, y - fontHeight(headingSize) * 0.82, 1.5, fontHeight(headingSize), "F");
+      setColor(INK);
+      pdf.text(label, marginX + 4, y);
+      setDrawColor(LIGHT);
+      pdf.setLineWidth(0.32);
+      pdf.line(marginX + headingWidth + 8, y - 0.8, PAGE.width - marginX, y - 0.8);
+    } else if (isMinimal) {
+      setColor(INK);
+      pdf.text(label, marginX, y);
+      setDrawColor(LIGHT);
+      pdf.setLineWidth(0.2);
+      pdf.line(marginX + headingWidth + 4, y - 0.8, PAGE.width - marginX, y - 0.8);
+    } else if (isEditorial) {
+      const labelHeight = fontHeight(headingSize) + 3.4;
+      pdf.setFillColor(...softAccent);
+      pdf.roundedRect(marginX, y - fontHeight(headingSize) * 0.88 - 1.5, headingWidth + 9, labelHeight, 0.8, 0.8, "F");
+      pdf.setFillColor(...accent);
+      pdf.rect(marginX, y - fontHeight(headingSize) * 0.88 - 1.5, 1.5, labelHeight, "F");
+      setColor(INK);
+      pdf.text(label, marginX + 4.5, y);
+    } else if (isSignature) {
+      const centerX = PAGE.width / 2;
+      setColor(INK);
+      pdf.text(label, centerX, y, { align: "center" });
+      setDrawColor(accent);
+      pdf.setLineWidth(0.25);
+      pdf.line(marginX, y - 0.8, centerX - headingWidth / 2 - 4, y - 0.8);
+      pdf.line(centerX + headingWidth / 2 + 4, y - 0.8, PAGE.width - marginX, y - 0.8);
+    } else if (isHorizon) {
+      setColor(INK);
+      pdf.text(label, marginX, y);
+      setDrawColor(accent);
+      pdf.setLineWidth(0.4);
+      pdf.line(marginX + headingWidth + 4, y - 0.8, PAGE.width - marginX, y - 0.8);
     } else {
       setColor(accent);
-      pdf.text(title.toUpperCase(), marginX, y);
-      const headingWidth = pdf.getTextWidth(title.toUpperCase());
+      pdf.text(label, marginX, y);
       setDrawColor(LIGHT);
       pdf.setLineWidth(0.32);
       pdf.line(marginX + headingWidth + 4, y - 0.8, PAGE.width - marginX, y - 0.8);
@@ -378,6 +442,57 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
   };
 
   const renderHeader = () => {
+    if (isHorizon) {
+      const headerTop = 0;
+      const innerX = marginX;
+      const innerWidth = contentWidth;
+      const nameSize = metrics.nameFontSize;
+      const headlineSize = metrics.headlineFontSize;
+      const contactSize = metrics.contactFontSize;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(fontSize(nameSize));
+      const nameLines = pdf.splitTextToSize(draft.personal.fullName || "Your name", innerWidth);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(fontSize(headlineSize));
+      const headlineLines = pdf.splitTextToSize(
+        draft.personal.headline || "Professional headline",
+        innerWidth
+      );
+      const contactLines = buildContactLines(innerWidth, contactSize);
+      const nameLeading = lineHeight(nameSize, 1);
+      const headlineLeading = lineHeight(headlineSize, 1.2);
+      const contactLeading = lineHeight(contactSize, 1.2) + flowPx(5);
+      const nameY = flowPx(22) + fontHeight(nameSize) * 0.8;
+      const lastNameY = nameY + (nameLines.length - 1) * nameLeading;
+      const headlineY = lastNameY + baselineTransition(nameSize, flowPx(7), headlineSize);
+      const lastHeadlineY = headlineY + (headlineLines.length - 1) * headlineLeading;
+      const contactY = lastHeadlineY + baselineTransition(headlineSize, flowPx(9), contactSize);
+      const lastContentY = contactLines.length
+        ? contactY + (contactLines.length - 1) * contactLeading
+        : lastHeadlineY;
+      const lastContentSize = contactLines.length ? contactSize : headlineSize;
+      const headerHeight = lastContentY + fontHeight(lastContentSize) * 0.2 + flowPx(18);
+      pdf.setFillColor(...deepAccent);
+      pdf.rect(0, headerTop, PAGE.width, headerHeight, "F");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(fontSize(nameSize));
+      pdf.setTextColor(255, 255, 255);
+      nameLines.forEach((line, index) => pdf.text(line, innerX, nameY + index * nameLeading));
+      pdf.setFontSize(fontSize(headlineSize));
+      headlineLines.forEach((line, index) =>
+        pdf.text(line, innerX, headlineY + index * headlineLeading)
+      );
+      if (contactLines.length) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(fontSize(contactSize));
+        contactLines.forEach((line, index) =>
+          pdf.text(line, innerX, contactY + index * contactLeading)
+        );
+      }
+      y = headerHeight + flowPx(17);
+      return;
+    }
+
     if (layout.template === "modern") {
       const headerTop = flowPx(15);
       const headerX = 15 * CSS_PX_TO_MM;
@@ -452,10 +567,15 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
     const nameSize = metrics.nameFontSize;
     const headlineSize = metrics.headlineFontSize;
     const contactSize = metrics.contactFontSize;
-    pdf.setFont("times", "bold");
+    const nameFont = isExecutive || isMinimal ? "helvetica" : "times";
+    const nameStyle = isSignature ? "italic" : "bold";
+    const displayName = isExecutive
+      ? (draft.personal.fullName || "Your name").toUpperCase()
+      : draft.personal.fullName || "Your name";
+    pdf.setFont(nameFont, nameStyle);
     pdf.setFontSize(fontSize(nameSize));
     setColor(INK);
-    const nameLines = pdf.splitTextToSize(draft.personal.fullName || "Your name", contentWidth);
+    const nameLines = pdf.splitTextToSize(displayName, contentWidth);
     const nameLeading = lineHeight(nameSize, 1);
     nameLines.forEach((line, index) => pdf.text(line, headerX, y + index * nameLeading, textOptions));
     const lastNameY = y + (nameLines.length - 1) * nameLeading;
@@ -463,9 +583,12 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
       lastNameY + baselineTransition(nameSize, flowPx(7), headlineSize);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(fontSize(headlineSize));
-    setColor(accent);
+    setColor(isMinimal ? MUTED : accent);
+    const headline = isExecutive || isEditorial
+      ? (draft.personal.headline || "Professional headline").toUpperCase()
+      : draft.personal.headline || "Professional headline";
     const headlineLines = pdf.splitTextToSize(
-      draft.personal.headline || "Professional headline",
+      headline,
       contentWidth
     );
     const headlineLeading = lineHeight(headlineSize, 1.2);
@@ -487,13 +610,43 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
       ? contactY + (contactLines.length - 1) * contactLeading
       : lastHeadlineY;
     const lastContentSize = contactLines.length ? contactSize : headlineSize;
+    const headerBottomGap = isExecutive || isEditorial
+      ? 16
+      : isMinimal
+        ? 23
+        : isSignature
+          ? 21
+          : isCompact
+            ? 15
+            : 19;
     y =
       lastContentY +
       fontHeight(lastContentSize) * 0.2 +
-      flowPx(isCompact ? 15 : 19);
-    setDrawColor(isClassic ? INK : accent);
-    pdf.setLineWidth(0.5);
-    pdf.line(marginX, y, PAGE.width - marginX, y);
+      flowPx(headerBottomGap);
+    if (isSignature) {
+      setDrawColor(accent);
+      pdf.setLineWidth(0.45);
+      pdf.line(PAGE.width / 2 - 28, y, PAGE.width / 2 + 28, y);
+    } else if (isEditorial) {
+      setDrawColor(INK);
+      pdf.setLineWidth(0.65);
+      pdf.line(marginX, y, PAGE.width - marginX, y);
+      setDrawColor(accent);
+      pdf.setLineWidth(0.25);
+      pdf.line(marginX, y + 1.8, PAGE.width - marginX, y + 1.8);
+    } else if (isExecutive) {
+      setDrawColor(accent);
+      pdf.setLineWidth(1.1);
+      pdf.line(marginX, y, PAGE.width - marginX, y);
+    } else if (isMinimal) {
+      setDrawColor(LIGHT);
+      pdf.setLineWidth(0.2);
+      pdf.line(marginX, y, PAGE.width - marginX, y);
+    } else {
+      setDrawColor(isClassic ? INK : accent);
+      pdf.setLineWidth(0.5);
+      pdf.line(marginX, y, PAGE.width - marginX, y);
+    }
   };
 
   const renderSummary = () => {
@@ -525,8 +678,16 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
         y += chipHeight + rowGap;
       }
       ensure(chipHeight);
-      pdf.setFillColor(...tint);
-      pdf.roundedRect(x, y, chipWidth, chipHeight, 0.9, 0.9, "F");
+      const radius = isExecutive ? 0.2 : isSignature || isHorizon ? 2.4 : 0.9;
+      if (isMinimal || isSignature) {
+        pdf.setFillColor(255, 255, 255);
+        setDrawColor(isSignature ? accent : LIGHT);
+        pdf.setLineWidth(0.25);
+        pdf.roundedRect(x, y, chipWidth, chipHeight, radius, radius, "FD");
+      } else {
+        pdf.setFillColor(...tint);
+        pdf.roundedRect(x, y, chipWidth, chipHeight, radius, radius, "F");
+      }
       setColor(INK);
       pdf.text(skill, x + horizontalPadding, y + verticalPadding + fontHeight(skillSize) * 0.8);
       x += chipWidth + 4 * CSS_PX_TO_MM;

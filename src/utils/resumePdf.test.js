@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { RESUME_TEMPLATES } from "./resumeBuilder.js";
 import { createResumePdf, getResumePdfFilename, getResumePdfMetrics } from "./resumePdf.js";
 
 const fixture = {
@@ -140,6 +141,20 @@ test("keeps template alignment and layout scales distinct", () => {
   assertClose(compact.entryGap, 3.5);
   assertClose(balanced.entryGap, 5.25);
   assertClose(largeAiry.entryGap, 7);
+});
+
+test("exports every resume template with its own rendering treatment", () => {
+  const streams = RESUME_TEMPLATES.map(({ id }) => {
+    const pdf = createResumePdf(fixture, { template: id });
+    const stream = pdf.internal.pages.flat().join(" ");
+
+    assert.equal(pdf.__resumeLayout.metrics.template, id);
+    assert.equal(pdf.getNumberOfPages(), 1);
+    assert.doesNotMatch(stream, /undefined|NaN/u);
+    return stream;
+  });
+
+  assert.equal(new Set(streams).size, RESUME_TEMPLATES.length);
 });
 
 test("fills a representative page like the responsive editor preview", () => {

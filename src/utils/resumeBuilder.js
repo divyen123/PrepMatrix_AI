@@ -43,9 +43,14 @@ export const RESUME_SECTIONS = Object.freeze([
 ]);
 
 export const RESUME_TEMPLATES = Object.freeze([
-  { id: "modern", label: "Modern", description: "Confident accent header and balanced spacing." },
-  { id: "classic", label: "Classic", description: "Traditional hierarchy for formal applications." },
-  { id: "compact", label: "Compact", description: "Dense layout for experience-rich profiles." },
+  { id: "modern", label: "Modern" },
+  { id: "classic", label: "Classic" },
+  { id: "compact", label: "Compact" },
+  { id: "executive", label: "Executive" },
+  { id: "minimal", label: "Minimal" },
+  { id: "editorial", label: "Editorial" },
+  { id: "signature", label: "Signature" },
+  { id: "horizon", label: "Horizon" },
 ]);
 
 export const RESUME_ACCENTS = Object.freeze([

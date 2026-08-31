@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
+
+const pageSource = readFileSync(new URL("./ResumeBuilderPage.jsx", import.meta.url), "utf8");
+const stylesheet = readFileSync(new URL("./ResumeBuilderPage.css", import.meta.url), "utf8");
 
 test("renders New beside the full-screen preview control", async () => {
   const vite = await createServer({
@@ -34,4 +38,29 @@ test("renders New beside the full-screen preview control", async () => {
   } finally {
     await vite.close();
   }
+});
+
+test("uses an accessible two-column name-only template selector", () => {
+  const selectorStart = pageSource.indexOf('className="resume-template-grid"');
+  const selectorEnd = pageSource.indexOf("\n              </div>", selectorStart);
+  const selectorSource = pageSource.slice(selectorStart, selectorEnd);
+  const gridRules = [...stylesheet.matchAll(/\.resume-template-grid\s*\{([^}]*)\}/gu)]
+    .map((match) => match[1]);
+
+  assert.ok(selectorStart >= 0);
+  assert.match(selectorSource, /RESUME_TEMPLATES\.map/u);
+  assert.match(selectorSource, /role="group" aria-label="Resume templates"/u);
+  assert.match(selectorSource, /<strong>\{template\.label\}<\/strong>/u);
+  assert.match(selectorSource, /aria-pressed=\{layout\.template === template\.id\}/u);
+  assert.doesNotMatch(selectorSource, /<small|template\.description|resume-template-mini/u);
+  assert.ok(
+    gridRules.some((rule) => /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/u.test(rule)),
+  );
+  assert.ok(gridRules.every((rule) => !/grid-template-columns:\s*1fr/u.test(rule)));
+});
+
+test("provides a distinct live-preview modifier for every premium template", () => {
+  ["executive", "minimal", "editorial", "signature", "horizon"].forEach((template) => {
+    assert.match(stylesheet, new RegExp(`\\.resume-paper--${template}\\b`, "u"));
+  });
 });

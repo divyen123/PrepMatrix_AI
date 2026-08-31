@@ -1334,14 +1334,16 @@ export default function ResumeBuilderPage({
               />
               <div className="resume-layout-group">
                 <div className="resume-layout-group__heading"><LayoutTemplate size={18} /><div><strong>Template</strong><span>Choose the overall character</span></div></div>
-                <div className="resume-template-grid">
+                <div className="resume-template-grid" role="group" aria-label="Resume templates">
                   {RESUME_TEMPLATES.map((template) => (
-                    <button type="button" key={template.id} className={layout.template === template.id ? "is-selected" : ""} onClick={() => updateLayout({ template: template.id })}>
-                      <span className={`resume-template-mini resume-template-mini--${template.id}`}>
-                        <i /><i /><i /><i />
-                      </span>
+                    <button
+                      type="button"
+                      key={template.id}
+                      className={layout.template === template.id ? "is-selected" : ""}
+                      aria-pressed={layout.template === template.id}
+                      onClick={() => updateLayout({ template: template.id })}
+                    >
                       <strong>{template.label}</strong>
-                      <small>{template.description}</small>
                       {layout.template === template.id && <CheckCircle2 size={17} />}
                     </button>
                   ))}

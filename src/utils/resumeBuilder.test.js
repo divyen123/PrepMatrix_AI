@@ -1,14 +1,39 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  RESUME_TEMPLATES,
   RESUME_WEEKLY_LIMIT,
   RESUME_WINDOW_MS,
   createFreshResumeBuilderState,
   getResumeEligibility,
   getResumeQuota,
   normalizeResumeBuilderState,
+  normalizeResumeLayout,
   recordResumeGeneration,
 } from "./resumeBuilder.js";
+
+test("keeps all eight resume templates stable through layout normalization", () => {
+  const expectedIds = [
+    "modern",
+    "classic",
+    "compact",
+    "executive",
+    "minimal",
+    "editorial",
+    "signature",
+    "horizon",
+  ];
+  const ids = RESUME_TEMPLATES.map((template) => template.id);
+  const labels = RESUME_TEMPLATES.map((template) => template.label);
+
+  assert.deepEqual(ids, expectedIds);
+  assert.equal(new Set(ids).size, expectedIds.length);
+  assert.equal(new Set(labels).size, expectedIds.length);
+  expectedIds.forEach((template) => {
+    assert.equal(normalizeResumeLayout({ template }).template, template);
+  });
+  assert.equal(normalizeResumeLayout({ template: "unknown-template" }).template, "modern");
+});
 
 test("starts a fresh resume without changing PDF usage metadata", () => {
   const now = Date.UTC(2026, 7, 10, 10);
