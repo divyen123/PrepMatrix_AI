@@ -138,3 +138,15 @@ test("places the centered Practice more topic panels at the end of Placement Pre
   assert.ok(roleTopicsIndex > practiceTitleIndex);
   assert.ok(codingTopicsIndex > practiceTitleIndex);
 });
+
+test("keeps Subject Mastery out of opened notebook and placement toolbars", () => {
+  assert.equal(
+    pageSource.match(/className="learning-mastery-trigger"/gu)?.length,
+    1,
+    "Subject Mastery should remain only in the home and input hero",
+  );
+  assert.match(
+    pageSource,
+    /className="learning-workspace-compact-controls"[\s\S]*?className="learning-workspace-return-button"/u,
+  );
+});

@@ -3119,18 +3119,6 @@ function StartLearningPage({
       ) : (
         <nav className="learning-workspace-compact-controls" aria-label="Opened learning workspace controls">
           <button
-            aria-controls="learning-subject-mastery-dialog"
-            aria-expanded={masteryDialogOpen}
-            aria-haspopup="dialog"
-            aria-label="Open subject mastery"
-            className="learning-mastery-trigger"
-            onClick={() => setMasteryDialogOpen(true)}
-            title="Subject mastery"
-            type="button"
-          >
-            <Target aria-hidden="true" size={18} />
-          </button>
-          <button
             aria-label="Back to Start Learning home"
             className="learning-workspace-return-button"
             onClick={returnToPreparationChoice}
