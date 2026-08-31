@@ -5,6 +5,7 @@ import {
   getStartLearningArtifactKind,
   isMedicalTrainingHash,
   isPlacementPrepHash,
+  shouldShowStartLearningHero,
 } from "./startLearningWorkspace.js";
 
 test("derives standalone saved-placement rows without mixing ordinary notebooks", () => {
@@ -43,6 +44,15 @@ test("resolves the visible artifact kind from intake and workspace state", () =>
   assert.equal(getStartLearningArtifactKind({ workspaceView: "notebook", intakeMode: "placement" }), "notebook");
   assert.equal(getStartLearningArtifactKind({ workspaceView: "career", intakeMode: "notebook" }), "placement");
   assert.equal(getStartLearningArtifactKind({ workspaceView: "medical", intakeMode: "notebook" }), "medical");
+});
+
+test("shows the Start Learning hero only on home and preparation input views", () => {
+  assert.equal(shouldShowStartLearningHero({ workspaceView: "intake", intakeMode: null }), true);
+  assert.equal(shouldShowStartLearningHero({ workspaceView: "intake", intakeMode: "notebook" }), true);
+  assert.equal(shouldShowStartLearningHero({ workspaceView: "intake", intakeMode: "placement" }), true);
+  assert.equal(shouldShowStartLearningHero({ workspaceView: "notebook", intakeMode: "notebook" }), false);
+  assert.equal(shouldShowStartLearningHero({ workspaceView: "career", intakeMode: "placement" }), false);
+  assert.equal(shouldShowStartLearningHero({ workspaceView: "medical", intakeMode: "medical" }), false);
 });
 
 test("only identifies the Medical training deep link for targeted route clearing", () => {

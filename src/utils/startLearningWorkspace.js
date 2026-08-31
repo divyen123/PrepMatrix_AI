@@ -11,6 +11,10 @@ export function getStartLearningArtifactKind({ intakeMode, workspaceView } = {})
   return ["medical", "notebook", "placement"].includes(intakeMode) ? intakeMode : null;
 }
 
+export function shouldShowStartLearningHero({ workspaceView } = {}) {
+  return workspaceView === "intake";
+}
+
 export function getSavedPlacementNotes(notebooks = []) {
   if (!Array.isArray(notebooks)) return [];
 

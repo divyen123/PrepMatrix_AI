@@ -96,6 +96,7 @@ import {
   getStartLearningArtifactKind,
   isMedicalTrainingHash,
   isPlacementPrepHash,
+  shouldShowStartLearningHero,
 } from "../utils/startLearningWorkspace";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import {
@@ -3086,60 +3087,61 @@ function StartLearningPage({
     : activeArtifactKind === "medical"
       ? noSavedMedicalTraining
       : noSavedNotebooks;
+  const showLearningHero = shouldShowStartLearningHero({ intakeMode, workspaceView });
   return (
     <div className="learning-page">
-      <section
-        className={workspaceView !== "intake" && activeNotebook
-          ? "card learning-hero has-workspace-controls"
-          : "card learning-hero"}
-      >
-        <div className="learning-hero-copy">
-          <div className="learning-hero-eyebrow">
-            <span className="section-tag"><Sparkles size={14} /> AI learning workspace</span>
-            <button
-              aria-controls="learning-subject-mastery-dialog"
-              aria-expanded={masteryDialogOpen}
-              aria-haspopup="dialog"
-              aria-label="Open subject mastery"
-              className="learning-mastery-trigger"
-              onClick={() => setMasteryDialogOpen(true)}
-              title="Subject mastery"
-              type="button"
-            >
-              <Target aria-hidden="true" size={18} />
-            </button>
-          </div>
-          <h2>Start Learning</h2>
-        </div>
-        <div className="learning-hero-metrics" aria-label="Learning notebook summary">
-          <div><strong>{notebooks.length}</strong><span>Saved notebooks</span></div>
-          <div><strong>{activeNotebook?.chapters.length || 0}</strong><span>Mapped chapters</span></div>
-          <div><strong>{nodes.length}</strong><span>Study concepts</span></div>
-        </div>
-        {workspaceView !== "intake" && activeNotebook && (
-          <nav className="learning-hero-controls" aria-label="Start Learning view">
-            <div className="learning-workspace-context">
-              {workspaceView === "career" ? <BriefcaseBusiness aria-hidden="true" size={15} />
-                : workspaceView === "medical" ? <Stethoscope aria-hidden="true" size={15} />
-                  : <BookOpenCheck aria-hidden="true" size={15} />}
-              <span>
-                {workspaceView === "career" ? "Placement preparation"
-                  : workspaceView === "medical" ? "Medical training"
-                    : "Notebook preparation"}
-              </span>
+      {showLearningHero ? (
+        <section className="card learning-hero">
+          <div className="learning-hero-copy">
+            <div className="learning-hero-eyebrow">
+              <span className="section-tag"><Sparkles size={14} /> AI learning workspace</span>
+              <button
+                aria-controls="learning-subject-mastery-dialog"
+                aria-expanded={masteryDialogOpen}
+                aria-haspopup="dialog"
+                aria-label="Open subject mastery"
+                className="learning-mastery-trigger"
+                onClick={() => setMasteryDialogOpen(true)}
+                title="Subject mastery"
+                type="button"
+              >
+                <Target aria-hidden="true" size={18} />
+              </button>
             </div>
-            <button
-              aria-label="Back to preparation choices"
-              className="learning-icon-button page-back-control"
-              onClick={returnToPreparationChoice}
-              title="Back to preparation choices"
-              type="button"
-            >
-              <ArrowLeft aria-hidden="true" size={17} />
-            </button>
-          </nav>
-        )}
-      </section>
+            <h2>Start Learning</h2>
+          </div>
+          <div className="learning-hero-metrics" aria-label="Learning notebook summary">
+            <div><strong>{notebooks.length}</strong><span>Saved notebooks</span></div>
+            <div><strong>{activeNotebook?.chapters.length || 0}</strong><span>Mapped chapters</span></div>
+            <div><strong>{nodes.length}</strong><span>Study concepts</span></div>
+          </div>
+        </section>
+      ) : (
+        <nav className="learning-workspace-compact-controls" aria-label="Opened learning workspace controls">
+          <button
+            aria-controls="learning-subject-mastery-dialog"
+            aria-expanded={masteryDialogOpen}
+            aria-haspopup="dialog"
+            aria-label="Open subject mastery"
+            className="learning-mastery-trigger"
+            onClick={() => setMasteryDialogOpen(true)}
+            title="Subject mastery"
+            type="button"
+          >
+            <Target aria-hidden="true" size={18} />
+          </button>
+          <button
+            aria-label="Back to Start Learning home"
+            className="learning-workspace-return-button"
+            onClick={returnToPreparationChoice}
+            title="Back to Start Learning home"
+            type="button"
+          >
+            <ArrowLeft aria-hidden="true" size={16} />
+            <span>Back to Start Learning</span>
+          </button>
+        </nav>
+      )}
 
       <div className={`learning-workspace is-${workspaceView}`}>
         <aside className="learning-source-rail" aria-label="Sources and saved work">
