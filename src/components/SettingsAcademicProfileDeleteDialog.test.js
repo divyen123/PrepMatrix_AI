@@ -55,6 +55,29 @@ test("renders both deletable profiles with a current marker and exact actions", 
     assert.match(markup, /checked=""[^>]*value="profile-b"/u);
     assert.match(markup, />Cancel<\/button>/u);
     assert.match(markup, />Delete profile<\/button>/u);
+
+    const passwordMarkup = renderToStaticMarkup(React.createElement(Dialog, {
+      activeProfileId: "profile-a",
+      confirmationStep: "password",
+      errorMessage: "Application password is incorrect.",
+      onBack() {},
+      onCancel() {},
+      onConfirm() {},
+      onPasswordChange() {},
+      onPasswordVisibilityChange() {},
+      open: true,
+      password: "",
+      profiles,
+      selectedProfileId: "profile-b",
+    }));
+
+    assert.match(passwordMarkup, /Confirm with your application password/u);
+    assert.match(passwordMarkup, /Selected profile[\s\S]*?Medical Studies/u);
+    assert.match(passwordMarkup, /autoComplete="current-password"/u);
+    assert.match(passwordMarkup, /type="password"/u);
+    assert.match(passwordMarkup, /Application password is incorrect\./u);
+    assert.match(passwordMarkup, /disabled=""[^>]*>Confirm deletion<\/button>/u);
+    assert.doesNotMatch(passwordMarkup, /name="academic-profile-to-delete"/u);
   } finally {
     await vite.close();
   }
@@ -78,13 +101,19 @@ test("keeps the delete dialog mounted for transition, focus return, and keyboard
   assert.match(source, /returnFocusTarget\?\.isConnected/u);
   assert.match(source, /fallbackFocusTarget\?\.isConnected/u);
   assert.match(source, /previousFocus\?\.isConnected/u);
-  assert.match(source, /busy \|\| !selectedProfileId/u);
+  assert.match(source, /confirmationStep === "password"/u);
+  assert.match(source, /passwordInputRef\.current\?\.focus/u);
+  assert.match(source, /onConfirm\?\.\(password\)/u);
+  assert.match(source, /type=\{passwordVisible \? "text" : "password"\}/u);
+  assert.match(source, /busy \|\| \(confirmingPassword \? !password : !selectedProfileId\)/u);
   assert.match(stylesheet, /\.settings-profile-delete-backdrop\.is-open/u);
   assert.match(
     stylesheet,
     /\.settings-profile-delete-dialog\s*\{[\s\S]*?width: min\(420px, 100%\)/u,
   );
   assert.match(stylesheet, /body\.has-bg-image \.confirm-modal\.settings-profile-delete-dialog/u);
+  assert.match(stylesheet, /\.settings-profile-delete-password-step/u);
+  assert.match(stylesheet, /\.settings-profile-delete-password-field input\[aria-invalid="true"\]/u);
 });
 
 test("marks an incomplete server deletion as retryable", async () => {

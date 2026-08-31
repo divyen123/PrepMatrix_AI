@@ -89,6 +89,25 @@ test("uses a long delete timeout and recovers authoritatively after every deleti
   assert.match(transitionSource, /if \(deletionCompleted\) return recovered/u);
 });
 
+test("sends profile-deletion passwords only with the destructive request", () => {
+  const transitionStart = appSource.indexOf("const runAcademicProfileTransition");
+  const transitionEnd = appSource.indexOf("const createAcademicProfile", transitionStart);
+  const transitionSource = appSource.slice(transitionStart, transitionEnd);
+  const deleteStart = appSource.indexOf("const deleteAcademicProfile");
+  const deleteEnd = appSource.indexOf("const importActiveProfileWorkspace", deleteStart);
+  const deleteSource = appSource.slice(deleteStart, deleteEnd);
+
+  assert.match(deleteSource, /\(profile, currentPassword = ""\)/u);
+  assert.match(deleteSource, /runAcademicProfileTransition\(payload, \{ currentPassword, deletedProfile: profile \}\)/u);
+  assert.match(
+    transitionSource,
+    /const requestPayload = deletedProfile[\s\S]*?\{ \.\.\.payload, currentPassword \}[\s\S]*?api\.updateProfile\(requestPayload/u,
+  );
+  assert.match(transitionSource, /payload,\s*previousDataId,\s*deletedProfile,/u);
+  assert.doesNotMatch(transitionSource, /payload: requestPayload/u);
+  assert.match(transitionSource, /ACADEMIC_PROFILE_PASSWORD_INCORRECT/u);
+});
+
 test("clears deleted browser state and refreshes the active workspace across tabs", () => {
   assert.match(appSource, /window\.addEventListener\("storage", handleAcademicProfileStorageEvent\)/u);
   assert.match(appSource, /isValidAcademicProfileDataId\(deletedDataId\)/u);

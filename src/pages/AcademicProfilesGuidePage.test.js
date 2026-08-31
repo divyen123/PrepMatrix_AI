@@ -144,7 +144,11 @@ test("registers the permanent guide and the once-only animated Profile B intro",
   assert.match(pageSource, /<AcademicProfileCreateDialog[\s\S]*?onCreateAcademicProfile=\{onCreateAcademicProfile\}/u);
   assert.match(pageSource, /<SettingsAcademicProfileDeleteDialog[\s\S]*?onConfirm=\{handleDeleteAcademicProfile\}/u);
   assert.match(pageSource, /await onVisitAcademicProfile\(targetProfile\)/u);
-  assert.match(pageSource, /await onDeleteAcademicProfile\(selectedProfileForDeletion\)/u);
+  assert.match(pageSource, /await onDeleteAcademicProfile\(selectedProfileForDeletion, currentPassword\)/u);
+  assert.match(pageSource, /setDeleteConfirmationStep\("password"\)/u);
+  assert.match(pageSource, /confirmationStep=\{deleteConfirmationStep\}/u);
+  assert.match(pageSource, /password=\{deleteProfilePassword\}/u);
+  assert.match(pageSource, /ACADEMIC_PROFILE_PASSWORD_INCORRECT/u);
   assert.match(
     pageSource,
     /Two academic profiles are saved\. Delete one profile before editing academic details\./u,

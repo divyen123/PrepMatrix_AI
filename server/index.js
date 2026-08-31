@@ -1490,6 +1490,21 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
         "Delete the academic profile separately from other academic changes.",
       );
     }
+    if (hasDeleteAction) {
+      res.set("Cache-Control", "no-store");
+      if (typeof currentPassword !== "string" || currentPassword.length === 0) {
+        return res.status(400).json({
+          error: "Enter your application password to delete this academic profile.",
+          code: "ACADEMIC_PROFILE_PASSWORD_REQUIRED",
+        });
+      }
+      if (!verifyPassword(currentPassword, currentUser.passwordHash)) {
+        return res.status(403).json({
+          error: "Application password is incorrect. The academic profile was not deleted.",
+          code: "ACADEMIC_PROFILE_PASSWORD_INCORRECT",
+        });
+      }
+    }
     const academicTransition = hasDeleteAction
       ? null
       : transitionAcademicProfiles(currentUser, {

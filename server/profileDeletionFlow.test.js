@@ -37,6 +37,29 @@ test("whole-account deletion removes profile housekeeping and the global battle 
   assert.match(flow, /collection\("quizBattleRewardLedger"\)\.deleteMany\(\{ userId \}\)/);
 });
 
+test("profile deletion requires and verifies the current application password before starting", () => {
+  const start = source.indexOf('app.put("/api/auth/profile"');
+  const end = source.indexOf('app.put("/api/workspace"', start);
+  const flow = source.slice(start, end);
+  const deleteActionAt = flow.indexOf("const hasDeleteAction");
+  const passwordRequiredAt = flow.indexOf('code: "ACADEMIC_PROFILE_PASSWORD_REQUIRED"');
+  const passwordVerifyAt = flow.indexOf(
+    "verifyPassword(currentPassword, currentUser.passwordHash)",
+    passwordRequiredAt,
+  );
+  const passwordIncorrectAt = flow.indexOf('code: "ACADEMIC_PROFILE_PASSWORD_INCORRECT"');
+  const deletionAt = flow.indexOf("const deleted = await deleteAcademicProfileData");
+
+  assert.ok(start >= 0 && end > start);
+  assert.ok(deleteActionAt >= 0 && deleteActionAt < passwordRequiredAt);
+  assert.ok(passwordRequiredAt < passwordVerifyAt);
+  assert.ok(passwordVerifyAt < passwordIncorrectAt);
+  assert.ok(passwordIncorrectAt < deletionAt);
+  assert.match(flow, /res\.status\(400\)[\s\S]*?ACADEMIC_PROFILE_PASSWORD_REQUIRED/u);
+  assert.match(flow, /res\.status\(403\)[\s\S]*?ACADEMIC_PROFILE_PASSWORD_INCORRECT/u);
+  assert.match(flow, /res\.set\("Cache-Control", "no-store"\)/u);
+});
+
 test("account usage sync is registered with unique, query, TTL, and preference indexes", () => {
   assert.match(source, /registerAppUsageRoutes\(app, \{[\s\S]*?withAccountWriteFence/u);
   assert.match(source, /withAccountWriteFence[\s\S]*?ttlMs: 120_000/u);

@@ -161,6 +161,158 @@ body.has-bg-image .confirm-modal.settings-profile-delete-dialog {
   text-transform: uppercase;
 }
 
+.settings-profile-delete-password-step {
+  display: grid;
+  gap: 10px;
+}
+
+body .settings-profile-delete-password-back {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px !important;
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  font-size: 0.68rem !important;
+  transform: none !important;
+}
+
+body .settings-profile-delete-password-back:hover,
+body .settings-profile-delete-password-back:focus-visible {
+  color: var(--text) !important;
+  background: var(--surface-muted) !important;
+}
+
+.settings-profile-delete-selected-summary {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 11px;
+  background: color-mix(in srgb, #ef4444 7%, var(--surface-muted));
+  border: 1px solid color-mix(in srgb, #ef4444 26%, var(--border));
+  border-radius: 12px;
+}
+
+.settings-profile-delete-selected-summary > span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: #ef4444;
+  background: color-mix(in srgb, #ef4444 11%, transparent);
+  border-radius: 10px;
+}
+
+.settings-profile-delete-selected-summary > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.settings-profile-delete-selected-summary small,
+.settings-profile-delete-selected-summary p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  line-height: 1.35;
+}
+
+.settings-profile-delete-selected-summary strong {
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.settings-profile-delete-password-field {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-profile-delete-password-field > span {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.settings-profile-delete-password-field > div {
+  position: relative;
+}
+
+.settings-profile-delete-password-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 42px 9px 11px;
+  color: var(--text);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  outline: none;
+  font: inherit;
+  font-size: 0.78rem;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.settings-profile-delete-password-field input:focus {
+  border-color: rgba(var(--accent-rgb), 0.48);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
+}
+
+.settings-profile-delete-password-field input[aria-invalid="true"] {
+  border-color: rgba(239, 68, 68, 0.7);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.09);
+}
+
+body .settings-profile-delete-password-field button {
+  position: absolute;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  padding: 0 !important;
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 9px;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .settings-profile-delete-password-field button:hover,
+body .settings-profile-delete-password-field button:focus-visible {
+  color: var(--text) !important;
+  background: var(--surface-strong) !important;
+}
+
+.settings-profile-delete-password-hint,
+.settings-profile-delete-password-error {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.settings-profile-delete-password-hint {
+  color: var(--text-muted);
+}
+
+.settings-profile-delete-password-error {
+  padding: 8px 10px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  border-radius: 10px;
+}
+
 @media (max-width: 520px) {
   .settings-profile-delete-backdrop { padding: 12px; }
   .settings-profile-delete-dialog {

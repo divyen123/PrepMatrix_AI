@@ -97,6 +97,10 @@ export default function AcademicProfilesGuidePage({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteProfileSelection, setDeleteProfileSelection] = useState("");
   const [deleteProfileSelectionDataId, setDeleteProfileSelectionDataId] = useState("");
+  const [deleteConfirmationStep, setDeleteConfirmationStep] = useState("select");
+  const [deleteProfilePassword, setDeleteProfilePassword] = useState("");
+  const [deleteProfilePasswordVisible, setDeleteProfilePasswordVisible] = useState(false);
+  const [deleteProfileError, setDeleteProfileError] = useState("");
   const [profileDeletionGuidance, setProfileDeletionGuidance] = useState(null);
   const createProfileTriggerRef = useRef(null);
   const deleteProfileButtonRef = useRef(null);
@@ -154,6 +158,10 @@ export default function AcademicProfilesGuidePage({
     promptedDeletionRetryRef.current = pendingDeletionKey;
     setDeleteProfileSelection(pendingDeletionProfile.id);
     setDeleteProfileSelectionDataId(pendingDeletionProfile.dataId);
+    setDeleteConfirmationStep("select");
+    setDeleteProfilePassword("");
+    setDeleteProfilePasswordVisible(false);
+    setDeleteProfileError("");
     setDeleteDialogOpen(true);
   }, [
     deleteDialogOpen,
@@ -236,9 +244,16 @@ export default function AcademicProfilesGuidePage({
     const selected = slots.profiles.find((profile) => profile.id === profileId);
     setDeleteProfileSelection(selected?.id || "");
     setDeleteProfileSelectionDataId(selected?.dataId || "");
+    setDeleteConfirmationStep("select");
+    setDeleteProfilePassword("");
+    setDeleteProfilePasswordVisible(false);
+    setDeleteProfileError("");
   };
 
   const dismissDeleteProfileDialog = () => {
+    setDeleteProfilePassword("");
+    setDeleteProfilePasswordVisible(false);
+    setDeleteProfileError("");
     setDeleteDialogOpen(false);
     if (deleteProfileDismissTimerRef.current) {
       window.clearTimeout(deleteProfileDismissTimerRef.current);
@@ -246,8 +261,35 @@ export default function AcademicProfilesGuidePage({
     deleteProfileDismissTimerRef.current = window.setTimeout(() => {
       setDeleteProfileSelection("");
       setDeleteProfileSelectionDataId("");
+      setDeleteConfirmationStep("select");
+      setDeleteProfilePassword("");
+      setDeleteProfilePasswordVisible(false);
+      setDeleteProfileError("");
       deleteProfileDismissTimerRef.current = null;
     }, PROFILE_DELETE_EXIT_MS);
+  };
+
+  const continueToDeletePasswordConfirmation = () => {
+    const selectedProfileForDeletion = slots.profiles.find((profile) => (
+      profile.id === deleteProfileSelection
+      && profile.dataId === deleteProfileSelectionDataId
+    ));
+    if (!selectedProfileForDeletion) {
+      setDeleteProfileError("Select the academic profile you want to delete.");
+      return;
+    }
+    setDeleteProfilePassword("");
+    setDeleteProfilePasswordVisible(false);
+    setDeleteProfileError("");
+    setDeleteConfirmationStep("password");
+  };
+
+  const returnToDeleteProfileSelection = () => {
+    if (deletingProfile) return;
+    setDeleteConfirmationStep("select");
+    setDeleteProfilePassword("");
+    setDeleteProfilePasswordVisible(false);
+    setDeleteProfileError("");
   };
 
   const handleRequestDeleteProfile = () => {
@@ -269,10 +311,14 @@ export default function AcademicProfilesGuidePage({
     if (!targetProfile?.id) return;
     setDeleteProfileSelection(targetProfile.id);
     setDeleteProfileSelectionDataId(targetProfile.dataId);
+    setDeleteConfirmationStep("select");
+    setDeleteProfilePassword("");
+    setDeleteProfilePasswordVisible(false);
+    setDeleteProfileError("");
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteAcademicProfile = async () => {
+  const handleDeleteAcademicProfile = async (currentPassword = "") => {
     const selectedProfileForDeletion = slots.profiles.find((profile) => (
       profile.id === deleteProfileSelection
       && profile.dataId === deleteProfileSelectionDataId
@@ -289,11 +335,16 @@ export default function AcademicProfilesGuidePage({
       || profileMutationBusy
       || !onDeleteAcademicProfile
     ) return;
+    if (!currentPassword) {
+      setDeleteProfileError("Enter your application password to delete this profile.");
+      return;
+    }
 
     profileMutationInFlightRef.current = true;
     setDeletingProfile(true);
+    setDeleteProfileError("");
     try {
-      await onDeleteAcademicProfile(selectedProfileForDeletion);
+      await onDeleteAcademicProfile(selectedProfileForDeletion, currentPassword);
       setProfileDeletionGuidance(null);
       toast.success(getAcademicProfileDisplayName(selectedProfileForDeletion) + " deleted.");
       dismissDeleteProfileDialog();
@@ -310,8 +361,16 @@ export default function AcademicProfilesGuidePage({
             + ", unlock Parent Corner, then return to this guide to delete it.",
         );
       } else {
-        toast.error(error?.message
-          || "Could not delete " + getAcademicProfileDisplayName(selectedProfileForDeletion) + ".");
+        const message = error?.message
+          || "Could not delete " + getAcademicProfileDisplayName(selectedProfileForDeletion) + ".";
+        setDeleteProfilePassword("");
+        setDeleteProfileError(message);
+        if (![
+          "ACADEMIC_PROFILE_PASSWORD_REQUIRED",
+          "ACADEMIC_PROFILE_PASSWORD_INCORRECT",
+        ].includes(error?.code)) {
+          toast.error(message);
+        }
       }
     } finally {
       profileMutationInFlightRef.current = false;
@@ -619,11 +678,22 @@ export default function AcademicProfilesGuidePage({
         <SettingsAcademicProfileDeleteDialog
           activeProfileId={slots.activeProfile?.id || ""}
           busy={deletingProfile}
+          confirmationStep={deleteConfirmationStep}
+          errorMessage={deleteProfileError}
           fallbackFocusRef={createProfileTriggerRef}
+          onBack={returnToDeleteProfileSelection}
           onCancel={dismissDeleteProfileDialog}
           onConfirm={handleDeleteAcademicProfile}
+          onPasswordChange={(value) => {
+            setDeleteProfilePassword(value);
+            setDeleteProfileError("");
+          }}
+          onPasswordVisibilityChange={() => setDeleteProfilePasswordVisible((visible) => !visible)}
+          onProceed={continueToDeletePasswordConfirmation}
           onSelectionChange={handleDeleteProfileSelectionChange}
           open={deleteDialogOpen}
+          password={deleteProfilePassword}
+          passwordVisible={deleteProfilePasswordVisible}
           profiles={slots.profiles}
           returnFocusRef={deleteProfileButtonRef}
           selectedProfileId={deleteProfileSelection}

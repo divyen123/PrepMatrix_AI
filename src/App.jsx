@@ -1079,7 +1079,10 @@ function App() {
     return normalized;
   }, [academicLevel, academicTrack, userProfile]);
 
-  const runAcademicProfileTransition = async (payload, { deletedProfile = null } = {}) => {
+  const runAcademicProfileTransition = async (
+    payload,
+    { currentPassword = "", deletedProfile = null } = {},
+  ) => {
     if (workspaceMutationInFlightRef.current) {
       throw new Error("Another workspace change is still in progress.");
     }
@@ -1105,7 +1108,10 @@ function App() {
         await finalSave;
       }
 
-      const response = await api.updateProfile(payload, {
+      const requestPayload = deletedProfile
+        ? { ...payload, currentPassword }
+        : payload;
+      const response = await api.updateProfile(requestPayload, {
         academicProfileId: previousDataId || null,
         ...(deletedProfile ? { timeoutMs: ACADEMIC_PROFILE_DELETE_TIMEOUT_MS } : {}),
       });
@@ -1143,6 +1149,17 @@ function App() {
       setWorkspaceLoaded(true);
       return response;
     } catch (error) {
+        if (
+          deletedProfile?.id
+          && [
+            "ACADEMIC_PROFILE_PASSWORD_REQUIRED",
+            "ACADEMIC_PROFILE_PASSWORD_INCORRECT",
+          ].includes(error?.code)
+        ) {
+          academicProfileDeletionRetryRef.current = null;
+          setWorkspaceLoaded(true);
+          throw error;
+        }
         if (deletedProfile?.id) {
           academicProfileDeletionRetryRef.current = {
             id: deletedProfile.id,
@@ -1272,10 +1289,11 @@ function App() {
   const visitAcademicProfile = (profile) => runAcademicProfileTransition({
     visitAcademicProfileId: profile?.id,
   });
-  const deleteAcademicProfile = (profile) => {
+  const deleteAcademicProfile = (profile, currentPassword = "") => {
     const payload = buildAcademicProfileDeletePayload(profile);
     if (!payload) throw new Error("The selected academic profile is missing its immutable data scope.");
-    return runAcademicProfileTransition(payload, { deletedProfile: profile });
+    if (!currentPassword) throw new Error("Enter your application password to delete this profile.");
+    return runAcademicProfileTransition(payload, { currentPassword, deletedProfile: profile });
   };
 
   const importActiveProfileWorkspace = async (backup = {}) => {
