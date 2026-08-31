@@ -3116,7 +3116,7 @@ function StartLearningPage({
             <div><strong>{nodes.length}</strong><span>Study concepts</span></div>
           </div>
         </section>
-      ) : (
+      ) : workspaceView === "medical" ? (
         <nav className="learning-workspace-compact-controls" aria-label="Opened learning workspace controls">
           <button
             aria-label="Back to Start Learning home"
@@ -3129,7 +3129,7 @@ function StartLearningPage({
             <span>Back to Start Learning</span>
           </button>
         </nav>
-      )}
+      ) : null}
 
       <div className={`learning-workspace is-${workspaceView}`}>
         <aside className="learning-source-rail" aria-label="Sources and saved work">
@@ -3826,7 +3826,7 @@ function StartLearningPage({
           ) : (
             <>
               <section className="card learning-notebook-header">
-                <div>
+                <div className="learning-notebook-header-copy">
                   <span className="section-tag">Active notebook</span>
                   <h2>{activeNotebook.title}</h2>
                   <p>{activeNotebook.summary || `${activeNotebook.subjectName} organized into a focused revision workspace.`}</p>
@@ -3849,6 +3849,16 @@ function StartLearningPage({
                     </details>
                   )}
                 </div>
+                <button
+                  aria-label="Back to Start Learning home"
+                  className="learning-workspace-return-button is-inside-card"
+                  onClick={returnToPreparationChoice}
+                  title="Back to Start Learning home"
+                  type="button"
+                >
+                  <ArrowLeft aria-hidden="true" size={16} />
+                  <span>Back to Start Learning</span>
+                </button>
                 <div className="learning-header-actions" aria-label="Notebook actions">
                   <button aria-label="Save notebook" disabled={!dirty || saving} onClick={saveNotebook} title="Save notebook" type="button">
                     {saving ? <LoaderCircle className="spinner" size={16} /> : <Save size={16} />}
@@ -4340,7 +4350,7 @@ function StartLearningPage({
         {activeNotebook && careerVisible && (
           <section className="learning-career-workspace" aria-label="Placement and internship preparation">
             <section className="card learning-career-intro">
-              <div>
+              <div className="learning-career-intro-copy">
                 <span className="section-tag"><BriefcaseBusiness size={14} /> Career preparation</span>
                 <h2>Prepare for the questions that matter</h2>
                 <p>
@@ -4348,6 +4358,16 @@ function StartLearningPage({
                   to turn your selected topics into an explained interview plan.
                 </p>
               </div>
+              <button
+                aria-label="Back to Start Learning home"
+                className="learning-workspace-return-button is-inside-card"
+                onClick={returnToPreparationChoice}
+                title="Back to Start Learning home"
+                type="button"
+              >
+                <ArrowLeft aria-hidden="true" size={16} />
+                <span>Back to Start Learning</span>
+              </button>
               <div className="learning-career-intro-metrics">
                 <span><strong>{careerFoundationTopics.length}</strong> role areas</span>
                 <span><strong>{careerCodingTopics.length}</strong> coding patterns</span>

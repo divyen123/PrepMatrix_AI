@@ -150,3 +150,19 @@ test("keeps Subject Mastery out of opened notebook and placement toolbars", () =
     /className="learning-workspace-compact-controls"[\s\S]*?className="learning-workspace-return-button"/u,
   );
 });
+
+test("keeps the Start Learning return control inside opened notebook and placement cards", () => {
+  const notebookHeaderStart = pageSource.indexOf('className="card learning-notebook-header"');
+  const notebookHeaderEnd = pageSource.indexOf("</section>", notebookHeaderStart);
+  const notebookHeaderSource = pageSource.slice(notebookHeaderStart, notebookHeaderEnd);
+  const placementHeaderStart = pageSource.indexOf('className="card learning-career-intro"');
+  const placementHeaderEnd = pageSource.indexOf("</section>", placementHeaderStart);
+  const placementHeaderSource = pageSource.slice(placementHeaderStart, placementHeaderEnd);
+
+  assert.ok(notebookHeaderStart >= 0, "expected the opened notebook header card");
+  assert.ok(placementHeaderStart >= 0, "expected the opened placement header card");
+  assert.ok(notebookHeaderSource.includes('className="learning-workspace-return-button is-inside-card"'));
+  assert.ok(placementHeaderSource.includes('className="learning-workspace-return-button is-inside-card"'));
+  assert.ok(stylesheet.includes('"copy back"'));
+  assert.ok(stylesheet.includes('"back"\n      "copy"'));
+});
