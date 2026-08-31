@@ -103,3 +103,24 @@ test("opens generated notebooks on a real topic and keeps focused sessions topic
   assert.equal(startSessionSource.includes("setCompleted"), false);
   assert.equal(startSessionSource.includes("setLearningPlannerNodeCompletion"), false);
 });
+
+test("keeps long-running learning generation in the profile-scoped background task owner", () => {
+  assert.ok(pageSource.includes("useBackgroundTasks()"));
+  assert.ok(pageSource.includes("getBackgroundTaskKey("));
+
+  [
+    'feature: LEARNING_BACKGROUND_FEATURES.notebook',
+    'feature: LEARNING_BACKGROUND_FEATURES.career',
+    'feature: LEARNING_BACKGROUND_FEATURES.medical',
+  ].forEach((feature) => assert.ok(pageSource.includes(feature), `missing ${feature}`));
+
+  assert.equal(
+    pageSource.match(/route: "\/learn"/gu)?.length,
+    3,
+    "every learning generator should report activity on the Start Learning route",
+  );
+  assert.ok(pageSource.includes("presentNotebookAnalysis(task.result)"));
+  assert.ok(pageSource.includes("presentCareerAnalysis(task.result, request)"));
+  assert.ok(pageSource.includes("presentMedicalAnalysis(task.result, request)"));
+  assert.ok(pageSource.includes("acknowledgeTask(task.key, task.runId)"));
+});

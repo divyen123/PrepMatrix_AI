@@ -19,8 +19,15 @@
 .planner-hub-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
   gap: clamp(14px, 2vw, 22px);
   margin-top: clamp(28px, 4vh, 48px);
+}
+
+.planner-hub-destination {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
 }
 
 .planner-hub-card {
@@ -147,6 +154,28 @@
 
 .planner-hub-card-footer svg {
   transition: transform 220ms ease;
+}
+
+.planner-hub-attention-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 0 6px;
+  color: color-mix(in srgb, var(--danger) 88%, var(--text));
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.planner-hub-attention-dot {
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  margin-top: 0.3em;
+  background: var(--danger);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 14%, transparent);
 }
 
 .planner-hub-card:focus-visible .planner-hub-card-footer svg {
@@ -300,6 +329,7 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
   .planner-hub-card::before,
   .planner-hub-card-icon,
   .planner-hub-card-footer svg,
+  .planner-hub-attention-dot,
   .planner-subpage-back,
   .planner-subpage-content {
     animation: none !important;

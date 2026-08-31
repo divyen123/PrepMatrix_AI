@@ -89,6 +89,7 @@ function PlannerPage({
   setScheduleStartDate,
   kidsMode = false,
   parentAccessGranted = true,
+  plannerAttention = null,
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -211,26 +212,48 @@ function PlannerPage({
           <nav aria-label="Planner workspaces" className="planner-hub-grid">
             {visibleDestinations.map((destination) => {
               const DestinationIcon = destination.icon;
+              const showScheduleAttention = destination.id === "schedule"
+                && plannerAttention?.active;
+              const pendingCount = Math.max(
+                0,
+                Number.parseInt(plannerAttention?.pendingCount, 10) || 0,
+              );
               return (
-                <Link
-                  aria-label={`Open ${destination.title}`}
-                  className={`planner-hub-card is-${destination.id}`}
-                  key={destination.id}
-                  to={destination.path}
-                >
-                  <span className="planner-hub-card-icon" aria-hidden="true">
-                    <DestinationIcon size={23} strokeWidth={1.9} />
-                  </span>
-                  <span className="planner-hub-card-copy">
-                    <span className="planner-hub-card-eyebrow">{destination.eyebrow}</span>
-                    <strong>{destination.title}</strong>
-                    <span>{destination.description}</span>
-                  </span>
-                  <span className="planner-hub-card-footer">
-                    <span>{destination.helper}</span>
-                    <ChevronRight aria-hidden="true" size={18} />
-                  </span>
-                </Link>
+                <div className={`planner-hub-destination is-${destination.id}`} key={destination.id}>
+                  <Link
+                    aria-label={`Open ${destination.title}`}
+                    className={`planner-hub-card is-${destination.id}`}
+                    to={destination.path}
+                  >
+                    <span className="planner-hub-card-icon" aria-hidden="true">
+                      <DestinationIcon size={23} strokeWidth={1.9} />
+                    </span>
+                    <span className="planner-hub-card-copy">
+                      <span className="planner-hub-card-eyebrow">{destination.eyebrow}</span>
+                      <strong>{destination.title}</strong>
+                      <span>{destination.description}</span>
+                    </span>
+                    <span className="planner-hub-card-footer">
+                      <span>{destination.helper}</span>
+                      <ChevronRight aria-hidden="true" size={18} />
+                    </span>
+                  </Link>
+                  {showScheduleAttention && (
+                    <p
+                      aria-live="polite"
+                      className="planner-hub-attention-message"
+                      role="status"
+                    >
+                      <span aria-hidden="true" className="planner-hub-attention-dot" />
+                      <span>
+                        Today&apos;s schedule is not complete
+                        {pendingCount > 0
+                          ? ` · ${pendingCount} task${pendingCount === 1 ? "" : "s"} remaining`
+                          : ""}
+                      </span>
+                    </p>
+                  )}
+                </div>
               );
             })}
           </nav>

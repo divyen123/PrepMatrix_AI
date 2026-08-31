@@ -1,11 +1,18 @@
-import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useBeforeUnload,
+  useBlocker,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
 import { Download, Search, Trash2, Check, X, Swords } from "lucide-react";
 import api from "../utils/apiClient";
 import QuizBattlesPanel from "../components/quiz-battles/QuizBattlesPanel";
+import QuizExitDialog from "../components/QuizExitDialog";
 import {
   AI_FEATURES,
   createAiIdempotencyKey,
@@ -22,6 +29,14 @@ import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/
 import { getRankedQuizSubjects } from "../utils/quizSubjectOptions";
 import { getLearnerRoutePolicy } from "../utils/learnerRouting";
 import { quizBattleInviteCodeFromHash } from "../utils/quizBattleUi";
+import {
+  QUIZ_SESSION_STATUSES,
+  clearQuizSession,
+  createQuizSession,
+  quizSessionAnsweredCount,
+  readQuizSession,
+  writeQuizSession,
+} from "../utils/quizSession";
 
 const QUIZ_HISTORY_PER_PAGE = 6;
 
@@ -58,6 +73,10 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   const [deletingAttemptId, setDeletingAttemptId] = useState(null);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const [quizSession, setQuizSession] = useState(null);
+  const [multiplayerAttempt, setMultiplayerAttempt] = useState(null);
+  const [exitActionBusy, setExitActionBusy] = useState(false);
+  const [exitActionError, setExitActionError] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -67,6 +86,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     () => searchParams.get("join") || quizBattleInviteCodeFromHash(window.location.hash),
   );
   const hasInitializedSubject = useRef(false);
+  const quizSessionRef = useRef(null);
   const isYoungKidsLearner = getLearnerRoutePolicy({
     ...userProfile,
     academicLevel,
@@ -114,6 +134,41 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       document.getElementById(`quiz-tab-${nextMode}`)?.focus();
     });
   };
+
+  useEffect(() => {
+    hasInitializedSubject.current = false;
+    const stored = readQuizSession(window.localStorage, academicProfileDataId);
+    const pausedSession = stored
+      ? writeQuizSession(window.localStorage, academicProfileDataId, {
+        ...stored,
+        status: QUIZ_SESSION_STATUSES.PAUSED,
+      }) || { ...stored, status: QUIZ_SESSION_STATUSES.PAUSED }
+      : null;
+
+    quizSessionRef.current = pausedSession;
+    setQuizSession(pausedSession);
+    setResult(null);
+
+    if (pausedSession) {
+      hasInitializedSubject.current = true;
+      setTopic(pausedSession.topic);
+      setSubjectName(pausedSession.subjectName);
+      setSearchQuery(pausedSession.subjectName);
+      setQuestionLimit(pausedSession.questionLimit);
+      setQuestions(pausedSession.questions);
+      setAnswers(pausedSession.answers);
+      setQuizMeta(pausedSession.quizMeta);
+      return;
+    }
+
+    setTopic("");
+    setSubjectName("");
+    setSearchQuery("");
+    setQuestionLimit(5);
+    setQuestions([]);
+    setAnswers({});
+    setQuizMeta(null);
+  }, [academicProfileDataId]);
 
   useEffect(() => {
     if (hasInitializedSubject.current) return;
@@ -165,6 +220,98 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     academicTrack,
   });
   const curriculumExamples = getAcademicProfileExamples(learnerContext);
+  const hasUnfinishedSoloQuiz = Boolean(
+    quizSession
+    && questions.length > 0
+    && !result,
+  );
+  const soloQuizPaused = hasUnfinishedSoloQuiz
+    && quizSession.status === QUIZ_SESSION_STATUSES.PAUSED;
+  const soloQuizActive = hasUnfinishedSoloQuiz
+    && quizSession.status === QUIZ_SESSION_STATUSES.ACTIVE;
+  const multiplayerQuizActive = Boolean(multiplayerAttempt?.active);
+
+  const persistCurrentQuizSession = useCallback((status) => {
+    if (questions.length === 0 || result) return null;
+    const current = quizSessionRef.current || createQuizSession({
+      answers,
+      questions,
+      quizMeta,
+      status,
+      subjectName: quizMeta?.subjectName || selectedSubject,
+      topic: quizMeta?.topic || cleanTopic,
+    });
+    if (!current) return null;
+
+    const persisted = writeQuizSession(window.localStorage, academicProfileDataId, {
+      ...current,
+      answers,
+      questions,
+      quizMeta,
+      status,
+      subjectName: quizMeta?.subjectName || current.subjectName || selectedSubject,
+      topic: quizMeta?.topic || current.topic || cleanTopic,
+    });
+    if (!persisted) return null;
+    quizSessionRef.current = persisted;
+    setQuizSession(persisted);
+    return persisted;
+  }, [
+    academicProfileDataId,
+    answers,
+    cleanTopic,
+    questions,
+    quizMeta,
+    result,
+    selectedSubject,
+  ]);
+
+  useEffect(() => {
+    const current = quizSessionRef.current;
+    if (!current || questions.length === 0 || result) return;
+    const persisted = writeQuizSession(window.localStorage, academicProfileDataId, {
+      ...current,
+      answers,
+      questions,
+      quizMeta,
+      subjectName: quizMeta?.subjectName || current.subjectName || selectedSubject,
+      topic: quizMeta?.topic || current.topic || cleanTopic,
+    });
+    if (persisted) quizSessionRef.current = persisted;
+  }, [
+    academicProfileDataId,
+    answers,
+    cleanTopic,
+    questions,
+    quizMeta,
+    result,
+    selectedSubject,
+  ]);
+
+  const handleMultiplayerAttemptChange = useCallback((nextAttempt) => {
+    setMultiplayerAttempt(nextAttempt?.active ? nextAttempt : null);
+  }, []);
+
+  const shouldBlockQuizNavigation = useCallback(({ currentLocation, nextLocation }) => {
+    const destinationChanged = currentLocation.pathname !== nextLocation.pathname
+      || currentLocation.search !== nextLocation.search
+      || currentLocation.hash !== nextLocation.hash;
+    return destinationChanged && (soloQuizActive || multiplayerQuizActive);
+  }, [multiplayerQuizActive, soloQuizActive]);
+  const navigationBlocker = useBlocker(shouldBlockQuizNavigation);
+
+  useBeforeUnload(useCallback((event) => {
+    if (!soloQuizActive && !multiplayerQuizActive) return;
+    event.preventDefault();
+    event.returnValue = "";
+  }, [multiplayerQuizActive, soloQuizActive]));
+
+  useEffect(() => {
+    if (navigationBlocker.state !== "blocked") {
+      setExitActionBusy(false);
+      setExitActionError("");
+    }
+  }, [navigationBlocker.state]);
 
   const filteredAttempts = historySearchQuery.trim()
     ? attempts
@@ -172,7 +319,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
         attempt,
         index,
         rank: rankSearchMatch(
-          [attempt.topic, attempt.subjectName, attempt.score, attempt.total],
+          [attempt.topic, attempt.subjectName, attempt.score, attempt.total, attempt.status],
           historySearchQuery
         ),
       }))
@@ -235,7 +382,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       <div style="margin-bottom: 24px; border-bottom: 2px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px;">
         <span style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; font-weight: bold;">Quiz History Export</span>
         <h2 style="margin: 6px 0 2px; font-size: 1.5rem;">${attempt.topic}</h2>
-        <p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">Subject: ${attempt.subjectName} | Score: ${attempt.score}/${attempt.total}</p>
+        <p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">Subject: ${attempt.subjectName} | ${attempt.status === "aborted" ? "Status: Aborted" : `Score: ${attempt.score}/${attempt.total}`}</p>
       </div>
       <div id="temp-questions-list"></div>
     `;
@@ -305,6 +452,9 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
 
   const resetGeneratedQuiz = () => {
     if (questions.length === 0 && Object.keys(answers).length === 0 && !result && !quizMeta) return;
+    clearQuizSession(window.localStorage, academicProfileDataId);
+    quizSessionRef.current = null;
+    setQuizSession(null);
     setQuestions([]);
     setAnswers({});
     setResult(null);
@@ -332,6 +482,9 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       setAnswers({});
       setResult(null);
       setQuizMeta(null);
+      clearQuizSession(window.localStorage, academicProfileDataId);
+      quizSessionRef.current = null;
+      setQuizSession(null);
 
       const payload = await api.generateQuiz({
         ...academicProfilePayload(learnerContext),
@@ -344,8 +497,28 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
         timeoutMs: 120000,
       });
 
-      setQuestions(payload.questions || []);
-      setQuizMeta({ model: payload.model, limit: payload.limit, subjectName: selectedSubject, topic: payload.topic });
+      const nextQuestions = payload.questions || [];
+      const nextQuizMeta = {
+        model: payload.model,
+        limit: payload.limit,
+        subjectName: selectedSubject,
+        topic: payload.topic,
+      };
+      const nextSession = createQuizSession({
+        questions: nextQuestions,
+        quizMeta: nextQuizMeta,
+        status: QUIZ_SESSION_STATUSES.ACTIVE,
+        subjectName: selectedSubject,
+        topic: payload.topic || cleanTopic,
+      });
+      const persistedSession = nextSession
+        ? writeQuizSession(window.localStorage, academicProfileDataId, nextSession)
+        : null;
+
+      setQuestions(nextQuestions);
+      setQuizMeta(nextQuizMeta);
+      quizSessionRef.current = persistedSession || nextSession;
+      setQuizSession(persistedSession || nextSession);
     } catch (error) {
       setSaveError(getAiRequestErrorMessage(error, "Could not generate quiz."));
     } finally {
@@ -363,18 +536,94 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       setSaveError("");
       const payload = await api.saveQuizAttempt({
         ...academicProfilePayload(learnerContext),
+        answeredCount: Object.keys(answers).length,
         subjectName: quizMeta?.subjectName || selectedSubject,
         topic: quizMeta?.topic || cleanTopic,
         total: questions.length,
         score,
         questions,
         answers,
+        sessionId: quizSessionRef.current?.sessionId || "",
+        status: "completed",
       }, { academicProfileId: academicProfileDataId });
 
+      clearQuizSession(window.localStorage, academicProfileDataId);
+      quizSessionRef.current = null;
+      setQuizSession(null);
       setResult(payload.attempt);
       setAttempts((current) => [payload.attempt, ...current]);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not save quiz attempt.");
+    }
+  };
+
+  const resumeQuiz = () => {
+    setSaveError("");
+    const resumed = persistCurrentQuizSession(QUIZ_SESSION_STATUSES.ACTIVE);
+    if (!resumed) {
+      setSaveError("This paused quiz could not be restored. Refresh and try again.");
+    }
+  };
+
+  const stayOnQuiz = useCallback(() => {
+    if (exitActionBusy) return;
+    setExitActionError("");
+    navigationBlocker.reset?.();
+  }, [exitActionBusy, navigationBlocker]);
+
+  const pauseAndLeaveQuiz = async () => {
+    if (exitActionBusy || navigationBlocker.state !== "blocked") return;
+    setExitActionBusy(true);
+    setExitActionError("");
+    const paused = persistCurrentQuizSession(QUIZ_SESSION_STATUSES.PAUSED);
+    if (!paused) {
+      setExitActionBusy(false);
+      setExitActionError("The quiz draft could not be saved. Stay here and try again.");
+      return;
+    }
+    navigationBlocker.proceed?.();
+  };
+
+  const abortAndLeaveQuiz = async () => {
+    if (exitActionBusy || navigationBlocker.state !== "blocked") return;
+    const session = quizSessionRef.current;
+    if (!session) {
+      setExitActionError("The active quiz session could not be found.");
+      return;
+    }
+
+    setExitActionBusy(true);
+    setExitActionError("");
+    const answeredCount = quizSessionAnsweredCount({ ...session, answers });
+    const score = questions.reduce(
+      (total, question) => total + (answers[question.id] === question.answerIndex ? 1 : 0),
+      0,
+    );
+
+    try {
+      const payload = await api.saveQuizAttempt({
+        ...academicProfilePayload(learnerContext),
+        answeredCount,
+        answers,
+        questions,
+        score,
+        sessionId: session.sessionId,
+        status: "aborted",
+        subjectName: quizMeta?.subjectName || session.subjectName || selectedSubject,
+        topic: quizMeta?.topic || session.topic || cleanTopic,
+        total: questions.length,
+      }, { academicProfileId: academicProfileDataId });
+
+      clearQuizSession(window.localStorage, academicProfileDataId);
+      quizSessionRef.current = null;
+      setQuizSession(null);
+      setAttempts((current) => [payload.attempt, ...current.filter((item) => item.id !== payload.attempt?.id)]);
+      navigationBlocker.proceed?.();
+    } catch (error) {
+      setExitActionBusy(false);
+      setExitActionError(error instanceof Error
+        ? error.message
+        : "The aborted attempt could not be saved. Stay here and try again.");
     }
   };
 
@@ -468,6 +717,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
             completed={completed}
             initialBattleId={searchParams.get("battle") || ""}
             initialInviteCode={pendingInviteCode}
+            onAttemptStateChange={handleMultiplayerAttemptChange}
             onBattleRouteChange={(battleId) => updateQuizRoute("battles", battleId)}
             onInviteConsumed={(battleId) => {
               setPendingInviteCode("");
@@ -504,7 +754,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
                 aria-describedby="quiz-eligibility-status"
                 aria-expanded={showDropdown && searchQuery.trim() !== ""}
                 autoComplete="off"
-                disabled={isGenerating}
+                disabled={isGenerating || hasUnfinishedSoloQuiz}
                 type="text"
                 className="text-input"
                 role="combobox"
@@ -589,7 +839,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
           <label className="field-stack quiz-builder-field quiz-topic-field">
             Topic or doubt
             <input
-              disabled={isGenerating}
+              disabled={isGenerating || hasUnfinishedSoloQuiz}
               onChange={(event) => {
                 resetGeneratedQuiz();
                 setTopic(event.target.value);
@@ -602,7 +852,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
           <label className="field-stack quiz-builder-field quiz-limit-field">
             Question limit
             <select
-              disabled={isGenerating}
+              disabled={isGenerating || hasUnfinishedSoloQuiz}
               onChange={(event) => {
                 resetGeneratedQuiz();
                 setQuestionLimit(Number(event.target.value));
@@ -625,7 +875,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
         <button
           aria-describedby="quiz-eligibility-status"
           className="action-btn"
-          disabled={isGenerating || !quizEligibility.isEligible || hasInsufficientCredits(AI_FEATURES.QUIZ)}
+          disabled={isGenerating || hasUnfinishedSoloQuiz || !quizEligibility.isEligible || hasInsufficientCredits(AI_FEATURES.QUIZ)}
           onClick={startQuiz}
           title={!quizEligibility.isEligible ? quizEligibilityMessage : hasInsufficientCredits(AI_FEATURES.QUIZ) ? "Not enough AI credits" : "Generate AI quiz"}
           type="button"
@@ -636,6 +886,15 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
 
       {questions.length > 0 && (
         <section className="card quiz-runner-card">
+          {soloQuizPaused && (
+            <div className="quiz-resume-banner" role="status">
+              <div>
+                <strong>Quiz paused safely</strong>
+                <span>{Object.keys(answers).length}/{questions.length} answers restored. Resume when you are ready.</span>
+              </div>
+              <button onClick={resumeQuiz} type="button">Resume quiz</button>
+            </div>
+          )}
           <div className="quiz-runner-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
             <div>
               <span className="section-tag">Question set</span>
@@ -682,7 +941,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
                     return (
                       <button
                         className={className}
-                        disabled={Boolean(result)}
+                        disabled={Boolean(result) || soloQuizPaused}
                         key={`${question.id}-${optionIndex}`}
                         onClick={() => setAnswers((current) => ({ ...current, [question.id]: optionIndex }))}
                         type="button"
@@ -712,7 +971,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
 
           {!result && (
             <button
-              disabled={Object.keys(answers).length !== questions.length}
+              disabled={soloQuizPaused || Object.keys(answers).length !== questions.length}
               onClick={submitQuiz}
               type="button"
             >
@@ -803,13 +1062,17 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
             paginatedAttempts.map((attempt) => {
               const isConfirmingDelete = pendingDeleteAttemptId === attempt.id;
               const isDeleting = deletingAttemptId === attempt.id;
+              const isAborted = attempt.status === "aborted";
 
               return (
-                <article className="quiz-history-item" key={attempt.id}>
+                <article className={`quiz-history-item${isAborted ? " is-aborted" : ""}`} key={attempt.id}>
                   <strong>{attempt.topic}</strong>
                   <span>{attempt.subjectName}</span>
+                  {isAborted && <span className="quiz-history-status is-aborted">Aborted</span>}
                   <div className="quiz-history-item-footer">
-                    <b>{attempt.score}/{attempt.total}</b>
+                    <b>{isAborted
+                      ? `${Number(attempt.answeredCount) || 0}/${attempt.total} answered`
+                      : `${attempt.score}/${attempt.total}`}</b>
                     <div className="quiz-history-item-actions">
                       {attempt.questions && attempt.questions.length > 0 && (
                         <button
@@ -898,6 +1161,15 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
         </div>
       )}
       </div>
+      <QuizExitDialog
+        busy={exitActionBusy}
+        error={exitActionError}
+        mode={multiplayerQuizActive ? "multiplayer" : "solo"}
+        onAbort={abortAndLeaveQuiz}
+        onPause={pauseAndLeaveQuiz}
+        onStay={stayOnQuiz}
+        open={navigationBlocker.state === "blocked"}
+      />
     </section>
   );
 }

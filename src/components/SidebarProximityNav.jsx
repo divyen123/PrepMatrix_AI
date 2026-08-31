@@ -18,7 +18,16 @@ function smoothstep(value) {
   return value * value * (3 - 2 * value);
 }
 
-export default function SidebarProximityNav({ items, onNavigate }) {
+function activityLabel(item, activity) {
+  if (!activity) return "";
+  if (activity.status === "running") return `${item.label} is working in the background.`;
+  if (activity.status === "completed") return `${item.label} has new work ready.`;
+  if (activity.status === "failed") return `${item.label} background work needs attention.`;
+  if (activity.status === "attention") return activity.label || `${item.label} needs attention.`;
+  return "";
+}
+
+export default function SidebarProximityNav({ items, onNavigate, routeActivities = {} }) {
   const itemRefs = useRef([]);
   const targetEffects = useRef([]);
   const currentEffects = useRef([]);
@@ -103,14 +112,17 @@ export default function SidebarProximityNav({ items, onNavigate }) {
     >
       {items.map((item, index) => {
         const Icon = item.icon;
+        const activity = routeActivities[item.to] || item.activity || null;
+        const statusLabel = activityLabel(item, activity);
 
         return (
           <NavLink
-            className={({ isActive }) =>
-              isActive
-                ? "sidebar-link sidebar-link--proximity active"
-                : "sidebar-link sidebar-link--proximity"
-            }
+            aria-label={statusLabel ? `${item.label}. ${statusLabel}` : item.label}
+            className={({ isActive }) => [
+              "sidebar-link sidebar-link--proximity",
+              isActive ? "active" : "",
+              activity?.status ? `has-route-activity route-activity--${activity.status}` : "",
+            ].filter(Boolean).join(" ")}
             key={item.to}
             ref={(node) => {
               itemRefs.current[index] = node;
@@ -126,6 +138,14 @@ export default function SidebarProximityNav({ items, onNavigate }) {
               strokeWidth={2.2}
             />
             <span className="sidebar-link-label">{item.label}</span>
+            {statusLabel && (
+              <span
+                aria-hidden="true"
+                className="sidebar-route-activity"
+                data-status={activity.status}
+                title={statusLabel}
+              />
+            )}
           </NavLink>
         );
       })}

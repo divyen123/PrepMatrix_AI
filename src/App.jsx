@@ -59,6 +59,10 @@ import {
   resolveEffectiveDarkMode,
 } from "./utils/appearanceTheme";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
+import {
+  getPlannerScheduleAttention,
+  subscribeToPlannerAttentionClock,
+} from "./utils/plannerAttention";
 import { readStoredActiveExamAttemptId } from "./utils/examTiming";
 import {
   normalizeMaterialBookmark,
@@ -102,6 +106,12 @@ import {
   normalizeResumeBuilderState,
 } from "./utils/resumeBuilder";
 import {
+  clearResumeDraftCheckpoint,
+  readResumeDraftCheckpoint,
+  reconcileResumeDraftCheckpoint,
+  writeResumeDraftCheckpoint,
+} from "./utils/resumeDraftPersistence";
+import {
   DEFAULT_GOAL_REMINDER_DATA,
   DEFAULT_GOAL_REMINDER_SETTINGS,
   normalizePlannerData,
@@ -112,6 +122,8 @@ import CustomCursor from "./components/CustomCursor";
 import { SidebarStudyPet } from "./components/StudyPet";
 import GoalReminderCenter from "./components/GoalReminderCenter";
 import SidebarProximityNav from "./components/SidebarProximityNav";
+import { useBackgroundTasks } from "./utils/backgroundTaskContext";
+import { deriveRouteTaskActivity } from "./utils/backgroundTasks";
 import LearningRouteBoundary from "./components/LearningRouteBoundary";
 import PwaManager from "./components/PwaManager";
 import AcademicProfileIntroDialog from "./components/AcademicProfileIntroDialog";
@@ -371,6 +383,7 @@ function App() {
   const parentLockWasOpenRef = useRef(false);
   const profilePreviewTimerRef = useRef(null);
   const topBarHideTimeoutRef = useRef(null);
+  const resumeBuilderRef = useRef(null);
   const [subjects, setSubjects] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [completed, setCompleted] = useState([]);
@@ -379,6 +392,7 @@ function App() {
   const [academicTrack, setAcademicTrack] = useState("General");
   const [materialBookmarks, setMaterialBookmarks] = useState([]);
   const [resumeBuilder, setResumeBuilder] = useState(() => normalizeResumeBuilderState());
+  resumeBuilderRef.current = resumeBuilder;
   const [goalReminderData, setGoalReminderData] = useState(() => normalizePlannerData(DEFAULT_GOAL_REMINDER_DATA));
   const [goalReminderSettings, setGoalReminderSettings] = useState(() => normalizePlannerSettings(DEFAULT_GOAL_REMINDER_SETTINGS));
   const [darkMode, setDarkMode] = useState(() => {
@@ -408,6 +422,7 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
   const [profilePreviewSide, setProfilePreviewSide] = useState("photo");
+  const [plannerAttentionNow, setPlannerAttentionNow] = useState(() => new Date());
   const [academicProfileIntro, setAcademicProfileIntro] = useState(null);
   const [academicProfileIntroOpen, setAcademicProfileIntroOpen] = useState(false);
   const academicProfileIntroTimerRef = useRef(null);
@@ -498,6 +513,15 @@ function App() {
   useAppUsageTracker(userProfile, Boolean(userIdentity));
   const kidsGamepadIcon = resolveKidsGamepadIcon(activeBackgroundImageId);
   const activeAcademicProfileDataId = profileContext?.dataId || "";
+  const { tasks: backgroundTasks } = useBackgroundTasks();
+  const learningTaskActivity = useMemo(
+    () => deriveRouteTaskActivity(backgroundTasks, "/learn", activeAcademicProfileDataId),
+    [activeAcademicProfileDataId, backgroundTasks],
+  );
+  const examTaskActivity = useMemo(
+    () => deriveRouteTaskActivity(backgroundTasks, "/exam", activeAcademicProfileDataId),
+    [activeAcademicProfileDataId, backgroundTasks],
+  );
   const updateKidsParentAccess = useCallback((value = {}) => {
     const parentAccess = value?.parentAccess || value;
     setKidsParentAccess((current) => ({
@@ -574,6 +598,29 @@ function App() {
     () => getPlannerMetrics(schedule, completed),
     [schedule, completed]
   );
+  const plannerAttention = useMemo(
+    () => getPlannerScheduleAttention({
+      completed,
+      now: plannerAttentionNow,
+      schedule,
+      scheduleStartDate,
+    }),
+    [completed, plannerAttentionNow, schedule, scheduleStartDate],
+  );
+
+  useEffect(
+    () => subscribeToPlannerAttentionClock(setPlannerAttentionNow),
+    [],
+  );
+  const routeTaskActivities = useMemo(() => ({
+    ...(learningTaskActivity ? { "/learn": learningTaskActivity } : {}),
+    ...(plannerAttention.active ? {
+      "/planner": {
+        label: `Today's schedule is not complete. ${plannerAttention.pendingCount} task${plannerAttention.pendingCount === 1 ? "" : "s"} remaining.`,
+        status: "attention",
+      },
+    } : {}),
+  }), [learningTaskActivity, plannerAttention.active, plannerAttention.pendingCount]);
 
   const isAuthRoute = location.pathname === "/login" || location.pathname === "/register";
   const routeStagePathname = location.pathname === "/planner"
@@ -821,10 +868,20 @@ function App() {
       }
     }
     setMaterialBookmarks(normalizeMaterialBookmarks(workspace?.materialBookmarks));
-    setResumeBuilder(normalizeResumeBuilderState(workspace?.resumeBuilder, {
+    const resumeProfile = {
       ...(profile || {}),
       ...nextAcademicProfile,
-    }));
+    };
+    const resumeCheckpoint = nextProfileContext.dataId
+      ? readResumeDraftCheckpoint(nextProfileContext.dataId, { profile: resumeProfile })
+      : null;
+    const nextResumeBuilder = reconcileResumeDraftCheckpoint(
+      workspace?.resumeBuilder,
+      resumeCheckpoint,
+      { profile: resumeProfile },
+    ).resumeBuilder;
+    resumeBuilderRef.current = nextResumeBuilder;
+    setResumeBuilder(nextResumeBuilder);
     const nextGoalReminderSettings = normalizePlannerSettings(workspace?.goalReminderSettings || DEFAULT_GOAL_REMINDER_SETTINGS);
     const nextGoalReminderData = syncStudyTargetReminders(workspace?.goalReminderData || DEFAULT_GOAL_REMINDER_DATA, nextGoalReminderSettings);
     setGoalReminderData(nextGoalReminderData);
@@ -839,6 +896,24 @@ function App() {
   };
   currentUserProfileRef.current = userProfile;
   applyWorkspaceRef.current = applyWorkspace;
+
+  const updateResumeBuilderDraft = useCallback((value) => {
+    const current = resumeBuilderRef.current || normalizeResumeBuilderState();
+    const next = typeof value === "function" ? value(current) : value;
+    if (!next || typeof next !== "object") return current;
+
+    resumeBuilderRef.current = next;
+    setResumeBuilder(next);
+    if (activeAcademicProfileDataId) {
+      writeResumeDraftCheckpoint(activeAcademicProfileDataId, next, {
+        profile: {
+          ...(userProfile || {}),
+          ...learnerRoutePolicy.academicProfile,
+        },
+      });
+    }
+    return next;
+  }, [activeAcademicProfileDataId, learnerRoutePolicy.academicProfile, userProfile]);
 
   useEffect(() => {
     let disposed = false;
@@ -1252,6 +1327,7 @@ function App() {
         throw new Error("The imported workspace belongs to a different academic profile.");
       }
       workspaceScopeEpochRef.current += 1;
+      clearResumeDraftCheckpoint(requestedAcademicProfileId);
       applyWorkspace(response?.workspace || {}, userProfile, responseContext);
       setWorkspaceLoaded(true);
       return response;
@@ -1603,6 +1679,11 @@ function App() {
         academicProfileId: requestedAcademicProfileId,
       });
       workspaceSavePromiseRef.current = saveRequest.catch(() => undefined);
+      saveRequest.then(() => {
+        clearResumeDraftCheckpoint(requestedAcademicProfileId, {
+          throughUpdatedAt: snapshot.resumeBuilder?.updatedAt,
+        });
+      }).catch(() => undefined);
       saveRequest.catch((error) => {
         if (
           requestedEpoch !== workspaceScopeEpochRef.current
@@ -2066,7 +2147,28 @@ function App() {
           <SidebarProximityNav
             items={primarySidebarNavItems}
             onNavigate={() => setSidebarOpen(false)}
+            routeActivities={routeTaskActivities}
           />
+          {sidebarCollapsed && examTaskActivity && (
+            <NavLink
+              aria-label={examTaskActivity.status === "running"
+                ? "Question paper is generating in the background"
+                : examTaskActivity.status === "completed"
+                  ? "Generated question paper is ready"
+                  : "Question paper generation needs attention"}
+              className={`collapsed-exam-task-link is-task-${examTaskActivity.status}`}
+              onClick={() => setSidebarOpen(false)}
+              title={examTaskActivity.status === "running"
+                ? "Generating question paper"
+                : examTaskActivity.status === "completed"
+                  ? "Question paper ready"
+                  : "Question paper generation failed"}
+              to="/exam"
+            >
+              <ClipboardList aria-hidden="true" size={17} strokeWidth={2.3} />
+              <span aria-hidden="true" className="exam-widget-status" />
+            </NavLink>
+          )}
           
           <div className="sidebar-widgets">
             {isKidsLearner && (
@@ -2171,14 +2273,33 @@ function App() {
             </>)}
             <div className="sidebar-widget-cell sidebar-exam-widget">
               <NavLink
-                aria-label="Open exam workspace"
-                className={({ isActive }) => `exam-widget-btn${isActive ? " active" : ""}`}
+                aria-label={examTaskActivity?.status === "running"
+                  ? "Open exam workspace. Question paper is generating in the background."
+                  : examTaskActivity?.status === "completed"
+                    ? "Open exam workspace. Your generated question paper is ready."
+                    : examTaskActivity?.status === "failed"
+                      ? "Open exam workspace. Question paper generation needs attention."
+                      : "Open exam workspace"}
+                className={({ isActive }) => [
+                  "exam-widget-btn",
+                  isActive ? "active" : "",
+                  examTaskActivity?.status ? `is-task-${examTaskActivity.status}` : "",
+                ].filter(Boolean).join(" ")}
                 onClick={() => setSidebarOpen(false)}
-                title="Exam workspace"
+                title={examTaskActivity?.status === "running"
+                  ? "Generating question paper in the background"
+                  : examTaskActivity?.status === "completed"
+                    ? "Question paper ready"
+                    : examTaskActivity?.status === "failed"
+                      ? "Question paper generation failed"
+                      : "Exam workspace"}
                 to="/exam"
               >
                 <ClipboardList aria-hidden="true" size={15} strokeWidth={2.25} />
                 <span>Exam</span>
+                {examTaskActivity?.status && (
+                  <span aria-hidden="true" className="exam-widget-status" />
+                )}
               </NavLink>
             </div>
             <Chatbot
@@ -2592,6 +2713,7 @@ function App() {
                               completed={completed}
                               kidsMode={learnerRoutePolicy.isYoungKidsLearner}
                               parentAccessGranted={kidsParentAccess.unlocked}
+                              plannerAttention={plannerAttention}
                               schedule={schedule}
                               setCompleted={updateCompletedWithRewards}
                               setSchedule={setSchedule}
@@ -2694,7 +2816,7 @@ function App() {
                               <ResumeBuilderPage
                                 academicProfileDataId={activeAcademicProfileDataId}
                                 academicProfile={learnerRoutePolicy.academicProfile}
-                                onResumeBuilderChange={setResumeBuilder}
+                                onResumeBuilderChange={updateResumeBuilderDraft}
                                 resumeBuilder={resumeBuilder}
                                 userProfile={userProfile}
                               />
@@ -2793,7 +2915,7 @@ function App() {
                               setMaterialBookmarks={setMaterialBookmarks}
                               setGoalReminderData={setGoalReminderData}
                               setGoalReminderSettings={setGoalReminderSettings}
-                              setResumeBuilder={setResumeBuilder}
+                              setResumeBuilder={updateResumeBuilderDraft}
                               setNotification={setNotification}
                               onAccountDeleted={handleAccountDeleted}
                               cursorStyle={cursorStyle}

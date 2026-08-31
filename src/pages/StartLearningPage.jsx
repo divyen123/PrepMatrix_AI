@@ -47,6 +47,8 @@ import {
   useAiQuota,
 } from "../utils/aiQuota";
 import { AiCreditCost } from "../components/AiQuotaProvider";
+import { useBackgroundTasks } from "../utils/backgroundTaskContext";
+import { getBackgroundTaskKey } from "../utils/backgroundTasks";
 import {
   LEARNING_ATTACHMENT_ACCEPT,
   MAX_CHAT_ATTACHMENTS,
@@ -121,6 +123,11 @@ const LEARNING_SOURCE_ACCEPT = `${LEARNING_ATTACHMENT_ACCEPT},${TEXT_SOURCE_ACCE
 const MAX_TEXT_SOURCE_BYTES = 30_000;
 const MAX_TEXT_TOTAL_CHARS = 60_000;
 const MAX_LEARNING_PROMPT_CHARS = 3_000;
+const LEARNING_BACKGROUND_FEATURES = Object.freeze({
+  career: "learning-career-analysis",
+  medical: "learning-medical-analysis",
+  notebook: "learning-notebook",
+});
 const ANALYSIS_STEPS = [
   "Reading your sources",
   "Structuring chapters and concepts",
@@ -572,6 +579,7 @@ function StartLearningPage({
   setNotification,
 }) {
   const { hasInsufficientCredits } = useAiQuota();
+  const { acknowledgeTask, runTask, tasks: backgroundTasks } = useBackgroundTasks();
   const location = useLocation();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -643,7 +651,28 @@ function StartLearningPage({
   const [latestReceipt, setLatestReceipt] = useState(null);
   const [noteSavingKeys, setNoteSavingKeys] = useState(() => new Set());
   const noteSavingKeysRef = useRef(new Set());
+  const presentedBackgroundRunsRef = useRef(new Set());
   const [masteryClock, setMasteryClock] = useState(() => Date.now());
+
+  const backgroundProfileId = cleanText(
+    academicProfileDataId || userProfile?.id || "default-profile",
+    180,
+  );
+  const notebookTaskKey = getBackgroundTaskKey(
+    LEARNING_BACKGROUND_FEATURES.notebook,
+    backgroundProfileId,
+  );
+  const careerTaskKey = getBackgroundTaskKey(
+    LEARNING_BACKGROUND_FEATURES.career,
+    backgroundProfileId,
+  );
+  const medicalTaskKey = getBackgroundTaskKey(
+    LEARNING_BACKGROUND_FEATURES.medical,
+    backgroundProfileId,
+  );
+  const notebookBackgroundTask = backgroundTasks[notebookTaskKey];
+  const careerBackgroundTask = backgroundTasks[careerTaskKey];
+  const medicalBackgroundTask = backgroundTasks[medicalTaskKey];
 
   const preparationProfile = useMemo(
     () => ({
@@ -1323,13 +1352,13 @@ function StartLearningPage({
     }
   };
 
-  const beginAnalysisProgress = () => {
+  const beginAnalysisProgress = useCallback(() => {
     setAnalysisStep(0);
     if (analysisTimerRef.current) window.clearInterval(analysisTimerRef.current);
     analysisTimerRef.current = window.setInterval(() => {
       setAnalysisStep((current) => Math.min(current + 1, ANALYSIS_STEPS.length - 2));
     }, 1050);
-  };
+  }, []);
 
   const getAnalysisRequest = () => {
     const selectedChapter = cleanText(scopeChapter, 180);
@@ -1369,6 +1398,94 @@ function StartLearningPage({
     };
   };
 
+  const presentNotebookAnalysis = useCallback((payload, { notify = true } = {}) => {
+    if (!payload?.notebook) return false;
+    if (analysisTimerRef.current) window.clearInterval(analysisTimerRef.current);
+    analysisTimerRef.current = null;
+    setAnalysisStep(ANALYSIS_STEPS.length - 1);
+    const normalized = normalizeNotebook(payload.notebook);
+    setNotebooks((current) => [
+      normalized,
+      ...current.filter((notebook) => notebook.id !== normalized.id),
+    ]);
+    selectNotebook(normalized);
+    setSources([]);
+    setSubjectName("");
+    setManualChapters("");
+    setScopeChapter("");
+    setScopeTopic("");
+    setLearningPrompt("");
+    setAnalyzing(false);
+    if (notify) setNotification?.("Your learning notebook is ready.");
+    return true;
+  }, [selectNotebook, setNotification]);
+
+  const presentCareerAnalysis = useCallback((payload, request = {}, { notify = true } = {}) => {
+    const requestNotebookId = cleanText(
+      request.notebookId || payload?.notebook?.id || payload?.notebook?._id,
+      120,
+    );
+    if (!requestNotebookId || !payload?.topicAnalysis) return false;
+    const requestedTopics = parseCareerTopics(request.topics);
+    const targetRole = cleanText(request.targetRole, 160);
+    const sourceNotebook = payload?.notebook ? normalizeNotebook(payload.notebook) : null;
+    if (sourceNotebook?.id) {
+      activeNotebookRef.current = sourceNotebook;
+      setActiveNotebook(sourceNotebook);
+      setNotebooks((current) => [
+        sourceNotebook,
+        ...current.filter((notebook) => notebook.id !== sourceNotebook.id),
+      ]);
+    }
+    const draft = createPlacementDraft(payload, {
+      notebookId: requestNotebookId,
+      requestedTopics,
+      targetRole,
+    });
+    setCareerDraft(draft);
+    setCareerRole(draft.analysis.targetRole || targetRole);
+    setCareerTopics(requestedTopics.join("\n"));
+    setCareerError("");
+    setCareerAnalyzing(false);
+    setIntakeMode("placement");
+    setWorkspaceView("career");
+    if (notify) setNotification?.("Your preparation draft is ready. Save it as a placement note.");
+    return true;
+  }, [setNotification]);
+
+  const presentMedicalAnalysis = useCallback((payload, request = {}, { notify = true } = {}) => {
+    const requestNotebookId = cleanText(
+      request.notebookId || payload?.notebook?.id || payload?.notebook?._id,
+      120,
+    );
+    if (!requestNotebookId || !payload?.medicalTraining) return false;
+    const requestedTopics = parseCareerTopics(request.topics);
+    const trainingFocus = cleanText(request.trainingFocus, 160);
+    const sourceNotebook = payload?.notebook ? normalizeNotebook(payload.notebook) : null;
+    if (sourceNotebook?.id) {
+      activeNotebookRef.current = sourceNotebook;
+      setActiveNotebook(sourceNotebook);
+      setNotebooks((current) => [
+        sourceNotebook,
+        ...current.filter((notebook) => notebook.id !== sourceNotebook.id),
+      ]);
+    }
+    const draft = createMedicalTrainingDraft(payload, {
+      notebookId: requestNotebookId,
+      requestedTopics,
+      trainingFocus,
+    });
+    setMedicalDraft(draft);
+    setMedicalFocus(draft.analysis.trainingTitle || trainingFocus);
+    setMedicalTopics(requestedTopics.join("\n"));
+    setMedicalError("");
+    setMedicalAnalyzing(false);
+    setIntakeMode("medical");
+    setWorkspaceView("medical");
+    if (notify) setNotification?.("Your conceptual reasoning draft is ready. Save it as Medical training.");
+    return true;
+  }, [setNotification]);
+
   const runNotebookAnalysis = async ({
     chapterNames,
     cleanSubject,
@@ -1379,6 +1496,7 @@ function StartLearningPage({
       setAnalysisError(getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }));
       return;
     }
+    if (notebookBackgroundTask) return;
 
     setAnalyzing(true);
     setAnalysisError("");
@@ -1390,7 +1508,7 @@ function StartLearningPage({
       const textSources = sources
         .filter((source) => source.kind === "text")
         .map(({ name, type, size, text }) => ({ name, type, size, text }));
-      const payload = await api.post("/api/learning-notebooks/analyze", {
+      const requestBody = {
         subjectName: cleanSubject,
         chapterNames,
         learningPrompt: requestedPrompt,
@@ -1410,30 +1528,27 @@ function StartLearningPage({
           accepted: true,
           version: LEARNING_PRIVACY_CONSENT_VERSION,
         },
-      }, {
-        academicProfileId: academicProfileDataId,
-        timeoutMs: LEARNING_NOTEBOOK_REQUEST_TIMEOUT_MS,
-        headers: { "Idempotency-Key": createAiIdempotencyKey() },
+      };
+      const idempotencyKey = createAiIdempotencyKey();
+      await runTask({
+        academicProfileId: backgroundProfileId,
+        execute: async () => {
+          const result = await api.post("/api/learning-notebooks/analyze", requestBody, {
+            academicProfileId: academicProfileDataId,
+            timeoutMs: LEARNING_NOTEBOOK_REQUEST_TIMEOUT_MS,
+            headers: { "Idempotency-Key": idempotencyKey },
+          });
+          if (!result?.notebook) throw new Error("The generated notebook response was incomplete.");
+          return result;
+        },
+        feature: LEARNING_BACKGROUND_FEATURES.notebook,
+        key: notebookTaskKey,
+        label: cleanSubject ? `Building ${cleanSubject} notebook` : "Building learning notebook",
+        meta: { kind: "notebook" },
+        route: "/learn",
       });
-      if (!mountedRef.current) return;
-      if (analysisTimerRef.current) window.clearInterval(analysisTimerRef.current);
-      setAnalysisStep(ANALYSIS_STEPS.length - 1);
-      const normalized = normalizeNotebook(payload?.notebook);
-      setNotebooks((current) => [
-        normalized,
-        ...current.filter((notebook) => notebook.id !== normalized.id),
-      ]);
-      selectNotebook(normalized);
-      setSources([]);
-      setSubjectName("");
-      setManualChapters("");
-      setScopeChapter("");
-      setScopeTopic("");
-      setLearningPrompt("");
-      setNotification?.("Your learning notebook is ready.");
-    } catch (error) {
-      if (!mountedRef.current) return;
-      setAnalysisError(getAiRequestErrorMessage(error, "The notebook could not be generated."));
+    } catch {
+      // The provider retains the failure so this page can present it after remount.
     } finally {
       if (analysisTimerRef.current) window.clearInterval(analysisTimerRef.current);
       analysisTimerRef.current = null;
@@ -1462,7 +1577,11 @@ function StartLearningPage({
     }
 
     const requestNotebookId = cleanText(notebookId, 120);
-    if (!requestNotebookId || careerAnalysisRequestRef.current.pending) return;
+    if (
+      !requestNotebookId
+      || careerAnalysisRequestRef.current.pending
+      || careerBackgroundTask
+    ) return;
     if (activeNotebookRef.current?.id !== requestNotebookId) {
       setCareerError("The preparation source changed. Review the selected source and try again.");
       return;
@@ -1475,50 +1594,45 @@ function StartLearningPage({
     };
     setCareerAnalyzing(true);
     setCareerError("");
+    const request = {
+      notebookId: requestNotebookId,
+      targetRole: cleanText(targetRole, 160),
+      topics: parseCareerTopics(topics),
+    };
     try {
-      const payload = await api.post(
-        `/api/learning-notebooks/${encodeURIComponent(requestNotebookId)}/career-analyze`,
-        {
-          targetRole,
-          topics,
-          privacyConsent: {
-            accepted: true,
-            version: LEARNING_PRIVACY_CONSENT_VERSION,
-          },
+      const idempotencyKey = createAiIdempotencyKey();
+      await runTask({
+        academicProfileId: backgroundProfileId,
+        execute: async () => {
+          const result = await api.post(
+            `/api/learning-notebooks/${encodeURIComponent(requestNotebookId)}/career-analyze`,
+            {
+              targetRole: request.targetRole,
+              topics: request.topics,
+              privacyConsent: {
+                accepted: true,
+                version: LEARNING_PRIVACY_CONSENT_VERSION,
+              },
+            },
+            {
+              academicProfileId: academicProfileDataId,
+              timeoutMs: 120000,
+              headers: { "Idempotency-Key": idempotencyKey },
+            },
+          );
+          if (!result?.topicAnalysis) throw new Error("The generated placement analysis was incomplete.");
+          return result;
         },
-        {
-          academicProfileId: academicProfileDataId,
-          timeoutMs: 120000,
-          headers: { "Idempotency-Key": createAiIdempotencyKey() },
-        },
-      );
-      if (!mountedRef.current) return;
-      const currentRequest = careerAnalysisRequestRef.current;
-      if (
-        currentRequest.sequence !== sequence
-        || currentRequest.notebookId !== requestNotebookId
-        || activeNotebookRef.current?.id !== requestNotebookId
-      ) return;
-      const draft = createPlacementDraft(payload, {
-        notebookId: requestNotebookId,
-        requestedTopics: topics,
-        targetRole,
+        feature: LEARNING_BACKGROUND_FEATURES.career,
+        key: careerTaskKey,
+        label: request.targetRole
+          ? `Analyzing preparation for ${request.targetRole}`
+          : "Analyzing placement preparation",
+        meta: { kind: "career", request },
+        route: "/learn",
       });
-      setCareerDraft(draft);
-      setCareerRole(draft.analysis.targetRole || targetRole);
-      setCareerTopics(topics.join("\n"));
-      setWorkspaceView("career");
-      setNotification?.("Your preparation draft is ready. Save it as a placement note.");
-    } catch (error) {
-      const currentRequest = careerAnalysisRequestRef.current;
-      if (
-        mountedRef.current
-        && currentRequest.sequence === sequence
-        && currentRequest.notebookId === requestNotebookId
-        && activeNotebookRef.current?.id === requestNotebookId
-      ) {
-        setCareerError(getAiRequestErrorMessage(error, "Placement topics could not be analyzed."));
-      }
+    } catch {
+      // The provider retains the failure so this page can present it after remount.
     } finally {
       const currentRequest = careerAnalysisRequestRef.current;
       if (mountedRef.current && currentRequest.sequence === sequence) {
@@ -1567,7 +1681,11 @@ function StartLearningPage({
     }
 
     const requestNotebookId = cleanText(notebookId, 120);
-    if (!requestNotebookId || medicalAnalysisRequestRef.current.pending) return;
+    if (
+      !requestNotebookId
+      || medicalAnalysisRequestRef.current.pending
+      || medicalBackgroundTask
+    ) return;
     if (activeNotebookRef.current?.id !== requestNotebookId) {
       setMedicalError("The medical training source changed. Review the selected source and try again.");
       return;
@@ -1580,51 +1698,46 @@ function StartLearningPage({
     };
     setMedicalAnalyzing(true);
     setMedicalError("");
+    const request = {
+      notebookId: requestNotebookId,
+      topics: parseCareerTopics(topics),
+      trainingFocus: cleanText(trainingFocus, 160),
+    };
     try {
-      const payload = await api.post(
-        `/api/learning-notebooks/${encodeURIComponent(requestNotebookId)}/medical-training-analyze`,
-        {
-          trainingFocus,
-          topics,
-          privacyConsent: {
-            accepted: true,
-            kind: MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
-            version: MEDICAL_TRAINING_PRIVACY_CONSENT_VERSION,
-          },
+      const idempotencyKey = createAiIdempotencyKey();
+      await runTask({
+        academicProfileId: backgroundProfileId,
+        execute: async () => {
+          const result = await api.post(
+            `/api/learning-notebooks/${encodeURIComponent(requestNotebookId)}/medical-training-analyze`,
+            {
+              trainingFocus: request.trainingFocus,
+              topics: request.topics,
+              privacyConsent: {
+                accepted: true,
+                kind: MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
+                version: MEDICAL_TRAINING_PRIVACY_CONSENT_VERSION,
+              },
+            },
+            {
+              academicProfileId: academicProfileDataId,
+              timeoutMs: 120000,
+              headers: { "Idempotency-Key": idempotencyKey },
+            },
+          );
+          if (!result?.medicalTraining) throw new Error("The generated medical training was incomplete.");
+          return result;
         },
-        {
-          academicProfileId: academicProfileDataId,
-          timeoutMs: 120000,
-          headers: { "Idempotency-Key": createAiIdempotencyKey() },
-        },
-      );
-      if (!mountedRef.current) return;
-      const currentRequest = medicalAnalysisRequestRef.current;
-      if (
-        currentRequest.sequence !== sequence
-        || currentRequest.notebookId !== requestNotebookId
-        || activeNotebookRef.current?.id !== requestNotebookId
-      ) return;
-      const draft = createMedicalTrainingDraft(payload, {
-        notebookId: requestNotebookId,
-        requestedTopics: topics,
-        trainingFocus,
+        feature: LEARNING_BACKGROUND_FEATURES.medical,
+        key: medicalTaskKey,
+        label: request.trainingFocus
+          ? `Building ${request.trainingFocus} training`
+          : "Building medical training",
+        meta: { kind: "medical", request },
+        route: "/learn",
       });
-      setMedicalDraft(draft);
-      setMedicalFocus(draft.analysis.trainingTitle || trainingFocus);
-      setMedicalTopics(topics.join("\n"));
-      setWorkspaceView("medical");
-      setNotification?.("Your conceptual reasoning draft is ready. Save it as Medical training.");
-    } catch (error) {
-      const currentRequest = medicalAnalysisRequestRef.current;
-      if (
-        mountedRef.current
-        && currentRequest.sequence === sequence
-        && currentRequest.notebookId === requestNotebookId
-        && activeNotebookRef.current?.id === requestNotebookId
-      ) {
-        setMedicalError(getAiRequestErrorMessage(error, "Medical training could not be generated."));
-      }
+    } catch {
+      // The provider retains the failure so this page can present it after remount.
     } finally {
       const currentRequest = medicalAnalysisRequestRef.current;
       if (mountedRef.current && currentRequest.sequence === sequence) {
@@ -1670,6 +1783,160 @@ function StartLearningPage({
     }
     runMedicalAnalysis(request);
   };
+
+  useEffect(() => {
+    const task = notebookBackgroundTask;
+    if (!task) return;
+    if (task.status === "running") {
+      setIntakeMode("notebook");
+      setWorkspaceView("intake");
+      setAnalyzing(true);
+      setAnalysisError("");
+      if (!analysisTimerRef.current) beginAnalysisProgress();
+      return;
+    }
+
+    const presentationId = `${task.key}:${task.runId}`;
+    if (presentedBackgroundRunsRef.current.has(presentationId)) return;
+    presentedBackgroundRunsRef.current.add(presentationId);
+    setAnalyzing(false);
+    if (task.status === "completed") {
+      if (!presentNotebookAnalysis(task.result)) {
+        setIntakeMode("notebook");
+        setWorkspaceView("intake");
+        setAnalysisError("The generated notebook could not be opened. Refresh your saved notebooks and try again.");
+      }
+    } else if (task.status === "failed") {
+      if (analysisTimerRef.current) window.clearInterval(analysisTimerRef.current);
+      analysisTimerRef.current = null;
+      setIntakeMode("notebook");
+      setWorkspaceView("intake");
+      setAnalysisError(getAiRequestErrorMessage(
+        new Error(task.error || "The notebook could not be generated."),
+        "The notebook could not be generated.",
+      ));
+    }
+    acknowledgeTask(task.key, task.runId);
+  }, [
+    acknowledgeTask,
+    beginAnalysisProgress,
+    notebookBackgroundTask,
+    presentNotebookAnalysis,
+  ]);
+
+  useEffect(() => {
+    const task = careerBackgroundTask;
+    if (!task) return;
+    const request = task.meta?.request || {};
+    const requestNotebookId = cleanText(request.notebookId, 120);
+    if (task.status === "running") {
+      careerAnalysisRequestRef.current = {
+        ...careerAnalysisRequestRef.current,
+        notebookId: requestNotebookId,
+        pending: true,
+      };
+      const sourceNotebook = notebooks.find((notebook) => notebook.id === requestNotebookId);
+      if (sourceNotebook && activeNotebookRef.current?.id !== sourceNotebook.id) {
+        const normalized = normalizeNotebook(sourceNotebook);
+        activeNotebookRef.current = normalized;
+        setActiveNotebook(normalized);
+      }
+      setCareerRole(cleanText(request.targetRole, 160));
+      setCareerTopics(parseCareerTopics(request.topics).join("\n"));
+      setCareerError("");
+      setCareerAnalyzing(true);
+      setIntakeMode("placement");
+      setWorkspaceView("intake");
+      return;
+    }
+
+    const presentationId = `${task.key}:${task.runId}`;
+    if (presentedBackgroundRunsRef.current.has(presentationId)) return;
+    presentedBackgroundRunsRef.current.add(presentationId);
+    careerAnalysisRequestRef.current = {
+      ...careerAnalysisRequestRef.current,
+      notebookId: requestNotebookId,
+      pending: false,
+    };
+    setCareerAnalyzing(false);
+    if (task.status === "completed") {
+      if (!presentCareerAnalysis(task.result, request)) {
+        setIntakeMode("placement");
+        setWorkspaceView("intake");
+        setCareerError("The generated preparation draft could not be opened. Please try again.");
+      }
+    } else if (task.status === "failed") {
+      setIntakeMode("placement");
+      setWorkspaceView("intake");
+      setCareerError(getAiRequestErrorMessage(
+        new Error(task.error || "Placement topics could not be analyzed."),
+        "Placement topics could not be analyzed.",
+      ));
+    }
+    acknowledgeTask(task.key, task.runId);
+  }, [
+    acknowledgeTask,
+    careerBackgroundTask,
+    notebooks,
+    presentCareerAnalysis,
+  ]);
+
+  useEffect(() => {
+    const task = medicalBackgroundTask;
+    if (!task) return;
+    const request = task.meta?.request || {};
+    const requestNotebookId = cleanText(request.notebookId, 120);
+    if (task.status === "running") {
+      medicalAnalysisRequestRef.current = {
+        ...medicalAnalysisRequestRef.current,
+        notebookId: requestNotebookId,
+        pending: true,
+      };
+      const sourceNotebook = notebooks.find((notebook) => notebook.id === requestNotebookId);
+      if (sourceNotebook && activeNotebookRef.current?.id !== sourceNotebook.id) {
+        const normalized = normalizeNotebook(sourceNotebook);
+        activeNotebookRef.current = normalized;
+        setActiveNotebook(normalized);
+      }
+      setMedicalFocus(cleanText(request.trainingFocus, 160));
+      setMedicalTopics(parseCareerTopics(request.topics).join("\n"));
+      setMedicalError("");
+      setMedicalAnalyzing(true);
+      setIntakeMode("medical");
+      setWorkspaceView("intake");
+      return;
+    }
+
+    const presentationId = `${task.key}:${task.runId}`;
+    if (presentedBackgroundRunsRef.current.has(presentationId)) return;
+    presentedBackgroundRunsRef.current.add(presentationId);
+    medicalAnalysisRequestRef.current = {
+      ...medicalAnalysisRequestRef.current,
+      notebookId: requestNotebookId,
+      pending: false,
+    };
+    setMedicalAnalyzing(false);
+    if (task.status === "completed") {
+      if (!presentMedicalAnalysis(task.result, request)) {
+        setIntakeMode("medical");
+        setWorkspaceView("intake");
+        setMedicalError("The generated medical training could not be opened. Please try again.");
+      }
+    } else if (task.status === "failed") {
+      setIntakeMode("medical");
+      setWorkspaceView("intake");
+      setMedicalError(getAiRequestErrorMessage(
+        new Error(task.error || "Medical training could not be generated."),
+        "Medical training could not be generated.",
+      ));
+    }
+    acknowledgeTask(task.key, task.runId);
+  }, [
+    acknowledgeTask,
+    medicalBackgroundTask,
+    notebooks,
+    presentMedicalAnalysis,
+  ]);
 
   const declinePrivacyConsent = () => {
     pendingAnalysisRef.current = null;

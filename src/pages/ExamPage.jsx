@@ -46,6 +46,8 @@ import {
   useAiQuota,
 } from "../utils/aiQuota";
 import { AiCreditCost } from "../components/AiQuotaProvider";
+import { useBackgroundTasks } from "../utils/backgroundTaskContext";
+import { getBackgroundTaskKey } from "../utils/backgroundTasks";
 import {
   exportExamCertificatePdf,
   exportExamResultPdf,
@@ -788,8 +790,25 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
   );
 }
 
-function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onGenerated }) {
+function PaperBuilder({
+  academicProfileDataId,
+  subjects,
+  academicLevel,
+  academicTrack,
+  userProfile,
+  onGenerated,
+}) {
   const { hasInsufficientCredits } = useAiQuota();
+  const { acknowledgeTask, runTask, tasks } = useBackgroundTasks();
+  const backgroundProfileId = String(
+    academicProfileDataId || userProfile?.id || "default-profile",
+  ).trim();
+  const paperTaskKey = useMemo(
+    () => getBackgroundTaskKey("question-paper", backgroundProfileId),
+    [backgroundProfileId],
+  );
+  const paperTask = tasks[paperTaskKey] || null;
+  const consumedTaskRunRef = useRef("");
   const names = useMemo(() => subjectNames(subjects), [subjects]);
   const curriculumExamples = useMemo(
     () => getAcademicProfileExamples({ ...userProfile, academicLevel, academicTrack }),
@@ -809,12 +828,33 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
   const [internalChoice, setInternalChoice] = useState(false);
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [includeAnswerKey, setIncludeAnswerKey] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPaper, setGeneratedPaper] = useState(null);
+  const isGenerating = paperTask?.status === "running";
 
   useEffect(() => {
     if (!selectedSubjects.length && names.length) setSelectedSubjects(names.slice(0, 1));
   }, [names, selectedSubjects.length]);
+
+  useEffect(() => {
+    if (!paperTask || paperTask.status === "running") return;
+    if (consumedTaskRunRef.current === paperTask.runId) return;
+    consumedTaskRunRef.current = paperTask.runId;
+
+    if (paperTask.status === "completed") {
+      const paper = unwrapOne(paperTask.result, ["paper"]);
+      if (paper) {
+        setGeneratedPaper(paper);
+        onGenerated?.(paper);
+        toast.success("Question paper generated and saved.");
+      } else {
+        toast.error("The paper finished generating, but its saved result could not be loaded.");
+      }
+    } else {
+      toast.error(paperTask.error || "Could not generate the question paper.");
+    }
+
+    acknowledgeTask(paperTaskKey, paperTask.runId);
+  }, [acknowledgeTask, onGenerated, paperTask, paperTaskKey]);
 
   const allocatedMarks = MARK_TYPES.reduce((sum, marks) => sum + marks * Number(blueprint[marks] || 0), 0);
   const remainingMarks = totalMarks - allocatedMarks;
@@ -850,39 +890,40 @@ function PaperBuilder({ subjects, academicLevel, academicTrack, userProfile, onG
     setBlueprint(defaultBlueprint(next));
   };
 
-  const generate = async () => {
+  const generate = () => {
     if (!canGenerate) return;
-    setIsGenerating(true);
-    try {
-      const payload = await api.post("/api/question-papers/generate", {
-        subjectNames: selectedSubjects,
-        totalMarks,
-        markDistribution: MARK_TYPES.map((marks) => ({ marks, count: Number(blueprint[marks] || 0) })),
-        scopeText,
-        difficulty,
-        codingEmphasis: codingRelevant ? codingMode : "standard",
-        questionStyle: effectiveQuestionStyle,
-        programmingLanguage: codingRelevant ? programmingLanguage : "",
-        paperTitle,
-        ...academicProfilePayload({ ...userProfile, academicLevel, academicTrack }),
-        institutionName,
-        instructions,
-        internalChoice,
-        shuffleQuestions,
-        includeAnswerKey,
-      }, {
+    const requestBody = {
+      subjectNames: selectedSubjects,
+      totalMarks,
+      markDistribution: MARK_TYPES.map((marks) => ({ marks, count: Number(blueprint[marks] || 0) })),
+      scopeText,
+      difficulty,
+      codingEmphasis: codingRelevant ? codingMode : "standard",
+      questionStyle: effectiveQuestionStyle,
+      programmingLanguage: codingRelevant ? programmingLanguage : "",
+      paperTitle,
+      ...academicProfilePayload({ ...userProfile, academicLevel, academicTrack }),
+      institutionName,
+      instructions,
+      internalChoice,
+      shuffleQuestions,
+      includeAnswerKey,
+    };
+
+    runTask({
+      academicProfileId: backgroundProfileId,
+      execute: () => api.post("/api/question-papers/generate", requestBody, {
         timeoutMs: 240000,
         headers: { "Idempotency-Key": createAiIdempotencyKey() },
-      });
-      const paper = unwrapOne(payload, ["paper"]);
-      setGeneratedPaper(paper);
-      onGenerated?.(paper);
-      toast.success("Question paper generated and saved.");
-    } catch (error) {
-      toast.error(getAiRequestErrorMessage(error, "Could not generate the question paper."));
-    } finally {
-      setIsGenerating(false);
-    }
+      }),
+      feature: "question-paper",
+      key: paperTaskKey,
+      label: paperTitle.trim() || "Generating question paper",
+      meta: { paperTitle: paperTitle.trim(), subjectNames: [...selectedSubjects] },
+      route: "/exam",
+    }).catch(() => {
+      // The provider retains the failure so it remains visible after navigation.
+    });
   };
 
   return (
@@ -1394,6 +1435,7 @@ function ExamPage({
   youngKidsMode = false,
 }) {
   const { hasInsufficientCredits } = useAiQuota();
+  const { tasks: backgroundTasks } = useBackgroundTasks();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const names = useMemo(() => subjectNames(subjects), [subjects]);
@@ -1404,8 +1446,17 @@ function ExamPage({
   const requestedSection = searchParams.get("section");
   const requestedAttendHandledRef = useRef(false);
   const preparingRef = useRef(false);
+  const backgroundProfileId = String(
+    academicProfileDataId || userProfile?.id || "default-profile",
+  ).trim();
+  const paperTaskKey = getBackgroundTaskKey("question-paper", backgroundProfileId);
+  const retainedPaperTask = backgroundTasks[paperTaskKey] || null;
   const [section, setSection] = useState(() => (
-    requestedSection === "attend" && isOnlineExamEligible ? "attend" : "overview"
+    requestedSection === "attend" && isOnlineExamEligible
+      ? "attend"
+      : retainedPaperTask
+        ? "paper"
+        : "overview"
   ));
   const [subjectName, setSubjectName] = useState(() => names[0] || "");
   const [scopeText, setScopeText] = useState("");
@@ -1802,6 +1853,7 @@ function ExamPage({
       {section === "paper" && (
         <>
           <PaperBuilder
+            academicProfileDataId={academicProfileDataId}
             academicLevel={academicLevel}
             academicTrack={academicTrack}
             onGenerated={(paper) => { handlePaperLoaded(paper); loadPapers(); }}

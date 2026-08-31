@@ -89,6 +89,12 @@ import registerQuizBattleRoutes, {
   cleanupQuizBattleUserData,
 } from "./quizBattleRoutes.js";
 import {
+  QUIZ_ATTEMPT_SESSION_INDEX,
+  QuizAttemptValidationError,
+  buildQuizAttemptDocument,
+  publicQuizAttempt,
+} from "./quizAttempts.js";
+import {
   getYoungKidsAccessProfile,
   kidsWorkspaceScheduleChanged,
   readParentAccess,
@@ -281,6 +287,10 @@ async function getDb() {
         db.collection(ACADEMIC_PROFILE_LOCKS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         db.collection("worktrees").createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
         db.collection("quizAttempts").createIndex({ userId: 1, academicProfileId: 1, createdAt: -1 }),
+        db.collection("quizAttempts").createIndex(
+          QUIZ_ATTEMPT_SESSION_INDEX.key,
+          QUIZ_ATTEMPT_SESSION_INDEX.options,
+        ),
         db.collection("chatSessions").createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
         db.collection("exams").createIndex({ userId: 1, academicProfileId: 1, createdAt: -1 }),
         db.collection("examAttempts").createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
@@ -1942,10 +1952,7 @@ app.delete("/api/worktrees/:id", requireAuth(async (req, res) => {
 app.get("/api/quizzes", requireParentGuidedFeature("Quiz", async (req, res) => {
   const db = await getDb();
   const attempts = await db.collection("quizAttempts").find(academicProfileFilter(req)).sort({ createdAt: -1 }).limit(50).toArray();
-  res.json({ attempts: attempts.map(({ _id, ...attempt }) => {
-    delete attempt.userId;
-    return { id: _id.toString(), ...attempt };
-  }) });
+  res.json({ attempts: attempts.map(publicQuizAttempt) });
 }));
 
 
@@ -2156,27 +2163,52 @@ app.post("/api/quizzes", requireParentGuidedFeature("Quiz", async (req, res) => 
   const db = await getDb();
   await assertAcademicProfileWritable(db, req);
   const academicProfileSnapshot = academicProfilePayload({ ...req.user, ...(req.body || {}) });
-  const attempt = {
-    userId: req.user._id,
-    academicProfileId: req.academicProfileId,
-    ...academicProfileSnapshot,
-    academicProfileSnapshot,
-    subjectName: req.body?.subjectName || "General study",
-    topic: req.body?.topic || "General revision",
-    total: Number(req.body?.total || 0),
-    score: Number(req.body?.score || 0),
-    questions: req.body?.questions || [],
-    answers: req.body?.answers || {},
-    createdAt: new Date(),
-  };
-  const result = await withAcademicProfileWriteFence(
-    db,
-    req,
-    () => db.collection("quizAttempts").insertOne(attempt),
-  );
-  const safeAttempt = { ...attempt };
-  delete safeAttempt.userId;
-  res.status(201).json({ attempt: { id: result.insertedId.toString(), ...safeAttempt } });
+  let attempt;
+  try {
+    attempt = buildQuizAttemptDocument({
+      userId: req.user._id,
+      academicProfileId: req.academicProfileId,
+      academicProfileSnapshot,
+      body: req.body,
+    });
+  } catch (error) {
+    if (error instanceof QuizAttemptValidationError) {
+      return res.status(error.status).json({ error: error.message, code: error.code });
+    }
+    throw error;
+  }
+
+  const attempts = db.collection("quizAttempts");
+  const replayFilter = attempt.sessionId
+    ? academicProfileFilter(req, { sessionId: attempt.sessionId })
+    : null;
+  if (replayFilter) {
+    const existing = await attempts.findOne(replayFilter);
+    if (existing) {
+      res.set("Cache-Control", "no-store");
+      return res.json({ attempt: publicQuizAttempt(existing), idempotent: true });
+    }
+  }
+
+  let result;
+  try {
+    result = await withAcademicProfileWriteFence(
+      db,
+      req,
+      () => attempts.insertOne(attempt),
+    );
+  } catch (error) {
+    if (error?.code !== 11000 || !replayFilter) throw error;
+    const existing = await attempts.findOne(replayFilter);
+    if (!existing) throw error;
+    res.set("Cache-Control", "no-store");
+    return res.json({ attempt: publicQuizAttempt(existing), idempotent: true });
+  }
+
+  return res.status(201).json({
+    attempt: publicQuizAttempt({ _id: result.insertedId, ...attempt }),
+    idempotent: false,
+  });
 }));
 
 app.get("/api/study-assistant/status", (_req, res) => {

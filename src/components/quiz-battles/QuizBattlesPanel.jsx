@@ -73,6 +73,7 @@ export default function QuizBattlesPanel({
   completed = [],
   initialBattleId = "",
   initialInviteCode = "",
+  onAttemptStateChange,
   onBattleRouteChange,
   onInviteConsumed,
   schedule = [],
@@ -137,6 +138,16 @@ export default function QuizBattlesPanel({
   const remainingSeconds = attempt?.status === "in_progress"
     ? Math.max(0, Math.ceil((new Date(attempt.deadlineAt).getTime() - (clockNow + serverOffsetMs)) / 1000))
     : 0;
+
+  useEffect(() => {
+    onAttemptStateChange?.(attempt?.status === "in_progress"
+      ? {
+        active: true,
+        battleId: selectedBattle?.id || "",
+        deadlineAt: attempt.deadlineAt || "",
+      }
+      : null);
+  }, [attempt?.deadlineAt, attempt?.status, onAttemptStateChange, selectedBattle?.id]);
 
   const hydrateAnswers = useCallback((nextBattle) => {
     const nextAnswers = nextBattle?.attempt?.status === "in_progress"
@@ -532,6 +543,10 @@ export default function QuizBattlesPanel({
   };
 
   const closeBattle = () => {
+    if (attempt?.status === "in_progress") {
+      routeChangeRef.current?.("");
+      return;
+    }
     const returnBattleId = returnBattleIdRef.current;
     void flushPendingSave();
     setSelectedBattle(null);

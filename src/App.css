@@ -12385,6 +12385,147 @@ body button.delete-history-btn {
   transition: color 160ms ease, transform 160ms ease !important;
 }
 
+/* Route-level background work and time-sensitive attention indicators. */
+.sidebar-route-activity {
+  position: relative;
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: #2f80ed;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #2f80ed 18%, transparent);
+}
+
+.route-activity--running .sidebar-route-activity {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+  border: 2px solid color-mix(in srgb, #2f80ed 28%, var(--border));
+  border-top-color: #2f80ed;
+  box-shadow: none;
+  animation: sidebar-background-task-spin 0.85s linear infinite;
+}
+
+.route-activity--failed .sidebar-route-activity,
+.route-activity--attention .sidebar-route-activity {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #ef4444 20%, transparent);
+}
+
+.route-activity--attention .sidebar-route-activity {
+  animation: sidebar-attention-pulse 1.9s ease-in-out infinite;
+}
+
+.sidebar-widgets .exam-widget-btn.is-task-running,
+body.dark .sidebar-widgets .exam-widget-btn.is-task-running {
+  border-color: color-mix(in srgb, #2f80ed 74%, transparent) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, #2f80ed 58%, var(--surface)), color-mix(in srgb, #60a5fa 32%, var(--surface))) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #2f80ed 24%, transparent), 0 8px 24px color-mix(in srgb, #2f80ed 25%, transparent) !important;
+  animation: exam-background-generating 2.8s ease-in-out infinite;
+}
+
+.sidebar-widgets .exam-widget-btn.is-task-completed,
+body.dark .sidebar-widgets .exam-widget-btn.is-task-completed {
+  border-color: color-mix(in srgb, #22c55e 72%, transparent) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, #22c55e 54%, var(--surface)), color-mix(in srgb, #34d399 28%, var(--surface))) !important;
+  box-shadow: 0 8px 24px color-mix(in srgb, #22c55e 23%, transparent) !important;
+}
+
+.sidebar-widgets .exam-widget-btn.is-task-failed,
+body.dark .sidebar-widgets .exam-widget-btn.is-task-failed {
+  border-color: color-mix(in srgb, #ef4444 72%, transparent) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, #ef4444 52%, var(--surface)), color-mix(in srgb, #fb7185 25%, var(--surface))) !important;
+  box-shadow: 0 8px 24px color-mix(in srgb, #ef4444 22%, transparent) !important;
+}
+
+.app-shell-layout.has-sidebar.is-sidebar-collapsed .sidebar-route-activity {
+  position: absolute;
+  z-index: 3;
+  top: 6px;
+  right: 7px;
+  margin: 0;
+}
+
+.collapsed-exam-task-link {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 42px;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin: 4px auto 10px;
+  color: #fff;
+  border: 1px solid color-mix(in srgb, #2f80ed 60%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, #2f80ed 72%, var(--surface));
+  box-shadow: 0 8px 20px color-mix(in srgb, #2f80ed 24%, transparent);
+}
+
+.collapsed-exam-task-link .exam-widget-status {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.collapsed-exam-task-link.is-task-running {
+  animation: exam-background-generating 2.8s ease-in-out infinite;
+}
+
+.collapsed-exam-task-link.is-task-completed {
+  border-color: color-mix(in srgb, #22c55e 70%, transparent);
+  background: color-mix(in srgb, #22c55e 72%, var(--surface));
+  box-shadow: 0 8px 20px color-mix(in srgb, #22c55e 23%, transparent);
+}
+
+.collapsed-exam-task-link.is-task-failed {
+  border-color: color-mix(in srgb, #ef4444 70%, transparent);
+  background: color-mix(in srgb, #ef4444 70%, var(--surface));
+  box-shadow: 0 8px 20px color-mix(in srgb, #ef4444 22%, transparent);
+}
+
+.exam-widget-status {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.is-task-running .exam-widget-status {
+  width: 11px;
+  height: 11px;
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  border-top-color: #fff;
+  animation: sidebar-background-task-spin 0.85s linear infinite;
+}
+
+@keyframes sidebar-background-task-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes sidebar-attention-pulse {
+  0%, 100% { opacity: 0.62; transform: scale(0.82); }
+  50% { opacity: 1; transform: scale(1.16); }
+}
+
+@keyframes exam-background-generating {
+  0%, 100% { filter: saturate(0.86); transform: translateY(0); }
+  50% { filter: saturate(1.22) brightness(1.08); transform: translateY(-1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-activity--running .sidebar-route-activity,
+  .route-activity--attention .sidebar-route-activity,
+  .sidebar-widgets .exam-widget-btn.is-task-running,
+  .collapsed-exam-task-link.is-task-running,
+  .is-task-running .exam-widget-status {
+    animation: none !important;
+  }
+}
+
 body button.delete-history-btn::before,
 body button.delete-history-btn::after {
   display: none !important;
@@ -22265,6 +22406,28 @@ body.has-bg-image :is(button, a).page-back-control.page-back-control svg {
   filter:
     drop-shadow(0 1px 2px rgba(0, 0, 0, 0.92))
     drop-shadow(0 0 1px rgba(255, 255, 255, 0.48));
+}
+
+/* Keep background paper state tones above the legacy Exam launcher themes. */
+.sidebar-widgets .exam-widget-btn.is-task-running,
+body.dark .sidebar-widgets .exam-widget-btn.is-task-running {
+  border-color: color-mix(in srgb, #2f80ed 74%, transparent) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, #2f80ed 58%, var(--surface)), color-mix(in srgb, #60a5fa 32%, var(--surface))) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #2f80ed 24%, transparent), 0 8px 24px color-mix(in srgb, #2f80ed 25%, transparent) !important;
+}
+
+.sidebar-widgets .exam-widget-btn.is-task-completed,
+body.dark .sidebar-widgets .exam-widget-btn.is-task-completed {
+  border-color: color-mix(in srgb, #22c55e 72%, transparent) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, #22c55e 54%, var(--surface)), color-mix(in srgb, #34d399 28%, var(--surface))) !important;
+  box-shadow: 0 8px 24px color-mix(in srgb, #22c55e 23%, transparent) !important;
+}
+
+.sidebar-widgets .exam-widget-btn.is-task-failed,
+body.dark .sidebar-widgets .exam-widget-btn.is-task-failed {
+  border-color: color-mix(in srgb, #ef4444 72%, transparent) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, #ef4444 52%, var(--surface)), color-mix(in srgb, #fb7185 25%, var(--surface))) !important;
+  box-shadow: 0 8px 24px color-mix(in srgb, #ef4444 22%, transparent) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
