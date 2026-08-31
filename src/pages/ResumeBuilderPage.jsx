@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertCircle,
@@ -34,6 +34,7 @@ import {
   X,
 } from "lucide-react";
 import ResumeHistorySection from "../components/ResumeHistorySection";
+import ResumeBuilderIntro from "../components/ResumeBuilderIntro";
 import api from "../utils/apiClient";
 import {
   RESUME_ACCENTS,
@@ -55,6 +56,11 @@ import {
   normalizeResumeHistoryEntry,
 } from "../utils/resumeHistory";
 import { createResumePdf, getResumePdfFilename } from "../utils/resumePdf";
+import {
+  createResumeBuilderIntroState,
+  getResumeBuilderIntroDurations,
+  resumeBuilderIntroReducer,
+} from "../utils/resumeBuilderIntro";
 import "./ResumeBuilderPage.css";
 
 const EDITOR_SECTIONS = [
@@ -504,6 +510,17 @@ export default function ResumeBuilderPage({
   const [previewFullscreenOpen, setPreviewFullscreenOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
+  const [prefersReducedMotion] = useState(() => (
+    typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  ));
+  const [introState, dispatchIntro] = useReducer(
+    resumeBuilderIntroReducer,
+    undefined,
+    createResumeBuilderIntroState,
+  );
+  const introDurations = getResumeBuilderIntroDurations(prefersReducedMotion);
   const noticeTimer = useRef(null);
   const generationRequestRef = useRef(null);
   const historyLoadSequenceRef = useRef(0);
@@ -565,12 +582,49 @@ export default function ResumeBuilderPage({
   }, [academicProfileDataId]);
 
   useEffect(() => {
-    loadResumeHistory();
+    let active = true;
+    void loadResumeHistory().finally(() => {
+      if (active) dispatchIntro({ type: "history_settled" });
+    });
     return () => {
+      active = false;
       historyLoadSequenceRef.current += 1;
       historyOpenSequenceRef.current += 1;
     };
   }, [loadResumeHistory]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => dispatchIntro({ type: "minimum_elapsed" }),
+      introDurations.minimumMs,
+    );
+    return () => window.clearTimeout(timer);
+  }, [introDurations.minimumMs]);
+
+  useEffect(() => {
+    if (introState.phase !== "exiting") return undefined;
+    const timer = window.setTimeout(
+      () => dispatchIntro({ type: "exit_finished" }),
+      introDurations.exitMs,
+    );
+    return () => window.clearTimeout(timer);
+  }, [introDurations.exitMs, introState.phase]);
+
+  useEffect(() => {
+    if (introState.phase !== "done" || typeof window === "undefined") return undefined;
+    const rawTarget = window.location.hash.slice(1);
+    if (!rawTarget) return undefined;
+    let targetId = rawTarget;
+    try {
+      targetId = decodeURIComponent(rawTarget);
+    } catch {
+      // Keep the literal hash for malformed escape sequences.
+    }
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "auto", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [introState.phase]);
 
   useEffect(
     () => () => {
@@ -700,7 +754,10 @@ export default function ResumeBuilderPage({
       })
       .catch(() => null)
       .finally(() => {
-        if (active) setQuotaLoading(false);
+        if (active) {
+          setQuotaLoading(false);
+          dispatchIntro({ type: "quota_settled" });
+        }
       });
     return () => {
       active = false;
@@ -953,8 +1010,16 @@ export default function ResumeBuilderPage({
     ? Number(quota.remaining)
     : Math.max(0, RESUME_WEEKLY_LIMIT - quotaUsed);
 
+  const introActive = introState.phase !== "done";
+
   return (
-    <section className="resume-builder-page">
+    <>
+      {introActive && <ResumeBuilderIntro phase={introState.phase} />}
+      <section
+        aria-hidden={introActive ? "true" : undefined}
+        className={`resume-builder-page ${introActive ? "is-entry-loading" : "resume-builder-page-entry"}`}
+        inert={introActive || undefined}
+      >
       <header className="resume-builder-hero">
         <div className="resume-builder-hero__icon">
           <FileText size={30} />
@@ -1613,6 +1678,7 @@ export default function ResumeBuilderPage({
         </div>,
         document.body
       )}
-    </section>
+      </section>
+    </>
   );
 }

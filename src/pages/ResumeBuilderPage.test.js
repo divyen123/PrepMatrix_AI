@@ -64,3 +64,13 @@ test("provides a distinct live-preview modifier for every premium template", () 
     assert.match(stylesheet, new RegExp(`\\.resume-paper--${template}\\b`, "u"));
   });
 });
+
+test("gates the workspace intro on both initial resume requests and reveals the ready page", () => {
+  assert.match(pageSource, /<ResumeBuilderIntro phase=\{introState\.phase\}/u);
+  assert.match(pageSource, /loadResumeHistory\(\)\.finally\([\s\S]*?history_settled/u);
+  assert.match(pageSource, /getResumeBuilderStatus[\s\S]*?\.finally\(\(\) => \{[\s\S]*?quota_settled/u);
+  assert.match(pageSource, /type: "minimum_elapsed"/u);
+  assert.match(pageSource, /type: "exit_finished"/u);
+  assert.match(pageSource, /introActive \? "is-entry-loading" : "resume-builder-page-entry"/u);
+  assert.match(stylesheet, /\.resume-builder-page\.is-entry-loading\s*\{[\s\S]*?display:\s*none/u);
+});
