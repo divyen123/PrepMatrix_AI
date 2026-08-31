@@ -169,6 +169,91 @@ body .quiz-page .quiz-mode-tabs button:focus-visible {
   padding: 12px 15px;
 }
 
+.quiz-battle-confirm-backdrop {
+  z-index: 2450;
+}
+
+.quiz-battle-confirm-dialog {
+  grid-template-columns: auto minmax(0, 1fr);
+  width: min(100%, 510px);
+  color: var(--text);
+  background:
+    linear-gradient(var(--bg), var(--bg)) padding-box,
+    linear-gradient(135deg, rgba(56, 189, 248, 0.5), rgba(99, 102, 241, 0.2)) border-box;
+}
+
+.quiz-battle-confirm-dialog.is-danger {
+  background:
+    linear-gradient(var(--bg), var(--bg)) padding-box,
+    linear-gradient(135deg, rgba(239, 68, 68, 0.58), rgba(248, 113, 113, 0.2)) border-box;
+}
+
+.quiz-battle-confirm-dialog:focus-within {
+  box-shadow:
+    0 28px 90px rgba(8, 12, 24, 0.42),
+    0 0 0 3px rgba(56, 189, 248, 0.16);
+}
+
+.quiz-battle-confirm-dialog__icon.is-info {
+  color: #0284c7;
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.28);
+}
+
+.quiz-battle-confirm-dialog__icon.is-danger {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.11);
+  border-color: rgba(239, 68, 68, 0.26);
+}
+
+.quiz-battle-confirm-dialog__copy {
+  gap: 7px;
+}
+
+.quiz-battle-confirm-dialog__copy .section-tag {
+  width: max-content;
+}
+
+.quiz-battle-confirm-dialog__copy h2 {
+  margin-top: 1px;
+}
+
+.quiz-battle-confirm-dialog__copy small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.quiz-battle-confirm-dialog__actions {
+  grid-column: 1 / -1;
+}
+
+body .quiz-battle-confirm-dialog__actions button {
+  min-height: 40px;
+  padding: 9px 14px;
+}
+
+body .quiz-battle-confirm-dialog__actions .secondary-btn {
+  color: var(--text) !important;
+  background: color-mix(in srgb, #94a3b8 11%, var(--surface-strong)) !important;
+  border-color: color-mix(in srgb, #94a3b8 36%, var(--border)) !important;
+}
+
+body .quiz-battle-confirm-dialog__actions .primary-btn {
+  color: #f8fafc !important;
+  background: linear-gradient(135deg, #0284c7, #2563eb) !important;
+  border-color: rgba(125, 211, 252, 0.62) !important;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.24) !important;
+}
+
+body .quiz-battle-confirm-dialog__actions .confirm-danger-btn {
+  color: #fff7f7 !important;
+  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+  border-color: rgba(252, 165, 165, 0.64) !important;
+  box-shadow: 0 8px 20px rgba(185, 28, 28, 0.22) !important;
+}
+
 .battle-form {
   display: grid;
   gap: 18px;
@@ -314,6 +399,21 @@ body .quiz-page .quiz-mode-tabs button:focus-visible {
   padding: 16px;
 }
 
+.battle-summary-card.is-terminal {
+  gap: 9px;
+  padding: 14px;
+}
+
+.battle-summary-card.is-terminal.is-outcome-win {
+  border-color: color-mix(in srgb, #22c55e 36%, var(--border));
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.04);
+}
+
+.battle-summary-card.is-terminal.is-outcome-loss {
+  border-color: color-mix(in srgb, #94a3b8 44%, var(--border));
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.06);
+}
+
 .battle-summary-card h4 {
   font-size: 1rem;
   margin: 0;
@@ -350,9 +450,29 @@ body .quiz-page .quiz-mode-tabs button:focus-visible {
 }
 
 .battle-status-pill.is-active,
-.battle-status-pill.is-completed {
+.battle-status-pill.is-completed.is-outcome-win {
   background: rgba(34, 197, 94, 0.12);
   color: #15803d;
+}
+
+.battle-status-pill.is-completed,
+.battle-status-pill.is-expired,
+.battle-status-pill.is-completed.is-outcome-neutral {
+  background: color-mix(in srgb, #94a3b8 15%, var(--surface));
+  border: 1px solid color-mix(in srgb, #94a3b8 34%, var(--border));
+  color: color-mix(in srgb, var(--text) 70%, #64748b);
+}
+
+.battle-status-pill.is-completed.is-outcome-loss {
+  background: color-mix(in srgb, #64748b 17%, var(--surface-strong));
+  border: 1px solid color-mix(in srgb, #94a3b8 46%, var(--border));
+  color: color-mix(in srgb, var(--text) 78%, #64748b);
+}
+
+.battle-status-pill.is-completed.is-outcome-draw {
+  background: rgba(99, 102, 241, 0.11);
+  border: 1px solid rgba(99, 102, 241, 0.24);
+  color: #4f46e5;
 }
 
 .battle-status-pill.is-pending {
@@ -363,7 +483,24 @@ body .quiz-page .quiz-mode-tabs button:focus-visible {
 .battle-card-xp {
   background: rgba(168, 85, 247, 0.11);
   color: #7e22ce;
-  justify-self: start;
+  flex: 0 0 auto;
+  justify-self: auto;
+  white-space: nowrap;
+}
+
+.battle-card-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+  min-width: 0;
+}
+
+body .quiz-page .battle-card-actions button {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 11px;
 }
 
 .battle-inactive {
@@ -488,23 +625,49 @@ body .quiz-page .quiz-mode-tabs button:focus-visible {
 }
 
 .battle-option-list label {
-  align-items: flex-start;
+  align-items: center;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
   border: 1px solid var(--border);
   border-radius: 12px;
   cursor: pointer;
-  display: flex;
-  gap: 10px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 18px;
   line-height: 1.45;
-  padding: 11px 12px;
+  min-height: 48px;
+  padding: 10px 12px;
 }
 
 .battle-option-list label.is-selected {
   background: rgba(56, 189, 248, 0.09);
   border-color: rgba(56, 189, 248, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.08);
 }
 
-.battle-option-list input {
-  margin-top: 3px;
+.battle-option-text {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+body .quiz-page .battle-option-list input[type="radio"] {
+  appearance: auto;
+  accent-color: #0ea5e9;
+  align-self: center;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  flex: 0 0 18px;
+  grid-column: 2;
+  grid-row: 1;
+  height: 18px !important;
+  margin: 0 !important;
+  min-height: 18px !important;
+  padding: 0 !important;
+  width: 18px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .battle-submit-bar {
@@ -521,12 +684,39 @@ body .quiz-page .quiz-mode-tabs button:focus-visible {
 }
 
 .battle-result-hero {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(56, 189, 248, 0.08));
-  border: 1px solid rgba(168, 85, 247, 0.22);
-  border-radius: 18px;
-  gap: 15px;
+  background: color-mix(in srgb, #94a3b8 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, #94a3b8 30%, var(--border));
+  border-radius: 16px;
+  gap: 13px;
   justify-content: flex-start;
-  padding: 18px;
+  padding: 14px 15px;
+}
+
+.battle-result-stack {
+  gap: 14px;
+}
+
+.battle-result-hero.is-outcome-win {
+  background: color-mix(in srgb, #22c55e 9%, var(--surface));
+  border-color: color-mix(in srgb, #22c55e 34%, var(--border));
+}
+
+.battle-result-hero.is-outcome-win > svg {
+  color: #16a34a;
+}
+
+.battle-result-hero.is-outcome-loss {
+  background: color-mix(in srgb, #64748b 12%, var(--surface-strong));
+  border-color: color-mix(in srgb, #94a3b8 42%, var(--border));
+}
+
+.battle-result-hero.is-outcome-loss > svg {
+  color: color-mix(in srgb, var(--text) 72%, #64748b);
+}
+
+.battle-result-hero.is-outcome-draw {
+  background: color-mix(in srgb, #6366f1 9%, var(--surface));
+  border-color: color-mix(in srgb, #6366f1 28%, var(--border));
 }
 
 .battle-scoreboard {
@@ -541,8 +731,26 @@ body .quiz-page .quiz-mode-tabs button:focus-visible {
   border-radius: 16px;
   display: grid;
   gap: 5px;
-  padding: 16px;
+  padding: 13px 14px;
   text-align: center;
+}
+
+.battle-scoreboard article.is-winner {
+  background: color-mix(in srgb, #22c55e 8%, var(--surface));
+  border-color: color-mix(in srgb, #22c55e 32%, var(--border));
+}
+
+.battle-scoreboard article.is-loser {
+  background: color-mix(in srgb, #64748b 11%, var(--surface-strong));
+  border-color: color-mix(in srgb, #94a3b8 38%, var(--border));
+}
+
+.battle-scoreboard article.is-winner strong {
+  color: #15803d;
+}
+
+.battle-scoreboard article.is-loser strong {
+  color: color-mix(in srgb, var(--text) 72%, #64748b);
 }
 
 .battle-scoreboard strong {
@@ -556,12 +764,22 @@ body .quiz-page .quiz-mode-tabs button:focus-visible {
 }
 
 .battle-reward-card {
-  background: rgba(34, 197, 94, 0.08);
-  border: 1px solid rgba(34, 197, 94, 0.22);
+  background: color-mix(in srgb, #94a3b8 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, #94a3b8 28%, var(--border));
   border-radius: 16px;
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 9px;
+  padding: 13px 14px;
+}
+
+.battle-reward-card.is-outcome-win {
+  background: color-mix(in srgb, #22c55e 8%, var(--surface));
+  border-color: color-mix(in srgb, #22c55e 31%, var(--border));
+}
+
+.battle-reward-card.is-outcome-loss {
+  background: color-mix(in srgb, #64748b 10%, var(--surface-strong));
+  border-color: color-mix(in srgb, #94a3b8 38%, var(--border));
 }
 
 .battle-reward-card > div {
@@ -570,9 +788,14 @@ body .quiz-page .quiz-mode-tabs button:focus-visible {
   justify-content: space-between;
 }
 
-.battle-reward-card > div > strong {
+.battle-reward-card.is-outcome-win > div > strong {
   color: #15803d;
   font-size: 1.3rem;
+}
+
+.battle-reward-card:not(.is-outcome-win) > div > strong {
+  color: color-mix(in srgb, var(--text) 76%, #64748b);
+  font-size: 1.2rem;
 }
 
 .battle-reward-card ul {
@@ -666,10 +889,87 @@ body.dark .battle-eligibility {
 
 body.dark .battle-eligibility.is-ready,
 body.dark .battle-status-pill.is-active,
-body.dark .battle-status-pill.is-completed,
-body.dark .battle-reward-card > div > strong,
+body.dark .battle-status-pill.is-completed.is-outcome-win,
+body.dark .battle-reward-card.is-outcome-win > div > strong,
+body.dark .battle-scoreboard article.is-winner strong,
 body.dark .battle-review-option.is-correct {
   color: #86efac;
+}
+
+body.dark .battle-status-pill.is-completed.is-outcome-loss,
+body.dark .battle-status-pill.is-completed.is-outcome-neutral,
+body.dark .battle-scoreboard article.is-loser strong,
+body.dark .battle-reward-card:not(.is-outcome-win) > div > strong {
+  color: #cbd5e1;
+}
+
+body.dark .battle-status-pill.is-completed.is-outcome-draw {
+  color: #c7d2fe;
+}
+
+body.dark .battle-scoreboard article.is-winner,
+body.has-bg-image .battle-scoreboard article.is-winner {
+  background: rgba(20, 83, 45, 0.34);
+  border-color: rgba(74, 222, 128, 0.38);
+}
+
+body.dark .battle-scoreboard article.is-loser,
+body.has-bg-image .battle-scoreboard article.is-loser {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(148, 163, 184, 0.38);
+}
+
+body.has-bg-image .battle-result-hero.is-outcome-win,
+body.has-bg-image .battle-reward-card.is-outcome-win {
+  background: rgba(20, 83, 45, 0.42);
+  border-color: rgba(74, 222, 128, 0.4);
+}
+
+body.has-bg-image .battle-result-hero.is-outcome-loss,
+body.has-bg-image .battle-reward-card.is-outcome-loss {
+  background: rgba(30, 41, 59, 0.82);
+  border-color: rgba(148, 163, 184, 0.42);
+}
+
+body.has-bg-image .battle-summary-card.is-terminal.is-outcome-loss {
+  border-color: rgba(148, 163, 184, 0.46);
+}
+
+body.has-bg-image .battle-summary-card.is-terminal.is-outcome-win {
+  border-color: rgba(74, 222, 128, 0.42);
+}
+
+body.has-bg-image .battle-option-list label {
+  background: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.58);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+body.has-bg-image .battle-option-list label.is-selected {
+  background: rgba(14, 165, 233, 0.16);
+  border-color: rgba(56, 189, 248, 0.56);
+}
+
+body.has-bg-image:not(.no-glass-cards) .confirm-modal.quiz-battle-confirm-dialog,
+body.has-bg-image.no-glass-cards .confirm-modal.quiz-battle-confirm-dialog {
+  color: #f8fafc;
+  background:
+    linear-gradient(
+      rgb(var(--bg-surface-rgb, 15, 23, 42)),
+      rgb(var(--bg-surface-rgb, 15, 23, 42))
+    ) padding-box,
+    linear-gradient(135deg, rgba(56, 189, 248, 0.62), rgba(99, 102, 241, 0.26)) border-box !important;
+  backdrop-filter: blur(20px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
+}
+
+body.has-bg-image:not(.no-glass-cards) .confirm-modal.quiz-battle-confirm-dialog.is-danger,
+body.has-bg-image.no-glass-cards .confirm-modal.quiz-battle-confirm-dialog.is-danger {
+  background:
+    linear-gradient(
+      rgb(var(--bg-surface-rgb, 15, 23, 42)),
+      rgb(var(--bg-surface-rgb, 15, 23, 42))
+    ) padding-box,
+    linear-gradient(135deg, rgba(248, 113, 113, 0.68), rgba(239, 68, 68, 0.25)) border-box !important;
 }
 
 body.dark .battle-status-pill.is-pending {
@@ -790,5 +1090,29 @@ body.dark .battle-review-option.is-incorrect {
   .battle-detail,
   .battle-form {
     padding: 16px;
+  }
+}
+
+@media (max-width: 520px) {
+  .quiz-battle-confirm-backdrop {
+    padding: 14px;
+  }
+
+  .quiz-battle-confirm-dialog__actions {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr;
+    flex-direction: initial;
+  }
+
+  .battle-card-actions {
+    align-items: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-battle-confirm-backdrop,
+  .quiz-battle-confirm-dialog {
+    animation-duration: 0.01ms !important;
   }
 }

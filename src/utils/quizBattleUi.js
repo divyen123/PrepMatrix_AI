@@ -84,7 +84,7 @@ export function quizBattleStatusLabel(battle = {}) {
   if (battle.status === "expired") return "Expired";
   if (battle.status === "completed") {
     if (battle.result?.outcome === "win") return "Victory";
-    if (battle.result?.outcome === "loss") return "Battle complete";
+    if (battle.result?.outcome === "loss") return "Opponent won";
     if (battle.result?.outcome === "draw") return "Draw";
     return "Results ready";
   }

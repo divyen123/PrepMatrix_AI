@@ -5,6 +5,7 @@ import {
   groupQuizBattles,
   normalizeQuizBattleInviteCode,
   quizBattleInviteCodeFromHash,
+  quizBattleStatusLabel,
   shouldPreserveQuizBattleLocalAnswers,
   normalizeQuizBattleStats,
 } from "./quizBattleUi.js";
@@ -17,6 +18,25 @@ test("combines verified battle XP with planner XP without changing either source
     level: 2,
     levelProgress: 5,
   });
+});
+
+test("labels completed battles from the current learner's outcome", () => {
+  assert.equal(quizBattleStatusLabel({
+    status: "completed",
+    result: { outcome: "win" },
+  }), "Victory");
+  assert.equal(quizBattleStatusLabel({
+    status: "completed",
+    result: { outcome: "loss" },
+  }), "Opponent won");
+  assert.equal(quizBattleStatusLabel({
+    status: "completed",
+    result: { outcome: "draw" },
+  }), "Draw");
+  assert.equal(quizBattleStatusLabel({
+    status: "completed",
+    result: { outcome: "expired" },
+  }), "Results ready");
 });
 
 test("normalizes hostile stats and invite-code formatting", () => {

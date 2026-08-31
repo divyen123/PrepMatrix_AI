@@ -32,6 +32,7 @@ import {
   shouldPreserveQuizBattleLocalAnswers,
 } from "../../utils/quizBattleUi";
 import { AiCreditCost } from "../AiQuotaProvider";
+import QuizBattleConfirmDialog from "./QuizBattleConfirmDialog";
 import "./QuizBattles.css";
 
 function formatDeadline(value) {
@@ -55,6 +56,72 @@ function outcomeTitle(battle) {
   if (battle.result?.outcome === "draw") return "The battle is a draw";
   if (battle.result?.kind === "forfeit") return "Uncontested result";
   return battle.status === "expired" ? "Battle expired" : "Battle complete";
+}
+
+function outcomeToneClass(battle) {
+  const outcome = battle?.result?.outcome;
+  return ["win", "loss", "draw"].includes(outcome)
+    ? `is-outcome-${outcome}`
+    : "is-outcome-neutral";
+}
+
+function statusPillClassName(battle) {
+  return [
+    "battle-status-pill",
+    `is-${battle?.status || "unknown"}`,
+    (battle?.status === "completed" || battle?.status === "expired")
+      ? outcomeToneClass(battle)
+      : "",
+  ].filter(Boolean).join(" ");
+}
+
+function participantToneClass(participant, participants, resultKind) {
+  if (resultKind !== "win" || !Number.isFinite(participant?.score)) return "";
+  const scores = participants
+    .map(({ score }) => score)
+    .filter((score) => Number.isFinite(score));
+  if (scores.length < 2) return "";
+  return participant.score === Math.max(...scores) ? "is-winner" : "is-loser";
+}
+
+function confirmationCopy(pendingAction) {
+  if (pendingAction?.kind === "cancel") {
+    return {
+      cancelLabel: "Keep battle",
+      confirmLabel: "Cancel battle",
+      description: "This ends the pending challenge for both learners. The generated quiz credits cannot be refunded.",
+      kind: "cancel",
+      note: "No attempt or score will be recorded.",
+      title: "Cancel this battle?",
+      tone: "danger",
+    };
+  }
+  if (pendingAction?.kind === "start") {
+    return {
+      cancelLabel: "Not yet",
+      confirmLabel: "Start timed attempt",
+      description: "Your one-time 10-minute attempt begins immediately and cannot be paused after it starts.",
+      kind: "start",
+      note: "Your answers will autosave while the timer is running.",
+      title: "Ready to start?",
+      tone: "info",
+    };
+  }
+  if (pendingAction?.kind === "submit") {
+    const unanswered = Number(pendingAction.unanswered) || 0;
+    return {
+      cancelLabel: "Review answers",
+      confirmLabel: "Submit answers",
+      description: unanswered > 0
+        ? `You still have ${unanswered} unanswered question${unanswered === 1 ? "" : "s"}. Submitting now will lock every answer.`
+        : "Your answers will be submitted and locked. You cannot change them afterward.",
+      kind: "submit",
+      note: "Results remain private until your opponent submits or the battle closes.",
+      title: unanswered > 0 ? "Submit incomplete attempt?" : "Lock in your answers?",
+      tone: "info",
+    };
+  }
+  return null;
 }
 
 function rewardLines(reward) {
@@ -95,6 +162,7 @@ export default function QuizBattlesPanel({
   const [joinCode, setJoinCode] = useState(() => normalizeQuizBattleInviteCode(initialInviteCode));
   const [invitePreview, setInvitePreview] = useState(null);
   const [saveState, setSaveState] = useState("");
+  const [pendingConfirmation, setPendingConfirmation] = useState(null);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const saveTimerRef = useRef(null);
@@ -259,6 +327,7 @@ export default function QuizBattlesPanel({
     if (!initialBattleId) {
       if (selectedBattleRef.current) {
         void flushPendingSave();
+        setPendingConfirmation(null);
         selectedBattleRef.current = null;
         setSelectedBattle(null);
         hydrateAnswers(null);
@@ -266,6 +335,7 @@ export default function QuizBattlesPanel({
       return;
     }
     if (selectedBattleRef.current?.id === initialBattleId) return;
+    setPendingConfirmation(null);
     selectedBattleRef.current = null;
     setSelectedBattle(null);
     hydrateAnswers(null);
@@ -330,6 +400,7 @@ export default function QuizBattlesPanel({
     const deadlineKey = `${selectedBattle.id}:${attempt.deadlineAt}`;
     if (deadlineRefreshRef.current === deadlineKey) return;
     deadlineRefreshRef.current = deadlineKey;
+    setPendingConfirmation(null);
     setBusyAction("deadline");
     setSaveState("Time ended — locking your saved answers");
     void flushPendingSave()
@@ -447,7 +518,6 @@ export default function QuizBattlesPanel({
   };
 
   const cancelBattle = async () => {
-    if (!window.confirm("Cancel this pending battle? Generated quiz credits are not refunded.")) return;
     setBusyAction("cancel");
     try {
       const payload = await api.cancelQuizBattle(selectedBattle.id, { academicProfileId: academicProfileDataId });
@@ -464,7 +534,6 @@ export default function QuizBattlesPanel({
   };
 
   const startBattle = async () => {
-    if (!window.confirm("Start your one-time 10-minute attempt now? The timer cannot be paused.")) return;
     setBusyAction("start");
     setError("");
     try {
@@ -499,11 +568,6 @@ export default function QuizBattlesPanel({
   };
 
   const submitBattle = async () => {
-    const unanswered = (attempt?.questions?.length || 0) - Object.keys(answers).length;
-    const message = unanswered > 0
-      ? `Submit with ${unanswered} unanswered question${unanswered === 1 ? "" : "s"}? You cannot change answers afterward.`
-      : "Submit and lock your answers? You cannot change them afterward.";
-    if (!window.confirm(message)) return;
     if (saveTimerRef.current) {
       window.clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
@@ -530,6 +594,34 @@ export default function QuizBattlesPanel({
     }
   };
 
+  const requestBattleConfirmation = (kind) => {
+    const battleId = selectedBattleRef.current?.id;
+    if (!battleId || busyAction) return;
+    setPendingConfirmation({
+      battleId,
+      kind,
+      ...(kind === "submit" ? {
+        unanswered: Math.max(
+          0,
+          (attempt?.questions?.length || 0) - Object.keys(latestAnswersRef.current).length,
+        ),
+      } : {}),
+    });
+  };
+
+  const confirmBattleAction = () => {
+    const pendingAction = pendingConfirmation;
+    setPendingConfirmation(null);
+    if (!pendingAction || pendingAction.battleId !== selectedBattleRef.current?.id) return;
+    if (pendingAction.kind === "cancel") {
+      void cancelBattle();
+    } else if (pendingAction.kind === "start") {
+      void startBattle();
+    } else if (pendingAction.kind === "submit") {
+      void submitBattle();
+    }
+  };
+
   const copyInvite = async () => {
     const code = selectedBattle?.inviteCode;
     if (!code) return;
@@ -549,6 +641,7 @@ export default function QuizBattlesPanel({
     }
     const returnBattleId = returnBattleIdRef.current;
     void flushPendingSave();
+    setPendingConfirmation(null);
     setSelectedBattle(null);
     selectedBattleRef.current = null;
     hydrateAnswers(null);
@@ -564,9 +657,11 @@ export default function QuizBattlesPanel({
   const renderResult = () => {
     const result = selectedBattle.result;
     const rewards = rewardLines(selectedBattle.reward);
+    const resultTone = outcomeToneClass(selectedBattle);
+    const participants = result?.participants || [];
     return (
-      <div className="battle-result-stack">
-        <div className="battle-result-hero">
+      <div className={`battle-result-stack ${resultTone}`}>
+        <div className={`battle-result-hero ${resultTone}`}>
           <Trophy aria-hidden="true" size={30} />
           <div>
             <span className="section-tag">Results released</span>
@@ -578,8 +673,11 @@ export default function QuizBattlesPanel({
         </div>
 
         <div className="battle-scoreboard" aria-label="Battle scores">
-          {(result?.participants || []).map((participant) => (
-            <article key={participant.role}>
+          {participants.map((participant) => (
+            <article
+              className={participantToneClass(participant, participants, result?.kind)}
+              key={participant.role}
+            >
               <span>{participant.role === selectedBattle.role ? "You" : participant.displayName}</span>
               <strong>
                 {participant.score === null ? "—" : `${participant.score}/${participant.total}`}
@@ -590,7 +688,7 @@ export default function QuizBattlesPanel({
         </div>
 
         {selectedBattle.reward && (
-          <section className="battle-reward-card" aria-label="XP reward">
+          <section className={`battle-reward-card ${resultTone}`} aria-label="XP reward">
             <div>
               <span className="section-tag">Study Momentum</span>
               <strong>+{selectedBattle.reward.totalXp} XP</strong>
@@ -660,7 +758,7 @@ export default function QuizBattlesPanel({
           <ArrowLeft aria-hidden="true" size={17} />
           All battles
         </button>
-        <span className={`battle-status-pill is-${selectedBattle.status}`}>
+        <span className={statusPillClassName(selectedBattle)}>
           {quizBattleStatusLabel(selectedBattle)}
         </span>
       </div>
@@ -692,7 +790,7 @@ export default function QuizBattlesPanel({
             <button
               className="secondary-btn"
               disabled={busyAction === "cancel"}
-              onClick={cancelBattle}
+              onClick={() => requestBattleConfirmation("cancel")}
               type="button"
             >
               Cancel
@@ -712,7 +810,7 @@ export default function QuizBattlesPanel({
           <button
             className="primary-btn"
             disabled={busyAction === "start"}
-            onClick={startBattle}
+            onClick={() => requestBattleConfirmation("start")}
             type="button"
           >
             {busyAction === "start" ? "Starting…" : "Start my attempt"}
@@ -754,7 +852,7 @@ export default function QuizBattlesPanel({
                         type="radio"
                         value={option.id}
                       />
-                      <span>{option.text}</span>
+                      <span className="battle-option-text">{option.text}</span>
                     </label>
                   ))}
                 </div>
@@ -767,7 +865,7 @@ export default function QuizBattlesPanel({
             <button
               className="primary-btn"
               disabled={busyAction === "submit" || busyAction === "deadline" || remainingSeconds <= 0}
-              onClick={submitBattle}
+              onClick={() => requestBattleConfirmation("submit")}
               type="button"
             >
               {busyAction === "submit" ? "Locking answers…" : "Submit final answers"}
@@ -823,10 +921,17 @@ export default function QuizBattlesPanel({
         </div>
         <div className="battle-card-grid">
           {items.map((battle) => (
-            <article className="battle-summary-card" key={battle.id}>
+            <article
+              className={[
+                "battle-summary-card",
+                battle.status === "completed" || battle.status === "expired" ? "is-terminal" : "",
+                battle.status === "completed" || battle.status === "expired" ? outcomeToneClass(battle) : "",
+              ].filter(Boolean).join(" ")}
+              key={battle.id}
+            >
               <div className="battle-card-topline">
                 <span>{battle.subjectName}</span>
-                <span className={`battle-status-pill is-${battle.status}`}>
+                <span className={statusPillClassName(battle)}>
                   {quizBattleStatusLabel(battle)}
                 </span>
               </div>
@@ -839,27 +944,29 @@ export default function QuizBattlesPanel({
                 <Clock3 aria-hidden="true" size={14} />
                 {formatDeadline(battle.deadlineAt)}
               </time>
-              {battle.reward && (
-                <span className="battle-card-xp">+{battle.reward.totalXp} XP</span>
-              )}
-              <button
-                className={battle.canStart || battle.attemptStatus === "in_progress" ? "primary-btn" : "secondary-btn"}
-                data-battle-id={battle.id}
-                disabled={busyAction === `open:${battle.id}`}
-                onClick={() => {
-                  returnBattleIdRef.current = battle.id;
-                  void openBattle(battle.id);
-                }}
-                type="button"
-              >
-                {battle.status === "completed" || battle.status === "expired"
-                  ? "View results"
-                  : battle.attemptStatus === "in_progress"
-                    ? "Continue"
-                    : battle.canStart
-                      ? "Start"
-                      : "Open"}
-              </button>
+              <div className="battle-card-actions">
+                {battle.reward && (
+                  <span className="battle-card-xp">+{battle.reward.totalXp} XP</span>
+                )}
+                <button
+                  className={battle.canStart || battle.attemptStatus === "in_progress" ? "primary-btn" : "secondary-btn"}
+                  data-battle-id={battle.id}
+                  disabled={busyAction === `open:${battle.id}`}
+                  onClick={() => {
+                    returnBattleIdRef.current = battle.id;
+                    void openBattle(battle.id);
+                  }}
+                  type="button"
+                >
+                  {battle.status === "completed" || battle.status === "expired"
+                    ? "View results"
+                    : battle.attemptStatus === "in_progress"
+                      ? "Continue"
+                      : battle.canStart
+                        ? "Start"
+                        : "Open"}
+                </button>
+              </div>
             </article>
           ))}
         </div>
@@ -867,12 +974,23 @@ export default function QuizBattlesPanel({
     );
   };
 
+  const confirmationAction = confirmationCopy(pendingConfirmation);
+
   if (selectedBattle) {
     return (
-      <div className="battle-panel">
-        {error && <div className="battle-alert" role="alert">{error}</div>}
-        {renderBattleDetail()}
-      </div>
+      <>
+        <div className="battle-panel">
+          {error && <div className="battle-alert" role="alert">{error}</div>}
+          {renderBattleDetail()}
+        </div>
+        <QuizBattleConfirmDialog
+          action={confirmationAction}
+          fallbackFocusRef={detailHeadingRef}
+          onCancel={() => setPendingConfirmation(null)}
+          onConfirm={confirmBattleAction}
+          open={Boolean(confirmationAction)}
+        />
+      </>
     );
   }
 
