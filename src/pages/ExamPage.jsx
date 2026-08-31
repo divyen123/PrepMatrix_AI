@@ -1213,7 +1213,7 @@ function ResultsPanel({ results, onRefresh, userProfile }) {
   return (
     <section className="exam-results-section">
       <div className="exam-section-title">
-        <div><span className="section-tag">View results</span><h2>Released and pending exams</h2><p>Scores remain private for exactly 72 hours after submission.</p></div>
+        <div><h2>Released and pending exams</h2></div>
         <button className="exam-icon-btn" aria-label="Refresh results" onClick={onRefresh} title="Refresh results" type="button"><RefreshCcw size={16} /></button>
       </div>
 
@@ -1724,54 +1724,41 @@ function ExamPage({
         })}
       </nav>
 
-      <section className={`exam-eligibility-banner ${isOnlineExamEligible ? "is-eligible" : "is-locked"}`} aria-live="polite">
-        <div className="exam-eligibility-icon" aria-hidden="true">
-          {isOnlineExamEligible ? <CheckCircle2 size={20} /> : <ShieldAlert size={20} />}
-        </div>
-        <div className="exam-eligibility-copy">
-          <span>Online exam eligibility</span>
-          <strong>{isOnlineExamEligible ? "Attend Exam is unlocked" : `${readinessPercent}% planner completion`}</strong>
-          <p>
-            {isOnlineExamEligible
-              ? "You are now eligible to attend the exam."
-              : tasksToExamEligibility > 0
-                ? `Complete ${tasksToExamEligibility} more planner task${tasksToExamEligibility === 1 ? "" : "s"} to reach the ${EXAM_ELIGIBILITY_THRESHOLD}% requirement.`
-                : `Complete at least ${EXAM_ELIGIBILITY_THRESHOLD}% of your scheduled planner tasks to unlock Attend Exam.`}
-          </p>
-        </div>
-        <div className="exam-eligibility-progress">
-          <progress aria-label={`${readinessPercent}% complete`} max={100} value={readinessPercent}>{readinessPercent}%</progress>
-          <strong>{readinessPercent}% <small>/ {EXAM_ELIGIBILITY_THRESHOLD}%</small></strong>
-        </div>
-      </section>
+      {section !== "results" && (
+        <section className={`exam-eligibility-banner ${isOnlineExamEligible ? "is-eligible" : "is-locked"}`} aria-live="polite">
+          <div className="exam-eligibility-icon" aria-hidden="true">
+            {isOnlineExamEligible ? <CheckCircle2 size={20} /> : <ShieldAlert size={20} />}
+          </div>
+          <div className="exam-eligibility-copy">
+            <span>Online exam eligibility</span>
+            <strong>{isOnlineExamEligible ? "Attend Exam is unlocked" : `${readinessPercent}% planner completion`}</strong>
+            <p>
+              {isOnlineExamEligible
+                ? "You are now eligible to attend the exam."
+                : tasksToExamEligibility > 0
+                  ? `Complete ${tasksToExamEligibility} more planner task${tasksToExamEligibility === 1 ? "" : "s"} to reach the ${EXAM_ELIGIBILITY_THRESHOLD}% requirement.`
+                  : `Complete at least ${EXAM_ELIGIBILITY_THRESHOLD}% of your scheduled planner tasks to unlock Attend Exam.`}
+            </p>
+          </div>
+          <div className="exam-eligibility-progress">
+            <progress aria-label={`${readinessPercent}% complete`} max={100} value={readinessPercent}>{readinessPercent}%</progress>
+            <strong>{readinessPercent}% <small>/ {EXAM_ELIGIBILITY_THRESHOLD}%</small></strong>
+          </div>
+        </section>
+      )}
 
       {section === "overview" && (
-        <>
-          <section className="card exam-hero">
-            <div>
-              <span className="exam-hero-badge"><ShieldAlert size={14} /> Secure assessment workspace</span>
-              <h2>From focused practice to a complete exam workflow.</h2>
-              <div><button className="exam-primary-btn" disabled={!isOnlineExamEligible} onClick={() => setSection("attend")} title={!isOnlineExamEligible ? `Complete ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner to unlock Attend Exam` : undefined} type="button"><ListChecks size={17} /> {isOnlineExamEligible ? "Attend exam" : `Unlock at ${EXAM_ELIGIBILITY_THRESHOLD}%`}</button><button className="exam-secondary-btn" onClick={() => setSection("paper")} type="button"><FilePlus2 size={17} /> Generate paper</button></div>
-            </div>
-            <div className="exam-hero-stats">
-              <div><strong>40</strong><span>MCQs</span></div>
-              <div><strong>60m</strong><span>Fixed duration</span></div>
-              <div><strong>72h</strong><span>Result release</span></div>
-            </div>
-          </section>
-
-          <div className="exam-feature-grid">
-            <button className={`card exam-feature-card${isOnlineExamEligible ? "" : " is-locked"}`} disabled={!isOnlineExamEligible} onClick={() => setSection("attend")} title={!isOnlineExamEligible ? `Complete ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner to unlock Attend Exam` : undefined} type="button"><span><ListChecks size={21} /></span><h3>Attend Exam</h3><p>{isOnlineExamEligible ? "Fullscreen MCQ exam with autosave, warnings, and server-side grading." : `Locked until your planner reaches ${EXAM_ELIGIBILITY_THRESHOLD}% completion. You are currently at ${readinessPercent}%.`}</p><b>{isOnlineExamEligible ? <>Start setup <ArrowRight size={14} /></> : "Planner progress required"}</b></button>
-            <button className="card exam-feature-card" onClick={() => setSection("paper")} type="button"><span><FilePlus2 size={21} /></span><h3>Generate Question Paper</h3><p>Build a precise mark split, coding emphasis, answer key, and exportable PDF.</p><b>Design paper <ArrowRight size={14} /></b></button>
-            <button className="card exam-feature-card" onClick={() => setSection("results")} type="button"><span><Trophy size={21} /></span><h3>View Results</h3><p>{pendingResults} pending and {releasedResults} released result{releasedResults === 1 ? "" : "s"}.</p><b>Open results <ArrowRight size={14} /></b></button>
-          </div>
-        </>
+        <div className="exam-feature-grid">
+          <button className={`card exam-feature-card${isOnlineExamEligible ? "" : " is-locked"}`} disabled={!isOnlineExamEligible} onClick={() => setSection("attend")} title={!isOnlineExamEligible ? `Complete ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner to unlock Attend Exam` : undefined} type="button"><span><ListChecks size={21} /></span><h3>Attend Exam</h3><p>{isOnlineExamEligible ? "Fullscreen MCQ exam with autosave, warnings, and server-side grading." : `Locked until your planner reaches ${EXAM_ELIGIBILITY_THRESHOLD}% completion. You are currently at ${readinessPercent}%.`}</p><b>{isOnlineExamEligible ? <>Start setup <ArrowRight size={14} /></> : "Planner progress required"}</b></button>
+          <button className="card exam-feature-card" onClick={() => setSection("paper")} type="button"><span><FilePlus2 size={21} /></span><h3>Generate Question Paper</h3><p>Build a precise mark split, coding emphasis, answer key, and exportable PDF.</p><b>Design paper <ArrowRight size={14} /></b></button>
+          <button className="card exam-feature-card" onClick={() => setSection("results")} type="button"><span><Trophy size={21} /></span><h3>View Results</h3><p>{pendingResults} pending and {releasedResults} released result{releasedResults === 1 ? "" : "s"}.</p><b>Open results <ArrowRight size={14} /></b></button>
+        </div>
       )}
 
       {section === "attend" && (
         <div className="exam-attend-layout">
           <section className="card exam-attend-form">
-            <div className="exam-section-title"><div><span className="section-tag">Attend exam</span><h2>Prepare a secure online exam</h2><p>Exactly 40 MCQs, 60 minutes, and server-side grading.</p></div><div className="exam-heading-icon"><GraduationCap size={21} /></div></div>
+            <div className="exam-section-title"><div><span className="section-tag">Attend exam</span><h2>Prepare a secure online exam</h2></div><div className="exam-heading-icon"><GraduationCap size={21} /></div></div>
             <div className="exam-form-grid">
               <label className="field-stack">
                 Subject
