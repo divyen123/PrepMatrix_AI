@@ -124,3 +124,17 @@ test("keeps long-running learning generation in the profile-scoped background ta
   assert.ok(pageSource.includes("presentMedicalAnalysis(task.result, request)"));
   assert.ok(pageSource.includes("acknowledgeTask(task.key, task.runId)"));
 });
+
+test("places the centered Practice more topic panels at the end of Placement Preparation", () => {
+  const resultsIndex = pageSource.indexOf('className="card learning-career-results"');
+  const practiceMoreIndex = pageSource.indexOf('className="learning-career-practice-more"');
+  const practiceTitleIndex = pageSource.indexOf('id="learning-career-practice-more-title">Practice more</h2>');
+  const roleTopicsIndex = pageSource.indexOf("<h3>Important role topics</h3>");
+  const codingTopicsIndex = pageSource.indexOf("<h3>Frequently tested coding</h3>");
+
+  assert.ok(resultsIndex >= 0);
+  assert.ok(practiceMoreIndex > resultsIndex);
+  assert.ok(practiceTitleIndex > practiceMoreIndex);
+  assert.ok(roleTopicsIndex > practiceTitleIndex);
+  assert.ok(codingTopicsIndex > practiceTitleIndex);
+});

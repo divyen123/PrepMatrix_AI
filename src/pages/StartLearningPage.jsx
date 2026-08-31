@@ -4365,46 +4365,6 @@ function StartLearningPage({
               </div>
             </section>
 
-            <section className="learning-career-primer" aria-label="Frequently tested preparation areas">
-              <article className="card">
-                <div className="learning-career-section-heading">
-                  <span><BriefcaseBusiness size={17} /></span>
-                  <div>
-                    <h3>Important role topics</h3>
-                    <p>Build clear explanations and evidence before practicing answers.</p>
-                  </div>
-                </div>
-                <div className="learning-career-topic-grid">
-                  {careerFoundationTopics.slice(0, 8).map((topic) => (
-                    <button key={topic.id || topic.title} onClick={() => addCareerTopic(topic.title, { openIntake: true })} type="button">
-                      <span><Plus size={13} /></span>
-                      <strong>{topic.title}</strong>
-                      <small>{topic.summary || "Add this area to your personalized preparation guide."}</small>
-                    </button>
-                  ))}
-                </div>
-              </article>
-
-              <article className="card">
-                <div className="learning-career-section-heading">
-                  <span><Code2 size={17} /></span>
-                  <div>
-                    <h3>Frequently tested coding</h3>
-                    <p>Prioritize patterns, complexity, edge cases, and spoken reasoning.</p>
-                  </div>
-                </div>
-                <div className="learning-career-topic-grid">
-                  {careerCodingTopics.slice(0, 8).map((topic) => (
-                    <button key={topic.id || topic.title} onClick={() => addCareerTopic(topic.title, { openIntake: true })} type="button">
-                      <span><Plus size={13} /></span>
-                      <strong>{topic.title}</strong>
-                      <small>{topic.summary || "Add this coding pattern to your personalized preparation guide."}</small>
-                    </button>
-                  ))}
-                </div>
-              </article>
-            </section>
-
             {careerAnalysisReady && (
               <section className="card learning-career-results" aria-live="polite">
                 <div className="learning-panel-heading">
@@ -4532,6 +4492,54 @@ function StartLearningPage({
                 )}
               </section>
             )}
+
+            <section
+              aria-labelledby="learning-career-practice-more-title"
+              className="learning-career-practice-more"
+            >
+              <header className="learning-career-practice-more-heading">
+                <h2 id="learning-career-practice-more-title">Practice more</h2>
+              </header>
+              <div className="learning-career-primer" aria-label="Frequently tested preparation areas">
+                <article className="card">
+                  <div className="learning-career-section-heading">
+                    <span><BriefcaseBusiness size={17} /></span>
+                    <div>
+                      <h3>Important role topics</h3>
+                      <p>Build clear explanations and evidence before practicing answers.</p>
+                    </div>
+                  </div>
+                  <div className="learning-career-topic-grid">
+                    {careerFoundationTopics.slice(0, 8).map((topic) => (
+                      <button key={topic.id || topic.title} onClick={() => addCareerTopic(topic.title, { openIntake: true })} type="button">
+                        <span><Plus size={13} /></span>
+                        <strong>{topic.title}</strong>
+                        <small>{topic.summary || "Add this area to your personalized preparation guide."}</small>
+                      </button>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="card">
+                  <div className="learning-career-section-heading">
+                    <span><Code2 size={17} /></span>
+                    <div>
+                      <h3>Frequently tested coding</h3>
+                      <p>Prioritize patterns, complexity, edge cases, and spoken reasoning.</p>
+                    </div>
+                  </div>
+                  <div className="learning-career-topic-grid">
+                    {careerCodingTopics.slice(0, 8).map((topic) => (
+                      <button key={topic.id || topic.title} onClick={() => addCareerTopic(topic.title, { openIntake: true })} type="button">
+                        <span><Plus size={13} /></span>
+                        <strong>{topic.title}</strong>
+                        <small>{topic.summary || "Add this coding pattern to your personalized preparation guide."}</small>
+                      </button>
+                    ))}
+                  </div>
+                </article>
+              </div>
+            </section>
           </section>
         )}
       </div>
