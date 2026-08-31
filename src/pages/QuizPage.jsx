@@ -96,6 +96,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     searchParams.get("tab") === "battles"
     || Boolean(searchParams.get("join"))
     || Boolean(searchParams.get("battle"))
+    || Boolean(quizBattleInviteCodeFromHash(location.hash))
   );
 
   const updateQuizRoute = (mode, battleId = "") => {

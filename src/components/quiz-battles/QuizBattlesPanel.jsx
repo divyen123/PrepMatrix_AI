@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -26,6 +26,11 @@ import {
 } from "../../utils/plannerMetrics";
 import { getAcademicProfileExamples } from "../../utils/academicProfileExamples";
 import {
+  createQuizBattleIntroState,
+  getQuizBattleIntroDurations,
+  quizBattleIntroReducer,
+} from "../../utils/quizBattleIntro";
+import {
   groupQuizBattles,
   normalizeQuizBattleInviteCode,
   quizBattleStatusLabel,
@@ -33,6 +38,7 @@ import {
 } from "../../utils/quizBattleUi";
 import { AiCreditCost } from "../AiQuotaProvider";
 import QuizBattleConfirmDialog from "./QuizBattleConfirmDialog";
+import QuizBattleIntro from "./QuizBattleIntro";
 import "./QuizBattles.css";
 
 function formatDeadline(value) {
@@ -163,6 +169,20 @@ export default function QuizBattlesPanel({
   const [invitePreview, setInvitePreview] = useState(null);
   const [saveState, setSaveState] = useState("");
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
+  const [prefersReducedMotion] = useState(() => (
+    typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  ));
+  const [introState, dispatchIntro] = useReducer(
+    quizBattleIntroReducer,
+    {
+      waitForBattle: Boolean(initialBattleId),
+      waitForInvite: normalizeQuizBattleInviteCode(initialInviteCode).length === 10,
+    },
+    createQuizBattleIntroState,
+  );
+  const introDurations = getQuizBattleIntroDurations(prefersReducedMotion);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const saveTimerRef = useRef(null);
@@ -320,11 +340,35 @@ export default function QuizBattlesPanel({
   }, [academicProfileDataId, hydrateAnswers, syncServerClock]);
 
   useEffect(() => {
-    void refreshList();
+    let active = true;
+    void refreshList().finally(() => {
+      if (active) dispatchIntro({ type: "list_settled" });
+    });
+    return () => {
+      active = false;
+    };
   }, [refreshList]);
 
   useEffect(() => {
+    const timer = window.setTimeout(
+      () => dispatchIntro({ type: "minimum_elapsed" }),
+      introDurations.minimumMs,
+    );
+    return () => window.clearTimeout(timer);
+  }, [introDurations.minimumMs]);
+
+  useEffect(() => {
+    if (introState.phase !== "exiting") return undefined;
+    const timer = window.setTimeout(
+      () => dispatchIntro({ type: "exit_finished" }),
+      introDurations.exitMs,
+    );
+    return () => window.clearTimeout(timer);
+  }, [introDurations.exitMs, introState.phase]);
+
+  useEffect(() => {
     if (!initialBattleId) {
+      dispatchIntro({ type: "battle_settled" });
       if (selectedBattleRef.current) {
         void flushPendingSave();
         setPendingConfirmation(null);
@@ -332,24 +376,36 @@ export default function QuizBattlesPanel({
         setSelectedBattle(null);
         hydrateAnswers(null);
       }
-      return;
+      return undefined;
     }
     if (selectedBattleRef.current?.id === initialBattleId) return;
+    let active = true;
     setPendingConfirmation(null);
     selectedBattleRef.current = null;
     setSelectedBattle(null);
     hydrateAnswers(null);
-    void openBattle(initialBattleId);
+    void openBattle(initialBattleId).finally(() => {
+      if (active) dispatchIntro({ type: "battle_settled" });
+    });
+    return () => {
+      active = false;
+    };
   }, [flushPendingSave, hydrateAnswers, initialBattleId, openBattle]);
 
   useEffect(() => {
-    if (!initialInviteCode) return;
+    if (!initialInviteCode) {
+      dispatchIntro({ type: "invite_settled" });
+      return undefined;
+    }
     const code = normalizeQuizBattleInviteCode(initialInviteCode);
     const requestToken = ++previewRequestRef.current;
     setJoinCode(code);
     setShowJoin(true);
     setInvitePreview(null);
-    if (code.length !== 10) return;
+    if (code.length !== 10) {
+      dispatchIntro({ type: "invite_settled" });
+      return undefined;
+    }
     let active = true;
     setBusyAction("preview");
     api.previewQuizBattleInvite(code, { academicProfileId: academicProfileDataId })
@@ -366,7 +422,10 @@ export default function QuizBattlesPanel({
         }
       })
       .finally(() => {
-        if (active) setBusyAction("");
+        if (active) {
+          setBusyAction("");
+          dispatchIntro({ type: "invite_settled" });
+        }
       });
     return () => {
       active = false;
@@ -976,10 +1035,14 @@ export default function QuizBattlesPanel({
 
   const confirmationAction = confirmationCopy(pendingConfirmation);
 
+  if (introState.phase !== "done") {
+    return <QuizBattleIntro phase={introState.phase} />;
+  }
+
   if (selectedBattle) {
     return (
       <>
-        <div className="battle-panel">
+        <div className="battle-panel battle-panel-entry">
           {error && <div className="battle-alert" role="alert">{error}</div>}
           {renderBattleDetail()}
         </div>
@@ -995,16 +1058,7 @@ export default function QuizBattlesPanel({
   }
 
   return (
-    <div className="battle-panel">
-      <section className="battle-dashboard-hero card">
-        <div>
-          <span className="section-tag">Asynchronous 1v1</span>
-          <h2>Challenge a friend to a topic duel</h2>
-          <p>One shared AI quiz, private results, server-scored answers, and XP that counts in Study Momentum.</p>
-        </div>
-        <Swords aria-hidden="true" size={42} />
-      </section>
-
+    <div className="battle-panel battle-panel-entry">
       <div className="battle-dashboard-actions">
         <button
           aria-controls="quiz-battle-create-panel"
