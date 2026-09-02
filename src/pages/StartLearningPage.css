@@ -1233,6 +1233,38 @@ body .learning-tablist button.is-active {
   border-color: var(--border) !important;
 }
 
+.learning-tab-panels {
+  position: relative;
+  display: flow-root;
+}
+
+.learning-tab-panel {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, 7px, 0);
+  visibility: hidden;
+  transition:
+    opacity 170ms ease,
+    transform 210ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s linear 210ms;
+}
+
+.learning-tab-panel.is-active {
+  position: relative;
+  z-index: 1;
+  overflow: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate3d(0, 0, 0);
+  visibility: visible;
+  transition-delay: 0s;
+}
+
 .learning-notes-view,
 .learning-outline-view,
 .learning-map-view {
@@ -2172,6 +2204,10 @@ body .learning-dialog-header > button {
     animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .learning-tab-panel {
+    transform: none !important;
   }
 }
 
@@ -3498,6 +3534,18 @@ body .learning-map-smart-actions > button:hover,
 body .learning-map-smart-actions .learning-completion-action:hover {
   color: var(--accent) !important;
   border-color: rgba(var(--accent-rgb), 0.28) !important;
+}
+
+body .learning-map-smart-actions .learning-completion-action.is-complete[aria-pressed="true"] {
+  color: color-mix(in srgb, #22c55e 58%, var(--text)) !important;
+  background: color-mix(in srgb, #22c55e 12%, var(--surface-strong)) !important;
+  border-color: color-mix(in srgb, #22c55e 34%, var(--border)) !important;
+}
+
+body .learning-map-smart-actions .learning-completion-action.is-complete[aria-pressed="true"]:hover {
+  color: color-mix(in srgb, #22c55e 64%, var(--text)) !important;
+  background: color-mix(in srgb, #22c55e 17%, var(--surface-strong)) !important;
+  border-color: color-mix(in srgb, #22c55e 46%, var(--border)) !important;
 }
 
 @media (max-width: 720px) {

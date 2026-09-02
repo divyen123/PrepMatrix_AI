@@ -126,6 +126,22 @@
   opacity: 0.7;
 }
 
+.memory-review-card.is-complete .memory-review-complete-label {
+  color: #167a42;
+  background: color-mix(in srgb, #22c55e 13%, var(--surface-strong, #fff));
+  border-color: color-mix(in srgb, #16a34a 38%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #22c55e 5%, transparent);
+  opacity: 1;
+}
+
+body.dark .memory-review-card.is-complete .memory-review-complete-label,
+body.has-bg-image .memory-review-card.is-complete .memory-review-complete-label {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(74, 222, 128, 0.36);
+  box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.05);
+}
+
 .memory-review-card-main {
   min-width: 0;
 }

@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clock3,
   Copy,
+  LoaderCircle,
   Plus,
   RefreshCw,
   ShieldCheck,
@@ -191,6 +192,7 @@ export default function QuizBattlesPanel({
   const answersDirtyRef = useRef(false);
   const latestAnswersRef = useRef({});
   const selectedBattleRef = useRef(null);
+  const openingBattleRef = useRef("");
   const mountedRef = useRef(true);
   const previewRequestRef = useRef(0);
   const deadlineRefreshRef = useRef("");
@@ -311,7 +313,11 @@ export default function QuizBattlesPanel({
 
   const openBattle = useCallback(async (battleId, { silent = false } = {}) => {
     if (!battleId) return null;
-    if (!silent) setBusyAction(`open:${battleId}`);
+    if (!silent) {
+      if (openingBattleRef.current) return null;
+      openingBattleRef.current = battleId;
+      setBusyAction(`open:${battleId}`);
+    }
     try {
       const payload = await api.getQuizBattle(battleId, { academicProfileId: academicProfileDataId });
       syncServerClock(payload);
@@ -335,7 +341,10 @@ export default function QuizBattlesPanel({
       }
       return null;
     } finally {
-      if (!silent) setBusyAction("");
+      if (!silent) {
+        openingBattleRef.current = "";
+        if (mountedRef.current) setBusyAction("");
+      }
     }
   }, [academicProfileDataId, hydrateAnswers, syncServerClock]);
 
@@ -979,55 +988,65 @@ export default function QuizBattlesPanel({
           <span>{items.length}</span>
         </div>
         <div className="battle-card-grid">
-          {items.map((battle) => (
-            <article
-              className={[
-                "battle-summary-card",
-                battle.status === "completed" || battle.status === "expired" ? "is-terminal" : "",
-                battle.status === "completed" || battle.status === "expired" ? outcomeToneClass(battle) : "",
-              ].filter(Boolean).join(" ")}
-              key={battle.id}
-            >
-              <div className="battle-card-topline">
-                <span>{battle.subjectName}</span>
-                <span className={statusPillClassName(battle)}>
-                  {quizBattleStatusLabel(battle)}
-                </span>
-              </div>
-              <h4>{battle.topic}</h4>
-              <p>
-                <Swords aria-hidden="true" size={15} />
-                {battle.opponent?.displayName}
-              </p>
-              <time dateTime={battle.deadlineAt}>
-                <Clock3 aria-hidden="true" size={14} />
-                {formatDeadline(battle.deadlineAt)}
-              </time>
-              <div className="battle-card-actions">
-                {battle.reward && (
-                  <span className="battle-card-xp">+{battle.reward.totalXp} XP</span>
-                )}
-                <button
-                  className={battle.canStart || battle.attemptStatus === "in_progress" ? "primary-btn" : "secondary-btn"}
-                  data-battle-id={battle.id}
-                  disabled={busyAction === `open:${battle.id}`}
-                  onClick={() => {
-                    returnBattleIdRef.current = battle.id;
-                    void openBattle(battle.id);
-                  }}
-                  type="button"
-                >
-                  {battle.status === "completed" || battle.status === "expired"
-                    ? "View results"
-                    : battle.attemptStatus === "in_progress"
-                      ? "Continue"
-                      : battle.canStart
-                        ? "Start"
-                        : "Open"}
-                </button>
-              </div>
-            </article>
-          ))}
+          {items.map((battle) => {
+            const isTerminal = battle.status === "completed" || battle.status === "expired";
+            const isOpeningThisBattle = busyAction === `open:${battle.id}`;
+            return (
+              <article
+                className={[
+                  "battle-summary-card",
+                  isTerminal ? "is-terminal" : "",
+                  isTerminal ? outcomeToneClass(battle) : "",
+                ].filter(Boolean).join(" ")}
+                key={battle.id}
+              >
+                <div className="battle-card-topline">
+                  <span>{battle.subjectName}</span>
+                  <span className={statusPillClassName(battle)}>
+                    {quizBattleStatusLabel(battle)}
+                  </span>
+                </div>
+                <h4>{battle.topic}</h4>
+                <p>
+                  <Swords aria-hidden="true" size={15} />
+                  {battle.opponent?.displayName}
+                </p>
+                <time dateTime={battle.deadlineAt}>
+                  <Clock3 aria-hidden="true" size={14} />
+                  {formatDeadline(battle.deadlineAt)}
+                </time>
+                <div className="battle-card-actions">
+                  {battle.reward && (
+                    <span className="battle-card-xp">+{battle.reward.totalXp} XP</span>
+                  )}
+                  <button
+                    aria-busy={isOpeningThisBattle}
+                    className={battle.canStart || battle.attemptStatus === "in_progress" ? "primary-btn" : "secondary-btn"}
+                    data-battle-id={battle.id}
+                    disabled={isOpeningThisBattle}
+                    onClick={() => {
+                      returnBattleIdRef.current = battle.id;
+                      void openBattle(battle.id);
+                    }}
+                    type="button"
+                  >
+                    {isTerminal && isOpeningThisBattle ? (
+                      <>
+                        <LoaderCircle aria-hidden="true" className="battle-card-action-spinner" size={15} />
+                        <span aria-live="polite" role="status">Loading results…</span>
+                      </>
+                    ) : isTerminal
+                      ? "View results"
+                      : battle.attemptStatus === "in_progress"
+                        ? "Continue"
+                        : battle.canStart
+                          ? "Start"
+                          : "Open"}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </section>
     );

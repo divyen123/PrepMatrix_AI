@@ -166,3 +166,58 @@ test("keeps the Start Learning return control inside opened notebook and placeme
   assert.ok(stylesheet.includes('"copy back"'));
   assert.ok(stylesheet.includes('"back"\n      "copy"'));
 });
+
+test("keeps notebook tab panels mounted and transitions only the active view", () => {
+  const panelsStart = pageSource.indexOf('<div className="learning-tab-panels">');
+  const panelsEnd = pageSource.indexOf(
+    "{activeNotebook && medicalVisible && (",
+    panelsStart,
+  );
+  const panelsSource = pageSource.slice(panelsStart, panelsEnd);
+
+  assert.ok(panelsStart >= 0 && panelsEnd > panelsStart, "expected a persistent tab-panel region");
+  ["studio", "notes", "outline", "map"].forEach((tabId) => {
+    assert.ok(
+      panelsSource.includes(`learningTabPanelProps(activeTab, "${tabId}",`),
+      `expected the ${tabId} panel to remain mounted`,
+    );
+    assert.equal(
+      panelsSource.includes(`{activeTab === "${tabId}" && (`),
+      false,
+      `${tabId} should not be conditionally mounted`,
+    );
+  });
+
+  assert.ok(pageSource.includes('"aria-hidden": !isActive'));
+  assert.ok(pageSource.includes("inert: !isActive"));
+  assert.ok(pageSource.includes("aria-controls={`learning-${tabId}-panel`}"));
+  assert.match(stylesheet, /\.learning-tab-panel\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?transform:\s*translate3d\(0, 7px, 0\);[\s\S]*?visibility:\s*hidden;[\s\S]*?transition:/u);
+  assert.match(stylesheet, /\.learning-tab-panel\.is-active\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?visibility:\s*visible;/u);
+
+  const reducedMotionStart = stylesheet.indexOf("@media (prefers-reduced-motion: reduce)");
+  const reducedMotionEnd = stylesheet.indexOf("/* Start Learning view states */", reducedMotionStart);
+  const reducedMotionStyles = stylesheet.slice(reducedMotionStart, reducedMotionEnd);
+  assert.ok(reducedMotionStart >= 0 && reducedMotionEnd > reducedMotionStart);
+  assert.match(reducedMotionStyles, /transition-duration:\s*0\.01ms\s*!important;/u);
+  assert.match(reducedMotionStyles, /\.learning-tab-panel\s*\{\s*transform:\s*none\s*!important;/u);
+});
+
+test("uses the completion state to tint only the completed mastery-map action green", () => {
+  const actionStart = pageSource.indexOf("const renderCompletionAction =");
+  const actionEnd = pageSource.indexOf("const addToPlanner =", actionStart);
+  const actionSource = pageSource.slice(actionStart, actionEnd);
+  const completedSelector = 'body .learning-map-smart-actions .learning-completion-action.is-complete[aria-pressed="true"]';
+  const completedStylesStart = stylesheet.indexOf(`${completedSelector} {`);
+  const completedStylesEnd = stylesheet.indexOf("}", completedStylesStart);
+  const completedStyles = stylesheet.slice(completedStylesStart, completedStylesEnd);
+  const defaultActionsStart = stylesheet.indexOf("body .learning-map-smart-actions > button,");
+  const defaultActionsStyles = stylesheet.slice(defaultActionsStart, completedStylesStart);
+
+  assert.ok(actionStart >= 0 && actionEnd > actionStart);
+  assert.ok(actionSource.includes('state.isCompleted ? "Completed" : "Mark as completed"'));
+  assert.ok(actionSource.includes("aria-pressed={state.isScheduled ? state.isCompleted : undefined}"));
+  assert.ok(actionSource.includes('state.isCompleted ? " is-complete" : ""'));
+  assert.ok(completedStylesStart >= 0 && completedStylesEnd > completedStylesStart);
+  assert.match(completedStyles, /#22c55e/u);
+  assert.doesNotMatch(defaultActionsStyles, /#22c55e/u);
+});

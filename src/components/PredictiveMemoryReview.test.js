@@ -96,6 +96,17 @@ test("supports a standalone note-like card grid with visible loading and empty s
   );
 });
 
+test("gives completed recall actions a subtle theme-safe green tone", () => {
+  assert.match(
+    stylesheet,
+    /\.memory-review-card\.is-complete \.memory-review-complete-label \{[\s\S]*?color: #167a42;[\s\S]*?background: color-mix\(in srgb, #22c55e 13%,[\s\S]*?border-color: color-mix\(in srgb, #16a34a 38%,[\s\S]*?opacity: 1;/u,
+  );
+  assert.match(
+    stylesheet,
+    /body\.dark \.memory-review-card\.is-complete \.memory-review-complete-label,[\s\S]*?body\.has-bg-image \.memory-review-card\.is-complete \.memory-review-complete-label \{[\s\S]*?color: #86efac;[\s\S]*?background: rgba\(34, 197, 94, 0\.14\);/u,
+  );
+});
+
 test("uses an accessible viewport portal with retained close lifecycle", () => {
   assert.match(componentSource, /import \{ createPortal \} from "react-dom"/u);
   assert.match(componentSource, /const DIALOG_EXIT_DURATION_MS = 240/u);

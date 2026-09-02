@@ -565,6 +565,18 @@ function pdfFileName(notebook) {
   return `${name || "learning-notebook"}.pdf`;
 }
 
+function learningTabPanelProps(activeTab, tabId, viewClassName) {
+  const isActive = activeTab === tabId;
+  return {
+    "aria-hidden": !isActive,
+    "aria-labelledby": `learning-${tabId}-tab`,
+    className: `${viewClassName} learning-tab-panel${isActive ? " is-active" : ""}`,
+    id: `learning-${tabId}-panel`,
+    inert: !isActive,
+    role: "tabpanel",
+  };
+}
+
 function StartLearningPage({
   academicProfileDataId = "",
   academicLevel = "College",
@@ -3946,8 +3958,10 @@ function StartLearningPage({
                     ["map", "Mastery map", <BrainCircuit aria-hidden="true" key="map-icon" size={15} />],
                   ].map(([tabId, label, icon]) => (
                     <button
+                      aria-controls={`learning-${tabId}-panel`}
                       aria-selected={activeTab === tabId}
                       className={activeTab === tabId ? "is-active" : ""}
+                      id={`learning-${tabId}-tab`}
                       key={tabId}
                       onClick={() => setActiveTab(tabId)}
                       role="tab"
@@ -3958,8 +3972,8 @@ function StartLearningPage({
                   ))}
                 </div>
 
-                {activeTab === "studio" && (
-                  <div className="learning-studio-view" role="tabpanel">
+                <div className="learning-tab-panels">
+                  <div {...learningTabPanelProps(activeTab, "studio", "learning-studio-view")}>
                     <LearningStudyStudio
                       activeSession={activeLearningSession}
                       coachState={coachState}
@@ -3985,9 +3999,7 @@ function StartLearningPage({
                       selectedNode={selectedNode}
                     />
                   </div>
-                )}
-                {activeTab === "notes" && (
-                  <div className="learning-notes-view" role="tabpanel">
+                  <div {...learningTabPanelProps(activeTab, "notes", "learning-notes-view")}>
                     {activeNotebook.revisedNotes.length ? activeNotebook.revisedNotes.map((section, index) => (
                       <article className="learning-note-section" key={section.id} style={{ "--reveal-index": index }}>
                         <span>{String(index + 1).padStart(2, "0")}</span>
@@ -4022,10 +4034,8 @@ function StartLearningPage({
                       <div className="learning-section-empty">No revised note sections were returned.</div>
                     )}
                   </div>
-                )}
 
-                {activeTab === "outline" && (
-                  <div className="learning-outline-view" role="tabpanel">
+                  <div {...learningTabPanelProps(activeTab, "outline", "learning-outline-view")}>
                     <div className="learning-outline-toolbar">
                       <div>
                         <h3>Editable learning path</h3>
@@ -4285,10 +4295,8 @@ function StartLearningPage({
                       })}
                     </div>
                   </div>
-                )}
 
-                {activeTab === "map" && (
-                  <div className="learning-map-view" role="tabpanel">
+                  <div {...learningTabPanelProps(activeTab, "map", "learning-map-view")}>
 
                     <LearningMasteryMap
                       notebook={activeNotebook}
@@ -4319,7 +4327,8 @@ function StartLearningPage({
                       </div>
                     )}
                   </div>
-                )}              </section>
+                </div>
+              </section>
 
             </>
           )}

@@ -687,6 +687,21 @@ body .quiz-page .battle-card-actions button {
   padding: 7px 11px;
 }
 
+body .quiz-page .battle-card-actions button[aria-busy="true"] {
+  cursor: wait;
+}
+
+.battle-card-action-spinner {
+  flex: 0 0 auto;
+  animation: quiz-battle-action-spin 760ms linear infinite;
+}
+
+@keyframes quiz-battle-action-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 .battle-inactive {
   color: var(--text-muted);
 }
@@ -1464,6 +1479,7 @@ body.has-bg-image .quiz-battle-intro p {
   .quiz-battle-intro__reveal > span,
   .quiz-battle-intro__progress,
   .quiz-battle-intro__progress > span,
+  .battle-card-action-spinner,
   .battle-panel-entry {
     animation: none !important;
     animation-delay: 0ms !important;

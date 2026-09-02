@@ -6492,7 +6492,7 @@ body.dark .metric-list li:hover {
   box-shadow: var(--shadow);
 }
 
-/* Compact the Study momentum card so its content sits higher in the container. */
+/* Compact Study momentum content; the component owns its bounded scroll region. */
 .gamification-card {
   align-content: start;
   align-items: start;
@@ -6501,14 +6501,6 @@ body.dark .metric-list li:hover {
   padding-top: 12px;
   padding-bottom: 18px;
   justify-content: start;
-}
-
-.gamification-card > * {
-  transform: translateY(-96px);
-}
-
-.gamification-card::before {
-  transform: translateY(-96px);
 }
 
 .gamification-header {
@@ -6588,13 +6580,6 @@ body.dark .metric-list li:hover {
 .gamification-card .card-desc {
   margin-top: 2px;
   line-height: 1.5;
-}
-
-/* Match the desktop card box to the existing upward visual offset. */
-@media (min-width: 981px) {
-  .analytics-support-grid > .gamification-card .card-desc {
-    margin-bottom: -96px;
-  }
 }
 
 /* Mild gradient buttons: less glow, better text contrast. */

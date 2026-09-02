@@ -112,3 +112,18 @@ test("uses outcome-aware result tones and keeps XP beside the result action", ()
   assert.match(stylesheet, /\.battle-summary-card\.is-terminal\s*\{[\s\S]*?padding:\s*14px/u);
   assert.match(stylesheet, /\.battle-card-actions\s*\{[\s\S]*?display:\s*flex/u);
 });
+
+test("shows an accessible non-sticky loading state while result details open", () => {
+  const panelSource = readFileSync(new URL("./QuizBattlesPanel.jsx", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("./QuizBattles.css", import.meta.url), "utf8");
+
+  assert.match(panelSource, /const openingBattleRef = useRef\(""\)/u);
+  assert.match(panelSource, /if \(openingBattleRef\.current\) return null;/u);
+  assert.match(panelSource, /openingBattleRef\.current = battleId;[\s\S]*?setBusyAction\(`open:\$\{battleId\}`\)/u);
+  assert.match(panelSource, /finally \{[\s\S]*?openingBattleRef\.current = "";[\s\S]*?setBusyAction\(""\)/u);
+  assert.match(panelSource, /aria-busy=\{isOpeningThisBattle\}/u);
+  assert.match(panelSource, /disabled=\{isOpeningThisBattle\}/u);
+  assert.match(panelSource, /<LoaderCircle[^>]*className="battle-card-action-spinner"[\s\S]*?aria-live="polite"[^>]*role="status">Loading results…/u);
+  assert.match(stylesheet, /\.battle-card-action-spinner \{[\s\S]*?animation: quiz-battle-action-spin 760ms linear infinite;/u);
+  assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.battle-card-action-spinner/u);
+});
