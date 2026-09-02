@@ -80,6 +80,7 @@ const parseSkillsInput = (value) =>
 const SECTION_LABELS = {
   summary: "Professional summary",
   skills: "Skills",
+  tools: "Tools",
   experience: "Experience",
   projects: "Projects",
   education: "Education",
@@ -366,6 +367,17 @@ export function ResumePreview({ draft, layout, onPaperReady = null }) {
         </PreviewSection>
       );
     }
+    if (section === "tools" && draft.tools.length) {
+      return (
+        <PreviewSection key={section} title="Tools">
+          <div className="resume-paper__skills resume-paper__tools">
+            {draft.tools.map((tool, index) => (
+              <span key={`${tool}-${index}`}>{tool}</span>
+            ))}
+          </div>
+        </PreviewSection>
+      );
+    }
     if (section === "experience") {
       const entries = draft.experience.filter(hasEntryContent);
       if (!entries.length) return null;
@@ -508,6 +520,7 @@ export function ResumePreview({ draft, layout, onPaperReady = null }) {
           {!visibleSections.some((section) => {
             if (section === "summary") return draft.summary;
             if (section === "skills") return draft.skills.length;
+            if (section === "tools") return draft.tools.length;
             return Array.isArray(draft[section]) && draft[section].some(hasEntryContent);
           }) && (
             <div className="resume-paper__empty">
@@ -620,6 +633,9 @@ export default function ResumeBuilderPage({
   const skillsCanonical = draft.skills.map((item) => item.trim()).filter(Boolean).join(", ");
   const [skillsInput, setSkillsInput] = useState(skillsCanonical);
   const skillsInputRef = useRef(skillsCanonical);
+  const toolsCanonical = draft.tools.map((item) => item.trim()).filter(Boolean).join(", ");
+  const [toolsInput, setToolsInput] = useState(toolsCanonical);
+  const toolsInputRef = useRef(toolsCanonical);
 
   const announce = (type, message) => {
     setNotice({ type, message });
@@ -816,6 +832,13 @@ export default function ResumeBuilderPage({
   }, [skillsCanonical]);
 
   useEffect(() => {
+    const localCanonical = parseSkillsInput(toolsInputRef.current).join(", ");
+    if (toolsCanonical === localCanonical) return;
+    toolsInputRef.current = toolsCanonical;
+    setToolsInput(toolsCanonical);
+  }, [toolsCanonical]);
+
+  useEffect(() => {
     let active = true;
     setQuotaLoading(true);
     api
@@ -977,6 +1000,8 @@ export default function ResumeBuilderPage({
     ));
     skillsInputRef.current = "";
     setSkillsInput("");
+    toolsInputRef.current = "";
+    setToolsInput("");
     setValidationErrors({});
     setSelectedHistoryId("");
     setActiveSection("profile");
@@ -1417,6 +1442,26 @@ export default function ResumeBuilderPage({
                   placeholder={curriculumExamples.resumeSkillsPlaceholder}
                   error={validationErrors.skills}
                   hint="Separate skills with commas."
+                />
+                <InputField
+                  label="Tools"
+                  optional
+                  className="resume-field--full"
+                  textarea
+                  rows={3}
+                  value={toolsInput}
+                  maxLength={1500}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    toolsInputRef.current = nextValue;
+                    setToolsInput(nextValue);
+                    updateDraft((current) => ({
+                      ...current,
+                      tools: parseSkillsInput(nextValue),
+                    }));
+                  }}
+                  placeholder={curriculumExamples.resumeToolsPlaceholder}
+                  hint="Separate tools with commas, such as VS Code, Git, GitHub, or Figma."
                 />
               </div>
 

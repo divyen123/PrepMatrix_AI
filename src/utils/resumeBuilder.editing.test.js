@@ -32,6 +32,7 @@ test("preserves in-progress spaces and blank lines while editing", () => {
         },
         summary: "I am a frontend developer ",
         skills: ["Data structures ", ""],
+        tools: ["VS Code ", ""],
         experience: [
           {
             id: "experience-1",
@@ -56,6 +57,7 @@ test("preserves in-progress spaces and blank lines while editing", () => {
   assert.equal(state.draft.personal.github, "github.com/jane ");
   assert.equal(state.draft.summary, "I am a frontend developer ");
   assert.deepEqual(state.draft.skills, ["Data structures ", ""]);
+  assert.deepEqual(state.draft.tools, ["VS Code ", ""]);
   assert.deepEqual(state.draft.experience[0].highlights, ["Built reusable tools ", ""]);
   assert.equal(state.draft.achievements[0].description, "Won a team award ");
 
@@ -64,6 +66,7 @@ test("preserves in-progress spaces and blank lines while editing", () => {
   assert.equal(finalized.personal.github, "https://github.com/jane");
   assert.equal(finalized.summary, "I am a frontend developer");
   assert.deepEqual(finalized.skills, ["Data structures"]);
+  assert.deepEqual(finalized.tools, ["VS Code"]);
   assert.deepEqual(finalized.experience[0].highlights, ["Built reusable tools"]);
 });
 

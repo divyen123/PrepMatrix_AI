@@ -4,6 +4,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
+import { normalizeResumeDraft, normalizeResumeLayout } from "../utils/resumeBuilder.js";
 
 const pageSource = readFileSync(new URL("./ResumeBuilderPage.jsx", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("./ResumeBuilderPage.css", import.meta.url), "utf8");
@@ -89,6 +90,39 @@ test("offers accessible two-column font choices and shares the chosen font with 
   assert.match(pageSource, /className="resume-pdf-export-surface"/u);
   assert.match(pageSource, /target=\{href\.startsWith\("http"\) \? "_blank"/u);
   assert.match(pageSource, /rel="noopener noreferrer" target="_blank"/u);
+});
+
+test("accepts user-entered tools and renders Tools directly after Skills", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { ResumePreview } = await vite.ssrLoadModule("/src/pages/ResumeBuilderPage.jsx");
+    const markup = renderToStaticMarkup(React.createElement(ResumePreview, {
+      draft: normalizeResumeDraft({
+        personal: { fullName: "Avery Sharma" },
+        skills: ["React", "Accessibility"],
+        tools: ["VS Code", "Git", "GitHub"],
+      }),
+      layout: normalizeResumeLayout(),
+    }));
+    const skillsHeading = markup.indexOf("<h2>Skills</h2>");
+    const toolsHeading = markup.indexOf("<h2>Tools</h2>");
+    const experienceHeading = markup.indexOf("<h2>Experience</h2>");
+
+    assert.ok(skillsHeading >= 0);
+    assert.ok(toolsHeading > skillsHeading);
+    assert.ok(experienceHeading < 0 || toolsHeading < experienceHeading);
+    assert.match(markup, />VS Code<\/span>/u);
+    assert.match(markup, />GitHub<\/span>/u);
+    assert.match(pageSource, /label="Tools"[\s\S]*?optional[\s\S]*?tools:\s*parseSkillsInput/u);
+    assert.match(pageSource, /placeholder=\{curriculumExamples\.resumeToolsPlaceholder\}/u);
+  } finally {
+    await vite.close();
+  }
 });
 
 test("gates the workspace intro on both initial resume requests and reveals the ready page", () => {

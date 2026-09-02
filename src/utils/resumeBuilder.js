@@ -34,6 +34,7 @@ const RESUME_ELIGIBLE_LEVELS = new Map([
 export const RESUME_SECTIONS = Object.freeze([
   "summary",
   "skills",
+  "tools",
   "experience",
   "projects",
   "education",
@@ -257,6 +258,7 @@ export function createResumeDraft(profile = {}) {
     },
     summary: "",
     skills: [],
+    tools: [],
     experience: [],
     projects: [],
     education: buildProfileEducation(profile),
@@ -277,6 +279,12 @@ export function normalizeResumeDraft(value, profile = {}, options = {}) {
       ? []
       : cleanText(source.skills, 1500).split(/[\n,]/);
   const normalizedSkills = skillsSource.map((item) => clean(item, 80));
+  const toolsSource = Array.isArray(source.tools)
+    ? source.tools
+    : source.tools == null || source.tools === ""
+      ? []
+      : cleanText(source.tools, 1500).split(/[\n,]/);
+  const normalizedTools = toolsSource.map((item) => clean(item, 80));
 
   return {
     personal: {
@@ -291,6 +299,7 @@ export function normalizeResumeDraft(value, profile = {}, options = {}) {
     },
     summary: isEditingMode(options) ? cleanText(source.summary, 1200) : cleanText(source.summary, 1200).trim(),
     skills: (isEditingMode(options) ? normalizedSkills : normalizedSkills.filter(Boolean)).slice(0, 40),
+    tools: (isEditingMode(options) ? normalizedTools : normalizedTools.filter(Boolean)).slice(0, 40),
     experience: normalizeItems(source.experience, normalizeExperience, "experience", 12, options),
     projects: normalizeItems(source.projects, normalizeProject, "project", 12, options),
     education: Array.isArray(source.education)
@@ -309,10 +318,23 @@ export function normalizeResumeLayout(value = {}) {
   const typography = ["compact", "balanced", "large"].includes(value?.typography) ? value.typography : "balanced";
   const density = ["compact", "balanced", "airy"].includes(value?.density) ? value.density : "balanced";
   const suppliedOrder = Array.isArray(value?.sectionOrder) ? value.sectionOrder : [];
-  const sectionOrder = [
-    ...suppliedOrder.filter((item, index) => RESUME_SECTIONS.includes(item) && suppliedOrder.indexOf(item) === index),
-    ...RESUME_SECTIONS.filter((item) => !suppliedOrder.includes(item)),
-  ];
+  const suppliedSections = suppliedOrder.filter(
+    (item, index) => RESUME_SECTIONS.includes(item) && suppliedOrder.indexOf(item) === index,
+  );
+  const sectionOrder = suppliedSections.length ? [...suppliedSections] : [...RESUME_SECTIONS];
+  if (suppliedSections.length && !sectionOrder.includes("tools")) {
+    const skillsIndex = sectionOrder.indexOf("skills");
+    const experienceIndex = sectionOrder.indexOf("experience");
+    const insertionIndex = skillsIndex >= 0
+      ? skillsIndex + 1
+      : experienceIndex >= 0
+        ? experienceIndex
+        : sectionOrder.length;
+    sectionOrder.splice(insertionIndex, 0, "tools");
+  }
+  RESUME_SECTIONS.forEach((section) => {
+    if (!sectionOrder.includes(section)) sectionOrder.push(section);
+  });
   const hiddenSections = Array.isArray(value?.hiddenSections)
     ? value.hiddenSections.filter((item, index) => RESUME_SECTIONS.includes(item) && value.hiddenSections.indexOf(item) === index)
     : [];

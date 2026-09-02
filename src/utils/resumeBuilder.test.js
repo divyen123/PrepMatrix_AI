@@ -9,6 +9,7 @@ import {
   getResumeEligibility,
   getResumeQuota,
   normalizeResumeBuilderState,
+  normalizeResumeDraft,
   normalizeResumeLayout,
   recordResumeGeneration,
 } from "./resumeBuilder.js";
@@ -62,6 +63,7 @@ test("starts a fresh resume without changing PDF usage metadata", () => {
       },
       summary: "This content came from resume history.",
       skills: ["React"],
+      tools: ["VS Code"],
     },
     layout: { template: "compact", accent: "#5b7cfa" },
     generationTimestamps: [generatedAt],
@@ -78,10 +80,35 @@ test("starts a fresh resume without changing PDF usage metadata", () => {
   assert.equal(fresh.draft.personal.headline, "");
   assert.equal(fresh.draft.summary, "");
   assert.deepEqual(fresh.draft.skills, []);
+  assert.deepEqual(fresh.draft.tools, []);
   assert.equal(fresh.layout.template, "modern");
   assert.deepEqual(fresh.generationTimestamps, [generatedAt]);
   assert.equal(fresh.lastGeneratedAt, generatedAt);
   assert.equal(fresh.updatedAt, new Date(now).toISOString());
+});
+
+test("normalizes optional resume tools and keeps them beside skills in older layouts", () => {
+  const tools = Array.from({ length: 45 }, (_, index) => ` Tool ${index} `);
+  const draft = normalizeResumeDraft({ tools });
+  const layout = normalizeResumeLayout({
+    sectionOrder: [
+      "summary",
+      "skills",
+      "experience",
+      "projects",
+      "education",
+      "certifications",
+      "achievements",
+      "languages",
+    ],
+  });
+
+  assert.equal(draft.tools.length, 40);
+  assert.equal(draft.tools[0], "Tool 0");
+  assert.deepEqual(
+    layout.sectionOrder.slice(layout.sectionOrder.indexOf("skills"), layout.sectionOrder.indexOf("skills") + 3),
+    ["skills", "tools", "experience"],
+  );
 });
 
 test("resume builder enables requested career categories", () => {

@@ -649,7 +649,7 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
     });
   };
 
-  const renderSkillChips = () => {
+  const renderSkillChips = (items) => {
     const skillSize = metrics.metaFontSize;
     const horizontalPadding = 6 * CSS_PX_TO_MM;
     const verticalPadding = flowPx(3);
@@ -661,8 +661,8 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
 
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(fontSize(skillSize));
-    draft.skills.forEach((skill) => {
-      const chipWidth = Math.min(contentWidth, pdf.getTextWidth(skill) + horizontalPadding * 2);
+    items.forEach((item) => {
+      const chipWidth = Math.min(contentWidth, pdf.getTextWidth(item) + horizontalPadding * 2);
       if (x > marginX && x + chipWidth > PAGE.width - marginX) {
         x = marginX;
         y += chipHeight + rowGap;
@@ -679,7 +679,7 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
         pdf.roundedRect(x, y, chipWidth, chipHeight, radius, radius, "F");
       }
       setColor(INK);
-      pdf.text(skill, x + horizontalPadding, y + verticalPadding + fontHeight(skillSize) * 0.8);
+      pdf.text(item, x + horizontalPadding, y + verticalPadding + fontHeight(skillSize) * 0.8);
       x += chipWidth + 4 * CSS_PX_TO_MM;
     });
     y += chipHeight;
@@ -696,7 +696,21 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
       });
       return;
     }
-    renderSkillChips();
+    renderSkillChips(draft.skills);
+  };
+
+  const renderTools = () => {
+    if (!draft.tools.length) return;
+    sectionHeading("Tools");
+    if (isClassic) {
+      writeWrapped(draft.tools.join("  |  "), {
+        size: metrics.metaFontSize,
+        color: INK,
+        leading: lineHeight(metrics.metaFontSize, 1.2),
+      });
+      return;
+    }
+    renderSkillChips(draft.tools);
   };
 
   const renderExperience = () => {
@@ -838,6 +852,7 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
   const sectionRenderers = {
     summary: renderSummary,
     skills: renderSkills,
+    tools: renderTools,
     experience: renderExperience,
     projects: renderProjects,
     education: renderEducation,
@@ -902,6 +917,7 @@ export function createResumePdf(draftValue, layoutValue = {}) {
 const SEARCHABLE_SECTION_LABELS = Object.freeze({
   summary: "Professional summary",
   skills: "Skills",
+  tools: "Tools",
   experience: "Experience",
   projects: "Projects",
   education: "Education",
@@ -941,6 +957,8 @@ function searchableResumeLines(draft, layout) {
       lines.push(SEARCHABLE_SECTION_LABELS.summary, draft.summary);
     } else if (section === "skills" && draft.skills.some(textExists)) {
       lines.push(SEARCHABLE_SECTION_LABELS.skills, draft.skills.filter(textExists).join(", "));
+    } else if (section === "tools" && draft.tools.some(textExists)) {
+      lines.push(SEARCHABLE_SECTION_LABELS.tools, draft.tools.filter(textExists).join(", "));
     } else if (section === "experience") {
       addEntries(section, draft.experience, ["role", "organization", "location", "startDate", "endDate", "highlights"]);
     } else if (section === "projects") {
@@ -1104,6 +1122,7 @@ export async function createResumePdfFromElement(element, draftValue, layoutValu
     if (layout.hiddenSections.includes(section)) return false;
     if (section === "summary") return textExists(draft.summary);
     if (section === "skills") return draft.skills.some(textExists);
+    if (section === "tools") return draft.tools.some(textExists);
     return Array.isArray(draft[section]) && draft[section].some(hasEntryContent);
   }).length;
 

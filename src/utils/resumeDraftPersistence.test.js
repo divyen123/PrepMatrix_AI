@@ -41,6 +41,7 @@ function builder(name, updatedAt, extra = {}) {
       },
       summary: "Builds dependable products.",
       skills: ["JavaScript"],
+      tools: ["VS Code", "GitHub"],
       education: [],
     },
     layout: { template: "classic", accent: "#5b7cfa" },
@@ -71,11 +72,13 @@ test("writes and reads editable draft data without copying generation quota", ()
   assert.equal(written.version, RESUME_DRAFT_CHECKPOINT_VERSION);
   assert.equal(written.draft.personal.fullName, "  Learner Name  ");
   assert.equal(written.layout.template, "classic");
+  assert.deepEqual(written.draft.tools, ["VS Code", "GitHub"]);
   assert.equal("generationTimestamps" in written, false);
   assert.equal("lastGeneratedAt" in written, false);
 
   const restored = readResumeDraftCheckpoint("academic-profile:test", { storage });
   assert.deepEqual(restored, written);
+  assert.deepEqual(restored.draft.tools, ["VS Code", "GitHub"]);
   const raw = storage.getItem(getResumeDraftStorageKey("academic-profile:test"));
   assert.doesNotMatch(raw, /generationTimestamps|lastGeneratedAt/u);
 });

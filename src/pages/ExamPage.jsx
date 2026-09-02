@@ -1748,11 +1748,55 @@ function ExamPage({
       )}
 
       {section === "overview" && (
-        <div className="exam-feature-grid">
-          <button className={`card exam-feature-card${isOnlineExamEligible ? "" : " is-locked"}`} disabled={!isOnlineExamEligible} onClick={() => setSection("attend")} title={!isOnlineExamEligible ? `Complete ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner to unlock Attend Exam` : undefined} type="button"><span><ListChecks size={21} /></span><h3>Attend Exam</h3><p>{isOnlineExamEligible ? "Fullscreen MCQ exam with autosave, warnings, and server-side grading." : `Locked until your planner reaches ${EXAM_ELIGIBILITY_THRESHOLD}% completion. You are currently at ${readinessPercent}%.`}</p><b>{isOnlineExamEligible ? <>Start setup <ArrowRight size={14} /></> : "Planner progress required"}</b></button>
-          <button className="card exam-feature-card" onClick={() => setSection("paper")} type="button"><span><FilePlus2 size={21} /></span><h3>Generate Question Paper</h3><p>Build a precise mark split, coding emphasis, answer key, and exportable PDF.</p><b>Design paper <ArrowRight size={14} /></b></button>
-          <button className="card exam-feature-card" onClick={() => setSection("results")} type="button"><span><Trophy size={21} /></span><h3>View Results</h3><p>{pendingResults} pending and {releasedResults} released result{releasedResults === 1 ? "" : "s"}.</p><b>Open results <ArrowRight size={14} /></b></button>
-        </div>
+        <nav aria-label="Exam destinations" className="exam-feature-grid">
+          <button
+            aria-label={isOnlineExamEligible ? "Open Attend Exam" : `Attend Exam is locked until planner completion reaches ${EXAM_ELIGIBILITY_THRESHOLD}%`}
+            className={`exam-feature-card is-attend${isOnlineExamEligible ? "" : " is-locked"}`}
+            disabled={!isOnlineExamEligible}
+            onClick={() => setSection("attend")}
+            title={!isOnlineExamEligible ? `Complete ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner to unlock Attend Exam` : undefined}
+            type="button"
+          >
+            <span aria-hidden="true" className="exam-feature-card__icon"><ListChecks size={23} strokeWidth={1.9} /></span>
+            <span className="exam-feature-card__copy">
+              <span className="exam-feature-card__eyebrow">Secure assessment</span>
+              <strong>Attend Exam</strong>
+              <span>{isOnlineExamEligible ? "Fullscreen MCQ exam with autosave, warnings, and server-side grading." : `Locked until your planner reaches ${EXAM_ELIGIBILITY_THRESHOLD}% completion. You are currently at ${readinessPercent}%.`}</span>
+            </span>
+            <span className="exam-feature-card__footer">
+              <span>{isOnlineExamEligible ? "Start setup" : "Planner progress required"}</span>
+              {isOnlineExamEligible && <ChevronRight aria-hidden="true" size={18} />}
+            </span>
+          </button>
+          <button
+            aria-label="Open Generate Question Paper"
+            className="exam-feature-card is-paper"
+            onClick={() => setSection("paper")}
+            type="button"
+          >
+            <span aria-hidden="true" className="exam-feature-card__icon"><FilePlus2 size={23} strokeWidth={1.9} /></span>
+            <span className="exam-feature-card__copy">
+              <span className="exam-feature-card__eyebrow">Build an assessment</span>
+              <strong>Generate Question Paper</strong>
+              <span>Build a precise mark split, coding emphasis, answer key, and exportable PDF.</span>
+            </span>
+            <span className="exam-feature-card__footer"><span>Design paper</span><ChevronRight aria-hidden="true" size={18} /></span>
+          </button>
+          <button
+            aria-label="Open View Results"
+            className="exam-feature-card is-results"
+            onClick={() => setSection("results")}
+            type="button"
+          >
+            <span aria-hidden="true" className="exam-feature-card__icon"><Trophy size={23} strokeWidth={1.9} /></span>
+            <span className="exam-feature-card__copy">
+              <span className="exam-feature-card__eyebrow">Track your progress</span>
+              <strong>View Results</strong>
+              <span>{pendingResults} pending and {releasedResults} released result{releasedResults === 1 ? "" : "s"}.</span>
+            </span>
+            <span className="exam-feature-card__footer"><span>Open results</span><ChevronRight aria-hidden="true" size={18} /></span>
+          </button>
+        </nav>
       )}
 
       {section === "attend" && (
@@ -1853,7 +1897,7 @@ function ExamPage({
 
       {section === "results" && <ResultsPanel onRefresh={loadResults} results={results} userProfile={userProfile} />}
 
-      {(section === "overview" || section === "paper") && (
+      {section === "paper" && (
         <OfflineExamTimer
           academicProfileDataId={academicProfileDataId}
           migrateLegacy={mayMigrateLegacyState}

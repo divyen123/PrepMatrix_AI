@@ -280,6 +280,21 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
   overflow: visible;
 }
 
+/* Keep the global card sheen completely hidden until a real pointer hovers
+   the Study Schedule card. Moving it fully off-canvas also prevents the
+   resting top-left edge from showing through translucent themes. */
+.planner-subpage-content.is-schedule .schedule-card.card::before {
+  opacity: 0 !important;
+  transform: translateX(-100%);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .planner-subpage-content.is-schedule .schedule-card.card:hover::before {
+    opacity: 0.38 !important;
+    transform: translateX(0);
+  }
+}
+
 @keyframes planner-subpage-enter {
   from {
     opacity: 0;

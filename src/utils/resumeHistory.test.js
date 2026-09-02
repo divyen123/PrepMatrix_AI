@@ -17,6 +17,7 @@ const draft = (fullName, headline = "Engineer") => ({
   },
   summary: "Builds reliable products.",
   skills: ["JavaScript"],
+  tools: ["VS Code", "GitHub"],
   education: [{ institution: "Example University" }],
 });
 
@@ -36,6 +37,7 @@ test("normalizes a history entry and derives its name from the resume", () => {
   assert.equal(entry.layout.fontFamily, "lora");
   assert.equal(entry.generatedAt, "2026-08-08T10:00:00.000Z");
   assert.equal(entry.headline, "Backend summary headline");
+  assert.deepEqual(entry.draft.tools, ["VS Code", "GitHub"]);
 });
 
 test("sorts, deduplicates, caps, and searches resume history", () => {
@@ -90,6 +92,7 @@ test("loads a history snapshot into the editor without changing quota metadata",
   }, current, { now: "2026-08-08T13:00:00.000Z" });
 
   assert.equal(loaded.draft.personal.fullName, "Saved User");
+  assert.deepEqual(loaded.draft.tools, ["VS Code", "GitHub"]);
   assert.equal(loaded.layout.template, "classic");
   assert.equal(loaded.layout.fontFamily, "merriweather");
   assert.deepEqual(loaded.generationTimestamps, current.generationTimestamps);

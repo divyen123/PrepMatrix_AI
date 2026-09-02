@@ -22,6 +22,7 @@ const fixture = {
   },
   summary: "Engineer focused on accessible and reliable learning products.",
   skills: ["React", "Node.js", "Product thinking"],
+  tools: ["VS Code", "Git", "GitHub"],
   education: [
     {
       institution: "PrepMatrix Institute",
@@ -52,6 +53,7 @@ const screenshotFixture = {
   summary:
     "Aspiring Frontend Developer specializing in React.js and modern web technologies, passionate about creating responsive, user-friendly, and engaging web applications. Skilled in building interactive interfaces, optimizing performance, and delivering smooth digital experiences. Committed to continuous learning.",
   skills: ["Frontend developer", "UI Designer", "React developer"],
+  tools: ["VS Code", "Git", "GitHub", "Figma"],
   projects: [
     {
       name: "MedAI Symptom analyser",
@@ -120,6 +122,8 @@ test("creates an extractable resume without empty optional contact separators", 
   assert.match(stream, /Avery Sharma/);
   assert.match(stream, /Software engineer/);
   assert.match(stream, /Education/i);
+  assert.match(stream, /Tools/i);
+  assert.match(stream, /VS Code/u);
   assert.doesNotMatch(stream, /undefined|NaN/);
   assert.equal(pdf.getNumberOfPages(), 1);
 });
@@ -199,7 +203,7 @@ test("fills a representative page like the responsive editor preview", () => {
   });
   assert.ok(compact.contentBottom < balancedCompact.contentBottom);
   assert.ok(balancedCompact.contentBottom <= balanced.contentBottom);
-  assert.equal(balanced.sectionCount, 5);
+  assert.equal(balanced.sectionCount, 6);
 });
 
 test("fits a representative two-project student resume onto one A4 page", () => {
@@ -304,6 +308,8 @@ test("captures the fitted preview as a searchable one-page A4 PDF without a foot
   assert.equal(captureOptions.backgroundColor, "#ffffff");
   assert.equal(attributes.size, 0);
   assert.match(pdf.internal.pages.flat().join(" "), /Avery Sharma/u);
+  assert.match(pdf.internal.pages.flat().join(" "), /Tools/u);
+  assert.match(pdf.internal.pages.flat().join(" "), /GitHub/u);
   assert.match(pdf.output(), /mailto:avery@example\.com/u);
   assert.doesNotMatch(pdfSource, /addFooter/u);
 });

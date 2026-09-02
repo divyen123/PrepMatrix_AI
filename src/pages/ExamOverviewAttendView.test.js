@@ -4,6 +4,9 @@ import test from "node:test";
 
 const pageSource = readFileSync(new URL("./ExamPage.jsx", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("./ExamPage.css", import.meta.url), "utf8");
+const overviewSource = pageSource.match(
+  /\{section === "overview" && \(([\s\S]*?)\n\s*\)\}\s*\n\s*\{section === "attend"/u,
+)?.[1] || "";
 
 test("removes the Overview hero while preserving the action cards", () => {
   assert.doesNotMatch(pageSource, /Secure assessment workspace/u);
@@ -11,10 +14,39 @@ test("removes the Overview hero while preserving the action cards", () => {
   assert.doesNotMatch(pageSource, /className="card exam-hero"/u);
   assert.doesNotMatch(stylesheet, /\.exam-hero/u);
 
-  assert.match(pageSource, /className="exam-feature-grid"/u);
-  assert.match(pageSource, /<h3>Attend Exam<\/h3>/u);
-  assert.match(pageSource, /<h3>Generate Question Paper<\/h3>/u);
-  assert.match(pageSource, /<h3>View Results<\/h3>/u);
+  assert.match(overviewSource, /<nav aria-label="Exam destinations" className="exam-feature-grid">/u);
+  assert.match(overviewSource, /<strong>Attend Exam<\/strong>/u);
+  assert.match(overviewSource, /<strong>Generate Question Paper<\/strong>/u);
+  assert.match(overviewSource, /<strong>View Results<\/strong>/u);
+});
+
+test("removes the offline timer from Overview while retaining it for generated papers", () => {
+  assert.ok(overviewSource, "expected to find the Exam Overview render block");
+  assert.doesNotMatch(overviewSource, /OfflineExamTimer/u);
+  assert.doesNotMatch(pageSource, /section === "overview" \|\| section === "paper"/u);
+  assert.match(pageSource, /\{section === "paper" && \(\s*<OfflineExamTimer/u);
+});
+
+test("presents all Overview destinations as full interactive cards", () => {
+  assert.match(overviewSource, /className=\{`exam-feature-card is-attend/u);
+  assert.match(overviewSource, /className="exam-feature-card is-paper"/u);
+  assert.match(overviewSource, /className="exam-feature-card is-results"/u);
+  assert.match(overviewSource, /onClick=\{\(\) => setSection\("attend"\)\}/u);
+  assert.match(overviewSource, /onClick=\{\(\) => setSection\("paper"\)\}/u);
+  assert.match(overviewSource, /onClick=\{\(\) => setSection\("results"\)\}/u);
+  assert.doesNotMatch(overviewSource, /className="card exam-feature-card/u);
+});
+
+test("matches Planner-style card motion across input, theme, and viewport modes", () => {
+  assert.match(stylesheet, /\.exam-page \.exam-feature-card\.is-attend[\s\S]*?--exam-feature-tone/u);
+  assert.match(stylesheet, /\.exam-page \.exam-feature-card\.is-paper[\s\S]*?--exam-feature-tone/u);
+  assert.match(stylesheet, /\.exam-page \.exam-feature-card\.is-results[\s\S]*?--exam-feature-tone/u);
+  assert.match(stylesheet, /\.exam-page \.exam-feature-card::after\s*\{\s*content: none;/u);
+  assert.match(stylesheet, /\.exam-page \.exam-feature-card:focus-visible/u);
+  assert.match(stylesheet, /@media \(hover: hover\) and \(pointer: fine\)[\s\S]*?\.exam-feature-card:hover:not\(:disabled\)/u);
+  assert.match(stylesheet, /body\.has-bg-image:not\(\.no-glass-cards\) \.exam-page \.exam-feature-card/u);
+  assert.match(stylesheet, /@media \(max-width: 920px\)[\s\S]*?\.exam-feature-grid[\s\S]*?grid-template-columns: 1fr/u);
+  assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.exam-feature-card/u);
 });
 
 test("removes only the requested Attend Exam subtitle", () => {

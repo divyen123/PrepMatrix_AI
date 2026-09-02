@@ -165,6 +165,7 @@ function draft(name, overrides = {}) {
     },
     summary: "A concise professional summary.",
     skills: ["JavaScript", "Node.js"],
+    tools: ["VS Code", "GitHub"],
     education: [{ institution: "PrepMatrix University", degree: "B.Tech" }],
     ...overrides,
   };
@@ -233,6 +234,7 @@ test("normalizes and bounds a resume-history snapshot using the resume name", ()
   const snapshot = normalizeResumeHistorySnapshot({
     draft: draft(`  ${"A".repeat(140)}  `, {
       skills: Array.from({ length: 80 }, (_, index) => `Skill ${index}`),
+      tools: Array.from({ length: 80 }, (_, index) => `Tool ${index}`),
       ignored: "not persisted",
     }),
     layout: { template: "unsafe-template", accent: "javascript:alert(1)" },
@@ -244,6 +246,7 @@ test("normalizes and bounds a resume-history snapshot using the resume name", ()
   assert.ok(snapshot.name.length <= 120);
   assert.equal(snapshot.name, snapshot.draft.personal.fullName);
   assert.equal(snapshot.draft.skills.length, 40);
+  assert.equal(snapshot.draft.tools.length, 40);
   assert.equal(snapshot.draft.ignored, undefined);
   assert.equal(snapshot.layout.template, "modern");
   assert.equal(snapshot.layout.accent, "#0f9f8f");
