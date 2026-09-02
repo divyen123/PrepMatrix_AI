@@ -312,4 +312,6 @@ test("captures the fitted preview as a searchable one-page A4 PDF without a foot
   assert.match(pdf.internal.pages.flat().join(" "), /GitHub/u);
   assert.match(pdf.output(), /mailto:avery@example\.com/u);
   assert.doesNotMatch(pdfSource, /addFooter/u);
+  assert.match(pdfSource, /fonts\.load\(`400 16px \$\{selectedFontFamily\}`\)/u);
+  assert.match(pdfSource, /fonts\.load\(`700 16px \$\{selectedFontFamily\}`\)/u);
 });

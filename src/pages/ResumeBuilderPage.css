@@ -1558,6 +1558,14 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
   font-size: 8px;
 }
 
+/* App-wide typography is assigned directly to common descendants. Rebind
+   those shared variables here so an explicit resume font reaches every
+   heading and body element in both the live preview and captured PDF. */
+.resume-paper:not(.resume-paper--font-template) {
+  --font-family-base: var(--resume-font-family);
+  --font-family-display: var(--resume-font-family);
+}
+
 .resume-paper__fit {
   width: var(--resume-fit-width);
   transform: scale(var(--resume-fit-scale));
@@ -1795,6 +1803,29 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
   margin-bottom: 14px;
 }
 
+.resume-paper__skills-tools-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.resume-paper__skills-tools-row > .resume-paper__section {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.resume-paper--density-compact .resume-paper__skills-tools-row {
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.resume-paper--density-airy .resume-paper__skills-tools-row {
+  gap: 19px;
+  margin-bottom: 19px;
+}
+
 .resume-paper--density-compact .resume-paper__section {
   margin-bottom: 10px;
 }
@@ -1910,12 +1941,14 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
 }
 
 .resume-paper__skills span {
+  max-width: 100%;
   padding: 3px 6px;
   border-radius: 3px;
   color: #293448;
   background: var(--resume-accent-skill-10);
   font-size: 0.92em;
   font-weight: 650;
+  overflow-wrap: anywhere;
 }
 
 .resume-paper--classic .resume-paper__skills span {

@@ -84,6 +84,7 @@ test("offers accessible two-column font choices and shares the chosen font with 
   assert.match(paperStyles, /font-family:\s*var\(--resume-font-family/u);
   assert.match(paperStyles, /box-sizing:\s*border-box/u);
   assert.match(pageSource, /resume-paper--font-\$\{layout\.fontFamily\}/u);
+  assert.match(paperStyles, /\.resume-paper:not\(\.resume-paper--font-template\)\s*\{[\s\S]*?--font-family-base:\s*var\(--resume-font-family\)[\s\S]*?--font-family-display:\s*var\(--resume-font-family\)/u);
   assert.match(paperStyles, /\.resume-paper:not\(\.resume-paper--font-template\)[\s\S]*?font-family:\s*inherit/u);
   assert.doesNotMatch(paperStyles, /color-mix\(in srgb, var\(--resume-accent\)/u);
   assert.match(pageSource, /createResumePdfFromElement\(previewPaperRef\.current/u);
@@ -92,7 +93,7 @@ test("offers accessible two-column font choices and shares the chosen font with 
   assert.match(pageSource, /rel="noopener noreferrer" target="_blank"/u);
 });
 
-test("accepts user-entered tools and renders Tools directly after Skills", async () => {
+test("renders Skills and Tools as wrapping columns in the same row", async () => {
   const vite = await createServer({
     appType: "custom",
     logLevel: "silent",
@@ -116,8 +117,12 @@ test("accepts user-entered tools and renders Tools directly after Skills", async
     assert.ok(skillsHeading >= 0);
     assert.ok(toolsHeading > skillsHeading);
     assert.ok(experienceHeading < 0 || toolsHeading < experienceHeading);
+    assert.match(markup, /class="resume-paper__skills-tools-row"[\s\S]*?<h2>Skills<\/h2>[\s\S]*?<h2>Tools<\/h2>/u);
     assert.match(markup, />VS Code<\/span>/u);
     assert.match(markup, />GitHub<\/span>/u);
+    assert.match(stylesheet, /\.resume-paper__skills-tools-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/u);
+    assert.match(stylesheet, /\.resume-paper__skills\s*\{[\s\S]*?flex-wrap:\s*wrap/u);
+    assert.match(stylesheet, /\.resume-paper__skills span\s*\{[\s\S]*?overflow-wrap:\s*anywhere/u);
     assert.match(pageSource, /label="Tools"[\s\S]*?optional[\s\S]*?tools:\s*parseSkillsInput/u);
     assert.match(pageSource, /placeholder=\{curriculumExamples\.resumeToolsPlaceholder\}/u);
   } finally {

@@ -66,10 +66,10 @@ export const RESUME_ACCENTS = Object.freeze([
 export const RESUME_FONTS = Object.freeze([
   { id: "template", label: "Template default", cssFamily: '"Inter", "Segoe UI", Arial, sans-serif' },
   { id: "inter", label: "Inter", cssFamily: '"Inter", "Segoe UI", Arial, sans-serif' },
-  { id: "manrope", label: "Manrope", cssFamily: '"Manrope", "Segoe UI", Arial, sans-serif' },
-  { id: "poppins", label: "Poppins", cssFamily: '"Poppins", "Segoe UI", Arial, sans-serif' },
-  { id: "lora", label: "Lora", cssFamily: '"Lora", Georgia, serif' },
-  { id: "merriweather", label: "Merriweather", cssFamily: '"Merriweather", Georgia, serif' },
+  { id: "manrope", label: "Manrope", cssFamily: '"Manrope", Arial, sans-serif' },
+  { id: "poppins", label: "Poppins", cssFamily: '"Poppins", "Trebuchet MS", Arial, sans-serif' },
+  { id: "lora", label: "Lora", cssFamily: '"Lora", Georgia, "Times New Roman", serif' },
+  { id: "merriweather", label: "Merriweather", cssFamily: '"Merriweather", "Times New Roman", Georgia, serif' },
 ]);
 
 const cleanText = (value, max = 500) => String(value ?? "").replace(/\r\n/g, "\n").slice(0, max);

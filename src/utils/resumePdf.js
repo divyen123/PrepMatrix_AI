@@ -993,6 +993,16 @@ async function waitForResumePreview(element) {
   }
 
   const fonts = typeof document === "undefined" ? null : document.fonts;
+  const selectedFontFamily = typeof getComputedStyle === "function"
+    ? getComputedStyle(element).fontFamily
+    : element.style?.getPropertyValue?.("--resume-font-family");
+  if (fonts?.load && selectedFontFamily) {
+    await Promise.all([
+      fonts.load(`400 16px ${selectedFontFamily}`),
+      fonts.load(`600 16px ${selectedFontFamily}`),
+      fonts.load(`700 16px ${selectedFontFamily}`),
+    ]).catch(() => {});
+  }
   if (fonts?.ready) await fonts.ready.catch(() => {});
 
   const nextFrame = () => new Promise((resolve) => {

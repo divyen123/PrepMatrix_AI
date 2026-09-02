@@ -278,6 +278,14 @@ export function ResumePreview({ draft, layout, onPaperReady = null }) {
   const contentRef = useRef(null);
   const font = RESUME_FONTS.find((item) => item.id === layout.fontFamily) || RESUME_FONTS[0];
   const visibleSections = layout.sectionOrder.filter((section) => !layout.hiddenSections.includes(section));
+  const skillsIndex = visibleSections.indexOf("skills");
+  const toolsIndex = visibleSections.indexOf("tools");
+  const showSkillsToolsRow = Boolean(
+    draft.skills.length
+      && draft.tools.length
+      && skillsIndex >= 0
+      && toolsIndex === skillsIndex + 1,
+  );
   const contact = [
     draft.personal.location && { icon: MapPin, value: draft.personal.location },
     draft.personal.email && { icon: Mail, value: draft.personal.email, href: `mailto:${draft.personal.email}` },
@@ -357,6 +365,26 @@ export function ResumePreview({ draft, layout, onPaperReady = null }) {
       );
     }
     if (section === "skills" && draft.skills.length) {
+      if (showSkillsToolsRow) {
+        return (
+          <div className="resume-paper__skills-tools-row" key="skills-tools">
+            <PreviewSection title="Skills">
+              <div className="resume-paper__skills">
+                {draft.skills.map((skill) => (
+                  <span key={skill}>{skill}</span>
+                ))}
+              </div>
+            </PreviewSection>
+            <PreviewSection title="Tools">
+              <div className="resume-paper__skills resume-paper__tools">
+                {draft.tools.map((tool, index) => (
+                  <span key={`${tool}-${index}`}>{tool}</span>
+                ))}
+              </div>
+            </PreviewSection>
+          </div>
+        );
+      }
       return (
         <PreviewSection key={section} title="Skills">
           <div className="resume-paper__skills">
@@ -368,6 +396,7 @@ export function ResumePreview({ draft, layout, onPaperReady = null }) {
       );
     }
     if (section === "tools" && draft.tools.length) {
+      if (showSkillsToolsRow) return null;
       return (
         <PreviewSection key={section} title="Tools">
           <div className="resume-paper__skills resume-paper__tools">
