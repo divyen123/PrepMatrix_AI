@@ -258,6 +258,10 @@
   text-align: right;
 }
 
+.mastery-flow-node.has-coverage-only .mastery-flow-node__coverage {
+  color: var(--mastery-node-tone);
+}
+
 .mastery-flow-node__meter {
   background: var(--surface-muted);
   border-radius: 999px;

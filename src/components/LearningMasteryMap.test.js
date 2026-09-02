@@ -127,11 +127,16 @@ test("renders a fully locked, accessible mastery map with fullscreen access", as
     const failedTopicDetailNode = nodeByTitle("Failed topic detail");
     assert.match(coveredNode, /Measures of center/u);
     assert.match(coveredNode, /has-coverage-only/u);
+    assert.match(coveredNode, /has-visual-status-learned/u);
+    assert.match(coveredNode, /has-coverage-covered/u);
+    assert.match(coveredNode, /--mastery-node-tone:var\(--mastery-tone-learned\)/u);
     assert.match(coveredNode, /Covered by the completed topic; not assessed separately/u);
     assert.match(coveredNode, />Covered<\/b>/u);
     assert.doesNotMatch(coveredNode, /0%/u);
     assert.doesNotMatch(coveredNode, /mastery-flow-node__meter/u);
     assert.match(completedNode, /has-status-learned has-coverage-only/u);
+    assert.match(completedNode, /has-visual-status-learned/u);
+    assert.match(completedNode, /has-coverage-covered/u);
     assert.match(completedNode, /Completed without a separate mastery assessment/u);
     assert.match(completedNode, />Completed<\/b>/u);
     assert.doesNotMatch(completedNode, /0%/u);
@@ -143,10 +148,14 @@ test("renders a fully locked, accessible mastery map with fullscreen access", as
     assert.match(percentageNode, /<b>82%<\/b>/u);
     assert.match(percentageNode, /style="width:82%"/u);
     assert.match(pendingNode, /has-coverage-only/u);
+    assert.match(pendingNode, /has-visual-status-ready/u);
+    assert.match(pendingNode, /has-coverage-ready/u);
+    assert.match(pendingNode, /--mastery-node-tone:var\(--mastery-tone-ready\)/u);
     assert.match(pendingNode, /No separate subtopic assessment yet/u);
     assert.match(pendingNode, />Not assessed<\/b>/u);
     assert.doesNotMatch(pendingNode, /0%/u);
     assert.match(failedTopicDetailNode, />Not assessed<\/b>/u);
+    assert.match(failedTopicDetailNode, /has-visual-status-ready/u);
     assert.doesNotMatch(failedTopicDetailNode, />Covered<\/b>/u);
 
     assert.deepEqual(Object.keys(MASTERY_STATUS_META), [
@@ -211,4 +220,8 @@ test("uses six restrained status tones and a dark glass notebook node", async ()
   assert.match(css, /\.mastery-flow-shell\.is-fullscreen/u);
   assert.match(css, /\.mastery-flow-shell\.is-locked \.react-flow__node\s*\{\s*pointer-events:\s*none;/u);
   assert.match(css, /\.mastery-flow-node__coverage\s*\{/u);
+  assert.match(
+    css,
+    /\.mastery-flow-node\.has-coverage-only \.mastery-flow-node__coverage\s*\{[\s\S]*?color:\s*var\(--mastery-node-tone\);/u,
+  );
 });

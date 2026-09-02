@@ -66,11 +66,12 @@ function directAssessmentScore(progress) {
 
 function MasteryNode({ data, selected }) {
   const status = MASTERY_STATUS_META[data.status] || MASTERY_STATUS_META.new;
+  const visualStatus = MASTERY_STATUS_META[data.visualStatus] || status;
   const StatusIcon = status.icon;
   return (
     <article
-      className={`mastery-flow-node is-${data.type} has-status-${data.status}${data.showScore ? " has-mastery-score" : " has-coverage-only"}${selected || data.isSelected ? " is-selected" : ""}`}
-      style={{ "--mastery-node-tone": status.color }}
+      className={`mastery-flow-node is-${data.type} has-status-${data.status}${data.showScore ? " has-mastery-score" : ` has-coverage-only has-coverage-${data.coverageState}`} has-visual-status-${data.visualStatus || data.status}${selected || data.isSelected ? " is-selected" : ""}`}
+      style={{ "--mastery-node-tone": visualStatus.color }}
     >
       {data.type !== "notebook" ? <Handle type="target" position={Position.Left} /> : null}
       <div className="mastery-flow-node__topline">
@@ -133,6 +134,10 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
       && !showScore
       && (planner.isCompleted || hasLearningNodeAchievement(progress));
     const isCovered = isCompletedWithoutScore || Boolean(context.parentCovered);
+    const isCoverageOnlySubtopic = type === "subtopic" && !showScore;
+    const visualStatus = isCoverageOnlySubtopic
+      ? (isCovered ? "learned" : "ready")
+      : status;
     const coverageLabel = isCompletedWithoutScore ? "Completed" : isCovered ? "Covered" : "Not assessed";
     const coverageDescription = isCompletedWithoutScore
       ? "Completed without a separate mastery assessment"
@@ -148,6 +153,7 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
         title: source.title,
         type,
         status,
+        visualStatus,
         score: assessedScore
           ?? finiteScore(progress.masteryScore)
           ?? finiteScore(progress.score)
@@ -155,6 +161,7 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
           ?? (status === "mastered" ? 100 : status === "learned" ? 70 : 0),
         showScore,
         coverageLabel,
+        coverageState: isCovered ? "covered" : "ready",
         coverageDescription,
         subtitle,
         hasChildren,
@@ -163,7 +170,7 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
         isPlannerCompleted: Boolean(planner.isCompleted),
       },
     });
-    return status;
+    return visualStatus;
   };
 
   const connect = (source, target, status = "new") => {

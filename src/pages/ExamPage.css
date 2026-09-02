@@ -65,43 +65,33 @@
   outline: none;
 }
 
-.exam-page__tabs {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: max-content;
-  max-width: 100%;
-  padding: 6px;
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-}
-
-.exam-page__tabs button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-width: max-content;
+.exam-overview-back {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
   min-height: 34px;
-  padding: 0 12px;
+  align-self: flex-start;
+  padding: 0;
   color: var(--text-secondary);
-  border: 1px solid transparent;
-  border-radius: 9px;
-  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
   box-shadow: none;
-  font-size: 0.72rem;
-  font-weight: 720;
 }
 
-.exam-page__tabs button:hover,
-.exam-page__tabs button.active {
+.exam-overview-back:hover,
+.exam-overview-back:focus-visible {
   color: var(--accent);
-  border-color: rgba(var(--accent-rgb), 0.22);
+  border-color: rgba(var(--accent-rgb), 0.36);
   background: rgba(var(--accent-rgb), 0.1);
-  box-shadow: none;
   transform: none;
+}
+
+.exam-overview-back:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.5);
+  outline-offset: 2px;
 }
 
 .exam-primary-btn,
@@ -2868,18 +2858,10 @@ body.has-bg-image .exam-result-modal > section {
   font-size: 0.62rem;
 }
 
-.exam-page__tabs button.is-locked:disabled,
 .exam-primary-btn:disabled,
 .exam-feature-card.is-locked:disabled {
   cursor: not-allowed;
   transform: none;
-}
-
-.exam-page__tabs button.is-locked:disabled {
-  color: var(--text-secondary);
-  border-color: transparent;
-  background: transparent;
-  opacity: 0.48;
 }
 
 .exam-feature-card.is-locked:disabled {

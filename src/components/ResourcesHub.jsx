@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, Search, Trash2, X } from "lucide-react";
+import { ArrowRight, BookOpen, Check, ChevronLeft, Search, Trash2, X } from "lucide-react";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { buildSubjectMaterials } from "../utils/materialRecommendations";
 import { normalizeMaterialBookmarks } from "../utils/materialBookmarks";
-import {
-  getMaterialGuideCardId,
-  resolveMaterialGuideSubjects,
-} from "../utils/materialGuideNavigation";
+import { resolveMaterialGuideSubjects } from "../utils/materialGuideNavigation";
+
+const SUBJECT_CARD_TONES = ["teal", "indigo", "amber", "violet", "rose"];
 
 function rankSearchMatch(fields, query) {
   const cleanQuery = query.trim().toLowerCase();
@@ -37,7 +36,10 @@ function ResourcesHub({
   const [bookmarkSearchQuery, setBookmarkSearchQuery] = useState("");
   const [confirmClearAllBookmarks, setConfirmClearAllBookmarks] = useState(false);
   const [pendingBookmarkRemovalId, setPendingBookmarkRemovalId] = useState(null);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pendingViewFocusRef = useRef("");
+  const subjectOverviewHeadingRef = useRef(null);
+  const subjectDetailHeadingRef = useRef(null);
   const targetSubject = searchParams.get("subject");
   const guide = useMemo(
     () => resolveMaterialGuideSubjects(subjects, targetSubject),
@@ -47,6 +49,9 @@ function ResourcesHub({
   const materials = guide.subjects.map((subject) =>
     buildSubjectMaterials(subject, metrics.subjectStats[subject.name], academicLevel, academicTrack, academicProfile)
   );
+  const activeResource = guide.focusedSubject
+    ? materials.find((resource) => resource.subject === guide.focusedSubject) || null
+    : null;
 
   const safeMaterialBookmarks = useMemo(
     () => normalizeMaterialBookmarks(materialBookmarks),
@@ -71,24 +76,39 @@ function ResourcesHub({
   }, [bookmarkSearchQuery, safeMaterialBookmarks]);
 
   useEffect(() => {
-    if (guide.focusedSubject && materials.length > 0) {
-      const element = document.getElementById(getMaterialGuideCardId(guide.focusedSubject));
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-        element.classList.add("highlighted-card");
-        const timer = setTimeout(() => {
-          element.classList.remove("highlighted-card");
-        }, 2000);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [guide.focusedSubject, materials.length]);
+    const nextView = activeResource ? "detail" : "overview";
+    if (pendingViewFocusRef.current !== nextView) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = activeResource
+        ? subjectDetailHeadingRef.current
+        : subjectOverviewHeadingRef.current;
+      target?.focus();
+      pendingViewFocusRef.current = "";
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeResource]);
+
+  const openSubjectMaterials = (subject) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set("subject", subject);
+    pendingViewFocusRef.current = "detail";
+    setSearchParams(nextSearchParams);
+  };
+
+  const returnToSubjects = () => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete("subject");
+    pendingViewFocusRef.current = "overview";
+    setSearchParams(nextSearchParams);
+  };
 
   return (
     <section className="resources-shell">
 
 
-      {safeMaterialBookmarks.length > 0 ? (
+      {!activeResource && safeMaterialBookmarks.length > 0 ? (
         <section className="card bookmark-library-card">
           <div className="resources-bookmark-header">
             <div>
@@ -215,7 +235,7 @@ function ResourcesHub({
         </section>
       ) : null}
 
-      {guide.subjects.length === 0 ? (
+      {!activeResource && guide.subjects.length === 0 ? (
         <section className="card resources-shell">
           <div className="section-intro compact-intro">
             <span className="section-tag">Resources</span>
@@ -228,24 +248,34 @@ function ResourcesHub({
         </section>
       ) : null}
 
-      <div className="resources-grid">
-        {materials.map((resource) => (
-          <article className="card resource-card" key={resource.subject} id={getMaterialGuideCardId(resource.subject)}>
-            <div className="resource-card-header">
-              <div>
-                <h3>{resource.subject}</h3>
+      {activeResource ? (
+        <div className="resource-detail-view" key={`resource-detail-${activeResource.subject}`}>
+          <article className="card resource-card resource-detail-card">
+            <div className="resource-detail-navigation">
+              <button
+                aria-label="Back to subjects"
+                className="resource-detail-back"
+                onClick={returnToSubjects}
+                title="Back to subjects"
+                type="button"
+              >
+                <ChevronLeft aria-hidden="true" size={18} />
+              </button>
+              <div className="resource-detail-title">
+                <span className="section-tag">Subject materials</span>
+                <h3 ref={subjectDetailHeadingRef} tabIndex={-1}>{activeResource.subject}</h3>
               </div>
-              <span className="resource-progress-text">{resource.completionLabel}</span>
+              <span className="resource-progress-text">{activeResource.completionLabel}</span>
             </div>
 
-            <p className="card-desc">{resource.spotlight}</p>
+            <p className="card-desc">{activeResource.spotlight}</p>
 
             <div className="resource-lane-grid">
-              {resource.lanes.map((lane) => {
+              {activeResource.lanes.map((lane) => {
                 const saved = savedLinks.has(lane.href);
 
                 return (
-                  <div className="resource-link-card resource-save-card" key={`${resource.subject}-${lane.title}`}>
+                  <div className="resource-link-card resource-save-card" key={`${activeResource.subject}-${lane.title}`}>
                     <a href={lane.href} rel="noreferrer" target="_blank">
                       <span className="resource-provider">{lane.provider}</span>
                       <strong>{lane.title}</strong>
@@ -261,7 +291,7 @@ function ResourcesHub({
                           description: lane.description,
                           href: lane.href,
                           provider: lane.provider,
-                          subject: resource.subject,
+                          subject: activeResource.subject,
                           title: lane.title,
                         })
                       }
@@ -275,16 +305,49 @@ function ResourcesHub({
             </div>
 
             <div className="resource-chapter-strip">
-              {resource.chapterPath.map((chapter) => (
-                <div className="resource-chapter-pill" key={`${resource.subject}-chapter-${chapter.chapterNumber}`}>
+              {activeResource.chapterPath.map((chapter) => (
+                <div className="resource-chapter-pill" key={`${activeResource.subject}-chapter-${chapter.chapterNumber}`}>
                   <strong>Chapter {chapter.chapterNumber}</strong>
                   <span>{chapter.status}</span>
                 </div>
               ))}
             </div>
           </article>
-        ))}
-      </div>
+        </div>
+      ) : materials.length > 0 ? (
+        <section className="resource-subject-overview" key="resource-subject-overview">
+          <div className="resource-subject-intro">
+            <span className="section-tag">Subject library</span>
+            <h3 ref={subjectOverviewHeadingRef} tabIndex={-1}>Choose a subject</h3>
+            <p>Open a subject to see its focused lessons, references, practice, and revision materials.</p>
+          </div>
+
+          <div className="resource-subject-grid">
+            {materials.map((resource, index) => (
+              <button
+                aria-label={`Open ${resource.subject} materials`}
+                className={`resource-subject-card tone-${SUBJECT_CARD_TONES[index % SUBJECT_CARD_TONES.length]}`}
+                key={resource.subject}
+                onClick={() => openSubjectMaterials(resource.subject)}
+                style={{ "--resource-card-delay": `${index * 65}ms` }}
+                type="button"
+              >
+                <span className="resource-subject-card__icon">
+                  <BookOpen aria-hidden="true" size={22} />
+                </span>
+                <span className="resource-subject-card__copy">
+                  <small>Subject</small>
+                  <strong>{resource.subject}</strong>
+                </span>
+                <span className="resource-subject-card__footer">
+                  <span>{resource.completionLabel}</span>
+                  <ArrowRight aria-hidden="true" size={19} />
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </section>
   );
 }

@@ -61,6 +61,7 @@ function AnalyticsPage({ academicProfileDataId = "", subjects, schedule, complet
           completed={completed}
           onRetryBattleStats={battles.reload}
           schedule={schedule}
+          subjects={subjects}
         />
         <ProgressBar1 academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} />
         <GoalTracker completed={completed} schedule={schedule} subjects={subjects} userProfile={userProfile} />

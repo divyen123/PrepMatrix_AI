@@ -5,12 +5,32 @@ import test from "node:test";
 const source = readFileSync(new URL("./Gamification.jsx", import.meta.url), "utf8");
 const styles = readFileSync(new URL("./Gamification.css", import.meta.url), "utf8");
 const appStyles = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+const analyticsPageSource = readFileSync(new URL("../pages/AnalyticsPage.jsx", import.meta.url), "utf8");
 
 test("routes the Study Momentum battle action directly to Quiz Battles", () => {
   assert.match(source, /const openQuizBattles = \(\) => navigate\("\/quiz\?tab=battles"\)/u);
   assert.match(source, /className="momentum-action-grid"[\s\S]*?Exam-ready achievement[\s\S]*?Quiz Battle arena/u);
   assert.match(source, /className="secondary-btn quiz-battle-cta"[\s\S]*?Attend quiz/u);
   assert.match(styles, /\.momentum-action-grid\s*\{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/u);
+});
+
+test("always presents both Momentum actions and disables them until eligible", () => {
+  assert.doesNotMatch(source, /\(metrics\.isExamEligible \|\| battleStatsEnabled\) &&/u);
+  assert.match(source, /aria-disabled=\{!metrics\.isExamEligible\}[\s\S]*?disabled=\{!metrics\.isExamEligible\}/u);
+  assert.match(source, /const hasQuizSubjects = Array\.isArray\(subjects\)/u);
+  assert.match(source, /const isQuizEligible = battleStatsEnabled && hasQuizSubjects/u);
+  assert.match(analyticsPageSource, /<Gamification[\s\S]*?subjects=\{subjects\}/u);
+  assert.match(source, /aria-disabled=\{!isQuizEligible\}[\s\S]*?disabled=\{!isQuizEligible\}/u);
+  assert.match(source, /Reach 80% to unlock the exam/u);
+  assert.match(source, /Add at least one subject to unlock Quiz Battles/u);
+});
+
+test("only enabled Momentum actions receive the subtle reduced-motion-safe shake", () => {
+  assert.match(source, /metrics\.isExamEligible \? "is-enabled" : "is-disabled"/u);
+  assert.match(source, /isQuizEligible \? "is-enabled" : "is-disabled"/u);
+  assert.match(styles, /\.momentum-action-grid \.momentum-action-card\.is-enabled\s*\{[\s\S]*?animation: momentum-action-ready/u);
+  assert.match(styles, /@keyframes momentum-action-ready/u);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.momentum-action-grid \.momentum-action-card\.is-enabled[\s\S]*?animation: none/u);
 });
 
 test("moves Quiz Battle stats from exposed badges into an accessible popover", () => {
@@ -33,11 +53,18 @@ test("keeps the Quiz Battle shortcut and details compact in the Momentum header"
   assert.ok(battleTriggerIndex < scrollRegionIndex);
   assert.match(source, /className="gamification-header-actions"[\s\S]*?className="battle-insights"[\s\S]*?className="badge-emblem"/u);
   assert.match(source, /className="battle-record-win-count"[\s\S]*?className="battle-record-loss-count"/u);
-  assert.match(styles, /\.gamification-card > \.gamification-scroll-region::-webkit-scrollbar\s*\{[\s\S]*?width: 5px/u);
   assert.match(styles, /\.battle-insights-popover\s*\{[\s\S]*?right: 0;[\s\S]*?left: auto/u);
   assert.match(styles, /\.battle-record-win-count\s*\{[\s\S]*?#16a34a/u);
   assert.match(styles, /\.battle-record-loss-count\s*\{[\s\S]*?var\(--danger\)/u);
   assert.match(styles, /body \.battle-insights-popover \.battle-insights-link\s*\{[\s\S]*?min-height: 30px;[\s\S]*?font-size: 0\.72rem/u);
+});
+
+test("moves the level guidance into an accessible badge tooltip", () => {
+  assert.match(source, /aria-describedby=\{badgeGuidanceId\}/u);
+  assert.match(source, /className="badge-guidance-tooltip"[\s\S]*?role="tooltip"/u);
+  assert.match(source, /\{MOMENTUM_GUIDANCE\}/u);
+  assert.doesNotMatch(source, /<p className="card-desc">[\s\S]*?Complete planner tasks/u);
+  assert.match(styles, /\.badge-emblem-wrap:hover \.badge-guidance-tooltip,[\s\S]*?\.badge-emblem-wrap:focus-within \.badge-guidance-tooltip/u);
 });
 
 test("closes battle details on outside interaction or Escape and restores keyboard focus", () => {
@@ -50,18 +77,26 @@ test("closes battle details on outside interaction or Escape and restores keyboa
   assert.match(source, /document\.removeEventListener\("keydown", closeOnEscape\)/u);
 });
 
-test("uses a bounded inner scroller instead of the previous translated card hack", () => {
-  assert.match(styles, /\.gamification-scroll-region\s*\{[\s\S]*?overflow-y: auto/u);
-  assert.match(styles, /\.analytics-support-grid > \.gamification-card\s*\{[\s\S]*?height: clamp\(540px, calc\(100vh - 160px\), 680px\)/u);
+test("shows all Study Momentum content without an internal scrollbar", () => {
+  assert.match(styles, /\.gamification-card > \.gamification-scroll-region\s*\{[\s\S]*?overflow: visible/u);
+  assert.doesNotMatch(styles, /gamification-scroll-region::-webkit-scrollbar|overflow-y: auto|scrollbar-width: thin/u);
+  assert.match(styles, /\.analytics-support-grid > \.gamification-card\s*\{[\s\S]*?height: auto/u);
   assert.match(styles, /body\.has-bg-image \.battle-insights-popover\s*\{[\s\S]*?background: rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\)/u);
   assert.doesNotMatch(appStyles, /\.gamification-card > \*\s*\{[\s\S]*?translateY\(-96px\)/u);
   assert.doesNotMatch(appStyles, /\.gamification-card::before\s*\{[\s\S]*?translateY\(-96px\)/u);
 });
 
 test("keeps the Study Momentum header pinned to the top grid row", () => {
-  assert.match(styles, /\.gamification-card\s*\{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\)[\s\S]*?align-items: stretch/u);
+  assert.match(styles, /\.gamification-card\s*\{[\s\S]*?grid-template-rows: auto auto[\s\S]*?align-items: stretch/u);
   assert.match(styles, /\.gamification-card > \.gamification-orb\s*\{[\s\S]*?position: absolute[\s\S]*?z-index: 0/u);
   assert.match(styles, /\.gamification-card \.gamification-header\s*\{[\s\S]*?align-self: start/u);
-  assert.match(styles, /\.gamification-scroll-region\s*\{[\s\S]*?align-self: stretch[\s\S]*?overflow-y: auto/u);
+  assert.match(styles, /\.gamification-card > \.gamification-scroll-region\s*\{[\s\S]*?align-self: start[\s\S]*?overflow: visible/u);
   assert.match(styles, /@media \(max-width: 1180px\)\s*\{[\s\S]*?\.gamification-card > \.gamification-scroll-region\s*\{[\s\S]*?overflow: visible/u);
+});
+
+test("uses compact Momentum stat and next-level cards", () => {
+  assert.match(styles, /\.gamification-card \.momentum-stats-grid article\s*\{[\s\S]*?padding: 9px 11px;[\s\S]*?border-radius: 14px/u);
+  assert.match(styles, /\.gamification-card \.momentum-stats-grid strong\s*\{[\s\S]*?font-size: 1\.35rem/u);
+  assert.match(styles, /\.gamification-card \.next-reward-strip\s*\{[\s\S]*?min-height: 42px;[\s\S]*?padding: 8px 12px/u);
+  assert.match(styles, /\.gamification-card \.next-reward-strip strong\s*\{[\s\S]*?font-size: 1rem/u);
 });

@@ -5,6 +5,9 @@ import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { combinedMomentumXp } from "../utils/quizBattleUi";
 import "./Gamification.css";
 
+const MOMENTUM_GUIDANCE =
+  "Complete planner tasks and Quiz Battles to unlock stronger badges and higher levels.";
+
 const BADGE_META = {
   "Getting started": {
     icon: "🌱",
@@ -54,10 +57,12 @@ function Gamification({
   completed,
   onRetryBattleStats,
   schedule,
+  subjects = [],
 }) {
   const navigate = useNavigate();
   const battleDetailsId = useId();
   const battleDetailsTitleId = useId();
+  const badgeGuidanceId = useId();
   const battleDetailsCloseRef = useRef(null);
   const battleDetailsRef = useRef(null);
   const battleDetailsTriggerRef = useRef(null);
@@ -84,6 +89,10 @@ function Gamification({
   const badgeMeta = BADGE_META[badge];
   const nextLevelXp = level * 100;
   const xpToNext = Math.max(nextLevelXp - xp, 0);
+  const hasQuizSubjects = Array.isArray(subjects) && subjects.some((subject) => (
+    String(subject?.name || subject || "").trim()
+  ));
+  const isQuizEligible = battleStatsEnabled && hasQuizSubjects;
 
   useEffect(() => {
     if (!battleDetailsOpen) return undefined;
@@ -224,8 +233,18 @@ function Gamification({
               )}
             </div>
           )}
-          <div className="badge-emblem" aria-label={`${badgeMeta.title} badge`} title={badgeMeta.title}>
-            <span>{badgeMeta.icon}</span>
+          <div className="badge-emblem-wrap">
+            <button
+              aria-describedby={badgeGuidanceId}
+              aria-label={`${badgeMeta.title} badge guidance`}
+              className="badge-emblem"
+              type="button"
+            >
+              <span>{badgeMeta.icon}</span>
+            </button>
+            <span className="badge-guidance-tooltip" id={badgeGuidanceId} role="tooltip">
+              {MOMENTUM_GUIDANCE}
+            </span>
           </div>
         </div>
       </div>
@@ -245,33 +264,51 @@ function Gamification({
           </div>
         </div>
 
-        {(metrics.isExamEligible || battleStatsEnabled) && (
-          <div className="momentum-action-grid">
-            {metrics.isExamEligible && (
-              <article className="momentum-action-card exam-eligibility-achievement" role="status">
-                <strong>🏆 Exam-ready achievement</strong>
-                <p>You are now eligible to attend the exam</p>
-                <button
-                  className="secondary-btn exam-eligibility-cta"
-                  onClick={() => navigate("/exam?section=attend")}
-                  type="button"
-                >
-                  Attend Exam
-                </button>
-              </article>
-            )}
+        <div className="momentum-action-grid">
+          <article
+            aria-disabled={!metrics.isExamEligible}
+            className={`momentum-action-card exam-eligibility-achievement ${metrics.isExamEligible ? "is-enabled" : "is-disabled"}`}
+          >
+            <strong>🏆 Exam-ready achievement</strong>
+            <p>
+              {metrics.isExamEligible
+                ? "You are now eligible to attend the exam."
+                : metrics.hasScheduledPlanner
+                  ? `${metrics.completionRate}% complete. Reach 80% to unlock the exam.`
+                  : "Create a schedule and complete 80% to unlock the exam."}
+            </p>
+            <button
+              className="secondary-btn exam-eligibility-cta"
+              disabled={!metrics.isExamEligible}
+              onClick={() => navigate("/exam?section=attend")}
+              type="button"
+            >
+              Attend Exam
+            </button>
+          </article>
 
-            {battleStatsEnabled && (
-              <article className="momentum-action-card quiz-battle-achievement">
-                <strong><Swords aria-hidden="true" size={16} /> Quiz Battle arena</strong>
-                <p>Challenge a friend and build verified battle XP.</p>
-                <button className="secondary-btn quiz-battle-cta" onClick={openQuizBattles} type="button">
-                  Attend quiz
-                </button>
-              </article>
-            )}
-          </div>
-        )}
+          <article
+            aria-disabled={!isQuizEligible}
+            className={`momentum-action-card quiz-battle-achievement ${isQuizEligible ? "is-enabled" : "is-disabled"}`}
+          >
+            <strong><Swords aria-hidden="true" size={16} /> Quiz Battle arena</strong>
+            <p>
+              {hasQuizSubjects
+                ? battleStatsEnabled
+                  ? "Challenge a friend and build verified battle XP."
+                  : "Quiz Battles are unavailable for this profile."
+                : "Add at least one subject to unlock Quiz Battles."}
+            </p>
+            <button
+              className="secondary-btn quiz-battle-cta"
+              disabled={!isQuizEligible}
+              onClick={openQuizBattles}
+              type="button"
+            >
+              Attend quiz
+            </button>
+          </article>
+        </div>
 
         <div className="momentum-stats-grid">
           <article>
@@ -297,9 +334,6 @@ function Gamification({
           <strong>{xpToNext} XP needed</strong>
         </div>
 
-        <p className="card-desc">
-          Complete planner tasks and Quiz Battles to unlock stronger badges and higher levels.
-        </p>
       </div>
     </section>
   );

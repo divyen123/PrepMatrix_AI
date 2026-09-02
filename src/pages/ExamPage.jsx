@@ -1,4 +1,4 @@
-import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -1701,28 +1701,17 @@ function ExamPage({
         <button className="exam-about-btn" onClick={() => navigate("/exam/about")} title="How the Exam workspace works" type="button"><Info size={16} /><span>About</span></button>
       </header>
 
-      <nav className="exam-page__tabs" aria-label="Exam workspace sections">
-        {[
-          ["overview", "Overview", GraduationCap],
-          ["attend", "Attend Exam", ListChecks],
-          ["paper", "Generate Paper", FilePlus2],
-          ["results", "View Results", Trophy],
-        ].map(([id, label, Icon]) => {
-          const isLockedAttendTab = id === "attend" && !isOnlineExamEligible;
-          return (
-            <button
-              className={`${section === id ? "active" : ""}${isLockedAttendTab ? " is-locked" : ""}`}
-              disabled={isLockedAttendTab}
-              key={id}
-              onClick={() => setSection(id)}
-              title={isLockedAttendTab ? `Complete ${EXAM_ELIGIBILITY_THRESHOLD}% of your planner to unlock Attend Exam (${readinessPercent}% complete)` : undefined}
-              type="button"
-            >
-              {createElement(Icon, { size: 16 })} {label}
-            </button>
-          );
-        })}
-      </nav>
+      {section !== "overview" && (
+        <button
+          aria-label="Back to Exam overview"
+          className="exam-overview-back"
+          onClick={() => setSection("overview")}
+          title="Back to Exam overview"
+          type="button"
+        >
+          <ChevronLeft aria-hidden="true" size={18} />
+        </button>
+      )}
 
       {section !== "results" && (
         <section className={`exam-eligibility-banner ${isOnlineExamEligible ? "is-eligible" : "is-locked"}`} aria-live="polite">

@@ -1,7 +1,7 @@
 .gamification-card {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  align-content: stretch;
+  grid-template-rows: auto auto;
+  align-content: start;
   align-items: stretch;
   justify-content: stretch;
   overflow: hidden;
@@ -40,37 +40,71 @@
   position: static;
 }
 
+.badge-emblem-wrap {
+  position: relative;
+  z-index: 9;
+}
+
+body button.badge-emblem {
+  padding: 0;
+  color: inherit;
+  cursor: help;
+}
+
+body button.badge-emblem:hover,
+body button.badge-emblem:focus-visible {
+  border-color: rgba(245, 184, 71, 0.5);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1)),
+    rgba(245, 184, 71, 0.24);
+  transform: none;
+}
+
+body button.badge-emblem:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.badge-guidance-tooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 24;
+  width: min(280px, calc(100vw - 72px));
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--surface-strong);
+  box-shadow: 0 16px 38px rgba(10, 18, 34, 0.24);
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.45;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  visibility: hidden;
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
+}
+
+.badge-emblem-wrap:hover .badge-guidance-tooltip,
+.badge-emblem-wrap:focus-within .badge-guidance-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+
 .gamification-card > .gamification-scroll-region {
   position: relative;
   z-index: 2;
   display: grid;
   align-content: start;
-  align-self: stretch;
+  align-self: start;
   gap: 14px;
   width: 100%;
   min-height: 0;
-  padding: 0 8px 4px 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-color: rgba(var(--accent-rgb), 0.5) transparent;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-}
-
-.gamification-card > .gamification-scroll-region::-webkit-scrollbar {
-  width: 5px;
-}
-
-.gamification-card > .gamification-scroll-region::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.gamification-card > .gamification-scroll-region::-webkit-scrollbar-thumb {
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: rgba(var(--accent-rgb), 0.5);
-  background-clip: padding-box;
+  padding: 0;
+  overflow: visible;
 }
 
 .gamification-card > .gamification-scroll-region > * {
@@ -340,8 +374,24 @@ body .battle-insights-popover .battle-insights-link:focus-visible {
     var(--surface-muted);
 }
 
-.momentum-action-grid .momentum-action-card:only-child {
-  grid-column: 1 / -1;
+.momentum-action-grid .momentum-action-card.is-enabled {
+  animation: momentum-action-ready 5.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.momentum-action-grid .quiz-battle-achievement.is-enabled {
+  animation-delay: 2.8s;
+}
+
+.momentum-action-grid .momentum-action-card.is-disabled {
+  border-color: rgba(112, 128, 153, 0.2);
+  background: rgba(112, 128, 153, 0.07);
+  box-shadow: none;
+}
+
+.momentum-action-grid .momentum-action-card.is-disabled strong,
+.momentum-action-grid .momentum-action-card.is-disabled p {
+  color: var(--text-muted);
 }
 
 .momentum-action-card strong {
@@ -383,6 +433,44 @@ body.has-bg-image .battle-insights-popover {
   backdrop-filter: none;
 }
 
+body.has-bg-image .badge-guidance-tooltip {
+  border-color: rgba(255, 255, 255, 0.13);
+  background: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.gamification-card .momentum-stats-grid {
+  gap: 8px;
+}
+
+.gamification-card .momentum-stats-grid article {
+  gap: 4px;
+  min-height: 64px;
+  padding: 9px 11px;
+  border-radius: 14px;
+}
+
+.gamification-card .momentum-stats-grid span,
+.gamification-card .next-reward-strip span {
+  font-size: 0.67rem;
+}
+
+.gamification-card .momentum-stats-grid strong {
+  font-size: 1.35rem;
+}
+
+.gamification-card .next-reward-strip {
+  gap: 10px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border-radius: 14px;
+}
+
+.gamification-card .next-reward-strip strong {
+  font-size: 1rem;
+}
+
 @keyframes battle-insights-in {
   from {
     opacity: 0;
@@ -394,9 +482,25 @@ body.has-bg-image .battle-insights-popover {
   }
 }
 
+@keyframes momentum-action-ready {
+  0%, 8%, 100% {
+    transform: translateX(0) rotate(0);
+  }
+  2% {
+    transform: translateX(-1.5px) rotate(-0.12deg);
+  }
+  4% {
+    transform: translateX(1.5px) rotate(0.12deg);
+  }
+  6% {
+    transform: translateX(-1px) rotate(-0.08deg);
+  }
+}
+
 @media (min-width: 1181px) {
   .analytics-support-grid > .gamification-card {
-    height: clamp(540px, calc(100vh - 160px), 680px);
+    height: auto;
+    min-height: 540px;
   }
 }
 
@@ -408,7 +512,6 @@ body.has-bg-image .battle-insights-popover {
   .gamification-card > .gamification-scroll-region {
     padding-right: 0;
     overflow: visible;
-    scrollbar-gutter: auto;
   }
 }
 
@@ -432,7 +535,8 @@ body.has-bg-image .battle-insights-popover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .battle-insights-popover {
+  .battle-insights-popover,
+  .momentum-action-grid .momentum-action-card.is-enabled {
     animation: none;
   }
 }

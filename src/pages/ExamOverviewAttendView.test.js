@@ -37,6 +37,20 @@ test("presents all Overview destinations as full interactive cards", () => {
   assert.doesNotMatch(overviewSource, /className="card exam-feature-card/u);
 });
 
+test("replaces the section tab bar with an accessible compact overview return", () => {
+  assert.doesNotMatch(pageSource, /className="exam-page__tabs"/u);
+  assert.doesNotMatch(pageSource, /aria-label="Exam workspace sections"/u);
+  assert.doesNotMatch(stylesheet, /\.exam-page__tabs/u);
+  assert.match(
+    pageSource,
+    /\{section !== "overview" && \(\s*<button\s+aria-label="Back to Exam overview"\s+className="exam-overview-back"[\s\S]*?onClick=\{\(\) => setSection\("overview"\)\}[\s\S]*?<ChevronLeft aria-hidden="true" size=\{18\} \/>/u,
+  );
+  const backButtonRule = stylesheet.match(/\.exam-overview-back\s*\{[^}]*\}/u)?.[0] || "";
+  assert.match(backButtonRule, /width:\s*34px/u);
+  assert.match(backButtonRule, /height:\s*34px/u);
+  assert.match(stylesheet, /\.exam-overview-back:focus-visible/u);
+});
+
 test("matches Planner-style card motion across input, theme, and viewport modes", () => {
   assert.match(stylesheet, /\.exam-page \.exam-feature-card\.is-attend[\s\S]*?--exam-feature-tone/u);
   assert.match(stylesheet, /\.exam-page \.exam-feature-card\.is-paper[\s\S]*?--exam-feature-tone/u);

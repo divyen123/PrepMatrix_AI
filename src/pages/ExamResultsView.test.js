@@ -15,7 +15,8 @@ test("keeps eligibility behavior but hides its banner from View Results", () => 
     /\{section !== "results" && \(\s*<section className=\{`exam-eligibility-banner/u,
   );
   assert.match(pageSource, /const isOnlineExamEligible/u);
-  assert.match(pageSource, /disabled=\{isLockedAttendTab\}/u);
+  assert.doesNotMatch(pageSource, /isLockedAttendTab/u);
+  assert.match(pageSource, /aria-label="Back to Exam overview"/u);
 });
 
 test("simplifies the View Results heading without changing result behavior", () => {
