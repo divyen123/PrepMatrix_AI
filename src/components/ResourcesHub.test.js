@@ -15,6 +15,11 @@ test("opens one subject materials view and keeps direct subject links coherent",
   assert.doesNotMatch(source, /materials\.map\(\(resource\) => \([\s\S]*?className="card resource-card"/u);
 });
 
+test("keeps the subject overview concise", () => {
+  assert.match(source, /<span className="section-tag">Subject library<\/span>[\s\S]*?<h3[^>]*>Choose a subject<\/h3>/u);
+  assert.doesNotMatch(source, /Open a subject to see its focused lessons, references, practice, and revision materials\./u);
+});
+
 test("returns from subject materials to the card overview with an accessible compact control", () => {
   assert.match(source, /nextSearchParams\.delete\("subject"\)/u);
   assert.match(source, /aria-label="Back to subjects"[\s\S]*?className="resource-detail-back"[\s\S]*?onClick=\{returnToSubjects\}/u);

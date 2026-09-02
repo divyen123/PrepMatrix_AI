@@ -362,7 +362,8 @@ body .battle-insights-popover .battle-insights-link:focus-visible {
 .momentum-action-grid .momentum-action-card {
   display: grid;
   grid-template-columns: 1fr;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-content: stretch;
   gap: 6px;
   min-width: 0;
   min-height: 126px;
@@ -420,7 +421,7 @@ body .battle-insights-popover .battle-insights-link:focus-visible {
 .momentum-action-grid .momentum-action-card .exam-eligibility-cta,
 .momentum-action-grid .momentum-action-card .quiz-battle-cta {
   grid-column: auto;
-  grid-row: auto;
+  grid-row: 3;
   justify-self: start;
   align-self: end;
   margin-top: auto;

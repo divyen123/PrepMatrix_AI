@@ -12,11 +12,15 @@ const resultsPanelSource = pageSource.slice(
 test("keeps eligibility behavior but hides its banner from View Results", () => {
   assert.match(
     pageSource,
-    /\{section !== "results" && \(\s*<section className=\{`exam-eligibility-banner/u,
+    /\{section !== "results" && \(\s*<div className=\{`exam-eligibility-row[\s\S]*?<section className=\{`exam-eligibility-banner/u,
   );
   assert.match(pageSource, /const isOnlineExamEligible/u);
   assert.doesNotMatch(pageSource, /isLockedAttendTab/u);
   assert.match(pageSource, /aria-label="Back to Exam overview"/u);
+  assert.match(
+    pageSource,
+    /\{section === "results" && \(\s*<div className="exam-subpage-return">\s*\{overviewBackControl\}/u,
+  );
 });
 
 test("simplifies the View Results heading without changing result behavior", () => {

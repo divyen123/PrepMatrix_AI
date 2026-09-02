@@ -623,30 +623,6 @@ function NotesPage({
 
   return (
     <section className="page-stack notes-page">
-      <div className="section-intro has-actions">
-        <div>
-          <span className="section-tag">Notes</span>
-          <h2>Doubt board</h2>
-        </div>
-        <div className="notes-header-actions">
-          <button
-            className="notes-status-button"
-            onClick={() => setIsStatusOpen(true)}
-            title="View board status"
-            type="button"
-          >
-            <strong>{notes.length}</strong>
-          </button>
-          <button
-            className="primary-btn"
-            onClick={() => setIsCaptureOpen(true)}
-            type="button"
-          >
-            <Pencil size={14} /> Add note
-          </button>
-        </div>
-      </div>
-
       <section className={`card notes-list-card${confirmClearNotes ? " is-confirming-clear" : ""}`}>
         <div className="notes-list-header">
           <div>
@@ -677,41 +653,59 @@ function NotesPage({
                 <option value="Open">Open</option>
                 <option value="Resolved">Resolved</option>
               </select>
-              {notes.length > 0 && (confirmClearNotes ? (
-                <div className="notes-clear-confirm-inline inline-destructive-confirm" role="group" aria-label="Confirm clearing all stored notes">
-                  <span className="compact-confirm-copy">Clear all?</span>
-                  <div className="compact-confirm-actions">
-                    <button
-                      aria-label="Confirm clearing all stored notes"
-                      className="compact-confirm-btn is-confirm"
-                      onClick={clearAllNotes}
-                      title="Confirm clear all"
-                      type="button"
-                    >
-                      <Check aria-hidden="true" size={13} />
-                    </button>
-                    <button
-                      aria-label="Cancel clearing stored notes"
-                      className="compact-confirm-btn is-cancel"
-                      onClick={() => setConfirmClearNotes(false)}
-                      title="Cancel"
-                      type="button"
-                    >
-                      <X aria-hidden="true" size={13} />
-                    </button>
-                  </div>
-                </div>
-              ) : (
+              <div className="notes-list-utilities">
                 <button
-                  aria-label="Clear all stored notes"
-                  className="notes-clear-all-btn"
-                  onClick={() => setConfirmClearNotes(true)}
-                  title="Clear all stored notes"
+                  aria-label={`View board status for ${notes.length} ${notes.length === 1 ? "note" : "notes"}`}
+                  className="notes-status-button"
+                  onClick={() => setIsStatusOpen(true)}
+                  title="View board status"
                   type="button"
                 >
-                  <Trash2 aria-hidden="true" size={15} />
+                  <strong>{notes.length}</strong>
                 </button>
-              ))}
+                <button
+                  className="primary-btn notes-add-btn"
+                  onClick={() => setIsCaptureOpen(true)}
+                  type="button"
+                >
+                  <Pencil aria-hidden="true" size={13} /> Add note
+                </button>
+                {notes.length > 0 && (confirmClearNotes ? (
+                  <div className="notes-clear-confirm-inline inline-destructive-confirm" role="group" aria-label="Confirm clearing all stored notes">
+                    <span className="compact-confirm-copy">Clear all?</span>
+                    <div className="compact-confirm-actions">
+                      <button
+                        aria-label="Confirm clearing all stored notes"
+                        className="compact-confirm-btn is-confirm"
+                        onClick={clearAllNotes}
+                        title="Confirm clear all"
+                        type="button"
+                      >
+                        <Check aria-hidden="true" size={13} />
+                      </button>
+                      <button
+                        aria-label="Cancel clearing stored notes"
+                        className="compact-confirm-btn is-cancel"
+                        onClick={() => setConfirmClearNotes(false)}
+                        title="Cancel"
+                        type="button"
+                      >
+                        <X aria-hidden="true" size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    aria-label="Clear all stored notes"
+                    className="notes-clear-all-btn"
+                    onClick={() => setConfirmClearNotes(true)}
+                    title="Clear all stored notes"
+                    type="button"
+                  >
+                    <Trash2 aria-hidden="true" size={15} />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

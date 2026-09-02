@@ -14,6 +14,11 @@ test("routes the Study Momentum battle action directly to Quiz Battles", () => {
   assert.match(styles, /\.momentum-action-grid\s*\{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/u);
 });
 
+test("keeps the Momentum action CTAs aligned at the bottom of equal-height cards", () => {
+  assert.match(styles, /\.momentum-action-grid \.momentum-action-card\s*\{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\) auto;[\s\S]*?align-content: stretch/u);
+  assert.match(styles, /\.momentum-action-grid \.momentum-action-card \.exam-eligibility-cta,[\s\S]*?\.quiz-battle-cta\s*\{[\s\S]*?grid-row: 3;[\s\S]*?align-self: end;[\s\S]*?margin-top: auto/u);
+});
+
 test("always presents both Momentum actions and disables them until eligible", () => {
   assert.doesNotMatch(source, /\(metrics\.isExamEligible \|\| battleStatsEnabled\) &&/u);
   assert.match(source, /aria-disabled=\{!metrics\.isExamEligible\}[\s\S]*?disabled=\{!metrics\.isExamEligible\}/u);

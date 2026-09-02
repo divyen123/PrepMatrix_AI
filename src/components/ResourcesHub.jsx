@@ -319,7 +319,6 @@ function ResourcesHub({
           <div className="resource-subject-intro">
             <span className="section-tag">Subject library</span>
             <h3 ref={subjectOverviewHeadingRef} tabIndex={-1}>Choose a subject</h3>
-            <p>Open a subject to see its focused lessons, references, practice, and revision materials.</p>
           </div>
 
           <div className="resource-subject-grid">

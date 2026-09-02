@@ -1693,6 +1693,17 @@ function ExamPage({
 
   const pendingResults = results.filter(isResultLocked).length;
   const releasedResults = results.length - pendingResults;
+  const overviewBackControl = section !== "overview" ? (
+    <button
+      aria-label="Back to Exam overview"
+      className="exam-overview-back"
+      onClick={() => setSection("overview")}
+      title="Back to Exam overview"
+      type="button"
+    >
+      <ChevronLeft aria-hidden="true" size={18} />
+    </button>
+  ) : null;
 
   return (
     <section className="page-stack exam-page">
@@ -1701,39 +1712,36 @@ function ExamPage({
         <button className="exam-about-btn" onClick={() => navigate("/exam/about")} title="How the Exam workspace works" type="button"><Info size={16} /><span>About</span></button>
       </header>
 
-      {section !== "overview" && (
-        <button
-          aria-label="Back to Exam overview"
-          className="exam-overview-back"
-          onClick={() => setSection("overview")}
-          title="Back to Exam overview"
-          type="button"
-        >
-          <ChevronLeft aria-hidden="true" size={18} />
-        </button>
+      {section !== "results" && (
+        <div className={`exam-eligibility-row${section !== "overview" ? " has-overview-back" : ""}`}>
+          {overviewBackControl}
+          <section className={`exam-eligibility-banner ${isOnlineExamEligible ? "is-eligible" : "is-locked"}`} aria-live="polite">
+            <div className="exam-eligibility-icon" aria-hidden="true">
+              {isOnlineExamEligible ? <CheckCircle2 size={20} /> : <ShieldAlert size={20} />}
+            </div>
+            <div className="exam-eligibility-copy">
+              <span>Online exam eligibility</span>
+              <strong>{isOnlineExamEligible ? "Attend Exam is unlocked" : `${readinessPercent}% planner completion`}</strong>
+              <p>
+                {isOnlineExamEligible
+                  ? "You are now eligible to attend the exam."
+                  : tasksToExamEligibility > 0
+                    ? `Complete ${tasksToExamEligibility} more planner task${tasksToExamEligibility === 1 ? "" : "s"} to reach the ${EXAM_ELIGIBILITY_THRESHOLD}% requirement.`
+                    : `Complete at least ${EXAM_ELIGIBILITY_THRESHOLD}% of your scheduled planner tasks to unlock Attend Exam.`}
+              </p>
+            </div>
+            <div className="exam-eligibility-progress">
+              <progress aria-label={`${readinessPercent}% complete`} max={100} value={readinessPercent}>{readinessPercent}%</progress>
+              <strong>{readinessPercent}% <small>/ {EXAM_ELIGIBILITY_THRESHOLD}%</small></strong>
+            </div>
+          </section>
+        </div>
       )}
 
-      {section !== "results" && (
-        <section className={`exam-eligibility-banner ${isOnlineExamEligible ? "is-eligible" : "is-locked"}`} aria-live="polite">
-          <div className="exam-eligibility-icon" aria-hidden="true">
-            {isOnlineExamEligible ? <CheckCircle2 size={20} /> : <ShieldAlert size={20} />}
-          </div>
-          <div className="exam-eligibility-copy">
-            <span>Online exam eligibility</span>
-            <strong>{isOnlineExamEligible ? "Attend Exam is unlocked" : `${readinessPercent}% planner completion`}</strong>
-            <p>
-              {isOnlineExamEligible
-                ? "You are now eligible to attend the exam."
-                : tasksToExamEligibility > 0
-                  ? `Complete ${tasksToExamEligibility} more planner task${tasksToExamEligibility === 1 ? "" : "s"} to reach the ${EXAM_ELIGIBILITY_THRESHOLD}% requirement.`
-                  : `Complete at least ${EXAM_ELIGIBILITY_THRESHOLD}% of your scheduled planner tasks to unlock Attend Exam.`}
-            </p>
-          </div>
-          <div className="exam-eligibility-progress">
-            <progress aria-label={`${readinessPercent}% complete`} max={100} value={readinessPercent}>{readinessPercent}%</progress>
-            <strong>{readinessPercent}% <small>/ {EXAM_ELIGIBILITY_THRESHOLD}%</small></strong>
-          </div>
-        </section>
+      {section === "results" && (
+        <div className="exam-subpage-return">
+          {overviewBackControl}
+        </div>
       )}
 
       {section === "overview" && (

@@ -72,13 +72,14 @@
   height: 34px;
   min-width: 34px;
   min-height: 34px;
-  align-self: flex-start;
+  align-self: center;
   padding: 0;
   color: var(--text-secondary);
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface-muted);
   box-shadow: none;
+  cursor: pointer;
 }
 
 .exam-overview-back:hover,
@@ -2736,6 +2737,24 @@ body.has-bg-image .exam-result-modal > section {
 }
 
 /* Exam eligibility gate */
+.exam-eligibility-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  min-width: 0;
+}
+
+.exam-eligibility-row.has-overview-back {
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.exam-subpage-return {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+}
+
 .exam-eligibility-banner {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) minmax(190px, 270px);

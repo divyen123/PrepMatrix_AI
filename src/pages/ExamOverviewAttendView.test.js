@@ -37,17 +37,27 @@ test("presents all Overview destinations as full interactive cards", () => {
   assert.doesNotMatch(overviewSource, /className="card exam-feature-card/u);
 });
 
-test("replaces the section tab bar with an accessible compact overview return", () => {
+test("places the accessible compact overview return beside the eligibility banner", () => {
   assert.doesNotMatch(pageSource, /className="exam-page__tabs"/u);
   assert.doesNotMatch(pageSource, /aria-label="Exam workspace sections"/u);
   assert.doesNotMatch(stylesheet, /\.exam-page__tabs/u);
   assert.match(
     pageSource,
-    /\{section !== "overview" && \(\s*<button\s+aria-label="Back to Exam overview"\s+className="exam-overview-back"[\s\S]*?onClick=\{\(\) => setSection\("overview"\)\}[\s\S]*?<ChevronLeft aria-hidden="true" size=\{18\} \/>/u,
+    /const overviewBackControl = section !== "overview" \? \(\s*<button\s+aria-label="Back to Exam overview"\s+className="exam-overview-back"[\s\S]*?onClick=\{\(\) => setSection\("overview"\)\}[\s\S]*?<ChevronLeft aria-hidden="true" size=\{18\} \/>/u,
+  );
+  assert.match(
+    pageSource,
+    /className=\{`exam-eligibility-row\$\{section !== "overview" \? " has-overview-back" : ""\}`\}>\s*\{overviewBackControl\}\s*<section className=\{`exam-eligibility-banner/u,
+  );
+  assert.match(
+    pageSource,
+    /\{section === "results" && \(\s*<div className="exam-subpage-return">\s*\{overviewBackControl\}/u,
   );
   const backButtonRule = stylesheet.match(/\.exam-overview-back\s*\{[^}]*\}/u)?.[0] || "";
   assert.match(backButtonRule, /width:\s*34px/u);
   assert.match(backButtonRule, /height:\s*34px/u);
+  assert.match(stylesheet, /\.exam-eligibility-row\.has-overview-back\s*\{[\s\S]*?grid-template-columns:\s*34px minmax\(0, 1fr\)/u);
+  assert.match(stylesheet, /\.exam-subpage-return\s*\{/u);
   assert.match(stylesheet, /\.exam-overview-back:focus-visible/u);
 });
 
