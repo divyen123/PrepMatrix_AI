@@ -1,19 +1,37 @@
 .gamification-card {
+  display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  align-items: stretch;
+  justify-content: stretch;
   overflow: hidden;
+}
+
+/*
+ * App.css raises every direct card child into the foreground. The decorative
+ * orb must stay out of the grid flow; otherwise it consumes the first row and
+ * pushes the real header into the flexible row, where it can overlap the XP
+ * summary on tall analytics cards.
+ */
+.gamification-card > .gamification-orb {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .gamification-card .gamification-header {
   position: relative;
   z-index: 2;
+  align-self: start;
   width: 100%;
 }
 
-.gamification-scroll-region {
+.gamification-card > .gamification-scroll-region {
   position: relative;
   z-index: 2;
   display: grid;
   align-content: start;
+  align-self: stretch;
   gap: 14px;
   width: 100%;
   min-height: 0;
@@ -26,22 +44,22 @@
   scrollbar-width: thin;
 }
 
-.gamification-scroll-region::-webkit-scrollbar {
+.gamification-card > .gamification-scroll-region::-webkit-scrollbar {
   width: 7px;
 }
 
-.gamification-scroll-region::-webkit-scrollbar-track {
+.gamification-card > .gamification-scroll-region::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.gamification-scroll-region::-webkit-scrollbar-thumb {
+.gamification-card > .gamification-scroll-region::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
   background: rgba(var(--accent-rgb), 0.5);
   background-clip: padding-box;
 }
 
-.gamification-scroll-region > * {
+.gamification-card > .gamification-scroll-region > * {
   min-width: 0;
 }
 
@@ -328,7 +346,7 @@ body.has-bg-image .battle-insights-popover {
     grid-template-rows: auto auto;
   }
 
-  .gamification-scroll-region {
+  .gamification-card > .gamification-scroll-region {
     padding-right: 0;
     overflow: visible;
     scrollbar-gutter: auto;

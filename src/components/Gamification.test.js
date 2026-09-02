@@ -41,3 +41,11 @@ test("uses a bounded inner scroller instead of the previous translated card hack
   assert.doesNotMatch(appStyles, /\.gamification-card > \*\s*\{[\s\S]*?translateY\(-96px\)/u);
   assert.doesNotMatch(appStyles, /\.gamification-card::before\s*\{[\s\S]*?translateY\(-96px\)/u);
 });
+
+test("keeps the Study Momentum header pinned to the top grid row", () => {
+  assert.match(styles, /\.gamification-card\s*\{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\)[\s\S]*?align-items: stretch/u);
+  assert.match(styles, /\.gamification-card > \.gamification-orb\s*\{[\s\S]*?position: absolute[\s\S]*?z-index: 0/u);
+  assert.match(styles, /\.gamification-card \.gamification-header\s*\{[\s\S]*?align-self: start/u);
+  assert.match(styles, /\.gamification-scroll-region\s*\{[\s\S]*?align-self: stretch[\s\S]*?overflow-y: auto/u);
+  assert.match(styles, /@media \(max-width: 1180px\)\s*\{[\s\S]*?\.gamification-card > \.gamification-scroll-region\s*\{[\s\S]*?overflow: visible/u);
+});
