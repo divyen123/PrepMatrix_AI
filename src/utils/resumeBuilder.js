@@ -62,6 +62,15 @@ export const RESUME_ACCENTS = Object.freeze([
   { value: "#10b981", label: "Emerald" },
 ]);
 
+export const RESUME_FONTS = Object.freeze([
+  { id: "template", label: "Template default", cssFamily: '"Inter", "Segoe UI", Arial, sans-serif' },
+  { id: "inter", label: "Inter", cssFamily: '"Inter", "Segoe UI", Arial, sans-serif' },
+  { id: "manrope", label: "Manrope", cssFamily: '"Manrope", "Segoe UI", Arial, sans-serif' },
+  { id: "poppins", label: "Poppins", cssFamily: '"Poppins", "Segoe UI", Arial, sans-serif' },
+  { id: "lora", label: "Lora", cssFamily: '"Lora", Georgia, serif' },
+  { id: "merriweather", label: "Merriweather", cssFamily: '"Merriweather", Georgia, serif' },
+]);
+
 const cleanText = (value, max = 500) => String(value ?? "").replace(/\r\n/g, "\n").slice(0, max);
 const cleanLine = (value, max = 160) => cleanText(value, max).replace(/\s*\n+\s*/g, " ").trim();
 const cleanEditingLine = (value, max = 160) => cleanText(value, max).replace(/\s*\n+\s*/g, " ");
@@ -296,6 +305,7 @@ export function normalizeResumeDraft(value, profile = {}, options = {}) {
 export function normalizeResumeLayout(value = {}) {
   const template = RESUME_TEMPLATES.some((item) => item.id === value?.template) ? value.template : "modern";
   const accent = RESUME_ACCENTS.some((item) => item.value === value?.accent) ? value.accent : "#0f9f8f";
+  const fontFamily = RESUME_FONTS.some((item) => item.id === value?.fontFamily) ? value.fontFamily : "template";
   const typography = ["compact", "balanced", "large"].includes(value?.typography) ? value.typography : "balanced";
   const density = ["compact", "balanced", "airy"].includes(value?.density) ? value.density : "balanced";
   const suppliedOrder = Array.isArray(value?.sectionOrder) ? value.sectionOrder : [];
@@ -307,7 +317,7 @@ export function normalizeResumeLayout(value = {}) {
     ? value.hiddenSections.filter((item, index) => RESUME_SECTIONS.includes(item) && value.hiddenSections.indexOf(item) === index)
     : [];
 
-  return { template, accent, typography, density, sectionOrder, hiddenSections };
+  return { template, accent, fontFamily, typography, density, sectionOrder, hiddenSections };
 }
 
 export function activeResumeGenerations(value, now = Date.now()) {

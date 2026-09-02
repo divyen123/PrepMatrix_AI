@@ -26,13 +26,14 @@ test("normalizes a history entry and derives its name from the resume", () => {
     name: "Spoofed title",
     draft: draft("Asha Raman"),
     headline: "Backend summary headline",
-    layout: { template: "classic", accent: "#5b7cfa" },
+    layout: { template: "classic", accent: "#5b7cfa", fontFamily: "lora" },
     generatedAt: "2026-08-08T10:00:00.000Z",
   });
 
   assert.equal(entry.id, "history-1");
   assert.equal(entry.name, "Asha Raman");
   assert.equal(entry.layout.template, "classic");
+  assert.equal(entry.layout.fontFamily, "lora");
   assert.equal(entry.generatedAt, "2026-08-08T10:00:00.000Z");
   assert.equal(entry.headline, "Backend summary headline");
 });
@@ -62,7 +63,7 @@ test("sorts, deduplicates, caps, and searches resume history", () => {
 test("creates immutable generation snapshots with stable source metadata", () => {
   const snapshot = createResumeHistorySnapshot({
     draft: draft("Irfan Ali"),
-    layout: { template: "compact" },
+    layout: { template: "compact", fontFamily: "poppins" },
     generatedAt: "2026-08-08T12:00:00.000Z",
     requestId: "request-1",
     sourceGenerationId: "generation-1",
@@ -70,6 +71,7 @@ test("creates immutable generation snapshots with stable source metadata", () =>
 
   assert.equal(snapshot.name, "Irfan Ali");
   assert.equal(snapshot.layout.template, "compact");
+  assert.equal(snapshot.layout.fontFamily, "poppins");
   assert.equal(snapshot.requestId, "request-1");
   assert.equal(snapshot.sourceGenerationId, "generation-1");
 });
@@ -84,11 +86,12 @@ test("loads a history snapshot into the editor without changing quota metadata",
   const loaded = loadResumeHistoryEntry({
     id: "history-2",
     draft: draft("Saved User"),
-    layout: { template: "classic" },
+    layout: { template: "classic", fontFamily: "merriweather" },
   }, current, { now: "2026-08-08T13:00:00.000Z" });
 
   assert.equal(loaded.draft.personal.fullName, "Saved User");
   assert.equal(loaded.layout.template, "classic");
+  assert.equal(loaded.layout.fontFamily, "merriweather");
   assert.deepEqual(loaded.generationTimestamps, current.generationTimestamps);
   assert.equal(loaded.lastGeneratedAt, current.lastGeneratedAt);
 });

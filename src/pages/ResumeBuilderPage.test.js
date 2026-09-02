@@ -65,6 +65,32 @@ test("provides a distinct live-preview modifier for every premium template", () 
   });
 });
 
+test("offers accessible two-column font choices and shares the chosen font with PDF export", () => {
+  const selectorStart = pageSource.indexOf('className="resume-font-grid"');
+  const selectorEnd = pageSource.indexOf('\n                </div>', selectorStart);
+  const selectorSource = pageSource.slice(selectorStart, selectorEnd);
+  const paperStyles = stylesheet.slice(
+    stylesheet.indexOf(".resume-paper {"),
+    stylesheet.indexOf(".resume-preview-actions"),
+  );
+
+  assert.ok(selectorStart >= 0);
+  assert.match(selectorSource, /role="radiogroup" aria-label="Resume font style"/u);
+  assert.match(selectorSource, /RESUME_FONTS\.map/u);
+  assert.match(selectorSource, /type="radio"/u);
+  assert.match(selectorSource, /updateLayout\(\{ fontFamily: fontOption\.id \}\)/u);
+  assert.match(stylesheet, /\.resume-font-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/u);
+  assert.match(paperStyles, /font-family:\s*var\(--resume-font-family/u);
+  assert.match(paperStyles, /box-sizing:\s*border-box/u);
+  assert.match(pageSource, /resume-paper--font-\$\{layout\.fontFamily\}/u);
+  assert.match(paperStyles, /\.resume-paper:not\(\.resume-paper--font-template\)[\s\S]*?font-family:\s*inherit/u);
+  assert.doesNotMatch(paperStyles, /color-mix\(in srgb, var\(--resume-accent\)/u);
+  assert.match(pageSource, /createResumePdfFromElement\(previewPaperRef\.current/u);
+  assert.match(pageSource, /className="resume-pdf-export-surface"/u);
+  assert.match(pageSource, /target=\{href\.startsWith\("http"\) \? "_blank"/u);
+  assert.match(pageSource, /rel="noopener noreferrer" target="_blank"/u);
+});
+
 test("gates the workspace intro on both initial resume requests and reveals the ready page", () => {
   assert.match(pageSource, /<ResumeBuilderIntro phase=\{introState\.phase\}/u);
   assert.match(pageSource, /loadResumeHistory\(\)\.finally\([\s\S]*?history_settled/u);

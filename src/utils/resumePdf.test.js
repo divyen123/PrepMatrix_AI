@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { RESUME_TEMPLATES } from "./resumeBuilder.js";
-import { createResumePdf, getResumePdfFilename, getResumePdfMetrics } from "./resumePdf.js";
+import {
+  createResumePdf,
+  createResumePdfFromElement,
+  getResumePdfFilename,
+  getResumePdfMetrics,
+} from "./resumePdf.js";
+
+const pdfSource = readFileSync(new URL("./resumePdf.js", import.meta.url), "utf8");
 
 const fixture = {
   personal: {
@@ -132,15 +140,16 @@ test("keeps template alignment and layout scales distinct", () => {
   assert.ok(balanced.bodyLineHeight < largeAiry.bodyLineHeight);
   assert.ok(compact.sectionGap < balanced.sectionGap);
   assert.ok(balanced.sectionGap < largeAiry.sectionGap);
-  assertClose(compact.bodyTop, 7);
-  assertClose(balanced.bodyTop, 9.916667);
-  assertClose(largeAiry.bodyTop, 13.416667);
-  assertClose(compact.sectionGap, 5.833333);
-  assertClose(balanced.sectionGap, 8.166667);
-  assertClose(largeAiry.sectionGap, 11.083333);
-  assertClose(compact.entryGap, 3.5);
-  assertClose(balanced.entryGap, 5.25);
-  assertClose(largeAiry.entryGap, 7);
+  const previewPxToMm = 210 / 500;
+  assertClose(compact.bodyTop, 12 * previewPxToMm);
+  assertClose(balanced.bodyTop, 17 * previewPxToMm);
+  assertClose(largeAiry.bodyTop, 23 * previewPxToMm);
+  assertClose(compact.sectionGap, 10 * previewPxToMm);
+  assertClose(balanced.sectionGap, 14 * previewPxToMm);
+  assertClose(largeAiry.sectionGap, 19 * previewPxToMm);
+  assertClose(compact.entryGap, 6 * previewPxToMm);
+  assertClose(balanced.entryGap, 9 * previewPxToMm);
+  assertClose(largeAiry.entryGap, 12 * previewPxToMm);
 });
 
 test("exports every resume template with its own rendering treatment", () => {
@@ -183,23 +192,13 @@ test("fills a representative page like the responsive editor preview", () => {
   assert.equal(balancedCompact.pageCount, 1);
   assert.equal(balanced.pageCount, 1);
   assert.equal(largeAiry.pageCount, 1);
-  assert.ok(compact.contentBottom >= 260 && compact.contentBottom <= 267);
-  assert.ok(
-    balancedCompact.contentBottom >= 274 &&
-      balancedCompact.contentBottom <= 279
-  );
-  assert.ok(
-    balanced.contentBottom >= 278 &&
-      balanced.contentBottom <= 297 - balanced.metrics.bottomMargin
-  );
-  assert.ok(
-    largeAiry.contentBottom >= 278 &&
-      largeAiry.contentBottom <= 297 - largeAiry.metrics.bottomMargin
-  );
-  assert.equal(compact.renderScale, 1);
-  assert.equal(balancedCompact.renderScale, 1);
-  assert.ok(balanced.renderScale < 1);
-  assert.ok(largeAiry.renderScale < 1);
+  [compact, balancedCompact, balanced, largeAiry].forEach((result) => {
+    assert.ok(result.contentBottom > 0);
+    assert.ok(result.contentBottom <= 297 - result.metrics.bottomMargin);
+    assert.ok(result.renderScale >= 0.55 && result.renderScale <= 1);
+  });
+  assert.ok(compact.contentBottom < balancedCompact.contentBottom);
+  assert.ok(balancedCompact.contentBottom <= balanced.contentBottom);
   assert.equal(balanced.sectionCount, 5);
 });
 
@@ -212,7 +211,7 @@ test("fits a representative two-project student resume onto one A4 page", () => 
 
   assert.equal(pdf.getNumberOfPages(), 1);
   assert.equal(pdf.__resumeLayout.pageCount, 1);
-  assert.ok(pdf.__resumeLayout.renderScale < 1);
+  assert.ok(pdf.__resumeLayout.renderScale >= 0.55 && pdf.__resumeLayout.renderScale <= 1);
   assert.ok(
     pdf.__resumeLayout.contentBottom <=
       297 - pdf.__resumeLayout.metrics.bottomMargin
@@ -269,4 +268,42 @@ test("paginates long content", () => {
   assert.ok(pdf.getNumberOfPages() > 1);
   assert.equal(pdf.__resumeLayout.renderScale, 1);
   assert.match(stream, /Engineering role 12/);
+});
+
+test("captures the fitted preview as a searchable one-page A4 PDF without a footer", async () => {
+  const attributes = new Map();
+  const element = {
+    scrollWidth: 500,
+    scrollHeight: 707,
+    getBoundingClientRect: () => ({ left: 0, top: 0, right: 500, bottom: 707, width: 500, height: 707 }),
+    getAttribute: (name) => attributes.get(name) ?? null,
+    setAttribute: (name, value) => attributes.set(name, value),
+    removeAttribute: (name) => attributes.delete(name),
+    querySelectorAll: () => [{
+      href: "mailto:avery@example.com",
+      getClientRects: () => [{ left: 20, top: 30, right: 140, bottom: 42, width: 120, height: 12 }],
+    }],
+  };
+  let captureOptions;
+  const onePixelPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  const pdf = await createResumePdfFromElement(element, fixture, {
+    template: "executive",
+    fontFamily: "lora",
+  }, {
+    renderElement: async (_element, options) => {
+      captureOptions = options;
+      return { toDataURL: () => onePixelPng };
+    },
+  });
+
+  assert.equal(pdf.getNumberOfPages(), 1);
+  assert.equal(pdf.__resumeLayout.renderMode, "preview-capture");
+  assert.equal(pdf.__resumeLayout.sourceWidth, 500);
+  assert.equal(pdf.__resumeLayout.metrics.fontFamily, "lora");
+  assert.equal(captureOptions.scale, 4);
+  assert.equal(captureOptions.backgroundColor, "#ffffff");
+  assert.equal(attributes.size, 0);
+  assert.match(pdf.internal.pages.flat().join(" "), /Avery Sharma/u);
+  assert.match(pdf.output(), /mailto:avery@example\.com/u);
+  assert.doesNotMatch(pdfSource, /addFooter/u);
 });

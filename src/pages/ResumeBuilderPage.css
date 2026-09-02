@@ -1133,6 +1133,79 @@ textarea.resume-field__control {
   color: white;
 }
 
+.resume-font-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.resume-font-grid label {
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 9px;
+  min-height: 50px;
+  padding: 7px 10px;
+  border: 1px solid var(--resume-border);
+  border-radius: 11px;
+  color: var(--resume-muted);
+  background: var(--resume-panel-strong);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.resume-font-grid label:hover {
+  border-color: color-mix(in srgb, var(--resume-accent-ui) 32%, var(--resume-border));
+  color: var(--text, #eef3fb);
+  transform: translateY(-1px);
+}
+
+.resume-font-grid label.is-selected {
+  border-color: color-mix(in srgb, var(--resume-accent-ui) 58%, var(--resume-border));
+  color: var(--text, #eef3fb);
+  background: color-mix(in srgb, var(--resume-accent-ui) 9%, var(--resume-panel-strong));
+}
+
+.resume-font-grid input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  clip-path: inset(50%);
+}
+
+.resume-font-grid label:has(input:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--resume-accent-ui) 76%, white);
+  outline-offset: 2px;
+}
+
+.resume-font-grid__sample {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--text, #eef3fb);
+  background: var(--resume-soft);
+  font-family: var(--resume-font-option);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.resume-font-grid strong {
+  overflow: hidden;
+  font-family: var(--resume-font-option);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resume-font-grid svg {
+  color: var(--resume-accent-ui);
+}
+
 .resume-layout-split {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1473,6 +1546,7 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
   --resume-paper-muted: #66748a;
   --resume-fit-scale: 1;
   --resume-fit-width: 100%;
+  box-sizing: border-box;
   width: min(100%, 500px);
   min-height: 0;
   aspect-ratio: 210 / 297;
@@ -1480,7 +1554,7 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
   color: var(--resume-paper-ink);
   background: #fff;
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.27);
-  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-family: var(--resume-font-family, "Inter", "Segoe UI", Arial, sans-serif);
   font-size: 8px;
 }
 
@@ -1532,7 +1606,7 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
 .resume-paper--executive .resume-paper__header {
   padding: 24px 31px 17px;
   border-bottom: 1px solid #cbd5e1;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--resume-accent) 9%, #fff), #fff 48%);
+  background: linear-gradient(90deg, var(--resume-accent-soft-9), #fff 48%);
 }
 
 .resume-paper--minimal .resume-paper__header {
@@ -1572,7 +1646,7 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
   padding: 25px 30px 20px;
   border-bottom: 0;
   color: #fff;
-  background: color-mix(in srgb, var(--resume-accent) 62%, #172033);
+  background: var(--resume-accent-horizon-62);
 }
 
 .resume-paper__header h1 {
@@ -1670,12 +1744,15 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
   color: rgba(255, 255, 255, 0.82);
 }
 
-.resume-paper__contact span {
+.resume-paper__contact span,
+.resume-paper__contact a {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
   gap: 3px;
+  color: inherit;
   overflow-wrap: anywhere;
+  text-decoration: none;
 }
 
 .resume-paper__body {
@@ -1776,7 +1853,7 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
 
 .resume-paper--minimal .resume-paper__section h2::after {
   height: 1px;
-  background: color-mix(in srgb, var(--resume-accent) 44%, #d8dee8);
+  background: var(--resume-accent-line-44);
 }
 
 .resume-paper--editorial .resume-paper__section h2 {
@@ -1785,7 +1862,7 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
   border-left: 3px solid var(--resume-accent);
   border-radius: 0 3px 3px 0;
   color: var(--resume-paper-ink);
-  background: color-mix(in srgb, var(--resume-accent) 10%, #f8fafc);
+  background: var(--resume-accent-editorial-10);
   letter-spacing: 0.1em;
 }
 
@@ -1802,7 +1879,7 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
 .resume-paper--signature .resume-paper__section h2::after {
   height: 1px;
   flex: 1;
-  background: color-mix(in srgb, var(--resume-accent) 48%, #d8dee8);
+  background: var(--resume-accent-line-48);
   content: "";
 }
 
@@ -1816,7 +1893,7 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
 }
 
 .resume-paper--horizon .resume-paper__section h2::after {
-  background: color-mix(in srgb, var(--resume-accent) 30%, #d8dee8);
+  background: var(--resume-accent-line-30);
 }
 
 .resume-paper__section > p {
@@ -1836,7 +1913,7 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
   padding: 3px 6px;
   border-radius: 3px;
   color: #293448;
-  background: color-mix(in srgb, var(--resume-accent) 10%, #f1f5f9);
+  background: var(--resume-accent-skill-10);
   font-size: 0.92em;
   font-weight: 650;
 }
@@ -1861,7 +1938,7 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
 .resume-paper--executive .resume-paper__skills span {
   border-radius: 1px;
   color: var(--resume-paper-ink);
-  background: color-mix(in srgb, var(--resume-accent) 8%, #f1f5f9);
+  background: var(--resume-accent-skill-8);
 }
 
 .resume-paper--signature .resume-paper__skills {
@@ -1869,7 +1946,7 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
 }
 
 .resume-paper--signature .resume-paper__skills span {
-  border: 1px solid color-mix(in srgb, var(--resume-accent) 35%, #d8dee8);
+  border: 1px solid var(--resume-accent-line-35);
   border-radius: 999px;
   background: transparent;
 }
@@ -1881,6 +1958,11 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
 .resume-paper--editorial .resume-paper__entry-title strong,
 .resume-paper--signature .resume-paper__entry-title strong {
   font-family: Georgia, "Times New Roman", serif;
+}
+
+.resume-paper:not(.resume-paper--font-template) .resume-paper__header h1,
+.resume-paper:not(.resume-paper--font-template) .resume-paper__entry-title strong {
+  font-family: inherit;
 }
 
 .resume-paper--minimal .resume-paper__entry em,
@@ -1933,6 +2015,11 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
   overflow-wrap: anywhere;
 }
 
+.resume-paper__entry small a {
+  color: inherit;
+  text-decoration: none;
+}
+
 .resume-paper__entry ul {
   margin: 4px 0 0;
   padding-left: 14px;
@@ -1967,6 +2054,20 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
 .resume-paper__empty span {
   max-width: 210px;
   line-height: 1.5;
+}
+
+.resume-pdf-export-surface {
+  position: fixed;
+  top: 0;
+  left: -12000px;
+  width: 500px;
+  height: auto;
+  pointer-events: none;
+}
+
+.resume-pdf-export-surface .resume-paper {
+  width: 500px;
+  box-shadow: none;
 }
 
 .resume-preview-actions {

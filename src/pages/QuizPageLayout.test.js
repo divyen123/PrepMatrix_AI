@@ -29,3 +29,14 @@ test("uses compact, theme-aware tabs and spaces the solo quiz panels", () => {
   assert.match(battleStyles, /@media \(max-width: 760px\)[\s\S]*?body \.quiz-page \.quiz-mode-tabs button\s*\{[\s\S]*?min-height:\s*38px/u);
   assert.match(battleStyles, /\.quiz-mode-shell\.is-battles > \.quiz-mode-tabs\s*\{[\s\S]*?justify-self:\s*end/u);
 });
+
+test("shows the battle detail sheen only during fine-pointer hover", () => {
+  assert.match(
+    battleStyles,
+    /\.battle-detail\.card::before\s*\{[\s\S]*?opacity:\s*0 !important/u,
+  );
+  assert.match(
+    battleStyles,
+    /@media \(hover: hover\) and \(pointer: fine\)\s*\{[\s\S]*?\.battle-detail\.card:hover::before\s*\{[\s\S]*?opacity:\s*0\.38 !important/u,
+  );
+});

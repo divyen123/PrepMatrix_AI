@@ -713,6 +713,16 @@ body .quiz-page .battle-card-actions button {
   gap: 20px;
 }
 
+.battle-detail.card::before {
+  opacity: 0 !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .battle-detail.card:hover::before {
+    opacity: 0.38 !important;
+  }
+}
+
 .battle-detail-header {
   gap: 12px;
 }

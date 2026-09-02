@@ -43,12 +43,33 @@ function masteryStatus(progress, planner, type) {
   return rawStatus;
 }
 
+function finiteScore(value) {
+  if (value == null || value === "") return null;
+  const score = Number(value);
+  return Number.isFinite(score) ? score : null;
+}
+
+function directAssessmentScore(progress) {
+  const directScore = finiteScore(progress.score) ?? finiteScore(progress.percentage);
+  if (directScore != null) return directScore;
+
+  const attempts = Array.isArray(progress.attempts) ? progress.attempts : [];
+  for (let index = attempts.length - 1; index >= 0; index -= 1) {
+    const attemptScore = finiteScore(attempts[index]?.score)
+      ?? finiteScore(attempts[index]?.percentage);
+    if (attemptScore != null) {
+      return finiteScore(progress.masteryScore) ?? attemptScore;
+    }
+  }
+  return null;
+}
+
 function MasteryNode({ data, selected }) {
   const status = MASTERY_STATUS_META[data.status] || MASTERY_STATUS_META.new;
   const StatusIcon = status.icon;
   return (
     <article
-      className={`mastery-flow-node is-${data.type} has-status-${data.status}${selected || data.isSelected ? " is-selected" : ""}`}
+      className={`mastery-flow-node is-${data.type} has-status-${data.status}${data.showScore ? " has-mastery-score" : " has-coverage-only"}${selected || data.isSelected ? " is-selected" : ""}`}
       style={{ "--mastery-node-tone": status.color }}
     >
       {data.type !== "notebook" ? <Handle type="target" position={Position.Left} /> : null}
@@ -64,11 +85,23 @@ function MasteryNode({ data, selected }) {
       {data.subtitle ? <small title={data.subtitle}>{data.subtitle}</small> : null}
       <div className="mastery-flow-node__status">
         <span><StatusIcon aria-hidden="true" size={13} /> {status.label}</span>
-        <b>{Math.round(data.score || 0)}%</b>
+        {data.showScore ? (
+          <b>{Math.round(data.score || 0)}%</b>
+        ) : (
+          <b
+            aria-label={data.coverageDescription}
+            className="mastery-flow-node__coverage"
+            title={data.coverageDescription}
+          >
+            {data.coverageLabel}
+          </b>
+        )}
       </div>
-      <div className="mastery-flow-node__meter" aria-hidden="true">
-        <i style={{ width: `${Math.max(0, Math.min(100, data.score || 0))}%` }} />
-      </div>
+      {data.showScore ? (
+        <div className="mastery-flow-node__meter" aria-hidden="true">
+          <i style={{ width: `${Math.max(0, Math.min(100, data.score || 0))}%` }} />
+        </div>
+      ) : null}
       {data.hasChildren ? <Handle type="source" position={Position.Right} /> : null}
     </article>
   );
@@ -83,10 +116,29 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
   const chapterCenters = [];
   let cursorY = 0;
 
-  const pushNode = (source, type, position, hasChildren, subtitle = "") => {
+  const pushNode = (
+    source,
+    type,
+    position,
+    hasChildren,
+    subtitle = "",
+    context = {},
+  ) => {
     const progress = progressFrom(progressByNodeId, source.id);
     const planner = plannerFrom(plannerByNodeId, source.id);
     const status = masteryStatus(progress, planner, type);
+    const assessedScore = type === "subtopic" ? directAssessmentScore(progress) : null;
+    const showScore = type !== "subtopic" || assessedScore != null;
+    const isCompletedWithoutScore = type === "subtopic"
+      && !showScore
+      && (planner.isCompleted || hasLearningNodeAchievement(progress));
+    const isCovered = isCompletedWithoutScore || Boolean(context.parentCovered);
+    const coverageLabel = isCompletedWithoutScore ? "Completed" : isCovered ? "Covered" : "Not assessed";
+    const coverageDescription = isCompletedWithoutScore
+      ? "Completed without a separate mastery assessment"
+      : isCovered
+        ? "Covered by the completed topic; not assessed separately"
+        : "No separate subtopic assessment yet";
     flowNodes.push({
       id: source.id,
       type: "mastery",
@@ -96,7 +148,14 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
         title: source.title,
         type,
         status,
-        score: Number(progress.masteryScore ?? progress.score ?? (status === "mastered" ? 100 : status === "learned" ? 70 : 0)),
+        score: assessedScore
+          ?? finiteScore(progress.masteryScore)
+          ?? finiteScore(progress.score)
+          ?? finiteScore(progress.percentage)
+          ?? (status === "mastered" ? 100 : status === "learned" ? 70 : 0),
+        showScore,
+        coverageLabel,
+        coverageDescription,
         subtitle,
         hasChildren,
         isSelected: source.id === selectedNodeId,
@@ -126,6 +185,8 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
     (chapter.topics || []).forEach((topic) => {
       const topicY = cursorY;
       topicCenters.push(topicY);
+      const topicProgress = progressFrom(progressByNodeId, topic.id);
+      const topicPlanner = plannerFrom(plannerByNodeId, topic.id);
       const topicStatus = pushNode(
         topic,
         "topic",
@@ -143,6 +204,10 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
           { x: 940, y: subtopicY },
           false,
           topic.title,
+          {
+            parentCovered: topicPlanner.isCompleted
+              || hasLearningNodeAchievement(topicProgress),
+          },
         );
         connect(topic.id, subtopic.id, subtopicStatus);
       });

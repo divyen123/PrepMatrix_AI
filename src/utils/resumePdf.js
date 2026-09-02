@@ -1,3 +1,4 @@
+import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { normalizeResumeDraft, normalizeResumeLayout } from "./resumeBuilder.js";
 
@@ -7,7 +8,7 @@ const MUTED = "#64748b";
 const LIGHT = "#d8e0ea";
 const SOFT = "#f3f6f9";
 
-const PREVIEW_WIDTH_PX = 360;
+const PREVIEW_WIDTH_PX = 500;
 const CSS_PX_TO_MM = PAGE.width / PREVIEW_WIDTH_PX;
 const CSS_PX_TO_PT = CSS_PX_TO_MM / (25.4 / 72);
 const BASE_PREVIEW_FONT_PT = 8 * CSS_PX_TO_PT;
@@ -67,6 +68,7 @@ export function getResumePdfMetrics(layoutValue = {}, renderScale = 1) {
   const bodyFontSize = BASE_PREVIEW_FONT_PT * 1.02;
   return Object.freeze({
     template: layout.template,
+    fontFamily: layout.fontFamily,
     headerAlignment: templateProfile.headerAlignment,
     headerStyle: templateProfile.headerStyle,
     marginX: 18,
@@ -202,19 +204,7 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
     }
   };
 
-  const addFooter = () => {
-    setDrawColor(LIGHT);
-    pdf.setLineWidth(0.25);
-    pdf.line(marginX, PAGE.height - 10.5, PAGE.width - marginX, PAGE.height - 10.5);
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(7.5);
-    setColor(MUTED);
-    pdf.text(draft.personal.fullName || "Resume", marginX, PAGE.height - 6.7);
-    pdf.text(String(pageNumber), PAGE.width - marginX, PAGE.height - 6.7, { align: "right" });
-  };
-
   const addPage = () => {
-    addFooter();
     pdf.addPage();
     pageNumber += 1;
     paintPage();
@@ -861,8 +851,6 @@ function renderResumePdf(draftValue, layoutValue = {}, renderScale = 1) {
   layout.sectionOrder.forEach((section) => {
     if (!layout.hiddenSections.includes(section)) sectionRenderers[section]?.();
   });
-  addFooter();
-
   Object.defineProperty(pdf, "__resumeLayout", {
     value: Object.freeze({
       contentBottom: y,
@@ -909,6 +897,232 @@ export function createResumePdf(draftValue, layoutValue = {}) {
   }
 
   return bestPdf;
+}
+
+const SEARCHABLE_SECTION_LABELS = Object.freeze({
+  summary: "Professional summary",
+  skills: "Skills",
+  experience: "Experience",
+  projects: "Projects",
+  education: "Education",
+  certifications: "Certifications",
+  achievements: "Achievements",
+  languages: "Languages",
+});
+
+function searchableResumeLines(draft, layout) {
+  const lines = [
+    draft.personal.fullName,
+    draft.personal.headline,
+    draft.personal.location,
+    draft.personal.email,
+    draft.personal.phone,
+    draft.personal.linkedin,
+    draft.personal.github,
+    draft.personal.portfolio,
+  ].filter(textExists);
+
+  const addEntries = (section, entries, fields) => {
+    const populated = entries.filter(hasEntryContent);
+    if (!populated.length) return;
+    lines.push(SEARCHABLE_SECTION_LABELS[section]);
+    populated.forEach((item) => {
+      fields.forEach((field) => {
+        const value = typeof field === "function" ? field(item) : item[field];
+        if (Array.isArray(value)) lines.push(...value.filter(textExists));
+        else if (textExists(value)) lines.push(String(value));
+      });
+    });
+  };
+
+  layout.sectionOrder.forEach((section) => {
+    if (layout.hiddenSections.includes(section)) return;
+    if (section === "summary" && textExists(draft.summary)) {
+      lines.push(SEARCHABLE_SECTION_LABELS.summary, draft.summary);
+    } else if (section === "skills" && draft.skills.some(textExists)) {
+      lines.push(SEARCHABLE_SECTION_LABELS.skills, draft.skills.filter(textExists).join(", "));
+    } else if (section === "experience") {
+      addEntries(section, draft.experience, ["role", "organization", "location", "startDate", "endDate", "highlights"]);
+    } else if (section === "projects") {
+      addEntries(section, draft.projects, ["name", "role", "technologies", "link", "startDate", "endDate", "highlights"]);
+    } else if (section === "education") {
+      addEntries(section, draft.education, ["degree", "field", "institution", "location", "score", "startDate", "endDate", "highlights"]);
+    } else if (section === "certifications") {
+      addEntries(section, draft.certifications, ["name", "issuer", "date", "credentialUrl"]);
+    } else if (section === "achievements") {
+      addEntries(section, draft.achievements, ["title", "description"]);
+    } else if (section === "languages") {
+      addEntries(section, draft.languages, ["name", "proficiency"]);
+    }
+  });
+
+  return lines;
+}
+
+function toPdfSearchableLatin(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .replace(/[\u2018\u2019]/gu, "'")
+    .replace(/[\u201c\u201d]/gu, '"')
+    .replace(/[\u2013\u2014]/gu, "-")
+    .replace(/[^\u0020-\u00ff]/gu, " ");
+}
+
+async function waitForResumePreview(element) {
+  if (!element || typeof element.getBoundingClientRect !== "function") {
+    throw new Error("The resume preview is not ready yet. Please try again.");
+  }
+
+  const fonts = typeof document === "undefined" ? null : document.fonts;
+  if (fonts?.ready) await fonts.ready.catch(() => {});
+
+  const nextFrame = () => new Promise((resolve) => {
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
+    else setTimeout(resolve, 0);
+  });
+  await nextFrame();
+  await nextFrame();
+}
+
+function collectResumeLinks(element, paperBounds) {
+  if (typeof element?.querySelectorAll !== "function") return [];
+
+  const paperWidth = paperBounds.width || element.scrollWidth || PREVIEW_WIDTH_PX;
+  const paperHeight = paperBounds.height || element.scrollHeight || (paperWidth * PAGE.height / PAGE.width);
+  if (paperWidth <= 0 || paperHeight <= 0) return [];
+
+  const scaleX = PAGE.width / paperWidth;
+  const scaleY = PAGE.height / paperHeight;
+  return Array.from(element.querySelectorAll("a[href]")).flatMap((anchor) => {
+    const url = String(anchor.href || anchor.getAttribute?.("href") || "").trim();
+    if (!/^(https?:|mailto:|tel:)/i.test(url)) return [];
+
+    const clientRects = typeof anchor.getClientRects === "function"
+      ? Array.from(anchor.getClientRects())
+      : [anchor.getBoundingClientRect?.()].filter(Boolean);
+
+    return clientRects.flatMap((rect) => {
+      const left = Math.max(0, (rect.left - paperBounds.left) * scaleX);
+      const top = Math.max(0, (rect.top - paperBounds.top) * scaleY);
+      const right = Math.min(PAGE.width, (rect.right - paperBounds.left) * scaleX);
+      const bottom = Math.min(PAGE.height, (rect.bottom - paperBounds.top) * scaleY);
+      if (right <= left || bottom <= top) return [];
+      return [{ x: left, y: top, width: right - left, height: bottom - top, url }];
+    });
+  });
+}
+
+export async function createResumePdfFromElement(element, draftValue, layoutValue = {}, options = {}) {
+  await waitForResumePreview(element);
+
+  const draft = normalizeResumeDraft(draftValue);
+  const layout = normalizeResumeLayout(layoutValue);
+  const bounds = element.getBoundingClientRect();
+  const sourceWidth = Math.round(element.scrollWidth || bounds.width || PREVIEW_WIDTH_PX);
+  const sourceHeight = Math.round(element.scrollHeight || bounds.height || sourceWidth * PAGE.height / PAGE.width);
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    throw new Error("The resume preview is still sizing. Please try again.");
+  }
+  const links = collectResumeLinks(element, bounds);
+
+  const captureScale = Number.isFinite(Number(options.scale))
+    ? Math.min(5, Math.max(1, Number(options.scale)))
+    : Math.min(4, Math.max(2, 2000 / sourceWidth));
+  const renderElement = options.renderElement || html2canvas;
+  const captureId = `resume-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const previousCaptureId = element.getAttribute("data-resume-pdf-capture");
+  element.setAttribute("data-resume-pdf-capture", captureId);
+
+  let canvas;
+  try {
+    canvas = await renderElement(element, {
+      backgroundColor: "#ffffff",
+      scale: captureScale,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      imageTimeout: 15000,
+      removeContainer: true,
+      windowWidth: Math.max(typeof document === "undefined" ? sourceWidth : document.documentElement.clientWidth, sourceWidth + 32),
+      windowHeight: Math.max(typeof document === "undefined" ? sourceHeight : document.documentElement.clientHeight, sourceHeight + 32),
+      onclone: (clonedDocument) => {
+        const clonedPaper = clonedDocument.querySelector(`[data-resume-pdf-capture="${captureId}"]`);
+        const exportSurface = clonedPaper?.closest(".resume-pdf-export-surface");
+        if (exportSurface) {
+          exportSurface.style.position = "absolute";
+          exportSurface.style.left = "0";
+          exportSurface.style.top = "0";
+        }
+        if (clonedPaper) {
+          clonedPaper.style.width = `${sourceWidth}px`;
+          clonedPaper.style.boxShadow = "none";
+        }
+      },
+    });
+  } finally {
+    if (previousCaptureId == null) element.removeAttribute("data-resume-pdf-capture");
+    else element.setAttribute("data-resume-pdf-capture", previousCaptureId);
+  }
+
+  if (!canvas || typeof canvas.toDataURL !== "function") {
+    throw new Error("The resume preview could not be captured. Please try again.");
+  }
+
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true, precision: 12 });
+  pdf.setProperties({
+    title: `${draft.personal.fullName || "Professional"} Resume`,
+    subject: draft.personal.headline || "Professional resume",
+    author: draft.personal.fullName || "PrepMatrix user",
+    creator: "PrepMatrix Resume Builder",
+    keywords: "resume, curriculum vitae, professional profile",
+  });
+  pdf.addImage(canvas.toDataURL("image/png", 1), "PNG", 0, 0, PAGE.width, PAGE.height, undefined, "FAST");
+  links.forEach(({ x, y, width, height, url }) => {
+    pdf.link(x, y, width, height, { url });
+  });
+
+  // Keep the pixel-perfect browser rendering while preserving a searchable
+  // Latin text layer. Other scripts remain intact in the visible capture and
+  // are omitted here because jsPDF's built-in Helvetica is not Unicode-safe.
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(4.5);
+  pdf.setTextColor(0, 0, 0);
+  const searchableText = searchableResumeLines(draft, layout)
+    .map(toPdfSearchableLatin)
+    .join("\n");
+  const searchableLines = pdf.splitTextToSize(searchableText, PAGE.width - 6);
+  if (searchableLines.length) {
+    pdf.text(searchableLines, 3, 3, {
+      baseline: "top",
+      lineHeightFactor: 1.05,
+      renderingMode: "invisible",
+    });
+  }
+
+  const visibleSectionCount = layout.sectionOrder.filter((section) => {
+    if (layout.hiddenSections.includes(section)) return false;
+    if (section === "summary") return textExists(draft.summary);
+    if (section === "skills") return draft.skills.some(textExists);
+    return Array.isArray(draft[section]) && draft[section].some(hasEntryContent);
+  }).length;
+
+  Object.defineProperty(pdf, "__resumeLayout", {
+    value: Object.freeze({
+      contentBottom: PAGE.height,
+      pageCount: 1,
+      sectionCount: visibleSectionCount,
+      renderScale: 1,
+      renderMode: "preview-capture",
+      captureScale,
+      sourceWidth,
+      sourceHeight,
+      metrics: getResumePdfMetrics(layout),
+    }),
+    enumerable: false,
+  });
+
+  return pdf;
 }
 
 export function exportResumePdf(draft, layout) {

@@ -38,6 +38,7 @@ import ResumeBuilderIntro from "../components/ResumeBuilderIntro";
 import api from "../utils/apiClient";
 import {
   RESUME_ACCENTS,
+  RESUME_FONTS,
   RESUME_SECTIONS,
   RESUME_TEMPLATES,
   RESUME_WEEKLY_LIMIT,
@@ -55,7 +56,7 @@ import {
   normalizeResumeHistory,
   normalizeResumeHistoryEntry,
 } from "../utils/resumeHistory";
-import { createResumePdf, getResumePdfFilename } from "../utils/resumePdf";
+import { createResumePdfFromElement, getResumePdfFilename } from "../utils/resumePdf";
 import {
   createResumeBuilderIntroState,
   getResumeBuilderIntroDurations,
@@ -98,6 +99,32 @@ const SPACING_OPTIONS = [
   { value: "balanced", label: "Balanced", description: "Comfortable spacing" },
   { value: "airy", label: "Airy", description: "More breathing room" },
 ];
+
+const hexToRgb = (value) => {
+  const hex = String(value || "").replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return [15, 159, 143];
+  return [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16));
+};
+
+const mixResumeColor = (foreground, background, foregroundRatio) => {
+  const front = hexToRgb(foreground);
+  const back = hexToRgb(background);
+  const ratio = Math.min(1, Math.max(0, Number(foregroundRatio) || 0));
+  const channels = front.map((channel, index) => Math.round(channel * ratio + back[index] * (1 - ratio)));
+  return `rgb(${channels.join(", ")})`;
+};
+
+const resumeWebLink = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const url = new URL(candidate);
+    return ["http:", "https:"].includes(url.protocol) ? url.toString() : "";
+  } catch {
+    return "";
+  }
+};
 
 const EMPTY_ITEMS = {
   experience: () => ({
@@ -245,18 +272,24 @@ function AddItemButton({ label, onClick }) {
   );
 }
 
-function ResumePreview({ draft, layout }) {
+export function ResumePreview({ draft, layout, onPaperReady = null }) {
   const paperRef = useRef(null);
   const contentRef = useRef(null);
+  const font = RESUME_FONTS.find((item) => item.id === layout.fontFamily) || RESUME_FONTS[0];
   const visibleSections = layout.sectionOrder.filter((section) => !layout.hiddenSections.includes(section));
   const contact = [
     draft.personal.location && { icon: MapPin, value: draft.personal.location },
-    draft.personal.email && { icon: Mail, value: draft.personal.email },
-    draft.personal.phone && { icon: Phone, value: draft.personal.phone },
-    draft.personal.linkedin && { icon: UserRound, value: draft.personal.linkedin.replace(/^https?:\/\//, "") },
-    draft.personal.github && { icon: FileText, value: draft.personal.github.replace(/^https?:\/\//, "") },
-    draft.personal.portfolio && { icon: FileText, value: draft.personal.portfolio.replace(/^https?:\/\//, "") },
+    draft.personal.email && { icon: Mail, value: draft.personal.email, href: `mailto:${draft.personal.email}` },
+    draft.personal.phone && { icon: Phone, value: draft.personal.phone, href: `tel:${draft.personal.phone.replace(/\s+/g, "")}` },
+    draft.personal.linkedin && { icon: UserRound, value: draft.personal.linkedin.replace(/^https?:\/\//, ""), href: resumeWebLink(draft.personal.linkedin) },
+    draft.personal.github && { icon: FileText, value: draft.personal.github.replace(/^https?:\/\//, ""), href: resumeWebLink(draft.personal.github) },
+    draft.personal.portfolio && { icon: FileText, value: draft.personal.portfolio.replace(/^https?:\/\//, ""), href: resumeWebLink(draft.personal.portfolio) },
   ].filter(Boolean);
+
+  const setPaperRef = useCallback((node) => {
+    paperRef.current = node;
+    onPaperReady?.(node);
+  }, [onPaperReady]);
 
   useLayoutEffect(() => {
     const paper = paperRef.current;
@@ -264,6 +297,7 @@ function ResumePreview({ draft, layout }) {
     if (!paper || !content) return undefined;
 
     let frame = 0;
+    let cancelled = false;
     const setScale = (scale) => {
       paper.style.setProperty("--resume-fit-scale", String(scale));
       paper.style.setProperty("--resume-fit-width", `${100 / scale}%`);
@@ -293,17 +327,23 @@ function ResumePreview({ draft, layout }) {
       paper.dataset.fitted = "true";
     };
     const scheduleFit = () => {
+      if (cancelled) return;
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(fitToA4);
     };
 
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleFit);
+    const fonts = typeof document === "undefined" ? null : document.fonts;
     observer?.observe(paper);
     scheduleFit();
+    fonts?.ready?.then(scheduleFit).catch(() => {});
+    fonts?.addEventListener?.("loadingdone", scheduleFit);
 
     return () => {
+      cancelled = true;
       cancelAnimationFrame(frame);
       observer?.disconnect();
+      fonts?.removeEventListener?.("loadingdone", scheduleFit);
     };
   }, [draft, layout]);
 
@@ -420,9 +460,21 @@ function ResumePreview({ draft, layout }) {
 
   return (
     <article
-      ref={paperRef}
-      className={`resume-paper resume-paper--${layout.template} resume-paper--type-${layout.typography} resume-paper--density-${layout.density}`}
-      style={{ "--resume-accent": layout.accent }}
+      ref={setPaperRef}
+      className={`resume-paper resume-paper--${layout.template} resume-paper--font-${layout.fontFamily} resume-paper--type-${layout.typography} resume-paper--density-${layout.density}`}
+      style={{
+        "--resume-accent": layout.accent,
+        "--resume-font-family": font.cssFamily,
+        "--resume-accent-soft-9": mixResumeColor(layout.accent, "#ffffff", 0.09),
+        "--resume-accent-horizon-62": mixResumeColor(layout.accent, "#172033", 0.62),
+        "--resume-accent-line-44": mixResumeColor(layout.accent, "#d8dee8", 0.44),
+        "--resume-accent-editorial-10": mixResumeColor(layout.accent, "#f8fafc", 0.1),
+        "--resume-accent-line-48": mixResumeColor(layout.accent, "#d8dee8", 0.48),
+        "--resume-accent-line-30": mixResumeColor(layout.accent, "#d8dee8", 0.3),
+        "--resume-accent-skill-10": mixResumeColor(layout.accent, "#f1f5f9", 0.1),
+        "--resume-accent-skill-8": mixResumeColor(layout.accent, "#f1f5f9", 0.08),
+        "--resume-accent-line-35": mixResumeColor(layout.accent, "#d8dee8", 0.35),
+      }}
       aria-label="Live resume preview"
     >
       <div ref={contentRef} className="resume-paper__fit">
@@ -431,12 +483,21 @@ function ResumePreview({ draft, layout }) {
           <p>{draft.personal.headline || "Professional headline"}</p>
           <div className="resume-paper__contact">
             {contact.length ? (
-              contact.map(({ icon: Icon, value }) => (
-                <span key={`${Icon.displayName || Icon.name}-${value}`}>
-                  <Icon size={10} />
-                  {value}
-                </span>
-              ))
+              contact.map(({ icon: Icon, value, href }) => {
+                const content = <><Icon size={10} />{value}</>;
+                return href ? (
+                  <a
+                    href={href}
+                    key={`${Icon.displayName || Icon.name}-${value}`}
+                    rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+                    target={href.startsWith("http") ? "_blank" : undefined}
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <span key={`${Icon.displayName || Icon.name}-${value}`}>{content}</span>
+                );
+              })
             ) : (
               <span>Add contact details to complete your header.</span>
             )}
@@ -471,6 +532,7 @@ function PreviewSection({ title, children }) {
 }
 
 function PreviewEntry({ title, date, meta, secondary, highlights = [] }) {
+  const secondaryHref = resumeWebLink(secondary);
   return (
     <div className="resume-paper__entry">
       <div className="resume-paper__entry-title">
@@ -478,7 +540,13 @@ function PreviewEntry({ title, date, meta, secondary, highlights = [] }) {
         {date && <span>{date}</span>}
       </div>
       {meta && <em>{meta}</em>}
-      {secondary && <small>{secondary}</small>}
+      {secondary && (
+        <small>
+          {secondaryHref ? (
+            <a href={secondaryHref} rel="noopener noreferrer" target="_blank">{secondary}</a>
+          ) : secondary}
+        </small>
+      )}
       {highlights.filter(Boolean).length > 0 && (
         <ul>
           {highlights.filter(Boolean).map((highlight, index) => (
@@ -531,6 +599,10 @@ export default function ResumeBuilderPage({
   const previewFullscreenDialogRef = useRef(null);
   const previewFullscreenCloseRef = useRef(null);
   const previewFullscreenTriggerRef = useRef(null);
+  const previewPaperRef = useRef(null);
+  const setPreviewPaper = useCallback((node) => {
+    previewPaperRef.current = node;
+  }, []);
   const resumeAcademicProfile = useMemo(
     () => ({ ...userProfile, ...academicProfile }),
     [academicProfile, userProfile]
@@ -943,7 +1015,7 @@ export default function ResumeBuilderPage({
 
     setGenerating(true);
     try {
-      const pdf = createResumePdf(validation.draft, layout);
+      const pdf = await createResumePdfFromElement(previewPaperRef.current, validation.draft, layout);
       generationRequestRef.current ||= createResumeItemId("generation");
       const requestId = generationRequestRef.current;
       const wasRegeneration = Boolean(selectedHistoryId);
@@ -1427,6 +1499,30 @@ export default function ResumeBuilderPage({
                 </div>
               </div>
 
+              <div className="resume-layout-group">
+                <div className="resume-layout-group__heading"><Type size={18} /><div><strong>Font style</strong><span>Applied to preview and PDF</span></div></div>
+                <div className="resume-font-grid" role="radiogroup" aria-label="Resume font style">
+                  {RESUME_FONTS.map((fontOption) => (
+                    <label
+                      className={layout.fontFamily === fontOption.id ? "is-selected" : ""}
+                      key={fontOption.id}
+                      style={{ "--resume-font-option": fontOption.cssFamily }}
+                    >
+                      <input
+                        checked={layout.fontFamily === fontOption.id}
+                        name="resume-font-family"
+                        onChange={() => updateLayout({ fontFamily: fontOption.id })}
+                        type="radio"
+                        value={fontOption.id}
+                      />
+                      <span aria-hidden="true" className="resume-font-grid__sample">Aa</span>
+                      <strong>{fontOption.label}</strong>
+                      {layout.fontFamily === fontOption.id ? <Check size={15} aria-hidden="true" /> : null}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <div className="resume-layout-split">
                 <div className="resume-layout-group">
                   <div className="resume-layout-group__heading"><Type size={18} /><div><strong>Typography</strong><span>Text scale</span></div></div>
@@ -1562,6 +1658,10 @@ export default function ResumeBuilderPage({
             </button>
           </div>
         </aside>
+      </div>
+
+      <div aria-hidden="true" className="resume-pdf-export-surface">
+        <ResumePreview draft={previewDraft} layout={layout} onPaperReady={setPreviewPaper} />
       </div>
 
       <div className="resume-builder-privacy-note">

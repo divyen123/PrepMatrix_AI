@@ -283,7 +283,7 @@ test("history endpoints authenticate, isolate users, retry idempotently, update,
       `${baseUrl}/api/resume-builder/history`,
       requestOptions(USER_ONE, "POST", {
         draft: draft("Avery \n Sharma"),
-        layout: { template: "classic", accent: "#5b7cfa" },
+        layout: { template: "classic", accent: "#5b7cfa", fontFamily: "lora" },
         requestId: "generation-1",
         sourceGenerationId: "quota-record-1",
       }),
@@ -337,6 +337,7 @@ test("history endpoints authenticate, isolate users, retry idempotently, update,
     assert.equal(ownResponse.status, 200);
     assert.equal(own.resume.draft.personal.fullName, "Avery Sharma");
     assert.equal(own.resume.layout.template, "classic");
+    assert.equal(own.resume.layout.fontFamily, "lora");
 
     const foreignRead = await fetch(
       `${baseUrl}/api/resume-builder/history/${foreign.resume.id}`,
@@ -363,7 +364,7 @@ test("history endpoints authenticate, isolate users, retry idempotently, update,
       `${baseUrl}/api/resume-builder/history/${created.resume.id}`,
       requestOptions(USER_ONE, "PUT", {
         draft: draft("Avery Sharma - Platform Resume"),
-        layout: { template: "compact", accent: "#a56ef5" },
+        layout: { template: "compact", accent: "#a56ef5", fontFamily: "poppins" },
         sourceGenerationId: "quota-record-2",
         requestId: "generation-2",
       }),
@@ -373,6 +374,7 @@ test("history endpoints authenticate, isolate users, retry idempotently, update,
     assert.equal(updated.resume.id, created.resume.id);
     assert.equal(updated.resume.name, "Avery Sharma - Platform Resume");
     assert.equal(updated.resume.layout.template, "compact");
+    assert.equal(updated.resume.layout.fontFamily, "poppins");
 
     const foreignDelete = await fetch(
       `${baseUrl}/api/resume-builder/history/${foreign.resume.id}`,

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  RESUME_FONTS,
   RESUME_TEMPLATES,
   RESUME_WEEKLY_LIMIT,
   RESUME_WINDOW_MS,
@@ -11,6 +12,20 @@ import {
   normalizeResumeLayout,
   recordResumeGeneration,
 } from "./resumeBuilder.js";
+
+test("keeps selectable resume fonts stable and preserves older template typography", () => {
+  const expectedIds = ["template", "inter", "manrope", "poppins", "lora", "merriweather"];
+  assert.deepEqual(RESUME_FONTS.map((font) => font.id), expectedIds);
+  expectedIds.forEach((fontFamily) => {
+    assert.equal(normalizeResumeLayout({ fontFamily }).fontFamily, fontFamily);
+  });
+  assert.equal(normalizeResumeLayout().fontFamily, "template");
+  assert.equal(normalizeResumeLayout({ fontFamily: "unknown-font" }).fontFamily, "template");
+  assert.equal(
+    normalizeResumeBuilderState({ layout: { fontFamily: "lora" } }).layout.fontFamily,
+    "lora",
+  );
+});
 
 test("keeps all eight resume templates stable through layout normalization", () => {
   const expectedIds = [
