@@ -24,6 +24,22 @@ test("moves Quiz Battle stats from exposed badges into an accessible popover", (
   assert.doesNotMatch(source, /momentum-xp-breakdown|battle-record-strip|battle-badge-strip/u);
 });
 
+test("keeps the Quiz Battle shortcut and details compact in the Momentum header", () => {
+  const headerIndex = source.indexOf('className="gamification-header"');
+  const battleTriggerIndex = source.indexOf('className="battle-insights"');
+  const scrollRegionIndex = source.indexOf('className="gamification-scroll-region"');
+
+  assert.ok(headerIndex >= 0 && headerIndex < battleTriggerIndex);
+  assert.ok(battleTriggerIndex < scrollRegionIndex);
+  assert.match(source, /className="gamification-header-actions"[\s\S]*?className="battle-insights"[\s\S]*?className="badge-emblem"/u);
+  assert.match(source, /className="battle-record-win-count"[\s\S]*?className="battle-record-loss-count"/u);
+  assert.match(styles, /\.gamification-card > \.gamification-scroll-region::-webkit-scrollbar\s*\{[\s\S]*?width: 5px/u);
+  assert.match(styles, /\.battle-insights-popover\s*\{[\s\S]*?right: 0;[\s\S]*?left: auto/u);
+  assert.match(styles, /\.battle-record-win-count\s*\{[\s\S]*?#16a34a/u);
+  assert.match(styles, /\.battle-record-loss-count\s*\{[\s\S]*?var\(--danger\)/u);
+  assert.match(styles, /body \.battle-insights-popover \.battle-insights-link\s*\{[\s\S]*?min-height: 30px;[\s\S]*?font-size: 0\.72rem/u);
+});
+
 test("closes battle details on outside interaction or Escape and restores keyboard focus", () => {
   assert.match(source, /document\.addEventListener\("pointerdown", closeOnOutsidePointer\)/u);
   assert.match(source, /document\.addEventListener\("keydown", closeOnEscape\)/u);

@@ -21,9 +21,23 @@
 
 .gamification-card .gamification-header {
   position: relative;
-  z-index: 2;
+  z-index: 10;
   align-self: start;
   width: 100%;
+}
+
+.gamification-header-actions {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.gamification-header-actions > .battle-insights {
+  position: static;
 }
 
 .gamification-card > .gamification-scroll-region {
@@ -45,7 +59,7 @@
 }
 
 .gamification-card > .gamification-scroll-region::-webkit-scrollbar {
-  width: 7px;
+  width: 5px;
 }
 
 .gamification-card > .gamification-scroll-region::-webkit-scrollbar-track {
@@ -53,7 +67,7 @@
 }
 
 .gamification-card > .gamification-scroll-region::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: rgba(var(--accent-rgb), 0.5);
   background-clip: padding-box;
@@ -102,7 +116,8 @@ body .battle-insights-trigger.is-error {
 .battle-insights-popover {
   position: absolute;
   top: calc(100% + 8px);
-  left: 0;
+  right: 0;
+  left: auto;
   z-index: 20;
   display: grid;
   gap: 12px;
@@ -205,6 +220,16 @@ body .battle-insights-popover header button:focus-visible {
   gap: 4px 10px;
 }
 
+.battle-insights-record .battle-record-win-count {
+  color: #15803d;
+  color: color-mix(in srgb, #16a34a 72%, var(--text));
+}
+
+.battle-insights-record .battle-record-loss-count {
+  color: var(--danger);
+  color: color-mix(in srgb, var(--danger) 82%, var(--text));
+}
+
 .battle-insights-achievements {
   display: grid;
   gap: 7px;
@@ -236,8 +261,7 @@ body .battle-insights-popover header button:focus-visible {
   line-height: 1.45;
 }
 
-body .battle-insights-warning button,
-body .battle-insights-link {
+body .battle-insights-warning button {
   justify-self: start;
   min-height: 30px;
   padding: 0;
@@ -249,6 +273,31 @@ body .battle-insights-link {
   font-weight: 800;
 }
 
+body .battle-insights-popover .battle-insights-link {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  width: fit-content;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(var(--accent-rgb), 0.24) !important;
+  border-radius: 9px;
+  color: var(--accent) !important;
+  background: rgba(var(--accent-rgb), 0.08) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+body .battle-insights-popover .battle-insights-link::after {
+  content: none;
+}
+
 body .battle-insights-warning button:hover,
 body .battle-insights-warning button:focus-visible,
 body .battle-insights-link:hover,
@@ -258,6 +307,16 @@ body .battle-insights-link:focus-visible {
   box-shadow: none;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+body .battle-insights-popover .battle-insights-link:hover,
+body .battle-insights-popover .battle-insights-link:focus-visible {
+  border-color: rgba(var(--accent-rgb), 0.42) !important;
+  color: var(--text) !important;
+  background: rgba(var(--accent-rgb), 0.14) !important;
+  box-shadow: none !important;
+  transform: translateY(-1px) !important;
+  text-decoration: none;
 }
 
 .momentum-action-grid {
@@ -354,6 +413,15 @@ body.has-bg-image .battle-insights-popover {
 }
 
 @media (max-width: 640px) {
+  .gamification-card .gamification-header {
+    align-items: flex-start;
+    flex-direction: row;
+  }
+
+  .gamification-card .gamification-header > div:first-child {
+    min-width: 0;
+  }
+
   .momentum-action-grid {
     grid-template-columns: 1fr;
   }
