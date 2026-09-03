@@ -319,6 +319,11 @@ const api = {
   deleteChatSession: (id, options = {}) => request(`/api/chat-sessions/${id}`, { ...options, method: "DELETE" }),
   clearChatSessions: (options = {}) => request("/api/chat-sessions", { ...options, method: "DELETE" }),
   renameChatSession: (id, title, options = {}) => request(`/api/chat-sessions/${id}`, { ...options, method: "PUT", body: JSON.stringify({ title }) }),
+  setChatSessionPinned: (id, pinned, options = {}) => request(`/api/chat-sessions/${id}/pin`, {
+    ...options,
+    method: "PATCH",
+    body: JSON.stringify({ pinned }),
+  }),
   getAiQuota: () => request("/api/ai/quota"),
   get: (path, options = {}) => request(path, options),
   post: (path, body, options = {}) => request(path, { ...options, method: "POST", body: JSON.stringify(body) }),

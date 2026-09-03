@@ -37,6 +37,41 @@ function validIsoDate(value) {
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 }
 
+function historyId(generatedAt, label) {
+  const timestamp = new Date(generatedAt).getTime();
+  return `medical-training-${Number.isFinite(timestamp) ? timestamp : Date.now()}-${identifier(label, "guide")}`;
+}
+
+export function sortMedicalTrainingHistory(history = []) {
+  return [...(Array.isArray(history) ? history : [])].sort((left, right) => {
+    const pinOrder = Number(right?.pinned === true) - Number(left?.pinned === true);
+    if (pinOrder) return pinOrder;
+    const rightTime = new Date(right?.generatedAt || 0).getTime() || 0;
+    const leftTime = new Date(left?.generatedAt || 0).getTime() || 0;
+    return rightTime - leftTime;
+  });
+}
+
+export function getMedicalTrainingHistory(notebook) {
+  const history = notebook?.medicalTraining?.history;
+  if (Array.isArray(history) && history.length) return sortMedicalTrainingHistory(history);
+  const analysis = getSavedMedicalTrainingAnalysis(notebook);
+  if (!analysis) return [];
+  return [{
+    id: "medical-training-legacy",
+    analysis,
+    generatedAt: notebook?.updatedAt || notebook?.createdAt || new Date(0).toISOString(),
+    pinned: false,
+    providerModel: "",
+    source: "legacy-saved-analysis",
+  }];
+}
+
+export function getMedicalTrainingHistoryEntry(notebook, historyIdValue = "") {
+  const history = getMedicalTrainingHistory(notebook);
+  return history.find((entry) => entry.id === historyIdValue) || history[0] || null;
+}
+
 export function isMedicalTrainingProfile(profile = {}) {
   return getLearningMedicalTrainingEligibility(profile).enabled;
 }
@@ -54,10 +89,14 @@ export function createMedicalTrainingDraft(payload = {}, options = {}) {
   if (!notebookId || !analysis.modules.length) {
     throw new Error("The medical training analysis did not contain a usable reasoning guide.");
   }
+  const generatedAt = validIsoDate(options.generatedAt);
   return {
     analysis,
-    generatedAt: validIsoDate(options.generatedAt),
+    generatedAt,
+    id: cleanText(options.id, 120)
+      || historyId(generatedAt, analysis.trainingTitle || analysis.modules[0]?.title),
     notebookId,
+    pinned: false,
     providerModel: cleanText(payload?.providerModel, 160),
     source: "medical-training-draft",
     trainingKind: "medical",
@@ -65,7 +104,10 @@ export function createMedicalTrainingDraft(payload = {}, options = {}) {
 }
 
 export function getSavedMedicalTrainingAnalysis(notebook) {
-  const source = notebook?.medicalTraining?.topicAnalysis;
+  const history = notebook?.medicalTraining?.history;
+  const source = Array.isArray(history) && history.length
+    ? sortMedicalTrainingHistory(history)[0]?.analysis
+    : notebook?.medicalTraining?.topicAnalysis;
   if (!source || typeof source !== "object") return null;
   const analysis = normalizeLearningMedicalTrainingAnalysis(source);
   return analysis.modules.length ? analysis : null;
@@ -73,24 +115,33 @@ export function getSavedMedicalTrainingAnalysis(notebook) {
 
 export function getSavedMedicalTrainingNotes(notebooks = []) {
   if (!Array.isArray(notebooks)) return [];
-  return notebooks.flatMap((notebook) => {
-    const analysis = getSavedMedicalTrainingAnalysis(notebook);
+  return notebooks.flatMap((notebook) => getMedicalTrainingHistory(notebook).flatMap((entry) => {
+    const analysis = entry?.analysis;
     if (!analysis || !notebook?.id) return [];
     return [{
       analysis,
-      id: `${notebook.id}:medical-training`,
+      generatedAt: entry.generatedAt,
+      historyId: entry.id,
+      id: `${notebook.id}:medical-training:${entry.id}`,
       notebook,
       notebookId: notebook.id,
+      pinned: entry.pinned === true,
       title: cleanText(analysis.trainingTitle, 180) || "Medical training",
       topicCount: analysis.modules.length,
-      updatedAt: notebook.updatedAt || notebook.createdAt || "",
+      updatedAt: entry.generatedAt || notebook.updatedAt || notebook.createdAt || "",
     }];
+  })).sort((left, right) => {
+    const pinOrder = Number(right.pinned) - Number(left.pinned);
+    if (pinOrder) return pinOrder;
+    return (new Date(right.updatedAt).getTime() || 0) - (new Date(left.updatedAt).getTime() || 0);
   });
 }
 
-export function getMedicalTrainingInputValues(notebook, draft, userProfile = {}) {
+export function getMedicalTrainingInputValues(notebook, draft, userProfile = {}, historyIdValue = "") {
   const matchingDraft = draft?.notebookId === notebook?.id ? draft : null;
-  const analysis = matchingDraft?.analysis || getSavedMedicalTrainingAnalysis(notebook);
+  const analysis = matchingDraft?.analysis
+    || getMedicalTrainingHistoryEntry(notebook, historyIdValue)?.analysis
+    || getSavedMedicalTrainingAnalysis(notebook);
   return {
     focus: cleanText(
       analysis?.trainingTitle
@@ -115,6 +166,20 @@ export function mergeMedicalTrainingDraft(notebook, draft, options = {}) {
   if (!topicAnalysis.modules.length) {
     throw new Error("Analyze at least one health-science concept or educational scenario before saving.");
   }
+  const generatedAt = validIsoDate(draft.generatedAt);
+  const entry = {
+    id: cleanText(draft.id, 120)
+      || historyId(generatedAt, topicAnalysis.trainingTitle || topicAnalysis.modules[0]?.title),
+    analysis: topicAnalysis,
+    generatedAt,
+    pinned: draft.pinned === true,
+    providerModel: cleanText(draft.providerModel, 160),
+    source: cleanText(draft.source, 120),
+  };
+  const history = [
+    entry,
+    ...getMedicalTrainingHistory(notebook).filter((item) => item.id !== entry.id),
+  ];
   return {
     ...notebook,
     medicalTraining: {
@@ -122,9 +187,52 @@ export function mergeMedicalTrainingDraft(notebook, draft, options = {}) {
         ? notebook.medicalTraining
         : {}),
       enabled: true,
+      history,
       topicAnalysis,
     },
     updatedAt: validIsoDate(options.savedAt),
+  };
+}
+
+export function setMedicalTrainingHistoryPinned(notebook, historyIdValue, pinned, options = {}) {
+  const history = getMedicalTrainingHistory(notebook);
+  if (!history.some((entry) => entry.id === historyIdValue)) {
+    throw new Error("That medical training history item is no longer available.");
+  }
+  return {
+    ...notebook,
+    medicalTraining: {
+      ...(notebook.medicalTraining || {}),
+      history: history.map((entry) => (
+        entry.id === historyIdValue ? { ...entry, pinned: pinned === true } : entry
+      )),
+    },
+    updatedAt: validIsoDate(options.updatedAt),
+  };
+}
+
+export function deleteMedicalTrainingHistoryEntry(notebook, historyIdValue, options = {}) {
+  const history = getMedicalTrainingHistory(notebook).filter((entry) => entry.id !== historyIdValue);
+  return {
+    ...notebook,
+    medicalTraining: {
+      ...(notebook.medicalTraining || {}),
+      history,
+      topicAnalysis: history[0]?.analysis || normalizeLearningMedicalTrainingAnalysis(),
+    },
+    updatedAt: validIsoDate(options.updatedAt),
+  };
+}
+
+export function clearMedicalTrainingHistory(notebook, options = {}) {
+  return {
+    ...notebook,
+    medicalTraining: {
+      ...(notebook.medicalTraining || {}),
+      history: [],
+      topicAnalysis: normalizeLearningMedicalTrainingAnalysis(),
+    },
+    updatedAt: validIsoDate(options.updatedAt),
   };
 }
 

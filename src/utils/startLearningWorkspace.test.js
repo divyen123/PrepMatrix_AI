@@ -5,6 +5,7 @@ import {
   getStartLearningArtifactKind,
   isMedicalTrainingHash,
   isPlacementPrepHash,
+  sortStartLearningNotebooks,
   shouldShowStartLearningHero,
 } from "./startLearningWorkspace.js";
 
@@ -29,11 +30,39 @@ test("derives standalone saved-placement rows without mixing ordinary notebooks"
   const notes = getSavedPlacementNotes(notebooks);
 
   assert.equal(notes.length, 1);
-  assert.equal(notes[0].id, "notebook-2:placement");
+  assert.equal(notes[0].id, "notebook-2:placement:placement-legacy");
+  assert.equal(notes[0].historyId, "placement-legacy");
   assert.equal(notes[0].notebookId, "notebook-2");
   assert.equal(notes[0].title, "Backend intern");
   assert.equal(notes[0].topicCount, 2);
   assert.equal(notes[0].notebook, notebooks[1]);
+});
+
+test("sorts pinned notebook and placement histories above recent unpinned work", () => {
+  const notebooks = [{ id: "new", updatedAt: "2026-08-10T11:00:00.000Z" }, {
+    id: "pinned",
+    pinned: true,
+    updatedAt: "2026-08-01T11:00:00.000Z",
+  }];
+  assert.deepEqual(sortStartLearningNotebooks(notebooks).map((item) => item.id), ["pinned", "new"]);
+
+  const notes = getSavedPlacementNotes([{
+    id: "notebook-1",
+    title: "DSA",
+    careerPreparation: {
+      history: [{
+        id: "recent",
+        generatedAt: "2026-08-10T11:00:00.000Z",
+        analysis: { targetRole: "Recent", topics: [{ title: "Queues" }] },
+      }, {
+        id: "older-pinned",
+        generatedAt: "2026-08-01T11:00:00.000Z",
+        pinned: true,
+        analysis: { targetRole: "Pinned", topics: [{ title: "Stacks" }] },
+      }],
+    },
+  }]);
+  assert.deepEqual(notes.map((note) => note.historyId), ["older-pinned", "recent"]);
 });
 
 test("resolves the visible artifact kind from intake and workspace state", () => {

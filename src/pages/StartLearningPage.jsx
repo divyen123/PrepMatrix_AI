@@ -16,6 +16,7 @@ import {
   LoaderCircle,
 
   MessageSquareText,
+  Pin,
   Plus,
   Save,
   ShieldCheck,
@@ -79,23 +80,33 @@ import {
   buildPlacementActionTarget,
   buildPlacementChatPrompt,
   createPlacementDraft,
+  clearPlacementHistory,
+  deletePlacementHistoryEntry,
+  getPlacementHistoryEntry,
+  getSavedPlacementAnalysis,
   mergePlacementDraft,
+  setPlacementHistoryPinned,
 } from "../utils/placementPreparation";
 import {
   MEDICAL_TRAINING_STARTERS,
   buildMedicalTrainingActionTarget,
   buildMedicalTrainingChatPrompt,
+  clearMedicalTrainingHistory,
   createMedicalTrainingDraft,
+  deleteMedicalTrainingHistoryEntry,
   getMedicalTrainingInputValues,
+  getMedicalTrainingHistoryEntry,
   getSavedMedicalTrainingAnalysis,
   getSavedMedicalTrainingNotes,
   mergeMedicalTrainingDraft,
+  setMedicalTrainingHistoryPinned,
 } from "../utils/medicalTrainingClient.js";
 import {
   getSavedPlacementNotes,
   getStartLearningArtifactKind,
   isMedicalTrainingHash,
   isPlacementPrepHash,
+  sortStartLearningNotebooks,
   shouldShowStartLearningHero,
 } from "../utils/startLearningWorkspace";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
@@ -536,9 +547,9 @@ function careerTopicCards(value, fallback) {
   return cards.length ? cards : fallback;
 }
 
-function placementInputValues(notebook, draft, userProfile = {}) {
+function placementInputValues(notebook, draft, userProfile = {}, historyId = "") {
   const matchingDraft = draft?.notebookId === notebook?.id ? draft : null;
-  const analysis = matchingDraft?.analysis || notebook?.careerPreparation?.topicAnalysis || null;
+  const analysis = matchingDraft?.analysis || getSavedPlacementAnalysis(notebook, historyId) || null;
   const topics = listFrom(analysis?.topics)
     .map((topic) => cleanText(topic?.title || topic, 140))
     .filter(Boolean)
@@ -563,6 +574,14 @@ function pdfFileName(notebook) {
     .replace(/[^a-z0-9]+/gi, "-")
     .replace(/^-+|-+$/g, "");
   return `${name || "learning-notebook"}.pdf`;
+}
+
+function patchLearningNotebookSnapshot(snapshot, academicProfileDataId) {
+  return api.patch(
+    `/api/learning-notebooks/${encodeURIComponent(snapshot.id)}`,
+    { notebook: snapshot },
+    { academicProfileId: academicProfileDataId, timeoutMs: 30000 },
+  );
 }
 
 function learningTabPanelProps(activeTab, tabId, viewClassName) {
@@ -620,11 +639,13 @@ function StartLearningPage({
   const [careerAnalyzing, setCareerAnalyzing] = useState(false);
   const [careerError, setCareerError] = useState("");
   const [careerDraft, setCareerDraft] = useState(null);
+  const [activeCareerHistoryId, setActiveCareerHistoryId] = useState("");
   const [medicalFocus, setMedicalFocus] = useState("");
   const [medicalTopics, setMedicalTopics] = useState("");
   const [medicalAnalyzing, setMedicalAnalyzing] = useState(false);
   const [medicalError, setMedicalError] = useState("");
   const [medicalDraft, setMedicalDraft] = useState(null);
+  const [activeMedicalHistoryId, setActiveMedicalHistoryId] = useState("");
   const [sources, setSources] = useState([]);
   const [sourceError, setSourceError] = useState("");
   const [preparingSources, setPreparingSources] = useState(false);
@@ -644,10 +665,12 @@ function StartLearningPage({
   const [selectedNodeId, setSelectedNodeId] = useState("");
 
   const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleteCandidateId, setDeleteCandidateId] = useState("");
   const [deletingId, setDeletingId] = useState("");
+  const [historyMutationKey, setHistoryMutationKey] = useState("");
+  const [clearHistoryCandidate, setClearHistoryCandidate] = useState("");
+  const [clearingHistory, setClearingHistory] = useState(false);
   const [chapterComposerOpen, setChapterComposerOpen] = useState(false);
   const [chapterDraft, setChapterDraft] = useState("");
   const [topicComposer, setTopicComposer] = useState({ chapterId: "", value: "" });
@@ -721,7 +744,13 @@ function StartLearningPage({
     () => getSavedMedicalTrainingNotes(notebooks),
     [notebooks],
   );
+  const notebookHistory = useMemo(
+    () => sortStartLearningNotebooks(notebooks),
+    [notebooks],
+  );
   const activeArtifactKind = getStartLearningArtifactKind({ intakeMode, workspaceView });
+  const historyBusy = Boolean(historyMutationKey || clearingHistory);
+  const saving = historyBusy;
 
   useEffect(() => {
     const hash = String(location.hash || "").toLowerCase();
@@ -971,17 +1000,25 @@ function StartLearningPage({
   const activeCareerDraft = careerDraft?.notebookId === activeNotebook?.id
     ? careerDraft
     : null;
+  const activeCareerHistoryEntry = getPlacementHistoryEntry(
+    activeNotebook,
+    activeCareerHistoryId || activeCareerDraft?.id,
+  );
   const careerAnalysis = activeCareerDraft?.analysis
-    || activeNotebook?.careerPreparation?.topicAnalysis
+    || activeCareerHistoryEntry?.analysis
     || null;
   const careerAnalysisReady = Boolean(
     careerAnalysis && listFrom(careerAnalysis.topics).some((topic) => cleanText(topic?.title || topic, 180)),
   );
-  const careerAnalysisIsDraft = Boolean(activeCareerDraft && careerAnalysisReady);
   const activeMedicalDraft = medicalDraft?.notebookId === activeNotebook?.id
     ? medicalDraft
     : null;
+  const activeMedicalHistoryEntry = getMedicalTrainingHistoryEntry(
+    activeNotebook,
+    activeMedicalHistoryId || activeMedicalDraft?.id,
+  );
   const medicalAnalysis = activeMedicalDraft?.analysis
+    || activeMedicalHistoryEntry?.analysis
     || getSavedMedicalTrainingAnalysis(activeNotebook)
     || null;
   const medicalAnalysisReady = Boolean(
@@ -991,7 +1028,7 @@ function StartLearningPage({
   const medicalVisible = Boolean(medicalEligible && medicalAnalysisReady);
 
   const selectNotebook = useCallback((value) => {
-    if (careerAnalyzing || medicalAnalyzing || saving) return;
+    if (careerAnalyzing || historyBusy || medicalAnalyzing || saving) return;
     const normalized = normalizeNotebook(value);
     setActiveNotebook(normalized);
     setWorkspaceView("notebook");
@@ -1002,42 +1039,39 @@ function StartLearningPage({
     const firstTopic = normalized.chapters.find((chapter) => chapter.topics.length)?.topics[0];
     setSelectedNodeId(firstTopic?.id || "");
 
-  }, [careerAnalyzing, medicalAnalyzing, saving]);
+  }, [careerAnalyzing, historyBusy, medicalAnalyzing, saving]);
 
-  const selectPlacementNotebook = (notebookId) => {
-    if (careerAnalyzing || medicalAnalyzing || saving) return false;
-    if (careerDraft && careerDraft.notebookId !== notebookId) {
-      const message = "Save the current placement draft before choosing another notebook.";
-      setCareerError(message);
-      setNotification?.(message);
-      return false;
-    }
+  const selectPlacementNotebook = (notebookId, historyId = "") => {
+    if (careerAnalyzing || historyBusy || medicalAnalyzing || saving) return false;
     const notebook = notebooks.find((item) => item.id === notebookId);
     if (!notebook) return false;
     const normalized = normalizeNotebook(notebook);
-    const fields = placementInputValues(normalized, careerDraft, userProfile);
+    const selectedHistory = getPlacementHistoryEntry(normalized, historyId);
+    const fields = placementInputValues(normalized, careerDraft, userProfile, selectedHistory?.id);
     activeNotebookRef.current = normalized;
     setActiveNotebook(normalized);
+    setActiveCareerHistoryId(selectedHistory?.id || "");
     setCareerError("");
     setCareerRole(fields.role);
     setCareerTopics(fields.topics);
     return true;
   };
 
-  const selectMedicalNotebook = (notebookId) => {
-    if (careerAnalyzing || medicalAnalyzing || saving) return false;
-    if (medicalDraft && medicalDraft.notebookId !== notebookId) {
-      const message = "Save the current medical training draft before choosing another notebook.";
-      setMedicalError(message);
-      setNotification?.(message);
-      return false;
-    }
+  const selectMedicalNotebook = (notebookId, historyId = "") => {
+    if (careerAnalyzing || historyBusy || medicalAnalyzing || saving) return false;
     const notebook = notebooks.find((item) => item.id === notebookId);
     if (!notebook) return false;
     const normalized = normalizeNotebook(notebook);
-    const fields = getMedicalTrainingInputValues(normalized, medicalDraft, userProfile);
+    const selectedHistory = getMedicalTrainingHistoryEntry(normalized, historyId);
+    const fields = getMedicalTrainingInputValues(
+      normalized,
+      medicalDraft,
+      userProfile,
+      selectedHistory?.id,
+    );
     activeNotebookRef.current = normalized;
     setActiveNotebook(normalized);
+    setActiveMedicalHistoryId(selectedHistory?.id || "");
     setMedicalError("");
     setMedicalFocus(fields.focus);
     setMedicalTopics(fields.topics);
@@ -1097,13 +1131,13 @@ function StartLearningPage({
   };
 
   const openSavedPlacementNote = (note) => {
-    if (!note?.notebookId || !selectPlacementNotebook(note.notebookId)) return;
+    if (!note?.notebookId || !selectPlacementNotebook(note.notebookId, note.historyId)) return;
     setIntakeMode("placement");
     setWorkspaceView("career");
   };
 
   const openSavedMedicalTraining = (note) => {
-    if (!note?.notebookId || !selectMedicalNotebook(note.notebookId)) return;
+    if (!note?.notebookId || !selectMedicalNotebook(note.notebookId, note.historyId)) return;
     setIntakeMode("medical");
     setWorkspaceView("medical");
   };
@@ -1149,7 +1183,7 @@ function StartLearningPage({
       setNotebooks(loaded);
     } catch (error) {
       if (!mountedRef.current) return;
-      setNotebooksError(error instanceof Error ? error.message : "Saved notebooks could not be loaded.");
+      setNotebooksError(error instanceof Error ? error.message : "Notebook history could not be loaded.");
     } finally {
       if (mountedRef.current) setNotebooksLoading(false);
     }
@@ -1442,29 +1476,69 @@ function StartLearningPage({
     const requestedTopics = parseCareerTopics(request.topics);
     const targetRole = cleanText(request.targetRole, 160);
     const sourceNotebook = payload?.notebook ? normalizeNotebook(payload.notebook) : null;
-    if (sourceNotebook?.id) {
-      activeNotebookRef.current = sourceNotebook;
-      setActiveNotebook(sourceNotebook);
-      setNotebooks((current) => [
-        sourceNotebook,
-        ...current.filter((notebook) => notebook.id !== sourceNotebook.id),
-      ]);
-    }
     const draft = createPlacementDraft(payload, {
       notebookId: requestNotebookId,
       requestedTopics,
       targetRole,
     });
+    const baseNotebook = activeNotebookRef.current?.id === requestNotebookId
+      ? activeNotebookRef.current
+      : sourceNotebook;
+    if (!baseNotebook?.id) return false;
+    let snapshot;
+    try {
+      snapshot = mergePlacementDraft(baseNotebook, draft, {
+        savedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      setCareerError(error instanceof Error ? error.message : "The preparation guide could not be added to history.");
+      return false;
+    }
+    activeNotebookRef.current = snapshot;
+    setActiveNotebook(snapshot);
+    setNotebooks((current) => [
+      snapshot,
+      ...current.filter((notebook) => notebook.id !== snapshot.id),
+    ]);
     setCareerDraft(draft);
+    setActiveCareerHistoryId(draft.id);
     setCareerRole(draft.analysis.targetRole || targetRole);
     setCareerTopics(requestedTopics.join("\n"));
     setCareerError("");
     setCareerAnalyzing(false);
     setIntakeMode("placement");
     setWorkspaceView("career");
-    if (notify) setNotification?.("Your preparation draft is ready. Save it as a placement note.");
+    const mutationKey = `placement:${draft.id}`;
+    setHistoryMutationKey(mutationKey);
+    void patchLearningNotebookSnapshot(snapshot, academicProfileDataId)
+      .then((response) => {
+        if (!mountedRef.current) return;
+        const normalized = normalizeNotebook(response?.notebook || snapshot);
+        setNotebooks((current) => current.map((notebook) => (
+          notebook.id === normalized.id ? normalized : notebook
+        )));
+        if (activeNotebookRef.current?.id === normalized.id) {
+          activeNotebookRef.current = normalized;
+          setActiveNotebook(normalized);
+        }
+        setCareerDraft((current) => current?.id === draft.id ? null : current);
+        setNotification?.("Preparation guide added to history.");
+      })
+      .catch((error) => {
+        if (mountedRef.current) {
+          setNotification?.(error instanceof Error
+            ? error.message
+            : "The preparation guide could not be added to history.");
+        }
+      })
+      .finally(() => {
+        if (mountedRef.current) {
+          setHistoryMutationKey((current) => current === mutationKey ? "" : current);
+        }
+      });
+    if (notify) setNotification?.("Your preparation guide is ready and is being added to history.");
     return true;
-  }, [setNotification]);
+  }, [academicProfileDataId, setNotification]);
 
   const presentMedicalAnalysis = useCallback((payload, request = {}, { notify = true } = {}) => {
     const requestNotebookId = cleanText(
@@ -1475,29 +1549,69 @@ function StartLearningPage({
     const requestedTopics = parseCareerTopics(request.topics);
     const trainingFocus = cleanText(request.trainingFocus, 160);
     const sourceNotebook = payload?.notebook ? normalizeNotebook(payload.notebook) : null;
-    if (sourceNotebook?.id) {
-      activeNotebookRef.current = sourceNotebook;
-      setActiveNotebook(sourceNotebook);
-      setNotebooks((current) => [
-        sourceNotebook,
-        ...current.filter((notebook) => notebook.id !== sourceNotebook.id),
-      ]);
-    }
     const draft = createMedicalTrainingDraft(payload, {
       notebookId: requestNotebookId,
       requestedTopics,
       trainingFocus,
     });
+    const baseNotebook = activeNotebookRef.current?.id === requestNotebookId
+      ? activeNotebookRef.current
+      : sourceNotebook;
+    if (!baseNotebook?.id) return false;
+    let snapshot;
+    try {
+      snapshot = mergeMedicalTrainingDraft(baseNotebook, draft, {
+        savedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      setMedicalError(error instanceof Error ? error.message : "Medical training could not be added to history.");
+      return false;
+    }
+    activeNotebookRef.current = snapshot;
+    setActiveNotebook(snapshot);
+    setNotebooks((current) => [
+      snapshot,
+      ...current.filter((notebook) => notebook.id !== snapshot.id),
+    ]);
     setMedicalDraft(draft);
+    setActiveMedicalHistoryId(draft.id);
     setMedicalFocus(draft.analysis.trainingTitle || trainingFocus);
     setMedicalTopics(requestedTopics.join("\n"));
     setMedicalError("");
     setMedicalAnalyzing(false);
     setIntakeMode("medical");
     setWorkspaceView("medical");
-    if (notify) setNotification?.("Your conceptual reasoning draft is ready. Save it as Medical training.");
+    const mutationKey = `medical:${draft.id}`;
+    setHistoryMutationKey(mutationKey);
+    void patchLearningNotebookSnapshot(snapshot, academicProfileDataId)
+      .then((response) => {
+        if (!mountedRef.current) return;
+        const normalized = normalizeNotebook(response?.notebook || snapshot);
+        setNotebooks((current) => current.map((notebook) => (
+          notebook.id === normalized.id ? normalized : notebook
+        )));
+        if (activeNotebookRef.current?.id === normalized.id) {
+          activeNotebookRef.current = normalized;
+          setActiveNotebook(normalized);
+        }
+        setMedicalDraft((current) => current?.id === draft.id ? null : current);
+        setNotification?.("Medical training added to history.");
+      })
+      .catch((error) => {
+        if (mountedRef.current) {
+          setNotification?.(error instanceof Error
+            ? error.message
+            : "Medical training could not be added to history.");
+        }
+      })
+      .finally(() => {
+        if (mountedRef.current) {
+          setHistoryMutationKey((current) => current === mutationKey ? "" : current);
+        }
+      });
+    if (notify) setNotification?.("Your Medical training is ready and is being added to history.");
     return true;
-  }, [setNotification]);
+  }, [academicProfileDataId, setNotification]);
 
   const runNotebookAnalysis = async ({
     chapterNames,
@@ -1662,11 +1776,7 @@ function StartLearningPage({
     }
     const notebookId = activeNotebook?.id || "";
     if (!notebookId) {
-      setCareerError("Choose a saved notebook for this placement preparation.");
-      return;
-    }
-    if (careerDraft && careerDraft.notebookId !== notebookId) {
-      setCareerError("Save the current placement draft before analyzing a different notebook.");
+      setCareerError("Choose a notebook for this placement preparation.");
       return;
     }
     const request = {
@@ -1767,11 +1877,7 @@ function StartLearningPage({
     }
     const notebookId = activeNotebook?.id || "";
     if (!notebookId) {
-      setMedicalError("Choose a saved health-science notebook for this Medical training.");
-      return;
-    }
-    if (medicalDraft && medicalDraft.notebookId !== notebookId) {
-      setMedicalError("Save the current Medical training draft before analyzing a different notebook.");
+      setMedicalError("Choose a health-science notebook for this Medical training.");
       return;
     }
     const request = {
@@ -1817,7 +1923,7 @@ function StartLearningPage({
       if (!presentNotebookAnalysis(task.result)) {
         setIntakeMode("notebook");
         setWorkspaceView("intake");
-        setAnalysisError("The generated notebook could not be opened. Refresh your saved notebooks and try again.");
+        setAnalysisError("The generated notebook could not be opened. Refresh notebook history and try again.");
       }
     } else if (task.status === "failed") {
       if (analysisTimerRef.current) window.clearInterval(analysisTimerRef.current);
@@ -1980,17 +2086,6 @@ function StartLearningPage({
     }
   };
 
-  const updateNotebook = (updater) => {
-    setActiveNotebook((current) => {
-      if (!current) return current;
-      const next = typeof updater === "function" ? updater(current) : { ...current, ...updater };
-      const stamped = { ...next, updatedAt: new Date().toISOString() };
-      activeNotebookRef.current = stamped;
-      return stamped;
-    });
-    setDirty(true);
-  };
-
   const enqueueNotebookPatch = useCallback((snapshot) => {
     const request = notebookSaveChainRef.current
       .catch(() => undefined)
@@ -2038,6 +2133,18 @@ function StartLearningPage({
       }
     }, 650);
   }, [enqueueNotebookPatch, setNotification]);
+
+  const updateNotebook = (updater) => {
+    const current = activeNotebookRef.current || activeNotebook;
+    if (!current?.id) return;
+    const next = typeof updater === "function" ? updater(current) : { ...current, ...updater };
+    const stamped = { ...next, updatedAt: new Date().toISOString() };
+    activeNotebookRef.current = stamped;
+    setActiveNotebook(stamped);
+    setNotebooks((items) => items.map((item) => item.id === stamped.id ? stamped : item));
+    setDirty(true);
+    queueMasteryAutosave(stamped);
+  };
 
   const applyLearningState = (updater) => {
     const currentNotebook = activeNotebookRef.current?.id === activeNotebook?.id
@@ -2467,137 +2574,197 @@ function StartLearningPage({
     }));
   };
 
-  const persistActiveNotebook = async ({
-    errorMessage = "The notebook could not be saved.",
-    expectedRevision = "",
-    reconcileListById = false,
-    snapshot: requestedSnapshot,
-    successMessage = "Learning notebook saved.",
-  } = {}) => {
-    const snapshot = requestedSnapshot || activeNotebook;
-    if (!snapshot?.id || saving) return null;
-    const baselineRevision = expectedRevision || snapshot.updatedAt;
-    if (masteryAutosaveTimerRef.current) {
-      window.clearTimeout(masteryAutosaveTimerRef.current);
-      masteryAutosaveTimerRef.current = null;
-    }
-    ++masterySaveSequenceRef.current;
-    setMasterySaving(false);
-    setSaving(true);
+  const persistNotebookHistoryMutation = async (snapshot, {
+    errorMessage,
+    mutationKey,
+    successMessage,
+  }) => {
+    if (!snapshot?.id || historyBusy) return null;
+    setHistoryMutationKey(mutationKey);
     try {
       const payload = await enqueueNotebookPatch(snapshot);
       if (!mountedRef.current) return null;
       const normalized = normalizeNotebook(payload?.notebook || snapshot);
-      const revisionMatches = activeNotebookRef.current?.id === snapshot.id
-        && activeNotebookRef.current?.updatedAt === baselineRevision;
-      setNotebooks((current) => {
-        let matched = false;
-        const next = current.map((notebook) => {
-          if (notebook.id !== normalized.id) return notebook;
-          matched = true;
-          return reconcileListById
-            || revisionMatches
-            || notebook.updatedAt === baselineRevision
-            ? normalized
-            : notebook;
-        });
-        return reconcileListById && !matched ? [normalized, ...next] : next;
-      });
-      if (revisionMatches) {
+      setNotebooks((current) => current.map((notebook) => (
+        notebook.id === normalized.id ? normalized : notebook
+      )));
+      if (activeNotebookRef.current?.id === normalized.id) {
         activeNotebookRef.current = normalized;
         setActiveNotebook(normalized);
-        setDirty(false);
       }
-      setNotification?.(
-        revisionMatches ? successMessage : `${successMessage} Newer changes are still being saved.`,
-      );
-      return { applied: revisionMatches, notebook: normalized };
+      setNotification?.(successMessage);
+      return normalized;
     } catch (error) {
       if (mountedRef.current) {
         setNotification?.(error instanceof Error ? error.message : errorMessage);
       }
       return null;
     } finally {
-      if (mountedRef.current) setSaving(false);
+      if (mountedRef.current) {
+        setHistoryMutationKey((current) => current === mutationKey ? "" : current);
+      }
     }
   };
 
-  const saveNotebook = () => persistActiveNotebook();
-
-  const saveCareerPreparation = async () => {
-    if (!activeNotebook?.id || !activeCareerDraft) {
-      setNotification?.("Analyze placement topics before saving a preparation guide.");
-      return;
-    }
-
-    let snapshot;
-    try {
-      snapshot = mergePlacementDraft(activeNotebook, activeCareerDraft, {
-        savedAt: new Date().toISOString(),
-      });
-    } catch (error) {
-      setNotification?.(error instanceof Error ? error.message : "The preparation draft could not be saved.");
-      return;
-    }
-
-    const draftIdentity = `${activeCareerDraft.notebookId}:${activeCareerDraft.generatedAt}`;
-    activeNotebookRef.current = snapshot;
-    setActiveNotebook(snapshot);
-    setDirty(true);
-    const result = await persistActiveNotebook({
-      errorMessage: "The placement preparation could not be saved.",
-      expectedRevision: snapshot.updatedAt,
-      reconcileListById: true,
-      snapshot,
-      successMessage: "Placement preparation saved and available in Saved placement notes.",
+  const toggleActiveNotebookPin = async () => {
+    if (!activeNotebook?.id) return;
+    const nextPinned = activeNotebook.pinned !== true;
+    const snapshot = {
+      ...activeNotebook,
+      pinned: nextPinned,
+      updatedAt: new Date().toISOString(),
+    };
+    await persistNotebookHistoryMutation(snapshot, {
+      errorMessage: "The notebook pin could not be updated.",
+      mutationKey: `notebook-pin:${activeNotebook.id}`,
+      successMessage: nextPinned ? "Notebook pinned to the top of history." : "Notebook unpinned.",
     });
-    if (result) {
-      setCareerDraft((current) => (
-        current && `${current.notebookId}:${current.generatedAt}` === draftIdentity
-          ? null
-          : current
-      ));
-    }
   };
 
-  const saveMedicalTraining = async () => {
-    if (!activeNotebook?.id || !activeMedicalDraft) {
-      setNotification?.("Build a Medical training session before saving it.");
-      return;
-    }
-
+  const toggleCareerHistoryPin = async () => {
+    const historyId = activeCareerHistoryEntry?.id || activeCareerDraft?.id;
+    if (!activeNotebook?.id || !historyId) return;
+    const nextPinned = activeCareerHistoryEntry?.pinned !== true;
     let snapshot;
     try {
-      snapshot = mergeMedicalTrainingDraft(activeNotebook, activeMedicalDraft, {
-        savedAt: new Date().toISOString(),
-      });
+      snapshot = setPlacementHistoryPinned(
+        activeNotebook,
+        historyId,
+        nextPinned,
+        { updatedAt: new Date().toISOString() },
+      );
     } catch (error) {
-      setNotification?.(error instanceof Error ? error.message : "The Medical training draft could not be saved.");
+      setNotification?.(error instanceof Error ? error.message : "The preparation pin could not be updated.");
       return;
     }
-
-    const draftIdentity = `${activeMedicalDraft.notebookId}:${activeMedicalDraft.generatedAt}`;
-    activeNotebookRef.current = snapshot;
-    setActiveNotebook(snapshot);
-    setDirty(true);
-    const result = await persistActiveNotebook({
-      errorMessage: "Medical training could not be saved.",
-      expectedRevision: snapshot.updatedAt,
-      reconcileListById: true,
-      snapshot,
-      successMessage: "Medical training saved and available in Saved medical training.",
+    const normalized = await persistNotebookHistoryMutation(snapshot, {
+      errorMessage: "The preparation pin could not be updated.",
+      mutationKey: `placement-pin:${historyId}`,
+      successMessage: nextPinned ? "Preparation guide pinned to the top of history." : "Preparation guide unpinned.",
     });
-    if (result) {
-      setMedicalDraft((current) => (
-        current && `${current.notebookId}:${current.generatedAt}` === draftIdentity
-          ? null
-          : current
-      ));
+    if (normalized) setCareerDraft((current) => current?.id === historyId ? null : current);
+  };
+
+  const toggleMedicalHistoryPin = async () => {
+    const historyId = activeMedicalHistoryEntry?.id || activeMedicalDraft?.id;
+    if (!activeNotebook?.id || !historyId) return;
+    const nextPinned = activeMedicalHistoryEntry?.pinned !== true;
+    let snapshot;
+    try {
+      snapshot = setMedicalTrainingHistoryPinned(
+        activeNotebook,
+        historyId,
+        nextPinned,
+        { updatedAt: new Date().toISOString() },
+      );
+    } catch (error) {
+      setNotification?.(error instanceof Error ? error.message : "The Medical training pin could not be updated.");
+      return;
+    }
+    const normalized = await persistNotebookHistoryMutation(snapshot, {
+      errorMessage: "The Medical training pin could not be updated.",
+      mutationKey: `medical-pin:${historyId}`,
+      successMessage: nextPinned ? "Medical training pinned to the top of history." : "Medical training unpinned.",
+    });
+    if (normalized) setMedicalDraft((current) => current?.id === historyId ? null : current);
+  };
+
+  const deletePreparationHistoryItem = async (note, kind) => {
+    const notebook = notebooks.find((item) => item.id === note?.notebookId);
+    if (!notebook?.id || !note?.historyId || historyBusy) return;
+    const now = new Date().toISOString();
+    const snapshot = kind === "medical"
+      ? deleteMedicalTrainingHistoryEntry(notebook, note.historyId, { updatedAt: now })
+      : deletePlacementHistoryEntry(notebook, note.historyId, { updatedAt: now });
+    setDeletingId(note.id);
+    const normalized = await persistNotebookHistoryMutation(snapshot, {
+      errorMessage: kind === "medical"
+        ? "The Medical training history item could not be deleted."
+        : "The placement history item could not be deleted.",
+      mutationKey: `${kind}-delete:${note.historyId}`,
+      successMessage: kind === "medical"
+        ? "Medical training history item deleted."
+        : "Placement history item deleted.",
+    });
+    if (normalized) {
+      const wasActive = activeNotebook?.id === note.notebookId && (
+        kind === "medical"
+          ? activeMedicalHistoryEntry?.id === note.historyId
+          : activeCareerHistoryEntry?.id === note.historyId
+      );
+      if (wasActive) {
+        const nextEntry = kind === "medical"
+          ? getMedicalTrainingHistoryEntry(normalized)
+          : getPlacementHistoryEntry(normalized);
+        if (kind === "medical") setActiveMedicalHistoryId(nextEntry?.id || "");
+        else setActiveCareerHistoryId(nextEntry?.id || "");
+        if (!nextEntry) setWorkspaceView("intake");
+      }
+      setDeleteCandidateId("");
+    }
+    if (mountedRef.current) setDeletingId("");
+  };
+
+  const clearCurrentHistory = async () => {
+    const kind = activeArtifactKind;
+    if (!kind || historyBusy) return;
+    const targets = kind === "notebook"
+      ? notebooks
+      : kind === "placement"
+        ? notebooks.filter((notebook) => getSavedPlacementNotes([notebook]).length > 0)
+        : notebooks.filter((notebook) => getSavedMedicalTrainingNotes([notebook]).length > 0);
+    if (!targets.length) return;
+    setClearingHistory(true);
+    const now = new Date().toISOString();
+    const results = await Promise.allSettled(targets.map(async (notebook) => {
+      if (kind === "notebook") {
+        await api.delete(`/api/learning-notebooks/${encodeURIComponent(notebook.id)}`, {
+          academicProfileId: academicProfileDataId,
+          timeoutMs: 30000,
+        });
+        return { deleted: true, id: notebook.id };
+      }
+      const snapshot = kind === "placement"
+        ? clearPlacementHistory(notebook, { updatedAt: now })
+        : clearMedicalTrainingHistory(notebook, { updatedAt: now });
+      const payload = await patchLearningNotebookSnapshot(snapshot, academicProfileDataId);
+      return { deleted: false, id: notebook.id, notebook: normalizeNotebook(payload?.notebook || snapshot) };
+    }));
+
+    if (mountedRef.current) {
+      const completed = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+      setNotebooks((current) => {
+        if (kind === "notebook") {
+          const deletedIds = new Set(completed.map((item) => item.id));
+          return current.filter((notebook) => !deletedIds.has(notebook.id));
+        }
+        const replacements = new Map(completed.map((item) => [item.id, item.notebook]));
+        return current.map((notebook) => replacements.get(notebook.id) || notebook);
+      });
+      const failedCount = results.length - completed.length;
+      if (kind === "notebook" && completed.some((item) => item.id === activeNotebook?.id)) {
+        activeNotebookRef.current = null;
+        setActiveNotebook(null);
+        setWorkspaceView("intake");
+      } else if (kind === "placement") {
+        setCareerDraft(null);
+        setActiveCareerHistoryId("");
+        if (workspaceView === "career") setWorkspaceView("intake");
+      } else if (kind === "medical") {
+        setMedicalDraft(null);
+        setActiveMedicalHistoryId("");
+        if (workspaceView === "medical") setWorkspaceView("intake");
+      }
+      setClearHistoryCandidate("");
+      setNotification?.(failedCount
+        ? `${completed.length} history item source${completed.length === 1 ? "" : "s"} cleared; ${failedCount} could not be cleared.`
+        : `${kind === "notebook" ? "Notebook" : kind === "placement" ? "Placement" : "Medical training"} history cleared.`);
+      setClearingHistory(false);
     }
   };
 
   const deleteNotebook = async (notebookId) => {
-    if (careerAnalyzing || medicalAnalyzing || saving) return;
+    if (careerAnalyzing || historyBusy || medicalAnalyzing || saving) return;
     setDeletingId(notebookId);
     try {
       await api.delete(`/api/learning-notebooks/${encodeURIComponent(notebookId)}`, {
@@ -2615,6 +2782,8 @@ function StartLearningPage({
       if (activeNotebook?.id === notebookId) {
         activeNotebookRef.current = null;
         setActiveNotebook(null);
+        setActiveCareerHistoryId("");
+        setActiveMedicalHistoryId("");
         setWorkspaceView("intake");
       }
       setDeleteCandidateId("");
@@ -2918,7 +3087,7 @@ function StartLearningPage({
   const askMedicalItemAI = (target, module) => {
     if (!target || !activeNotebook || !module) return;
     if (medicalAnalysisIsDraft) {
-      setNotification?.("Save this Medical training before opening its audited study-coach session.");
+      setNotification?.("Wait for this Medical training to finish saving to history before opening its study coach.");
       return;
     }
     window.dispatchEvent(new CustomEvent("openPrepMatrixAIChat", {
@@ -3124,7 +3293,7 @@ function StartLearningPage({
             <h2>Start Learning</h2>
           </div>
           <div className="learning-hero-metrics" aria-label="Learning notebook summary">
-            <div><strong>{notebooks.length}</strong><span>Saved notebooks</span></div>
+            <div><strong>{notebooks.length}</strong><span>Notebook history</span></div>
             <div><strong>{activeNotebook?.chapters.length || 0}</strong><span>Mapped chapters</span></div>
             <div><strong>{nodes.length}</strong><span>Study concepts</span></div>
           </div>
@@ -3145,7 +3314,7 @@ function StartLearningPage({
       ) : null}
 
       <div className={`learning-workspace is-${workspaceView}`}>
-        <aside className="learning-source-rail" aria-label="Sources and saved work">
+        <aside className="learning-source-rail" aria-label="Sources and learning history">
           <section
             className="card learning-intake-source-panel"
             id={intakeMode === "medical" ? "medical-training" : "placement-prep"}
@@ -3174,7 +3343,7 @@ function StartLearningPage({
                   <span><BookOpenCheck aria-hidden="true" size={21} /></span>
                   <strong>Notebook preparation</strong>
                   <small>Build subject notes from files, chapters, topics, or a prompt.</small>
-                  <em>{notebooks.length} saved</em>
+                  <em>{notebooks.length} in history</em>
                   <ChevronRight aria-hidden="true" size={18} />
                 </button>
                 {placementEligible && (
@@ -3185,8 +3354,8 @@ function StartLearningPage({
                   >
                     <span><BriefcaseBusiness aria-hidden="true" size={21} /></span>
                     <strong>Placement preparation</strong>
-                    <small>Analyze role-specific topics and save a focused interview guide.</small>
-                    <em>{savedPlacementNotes.length} saved</em>
+                    <small>Analyze role-specific topics and build a focused interview guide.</small>
+                    <em>{savedPlacementNotes.length} in history</em>
                     <ChevronRight aria-hidden="true" size={18} />
                   </button>
                 )}
@@ -3199,7 +3368,7 @@ function StartLearningPage({
                     <span><Stethoscope aria-hidden="true" size={21} /></span>
                     <strong>Medical training</strong>
                     <small>Practice fictional cases, conceptual reasoning, evidence, uncertainty, and safety.</small>
-                    <em>{savedMedicalTrainingNotes.length} saved</em>
+                    <em>{savedMedicalTrainingNotes.length} in history</em>
                     <ChevronRight aria-hidden="true" size={18} />
                   </button>
                 )}
@@ -3562,14 +3731,14 @@ function StartLearningPage({
                 value={activeNotebook?.id || ""}
               >
                 <option disabled value="">
-                  {notebooksLoading ? "Loading saved notebooks..." : "Choose a saved notebook"}
+                  {notebooksLoading ? "Loading notebook history..." : "Choose a notebook"}
                 </option>
-                {notebooks.map((notebook) => (
+                {notebookHistory.map((notebook) => (
                   <option key={notebook.id} value={notebook.id}>{notebook.title}</option>
                 ))}
               </select>
               <small>
-                Choose the saved study context used to personalize this placement note.
+                Choose the notebook context used to personalize this placement guide.
               </small>
             </label>
 
@@ -3638,162 +3807,223 @@ function StartLearningPage({
           ) : null}
           </section>
           <section className="card learning-saved-panel">
-          <div className="learning-saved-heading">
-            <div>
-              {activeArtifactKind === "placement" ? <BriefcaseBusiness aria-hidden="true" size={16} />
-                : activeArtifactKind === "medical" ? <Stethoscope aria-hidden="true" size={16} />
-                  : <Layers3 aria-hidden="true" size={16} />}
-              <strong>
-                {activeArtifactKind === "placement" ? "Saved placement notes"
-                  : activeArtifactKind === "medical" ? "Saved Medical training"
-                    : activeArtifactKind === "notebook" ? "Saved notebooks" : "Saved work"}
-              </strong>
-            </div>
-            {notebooksLoading && <LoaderCircle aria-label="Loading saved work" className="spinner" size={15} />}
-          </div>
-          {notebooksError && (
-            <div className="learning-rail-empty">
-              <p>{notebooksError}</p>
-              <button onClick={loadNotebooks} type="button">Retry</button>
-            </div>
-          )}
-          {activeArtifactKind === null && !notebooksError && (
-            <div className="learning-saved-kind-grid">
-              <button className="learning-saved-kind-card is-notebook" onClick={openNotebookIntake} type="button">
-                <span><BookOpenCheck aria-hidden="true" size={17} /></span>
-                <strong>{notebooks.length}</strong>
-                <small>Saved notebooks</small>
-                <ChevronRight aria-hidden="true" size={16} />
-              </button>
-              {placementEligible && (
-                <button className="learning-saved-kind-card is-placement" onClick={openPlacementIntake} type="button">
-                  <span><BriefcaseBusiness aria-hidden="true" size={17} /></span>
-                  <strong>{savedPlacementNotes.length}</strong>
-                  <small>Saved placement notes</small>
-                  <ChevronRight aria-hidden="true" size={16} />
-                </button>
-              )}
-              {medicalEligible && (
-                <button className="learning-saved-kind-card is-medical" onClick={openMedicalIntake} type="button">
-                  <span><Stethoscope aria-hidden="true" size={17} /></span>
-                  <strong>{savedMedicalTrainingNotes.length}</strong>
-                  <small>Saved Medical training</small>
-                  <ChevronRight aria-hidden="true" size={16} />
-                </button>
-              )}
-            </div>
-          )}
-          {activeArtifactKind !== null && savedPanelEmpty && (
-            <p className="learning-notebooks-empty-message">
-              {activeArtifactKind === "placement" ? "No saved placement notes yet"
-                : activeArtifactKind === "medical" ? "No saved Medical training yet"
-                  : "No saved notebooks yet"}
-            </p>
-          )}
-          {activeArtifactKind === "notebook" && (
-          <div className="learning-notebook-list">
-            {notebooks.map((notebook) => (
-              <article
-                className={`learning-notebook-row${activeNotebook?.id === notebook.id && workspaceView === "notebook" ? " is-active" : ""}`}
-                key={notebook.id}
-              >
-                <button
-                  aria-current={activeNotebook?.id === notebook.id && workspaceView === "notebook" ? "page" : undefined}
-                  className="learning-notebook-select"
-                  disabled={careerAnalyzing || saving}
-                  onClick={() => selectNotebook(notebook)}
-                  type="button"
-                >
-                  <span><BookOpenCheck size={16} /></span>
-                  <span>
-                    <strong>{notebook.title}</strong>
-                    <small>{notebook.chapters.length} chapters · {formatNotebookDate(notebook.updatedAt)}</small>
-                  </span>
-                </button>
-                {deleteCandidateId === notebook.id ? (
-                  <div className="learning-delete-confirm">
+            <div className="learning-saved-heading">
+              <div>
+                {activeArtifactKind === "placement" ? <BriefcaseBusiness aria-hidden="true" size={16} />
+                  : activeArtifactKind === "medical" ? <Stethoscope aria-hidden="true" size={16} />
+                    : <Layers3 aria-hidden="true" size={16} />}
+                <strong>
+                  {activeArtifactKind === "placement" ? "Placement history"
+                    : activeArtifactKind === "medical" ? "Medical training history"
+                      : activeArtifactKind === "notebook" ? "Notebook history" : "Learning history"}
+                </strong>
+              </div>
+              <span className="learning-history-global-actions">
+                {notebooksLoading && <LoaderCircle aria-label="Loading history" className="spinner" size={15} />}
+                {activeArtifactKind && !savedPanelEmpty && (clearHistoryCandidate === activeArtifactKind ? (
+                  <span className="learning-delete-confirm">
                     <button
-                      aria-label={`Confirm deleting ${notebook.title}`}
-                      disabled={careerAnalyzing || saving || deletingId === notebook.id}
-                      onClick={() => deleteNotebook(notebook.id)}
+                      aria-label={`Confirm clearing ${activeArtifactKind} history`}
+                      disabled={clearingHistory}
+                      onClick={clearCurrentHistory}
                       type="button"
                     >
-                      {deletingId === notebook.id ? <LoaderCircle className="spinner" size={13} /> : <Check size={13} />}
+                      {clearingHistory ? <LoaderCircle className="spinner" size={13} /> : <Check size={13} />}
                     </button>
                     <button
-                      aria-label="Cancel delete"
-                      disabled={careerAnalyzing || saving}
-                      onClick={() => setDeleteCandidateId("")}
+                      aria-label="Cancel clearing history"
+                      disabled={clearingHistory}
+                      onClick={() => setClearHistoryCandidate("")}
                       type="button"
                     >
                       <X size={13} />
                     </button>
-                  </div>
+                  </span>
                 ) : (
                   <button
-                    aria-label={`Delete ${notebook.title}`}
-                    className="learning-notebook-delete"
-                    disabled={careerAnalyzing || saving}
-                    onClick={() => setDeleteCandidateId(notebook.id)}
+                    aria-label={`Clear ${activeArtifactKind} history`}
+                    className="learning-history-clear"
+                    disabled={historyBusy}
+                    onClick={() => setClearHistoryCandidate(activeArtifactKind)}
+                    title="Clear this history"
                     type="button"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={14} />
+                  </button>
+                ))}
+              </span>
+            </div>
+            {notebooksError && (
+              <div className="learning-rail-empty">
+                <p>{notebooksError}</p>
+                <button onClick={loadNotebooks} type="button">Retry</button>
+              </div>
+            )}
+            {activeArtifactKind === null && !notebooksError && (
+              <div className="learning-saved-kind-grid">
+                <button className="learning-saved-kind-card is-notebook" onClick={openNotebookIntake} type="button">
+                  <span><BookOpenCheck aria-hidden="true" size={17} /></span>
+                  <strong>{notebooks.length}</strong>
+                  <small>Notebook history</small>
+                  <ChevronRight aria-hidden="true" size={16} />
+                </button>
+                {placementEligible && (
+                  <button className="learning-saved-kind-card is-placement" onClick={openPlacementIntake} type="button">
+                    <span><BriefcaseBusiness aria-hidden="true" size={17} /></span>
+                    <strong>{savedPlacementNotes.length}</strong>
+                    <small>Placement history</small>
+                    <ChevronRight aria-hidden="true" size={16} />
                   </button>
                 )}
-              </article>
-            ))}
-          </div>
-          )}
-          {activeArtifactKind === "placement" && (
-            <div className="learning-notebook-list">
-              {savedPlacementNotes.map((note) => (
-                <article
-                  className={`learning-notebook-row is-placement${activeNotebook?.id === note.notebookId && workspaceView === "career" ? " is-active" : ""}`}
-                  key={note.id}
-                >
-                  <button
-                    aria-current={activeNotebook?.id === note.notebookId && workspaceView === "career" ? "page" : undefined}
-                    className="learning-notebook-select"
-                    disabled={careerAnalyzing || saving}
-                    onClick={() => openSavedPlacementNote(note)}
-                    type="button"
-                  >
-                    <span><BriefcaseBusiness aria-hidden="true" size={16} /></span>
-                    <span>
-                      <strong>{note.title}</strong>
-                      <small>{note.topicCount} topics · {formatNotebookDate(note.updatedAt)}</small>
-                      <small className="learning-placement-source-label">From {note.notebook.title}</small>
-                    </span>
+                {medicalEligible && (
+                  <button className="learning-saved-kind-card is-medical" onClick={openMedicalIntake} type="button">
+                    <span><Stethoscope aria-hidden="true" size={17} /></span>
+                    <strong>{savedMedicalTrainingNotes.length}</strong>
+                    <small>Medical training history</small>
+                    <ChevronRight aria-hidden="true" size={16} />
                   </button>
-                </article>
-              ))}
-            </div>
-          )}
-          {activeArtifactKind === "medical" && (
-            <div className="learning-notebook-list">
-              {savedMedicalTrainingNotes.map((note) => (
-                <article
-                  className={`learning-notebook-row is-medical${activeNotebook?.id === note.notebookId && workspaceView === "medical" ? " is-active" : ""}`}
-                  key={note.id}
-                >
-                  <button
-                    aria-current={activeNotebook?.id === note.notebookId && workspaceView === "medical" ? "page" : undefined}
-                    className="learning-notebook-select"
-                    disabled={medicalAnalyzing || saving}
-                    onClick={() => openSavedMedicalTraining(note)}
-                    type="button"
+                )}
+              </div>
+            )}
+            {activeArtifactKind !== null && savedPanelEmpty && (
+              <p className="learning-notebooks-empty-message">
+                {activeArtifactKind === "placement" ? "No placement history yet"
+                  : activeArtifactKind === "medical" ? "No Medical training history yet"
+                    : "No notebook history yet"}
+              </p>
+            )}
+            {activeArtifactKind === "notebook" && (
+              <div className="learning-notebook-list">
+                {notebookHistory.map((notebook) => (
+                  <article
+                    className={`learning-notebook-row${notebook.pinned ? " is-pinned" : ""}${activeNotebook?.id === notebook.id && workspaceView === "notebook" ? " is-active" : ""}`}
+                    key={notebook.id}
                   >
-                    <span><Stethoscope aria-hidden="true" size={16} /></span>
-                    <span>
-                      <strong>{note.title}</strong>
-                      <small>{note.topicCount} modules · {formatNotebookDate(note.updatedAt)}</small>
-                      <small className="learning-placement-source-label">From {note.notebook.title}</small>
-                    </span>
-                  </button>
-                </article>
-              ))}
-            </div>
-          )}
+                    <button
+                      aria-current={activeNotebook?.id === notebook.id && workspaceView === "notebook" ? "page" : undefined}
+                      className="learning-notebook-select"
+                      disabled={careerAnalyzing || saving}
+                      onClick={() => selectNotebook(notebook)}
+                      type="button"
+                    >
+                      <span><BookOpenCheck size={16} /></span>
+                      <span>
+                        <strong className="learning-history-title">
+                          <span>{notebook.title}</span>
+                          {notebook.pinned && <Pin aria-label="Pinned" fill="currentColor" size={12} />}
+                        </strong>
+                        <small>{notebook.chapters.length} chapters · {formatNotebookDate(notebook.updatedAt)}</small>
+                      </span>
+                    </button>
+                    {deleteCandidateId === notebook.id ? (
+                      <div className="learning-delete-confirm">
+                        <button
+                          aria-label={`Confirm deleting ${notebook.title}`}
+                          disabled={careerAnalyzing || saving || deletingId === notebook.id}
+                          onClick={() => deleteNotebook(notebook.id)}
+                          type="button"
+                        >
+                          {deletingId === notebook.id ? <LoaderCircle className="spinner" size={13} /> : <Check size={13} />}
+                        </button>
+                        <button aria-label="Cancel delete" disabled={careerAnalyzing || saving} onClick={() => setDeleteCandidateId("")} type="button">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        aria-label={`Delete ${notebook.title}`}
+                        className="learning-notebook-delete"
+                        disabled={careerAnalyzing || saving}
+                        onClick={() => setDeleteCandidateId(notebook.id)}
+                        type="button"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+            {activeArtifactKind === "placement" && (
+              <div className="learning-notebook-list">
+                {savedPlacementNotes.map((note) => {
+                  const isActive = activeNotebook?.id === note.notebookId
+                    && activeCareerHistoryEntry?.id === note.historyId
+                    && workspaceView === "career";
+                  return (
+                    <article className={`learning-notebook-row is-placement${note.pinned ? " is-pinned" : ""}${isActive ? " is-active" : ""}`} key={note.id}>
+                      <button
+                        aria-current={isActive ? "page" : undefined}
+                        className="learning-notebook-select"
+                        disabled={careerAnalyzing || saving}
+                        onClick={() => openSavedPlacementNote(note)}
+                        type="button"
+                      >
+                        <span><BriefcaseBusiness aria-hidden="true" size={16} /></span>
+                        <span>
+                          <strong className="learning-history-title">
+                            <span>{note.title}</span>
+                            {note.pinned && <Pin aria-label="Pinned" fill="currentColor" size={12} />}
+                          </strong>
+                          <small>{note.topicCount} topics · {formatNotebookDate(note.updatedAt)}</small>
+                          <small className="learning-placement-source-label">From {note.notebook.title}</small>
+                        </span>
+                      </button>
+                      {deleteCandidateId === note.id ? (
+                        <div className="learning-delete-confirm">
+                          <button aria-label={`Confirm deleting ${note.title}`} disabled={saving || deletingId === note.id} onClick={() => deletePreparationHistoryItem(note, "placement")} type="button">
+                            {deletingId === note.id ? <LoaderCircle className="spinner" size={13} /> : <Check size={13} />}
+                          </button>
+                          <button aria-label="Cancel delete" disabled={saving} onClick={() => setDeleteCandidateId("")} type="button"><X size={13} /></button>
+                        </div>
+                      ) : (
+                        <button aria-label={`Delete ${note.title}`} className="learning-notebook-delete" disabled={saving} onClick={() => setDeleteCandidateId(note.id)} type="button"><Trash2 size={13} /></button>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+            {activeArtifactKind === "medical" && (
+              <div className="learning-notebook-list">
+                {savedMedicalTrainingNotes.map((note) => {
+                  const isActive = activeNotebook?.id === note.notebookId
+                    && activeMedicalHistoryEntry?.id === note.historyId
+                    && workspaceView === "medical";
+                  return (
+                    <article className={`learning-notebook-row is-medical${note.pinned ? " is-pinned" : ""}${isActive ? " is-active" : ""}`} key={note.id}>
+                      <button
+                        aria-current={isActive ? "page" : undefined}
+                        className="learning-notebook-select"
+                        disabled={medicalAnalyzing || saving}
+                        onClick={() => openSavedMedicalTraining(note)}
+                        type="button"
+                      >
+                        <span><Stethoscope aria-hidden="true" size={16} /></span>
+                        <span>
+                          <strong className="learning-history-title">
+                            <span>{note.title}</span>
+                            {note.pinned && <Pin aria-label="Pinned" fill="currentColor" size={12} />}
+                          </strong>
+                          <small>{note.topicCount} modules · {formatNotebookDate(note.updatedAt)}</small>
+                          <small className="learning-placement-source-label">From {note.notebook.title}</small>
+                        </span>
+                      </button>
+                      {deleteCandidateId === note.id ? (
+                        <div className="learning-delete-confirm">
+                          <button aria-label={`Confirm deleting ${note.title}`} disabled={saving || deletingId === note.id} onClick={() => deletePreparationHistoryItem(note, "medical")} type="button">
+                            {deletingId === note.id ? <LoaderCircle className="spinner" size={13} /> : <Check size={13} />}
+                          </button>
+                          <button aria-label="Cancel delete" disabled={saving} onClick={() => setDeleteCandidateId("")} type="button"><X size={13} /></button>
+                        </div>
+                      ) : (
+                        <button aria-label={`Delete ${note.title}`} className="learning-notebook-delete" disabled={saving} onClick={() => setDeleteCandidateId(note.id)} type="button"><Trash2 size={13} /></button>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </section>
         </aside>
 
@@ -3847,8 +4077,8 @@ function StartLearningPage({
                     <span>{activeNotebook.subjectName}</span>
                     <span>{activeNotebook.chapters.length} chapters</span>
                     <span>{nodes.length} concepts</span>
-                    {dirty && <span className="is-unsaved">Unsaved edits</span>}
-                    {masterySaving && <span className="is-saving">Saving learning progress...</span>}
+                    {dirty && <span className="is-unsaved">Changes pending</span>}
+                    {masterySaving && <span className="is-saving">Saving changes...</span>}
                   </div>
                   {activeNotebook.coverageWarnings.length > 0 && (
                     <details className="learning-coverage-warning">
@@ -3873,9 +4103,20 @@ function StartLearningPage({
                   <span>Back to Start Learning</span>
                 </button>
                 <div className="learning-header-actions" aria-label="Notebook actions">
-                  <button aria-label="Save notebook" disabled={!dirty || saving} onClick={saveNotebook} title="Save notebook" type="button">
-                    {saving ? <LoaderCircle className="spinner" size={16} /> : <Save size={16} />}
-                    {saving ? "Saving…" : "Save"}
+                  <button
+                    aria-label={activeNotebook.pinned ? "Unpin notebook" : "Pin notebook"}
+                    aria-pressed={activeNotebook.pinned === true}
+                    disabled={saving}
+                    onClick={toggleActiveNotebookPin}
+                    title={activeNotebook.pinned ? "Unpin from history" : "Pin to top of history"}
+                    type="button"
+                  >
+                    {historyMutationKey === `notebook-pin:${activeNotebook.id}`
+                      ? <LoaderCircle className="spinner" size={16} />
+                      : <Pin fill={activeNotebook.pinned ? "currentColor" : "none"} size={16} />}
+                    {historyMutationKey === `notebook-pin:${activeNotebook.id}`
+                      ? "Updating…"
+                      : activeNotebook.pinned ? "Unpin" : "Pin"}
                   </button>
                   <button aria-label="Export notebook PDF" disabled={exporting} onClick={exportNotebook} title="Export PDF" type="button">
                     {exporting ? <LoaderCircle className="spinner" size={16} /> : <Download size={16} />}
@@ -4349,9 +4590,10 @@ function StartLearningPage({
               onAddToPlanner={openPlannerForNode}
               onAskAI={askMedicalItemAI}
               onQuickAdd={(title) => addMedicalTopic(title, { openIntake: true })}
-              onSaveDraft={saveMedicalTraining}
+              onTogglePin={toggleMedicalHistoryPin}
               onSaveItem={saveMedicalItem}
-              saving={saving}
+              pinned={activeMedicalHistoryEntry?.pinned === true}
+              saving={historyMutationKey.startsWith("medical:") || historyMutationKey.startsWith("medical-pin:")}
               suggestedTopics={MEDICAL_TRAINING_STARTERS}
               topicCount={parseCareerTopics(medicalTopics).length}
             />
@@ -4391,17 +4633,22 @@ function StartLearningPage({
                   </div>
                   <div className="learning-career-results-actions">
                     <button
-                      aria-label={careerAnalysisIsDraft ? "Save placement preparation" : "Placement preparation saved"}
+                      aria-label={activeCareerHistoryEntry?.pinned ? "Unpin placement preparation" : "Pin placement preparation"}
+                      aria-pressed={activeCareerHistoryEntry?.pinned === true}
                       className="learning-career-save"
-                      disabled={!careerAnalysisIsDraft || saving || careerAnalyzing}
-                      onClick={saveCareerPreparation}
-                      title={careerAnalysisIsDraft ? "Save placement preparation" : "Saved placement note"}
+                      disabled={saving || careerAnalyzing}
+                      onClick={toggleCareerHistoryPin}
+                      title={activeCareerHistoryEntry?.pinned ? "Unpin from history" : "Pin to top of history"}
                       type="button"
                     >
-                      {saving
+                      {historyMutationKey.startsWith("placement:") || historyMutationKey.startsWith("placement-pin:")
                         ? <LoaderCircle className="spinner" size={16} />
-                        : careerAnalysisIsDraft ? <Save size={16} /> : <Check size={16} />}
-                      <span>{saving ? "Saving..." : careerAnalysisIsDraft ? "Save preparation" : "Saved"}</span>
+                        : <Pin fill={activeCareerHistoryEntry?.pinned ? "currentColor" : "none"} size={16} />}
+                      <span>
+                        {historyMutationKey.startsWith("placement:") || historyMutationKey.startsWith("placement-pin:")
+                          ? "Updating..."
+                          : activeCareerHistoryEntry?.pinned ? "Unpin" : "Pin"}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -4631,8 +4878,8 @@ function StartLearningPage({
                   <p>
                     PrepMatrix saves the generated notebook and source metadata, such as file name,
                     type, size, and coverage. Raw uploaded or typed source contents are not saved in
-                    notebook records. Placement topics and their generated preparation guide are saved
-                    with the notebook so you can return to them.
+                    notebook records. Every generated placement or Medical training guide is added
+                    automatically to its history so you can return to it.
                   </p>
                 </>
               )}

@@ -12,8 +12,8 @@ test("keeps notebook and placement preparation in separate workspace views", () 
   assert.ok(pageSource.includes(') : intakeMode === "placement" ? ('));
   assert.ok(pageSource.includes('activeArtifactKind === "notebook" && ('));
   assert.ok(pageSource.includes('activeArtifactKind === "placement" && ('));
-  assert.ok(pageSource.includes("Saved notebooks"));
-  assert.ok(pageSource.includes("Saved placement notes"));
+  assert.ok(pageSource.includes("Notebook history"));
+  assert.ok(pageSource.includes("Placement history"));
   assert.ok(pageSource.includes("savedPlacementNotes.map((note)"));
   assert.ok(
     pageSource.includes("onClick={() => openSavedPlacementNote(note)}"),
@@ -37,7 +37,7 @@ test("uses an independent Medical training workspace and persistence contract", 
   assert.ok(pageSource.includes('className="learning-intake-choice-card is-medical"'));
   assert.ok(pageSource.includes('intakeMode === "medical" ? ('));
   assert.ok(pageSource.includes('activeArtifactKind === "medical" && ('));
-  assert.ok(pageSource.includes("Saved medical training"));
+  assert.ok(pageSource.includes("Medical training history"));
   assert.ok(pageSource.includes("savedMedicalTrainingNotes.map((note)"));
   assert.ok(pageSource.includes("/medical-training-analyze"));
   assert.ok(pageSource.includes("mergeMedicalTrainingDraft"));
@@ -47,25 +47,28 @@ test("uses an independent Medical training workspace and persistence contract", 
   assert.ok(pageSource.includes('artifact: "medical-training"'));
   assert.ok(pageSource.includes("medicalTraining:"));
   assert.ok(pageSource.includes('["My reasoning", answer].join("\\n")'));
-  assert.ok(pageSource.includes("Save this Medical training before opening its audited study-coach session."));
+  assert.ok(pageSource.includes("finish saving to history before opening its study coach"));
 
   const medicalListStart = pageSource.indexOf("savedMedicalTrainingNotes.map((note)");
   const medicalListEnd = pageSource.indexOf("</section>", medicalListStart);
   const medicalListSource = pageSource.slice(medicalListStart, medicalListEnd);
   assert.ok(medicalListStart >= 0, "expected a saved Medical training list");
   assert.equal(medicalListSource.includes("deleteNotebook"), false);
-  assert.equal(medicalListSource.includes("learning-notebook-delete"), false);
+  assert.ok(medicalListSource.includes("learning-notebook-delete"));
+  assert.ok(medicalListSource.includes('deletePreparationHistoryItem(note, "medical")'));
 });
 
-test("keeps saved placement rows non-destructive and legacy guides visible", () => {
+test("keeps legacy placement guides visible and gives every history row a confirmed delete", () => {
   const placementListStart = pageSource.indexOf("savedPlacementNotes.map((note)");
   const placementListEnd = pageSource.indexOf("</section>", placementListStart);
   const placementListSource = pageSource.slice(placementListStart, placementListEnd);
 
   assert.ok(placementListStart >= 0, "expected a saved placement-note list");
   assert.equal(placementListSource.includes("deleteNotebook"), false);
-  assert.equal(placementListSource.includes("Trash2"), false);
-  assert.equal(placementListSource.includes("learning-notebook-delete"), false);
+  assert.ok(placementListSource.includes("Trash2"));
+  assert.ok(placementListSource.includes("learning-notebook-delete"));
+  assert.ok(placementListSource.includes('deletePreparationHistoryItem(note, "placement")'));
+  assert.ok(placementListSource.includes("Confirm deleting"));
   assert.ok(
     pageSource.includes(
       "getSavedPlacementNotes(activeNotebook ? [activeNotebook] : []).length > 0",
@@ -139,7 +142,7 @@ test("places the centered Practice more topic panels at the end of Placement Pre
   assert.ok(codingTopicsIndex > practiceTitleIndex);
 });
 
-test("keeps the placement guide header focused on its save action and hides its idle glow", () => {
+test("keeps the placement guide header focused on its pin action and hides its idle glow", () => {
   const placementHeaderStart = pageSource.indexOf('className="card learning-career-intro"');
   const placementHeaderEnd = pageSource.indexOf("</section>", placementHeaderStart);
   const placementHeaderSource = pageSource.slice(placementHeaderStart, placementHeaderEnd);
@@ -151,6 +154,8 @@ test("keeps the placement guide header focused on its save action and hides its 
   assert.equal(placementHeaderSource.includes("Start with role fundamentals"), false);
   assert.ok(resultsActionsStart >= 0 && resultsActionsEnd > resultsActionsStart);
   assert.ok(resultsActionsSource.includes('className="learning-career-save"'));
+  assert.ok(resultsActionsSource.includes("toggleCareerHistoryPin"));
+  assert.ok(resultsActionsSource.includes("Pin"));
   assert.equal(resultsActionsSource.includes("learning-career-draft-status"), false);
   assert.equal(resultsActionsSource.includes("learning-count"), false);
   assert.match(
@@ -161,6 +166,21 @@ test("keeps the placement guide header focused on its save action and hides its 
     stylesheet,
     /\.learning-career-results\.card:hover::before\s*\{[\s\S]*?opacity:\s*0\.38\s*!important;[\s\S]*?translateX\(0\)/u,
   );
+});
+
+test("automatically adds generated guides to history and supports pinning and global clearing", () => {
+  assert.equal(
+    pageSource.match(/patchLearningNotebookSnapshot\(snapshot, academicProfileDataId\)/gu)?.length,
+    4,
+  );
+  assert.ok(pageSource.includes("mergePlacementDraft(baseNotebook, draft"));
+  assert.ok(pageSource.includes("mergeMedicalTrainingDraft(baseNotebook, draft"));
+  assert.ok(pageSource.includes("toggleActiveNotebookPin"));
+  assert.ok(pageSource.includes("toggleMedicalHistoryPin"));
+  assert.ok(pageSource.includes("clearCurrentHistory"));
+  assert.ok(pageSource.includes("Confirm clearing"));
+  assert.equal(pageSource.includes('aria-label="Save notebook"'), false);
+  assert.equal(pageSource.includes("Save preparation"), false);
 });
 
 test("keeps Subject Mastery out of opened notebook and placement toolbars", () => {

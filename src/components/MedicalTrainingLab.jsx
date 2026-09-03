@@ -11,6 +11,7 @@ import {
   Lightbulb,
   LoaderCircle,
   MessageSquareText,
+  Pin,
   Plus,
   Save,
   ShieldAlert,
@@ -102,10 +103,10 @@ function ReasoningExercise({
             <button
               disabled={!canAskAI}
               onClick={() => onAskAI(actionTarget)}
-              title={canAskAI ? "Ask the Medical training study coach" : "Save this training before opening its study coach"}
+              title={canAskAI ? "Ask the Medical training study coach" : "Wait for this training to finish saving to history"}
               type="button"
             >
-              <MessageSquareText size={14} /> {canAskAI ? "Ask study coach" : "Save training to ask coach"}
+              <MessageSquareText size={14} /> {canAskAI ? "Ask study coach" : "Adding to history..."}
             </button>
             <button onClick={() => onAddToPlanner(actionTarget)} type="button">
               <CalendarPlus size={14} /> Add to planner
@@ -306,8 +307,9 @@ function MedicalTrainingLab({
   onAddToPlanner,
   onAskAI,
   onQuickAdd,
-  onSaveDraft,
+  onTogglePin,
   onSaveItem,
+  pinned,
   saving,
   suggestedTopics,
   topicCount,
@@ -404,21 +406,18 @@ function MedicalTrainingLab({
               {analysis.educationalNotice && <small>{analysis.educationalNotice}</small>}
             </div>
             <div className="medical-lab-results__actions">
-              <span className={`learning-career-draft-status${isDraft ? " is-draft" : " is-saved"}`}>
-                {isDraft ? "Unsaved training draft" : "Saved medical training"}
-              </span>
-              <span className="learning-count">{analysis.modules.length}</span>
               <button
-                aria-label={isDraft ? "Save medical training" : "Medical training saved"}
+                aria-label={pinned ? "Unpin medical training" : "Pin medical training"}
+                aria-pressed={pinned === true}
                 className="medical-lab-save"
-                disabled={!isDraft || saving || analyzing}
-                onClick={onSaveDraft}
+                disabled={saving || analyzing}
+                onClick={onTogglePin}
                 type="button"
               >
                 {saving
                   ? <LoaderCircle className="spinner" size={16} />
-                  : isDraft ? <Save size={16} /> : <Check size={16} />}
-                <span>{saving ? "Saving..." : isDraft ? "Save training" : "Saved"}</span>
+                  : <Pin fill={pinned ? "currentColor" : "none"} size={16} />}
+                <span>{saving ? "Updating..." : pinned ? "Unpin" : "Pin"}</span>
               </button>
             </div>
           </div>

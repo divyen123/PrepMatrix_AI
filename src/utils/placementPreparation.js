@@ -20,6 +20,41 @@ function validIsoDate(value) {
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 }
 
+function historyId(prefix, generatedAt, label) {
+  const timestamp = new Date(generatedAt).getTime();
+  return `${prefix}-${Number.isFinite(timestamp) ? timestamp : Date.now()}-${stablePart(label, "guide")}`;
+}
+
+export function sortPlacementHistory(history = []) {
+  return [...(Array.isArray(history) ? history : [])].sort((left, right) => {
+    const pinOrder = Number(right?.pinned === true) - Number(left?.pinned === true);
+    if (pinOrder) return pinOrder;
+    const rightTime = new Date(right?.generatedAt || 0).getTime() || 0;
+    const leftTime = new Date(left?.generatedAt || 0).getTime() || 0;
+    return rightTime - leftTime;
+  });
+}
+
+export function getPlacementHistory(notebook) {
+  const history = notebook?.careerPreparation?.history;
+  if (Array.isArray(history) && history.length) return sortPlacementHistory(history);
+  const analysis = notebook?.careerPreparation?.topicAnalysis;
+  if (!analysis || !Array.isArray(analysis.topics) || !analysis.topics.length) return [];
+  return [{
+    id: "placement-legacy",
+    analysis,
+    generatedAt: notebook?.updatedAt || notebook?.createdAt || new Date(0).toISOString(),
+    pinned: false,
+    providerModel: "",
+    source: "legacy-saved-analysis",
+  }];
+}
+
+export function getPlacementHistoryEntry(notebook, historyId = "") {
+  const history = getPlacementHistory(notebook);
+  return history.find((entry) => entry.id === historyId) || history[0] || null;
+}
+
 export function createPlacementDraft(payload = {}, options = {}) {
   const notebookId = cleanText(options.notebookId ?? payload?.notebook?.id, 120);
   const rawAnalysis = payload?.topicAnalysis
@@ -35,17 +70,21 @@ export function createPlacementDraft(payload = {}, options = {}) {
     throw new Error("The placement analysis did not contain a usable preparation guide.");
   }
 
+  const generatedAt = validIsoDate(options.generatedAt);
   return {
     analysis,
-    generatedAt: validIsoDate(options.generatedAt),
+    generatedAt,
+    id: cleanText(options.id, 120)
+      || historyId("placement", generatedAt, analysis.targetRole || analysis.topics[0]?.title),
     notebookId,
+    pinned: false,
     providerModel: cleanText(payload?.providerModel, 160),
     source: "placement-analysis-draft",
   };
 }
 
-export function getSavedPlacementAnalysis(notebook) {
-  const analysis = notebook?.careerPreparation?.topicAnalysis;
+export function getSavedPlacementAnalysis(notebook, historyId = "") {
+  const analysis = getPlacementHistoryEntry(notebook, historyId)?.analysis;
   return analysis && Array.isArray(analysis.topics) && analysis.topics.length
     ? analysis
     : null;
@@ -69,15 +108,72 @@ export function mergePlacementDraft(notebook, draft, options = {}) {
     throw new Error("Analyze at least one placement topic before saving.");
   }
 
+  const generatedAt = validIsoDate(draft.generatedAt);
+  const entry = {
+    id: cleanText(draft.id, 120)
+      || historyId("placement", generatedAt, topicAnalysis.targetRole || topicAnalysis.topics[0]?.title),
+    analysis: topicAnalysis,
+    generatedAt,
+    pinned: draft.pinned === true,
+    providerModel: cleanText(draft.providerModel, 160),
+    source: cleanText(draft.source, 120),
+  };
+  const history = [
+    entry,
+    ...getPlacementHistory(notebook).filter((item) => item.id !== entry.id),
+  ];
   return {
     ...notebook,
     careerPreparation: {
       ...(notebook.careerPreparation && typeof notebook.careerPreparation === "object"
         ? notebook.careerPreparation
         : {}),
+      history,
       topicAnalysis,
     },
     updatedAt: validIsoDate(options.savedAt),
+  };
+}
+
+export function setPlacementHistoryPinned(notebook, historyIdValue, pinned, options = {}) {
+  const history = getPlacementHistory(notebook);
+  if (!history.some((entry) => entry.id === historyIdValue)) {
+    throw new Error("That placement history item is no longer available.");
+  }
+  return {
+    ...notebook,
+    careerPreparation: {
+      ...(notebook.careerPreparation || {}),
+      history: history.map((entry) => (
+        entry.id === historyIdValue ? { ...entry, pinned: pinned === true } : entry
+      )),
+    },
+    updatedAt: validIsoDate(options.updatedAt),
+  };
+}
+
+export function deletePlacementHistoryEntry(notebook, historyIdValue, options = {}) {
+  const history = getPlacementHistory(notebook).filter((entry) => entry.id !== historyIdValue);
+  return {
+    ...notebook,
+    careerPreparation: {
+      ...(notebook.careerPreparation || {}),
+      history,
+      topicAnalysis: history[0]?.analysis || normalizeLearningCareerTopicAnalysis(),
+    },
+    updatedAt: validIsoDate(options.updatedAt),
+  };
+}
+
+export function clearPlacementHistory(notebook, options = {}) {
+  return {
+    ...notebook,
+    careerPreparation: {
+      ...(notebook.careerPreparation || {}),
+      history: [],
+      topicAnalysis: normalizeLearningCareerTopicAnalysis(),
+    },
+    updatedAt: validIsoDate(options.updatedAt),
   };
 }
 

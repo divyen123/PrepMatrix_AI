@@ -18,7 +18,7 @@ test("page-header back controls share the compact icon-only treatment", () => {
   assert.match(notificationHistorySource, /className="notification-history-back page-back-control"/u);
   assert.match(settingsProfileSource, /className="settings-profile-back page-back-control"/u);
   assert.match(examAboutSource, /className="exam-guide-back page-back-control"/u);
-  assert.match(startLearningSource, /className="learning-icon-button page-back-control"/u);
+  assert.match(startLearningSource, /className="learning-workspace-return-button is-inside-card"/u);
 });
 
 test("page-header back controls keep accessible names and expected destinations", () => {
@@ -28,7 +28,7 @@ test("page-header back controls keep accessible names and expected destinations"
   assert.match(notificationHistorySource, /aria-label="Back to settings"[\s\S]*?navigate\("\/settings"\)[\s\S]*?title="Back to settings"/u);
   assert.match(settingsProfileSource, /aria-label="Back to Settings"[\s\S]*?navigate\("\/settings"\)[\s\S]*?title="Back to Settings"/u);
   assert.match(examAboutSource, /aria-label="Back to Exam"[\s\S]*?navigate\("\/exam"\)[\s\S]*?title="Back to Exam"/u);
-  assert.match(startLearningSource, /aria-label="Back to preparation choices"[\s\S]*?returnToPreparationChoice[\s\S]*?title="Back to preparation choices"/u);
+  assert.match(startLearningSource, /aria-label="Back to Start Learning home"[\s\S]*?returnToPreparationChoice[\s\S]*?title="Back to Start Learning home"/u);
 });
 
 test("Exam guide uses only the back icon while preserving its accessible label", () => {

@@ -717,6 +717,33 @@ body .learning-analyze-btn {
   color: var(--accent);
 }
 
+.learning-history-global-actions,
+.learning-history-global-actions > span {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+}
+
+body .learning-history-clear {
+  display: grid;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  place-items: center;
+  padding: 0;
+  color: var(--danger, #ff6262) !important;
+  background: transparent !important;
+  border: 1px solid color-mix(in srgb, var(--danger, #ff6262) 22%, transparent) !important;
+  border-radius: 9px;
+  box-shadow: none !important;
+}
+
+body .learning-history-clear:hover:not(:disabled),
+body .learning-history-clear:focus-visible {
+  background: color-mix(in srgb, var(--danger, #ff6262) 12%, transparent) !important;
+}
+
 .learning-rail-empty,
 .learning-section-empty {
   display: grid;
@@ -771,6 +798,10 @@ body .learning-rail-empty button {
   box-shadow: none;
 }
 
+.learning-notebook-row.is-pinned {
+  border-color: rgba(var(--accent-rgb), 0.3);
+}
+
 body .learning-notebook-select {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr);
@@ -813,6 +844,24 @@ body .learning-notebook-select {
 
 .learning-notebook-select strong {
   font-size: 0.7rem;
+}
+
+.learning-notebook-select .learning-history-title {
+  align-items: center;
+  display: flex;
+  gap: 5px;
+}
+
+.learning-history-title > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.learning-history-title > svg {
+  flex: 0 0 auto;
+  color: var(--accent);
 }
 
 .learning-notebook-select small {
@@ -2496,7 +2545,7 @@ body .learning-page .learning-saved-kind-card:focus-visible {
 
 .learning-notebook-row.is-placement,
 .learning-notebook-row.is-medical {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .learning-notebook-row.is-placement .learning-notebook-select > span:first-child {

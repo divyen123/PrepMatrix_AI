@@ -5,9 +5,12 @@ import {
   buildPlacementActionTarget,
   buildPlacementChatPrompt,
   createPlacementDraft,
+  deletePlacementHistoryEntry,
+  getPlacementHistory,
   getSavedPlacementAnalysis,
   hasSavedPlacementPreparation,
   mergePlacementDraft,
+  setPlacementHistoryPinned,
 } from "./placementPreparation.js";
 
 function analysisPayload() {
@@ -70,6 +73,33 @@ test("refuses to merge a placement draft into another notebook", () => {
     () => mergePlacementDraft({ id: "notebook-2" }, draft),
     /different learning notebook/u,
   );
+});
+
+test("keeps every placement generation and sorts pinned history first", () => {
+  const firstDraft = createPlacementDraft(analysisPayload(), {
+    notebookId: "notebook-1",
+    generatedAt: "2026-08-08T10:00:00.000Z",
+  });
+  const secondDraft = createPlacementDraft({
+    ...analysisPayload(),
+    topicAnalysis: { ...analysisPayload().topicAnalysis, targetRole: "Platform intern" },
+  }, {
+    notebookId: "notebook-1",
+    generatedAt: "2026-08-09T10:00:00.000Z",
+  });
+  const withFirst = mergePlacementDraft({ id: "notebook-1" }, firstDraft);
+  const withBoth = mergePlacementDraft(withFirst, secondDraft);
+
+  assert.equal(getPlacementHistory(withBoth).length, 2);
+  assert.equal(getPlacementHistory(withBoth)[0].id, secondDraft.id);
+
+  const pinned = setPlacementHistoryPinned(withBoth, firstDraft.id, true);
+  assert.equal(getPlacementHistory(pinned)[0].id, firstDraft.id);
+  assert.equal(getPlacementHistory(pinned)[0].pinned, true);
+
+  const deleted = deletePlacementHistoryEntry(pinned, firstDraft.id);
+  assert.equal(getPlacementHistory(deleted).length, 1);
+  assert.equal(getSavedPlacementAnalysis(deleted).targetRole, "Platform intern");
 });
 
 test("builds stable coding targets with note, planner, and editable chat context", () => {

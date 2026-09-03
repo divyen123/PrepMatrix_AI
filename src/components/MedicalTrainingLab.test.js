@@ -12,7 +12,7 @@ test("medical training uses a progressive, non-graded reasoning interaction", ()
     "Your reasoning",
     "Your response stays in this browser view unless you choose Save my reasoning.",
     "Save my reasoning",
-    "Save training to ask coach",
+    "Adding to history...",
     "Hint",
     "Reveal reference reasoning",
     "Conceptual viva checks",

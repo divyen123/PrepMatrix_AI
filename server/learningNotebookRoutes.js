@@ -2275,7 +2275,13 @@ export function registerLearningNotebookRoutes(app, {
             preserveLegacyMedicalCareer: true,
           },
         );
-        if (hasUnsafeMedicalTrainingOutput(normalized.medicalTraining?.topicAnalysis)) {
+        const medicalHistoryAnalyses = Array.isArray(normalized.medicalTraining?.history)
+          ? normalized.medicalTraining.history.map((entry) => entry?.analysis)
+          : [];
+        if ([
+          normalized.medicalTraining?.topicAnalysis,
+          ...medicalHistoryAnalyses,
+        ].some((analysis) => hasUnsafeMedicalTrainingOutput(analysis))) {
           return res.status(400).json({
             code: "LEARNING_MEDICAL_TRAINING_UNSAFE",
             error: "Saved Medical training must remain fictional, de-identified, and education-only. Remove patient identifiers, diagnosis, prescribing, dosing, treatment, or emergency guidance.",

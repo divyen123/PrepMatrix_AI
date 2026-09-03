@@ -291,7 +291,7 @@ async function getDb() {
           QUIZ_ATTEMPT_SESSION_INDEX.key,
           QUIZ_ATTEMPT_SESSION_INDEX.options,
         ),
-        db.collection("chatSessions").createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
+        db.collection("chatSessions").createIndex({ userId: 1, academicProfileId: 1, pinned: -1, updatedAt: -1 }),
         db.collection("exams").createIndex({ userId: 1, academicProfileId: 1, createdAt: -1 }),
         db.collection("examAttempts").createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
         db.collection("examAttempts").createIndex({ userId: 1, academicProfileId: 1, startedAt: -1 }),
@@ -2266,8 +2266,8 @@ app.get("/api/chat-sessions", requireAuth(async (req, res) => {
   };
   const sessions = await db.collection("chatSessions")
     .find(filter)
-    .project({ _id: 1, title: 1, assistantContext: 1, createdAt: 1, updatedAt: 1 })
-    .sort({ updatedAt: -1 })
+    .project({ _id: 1, title: 1, pinned: 1, assistantContext: 1, createdAt: 1, updatedAt: 1 })
+    .sort({ pinned: -1, updatedAt: -1, _id: -1 })
     .toArray();
   res.json({ sessions });
 }));
@@ -2333,6 +2333,34 @@ app.put("/api/chat-sessions/:id", requireAuth(async (req, res) => {
       return res.status(404).json({ error: "Chat session not found or unauthorized." });
     }
     res.json({ message: "Chat session updated successfully." });
+  } catch {
+    res.status(400).json({ error: "Invalid session ID." });
+  }
+}));
+
+app.patch("/api/chat-sessions/:id/pin", requireAuth(async (req, res) => {
+  try {
+    const { pinned } = req.body ?? {};
+    if (typeof pinned !== "boolean") {
+      return res.status(400).json({ error: "Pinned state must be a boolean." });
+    }
+
+    const db = await getDb();
+    await assertAcademicProfileWritable(db, req);
+    const result = await withAcademicProfileWriteFence(
+      db,
+      req,
+      () => db.collection("chatSessions").updateOne(
+        academicProfileFilter(req, { _id: new ObjectId(req.params.id) }),
+        pinned
+          ? { $set: { pinned: true } }
+          : { $unset: { pinned: "" } },
+      ),
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "Chat session not found or unauthorized." });
+    }
+    res.json({ message: pinned ? "Chat pinned." : "Chat unpinned.", pinned });
   } catch {
     res.status(400).json({ error: "Invalid session ID." });
   }

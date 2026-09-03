@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { filterChatSessionsByTitle } from "./chatHistorySearch.js";
+import {
+  filterChatSessionsByTitle,
+  sortChatSessionsPinnedFirst,
+} from "./chatHistorySearch.js";
 
 const sessions = [
   { _id: "newest", title: "Linear Algebra Revision" },
@@ -60,4 +63,39 @@ test("safely skips sessions with missing or non-string titles", () => {
 test("returns an empty list for invalid session collections or no matches", () => {
   assert.deepEqual(filterChatSessionsByTitle(null, "math"), []);
   assert.deepEqual(filterChatSessionsByTitle(sessions, "organic chemistry"), []);
+});
+
+test("sorts pinned chats before recent unpinned chats without mutating the input", () => {
+  const unsorted = [
+    { _id: "recent", updatedAt: "2026-09-03T12:00:00.000Z" },
+    { _id: "older-pinned", pinned: true, updatedAt: "2026-09-01T12:00:00.000Z" },
+    { _id: "old", updatedAt: "2026-08-31T12:00:00.000Z" },
+    { _id: "newer-pinned", pinned: true, updatedAt: "2026-09-02T12:00:00.000Z" },
+  ];
+
+  assert.deepEqual(
+    sortChatSessionsPinnedFirst(unsorted).map(({ _id }) => _id),
+    ["newer-pinned", "older-pinned", "recent", "old"],
+  );
+  assert.deepEqual(unsorted.map(({ _id }) => _id), [
+    "recent",
+    "older-pinned",
+    "old",
+    "newer-pinned",
+  ]);
+});
+
+test("keeps the existing order when chat timestamps are missing or malformed", () => {
+  const malformed = [
+    { _id: "first", updatedAt: "not-a-date" },
+    { _id: "second" },
+    { _id: "string-false", pinned: "false", updatedAt: "2026-09-04T12:00:00.000Z" },
+    { _id: "pinned", pinned: true, updatedAt: null },
+  ];
+
+  assert.deepEqual(
+    sortChatSessionsPinnedFirst(malformed).map(({ _id }) => _id),
+    ["pinned", "string-false", "first", "second"],
+  );
+  assert.deepEqual(sortChatSessionsPinnedFirst(null), []);
 });

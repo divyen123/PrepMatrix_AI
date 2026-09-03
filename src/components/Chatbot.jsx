@@ -10,7 +10,10 @@ import {
   buildChatMaterialSuggestions,
   normalizeChatMaterialSuggestions,
 } from "../utils/chatMaterialSuggestions";
-import { filterChatSessionsByTitle } from "../utils/chatHistorySearch";
+import {
+  filterChatSessionsByTitle,
+  sortChatSessionsPinnedFirst,
+} from "../utils/chatHistorySearch";
 import {
   getChatAutoSendMessage,
   getChatMessageAcceptance,
@@ -57,6 +60,8 @@ import {
   UploadCloud,
   Image as ImageIcon,
   Search,
+  Pin,
+  PinOff,
 } from "lucide-react";
 
 function ChatMaterialSuggestions({
@@ -162,6 +167,7 @@ function Chatbot({
   const sessionsFetchSeqRef = useRef(0);
   const historySearchSeqRef = useRef(0);
   const isSendingRef = useRef(false);
+  const sessionContextMenuRef = useRef(null);
 
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
@@ -220,6 +226,8 @@ function Chatbot({
   const [historySearchError, setHistorySearchError] = useState("");
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [deletingSessionId, setDeletingSessionId] = useState(null);
+  const [pinningSessionId, setPinningSessionId] = useState(null);
+  const [sessionContextMenu, setSessionContextMenu] = useState(null);
   const [renameTitle, setRenameTitle] = useState("");
 
   const [assistantStatus, setAssistantStatus] = useState({
@@ -282,7 +290,7 @@ function Chatbot({
     try {
       const data = await api.getChatSessions();
       if (!isCurrentRequest()) return;
-      const loadedSessions = data.sessions || [];
+      const loadedSessions = sortChatSessionsPinnedFirst(data.sessions || []);
       setSessions(loadedSessions);
       // On mobile, if sessions came back empty, retry once after a short delay
       // (handles delayed cookie transmission on cold requests)
@@ -291,7 +299,7 @@ function Chatbot({
           try {
             const retry = await api.getChatSessions();
             if (isCurrentRequest() && retry.sessions?.length > 0) {
-              setSessions(retry.sessions);
+              setSessions(sortChatSessionsPinnedFirst(retry.sessions));
             }
           } catch {
             // Silent retry failure
@@ -343,7 +351,7 @@ function Chatbot({
       if (!isCurrentRequest()) return;
       setHistorySearchResponse({
         query: normalizedQuery,
-        sessions: data.sessions || [],
+        sessions: sortChatSessionsPinnedFirst(data.sessions || []),
       });
     } catch (err) {
       if (!isCurrentRequest()) return;
@@ -393,6 +401,34 @@ function Chatbot({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!sessionContextMenu) return undefined;
+
+    const dismissContextMenu = () => setSessionContextMenu(null);
+    const handlePointerDown = (event) => {
+      if (sessionContextMenuRef.current?.contains(event.target)) return;
+      dismissContextMenu();
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") dismissContextMenu();
+    };
+    const focusFrame = window.requestAnimationFrame(() => {
+      sessionContextMenuRef.current?.querySelector("button")?.focus();
+    });
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", dismissContextMenu);
+    window.addEventListener("scroll", dismissContextMenu, true);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", dismissContextMenu);
+      window.removeEventListener("scroll", dismissContextMenu, true);
+    };
+  }, [sessionContextMenu]);
+
 
   const invalidateViewWork = useCallback(() => {
     viewEpochRef.current += 1;
@@ -439,6 +475,7 @@ function Chatbot({
   // Clear states to start a new chat
   const handleNewChat = useCallback((nextContext = null) => {
     invalidateViewWork();
+    setSessionContextMenu(null);
     setPendingAutoSendMessage("");
     setLoading(false);
     setAttachments([]);
@@ -474,6 +511,58 @@ function Chatbot({
     window.addEventListener("openPrepMatrixAIChat", handleOpenChat);
     return () => window.removeEventListener("openPrepMatrixAIChat", handleOpenChat);
   }, [handleNewChat]);
+
+  const handleOpenSessionContextMenu = useCallback((event, session) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const menuWidth = 164;
+    const menuHeight = 46;
+    const viewportPadding = 8;
+    const left = Math.max(
+      viewportPadding,
+      Math.min(event.clientX, window.innerWidth - menuWidth - viewportPadding),
+    );
+    const top = Math.max(
+      viewportPadding,
+      Math.min(event.clientY, window.innerHeight - menuHeight - viewportPadding),
+    );
+
+    setEditingSessionId(null);
+    setDeletingSessionId(null);
+    setSessionContextMenu({
+      left,
+      pinned: session.pinned === true,
+      sessionId: session._id,
+      top,
+    });
+  }, []);
+
+  const handleToggleSessionPin = useCallback(async () => {
+    if (!sessionContextMenu || pinningSessionId) return;
+
+    const { pinned, sessionId } = sessionContextMenu;
+    const nextPinned = !pinned;
+    const updatePinnedSession = (current) => sortChatSessionsPinnedFirst(
+      current.map((session) => session._id === sessionId
+        ? { ...session, pinned: nextPinned }
+        : session),
+    );
+
+    setPinningSessionId(sessionId);
+    try {
+      await api.setChatSessionPinned(sessionId, nextPinned);
+      setSessions(updatePinnedSession);
+      setHistorySearchResponse((current) => ({
+        ...current,
+        sessions: updatePinnedSession(current.sessions),
+      }));
+      setSessionContextMenu(null);
+    } catch (err) {
+      console.error("Failed to update pinned chat:", err);
+    } finally {
+      setPinningSessionId(null);
+    }
+  }, [pinningSessionId, sessionContextMenu]);
 
   // Delete a session
   const handleDeleteSession = useCallback(async (e, sessionId) => {
@@ -790,15 +879,15 @@ function Chatbot({
               const hasMatch = current.some((session) => session._id === payload.sessionId);
               if (!hasMatch) return current;
 
-              return current
-                .map((session) => session._id === payload.sessionId
+              return sortChatSessionsPinnedFirst(
+                current.map((session) => session._id === payload.sessionId
                   ? {
                       ...session,
                       title: payload.sessionTitle || session.title,
                       updatedAt: new Date().toISOString(),
                     }
-                  : session)
-                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+                  : session),
+              );
             });
           }
           if (historySearchQuery) {
@@ -1354,8 +1443,9 @@ function Chatbot({
                   return (
                     <div
                       key={s._id}
-                      className={`history-session-item ${isActive ? "active" : ""}`}
+                      className={`history-session-item${isActive ? " active" : ""}${s.pinned === true ? " pinned" : ""}`}
                       onClick={() => !isEditing && deletingSessionId !== s._id && handleSelectSession(s._id)}
+                      onContextMenu={(event) => handleOpenSessionContextMenu(event, s)}
                     >
                       <MessageSquare size={14} className="session-icon" />
 
@@ -1407,6 +1497,9 @@ function Chatbot({
                           <span className="session-title" title={s.title}>
                             {s.title}
                           </span>
+                          {s.pinned === true ? (
+                            <Pin aria-label="Pinned chat" className="session-pin-indicator" size={12} />
+                          ) : null}
                           <div className="session-actions">
                             <button
                               aria-label="Rename conversation"
@@ -1668,6 +1761,33 @@ function Chatbot({
             </div>
             </div>
           </section>
+          {sessionContextMenu ? (
+            <div
+              aria-label="Chat actions"
+              className="chat-session-context-menu"
+              onContextMenu={(event) => event.preventDefault()}
+              ref={sessionContextMenuRef}
+              role="menu"
+              style={{ left: sessionContextMenu.left, top: sessionContextMenu.top }}
+            >
+              <button
+                aria-busy={pinningSessionId === sessionContextMenu.sessionId}
+                disabled={pinningSessionId === sessionContextMenu.sessionId}
+                onClick={handleToggleSessionPin}
+                role="menuitem"
+                type="button"
+              >
+                {pinningSessionId === sessionContextMenu.sessionId ? (
+                  <Loader2 aria-hidden="true" className="spinner" size={15} />
+                ) : sessionContextMenu.pinned ? (
+                  <PinOff aria-hidden="true" size={15} />
+                ) : (
+                  <Pin aria-hidden="true" size={15} />
+                )}
+                <span>{sessionContextMenu.pinned ? "Unpin chat" : "Pin chat"}</span>
+              </button>
+            </div>
+          ) : null}
         </>,
         document.body
       ) : null}

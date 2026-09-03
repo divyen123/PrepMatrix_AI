@@ -925,20 +925,107 @@ function convertLegacyCareerAnalysisToMedical(value = {}) {
   });
 }
 
-function normalizeMedicalTraining(value, profile, legacyCareerPreparation, { preserveLegacy = false } = {}) {
+const MAX_LEARNING_ARTIFACT_HISTORY = 100;
+
+function normalizeArtifactHistoryId(value, fallback) {
+  return cleanInline(value, 120) || fallback;
+}
+
+function normalizeArtifactHistory(value, {
+  analysisKey,
+  fallbackAnalysis,
+  fallbackGeneratedAt,
+  normalizeAnalysis,
+  prefix,
+} = {}) {
+  const entries = Array.isArray(value) ? value : [];
+  const normalized = entries.flatMap((entry, index) => {
+    const source = entry && typeof entry === "object" ? entry : {};
+    const analysis = normalizeAnalysis(source.analysis ?? source[analysisKey] ?? source);
+    const hasContent = analysisKey === "medicalTraining"
+      ? analysis.modules.length > 0
+      : analysis.topics.length > 0;
+    if (!hasContent) return [];
+    const generatedAt = normalizeIsoDate(
+      source.generatedAt ?? source.createdAt ?? source.updatedAt,
+      new Date(fallbackGeneratedAt || 0),
+    );
+    return [{
+      id: normalizeArtifactHistoryId(
+        source.id,
+        `${prefix}-${new Date(generatedAt).getTime() || 0}-${index + 1}`,
+      ),
+      analysis,
+      generatedAt,
+      pinned: source.pinned === true,
+      providerModel: cleanInline(source.providerModel ?? source.model, 160),
+      source: cleanInline(source.source, 120),
+    }];
+  });
+
+  if (!normalized.length) {
+    const analysis = normalizeAnalysis(fallbackAnalysis);
+    const hasContent = analysisKey === "medicalTraining"
+      ? analysis.modules.length > 0
+      : analysis.topics.length > 0;
+    if (hasContent) {
+      const generatedAt = normalizeIsoDate(fallbackGeneratedAt, new Date(0));
+      normalized.push({
+        id: `${prefix}-legacy`,
+        analysis,
+        generatedAt,
+        pinned: false,
+        providerModel: "",
+        source: "legacy-saved-analysis",
+      });
+    }
+  }
+
+  const seen = new Set();
+  return normalized
+    .filter((entry) => {
+      if (seen.has(entry.id)) return false;
+      seen.add(entry.id);
+      return true;
+    })
+    .slice(0, MAX_LEARNING_ARTIFACT_HISTORY);
+}
+
+function normalizeMedicalTraining(
+  value,
+  profile,
+  legacyCareerPreparation,
+  { fallbackGeneratedAt = "", preserveLegacy = false } = {},
+) {
   const eligibility = getLearningMedicalTrainingEligibility(profile);
   const empty = normalizeLearningMedicalTrainingAnalysis();
-  if (!eligibility.enabled) return { ...eligibility, legacySource: false, topicAnalysis: empty };
+  if (!eligibility.enabled) return {
+    ...eligibility,
+    history: [],
+    legacySource: false,
+    topicAnalysis: empty,
+  };
   const source = value && typeof value === "object" ? value : {};
   const ownAnalysis = normalizeLearningMedicalTrainingAnalysis(source.topicAnalysis ?? source.analysis ?? source);
   const legacyAnalysis = preserveLegacy
     ? convertLegacyCareerAnalysisToMedical(legacyCareerPreparation?.topicAnalysis)
     : empty;
   const useLegacy = ownAnalysis.modules.length === 0 && legacyAnalysis.modules.length > 0;
+  const topicAnalysis = useLegacy ? legacyAnalysis : ownAnalysis;
+  const history = normalizeArtifactHistory(source.history, {
+    analysisKey: "medicalTraining",
+    fallbackAnalysis: topicAnalysis,
+    fallbackGeneratedAt,
+    normalizeAnalysis: normalizeLearningMedicalTrainingAnalysis,
+    prefix: "medical-training",
+  });
   return {
     ...eligibility,
+    history,
     legacySource: useLegacy,
-    topicAnalysis: useLegacy ? legacyAnalysis : ownAnalysis,
+    topicAnalysis: topicAnalysis.modules.length
+      ? topicAnalysis
+      : history[0]?.analysis || empty,
   };
 }
 
@@ -957,6 +1044,7 @@ function normalizeCareerPreparation(value, profile, options = {}) {
       skills: [],
       interviewQuestions: [],
       codingTopics: [],
+      history: [],
       topicAnalysis: preserveMedicalLegacy
         ? normalizeLearningCareerTopicAnalysis(legacySource.topicAnalysis)
         : normalizeLearningCareerTopicAnalysis(),
@@ -964,6 +1052,14 @@ function normalizeCareerPreparation(value, profile, options = {}) {
   }
 
   const source = value && typeof value === "object" ? value : {};
+  const topicAnalysis = normalizeLearningCareerTopicAnalysis(source.topicAnalysis);
+  const history = normalizeArtifactHistory(source.history, {
+    analysisKey: "topicAnalysis",
+    fallbackAnalysis: topicAnalysis,
+    fallbackGeneratedAt: options.fallbackGeneratedAt,
+    normalizeAnalysis: normalizeLearningCareerTopicAnalysis,
+    prefix: "placement",
+  });
   return {
     enabled: true,
     codingRelevant: eligibility.codingRelevant,
@@ -975,7 +1071,10 @@ function normalizeCareerPreparation(value, profile, options = {}) {
     codingTopics: eligibility.codingRelevant
       ? normalizeCodingTopics(source.codingTopics ?? source.codingPreparation)
       : [],
-    topicAnalysis: normalizeLearningCareerTopicAnalysis(source.topicAnalysis),
+    history,
+    topicAnalysis: topicAnalysis.topics.length
+      ? topicAnalysis
+      : history[0]?.analysis || normalizeLearningCareerTopicAnalysis(),
   };
 }
 
@@ -1114,6 +1213,7 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
 
   return {
     ...(notebookId ? { id: notebookId } : {}),
+    pinned: source?.pinned === true,
     title: cleanInline(source?.title, 180)
       || `${subjectName}${chapterNames.length === 1 ? ` - ${chapterNames[0]}` : ""}`,
     subjectName,
@@ -1134,13 +1234,19 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
     careerPreparation: normalizeCareerPreparation(
       source?.careerPreparation,
       options.profile || {},
-      { preserveMedicalLegacy: options.preserveLegacyMedicalCareer === true },
+      {
+        fallbackGeneratedAt: updatedAt,
+        preserveMedicalLegacy: options.preserveLegacyMedicalCareer === true,
+      },
     ),
     medicalTraining: normalizeMedicalTraining(
       source?.medicalTraining,
       options.profile || {},
       source?.careerPreparation,
-      { preserveLegacy: options.preserveLegacyMedicalCareer === true },
+      {
+        fallbackGeneratedAt: updatedAt,
+        preserveLegacy: options.preserveLegacyMedicalCareer === true,
+      },
     ),
     sources: normalizeSources(options.sources ?? source?.sources ?? source?.sourceFiles),
     learningState,
