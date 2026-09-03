@@ -11,7 +11,10 @@ import {
   normalizeChatMaterialSuggestions,
 } from "../utils/chatMaterialSuggestions";
 import { filterChatSessionsByTitle } from "../utils/chatHistorySearch";
-import { getChatMessageAcceptance } from "../utils/chatMessageBridge";
+import {
+  getChatAutoSendMessage,
+  getChatMessageAcceptance,
+} from "../utils/chatMessageBridge";
 import { tokenizeChatMessageInline } from "../utils/chatMessageLinks";
 import { getChatExperienceCopy } from "../utils/chatExperience";
 import { normalizeChatAssistantContext } from "../utils/chatAssistantContext";
@@ -252,6 +255,7 @@ function Chatbot({
 
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [pendingAutoSendMessage, setPendingAutoSendMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [clearingSessions, setClearingSessions] = useState(false);
@@ -495,6 +499,7 @@ function Chatbot({
   // Clear states to start a new chat
   const handleNewChat = useCallback((nextContext = null) => {
     invalidateViewWork();
+    setPendingAutoSendMessage("");
     setLoading(false);
     setAttachments([]);
     setAttachmentError("");
@@ -515,14 +520,16 @@ function Chatbot({
 
   useEffect(() => {
     const handleOpenChat = (event) => {
+      const requestedMessage = typeof event.detail?.message === "string" ? event.detail.message : "";
       setOpen(true);
       const nextContext = normalizeChatAssistantContext(event.detail?.context);
       if (event.detail?.createNewChat || nextContext) {
         handleNewChat(nextContext);
       }
-      if (event.detail?.message) {
-        setInput(event.detail.message);
+      if (requestedMessage) {
+        setInput(requestedMessage);
       }
+      setPendingAutoSendMessage(getChatAutoSendMessage(event.detail));
     };
     window.addEventListener("openPrepMatrixAIChat", handleOpenChat);
     return () => window.removeEventListener("openPrepMatrixAIChat", handleOpenChat);
@@ -922,6 +929,13 @@ function Chatbot({
       subjects,
     ]
   );
+
+  useEffect(() => {
+    if (!pendingAutoSendMessage) return;
+    const message = pendingAutoSendMessage;
+    setPendingAutoSendMessage("");
+    void sendMessage(message);
+  }, [pendingAutoSendMessage, sendMessage]);
 
   useEffect(() => {
     const getStatus = async () => {

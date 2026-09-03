@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  getChatAutoSendMessage,
   getChatMessageAcceptance,
   sendDashboardChatMessage,
 } from "./chatMessageBridge.js";
@@ -24,6 +25,24 @@ test("accepts text and attachment-only messages only while Chatbot is ready", ()
   assert.equal(preparing.accepted, false);
   assert.equal(preparing.reason, "preparing");
   assert.match(preparing.message, /still being prepared/u);
+
+  const sending = getChatMessageAcceptance({
+    message: "Explain queues",
+    sending: true,
+  });
+  assert.equal(sending.accepted, false);
+  assert.equal(sending.reason, "busy");
+});
+
+test("queues only explicit non-empty external auto-send messages", () => {
+  assert.equal(getChatAutoSendMessage({ message: "Explain queues" }), "");
+  assert.equal(getChatAutoSendMessage({ autoSend: false, message: "Explain queues" }), "");
+  assert.equal(getChatAutoSendMessage({ autoSend: true, message: "   " }), "");
+  assert.equal(getChatAutoSendMessage({ autoSend: true, message: 42 }), "");
+  assert.equal(
+    getChatAutoSendMessage({ autoSend: true, message: "  Explain queues  " }),
+    "  Explain queues  ",
+  );
 });
 
 test("dashboard delivery clears only an explicitly accepted bridge result", async () => {

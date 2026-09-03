@@ -33,6 +33,11 @@ export function getChatMessageAcceptance({
   };
 }
 
+export function getChatAutoSendMessage(detail = {}) {
+  const message = typeof detail?.message === "string" ? detail.message : "";
+  return detail?.autoSend === true && message.trim() ? message : "";
+}
+
 export async function sendDashboardChatMessage(sendToChatbot, message) {
   if (typeof sendToChatbot !== "function") return rejected("unavailable");
 

@@ -3188,6 +3188,18 @@ body .learning-career-analyze:hover:not(:disabled) {
   gap: 18px;
 }
 
+body .learning-page .learning-career-results.card::before {
+  opacity: 0 !important;
+  transform: translateX(-100%) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body .learning-page .learning-career-results.card:hover::before {
+    opacity: 0.38 !important;
+    transform: translateX(0) !important;
+  }
+}
+
 .learning-career-results-actions {
   display: flex;
   flex: 0 0 auto;

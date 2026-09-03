@@ -2877,6 +2877,7 @@ function StartLearningPage({
     if (!target || !activeNotebook) return;
     window.dispatchEvent(new CustomEvent("openPrepMatrixAIChat", {
       detail: {
+        autoSend: true,
         createNewChat: true,
         message: buildPlacementChatPrompt({
           notebook: activeNotebook,
@@ -4362,10 +4363,6 @@ function StartLearningPage({
               <div className="learning-career-intro-copy">
                 <span className="section-tag"><BriefcaseBusiness size={14} /> Career preparation</span>
                 <h2>Prepare for the questions that matter</h2>
-                <p>
-                  Start with role fundamentals and frequently tested coding patterns, then ask AI
-                  to turn your selected topics into an explained interview plan.
-                </p>
               </div>
               <button
                 aria-label="Back to Start Learning home"
@@ -4393,10 +4390,6 @@ function StartLearningPage({
                     <p>{careerAnalysis.overview}</p>
                   </div>
                   <div className="learning-career-results-actions">
-                    <span className={`learning-career-draft-status${careerAnalysisIsDraft ? " is-draft" : " is-saved"}`}>
-                      {careerAnalysisIsDraft ? "Unsaved draft" : "Saved placement note"}
-                    </span>
-                    <span className="learning-count">{listFrom(careerAnalysis.topics).length}</span>
                     <button
                       aria-label={careerAnalysisIsDraft ? "Save placement preparation" : "Placement preparation saved"}
                       className="learning-career-save"

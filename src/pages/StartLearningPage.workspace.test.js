@@ -139,6 +139,30 @@ test("places the centered Practice more topic panels at the end of Placement Pre
   assert.ok(codingTopicsIndex > practiceTitleIndex);
 });
 
+test("keeps the placement guide header focused on its save action and hides its idle glow", () => {
+  const placementHeaderStart = pageSource.indexOf('className="card learning-career-intro"');
+  const placementHeaderEnd = pageSource.indexOf("</section>", placementHeaderStart);
+  const placementHeaderSource = pageSource.slice(placementHeaderStart, placementHeaderEnd);
+  const resultsActionsStart = pageSource.indexOf('className="learning-career-results-actions"');
+  const resultsActionsEnd = pageSource.indexOf("</div>", resultsActionsStart);
+  const resultsActionsSource = pageSource.slice(resultsActionsStart, resultsActionsEnd);
+
+  assert.ok(placementHeaderStart >= 0 && placementHeaderEnd > placementHeaderStart);
+  assert.equal(placementHeaderSource.includes("Start with role fundamentals"), false);
+  assert.ok(resultsActionsStart >= 0 && resultsActionsEnd > resultsActionsStart);
+  assert.ok(resultsActionsSource.includes('className="learning-career-save"'));
+  assert.equal(resultsActionsSource.includes("learning-career-draft-status"), false);
+  assert.equal(resultsActionsSource.includes("learning-count"), false);
+  assert.match(
+    stylesheet,
+    /\.learning-career-results\.card::before\s*\{[\s\S]*?opacity:\s*0\s*!important;[\s\S]*?translateX\(-100%\)/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-career-results\.card:hover::before\s*\{[\s\S]*?opacity:\s*0\.38\s*!important;[\s\S]*?translateX\(0\)/u,
+  );
+});
+
 test("keeps Subject Mastery out of opened notebook and placement toolbars", () => {
   assert.equal(
     pageSource.match(/className="learning-mastery-trigger"/gu)?.length,
