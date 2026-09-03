@@ -62,6 +62,17 @@ test("tokenizes trusted Markdown and bare search links without trusting labels",
   assert.ok(!tokens.some((token) => token.type === "link" && /attacker/iu.test(token.href)));
 });
 
+test("tokenizes inline code without exposing Markdown backticks", () => {
+  assert.deepEqual(
+    tokenizeChatMessageInline("Use `front=rear=-1` before enqueue."),
+    [
+      { type: "text", value: "Use " },
+      { type: "code", value: "front=rear=-1" },
+      { type: "text", value: " before enqueue." },
+    ],
+  );
+});
+
 test("turns recommendation-shaped YouTube titles into trusted searches", () => {
   const tokens = tokenizeChatMessageInline(
     "**freeCodeCamp.org** – “REST API Tutorial for Beginners”",

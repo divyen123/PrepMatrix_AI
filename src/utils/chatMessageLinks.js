@@ -105,6 +105,14 @@ function matchAt(source, offset, youtubeToken, linksAllowed) {
     };
   }
 
+  const inlineCode = remaining.match(/^`([^`\n]{1,500})`/u);
+  if (inlineCode) {
+    return {
+      end: offset + inlineCode[0].length,
+      token: { type: "code", value: inlineCode[1] },
+    };
+  }
+
   const bareUrl = remaining.match(/^https:\/\/[^\s<>()]+/iu);
   if (bareUrl) {
     const rawUrl = bareUrl[0].replace(/[.,!?;:]+$/u, "");
