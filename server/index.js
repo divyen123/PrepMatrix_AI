@@ -68,6 +68,7 @@ import {
   DEFAULT_GROQ_LEARNING_FALLBACK_MODELS,
   DEFAULT_GROQ_LEARNING_MODEL,
   LEARNING_NOTEBOOKS_COLLECTION,
+  PLACEMENT_WORKSPACE_ARTIFACT_KIND,
   buildLearningModelCandidates,
   registerLearningNotebookRoutes,
 } from "./learningNotebookRoutes.js";
@@ -311,6 +312,13 @@ async function getDb() {
         db.collection("questionPapers").createIndex({ userId: 1, academicProfileId: 1, createdAt: -1 }),
         db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
         db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, subjectName: 1 }),
+        db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex(
+          { userId: 1, academicProfileId: 1, artifactKind: 1 },
+          {
+            unique: true,
+            partialFilterExpression: { artifactKind: PLACEMENT_WORKSPACE_ARTIFACT_KIND },
+          },
+        ),
         db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, completedAt: -1 }),
         db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, packId: 1, completedAt: -1 }),
         db.collection(KIDS_PARENT_SETTINGS_COLLECTION).createIndex({ userId: 1 }, { unique: true }),

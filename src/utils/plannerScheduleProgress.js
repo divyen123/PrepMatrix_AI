@@ -152,6 +152,10 @@ export function isPlannerTaskRecheckPending(task) {
   return task?.[PLANNER_RECHECK_PENDING_FIELD] === true;
 }
 
+export function isPlannerMemoryReviewTask(task) {
+  return task?.source === "memory_review" || task?.source === "memory-decay";
+}
+
 export function isPlannerTaskPending(task, completed = []) {
   return !isPlannerTaskCompleted(task, completed) || isPlannerTaskRecheckPending(task);
 }
@@ -524,6 +528,37 @@ export function reopenPlannerTask(schedule, completed, dayIndex, taskIndex) {
     }
     return reopenedTask;
   });
+}
+
+/**
+ * Resolves the exact memory-review occurrence opened from Planner. A completed
+ * occurrence is reopened without removing its historical completion so only
+ * the recall session can finish the redo.
+ */
+export function preparePlannerMemoryReviewNavigation(
+  schedule,
+  completed,
+  dayIndex,
+  taskIndex,
+) {
+  const safeSchedule = Array.isArray(schedule) ? schedule : [];
+  const task = getTask(safeSchedule, dayIndex, taskIndex);
+  if (!isPlannerMemoryReviewTask(task)) return { schedule: safeSchedule, task: null };
+
+  if (!isPlannerTaskCompleted(task, completed) || isPlannerTaskRecheckPending(task)) {
+    return { schedule: safeSchedule, task };
+  }
+
+  const reopenedSchedule = reopenPlannerTask(
+    safeSchedule,
+    completed,
+    dayIndex,
+    taskIndex,
+  );
+  return {
+    schedule: reopenedSchedule,
+    task: getTask(reopenedSchedule, dayIndex, taskIndex) || task,
+  };
 }
 
 /**

@@ -5,6 +5,7 @@ import {
   getStartLearningArtifactKind,
   isMedicalTrainingHash,
   isPlacementPrepHash,
+  isPlacementWorkspaceNotebook,
   sortStartLearningNotebooks,
   shouldShowStartLearningHero,
 } from "./startLearningWorkspace.js";
@@ -36,6 +37,7 @@ test("derives standalone saved-placement rows without mixing ordinary notebooks"
   assert.equal(notes[0].title, "Backend intern");
   assert.equal(notes[0].topicCount, 2);
   assert.equal(notes[0].notebook, notebooks[1]);
+  assert.equal(notes[0].sourceLabel, "");
 });
 
 test("sorts pinned notebook and placement histories above recent unpinned work", () => {
@@ -63,6 +65,48 @@ test("sorts pinned notebook and placement histories above recent unpinned work",
     },
   }]);
   assert.deepEqual(notes.map((note) => note.historyId), ["older-pinned", "recent"]);
+});
+
+test("hides the placement workspace from notebook history while retaining its preparation history", () => {
+  const hiddenWorkspace = {
+    id: "placement-workspace-1",
+    artifactKind: "placement-workspace",
+    title: "Placement workspace",
+    updatedAt: "2026-09-03T11:00:00.000Z",
+    careerPreparation: {
+      history: [{
+        id: "custom-context-history",
+        generatedAt: "2026-09-03T11:00:00.000Z",
+        pinned: true,
+        preparationSource: "REST API authentication and authorization",
+        analysis: {
+          targetRole: "Backend intern",
+          topics: [{ title: "Authentication" }],
+        },
+      }],
+    },
+  };
+  const visibleNotebook = {
+    id: "notebook-1",
+    title: "Data Structures",
+    updatedAt: "2026-09-02T11:00:00.000Z",
+  };
+
+  assert.equal(isPlacementWorkspaceNotebook(hiddenWorkspace), true);
+  assert.equal(isPlacementWorkspaceNotebook(visibleNotebook), false);
+  assert.deepEqual(
+    sortStartLearningNotebooks([hiddenWorkspace, visibleNotebook]).map((item) => item.id),
+    ["notebook-1"],
+  );
+
+  const [note] = getSavedPlacementNotes([hiddenWorkspace, visibleNotebook]);
+  assert.equal(note.notebookId, hiddenWorkspace.id);
+  assert.deepEqual(note.preparationSource, {
+    context: "REST API authentication and authorization",
+    label: "REST API authentication and authorization",
+    type: "custom",
+  });
+  assert.equal(note.sourceLabel, "REST API authentication and authorization");
 });
 
 test("resolves the visible artifact kind from intake and workspace state", () => {

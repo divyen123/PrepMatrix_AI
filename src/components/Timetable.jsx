@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { Download, LockOpen, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowRight, Download, LockOpen, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import successSound from "../assets/success.mp3";
 import PlannerUnlockQuizDialog from "./PlannerUnlockQuizDialog";
@@ -22,9 +22,11 @@ import {
   getPlannerDayProgression,
   getPlannerNextUnlockCandidateIndex,
   getPlannerSessionLabel,
+  isPlannerMemoryReviewTask,
   isPlannerTaskCompleted,
   isPlannerTaskPending,
   isPlannerTaskRecheckPending,
+  preparePlannerMemoryReviewNavigation,
   reopenPlannerTask,
 } from "../utils/plannerScheduleProgress";
 import { buildPlannerUnlockQuizRequest } from "../utils/plannerUnlockQuiz";
@@ -72,6 +74,7 @@ export function PlannerScheduleDay({
   isUnlockCandidate,
   item,
   onComplete,
+  onOpenMemoryReview = () => {},
   onReschedule,
   onUnlock,
   schedule,
@@ -123,6 +126,7 @@ export function PlannerScheduleDay({
         <div className="task-chip revision">Revision block</div>
       ) : (
         item.tasks?.map((task, taskIndex) => {
+          const memoryReviewTask = isPlannerMemoryReviewTask(task);
           const wasCompleted = isPlannerTaskCompleted(task, completed);
           const isRecheckPending = isPlannerTaskRecheckPending(task);
           const showCompletedState = wasCompleted && !isRecheckPending;
@@ -137,7 +141,32 @@ export function PlannerScheduleDay({
               key={task.task + "-" + taskIndex}
             >
               <span className="planner-task-control-slot">
-                {showCompletedState ? (
+                {memoryReviewTask ? (
+                  <button
+                    aria-label={showCompletedState
+                      ? "Redo memory recall session for " + task.task
+                      : (isRecheckPending ? "Continue" : "Open")
+                        + " memory recall session for " + task.task}
+                    className={
+                      "planner-memory-review-btn"
+                      + (showCompletedState ? " is-redo" : " is-open")
+                    }
+                    disabled={progression.isLocked}
+                    onClick={() => onOpenMemoryReview(dayIndex, taskIndex)}
+                    title={showCompletedState
+                      ? "Redo this memory recall session"
+                      : isRecheckPending
+                        ? "Continue this memory recall session"
+                        : "Open this memory recall session"}
+                    type="button"
+                  >
+                    {showCompletedState ? (
+                      <RotateCcw aria-hidden="true" size={15} />
+                    ) : (
+                      <ArrowRight aria-hidden="true" size={16} />
+                    )}
+                  </button>
+                ) : showCompletedState ? (
                   <button
                     aria-label={"Reschedule " + task.task}
                     className="planner-reschedule-btn"
@@ -189,6 +218,7 @@ function Timetable({
   scheduleStartDate,
   setScheduleStartDate,
   canManageSchedule = true,
+  onOpenMemoryReview = () => {},
   onOpenSubjects = () => {},
   onRequestParentAccess,
 }) {
@@ -559,6 +589,18 @@ function Timetable({
     if (updatedSchedule !== schedule) setSchedule(updatedSchedule);
   };
 
+  const handleOpenMemoryReview = (dayIndex, taskIndex) => {
+    const navigation = preparePlannerMemoryReviewNavigation(
+      schedule,
+      completed,
+      dayIndex,
+      taskIndex,
+    );
+    if (!navigation.task) return;
+    if (navigation.schedule !== schedule) setSchedule(navigation.schedule);
+    onOpenMemoryReview(navigation.task);
+  };
+
   const requestClearSchedule = () => {
     if (!canManageSchedule) {
       requestParentAccess();
@@ -856,6 +898,7 @@ function Timetable({
               item={item}
               key={item.day ?? dayIndex}
               onComplete={toggleComplete}
+              onOpenMemoryReview={handleOpenMemoryReview}
               onReschedule={handleRescheduleTask}
               onUnlock={openUnlockQuiz}
               schedule={schedule}

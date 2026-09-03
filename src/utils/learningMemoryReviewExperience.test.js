@@ -197,6 +197,63 @@ test("a completed memory check becomes actionable when explicitly rescheduled", 
   );
 });
 
+test("an exact routed task remains resolvable outside today's due queue", () => {
+  const first = buildMemoryReviewExperience({
+    notebooks: [notebook()],
+    schedule: [{ day: 1, date: "2026-07-04", tasks: [] }],
+    scheduleStartDate: "2026-07-04",
+    completed: [],
+    today: "2026-07-04T08:00:00.000Z",
+  });
+  const originalEntry = first.entries[0];
+  const originalQuiz = createMemoryReviewQuiz(originalEntry, { dateKey: first.dateKey });
+  const firstResult = buildMemoryReviewSubmission({
+    entry: originalEntry,
+    quiz: originalQuiz,
+    ratings: Object.fromEntries(originalQuiz.activeRecallPrompts.map((question) => (
+      [question.id, "recalled"]
+    ))),
+    confidence: 4,
+    completedAt: "2026-07-04T08:03:00.000Z",
+  });
+  const completed = [originalEntry.task.task];
+  const routed = buildMemoryReviewExperience({
+    notebooks: [firstResult.notebook],
+    schedule: first.schedule,
+    scheduleStartDate: "2026-07-04",
+    completed,
+    requestedTaskId: originalEntry.task.id,
+    today: "2026-07-05T08:00:00.000Z",
+  });
+
+  assert.equal(routed.dueCandidates.length, 0);
+  assert.equal(routed.entries.length, 1);
+  assert.equal(routed.entries[0].requested, true);
+  assert.equal(routed.entries[0].completed, true);
+});
+
+test("a routed unit key finds the exact legacy occurrence when its task ID is absent", () => {
+  const legacyTask = {
+    source: "memory-decay",
+    sourceLearningProjectId: "notebook-biology",
+    sourceLearningNodeId: "topic-mitosis",
+    task: "3-minute memory check: Biology - Mitosis",
+    topic: "Mitosis",
+    unitKey: "memory-decay:notebook-biology:topic-mitosis:2026-07-04",
+  };
+  const result = buildMemoryReviewExperience({
+    notebooks: [notebook()],
+    schedule: [{ day: 1, date: "2026-07-04", tasks: [legacyTask] }],
+    completed: [],
+    requestedUnitKey: "memory-review:notebook-biology:topic-mitosis:2026-07-04",
+    today: "2026-07-05T08:00:00.000Z",
+  });
+
+  const [requestedEntry] = result.entries.filter((entry) => entry.requested);
+  assert.ok(requestedEntry);
+  assert.equal(requestedEntry.candidate.nodeId, "topic-mitosis");
+});
+
 test("finishing a recheck clears only its exact memory task occurrence", () => {
   const task = {
     id: "memory-review-a",

@@ -19,6 +19,7 @@ import WorktreeMapper from "../components/WorktreeMapper";
 import PredictiveMemoryReview from "../components/PredictiveMemoryReview";
 import api from "../utils/apiClient";
 import { mergeMemoryReviewSchedule } from "../utils/learningMemoryReviewExperience.js";
+import { buildMemoryReviewRoute } from "../utils/memoryReviewNavigation.js";
 import { subscribeToLocalDateChanges } from "../utils/localDateRefresh.js";
 import "./PlannerPage.css";
 
@@ -172,6 +173,9 @@ function PlannerPage({
     return response.notebook;
   }, []);
 
+  const handleOpenScheduledMemoryReview = useCallback((task) => {
+    navigate(buildMemoryReviewRoute(task));
+  }, [navigate]);
 
   const handleEnableReminders = async () => {
     if (enablingReminders) return;
@@ -320,6 +324,7 @@ function PlannerPage({
                   academicProfileDataId={academicProfileDataId}
                   canManageSchedule={!kidsMode || parentAccessGranted}
                   completed={completed}
+                  onOpenMemoryReview={handleOpenScheduledMemoryReview}
                   onOpenSubjects={() => navigate("/subjects#subject-library")}
                   onRequestParentAccess={() => navigate("/kids", {
                     state: { parentAccess: "planner", returnTo: "/planner/schedule" },

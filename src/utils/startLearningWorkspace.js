@@ -1,4 +1,8 @@
 import { getPlacementHistory } from "./placementPreparation.js";
+import {
+  PLACEMENT_WORKSPACE_ARTIFACT_KIND,
+  normalizePlacementPreparationSource,
+} from "./learningNotebook.js";
 
 function cleanText(value, maxLength = 180) {
   return String(value ?? "").replace(/\s+/gu, " ").trim().slice(0, maxLength);
@@ -21,6 +25,11 @@ export function getSavedPlacementNotes(notebooks = []) {
   return notebooks.flatMap((notebook) => getPlacementHistory(notebook).flatMap((entry) => {
     const analysis = entry?.analysis;
     if (!analysis || !notebook?.id) return [];
+    const preparationSource = normalizePlacementPreparationSource(entry.preparationSource);
+    const sourceLabel = cleanText(
+      preparationSource.label || preparationSource.context,
+      180,
+    );
     return [{
       analysis,
       generatedAt: entry.generatedAt,
@@ -29,6 +38,8 @@ export function getSavedPlacementNotes(notebooks = []) {
       notebook,
       notebookId: notebook.id,
       pinned: entry.pinned === true,
+      preparationSource,
+      sourceLabel,
       title: cleanText(analysis.targetRole) || "Placement preparation",
       topicCount: Array.isArray(analysis.topics) ? analysis.topics.length : 0,
       updatedAt: entry.generatedAt || notebook.updatedAt || notebook.createdAt || "",
@@ -40,14 +51,20 @@ export function getSavedPlacementNotes(notebooks = []) {
   });
 }
 
+export function isPlacementWorkspaceNotebook(notebook) {
+  return String(notebook?.artifactKind || "").trim() === PLACEMENT_WORKSPACE_ARTIFACT_KIND;
+}
+
 export function sortStartLearningNotebooks(notebooks = []) {
-  return [...(Array.isArray(notebooks) ? notebooks : [])].sort((left, right) => {
-    const pinOrder = Number(right?.pinned === true) - Number(left?.pinned === true);
-    if (pinOrder) return pinOrder;
-    const rightTime = new Date(right?.updatedAt || right?.createdAt || 0).getTime() || 0;
-    const leftTime = new Date(left?.updatedAt || left?.createdAt || 0).getTime() || 0;
-    return rightTime - leftTime;
-  });
+  return [...(Array.isArray(notebooks) ? notebooks : [])]
+    .filter((notebook) => !isPlacementWorkspaceNotebook(notebook))
+    .sort((left, right) => {
+      const pinOrder = Number(right?.pinned === true) - Number(left?.pinned === true);
+      if (pinOrder) return pinOrder;
+      const rightTime = new Date(right?.updatedAt || right?.createdAt || 0).getTime() || 0;
+      const leftTime = new Date(left?.updatedAt || left?.createdAt || 0).getTime() || 0;
+      return rightTime - leftTime;
+    });
 }
 
 export function isPlacementPrepHash(value) {

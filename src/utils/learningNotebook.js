@@ -10,6 +10,8 @@ export const MAX_LEARNING_TOPICS = 36;
 export const MAX_LEARNING_SUBTOPICS = 12;
 export const MAX_LEARNING_MIND_MAP_NODES = 180;
 export const MAX_LEARNING_CAREER_TOPICS = 12;
+export const MAX_PLACEMENT_PREPARATION_SOURCE_LENGTH = 3000;
+export const PLACEMENT_WORKSPACE_ARTIFACT_KIND = "placement-workspace";
 export const MEDICAL_TRAINING_EDUCATIONAL_NOTICE =
   "Educational conceptual practice only; not medical advice, diagnosis, treatment, prescribing, dosing, or emergency guidance.";
 
@@ -93,6 +95,50 @@ function cleanContent(value, max = 4000) {
     .replace(/\n{3,}/gu, "\n\n")
     .trim()
     .slice(0, max);
+}
+
+export function normalizePlacementPreparationSource(value, fallback = "") {
+  const source = value && typeof value === "object"
+    ? value
+    : { context: value };
+  const fallbackSource = fallback && typeof fallback === "object"
+    ? fallback
+    : { context: fallback };
+  const sourceLabel = cleanInline(
+    source.label ?? source.title ?? source.name,
+    180,
+  );
+  const fallbackLabel = cleanInline(
+    fallbackSource.label ?? fallbackSource.title ?? fallbackSource.name,
+    180,
+  );
+  const context = cleanContent(
+    source.context ?? source.customContext ?? source.text ?? source.value,
+    MAX_PLACEMENT_PREPARATION_SOURCE_LENGTH,
+  ) || cleanContent(
+    fallbackSource.context
+      ?? fallbackSource.customContext
+      ?? fallbackSource.text
+      ?? fallbackSource.value,
+    MAX_PLACEMENT_PREPARATION_SOURCE_LENGTH,
+  ) || sourceLabel || fallbackLabel;
+  const label = sourceLabel
+    || cleanInline(context, 180)
+    || fallbackLabel;
+  const rawType = cleanInline(source.type ?? source.kind, 40).toLocaleLowerCase()
+    || cleanInline(fallbackSource.type ?? fallbackSource.kind, 40).toLocaleLowerCase();
+  const type = rawType === "notebook" ? "notebook" : context || label ? "custom" : "";
+  const notebookId = cleanInline(
+    source.notebookId ?? fallbackSource.notebookId,
+    120,
+  );
+
+  return {
+    context,
+    label,
+    ...(notebookId ? { notebookId } : {}),
+    type,
+  };
 }
 
 function cleanIdentifier(value, fallback) {
@@ -935,6 +981,8 @@ function normalizeArtifactHistory(value, {
   analysisKey,
   fallbackAnalysis,
   fallbackGeneratedAt,
+  fallbackPreparationSource,
+  includePreparationSource = false,
   normalizeAnalysis,
   prefix,
 } = {}) {
@@ -950,7 +998,7 @@ function normalizeArtifactHistory(value, {
       source.generatedAt ?? source.createdAt ?? source.updatedAt,
       new Date(fallbackGeneratedAt || 0),
     );
-    return [{
+    const normalizedEntry = {
       id: normalizeArtifactHistoryId(
         source.id,
         `${prefix}-${new Date(generatedAt).getTime() || 0}-${index + 1}`,
@@ -960,7 +1008,14 @@ function normalizeArtifactHistory(value, {
       pinned: source.pinned === true,
       providerModel: cleanInline(source.providerModel ?? source.model, 160),
       source: cleanInline(source.source, 120),
-    }];
+    };
+    if (includePreparationSource) {
+      normalizedEntry.preparationSource = normalizePlacementPreparationSource(
+        source.preparationSource ?? source.customContext ?? source.context,
+        fallbackPreparationSource,
+      );
+    }
+    return [normalizedEntry];
   });
 
   if (!normalized.length) {
@@ -970,14 +1025,20 @@ function normalizeArtifactHistory(value, {
       : analysis.topics.length > 0;
     if (hasContent) {
       const generatedAt = normalizeIsoDate(fallbackGeneratedAt, new Date(0));
-      normalized.push({
+      const fallbackEntry = {
         id: `${prefix}-legacy`,
         analysis,
         generatedAt,
         pinned: false,
         providerModel: "",
         source: "legacy-saved-analysis",
-      });
+      };
+      if (includePreparationSource) {
+        fallbackEntry.preparationSource = normalizePlacementPreparationSource(
+          fallbackPreparationSource,
+        );
+      }
+      normalized.push(fallbackEntry);
     }
   }
 
@@ -1057,6 +1118,10 @@ function normalizeCareerPreparation(value, profile, options = {}) {
     analysisKey: "topicAnalysis",
     fallbackAnalysis: topicAnalysis,
     fallbackGeneratedAt: options.fallbackGeneratedAt,
+    fallbackPreparationSource: source.preparationSource
+      ?? source.customContext
+      ?? options.preparationSource,
+    includePreparationSource: true,
     normalizeAnalysis: normalizeLearningCareerTopicAnalysis,
     prefix: "placement",
   });
@@ -1191,6 +1256,15 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
     options.updatedAt ?? source?.updatedAt,
     now,
   );
+  const artifactKind = cleanInline(source?.artifactKind, 80) === PLACEMENT_WORKSPACE_ARTIFACT_KIND
+    ? PLACEMENT_WORKSPACE_ARTIFACT_KIND
+    : "";
+  const preparationSource = artifactKind
+    ? normalizePlacementPreparationSource(
+      source?.preparationSource ?? source?.customContext ?? source?.context,
+      options.preparationSource,
+    )
+    : "";
   const learningNotebookContext = {
     ...(notebookId ? { id: notebookId } : {}),
     subjectName,
@@ -1213,6 +1287,7 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
 
   return {
     ...(notebookId ? { id: notebookId } : {}),
+    ...(artifactKind ? { artifactKind, preparationSource } : {}),
     pinned: source?.pinned === true,
     title: cleanInline(source?.title, 180)
       || `${subjectName}${chapterNames.length === 1 ? ` - ${chapterNames[0]}` : ""}`,
@@ -1236,6 +1311,7 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
       options.profile || {},
       {
         fallbackGeneratedAt: updatedAt,
+        preparationSource,
         preserveMedicalLegacy: options.preserveLegacyMedicalCareer === true,
       },
     ),

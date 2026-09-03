@@ -83,8 +83,8 @@ import {
   clearPlacementHistory,
   deletePlacementHistoryEntry,
   getPlacementHistoryEntry,
-  getSavedPlacementAnalysis,
   mergePlacementDraft,
+  normalizePlacementPreparationSource,
   setPlacementHistoryPinned,
 } from "../utils/placementPreparation";
 import {
@@ -104,6 +104,7 @@ import {
 import {
   getSavedPlacementNotes,
   getStartLearningArtifactKind,
+  isPlacementWorkspaceNotebook,
   isMedicalTrainingHash,
   isPlacementPrepHash,
   sortStartLearningNotebooks,
@@ -135,6 +136,8 @@ const LEARNING_SOURCE_ACCEPT = `${LEARNING_ATTACHMENT_ACCEPT},${TEXT_SOURCE_ACCE
 const MAX_TEXT_SOURCE_BYTES = 30_000;
 const MAX_TEXT_TOTAL_CHARS = 60_000;
 const MAX_LEARNING_PROMPT_CHARS = 3_000;
+const MAX_PLACEMENT_CONTEXT_CHARS = 3_000;
+const CUSTOM_PLACEMENT_SOURCE_VALUE = "__custom_context__";
 const LEARNING_BACKGROUND_FEATURES = Object.freeze({
   career: "learning-career-analysis",
   medical: "learning-medical-analysis",
@@ -549,16 +552,37 @@ function careerTopicCards(value, fallback) {
 
 function placementInputValues(notebook, draft, userProfile = {}, historyId = "") {
   const matchingDraft = draft?.notebookId === notebook?.id ? draft : null;
-  const analysis = matchingDraft?.analysis || getSavedPlacementAnalysis(notebook, historyId) || null;
+  const historyEntry = getPlacementHistoryEntry(notebook, historyId);
+  const analysis = matchingDraft?.analysis || historyEntry?.analysis || null;
+  const preparationSource = normalizePlacementPreparationSource(
+    matchingDraft?.preparationSource || historyEntry?.preparationSource,
+    notebook?.id ? {
+      context: [notebook.title, notebook.subjectName].filter(Boolean).join(" - "),
+      label: notebook.title || notebook.subjectName,
+      notebookId: notebook.id,
+      type: "notebook",
+    } : "",
+  );
   const topics = listFrom(analysis?.topics)
     .map((topic) => cleanText(topic?.title || topic, 140))
     .filter(Boolean)
     .slice(0, 12);
   return {
+    context: preparationSource.type === "custom"
+      ? cleanText(
+          preparationSource.context || preparationSource.label,
+          MAX_PLACEMENT_CONTEXT_CHARS,
+        )
+      : "",
     role: cleanText(
       analysis?.targetRole || userProfile?.primaryGoal || userProfile?.careerGoal,
       160,
     ),
+    sourceValue: preparationSource.type === "notebook" && (
+      preparationSource.notebookId || notebook?.id
+    )
+      ? preparationSource.notebookId || notebook.id
+      : CUSTOM_PLACEMENT_SOURCE_VALUE,
     topics: topics.join("\n"),
   };
 }
@@ -567,6 +591,14 @@ function formatNotebookDate(value) {
   const date = new Date(value || Date.now());
   if (Number.isNaN(date.getTime())) return "Recently updated";
   return new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" }).format(date);
+}
+
+function placementHistorySourceLabel(note) {
+  if (note?.preparationSource?.type === "notebook") {
+    return `From notebook: ${note.sourceLabel || note.notebook?.title || "Learning notebook"}`;
+  }
+  if (note?.sourceLabel) return `Context: ${note.sourceLabel}`;
+  return `From ${note?.notebook?.title || "placement history"}`;
 }
 
 function pdfFileName(notebook) {
@@ -626,7 +658,7 @@ function StartLearningPage({
   const masterySaveSequenceRef = useRef(0);
   const notebookSaveChainRef = useRef(Promise.resolve());
   const activeNotebookRef = useRef(null);
-  const careerAnalysisRequestRef = useRef({ notebookId: "", pending: false, sequence: 0 });
+  const careerAnalysisRequestRef = useRef({ context: "", notebookId: "", pending: false, sequence: 0 });
   const medicalAnalysisRequestRef = useRef({ notebookId: "", pending: false, sequence: 0 });
   const [notebooks, setNotebooks] = useState([]);
   const [notebooksLoading, setNotebooksLoading] = useState(true);
@@ -634,6 +666,8 @@ function StartLearningPage({
   const [activeNotebook, setActiveNotebook] = useState(null);
   const [workspaceView, setWorkspaceView] = useState("intake");
   const [intakeMode, setIntakeMode] = useState(null);
+  const [careerSourceValue, setCareerSourceValue] = useState(CUSTOM_PLACEMENT_SOURCE_VALUE);
+  const [careerContext, setCareerContext] = useState("");
   const [careerRole, setCareerRole] = useState("");
   const [careerTopics, setCareerTopics] = useState("");
   const [careerAnalyzing, setCareerAnalyzing] = useState(false);
@@ -740,9 +774,18 @@ function StartLearningPage({
     () => getSavedPlacementNotes(notebooks),
     [notebooks],
   );
-  const savedMedicalTrainingNotes = useMemo(
-    () => getSavedMedicalTrainingNotes(notebooks),
+  const courseNotebooks = useMemo(
+    () => notebooks.filter((notebook) => !isPlacementWorkspaceNotebook(notebook)),
     [notebooks],
+  );
+  const selectedCareerSourceNotebook = useMemo(
+    () => courseNotebooks.find((notebook) => notebook.id === careerSourceValue) || null,
+    [careerSourceValue, courseNotebooks],
+  );
+  const usesCustomPlacementSource = careerSourceValue === CUSTOM_PLACEMENT_SOURCE_VALUE;
+  const savedMedicalTrainingNotes = useMemo(
+    () => getSavedMedicalTrainingNotes(courseNotebooks),
+    [courseNotebooks],
   );
   const notebookHistory = useMemo(
     () => sortStartLearningNotebooks(notebooks),
@@ -845,8 +888,18 @@ function StartLearningPage({
   }, [activeNotebook]);
 
   useEffect(() => {
+    if (
+      notebooksLoading
+      || careerSourceValue === CUSTOM_PLACEMENT_SOURCE_VALUE
+      || selectedCareerSourceNotebook
+    ) return;
+    setCareerSourceValue(CUSTOM_PLACEMENT_SOURCE_VALUE);
+  }, [careerSourceValue, notebooksLoading, selectedCareerSourceNotebook]);
+
+  useEffect(() => {
     if (placementEligible) return;
     careerAnalysisRequestRef.current = {
+      context: "",
       notebookId: "",
       pending: false,
       sequence: careerAnalysisRequestRef.current.sequence + 1,
@@ -882,14 +935,17 @@ function StartLearningPage({
     return () => window.clearInterval(timer);
   }, []);
 
-  const nodes = useMemo(() => learningNodes(activeNotebook), [activeNotebook]);
+  const nodes = useMemo(
+    () => isPlacementWorkspaceNotebook(activeNotebook) ? [] : learningNodes(activeNotebook),
+    [activeNotebook],
+  );
   const masteryNotebooks = useMemo(() => {
-    if (!activeNotebook) return notebooks;
+    if (!activeNotebook || isPlacementWorkspaceNotebook(activeNotebook)) return courseNotebooks;
     return [
       activeNotebook,
-      ...notebooks.filter((notebook) => notebook.id !== activeNotebook.id),
+      ...courseNotebooks.filter((notebook) => notebook.id !== activeNotebook.id),
     ];
-  }, [activeNotebook, notebooks]);
+  }, [activeNotebook, courseNotebooks]);
   const activeLearningProject = useMemo(() => ({
     id: activeNotebook?.id || "",
     subjectName: activeNotebook?.subjectName || "",
@@ -1052,14 +1108,28 @@ function StartLearningPage({
     setActiveNotebook(normalized);
     setActiveCareerHistoryId(selectedHistory?.id || "");
     setCareerError("");
+    setCareerSourceValue(fields.sourceValue);
+    setCareerContext(fields.context);
     setCareerRole(fields.role);
     setCareerTopics(fields.topics);
     return true;
   };
 
+  const selectCareerPreparationSource = (sourceValue) => {
+    if (careerAnalyzing || saving) return;
+    setCareerSourceValue(sourceValue);
+    setCareerError("");
+    if (sourceValue === CUSTOM_PLACEMENT_SOURCE_VALUE) return;
+    const notebook = courseNotebooks.find((item) => item.id === sourceValue);
+    if (!notebook) return;
+    const normalized = normalizeNotebook(notebook);
+    activeNotebookRef.current = normalized;
+    setActiveNotebook(normalized);
+  };
+
   const selectMedicalNotebook = (notebookId, historyId = "") => {
     if (careerAnalyzing || historyBusy || medicalAnalyzing || saving) return false;
-    const notebook = notebooks.find((item) => item.id === notebookId);
+    const notebook = courseNotebooks.find((item) => item.id === notebookId);
     if (!notebook) return false;
     const normalized = normalizeNotebook(notebook);
     const selectedHistory = getMedicalTrainingHistoryEntry(normalized, historyId);
@@ -1087,13 +1157,7 @@ function StartLearningPage({
 
   const openPlacementIntake = () => {
     if (!placementEligible || careerAnalyzing || medicalAnalyzing || saving) return;
-    const draftNotebook = careerDraft
-      ? notebooks.find((notebook) => notebook.id === careerDraft.notebookId)
-      : null;
-    const targetNotebook = draftNotebook || activeNotebook || notebooks[0] || null;
-    if (targetNotebook) {
-      selectPlacementNotebook(targetNotebook.id);
-    } else {
+    if (!careerRole && !careerTopics) {
       const fields = placementInputValues(null, null, userProfile);
       setCareerRole(fields.role);
       setCareerTopics(fields.topics);
@@ -1106,9 +1170,12 @@ function StartLearningPage({
   const openMedicalIntake = () => {
     if (!medicalEligible || careerAnalyzing || medicalAnalyzing || saving) return;
     const draftNotebook = medicalDraft
-      ? notebooks.find((notebook) => notebook.id === medicalDraft.notebookId)
+      ? courseNotebooks.find((notebook) => notebook.id === medicalDraft.notebookId)
       : null;
-    const targetNotebook = draftNotebook || activeNotebook || notebooks[0] || null;
+    const targetNotebook = draftNotebook
+      || (activeNotebook && !isPlacementWorkspaceNotebook(activeNotebook) ? activeNotebook : null)
+      || courseNotebooks[0]
+      || null;
     if (targetNotebook) {
       selectMedicalNotebook(targetNotebook.id);
     } else {
@@ -1174,7 +1241,7 @@ function StartLearningPage({
     setNotebooksLoading(true);
     setNotebooksError("");
     try {
-      const payload = await api.get("/api/learning-notebooks", {
+      const payload = await api.get("/api/learning-notebooks?includePlacementWorkspace=true", {
         academicProfileId: academicProfileDataId,
         timeoutMs: 30000,
       });
@@ -1200,36 +1267,15 @@ function StartLearningPage({
 
   useEffect(() => {
     if (
-      intakeMode !== "placement"
-      || activeNotebook
-      || careerAnalyzing
-      || saving
-      || !notebooks.length
-    ) return;
-    const notebook = careerDraft
-      ? notebooks.find((item) => item.id === careerDraft.notebookId)
-      : notebooks[0];
-    if (!notebook) return;
-    const normalized = normalizeNotebook(notebook);
-    const fields = placementInputValues(normalized, careerDraft, userProfile);
-    activeNotebookRef.current = normalized;
-    setActiveNotebook(normalized);
-    setCareerRole(fields.role);
-    setCareerTopics(fields.topics);
-    setCareerError("");
-  }, [activeNotebook, careerAnalyzing, careerDraft, intakeMode, notebooks, saving, userProfile]);
-
-  useEffect(() => {
-    if (
       intakeMode !== "medical"
-      || activeNotebook
+      || (activeNotebook && !isPlacementWorkspaceNotebook(activeNotebook))
       || medicalAnalyzing
       || saving
-      || !notebooks.length
+      || !courseNotebooks.length
     ) return;
     const notebook = medicalDraft
-      ? notebooks.find((item) => item.id === medicalDraft.notebookId)
-      : notebooks[0];
+      ? courseNotebooks.find((item) => item.id === medicalDraft.notebookId)
+      : courseNotebooks[0];
     if (!notebook) return;
     const normalized = normalizeNotebook(notebook);
     const fields = getMedicalTrainingInputValues(normalized, medicalDraft, userProfile);
@@ -1238,7 +1284,7 @@ function StartLearningPage({
     setMedicalFocus(fields.focus);
     setMedicalTopics(fields.topics);
     setMedicalError("");
-  }, [activeNotebook, intakeMode, medicalAnalyzing, medicalDraft, notebooks, saving, userProfile]);
+  }, [activeNotebook, courseNotebooks, intakeMode, medicalAnalyzing, medicalDraft, saving, userProfile]);
 
   useEffect(() => {
     if (!plannerDialogOpen) return;
@@ -1476,8 +1522,23 @@ function StartLearningPage({
     const requestedTopics = parseCareerTopics(request.topics);
     const targetRole = cleanText(request.targetRole, 160);
     const sourceNotebook = payload?.notebook ? normalizeNotebook(payload.notebook) : null;
+    const usesNotebookSource = request.sourceMode === "notebook"
+      || Boolean(cleanText(request.notebookId, 120));
+    const notebookSource = sourceNotebook
+      || (activeNotebookRef.current?.id === requestNotebookId ? activeNotebookRef.current : null);
+    const preparationSource = normalizePlacementPreparationSource(usesNotebookSource ? {
+      context: [notebookSource?.title, notebookSource?.subjectName].filter(Boolean).join(" - "),
+      label: notebookSource?.title || notebookSource?.subjectName || "Learning notebook",
+      notebookId: requestNotebookId,
+      type: "notebook",
+    } : {
+      context: request.context,
+      label: request.context,
+      type: "custom",
+    });
     const draft = createPlacementDraft(payload, {
       notebookId: requestNotebookId,
+      preparationSource,
       requestedTopics,
       targetRole,
     });
@@ -1502,6 +1563,12 @@ function StartLearningPage({
     ]);
     setCareerDraft(draft);
     setActiveCareerHistoryId(draft.id);
+    setCareerSourceValue(usesNotebookSource
+      ? requestNotebookId
+      : CUSTOM_PLACEMENT_SOURCE_VALUE);
+    setCareerContext(usesNotebookSource
+      ? ""
+      : draft.preparationSource?.context || preparationSource.context);
     setCareerRole(draft.analysis.targetRole || targetRole);
     setCareerTopics(requestedTopics.join("\n"));
     setCareerError("");
@@ -1697,24 +1764,24 @@ function StartLearningPage({
     runNotebookAnalysis(analysisRequest);
   };
 
-  const runCareerAnalysis = async ({ notebookId, targetRole, topics }) => {
+  const runCareerAnalysis = async ({ context, notebookId, sourceMode, targetRole, topics }) => {
     if (hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)) {
       setCareerError(getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }));
       return;
     }
 
     const requestNotebookId = cleanText(notebookId, 120);
+    const requestContext = requestNotebookId
+      ? ""
+      : cleanText(context, MAX_PLACEMENT_CONTEXT_CHARS);
     if (
-      !requestNotebookId
+      (!requestNotebookId && !requestContext)
       || careerAnalysisRequestRef.current.pending
       || careerBackgroundTask
     ) return;
-    if (activeNotebookRef.current?.id !== requestNotebookId) {
-      setCareerError("The preparation source changed. Review the selected source and try again.");
-      return;
-    }
     const sequence = careerAnalysisRequestRef.current.sequence + 1;
     careerAnalysisRequestRef.current = {
+      context: requestContext,
       notebookId: requestNotebookId,
       pending: true,
       sequence,
@@ -1722,7 +1789,9 @@ function StartLearningPage({
     setCareerAnalyzing(true);
     setCareerError("");
     const request = {
+      context: requestContext,
       notebookId: requestNotebookId,
+      sourceMode: sourceMode === "notebook" || requestNotebookId ? "notebook" : "custom",
       targetRole: cleanText(targetRole, 160),
       topics: parseCareerTopics(topics),
     };
@@ -1731,9 +1800,13 @@ function StartLearningPage({
       await runTask({
         academicProfileId: backgroundProfileId,
         execute: async () => {
+          const endpoint = request.notebookId
+            ? `/api/learning-notebooks/${encodeURIComponent(request.notebookId)}/career-analyze`
+            : "/api/learning-notebooks/career-analyze";
           const result = await api.post(
-            `/api/learning-notebooks/${encodeURIComponent(requestNotebookId)}/career-analyze`,
+            endpoint,
             {
+              ...(request.notebookId ? {} : { context: request.context }),
               targetRole: request.targetRole,
               topics: request.topics,
               privacyConsent: {
@@ -1774,13 +1847,22 @@ function StartLearningPage({
       setCareerError(careerEligibility.reason);
       return;
     }
-    const notebookId = activeNotebook?.id || "";
-    if (!notebookId) {
-      setCareerError("Choose a notebook for this placement preparation.");
+    const context = usesCustomPlacementSource
+      ? cleanText(careerContext, MAX_PLACEMENT_CONTEXT_CHARS)
+      : "";
+    const notebookId = usesCustomPlacementSource ? "" : selectedCareerSourceNotebook?.id || "";
+    if (usesCustomPlacementSource && !context) {
+      setCareerError("Describe the topic or context you want to prepare for.");
+      return;
+    }
+    if (!usesCustomPlacementSource && !notebookId) {
+      setCareerError("Choose an available notebook or use your own context.");
       return;
     }
     const request = {
+      context,
       notebookId,
+      sourceMode: usesCustomPlacementSource ? "custom" : "notebook",
       targetRole: cleanText(careerRole, 160),
       topics: parseCareerTopics(careerTopics),
     };
@@ -1948,9 +2030,17 @@ function StartLearningPage({
     if (!task) return;
     const request = task.meta?.request || {};
     const requestNotebookId = cleanText(request.notebookId, 120);
+    const requestContext = cleanText(request.context, MAX_PLACEMENT_CONTEXT_CHARS);
+    setCareerSourceValue(requestNotebookId
+      ? requestNotebookId
+      : CUSTOM_PLACEMENT_SOURCE_VALUE);
+    setCareerContext(requestNotebookId ? "" : requestContext);
+    setCareerRole(cleanText(request.targetRole, 160));
+    setCareerTopics(parseCareerTopics(request.topics).join("\n"));
     if (task.status === "running") {
       careerAnalysisRequestRef.current = {
         ...careerAnalysisRequestRef.current,
+        context: requestContext,
         notebookId: requestNotebookId,
         pending: true,
       };
@@ -1960,8 +2050,6 @@ function StartLearningPage({
         activeNotebookRef.current = normalized;
         setActiveNotebook(normalized);
       }
-      setCareerRole(cleanText(request.targetRole, 160));
-      setCareerTopics(parseCareerTopics(request.topics).join("\n"));
       setCareerError("");
       setCareerAnalyzing(true);
       setIntakeMode("placement");
@@ -1974,6 +2062,7 @@ function StartLearningPage({
     presentedBackgroundRunsRef.current.add(presentationId);
     careerAnalysisRequestRef.current = {
       ...careerAnalysisRequestRef.current,
+      context: requestContext,
       notebookId: requestNotebookId,
       pending: false,
     };
@@ -2709,7 +2798,7 @@ function StartLearningPage({
     const kind = activeArtifactKind;
     if (!kind || historyBusy) return;
     const targets = kind === "notebook"
-      ? notebooks
+      ? notebookHistory
       : kind === "placement"
         ? notebooks.filter((notebook) => getSavedPlacementNotes([notebook]).length > 0)
         : notebooks.filter((notebook) => getSavedMedicalTrainingNotes([notebook]).length > 0);
@@ -3028,6 +3117,8 @@ function StartLearningPage({
     item,
     kind,
     notebook: activeNotebook,
+    preparationSource: activeCareerHistoryEntry?.preparationSource
+      || activeCareerDraft?.preparationSource,
     targetRole: careerAnalysis?.targetRole || careerRole,
     topic,
   });
@@ -3050,6 +3141,8 @@ function StartLearningPage({
         createNewChat: true,
         message: buildPlacementChatPrompt({
           notebook: activeNotebook,
+          preparationSource: activeCareerHistoryEntry?.preparationSource
+            || activeCareerDraft?.preparationSource,
           target,
           targetRole: careerAnalysis?.targetRole || careerRole,
           topic,
@@ -3257,7 +3350,7 @@ function StartLearningPage({
     });
   };
 
-  const noSavedNotebooks = !notebooksLoading && !notebooksError && notebooks.length === 0;
+  const noSavedNotebooks = !notebooksLoading && !notebooksError && notebookHistory.length === 0;
   const noSavedPlacementNotes = !notebooksLoading
     && !notebooksError
     && savedPlacementNotes.length === 0;
@@ -3293,7 +3386,7 @@ function StartLearningPage({
             <h2>Start Learning</h2>
           </div>
           <div className="learning-hero-metrics" aria-label="Learning notebook summary">
-            <div><strong>{notebooks.length}</strong><span>Notebook history</span></div>
+            <div><strong>{notebookHistory.length}</strong><span>Notebook history</span></div>
             <div><strong>{activeNotebook?.chapters.length || 0}</strong><span>Mapped chapters</span></div>
             <div><strong>{nodes.length}</strong><span>Study concepts</span></div>
           </div>
@@ -3343,7 +3436,7 @@ function StartLearningPage({
                   <span><BookOpenCheck aria-hidden="true" size={21} /></span>
                   <strong>Notebook preparation</strong>
                   <small>Build subject notes from files, chapters, topics, or a prompt.</small>
-                  <em>{notebooks.length} in history</em>
+                  <em>{notebookHistory.length} in history</em>
                   <ChevronRight aria-hidden="true" size={18} />
                 </button>
                 {placementEligible && (
@@ -3690,7 +3783,7 @@ function StartLearningPage({
             )}
             error={medicalError}
             focus={medicalFocus}
-            notebooks={notebooks}
+            notebooks={courseNotebooks}
             notebooksLoading={notebooksLoading}
             onAnalyze={analyzeMedicalTopics}
             onFocusChange={(value) => {
@@ -3716,37 +3809,75 @@ function StartLearningPage({
                 <span className="section-tag"><Sparkles size={13} /> Personalized analysis</span>
                 <h3>Build your placement preparation</h3>
                 <p>
-                  Choose a learning source, then enter the role and interview topics you want
-                  explained.
+                  Use a saved notebook or type your own context, then choose the interview topics
+                  you want explained.
                 </p>
               </div>
               <span className="learning-count">{parseCareerTopics(careerTopics).length}/12</span>
             </div>
 
-            <label className="learning-field">
-              <span>Preparation source</span>
-              <select
-                disabled={careerAnalyzing || saving || notebooksLoading || !notebooks.length}
-                onChange={(event) => selectPlacementNotebook(event.target.value)}
-                value={activeNotebook?.id || ""}
-              >
-                <option disabled value="">
-                  {notebooksLoading ? "Loading notebook history..." : "Choose a notebook"}
-                </option>
-                {notebookHistory.map((notebook) => (
-                  <option key={notebook.id} value={notebook.id}>{notebook.title}</option>
-                ))}
-              </select>
-              <small>
-                Choose the notebook context used to personalize this placement guide.
-              </small>
-            </label>
+            <fieldset className="learning-placement-source">
+              <legend>Preparation source</legend>
+              <div className="learning-placement-source-options">
+                <label className={usesCustomPlacementSource ? "is-selected" : ""}>
+                  <input
+                    checked={usesCustomPlacementSource}
+                    disabled={careerAnalyzing || saving}
+                    name="placement-source-mode"
+                    onChange={() => selectCareerPreparationSource(CUSTOM_PLACEMENT_SOURCE_VALUE)}
+                    type="radio"
+                  />
+                  <FileText aria-hidden="true" size={14} />
+                  <span>Type context</span>
+                </label>
+                <label className={!usesCustomPlacementSource ? "is-selected" : ""}>
+                  <input
+                    checked={!usesCustomPlacementSource}
+                    disabled={careerAnalyzing || saving || notebooksLoading || !courseNotebooks.length}
+                    name="placement-source-mode"
+                    onChange={() => selectCareerPreparationSource(notebookHistory[0]?.id || CUSTOM_PLACEMENT_SOURCE_VALUE)}
+                    type="radio"
+                  />
+                  <BookOpenCheck aria-hidden="true" size={14} />
+                  <span>Saved notebook</span>
+                </label>
+              </div>
 
-            {!notebooksLoading && !notebooks.length && (
-              <p className="learning-placement-notebook-note">
-                Add a learning source first so PrepMatrix can ground your placement note.
-              </p>
-            )}
+              {usesCustomPlacementSource ? (
+                <label className="learning-field">
+                  <span>Your context</span>
+                  <textarea
+                    className="learning-placement-context"
+                    disabled={careerAnalyzing || saving}
+                    maxLength={MAX_PLACEMENT_CONTEXT_CHARS}
+                    onChange={(event) => {
+                      setCareerContext(event.target.value);
+                      setCareerError("");
+                    }}
+                    placeholder="e.g. TCP/IP networking for a backend engineering interview, with emphasis on HTTP, routing, and API troubleshooting"
+                    rows={3}
+                    value={careerContext}
+                  />
+                  <small>
+                    Type any topic, project, job description, or interview context. A notebook is not required.
+                  </small>
+                </label>
+              ) : (
+                <label className="learning-field">
+                  <span>Notebook</span>
+                  <select
+                    disabled={careerAnalyzing || saving || notebooksLoading}
+                    onChange={(event) => selectCareerPreparationSource(event.target.value)}
+                    value={selectedCareerSourceNotebook?.id || ""}
+                  >
+                    {notebookHistory.map((notebook) => (
+                      <option key={notebook.id} value={notebook.id}>{notebook.title}</option>
+                    ))}
+                  </select>
+                  <small>The selected notebook is used as the preparation context.</small>
+                </label>
+              )}
+            </fieldset>
 
             <div className="learning-career-fields">
               <label className="learning-field">
@@ -3793,7 +3924,10 @@ function StartLearningPage({
               disabled={
                 careerAnalyzing
                 || saving
-                || !activeNotebook?.id
+                || (usesCustomPlacementSource
+                  ? !cleanText(careerContext, MAX_PLACEMENT_CONTEXT_CHARS)
+                  : !selectedCareerSourceNotebook)
+                || !parseCareerTopics(careerTopics).length
                 || hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)
               }
               onClick={analyzeCareerTopics}
@@ -3863,7 +3997,7 @@ function StartLearningPage({
               <div className="learning-saved-kind-grid">
                 <button className="learning-saved-kind-card is-notebook" onClick={openNotebookIntake} type="button">
                   <span><BookOpenCheck aria-hidden="true" size={17} /></span>
-                  <strong>{notebooks.length}</strong>
+                  <strong>{notebookHistory.length}</strong>
                   <small>Notebook history</small>
                   <ChevronRight aria-hidden="true" size={16} />
                 </button>
@@ -3966,7 +4100,9 @@ function StartLearningPage({
                             {note.pinned && <Pin aria-label="Pinned" fill="currentColor" size={12} />}
                           </strong>
                           <small>{note.topicCount} topics · {formatNotebookDate(note.updatedAt)}</small>
-                          <small className="learning-placement-source-label">From {note.notebook.title}</small>
+                          <small className="learning-placement-source-label">
+                            {placementHistorySourceLabel(note)}
+                          </small>
                         </span>
                       </button>
                       {deleteCandidateId === note.id ? (
@@ -4047,7 +4183,7 @@ function StartLearningPage({
                 ))}
               </ol>
             </div>
-          ) : !activeNotebook ? (
+          ) : !activeNotebook || isPlacementWorkspaceNotebook(activeNotebook) ? (
             <div className="card learning-empty-stage">
               <div className="learning-empty-visual" aria-hidden="true">
                 <span><FileText size={26} /></span>
@@ -4877,9 +5013,10 @@ function StartLearningPage({
                   </p>
                   <p>
                     PrepMatrix saves the generated notebook and source metadata, such as file name,
-                    type, size, and coverage. Raw uploaded or typed source contents are not saved in
-                    notebook records. Every generated placement or Medical training guide is added
-                    automatically to its history so you can return to it.
+                    type, size, and coverage. Raw uploaded file contents and general notebook prompts
+                    are not saved in notebook records. A placement context you type is saved with its
+                    generated guide so it can be restored from history. Every generated placement or
+                    Medical training guide is added automatically to its history so you can return to it.
                   </p>
                 </>
               )}

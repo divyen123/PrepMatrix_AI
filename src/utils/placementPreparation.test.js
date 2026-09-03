@@ -4,12 +4,14 @@ import { upsertLearningPlannerTask } from "./learningPlanner.js";
 import {
   buildPlacementActionTarget,
   buildPlacementChatPrompt,
+  clearPlacementHistory,
   createPlacementDraft,
   deletePlacementHistoryEntry,
   getPlacementHistory,
   getSavedPlacementAnalysis,
   hasSavedPlacementPreparation,
   mergePlacementDraft,
+  normalizePlacementPreparationSource,
   setPlacementHistoryPinned,
 } from "./placementPreparation.js";
 
@@ -60,6 +62,10 @@ test("keeps generated placement analysis outside the notebook until explicit mer
   assert.equal(hasSavedPlacementPreparation(saved), true);
   assert.equal(getSavedPlacementAnalysis(saved).targetRole, "Backend intern");
   assert.equal(saved.careerPreparation.topicAnalysis.topics[0].id, "career-topic-1");
+  assert.deepEqual(saved.careerHistoryMutation, {
+    action: "upsert",
+    id: draft.id,
+  });
   assert.equal(notebook.careerPreparation.topicAnalysis.topics.length, 0);
 });
 
@@ -96,10 +102,23 @@ test("keeps every placement generation and sorts pinned history first", () => {
   const pinned = setPlacementHistoryPinned(withBoth, firstDraft.id, true);
   assert.equal(getPlacementHistory(pinned)[0].id, firstDraft.id);
   assert.equal(getPlacementHistory(pinned)[0].pinned, true);
+  assert.deepEqual(pinned.careerHistoryMutation, {
+    action: "pin",
+    id: firstDraft.id,
+    pinned: true,
+  });
 
   const deleted = deletePlacementHistoryEntry(pinned, firstDraft.id);
   assert.equal(getPlacementHistory(deleted).length, 1);
   assert.equal(getSavedPlacementAnalysis(deleted).targetRole, "Platform intern");
+  assert.deepEqual(deleted.careerHistoryMutation, {
+    action: "delete",
+    id: firstDraft.id,
+  });
+
+  const cleared = clearPlacementHistory(deleted);
+  assert.equal(getPlacementHistory(cleared).length, 0);
+  assert.deepEqual(cleared.careerHistoryMutation, { action: "clear" });
 });
 
 test("builds stable coding targets with note, planner, and editable chat context", () => {
@@ -145,6 +164,80 @@ test("builds stable coding targets with note, planner, and editable chat context
   assert.match(prompt, /code-oriented walkthrough/u);
   assert.match(prompt, /attempt the final check/u);
 });
+
+test("normalizes and preserves learner-provided preparation context in hidden workspace history", () => {
+  const preparationSource = "  REST APIs on Node.js\r\n\r\nFocus on authentication.  ";
+  const notebook = {
+    id: "placement-workspace-1",
+    artifactKind: "placement-workspace",
+    preparationSource: "Fallback workspace context",
+    subjectName: "Placement preparation",
+  };
+  const draft = createPlacementDraft({
+    ...analysisPayload(),
+    notebook,
+  }, {
+    preparationSource,
+    requestedTopics: ["Graph algorithms"],
+    targetRole: "Backend intern",
+  });
+
+  assert.equal(draft.notebookId, notebook.id);
+  assert.deepEqual(draft.preparationSource, {
+    context: "REST APIs on Node.js\n\nFocus on authentication.",
+    label: "REST APIs on Node.js Focus on authentication.",
+    type: "custom",
+  });
+
+  const saved = mergePlacementDraft(notebook, draft);
+  const [entry] = getPlacementHistory(saved);
+  assert.deepEqual(entry.preparationSource, draft.preparationSource);
+
+  const target = buildPlacementActionTarget({
+    item: analysisPayload().topicAnalysis.topics[0].interviewQuestions[0],
+    kind: "interview",
+    notebook,
+    preparationSource: entry.preparationSource,
+    targetRole: "Backend intern",
+    topic: analysisPayload().topicAnalysis.topics[0],
+  });
+  assert.deepEqual(target.metadata.preparationSource, entry.preparationSource);
+  assert.match(target.summary, /Preparation context: REST APIs on Node\.js/u);
+
+  const prompt = buildPlacementChatPrompt({
+    notebook,
+    target,
+    targetRole: "Backend intern",
+    topic: analysisPayload().topicAnalysis.topics[0],
+  });
+  assert.match(prompt, /Learner-provided preparation context:\nREST APIs on Node\.js/u);
+  assert.doesNotMatch(prompt, /Notebook: /u);
+  assert.doesNotMatch(prompt, /Subject: /u);
+});
+
+test("bounds freeform preparation context and falls back only when it is empty", () => {
+  assert.equal(
+    normalizePlacementPreparationSource("  ", "Fallback context").context,
+    "Fallback context",
+  );
+  assert.equal(
+    normalizePlacementPreparationSource("Own context", "Fallback context").context,
+    "Own context",
+  );
+  assert.equal(normalizePlacementPreparationSource("x".repeat(3100)).context.length, 3000);
+  assert.deepEqual(normalizePlacementPreparationSource({
+    context: "API design",
+    label: "Backend APIs",
+    notebookId: "notebook-1",
+    type: "notebook",
+  }), {
+    context: "API design",
+    label: "Backend APIs",
+    notebookId: "notebook-1",
+    type: "notebook",
+  });
+});
+
 test("detects language-specific practice text as coding guidance", () => {
   const target = buildPlacementActionTarget({
     index: 0,

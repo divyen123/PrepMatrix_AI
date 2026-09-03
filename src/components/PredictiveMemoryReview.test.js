@@ -19,6 +19,27 @@ test("merges due reviews into the latest Planner state instead of replacing it",
   assert.doesNotMatch(componentSource, /setSchedule\(experience\.schedule\)/u);
 });
 
+test("opens and consumes the exact routed memory check after a completed redo is pending", () => {
+  assert.match(componentSource, /parseMemoryReviewRoute\(location\.search\)/u);
+  assert.match(componentSource, /buildMemoryReviewExperience\(\{[\s\S]*?requestedTaskId,[\s\S]*?requestedUnitKey,/u);
+  assert.match(
+    componentSource,
+    /experience\.entries\.find\(\(entry\) => entry\.requested\)/u,
+  );
+  assert.match(
+    componentSource,
+    /requestedEntry\.historicallyCompleted && !requestedEntry\.recheckPending/u,
+  );
+  assert.match(
+    componentSource,
+    /const opened = openQuiz\(requestedEntry\)/u,
+  );
+  assert.match(
+    componentSource,
+    /search: clearMemoryReviewRouteRequest\(location\.search\)[\s\S]*?replace: true/u,
+  );
+});
+
 test("finishes the exact rescheduled memory check only after its notebook save", () => {
   assert.match(
     componentSource,

@@ -2415,15 +2415,75 @@ body .learning-page .learning-intake-flow-bar > button {
   gap: 16px;
 }
 
-.learning-placement-notebook-note {
+.learning-placement-source {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
   margin: 0;
-  padding: 11px 12px;
-  color: var(--text-muted);
+  padding: 0;
+  border: 0;
+}
+
+.learning-placement-source > legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.learning-placement-source-options {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  gap: 4px;
+  padding: 4px;
   background: var(--surface-muted);
-  border: 1px dashed var(--border);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  font-size: 0.7rem;
-  line-height: 1.5;
+}
+
+.learning-placement-source-options > label {
+  position: relative;
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 750;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.learning-placement-source-options > label.is-selected {
+  color: var(--text);
+  background: var(--surface-strong);
+  border-color: rgba(var(--accent-rgb), 0.24);
+}
+
+.learning-placement-source-options > label:focus-within {
+  outline: 2px solid rgba(var(--accent-rgb), 0.42);
+  outline-offset: 2px;
+}
+
+.learning-placement-source-options > label:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.learning-placement-source-options input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.learning-field .learning-placement-context {
+  min-height: 84px;
 }
 
 .learning-placement-suggestions {

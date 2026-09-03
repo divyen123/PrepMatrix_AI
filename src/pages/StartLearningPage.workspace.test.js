@@ -33,6 +33,43 @@ test("keeps notebook and placement preparation in separate workspace views", () 
   });
 });
 
+test("supports either a saved notebook or independent typed placement context", () => {
+  const placementStart = pageSource.indexOf('intakeMode === "placement" ? (');
+  const placementEnd = pageSource.indexOf(') : null}', placementStart);
+  const placementSource = pageSource.slice(placementStart, placementEnd);
+
+  assert.ok(placementStart >= 0, "expected the placement intake");
+  assert.ok(placementSource.includes("Preparation source"));
+  assert.ok(placementSource.includes("Type context"));
+  assert.ok(placementSource.includes("Saved notebook"));
+  assert.ok(placementSource.includes('name="placement-source-mode"'));
+  assert.ok(placementSource.includes('type="radio"'));
+  assert.ok(placementSource.includes("usesCustomPlacementSource ? ("));
+  assert.ok(placementSource.includes("notebookHistory.map((notebook)"));
+  assert.ok(placementSource.includes('className="learning-placement-context"'));
+  assert.ok(placementSource.includes("setCareerContext(event.target.value)"));
+  assert.ok(placementSource.includes("A notebook is not required."));
+  assert.ok(pageSource.includes('useState(CUSTOM_PLACEMENT_SOURCE_VALUE)'));
+  assert.ok(pageSource.includes('"/api/learning-notebooks/career-analyze"'));
+  assert.ok(pageSource.includes('`/api/learning-notebooks/${encodeURIComponent(request.notebookId)}/career-analyze`'));
+  assert.ok(pageSource.includes('request.sourceMode === "notebook"'));
+  assert.ok(pageSource.includes('type: "notebook"'));
+  assert.ok(pageSource.includes('type: "custom"'));
+  assert.ok(pageSource.includes("context: request.context"));
+  assert.ok(pageSource.includes('setCareerError("Describe the topic or context you want to prepare for.")'));
+  assert.ok(pageSource.includes('setCareerError("Choose an available notebook or use your own context.")'));
+  assert.ok(pageSource.includes("placementHistorySourceLabel(note)"));
+  assert.ok(pageSource.includes("From notebook:"));
+  assert.ok(pageSource.includes("Context:"));
+  assert.ok(pageSource.includes('"/api/learning-notebooks?includePlacementWorkspace=true"'));
+  assert.ok(pageSource.includes("A placement context you type is saved with its"));
+  assert.ok(pageSource.includes("isPlacementWorkspaceNotebook"));
+  assert.ok(pageSource.includes(") : !activeNotebook || isPlacementWorkspaceNotebook(activeNotebook) ? ("));
+  assert.ok(pageSource.includes("isPlacementWorkspaceNotebook(activeNotebook) ? [] : learningNodes(activeNotebook)"));
+  assert.ok(stylesheet.includes(".learning-field .learning-placement-context"));
+  assert.ok(stylesheet.includes(".learning-placement-source-options"));
+});
+
 test("uses an independent Medical training workspace and persistence contract", () => {
   assert.ok(pageSource.includes('className="learning-intake-choice-card is-medical"'));
   assert.ok(pageSource.includes('intakeMode === "medical" ? ('));

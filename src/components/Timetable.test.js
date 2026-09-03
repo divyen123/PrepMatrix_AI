@@ -345,6 +345,156 @@ test("keeps the clear confirmation above later schedule content and pointer-inte
   );
 });
 
+test("uses recall navigation actions instead of planner completion checkboxes for memory checks", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { PlannerScheduleDay } = await vite.ssrLoadModule(
+      "/src/components/Timetable.jsx",
+    );
+    const { preparePlannerMemoryReviewNavigation } = await vite.ssrLoadModule(
+      "/src/utils/plannerScheduleProgress.js",
+    );
+    const pendingTask = {
+      id: "memory-decay-notebook-a-node-a-2026-09-03",
+      source: "memory-decay",
+      task: "3-minute memory check: Data analytics - The 4 V’s of Data Analytics",
+      unitKey: "memory-review:notebook-a:node-a:2026-09-03",
+    };
+    const completedTask = {
+      id: "memory-review-notebook-a-node-b-2026-09-03",
+      source: "memory_review",
+      task: "3-minute memory check: Data analytics - Big Data Overview",
+      unitKey: "memory-review:notebook-a:node-b:2026-09-03",
+    };
+    const schedule = [{
+      day: 1,
+      date: "2026-09-03",
+      tasks: [pendingTask, completedTask],
+    }];
+    const completed = [completedTask.task];
+    const markup = renderToStaticMarkup(React.createElement(
+      PlannerScheduleDay,
+      {
+        completed,
+        dayIndex: 0,
+        item: schedule[0],
+        onComplete: () => {},
+        onOpenMemoryReview: () => {},
+        onReschedule: () => {},
+        onUnlock: () => {},
+        schedule,
+        scheduleStartDate: "2026-09-03",
+        today: new Date(2026, 8, 3),
+      },
+    ));
+
+    assert.match(
+      markup,
+      /aria-label="Open memory recall session for 3-minute memory check: Data analytics - The 4 V’s of Data Analytics"[^>]*class="planner-memory-review-btn is-open"/u,
+    );
+    assert.match(
+      markup,
+      /aria-label="Redo memory recall session for 3-minute memory check: Data analytics - Big Data Overview"[^>]*class="planner-memory-review-btn is-redo"/u,
+    );
+    assert.doesNotMatch(markup, /type="checkbox"|Mark 3-minute memory check/u);
+
+    const pendingNavigation = preparePlannerMemoryReviewNavigation(
+      schedule,
+      completed,
+      0,
+      0,
+    );
+    assert.equal(pendingNavigation.schedule, schedule);
+    assert.equal(pendingNavigation.task, pendingTask);
+
+    const redoNavigation = preparePlannerMemoryReviewNavigation(
+      schedule,
+      completed,
+      0,
+      1,
+    );
+    assert.notEqual(redoNavigation.schedule, schedule);
+    assert.equal(redoNavigation.task.recheckPending, true);
+    assert.equal(redoNavigation.task.memoryReviewRecheckRevision, 1);
+    assert.equal(redoNavigation.task.id, completedTask.id);
+    assert.equal(redoNavigation.task.unitKey, completedTask.unitKey);
+
+    const reopenedSchedule = [{
+      ...schedule[0],
+      tasks: [pendingTask, redoNavigation.task],
+    }];
+    const reopenedMarkup = renderToStaticMarkup(React.createElement(
+      PlannerScheduleDay,
+      {
+        completed,
+        dayIndex: 0,
+        item: reopenedSchedule[0],
+        onComplete: () => {},
+        onOpenMemoryReview: () => {},
+        onReschedule: () => {},
+        onUnlock: () => {},
+        schedule: reopenedSchedule,
+        scheduleStartDate: "2026-09-03",
+        today: new Date(2026, 8, 3),
+      },
+    ));
+    assert.match(
+      reopenedMarkup,
+      /aria-label="Continue memory recall session for 3-minute memory check: Data analytics - Big Data Overview"[^>]*class="planner-memory-review-btn is-open"/u,
+    );
+    assert.doesNotMatch(reopenedMarkup, /Redo memory recall session/u);
+
+    const ordinarySchedule = [{ tasks: [{ task: "Read the next chapter" }] }];
+    const ordinaryNavigation = preparePlannerMemoryReviewNavigation(
+      ordinarySchedule,
+      [],
+      0,
+      0,
+    );
+    assert.equal(ordinaryNavigation.schedule, ordinarySchedule);
+    assert.equal(ordinaryNavigation.task, null);
+
+    const lockedSchedule = [
+      {
+        day: 1,
+        date: "2026-09-03",
+        tasks: [{ task: "Required first lesson" }],
+      },
+      {
+        day: 2,
+        date: "2026-09-04",
+        tasks: [pendingTask],
+      },
+    ];
+    const lockedMarkup = renderToStaticMarkup(React.createElement(
+      PlannerScheduleDay,
+      {
+        completed: [],
+        dayIndex: 1,
+        item: lockedSchedule[1],
+        onComplete: () => {},
+        onOpenMemoryReview: () => {},
+        onReschedule: () => {},
+        onUnlock: () => {},
+        schedule: lockedSchedule,
+        scheduleStartDate: "2026-09-03",
+        today: new Date(2026, 8, 3),
+      },
+    ));
+    assert.match(
+      lockedMarkup,
+      /aria-label="Open memory recall session[^>]*"[^>]*disabled=""/u,
+    );
+  } finally {
+    await vite.close();
+  }
+});
+
 test("lets long schedules grow with complete intrinsic day-card rows", async () => {
   const componentSource = await readFile(new URL("./Timetable.jsx", import.meta.url), "utf8");
   const plannerStyles = await readFile(new URL("../pages/PlannerPage.css", import.meta.url), "utf8");

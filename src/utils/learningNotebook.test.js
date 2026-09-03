@@ -7,6 +7,7 @@ import {
   MAX_LEARNING_SUBTOPICS,
   MAX_LEARNING_TOPICS,
   MEDICAL_TRAINING_EDUCATIONAL_NOTICE,
+  PLACEMENT_WORKSPACE_ARTIFACT_KIND,
   getLearningCareerEligibility,
   getLearningMedicalTrainingEligibility,
   getLearningPreparationMode,
@@ -16,6 +17,7 @@ import {
   normalizeLearningCareerTopics,
   normalizeLearningMedicalTrainingAnalysis,
   normalizeLearningNotebook,
+  normalizePlacementPreparationSource,
 } from "./learningNotebook.js";
 
 function generatedNotebook(overrides = {}) {
@@ -70,6 +72,22 @@ function generatedNotebook(overrides = {}) {
       }],
     },
     ...overrides,
+  };
+}
+
+function analysisPayloadForContextTest() {
+  return {
+    targetRole: "Backend intern",
+    overview: "Prepare the selected context for interviews.",
+    topics: [{
+      id: "career-topic-1",
+      title: "Rate limiting",
+      explanation: "Compare rate-limiting strategies and their trade-offs.",
+      whyItMatters: "Backend interviews test distributed-systems reasoning.",
+      interviewQuestions: [],
+      practiceSteps: [],
+    }],
+    preparationPlan: [],
   };
 }
 
@@ -162,6 +180,50 @@ test("normalizes a bounded notebook and strips raw source payloads", () => {
   assert.equal("dataUrl" in notebook.sources[0], false);
   assert.equal("text" in notebook.sources[0], false);
   assert.equal(notebook.createdAt, "2026-07-26T10:00:00.000Z");
+});
+
+test("preserves only the hidden placement workspace marker and its bounded custom context", () => {
+  const profile = {
+    academicLevel: "Undergraduate / Bachelor's",
+    academicTrack: "Computer Science & IT",
+    degree: "B.Tech",
+    department: "Information Technology",
+  };
+  const workspace = normalizeLearningNotebook({
+    id: "placement-workspace-1",
+    artifactKind: PLACEMENT_WORKSPACE_ARTIFACT_KIND,
+    preparationSource: `  Distributed systems\r\n${"x".repeat(3100)}`,
+    careerPreparation: {
+      history: [{
+        id: "custom-context-history",
+        context: "  API gateways and rate limiting  ",
+        generatedAt: "2026-09-03T10:00:00.000Z",
+        analysis: analysisPayloadForContextTest(),
+      }],
+    },
+  }, { profile });
+
+  assert.equal(workspace.artifactKind, PLACEMENT_WORKSPACE_ARTIFACT_KIND);
+  assert.equal(workspace.preparationSource.context.length, 3000);
+  assert.match(workspace.preparationSource.context, /^Distributed systems\n/u);
+  assert.equal(workspace.preparationSource.type, "custom");
+  assert.equal(
+    workspace.careerPreparation.history[0].preparationSource.context,
+    "API gateways and rate limiting",
+  );
+  assert.deepEqual(normalizePlacementPreparationSource("  Queueing theory  "), {
+    context: "Queueing theory",
+    label: "Queueing theory",
+    type: "custom",
+  });
+
+  const ordinary = normalizeLearningNotebook({
+    ...generatedNotebook(),
+    artifactKind: "untrusted-kind",
+    preparationSource: "Should not become notebook metadata",
+  }, { profile });
+  assert.equal("artifactKind" in ordinary, false);
+  assert.equal("preparationSource" in ordinary, false);
 });
 
 test("scopes generated topic and subtopic IDs to their chapter", () => {

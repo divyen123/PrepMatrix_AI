@@ -4,6 +4,50 @@
   --planner-hub-amber: #cf8616;
 }
 
+body .planner-route-page .planner-memory-review-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 !important;
+  color: var(--accent) !important;
+  background: rgba(var(--accent-rgb), 0.1) !important;
+  border-color: rgba(var(--accent-rgb), 0.22) !important;
+  border-radius: 11px !important;
+  box-shadow: none !important;
+}
+
+body .planner-route-page .planner-memory-review-btn::after {
+  display: none;
+}
+
+body .planner-route-page .planner-memory-review-btn:hover:not(:disabled),
+body .planner-route-page .planner-memory-review-btn:focus-visible {
+  background: rgba(var(--accent-rgb), 0.18) !important;
+  border-color: rgba(var(--accent-rgb), 0.38) !important;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1) !important;
+}
+
+body .planner-route-page .planner-memory-review-btn.is-open:hover:not(:disabled) svg {
+  transform: translateX(2px);
+}
+
+body .planner-route-page .planner-memory-review-btn.is-redo:hover:not(:disabled) svg {
+  transform: rotate(-20deg);
+}
+
+body .planner-route-page .planner-memory-review-btn svg {
+  transition: transform 180ms ease;
+}
+
+body .planner-route-page .planner-memory-review-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .planner-hub-intro {
   max-width: 760px;
 }
@@ -345,6 +389,7 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
   .planner-hub-card-icon,
   .planner-hub-card-footer svg,
   .planner-hub-attention-dot,
+  .planner-memory-review-btn svg,
   .planner-subpage-back,
   .planner-subpage-content {
     animation: none !important;

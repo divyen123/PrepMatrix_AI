@@ -128,6 +128,8 @@ test("registers deep Planner routes and retains accessible themed card behavior"
   assert.match(pageSource, /return <Navigate replace to="\/planner" \/>/u);
   assert.match(pageSource, /kidsMode && plannerView === "recall"/u);
   assert.match(pageSource, /setSchedule\(\(currentSchedule\) => mergeMemoryReviewSchedule\(currentSchedule, \{/u);
+  assert.match(pageSource, /navigate\(buildMemoryReviewRoute\(task\)\)/u);
+  assert.match(pageSource, /onOpenMemoryReview=\{handleOpenScheduledMemoryReview\}/u);
   assert.match(pageSource, /<nav aria-label="Planner workspaces"/u);
   assert.match(pageSource, /plannerAttention\?\.active/u);
   assert.match(pageSource, /className="planner-hub-attention-message"/u);
@@ -137,6 +139,8 @@ test("registers deep Planner routes and retains accessible themed card behavior"
   assert.match(stylesheet, /\.planner-hub-card \{[\s\S]*?color-mix[\s\S]*?transition:/u);
   assert.match(stylesheet, /\.planner-hub-card:focus-visible \{[\s\S]*?outline: 3px solid/u);
   assert.match(stylesheet, /\.planner-hub-attention-message \{[\s\S]*?var\(--danger\)/u);
+  assert.match(stylesheet, /\.planner-memory-review-btn \{[\s\S]*?width: 34px;[\s\S]*?height: 34px;/u);
+  assert.match(stylesheet, /\.planner-memory-review-btn\.is-redo:hover:not\(:disabled\) svg/u);
   assert.match(stylesheet, /@media \(hover: hover\) and \(pointer: fine\) \{[\s\S]*?\.planner-hub-card:hover/u);
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/u);
 });

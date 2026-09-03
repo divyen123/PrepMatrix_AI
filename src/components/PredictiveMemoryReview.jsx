@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   BrainCircuit,
   Check,
@@ -23,6 +24,12 @@ import {
   mergeMemoryReviewSchedule,
 } from "../utils/learningMemoryReviewExperience.js";
 import { subscribeToLocalDateChanges } from "../utils/localDateRefresh.js";
+import {
+  clearMemoryReviewRouteRequest,
+  normalizeMemoryReviewTaskId,
+  normalizeMemoryReviewUnitKey,
+  parseMemoryReviewRoute,
+} from "../utils/memoryReviewNavigation.js";
 import "./PredictiveMemoryReview.css";
 
 const DIALOG_EXIT_DURATION_MS = 240;
@@ -51,7 +58,11 @@ export default function PredictiveMemoryReview({
   loadError = "",
   loading = false,
   standalone = false,
+  requestedTaskId: requestedTaskIdOverride,
+  requestedUnitKey: requestedUnitKeyOverride,
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [today, setToday] = useState(() => new Date());
   const [activeEntry, setActiveEntry] = useState(null);
   const [activeQuiz, setActiveQuiz] = useState(null);
@@ -70,6 +81,17 @@ export default function PredictiveMemoryReview({
   const panelRef = useRef(null);
   const deleteTriggerRefs = useRef(new Map());
   const reviewGuidanceTimersRef = useRef(new Map());
+  const handledRequestRef = useRef("");
+  const routeRequest = useMemo(
+    () => parseMemoryReviewRoute(location.search),
+    [location.search],
+  );
+  const requestedTaskId = useMemo(() => normalizeMemoryReviewTaskId(
+    requestedTaskIdOverride ?? routeRequest.taskId,
+  ), [requestedTaskIdOverride, routeRequest.taskId]);
+  const requestedUnitKey = useMemo(() => normalizeMemoryReviewUnitKey(
+    requestedUnitKeyOverride ?? routeRequest.unitKey,
+  ), [requestedUnitKeyOverride, routeRequest.unitKey]);
   const experience = useMemo(() => buildMemoryReviewExperience({
     notebooks,
     schedule,
@@ -77,7 +99,9 @@ export default function PredictiveMemoryReview({
     completed,
     today,
     maxDaily: 3,
-  }), [completed, notebooks, schedule, scheduleStartDate, today]);
+    requestedTaskId,
+    requestedUnitKey,
+  }), [completed, notebooks, requestedTaskId, requestedUnitKey, schedule, scheduleStartDate, today]);
 
   useEffect(() => subscribeToLocalDateChanges(setToday), []);
 
@@ -122,7 +146,7 @@ export default function PredictiveMemoryReview({
     const quiz = createMemoryReviewQuiz(entry, { dateKey: experience.dateKey });
     if (!quiz?.activeRecallPrompts?.length) {
       setError("This memory check could not be prepared. Try opening the learning notebook first.");
-      return;
+      return false;
     }
     setActiveEntry(entry);
     setActiveQuiz(quiz);
@@ -133,7 +157,48 @@ export default function PredictiveMemoryReview({
     setConfidence(3);
     setError("");
     setDialogOpen(true);
+    return true;
   }, [cancelReviewGuidanceTimers, experience.dateKey]);
+
+  useEffect(() => {
+    const requestKey = requestedTaskId || requestedUnitKey;
+    if (!requestKey) {
+      handledRequestRef.current = "";
+      return;
+    }
+    if (loading || handledRequestRef.current === requestKey) return;
+
+    const requestedEntry = experience.entries.find((entry) => entry.requested);
+    if (!requestedEntry) {
+      setError("This scheduled memory check is no longer available. Return to the schedule and choose another check.");
+      return;
+    }
+    if (requestedEntry.historicallyCompleted && !requestedEntry.recheckPending) return;
+
+    const opened = openQuiz(requestedEntry);
+    if (!opened) return;
+
+    handledRequestRef.current = requestKey;
+    navigate({
+      pathname: location.pathname,
+      search: clearMemoryReviewRouteRequest(location.search),
+      hash: location.hash,
+    }, {
+      replace: true,
+      state: location.state,
+    });
+  }, [
+    experience.entries,
+    loading,
+    location.hash,
+    location.pathname,
+    location.search,
+    location.state,
+    navigate,
+    openQuiz,
+    requestedTaskId,
+    requestedUnitKey,
+  ]);
 
   const deleteReview = useCallback((entry) => {
     if (typeof setSchedule !== "function") {

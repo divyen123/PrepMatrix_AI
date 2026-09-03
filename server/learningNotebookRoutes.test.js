@@ -13,6 +13,8 @@ import {
   MAX_LEARNING_PROMPT_CHARS,
   MAX_LEARNING_COMPLETION_TOKENS,
   MAX_GROQ_LEARNING_COMPLETION_TOKENS,
+  MAX_LEARNING_CAREER_CONTEXT_CHARS,
+  PLACEMENT_WORKSPACE_ARTIFACT_KIND,
   buildLearningNotebookDepthTargets,
   compactLearningSourceMaterial,
   MAX_LEARNING_VISION_TEXT_CHARS,
@@ -20,6 +22,7 @@ import {
   normalizeLearningTextSources,
   normalizeLearningGenerationSize,
   normalizeLearningPrompt,
+  normalizeLearningCareerContext,
   normalizeLearningRequestedOutline,
   providerRetryDelayMs,
   requestGeminiLearningNotebookJson,
@@ -422,6 +425,18 @@ test("sanitizes and bounds learner prompts and requested outlines", () => {
   assert.throws(
     () => normalizeLearningPrompt({ prompt: "not text" }),
     (error) => error.code === "LEARNING_PROMPT_INVALID" && error.status === 400,
+  );
+  assert.equal(
+    normalizeLearningCareerContext("  Backend APIs\u0007\r\nwith PostgreSQL  "),
+    "Backend APIs\nwith PostgreSQL",
+  );
+  assert.throws(
+    () => normalizeLearningCareerContext("x".repeat(MAX_LEARNING_CAREER_CONTEXT_CHARS + 1)),
+    (error) => error.code === "LEARNING_CAREER_CONTEXT_TOO_LARGE" && error.status === 413,
+  );
+  assert.throws(
+    () => normalizeLearningCareerContext({ context: "not text" }),
+    (error) => error.code === "LEARNING_CAREER_CONTEXT_INVALID" && error.status === 400,
   );
   assert.throws(
     () => normalizeLearningRequestedOutline([
@@ -2753,12 +2768,51 @@ function createCareerRouteHarness({
     updatedAt: new Date("2026-07-26T10:00:00.000Z"),
   };
   const updates = [];
+  const inserts = [];
+  const deletes = [];
+  let placementWorkspace = null;
   let dbCalls = 0;
   const collection = {
-    findOne: async () => existing,
+    findOne: async (filter = {}) => {
+      if (filter.artifactKind === PLACEMENT_WORKSPACE_ARTIFACT_KIND) {
+        return placementWorkspace;
+      }
+      if (
+        placementWorkspace
+        && filter._id
+        && String(filter._id) === String(placementWorkspace._id)
+      ) {
+        return placementWorkspace;
+      }
+      return existing;
+    },
+    insertOne: async (document) => {
+      placementWorkspace = { ...document };
+      inserts.push(document);
+      return { acknowledged: true, insertedId: document._id };
+    },
     updateOne: async (filter, update) => {
       updates.push({ filter, update });
+      if (
+        placementWorkspace
+        && filter._id
+        && String(filter._id) === String(placementWorkspace._id)
+      ) {
+        placementWorkspace = { ...placementWorkspace, ...update.$set };
+      }
       return { matchedCount: 1, modifiedCount: 1 };
+    },
+    deleteOne: async (filter) => {
+      deletes.push(filter);
+      if (
+        placementWorkspace
+        && filter._id
+        && String(filter._id) === String(placementWorkspace._id)
+      ) {
+        placementWorkspace = null;
+        return { deletedCount: 1 };
+      }
+      return { deletedCount: 0 };
     },
   };
   registerLearningNotebookRoutes(app, {
@@ -2785,7 +2839,10 @@ function createCareerRouteHarness({
 
   return {
     aiQuota,
+    deletes,
+    inserts,
     updates,
+    get placementWorkspace() { return placementWorkspace; },
     get dbCalls() { return dbCalls; },
     async analyze(body = {}) {
       const req = {
@@ -2826,6 +2883,48 @@ function createCareerRouteHarness({
         },
       };
       await routes.get("POST /api/learning-notebooks/:id/career-analyze")(req, res);
+      return res;
+    },
+    async analyzeCustom(body = {}, requestId = TEST_IDEMPOTENCY_KEY) {
+      const req = {
+        body: {
+          privacyConsent: {
+            accepted: true,
+            version: LEARNING_PRIVACY_CONSENT_VERSION,
+          },
+          context: "Distributed systems and backend API engineering",
+          targetRole: "Software engineering intern",
+          topics: "Arrays, Graphs",
+          ...body,
+        },
+        params: {},
+        user: {
+          _id: "user-1",
+          academicLevel: "Undergraduate / Bachelor's",
+          degree: "B.Tech",
+          department: "IT",
+          ...user,
+        },
+        headers: { "idempotency-key": requestId },
+      };
+      const res = {
+        body: null,
+        headers: {},
+        statusCode: 200,
+        set(name, value) {
+          this.headers[name] = String(value);
+          return this;
+        },
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
+        json(payload) {
+          this.body = payload;
+          return this;
+        },
+      };
+      await routes.get("POST /api/learning-notebooks/career-analyze")(req, res);
       return res;
     },
     async analyzeMedical(body = {}) {
@@ -2871,10 +2970,10 @@ function createCareerRouteHarness({
       await routes.get("POST /api/learning-notebooks/:id/medical-training-analyze")(req, res);
       return res;
     },
-    async patchNotebook(notebook = {}) {
+    async patchNotebook(notebook = {}, options = {}) {
       const req = {
         body: { notebook },
-        params: { id: "507f1f77bcf86cd799439011" },
+        params: { id: options.id || notebook.id || "507f1f77bcf86cd799439011" },
         user: {
           _id: "user-1",
           academicLevel: "Medical / Health Sciences",
@@ -2882,6 +2981,7 @@ function createCareerRouteHarness({
           degree: "MBBS",
           department: "Medicine",
           ...user,
+          ...(options.user || {}),
         },
       };
       const res = {
@@ -2901,6 +3001,96 @@ function createCareerRouteHarness({
     },
   };
 }
+
+test("hides the placement workspace from the general notebook list unless explicitly requested", async () => {
+  const routes = new Map();
+  const app = {};
+  ["get", "post", "patch", "delete"].forEach((method) => {
+    app[method] = (path, handler) => routes.set(`${method.toUpperCase()} ${path}`, handler);
+  });
+  const normalNotebook = {
+    _id: "507f1f77bcf86cd799439011",
+    userId: "user-1",
+    academicProfileId: "profile-1",
+    ...validGeneratedNotebook(),
+    createdAt: new Date("2026-07-26T10:00:00.000Z"),
+    updatedAt: new Date("2026-07-26T10:00:00.000Z"),
+  };
+  const placementWorkspace = {
+    ...normalNotebook,
+    _id: "507f1f77bcf86cd799439012",
+    artifactKind: PLACEMENT_WORKSPACE_ARTIFACT_KIND,
+    title: "Placement preparation workspace",
+    subjectName: "Custom placement context",
+  };
+  const observed = [];
+  const collection = {
+    find(filter) {
+      const operation = {
+        filter,
+        limitValue: null,
+        sort() { return this; },
+        limit(value) {
+          this.limitValue = value;
+          return this;
+        },
+        async toArray() {
+          observed.push({ filter: this.filter, limit: this.limitValue });
+          return this.filter.artifactKind?.$ne === PLACEMENT_WORKSPACE_ARTIFACT_KIND
+            ? [normalNotebook]
+            : [normalNotebook, placementWorkspace];
+        },
+      };
+      return operation;
+    },
+  };
+  registerLearningNotebookRoutes(app, {
+    aiQuota: createTestAiQuota(),
+    getDb: async () => ({ collection: () => collection }),
+    requireAuth: (handler) => async (req, res) => {
+      req.academicProfileId = "profile-1";
+      return handler(req, res);
+    },
+  });
+  const invoke = async (query = {}) => {
+    const req = {
+      query,
+      user: {
+        _id: "user-1",
+        academicLevel: "Undergraduate / Bachelor's",
+        degree: "B.Tech",
+        department: "IT",
+      },
+    };
+    const res = {
+      body: null,
+      statusCode: 200,
+      status(code) { this.statusCode = code; return this; },
+      json(payload) { this.body = payload; return this; },
+    };
+    await routes.get("GET /api/learning-notebooks")(req, res);
+    return res;
+  };
+
+  const general = await invoke();
+  const placement = await invoke({ includePlacementWorkspace: "true" });
+
+  assert.equal(general.statusCode, 200);
+  assert.equal(general.body.notebooks.length, 1);
+  assert.equal("artifactKind" in general.body.notebooks[0], false);
+  assert.deepEqual(observed[0].filter.artifactKind, {
+    $ne: PLACEMENT_WORKSPACE_ARTIFACT_KIND,
+  });
+  assert.equal(observed[0].limit, 30);
+  assert.equal(placement.statusCode, 200);
+  assert.equal(placement.body.notebooks.length, 2);
+  assert.equal(
+    placement.body.notebooks[1].artifactKind,
+    PLACEMENT_WORKSPACE_ARTIFACT_KIND,
+  );
+  assert.equal(observed[1].filter.artifactKind, undefined);
+  assert.equal(observed[1].limit, 31);
+});
 
 test("replays completed career analysis after current eligibility and before provider checks", async () => {
   let fetchCalls = 0;
@@ -2980,6 +3170,193 @@ test("career analysis requires current privacy consent before database or provid
   assert.equal(res.body.code, "LEARNING_PRIVACY_CONSENT_REQUIRED");
   assert.equal(harness.dbCalls, 0);
   assert.equal(fetchCalls, 0);
+});
+
+test("custom career analysis requires a meaningful bounded preparation context before AI work", async () => {
+  let fetchCalls = 0;
+  const harness = createCareerRouteHarness({
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return geminiNotebookResponse(validCareerTopicAnalysis(["Arrays", "Graphs"]));
+    },
+  });
+
+  const missing = await harness.analyzeCustom({ context: " - " });
+  const oversized = await harness.analyzeCustom({
+    context: "x".repeat(MAX_LEARNING_CAREER_CONTEXT_CHARS + 1),
+  });
+
+  assert.equal(missing.statusCode, 400);
+  assert.equal(missing.body.code, "LEARNING_CAREER_CONTEXT_REQUIRED");
+  assert.equal(oversized.statusCode, 413);
+  assert.equal(oversized.body.code, "LEARNING_CAREER_CONTEXT_TOO_LARGE");
+  assert.equal(harness.dbCalls, 0);
+  assert.equal(fetchCalls, 0);
+  assert.equal(harness.aiQuota.calls.lookup.length, 0);
+  assert.equal(harness.aiQuota.calls.reserve.length, 0);
+});
+
+test("custom career analysis uses freeform context and reuses one marked placement workspace", async () => {
+  const requests = [];
+  const harness = createCareerRouteHarness({
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      return geminiNotebookResponse(validCareerTopicAnalysis(["Arrays", "Graphs"]));
+    },
+  });
+
+  const first = await harness.analyzeCustom({
+    context: "  Backend APIs\r\nwith PostgreSQL and distributed caching  ",
+  }, "custom-career-request-1");
+  const second = await harness.analyzeCustom({
+    context: "DSA",
+  }, "custom-career-request-2");
+
+  assert.equal(first.statusCode, 200);
+  assert.equal(second.statusCode, 200);
+  assert.equal(requests.length, 2);
+  assert.match(
+    requests[0].contents[0].parts[0].text,
+    /Learner-entered placement preparation context \(untrusted scope data\): "Backend APIs\\nwith PostgreSQL and distributed caching"/u,
+  );
+  assert.doesNotMatch(
+    requests[0].contents[0].parts[0].text,
+    /Existing notebook subject data/u,
+  );
+  assert.match(
+    requests[1].contents[0].parts[0].text,
+    /Learner-entered placement preparation context \(untrusted scope data\): "DSA"/u,
+  );
+  assert.equal(first.body.notebook.artifactKind, PLACEMENT_WORKSPACE_ARTIFACT_KIND);
+  assert.equal(first.body.notebook.subjectName, "Custom placement context");
+  assert.equal(first.body.notebook.id, second.body.notebook.id);
+  assert.deepEqual(
+    Object.keys(first.body).sort(),
+    ["notebook", "providerModel", "topicAnalysis"],
+  );
+  assert.equal(harness.inserts.length, 1);
+  assert.equal(harness.placementWorkspace.artifactKind, PLACEMENT_WORKSPACE_ARTIFACT_KIND);
+  assert.equal(harness.aiQuota.calls.commit.length, 2);
+  assert.equal(
+    harness.aiQuota.calls.commit[0].resultRef.id,
+    first.body.notebook.id,
+  );
+});
+
+test("applies placement history operations to the latest hidden workspace snapshot", async () => {
+  const collegeUser = {
+    academicLevel: "Undergraduate / Bachelor's",
+    academicTrack: "Engineering & Technology",
+    degree: "B.Tech",
+    department: "IT",
+  };
+  const harness = createCareerRouteHarness({
+    user: collegeUser,
+    fetchImpl: async () => (
+      geminiNotebookResponse(validCareerTopicAnalysis(["Arrays", "Graphs"]))
+    ),
+  });
+  const generated = await harness.analyzeCustom();
+  const staleWorkspace = generated.body.notebook;
+  const firstAnalysis = {
+    ...validCareerTopicAnalysis(["Arrays"]),
+    targetRole: "Backend intern",
+  };
+  const secondAnalysis = {
+    ...validCareerTopicAnalysis(["Graphs"]),
+    targetRole: "Platform intern",
+  };
+  const firstEntry = {
+    id: "placement-first",
+    analysis: firstAnalysis,
+    generatedAt: "2026-07-26T12:01:00.000Z",
+    pinned: false,
+  };
+  const secondEntry = {
+    id: "placement-second",
+    analysis: secondAnalysis,
+    generatedAt: "2026-07-26T12:02:00.000Z",
+    pinned: false,
+  };
+  const staleSnapshotWith = (entry, mutation) => ({
+    ...staleWorkspace,
+    careerHistoryMutation: mutation,
+    careerPreparation: {
+      ...staleWorkspace.careerPreparation,
+      history: entry ? [entry] : [],
+      topicAnalysis: entry?.analysis || validCareerTopicAnalysis([]),
+    },
+  });
+
+  const firstSave = await harness.patchNotebook(
+    staleSnapshotWith(firstEntry, { action: "upsert", id: firstEntry.id }),
+  );
+  const concurrentSave = await harness.patchNotebook(
+    staleSnapshotWith(secondEntry, { action: "upsert", id: secondEntry.id }),
+  );
+
+  assert.equal(firstSave.statusCode, 200);
+  assert.equal(concurrentSave.statusCode, 200);
+  assert.deepEqual(
+    concurrentSave.body.notebook.careerPreparation.history.map((entry) => entry.id),
+    [secondEntry.id, firstEntry.id],
+  );
+  assert.equal("careerHistoryMutation" in concurrentSave.body.notebook, false);
+  assert.equal("careerHistoryMutation" in harness.placementWorkspace, false);
+
+  const pinned = await harness.patchNotebook(staleSnapshotWith(firstEntry, {
+    action: "pin",
+    id: firstEntry.id,
+    pinned: true,
+  }));
+  assert.equal(pinned.statusCode, 200);
+  assert.equal(pinned.body.notebook.careerPreparation.history.length, 2);
+  assert.equal(
+    pinned.body.notebook.careerPreparation.history.find((entry) => entry.id === firstEntry.id)?.pinned,
+    true,
+  );
+
+  const deleted = await harness.patchNotebook(staleSnapshotWith(null, {
+    action: "delete",
+    id: firstEntry.id,
+  }));
+  assert.equal(deleted.statusCode, 200);
+  assert.deepEqual(
+    deleted.body.notebook.careerPreparation.history.map((entry) => entry.id),
+    [secondEntry.id],
+  );
+
+  const cleared = await harness.patchNotebook(staleSnapshotWith(null, { action: "clear" }));
+  assert.equal(cleared.statusCode, 200);
+  assert.equal(cleared.body.notebook.careerPreparation.history.length, 0);
+  assert.equal(cleared.body.notebook.careerPreparation.topicAnalysis.topics.length, 0);
+});
+
+test("removes a newly created placement workspace when custom analysis quota commit fails", async () => {
+  const aiQuota = createTestAiQuota({
+    commit: async () => {
+      const error = new Error("AI credit storage unavailable.");
+      error.status = 503;
+      error.code = "AI_QUOTA_UNAVAILABLE";
+      throw error;
+    },
+  });
+  const harness = createCareerRouteHarness({
+    aiQuota,
+    fetchImpl: async () => (
+      geminiNotebookResponse(validCareerTopicAnalysis(["Arrays", "Graphs"]))
+    ),
+  });
+
+  const res = await harness.analyzeCustom();
+
+  assert.equal(res.statusCode, 503);
+  assert.equal(res.body.code, "AI_QUOTA_UNAVAILABLE");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.equal(harness.inserts.length, 1);
+  assert.equal(harness.deletes.length, 1);
+  assert.equal(harness.placementWorkspace, null);
+  assert.equal(aiQuota.calls.refund.length, 1);
 });
 
 test("uses Gemini structured output for career topics and returns a normalized transient draft", async () => {

@@ -1,7 +1,10 @@
 import {
   normalizeLearningCareerTopicAnalysis,
   normalizeLearningCareerTopics,
+  normalizePlacementPreparationSource,
 } from "./learningNotebook.js";
+
+export { normalizePlacementPreparationSource } from "./learningNotebook.js";
 
 function cleanText(value, maxLength = 4000) {
   return String(value ?? "").replace(/\r\n/g, "\n").trim().slice(0, maxLength);
@@ -25,6 +28,14 @@ function historyId(prefix, generatedAt, label) {
   return `${prefix}-${Number.isFinite(timestamp) ? timestamp : Date.now()}-${stablePart(label, "guide")}`;
 }
 
+function placementHistoryMutation(action, id = "", options = {}) {
+  return {
+    action,
+    ...(id ? { id: cleanText(id, 120) } : {}),
+    ...(action === "pin" ? { pinned: options.pinned === true } : {}),
+  };
+}
+
 export function sortPlacementHistory(history = []) {
   return [...(Array.isArray(history) ? history : [])].sort((left, right) => {
     const pinOrder = Number(right?.pinned === true) - Number(left?.pinned === true);
@@ -37,7 +48,15 @@ export function sortPlacementHistory(history = []) {
 
 export function getPlacementHistory(notebook) {
   const history = notebook?.careerPreparation?.history;
-  if (Array.isArray(history) && history.length) return sortPlacementHistory(history);
+  if (Array.isArray(history) && history.length) {
+    return sortPlacementHistory(history.map((entry) => ({
+      ...entry,
+      preparationSource: normalizePlacementPreparationSource(
+        entry?.preparationSource ?? entry?.customContext ?? entry?.context,
+        notebook?.preparationSource ?? notebook?.customContext ?? notebook?.context,
+      ),
+    })));
+  }
   const analysis = notebook?.careerPreparation?.topicAnalysis;
   if (!analysis || !Array.isArray(analysis.topics) || !analysis.topics.length) return [];
   return [{
@@ -45,6 +64,9 @@ export function getPlacementHistory(notebook) {
     analysis,
     generatedAt: notebook?.updatedAt || notebook?.createdAt || new Date(0).toISOString(),
     pinned: false,
+    preparationSource: normalizePlacementPreparationSource(
+      notebook?.preparationSource ?? notebook?.customContext ?? notebook?.context,
+    ),
     providerModel: "",
     source: "legacy-saved-analysis",
   }];
@@ -65,6 +87,15 @@ export function createPlacementDraft(payload = {}, options = {}) {
     requestedTopics,
     targetRole: options.targetRole,
   });
+  const preparationSource = normalizePlacementPreparationSource(
+    options.preparationSource ?? options.customContext ?? options.context,
+    payload?.preparationSource
+      ?? payload?.customContext
+      ?? payload?.context
+      ?? payload?.notebook?.preparationSource
+      ?? payload?.notebook?.customContext
+      ?? payload?.notebook?.context,
+  );
 
   if (!notebookId || !analysis.topics.length) {
     throw new Error("The placement analysis did not contain a usable preparation guide.");
@@ -78,6 +109,7 @@ export function createPlacementDraft(payload = {}, options = {}) {
       || historyId("placement", generatedAt, analysis.targetRole || analysis.topics[0]?.title),
     notebookId,
     pinned: false,
+    preparationSource,
     providerModel: cleanText(payload?.providerModel, 160),
     source: "placement-analysis-draft",
   };
@@ -115,6 +147,10 @@ export function mergePlacementDraft(notebook, draft, options = {}) {
     analysis: topicAnalysis,
     generatedAt,
     pinned: draft.pinned === true,
+    preparationSource: normalizePlacementPreparationSource(
+      draft.preparationSource ?? draft.customContext ?? draft.context,
+      notebook?.preparationSource ?? notebook?.customContext ?? notebook?.context,
+    ),
     providerModel: cleanText(draft.providerModel, 160),
     source: cleanText(draft.source, 120),
   };
@@ -124,6 +160,7 @@ export function mergePlacementDraft(notebook, draft, options = {}) {
   ];
   return {
     ...notebook,
+    careerHistoryMutation: placementHistoryMutation("upsert", entry.id),
     careerPreparation: {
       ...(notebook.careerPreparation && typeof notebook.careerPreparation === "object"
         ? notebook.careerPreparation
@@ -142,6 +179,7 @@ export function setPlacementHistoryPinned(notebook, historyIdValue, pinned, opti
   }
   return {
     ...notebook,
+    careerHistoryMutation: placementHistoryMutation("pin", historyIdValue, { pinned }),
     careerPreparation: {
       ...(notebook.careerPreparation || {}),
       history: history.map((entry) => (
@@ -156,6 +194,7 @@ export function deletePlacementHistoryEntry(notebook, historyIdValue, options = 
   const history = getPlacementHistory(notebook).filter((entry) => entry.id !== historyIdValue);
   return {
     ...notebook,
+    careerHistoryMutation: placementHistoryMutation("delete", historyIdValue),
     careerPreparation: {
       ...(notebook.careerPreparation || {}),
       history,
@@ -168,6 +207,7 @@ export function deletePlacementHistoryEntry(notebook, historyIdValue, options = 
 export function clearPlacementHistory(notebook, options = {}) {
   return {
     ...notebook,
+    careerHistoryMutation: placementHistoryMutation("clear"),
     careerPreparation: {
       ...(notebook.careerPreparation || {}),
       history: [],
@@ -234,6 +274,7 @@ export function buildPlacementActionTarget({
   item,
   kind = "practice",
   notebook,
+  preparationSource,
   targetRole,
   topic,
 } = {}) {
@@ -248,32 +289,71 @@ export function buildPlacementActionTarget({
     ? itemText || "Placement interview check"
     : `Practice: ${itemText || topic?.title || "placement topic"}`;
   const explanation = buildPlacementItemGuidance({ codingRelevant, item, kind, topic });
+  const normalizedPreparationSource = normalizePlacementPreparationSource(
+    preparationSource,
+    notebook?.preparationSource ?? notebook?.customContext ?? notebook?.context,
+  );
+  const preparationContext = normalizedPreparationSource.context
+    || normalizedPreparationSource.label;
+  const topicSummary = cleanText(topic?.whyItMatters ?? topic?.explanation, 1200);
 
   return {
     chapterName: `Placement prep${cleanText(targetRole, 160) ? ` - ${cleanText(targetRole, 160)}` : ""}`,
     explanation,
     id,
-    keyPoints: [itemText, cleanText(topic?.whyItMatters, 900)].filter(Boolean),
+    keyPoints: [
+      itemText,
+      cleanText(topic?.whyItMatters, 900),
+      preparationContext
+        ? `Preparation context: ${cleanText(preparationContext, 900)}`
+        : "",
+    ].filter(Boolean),
     kind,
     metadata: {
       kind,
       notebookId: cleanText(notebook?.id, 120),
+      preparationSource: normalizedPreparationSource,
       topicId: cleanText(topic?.id, 120) || topicId,
     },
     subjectName: cleanText(notebook?.subjectName, 160) || "Placement preparation",
-    summary: cleanText(topic?.whyItMatters ?? topic?.explanation, 1200),
+    summary: [
+      topicSummary,
+      preparationContext
+        ? `Preparation context: ${cleanText(preparationContext, 1200)}`
+        : "",
+    ].filter(Boolean).join("\n\n"),
     title,
     type: "placement",
     unitKey: id,
   };
 }
 
-export function buildPlacementChatPrompt({ notebook, target, targetRole, topic } = {}) {
+export function buildPlacementChatPrompt({
+  notebook,
+  preparationSource,
+  target,
+  targetRole,
+  topic,
+} = {}) {
   const coding = isCodingPlacementItem({ item: target, topic });
+  const normalizedPreparationSource = normalizePlacementPreparationSource(
+    preparationSource ?? target?.metadata?.preparationSource,
+    notebook?.preparationSource ?? notebook?.customContext ?? notebook?.context,
+  );
+  const preparationContext = normalizedPreparationSource.context
+    || normalizedPreparationSource.label;
+  const customWorkspace = notebook?.artifactKind === "placement-workspace";
   return [
     "Coach me on this placement preparation item using an interactive, interview-ready explanation.",
-    `Notebook: ${cleanText(notebook?.title, 180) || "Learning notebook"}.`,
-    `Subject: ${cleanText(notebook?.subjectName, 160) || "Placement preparation"}.`,
+    preparationContext
+      ? `Learner-provided preparation context:\n${preparationContext}`
+      : "",
+    !customWorkspace
+      ? `Notebook: ${cleanText(notebook?.title, 180) || "Learning notebook"}.`
+      : "",
+    !customWorkspace
+      ? `Subject: ${cleanText(notebook?.subjectName, 160) || "Placement preparation"}.`
+      : "",
     cleanText(targetRole, 160) ? `Target role: ${cleanText(targetRole, 160)}.` : "",
     cleanText(topic?.title, 180) ? `Preparation topic: ${cleanText(topic.title, 180)}.` : "",
     `Item: ${cleanText(target?.title, 700)}.`,

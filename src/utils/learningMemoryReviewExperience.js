@@ -10,6 +10,10 @@ import {
   PLANNER_RECHECK_PENDING_FIELD,
   isPlannerTaskRecheckPending,
 } from "./plannerScheduleProgress.js";
+import {
+  normalizeMemoryReviewTaskId,
+  normalizeMemoryReviewUnitKey,
+} from "./memoryReviewNavigation.js";
 
 function asObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -49,11 +53,11 @@ function taskNodeId(task = {}) {
 }
 
 function canonicalMemoryReviewTaskId(value) {
-  return cleanText(value, 220).replace(/^memory-decay-/u, "memory-review-");
+  return normalizeMemoryReviewTaskId(cleanText(value, 220));
 }
 
 function canonicalMemoryReviewUnitKey(value) {
-  return cleanText(value, 520).replace(/^memory-decay:/u, "memory-review:");
+  return normalizeMemoryReviewUnitKey(cleanText(value, 520));
 }
 
 function findNotebook(notebooks, notebookId) {
@@ -341,12 +345,33 @@ export function buildMemoryReviewExperience(inputValue = {}) {
       task?.source === "memory_review" && isPlannerTaskRecheckPending(task)
     ))
   ));
-  const allTasks = uniqueMemoryReviewTasks([...todayTasks, ...reopenedTasks]);
+  const requestedTaskId = canonicalMemoryReviewTaskId(input.requestedTaskId);
+  const requestedUnitKey = canonicalMemoryReviewUnitKey(input.requestedUnitKey);
+  const scheduledReviewTasks = projected.schedule.flatMap((day) => (
+    asList(day?.tasks).filter(isScheduledMemoryReview)
+  ));
+  const taskIdMatches = requestedTaskId
+    ? scheduledReviewTasks.filter((task) => (
+        canonicalMemoryReviewTaskId(task?.id) === requestedTaskId
+      ))
+    : [];
+  const requestedTasks = taskIdMatches.length || !requestedUnitKey
+    ? taskIdMatches
+    : scheduledReviewTasks.filter((task) => (
+        canonicalMemoryReviewUnitKey(task?.unitKey) === requestedUnitKey
+      ));
+  const requestedTaskKeys = new Set(requestedTasks.map(memoryReviewTaskKey));
+  const allTasks = uniqueMemoryReviewTasks([
+    ...requestedTasks,
+    ...todayTasks,
+    ...reopenedTasks,
+  ]);
   const entries = allTasks.flatMap((task) => {
     const notebook = findNotebook(input.notebooks, taskNotebookId(task));
     const recheckPending = isPlannerTaskRecheckPending(task);
+    const requested = requestedTaskKeys.has(memoryReviewTaskKey(task));
     const candidate = findCandidate(projected.dueCandidates, task)
-      || (recheckPending ? scheduledCandidate(task, notebook) : null);
+      || (recheckPending || requested ? scheduledCandidate(task, notebook) : null);
     if (!candidate || !notebook || !cleanText(task?.task, 500)) return [];
     const historicallyCompleted = isMemoryReviewTaskCompleted(input.completed, task);
     return [{
@@ -354,6 +379,7 @@ export function buildMemoryReviewExperience(inputValue = {}) {
       candidate,
       notebook,
       historicallyCompleted,
+      requested,
       recheckPending,
       completed: historicallyCompleted && !recheckPending,
     }];
