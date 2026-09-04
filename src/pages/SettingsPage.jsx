@@ -11,10 +11,8 @@ import SettingsAcademicChangeDialog from "../components/SettingsAcademicChangeDi
 import {
   DEFAULT_GOAL_REMINDER_DATA,
   DEFAULT_GOAL_REMINDER_SETTINGS,
-  mergeStudyTargetSettings,
   normalizePlannerData,
   normalizePlannerSettings,
-  syncStudyTargetReminders,
 } from "../utils/goalReminderStore";
 import {
   ACADEMIC_LEVEL_OPTIONS,
@@ -40,7 +38,6 @@ import {
   getAcademicProfileDisplayName,
   validateAcademicProfileDisplayName,
 } from "../utils/academicProfileNames";
-import { academicProfileStorageKey } from "../utils/academicProfileScope";
 import { ACADEMIC_PROFILE_GUIDE_ROUTE } from "../utils/academicProfileGuide";
 import { normalizeResumeBuilderState } from "../utils/resumeBuilder";
 import { normalizeMaterialBookmarks } from "../utils/materialBookmarks";
@@ -409,7 +406,7 @@ function ToggleSwitch({ checked, onChange, label, subtitle, labelAccessory = nul
 
 function SettingsPage({
   userProfile, setUserProfile, setAcademicLevel, setAcademicTrack,
-  darkMode, setDarkMode, subjects, schedule, scheduleStartDate, completed, materialBookmarks,
+  darkMode, setDarkMode, subjects, schedule, completed, materialBookmarks,
   goalReminderData, goalReminderSettings, resumeBuilder,
   academicLevel, academicTrack, setSubjects, setSchedule, setCompleted,
   setMaterialBookmarks, setGoalReminderData, setGoalReminderSettings, setResumeBuilder,
@@ -462,14 +459,6 @@ function SettingsPage({
     initialAcademicProfile,
     youngKidsMode,
   );
-  const dailyTargetStorageKey = academicProfileStorageKey(
-    academicProfileDataId,
-    "daily-target",
-  ) || "prepmatrix_daily_target";
-  const weeklyReviewStorageKey = academicProfileStorageKey(
-    academicProfileDataId,
-    "weekly-review",
-  ) || "prepmatrix_weekly_review";
   // Account settings state
   const [username, setUsername] = useState(userProfile?.username || "");
   const [age, setAge] = useState(userProfile?.age || "");
@@ -841,23 +830,6 @@ function SettingsPage({
       setNotificationTestBusy(false);
     }
   };
-  // Study Target Goals state
-  const [dailyTarget, setDailyTarget] = useState(() => {
-    const stored = localStorage.getItem(dailyTargetStorageKey)
-      ?? localStorage.getItem("prepmatrix_daily_target");
-    return goalReminderSettings?.dailyStudyTarget || parseFloat(stored || "4");
-  });
-  const [weeklyReview, setWeeklyReview] = useState(() => {
-    const stored = localStorage.getItem(weeklyReviewStorageKey)
-      ?? localStorage.getItem("prepmatrix_weekly_review");
-    return goalReminderSettings?.weeklyReviewTarget || stored || "2";
-  });
-
-  useEffect(() => {
-    setDailyTarget(goalReminderSettings?.dailyStudyTarget || 4);
-    setWeeklyReview(goalReminderSettings?.weeklyReviewTarget || "2");
-  }, [goalReminderSettings?.dailyStudyTarget, goalReminderSettings?.weeklyReviewTarget]);
-
   // Data Management state
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
@@ -1635,24 +1607,6 @@ function SettingsPage({
     }
   };
 
-  const handlePlannerSettingsChange = (value) => {
-    const nextSettings = normalizePlannerSettings(value);
-    setGoalReminderSettings(nextSettings);
-    setGoalReminderData(syncStudyTargetReminders(goalReminderData, nextSettings));
-  };
-
-  // Save study target goals
-  const handleSaveStudyTargets = () => {
-    localStorage.setItem(dailyTargetStorageKey, String(dailyTarget));
-    localStorage.setItem(weeklyReviewStorageKey, weeklyReview);
-    const nextSettings = mergeStudyTargetSettings(goalReminderSettings, dailyTarget, weeklyReview);
-    setGoalReminderSettings(nextSettings);
-    setGoalReminderData(syncStudyTargetReminders(goalReminderData, nextSettings));
-    toast.success(nextSettings.targetRemindersEnabled
-      ? "Study targets saved and review alerts refreshed!"
-      : "Study targets saved. Target-linked reminders remain off.");
-  };
-
   // Export backup
   const handleExportBackup = () => {
     const data = {
@@ -1752,10 +1706,6 @@ function SettingsPage({
         toast.error(error?.message || "Could not reset the active academic profile.");
         return;
       }
-      setDailyTarget(4);
-      setWeeklyReview("2");
-      localStorage.setItem(dailyTargetStorageKey, "4");
-      localStorage.setItem(weeklyReviewStorageKey, "2");
       setConfirmReset(false);
       toast.success("The active academic profile workspace has been reset.");
       return;
@@ -1771,10 +1721,6 @@ function SettingsPage({
     }));
     setGoalReminderData(normalizePlannerData(DEFAULT_GOAL_REMINDER_DATA));
     setGoalReminderSettings(normalizePlannerSettings(DEFAULT_GOAL_REMINDER_SETTINGS));
-    setDailyTarget(4);
-    setWeeklyReview("2");
-    localStorage.setItem(dailyTargetStorageKey, "4");
-    localStorage.setItem(weeklyReviewStorageKey, "2");
     setConfirmReset(false);
     toast.success("The active academic profile workspace has been reset.");
   };
@@ -2722,17 +2668,7 @@ function SettingsPage({
 
         {!youngKidsMode ? (
           <GoalSettingsPanel
-            completed={completed}
-            dailyTarget={dailyTarget}
-            onDailyTargetChange={setDailyTarget}
-            onPlannerSettingsChange={handlePlannerSettingsChange}
-            onSaveTargets={handleSaveStudyTargets}
-            onWeeklyReviewChange={setWeeklyReview}
             plannerData={goalReminderData}
-            plannerSettings={goalReminderSettings}
-            schedule={schedule}
-            scheduleStartDate={scheduleStartDate}
-            weeklyReview={weeklyReview}
           />
         ) : null}
 
@@ -3206,7 +3142,7 @@ function SettingsPage({
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
             <div className="field-stack">
               <span style={{ color: "var(--text-muted)" }}>Reset Entire Workspace</span>
-              <p className="card-subtext" style={{ marginBottom: "8px" }}>This clears subjects, schedules, progress, bookmarks, goals, reminders, and to-do tasks. This action cannot be undone.</p>
+              <p className="card-subtext" style={{ marginBottom: "8px" }}>This clears subjects, schedules, progress, bookmarks, goals, and to-do tasks. This action cannot be undone.</p>
               {!confirmReset ? (
                 <button
                   onClick={() => setConfirmReset(true)}

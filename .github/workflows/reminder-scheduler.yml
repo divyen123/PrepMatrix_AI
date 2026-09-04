@@ -2,8 +2,8 @@ name: PrepMatrix alert scheduler
 
 on:
   schedule:
-    # Check often enough for due reminders. The server sends nothing unless an
-    # actionable alert condition is present and deduplicates every occurrence.
+    # Check for due goals and other actionable alert conditions. The server
+    # remains quiet when nothing needs attention and deduplicates every alert.
     - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 

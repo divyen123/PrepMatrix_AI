@@ -63,6 +63,18 @@ function reminder(overrides = {}) {
   };
 }
 
+function goal(overrides = {}) {
+  return {
+    id: "goal-one",
+    title: "Complete operating systems revision",
+    notes: "Finish the process scheduling unit.",
+    targetDate: "2026-07-16",
+    priority: "high",
+    completed: false,
+    ...overrides,
+  };
+}
+
 class FakeDeliveryCollection {
   constructor() {
     this.documents = new Map();
@@ -379,8 +391,8 @@ test("claims a new occurrence once and can reclaim only after the claim becomes 
   assert.equal(reclaimed.claimed, true);
 });
 
-test("sends each occurrence once per browser device and sends again after snooze", async () => {
-  const workspace = { goalReminderData: { reminders: [reminder()] } };
+test("sends each goal occurrence once per browser device", async () => {
+  const workspace = { goalReminderData: { goals: [goal()], reminders: [reminder()] } };
   const setup = createSweepDb({
     users: [{
       _id: "user-multi-device",
@@ -402,26 +414,20 @@ test("sends each occurrence once per browser device and sends again after snooze
   const first = await runScheduledReminderPushSweep(options);
   const historyAfterFirst = setup.history.documents.size;
   const duplicate = await runScheduledReminderPushSweep(options);
-  workspace.goalReminderData.reminders[0].snoozedUntil = "2026-07-16T12:45:00.000Z";
-  const snoozed = await runScheduledReminderPushSweep({
-    ...options,
-    now: new Date("2026-07-16T12:45:00.000Z"),
-  });
 
   assert.equal(first.sent, 2);
   assert.equal(duplicate.sent, 0);
-  assert.equal(snoozed.sent, 2);
   assert.equal(historyAfterFirst, 1);
-  assert.equal(setup.history.documents.size, 2);
+  assert.equal(setup.history.documents.size, 1);
   assert.equal([...setup.history.documents.values()].every((document) => !("deviceId" in document)), true);
-  assert.equal([...setup.history.documents.values()].every((document) => document.kind === "scheduled-reminder"), true);
-  assert.equal(sends.length, 4);
-  assert.equal(new Set(sends.slice(0, 2).map(([subscription]) => subscription.endpoint)).size, 2);
+  assert.equal([...setup.history.documents.values()].every((document) => document.kind === "goal-due"), true);
+  assert.equal(sends.length, 2);
+  assert.equal(new Set(sends.map(([subscription]) => subscription.endpoint)).size, 2);
   assert.equal(sends.every(([, , deliveryOptions]) => deliveryOptions.timeout === 15_000), true);
   assert.equal(sends.every(([, , deliveryOptions]) => deliveryOptions.TTL === SCHEDULED_REMINDER_PUSH_TTL_SECONDS), true);
 });
 
-test("sends only actionable planner, goal, reminder, learning, and credit alerts", async () => {
+test("sends only actionable planner, goal, learning, and credit alerts", async () => {
   const now = new Date("2026-08-01T12:37:00.000Z");
   const workspace = {
     scheduleStartDate: "2026-08-01T00:00:00.000Z",
@@ -475,26 +481,29 @@ test("sends only actionable planner, goal, reminder, learning, and credit alerts
   const repeated = await runScheduledReminderPushSweep(options);
   const kinds = sends.map(([, payload]) => JSON.parse(payload).kind);
 
-  assert.equal(first.sent, 5);
+  assert.equal(first.sent, 4);
   assert.equal(repeated.sent, 0);
   assert.deepEqual(new Set(kinds), new Set([
-    "scheduled-reminder",
     "planner-incomplete",
     "goal-due",
     "learning-topic-unstarted",
     "ai-credit-reset",
   ]));
-  assert.equal(setup.history.documents.size, 5);
+  assert.equal(setup.history.documents.size, 4);
+  assert.equal(kinds.includes("scheduled-reminder"), false);
 });
 
-test("legacy daily study-target reminders are never delivered", async () => {
+test("legacy manual and study-target reminders remain stored but are never delivered", async () => {
   const workspace = {
     schedule: [],
     goalReminderData: {
-      reminders: [reminder({
-        id: "study-target-daily-2026-07-16",
-        title: "Daily study target - 4h",
-      })],
+      reminders: [
+        reminder(),
+        reminder({
+          id: "study-target-daily-2026-07-16",
+          title: "Daily study target - 4h",
+        }),
+      ],
     },
   };
   const setup = createSweepDb({
@@ -518,13 +527,14 @@ test("legacy daily study-target reminders are never delivered", async () => {
   assert.equal(withoutSchedule.sent, 0);
   assert.equal(withSchedule.sent, 0);
   assert.equal(sends.length, 0);
+  assert.equal(workspace.goalReminderData.reminders.length, 2);
 });
 
 test("clears transient claims for retry and removes an expired current subscription", async () => {
   const updates = [];
   const transientSetup = createSweepDb({
     users: [{ _id: "user-retry", pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
-    workspace: { goalReminderData: { reminders: [reminder()] } },
+    workspace: { goalReminderData: { goals: [goal()] } },
   });
   let attempt = 0;
   const transientOptions = {
@@ -543,7 +553,7 @@ test("clears transient claims for retry and removes an expired current subscript
 
   const expiredSetup = createSweepDb({
     users: [{ _id: "user-expired", pushSubscriptions: [subscriptionRecord(DEVICE_TWO, 2)] }],
-    workspace: { goalReminderData: { reminders: [reminder()] } },
+    workspace: { goalReminderData: { goals: [goal()] } },
     userUpdate: async (filter, update) => {
       updates.push({ filter, update });
       return { modifiedCount: 1 };
@@ -568,7 +578,7 @@ test("clears transient claims for retry and removes an expired current subscript
 test("history write failures cannot cause a scheduled push to be delivered again", async () => {
   const setup = createSweepDb({
     users: [{ _id: "user-history-failure", pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
-    workspace: { goalReminderData: { reminders: [reminder()] } },
+    workspace: { goalReminderData: { goals: [goal()] } },
     history: new FakeHistoryCollection({ failWrites: true }),
   });
   const sends = [];
@@ -590,15 +600,14 @@ test("history write failures cannot cause a scheduled push to be delivered again
   assert.equal(sends.length, 1);
 });
 
-test("bounds notification bursts and defers the remainder to later sweeps", async () => {
-  const reminders = Array.from({ length: MAX_SCHEDULED_REMINDERS_PER_DEVICE + 2 }, (_, index) => reminder({
-    id: `reminder-${index}`,
-    title: `Reminder ${index}`,
-    time: `17:${String(index).padStart(2, "0")}`,
+test("bounds actionable alert bursts and defers the remainder to later sweeps", async () => {
+  const goals = Array.from({ length: MAX_SCHEDULED_REMINDERS_PER_DEVICE + 2 }, (_, index) => goal({
+    id: `goal-${index}`,
+    title: `Goal ${index}`,
   }));
   const setup = createSweepDb({
     users: [{ _id: "user-bounded", pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
-    workspace: { goalReminderData: { reminders } },
+    workspace: { goalReminderData: { goals } },
   });
   let claimIndex = 1;
   const summary = await runScheduledReminderPushSweep({

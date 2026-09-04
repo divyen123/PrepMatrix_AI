@@ -140,7 +140,7 @@ export default function SettingsAcademicProfileDeleteDialog({
                   : "Choose one profile to permanently remove. "}
                 Its subjects, planner and completion history,
                 notes, quizzes and battles, learning records, exams, saved materials, resume data,
-                reminders, chats, and kids progress will be deleted. Files already downloaded to your
+                goals, to-dos, chats, and kids progress will be deleted. Files already downloaded to your
                 device are not affected. The remaining profile will become current if needed.
               </>
             )}

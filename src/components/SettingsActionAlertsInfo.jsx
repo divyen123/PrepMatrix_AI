@@ -3,7 +3,7 @@ import { Info } from "lucide-react";
 const TOOLTIP_ID = "settings-action-alerts-tooltip";
 
 export const ACTION_ALERTS_INFO_MESSAGE =
-  "Connected securely. Only actionable alerts are sent: incomplete planner work, due goals or reminders, restored AI credits, and learning topics left unstarted.";
+  "Connected securely. Only actionable alerts are sent: incomplete planner work, due goals, restored AI credits, and learning topics left unstarted.";
 
 export default function SettingsActionAlertsInfo() {
   const handleKeyDown = (event) => {

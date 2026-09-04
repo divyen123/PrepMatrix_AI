@@ -174,7 +174,7 @@ test("renders an explicit action instead of an AI fallback for the current page"
   }
 });
 
-test("opens the existing Goals & Reminders center and consumes its dashboard hash", async () => {
+test("opens the Goals & To-Do center and consumes its legacy dashboard hash", async () => {
   const navigationCalls = [];
   const cancelledFrames = [];
   let openCount = 0;

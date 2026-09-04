@@ -30,7 +30,6 @@ export const LEARNING_TOPIC_UNSTARTED_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 export const LEARNING_TOPIC_ALERT_WINDOW_MS = 4 * 24 * 60 * 60 * 1000;
 export const AI_CREDIT_RESET_ALERT_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 
-const DAILY_STUDY_TARGET_REMINDER_PREFIX = "study-target-daily-";
 const LEARNING_NOTEBOOKS_COLLECTION = "learningNotebooks";
 const PLACEMENT_WORKSPACE_ARTIFACT_KIND = "placement-workspace";
 
@@ -573,7 +572,6 @@ export async function runScheduledReminderPushSweep({
   const summary = {
     usersExamined: users.length,
     devicesExamined: 0,
-    remindersExamined: 0,
     goalsExamined: 0,
     learningNotebooksExamined: 0,
     eligible: 0,
@@ -632,17 +630,10 @@ export async function runScheduledReminderPushSweep({
       userId: user._id,
       academicProfileId: profileContext.academicProfileId,
     });
-    const storedReminders = Array.isArray(workspace?.goalReminderData?.reminders)
-      ? workspace.goalReminderData.reminders
-      : [];
     const storedGoals = Array.isArray(workspace?.goalReminderData?.goals)
       ? workspace.goalReminderData.goals
       : [];
-    summary.remindersExamined += storedReminders.length;
     summary.goalsExamined += storedGoals.length;
-    const reminders = storedReminders.filter((reminder) => (
-      !String(reminder?.id || "").startsWith(DAILY_STUDY_TARGET_REMINDER_PREFIX)
-    ));
     const learningNotebooks = await learningNotebooksCollection.find({
       userId: user._id,
       academicProfileId: profileContext.academicProfileId,
@@ -671,10 +662,6 @@ export async function runScheduledReminderPushSweep({
         timezoneOffset: device.timezoneOffset,
       });
       const due = [
-        ...getDueScheduledReminderOccurrences(reminders, {
-          now: sweepNow,
-          timezoneOffset: device.timezoneOffset,
-        }),
         ...getDueGoalAlertOccurrences(storedGoals, {
           now: sweepNow,
           timezoneOffset: device.timezoneOffset,

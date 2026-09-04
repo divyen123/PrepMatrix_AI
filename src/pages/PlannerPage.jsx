@@ -13,7 +13,6 @@ import {
   getPushNotificationErrorMessage,
   isPushNotificationSupported,
 } from "../utils/pushNotifications";
-import Reminder from "../components/Reminder";
 import Timetable from "../components/Timetable";
 import WorktreeMapper from "../components/WorktreeMapper";
 import PredictiveMemoryReview from "../components/PredictiveMemoryReview";
@@ -57,7 +56,7 @@ const PLANNER_SUBPAGE_COPY = {
   schedule: {
     tag: "Schedule",
     title: "Generate, adjust, and recover your schedule",
-    description: "Keep every study block, recovery action, and reminder in one focused view.",
+    description: "Keep every study block and recovery action in one focused view.",
   },
   worktree: {
     tag: "Worktree",
@@ -290,7 +289,7 @@ function PlannerPage({
                     <div style={{ flex: 1 }}>
                       <h4 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>Enable Action Alerts</h4>
                       <p className="card-subtext" style={{ margin: 0, fontSize: "0.82rem" }}>
-                        Get notified only for incomplete planner work, due goals or reminders, restored AI credits, and learning topics left unstarted.
+                        Get notified only for incomplete planner work, due goals, restored AI credits, and learning topics left unstarted.
                       </p>
                     </div>
                     <div style={{ display: "flex", gap: "10px" }}>
@@ -316,7 +315,6 @@ function PlannerPage({
                 )}
 
                 <div className="planner-support-strip">
-                  <Reminder completed={completed} schedule={schedule} />
                 </div>
 
                 <Timetable

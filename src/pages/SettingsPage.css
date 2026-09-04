@@ -3,11 +3,6 @@
   --settings-card-radius: var(--radius-lg, 24px);
   --settings-card-gap: var(--card-content-gap, 18px);
   --settings-grid-gap: var(--card-grid-gap, 18px);
-  --settings-paired-card-height: clamp(
-    430px,
-    calc(376px + var(--card-padding, 30px) + var(--card-padding, 30px) + var(--card-padding, 30px)),
-    500px
-  );
 }
 
 .settings-page .settings-grid {
@@ -555,28 +550,8 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 }
 
 .settings-page .goal-settings-card {
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(var(--accent-rgb), 0.38) transparent;
-  scrollbar-gutter: stable;
-}
-
-.settings-page .goal-settings-card::-webkit-scrollbar {
-  width: 6px;
-}
-
-.settings-page .goal-settings-card::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.settings-page .goal-settings-card::-webkit-scrollbar-thumb {
-  background: rgba(var(--accent-rgb), 0.3);
-  border-radius: 999px;
-}
-
-.settings-page .goal-settings-card::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--accent-rgb), 0.48);
+  align-self: start;
+  overflow: visible;
 }
 
 .settings-page .settings-appearance-section {
@@ -767,21 +742,7 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
   margin-top: 1px;
 }
 
-@media (min-width: 1181px) {
-  .settings-page .settings-system-card,
-  .settings-page .goal-settings-card {
-    align-self: stretch;
-    height: auto !important;
-    min-height: var(--settings-paired-card-height) !important;
-    max-height: none !important;
-  }
-}
-
 @media (max-width: 1180px) {
-  .settings-page .goal-settings-card {
-    max-height: min(620px, 72dvh);
-  }
-
   .settings-page .settings-glass-controls {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -837,10 +798,6 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
   .settings-page button.bg-palette-thumbnail-btn {
     height: 54px !important;
     min-height: 54px !important;
-  }
-
-  .settings-page .goal-settings-card {
-    max-height: 72dvh;
   }
 
   .settings-page .notification-history-setting-row {

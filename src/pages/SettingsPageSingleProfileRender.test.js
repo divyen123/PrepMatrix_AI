@@ -110,11 +110,11 @@ test("renders Settings for one profile without deletion guidance", async () => {
     assert.match(markup, /href="\/settings\/profiles"/u);
     assert.match(markup, /aria-label="Learn how academic profiles work"/u);
     assert.doesNotMatch(markup, /settings-profile-parent-guidance/u);
-    assert.match(markup, /Study Goals &amp; Reminders/u);
+    assert.match(markup, /Study Goals &amp; To-Do/u);
     assert.doesNotMatch(markup, /settings-system-card dashboard-full-span/u);
 
     const kidsMarkup = renderSettings({ youngKidsMode: true });
-    assert.doesNotMatch(kidsMarkup, /Study Goals &amp; Reminders/u);
+    assert.doesNotMatch(kidsMarkup, /Study Goals &amp; To-Do/u);
     assert.match(kidsMarkup, /settings-system-card dashboard-full-span/u);
   } finally {
     await vite?.close();

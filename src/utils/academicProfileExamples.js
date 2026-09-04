@@ -427,7 +427,6 @@ export function getAcademicProfileExamples(input = {}) {
     quizTopicPlaceholder: `Example: ${examples.topic}`,
     noteTopicPlaceholder: `Example: ${examples.topic}`,
     goalTitlePlaceholder: `Complete the ${examples.subject} revision plan`,
-    reminderTitlePlaceholder: `Review ${examples.topic} flashcards`,
     subjectPlanChapterPlaceholder: `e.g. ${examples.chapter}`,
     subjectPlanTopicsPlaceholder: `e.g. ${relatedTopics.join(", ")}`,
     subjectProgressTopicPlaceholder: `Example: ${examples.topic}, ${examples.additionalChapters[0]}`,

@@ -117,7 +117,6 @@ import {
   DEFAULT_GOAL_REMINDER_SETTINGS,
   normalizePlannerData,
   normalizePlannerSettings,
-  syncStudyTargetReminders,
 } from "./utils/goalReminderStore";
 import CustomCursor from "./components/CustomCursor";
 import { SidebarStudyPet } from "./components/StudyPet";
@@ -889,7 +888,7 @@ function App() {
     resumeBuilderRef.current = nextResumeBuilder;
     setResumeBuilder(nextResumeBuilder);
     const nextGoalReminderSettings = normalizePlannerSettings(workspace?.goalReminderSettings || DEFAULT_GOAL_REMINDER_SETTINGS);
-    const nextGoalReminderData = syncStudyTargetReminders(workspace?.goalReminderData || DEFAULT_GOAL_REMINDER_DATA, nextGoalReminderSettings);
+    const nextGoalReminderData = normalizePlannerData(workspace?.goalReminderData || DEFAULT_GOAL_REMINDER_DATA);
     setGoalReminderData(nextGoalReminderData);
     setGoalReminderSettings(nextGoalReminderSettings);
     setDarkMode(Boolean(workspace.darkMode));

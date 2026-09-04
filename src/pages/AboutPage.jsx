@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
-  Bell,
   Bot,
   BrainCircuit,
   Calendar,
@@ -33,7 +32,7 @@ import {
 
 const FEATURES = [
   { icon: Calendar, title: "Smart Planner & Scheduler", desc: "Distributes study workloads, balances daily tasks by difficulty, and keeps missed work organized." },
-  { icon: Bell, title: "Goals, Reminders & To-Dos", desc: "Tracks dated goals, scheduled reminders, quick tasks, study targets, and review nudges." },
+  { icon: ClipboardList, title: "Goals & To-Dos", desc: "Tracks dated outcomes and small next actions in one focused center." },
   { icon: Bot, title: "AI Study Assistant", desc: "Explains doubts and uploaded images or PDFs, creates summaries, and uses planner context." },
   { icon: BrainCircuit, title: "AI Learning Notebooks", desc: "Turns files or chapter lists into important questions, revised notes, editable outlines, and exportable mind maps." },
   { icon: StickyNote, title: "Interactive Study Notes", desc: "Saves chapter summaries, doubts, and left-over topics for every subject." },
@@ -91,7 +90,7 @@ function AboutPage({ academicProfile = {} }) {
           <span className="about-hero-kicker"><Sparkles size={14} /> Plan clearly. Study confidently.</span>
           <h3>Plan, study, practice, and measure progress in one workspace.</h3>
           <p>
-            PrepMatrix AI connects subjects, schedules, goals, reminders, study tools, secure exams, and analytics around your learning profile.
+            PrepMatrix AI connects subjects, schedules, goals, to-dos, study tools, secure exams, and analytics around your learning profile.
           </p>
           <button className="about-guide-trigger" onClick={() => setGuideOpen(true)} type="button">
             <PlayCircle size={17} /> View guide <ArrowRight size={15} />

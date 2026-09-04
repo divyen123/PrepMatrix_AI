@@ -33,7 +33,6 @@ const contextualUiFields = [
   "quizTopicPlaceholder",
   "noteTopicPlaceholder",
   "goalTitlePlaceholder",
-  "reminderTitlePlaceholder",
   "subjectPlanChapterPlaceholder",
   "subjectPlanTopicsPlaceholder",
   "subjectProgressTopicPlaceholder",
@@ -129,14 +128,14 @@ test("subject planning and analytics dialogs receive the same active profile con
   assert.match(appSource, /<AnalyticsPage[\s\S]*?userProfile=\{userProfile\}[\s\S]*?\/>/u);
 });
 
-test("kids, planning, reminders, guides, and resumes follow the active profile", () => {
+test("kids, goals, guides, and resumes follow the active profile", () => {
   assert.match(kidsLearningSource, /getAcademicProfileExamples\(\{ \.\.\.userProfile, academicLevel, academicTrack \}\)/u);
   assert.match(kidsLearningSource, /placeholder=\{curriculumExamples\.subjectPlaceholder\}/u);
   assert.match(kidsLearningSource, /placeholder=\{curriculumExamples\.topicPlaceholder\}/u);
 
   assert.match(goalReminderSource, /getAcademicProfileExamples\(academicProfile\)/u);
   assert.match(goalReminderSource, /placeholder=\{curriculumExamples\.goalTitlePlaceholder\}/u);
-  assert.match(goalReminderSource, /placeholder=\{curriculumExamples\.reminderTitlePlaceholder\}/u);
+  assert.doesNotMatch(goalReminderSource, /reminderTitlePlaceholder/u);
 
   assert.match(plannerUnlockSource, /getAcademicProfileExamples\(academicProfile\)/u);
   assert.match(plannerUnlockSource, /placeholder=\{topicDetailsPlaceholder\}/u);

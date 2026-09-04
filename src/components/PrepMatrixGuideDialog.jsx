@@ -89,7 +89,7 @@ const GUIDE_STEPS = [
       "Use Recover backlog to move incomplete work forward when a day does not go as planned.",
       "Use Rebalance to smooth overloaded days, and Undo if you want to restore the previous layout.",
       "Create a New schedule when your exam date or priorities change; export the plan when you need a PDF copy.",
-      "Use the Goal & Reminder Center for dated goals, study nudges, and quick to-dos.",
+      "Use the Goal & To-Do Center for dated outcomes and compact next actions.",
     ],
     tip: "Update task completion daily—Dashboard readiness and Analytics depend on this progress.",
   },

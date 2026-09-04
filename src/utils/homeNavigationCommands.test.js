@@ -161,8 +161,8 @@ test("resolves supported page content to stable in-page anchors", () => {
     ["check my progress status", "/dashboard#progress-status"],
     ["open weekly review", "/dashboard#weekly-review"],
     ["go to goals", GOAL_REMINDER_SHORTCUT_ROUTE],
-    ["open reminders", GOAL_REMINDER_SHORTCUT_ROUTE],
-    ["goal reminder", GOAL_REMINDER_SHORTCUT_ROUTE],
+    ["open to-dos", GOAL_REMINDER_SHORTCUT_ROUTE],
+    ["manage goals and to-dos", GOAL_REMINDER_SHORTCUT_ROUTE],
     ["browse subject library", "/subjects#subject-library"],
     ["show subject mastery", "/learn#subject-mastery"],
     ["show my topic mastery", "/analytics#topic-progress"],
@@ -187,13 +187,13 @@ test("resolves supported page content to stable in-page anchors", () => {
 
 test("requires exact account availability for gated content destinations", () => {
   assert.equal(
-    resolveHomeNavigationCommand("open reminders", {
+    resolveHomeNavigationCommand("open to-dos", {
       availableRoutes: ["/dashboard"],
     }),
     null
   );
   assert.equal(
-    resolveHomeNavigationCommand("open reminders", {
+    resolveHomeNavigationCommand("open to-dos", {
       availableRoutes: ["/dashboard", GOAL_REMINDER_SHORTCUT_ROUTE],
     })?.route,
     GOAL_REMINDER_SHORTCUT_ROUTE
@@ -332,7 +332,7 @@ test("kids dashboard commands can open Subjects and its library without exposing
     null,
   );
   assert.equal(
-    resolveHomeNavigationCommand("open reminders", { availableRoutes: kidsRoutes }),
+    resolveHomeNavigationCommand("open to-dos", { availableRoutes: kidsRoutes }),
     null,
   );
   assert.equal(
@@ -344,7 +344,7 @@ test("kids dashboard commands can open Subjects and its library without exposing
   );
 });
 
-test("only exposes the Goals & Reminders shortcut when its dialog is available", () => {
+test("only exposes the Goals & To-Do shortcut when its dialog is available", () => {
   assert.deepEqual(
     getGoalReminderShortcutRoutes({
       hasDashboard: true,
@@ -500,7 +500,7 @@ test("returns accessible defaults for an empty autocomplete query", () => {
       "/quiz",
     ],
   );
-  assert.equal(dashboardShortcuts[2]?.label, "Goals & Reminders");
+  assert.equal(dashboardShortcuts[2]?.label, "Goals & To-Do");
 });
 
 test("does not hijack ordinary study questions or invent unknown routes", () => {
