@@ -64,7 +64,7 @@ test("renders page shortcuts as an accessible keyboard-selectable list", async (
   }
 });
 
-test("renders a background-free Alexa-style dashboard voice example", async () => {
+test("renders a background-free Alexa-style dashboard voice example at the page bottom", async () => {
   const vite = await createServer({
     appType: "custom",
     logLevel: "silent",
@@ -72,14 +72,18 @@ test("renders a background-free Alexa-style dashboard voice example", async () =
   });
 
   try {
-    const { DashboardVoiceEntryHint } = await vite.ssrLoadModule(
+    const { DashboardVoiceEntryDock } = await vite.ssrLoadModule(
       "/src/pages/DashboardPage.jsx",
     );
     const markup = renderToStaticMarkup(React.createElement(
-      DashboardVoiceEntryHint,
+      DashboardVoiceEntryDock,
       { hint: "Hey PrepMatrix, plan my study day." },
     ));
 
+    assert.match(markup, /class="db-voice-entry-dock"/u);
+    assert.match(markup, /role="status"/u);
+    assert.match(markup, /aria-live="polite"/u);
+    assert.match(markup, /class="db-voice-entry-dock-gradient" aria-hidden="true"/u);
     assert.match(markup, /class="db-voice-entry-hint"/u);
     assert.match(markup, /--db-voice-hint-duration:5000ms/u);
     assert.match(markup, /<strong>Say<\/strong>/u);
@@ -265,13 +269,23 @@ test("offers the rotating voice hint once per real app entry and after the splas
     stylesheet,
     /\.db-voice-entry-hint\s*\{[^}]*background: none;[^}]*border: 0;[^}]*box-shadow: none;[^}]*backdrop-filter: none;/u,
   );
-  assert.match(stylesheet, /color: var\(--text-muted\)/u);
   assert.match(stylesheet, /@keyframes db-voice-entry-hint-cycle/u);
-  assert.match(pageSource, /db-hero--voice-entry-hint/u);
+  assert.match(
+    pageSource,
+    /createPortal\(\s*<DashboardVoiceEntryDock hint=\{voiceEntryHint\} \/>,\s*document\.body/u,
+  );
+  assert.doesNotMatch(pageSource, /db-hero--voice-entry-hint/u);
   assert.match(
     stylesheet,
-    /\.db-voice-entry-gradient\s*\{[^}]*background: radial-gradient\([^}]*rgba\(2, 6, 23, 0\.9\)/u,
+    /\.db-voice-entry-dock\s*\{[^}]*position: fixed;[^}]*bottom: 0;[^}]*pointer-events: none;[^}]*background: none;[^}]*box-shadow: none;[^}]*filter: none;/u,
   );
+  assert.match(
+    stylesheet,
+    /\.db-voice-entry-dock-gradient\s*\{[^}]*background: linear-gradient\([^}]*to top,[^}]*rgba\(2, 6, 23, 0\.94\)/u,
+  );
+  assert.doesNotMatch(stylesheet, /\.db-voice-entry-dock-gradient\s*\{[^}]*radial-gradient/u);
+  assert.match(stylesheet, /\.db-voice-entry-hint > svg\s*\{[^}]*filter: none;/u);
+  assert.match(stylesheet, /\.db-voice-entry-hint\s*\{[^}]*text-shadow: none;/u);
   assert.match(stylesheet, /@keyframes db-voice-entry-gradient-cycle/u);
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/u);
 });

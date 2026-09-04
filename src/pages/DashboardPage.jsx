@@ -1,4 +1,5 @@
 import { createElement, useState, useRef, useCallback, useEffect, useId, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Search, Lightbulb, BarChart2, CalendarCheck, Mic, Paperclip, UploadCloud, X } from "lucide-react";
 import SmartSuggestion from "../components/SmartSuggestion";
@@ -119,6 +120,23 @@ export function DashboardVoiceEntryHint({ hint = "" }) {
       <Mic aria-hidden="true" size={13} strokeWidth={2.4} />
       <span><strong>Say</strong> <q>{hint}</q></span>
     </span>
+  );
+}
+
+export function DashboardVoiceEntryDock({ hint = "" }) {
+  if (!hint) return null;
+
+  return (
+    <div
+      className="db-voice-entry-dock"
+      style={{ "--db-voice-hint-duration": `${DASHBOARD_VOICE_HINT_DURATION_MS}ms` }}
+      aria-atomic="true"
+      aria-live="polite"
+      role="status"
+    >
+      <span className="db-voice-entry-dock-gradient" aria-hidden="true" />
+      <DashboardVoiceEntryHint hint={hint} />
+    </div>
   );
 }
 
@@ -455,11 +473,7 @@ function DashboardPage({
   return (
     <section className="db-page">
       {/* ── Welcome + Search ────────────────────────────────── */}
-      <div
-        className={`db-hero${voiceEntryHint ? " db-hero--voice-entry-hint" : ""}`}
-        style={{ "--db-voice-hint-duration": `${DASHBOARD_VOICE_HINT_DURATION_MS}ms` }}
-      >
-        <div className="db-voice-entry-gradient" aria-hidden="true" />
+      <div className="db-hero">
         <h1 className="db-welcome">Welcome, {firstName}!</h1>
         <p className="db-tagline">What would you like to work on today?</p>
 
@@ -596,22 +610,18 @@ function DashboardPage({
             aria-live="polite"
             role="status"
           >
-            {voiceEntryHint && !submissionNotice && !trimmedSearchInput && attachments.length === 0 ? (
-              <DashboardVoiceEntryHint hint={voiceEntryHint} />
-            ) : (
-              <span className="db-command-help-copy">
-                {submissionNotice
-                  || (attachments.length
-                  ? "Attached files will be sent to the AI study assistant."
-                  : navigationCommand
-                    ? navigationCommandIsCurrent
-                      ? `You’re already on ${navigationCommand.label}.`
-                      : `Press Enter to open ${navigationCommand.label}.`
-                    : trimmedSearchInput
-                      ? "Choose a page shortcut, or press Enter to ask the AI."
-                      : commandExampleCopy.helper)}
-              </span>
-            )}
+            <span className="db-command-help-copy">
+              {submissionNotice
+                || (attachments.length
+                ? "Attached files will be sent to the AI study assistant."
+                : navigationCommand
+                  ? navigationCommandIsCurrent
+                    ? `You’re already on ${navigationCommand.label}.`
+                    : `Press Enter to open ${navigationCommand.label}.`
+                  : trimmedSearchInput
+                    ? "Choose a page shortcut, or press Enter to ask the AI."
+                    : commandExampleCopy.helper)}
+            </span>
           </p>
 
           {showNavigationSuggestions && (
@@ -778,6 +788,13 @@ function DashboardPage({
           subject={configureSubject}
         />
       )}
+
+      {voiceEntryHint && typeof document !== "undefined"
+        ? createPortal(
+          <DashboardVoiceEntryDock hint={voiceEntryHint} />,
+          document.body,
+        )
+        : null}
     </section>
   );
 }
