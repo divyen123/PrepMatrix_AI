@@ -111,6 +111,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
     [academicProfile]
   );
   const [goalDraft, setGoalDraft] = useState(createGoalDraft);
+  const [goalComposerOpen, setGoalComposerOpen] = useState(false);
   const [todoDraft, setTodoDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState("");
   const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
@@ -124,6 +125,9 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
   const bulkMenuButtonRef = useRef(null);
   const bulkMenuRef = useRef(null);
   const aboutDialogRef = useRef(null);
+  const goalComposerButtonRef = useRef(null);
+  const goalComposerRef = useRef(null);
+  const goalTitleInputRef = useRef(null);
 
   const plannerData = useMemo(() => normalizePlannerData(data), [data]);
   const plannerSettings = useMemo(() => normalizePlannerSettings(settings), [settings]);
@@ -144,6 +148,10 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
 
   const persistData = (next) => onDataChange?.(normalizePlannerData(next));
   const persistSettings = (next) => onSettingsChange?.(normalizePlannerSettings(next));
+  const closeGoalComposer = (restoreFocus = true) => {
+    setGoalComposerOpen(false);
+    if (restoreFocus) window.requestAnimationFrame(() => goalComposerButtonRef.current?.focus());
+  };
 
   const openCenter = () => {
     onOpen?.();
@@ -151,6 +159,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
     setConfirmBulkClear("");
     setBulkMenuOpen(false);
     setAboutOpen(false);
+    setGoalComposerOpen(false);
     setOpen(true);
   };
 
@@ -158,6 +167,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
     setConfirmBulkClear("");
     setBulkMenuOpen(false);
     setAboutOpen(false);
+    setGoalComposerOpen(false);
     setOpen(false);
   };
 
@@ -168,6 +178,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
       setConfirmBulkClear("");
       setBulkMenuOpen(false);
       setAboutOpen(false);
+      setGoalComposerOpen(false);
       setOpen(true);
     };
     window.addEventListener(OPEN_GOAL_REMINDER_EVENT, handleOpen);
@@ -198,6 +209,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         if (aboutDialogRef.current) return;
+        if (goalComposerRef.current) return;
         if (bulkMenuRef.current) {
           event.preventDefault();
           setConfirmBulkClear("");
@@ -249,6 +261,33 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [bulkMenuOpen]);
+
+  useEffect(() => {
+    if (!goalComposerOpen) return undefined;
+    window.requestAnimationFrame(() => goalTitleInputRef.current?.focus());
+
+    const handlePointerDown = (event) => {
+      if (
+        goalComposerRef.current?.contains(event.target)
+        || goalComposerButtonRef.current?.contains(event.target)
+      ) return;
+      setGoalComposerOpen(false);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setGoalComposerOpen(false);
+      window.requestAnimationFrame(() => goalComposerButtonRef.current?.focus());
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [goalComposerOpen]);
 
   useEffect(() => {
     if (!aboutOpen) return undefined;
@@ -303,6 +342,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
     };
     persistData({ ...plannerData, goals: [nextGoal, ...plannerData.goals] });
     setGoalDraft(createGoalDraft());
+    closeGoalComposer();
     toast.success("Goal created.");
   };
 
@@ -395,6 +435,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
                   className="goal-reminder-more-btn"
                   onClick={() => {
                     setConfirmBulkClear("");
+                    setGoalComposerOpen(false);
                     setBulkMenuOpen((current) => !current);
                   }}
                   ref={bulkMenuButtonRef}
@@ -453,6 +494,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
                 onClick={() => {
                   setConfirmBulkClear("");
                   setBulkMenuOpen(false);
+                  setGoalComposerOpen(false);
                   setAboutOpen(true);
                 }}
                 ref={aboutButtonRef}
@@ -470,19 +512,83 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
         </div>
 
         <div className="goal-reminder-dialog-body">
-          <section aria-labelledby="planner-composer-heading" className="planner-composer-panel">
+          <section aria-labelledby="planner-goals-heading" className="planner-list-panel planner-goals-panel">
             <div className="planner-panel-heading">
-              <div><h3 className="planner-panel-label" id="planner-composer-heading">Create a goal</h3></div>
+              <div><h3 className="planner-panel-label" id="planner-goals-heading">Goals</h3></div>
+              <div className="planner-panel-heading-actions">
+                <strong>{activeGoals} active</strong>
+                <button
+                  aria-controls="planner-goal-composer"
+                  aria-expanded={goalComposerOpen}
+                  aria-haspopup="dialog"
+                  aria-label="Add a new goal"
+                  className="planner-add-goal-btn"
+                  onClick={() => {
+                    setConfirmDelete("");
+                    setConfirmBulkClear("");
+                    setBulkMenuOpen(false);
+                    setGoalComposerOpen((current) => !current);
+                  }}
+                  ref={goalComposerButtonRef}
+                  title="Add goal"
+                  type="button"
+                ><Plus aria-hidden="true" size={16} /></button>
+              </div>
             </div>
 
-            <form className="planner-entry-form" onSubmit={createGoal}>
-              <label className="planner-field planner-field-full"><span>Goal title *</span><input maxLength="120" onChange={(event) => setGoalDraft({ ...goalDraft, title: event.target.value })} placeholder={curriculumExamples.goalTitlePlaceholder} value={goalDraft.title} /></label>
-              <label className="planner-field"><span>Target date *</span><input min={today} onChange={(event) => setGoalDraft({ ...goalDraft, targetDate: event.target.value })} type="date" value={goalDraft.targetDate} /></label>
-              <label className="planner-field"><span>Priority</span><select onChange={(event) => setGoalDraft({ ...goalDraft, priority: event.target.value })} value={goalDraft.priority}><option value="low">Low</option><option value="medium">Normal</option><option value="high">High</option></select></label>
-              <label className="planner-field"><span>Category</span><select onChange={(event) => setGoalDraft({ ...goalDraft, category: event.target.value })} value={goalDraft.category}><option value="study">Study</option><option value="exam">Exam</option><option value="project">Project</option><option value="personal">Personal</option></select></label>
-              <label className="planner-field planner-field-notes"><span>Details</span><textarea maxLength="800" onChange={(event) => setGoalDraft({ ...goalDraft, notes: event.target.value })} placeholder="Add milestones or the intended outcome" rows="3" value={goalDraft.notes} /></label>
-              <button className="planner-create-btn" type="submit"><Plus size={15} /> Create goal</button>
-            </form>
+            {goalComposerOpen && (
+              <div
+                aria-labelledby="planner-goal-composer-title"
+                className="planner-goal-composer-popover"
+                id="planner-goal-composer"
+                ref={goalComposerRef}
+                role="dialog"
+              >
+                <div className="planner-goal-composer-header">
+                  <div><span>New goal</span><strong id="planner-goal-composer-title">Add a dated outcome</strong></div>
+                  <button
+                    aria-label="Close new goal form"
+                    className="planner-goal-composer-close"
+                    onClick={() => closeGoalComposer()}
+                    title="Close"
+                    type="button"
+                  ><X aria-hidden="true" size={15} /></button>
+                </div>
+
+                <form className="planner-entry-form planner-goal-composer-form" onSubmit={createGoal}>
+                  <label className="planner-field planner-field-full"><span>Goal title *</span><input maxLength="120" onChange={(event) => setGoalDraft({ ...goalDraft, title: event.target.value })} placeholder={curriculumExamples.goalTitlePlaceholder} ref={goalTitleInputRef} value={goalDraft.title} /></label>
+                  <label className="planner-field"><span>Target date *</span><input min={today} onChange={(event) => setGoalDraft({ ...goalDraft, targetDate: event.target.value })} type="date" value={goalDraft.targetDate} /></label>
+                  <label className="planner-field"><span>Priority</span><select onChange={(event) => setGoalDraft({ ...goalDraft, priority: event.target.value })} value={goalDraft.priority}><option value="low">Low</option><option value="medium">Normal</option><option value="high">High</option></select></label>
+                  <label className="planner-field"><span>Category</span><select onChange={(event) => setGoalDraft({ ...goalDraft, category: event.target.value })} value={goalDraft.category}><option value="study">Study</option><option value="exam">Exam</option><option value="project">Project</option><option value="personal">Personal</option></select></label>
+                  <label className="planner-field planner-field-notes"><span>Details</span><textarea maxLength="800" onChange={(event) => setGoalDraft({ ...goalDraft, notes: event.target.value })} placeholder="Add milestones or the intended outcome" rows="2" value={goalDraft.notes} /></label>
+                  <div className="planner-goal-composer-actions">
+                    <button className="planner-goal-cancel-btn" onClick={() => closeGoalComposer()} type="button">Cancel</button>
+                    <button className="planner-create-btn" type="submit"><Plus size={15} /> Create goal</button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            <div className="planner-scroll-list">
+              {visibleGoals.length === 0 ? <EmptyPlannerState detail="Use the plus button to add a dated outcome." icon={<Target aria-hidden="true" size={20} />} title="No goals yet" /> : visibleGoals.map((goal) => {
+                const tone = getDateTone(goal.targetDate, today, goal.completed);
+                const deleteKey = `goal:${goal.id}`;
+                return (
+                  <article className={`planner-item-card priority-${goal.priority}${goal.completed ? " is-complete" : ""}`} key={goal.id}>
+                    <PlannerCheckbox checked={goal.completed} label={goal.completed ? `Reopen ${goal.title}` : `Complete ${goal.title}`} onChange={() => toggleGoal(goal.id)} />
+                    <div className="planner-item-copy">
+                      <div className="planner-item-title-row"><strong>{goal.title}</strong><span className={`planner-date-chip is-${tone}`}>{tone === "overdue" ? "Overdue" : tone === "today" ? "Today" : tone === "complete" ? "Completed" : formatDateLabel(goal.targetDate)}</span></div>
+                      {goal.notes && <p>{goal.notes}</p>}
+                      <div className="planner-item-meta"><span><Flag size={12} /> {PRIORITY_LABELS[goal.priority]}</span><span>{CATEGORY_LABELS[goal.category]}</span>{goal.postponedCount > 0 && <span>{goal.postponedCount}× postponed</span>}</div>
+                    </div>
+                    <div className="planner-item-actions">
+                      {!goal.completed && goal.targetDate <= today && <button className="planner-tomorrow-btn" onClick={() => postponeGoal(goal.id)} title="Postpone to tomorrow" type="button"><CalendarClock size={14} /><span>Tomorrow</span></button>}
+                      {confirmDelete === deleteKey ? <DeleteConfirmation label={goal.title} onCancel={() => setConfirmDelete("")} onConfirm={() => deleteItem("goal", goal.id)} /> : <button aria-label={`Delete ${goal.title}`} className="planner-trash-btn" onClick={() => setConfirmDelete(deleteKey)} title="Delete goal" type="button"><Trash2 size={14} /></button>}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </section>
 
           <section aria-labelledby="quick-todo-heading" className="planner-list-panel planner-todo-panel">
@@ -528,30 +634,6 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
             </div>
           </section>
 
-          <section aria-labelledby="planner-goals-heading" className="planner-list-panel planner-goals-panel">
-            <div className="planner-panel-heading"><div><h3 className="planner-panel-label" id="planner-goals-heading">Goals</h3></div><strong>{activeGoals} active</strong></div>
-            <div className="planner-scroll-list">
-              {visibleGoals.length === 0 ? <EmptyPlannerState detail="Create a dated outcome to start tracking progress." icon={<Target aria-hidden="true" size={20} />} title="No goals yet" /> : visibleGoals.map((goal) => {
-                const tone = getDateTone(goal.targetDate, today, goal.completed);
-                const deleteKey = `goal:${goal.id}`;
-                return (
-                  <article className={`planner-item-card priority-${goal.priority}${goal.completed ? " is-complete" : ""}`} key={goal.id}>
-                    <PlannerCheckbox checked={goal.completed} label={goal.completed ? `Reopen ${goal.title}` : `Complete ${goal.title}`} onChange={() => toggleGoal(goal.id)} />
-                    <div className="planner-item-copy">
-                      <div className="planner-item-title-row"><strong>{goal.title}</strong><span className={`planner-date-chip is-${tone}`}>{tone === "overdue" ? "Overdue" : tone === "today" ? "Today" : tone === "complete" ? "Completed" : formatDateLabel(goal.targetDate)}</span></div>
-                      {goal.notes && <p>{goal.notes}</p>}
-                      <div className="planner-item-meta"><span><Flag size={12} /> {PRIORITY_LABELS[goal.priority]}</span><span>{CATEGORY_LABELS[goal.category]}</span>{goal.postponedCount > 0 && <span>{goal.postponedCount}× postponed</span>}</div>
-                    </div>
-                    <div className="planner-item-actions">
-                      {!goal.completed && goal.targetDate <= today && <button className="planner-tomorrow-btn" onClick={() => postponeGoal(goal.id)} title="Postpone to tomorrow" type="button"><CalendarClock size={14} /><span>Tomorrow</span></button>}
-                      {confirmDelete === deleteKey ? <DeleteConfirmation label={goal.title} onCancel={() => setConfirmDelete("")} onConfirm={() => deleteItem("goal", goal.id)} /> : <button aria-label={`Delete ${goal.title}`} className="planner-trash-btn" onClick={() => setConfirmDelete(deleteKey)} title="Delete goal" type="button"><Trash2 size={14} /></button>}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-
         </div>
 
       </section>
@@ -565,7 +647,6 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
             }}
           >
             <section
-              aria-describedby="goal-reminder-about-description"
               aria-labelledby="goal-reminder-about-title"
               aria-modal="true"
               className="goal-reminder-about-dialog"
@@ -577,7 +658,6 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
                 <div>
                   <span>Center guide</span>
                   <h3 id="goal-reminder-about-title">How goals and to-do tasks work</h3>
-                  <p id="goal-reminder-about-description">A quick guide to dated outcomes, small next actions, and completed-item controls.</p>
                 </div>
                 <button
                   aria-label="Close goals and to-do guide"

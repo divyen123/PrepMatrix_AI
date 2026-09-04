@@ -11,8 +11,7 @@
   align-items: stretch;
 }
 
-.settings-page .settings-card,
-.settings-page .goal-settings-card {
+.settings-page .settings-card {
   min-width: 0;
   gap: var(--settings-card-gap) !important;
   padding: var(--settings-card-padding) !important;
@@ -21,6 +20,8 @@
 }
 
 .settings-page .settings-system-card {
+  grid-column: 1 / -1;
+  width: 100%;
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;
@@ -36,13 +37,11 @@
   opacity: 0.38 !important;
 }
 
-.settings-page .settings-card .section-tag,
-.settings-page .goal-settings-card .section-tag {
+.settings-page .settings-card .section-tag {
   margin-bottom: 8px !important;
 }
 
-.settings-page .settings-card h3,
-.settings-page .goal-settings-card h3 {
+.settings-page .settings-card h3 {
   gap: 7px !important;
   margin-bottom: 5px !important;
 }
@@ -270,8 +269,7 @@ body .settings-page .settings-profile-info-trigger:focus-visible {
   outline: 2px solid rgba(var(--accent-rgb), 0.72);
   outline-offset: 2px;
 }
-.settings-page .settings-card .card-subtext,
-.settings-page .goal-settings-card .card-subtext {
+.settings-page .settings-card .card-subtext {
   font-size: 0.74rem !important;
   line-height: 1.45;
 }
@@ -549,11 +547,6 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
   outline-offset: 3px;
 }
 
-.settings-page .goal-settings-card {
-  align-self: start;
-  overflow: visible;
-}
-
 .settings-page .settings-appearance-section {
   padding-bottom: 11px !important;
 }
@@ -762,8 +755,7 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
     margin-top: 12px !important;
   }
 
-  .settings-page .settings-card,
-  .settings-page .goal-settings-card {
+  .settings-page .settings-card {
     gap: var(--settings-card-gap) !important;
     padding: var(--settings-card-padding) !important;
     border-radius: var(--settings-card-radius) !important;

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, History, X } from "lucide-react";
 import api from "../utils/apiClient";
-import GoalSettingsPanel from "../components/GoalSettingsPanel";
 import KidsPerformanceSettings from "../components/kids/KidsPerformanceSettings";
 import SettingsDataInfo from "../components/SettingsDataInfo";
 import SettingsProfileInfo from "../components/SettingsProfileInfo";
@@ -2484,7 +2483,7 @@ function SettingsPage({
 
         {/* System Preferences & Toggles */}
         <div
-          className={`card settings-card settings-system-card${youngKidsMode ? " dashboard-full-span" : ""}`}
+          className="card dashboard-full-span settings-card settings-system-card"
           style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
         >
           <div>
@@ -2665,13 +2664,6 @@ function SettingsPage({
             </div>
           </div>
         </div>
-
-        {!youngKidsMode ? (
-          <GoalSettingsPanel
-            plannerData={goalReminderData}
-          />
-        ) : null}
-
 
         {/* Appearance Configuration */}
         <div className="card dashboard-full-span settings-card settings-appearance-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
