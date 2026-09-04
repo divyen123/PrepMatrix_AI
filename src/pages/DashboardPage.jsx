@@ -13,6 +13,10 @@ import {
 import { getDashboardCommandExampleCopy } from "../utils/dashboardCommandExamples";
 import { runDashboardGoalReminderShortcut } from "../utils/dashboardGoalReminderShortcut";
 import { sendDashboardChatMessage } from "../utils/chatMessageBridge";
+import {
+  DASHBOARD_VOICE_HINT_DURATION_MS,
+  getNextDashboardVoiceHint,
+} from "../utils/dashboardVoiceHints";
 
 const PANEL_BUTTONS = [
   { id: "suggestions", label: "Smart suggestions", icon: Lightbulb },
@@ -104,6 +108,20 @@ export function DashboardNavigationSuggestions({
   );
 }
 
+export function DashboardVoiceEntryHint({ hint = "" }) {
+  if (!hint) return null;
+
+  return (
+    <span
+      className="db-voice-entry-hint"
+      style={{ "--db-voice-hint-duration": `${DASHBOARD_VOICE_HINT_DURATION_MS}ms` }}
+    >
+      <Mic aria-hidden="true" size={13} strokeWidth={2.4} />
+      <span><strong>Say</strong> <q>{hint}</q></span>
+    </span>
+  );
+}
+
 function DashboardPage({
   academicProfileDataId = "",
   academicLevel,
@@ -119,6 +137,8 @@ function DashboardPage({
   availableRoutes,
   homeRoute = "/dashboard",
   voiceAssistant,
+  showEntryVoiceHint = false,
+  onEntryVoiceHintConsumed,
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -130,13 +150,42 @@ function DashboardPage({
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [submissionNotice, setSubmissionNotice] = useState("");
+  const [voiceEntryHint, setVoiceEntryHint] = useState("");
   const dragDepthRef = useRef(0);
   const inputRef     = useRef(null);
   const panelContentRef = useRef(null);
+  const voiceEntryHintClaimedRef = useRef(false);
   const suggestionListId = useId();
   const searchHelpId = useId();
 
   const [configureSubject, setConfigureSubject] = useState(null);
+
+  useEffect(() => {
+    if (!showEntryVoiceHint) {
+      voiceEntryHintClaimedRef.current = false;
+      return;
+    }
+
+    if (
+      voiceEntryHintClaimedRef.current
+      || voiceAssistant?.supported === false
+    ) {
+      return;
+    }
+
+    voiceEntryHintClaimedRef.current = true;
+    setVoiceEntryHint(getNextDashboardVoiceHint());
+    onEntryVoiceHintConsumed?.();
+  }, [onEntryVoiceHintConsumed, showEntryVoiceHint, voiceAssistant?.supported]);
+
+  useEffect(() => {
+    if (!voiceEntryHint) return undefined;
+
+    const hideTimer = window.setTimeout(() => {
+      setVoiceEntryHint("");
+    }, DASHBOARD_VOICE_HINT_DURATION_MS);
+    return () => window.clearTimeout(hideTimer);
+  }, [voiceEntryHint]);
 
   useEffect(() => {
     const panelId = DASHBOARD_PANEL_HASHES[location.hash.toLowerCase()];
@@ -244,6 +293,7 @@ function DashboardPage({
   /* ── Text submit ─────────────────────────────────────────── */
   const handleSearch = async (e) => {
     e.preventDefault();
+    setVoiceEntryHint("");
     if (voiceAssistant?.isCommandListening || voiceAssistant?.isProcessing) return;
     const query = searchInput.trim();
     if (!query && attachments.length === 0) {
@@ -303,6 +353,7 @@ function DashboardPage({
   };
 
   const handleMic = () => {
+    setVoiceEntryHint("");
     setSubmissionNotice("");
     setSuggestionsOpen(false);
     setActiveSuggestionIndex(-1);
@@ -338,6 +389,7 @@ function DashboardPage({
   };
 
   const handleAttach = () => {
+    setVoiceEntryHint("");
     setSubmissionNotice("");
     setSuggestionsOpen(false);
     setActiveSuggestionIndex(-1);
@@ -403,7 +455,11 @@ function DashboardPage({
   return (
     <section className="db-page">
       {/* ── Welcome + Search ────────────────────────────────── */}
-      <div className="db-hero">
+      <div
+        className={`db-hero${voiceEntryHint ? " db-hero--voice-entry-hint" : ""}`}
+        style={{ "--db-voice-hint-duration": `${DASHBOARD_VOICE_HINT_DURATION_MS}ms` }}
+      >
+        <div className="db-voice-entry-gradient" aria-hidden="true" />
         <h1 className="db-welcome">Welcome, {firstName}!</h1>
         <p className="db-tagline">What would you like to work on today?</p>
 
@@ -462,13 +518,17 @@ function DashboardPage({
             placeholder={attachments.length > 0 ? "Ask about your document..." : commandExampleCopy.placeholder}
             value={searchInput}
             onChange={(event) => {
+              setVoiceEntryHint("");
               setSearchInput(event.target.value);
               setSubmissionNotice("");
               setSuggestionsOpen(true);
               setActiveSuggestionIndex(-1);
             }}
             onKeyDown={handleSearchKeyDown}
-            onFocus={() => setSuggestionsOpen(true)}
+            onFocus={() => {
+              setVoiceEntryHint("");
+              setSuggestionsOpen(true);
+            }}
             aria-activedescendant={activeSuggestionIndex >= 0
               ? `${suggestionListId}-option-${activeSuggestionIndex}`
               : undefined}
@@ -532,18 +592,26 @@ function DashboardPage({
           <p
             className={`db-command-help${submissionNotice ? " db-command-help--warning" : ""}`}
             id={searchHelpId}
+            aria-atomic="true"
             aria-live="polite"
+            role="status"
           >
-            {submissionNotice
-              || (attachments.length
-              ? "Attached files will be sent to the AI study assistant."
-              : navigationCommand
-                ? navigationCommandIsCurrent
-                  ? `You’re already on ${navigationCommand.label}.`
-                  : `Press Enter to open ${navigationCommand.label}.`
-                : trimmedSearchInput
-                  ? "Choose a page shortcut, or press Enter to ask the AI."
-                  : commandExampleCopy.helper)}
+            {voiceEntryHint && !submissionNotice && !trimmedSearchInput && attachments.length === 0 ? (
+              <DashboardVoiceEntryHint hint={voiceEntryHint} />
+            ) : (
+              <span className="db-command-help-copy">
+                {submissionNotice
+                  || (attachments.length
+                  ? "Attached files will be sent to the AI study assistant."
+                  : navigationCommand
+                    ? navigationCommandIsCurrent
+                      ? `You’re already on ${navigationCommand.label}.`
+                      : `Press Enter to open ${navigationCommand.label}.`
+                    : trimmedSearchInput
+                      ? "Choose a page shortcut, or press Enter to ask the AI."
+                      : commandExampleCopy.helper)}
+              </span>
+            )}
           </p>
 
           {showNavigationSuggestions && (

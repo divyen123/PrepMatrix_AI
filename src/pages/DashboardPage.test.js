@@ -64,6 +64,31 @@ test("renders page shortcuts as an accessible keyboard-selectable list", async (
   }
 });
 
+test("renders a background-free Alexa-style dashboard voice example", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { DashboardVoiceEntryHint } = await vite.ssrLoadModule(
+      "/src/pages/DashboardPage.jsx",
+    );
+    const markup = renderToStaticMarkup(React.createElement(
+      DashboardVoiceEntryHint,
+      { hint: "Hey PrepMatrix, plan my study day." },
+    ));
+
+    assert.match(markup, /class="db-voice-entry-hint"/u);
+    assert.match(markup, /--db-voice-hint-duration:5000ms/u);
+    assert.match(markup, /<strong>Say<\/strong>/u);
+    assert.match(markup, /<q>Hey PrepMatrix, plan my study day\.<\/q>/u);
+  } finally {
+    await vite.close();
+  }
+});
+
 test("shows a shortcut row container only for hover or keyboard selection", () => {
   const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
 
@@ -210,4 +235,43 @@ test("uses only reachable dashboard command examples", () => {
 
   assert.match(standardCopy.placeholder, /go to materials/u);
   assert.match(standardCopy.helper, /go to materials/u);
+});
+
+test("offers the rotating voice hint once per real app entry and after the splash", () => {
+  const appSource = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
+  const pageSource = readFileSync(new URL("./DashboardPage.jsx", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+
+  assert.equal(
+    (appSource.match(/setDashboardVoiceHintPending\(true\)/gu) || []).length,
+    3,
+    "login, recovered-session entry, and a background re-entry should each queue a hint",
+  );
+  assert.match(
+    appSource,
+    /showEntryVoiceHint=\{dashboardVoiceHintPending\s*&&\s*!entrySplash/u,
+  );
+  assert.match(
+    appSource,
+    /document\.addEventListener\("visibilitychange", handleVisibilityChange\)/u,
+  );
+  assert.match(appSource, /hasDashboardVoiceHintReentryGapElapsed\(hiddenAt, now\)/u);
+  assert.match(pageSource, /onEntryVoiceHintConsumed\?\.\(\)/u);
+  assert.match(
+    pageSource,
+    /window\.setTimeout\(\(\) => \{\s*setVoiceEntryHint\(""\);\s*\}, DASHBOARD_VOICE_HINT_DURATION_MS\)/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.db-voice-entry-hint\s*\{[^}]*background: none;[^}]*border: 0;[^}]*box-shadow: none;[^}]*backdrop-filter: none;/u,
+  );
+  assert.match(stylesheet, /color: var\(--text-muted\)/u);
+  assert.match(stylesheet, /@keyframes db-voice-entry-hint-cycle/u);
+  assert.match(pageSource, /db-hero--voice-entry-hint/u);
+  assert.match(
+    stylesheet,
+    /\.db-voice-entry-gradient\s*\{[^}]*background: radial-gradient\([^}]*rgba\(2, 6, 23, 0\.9\)/u,
+  );
+  assert.match(stylesheet, /@keyframes db-voice-entry-gradient-cycle/u);
+  assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/u);
 });

@@ -100,6 +100,7 @@ import {
   getLearningMedicalTrainingEligibility,
 } from "./utils/learningNotebook";
 import { getGoalReminderShortcutRoutes } from "./utils/homeNavigationCommands";
+import { hasDashboardVoiceHintReentryGapElapsed } from "./utils/dashboardVoiceHints";
 import { getPrimarySidebarNavItems } from "./utils/sidebarNavigation";
 import {
   getResumeEligibility,
@@ -375,6 +376,7 @@ function App() {
   const academicProfileRevisionRef = useRef(0);
   const rewardTimeoutRef = useRef(null);
   const splashTimeoutRef = useRef(null);
+  const dashboardHiddenAtRef = useRef(null);
   const logoutTransitionTimeoutRef = useRef(null);
   const logoutInFlightRef = useRef(false);
   const resetConfirmRef = useRef(null);
@@ -413,6 +415,7 @@ function App() {
   const [notification, setNotification] = useState("");
   const [completionReward, setCompletionReward] = useState(null);
   const [entrySplash, setEntrySplash] = useState(true);
+  const [dashboardVoiceHintPending, setDashboardVoiceHintPending] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [parentLockConfirmOpen, setParentLockConfirmOpen] = useState(false);
   const [parentLockWorking, setParentLockWorking] = useState(false);
@@ -452,6 +455,9 @@ function App() {
     () => localStorage.getItem(TOPBAR_AUTO_HIDE_STORAGE_KEY) === "true"
   );
   const [topBarVisible, setTopBarVisible] = useState(true);
+  const consumeDashboardVoiceEntryHint = useCallback(() => {
+    setDashboardVoiceHintPending(false);
+  }, []);
   const clearTopBarHideTimeout = useCallback(() => {
     if (!topBarHideTimeoutRef.current) return;
 
@@ -896,6 +902,31 @@ function App() {
   };
   currentUserProfileRef.current = userProfile;
   applyWorkspaceRef.current = applyWorkspace;
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const now = Date.now();
+      if (document.visibilityState === "hidden") {
+        dashboardHiddenAtRef.current = now;
+        return;
+      }
+
+      const hiddenAt = dashboardHiddenAtRef.current;
+      dashboardHiddenAtRef.current = null;
+      if (
+        currentUserProfileRef.current
+        && hasDashboardVoiceHintReentryGapElapsed(hiddenAt, now)
+      ) {
+        setDashboardVoiceHintPending(true);
+      }
+    };
+
+    if (document.visibilityState === "hidden") {
+      dashboardHiddenAtRef.current = Date.now();
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
 
   const updateResumeBuilderDraft = useCallback((value) => {
     const current = resumeBuilderRef.current || normalizeResumeBuilderState();
@@ -1392,6 +1423,7 @@ function App() {
     applyWorkspace(workspace, profile, requestedContext);
     setWorkspaceLoaded(true);
     setNotification(`Welcome, ${profile.username}.`);
+    setDashboardVoiceHintPending(true);
 
     if (localStorage.getItem("prepmatrix_wake_mode") === "true") {
       voiceAssistant.setWakeMode(true);
@@ -1448,6 +1480,7 @@ function App() {
     }
 
     setEntrySplash(false);
+    setDashboardVoiceHintPending(false);
     setUserProfile(null);
     setWorkspaceLoaded(false);
     applyWorkspace({}, null);
@@ -1481,6 +1514,7 @@ function App() {
     }
 
     setEntrySplash(false);
+    setDashboardVoiceHintPending(false);
     setUserProfile(null);
     setWorkspaceLoaded(false);
     applyWorkspace({}, null);
@@ -1499,6 +1533,7 @@ function App() {
     }
 
     setEntrySplash(false);
+    setDashboardVoiceHintPending(false);
     setUserProfile(null);
     setWorkspaceLoaded(false);
     applyWorkspace({}, null);
@@ -1614,6 +1649,7 @@ function App() {
         setUserProfile(payload.user);
         applyWorkspace(payload.workspace, payload.user, payload.profileContext);
         setWorkspaceLoaded(true);
+        setDashboardVoiceHintPending(true);
 
         // Trigger entry splash on session recovery (same as explicit login)
         if (splashTimeoutRef.current) {
@@ -1629,6 +1665,7 @@ function App() {
         setUserProfile(null);
         setWorkspaceLoaded(false);
         setEntrySplash(false);
+        setDashboardVoiceHintPending(false);
 
         if (error?.code === "PASSWORD_CHANGED") {
           setNotification("Your password was changed. Please log in again.");
@@ -2629,6 +2666,10 @@ function App() {
                               availableRoutes={dashboardAvailableRoutes}
                               homeRoute={learnerRoutePolicy.homeRoute}
                               voiceAssistant={voiceAssistant}
+                              showEntryVoiceHint={dashboardVoiceHintPending
+                                && !entrySplash
+                                && !userProfile.needsOnboardingGuide}
+                              onEntryVoiceHintConsumed={consumeDashboardVoiceEntryHint}
                               completed={completed}
                               metrics={metrics}
                               overviewCards={overviewCards}
