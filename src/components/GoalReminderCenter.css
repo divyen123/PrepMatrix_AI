@@ -1276,10 +1276,10 @@ body .goal-reminder-about-done-btn:focus-visible {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@media (min-width: 781px) {
+@media (min-width: 901px) {
   .goal-reminder-dialog {
-    width: min(1120px, calc(100vw - 24px));
-    height: min(650px, calc(100dvh - 24px));
+    width: min(900px, calc(100vw - 24px));
+    height: min(500px, calc(100dvh - 24px));
   }
 
   .goal-reminder-dialog-body {
@@ -1290,12 +1290,12 @@ body .goal-reminder-about-done-btn:focus-visible {
   }
 
   .planner-goals-panel {
-    grid-column: 1 / 7;
+    grid-column: 1 / 6;
     grid-row: 1;
   }
 
   .planner-todo-panel {
-    grid-column: 7 / -1;
+    grid-column: 6 / -1;
     grid-row: 1;
   }
 
@@ -1401,7 +1401,7 @@ body .goal-reminder-about-done-btn:focus-visible {
   }
 }
 
-@media (max-width: 780px) {
+@media (max-width: 900px) {
   .goal-reminder-dialog {
     width: min(720px, calc(100vw - 16px));
     max-height: calc(100dvh - 16px);
