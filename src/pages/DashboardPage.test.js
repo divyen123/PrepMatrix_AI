@@ -293,6 +293,15 @@ test("offers the rotating voice hint once per real app entry and after the splas
     /\.db-voice-entry-dock-gradient\s*\{[^}]*mask-image: linear-gradient\([^}]*to right,[^}]*transparent 0%[^}]*transparent 100%/u,
   );
   assert.doesNotMatch(stylesheet, /\.db-voice-entry-dock-gradient\s*\{[^}]*radial-gradient/u);
+  assert.match(
+    stylesheet,
+    /body:not\(\.dark\) \.db-voice-entry-dock\s*\{[^}]*min-height:\s*clamp\(92px, 11dvh, 120px\);[^}]*padding:\s*0\.85rem 1\.25rem calc\(0\.72rem \+ env\(safe-area-inset-bottom\)\);/u,
+  );
+  assert.match(
+    stylesheet,
+    /body:not\(\.dark\) \.db-voice-entry-dock-gradient\s*\{[^}]*inset:\s*auto auto 0 50%;[^}]*width:\s*min\(820px, calc\(100% - 32px\)\);[^}]*height:\s*clamp\(92px, 11dvh, 118px\);[^}]*rgba\(2, 6, 23, 0\.64\)[^}]*transparent 0%[^}]*#000 32%[^}]*#000 68%[^}]*transparent 100%/u,
+    "light mode should use a smaller, softly feathered bottom fade instead of a full dock-shaped slab",
+  );
   assert.match(stylesheet, /\.db-voice-entry-hint > svg\s*\{[^}]*filter: none;/u);
   assert.match(stylesheet, /\.db-voice-entry-hint\s*\{[^}]*text-shadow: none;/u);
   assert.match(stylesheet, /@keyframes db-voice-entry-gradient-cycle/u);

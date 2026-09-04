@@ -17,7 +17,6 @@ import {
   FileUser,
   Menu,
   X,
-  Settings as SettingsIcon,
   Info,
   LockKeyhole,
   Gamepad2,
@@ -26,7 +25,7 @@ import {
   PanelLeftClose,
   ChevronLeft,
 } from "lucide-react";
-import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Notification from "./components/Notification";
 import Chatbot from "./components/Chatbot";
 import VoiceAssistant from "./components/VoiceAssistant";
@@ -127,6 +126,8 @@ import { deriveRouteTaskActivity } from "./utils/backgroundTasks";
 import LearningRouteBoundary from "./components/LearningRouteBoundary";
 import PwaManager from "./components/PwaManager";
 import AcademicProfileIntroDialog from "./components/AcademicProfileIntroDialog";
+import AppLockOverlay from "./components/AppLockOverlay";
+import SettingsContextMenu from "./components/SettingsContextMenu";
 import { claimFirstProfileBGuide } from "./utils/academicProfileGuide";
 import "./App.css";
 import "./components/GoalReminderCenter.css";
@@ -181,6 +182,9 @@ const LOGOUT_TRANSITION_MIN_MS = 700;
 const LOGOUT_USAGE_FLUSH_TIMEOUT_MS = 1_500;
 const LOGOUT_TRANSITION_EXIT_MS = 280;
 const TOPBAR_HIDE_DELAY_MS = 3500;
+const APP_LOCK_STORAGE_KEY = "prepmatrix_app_locked";
+const THEME_MODE_STORAGE_KEY = "prepmatrix_theme_mode";
+const THEME_MODES = new Set(["light", "dark", "system"]);
 
 const NOTIFICATION_INTENT_KEY = "prepmatrix_notifications_enabled";
 const TOPBAR_AUTO_HIDE_STORAGE_KEY = "prepmatrix_topbar_auto_hide";
@@ -198,6 +202,21 @@ const DEFINITIVE_NOTIFICATION_ERROR_CODES = new Set([
   "not-subscribed",
   "subscription-expired",
 ]);
+
+function readStoredThemeMode() {
+  const storedMode = localStorage.getItem(THEME_MODE_STORAGE_KEY);
+  if (THEME_MODES.has(storedMode)) return storedMode;
+  return localStorage.getItem("prepmatrix_default_theme") === "dark" ? "dark" : "light";
+}
+
+function systemPrefersDarkMode() {
+  return Boolean(window.matchMedia?.("(prefers-color-scheme: dark)")?.matches);
+}
+
+function resolveThemeModeDarkValue(mode) {
+  if (mode === "system") return systemPrefersDarkMode();
+  return mode === "dark";
+}
 
 function notificationStateIsDefinitivelyOff(state) {
   return (
@@ -363,6 +382,7 @@ function RouteLoading() {
 
 function App() {
   const location = useLocation();
+  const navigate = useNavigate();
   const saveTimeoutRef = useRef(null);
   const workspaceSavePromiseRef = useRef(Promise.resolve());
   const workspaceScopeEpochRef = useRef(0);
@@ -396,11 +416,34 @@ function App() {
   resumeBuilderRef.current = resumeBuilder;
   const [goalReminderData, setGoalReminderData] = useState(() => normalizePlannerData(DEFAULT_GOAL_REMINDER_DATA));
   const [goalReminderSettings, setGoalReminderSettings] = useState(() => normalizePlannerSettings(DEFAULT_GOAL_REMINDER_SETTINGS));
-  const [darkMode, setDarkMode] = useState(() => {
-    const savedDefault = localStorage.getItem("prepmatrix_default_theme");
-    if (savedDefault) return savedDefault === "dark";
-    return false;
-  });
+  const [themeMode, setThemeMode] = useState(readStoredThemeMode);
+  const [darkMode, setDarkModeState] = useState(() => resolveThemeModeDarkValue(themeMode));
+  const themeModeRef = useRef(themeMode);
+  const darkModeRef = useRef(darkMode);
+  themeModeRef.current = themeMode;
+  darkModeRef.current = darkMode;
+  const applyAppearanceMode = useCallback((requestedMode) => {
+    const nextMode = THEME_MODES.has(requestedMode) ? requestedMode : "light";
+    const nextDarkMode = resolveThemeModeDarkValue(nextMode);
+    themeModeRef.current = nextMode;
+    darkModeRef.current = nextDarkMode;
+    localStorage.setItem(THEME_MODE_STORAGE_KEY, nextMode);
+    setThemeMode(nextMode);
+    setDarkModeState(nextDarkMode);
+  }, []);
+  const setDarkMode = useCallback((value, options = {}) => {
+    const nextDarkMode = typeof value === "function"
+      ? Boolean(value(darkModeRef.current))
+      : Boolean(value);
+    if (options.preservePreference && themeModeRef.current === "system") {
+      const nextSystemDarkMode = systemPrefersDarkMode();
+      darkModeRef.current = nextSystemDarkMode;
+      setDarkModeState(nextSystemDarkMode);
+      return nextSystemDarkMode;
+    }
+    applyAppearanceMode(nextDarkMode ? "dark" : "light");
+    return nextDarkMode;
+  }, [applyAppearanceMode]);
   const [activeBackgroundImageId, setActiveBackgroundImageId] = useState(
     () => localStorage.getItem("prepmatrix_bg_image_id") || "",
   );
@@ -419,7 +462,14 @@ function App() {
   const [parentLockConfirmOpen, setParentLockConfirmOpen] = useState(false);
   const [parentLockWorking, setParentLockWorking] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [logoutReturnsToLock, setLogoutReturnsToLock] = useState(false);
   const [logoutTransitionPhase, setLogoutTransitionPhase] = useState("idle");
+  const [appLocked, setAppLocked] = useState(
+    () => sessionStorage.getItem(APP_LOCK_STORAGE_KEY) === "true",
+  );
+  const [appLockBusy, setAppLockBusy] = useState(false);
+  const [appLockError, setAppLockError] = useState("");
+  const lockRestoreWakeModeRef = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
@@ -741,10 +791,24 @@ function App() {
     completed,
     allowExternalNavigation: !learnerRoutePolicy.isYoungKidsLearner || kidsParentAccess.unlocked,
     availableRoutes: voiceAvailableRoutes,
-    disabled: authLoading || !userProfile,
+    disabled: authLoading || !userProfile || appLocked,
     homeRoute: learnerRoutePolicy.homeRoute,
     setDarkMode,
   });
+
+  useEffect(() => {
+    if (themeMode !== "system" || !window.matchMedia) return undefined;
+    const preference = window.matchMedia("(prefers-color-scheme: dark)");
+    const syncSystemTheme = (event) => {
+      const nextDarkMode = Boolean(event.matches);
+      darkModeRef.current = nextDarkMode;
+      setDarkModeState(nextDarkMode);
+    };
+
+    syncSystemTheme(preference);
+    preference.addEventListener?.("change", syncSystemTheme);
+    return () => preference.removeEventListener?.("change", syncSystemTheme);
+  }, [themeMode]);
 
   const standardOnlyRoute = (element) => (
     isKidsLearner ? <Navigate replace to={learnerRoutePolicy.homeRoute} /> : element
@@ -891,7 +955,13 @@ function App() {
     const nextGoalReminderData = normalizePlannerData(workspace?.goalReminderData || DEFAULT_GOAL_REMINDER_DATA);
     setGoalReminderData(nextGoalReminderData);
     setGoalReminderSettings(nextGoalReminderSettings);
-    setDarkMode(Boolean(workspace.darkMode));
+    if (themeModeRef.current === "system") {
+      const nextSystemDarkMode = systemPrefersDarkMode();
+      darkModeRef.current = nextSystemDarkMode;
+      setDarkModeState(nextSystemDarkMode);
+    } else {
+      applyAppearanceMode(workspace.darkMode ? "dark" : "light");
+    }
     setScheduleStartDate(workspace.scheduleStartDate || null);
     setActiveExamAttemptId(
       typeof window === "undefined"
@@ -1441,8 +1511,11 @@ function App() {
   const handleLogout = async () => {
     if (logoutInFlightRef.current) return;
 
+    const logoutStartedFromLock = logoutReturnsToLock;
     logoutInFlightRef.current = true;
     setLogoutConfirmOpen(false);
+    setLogoutReturnsToLock(false);
+    if (logoutStartedFromLock) setAppLocked(false);
     setLogoutTransitionPhase("active");
     setSidebarOpen(false);
     setProfilePreviewOpen(false);
@@ -1473,6 +1546,9 @@ function App() {
     ]);
 
     clearStoredAuthState();
+    sessionStorage.removeItem(APP_LOCK_STORAGE_KEY);
+    setAppLocked(false);
+    setAppLockError("");
 
     if (splashTimeoutRef.current) {
       window.clearTimeout(splashTimeoutRef.current);
@@ -1503,6 +1579,9 @@ function App() {
   const handleAccountDeleted = () => {
     resetAcademicProfileIntro();
     clearStoredAuthState();
+    sessionStorage.removeItem(APP_LOCK_STORAGE_KEY);
+    setAppLocked(false);
+    setAppLockError("");
     voiceAssistant.pauseWakeMode?.();
     window.studyVoiceAssistant?.pauseWakeListening?.();
     window.speechSynthesis?.cancel?.();
@@ -1522,6 +1601,9 @@ function App() {
 
   const clearAuthenticatedUi = (message = "Please log in again to continue.") => {
     resetAcademicProfileIntro();
+    sessionStorage.removeItem(APP_LOCK_STORAGE_KEY);
+    setAppLocked(false);
+    setAppLockError("");
     voiceAssistant.pauseWakeMode?.();
     window.studyVoiceAssistant?.pauseWakeListening?.();
     window.speechSynthesis?.cancel?.();
@@ -1639,6 +1721,151 @@ function App() {
     return "pending";
   };
 
+  const handleRefreshAppData = async () => {
+    if (!userProfile || !activeAcademicProfileDataId) return;
+    if (workspaceMutationInFlightRef.current) {
+      toast.info("Another workspace update is still in progress.");
+      return;
+    }
+
+    workspaceMutationInFlightRef.current = true;
+    setWorkspaceTransitioning(true);
+    try {
+      if (saveTimeoutRef.current) {
+        window.clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+
+      const saveRequest = api.saveWorkspace(workspaceSnapshot(), {
+        academicProfileId: activeAcademicProfileDataId,
+      });
+      workspaceSavePromiseRef.current = saveRequest.catch(() => undefined);
+      await saveRequest;
+
+      const refreshed = await api.me({ academicProfileId: null });
+      const refreshedUser = refreshed?.user;
+      const refreshedContext = resolveAcademicProfileContext(
+        refreshed?.profileContext || {},
+        refreshedUser || {},
+      );
+      if (!refreshedUser || !refreshedContext.dataId) {
+        throw new Error("PrepMatrix could not refresh the active academic profile.");
+      }
+
+      workspaceScopeEpochRef.current += 1;
+      setUserProfile(refreshedUser);
+      applyWorkspaceRef.current?.(
+        refreshed?.workspace || {},
+        refreshedUser,
+        refreshedContext,
+      );
+      setWorkspaceLoaded(true);
+      await api.getAiQuota().catch(() => undefined);
+      toast.success("Dashboard, planner, goals, and AI credits are refreshed.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "App data could not be refreshed.");
+    } finally {
+      workspaceMutationInFlightRef.current = false;
+      setWorkspaceTransitioning(false);
+    }
+  };
+
+  const handleCheckForUpdates = async () => {
+    if (!("serviceWorker" in navigator)) {
+      toast.info("Update checks are not available in this browser.");
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.getRegistration("/");
+      if (!registration) {
+        toast.info("PrepMatrix will check for updates after the app is installed.");
+        return;
+      }
+
+      await registration.update();
+      if (registration.waiting || registration.installing) {
+        toast.info("A PrepMatrix update is being prepared.");
+      } else {
+        toast.success("PrepMatrix is up to date.");
+      }
+    } catch {
+      toast.error("Could not check for updates. Try again when you are online.");
+    }
+  };
+
+  const handleLockApp = () => {
+    lockRestoreWakeModeRef.current = Boolean(
+      voiceAssistant.wakeMode || localStorage.getItem("prepmatrix_wake_mode") === "true",
+    );
+    voiceAssistant.pauseWakeMode?.();
+    window.studyVoiceAssistant?.pauseWakeListening?.();
+    window.speechSynthesis?.cancel?.();
+    window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
+    sessionStorage.setItem(APP_LOCK_STORAGE_KEY, "true");
+    setAppLockError("");
+    setProfilePreviewOpen(false);
+    setSidebarOpen(false);
+    setAppLocked(true);
+  };
+
+  const handleUnlockApp = async (password) => {
+    if (appLockBusy) return;
+    setAppLockBusy(true);
+    setAppLockError("");
+    try {
+      const result = await api.post("/api/auth/check-password", { password });
+      if (!result?.correct) {
+        setAppLockError("That password is incorrect. Try again.");
+        return;
+      }
+
+      sessionStorage.removeItem(APP_LOCK_STORAGE_KEY);
+      setAppLocked(false);
+      if (lockRestoreWakeModeRef.current) {
+        window.setTimeout(() => voiceAssistant.setWakeMode?.(true), 120);
+      }
+      toast.success("PrepMatrix unlocked.");
+    } catch (error) {
+      setAppLockError(error instanceof Error
+        ? error.message
+        : "PrepMatrix could not verify your password.");
+    } finally {
+      setAppLockBusy(false);
+    }
+  };
+
+  const handleLockedLogout = () => {
+    setAppLockError("");
+    setLogoutReturnsToLock(true);
+    setLogoutConfirmOpen(true);
+  };
+
+  const handleCancelLogout = () => {
+    setLogoutConfirmOpen(false);
+    if (logoutReturnsToLock && userProfile) {
+      sessionStorage.setItem(APP_LOCK_STORAGE_KEY, "true");
+      setAppLocked(true);
+    }
+    setLogoutReturnsToLock(false);
+  };
+
+  const handleRestartVoiceAssistant = () => {
+    const shouldResumeWakeMode = Boolean(
+      voiceAssistant.wakeMode || localStorage.getItem("prepmatrix_wake_mode") === "true",
+    );
+    voiceAssistant.pauseWakeMode?.();
+    window.studyVoiceAssistant?.pauseWakeListening?.();
+    window.speechSynthesis?.cancel?.();
+    window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
+    if (shouldResumeWakeMode) {
+      window.setTimeout(() => voiceAssistant.setWakeMode?.(true), 140);
+      toast.success("Voice assistant restarted and wake mode resumed.");
+    } else {
+      toast.success("Voice assistant restarted. Wake mode remains off.");
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -1672,6 +1899,9 @@ function App() {
         }
 
         if (error?.status === 401) {
+          sessionStorage.removeItem(APP_LOCK_STORAGE_KEY);
+          setAppLocked(false);
+          setAppLockError("");
           return;
         }
 
@@ -1890,7 +2120,7 @@ function App() {
   }, [userProfile]);
 
   useEffect(() => {
-    if (logoutConfirmOpen || logoutTransitionPhase !== "idle") {
+    if (appLocked || logoutConfirmOpen || logoutTransitionPhase !== "idle") {
       document.body.classList.add("modal-open");
     } else {
       document.body.classList.remove("modal-open");
@@ -1898,7 +2128,7 @@ function App() {
     return () => {
       document.body.classList.remove("modal-open");
     };
-  }, [logoutConfirmOpen, logoutTransitionPhase]);
+  }, [appLocked, logoutConfirmOpen, logoutTransitionPhase]);
 
   useEffect(() => {
     if (resetConfirmOpen) {
@@ -2167,9 +2397,9 @@ function App() {
 
       {userProfile && !isAuthRoute && (
         <aside
-          aria-hidden={logoutTransitionPhase !== "idle"}
+          aria-hidden={appLocked || logoutConfirmOpen || logoutTransitionPhase !== "idle"}
           className={`app-sidebar ${sidebarOpen ? "open" : ""}`}
-          inert={logoutTransitionPhase !== "idle" ? true : undefined}
+          inert={appLocked || logoutConfirmOpen || logoutTransitionPhase !== "idle" ? true : undefined}
         >
           <div className="sidebar-header">
             <Link to={learnerRoutePolicy.homeRoute} className="workspace-logo-wrap" aria-label="PrepMatrix">
@@ -2454,16 +2684,32 @@ function App() {
                   )}
                 </div>
               )}
-              {(!isKidsLearner || kidsParentAccess.unlocked) && <NavLink
-                to="/settings"
-                className={({ isActive }) =>
-                  isActive ? "settings-icon-btn active" : "settings-icon-btn"
-                }
-                title="Settings"
-                aria-label="Settings"
-              >
-                <SettingsIcon size={18} />
-              </NavLink>}
+              {(!isKidsLearner || kidsParentAccess.unlocked) && (
+                <SettingsContextMenu
+                  currentTheme={themeMode}
+                  onAppearanceChange={applyAppearanceMode}
+                  onCheckForUpdates={handleCheckForUpdates}
+                  onLockApp={handleLockApp}
+                  onLogout={() => {
+                    setLogoutReturnsToLock(false);
+                    setLogoutConfirmOpen(true);
+                  }}
+                  onOpenAlertHistory={() => {
+                    setSidebarOpen(false);
+                    navigate("/notification-history");
+                  }}
+                  onOpenSettings={() => {
+                    setSidebarOpen(false);
+                    navigate("/settings");
+                  }}
+                  onRefreshAppData={handleRefreshAppData}
+                  onRestartVoiceAssistant={handleRestartVoiceAssistant}
+                  onSwitchAcademicProfile={() => {
+                    setSidebarOpen(false);
+                    navigate("/settings/profiles");
+                  }}
+                />
+              )}
             </div>
             {sidebarCollapsed && (
               <button
@@ -2485,11 +2731,11 @@ function App() {
       )}
 
       <div
-        aria-hidden={logoutTransitionPhase !== "idle"}
+        aria-hidden={appLocked || logoutConfirmOpen || logoutTransitionPhase !== "idle"}
         className={`app-main-content${autoHideTopBar ? " topbar-auto-hide-enabled" : ""}${
           autoHideTopBar && topBarVisible ? " topbar-visible" : ""
         }`}
-        inert={logoutTransitionPhase !== "idle" ? true : undefined}
+        inert={appLocked || logoutConfirmOpen || logoutTransitionPhase !== "idle" ? true : undefined}
       >
         {userProfile && !isAuthRoute && (
           <>
@@ -2590,7 +2836,10 @@ function App() {
               <button
                 aria-label="Logout"
                 className="icon-shell-btn logout-icon-btn"
-                onClick={() => setLogoutConfirmOpen(true)}
+                onClick={() => {
+                  setLogoutReturnsToLock(false);
+                  setLogoutConfirmOpen(true);
+                }}
                 title="Logout"
                 type="button"
               >
@@ -2603,38 +2852,6 @@ function App() {
 
         <Notification message={notification} />
         <CompletionRewardPopup reward={completionReward} onClose={() => setCompletionReward(null)} />
-
-        {logoutConfirmOpen && (
-          <div className="confirm-modal-backdrop" role="presentation">
-            <section
-              aria-labelledby="logout-confirm-title"
-              aria-modal="true"
-              className="confirm-modal"
-              role="dialog"
-            >
-              <div className="confirm-modal-icon warning" aria-hidden="true">
-                <LogOut size={22} strokeWidth={2.5} />
-              </div>
-              <div className="confirm-modal-copy">
-                <span className="section-tag">Confirm</span>
-                <h2 id="logout-confirm-title">Log out of PrepMatrix?</h2>
-                <p>Your current workspace will stay saved. You will need to log in again to continue.</p>
-              </div>
-              <div className="confirm-modal-actions">
-                <button className="secondary-btn" onClick={() => setLogoutConfirmOpen(false)} type="button">
-                  Cancel
-                </button>
-                <button
-                  className="confirm-danger-btn"
-                  onClick={handleLogout}
-                  type="button"
-                >
-                  Log out
-                </button>
-              </div>
-            </section>
-          </div>
-        )}
 
         <main className="workspace-main">
           {/* Auth pages rendered OUTSIDE Routes so the component instance is
@@ -3060,6 +3277,48 @@ function App() {
         otherProfileLabel={academicProfileIntro?.otherProfileLabel}
         userName={academicProfileIntro?.userName}
       />
+
+      {logoutConfirmOpen && (
+        <div className="confirm-modal-backdrop" role="presentation">
+          <section
+            aria-labelledby="logout-confirm-title"
+            aria-modal="true"
+            className="confirm-modal"
+            role="dialog"
+          >
+            <div className="confirm-modal-icon warning" aria-hidden="true">
+              <LogOut size={22} strokeWidth={2.5} />
+            </div>
+            <div className="confirm-modal-copy">
+              <span className="section-tag">Confirm</span>
+              <h2 id="logout-confirm-title">Log out of PrepMatrix?</h2>
+              <p>Your current workspace will stay saved. You will need to log in again to continue.</p>
+            </div>
+            <div className="confirm-modal-actions">
+              <button className="secondary-btn" onClick={handleCancelLogout} type="button">
+                Cancel
+              </button>
+              <button
+                className="confirm-danger-btn"
+                onClick={handleLogout}
+                type="button"
+              >
+                Log out
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {appLocked && userProfile && !(logoutConfirmOpen && logoutReturnsToLock) && (
+        <AppLockOverlay
+          busy={appLockBusy}
+          errorMessage={appLockError}
+          onLogout={handleLockedLogout}
+          onUnlock={handleUnlockApp}
+          userLabel={userProfile.email || userProfile.username || "your account"}
+        />
+      )}
 
       {voiceAssistant.voiceStatus !== "idle" && (
         <VoiceAssistantOverlay

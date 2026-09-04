@@ -1,0 +1,153 @@
+src\utils\apiClient.js:77:  localStorage.removeItem("prepmatrix_auth_token");
+src\utils\apiClient.js:91:  window.sessionStorage.setItem(AUTH_NOTICE_KEY, notice);
+src\utils\apiClient.js:145:  const token = localStorage.getItem("prepmatrix_auth_token");
+src\utils\apiClient.js:182:    if (token && token === localStorage.getItem("prepmatrix_auth_token")) {
+src\utils\apiClient.js:199:      localStorage.setItem("prepmatrix_auth_token", payload.token);
+src\components\AiQuotaProvider.jsx:164:    if (!localStorage.getItem("prepmatrix_auth_token")) {
+src\components\AiQuotaProvider.jsx:192:      if (!localStorage.getItem("prepmatrix_auth_token")) return;
+src\components\AiQuotaProvider.jsx:206:    if (localStorage.getItem("prepmatrix_auth_token")) {
+src\App.jsx:139:      window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
+src\App.jsx:143:      window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
+src\App.jsx:147:        window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
+src\App.jsx:400:    const savedDefault = localStorage.getItem("prepmatrix_default_theme");
+src\App.jsx:405:    () => localStorage.getItem("prepmatrix_bg_image_id") || "",
+src\App.jsx:445:    const saved = localStorage.getItem("prepmatrix_cursor_style") || "app-cursor";
+src\App.jsx:448:      localStorage.setItem("prepmatrix_cursor_style", "blob-cursor");
+src\App.jsx:454:    () => localStorage.getItem(TOPBAR_AUTO_HIDE_STORAGE_KEY) === "true"
+src\App.jsx:472:    localStorage.setItem(TOPBAR_AUTO_HIDE_STORAGE_KEY, String(nextValue));
+src\App.jsx:871:      if (legacyOwnerKey && !window.localStorage.getItem(legacyOwnerKey)) {
+src\App.jsx:872:        window.localStorage.setItem(legacyOwnerKey, nextProfileContext.dataId);
+src\App.jsx:1170:          window.localStorage.setItem("prepmatrix_academic_profile_event", JSON.stringify({
+src\App.jsx:1258:              window.localStorage.setItem("prepmatrix_academic_profile_event", JSON.stringify({
+src\App.jsx:1427:    if (localStorage.getItem("prepmatrix_wake_mode") === "true") {
+src\App.jsx:1772:    const backgroundImageId = localStorage.getItem("prepmatrix_bg_image_id") || "";
+src\App.jsx:1784:    localStorage.setItem("prepmatrix_default_theme", darkMode ? "dark" : "light");
+src\App.jsx:1787:    const rgbLight = localStorage.getItem("prepmatrix_accent_rgb_light") || "7, 143, 120";
+src\App.jsx:1788:    const rgbDark = localStorage.getItem("prepmatrix_accent_rgb_dark") || "36, 199, 177";
+src\App.jsx:1823:    if (!userProfile || localStorage.getItem(NOTIFICATION_INTENT_KEY) !== "true") {
+src\App.jsx:1843:        localStorage.getItem(NOTIFICATION_INTENT_KEY) !== "true"
+src\App.jsx:1854:          localStorage.setItem(NOTIFICATION_INTENT_KEY, "false");
+src\App.jsx:1863:          localStorage.setItem(NOTIFICATION_INTENT_KEY, "false");
+src\App.jsx:1875:      if (localStorage.getItem(NOTIFICATION_INTENT_KEY) !== "true") return;
+src\App.jsx:1915:    const bgImgId = localStorage.getItem("prepmatrix_bg_image_id") || "";
+src\App.jsx:1928:    const font = localStorage.getItem("prepmatrix_font_size") || "medium";
+src\App.jsx:1939:    const card = localStorage.getItem("prepmatrix_card_size") || "cozy";
+src\App.jsx:1958:    const opacity = localStorage.getItem("prepmatrix_accent_opacity") || "0.16";
+src\App.jsx:1959:    const borderOp = localStorage.getItem("prepmatrix_border_opacity") || "0.3";
+src\App.jsx:1966:    const rgbLight = localStorage.getItem("prepmatrix_accent_rgb_light") || "7, 143, 120";
+src\App.jsx:1967:    const rgbDark = localStorage.getItem("prepmatrix_accent_rgb_dark") || "36, 199, 177";
+src\App.jsx:1975:    const bgLight = localStorage.getItem("prepmatrix_bg_light") || "#f8fafc";
+src\App.jsx:1976:    const bgDark = localStorage.getItem("prepmatrix_bg_dark") || "#090d16";
+src\App.jsx:1984:    const glassyC = localStorage.getItem("prepmatrix_glassy_panels") !== "false";
+src\App.jsx:1985:    const glassyB = localStorage.getItem("prepmatrix_glassy_buttons") !== "false";
+src\App.jsx:1990:    const fontS = localStorage.getItem("prepmatrix_font_style") || "sans";
+src\App.jsx:2024:    const fontW = localStorage.getItem("prepmatrix_font_weight") || "regular";
+src\App.jsx:2055:    const glassOp = localStorage.getItem("prepmatrix_glass_opacity") || "0.6";
+src\App.jsx:2058:    const backgroundImageBlur = resolveBackgroundImageBlurPx(localStorage.getItem(BACKGROUND_IMAGE_BLUR_STORAGE_KEY), Boolean(imgPreset));
+src\App.jsx:2066:    const bgOvOp = localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55";
+src\pages\AuthPage.jsx:43:    const notice = window.sessionStorage.getItem("prepmatrix_auth_notice");
+src\pages\AuthPage.jsx:46:      window.sessionStorage.removeItem("prepmatrix_auth_notice");
+src\pages\AuthPage.jsx:87:        localStorage.setItem("prepmatrix_wake_mode", "false");
+src\pages\AuthPage.jsx:101:          if (pinSetupKey) window.sessionStorage.setItem(pinSetupKey, "true");
+src\pages\AuthPage.jsx:102:          window.sessionStorage.setItem("prepmatrix_kids_pin_setup_pending", "true");
+src\components\Chatbot.jsx:1150:    resumeWakeAfterChatMicRef.current = localStorage.getItem("prepmatrix_wake_mode") === "true";
+src\components\FirstLoginGuideCoordinator.jsx:36:        pinSetupPending = window.sessionStorage.getItem("prepmatrix_kids_pin_setup_pending") === "true";
+src\components\FirstLoginGuideCoordinator.jsx:58:                  window.sessionStorage.setItem("prepmatrix_kids_pin_setup_pending", "true");
+src\components\FirstLoginGuideCoordinator.jsx:81:        window.sessionStorage.removeItem("prepmatrix_kids_pin_setup_pending");
+src\pages\ExamPage.jsx:149:      const saved = JSON.parse(localStorage.getItem(
+src\pages\ExamPage.jsx:164:    localStorage.removeItem(visitedQuestionsStorageKey(attemptId, academicProfileId));
+src\pages\ExamPage.jsx:335:    localStorage.setItem(
+src\pages\ExamPage.jsx:633:    let raw = localStorage.getItem(timerKey);
+src\pages\ExamPage.jsx:635:      raw = localStorage.getItem(TIMER_STORAGE_KEY);
+src\pages\ExamPage.jsx:637:        localStorage.setItem(timerKey, raw);
+src\pages\ExamPage.jsx:638:        localStorage.removeItem(TIMER_STORAGE_KEY);
+src\pages\ExamPage.jsx:672:    localStorage.setItem(timerStorageKey, JSON.stringify(timer));
+src\pages\ExamPage.jsx:1481:    && window.localStorage.getItem(legacyAcademicProfileOwnerStorageKey(userProfile))
+src\pages\KidsLearningPage.jsx:225:    && window.localStorage.getItem(legacyAcademicProfileOwnerStorageKey(userProfile))
+src\pages\KidsLearningPage.jsx:240:      window.localStorage.removeItem(legacyStorageKey);
+src\pages\KidsLearningPage.jsx:261:      return window.sessionStorage.getItem(pinSetupStorageKey) === "true"
+src\pages\KidsLearningPage.jsx:262:        || window.sessionStorage.getItem("prepmatrix_kids_pin_setup_pending") === "true";
+src\pages\KidsLearningPage.jsx:280:        if (legacy.length) window.localStorage.removeItem(legacyKey);
+src\pages\KidsLearningPage.jsx:291:      && window.sessionStorage.getItem(sessionStorageKey);
+src\pages\KidsLearningPage.jsx:300:      window.sessionStorage.setItem(
+src\pages\KidsLearningPage.jsx:304:      window.sessionStorage.removeItem(sourceSessionKey);
+src\pages\KidsLearningPage.jsx:323:        window.sessionStorage.removeItem(pinSetupStorageKey);
+src\pages\KidsLearningPage.jsx:324:        window.sessionStorage.removeItem("prepmatrix_kids_pin_setup_pending");
+src\pages\KidsLearningPage.jsx:370:              window.sessionStorage.setItem(sessionStorageKey, JSON.stringify({
+src\pages\KidsLearningPage.jsx:493:        window.sessionStorage.setItem(sessionStorageKey, JSON.stringify({
+src\pages\KidsLearningPage.jsx:581:      window.sessionStorage.setItem(sessionStorageKey, JSON.stringify({
+src\components\kids\KidsParentCorner.jsx:149:          window.sessionStorage.removeItem(pinSetupStorageKey);
+src\components\kids\KidsParentCorner.jsx:150:          window.sessionStorage.removeItem("prepmatrix_kids_pin_setup_pending");
+src\pages\PlannerPage.jsx:98:    return isPushNotificationSupported() && localStorage.getItem("prepmatrix_notifications_enabled") !== "true";
+src\pages\PlannerPage.jsx:185:      localStorage.setItem("prepmatrix_notifications_enabled", "true");
+src\pages\PlannerPage.jsx:190:      localStorage.setItem("prepmatrix_notifications_enabled", "false");
+src\pages\SettingsPage.jsx:298:    localStorage.setItem(NOTIFICATION_INTENT_KEY, enabled ? "true" : "false");
+src\pages\SettingsPage.jsx:307:    return localStorage.getItem(NOTIFICATION_INTENT_KEY) === "true";
+src\pages\SettingsPage.jsx:315:    const deviceId = localStorage.getItem(PUSH_DEVICE_ID_STORAGE_KEY) || "";
+src\pages\SettingsPage.jsx:316:    const subscriptionVersion = localStorage.getItem(PUSH_SUBSCRIPTION_VERSION_STORAGE_KEY) || "";
+src\pages\SettingsPage.jsx:623:    const stored = localStorage.getItem("prepmatrix_sound_enabled");
+src\pages\SettingsPage.jsx:728:    localStorage.getItem("prepmatrix_wake_mode") === "true"
+src\pages\SettingsPage.jsx:734:    localStorage.setItem("prepmatrix_wake_mode", next ? "true" : "false");
+src\pages\SettingsPage.jsx:843:    localStorage.getItem("prepmatrix_font_size") || "medium"
+src\pages\SettingsPage.jsx:846:    localStorage.getItem("prepmatrix_card_size") || "cozy"
+src\pages\SettingsPage.jsx:851:    localStorage.getItem("prepmatrix_bg_light") || "#e2e8f0"
+src\pages\SettingsPage.jsx:854:    localStorage.getItem("prepmatrix_bg_dark") || "#1e293b"
+src\pages\SettingsPage.jsx:859:    const stored = localStorage.getItem("prepmatrix_glassy_panels");
+src\pages\SettingsPage.jsx:863:    const stored = localStorage.getItem("prepmatrix_glassy_buttons");
+src\pages\SettingsPage.jsx:869:    localStorage.getItem("prepmatrix_font_style") || "sans"
+src\pages\SettingsPage.jsx:872:    localStorage.getItem("prepmatrix_font_weight") || "regular"
+src\pages\SettingsPage.jsx:875:    localStorage.getItem("prepmatrix_bg_image_id") || ""
+src\pages\SettingsPage.jsx:878:    parseFloat(localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55")
+src\pages\SettingsPage.jsx:881:    parseFloat(localStorage.getItem("prepmatrix_glass_opacity") || "0.6")
+src\pages\SettingsPage.jsx:884:    normalizeBackgroundImageBlurPx(localStorage.getItem(BACKGROUND_IMAGE_BLUR_STORAGE_KEY))
+src\pages\SettingsPage.jsx:888:    && KIDS_BACKGROUND_PRESETS.some(({ id }) => id === localStorage.getItem("prepmatrix_bg_image_id"))
+src\pages\SettingsPage.jsx:918:    localStorage.getItem("prepmatrix_accent_rgb_light") || "7, 143, 120"
+src\pages\SettingsPage.jsx:921:    localStorage.getItem("prepmatrix_accent_rgb_dark") || "36, 199, 177"
+src\pages\SettingsPage.jsx:924:    parseFloat(localStorage.getItem("prepmatrix_accent_opacity") || "0.16")
+src\pages\SettingsPage.jsx:927:    parseFloat(localStorage.getItem("prepmatrix_border_opacity") || "0.3")
+src\pages\SettingsPage.jsx:1023:    fontSize: localStorage.getItem("prepmatrix_font_size") || "medium",
+src\pages\SettingsPage.jsx:1024:    cardSize: localStorage.getItem("prepmatrix_card_size") || "cozy",
+src\pages\SettingsPage.jsx:1025:    accentRgbLight: localStorage.getItem("prepmatrix_accent_rgb_light") || "7, 143, 120",
+src\pages\SettingsPage.jsx:1026:    accentRgbDark: localStorage.getItem("prepmatrix_accent_rgb_dark") || "36, 199, 177",
+src\pages\SettingsPage.jsx:1027:    transparency: localStorage.getItem("prepmatrix_accent_opacity") || "0.16",
+src\pages\SettingsPage.jsx:1028:    contrast: localStorage.getItem("prepmatrix_border_opacity") || "0.3",
+src\pages\SettingsPage.jsx:1029:    bgLight: localStorage.getItem("prepmatrix_bg_light") || "#f8fafc",
+src\pages\SettingsPage.jsx:1030:    bgDark: localStorage.getItem("prepmatrix_bg_dark") || "#090d16",
+src\pages\SettingsPage.jsx:1031:    glassyCards: localStorage.getItem("prepmatrix_glassy_panels") !== "false",
+src\pages\SettingsPage.jsx:1032:    glassyButtons: localStorage.getItem("prepmatrix_glassy_buttons") !== "false",
+src\pages\SettingsPage.jsx:1033:    fontStyle: localStorage.getItem("prepmatrix_font_style") || "sans",
+src\pages\SettingsPage.jsx:1034:    fontWeight: localStorage.getItem("prepmatrix_font_weight") || "regular",
+src\pages\SettingsPage.jsx:1035:    bgImageId: localStorage.getItem("prepmatrix_bg_image_id") || "",
+src\pages\SettingsPage.jsx:1036:    bgOverlayOpacity: parseFloat(localStorage.getItem("prepmatrix_bg_overlay_opacity") || "0.55"),
+src\pages\SettingsPage.jsx:1037:    glassOpacity: parseFloat(localStorage.getItem("prepmatrix_glass_opacity") || "0.6"),
+src\pages\SettingsPage.jsx:1038:    backgroundImageBlur: normalizeBackgroundImageBlurPx(localStorage.getItem(BACKGROUND_IMAGE_BLUR_STORAGE_KEY)),
+src\pages\SettingsPage.jsx:1252:    localStorage.setItem("prepmatrix_sound_enabled", String(soundEnabled));
+src\pages\SettingsPage.jsx:1342:          window.localStorage.setItem("prepmatrix_academic_profile_event", JSON.stringify({
+src\pages\SettingsPage.jsx:1760:    localStorage.setItem("prepmatrix_default_theme", theme);
+src\pages\SettingsPage.jsx:1771:    localStorage.setItem("prepmatrix_font_size", font);
+src\pages\SettingsPage.jsx:1782:    localStorage.setItem("prepmatrix_card_size", card);
+src\pages\SettingsPage.jsx:1801:    localStorage.setItem("prepmatrix_accent_rgb_light", rgbLight);
+src\pages\SettingsPage.jsx:1802:    localStorage.setItem("prepmatrix_accent_rgb_dark", rgbDark);
+src\pages\SettingsPage.jsx:1811:    localStorage.setItem("prepmatrix_accent_opacity", opacity.toString());
+src\pages\SettingsPage.jsx:1812:    localStorage.setItem("prepmatrix_border_opacity", borderOp.toString());
+src\pages\SettingsPage.jsx:1819:    localStorage.setItem("prepmatrix_bg_light", bgL);
+src\pages\SettingsPage.jsx:1820:    localStorage.setItem("prepmatrix_bg_dark", bgD);
+src\pages\SettingsPage.jsx:1828:    localStorage.setItem("prepmatrix_glassy_panels", String(glassC));
+src\pages\SettingsPage.jsx:1829:    localStorage.setItem("prepmatrix_glassy_buttons", String(glassB));
+src\pages\SettingsPage.jsx:1834:    localStorage.setItem("prepmatrix_font_style", fontS);
+src\pages\SettingsPage.jsx:1835:    localStorage.setItem("prepmatrix_font_weight", fontW);
+src\pages\SettingsPage.jsx:1842:      localStorage.setItem("prepmatrix_bg_image_id", imgPreset ? bgImgId : "");
+src\pages\SettingsPage.jsx:1844:    localStorage.setItem("prepmatrix_bg_overlay_opacity", String(bgOvOpacity));
+src\pages\SettingsPage.jsx:1845:    localStorage.setItem("prepmatrix_glass_opacity", String(glassOp));
+src\pages\SettingsPage.jsx:1847:    localStorage.setItem(BACKGROUND_IMAGE_BLUR_STORAGE_KEY, String(normalizedBackgroundImageBlur));
+src\pages\SettingsPage.jsx:1881:    localStorage.setItem(CUSTOM_BACKGROUND_DATA_STORAGE_KEY, customBackgroundPreset.file);
+src\pages\SettingsPage.jsx:1882:    localStorage.setItem(CUSTOM_BACKGROUND_ACCENT_STORAGE_KEY, customBackgroundPreset.accentRgb);
+src\pages\SettingsPage.jsx:1883:    localStorage.setItem(CUSTOM_BACKGROUND_SURFACE_STORAGE_KEY, customBackgroundPreset.surfaceRgb);
+src\pages\SettingsPage.jsx:1884:    localStorage.setItem(CUSTOM_BACKGROUND_LAYOUT_STORAGE_KEY, JSON.stringify(customBackgroundPreset.layout));
+src\pages\SettingsPage.jsx:2015:        persistedBgImageId = localStorage.getItem("prepmatrix_bg_image_id") || "";
+src\pages\SettingsPage.jsx:2992:                      localStorage.setItem("prepmatrix_cursor_style", "default");
+src\pages\SettingsPage.jsx:3010:                      localStorage.setItem("prepmatrix_cursor_style", "app-cursor");
+src\pages\SettingsPage.jsx:3027:                      localStorage.setItem("prepmatrix_cursor_style", "blob-cursor");
+src\components\Progressbar1.jsx:52:      if (window.localStorage.getItem(completionCelebrationKey) === "shown") {
+src\components\Progressbar1.jsx:56:      window.localStorage.setItem(completionCelebrationKey, "shown");
+src\components\StudyPet.jsx:37:    window.localStorage.removeItem(LEGACY_PET_VISIBILITY_KEY);

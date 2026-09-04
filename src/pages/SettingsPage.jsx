@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, History, X } from "lucide-react";
+import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, History, X, RefreshCw } from "lucide-react";
 import api from "../utils/apiClient";
 import KidsPerformanceSettings from "../components/kids/KidsPerformanceSettings";
 import SettingsDataInfo from "../components/SettingsDataInfo";
@@ -62,6 +62,7 @@ import {
 } from "../utils/backgroundPresentation";
 import { detectCustomBackgroundLayout } from "../utils/customBackgroundFaceDetection";
 import { runAppearanceStorageTransaction } from "../utils/appearanceStorage";
+import { clearPrepMatrixAppCaches } from "../utils/appCache";
 import {
   BACKGROUND_IMAGE_BLUR_MAX_PX,
   BACKGROUND_IMAGE_BLUR_STORAGE_KEY,
@@ -831,6 +832,7 @@ function SettingsPage({
   };
   // Data Management state
   const [confirmReset, setConfirmReset] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
   const [showPasswordStep, setShowPasswordStep] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -1152,8 +1154,11 @@ function SettingsPage({
         const imgPreset = resolveBackgroundPresetForProfile(init.bgImageId, {
           kidsBackgroundsEligible: init.kidsBackgroundsEligible,
         });
-        const isDark = resolveEffectiveDarkMode(init.darkMode, Boolean(imgPreset));
-        setDarkMode(init.darkMode);
+        const restoredDarkMode = setDarkMode(init.darkMode, { preservePreference: true });
+        const isDark = resolveEffectiveDarkMode(
+          typeof restoredDarkMode === "boolean" ? restoredDarkMode : init.darkMode,
+          Boolean(imgPreset),
+        );
         document.body.classList.toggle("dark", isDark);
         document.documentElement.classList.toggle("dark", isDark);
 
@@ -1706,7 +1711,7 @@ function SettingsPage({
         return;
       }
       setConfirmReset(false);
-      toast.success("The active academic profile workspace has been reset.");
+      toast.success("The active academic profile workspace data has been cleared.");
       return;
     }
     setSubjects([]);
@@ -1721,7 +1726,26 @@ function SettingsPage({
     setGoalReminderData(normalizePlannerData(DEFAULT_GOAL_REMINDER_DATA));
     setGoalReminderSettings(normalizePlannerSettings(DEFAULT_GOAL_REMINDER_SETTINGS));
     setConfirmReset(false);
-    toast.success("The active academic profile workspace has been reset.");
+    toast.success("The active academic profile workspace data has been cleared.");
+  };
+
+  const handleClearCache = async () => {
+    if (clearingCache) return;
+    setClearingCache(true);
+    try {
+      const result = await clearPrepMatrixAppCaches();
+      if (!result.supported) {
+        toast.info("This browser does not expose an app cache to clear.");
+      } else if (result.cleared === 0) {
+        toast.info("PrepMatrix cache is already clear.");
+      } else {
+        toast.success("PrepMatrix cache cleared. Your study data was not changed.");
+      }
+    } catch {
+      toast.error("Could not clear the PrepMatrix cache. Please try again.");
+    } finally {
+      setClearingCache(false);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -3131,23 +3155,43 @@ function SettingsPage({
             </div>
           </div>
 
-          <div style={{ borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
-            <div className="field-stack">
-              <span style={{ color: "var(--text-muted)" }}>Reset Entire Workspace</span>
-              <p className="card-subtext" style={{ marginBottom: "8px" }}>This clears subjects, schedules, progress, bookmarks, goals, and to-do tasks. This action cannot be undone.</p>
+          <div className="settings-data-action-grid">
+            <div className="settings-data-action-row">
+              <div className="settings-data-action-copy">
+                <span>Clear Cache</span>
+                <p className="card-subtext">Remove cached PrepMatrix app files. Your account, subjects, plans, and progress stay untouched.</p>
+              </div>
+              <button
+                className="secondary-btn settings-data-action-btn"
+                disabled={clearingCache}
+                onClick={handleClearCache}
+                type="button"
+              >
+                <RefreshCw aria-hidden="true" className={clearingCache ? "spin" : ""} size={16} />
+                {clearingCache ? "Clearing..." : "Clear Cache"}
+              </button>
+            </div>
+
+            <div className="settings-data-action-row is-danger">
+              <div className="settings-data-action-copy">
+                <span>Clear Workspace Data</span>
+                <p className="card-subtext">Clear subjects, schedules, progress, bookmarks, goals, and to-do tasks from the active academic profile. Your account and appearance stay intact.</p>
+              </div>
               {!confirmReset ? (
                 <button
+                  className="settings-data-action-btn"
                   onClick={() => setConfirmReset(true)}
                   style={{
                     display: "flex", alignItems: "center", gap: "8px", width: "fit-content",
                     background: "rgba(239, 68, 68, 0.1)", color: "#ef4444",
                     border: "1px solid rgba(239, 68, 68, 0.3)"
                   }}
+                  type="button"
                 >
-                  <Trash2 size={16} /> Reset Workspace
+                  <Trash2 aria-hidden="true" size={16} /> Clear Data
                 </button>
               ) : (
-                <div className="reset-confirm-actions" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <div className="reset-confirm-actions settings-data-confirm-actions">
                   <button
                     onClick={handleResetWorkspace}
                     style={{
@@ -3155,12 +3199,14 @@ function SettingsPage({
                       background: "rgba(239, 68, 68, 0.2)", color: "#ef4444",
                       border: "1px solid rgba(239, 68, 68, 0.5)", fontWeight: 600
                     }}
+                    type="button"
                   >
-                    <Trash2 size={16} /> Confirm Reset
+                    <Trash2 aria-hidden="true" size={16} /> Confirm Clear Data
                   </button>
                   <button
                     onClick={() => setConfirmReset(false)}
                     style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                    type="button"
                   >
                     Cancel
                   </button>

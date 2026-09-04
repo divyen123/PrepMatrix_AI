@@ -1,0 +1,214 @@
+.settings-context-menu-shell {
+  --settings-menu-bg: #ffffff;
+  --settings-menu-border: rgba(15, 23, 42, 0.14);
+  --settings-menu-text: #162033;
+  --settings-menu-muted: #68758a;
+  --settings-menu-hover: #eef3f9;
+  position: fixed;
+  z-index: 50000;
+  width: 282px;
+  overflow: visible;
+  color: var(--settings-menu-text) !important;
+  filter: none;
+  opacity: 1;
+}
+
+body.dark .settings-context-menu-shell,
+body.has-bg-image .settings-context-menu-shell {
+  --settings-menu-bg: #111722;
+  --settings-menu-border: rgba(216, 224, 239, 0.17);
+  --settings-menu-text: #f3f6fb;
+  --settings-menu-muted: #a7b1c2;
+  --settings-menu-hover: #202838;
+}
+
+.settings-context-menu {
+  padding: 8px;
+  overflow: visible;
+  border: 1px solid var(--settings-menu-border);
+  border-radius: 16px;
+  background: var(--settings-menu-bg);
+  box-shadow: 0 20px 54px rgba(2, 6, 23, 0.28), 0 4px 14px rgba(2, 6, 23, 0.16);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  isolation: isolate;
+  opacity: 1 !important;
+}
+
+.settings-context-menu-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 10px;
+  color: var(--settings-menu-text) !important;
+}
+
+.settings-context-menu-heading > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--settings-menu-border);
+  border-radius: 10px;
+  background: var(--settings-menu-hover);
+}
+
+.settings-context-menu-heading div {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.settings-context-menu-heading strong {
+  font-size: 0.82rem;
+  font-weight: 760;
+  letter-spacing: 0.01em;
+}
+
+.settings-context-menu-heading small {
+  overflow: hidden;
+  color: var(--settings-menu-muted);
+  font-size: 0.67rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body .settings-context-menu button {
+  display: grid;
+  grid-template-columns: 19px minmax(0, 1fr) auto auto;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 0 !important;
+  border-radius: 10px;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--settings-menu-text) !important;
+  font: inherit;
+  font-size: 0.79rem;
+  font-weight: 620;
+  text-align: left;
+  opacity: 1;
+  cursor: pointer;
+}
+
+body .settings-context-menu-shell .settings-context-menu button:not(.settings-context-danger) {
+  color: var(--settings-menu-text) !important;
+}
+
+body .settings-context-menu-shell .settings-context-menu button > span {
+  color: inherit !important;
+}
+
+body .settings-context-menu button:hover,
+body .settings-context-menu button:focus-visible,
+body .settings-context-menu button[aria-expanded="true"] {
+  outline: none;
+  background: var(--settings-menu-hover) !important;
+  color: var(--settings-menu-text) !important;
+}
+
+.settings-context-menu button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-context-menu button > small {
+  color: var(--settings-menu-muted) !important;
+  font-size: 0.66rem;
+  font-weight: 650;
+}
+
+body .settings-context-menu button svg {
+  color: currentColor !important;
+}
+
+.settings-context-chevron,
+.settings-context-trailing-icon,
+.settings-context-check {
+  color: var(--settings-menu-muted) !important;
+}
+
+.settings-context-check {
+  color: rgb(var(--accent-rgb, 7, 143, 120)) !important;
+}
+
+.settings-context-separator {
+  height: 1px;
+  margin: 6px 5px;
+  background: var(--settings-menu-border);
+}
+
+.settings-context-submenu-anchor {
+  position: relative;
+}
+
+.settings-context-submenu {
+  position: absolute;
+  top: -8px;
+  z-index: 1;
+  width: 190px;
+  padding: 7px;
+  border: 1px solid var(--settings-menu-border);
+  border-radius: 13px;
+  background: var(--settings-menu-bg);
+  box-shadow: 0 18px 44px rgba(2, 6, 23, 0.28);
+  opacity: 1;
+}
+
+.submenu-right .settings-context-submenu {
+  left: calc(100% - 2px);
+}
+
+.submenu-left .settings-context-submenu {
+  right: calc(100% - 2px);
+}
+
+.settings-context-submenu button {
+  grid-template-columns: 18px minmax(0, 1fr) 16px;
+}
+
+body .settings-context-menu-shell .settings-context-danger,
+body .settings-context-menu-shell .settings-context-danger:hover,
+body .settings-context-menu-shell .settings-context-danger:focus-visible {
+  color: #dc334f !important;
+}
+
+@media (max-width: 520px) {
+  .settings-context-menu-shell {
+    right: 10px !important;
+    left: 10px !important;
+    width: auto;
+  }
+
+  .settings-context-submenu {
+    right: 6px !important;
+    left: auto !important;
+    width: min(190px, calc(100vw - 44px));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .settings-context-menu {
+    animation: settings-context-enter 130ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    transform-origin: bottom left;
+  }
+
+  .settings-context-submenu {
+    animation: settings-context-submenu-enter 110ms ease-out both;
+  }
+}
+
+@keyframes settings-context-enter {
+  from { opacity: 0; transform: translateY(5px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes settings-context-submenu-enter {
+  from { opacity: 0; transform: translateX(-3px) scale(0.98); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}

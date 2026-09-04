@@ -1,0 +1,167 @@
+.app-lock-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(5, 9, 17, 0.64);
+  backdrop-filter: blur(13px) saturate(0.72);
+  -webkit-backdrop-filter: blur(13px) saturate(0.72);
+}
+
+.app-lock-panel {
+  width: min(100%, 410px);
+  padding: 30px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 32px 86px rgba(2, 6, 23, 0.42);
+  color: #172033;
+  text-align: center;
+}
+
+body.dark .app-lock-panel,
+body.has-bg-image .app-lock-panel {
+  border-color: rgba(226, 232, 240, 0.16);
+  background: #101621;
+  color: #f3f6fb;
+}
+
+.app-lock-mark {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 16px;
+  place-items: center;
+  border: 1px solid rgba(var(--accent-rgb, 7, 143, 120), 0.32);
+  border-radius: 17px;
+  background: rgba(var(--accent-rgb, 7, 143, 120), 0.12);
+  color: rgb(var(--accent-rgb, 7, 143, 120));
+}
+
+.app-lock-kicker {
+  color: rgb(var(--accent-rgb, 7, 143, 120));
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.app-lock-panel h2 {
+  margin: 7px 0 8px;
+  color: inherit;
+  font-size: 1.55rem;
+}
+
+.app-lock-panel > p {
+  margin: 0 0 22px;
+  color: #69768b;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+body.dark .app-lock-panel > p,
+body.has-bg-image .app-lock-panel > p {
+  color: #a9b3c3;
+}
+
+.app-lock-panel form {
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.app-lock-panel label {
+  color: inherit;
+  font-size: 0.76rem;
+  font-weight: 720;
+}
+
+.app-lock-panel input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  border-radius: 12px;
+  outline: none;
+  background: #f6f8fb;
+  color: #172033;
+  font: inherit;
+}
+
+body.dark .app-lock-panel input,
+body.has-bg-image .app-lock-panel input {
+  border-color: rgba(203, 213, 225, 0.18);
+  background: #090e17;
+  color: #f6f8fb;
+}
+
+.app-lock-panel input:focus {
+  border-color: rgba(var(--accent-rgb, 7, 143, 120), 0.76);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 7, 143, 120), 0.12);
+}
+
+.app-lock-error {
+  margin: 0;
+  color: #d82e4b;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.app-lock-unlock-btn,
+.app-lock-logout-btn {
+  display: inline-flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 740;
+  cursor: pointer;
+}
+
+.app-lock-unlock-btn {
+  margin-top: 3px;
+  border: 1px solid rgba(var(--accent-rgb, 7, 143, 120), 0.54);
+  background: rgb(var(--accent-rgb, 7, 143, 120));
+  color: #ffffff;
+}
+
+.app-lock-unlock-btn:disabled,
+.app-lock-logout-btn:disabled {
+  opacity: 0.56;
+  cursor: wait;
+}
+
+.app-lock-logout-btn {
+  width: 100%;
+  margin-top: 12px;
+  border: 0;
+  background: transparent;
+  color: #bd2942;
+}
+
+.app-lock-logout-btn:hover:not(:disabled),
+.app-lock-logout-btn:focus-visible:not(:disabled) {
+  outline: none;
+  background: rgba(216, 46, 75, 0.09);
+}
+
+@media (max-width: 520px) {
+  .app-lock-backdrop { padding: 14px; }
+  .app-lock-panel { padding: 24px 20px; border-radius: 20px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .app-lock-panel {
+    animation: app-lock-panel-enter 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+}
+
+@keyframes app-lock-panel-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
