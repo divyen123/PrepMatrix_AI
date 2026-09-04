@@ -47,11 +47,10 @@ import {
 import {
   isNotificationMutationRequestAllowed,
   parseAdditionalPushHosts,
-  runDailyReminderSweep,
   schedulerSecretMatches,
 } from "./pushNotificationService.js";
 import { registerPushNotificationRoutes } from "./pushNotificationRoutes.js";
-import { runScheduledReminderPushSweep } from "./scheduledReminderPushService.js";
+import { runNotificationAlertPushSweep } from "./scheduledReminderPushService.js";
 import {
   NOTIFICATION_HISTORY_COLLECTION,
   registerNotificationHistoryRoutes,
@@ -1839,21 +1838,21 @@ registerLearningNoteRoutes(app, {
   requireAuth,
   withProfileWriteFence: withAcademicProfileWriteFence,
 });
-app.post("/api/internal/notifications/daily-reminders", async (req, res) => {
+app.post("/api/internal/notifications/alerts", async (req, res) => {
   res.set("Cache-Control", "no-store");
   if (REMINDER_CRON_SECRET.length < 32) {
-    return res.status(503).json({ error: "Scheduled reminder execution is not configured." });
+    return res.status(503).json({ error: "Notification alert execution is not configured." });
   }
   if (!schedulerSecretMatches(req.headers.authorization, REMINDER_CRON_SECRET)) {
     return res.status(401).json({ error: "Unauthorized." });
   }
 
   try {
-    const summary = await checkAndSendDailyReminders();
+    const summary = await checkAndSendNotificationAlerts();
     return res.json({ success: true, summary });
   } catch (error) {
-    console.error("[Web Push] Scheduled reminder sweep failed:", error instanceof Error ? error.name : "UnknownError");
-    return res.status(500).json({ error: "Scheduled reminders could not be processed." });
+    console.error("[Web Push] Notification alert sweep failed:", error instanceof Error ? error.name : "UnknownError");
+    return res.status(500).json({ error: "Notification alerts could not be processed." });
   }
 });
 
@@ -2950,42 +2949,41 @@ app.post("/api/study-assistant/chat", requireAuth(async (req, res) => {
   }
 }));
 
-let scheduledReminderRunPromise = null;
+let notificationAlertRunPromise = null;
 
-async function checkAndSendDailyReminders() {
-  if (scheduledReminderRunPromise) return scheduledReminderRunPromise;
+async function checkAndSendNotificationAlerts() {
+  if (notificationAlertRunPromise) return notificationAlertRunPromise;
 
-  scheduledReminderRunPromise = (async () => {
+  notificationAlertRunPromise = (async () => {
     const db = await getDb();
     const shared = {
       db,
       ensureVapidConfigured,
       sendNotification: (subscription, payload, options) => webpush.sendNotification(subscription, payload, options),
+      getAiQuotaStatus: (userId) => aiQuota.getStatus(userId),
       additionalHosts: ADDITIONAL_PUSH_ENDPOINT_HOSTS,
     };
-    const scheduledReminders = await runScheduledReminderPushSweep(shared);
-    const dailyStudyReminder = await runDailyReminderSweep(shared);
-    return { ...dailyStudyReminder, scheduledReminders };
+    return runNotificationAlertPushSweep(shared);
   })();
 
   try {
-    return await scheduledReminderRunPromise;
+    return await notificationAlertRunPromise;
   } finally {
-    scheduledReminderRunPromise = null;
+    notificationAlertRunPromise = null;
   }
 }
 
-function runInProcessReminderSweep() {
-  checkAndSendDailyReminders().catch((error) => {
-    console.error("[Web Push] In-process reminder sweep failed:", error instanceof Error ? error.name : "UnknownError");
+function runInProcessAlertSweep() {
+  checkAndSendNotificationAlerts().catch((error) => {
+    console.error("[Web Push] In-process alert sweep failed:", error instanceof Error ? error.name : "UnknownError");
   });
 }
 
 if (ENABLE_IN_PROCESS_REMINDERS) {
-  setInterval(runInProcessReminderSweep, 15 * 60 * 1000);
-  setTimeout(runInProcessReminderSweep, 10000);
+  setInterval(runInProcessAlertSweep, 15 * 60 * 1000);
+  setTimeout(runInProcessAlertSweep, 10000);
 } else {
-  console.log("[Web Push] In-process reminder scheduling is disabled; use the protected external scheduler endpoint.");
+  console.log("[Web Push] In-process alert scheduling is disabled; use the protected external scheduler endpoint.");
 }
 async function finalizeReconciledAcademicProfileDeletion(db, tombstone, context) {
   if (tombstone.status === "completed") return;

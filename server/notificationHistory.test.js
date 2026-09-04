@@ -5,6 +5,7 @@ import { ObjectId } from "mongodb";
 
 import {
   NOTIFICATION_HISTORY_LIMIT,
+  ACTION_ALERT_NOTIFICATION_KINDS,
   publicNotificationHistoryRecord,
   recordNotificationHistory,
   recordNotificationHistorySafely,
@@ -33,6 +34,7 @@ function matchesReadCondition(document, condition) {
 
 function matches(document, filter = {}) {
   if ("userId" in filter && !sameValue(document.userId, filter.userId)) return false;
+  if (filter.kind?.$in && !filter.kind.$in.includes(document.kind)) return false;
   if ("eventKey" in filter && document.eventKey !== filter.eventKey) return false;
   if ("_id" in filter) {
     if (filter._id?.$in) {
@@ -356,6 +358,55 @@ test("history APIs authenticate, scope IDs by user, mark read idempotently, and 
   });
 });
 
+test("history lists only actionable alert kinds", async () => {
+  const collection = new FakeHistoryCollection([
+    ...ACTION_ALERT_NOTIFICATION_KINDS.map((kind) => ({
+      _id: new ObjectId(),
+      userId: USER_ONE,
+      academicProfileId: `legacy:${USER_ONE}:profile-a`,
+      kind,
+      title: kind,
+      body: "Action required.",
+      url: "/dashboard",
+      createdAt: READ_AT,
+    })),
+    {
+      _id: new ObjectId(),
+      userId: USER_ONE,
+      academicProfileId: `legacy:${USER_ONE}:profile-a`,
+      kind: "push-test",
+      title: "Connection test",
+      body: "Not an alert.",
+      url: "/settings",
+      createdAt: READ_AT,
+    },
+    {
+      _id: new ObjectId(),
+      userId: USER_ONE,
+      academicProfileId: `legacy:${USER_ONE}:profile-a`,
+      kind: "daily-study-check",
+      title: "Legacy daily message",
+      body: "Not an alert.",
+      url: "/planner",
+      createdAt: READ_AT,
+    },
+  ]);
+
+  await withHistoryRoutes(collection, async (baseUrl) => {
+    const response = await fetch(
+      `${baseUrl}/api/notifications/history`,
+      authenticatedOptions(USER_ONE),
+    );
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.deepEqual(
+      new Set(payload.notifications.map(({ kind }) => kind)),
+      new Set(ACTION_ALERT_NOTIFICATION_KINDS),
+    );
+    assert.equal(payload.unreadCount, ACTION_ALERT_NOTIFICATION_KINDS.length);
+  });
+});
+
 test("bulk delete clears only the authenticated user's notification history", async () => {
   const firstOwnId = new ObjectId();
   const secondOwnId = new ObjectId();
@@ -428,8 +479,8 @@ test("bulk delete clears only the authenticated user's notification history", as
     );
     const foreignList = await foreignListResponse.json();
     assert.equal(foreignListResponse.status, 200);
-    assert.equal(foreignList.notifications.length, 1);
-    assert.equal(foreignList.notifications[0].id, foreignId.toString());
+    assert.equal(foreignList.notifications.length, 0);
+    assert.equal(collection.documents[0]._id.toString(), foreignId.toString());
 
     const repeated = await fetch(
       `${baseUrl}/api/notifications/history`,

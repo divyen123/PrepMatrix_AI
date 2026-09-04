@@ -142,7 +142,7 @@ test("status is read-only and reports a valid stored device", async () => {
   });
 });
 
-test("test delivery is device-scoped, rate-claimed, and bounded", async () => {
+test("test delivery is device-scoped, rate-claimed, bounded, and excluded from alert history", async () => {
   const record = createPushSubscriptionRecord({
     deviceId: DEVICE_ID,
     subscription: validSubscription(),
@@ -165,13 +165,7 @@ test("test delivery is device-scoped, rate-claimed, and bounded", async () => {
     assert.equal(matched.subscriptionVersion, record.subscriptionVersion);
     assert.equal(deliveries.length, 1);
     assert.equal(deliveries[0][2].timeout, PUSH_DELIVERY_TIMEOUT_MS);
-    assert.equal(historyDocuments.length, 1);
-    assert.equal(historyDocuments[0].userId, USER_ID);
-    assert.equal(historyDocuments[0].kind, "push-test");
-    assert.equal(historyDocuments[0].title, "PrepMatrix AI");
-    assert.equal(historyDocuments[0].url, "/settings");
-    assert.equal("deviceId" in historyDocuments[0], false);
-    assert.equal("endpoint" in historyDocuments[0], false);
+    assert.equal(historyDocuments.length, 0);
   });
 });
 

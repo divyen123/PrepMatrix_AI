@@ -5,9 +5,14 @@ import { createPushSubscriptionRecord } from "./pushNotificationService.js";
 import {
   MAX_SCHEDULED_REMINDERS_PER_DEVICE,
   SCHEDULED_REMINDER_PUSH_TTL_SECONDS,
+  buildNotificationAlertPayload,
   buildScheduledReminderPayload,
   claimScheduledReminderDelivery,
+  getAiCreditResetAlertOccurrence,
+  getDueGoalAlertOccurrences,
   getDueScheduledReminderOccurrences,
+  getPlannerIncompleteAlertOccurrence,
+  getStaleLearningTopicAlertOccurrences,
   runScheduledReminderPushSweep as runScheduledReminderPushSweepProduction,
 } from "./scheduledReminderPushService.js";
 
@@ -128,6 +133,7 @@ class FakeHistoryCollection {
 function createSweepDb({
   users,
   workspace,
+  learningNotebooks = [],
   deliveries = new FakeDeliveryCollection(),
   history = new FakeHistoryCollection(),
   userUpdate,
@@ -145,6 +151,9 @@ function createSweepDb({
           };
         }
         if (name === "workspaces") return { findOne: async () => workspace };
+        if (name === "learningNotebooks") {
+          return { find: () => ({ toArray: async () => learningNotebooks }) };
+        }
         if (name === "scheduledReminderDeliveries") return deliveries;
         if (name === "notificationHistory") return history;
         throw new Error(`Unexpected collection: ${name}`);
@@ -181,6 +190,154 @@ test("builds a bounded reminder-specific payload and safe app route", () => {
   assert.equal(payload.url, "/dashboard?reminder=reminder-one");
   assert.equal(payload.kind, "scheduled-reminder");
   assert.match(payload.tag, /^prepmatrix-reminder-[a-f0-9]{40}$/);
+});
+
+test("creates a goal alert only after an unfinished goal reaches its target date", () => {
+  const occurrences = getDueGoalAlertOccurrences([
+    {
+      id: "goal-one",
+      title: "Finish the calculus unit",
+      targetDate: "2026-07-16",
+      completed: false,
+    },
+    {
+      id: "goal-done",
+      title: "Completed goal",
+      targetDate: "2026-07-16",
+      completed: true,
+    },
+    {
+      id: "goal-future",
+      title: "Future goal",
+      targetDate: "2026-07-17",
+      completed: false,
+    },
+  ], { now: DUE_NOW, timezoneOffset: -330 });
+
+  assert.equal(occurrences.length, 1);
+  assert.equal(occurrences[0].alertType, "goal-due");
+  const payload = JSON.parse(buildNotificationAlertPayload(occurrences[0]));
+  assert.equal(payload.kind, "goal-due");
+  assert.equal(payload.url, "/dashboard#goals-reminders");
+  assert.match(payload.body, /calculus unit/u);
+});
+
+test("creates one planner alert for a partially incomplete current-day schedule", () => {
+  const workspace = {
+    scheduleStartDate: "2026-07-16T00:00:00.000Z",
+    schedule: [{
+      day: 1,
+      tasks: [
+        { id: "task-one", task: "Revise graphs" },
+        { id: "task-two", task: "Practice derivatives" },
+      ],
+    }],
+    completed: ["Revise graphs"],
+  };
+  const occurrence = getPlannerIncompleteAlertOccurrence(workspace, {
+    now: DUE_NOW,
+    timezoneOffset: -330,
+  });
+
+  assert.ok(occurrence);
+  assert.equal(occurrence.alertType, "planner-incomplete");
+  assert.equal(occurrence.metadata.pendingCount, 1);
+  const payload = JSON.parse(buildNotificationAlertPayload(occurrence));
+  assert.equal(payload.kind, "planner-incomplete");
+  assert.equal(payload.url, "/planner/schedule");
+  assert.match(payload.body, /1 task is still incomplete/u);
+
+  assert.equal(getPlannerIncompleteAlertOccurrence({
+    ...workspace,
+    completed: ["Revise graphs", "Practice derivatives"],
+  }, { now: DUE_NOW, timezoneOffset: -330 }), null);
+  assert.equal(getPlannerIncompleteAlertOccurrence(workspace, {
+    now: new Date("2026-07-16T12:29:00.000Z"),
+    timezoneOffset: -330,
+  }), null);
+});
+
+test("uses an explicit planner date for an appended current-day schedule bucket", () => {
+  const occurrence = getPlannerIncompleteAlertOccurrence({
+    scheduleStartDate: "2026-06-01",
+    schedule: [{
+      day: 18,
+      date: "2026-07-16",
+      tasks: [{ id: "memory-review", task: "Review limit laws" }],
+    }],
+    completed: [],
+  }, {
+    now: DUE_NOW,
+    timezoneOffset: -330,
+  });
+
+  assert.ok(occurrence);
+  assert.equal(occurrence.metadata.plannerDay, 18);
+  assert.equal(occurrence.metadata.pendingCount, 1);
+});
+
+test("creates a one-time learning alert when a notebook topic remains unstarted for three days", () => {
+  const occurrences = getStaleLearningTopicAlertOccurrences([{
+    _id: "notebook-one",
+    title: "Calculus foundations",
+    subjectName: "Mathematics",
+    createdAt: new Date("2026-07-13T12:30:00.000Z"),
+    chapters: [{
+      id: "chapter-one",
+      title: "Limits",
+      topics: [
+        { id: "topic-started", title: "Limit laws" },
+        { id: "topic-waiting", title: "Continuity" },
+      ],
+    }],
+    learningState: {
+      nodes: {
+        "topic-started": {
+          nodeId: "topic-started",
+          nodeType: "topic",
+          title: "Limit laws",
+          status: "learning",
+          startedAt: "2026-07-14T10:00:00.000Z",
+        },
+      },
+    },
+  }], { now: DUE_NOW });
+
+  assert.equal(occurrences.length, 1);
+  assert.equal(occurrences[0].metadata.topicTitle, "Continuity");
+  const payload = JSON.parse(buildNotificationAlertPayload(occurrences[0]));
+  assert.equal(payload.kind, "learning-topic-unstarted");
+  assert.equal(payload.url, "/learn");
+  assert.match(payload.body, /has not been started after three days/u);
+
+  assert.deepEqual(getStaleLearningTopicAlertOccurrences([{
+    _id: "new-notebook",
+    createdAt: new Date("2026-07-15T12:30:00.000Z"),
+    chapters: [{ id: "c", topics: [{ id: "t", title: "Too new" }] }],
+  }], { now: DUE_NOW }), []);
+  assert.deepEqual(getStaleLearningTopicAlertOccurrences([{
+    _id: "old-notebook",
+    createdAt: new Date("2026-07-08T12:30:00.000Z"),
+    chapters: [{ id: "c", topics: [{ id: "t", title: "Past the alert window" }] }],
+  }], { now: DUE_NOW }), []);
+});
+
+test("creates a credit reset alert only while all monthly credits are restored", () => {
+  const now = new Date("2026-08-01T00:07:00.000Z");
+  const quota = {
+    limit: 100,
+    used: 0,
+    reserved: 0,
+    remaining: 100,
+    periodStart: "2026-08-01T00:00:00.000Z",
+  };
+  const occurrence = getAiCreditResetAlertOccurrence(quota, { now });
+  assert.ok(occurrence);
+  const payload = JSON.parse(buildNotificationAlertPayload(occurrence));
+  assert.equal(payload.kind, "ai-credit-reset");
+  assert.equal(payload.url, "/about");
+  assert.match(payload.body, /back to 100% \(100 credits available\)/u);
+  assert.equal(getAiCreditResetAlertOccurrence({ ...quota, remaining: 99, used: 1 }, { now }), null);
 });
 
 test("claims a new occurrence once and can reclaim only after the claim becomes stale", async () => {
@@ -264,7 +421,73 @@ test("sends each occurrence once per browser device and sends again after snooze
   assert.equal(sends.every(([, , deliveryOptions]) => deliveryOptions.TTL === SCHEDULED_REMINDER_PUSH_TTL_SECONDS), true);
 });
 
-test("daily study-target push waits until a planner schedule exists", async () => {
+test("sends only actionable planner, goal, reminder, learning, and credit alerts", async () => {
+  const now = new Date("2026-08-01T12:37:00.000Z");
+  const workspace = {
+    scheduleStartDate: "2026-08-01T00:00:00.000Z",
+    schedule: [{ day: 1, tasks: [{ task: "Finish vectors" }] }],
+    completed: [],
+    goalReminderData: {
+      goals: [{
+        id: "goal-vectors",
+        title: "Complete vectors unit",
+        targetDate: "2026-08-01",
+        completed: false,
+      }],
+      reminders: [reminder({
+        id: "reminder-vectors",
+        title: "Review vector formulas",
+        date: "2026-08-01",
+        time: "18:00",
+      })],
+    },
+  };
+  const setup = createSweepDb({
+    users: [{ _id: "user-all-alerts", pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
+    workspace,
+    learningNotebooks: [{
+      _id: "notebook-vectors",
+      title: "Vectors notebook",
+      subjectName: "Mathematics",
+      createdAt: new Date("2026-07-29T12:37:00.000Z"),
+      chapters: [{ id: "chapter-vectors", topics: [{ id: "topic-vectors", title: "Vector addition" }] }],
+    }],
+  });
+  const sends = [];
+  let claimIndex = 1;
+  const options = {
+    db: setup.db,
+    ensureVapidConfigured: async () => {},
+    sendNotification: async (...args) => sends.push(args),
+    getAiQuotaStatus: async () => ({
+      limit: 100,
+      used: 0,
+      reserved: 0,
+      remaining: 100,
+      periodStart: "2026-08-01T00:00:00.000Z",
+    }),
+    now,
+    claimIdFactory: () => `30000000-0000-4000-8000-${String(claimIndex++).padStart(12, "0")}`,
+    logger: { warn() {}, error() {} },
+  };
+
+  const first = await runScheduledReminderPushSweep(options);
+  const repeated = await runScheduledReminderPushSweep(options);
+  const kinds = sends.map(([, payload]) => JSON.parse(payload).kind);
+
+  assert.equal(first.sent, 5);
+  assert.equal(repeated.sent, 0);
+  assert.deepEqual(new Set(kinds), new Set([
+    "scheduled-reminder",
+    "planner-incomplete",
+    "goal-due",
+    "learning-topic-unstarted",
+    "ai-credit-reset",
+  ]));
+  assert.equal(setup.history.documents.size, 5);
+});
+
+test("legacy daily study-target reminders are never delivered", async () => {
   const workspace = {
     schedule: [],
     goalReminderData: {
@@ -293,8 +516,8 @@ test("daily study-target push waits until a planner schedule exists", async () =
   const withSchedule = await runScheduledReminderPushSweep(options);
 
   assert.equal(withoutSchedule.sent, 0);
-  assert.equal(withSchedule.sent, 1);
-  assert.equal(sends.length, 1);
+  assert.equal(withSchedule.sent, 0);
+  assert.equal(sends.length, 0);
 });
 
 test("clears transient claims for retry and removes an expired current subscription", async () => {

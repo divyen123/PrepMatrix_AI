@@ -429,8 +429,8 @@ const DESTINATIONS = Object.freeze([
   defineDestination({
     id: "notification-history",
     route: "/notification-history",
-    label: "Notification History",
-    description: "Previous notifications, reminders, and alerts",
+    label: "Alert History",
+    description: "Actionable planner, goal, credit, and learning alerts",
     aliases: ["notifications", "notification history", "past notifications", "alerts", "alert history", "reminder history"],
     intentPatterns: [
       /\b(?:show|open|view|check|review)\s+(?:me\s+)?(?:my\s+|the\s+)?(?:past\s+)?(?:notifications?|alerts?|reminder\s+history)\b/,

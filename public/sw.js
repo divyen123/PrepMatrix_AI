@@ -259,21 +259,21 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data ? event.data.json() : {};
   } catch {
-    payload = { 
-      title: "PrepMatrix AI Reminder", 
-      body: event.data ? event.data.text() : "You haven't completed any study tasks today! Start preparing now!" 
+    payload = {
+      title: "PrepMatrix AI Alert",
+      body: event.data ? event.data.text() : "Open PrepMatrix to review this alert."
     };
   }
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) payload = {};
 
-  const title = payload.title || "PrepMatrix AI Reminder";
-  const body = payload.body || "You haven't completed any study tasks today! Start preparing now!";
+  const title = payload.title || "PrepMatrix AI Alert";
+  const body = payload.body || "Open PrepMatrix to review this alert.";
   const icon = "/pwa/brand-icon-192.png";
   const badge = "/pwa/notification-badge-96.png";
-  const targetUrl = safeAppPath(payload.url, "/planner");
+  const targetUrl = safeAppPath(payload.url, "/notification-history");
   const tag = typeof payload.tag === "string" && payload.tag.length <= 80
     ? payload.tag
-    : "prepmatrix-study-reminder";
+    : "prepmatrix-action-alert";
   const forceNative = payload.forceNative === true;
 
   const showNativeNotification = () => self.registration.showNotification(title, {

@@ -144,14 +144,14 @@ function GoalSettingsPanel({
       <div className="goal-reminder-preferences">
         <div className="goal-reminder-preferences-title">
           <SlidersHorizontal aria-hidden="true" size={16} />
-          <div><strong>Planner assistant</strong><span>Current-day reminder behavior</span></div>
+          <div><strong>Planner assistant</strong><span>Action-alert behavior</span></div>
         </div>
 
         <PlannerSettingToggle
           checked={plannerSettings.targetRemindersEnabled}
           label="Target-linked reminders"
           onChange={(value) => updatePlannerSettings({ targetRemindersEnabled: value })}
-          subtitle="Create today's study reminder and spread review reminders across the week."
+          subtitle="Spread scheduled review alerts across the week without creating daily reminders."
         />
 
         <PlannerSettingToggle

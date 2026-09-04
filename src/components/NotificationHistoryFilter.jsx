@@ -211,7 +211,7 @@ function NotificationHistoryFilter({
 
       {open && (
         <div
-          aria-label="Sort and filter notifications"
+          aria-label="Sort and filter alerts"
           className={`notification-filter-menu is-${menuLayout.placement}`}
           id="notification-history-filter-menu"
           role="dialog"
@@ -223,7 +223,7 @@ function NotificationHistoryFilter({
               <span>Choose order, status, and date range.</span>
             </div>
             <button
-              aria-label="Close notification filters"
+              aria-label="Close alert filters"
               className="notification-filter-close"
               onClick={() => setOpen(false)}
               type="button"

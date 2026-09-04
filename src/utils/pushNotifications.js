@@ -175,7 +175,7 @@ function urlBase64ToUint8Array(base64String, windowRef) {
   if (typeof base64String !== "string" || !base64String.trim()) {
     throw new PushNotificationError(
       "server-config",
-      "Study reminders are not configured on the server yet."
+      "Action alerts are not configured on the server yet."
     );
   }
 
@@ -396,7 +396,7 @@ async function fetchApplicationServerKey(runtime) {
     if (error?.status === 503 || error?.code === "PUSH_NOT_CONFIGURED") {
       throw new PushNotificationError(
         "server-config",
-        "Study reminders are temporarily unavailable. Please try again later.",
+        "Action alerts are temporarily unavailable. Please try again later.",
         error
       );
     }
@@ -566,7 +566,7 @@ export async function disableStudyReminders(overrides = {}) {
   } catch (error) {
     throw new PushNotificationError(
       "unsubscribe-failed",
-      "Study reminders could not be disabled on the server. Please try again.",
+      "Action alerts could not be disabled on the server. Please try again.",
       error
     );
   }
@@ -579,7 +579,7 @@ export async function disableStudyReminders(overrides = {}) {
     } catch (error) {
       throw new PushNotificationError(
         "browser-cleanup-failed",
-        "Server reminders were disabled, but the browser subscription could not be removed. Reset this site's notification permission.",
+        "Server action alerts were disabled, but the browser subscription could not be removed. Reset this site's notification permission.",
         error
       );
     }
@@ -592,7 +592,7 @@ export async function sendTestStudyReminder(overrides = {}) {
   if (!state.subscribed) {
     throw new PushNotificationError(
       "not-subscribed",
-      "Enable study reminders before sending a test notification."
+      "Enable action alerts before sending a test notification."
     );
   }
 
@@ -606,7 +606,7 @@ export async function sendTestStudyReminder(overrides = {}) {
       clearStoredSubscriptionVersion(runtime, state.subscriptionVersion);
       throw new PushNotificationError(
         "not-subscribed",
-        "This browser is not connected for notifications. Turn reminders off and enable them again.",
+        "This browser is not connected for notifications. Turn action alerts off and enable them again.",
         error
       );
     }
@@ -617,7 +617,7 @@ export async function sendTestStudyReminder(overrides = {}) {
       clearStoredSubscriptionVersion(runtime, state.subscriptionVersion);
       throw new PushNotificationError(
         "subscription-expired",
-        "The browser subscription expired. Enable study reminders again to reconnect.",
+        "The browser subscription expired. Enable action alerts again to reconnect.",
         error
       );
     }
@@ -635,8 +635,8 @@ export function getPushNotificationDiagnostic(error) {
 
 export function getPushNotificationErrorMessage(error) {
   if (error instanceof PushNotificationError) return error.message;
-  if (error?.status === 401) return "Your session expired. Please sign in again to enable reminders.";
+  if (error?.status === 401) return "Your session expired. Please sign in again to enable action alerts.";
   if (error?.status === 429) return "Please wait a moment before sending another test notification.";
-  if (error?.status === 503) return "Study reminders are temporarily unavailable. Please try again later.";
-  return "Study reminders could not be updated. Please try again.";
+  if (error?.status === 503) return "Action alerts are temporarily unavailable. Please try again later.";
+  return "Action alerts could not be updated. Please try again.";
 }

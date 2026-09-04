@@ -805,7 +805,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
                     </div>
                     <div>
                       <dt>Target-linked reminders</dt>
-                      <dd>Save your targets to refresh a 6:00 PM daily study reminder and spread 7:00 PM review reminders across the week.</dd>
+                      <dd>Save your targets to spread 7:00 PM review alerts across the week. Incomplete planner work is checked separately.</dd>
                     </div>
                     <div>
                       <dt>Centered alerts and Remind later</dt>

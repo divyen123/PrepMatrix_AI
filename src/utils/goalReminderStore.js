@@ -345,7 +345,6 @@ function upsertGeneratedReminder(reminders, generated, createdAt) {
 export function syncStudyTargetReminders(value, settings, date = new Date()) {
   const data = normalizePlannerData(value);
   const normalizedSettings = normalizePlannerSettings(settings);
-  const today = getLocalDateKey(date);
   const weekDateSet = new Set(getWeekDateKeys(date));
   const reviewDates = normalizedSettings.targetRemindersEnabled
     ? getTargetReviewDateKeys(normalizedSettings, date)
@@ -353,10 +352,8 @@ export function syncStudyTargetReminders(value, settings, date = new Date()) {
   const reviewDateSet = new Set(reviewDates);
 
   const reminders = data.reminders.filter((item) => {
+    if (item.id.startsWith(DAILY_TARGET_REMINDER_PREFIX)) return false;
     if (item.completed) return true;
-    if (item.id.startsWith(DAILY_TARGET_REMINDER_PREFIX)) {
-      return normalizedSettings.targetRemindersEnabled || item.date < today;
-    }
     if (item.id.startsWith(REVIEW_TARGET_REMINDER_PREFIX) && weekDateSet.has(item.date)) {
       return normalizedSettings.targetRemindersEnabled && reviewDateSet.has(item.date);
     }
@@ -367,17 +364,7 @@ export function syncStudyTargetReminders(value, settings, date = new Date()) {
     return normalizePlannerData({ ...data, reminders });
   }
 
-  const dailyTarget = normalizedSettings.dailyStudyTarget;
-  const dailyTargetLabel = Number.isInteger(dailyTarget) ? String(dailyTarget) : dailyTarget.toFixed(1);
   const createdAt = date.toISOString();
-  upsertGeneratedReminder(reminders, {
-    id: `${DAILY_TARGET_REMINDER_PREFIX}${today}`,
-    title: `Daily study target · ${dailyTargetLabel}h`,
-    notes: `Complete ${dailyTargetLabel} focused study hours today. Each completed planner session counts as one focused hour.`,
-    date: today,
-    time: "18:00",
-    priority: "medium",
-  }, createdAt);
 
   const weeklyTarget = getWeeklyReviewTargetCount(normalizedSettings.weeklyReviewTarget);
   reviewDates.forEach((reviewDate, index) => {

@@ -776,7 +776,7 @@ function App() {
   const titleLabel = activeRoute?.label || (
     location.pathname.startsWith("/exam/about") ? "Exam Guide" :
     location.pathname.startsWith("/exam") ? "Exam" :
-    location.pathname.startsWith("/notification-history") ? "Notification History" :
+    location.pathname.startsWith("/notification-history") ? "Alert History" :
     location.pathname.startsWith("/settings") ? "Settings" :
     location.pathname.startsWith("/about") ? "About" :
     location.pathname.includes("register") ? "Register" : "Login"

@@ -2,16 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   MAX_PUSH_SUBSCRIPTIONS_PER_USER,
-  PUSH_DELIVERY_TIMEOUT_MS,
-  REMINDER_CLAIM_TTL_MS,
   PushSubscriptionValidationError,
-  buildExpiredSubscriptionRemovalOperation,
   buildTestNotificationPayload,
   buildPushSubscriptionRemovalOperation,
   buildPushSubscriptionSyncPipeline,
-  buildReminderClaimClearOperation,
-  buildReminderClaimOperation,
-  buildReminderSuccessOperation,
   createPushSubscriptionRecord,
   createSubscriptionVersion,
   isNotificationMutationRequestAllowed,
@@ -21,7 +15,6 @@ import {
   normalizeSubscriptionBinding,
   parseAdditionalPushHosts,
   preparePushSubscriptionSync,
-  runDailyReminderSweep,
   schedulerSecretMatches,
 } from "./pushNotificationService.js";
 
@@ -60,66 +53,6 @@ function subscriptionRecord(deviceId, index, extras = {}) {
     }),
     ...extras,
   };
-}
-
-function studyWorkspace() {
-  return {
-    scheduleStartDate: "2026-07-16T00:00:00.000Z",
-    schedule: [{ day: 1, tasks: [{ task: "Revise graphs" }] }],
-    completed: [],
-  };
-}
-
-class FakeHistoryCollection {
-  constructor() {
-    this.documents = new Map();
-  }
-
-  async updateOne(filter, update) {
-    const key = `${filter.userId}:${filter.eventKey}`;
-    if (this.documents.has(key)) {
-      return { matchedCount: 1, modifiedCount: 0, upsertedCount: 0, upsertedId: null };
-    }
-    const document = { _id: key, ...update.$setOnInsert };
-    this.documents.set(key, document);
-    return { matchedCount: 0, modifiedCount: 0, upsertedCount: 1, upsertedId: key };
-  }
-
-  find({ userId }) {
-    let documents = [...this.documents.values()].filter((document) => document.userId === userId);
-    const cursor = {
-      sort: () => cursor,
-      skip: (count) => {
-        documents = documents.slice(count);
-        return cursor;
-      },
-      project: () => cursor,
-      toArray: async () => documents,
-    };
-    return cursor;
-  }
-
-  async deleteMany() {
-    return { deletedCount: 0 };
-  }
-}
-
-function sweepDb(users, updateOne, history = new FakeHistoryCollection(), workspace = studyWorkspace()) {
-  const db = {
-    history,
-    collection(name) {
-      if (name === "users") {
-        return {
-          find: () => ({ toArray: async () => users }),
-          findOne: async ({ _id }) => users.find((user) => user._id === _id) || null,
-          updateOne,
-        };
-      }
-      if (name === "notificationHistory") return history;
-      return { findOne: async () => workspace };
-    },
-  };
-  return db;
 }
 
 test("normalizes trusted subscriptions and derives deterministic versions", () => {
@@ -216,7 +149,7 @@ test("resync preserves daily state, removes duplicates, and caps device records"
   assert.equal(serialized.includes("dispatchClaim\":\"\""), false);
 });
 
-test("builds exact versioned removal and reminder CAS operations", () => {
+test("builds an exact versioned subscription removal operation", () => {
   const record = subscriptionRecord(DEVICE_ONE, 1);
   const removal = buildPushSubscriptionRemovalOperation({
     userId: "user-1",
@@ -228,42 +161,6 @@ test("builds exact versioned removal and reminder CAS operations", () => {
     subscriptionVersion: record.subscriptionVersion,
   });
 
-  const claim = buildReminderClaimOperation({
-    userId: "user-1",
-    deviceId: DEVICE_ONE,
-    subscriptionVersion: record.subscriptionVersion,
-    date: "2026-07-16",
-    claimId: CLAIM_ONE,
-    now: FIXED_NOW,
-  });
-  assert.equal(claim.filter.pushSubscriptions.$elemMatch.deviceId, DEVICE_ONE);
-  assert.equal(claim.filter.pushSubscriptions.$elemMatch.subscriptionVersion, record.subscriptionVersion);
-  assert.equal(
-    claim.filter.pushSubscriptions.$elemMatch.$or[2]["dispatchClaim.claimedAt"].$lte.getTime(),
-    FIXED_NOW.getTime() - REMINDER_CLAIM_TTL_MS,
-  );
-
-  const success = buildReminderSuccessOperation({
-    userId: "user-1",
-    deviceId: DEVICE_ONE,
-    claimId: CLAIM_ONE,
-    date: "2026-07-16",
-  });
-  assert.equal(success.filter.pushSubscriptions.$elemMatch.subscriptionVersion, undefined);
-  assert.equal(success.filter.pushSubscriptions.$elemMatch["dispatchClaim.id"], CLAIM_ONE);
-
-  const expired = buildExpiredSubscriptionRemovalOperation({
-    userId: "user-1",
-    deviceId: DEVICE_ONE,
-    subscriptionVersion: record.subscriptionVersion,
-    claimId: CLAIM_ONE,
-  });
-  assert.equal(expired.filter.pushSubscriptions.$elemMatch.subscriptionVersion, record.subscriptionVersion);
-  assert.equal(expired.filter.pushSubscriptions.$elemMatch["dispatchClaim.id"], CLAIM_ONE);
-
-  const clear = buildReminderClaimClearOperation({ userId: "user-1", deviceId: DEVICE_ONE, claimId: CLAIM_ONE });
-  assert.equal(clear.filter.pushSubscriptions.$elemMatch.subscriptionVersion, undefined);
-  assert.equal(clear.filter.pushSubscriptions.$elemMatch["dispatchClaim.id"], CLAIM_ONE);
 });
 
 test("notification mutation guard requires JSON and a bearer token or trusted origin", () => {
@@ -313,197 +210,6 @@ test("legacy scalar migration atomically preserves daily state", async () => {
     "reminderDispatchClaim",
   ]);
   assert.match(JSON.stringify(updates[0].update[0]), /lastReminderSentDate/);
-});
-
-test("daily sweep sends independently to every current device with a bounded timeout", async () => {
-  const records = [subscriptionRecord(DEVICE_ONE, 1), subscriptionRecord(DEVICE_TWO, 2)];
-  const updates = [];
-  const sends = [];
-  const claimIds = [CLAIM_ONE, CLAIM_TWO];
-  const db = sweepDb(
-    [{ _id: "user-1", pushSubscriptions: records }],
-    async (filter, update) => {
-      updates.push({ filter, update });
-      return { modifiedCount: 1 };
-    },
-  );
-  const summary = await runDailyReminderSweep({
-    db,
-    ensureVapidConfigured: async () => {},
-    sendNotification: async (...args) => sends.push(args),
-    now: FIXED_NOW,
-    claimIdFactory: () => claimIds.shift(),
-    logger: { warn() {}, error() {} },
-  });
-
-  assert.equal(summary.devicesExamined, 2);
-  assert.equal(summary.sent, 2);
-  assert.equal(sends.length, 2);
-  assert.deepEqual(new Set(sends.map(([subscription]) => subscription.endpoint)), new Set(records.map((record) => record.endpoint)));
-  assert.equal(sends.every(([, , options]) => options.timeout === PUSH_DELIVERY_TIMEOUT_MS), true);
-  assert.equal(PUSH_DELIVERY_TIMEOUT_MS < REMINDER_CLAIM_TTL_MS, true);
-  assert.equal(updates.filter(({ update }) => update.$set?.["pushSubscriptions.$.dispatchClaim"]).length, 2);
-  assert.equal(updates.filter(({ update }) => update.$set?.["pushSubscriptions.$.lastReminderSentDate"]).length, 2);
-  assert.equal(db.history.documents.size, 1);
-  const history = [...db.history.documents.values()][0];
-  assert.equal(history.kind, "daily-study-check");
-  assert.equal("deviceId" in history, false);
-});
-
-test("daily sweep reminds learners with subjects to create a planner schedule", async () => {
-  const sends = [];
-  const db = sweepDb(
-    [{ _id: "user-needs-schedule", pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
-    async () => ({ modifiedCount: 1 }),
-    new FakeHistoryCollection(),
-    { subjects: [{ name: "Mathematics" }], schedule: [] },
-  );
-
-  const summary = await runDailyReminderSweep({
-    db,
-    ensureVapidConfigured: async () => {},
-    sendNotification: async (...args) => sends.push(args),
-    now: FIXED_NOW,
-    claimIdFactory: () => CLAIM_ONE,
-    logger: { warn() {}, error() {} },
-  });
-
-  const payload = JSON.parse(sends[0][1]);
-  assert.equal(summary.sent, 1);
-  assert.equal(payload.kind, "planner-schedule-reminder");
-  assert.equal(payload.url, "/planner");
-  assert.match(payload.body, /Generate a planner schedule/);
-});
-
-test("daily sweep stays quiet when there are no subjects or planner schedule", async () => {
-  const sends = [];
-  const db = sweepDb(
-    [{ _id: "user-not-ready", pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
-    async () => ({ modifiedCount: 1 }),
-    new FakeHistoryCollection(),
-    { subjects: [], schedule: [] },
-  );
-
-  const summary = await runDailyReminderSweep({
-    db,
-    ensureVapidConfigured: async () => {},
-    sendNotification: async (...args) => sends.push(args),
-    now: FIXED_NOW,
-    claimIdFactory: () => CLAIM_ONE,
-    logger: { warn() {}, error() {} },
-  });
-
-  assert.equal(summary.sent, 0);
-  assert.equal(sends.length, 0);
-});
-
-test("daily sweep catches up after 6 PM but never sends before the evening window", async () => {
-  const cases = [
-    { now: "2026-07-16T12:29:00.000Z", sent: 0, label: "17:59 local" },
-    { now: "2026-07-16T12:30:00.000Z", sent: 1, label: "18:00 local" },
-    { now: "2026-07-16T18:29:00.000Z", sent: 1, label: "23:59 local" },
-    { now: "2026-07-16T18:30:00.000Z", sent: 0, label: "00:00 next local day" },
-  ];
-
-  for (const scenario of cases) {
-    const sends = [];
-    const db = sweepDb(
-      [{ _id: "user-" + scenario.label, pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
-      async () => ({ modifiedCount: 1 }),
-    );
-    const summary = await runDailyReminderSweep({
-      db,
-      ensureVapidConfigured: async () => {},
-      sendNotification: async (...args) => sends.push(args),
-      now: new Date(scenario.now),
-      claimIdFactory: () => CLAIM_ONE,
-      logger: { warn() {}, error() {} },
-    });
-
-    assert.equal(summary.sent, scenario.sent, scenario.label);
-    assert.equal(sends.length, scenario.sent, scenario.label);
-  }
-});
-
-test("daily catch-up skips a device already handled on the same local date", async () => {
-  const record = subscriptionRecord(DEVICE_ONE, 1, { lastReminderSentDate: "2026-07-16" });
-  const sends = [];
-  const db = sweepDb(
-    [{ _id: "user-already-handled", pushSubscriptions: [record] }],
-    async () => ({ modifiedCount: 1 }),
-  );
-  const summary = await runDailyReminderSweep({
-    db,
-    ensureVapidConfigured: async () => {},
-    sendNotification: async (...args) => sends.push(args),
-    now: new Date("2026-07-16T16:30:00.000Z"),
-    claimIdFactory: () => CLAIM_ONE,
-    logger: { warn() {}, error() {} },
-  });
-
-  assert.equal(summary.sent, 0);
-  assert.equal(summary.skipped, 1);
-  assert.equal(sends.length, 0);
-});
-
-test("expired delivery cannot remove a same-device replacement and only clears the observed claim", async () => {
-  const record = subscriptionRecord(DEVICE_ONE, 1);
-  const updates = [];
-  const db = sweepDb(
-    [{ _id: "user-2", pushSubscriptions: [record] }],
-    async (filter, update) => {
-      updates.push({ filter, update });
-      if (update.$pull) return { modifiedCount: 0 };
-      return { modifiedCount: 1 };
-    },
-  );
-  const summary = await runDailyReminderSweep({
-    db,
-    ensureVapidConfigured: async () => {},
-    sendNotification: async () => { throw Object.assign(new Error("gone"), { statusCode: 410 }); },
-    now: FIXED_NOW,
-    claimIdFactory: () => CLAIM_ONE,
-    logger: { warn() {}, error() {} },
-  });
-
-  const pull = updates.find(({ update }) => update.$pull);
-  const clear = updates.at(-1);
-  assert.equal(summary.expired, 1);
-  assert.equal(summary.raced, 1);
-  assert.equal(pull.filter.pushSubscriptions.$elemMatch.subscriptionVersion, record.subscriptionVersion);
-  assert.equal(pull.filter.pushSubscriptions.$elemMatch["dispatchClaim.id"], CLAIM_ONE);
-  assert.equal(clear.filter.pushSubscriptions.$elemMatch.subscriptionVersion, undefined);
-  assert.equal(clear.filter.pushSubscriptions.$elemMatch["dispatchClaim.id"], CLAIM_ONE);
-});
-
-test("transient delivery timeout keeps the device and clears only its matching claim", async () => {
-  const record = subscriptionRecord(DEVICE_ONE, 1);
-  const updates = [];
-  let observedOptions;
-  const db = sweepDb(
-    [{ _id: "user-3", pushSubscriptions: [record] }],
-    async (filter, update) => {
-      updates.push({ filter, update });
-      return { modifiedCount: 1 };
-    },
-  );
-  const summary = await runDailyReminderSweep({
-    db,
-    ensureVapidConfigured: async () => {},
-    sendNotification: async (_subscription, _payload, options) => {
-      observedOptions = options;
-      throw Object.assign(new Error("timed out"), { code: "ETIMEDOUT" });
-    },
-    now: FIXED_NOW,
-    claimIdFactory: () => CLAIM_ONE,
-    logger: { warn() {}, error() {} },
-  });
-
-  assert.equal(observedOptions.timeout, 15_000);
-  assert.equal(summary.failed, 1);
-  assert.equal(updates.some(({ update }) => Boolean(update.$pull)), false);
-  assert.equal(updates.at(-1).filter.pushSubscriptions.$elemMatch.deviceId, DEVICE_ONE);
-  assert.equal(updates.at(-1).filter.pushSubscriptions.$elemMatch["dispatchClaim.id"], CLAIM_ONE);
 });
 
 test("scheduler secret comparison rejects missing and short secrets", () => {

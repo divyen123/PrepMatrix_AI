@@ -184,7 +184,7 @@ function PlannerPage({
     try {
       await enableStudyReminders();
       localStorage.setItem("prepmatrix_notifications_enabled", "true");
-      toast.success("Study reminders enabled!");
+      toast.success("Action alerts enabled!");
       setShowPermissionBanner(false);
     } catch (error) {
       console.error("Push notification setup failed:", error);
@@ -288,9 +288,9 @@ function PlannerPage({
                 {showPermissionBanner && (
                   <article className="card info-card reminders-banner">
                     <div style={{ flex: 1 }}>
-                      <h4 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>Enable Study Reminders</h4>
+                      <h4 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>Enable Action Alerts</h4>
                       <p className="card-subtext" style={{ margin: 0, fontSize: "0.82rem" }}>
-                        Get each scheduled reminder around its due time, plus a 6:00 PM study check when today's tasks are still waiting.
+                        Get notified only for incomplete planner work, due goals or reminders, restored AI credits, and learning topics left unstarted.
                       </p>
                     </div>
                     <div style={{ display: "flex", gap: "10px" }}>

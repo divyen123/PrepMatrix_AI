@@ -152,31 +152,26 @@ test("saving study targets preserves a disabled target-linked reminder preferenc
   });
 });
 
-test("creates deterministic daily and weekly target reminders without duplicates", () => {
+test("creates only scheduled review alerts and removes legacy daily target reminders", () => {
   const monday = new Date(2026, 6, 13, 10, 0, 0);
   const settings = {
     dailyStudyTarget: 4,
     weeklyReviewTarget: "2",
     targetRemindersEnabled: true,
   };
-  const initial = {
-    reminders: [{ id: "manual", title: "Manual reminder", date: "2026-07-14" }],
-  };
+  const initial = { reminders: [
+    { id: "manual", title: "Manual reminder", date: "2026-07-14" },
+    { id: "study-target-daily-2026-07-13", title: "Legacy daily target", date: "2026-07-13" },
+  ] };
 
   assert.deepEqual(getTargetReviewDateKeys(settings, monday), ["2026-07-15", "2026-07-19"]);
 
   const first = syncStudyTargetReminders(initial, settings, monday);
-  const snoozedUntil = new Date(2026, 6, 13, 10, 30, 0).toISOString();
-  first.reminders.find((item) => item.id === "study-target-daily-2026-07-13").snoozedUntil = snoozedUntil;
   const second = syncStudyTargetReminders(first, settings, monday);
 
-  assert.equal(first.reminders.length, 4);
-  assert.equal(second.reminders.length, 4);
-  assert.equal(second.reminders.filter((item) => item.id === "study-target-daily-2026-07-13").length, 1);
-  assert.equal(
-    second.reminders.find((item) => item.id === "study-target-daily-2026-07-13").snoozedUntil,
-    snoozedUntil,
-  );
+  assert.equal(first.reminders.length, 3);
+  assert.equal(second.reminders.length, 3);
+  assert.equal(second.reminders.some((item) => item.id.startsWith("study-target-daily-")), false);
   assert.deepEqual(
     second.reminders
       .filter((item) => item.id.startsWith("study-target-review-"))

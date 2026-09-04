@@ -620,7 +620,7 @@ test("service worker rejects cross-origin backslash navigation and avoids substr
     },
   });
   await pushWork;
-  assert.equal(pushHarness.notifications[0].options.data.url, "/planner");
+  assert.equal(pushHarness.notifications[0].options.data.url, "/notification-history");
 
   const clickHarness = createServiceWorkerHarness([deceptiveClient]);
   let clickWork;
@@ -637,5 +637,5 @@ test("service worker rejects cross-origin backslash navigation and avoids substr
 
 test("unknown errors map to a stable message without reflecting details", () => {
   const message = getPushNotificationErrorMessage(new Error("database-uri-secret"));
-  assert.equal(message, "Study reminders could not be updated. Please try again.");
+  assert.equal(message, "Action alerts could not be updated. Please try again.");
 });

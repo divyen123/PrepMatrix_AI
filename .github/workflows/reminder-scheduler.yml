@@ -1,8 +1,9 @@
-name: PrepMatrix reminder scheduler
+name: PrepMatrix alert scheduler
 
 on:
   schedule:
-    # Offset from the start of each hour to reduce peak-time scheduling delays.
+    # Check often enough for due reminders. The server sends nothing unless an
+    # actionable alert condition is present and deduplicates every occurrence.
     - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
@@ -10,16 +11,16 @@ on:
 permissions: {}
 
 concurrency:
-  group: prepmatrix-reminder-scheduler
+  group: prepmatrix-alert-scheduler
   cancel-in-progress: false
 
 jobs:
-  reminder-sweep:
+  alert-sweep:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - name: Call protected reminder endpoint
+      - name: Check for actionable alerts
         shell: bash
         env:
           CRON_SECRET: ${{ secrets.REMINDER_CRON_SECRET }}
@@ -31,7 +32,7 @@ jobs:
             exit 1
           fi
 
-          url="https://prepmatrix-ai.onrender.com/api/internal/notifications/daily-reminders"
+          url="https://prepmatrix-ai.onrender.com/api/internal/notifications/alerts"
           response_file="$(mktemp)"
           trap 'rm -f "$response_file"' EXIT
 
@@ -67,5 +68,5 @@ jobs:
             fi
           done
 
-          echo "::error::Reminder endpoint failed after four attempts."
+          echo "::error::Alert endpoint failed after four attempts."
           exit 1

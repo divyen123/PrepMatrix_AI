@@ -6,6 +6,13 @@ import {
 
 export const NOTIFICATION_HISTORY_COLLECTION = "notificationHistory";
 export const NOTIFICATION_HISTORY_LIMIT = 100;
+export const ACTION_ALERT_NOTIFICATION_KINDS = Object.freeze([
+  "scheduled-reminder",
+  "planner-incomplete",
+  "goal-due",
+  "learning-topic-unstarted",
+  "ai-credit-reset",
+]);
 
 const OBJECT_ID_PATTERN = /^[0-9a-f]{24}$/i;
 
@@ -144,9 +151,10 @@ export function registerNotificationHistoryRoutes(app, {
   app.get("/api/notifications/history", requireAuth(async (req, res) => {
     const db = await getDb();
     const collection = db.collection(NOTIFICATION_HISTORY_COLLECTION);
-    const filter = academicProfileFilter(req);
+    const alertKindFilter = { kind: { $in: ACTION_ALERT_NOTIFICATION_KINDS } };
+    const filter = academicProfileFilter(req, alertKindFilter);
     const unreadFilter = {
-      ...academicProfileFilter(req),
+      ...academicProfileFilter(req, alertKindFilter),
       $or: [
         { readAt: { $exists: false } },
         { readAt: null },

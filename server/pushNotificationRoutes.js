@@ -13,10 +13,6 @@ import {
   preparePushSubscriptionSync,
 } from "./pushNotificationService.js";
 import {
-  recordNotificationHistorySafely,
-} from "./notificationHistory.js";
-import {
-  getRequestAcademicProfileId,
   withAcademicProfileWriteFence,
 } from "./profileDataScope.js";
 
@@ -79,7 +75,6 @@ export function registerPushNotificationRoutes(app, {
   additionalHosts = [],
   ensureVapidConfigured,
   getDb,
-  logger = console,
   mutationSecurity,
   pushTestCooldownMs = 60 * 1000,
   requireAuth,
@@ -95,7 +90,7 @@ export function registerPushNotificationRoutes(app, {
       console.error("[Web Push] VAPID initialization failed:", error instanceof Error ? error.name : "UnknownError");
       res.set("Cache-Control", "no-store");
       return res.status(503).json({
-        error: "Study reminders are temporarily unavailable. Please try again shortly.",
+        error: "Action alerts are temporarily unavailable. Please try again shortly.",
         code: "PUSH_NOT_CONFIGURED",
         configured: false,
       });
@@ -208,7 +203,7 @@ export function registerPushNotificationRoutes(app, {
       }
       if (!stored) {
         return res.status(409).json({
-          error: "Enable study reminders on this browser before sending a test notification.",
+          error: "Enable action alerts on this browser before sending a test notification.",
           code: "PUSH_NOT_SUBSCRIBED",
         });
       }
@@ -218,7 +213,7 @@ export function registerPushNotificationRoutes(app, {
       } catch (error) {
         console.error("[Web Push] Test setup failed:", error instanceof Error ? error.name : "UnknownError");
         return res.status(503).json({
-          error: "Study reminders are temporarily unavailable.",
+          error: "Action alerts are temporarily unavailable.",
           code: "PUSH_NOT_CONFIGURED",
         });
       }
@@ -255,7 +250,7 @@ export function registerPushNotificationRoutes(app, {
           ));
         if (!current) {
           return res.status(409).json({
-            error: "Enable study reminders on this browser before sending a test notification.",
+            error: "Enable action alerts on this browser before sending a test notification.",
             code: "PUSH_NOT_SUBSCRIBED",
           });
         }
@@ -270,7 +265,6 @@ export function registerPushNotificationRoutes(app, {
 
       try {
         const serializedPayload = buildTestNotificationPayload();
-        const notification = JSON.parse(serializedPayload);
         await withProfileWriteFence(
           db,
           req,
@@ -280,20 +274,6 @@ export function registerPushNotificationRoutes(app, {
           publicSubscription(stored.record),
           serializedPayload,
           { TTL: 60, timeout: PUSH_DELIVERY_TIMEOUT_MS },
-        );
-        await withProfileWriteFence(
-          db,
-          req,
-          () => recordNotificationHistorySafely({
-            db,
-            userId: req.user._id,
-            academicProfileId: getRequestAcademicProfileId(req),
-            kind: notification.kind,
-            title: notification.title,
-            body: notification.body,
-            url: notification.url,
-            createdAt: now,
-          }, logger),
         );
         return res.json({ success: true });
       } catch (error) {

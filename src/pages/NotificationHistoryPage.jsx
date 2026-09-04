@@ -5,9 +5,10 @@ import {
   AlertCircle,
   ArrowLeft,
   Bell,
-  BellRing,
+  BookOpenCheck,
   CalendarClock,
   Check,
+  CircleDollarSign,
   Inbox,
   Mail,
   MailOpen,
@@ -36,13 +37,21 @@ const NOTIFICATION_KIND_META = {
     icon: CalendarClock,
     label: "Scheduled reminder",
   },
-  "daily-study-check": {
+  "planner-incomplete": {
     icon: Target,
-    label: "Daily study check",
+    label: "Planner incomplete",
   },
-  "push-test": {
-    icon: BellRing,
-    label: "Test notification",
+  "goal-due": {
+    icon: Target,
+    label: "Goal alert",
+  },
+  "learning-topic-unstarted": {
+    icon: BookOpenCheck,
+    label: "Learning alert",
+  },
+  "ai-credit-reset": {
+    icon: CircleDollarSign,
+    label: "Credit reset",
   },
 };
 
@@ -54,7 +63,7 @@ function normalizeNotification(value) {
     kind: typeof value.kind === "string" ? value.kind : "reminder",
     title: typeof value.title === "string" && value.title.trim()
       ? value.title.trim()
-      : "Study notification",
+      : "Study alert",
     body: typeof value.body === "string" && value.body.trim()
       ? value.body.trim()
       : "No message was provided.",
@@ -152,7 +161,7 @@ function NotificationHistoryPage() {
       } catch (error) {
         if (!active) return;
         setNotifications([]);
-        setLoadError(error?.message || "Notification history could not be loaded.");
+        setLoadError(error?.message || "Alert history could not be loaded.");
       } finally {
         if (active) setLoading(false);
       }
@@ -392,7 +401,7 @@ function NotificationHistoryPage() {
       setConfirmDeleteId(null);
       if (String(selectedId) === String(id)) setSelectedId(null);
     } catch (error) {
-      setActionError(error?.message || "This notification could not be deleted.");
+      setActionError(error?.message || "This alert could not be deleted.");
       restoreDeleteTrigger(id);
     } finally {
       setDeletingId(null);
@@ -413,7 +422,7 @@ function NotificationHistoryPage() {
       setSelectedId(null);
       resetNotificationFilters();
     } catch (error) {
-      setActionError(error?.message || "Notification history could not be cleared.");
+      setActionError(error?.message || "Alert history could not be cleared.");
       restoreClearAllTrigger();
     } finally {
       setClearingAll(false);
@@ -424,10 +433,10 @@ function NotificationHistoryPage() {
   const selectedKindMeta = getNotificationKindMeta(selectedNotification?.kind);
   const SelectedKindIcon = selectedKindMeta.icon;
   const listTitle = statusFilter === NOTIFICATION_STATUS_FILTERS.UNREAD
-    ? "Unread notifications"
+    ? "Unread alerts"
     : statusFilter === NOTIFICATION_STATUS_FILTERS.READ
-      ? "Read notifications"
-      : "All notifications";
+      ? "Read alerts"
+      : "All alerts";
 
   return (
     <section className="notification-history-page page-stack">
@@ -442,12 +451,12 @@ function NotificationHistoryPage() {
           <ArrowLeft aria-hidden="true" size={18} />
         </button>
         <div>
-          <span className="section-tag">Notifications</span>
-          <h1>Notification history</h1>
+          <span className="section-tag">Action alerts</span>
+          <h1>Alert history</h1>
         </div>
       </header>
 
-      <section aria-label="Notification history summary" className="notification-history-summary">
+      <section aria-label="Alert history summary" className="notification-history-summary">
         <article className="notification-summary-card">
           <span className="notification-summary-icon"><Bell aria-hidden="true" size={18} /></span>
           <div>
@@ -497,14 +506,14 @@ function NotificationHistoryPage() {
               />
               {confirmClearAll ? (
                 <div
-                  aria-label="Confirm clearing all notifications"
+                  aria-label="Confirm clearing all alerts"
                   className="notification-clear-confirm"
                   role="group"
                 >
                   <button
                     autoFocus
                     aria-busy={clearingAll}
-                    aria-label="Confirm clear all notifications"
+                    aria-label="Confirm clear all alerts"
                     className="notification-clear-action is-confirm"
                     disabled={clearingAll || deletingId !== null}
                     onClick={clearAllNotifications}
@@ -514,7 +523,7 @@ function NotificationHistoryPage() {
                     <Check aria-hidden="true" size={14} />
                   </button>
                   <button
-                    aria-label="Cancel clearing all notifications"
+                    aria-label="Cancel clearing all alerts"
                     className="notification-clear-action is-cancel"
                     disabled={clearingAll}
                     onClick={restoreClearAllTrigger}
@@ -526,7 +535,7 @@ function NotificationHistoryPage() {
                 </div>
               ) : (
                 <button
-                  aria-label="Clear all notifications"
+                  aria-label="Clear all alerts"
                   className="notification-clear-action is-trigger"
                   disabled={deletingId !== null}
                   onClick={() => {
@@ -534,7 +543,7 @@ function NotificationHistoryPage() {
                     setConfirmDeleteId(null);
                     setConfirmClearAll(true);
                   }}
-                  title="Clear all notifications"
+                  title="Clear all alerts"
                   type="button"
                 >
                   <Trash2 aria-hidden="true" size={14} />
@@ -552,7 +561,7 @@ function NotificationHistoryPage() {
         )}
 
         {loading ? (
-          <div aria-busy="true" aria-label="Loading notification history" className="notification-loading-list">
+          <div aria-busy="true" aria-label="Loading alert history" className="notification-loading-list">
             {[0, 1, 2].map((item) => (
               <div aria-hidden="true" className="notification-loading-card" key={item}>
                 <span />
@@ -576,16 +585,16 @@ function NotificationHistoryPage() {
             <span className="notification-state-icon">
               <Inbox aria-hidden="true" size={25} />
             </span>
-            <h3>No notifications yet</h3>
-            <p>Your study reminders and alerts will appear here after they are sent.</p>
+            <h3>No alerts yet</h3>
+            <p>Only incomplete work, due items, credit resets, and stalled learning topics appear here.</p>
           </div>
         ) : visibleNotifications.length === 0 ? (
           <div className="notification-state-card">
             <span className="notification-state-icon">
               <CalendarClock aria-hidden="true" size={25} />
             </span>
-            <h3>No notifications found</h3>
-            <p>No notifications match the selected filters.</p>
+            <h3>No alerts found</h3>
+            <p>No alerts match the selected filters.</p>
             <button onClick={resetNotificationFilters} type="button">
               Reset filters
             </button>
@@ -612,7 +621,7 @@ function NotificationHistoryPage() {
                 >
                   <button
                     aria-describedby={previewId}
-                    aria-label={`Open notification: ${notification.title}`}
+                    aria-label={`Open alert: ${notification.title}`}
                     className="notification-card-main"
                     onClick={(event) => openNotification(notification, event.currentTarget)}
                     type="button"
@@ -665,7 +674,7 @@ function NotificationHistoryPage() {
                       </div>
                     ) : (
                       <button
-                        aria-label={`Delete notification: ${notification.title}`}
+                        aria-label={`Delete alert: ${notification.title}`}
                         className="notification-action-icon is-delete"
                         disabled={clearingAll}
                         onClick={() => {
@@ -673,7 +682,7 @@ function NotificationHistoryPage() {
                           setConfirmDeleteId(notification.id);
                           setConfirmClearAll(false);
                         }}
-                        title="Delete notification"
+                        title="Delete alert"
                         type="button"
                       >
                         <Trash2 aria-hidden="true" size={15} />
@@ -709,7 +718,7 @@ function NotificationHistoryPage() {
             <div className="notification-message-modal-header">
               <span className="notification-kind">{selectedKindMeta.label}</span>
               <button
-                aria-label="Close full notification"
+                aria-label="Close full alert"
                 className="notification-modal-close"
                 onClick={() => setSelectedId(null)}
                 ref={closeButtonRef}

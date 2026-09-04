@@ -715,7 +715,7 @@ function SettingsPage({
   const notificationSubtitle = notificationsBusy
     ? "Checking the browser notification connection..."
     : notificationStatus === "connected"
-      ? "Connected securely. Scheduled reminders arrive around their due time, with a 6:00 PM study check when today's tasks are incomplete."
+      ? "Connected securely. Only actionable alerts are sent: incomplete planner work, due goals or reminders, restored AI credits, and learning topics left unstarted."
       : notificationStatus === "blocked"
         ? "Notifications are blocked by the browser or operating system. Allow them in site settings first."
         : notificationStatus === "unsupported"
@@ -723,12 +723,12 @@ function SettingsPage({
           : notificationStatus === "insecure"
             ? "Push notifications require a secure HTTPS connection."
             : notificationStatus === "reconnect-needed"
-              ? "This browser is no longer connected. Turn reminders on to reconnect it."
+              ? "This browser is no longer connected. Turn action alerts on to reconnect it."
               : notificationStatus === "error"
                 ? notificationIntent
-                  ? "The connection could not be verified. Your reminder preference is saved and the app will retry."
+                  ? "The connection could not be verified. Your alert preference is saved and the app will retry."
                   : "Notification cleanup could not be confirmed. Try the switch again when you are online."
-                : "Reminders are off on this browser. Turn them on to receive the 6:00 PM study check.";
+              : "Action alerts are off on this browser. Turn them on to receive important study alerts.";
   const notificationToggleDisabled = notificationsBusy || ["unsupported", "insecure"].includes(notificationStatus);
   const notificationToggleChecked = notificationsBusy ? notificationIntent : notificationsEnabled;
 
@@ -761,7 +761,7 @@ function SettingsPage({
         await enableStudyReminders();
         setNotificationsEnabled(true);
         setNotificationStatus("connected");
-        toast.success("Study reminders enabled!");
+        toast.success("Action alerts enabled!");
       } catch (error) {
         const disposition = getNotificationErrorDisposition(error);
         console.warn("Push notification setup failed:", getPushNotificationDiagnostic(error));
@@ -786,7 +786,7 @@ function SettingsPage({
       setNotificationIntent(false);
       setNotificationsEnabled(false);
       setNotificationStatus("off");
-      toast.success("Study reminders disabled.");
+      toast.success("Action alerts disabled.");
     } catch (error) {
       const diagnostic = getPushNotificationDiagnostic(error);
       console.warn("Push notification cleanup warning:", diagnostic);
@@ -1645,7 +1645,7 @@ function SettingsPage({
     setGoalReminderSettings(nextSettings);
     setGoalReminderData(syncStudyTargetReminders(goalReminderData, nextSettings));
     toast.success(nextSettings.targetRemindersEnabled
-      ? "Study targets saved and reminder schedule refreshed!"
+      ? "Study targets saved and review alerts refreshed!"
       : "Study targets saved. Target-linked reminders remain off.");
   };
 
@@ -2674,7 +2674,7 @@ function SettingsPage({
               checked={notificationToggleChecked}
               onChange={toggleNotifications}
               disabled={notificationToggleDisabled}
-              label="Study Reminders (Push Notifications)"
+              label="Action Alerts (Push Notifications)"
               subtitle={notificationSubtitle}
             />
             {notificationsEnabled && notificationStatus === "connected" && (
@@ -2699,8 +2699,8 @@ function SettingsPage({
                   <History aria-hidden="true" size={15} />
                 </span>
                 <div>
-                  <strong>Notification history</strong>
-                  <span>Review full messages and remove alerts you no longer need.</span>
+                  <strong>Alert history</strong>
+                  <span>Review actionable alerts and remove messages you no longer need.</span>
                 </div>
               </div>
               <button
@@ -2709,7 +2709,7 @@ function SettingsPage({
                 type="button"
               >
                 <History aria-hidden="true" size={14} />
-                View history
+                View alerts
               </button>
             </div>
           </div>
