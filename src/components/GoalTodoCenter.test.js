@@ -24,6 +24,10 @@ test("the center exposes two panels and discloses goal creation from Goals", () 
   assert.doesNotMatch(source, /A quick guide to dated outcomes, small next actions, and completed-item controls\./u);
   assert.doesNotMatch(source, /goal-reminder-about-description/u);
   assert.match(styles, /\.goal-reminder-stats\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,/u);
+  assert.match(styles, /\.goal-reminder-backdrop\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?inset:\s*0;[\s\S]*?background-color:\s*rgba\(2, 6, 16, 0\.58\);/u);
+  assert.match(styles, /backdrop-filter:\s*blur\(18px\) brightness\(0\.72\) saturate\(0\.78\);/u);
+  assert.match(styles, /-webkit-backdrop-filter:\s*blur\(18px\) brightness\(0\.72\) saturate\(0\.78\);/u);
+  assert.match(source, /createPortal\(dialog, document\.body\)/u);
   assert.match(styles, /@media \(min-width: 901px\)[\s\S]*?\.goal-reminder-dialog\s*\{[\s\S]*?width:\s*min\(900px,[\s\S]*?height:\s*min\(500px,/u);
   assert.match(styles, /@media \(min-width: 901px\)[\s\S]*?\.planner-goals-panel\s*\{[\s\S]*?grid-column:\s*1 \/ 6;/u);
   assert.match(styles, /\.planner-todo-panel\s*\{[\s\S]*?grid-column:\s*6 \/ -1;/u);
