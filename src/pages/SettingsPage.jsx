@@ -6,6 +6,7 @@ import GoalSettingsPanel from "../components/GoalSettingsPanel";
 import KidsPerformanceSettings from "../components/kids/KidsPerformanceSettings";
 import SettingsDataInfo from "../components/SettingsDataInfo";
 import SettingsProfileInfo from "../components/SettingsProfileInfo";
+import SettingsActionAlertsInfo from "../components/SettingsActionAlertsInfo";
 import SettingsAcademicChangeDialog from "../components/SettingsAcademicChangeDialog";
 import {
   DEFAULT_GOAL_REMINDER_DATA,
@@ -375,11 +376,14 @@ function hexToRgb(hex) {
     : null;
 }
 
-function ToggleSwitch({ checked, onChange, label, subtitle, disabled = false }) {
+function ToggleSwitch({ checked, onChange, label, subtitle, labelAccessory = null, disabled = false }) {
   return (
     <div className="toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid var(--border)' }}>
       <div style={{ flex: 1 }}>
-        <strong style={{ fontSize: '0.95rem' }}>{label}</strong>
+        <div className="toggle-row-title">
+          <strong style={{ fontSize: '0.95rem' }}>{label}</strong>
+          {labelAccessory}
+        </div>
         {subtitle && <p className="card-subtext" style={{ margin: '4px 0 0', fontSize: '0.82rem' }}>{subtitle}</p>}
       </div>
       <label className="toggle-switch-label" style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.65 : 1 }}>
@@ -715,7 +719,7 @@ function SettingsPage({
   const notificationSubtitle = notificationsBusy
     ? "Checking the browser notification connection..."
     : notificationStatus === "connected"
-      ? "Connected securely. Only actionable alerts are sent: incomplete planner work, due goals or reminders, restored AI credits, and learning topics left unstarted."
+      ? ""
       : notificationStatus === "blocked"
         ? "Notifications are blocked by the browser or operating system. Allow them in site settings first."
         : notificationStatus === "unsupported"
@@ -2675,6 +2679,7 @@ function SettingsPage({
               onChange={toggleNotifications}
               disabled={notificationToggleDisabled}
               label="Action Alerts (Push Notifications)"
+              labelAccessory={notificationsEnabled && notificationStatus === "connected" ? <SettingsActionAlertsInfo /> : null}
               subtitle={notificationSubtitle}
             />
             {notificationsEnabled && notificationStatus === "connected" && (

@@ -337,6 +337,98 @@ body .settings-page .settings-profile-info-trigger:focus-visible {
   font-size: 0.78rem !important;
 }
 
+.settings-page .toggle-row-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.settings-page .settings-action-alerts-info {
+  position: relative;
+  z-index: 25;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+body .settings-page .settings-action-alerts-info-trigger {
+  display: grid;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0 !important;
+  place-items: center;
+  color: var(--text-muted);
+  border: 0 !important;
+  border-radius: 50%;
+  background: transparent !important;
+  box-shadow: none !important;
+  cursor: help;
+  transform: none !important;
+}
+
+body .settings-page .settings-action-alerts-info-trigger:hover {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.1) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .settings-page .settings-action-alerts-info-trigger:focus-visible {
+  color: var(--accent);
+  outline: 2px solid rgba(var(--accent-rgb), 0.72);
+  outline-offset: 1px;
+}
+
+.settings-page .settings-action-alerts-tooltip {
+  --settings-alert-tooltip-bg: #ffffff;
+  --settings-alert-tooltip-border: rgba(39, 55, 84, 0.18);
+  --settings-alert-tooltip-ink: #172333;
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  z-index: 40;
+  width: min(320px, calc(100vw - 64px));
+  padding: 10px 12px;
+  color: var(--settings-alert-tooltip-ink);
+  border: 1px solid var(--settings-alert-tooltip-border);
+  border-radius: 11px;
+  background: var(--settings-alert-tooltip-bg) !important;
+  box-shadow: 0 14px 36px rgba(4, 9, 20, 0.2), 0 3px 10px rgba(4, 9, 20, 0.12);
+  font-size: 0.69rem;
+  font-weight: 500;
+  line-height: 1.45;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, 5px) scale(0.98);
+  transform-origin: bottom center;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    visibility 0s linear 160ms;
+}
+
+body.dark .settings-page .settings-action-alerts-tooltip {
+  --settings-alert-tooltip-bg: #111a2b;
+  --settings-alert-tooltip-border: rgba(204, 219, 255, 0.18);
+  --settings-alert-tooltip-ink: #f7fbff;
+}
+
+body.has-bg-image .settings-page .settings-action-alerts-tooltip {
+  --settings-alert-tooltip-bg: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  --settings-alert-tooltip-border: rgba(255, 255, 255, 0.18);
+  --settings-alert-tooltip-ink: #f4f6fb;
+}
+
+.settings-page .settings-action-alerts-info:hover .settings-action-alerts-tooltip,
+.settings-page .settings-action-alerts-info:focus-within .settings-action-alerts-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0) scale(1);
+  transition-delay: 0s;
+}
+
 .settings-page .toggle-row .card-subtext {
   margin-top: 2px !important;
   font-size: 0.68rem !important;

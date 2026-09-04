@@ -4,6 +4,7 @@ import test from "node:test";
 
 const apiSource = readFileSync(new URL("./apiClient.js", import.meta.url), "utf8");
 const chatbotSource = readFileSync(new URL("../components/Chatbot.jsx", import.meta.url), "utf8");
+const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
 
 test("the API client persists a boolean chat pin with the dedicated endpoint", () => {
   assert.match(
@@ -37,4 +38,27 @@ test("existing chat activity keeps pinned-first ordering", () => {
 
   assert.ok(responseUpdateStart >= 0 && responseUpdateEnd > responseUpdateStart);
   assert.match(responseUpdate, /sortChatSessionsPinnedFirst/u);
+});
+
+test("the chat pin menu stays opaque across dashboard themes", () => {
+  assert.match(
+    stylesheet,
+    /body \.chat-session-context-menu\s*\{[^}]*--chat-session-menu-bg:\s*#ffffff;[^}]*background:\s*var\(--chat-session-menu-bg\);[^}]*backdrop-filter:\s*none;/u,
+  );
+  assert.match(
+    stylesheet,
+    /body\.dark \.chat-session-context-menu\s*\{[^}]*--chat-session-menu-bg:\s*#172033;/u,
+  );
+  assert.match(
+    stylesheet,
+    /body\.has-bg-image \.chat-session-context-menu\s*\{[^}]*--chat-session-menu-bg:\s*rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\);/u,
+  );
+  assert.match(
+    stylesheet,
+    /body \.chat-session-context-menu button\s*\{[^}]*background:\s*var\(--chat-session-menu-bg\) !important;[^}]*backdrop-filter:\s*none !important;/u,
+  );
+  assert.doesNotMatch(
+    stylesheet,
+    /body \.chat-session-context-menu\s*\{[^}]*background:\s*var\(--surface-strong\);/u,
+  );
 });
