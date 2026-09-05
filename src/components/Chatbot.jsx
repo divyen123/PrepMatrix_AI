@@ -20,6 +20,7 @@ import {
 } from "../utils/chatMessageBridge";
 import { getChatExperienceCopy } from "../utils/chatExperience";
 import { normalizeChatAssistantContext } from "../utils/chatAssistantContext";
+import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 import api, { API_BASE } from "../utils/apiClient";
 import {
   CHAT_ATTACHMENT_ACCEPT,
@@ -135,6 +136,22 @@ function ChatMaterialSuggestions({
   );
 }
 
+const CHAT_FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled]):not([type=\"hidden\"])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex=\"-1\"])",
+].join(", ");
+
+function getChatFocusableElements(container) {
+  if (!container) return [];
+  return Array.from(container.querySelectorAll(CHAT_FOCUSABLE_SELECTOR)).filter(
+    (element) => !element.closest('[aria-hidden="true"]') && !element.hasAttribute("hidden"),
+  );
+}
+
 function Chatbot({
   academicProfile = {},
   academicProfileDataId = "",
@@ -171,6 +188,8 @@ function Chatbot({
   const sessionContextMenuRef = useRef(null);
   const sessionMenuTriggerRef = useRef(null);
   const deleteSessionCancelRef = useRef(null);
+  const chatDialogRef = useRef(null);
+  const previouslyFocusedChatRef = useRef(null);
 
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
@@ -276,10 +295,11 @@ function Chatbot({
       textarea.setAttribute("readonly", "");
       textarea.style.position = "fixed";
       textarea.style.left = "-9999px";
-      document.body.appendChild(textarea);
+      const copyHost = chatDialogRef.current || document.body;
+      copyHost.appendChild(textarea);
       textarea.select();
       document.execCommand("copy");
-      document.body.removeChild(textarea);
+      copyHost.removeChild(textarea);
     } catch (error) {
       console.error("Failed to copy chat message:", error);
     }
@@ -395,15 +415,68 @@ function Chatbot({
   }, [fetchHistorySearch, historySearchQuery, open]);
 
   useEffect(() => {
-    if (open) {
-      document.body.classList.add("chat-open");
-    } else {
-      document.body.classList.remove("chat-open");
-    }
+    if (!open) return undefined;
+
+    previouslyFocusedChatRef.current = document.activeElement;
+    const releaseScrollLock = acquireDocumentScrollLock();
+    document.body.classList.add("chat-open");
+    const focusFrame = window.requestAnimationFrame(() => {
+      chatDialogRef.current?.focus({ preventScroll: true });
+    });
+
+    const keepFocusInsideChat = (event) => {
+      const dialog = chatDialogRef.current;
+      const menu = sessionContextMenuRef.current;
+      if (!dialog || dialog.contains(event.target) || menu?.contains(event.target)) return;
+      dialog.focus({ preventScroll: true });
+    };
+
+    document.addEventListener("focusin", keepFocusInsideChat, true);
+
     return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("focusin", keepFocusInsideChat, true);
       document.body.classList.remove("chat-open");
+      releaseScrollLock();
+
+      const previousElement = previouslyFocusedChatRef.current;
+      previouslyFocusedChatRef.current = null;
+      window.requestAnimationFrame(() => {
+        if (previousElement?.isConnected) previousElement.focus?.({ preventScroll: true });
+      });
     };
   }, [open]);
+
+  const handleChatDialogKeyDown = useCallback((event) => {
+    if (event.key === "Escape") {
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      setOpen(false);
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+    const dialog = chatDialogRef.current;
+    const focusable = getChatFocusableElements(dialog);
+    if (!focusable.length) {
+      event.preventDefault();
+      dialog?.focus({ preventScroll: true });
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!dialog?.contains(document.activeElement)) {
+      event.preventDefault();
+      first.focus({ preventScroll: true });
+    } else if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+      event.preventDefault();
+      last.focus({ preventScroll: true });
+    } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) {
+      event.preventDefault();
+      first.focus({ preventScroll: true });
+    }
+  }, []);
 
   const closeSessionContextMenu = useCallback((restoreFocus = false) => {
     const trigger = sessionMenuTriggerRef.current;
@@ -598,6 +671,13 @@ function Chatbot({
 
   const handleSessionMenuKeyDown = useCallback((event) => {
     if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeSessionContextMenu(true);
+      return;
+    }
+
+    if (event.key === "Tab") {
       event.preventDefault();
       event.stopPropagation();
       closeSessionContextMenu(true);
@@ -1414,7 +1494,10 @@ function Chatbot({
             aria-label={chatExperience.heading}
             aria-modal="true"
             className={`chatbot sidebar-chatbot-portal${childMode ? " is-kids-chat" : ""}`}
+            onKeyDown={handleChatDialogKeyDown}
+            ref={chatDialogRef}
             role="dialog"
+            tabIndex={-1}
           >
             <div className="chat-pet-rail">
               <ChatStudyPet message={companionStatus.message} state={companionStatus.state} />
@@ -1507,6 +1590,8 @@ function Chatbot({
                     }}
                     onKeyDown={(event) => {
                       if (event.key === "Escape") {
+                        event.preventDefault();
+                        event.stopPropagation();
                         setHistorySearch("");
                         event.currentTarget.blur();
                       }

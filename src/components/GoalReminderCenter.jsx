@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   CalendarClock,
@@ -35,6 +35,7 @@ const BULK_CLEAR_ACTIONS = Object.freeze([
   { key: "goals", label: "Clear all goals", success: "All goals cleared." },
   { key: "todos", label: "Clear all to-do's", success: "All to-do's cleared." },
 ]);
+const DRAWER_CLOSE_DURATION_MS = 280;
 
 function createGoalDraft() {
   return {
@@ -106,6 +107,7 @@ function EmptyPlannerState({ icon, title, detail }) {
 
 function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, onSettingsChange, settings }) {
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const curriculumExamples = useMemo(
     () => getAcademicProfileExamples(academicProfile),
     [academicProfile]
@@ -119,6 +121,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
   const [aboutOpen, setAboutOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const closeButtonRef = useRef(null);
+  const closeTimerRef = useRef(null);
   const dialogRef = useRef(null);
   const aboutButtonRef = useRef(null);
   const aboutCloseButtonRef = useRef(null);
@@ -153,37 +156,41 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
     if (restoreFocus) window.requestAnimationFrame(() => goalComposerButtonRef.current?.focus());
   };
 
-  const openCenter = () => {
+  const openCenter = useCallback(() => {
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
     onOpen?.();
     setConfirmDelete("");
     setConfirmBulkClear("");
     setBulkMenuOpen(false);
     setAboutOpen(false);
     setGoalComposerOpen(false);
+    setClosing(false);
     setOpen(true);
-  };
+  }, [onOpen]);
 
-  const closeCenter = () => {
+  const closeCenter = useCallback(() => {
+    if (closeTimerRef.current !== null) return;
     setConfirmBulkClear("");
     setBulkMenuOpen(false);
     setAboutOpen(false);
     setGoalComposerOpen(false);
-    setOpen(false);
-  };
+    setClosing(true);
+
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      setOpen(false);
+      setClosing(false);
+    }, reducedMotion ? 0 : DRAWER_CLOSE_DURATION_MS);
+  }, []);
+
+  useEffect(() => () => window.clearTimeout(closeTimerRef.current), []);
 
   useEffect(() => {
-    const handleOpen = () => {
-      onOpen?.();
-      setConfirmDelete("");
-      setConfirmBulkClear("");
-      setBulkMenuOpen(false);
-      setAboutOpen(false);
-      setGoalComposerOpen(false);
-      setOpen(true);
-    };
-    window.addEventListener(OPEN_GOAL_REMINDER_EVENT, handleOpen);
-    return () => window.removeEventListener(OPEN_GOAL_REMINDER_EVENT, handleOpen);
-  }, [onOpen]);
+    window.addEventListener(OPEN_GOAL_REMINDER_EVENT, openCenter);
+    return () => window.removeEventListener(OPEN_GOAL_REMINDER_EVENT, openCenter);
+  }, [openCenter]);
 
   useEffect(() => {
     const refreshClock = () => setNow(new Date());
@@ -217,8 +224,8 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
           window.requestAnimationFrame(() => bulkMenuButtonRef.current?.focus());
           return;
         }
-        setAboutOpen(false);
-        setOpen(false);
+        event.preventDefault();
+        closeCenter();
         return;
       }
       if (event.key !== "Tab") return;
@@ -244,7 +251,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
       document.body.classList.remove("goal-reminder-center-open");
       previousFocus?.focus?.();
     };
-  }, [open]);
+  }, [closeCenter, open]);
 
   useEffect(() => {
     if (!bulkMenuOpen) return undefined;
@@ -406,13 +413,16 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
   ].filter(Boolean).join(" and ");
 
   const dialog = open ? (
-    <div className="goal-reminder-backdrop" onMouseDown={(event) => event.target === event.currentTarget && closeCenter()}>
+    <div
+      className={`goal-reminder-backdrop${closing ? " is-closing" : ""}`}
+      onMouseDown={(event) => event.target === event.currentTarget && closeCenter()}
+    >
       <section
         aria-describedby="goal-reminder-center-description"
         aria-hidden={aboutOpen ? true : undefined}
         aria-labelledby="goal-reminder-center-title"
         aria-modal={aboutOpen ? undefined : true}
-        className="goal-reminder-dialog"
+        className={`goal-reminder-dialog${closing ? " is-closing" : ""}`}
         inert={aboutOpen}
         ref={dialogRef}
         role="dialog"

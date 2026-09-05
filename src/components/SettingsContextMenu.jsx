@@ -35,6 +35,7 @@ function clamp(value, minimum, maximum) {
 }
 
 export default function SettingsContextMenu({
+  appearanceDisabled = false,
   currentTheme = "light",
   onAppearanceChange,
   onCheckForUpdates,
@@ -50,6 +51,7 @@ export default function SettingsContextMenu({
   const menuRef = useRef(null);
   const [menuPosition, setMenuPosition] = useState(null);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const showAppearanceMenu = appearanceOpen && !appearanceDisabled;
 
   const closeMenu = ({ restoreFocus = false } = {}) => {
     setMenuPosition(null);
@@ -94,7 +96,7 @@ export default function SettingsContextMenu({
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        if (appearanceOpen) {
+        if (showAppearanceMenu) {
           setAppearanceOpen(false);
           menuRef.current?.querySelector('[data-menu-action="appearance"]')?.focus({ preventScroll: true });
         } else {
@@ -114,12 +116,12 @@ export default function SettingsContextMenu({
       window.removeEventListener("resize", handleViewportChange);
       window.removeEventListener("scroll", handleViewportChange, true);
     };
-  }, [appearanceOpen, menuPosition]);
+  }, [menuPosition, showAppearanceMenu]);
 
   useEffect(() => {
     if (!menuPosition) return;
     window.requestAnimationFrame(() => {
-      menuRef.current?.querySelector('[data-menu-level="root"]')?.focus({ preventScroll: true });
+      menuRef.current?.querySelector('[data-menu-level="root"]:not(:disabled)')?.focus({ preventScroll: true });
     });
   }, [menuPosition]);
 
@@ -130,7 +132,11 @@ export default function SettingsContextMenu({
 
   const handleRootMenuKeyDown = (event) => {
     if (event.defaultPrevented) return;
-    if (event.key === "ArrowRight" && event.target?.dataset?.menuAction === "appearance") {
+    if (
+      event.key === "ArrowRight"
+      && !appearanceDisabled
+      && event.target?.dataset?.menuAction === "appearance"
+    ) {
       event.preventDefault();
       setAppearanceOpen(true);
       window.requestAnimationFrame(() => {
@@ -140,7 +146,9 @@ export default function SettingsContextMenu({
     }
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
 
-    const items = Array.from(menuRef.current?.querySelectorAll('[data-menu-level="root"]') || []);
+    const items = Array.from(
+      menuRef.current?.querySelectorAll('[data-menu-level="root"]:not(:disabled)') || [],
+    );
     if (!items.length) return;
     event.preventDefault();
     const currentIndex = items.indexOf(document.activeElement);
@@ -205,25 +213,35 @@ export default function SettingsContextMenu({
             <span>Refresh app data</span>
           </button>
           <div
-            className="settings-context-submenu-anchor"
-            onMouseEnter={() => setAppearanceOpen(true)}
+            className={`settings-context-submenu-anchor${appearanceDisabled ? " is-disabled" : ""}`}
+            onMouseEnter={() => {
+              if (!appearanceDisabled) setAppearanceOpen(true);
+            }}
             onMouseLeave={() => setAppearanceOpen(false)}
           >
             <button
-              aria-expanded={appearanceOpen}
+              aria-expanded={showAppearanceMenu}
               aria-haspopup="menu"
               data-menu-action="appearance"
               data-menu-level="root"
-              onClick={() => setAppearanceOpen(true)}
+              disabled={appearanceDisabled}
+              onClick={() => {
+                if (!appearanceDisabled) setAppearanceOpen(true);
+              }}
               role="menuitem"
+              title={appearanceDisabled
+                ? "Theme choices are unavailable while a background image is active."
+                : "Choose the application theme"}
               type="button"
             >
               <Palette aria-hidden="true" size={17} />
               <span>Appearance</span>
-              <small>{currentTheme === "system" ? "System" : currentTheme === "dark" ? "Dark" : "Light"}</small>
+              <small>{appearanceDisabled
+                ? "Background active"
+                : currentTheme === "system" ? "System" : currentTheme === "dark" ? "Dark" : "Light"}</small>
               <ChevronRight aria-hidden="true" className="settings-context-chevron" size={15} />
             </button>
-            {appearanceOpen && (
+            {showAppearanceMenu && (
               <div
                 aria-label="Appearance"
                 className="settings-context-submenu"

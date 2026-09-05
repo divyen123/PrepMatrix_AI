@@ -11,7 +11,7 @@ test("wires settings quick actions to real app workflows", () => {
   assert.match(appSource, /onOpenSettings=\{\(\) => \{[\s\S]*?navigate\("\/settings"\)/u);
   assert.match(appSource, /onSwitchAcademicProfile=\{\(\) => \{[\s\S]*?navigate\("\/settings\/profiles"\)/u);
   assert.match(appSource, /onOpenAlertHistory=\{\(\) => \{[\s\S]*?navigate\("\/notification-history"\)/u);
-  assert.match(appSource, /const handleRefreshAppData = async \(\) => \{[\s\S]*?api\.saveWorkspace[\s\S]*?api\.me[\s\S]*?api\.getAiQuota/u);
+  assert.match(appSource, /const handleRefreshAppData = async \(\) => \{[\s\S]*?api\.saveWorkspace[\s\S]*?api\.me[\s\S]*?refreshAiQuota/u);
   assert.match(appSource, /const handleCheckForUpdates = async \(\) => \{[\s\S]*?registration\.update\(\)/u);
   assert.match(appSource, /const handleRestartVoiceAssistant = \(\) => \{[\s\S]*?pauseWakeMode[\s\S]*?setWakeMode/u);
   assert.match(appSource, /onLogout=\{\(\) => \{[\s\S]*?setLogoutReturnsToLock\(false\)[\s\S]*?setLogoutConfirmOpen\(true\)/u);
@@ -25,6 +25,22 @@ test("supports persistent Light, Dark, and System appearance choices", () => {
   assert.match(appSource, /options\.preservePreference && themeModeRef\.current === "system"\) \{[\s\S]*?systemPrefersDarkMode\(\)/u);
   assert.match(settingsSource, /const restoredDarkMode = setDarkMode\(init\.darkMode, \{ preservePreference: true \}\)/u);
   assert.match(settingsSource, /setDarkMode\(init\.darkMode, \{ preservePreference: true \}\)/u);
+});
+
+test("disables quick-action theme choices while a valid background image is active", () => {
+  assert.match(
+    appSource,
+    /const resolvedActiveBackgroundPreset = resolveBackgroundPresetForProfile\([\s\S]*?activeBackgroundImageId[\s\S]*?learnerRoutePolicy\.academicProfile[\s\S]*?learnerRoutePolicy\.isYoungKidsLearner/u,
+  );
+  assert.match(
+    appSource,
+    /resolvedActiveBackgroundPreset[\s\S]*?activeBackgroundImageId === CUSTOM_BACKGROUND_ID && liveCustomBackgroundImageActive/u,
+  );
+  assert.match(appSource, /const handleBackgroundThemeChange = useCallback\(\(nextId, hasBackgroundImage\) =>/u);
+  assert.match(appSource, /onBackgroundThemeChange=\{handleBackgroundThemeChange\}/u);
+  assert.match(settingsSource, /onBackgroundThemeChange\?\.\(resolvedId, Boolean\(nextPreset\)\)/u);
+  assert.match(settingsSource, /onBackgroundThemeChange\?\.\(persistedBgImageId, Boolean\(persistedBackgroundPreset\)\)/u);
+  assert.match(appSource, /appearanceDisabled=\{hasActiveBackgroundImage\}/u);
 });
 
 test("places Clear Cache and confirmed Clear Data inside data management", () => {

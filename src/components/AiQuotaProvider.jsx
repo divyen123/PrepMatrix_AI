@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { Coins, RefreshCcw, X } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import api, {
   AI_AUTH_CLEARED_EVENT,
   AI_AUTH_READY_EVENT,
@@ -148,6 +149,7 @@ function formatResetDate(value) {
 
 
 export function AiQuotaProvider({ children }) {
+  const location = useLocation();
   const [quota, setQuota] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -203,16 +205,16 @@ export function AiQuotaProvider({ children }) {
     window.addEventListener(AI_AUTH_READY_EVENT, handleAuthReady);
     window.addEventListener(AI_AUTH_CLEARED_EVENT, clear);
 
-    if (localStorage.getItem("prepmatrix_auth_token")) {
-      refresh();
-    }
-
     return () => {
       window.removeEventListener(AI_QUOTA_UPDATED_EVENT, handleQuotaUpdate);
       window.removeEventListener(AI_AUTH_READY_EVENT, handleAuthReady);
       window.removeEventListener(AI_AUTH_CLEARED_EVENT, clear);
     };
   }, [clear, refresh]);
+
+  useEffect(() => {
+    if (localStorage.getItem("prepmatrix_auth_token")) refresh();
+  }, [location.key, refresh]);
   useEffect(() => {
     const resetTimestamp = new Date(quota?.resetAt || "").getTime();
     if (!Number.isFinite(resetTimestamp)) return undefined;
@@ -311,7 +313,10 @@ export function AiCreditIndicator() {
         aria-haspopup="dialog"
         aria-label={isKnown ? `AI Credits ${quota.remaining}` : "AI Credits balance unavailable"}
         className={`ai-credit-trigger${isKnown && quota.remaining === 0 ? " is-empty" : ""}`}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          setOpen((current) => !current);
+          if (!open) refresh();
+        }}
         title="View monthly AI credits"
         type="button"
       >

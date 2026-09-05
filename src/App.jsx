@@ -46,8 +46,11 @@ import {
   getPushNotificationDiagnostic,
   reconcileStudyReminders,
 } from "./utils/pushNotifications";
-import { resolveBackgroundPresetForProfile } from "./utils/backgroundPresets";
-import { resolveKidsGamepadIcon } from "./utils/backgroundPresets";
+import {
+  CUSTOM_BACKGROUND_ID,
+  resolveBackgroundPresetForProfile,
+  resolveKidsGamepadIcon,
+} from "./utils/backgroundPresets";
 import {
   applyBackgroundPresentation,
   clearBackgroundPresentation,
@@ -129,6 +132,7 @@ import AcademicProfileIntroDialog from "./components/AcademicProfileIntroDialog"
 import AppLockOverlay from "./components/AppLockOverlay";
 import SettingsContextMenu from "./components/SettingsContextMenu";
 import { claimFirstProfileBGuide } from "./utils/academicProfileGuide";
+import { useAiQuota } from "./utils/aiQuota";
 import "./App.css";
 import "./components/GoalReminderCenter.css";
 import { ToastContainer, toast } from "react-toastify";
@@ -381,6 +385,7 @@ function RouteLoading() {
 }
 
 function App() {
+  const { refresh: refreshAiQuota } = useAiQuota();
   const location = useLocation();
   const navigate = useNavigate();
   const saveTimeoutRef = useRef(null);
@@ -447,6 +452,7 @@ function App() {
   const [activeBackgroundImageId, setActiveBackgroundImageId] = useState(
     () => localStorage.getItem("prepmatrix_bg_image_id") || "",
   );
+  const [liveCustomBackgroundImageActive, setLiveCustomBackgroundImageActive] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [profileContext, setProfileContext] = useState(() => resolveAcademicProfileContext());
   const [kidsParentAccess, setKidsParentAccess] = useState(LOCKED_KIDS_PARENT_ACCESS);
@@ -678,6 +684,24 @@ function App() {
   }), [learningTaskActivity, plannerAttention.active, plannerAttention.pendingCount]);
 
   const isAuthRoute = location.pathname === "/login" || location.pathname === "/register";
+  const resolvedActiveBackgroundPreset = resolveBackgroundPresetForProfile(
+    activeBackgroundImageId,
+    {
+      profile: learnerRoutePolicy.academicProfile,
+      youngKidsMode: learnerRoutePolicy.isYoungKidsLearner,
+    },
+  );
+  const hasActiveBackgroundImage = !isAuthRoute && Boolean(
+    resolvedActiveBackgroundPreset
+    || (activeBackgroundImageId === CUSTOM_BACKGROUND_ID && liveCustomBackgroundImageActive),
+  );
+  const handleBackgroundThemeChange = useCallback((nextId, hasBackgroundImage) => {
+    const normalizedId = String(nextId || "");
+    setActiveBackgroundImageId(normalizedId);
+    setLiveCustomBackgroundImageActive(
+      normalizedId === CUSTOM_BACKGROUND_ID && hasBackgroundImage === true,
+    );
+  }, []);
   const routeStagePathname = location.pathname === "/planner"
     || location.pathname.startsWith("/planner/")
     ? "/planner"
@@ -1760,7 +1784,7 @@ function App() {
         refreshedContext,
       );
       setWorkspaceLoaded(true);
-      await api.getAiQuota().catch(() => undefined);
+      await refreshAiQuota();
       toast.success("Dashboard, planner, goals, and AI credits are refreshed.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "App data could not be refreshed.");
@@ -2686,6 +2710,7 @@ function App() {
               )}
               {(!isKidsLearner || kidsParentAccess.unlocked) && (
                 <SettingsContextMenu
+                  appearanceDisabled={hasActiveBackgroundImage}
                   currentTheme={themeMode}
                   onAppearanceChange={applyAppearanceMode}
                   onCheckForUpdates={handleCheckForUpdates}
@@ -3173,7 +3198,7 @@ function App() {
                               setDarkMode={setDarkMode}
                               subjects={subjects}
                               schedule={schedule}
-                              onBackgroundThemeChange={setActiveBackgroundImageId}
+                              onBackgroundThemeChange={handleBackgroundThemeChange}
                               scheduleStartDate={scheduleStartDate}
                               completed={completed}
                               materialBookmarks={materialBookmarks}

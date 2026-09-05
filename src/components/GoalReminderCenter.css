@@ -123,14 +123,14 @@ body .goal-reminder-launcher-button:focus-visible {
   position: fixed;
   inset: 0;
   z-index: 32000;
-  display: grid;
-  place-items: center;
-  padding: clamp(10px, 2vw, 28px);
-  overflow-y: auto;
-  background-color: rgba(2, 6, 16, 0.58);
-  backdrop-filter: blur(18px) brightness(0.72) saturate(0.78);
-  -webkit-backdrop-filter: blur(18px) brightness(0.72) saturate(0.78);
-  animation: goalReminderBackdropIn 180ms ease-out both;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  overflow: hidden;
+  background-color: rgba(2, 6, 16, 0.48);
+  backdrop-filter: blur(10px) brightness(0.78) saturate(0.82);
+  -webkit-backdrop-filter: blur(10px) brightness(0.78) saturate(0.82);
+  animation: goalReminderBackdropIn 220ms ease-out both;
   isolation: isolate;
   overscroll-behavior: contain;
 }
@@ -138,26 +138,37 @@ body .goal-reminder-launcher-button:focus-visible {
 .goal-reminder-dialog {
   position: relative;
   display: flex;
-  width: min(1040px, calc(100vw - 24px));
-  max-height: calc(100dvh - 24px);
+  width: min(560px, 100vw);
+  height: 100dvh;
+  max-height: 100dvh;
   flex-direction: column;
   overflow: hidden;
   color: var(--text);
   background:
     radial-gradient(circle at 8% 0%, rgba(var(--accent-rgb), 0.15), transparent 30%),
     radial-gradient(circle at 96% 100%, rgba(109, 93, 252, 0.13), transparent 34%),
-    var(--surface-strong);
-  border: 1px solid var(--border);
-  border-radius: 26px;
-  box-shadow: 0 34px 100px rgba(4, 9, 20, 0.46), var(--shadow);
-  animation: goalReminderDialogIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    var(--bg);
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 24px 0 0 24px;
+  box-shadow: -28px 0 84px rgba(4, 9, 20, 0.46), var(--shadow);
+  animation: goalReminderDrawerIn 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.goal-reminder-backdrop.is-closing {
+  animation: goalReminderBackdropOut 280ms ease-in both;
+}
+
+.goal-reminder-dialog.is-closing {
+  animation: goalReminderDrawerOut 280ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 
 .goal-reminder-dialog-header {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 6px;
   padding: 10px 16px 8px;
   border-bottom: 1px solid var(--border);
 }
@@ -224,7 +235,8 @@ body .goal-reminder-launcher-button:focus-visible {
 
 .goal-reminder-header-controls {
   display: grid;
-  grid-template-columns: minmax(0, auto) auto;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
     "save actions"
     "toggle actions";
@@ -344,16 +356,22 @@ body .goal-reminder-close-btn:hover {
 
 .goal-reminder-dialog-body {
   display: grid;
-  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  flex: 1;
   gap: 10px;
   min-height: 0;
   padding: 8px 16px 10px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .planner-list-panel {
+  display: flex;
   min-width: 0;
+  min-height: 0;
+  flex-direction: column;
   padding: 14px;
+  overflow: hidden;
   background: rgba(var(--accent-rgb), 0.045);
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -414,6 +432,11 @@ body .planner-goal-composer-close:hover {
 
 .planner-goals-panel {
   position: relative;
+  grid-row: 1;
+}
+
+.planner-todo-panel {
+  grid-row: 2;
 }
 
 .planner-goal-composer-popover {
@@ -563,7 +586,9 @@ body .planner-create-btn:hover {
 
 .planner-scroll-list {
   display: flex;
-  max-height: 295px;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
   flex-direction: column;
   gap: 8px;
   overflow-y: auto;
@@ -841,7 +866,9 @@ body .planner-todo-composer button {
 
 .planner-todo-list {
   display: flex;
-  max-height: 132px;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
   flex-direction: column;
   gap: 5px;
   overflow-y: auto;
@@ -950,7 +977,7 @@ body .planner-todo-toggle:focus-visible {
 
 body.has-bg-image .goal-reminder-dialog {
   color: #f0f0f5;
-  background-color: rgba(var(--bg-surface-rgb), 0.96);
+  background: rgb(var(--bg-surface-rgb, 18, 27, 45));
   border-color: rgba(255, 255, 255, 0.12);
 }
 
@@ -1267,6 +1294,21 @@ body .goal-reminder-about-done-btn:focus-visible {
   to { opacity: 1; }
 }
 
+@keyframes goalReminderBackdropOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes goalReminderDrawerIn {
+  from { opacity: 0.7; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes goalReminderDrawerOut {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0.7; transform: translateX(100%); }
+}
+
 @keyframes goalReminderDialogIn {
   from { opacity: 0; transform: translateY(12px) scale(0.975); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -1279,33 +1321,23 @@ body .goal-reminder-about-done-btn:focus-visible {
 
 @media (min-width: 901px) {
   .goal-reminder-dialog {
-    width: min(900px, calc(100vw - 24px));
-    height: min(500px, calc(100dvh - 24px));
+    width: clamp(440px, 34vw, 560px);
+    height: 100dvh;
   }
 
   .goal-reminder-dialog-body {
-    grid-template-columns: repeat(10, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 1fr);
-    flex: 1;
-    overflow: hidden;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
   }
 
   .planner-goals-panel {
-    grid-column: 1 / 6;
+    grid-column: 1;
     grid-row: 1;
   }
 
   .planner-todo-panel {
-    grid-column: 6 / -1;
-    grid-row: 1;
-  }
-
-  .planner-todo-panel,
-  .planner-goals-panel {
-    display: flex;
-    min-height: 0;
-    flex-direction: column;
-    overflow: hidden;
+    grid-column: 1;
+    grid-row: 2;
   }
 
   .planner-todo-panel .planner-panel-heading {
@@ -1404,9 +1436,10 @@ body .goal-reminder-about-done-btn:focus-visible {
 
 @media (max-width: 900px) {
   .goal-reminder-dialog {
-    width: min(720px, calc(100vw - 16px));
-    max-height: calc(100dvh - 16px);
-    border-radius: 20px;
+    width: min(560px, 100vw);
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 22px 0 0 22px;
   }
 
   .goal-reminder-dialog-header {
@@ -1423,16 +1456,8 @@ body .goal-reminder-about-done-btn:focus-visible {
 
   .goal-reminder-dialog-body {
     grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
     padding-inline: 14px;
-  }
-
-  .planner-goal-composer-popover {
-    position: relative;
-    top: auto;
-    right: auto;
-    width: 100%;
-    max-height: none;
-    margin-bottom: 10px;
   }
 
   .planner-entry-form {
@@ -1444,22 +1469,19 @@ body .goal-reminder-about-done-btn:focus-visible {
     grid-column: 1 / -1;
   }
 
-  .planner-scroll-list {
-    max-height: 240px;
-  }
-
 }
 
 @media (max-width: 520px) {
   .goal-reminder-backdrop {
-    align-items: start;
-    padding: 6px;
+    align-items: stretch;
   }
 
   .goal-reminder-dialog {
     width: 100%;
-    max-height: calc(100dvh - 12px);
-    border-radius: 17px;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-left: 0;
+    border-radius: 0;
   }
 
   .goal-reminder-dialog-header {

@@ -9808,6 +9808,29 @@ body.dark .completion-reward-popup {
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   animation: fadeInGlobal 0.25s var(--ease-out-expo) both;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+/* Shared reference-counted document lock plus a chat-specific fallback. */
+html.prepmatrix-scroll-locked,
+body.prepmatrix-scroll-locked,
+html:has(body.chat-open),
+body.chat-open {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+.sidebar-chatbot-portal {
+  overscroll-behavior: none;
+}
+
+.sidebar-chatbot-portal .chat-messages,
+.sidebar-chatbot-portal .history-sessions-list,
+.sidebar-chatbot-portal .chat-attachment-tray,
+.sidebar-chatbot-portal .chat-table-scroll {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .confirm-modal-backdrop {

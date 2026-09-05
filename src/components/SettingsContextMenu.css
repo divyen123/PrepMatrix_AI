@@ -64,12 +64,24 @@ body .settings-context-menu-shell .settings-context-menu button > span {
   color: inherit !important;
 }
 
-body .settings-context-menu button:hover,
+body .settings-context-menu button:not(:disabled):hover,
 body .settings-context-menu button:focus-visible,
 body .settings-context-menu button[aria-expanded="true"] {
   outline: none;
   background: var(--settings-menu-hover) !important;
   color: var(--settings-menu-text) !important;
+}
+
+body .settings-context-menu-shell .settings-context-menu button:disabled {
+  background: transparent !important;
+  color: var(--settings-menu-muted) !important;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+body .settings-context-menu-shell .settings-context-menu button:disabled:hover {
+  background: transparent !important;
+  color: var(--settings-menu-muted) !important;
 }
 
 .settings-context-menu button > span {

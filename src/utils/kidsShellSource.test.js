@@ -20,11 +20,11 @@ test("keeps the AI credit indicator in the kids top bar on mobile without a dupl
 test("keeps the Game Town icon synchronized with live kids background previews", () => {
   assert.match(appSource, /const kidsGamepadIcon = resolveKidsGamepadIcon\(activeBackgroundImageId\)/);
   assert.match(appSource, /<img alt="" aria-hidden="true" src=\{kidsGamepadIcon\} \/>/);
-  assert.match(appSource, /onBackgroundThemeChange=\{setActiveBackgroundImageId\}/);
+  assert.match(appSource, /onBackgroundThemeChange=\{handleBackgroundThemeChange\}/);
   assert.doesNotMatch(appSource, /src="\/kids\/game-town-gamepad\.png"/);
-  assert.match(settingsPageSource, /onBackgroundThemeChange\?\.\(resolvedId\)/);
-  assert.match(settingsPageSource, /onBackgroundThemeChange\?\.\(init\.bgImageId\)/);
-  assert.match(settingsPageSource, /onBackgroundThemeChange\?\.\(persistedBgImageId\)/);
+  assert.match(settingsPageSource, /onBackgroundThemeChange\?\.\(resolvedId, Boolean\(nextPreset\)\)/);
+  assert.match(settingsPageSource, /onBackgroundThemeChange\?\.\(init\.bgImageId, Boolean\(imgPreset\)\)/);
+  assert.match(settingsPageSource, /onBackgroundThemeChange\?\.\(persistedBgImageId, Boolean\(persistedBackgroundPreset\)\)/);
 });
 
 test("keeps the kids Subjects route usable while the registered class remains locked", () => {

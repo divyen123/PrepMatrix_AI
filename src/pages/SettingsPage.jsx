@@ -1153,10 +1153,10 @@ function SettingsPage({
     return () => {
       if (!savedRef.current) {
         const init = initialSettings.current;
-        onBackgroundThemeChange?.(init.bgImageId);
         const imgPreset = resolveBackgroundPresetForProfile(init.bgImageId, {
           kidsBackgroundsEligible: init.kidsBackgroundsEligible,
         });
+        onBackgroundThemeChange?.(init.bgImageId, Boolean(imgPreset));
         const restoredDarkMode = setDarkMode(init.darkMode, { preservePreference: true });
         const isDark = resolveEffectiveDarkMode(
           typeof restoredDarkMode === "boolean" ? restoredDarkMode : init.darkMode,
@@ -1928,7 +1928,7 @@ function SettingsPage({
         setCustomBackgroundPreset(nextPreset);
       }
       setBgImageId(resolvedId);
-      onBackgroundThemeChange?.(resolvedId);
+      onBackgroundThemeChange?.(resolvedId, Boolean(nextPreset));
 
       const isDark = resolveEffectiveDarkMode(darkMode, Boolean(nextPreset));
       document.body.classList.toggle("dark", isDark);
@@ -2076,7 +2076,11 @@ function SettingsPage({
       kidsBackgroundsEligible,
     };
     savedRef.current = true;
-    onBackgroundThemeChange?.(persistedBgImageId);
+    const persistedBackgroundPreset = resolveBackgroundPresetForProfile(persistedBgImageId, {
+      customPreset: customBackgroundPreset || undefined,
+      kidsBackgroundsEligible,
+    });
+    onBackgroundThemeChange?.(persistedBgImageId, Boolean(persistedBackgroundPreset));
 
     toast.success("Appearance configurations applied successfully!");
   };

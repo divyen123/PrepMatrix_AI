@@ -32,3 +32,29 @@ test("keeps the compact header controls together on responsive layouts", () => {
   );
   assert.match(styles, /@media \(max-width: 520px\)[\s\S]*?\.notes-list-utilities\s*\{[\s\S]*?width: 100%/u);
 });
+
+test("keeps opened note details fully opaque while the page backdrop stays dimmed and blurred", () => {
+  assert.match(source, /import \{ acquireDocumentScrollLock \} from "\.\.\/utils\/documentScrollLock"/u);
+  assert.match(source, /const releaseScrollLock = acquireDocumentScrollLock\(\);[\s\S]*?releaseScrollLock\(\);/u);
+  assert.doesNotMatch(source, /document\.body\.style\.overflow/u);
+  assert.match(
+    styles,
+    /\.note-details-overlay\s*\{[\s\S]*?background: rgba\(3, 7, 14, 0\.68\);[\s\S]*?backdrop-filter: blur\(10px\) brightness\(0\.72\) saturate\(0\.72\);/u,
+  );
+  assert.match(
+    styles,
+    /\.note-details-dialog\s*\{[\s\S]*?--note-details-solid-surface: #ffffff;[\s\S]*?background: var\(--note-details-solid-surface\);[\s\S]*?backdrop-filter: none;/u,
+  );
+  assert.match(
+    styles,
+    /body\.dark \.note-details-dialog\s*\{\s*--note-details-solid-surface: #121b2d;\s*\}/u,
+  );
+  assert.match(
+    styles,
+    /body\.has-bg-image \.note-details-dialog\s*\{[\s\S]*?--note-details-solid-surface: rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\);[\s\S]*?background: var\(--note-details-solid-surface\);/u,
+  );
+  assert.match(
+    styles,
+    /body\.no-glass-cards \.note-details-dialog\s*\{[\s\S]*?background: var\(--note-details-solid-surface\);/u,
+  );
+});

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { CalendarDays, Check, Copy, Pencil, Search, Trash2, X } from "lucide-react";
 import api from "../utils/apiClient";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
+import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 import {
   getNotePlannerState,
   getScheduleDateOptions,
@@ -428,9 +429,8 @@ function NotesPage({
     if (!selectedNoteId) return undefined;
 
     previouslyFocusedNoteRef.current = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
     const fallbackFocusElement = notesListHeadingRef.current;
-    document.body.style.overflow = "hidden";
+    const releaseScrollLock = acquireDocumentScrollLock();
     const focusFrame = window.requestAnimationFrame(() => noteDetailsCloseRef.current?.focus());
 
     const handleDialogKeyDown = (event) => {
@@ -475,7 +475,7 @@ function NotesPage({
     return () => {
       window.cancelAnimationFrame(focusFrame);
       document.removeEventListener("keydown", handleDialogKeyDown);
-      document.body.style.overflow = previousOverflow;
+      releaseScrollLock();
 
       const previousElement = previouslyFocusedNoteRef.current;
       previouslyFocusedNoteRef.current = null;

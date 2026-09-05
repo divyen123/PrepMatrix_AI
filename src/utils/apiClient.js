@@ -99,33 +99,35 @@ function numberHeader(response, name) {
   return Number.isFinite(number) ? number : null;
 }
 
-function publishQuota(response, payload) {
-  const nestedQuota = payload?.quota && typeof payload.quota === "object"
-    ? payload.quota
-    : null;
-  const directQuota = payload && typeof payload === "object"
-    && Number.isFinite(Number(payload.limit))
-    && Number.isFinite(Number(payload.remaining))
-    ? payload
-    : null;
-  const payloadQuota = nestedQuota || directQuota;
+export function extractAiQuotaUpdate(response, path = "") {
+  // Account-balance reads are applied by AiQuotaProvider's request-sequenced
+  // refresh. Publishing them here as well would let an older overlapping read
+  // bypass that sequence guard and overwrite a newer confirmed balance.
+  if (path === "/api/ai/quota") return null;
+
   const limit = numberHeader(response, "X-AI-Credit-Limit");
   const remaining = numberHeader(response, "X-AI-Credit-Remaining");
   const cost = numberHeader(response, "X-AI-Credit-Cost");
   const resetAt = response.headers.get("X-AI-Credit-Reset-At");
+  const hasAiCreditHeaders = limit !== null || remaining !== null || cost !== null || Boolean(resetAt);
 
-  if (!payloadQuota && limit === null && remaining === null && cost === null && !resetAt) {
-    return;
-  }
+  // Other modules can expose their own `quota` payloads (for example the
+  // Resume Builder's weekly generation allowance). Only explicit
+  // X-AI-Credit headers from an AI action may update the live balance here.
+  if (!hasAiCreditHeaders) return null;
 
-  dispatchWindowEvent(AI_QUOTA_UPDATED_EVENT, {
-    ...(payloadQuota || {}),
-    ...(!payloadQuota ? { partial: true, reserved: 0 } : { partial: false }),
+  return {
+    partial: true,
     ...(limit !== null ? { limit } : {}),
     ...(remaining !== null ? { remaining } : {}),
     ...(resetAt ? { resetAt } : {}),
     ...(cost !== null ? { requestCost: cost } : {}),
-  });
+  };
+}
+
+function publishQuota(response, path) {
+  const update = extractAiQuotaUpdate(response, path);
+  if (update) dispatchWindowEvent(AI_QUOTA_UPDATED_EVENT, update);
 }
 
 async function request(path, options = {}) {
@@ -180,7 +182,7 @@ async function request(path, options = {}) {
 
     const payload = await response.json().catch(() => ({}));
     if (token && token === localStorage.getItem("prepmatrix_auth_token")) {
-      publishQuota(response, payload);
+      publishQuota(response, path);
     }
     finishAiIdempotencyRequest(idempotencyFingerprint, payload);
 
@@ -324,7 +326,7 @@ const api = {
     method: "PATCH",
     body: JSON.stringify({ pinned }),
   }),
-  getAiQuota: () => request("/api/ai/quota"),
+  getAiQuota: () => request("/api/ai/quota", { academicProfileId: null }),
   get: (path, options = {}) => request(path, options),
   post: (path, body, options = {}) => request(path, { ...options, method: "POST", body: JSON.stringify(body) }),
   put: (path, body, options = {}) => request(path, { ...options, method: "PUT", body: JSON.stringify(body) }),

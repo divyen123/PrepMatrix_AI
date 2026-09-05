@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+const providerSource = readFileSync(new URL("./AiQuotaProvider.jsx", import.meta.url), "utf8");
 
 function ruleFor(selector) {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
@@ -43,4 +44,10 @@ test("monthly allowance close action inherits popup theme tokens", () => {
   assert.match(closeRule, /border-color: var\(--border\) !important/u);
   assert.match(closeRule, /background: var\(--surface-muted\) !important/u);
   assert.match(closeRule, /color: var\(--text-muted\) !important/u);
+});
+
+test("refreshes the authoritative account balance after navigation and when details open", () => {
+  assert.match(providerSource, /const location = useLocation\(\)/u);
+  assert.match(providerSource, /\[location\.key, refresh\]/u);
+  assert.match(providerSource, /if \(!open\) refresh\(\)/u);
 });
