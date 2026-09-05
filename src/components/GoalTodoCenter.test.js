@@ -10,6 +10,9 @@ test("the center opens as an accessible right-side drawer with stacked goal and 
   const appSource = readSource("../App.jsx");
 
   assert.match(source, /Goal & To-Do Center/u);
+  assert.doesNotMatch(source, /Plan dated outcomes and clear compact daily tasks\./u);
+  assert.doesNotMatch(source, /Changes save automatically to your workspace\./u);
+  assert.doesNotMatch(source, /goal-reminder-center-description/u);
   assert.match(source, />Quick to-do</u);
   assert.match(source, /aria-label="Add a new goal"/u);
   assert.match(source, /aria-controls="planner-goal-composer"/u);

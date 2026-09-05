@@ -418,7 +418,6 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
       onMouseDown={(event) => event.target === event.currentTarget && closeCenter()}
     >
       <section
-        aria-describedby="goal-reminder-center-description"
         aria-hidden={aboutOpen ? true : undefined}
         aria-labelledby="goal-reminder-center-title"
         aria-modal={aboutOpen ? undefined : true}
@@ -430,10 +429,9 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
         <header className="goal-reminder-dialog-header">
           <div className="goal-reminder-dialog-title">
             <span className="goal-reminder-dialog-mark" aria-hidden="true"><Target size={19} /><ListTodo size={11} /></span>
-            <div><h2 id="goal-reminder-center-title">Goal & To-Do Center</h2><p id="goal-reminder-center-description">Plan dated outcomes and clear compact daily tasks.</p></div>
+            <div><h2 id="goal-reminder-center-title">Goal & To-Do Center</h2></div>
           </div>
           <div className="goal-reminder-header-controls">
-            <span className="goal-reminder-save-status"><CheckCircle2 aria-hidden="true" size={13} /><span>Changes save automatically to your workspace.</span></span>
             <label className="goal-reminder-show-completed"><input checked={plannerSettings.showCompleted} onChange={(event) => persistSettings({ ...plannerSettings, showCompleted: event.target.checked })} type="checkbox" /> Show completed items</label>
             <div className="goal-reminder-header-actions">
               <div className="goal-reminder-bulk-menu-wrap">
