@@ -302,16 +302,31 @@ body .battle-insights-popover header button:focus-visible {
   line-height: 1.45;
 }
 
-body .battle-insights-warning button {
+body .battle-insights-popover .battle-insights-warning > button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   justify-self: start;
-  min-height: 30px;
-  padding: 0;
-  border: 0;
-  color: var(--accent);
-  background: transparent;
-  box-shadow: none;
+  width: fit-content !important;
+  min-width: 0 !important;
+  min-height: 30px !important;
+  padding: 0 10px !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.28) !important;
+  border-radius: 9px !important;
+  color: var(--accent) !important;
+  background: rgba(var(--accent-rgb), 0.09) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
   font: inherit;
   font-weight: 800;
+  line-height: 1 !important;
+  transform: none !important;
+}
+
+body .battle-insights-popover .battle-insights-warning > button::after {
+  content: none !important;
+  display: none !important;
 }
 
 body .battle-insights-popover .battle-insights-link {
@@ -339,8 +354,6 @@ body .battle-insights-popover .battle-insights-link::after {
   content: none;
 }
 
-body .battle-insights-warning button:hover,
-body .battle-insights-warning button:focus-visible,
 body .battle-insights-link:hover,
 body .battle-insights-link:focus-visible {
   color: var(--text);
@@ -348,6 +361,16 @@ body .battle-insights-link:focus-visible {
   box-shadow: none;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+body .battle-insights-popover .battle-insights-warning > button:hover,
+body .battle-insights-popover .battle-insights-warning > button:focus-visible {
+  border-color: rgba(var(--accent-rgb), 0.5) !important;
+  color: var(--text) !important;
+  background: rgba(var(--accent-rgb), 0.15) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  text-decoration: none;
 }
 
 body .battle-insights-popover .battle-insights-link:hover,

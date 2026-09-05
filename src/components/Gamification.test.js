@@ -79,6 +79,21 @@ test("keeps Battle momentum fully opaque across app themes", () => {
   );
 });
 
+test("keeps the battle refresh Retry action compact and comfortably padded", () => {
+  assert.match(
+    styles,
+    /body \.battle-insights-popover \.battle-insights-warning > button\s*\{[\s\S]*?width: fit-content !important;[\s\S]*?min-height: 30px !important;[\s\S]*?padding: 0 10px !important;[\s\S]*?border-radius: 9px !important;/u,
+  );
+  assert.match(
+    styles,
+    /body \.battle-insights-popover \.battle-insights-warning > button::after\s*\{[\s\S]*?content: none !important;[\s\S]*?display: none !important;/u,
+  );
+  assert.match(
+    styles,
+    /body \.battle-insights-popover \.battle-insights-warning > button:hover,[\s\S]*?button:focus-visible\s*\{[\s\S]*?transform: none !important;/u,
+  );
+});
+
 test("moves the level guidance into an accessible badge tooltip", () => {
   assert.match(source, /aria-describedby=\{badgeGuidanceId\}/u);
   assert.match(source, /className="badge-guidance-tooltip"[\s\S]*?role="tooltip"/u);
