@@ -4,6 +4,7 @@ import test from "node:test";
 
 const appSource = readFileSync(new URL("./App.jsx", import.meta.url), "utf8");
 const settingsSource = readFileSync(new URL("./pages/SettingsPage.jsx", import.meta.url), "utf8");
+const clearDataDialogSource = readFileSync(new URL("./components/SettingsClearDataDialog.jsx", import.meta.url), "utf8");
 
 test("wires settings quick actions to real app workflows", () => {
   assert.match(appSource, /<SettingsContextMenu/u);
@@ -31,7 +32,11 @@ test("places Clear Cache and confirmed Clear Data inside data management", () =>
   assert.match(settingsSource, />Clear Cache</u);
   assert.match(settingsSource, /clearPrepMatrixAppCaches\(\)/u);
   assert.ok(settingsSource.includes("Clear Data"));
-  assert.match(settingsSource, /Confirm Clear Data/u);
+  assert.match(settingsSource, /<SettingsClearDataDialog/u);
+  assert.match(settingsSource, /open=\{confirmReset\}/u);
+  assert.match(clearDataDialogSource, /role="alertdialog"/u);
+  assert.match(clearDataDialogSource, /onClick=\{onConfirm\}/u);
+  assert.match(clearDataDialogSource, />\s*Cancel\s*</u);
   assert.match(settingsSource, /const handleResetWorkspace = async \(\) => \{/u);
   assert.match(settingsSource, /await onImportActiveProfileWorkspace\(resetWorkspace\)/u);
 });

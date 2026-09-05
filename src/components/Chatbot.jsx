@@ -60,6 +60,7 @@ import {
   UploadCloud,
   Image as ImageIcon,
   Search,
+  Ellipsis,
   Pin,
   PinOff,
 } from "lucide-react";
@@ -168,6 +169,8 @@ function Chatbot({
   const historySearchSeqRef = useRef(0);
   const isSendingRef = useRef(false);
   const sessionContextMenuRef = useRef(null);
+  const sessionMenuTriggerRef = useRef(null);
+  const deleteSessionCancelRef = useRef(null);
 
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
@@ -226,6 +229,7 @@ function Chatbot({
   const [historySearchError, setHistorySearchError] = useState("");
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [deletingSessionId, setDeletingSessionId] = useState(null);
+  const [deletingSessionBusyId, setDeletingSessionBusyId] = useState(null);
   const [pinningSessionId, setPinningSessionId] = useState(null);
   const [sessionContextMenu, setSessionContextMenu] = useState(null);
   const [renameTitle, setRenameTitle] = useState("");
@@ -401,33 +405,56 @@ function Chatbot({
     };
   }, [open]);
 
+  const closeSessionContextMenu = useCallback((restoreFocus = false) => {
+    const trigger = sessionMenuTriggerRef.current;
+    setSessionContextMenu(null);
+    sessionMenuTriggerRef.current = null;
+    if (restoreFocus && trigger) {
+      window.requestAnimationFrame(() => trigger.focus({ preventScroll: true }));
+    }
+  }, []);
+
   useEffect(() => {
     if (!sessionContextMenu) return undefined;
 
-    const dismissContextMenu = () => setSessionContextMenu(null);
     const handlePointerDown = (event) => {
-      if (sessionContextMenuRef.current?.contains(event.target)) return;
-      dismissContextMenu();
+      if (
+        sessionContextMenuRef.current?.contains(event.target)
+        || sessionMenuTriggerRef.current?.contains(event.target)
+      ) return;
+      closeSessionContextMenu();
     };
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") dismissContextMenu();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeSessionContextMenu(true);
+      }
     };
+    const handleViewportChange = () => closeSessionContextMenu();
     const focusFrame = window.requestAnimationFrame(() => {
-      sessionContextMenuRef.current?.querySelector("button")?.focus();
+      sessionContextMenuRef.current?.querySelector("button")?.focus({ preventScroll: true });
     });
 
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("resize", dismissContextMenu);
-    window.addEventListener("scroll", dismissContextMenu, true);
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
     return () => {
       window.cancelAnimationFrame(focusFrame);
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("resize", dismissContextMenu);
-      window.removeEventListener("scroll", dismissContextMenu, true);
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
     };
-  }, [sessionContextMenu]);
+  }, [closeSessionContextMenu, sessionContextMenu]);
+
+  useEffect(() => {
+    if (!deletingSessionId) return undefined;
+    const focusFrame = window.requestAnimationFrame(() => {
+      deleteSessionCancelRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [deletingSessionId]);
 
 
   const invalidateViewWork = useCallback(() => {
@@ -512,11 +539,24 @@ function Chatbot({
     return () => window.removeEventListener("openPrepMatrixAIChat", handleOpenChat);
   }, [handleNewChat]);
 
+  const openSessionActionsMenu = useCallback((session, left, top, trigger = null) => {
+    sessionMenuTriggerRef.current = trigger;
+    setEditingSessionId(null);
+    setDeletingSessionId(null);
+    setSessionContextMenu({
+      left,
+      pinned: session.pinned === true,
+      sessionId: session._id,
+      title: session.title || "Untitled chat",
+      top,
+    });
+  }, []);
+
   const handleOpenSessionContextMenu = useCallback((event, session) => {
     event.preventDefault();
     event.stopPropagation();
     const menuWidth = 164;
-    const menuHeight = 46;
+    const menuHeight = 132;
     const viewportPadding = 8;
     const left = Math.max(
       viewportPadding,
@@ -527,13 +567,66 @@ function Chatbot({
       Math.min(event.clientY, window.innerHeight - menuHeight - viewportPadding),
     );
 
-    setEditingSessionId(null);
-    setDeletingSessionId(null);
-    setSessionContextMenu({
-      left,
-      pinned: session.pinned === true,
-      sessionId: session._id,
-      top,
+    openSessionActionsMenu(session, left, top);
+  }, [openSessionActionsMenu]);
+
+  const handleToggleSessionActionsMenu = useCallback((event, session) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (sessionContextMenu?.sessionId === session._id) {
+      closeSessionContextMenu(true);
+      return;
+    }
+
+    const menuWidth = 164;
+    const menuHeight = 132;
+    const menuGap = 6;
+    const viewportPadding = 8;
+    const triggerRect = event.currentTarget.getBoundingClientRect();
+    const left = Math.max(
+      viewportPadding,
+      Math.min(triggerRect.right - menuWidth, window.innerWidth - menuWidth - viewportPadding),
+    );
+    const belowTop = triggerRect.bottom + menuGap;
+    const top = belowTop + menuHeight <= window.innerHeight - viewportPadding
+      ? belowTop
+      : Math.max(viewportPadding, triggerRect.top - menuHeight - menuGap);
+
+    openSessionActionsMenu(session, left, top, event.currentTarget);
+  }, [closeSessionContextMenu, openSessionActionsMenu, sessionContextMenu]);
+
+  const handleSessionMenuKeyDown = useCallback((event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeSessionContextMenu(true);
+      return;
+    }
+
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const menuItems = Array.from(
+      event.currentTarget.querySelectorAll('[role="menuitem"]:not(:disabled)'),
+    );
+    if (!menuItems.length) return;
+    const activeIndex = menuItems.indexOf(document.activeElement);
+    let nextIndex = activeIndex;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = menuItems.length - 1;
+    if (event.key === "ArrowDown") nextIndex = (activeIndex + 1) % menuItems.length;
+    if (event.key === "ArrowUp") {
+      nextIndex = (activeIndex - 1 + menuItems.length) % menuItems.length;
+    }
+    event.preventDefault();
+    menuItems[nextIndex]?.focus({ preventScroll: true });
+  }, [closeSessionContextMenu]);
+
+  const restoreSessionActionFocus = useCallback((sessionId) => {
+    if (!sessionId) return;
+    window.requestAnimationFrame(() => {
+      const trigger = Array.from(document.querySelectorAll(".session-more-actions-btn"))
+        .find((button) => button.dataset.sessionId === String(sessionId));
+      trigger?.focus({ preventScroll: true });
     });
   }, []);
 
@@ -556,17 +649,19 @@ function Chatbot({
         ...current,
         sessions: updatePinnedSession(current.sessions),
       }));
-      setSessionContextMenu(null);
+      closeSessionContextMenu(true);
     } catch (err) {
       console.error("Failed to update pinned chat:", err);
     } finally {
       setPinningSessionId(null);
     }
-  }, [pinningSessionId, sessionContextMenu]);
+  }, [closeSessionContextMenu, pinningSessionId, sessionContextMenu]);
 
   // Delete a session
   const handleDeleteSession = useCallback(async (e, sessionId) => {
     e.stopPropagation();
+    if (deletingSessionBusyId) return;
+    setDeletingSessionBusyId(sessionId);
     try {
       await api.deleteChatSession(sessionId);
       setSessions((current) => current.filter((s) => s._id !== sessionId));
@@ -580,8 +675,10 @@ function Chatbot({
       setDeletingSessionId(null);
     } catch (err) {
       console.error("Failed to delete session:", err);
+    } finally {
+      setDeletingSessionBusyId(null);
     }
-  }, [activeSessionId, handleNewChat]);
+  }, [activeSessionId, deletingSessionBusyId, handleNewChat]);
 
   const handleClearAllChats = useCallback(async () => {
     if (sessions.length === 0 || clearingSessions) return;
@@ -608,6 +705,38 @@ function Chatbot({
     setRenameTitle(session.title);
   }, []);
 
+  const handleEditSessionFromMenu = useCallback((event) => {
+    if (!sessionContextMenu) return;
+    const session = {
+      _id: sessionContextMenu.sessionId,
+      title: sessionContextMenu.title,
+    };
+    closeSessionContextMenu();
+    handleStartRename(event, session);
+  }, [closeSessionContextMenu, handleStartRename, sessionContextMenu]);
+
+  const handleRequestSessionDeleteFromMenu = useCallback((event) => {
+    event.stopPropagation();
+    if (!sessionContextMenu) return;
+    const { sessionId } = sessionContextMenu;
+    closeSessionContextMenu();
+    setEditingSessionId(null);
+    setDeletingSessionId(sessionId);
+  }, [closeSessionContextMenu, sessionContextMenu]);
+
+  const handleCancelSessionDelete = useCallback((event, sessionId) => {
+    event?.stopPropagation();
+    if (deletingSessionBusyId) return;
+    setDeletingSessionId(null);
+    restoreSessionActionFocus(sessionId);
+  }, [deletingSessionBusyId, restoreSessionActionFocus]);
+
+  const handleCancelSessionRename = useCallback((event, sessionId) => {
+    event?.stopPropagation();
+    setEditingSessionId(null);
+    restoreSessionActionFocus(sessionId);
+  }, [restoreSessionActionFocus]);
+
   const handleSaveRename = useCallback(async (e, sessionId) => {
     e.stopPropagation();
     const cleanTitle = renameTitle.trim();
@@ -624,6 +753,7 @@ function Chatbot({
         void fetchHistorySearch(historySearchQuery);
       }
       setEditingSessionId(null);
+      restoreSessionActionFocus(sessionId);
     } catch (err) {
       console.error("Failed to rename session:", err);
     }
@@ -632,6 +762,7 @@ function Chatbot({
     fetchHistorySearch,
     historySearchQuery,
     renameTitle,
+    restoreSessionActionFocus,
   ]);
 
   const prepareAttachmentFiles = useCallback(async (files) => {
@@ -1439,11 +1570,13 @@ function Chatbot({
                 {visibleSessions.map((s) => {
                   const isActive = s._id === activeSessionId;
                   const isEditing = s._id === editingSessionId;
+                  const isActionsMenuOpen = s._id === sessionContextMenu?.sessionId;
+                  const isDeleting = s._id === deletingSessionBusyId;
 
                   return (
                     <div
                       key={s._id}
-                      className={`history-session-item${isActive ? " active" : ""}${s.pinned === true ? " pinned" : ""}`}
+                      className={`history-session-item${isActive ? " active" : ""}${s.pinned === true ? " pinned" : ""}${isActionsMenuOpen ? " actions-open" : ""}`}
                       onClick={() => !isEditing && deletingSessionId !== s._id && handleSelectSession(s._id)}
                       onContextMenu={(event) => handleOpenSessionContextMenu(event, s)}
                     >
@@ -1452,39 +1585,60 @@ function Chatbot({
                       {isEditing ? (
                         <div className="rename-input-wrap" onClick={(e) => e.stopPropagation()}>
                           <input
+                            aria-label={`Edit title for ${s.title}`}
                             autoFocus
                             onChange={(e) => setRenameTitle(e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") handleSaveRename(e, s._id);
-                              if (e.key === "Escape") setEditingSessionId(null);
+                              if (e.key === "Escape") handleCancelSessionRename(e, s._id);
                             }}
                             type="text"
                             value={renameTitle}
                           />
-                          <button onClick={(e) => handleSaveRename(e, s._id)} type="button">
-                            <Check size={12} />
+                          <button aria-label={`Save title for ${s.title}`} onClick={(e) => handleSaveRename(e, s._id)} type="button">
+                            <Check aria-hidden="true" size={12} />
                           </button>
-                          <button onClick={() => setEditingSessionId(null)} type="button">
-                            <X size={12} />
+                          <button aria-label={`Cancel editing ${s.title}`} onClick={(event) => handleCancelSessionRename(event, s._id)} type="button">
+                            <X aria-hidden="true" size={12} />
                           </button>
                         </div>
                       ) : deletingSessionId === s._id ? (
-                        <div className="delete-confirm-wrap" onClick={(e) => e.stopPropagation()}>
+                        <div
+                          aria-label={`Confirm deleting ${s.title}`}
+                          className="delete-confirm-wrap"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape" && !isDeleting) {
+                              event.preventDefault();
+                              handleCancelSessionDelete(event, s._id);
+                            }
+                          }}
+                          role="group"
+                        >
                           <span className="delete-confirm-text">Delete?</span>
                           <div className="compact-confirm-actions">
                             <button
-                              aria-label="Confirm deleting conversation"
+                              aria-busy={isDeleting}
+                              aria-label={`Confirm deleting ${s.title}`}
                               className="compact-confirm-btn is-confirm delete-yes-btn"
+                              disabled={isDeleting}
                               onClick={(e) => handleDeleteSession(e, s._id)}
                               title="Yes, delete"
                               type="button"
                             >
-                              <Check aria-hidden="true" size={13} />
+                              {isDeleting ? (
+                                <Loader2 aria-hidden="true" className="spinner" size={13} />
+                              ) : (
+                                <Check aria-hidden="true" size={13} />
+                              )}
                             </button>
                             <button
-                              aria-label="Cancel deleting conversation"
+                              aria-label={`Cancel deleting ${s.title}`}
+                              autoFocus
                               className="compact-confirm-btn is-cancel delete-no-btn"
-                              onClick={() => setDeletingSessionId(null)}
+                              disabled={isDeleting}
+                              onClick={(event) => handleCancelSessionDelete(event, s._id)}
+                              ref={deleteSessionCancelRef}
                               title="Cancel"
                               type="button"
                             >
@@ -1502,21 +1656,17 @@ function Chatbot({
                           ) : null}
                           <div className="session-actions">
                             <button
-                              aria-label="Rename conversation"
-                              onClick={(e) => handleStartRename(e, s)}
+                              aria-controls={isActionsMenuOpen ? "chat-session-actions-menu" : undefined}
+                              aria-expanded={isActionsMenuOpen}
+                              aria-haspopup="menu"
+                              aria-label={`Open actions for ${s.title}`}
+                              className="session-more-actions-btn"
+                              data-session-id={s._id}
+                              onClick={(event) => handleToggleSessionActionsMenu(event, s)}
+                              title="Chat actions"
                               type="button"
                             >
-                              <Edit2 size={12} />
-                            </button>
-                            <button
-                              aria-label="Delete conversation"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeletingSessionId(s._id);
-                              }}
-                              type="button"
-                            >
-                              <Trash2 size={12} />
+                              <Ellipsis aria-hidden="true" size={15} />
                             </button>
                           </div>
                         </>
@@ -1763,9 +1913,11 @@ function Chatbot({
           </section>
           {sessionContextMenu ? (
             <div
-              aria-label="Chat actions"
+              aria-label={`Chat actions for ${sessionContextMenu.title}`}
               className="chat-session-context-menu"
+              id="chat-session-actions-menu"
               onContextMenu={(event) => event.preventDefault()}
+              onKeyDown={handleSessionMenuKeyDown}
               ref={sessionContextMenuRef}
               role="menu"
               style={{ left: sessionContextMenu.left, top: sessionContextMenu.top }}
@@ -1784,7 +1936,21 @@ function Chatbot({
                 ) : (
                   <Pin aria-hidden="true" size={15} />
                 )}
-                <span>{sessionContextMenu.pinned ? "Unpin chat" : "Pin chat"}</span>
+                <span>{sessionContextMenu.pinned ? "Unpin" : "Pin"}</span>
+              </button>
+              <button onClick={handleEditSessionFromMenu} role="menuitem" type="button">
+                <Edit2 aria-hidden="true" size={15} />
+                <span>Edit</span>
+              </button>
+              <div aria-hidden="true" className="chat-session-menu-separator" role="separator" />
+              <button
+                className="is-danger"
+                onClick={handleRequestSessionDeleteFromMenu}
+                role="menuitem"
+                type="button"
+              >
+                <Trash2 aria-hidden="true" size={15} />
+                <span>Delete</span>
               </button>
             </div>
           ) : null}

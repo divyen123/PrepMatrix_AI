@@ -196,14 +196,6 @@ export default function SettingsContextMenu({
           onKeyDown={handleRootMenuKeyDown}
           role="menu"
         >
-          <div className="settings-context-menu-heading">
-            <span aria-hidden="true"><Settings size={17} /></span>
-            <div>
-              <strong>Settings actions</strong>
-              <small>Quick controls for PrepMatrix</small>
-            </div>
-          </div>
-
           <button data-menu-level="root" onClick={() => runAction(onOpenSettings)} role="menuitem" type="button">
             <Settings aria-hidden="true" size={17} />
             <span>Open Settings</span>

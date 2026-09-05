@@ -35,45 +35,6 @@ body.has-bg-image .settings-context-menu-shell {
   opacity: 1 !important;
 }
 
-.settings-context-menu-heading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px 10px;
-  color: var(--settings-menu-text) !important;
-}
-
-.settings-context-menu-heading > span {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid var(--settings-menu-border);
-  border-radius: 10px;
-  background: var(--settings-menu-hover);
-}
-
-.settings-context-menu-heading div {
-  display: grid;
-  min-width: 0;
-  gap: 1px;
-}
-
-.settings-context-menu-heading strong {
-  font-size: 0.82rem;
-  font-weight: 760;
-  letter-spacing: 0.01em;
-}
-
-.settings-context-menu-heading small {
-  overflow: hidden;
-  color: var(--settings-menu-muted);
-  font-size: 0.67rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 body .settings-context-menu button {
   display: grid;
   grid-template-columns: 19px minmax(0, 1fr) auto auto;

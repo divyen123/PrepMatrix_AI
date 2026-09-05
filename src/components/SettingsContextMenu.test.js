@@ -50,6 +50,9 @@ test("keeps every requested quick action, theme choice, and opaque menu treatmen
   const stylesheet = readFileSync(new URL("./SettingsContextMenu.css", import.meta.url), "utf8");
 
   ACTION_LABELS.forEach((label) => assert.ok(source.includes(label), `Missing ${label}`));
+  assert.doesNotMatch(source, />Settings actions</u);
+  assert.doesNotMatch(source, /Quick controls for PrepMatrix/u);
+  assert.match(source, /aria-label="Settings actions"/u);
   assert.match(source, /id: "light"[\s\S]*?id: "dark"[\s\S]*?id: "system"/u);
   assert.match(source, /event\.key === "ContextMenu"/u);
   assert.match(source, /event\.shiftKey && event\.key === "F10"/u);

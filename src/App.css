@@ -10511,17 +10511,39 @@ body .chat-session-context-menu button:disabled {
   cursor: wait;
 }
 
-/* Action buttons inside session items (hidden by default, shown on hover) */
+.chat-session-menu-separator {
+  height: 1px;
+  margin: 4px 7px;
+  background: var(--border);
+}
+
+body .chat-session-context-menu button.is-danger {
+  color: var(--danger) !important;
+}
+
+body .chat-session-context-menu button.is-danger:hover,
+body .chat-session-context-menu button.is-danger:focus-visible {
+  background:
+    linear-gradient(color-mix(in srgb, var(--danger) 12%, transparent), color-mix(in srgb, var(--danger) 12%, transparent)),
+    var(--chat-session-menu-bg) !important;
+  color: var(--danger) !important;
+}
+
+/* Compact overflow action inside session items. */
 .session-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex: 0 0 auto;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.15s ease;
 }
 
-.history-session-item:hover .session-actions {
+.history-session-item:hover .session-actions,
+.history-session-item:focus-within .session-actions,
+.history-session-item.actions-open .session-actions {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .session-actions button {
@@ -10543,11 +10565,22 @@ body .chat-session-context-menu button:disabled {
 
 .session-actions button:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--surface-muted);
 }
 
-.session-actions button:hover:last-child {
-  color: #ef4444; /* red for trash */
+.session-actions button:focus-visible,
+.history-session-item.actions-open .session-more-actions-btn {
+  color: var(--accent);
+  background: var(--accent-soft);
+  outline: 2px solid rgba(var(--accent-rgb), 0.45);
+  outline-offset: 1px;
+}
+
+@media (hover: none) {
+  .session-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 /* Rename inputs */

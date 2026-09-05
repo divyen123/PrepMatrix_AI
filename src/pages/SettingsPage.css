@@ -170,26 +170,126 @@ body .settings-page .settings-data-action-btn {
   font-size: 0.78rem;
 }
 
-.settings-data-confirm-actions {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-}
-
 @media (max-width: 680px) {
   .settings-data-action-row {
     align-items: stretch;
     flex-direction: column;
   }
 
-  body .settings-page .settings-data-action-btn,
-  .settings-data-confirm-actions {
+  body .settings-page .settings-data-action-btn {
     width: 100%;
   }
+}
 
-  .settings-data-confirm-actions > button {
-    flex: 1;
+.settings-clear-data-backdrop {
+  z-index: 2520;
+  background: rgba(3, 8, 18, 0.68) !important;
+  backdrop-filter: blur(14px) saturate(72%) brightness(70%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(72%) brightness(70%) !important;
+}
+
+body .confirm-modal.settings-clear-data-dialog {
+  width: min(470px, 100%);
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid rgba(239, 68, 68, 0.34) !important;
+  box-shadow: 0 30px 90px rgba(2, 6, 23, 0.38) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  animation: settings-clear-data-dialog-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+body:not(.dark) .confirm-modal.settings-clear-data-dialog {
+  background: #ffffff !important;
+}
+
+body.dark .confirm-modal.settings-clear-data-dialog {
+  background: #111722 !important;
+  box-shadow: 0 32px 100px rgba(0, 0, 0, 0.66) !important;
+}
+
+.settings-clear-data-dialog__icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+}
+
+.settings-clear-data-dialog__copy {
+  gap: 6px;
+}
+
+.settings-clear-data-dialog__copy .section-tag {
+  width: fit-content;
+  margin: 0 0 2px !important;
+  color: var(--danger);
+}
+
+.settings-clear-data-dialog__copy h2 {
+  color: var(--text);
+  font-size: 1.3rem;
+}
+
+.settings-clear-data-dialog__copy p {
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.settings-clear-data-dialog__summary {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-clear-data-dialog__summary > div {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.055);
+}
+
+.settings-clear-data-dialog__summary > div.is-safe {
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.18);
+  background: rgba(var(--accent-rgb), 0.055);
+}
+
+.settings-clear-data-dialog__summary span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  color: var(--text-muted);
+  font-size: 0.73rem;
+  line-height: 1.4;
+}
+
+.settings-clear-data-dialog__summary strong {
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.settings-clear-data-dialog__check {
+  color: var(--accent);
+}
+
+.settings-clear-data-dialog__actions .confirm-danger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+@keyframes settings-clear-data-dialog-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body .confirm-modal.settings-clear-data-dialog {
+    animation-duration: 0.01ms;
   }
 }
 

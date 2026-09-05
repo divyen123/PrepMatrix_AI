@@ -13,7 +13,7 @@ test("the API client persists a boolean chat pin with the dedicated endpoint", (
   );
 });
 
-test("chat history exposes a right-click pin menu and updates both history collections", () => {
+test("chat history exposes one overflow menu with pin, edit, and delete actions", () => {
   const handlerStart = chatbotSource.indexOf("const handleOpenSessionContextMenu =");
   const handlerEnd = chatbotSource.indexOf("// Delete a session", handlerStart);
   const handlers = chatbotSource.slice(handlerStart, handlerEnd);
@@ -26,9 +26,30 @@ test("chat history exposes a right-click pin menu and updates both history colle
   assert.match(handlers, /setSessions\(updatePinnedSession\)/u);
   assert.match(handlers, /setHistorySearchResponse/u);
   assert.match(list, /onContextMenu=\{\(event\) => handleOpenSessionContextMenu\(event, s\)\}/u);
-  assert.match(chatbotSource, /sessionContextMenu\.pinned \? "Unpin chat" : "Pin chat"/u);
+  assert.match(list, /handleToggleSessionActionsMenu\(event, s\)/u);
+  assert.match(list, /aria-haspopup="menu"/u);
+  assert.match(list, /aria-expanded=\{isActionsMenuOpen\}/u);
+  assert.match(list, /data-session-id=\{s\._id\}/u);
+  assert.match(list, /<Ellipsis aria-hidden="true" size=\{15\} \/>/u);
+  assert.doesNotMatch(list, /aria-label="Rename conversation"/u);
+  assert.doesNotMatch(list, /aria-label="Delete conversation"/u);
+  assert.match(chatbotSource, /sessionContextMenu\.pinned \? "Unpin" : "Pin"/u);
+  assert.match(chatbotSource, /<span>Edit<\/span>/u);
+  assert.match(chatbotSource, /<span>Delete<\/span>/u);
+  assert.match(chatbotSource, /handleRequestSessionDeleteFromMenu[\s\S]*?setDeletingSessionId\(sessionId\)/u);
+  assert.match(chatbotSource, /sessionMenuTriggerRef\.current\?\.contains\(event\.target\)/u);
   assert.match(chatbotSource, /role="menu"/u);
   assert.match(chatbotSource, /role="menuitem"/u);
+});
+
+test("chat delete uses inline check and cancel controls before mutating data", () => {
+  assert.match(chatbotSource, /className="delete-confirm-wrap"[\s\S]*?role="group"/u);
+  assert.match(chatbotSource, /aria-label=\{`Confirm deleting \$\{s\.title\}`\}[\s\S]*?<Check/u);
+  assert.match(chatbotSource, /aria-label=\{`Cancel deleting \$\{s\.title\}`\}[\s\S]*?<X/u);
+  assert.match(chatbotSource, /if \(deletingSessionBusyId\) return;[\s\S]*?api\.deleteChatSession\(sessionId\)/u);
+  assert.match(chatbotSource, /event\.key === "Escape" && !isDeleting/u);
+  assert.match(chatbotSource, /handleCancelSessionDelete[\s\S]*?restoreSessionActionFocus\(sessionId\)/u);
+  assert.match(chatbotSource, /handleCancelSessionRename[\s\S]*?restoreSessionActionFocus\(sessionId\)/u);
 });
 
 test("existing chat activity keeps pinned-first ordering", () => {
@@ -61,4 +82,6 @@ test("the chat pin menu stays opaque across dashboard themes", () => {
     stylesheet,
     /body \.chat-session-context-menu\s*\{[^}]*background:\s*var\(--surface-strong\);/u,
   );
+  assert.match(stylesheet, /body \.chat-session-context-menu button\.is-danger\s*\{[^}]*color:\s*var\(--danger\) !important;/u);
+  assert.match(stylesheet, /\.history-session-item:focus-within \.session-actions/u);
 });

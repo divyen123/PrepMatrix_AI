@@ -7,6 +7,7 @@ import SettingsDataInfo from "../components/SettingsDataInfo";
 import SettingsProfileInfo from "../components/SettingsProfileInfo";
 import SettingsActionAlertsInfo from "../components/SettingsActionAlertsInfo";
 import SettingsAcademicChangeDialog from "../components/SettingsAcademicChangeDialog";
+import SettingsClearDataDialog from "../components/SettingsClearDataDialog";
 import {
   DEFAULT_GOAL_REMINDER_DATA,
   DEFAULT_GOAL_REMINDER_SETTINGS,
@@ -833,6 +834,7 @@ function SettingsPage({
   // Data Management state
   const [confirmReset, setConfirmReset] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
+  const [clearingWorkspaceData, setClearingWorkspaceData] = useState(false);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
   const [showPasswordStep, setShowPasswordStep] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -931,6 +933,7 @@ function SettingsPage({
 
   const savedRef = useRef(false);
   const deleteConfirmRef = useRef(null);
+  const clearDataButtonRef = useRef(null);
 
   useEffect(() => {
     customBackgroundMountedRef.current = true;
@@ -1692,6 +1695,8 @@ function SettingsPage({
 
   // Reset entire workspace
   const handleResetWorkspace = async () => {
+    if (clearingWorkspaceData) return;
+    setClearingWorkspaceData(true);
     const resetWorkspace = {
       subjects: [],
       schedule: [],
@@ -1708,9 +1713,11 @@ function SettingsPage({
         await onImportActiveProfileWorkspace(resetWorkspace);
       } catch (error) {
         toast.error(error?.message || "Could not reset the active academic profile.");
+        setClearingWorkspaceData(false);
         return;
       }
       setConfirmReset(false);
+      setClearingWorkspaceData(false);
       toast.success("The active academic profile workspace data has been cleared.");
       return;
     }
@@ -1726,6 +1733,7 @@ function SettingsPage({
     setGoalReminderData(normalizePlannerData(DEFAULT_GOAL_REMINDER_DATA));
     setGoalReminderSettings(normalizePlannerSettings(DEFAULT_GOAL_REMINDER_SETTINGS));
     setConfirmReset(false);
+    setClearingWorkspaceData(false);
     toast.success("The active academic profile workspace data has been cleared.");
   };
 
@@ -3177,41 +3185,19 @@ function SettingsPage({
                 <span>Clear Workspace Data</span>
                 <p className="card-subtext">Clear subjects, schedules, progress, bookmarks, goals, and to-do tasks from the active academic profile. Your account and appearance stay intact.</p>
               </div>
-              {!confirmReset ? (
-                <button
-                  className="settings-data-action-btn"
-                  onClick={() => setConfirmReset(true)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: "8px", width: "fit-content",
-                    background: "rgba(239, 68, 68, 0.1)", color: "#ef4444",
-                    border: "1px solid rgba(239, 68, 68, 0.3)"
-                  }}
-                  type="button"
-                >
-                  <Trash2 aria-hidden="true" size={16} /> Clear Data
-                </button>
-              ) : (
-                <div className="reset-confirm-actions settings-data-confirm-actions">
-                  <button
-                    onClick={handleResetWorkspace}
-                    style={{
-                      display: "flex", alignItems: "center", gap: "8px",
-                      background: "rgba(239, 68, 68, 0.2)", color: "#ef4444",
-                      border: "1px solid rgba(239, 68, 68, 0.5)", fontWeight: 600
-                    }}
-                    type="button"
-                  >
-                    <Trash2 aria-hidden="true" size={16} /> Confirm Clear Data
-                  </button>
-                  <button
-                    onClick={() => setConfirmReset(false)}
-                    style={{ display: "flex", alignItems: "center", gap: "8px" }}
-                    type="button"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
+              <button
+                className="settings-data-action-btn"
+                onClick={() => setConfirmReset(true)}
+                ref={clearDataButtonRef}
+                style={{
+                  display: "flex", alignItems: "center", gap: "8px", width: "fit-content",
+                  background: "rgba(239, 68, 68, 0.1)", color: "#ef4444",
+                  border: "1px solid rgba(239, 68, 68, 0.3)"
+                }}
+                type="button"
+              >
+                <Trash2 aria-hidden="true" size={16} /> Clear Data
+              </button>
             </div>
           </div>
 
@@ -3377,6 +3363,14 @@ function SettingsPage({
         </div>
 
       </div>
+
+      <SettingsClearDataDialog
+        busy={clearingWorkspaceData}
+        onCancel={() => setConfirmReset(false)}
+        onConfirm={handleResetWorkspace}
+        open={confirmReset}
+        returnFocusRef={clearDataButtonRef}
+      />
 
       <SettingsAcademicChangeDialog
         actionLabel="Save anyway"
