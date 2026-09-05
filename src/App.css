@@ -16169,9 +16169,9 @@ body .trend-modal-close-btn:hover {
   z-index: 20000;
   padding: clamp(14px, 3vw, 40px);
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
   background: rgba(21, 32, 51, 0.28);
-  overscroll-behavior: contain;
+  overscroll-behavior: none;
 }
 
 body.dark .subject-modal-overlay,
@@ -16187,6 +16187,8 @@ body.has-bg-image .subject-modal-overlay {
   max-height: calc(100dvh - 40px);
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   color: var(--text);
   background: var(--surface-strong);
   border: 1px solid var(--border);

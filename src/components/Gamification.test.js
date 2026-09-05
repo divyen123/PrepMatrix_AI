@@ -64,6 +64,21 @@ test("keeps the Quiz Battle shortcut and details compact in the Momentum header"
   assert.match(styles, /body \.battle-insights-popover \.battle-insights-link\s*\{[\s\S]*?min-height: 30px;[\s\S]*?font-size: 0\.72rem/u);
 });
 
+test("keeps Battle momentum fully opaque across app themes", () => {
+  assert.match(
+    styles,
+    /\.battle-insights-popover\s*\{[\s\S]*?--battle-insights-solid-surface: #ffffff;[\s\S]*?background: var\(--battle-insights-solid-surface\);[\s\S]*?backdrop-filter: none;/u,
+  );
+  assert.match(
+    styles,
+    /body\.dark \.battle-insights-popover\s*\{\s*--battle-insights-solid-surface: #121b2d;\s*\}/u,
+  );
+  assert.match(
+    styles,
+    /body\.has-bg-image \.battle-insights-popover\s*\{[\s\S]*?--battle-insights-solid-surface: rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\);[\s\S]*?background: var\(--battle-insights-solid-surface\);/u,
+  );
+});
+
 test("moves the level guidance into an accessible badge tooltip", () => {
   assert.match(source, /aria-describedby=\{badgeGuidanceId\}/u);
   assert.match(source, /className="badge-guidance-tooltip"[\s\S]*?role="tooltip"/u);
@@ -86,7 +101,7 @@ test("shows all Study Momentum content without an internal scrollbar", () => {
   assert.match(styles, /\.gamification-card > \.gamification-scroll-region\s*\{[\s\S]*?overflow: visible/u);
   assert.doesNotMatch(styles, /gamification-scroll-region::-webkit-scrollbar|overflow-y: auto|scrollbar-width: thin/u);
   assert.match(styles, /\.analytics-support-grid > \.gamification-card\s*\{[\s\S]*?height: auto/u);
-  assert.match(styles, /body\.has-bg-image \.battle-insights-popover\s*\{[\s\S]*?background: rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\)/u);
+  assert.match(styles, /body\.has-bg-image \.battle-insights-popover\s*\{[\s\S]*?background: var\(--battle-insights-solid-surface\)/u);
   assert.doesNotMatch(appStyles, /\.gamification-card > \*\s*\{[\s\S]*?translateY\(-96px\)/u);
   assert.doesNotMatch(appStyles, /\.gamification-card::before\s*\{[\s\S]*?translateY\(-96px\)/u);
 });

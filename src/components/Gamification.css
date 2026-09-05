@@ -148,6 +148,7 @@ body .battle-insights-trigger.is-error {
 }
 
 .battle-insights-popover {
+  --battle-insights-solid-surface: #ffffff;
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -160,9 +161,15 @@ body .battle-insights-trigger.is-error {
   border: 1px solid var(--border);
   border-radius: 18px;
   color: var(--text);
-  background: var(--surface-strong);
+  background: var(--battle-insights-solid-surface);
   box-shadow: 0 22px 54px rgba(10, 18, 34, 0.28);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   animation: battle-insights-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+body.dark .battle-insights-popover {
+  --battle-insights-solid-surface: #121b2d;
 }
 
 .battle-insights-popover header {
@@ -428,8 +435,9 @@ body .battle-insights-popover .battle-insights-link:focus-visible {
 }
 
 body.has-bg-image .battle-insights-popover {
+  --battle-insights-solid-surface: rgb(var(--bg-surface-rgb, 18, 27, 45));
   border-color: rgba(255, 255, 255, 0.13);
-  background: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  background: var(--battle-insights-solid-surface);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }

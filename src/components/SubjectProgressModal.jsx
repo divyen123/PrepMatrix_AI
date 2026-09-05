@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
+import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 
 function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule = [], completed = [] }) {
   const navigate = useNavigate();
@@ -108,6 +109,7 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement;
+    const releaseScrollLock = acquireDocumentScrollLock();
     const frame = window.requestAnimationFrame(() => {
       setIsVisible(true);
       closeButtonRef.current?.focus({ preventScroll: true });
@@ -129,6 +131,7 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
       window.cancelAnimationFrame(frame);
       if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
       document.body.classList.remove("modal-open");
+      releaseScrollLock();
       document.removeEventListener("keydown", handleKeyDown);
       previousFocusRef.current?.focus?.({ preventScroll: true });
     };
