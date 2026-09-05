@@ -30,3 +30,24 @@ test("Subject Performance has one outer vertical scroll owner", () => {
     /\.subject-progress-modal\s*\{[^}]*overflow-x:\s*hidden;[^}]*overflow-y:\s*auto;[^}]*overscroll-behavior:\s*contain;[^}]*scrollbar-gutter:\s*stable;/u,
   );
 });
+
+test("Subject Performance removes redundant hero copy and uses compact footer actions", () => {
+  assert.doesNotMatch(modalSource, /A focused view of completed chapters, upcoming work, and exam readiness\./u);
+  assert.doesNotMatch(modalSource, /aria-describedby="subject-progress-description"/u);
+  assert.match(
+    stylesheet,
+    /\.subject-progress-modal \.subject-modal-actions\s*\{[^}]*gap:\s*10px;[^}]*padding:\s*12px 30px 16px;/u,
+  );
+  assert.match(
+    stylesheet,
+    /body \.subject-progress-modal \.subject-action-btn\s*\{[^}]*grid-template-columns:\s*32px minmax\(0, 1fr\) auto;[^}]*min-height:\s*58px;[^}]*padding:\s*8px 10px;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.subject-action-icon\s*\{[^}]*width:\s*32px;[^}]*height:\s*32px;/u,
+  );
+  assert.match(
+    stylesheet,
+    /@media \(max-width: 800px\)\s*\{[\s\S]*?\.subject-progress-modal \.subject-modal-actions\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*gap:\s*8px;[^}]*padding:\s*10px 18px 14px;[\s\S]*?body \.subject-progress-modal \.subject-action-btn\s*\{[^}]*min-height:\s*52px;/u,
+  );
+});

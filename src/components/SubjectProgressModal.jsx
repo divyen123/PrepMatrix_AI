@@ -249,7 +249,6 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
       role="presentation"
     >
       <section
-        aria-describedby="subject-progress-description"
         aria-hidden={askAIOpen ? "true" : undefined}
         aria-labelledby="subject-progress-title"
         aria-modal="true"
@@ -272,9 +271,6 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
           <div className="subject-modal-hero-copy">
             <span className="subject-modal-eyebrow"><TrendingUp size={14} /> Subject performance</span>
             <h2 id="subject-progress-title">{subject}</h2>
-            <p id="subject-progress-description">
-              A focused view of completed chapters, upcoming work, and exam readiness.
-            </p>
           </div>
           <div
             aria-label={isSubjectComplete ? `${subject} completed` : `${completionPercentage}% complete`}
