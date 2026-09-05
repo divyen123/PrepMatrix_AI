@@ -21297,8 +21297,8 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  min-height: clamp(140px, 20dvh, 210px);
-  padding: 1.5rem 1.25rem calc(1.4rem + env(safe-area-inset-bottom));
+  min-height: clamp(104px, 13dvh, 142px);
+  padding: 0.95rem 1.25rem calc(0.85rem + env(safe-area-inset-bottom));
   overflow: hidden;
   pointer-events: none;
   isolation: isolate;
@@ -21312,30 +21312,33 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
 
 .db-voice-entry-dock-gradient {
   position: absolute;
-  inset: 0;
+  inset: auto auto 0 50%;
   z-index: 0;
+  width: min(1000px, calc(100% - 40px));
+  height: clamp(104px, 13dvh, 140px);
+  transform: translateX(-50%);
   background: linear-gradient(
     to top,
-    rgba(2, 6, 23, 0.94) 0%,
-    rgba(2, 6, 23, 0.72) 45%,
+    rgba(2, 6, 23, 0.56) 0%,
+    rgba(2, 6, 23, 0.22) 46%,
     rgba(2, 6, 23, 0) 100%
   );
   -webkit-mask-image: linear-gradient(
     to right,
     transparent 0%,
-    rgba(0, 0, 0, 0.35) 4%,
-    #000 12%,
-    #000 88%,
-    rgba(0, 0, 0, 0.35) 96%,
+    rgba(0, 0, 0, 0.2) 10%,
+    #000 20%,
+    #000 80%,
+    rgba(0, 0, 0, 0.2) 90%,
     transparent 100%
   );
   mask-image: linear-gradient(
     to right,
     transparent 0%,
-    rgba(0, 0, 0, 0.35) 4%,
-    #000 12%,
-    #000 88%,
-    rgba(0, 0, 0, 0.35) 96%,
+    rgba(0, 0, 0, 0.2) 10%,
+    #000 20%,
+    #000 80%,
+    rgba(0, 0, 0, 0.2) 90%,
     transparent 100%
   );
   box-shadow: none;

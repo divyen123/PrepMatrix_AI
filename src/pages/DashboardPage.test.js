@@ -281,11 +281,11 @@ test("offers the rotating voice hint once per real app entry and after the splas
   );
   assert.match(
     stylesheet,
-    /\.db-voice-entry-dock-gradient\s*\{[^}]*background: linear-gradient\([^}]*to top,[^}]*rgba\(2, 6, 23, 0\.94\)/u,
+    /\.db-voice-entry-dock-gradient\s*\{[^}]*width:\s*min\(1000px, calc\(100% - 40px\)\);[^}]*height:\s*clamp\(104px, 13dvh, 140px\);[^}]*rgba\(2, 6, 23, 0\.56\)/u,
   );
   assert.match(
     stylesheet,
-    /\.db-voice-entry-dock-gradient\s*\{[^}]*-webkit-mask-image: linear-gradient\([^}]*to right,[^}]*transparent 0%[^}]*#000 12%[^}]*#000 88%[^}]*transparent 100%/u,
+    /\.db-voice-entry-dock-gradient\s*\{[^}]*-webkit-mask-image: linear-gradient\([^}]*to right,[^}]*transparent 0%[^}]*#000 20%[^}]*#000 80%[^}]*transparent 100%/u,
     "the bottom gradient should feather at both sides instead of exposing its rectangular bounds",
   );
   assert.match(
