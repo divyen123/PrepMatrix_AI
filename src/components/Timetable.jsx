@@ -12,7 +12,9 @@ import {
   formatScheduleDate,
   formatScheduleDayHeading,
   getScheduleGenerationWindow,
+  toLocalDateKey,
 } from "../utils/scheduleDates";
+import { isEditableShortcutTarget } from "../utils/appKeyboardShortcuts";
 import { subscribeToLocalDateChanges } from "../utils/localDateRefresh";
 import {
   PLANNER_UNLOCK_QUIZ_QUESTION_COUNT,
@@ -96,6 +98,8 @@ export function PlannerScheduleDay({
   return (
     <div
       className={"day-card planner-day-card" + (progression.isLocked ? " is-locked" : "")}
+      data-planner-date={progression.dateKey || undefined}
+      tabIndex={-1}
     >
       <div className="day-title">
         <span>{formatScheduleDayHeading(item, dayIndex, scheduleStartDate)}</span>
@@ -138,7 +142,11 @@ export function PlannerScheduleDay({
                 "task-row planner-task-row"
                 + (showCompletedState ? " is-completed" : "")
               }
+              data-planner-day-index={dayIndex}
+              data-planner-task-completed={showCompletedState ? "true" : "false"}
+              data-planner-task-index={taskIndex}
               key={task.task + "-" + taskIndex}
+              tabIndex={progression.isLocked ? -1 : 0}
             >
               <span className="planner-task-control-slot">
                 {memoryReviewTask ? (
@@ -221,6 +229,8 @@ function Timetable({
   onOpenMemoryReview = () => {},
   onOpenSubjects = () => {},
   onRequestParentAccess,
+  onShortcutActionHandled = () => {},
+  shortcutAction = "",
 }) {
   const [examDate, setExamDate] = useState("");
   const [planMode, setPlanMode] = useState("balanced");
@@ -236,6 +246,7 @@ function Timetable({
   const scheduleRef = useRef(schedule);
   const scheduleStartDateRef = useRef(scheduleStartDate);
   const todayRef = useRef(today);
+  const timetableTopbarRef = useRef(null);
 
   academicProfileIdRef.current = academicProfileDataId;
   completedRef.current = completed;
@@ -567,7 +578,7 @@ function Timetable({
     };
   }, [academicProfileDataId, generate]);
 
-  const toggleComplete = (dayIndex, taskIndex) => {
+  const toggleComplete = useCallback((dayIndex, taskIndex) => {
     const nextState = completePlannerTask(
       schedule,
       completed,
@@ -577,7 +588,120 @@ function Timetable({
 
     if (nextState.schedule !== schedule) setSchedule(nextState.schedule);
     if (nextState.completed !== completed) setCompleted(nextState.completed);
-  };
+  }, [completed, schedule, setCompleted, setSchedule]);
+
+  useEffect(() => {
+    const handlePlannerKeyboardShortcut = (event) => {
+      if (
+        event.defaultPrevented
+        || event.repeat
+        || event.altKey
+        || event.ctrlKey
+        || event.metaKey
+        || event.shiftKey
+        || isEditableShortcutTarget(event.target)
+        || unlockQuizTarget
+        || showClearConfirmation
+      ) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "n") {
+        event.preventDefault();
+        if (!canManageSchedule) {
+          requestParentAccess();
+          return;
+        }
+        setShowGenerateForm(true);
+        window.requestAnimationFrame(() => {
+          timetableTopbarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          timetableTopbarRef.current?.querySelector("input, select")?.focus({ preventScroll: true });
+        });
+        return;
+      }
+
+      if (key === "t") {
+        event.preventDefault();
+        const todayCard = document.querySelector(
+          `.planner-day-card[data-planner-date="${toLocalDateKey(today)}"]`,
+        );
+        if (todayCard instanceof HTMLElement) {
+          todayCard.scrollIntoView({ behavior: "smooth", block: "center" });
+          todayCard.focus({ preventScroll: true });
+        } else {
+          toast.info("Today's schedule card is not in this plan.", {
+            toastId: "planner-shortcut-today-missing",
+          });
+        }
+        return;
+      }
+
+      if (key === "c") {
+        event.preventDefault();
+        const focusedTask = document.activeElement?.closest?.(".planner-task-row");
+        const dayIndex = Number.parseInt(focusedTask?.dataset.plannerDayIndex || "", 10);
+        const taskIndex = Number.parseInt(focusedTask?.dataset.plannerTaskIndex || "", 10);
+        const canComplete = focusedTask
+          && focusedTask.dataset.plannerTaskCompleted !== "true"
+          && focusedTask.querySelector('input[type="checkbox"]:not([disabled])');
+        if (canComplete && Number.isInteger(dayIndex) && Number.isInteger(taskIndex)) {
+          toggleComplete(dayIndex, taskIndex);
+        } else {
+          toast.info("Focus an incomplete planner task, then press C.", {
+            toastId: "planner-shortcut-focus-task",
+          });
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handlePlannerKeyboardShortcut);
+    return () => document.removeEventListener("keydown", handlePlannerKeyboardShortcut);
+  }, [
+    canManageSchedule,
+    requestParentAccess,
+    showClearConfirmation,
+    today,
+    toggleComplete,
+    unlockQuizTarget,
+  ]);
+
+  useEffect(() => {
+    if (!shortcutAction) return undefined;
+
+    const actionFrame = window.requestAnimationFrame(() => {
+      if (shortcutAction === "new") {
+        if (!canManageSchedule) {
+          requestParentAccess();
+        } else {
+          setShowGenerateForm(true);
+          window.requestAnimationFrame(() => {
+            timetableTopbarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+            timetableTopbarRef.current?.querySelector("input, select")?.focus({ preventScroll: true });
+          });
+        }
+      } else if (shortcutAction === "today") {
+        const todayCard = document.querySelector(
+          `.planner-day-card[data-planner-date="${toLocalDateKey(today)}"]`,
+        );
+        if (todayCard instanceof HTMLElement) {
+          todayCard.scrollIntoView({ behavior: "smooth", block: "center" });
+          todayCard.focus({ preventScroll: true });
+        } else {
+          toast.info("Today's schedule card is not in this plan.", {
+            toastId: "planner-shortcut-today-missing",
+          });
+        }
+      }
+      onShortcutActionHandled();
+    });
+
+    return () => window.cancelAnimationFrame(actionFrame);
+  }, [
+    canManageSchedule,
+    onShortcutActionHandled,
+    requestParentAccess,
+    shortcutAction,
+    today,
+  ]);
 
   const handleRescheduleTask = (dayIndex, taskIndex) => {
     const updatedSchedule = reopenPlannerTask(
@@ -780,7 +904,7 @@ function Timetable({
         )}
       </div>
 
-      <div className="timetable-topbar">
+      <div className="timetable-topbar" ref={timetableTopbarRef}>
         {showGenerateForm ? (
           !canManageSchedule ? (
             <div className="planner-parent-lock" role="status">

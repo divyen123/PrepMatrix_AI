@@ -20,6 +20,7 @@ import api from "../utils/apiClient";
 import { mergeMemoryReviewSchedule } from "../utils/learningMemoryReviewExperience.js";
 import { buildMemoryReviewRoute } from "../utils/memoryReviewNavigation.js";
 import { subscribeToLocalDateChanges } from "../utils/localDateRefresh.js";
+import { isEditableShortcutTarget } from "../utils/appKeyboardShortcuts.js";
 import "./PlannerPage.css";
 
 const PLANNER_DESTINATIONS = [
@@ -102,6 +103,57 @@ function PlannerPage({
   const [memoryNotebooksLoading, setMemoryNotebooksLoading] = useState(() => !kidsMode);
   const [memoryNotebooksError, setMemoryNotebooksError] = useState("");
   const [today, setToday] = useState(() => new Date());
+
+  useEffect(() => {
+    if (plannerView !== "hub") return undefined;
+
+    const handlePlannerHubShortcut = (event) => {
+      if (
+        event.defaultPrevented
+        || event.repeat
+        || event.altKey
+        || event.ctrlKey
+        || event.metaKey
+        || event.shiftKey
+        || isEditableShortcutTarget(event.target)
+        || document.querySelector('[aria-modal="true"]')
+      ) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "n" || key === "t") {
+        event.preventDefault();
+        navigate("/planner/schedule", {
+          state: {
+            ...(location.state || {}),
+            plannerShortcutAction: key === "n" ? "new" : "today",
+          },
+        });
+        return;
+      }
+
+      if (key === "c") {
+        event.preventDefault();
+        navigate("/planner/schedule");
+        toast.info("Focus an incomplete planner task, then press C.", {
+          toastId: "planner-shortcut-open-schedule",
+        });
+      }
+    };
+
+    document.addEventListener("keydown", handlePlannerHubShortcut);
+    return () => document.removeEventListener("keydown", handlePlannerHubShortcut);
+  }, [location.state, navigate, plannerView]);
+
+  const clearPlannerShortcutAction = useCallback(() => {
+    if (!location.state?.plannerShortcutAction) return;
+    const nextState = { ...location.state };
+    delete nextState.plannerShortcutAction;
+    navigate({
+      pathname: location.pathname,
+      search: location.search,
+      hash: location.hash,
+    }, { replace: true, state: nextState });
+  }, [location.hash, location.pathname, location.search, location.state, navigate]);
 
   useEffect(() => subscribeToLocalDateChanges(setToday), []);
 
@@ -327,12 +379,14 @@ function PlannerPage({
                   onRequestParentAccess={() => navigate("/kids", {
                     state: { parentAccess: "planner", returnTo: "/planner/schedule" },
                   })}
+                  onShortcutActionHandled={clearPlannerShortcutAction}
                   schedule={schedule}
                   scheduleStartDate={scheduleStartDate}
                   setCompleted={setCompleted}
                   setSchedule={setSchedule}
                   subjects={subjects}
                   setScheduleStartDate={setScheduleStartDate}
+                  shortcutAction={location.state?.plannerShortcutAction || ""}
                 />
               </>
             )}

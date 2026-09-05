@@ -3,6 +3,7 @@ export const GOAL_REMINDER_SETTINGS_KEY = "prepmatrix_goal_reminder_settings_v1"
 export const GOAL_REMINDER_DATA_EVENT = "prepmatrixGoalReminderDataChange";
 export const GOAL_REMINDER_SETTINGS_EVENT = "prepmatrixGoalReminderSettingsChange";
 export const OPEN_GOAL_REMINDER_EVENT = "openPrepMatrixGoalReminderCenter";
+export const TOGGLE_GOAL_REMINDER_EVENT = "togglePrepMatrixGoalReminderCenter";
 
 const DAILY_TARGET_REMINDER_PREFIX = "study-target-daily-";
 const REVIEW_TARGET_REMINDER_PREFIX = "study-target-review-";
@@ -294,6 +295,12 @@ export function openGoalReminderCenter(eventTarget) {
   const target = eventTarget || (typeof window !== "undefined" ? window : null);
   if (!target?.dispatchEvent || typeof CustomEvent === "undefined") return;
   target.dispatchEvent(new CustomEvent(OPEN_GOAL_REMINDER_EVENT));
+}
+
+export function toggleGoalReminderCenter(eventTarget) {
+  const target = eventTarget || (typeof window !== "undefined" ? window : null);
+  if (!target?.dispatchEvent || typeof CustomEvent === "undefined") return;
+  target.dispatchEvent(new CustomEvent(TOGGLE_GOAL_REMINDER_EVENT));
 }
 
 function addCalendarDays(date, amount) {

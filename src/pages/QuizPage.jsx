@@ -9,7 +9,7 @@ import {
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
-import { Download, Search, Trash2, Check, X, Swords } from "lucide-react";
+import { Download, Search, Trash2, Check, X, Swords, Flag } from "lucide-react";
 import api from "../utils/apiClient";
 import QuizBattlesPanel from "../components/quiz-battles/QuizBattlesPanel";
 import QuizExitDialog from "../components/QuizExitDialog";
@@ -29,6 +29,7 @@ import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/
 import { getRankedQuizSubjects } from "../utils/quizSubjectOptions";
 import { getLearnerRoutePolicy } from "../utils/learnerRouting";
 import { quizBattleInviteCodeFromHash } from "../utils/quizBattleUi";
+import { isEditableShortcutTarget } from "../utils/appKeyboardShortcuts";
 import {
   QUIZ_SESSION_STATUSES,
   clearQuizSession,
@@ -74,6 +75,8 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [quizSession, setQuizSession] = useState(null);
+  const [focusedQuestionIndex, setFocusedQuestionIndex] = useState(0);
+  const [flaggedQuestionIds, setFlaggedQuestionIds] = useState({});
   const [multiplayerAttempt, setMultiplayerAttempt] = useState(null);
   const [exitActionBusy, setExitActionBusy] = useState(false);
   const [exitActionError, setExitActionError] = useState("");
@@ -149,6 +152,8 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     quizSessionRef.current = pausedSession;
     setQuizSession(pausedSession);
     setResult(null);
+    setFlaggedQuestionIds({});
+    setFocusedQuestionIndex(0);
 
     if (pausedSession) {
       hasInitializedSubject.current = true;
@@ -458,6 +463,8 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     setQuizSession(null);
     setQuestions([]);
     setAnswers({});
+    setFlaggedQuestionIds({});
+    setFocusedQuestionIndex(0);
     setResult(null);
     setQuizMeta(null);
   };
@@ -517,6 +524,8 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
         : null;
 
       setQuestions(nextQuestions);
+      setFocusedQuestionIndex(0);
+      setFlaggedQuestionIds({});
       setQuizMeta(nextQuizMeta);
       quizSessionRef.current = persistedSession || nextSession;
       setQuizSession(persistedSession || nextSession);
@@ -557,6 +566,68 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       setSaveError(error instanceof Error ? error.message : "Could not save quiz attempt.");
     }
   };
+
+  useEffect(() => {
+    const handleQuizKeyboardShortcut = (event) => {
+      if (
+        event.defaultPrevented
+        || event.repeat
+        || event.altKey
+        || event.ctrlKey
+        || event.metaKey
+        || event.shiftKey
+        || isEditableShortcutTarget(event.target)
+        || event.target?.closest?.("button, a")
+        || battleTabActive
+        || soloQuizPaused
+        || questions.length === 0
+        || document.querySelector('[aria-modal="true"]')
+      ) return;
+
+      const questionIndex = Math.min(Math.max(focusedQuestionIndex, 0), questions.length - 1);
+      const question = questions[questionIndex];
+      const key = event.key.toLowerCase();
+
+      if (!result && ["1", "2", "3", "4"].includes(key)) {
+        const optionIndex = Number.parseInt(key, 10) - 1;
+        if (optionIndex >= question.options.length) return;
+        event.preventDefault();
+        setAnswers((current) => ({ ...current, [question.id]: optionIndex }));
+        return;
+      }
+
+      if (key === "f") {
+        event.preventDefault();
+        setFlaggedQuestionIds((current) => ({
+          ...current,
+          [question.id]: !current[question.id],
+        }));
+        return;
+      }
+
+      if (key === "enter" && !result) {
+        event.preventDefault();
+        const nextUnansweredIndex = questions.findIndex((candidate) => answers[candidate.id] === undefined);
+        if (nextUnansweredIndex === -1) {
+          document.querySelector("[data-quiz-submit]")?.click();
+          return;
+        }
+        setFocusedQuestionIndex(nextUnansweredIndex);
+        window.requestAnimationFrame(() => {
+          document.querySelector(`[data-quiz-question-index="${nextUnansweredIndex}"]`)?.focus({
+            preventScroll: true,
+          });
+          document.querySelector(`[data-quiz-question-index="${nextUnansweredIndex}"]`)?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        });
+      }
+    };
+
+    document.addEventListener("keydown", handleQuizKeyboardShortcut);
+    return () => document.removeEventListener("keydown", handleQuizKeyboardShortcut);
+  }, [answers, battleTabActive, focusedQuestionIndex, questions, result, soloQuizPaused]);
 
   const resumeQuiz = () => {
     setSaveError("");
@@ -925,8 +996,17 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
 
           <div className="quiz-question-list" id="quiz-export-container" style={{ padding: "12px" }}>
             {questions.map((question, index) => (
-              <article className="quiz-question-card" key={question.id}>
-                <h4>{index + 1}. {question.question}</h4>
+              <article
+                className={`quiz-question-card${flaggedQuestionIds[question.id] ? " is-flagged" : ""}`}
+                data-quiz-question-index={index}
+                key={question.id}
+                onFocus={() => setFocusedQuestionIndex(index)}
+                tabIndex={0}
+              >
+                <div className="quiz-question-heading">
+                  <h4>{index + 1}. {question.question}</h4>
+                  {flaggedQuestionIds[question.id] && <span><Flag aria-hidden="true" size={12} /> Flagged</span>}
+                </div>
                 <div className="quiz-option-grid">
                   {question.options.map((option, optionIndex) => {
                     const selected = answers[question.id] === optionIndex;
@@ -972,6 +1052,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
 
           {!result && (
             <button
+              data-quiz-submit="true"
               disabled={soloQuizPaused || Object.keys(answers).length !== questions.length}
               onClick={submitQuiz}
               type="button"

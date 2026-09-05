@@ -119,7 +119,12 @@ import {
   DEFAULT_GOAL_REMINDER_SETTINGS,
   normalizePlannerData,
   normalizePlannerSettings,
+  toggleGoalReminderCenter,
 } from "./utils/goalReminderStore";
+import {
+  openKeyboardShortcutGuide,
+  resolveAppKeyboardShortcut,
+} from "./utils/appKeyboardShortcuts";
 import CustomCursor from "./components/CustomCursor";
 import { SidebarStudyPet } from "./components/StudyPet";
 import GoalReminderCenter from "./components/GoalReminderCenter";
@@ -819,6 +824,139 @@ function App() {
     homeRoute: learnerRoutePolicy.homeRoute,
     setDarkMode,
   });
+
+  useEffect(() => {
+    if (authLoading || !userProfile || isAuthRoute || appLocked) return undefined;
+
+    const handleAppKeyboardShortcut = (event) => {
+      const shortcut = resolveAppKeyboardShortcut(event);
+      if (!shortcut) return;
+
+      const activeModal = document.querySelector('[aria-modal="true"]');
+      if (activeModal) {
+        const closesActiveChat = shortcut.action === "toggle-assistant"
+          && activeModal.matches(".sidebar-chatbot-portal");
+        const closesActiveGoals = shortcut.action === "toggle-goals"
+          && activeModal.matches(".goal-reminder-dialog");
+        if (!closesActiveChat && !closesActiveGoals) {
+          event.preventDefault();
+          return;
+        }
+      }
+
+      event.preventDefault();
+
+      if (shortcut.action === "toggle-microphone") {
+        if (!voiceAssistant.supported) {
+          toast.info("Voice shortcuts are not supported in this browser.", {
+            toastId: "keyboard-voice-unavailable",
+          });
+          return;
+        }
+        if (voiceAssistant.isListening || voiceAssistant.isCommandListening) {
+          voiceAssistant.stopListening?.();
+        } else if (!voiceAssistant.isProcessing) {
+          voiceAssistant.askWithVoice?.();
+        }
+        return;
+      }
+
+      if (shortcut.action === "toggle-assistant") {
+        if (typeof window.toggleStudyAssistant === "function") {
+          window.toggleStudyAssistant();
+        } else if (typeof window.openStudyAssistant === "function") {
+          window.openStudyAssistant();
+        } else {
+          toast.info("AI Chat is not available for this profile.", {
+            toastId: "keyboard-chat-unavailable",
+          });
+        }
+        return;
+      }
+
+      if (shortcut.action === "toggle-goals") {
+        if (isKidsLearner) {
+          toast.info("Goals & To-Do is not available for this profile.", {
+            toastId: "keyboard-goals-unavailable",
+          });
+        } else {
+          toggleGoalReminderCenter();
+        }
+        return;
+      }
+
+      if (shortcut.action === "focus-ask") {
+        const dashboardRouteAvailable = visibleNavItems.some((item) => item.to === "/dashboard");
+        if (!dashboardRouteAvailable) {
+          toast.info("The Dashboard Ask AI bar is not available for this profile.", {
+            toastId: "keyboard-dashboard-unavailable",
+          });
+          return;
+        }
+
+        const dashboardInput = document.querySelector("[data-dashboard-ask-input]");
+        if (location.pathname === "/dashboard" && dashboardInput instanceof HTMLElement) {
+          dashboardInput.focus({ preventScroll: true });
+          dashboardInput.select?.();
+        } else {
+          navigate("/dashboard", {
+            state: {
+              ...(location.state || {}),
+              focusGlobalAsk: true,
+            },
+          });
+        }
+        return;
+      }
+
+      if (shortcut.action === "open-settings") {
+        navigate("/settings");
+        return;
+      }
+
+      if (shortcut.action === "open-alert-history") {
+        if (isKidsLearner) {
+          toast.info("Alert history is not available for this profile.", {
+            toastId: "keyboard-alert-history-unavailable",
+          });
+        } else {
+          navigate("/notification-history");
+        }
+        return;
+      }
+
+      if (shortcut.action === "open-shortcut-guide") {
+        navigate("/about#keyboard-shortcuts");
+        window.setTimeout(() => openKeyboardShortcutGuide(), 0);
+        return;
+      }
+
+      if (shortcut.action === "navigate") {
+        const isAvailable = visibleNavItems.some((item) => item.to === shortcut.route);
+        if (!isAvailable) {
+          toast.info(`${shortcut.label} is not available for this profile.`, {
+            toastId: `keyboard-route-unavailable-${shortcut.key}`,
+          });
+          return;
+        }
+        navigate(shortcut.route);
+      }
+    };
+
+    document.addEventListener("keydown", handleAppKeyboardShortcut);
+    return () => document.removeEventListener("keydown", handleAppKeyboardShortcut);
+  }, [
+    appLocked,
+    authLoading,
+    isAuthRoute,
+    isKidsLearner,
+    location.pathname,
+    location.state,
+    navigate,
+    userProfile,
+    visibleNavItems,
+    voiceAssistant,
+  ]);
 
   useEffect(() => {
     if (themeMode !== "system" || !window.matchMedia) return undefined;

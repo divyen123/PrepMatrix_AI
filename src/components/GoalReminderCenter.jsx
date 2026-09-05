@@ -19,6 +19,7 @@ import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 
 import {
   OPEN_GOAL_REMINDER_EVENT,
+  TOGGLE_GOAL_REMINDER_EVENT,
   clearPlannerCollection,
   createPlannerId,
   getLocalDateKey,
@@ -185,12 +186,22 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
     }, reducedMotion ? 0 : DRAWER_CLOSE_DURATION_MS);
   }, []);
 
+  const toggleCenter = useCallback(() => {
+    if (open && !closing) closeCenter();
+    else openCenter();
+  }, [closeCenter, closing, open, openCenter]);
+
   useEffect(() => () => window.clearTimeout(closeTimerRef.current), []);
 
   useEffect(() => {
     window.addEventListener(OPEN_GOAL_REMINDER_EVENT, openCenter);
     return () => window.removeEventListener(OPEN_GOAL_REMINDER_EVENT, openCenter);
   }, [openCenter]);
+
+  useEffect(() => {
+    window.addEventListener(TOGGLE_GOAL_REMINDER_EVENT, toggleCenter);
+    return () => window.removeEventListener(TOGGLE_GOAL_REMINDER_EVENT, toggleCenter);
+  }, [toggleCenter]);
 
   useEffect(() => {
     const refreshClock = () => setNow(new Date());

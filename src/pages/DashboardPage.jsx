@@ -179,6 +179,21 @@ function DashboardPage({
   const [configureSubject, setConfigureSubject] = useState(null);
 
   useEffect(() => {
+    if (!location.state?.focusGlobalAsk) return undefined;
+
+    inputRef.current?.focus({ preventScroll: true });
+    inputRef.current?.select?.();
+    const nextState = { ...location.state };
+    delete nextState.focusGlobalAsk;
+    navigate({
+      pathname: location.pathname,
+      search: location.search,
+      hash: location.hash,
+    }, { replace: true, state: nextState });
+    return undefined;
+  }, [location.hash, location.pathname, location.search, location.state, navigate]);
+
+  useEffect(() => {
     if (!showEntryVoiceHint) {
       voiceEntryHintClaimedRef.current = false;
       return;
@@ -527,6 +542,7 @@ function DashboardPage({
 
           <input
             ref={inputRef}
+            data-dashboard-ask-input="true"
             className="db-search-input"
             type="text"
             placeholder={attachments.length > 0 ? "Ask about your document..." : commandExampleCopy.placeholder}

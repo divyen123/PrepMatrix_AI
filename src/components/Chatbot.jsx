@@ -189,6 +189,7 @@ function Chatbot({
   const sessionMenuTriggerRef = useRef(null);
   const deleteSessionCancelRef = useRef(null);
   const chatDialogRef = useRef(null);
+  const chatInputRef = useRef(null);
   const previouslyFocusedChatRef = useRef(null);
 
   const metrics = useMemo(
@@ -594,6 +595,27 @@ function Chatbot({
       setHistoryOpen(false);
     }
   }, [chatExperience.intro, invalidateViewWork]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleChatKeyboardShortcut = (event) => {
+      if (
+        event.altKey
+        && !event.ctrlKey
+        && !event.metaKey
+        && !event.shiftKey
+        && event.key.toLowerCase() === "n"
+      ) {
+        event.preventDefault();
+        handleNewChat();
+        window.requestAnimationFrame(() => chatInputRef.current?.focus({ preventScroll: true }));
+      }
+    };
+
+    document.addEventListener("keydown", handleChatKeyboardShortcut, true);
+    return () => document.removeEventListener("keydown", handleChatKeyboardShortcut, true);
+  }, [handleNewChat, open]);
 
   useEffect(() => {
     const handleOpenChat = (event) => {
@@ -1239,6 +1261,7 @@ function Chatbot({
     };
 
     window.openStudyAssistant = () => setOpen(true);
+    window.toggleStudyAssistant = () => setOpen((current) => !current);
 
     // Allow the dashboard search bar to open the chatbot's file picker
     window.triggerChatAttachment = () => {
@@ -1265,6 +1288,7 @@ function Chatbot({
       window.removeEventListener("prepmatrixOpenChatSession", openChatSession);
       delete window.sendToChatbot;
       delete window.openStudyAssistant;
+      delete window.toggleStudyAssistant;
       delete window.triggerChatAttachment;
       delete window.addChatbotAttachments;
       delete window.removeChatbotAttachment;
@@ -1941,11 +1965,11 @@ function Chatbot({
                   )}
                 </div>
                 <div className="chat-composer-row">
-                <input
+                <textarea
                   aria-label="Message study assistant"
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") {
+                    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                       event.preventDefault();
                       sendMessage();
                     }
@@ -1959,6 +1983,8 @@ function Chatbot({
                   }
                   value={input}
                   className="chat-input-field"
+                  ref={chatInputRef}
+                  rows={1}
                 />
                 {!childMode && !assistantContext ? <button
                   aria-label="Attach images, PDF, or PowerPoint files"

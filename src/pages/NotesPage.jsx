@@ -5,6 +5,7 @@ import { CalendarDays, Check, Copy, Pencil, Search, Trash2, X } from "lucide-rea
 import api from "../utils/apiClient";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
+import { isEditableShortcutTarget } from "../utils/appKeyboardShortcuts";
 import {
   getNotePlannerState,
   getScheduleDateOptions,
@@ -103,10 +104,51 @@ function NotesPage({
   const deleteTriggerRefs = useRef(new Map());
   const noteCardRefs = useRef(new Map());
   const notesListHeadingRef = useRef(null);
+  const notesDesktopSearchRef = useRef(null);
+  const notesMobileSearchRef = useRef(null);
+  const noteCaptureTopicRef = useRef(null);
   const curriculumExamples = useMemo(
     () => getAcademicProfileExamples(userProfile),
     [userProfile],
   );
+
+  useEffect(() => {
+    const handleNotesKeyboardShortcut = (event) => {
+      if (
+        event.defaultPrevented
+        || event.repeat
+        || event.altKey
+        || event.ctrlKey
+        || event.metaKey
+        || event.shiftKey
+        || isEditableShortcutTarget(event.target)
+        || isCaptureOpen
+        || isStatusOpen
+        || selectedNoteId
+      ) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "n") {
+        event.preventDefault();
+        setIsCaptureOpen(true);
+        window.requestAnimationFrame(() => noteCaptureTopicRef.current?.focus({ preventScroll: true }));
+        return;
+      }
+
+      if (key === "/") {
+        event.preventDefault();
+        const searchInput = [notesDesktopSearchRef.current, notesMobileSearchRef.current]
+          .find((input) => input && input.offsetParent !== null)
+          || notesDesktopSearchRef.current
+          || notesMobileSearchRef.current;
+        searchInput?.focus({ preventScroll: true });
+        searchInput?.select?.();
+      }
+    };
+
+    document.addEventListener("keydown", handleNotesKeyboardShortcut);
+    return () => document.removeEventListener("keydown", handleNotesKeyboardShortcut);
+  }, [isCaptureOpen, isStatusOpen, selectedNoteId]);
 
   const canManageSchedule = !kidsMode || parentAccessGranted;
   const requestParentPlannerAccess = () => {
@@ -641,6 +683,7 @@ function NotesPage({
                     placeholder="Search by topic, details, or saved topic"
                     type="search"
                     value={notesSearchQuery}
+                    ref={notesDesktopSearchRef}
                   />
                 </label>
               )}
@@ -719,6 +762,7 @@ function NotesPage({
               placeholder="Search by topic, details, or saved topic"
               type="search"
               value={notesSearchQuery}
+              ref={notesMobileSearchRef}
             />
           </label>
         )}
@@ -1201,6 +1245,7 @@ function NotesPage({
               <input
                 onChange={(event) => setTopic(event.target.value)}
                 placeholder={curriculumExamples.noteTopicPlaceholder}
+                ref={noteCaptureTopicRef}
                 type="text"
                 value={topic}
               />
