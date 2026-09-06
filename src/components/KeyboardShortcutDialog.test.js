@@ -95,6 +95,10 @@ test("uses a blurred backdrop and an opaque surface for every theme", () => {
     /\.keyboard-shortcut-dialog-body\s*\{[^}]*overflow: auto;[^}]*overscroll-behavior: contain;/u,
   );
   assert.match(dialogStyles, /\.keyboard-shortcut-dialog-header\s*\{[^}]*min-height: 58px;[^}]*padding: 9px 14px 9px 20px;/u);
+  assert.match(
+    dialogStyles,
+    /body \.keyboard-shortcut-dialog-close\s*\{[^}]*width: 34px;[^}]*height: 34px;[^}]*color-mix\(in srgb, var\(--danger\) 22%, transparent\)[^}]*backdrop-filter: blur\(11px\)/u,
+  );
   assert.match(dialogStyles, /max-height: calc\(100dvh - 40px\);/u);
   assert.doesNotMatch(dialogStyles, /max-height: min\(780px|scrollbar-width: none|::-webkit-scrollbar/u);
   assert.match(dialogStyles, /@media \(prefers-reduced-motion: reduce\)/u);

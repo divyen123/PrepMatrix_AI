@@ -124,7 +124,7 @@ export default function KeyboardShortcutDialog({ onClose, open = false }) {
             title="Close"
             type="button"
           >
-            <X aria-hidden="true" size={19} />
+            <X aria-hidden="true" size={17} />
           </button>
         </header>
 
