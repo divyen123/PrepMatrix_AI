@@ -83,4 +83,10 @@ test("does not open the guide while the user is typing", () => {
   assert.deepEqual(resolveAppKeyboardShortcut(keyboardEvent({ key: "?" })), {
     action: "open-shortcut-guide",
   });
+  assert.deepEqual(resolveAppKeyboardShortcut(keyboardEvent({ key: "?", shiftKey: true })), {
+    action: "open-shortcut-guide",
+  });
+  assert.equal(resolveAppKeyboardShortcut(keyboardEvent({ ctrlKey: true, key: "?" })), null);
+  assert.equal(resolveAppKeyboardShortcut(keyboardEvent({ metaKey: true, key: "?" })), null);
+  assert.equal(resolveAppKeyboardShortcut(keyboardEvent({ altKey: true, key: "?" })), null);
 });

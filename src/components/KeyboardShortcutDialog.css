@@ -1,0 +1,181 @@
+.keyboard-shortcut-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50000;
+  display: grid;
+  place-items: center;
+  padding: clamp(14px, 3vw, 34px);
+  background: rgba(3, 7, 18, 0.68);
+  backdrop-filter: blur(13px) saturate(0.76);
+  -webkit-backdrop-filter: blur(13px) saturate(0.76);
+  animation: keyboard-shortcut-backdrop-in 170ms ease both;
+}
+
+.keyboard-shortcut-dialog {
+  --keyboard-dialog-bg: var(--bg-secondary, var(--bg));
+  --keyboard-dialog-group-bg: color-mix(
+    in srgb,
+    var(--bg-secondary, var(--bg)) 94%,
+    var(--text)
+  );
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(1180px, calc(100vw - 40px));
+  max-height: min(780px, calc(100dvh - 40px));
+  overflow: hidden;
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--border) 84%, var(--accent));
+  border-radius: 24px;
+  background: var(--keyboard-dialog-bg);
+  box-shadow: 0 34px 100px rgba(2, 6, 23, 0.48);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: keyboard-shortcut-dialog-in 190ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+body.has-bg-image:not(.no-glass-cards) .keyboard-shortcut-dialog,
+body.has-bg-image.no-glass-cards .keyboard-shortcut-dialog {
+  --keyboard-dialog-bg: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  --keyboard-dialog-group-bg: color-mix(
+    in srgb,
+    rgb(var(--bg-surface-rgb, 18, 27, 45)) 92%,
+    var(--text)
+  );
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.keyboard-shortcut-dialog-header {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 40px;
+  align-items: start;
+  gap: 14px;
+  padding: 20px 22px 17px;
+  border-bottom: 1px solid var(--border);
+}
+
+.keyboard-shortcut-dialog-mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  color: var(--accent);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
+  border-radius: 13px;
+  background: rgba(var(--accent-rgb), 0.12);
+}
+
+.keyboard-shortcut-dialog-header h2 {
+  margin: 6px 0 4px;
+  color: var(--text);
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  line-height: 1.2;
+}
+
+.keyboard-shortcut-dialog-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+body .keyboard-shortcut-dialog-close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  min-height: 0;
+  padding: 0;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px;
+  background: var(--keyboard-dialog-group-bg) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: pointer;
+}
+
+body .keyboard-shortcut-dialog-close::after {
+  content: none !important;
+  display: none !important;
+}
+
+body .keyboard-shortcut-dialog-close:hover,
+body .keyboard-shortcut-dialog-close:focus-visible {
+  color: #ffffff !important;
+  border-color: rgba(209, 67, 97, 0.68) !important;
+  outline: none;
+  background: #d14361 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.keyboard-shortcut-dialog-body {
+  min-height: 0;
+  padding: 18px 22px 22px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.keyboard-shortcut-dialog .about-shortcut-group {
+  background: var(--keyboard-dialog-group-bg);
+}
+
+@keyframes keyboard-shortcut-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes keyboard-shortcut-dialog-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 840px) {
+  .keyboard-shortcut-dialog {
+    width: min(680px, calc(100vw - 28px));
+    max-height: calc(100dvh - 28px);
+    border-radius: 20px;
+  }
+}
+
+@media (max-width: 560px) {
+  .keyboard-shortcut-dialog-backdrop {
+    padding: 8px;
+  }
+
+  .keyboard-shortcut-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    border-radius: 17px;
+  }
+
+  .keyboard-shortcut-dialog-header {
+    grid-template-columns: 39px minmax(0, 1fr) 36px;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .keyboard-shortcut-dialog-mark {
+    width: 39px;
+    height: 39px;
+    border-radius: 11px;
+  }
+
+  .keyboard-shortcut-dialog-close {
+    width: 36px;
+    height: 36px;
+  }
+
+  .keyboard-shortcut-dialog-body {
+    padding: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .keyboard-shortcut-dialog-backdrop,
+  .keyboard-shortcut-dialog {
+    animation: none;
+  }
+}

@@ -1,5 +1,3 @@
-export const OPEN_SHORTCUT_GUIDE_EVENT = "openPrepMatrixKeyboardShortcutGuide";
-
 export const APP_NAVIGATION_SHORTCUTS = Object.freeze([
   { action: "navigate", key: "1", keys: ["Alt", "1"], label: "Dashboard", route: "/dashboard" },
   { action: "navigate", key: "2", keys: ["Alt", "2"], label: "Subjects", route: "/subjects" },
@@ -104,10 +102,4 @@ export function resolveAppKeyboardShortcut(event) {
   }
 
   return null;
-}
-
-export function openKeyboardShortcutGuide(eventTarget) {
-  const target = eventTarget || (typeof window !== "undefined" ? window : null);
-  if (!target?.dispatchEvent || typeof CustomEvent === "undefined") return;
-  target.dispatchEvent(new CustomEvent(OPEN_SHORTCUT_GUIDE_EVENT));
 }

@@ -1,4 +1,4 @@
-import { createElement, Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -24,10 +24,7 @@ import {
   Trophy,
 } from "lucide-react";
 import PrepMatrixGuideDialog from "../components/PrepMatrixGuideDialog";
-import {
-  APP_SHORTCUT_GUIDE_GROUPS,
-  OPEN_SHORTCUT_GUIDE_EVENT,
-} from "../utils/appKeyboardShortcuts";
+import { KeyboardShortcutGroups } from "../components/KeyboardShortcutDialog";
 import {
   AI_DEFAULT_COSTS,
   AI_FEATURE_LABELS,
@@ -96,11 +93,6 @@ function AboutPage({ academicProfile = {} }) {
     if (location.hash === "#keyboard-shortcuts") revealKeyboardShortcuts();
   }, [location.hash, revealKeyboardShortcuts]);
 
-  useEffect(() => {
-    window.addEventListener(OPEN_SHORTCUT_GUIDE_EVENT, revealKeyboardShortcuts);
-    return () => window.removeEventListener(OPEN_SHORTCUT_GUIDE_EVENT, revealKeyboardShortcuts);
-  }, [revealKeyboardShortcuts]);
-
   return (
     <section className="page-stack about-page-route">
       <div className="about-header-nav">
@@ -147,56 +139,6 @@ function AboutPage({ academicProfile = {} }) {
         ))}
       </div>
 
-      <section
-        aria-labelledby="about-shortcuts-title"
-        className="card about-shortcuts-card"
-        id="keyboard-shortcuts"
-        ref={shortcutsRef}
-        tabIndex={-1}
-      >
-        <header className="about-shortcuts-header">
-          <span className="about-shortcuts-mark" aria-hidden="true"><Keyboard size={22} /></span>
-          <div>
-            <span className="section-tag">Keyboard guide</span>
-            <h3 id="about-shortcuts-title">Move through PrepMatrix faster</h3>
-            <p>Use these shortcuts anywhere in the workspace. Page actions pause automatically while you type in a field.</p>
-          </div>
-        </header>
-
-        <div className="about-shortcut-groups">
-          {APP_SHORTCUT_GUIDE_GROUPS.map((group) => (
-            <article className="about-shortcut-group" key={group.id}>
-              <div className="about-shortcut-group-heading">
-                <h4>{group.label}</h4>
-                <p>{group.description}</p>
-              </div>
-              <ul>
-                {group.items.map((item) => (
-                  <li key={`${item.context || group.id}-${item.label}`}>
-                    <span className="about-shortcut-keys" aria-label={item.keys.join(item.separator === "or" ? " or " : " plus ")}>
-                      {item.keys.map((key, index) => (
-                        <Fragment key={`${item.label}-${key}-${index}`}>
-                          {index > 0 && <span aria-hidden="true">{item.separator || "+"}</span>}
-                          <kbd>{key}</kbd>
-                        </Fragment>
-                      ))}
-                    </span>
-                    <span className="about-shortcut-action">
-                      {item.context && <small>{item.context}</small>}
-                      <span>{item.label}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
-
-        <footer className="about-shortcuts-tip">
-          <Keyboard aria-hidden="true" size={15} /> Press <kbd>?</kbd> anywhere outside a text field to return to this guide.
-        </footer>
-      </section>
-
       <section aria-labelledby="about-credits-title" className="card about-credits-card">
         <div className="about-credits-intro">
           <span className="section-tag">AI credits</span>
@@ -241,6 +183,25 @@ function AboutPage({ academicProfile = {} }) {
             })}
           </dl>
         </div>
+      </section>
+
+      <section
+        aria-labelledby="about-shortcuts-title"
+        className="about-shortcuts-section"
+        id="keyboard-shortcuts"
+        ref={shortcutsRef}
+        tabIndex={-1}
+      >
+        <header className="about-shortcuts-header">
+          <span className="about-shortcuts-mark" aria-hidden="true"><Keyboard size={22} /></span>
+          <div>
+            <span className="section-tag">Keyboard guide</span>
+            <h3 id="about-shortcuts-title">Move through PrepMatrix faster</h3>
+            <p>Use these shortcuts anywhere in the workspace. Page actions pause automatically while you type in a field.</p>
+          </div>
+        </header>
+
+        <KeyboardShortcutGroups />
       </section>
 
       <footer className="about-footer">&copy; 2026 PrepMatrix AI &bull; All rights reserved &bull; Tailored for Divyen R M</footer>

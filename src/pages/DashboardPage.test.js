@@ -64,7 +64,7 @@ test("renders page shortcuts as an accessible keyboard-selectable list", async (
   }
 });
 
-test("renders a background-free Alexa-style dashboard voice example at the page bottom", async () => {
+test("renders a background-free dashboard voice example for the inline helper row", async () => {
   const vite = await createServer({
     appType: "custom",
     logLevel: "silent",
@@ -72,22 +72,19 @@ test("renders a background-free Alexa-style dashboard voice example at the page 
   });
 
   try {
-    const { DashboardVoiceEntryDock } = await vite.ssrLoadModule(
+    const { DashboardVoiceEntryHint } = await vite.ssrLoadModule(
       "/src/pages/DashboardPage.jsx",
     );
     const markup = renderToStaticMarkup(React.createElement(
-      DashboardVoiceEntryDock,
+      DashboardVoiceEntryHint,
       { hint: "Hey PrepMatrix, plan my study day." },
     ));
 
-    assert.match(markup, /class="db-voice-entry-dock"/u);
-    assert.match(markup, /role="status"/u);
-    assert.match(markup, /aria-live="polite"/u);
-    assert.match(markup, /class="db-voice-entry-dock-gradient" aria-hidden="true"/u);
     assert.match(markup, /class="db-voice-entry-hint"/u);
     assert.match(markup, /--db-voice-hint-duration:5000ms/u);
     assert.match(markup, /<strong>Say<\/strong>/u);
     assert.match(markup, /<q>Hey PrepMatrix, plan my study day\.<\/q>/u);
+    assert.doesNotMatch(markup, /gradient|dock/u);
   } finally {
     await vite.close();
   }
@@ -272,38 +269,17 @@ test("offers the rotating voice hint once per real app entry and after the splas
   assert.match(stylesheet, /@keyframes db-voice-entry-hint-cycle/u);
   assert.match(
     pageSource,
-    /createPortal\(\s*<DashboardVoiceEntryDock hint=\{voiceEntryHint\} \/>,\s*document\.body/u,
+    /<p[\s\S]*className=\{`db-command-help[\s\S]*id=\{searchHelpId\}[\s\S]*role="status"[\s\S]*\{voiceEntryHint \? \(\s*<DashboardVoiceEntryHint hint=\{voiceEntryHint\} \/>/u,
   );
-  assert.doesNotMatch(pageSource, /db-hero--voice-entry-hint/u);
+  assert.doesNotMatch(pageSource, /createPortal|DashboardVoiceEntryDock/u);
   assert.match(
     stylesheet,
-    /\.db-voice-entry-dock\s*\{[^}]*position: fixed;[^}]*bottom: 0;[^}]*pointer-events: none;[^}]*background: none;[^}]*box-shadow: none;[^}]*filter: none;/u,
+    /\.db-voice-entry-hint\s*\{[^}]*color: var\(--text-muted\);[^}]*background: none;[^}]*border: 0;[^}]*box-shadow: none;[^}]*backdrop-filter: none;/u,
   );
-  assert.match(
-    stylesheet,
-    /\.db-voice-entry-dock-gradient\s*\{[^}]*width:\s*min\(1000px, calc\(100% - 40px\)\);[^}]*height:\s*clamp\(104px, 13dvh, 140px\);[^}]*rgba\(2, 6, 23, 0\.56\)/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.db-voice-entry-dock-gradient\s*\{[^}]*-webkit-mask-image: linear-gradient\([^}]*to right,[^}]*transparent 0%[^}]*#000 20%[^}]*#000 80%[^}]*transparent 100%/u,
-    "the bottom gradient should feather at both sides instead of exposing its rectangular bounds",
-  );
-  assert.match(
-    stylesheet,
-    /\.db-voice-entry-dock-gradient\s*\{[^}]*mask-image: linear-gradient\([^}]*to right,[^}]*transparent 0%[^}]*transparent 100%/u,
-  );
-  assert.doesNotMatch(stylesheet, /\.db-voice-entry-dock-gradient\s*\{[^}]*radial-gradient/u);
-  assert.match(
-    stylesheet,
-    /body:not\(\.dark\) \.db-voice-entry-dock\s*\{[^}]*min-height:\s*clamp\(92px, 11dvh, 120px\);[^}]*padding:\s*0\.85rem 1\.25rem calc\(0\.72rem \+ env\(safe-area-inset-bottom\)\);/u,
-  );
-  assert.match(
-    stylesheet,
-    /body:not\(\.dark\) \.db-voice-entry-dock-gradient\s*\{[^}]*inset:\s*auto auto 0 50%;[^}]*width:\s*min\(820px, calc\(100% - 32px\)\);[^}]*height:\s*clamp\(92px, 11dvh, 118px\);[^}]*rgba\(2, 6, 23, 0\.64\)[^}]*transparent 0%[^}]*#000 32%[^}]*#000 68%[^}]*transparent 100%/u,
-    "light mode should use a smaller, softly feathered bottom fade instead of a full dock-shaped slab",
-  );
+  assert.match(stylesheet, /\.db-voice-entry-hint > svg\s*\{[^}]*color: var\(--accent\);/u);
+  assert.match(stylesheet, /\.db-voice-entry-hint q\s*\{[^}]*color: var\(--text\);/u);
+  assert.doesNotMatch(stylesheet, /db-voice-entry-dock|db-voice-entry-gradient-cycle/u);
   assert.match(stylesheet, /\.db-voice-entry-hint > svg\s*\{[^}]*filter: none;/u);
   assert.match(stylesheet, /\.db-voice-entry-hint\s*\{[^}]*text-shadow: none;/u);
-  assert.match(stylesheet, /@keyframes db-voice-entry-gradient-cycle/u);
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/u);
 });

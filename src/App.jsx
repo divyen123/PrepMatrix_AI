@@ -121,10 +121,7 @@ import {
   normalizePlannerSettings,
   toggleGoalReminderCenter,
 } from "./utils/goalReminderStore";
-import {
-  openKeyboardShortcutGuide,
-  resolveAppKeyboardShortcut,
-} from "./utils/appKeyboardShortcuts";
+import { resolveAppKeyboardShortcut } from "./utils/appKeyboardShortcuts";
 import CustomCursor from "./components/CustomCursor";
 import { SidebarStudyPet } from "./components/StudyPet";
 import GoalReminderCenter from "./components/GoalReminderCenter";
@@ -135,6 +132,7 @@ import LearningRouteBoundary from "./components/LearningRouteBoundary";
 import PwaManager from "./components/PwaManager";
 import AcademicProfileIntroDialog from "./components/AcademicProfileIntroDialog";
 import AppLockOverlay from "./components/AppLockOverlay";
+import KeyboardShortcutDialog from "./components/KeyboardShortcutDialog";
 import SettingsContextMenu from "./components/SettingsContextMenu";
 import { claimFirstProfileBGuide } from "./utils/academicProfileGuide";
 import { useAiQuota } from "./utils/aiQuota";
@@ -469,6 +467,7 @@ function App() {
   const [completionReward, setCompletionReward] = useState(null);
   const [entrySplash, setEntrySplash] = useState(true);
   const [dashboardVoiceHintPending, setDashboardVoiceHintPending] = useState(false);
+  const [keyboardShortcutGuideOpen, setKeyboardShortcutGuideOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [parentLockConfirmOpen, setParentLockConfirmOpen] = useState(false);
   const [parentLockWorking, setParentLockWorking] = useState(false);
@@ -689,6 +688,12 @@ function App() {
   }), [learningTaskActivity, plannerAttention.active, plannerAttention.pendingCount]);
 
   const isAuthRoute = location.pathname === "/login" || location.pathname === "/register";
+  useEffect(() => {
+    if (authLoading || !userProfile || isAuthRoute || appLocked) {
+      setKeyboardShortcutGuideOpen(false);
+    }
+  }, [appLocked, authLoading, isAuthRoute, userProfile]);
+
   const resolvedActiveBackgroundPreset = resolveBackgroundPresetForProfile(
     activeBackgroundImageId,
     {
@@ -826,6 +831,7 @@ function App() {
   });
 
   const handleLockApp = useCallback(() => {
+    setKeyboardShortcutGuideOpen(false);
     lockRestoreWakeModeRef.current = Boolean(
       voiceAssistant.wakeMode || localStorage.getItem("prepmatrix_wake_mode") === "true",
     );
@@ -945,8 +951,7 @@ function App() {
       }
 
       if (shortcut.action === "open-shortcut-guide") {
-        navigate("/about#keyboard-shortcuts");
-        window.setTimeout(() => openKeyboardShortcutGuide(), 0);
+        setKeyboardShortcutGuideOpen(true);
         return;
       }
 
@@ -3444,6 +3449,11 @@ function App() {
         open={academicProfileIntroOpen}
         otherProfileLabel={academicProfileIntro?.otherProfileLabel}
         userName={academicProfileIntro?.userName}
+      />
+
+      <KeyboardShortcutDialog
+        onClose={() => setKeyboardShortcutGuideOpen(false)}
+        open={keyboardShortcutGuideOpen && Boolean(userProfile) && !isAuthRoute && !appLocked}
       />
 
       {logoutConfirmOpen && (

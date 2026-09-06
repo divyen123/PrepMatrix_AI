@@ -1,5 +1,4 @@
 import { createElement, useState, useRef, useCallback, useEffect, useId, useMemo } from "react";
-import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Search, Lightbulb, BarChart2, CalendarCheck, Mic, Paperclip, UploadCloud, X } from "lucide-react";
 import SmartSuggestion from "../components/SmartSuggestion";
@@ -120,23 +119,6 @@ export function DashboardVoiceEntryHint({ hint = "" }) {
       <Mic aria-hidden="true" size={13} strokeWidth={2.4} />
       <span><strong>Say</strong> <q>{hint}</q></span>
     </span>
-  );
-}
-
-export function DashboardVoiceEntryDock({ hint = "" }) {
-  if (!hint) return null;
-
-  return (
-    <div
-      className="db-voice-entry-dock"
-      style={{ "--db-voice-hint-duration": `${DASHBOARD_VOICE_HINT_DURATION_MS}ms` }}
-      aria-atomic="true"
-      aria-live="polite"
-      role="status"
-    >
-      <span className="db-voice-entry-dock-gradient" aria-hidden="true" />
-      <DashboardVoiceEntryHint hint={hint} />
-    </div>
   );
 }
 
@@ -626,18 +608,22 @@ function DashboardPage({
             aria-live="polite"
             role="status"
           >
-            <span className="db-command-help-copy">
-              {submissionNotice
-                || (attachments.length
-                ? "Attached files will be sent to the AI study assistant."
-                : navigationCommand
-                  ? navigationCommandIsCurrent
-                    ? `You’re already on ${navigationCommand.label}.`
-                    : `Press Enter to open ${navigationCommand.label}.`
-                  : trimmedSearchInput
-                    ? "Choose a page shortcut, or press Enter to ask the AI."
-                    : commandExampleCopy.helper)}
-            </span>
+            {voiceEntryHint ? (
+              <DashboardVoiceEntryHint hint={voiceEntryHint} />
+            ) : (
+              <span className="db-command-help-copy">
+                {submissionNotice
+                  || (attachments.length
+                  ? "Attached files will be sent to the AI study assistant."
+                  : navigationCommand
+                    ? navigationCommandIsCurrent
+                      ? `You’re already on ${navigationCommand.label}.`
+                      : `Press Enter to open ${navigationCommand.label}.`
+                    : trimmedSearchInput
+                      ? "Choose a page shortcut, or press Enter to ask the AI."
+                      : commandExampleCopy.helper)}
+              </span>
+            )}
           </p>
 
           {showNavigationSuggestions && (
@@ -804,13 +790,6 @@ function DashboardPage({
           subject={configureSubject}
         />
       )}
-
-      {voiceEntryHint && typeof document !== "undefined"
-        ? createPortal(
-          <DashboardVoiceEntryDock hint={voiceEntryHint} />,
-          document.body,
-        )
-        : null}
     </section>
   );
 }
