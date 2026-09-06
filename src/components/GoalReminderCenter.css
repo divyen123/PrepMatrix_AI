@@ -165,10 +165,10 @@ body .goal-reminder-launcher-button:focus-visible {
 
 .goal-reminder-dialog-header {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: space-between;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  gap: 10px;
   padding: 10px 16px 8px;
   border-bottom: 1px solid var(--border);
 }
@@ -203,6 +203,9 @@ body .goal-reminder-launcher-button:focus-visible {
 
 .goal-reminder-dialog-title h2 {
   font-size: clamp(1rem, 1.6vw, 1.2rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .goal-reminder-dialog-mark {
@@ -224,48 +227,12 @@ body .goal-reminder-launcher-button:focus-visible {
   top: 5px;
 }
 
-.goal-reminder-header-controls {
-  display: grid;
-  width: 100%;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "toggle actions";
-  align-items: center;
-  justify-items: start;
-  gap: 10px;
-  min-width: 0;
-}
-
-.goal-reminder-show-completed {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  color: var(--text-muted);
-  font-size: 0.57rem;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.goal-reminder-show-completed {
-  grid-area: toggle;
-  cursor: pointer;
-}
-
-body .goal-reminder-show-completed input {
-  width: 13px !important;
-  min-width: 13px !important;
-  height: 13px !important;
-  min-height: 13px !important;
-  margin: 0;
-  padding: 0 !important;
-  accent-color: var(--accent);
-}
-
 .goal-reminder-header-actions {
-  grid-area: actions;
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 7px;
+  margin-left: auto;
 }
 
 body .goal-reminder-about-btn,
@@ -1457,8 +1424,8 @@ body .goal-reminder-about-done-btn:focus-visible {
   }
 
   .goal-reminder-dialog-header {
-    flex-wrap: wrap;
-    gap: 7px;
+    flex-wrap: nowrap;
+    gap: 6px;
     padding: 8px 10px;
   }
 
@@ -1474,16 +1441,7 @@ body .goal-reminder-about-done-btn:focus-visible {
   }
 
   .goal-reminder-dialog-title {
-    flex: 1 1 140px;
-  }
-
-  .goal-reminder-header-controls {
-    flex: 1 1 250px;
-    width: 100%;
-  }
-
-  .goal-reminder-show-completed {
-    font-size: 0.52rem;
+    flex: 1 1 auto;
   }
 
   .goal-reminder-stats {
@@ -1612,11 +1570,65 @@ body .goal-reminder-more-btn[aria-expanded="true"] {
   gap: 4px;
   width: min(244px, calc(100vw - 40px));
   padding: 6px;
-  background: var(--surface-strong);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 18px 44px rgba(4, 9, 20, 0.34), var(--shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   animation: goalReminderMenuIn 150ms ease-out both;
+}
+
+body.has-bg-image .goal-reminder-bulk-menu {
+  background: rgb(var(--bg-surface-rgb, 18, 27, 45));
+}
+
+body .goal-reminder-show-completed {
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center !important;
+  gap: 7px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 38px !important;
+  padding: 6px 8px !important;
+  color: var(--text) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+  font-size: 0.67rem !important;
+  font-weight: 750 !important;
+  line-height: 1.2 !important;
+  text-align: left;
+  transform: none !important;
+}
+
+body .goal-reminder-show-completed:hover,
+body .goal-reminder-show-completed:focus-visible {
+  background: var(--surface-muted) !important;
+  border-color: rgba(var(--accent-rgb), 0.2) !important;
+}
+
+.goal-reminder-menu-check {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: #fff;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.goal-reminder-show-completed[aria-checked="true"] .goal-reminder-menu-check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.goal-reminder-bulk-menu-divider {
+  height: 1px;
+  margin: 1px 4px;
+  background: var(--border);
 }
 
 body .goal-reminder-bulk-option {

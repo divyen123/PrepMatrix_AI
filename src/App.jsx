@@ -60,6 +60,7 @@ import {
   resolveBackgroundImageBlurPx,
   resolveEffectiveDarkMode,
 } from "./utils/appearanceTheme";
+import { initializeNewStudentAppearance } from "./utils/appearanceStorage";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
 import {
   getPlannerScheduleAttention,
@@ -1674,7 +1675,20 @@ function App() {
     setScheduleStartDate(null);
   };
 
-  const handleLogin = (profile, workspace, requestedContext = null) => {
+  const handleLogin = (profile, workspace, requestedContext = null, options = {}) => {
+    if (options.initializeDefaultAppearance) {
+      try {
+        initializeNewStudentAppearance(localStorage);
+        applyAppearanceMode("light");
+      } catch {
+        themeModeRef.current = "light";
+        darkModeRef.current = false;
+        setThemeMode("light");
+        setDarkModeState(false);
+      }
+      setActiveBackgroundImageId("");
+      setLiveCustomBackgroundImageActive(false);
+    }
     setUserProfile(profile);
     applyWorkspace(workspace, profile, requestedContext);
     setWorkspaceLoaded(true);

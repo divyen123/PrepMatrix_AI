@@ -6,7 +6,30 @@ import {
 } from "./backgroundPresets.js";
 import { BACKGROUND_IMAGE_BLUR_STORAGE_KEY } from "./appearanceTheme.js";
 
+export const NEW_STUDENT_APPEARANCE_DEFAULTS = Object.freeze({
+  accentRgbDark: "226, 232, 240",
+  accentRgbLight: "100, 116, 139",
+  themeMode: "light",
+});
+
+export function initializeNewStudentAppearance(storage = globalThis?.localStorage) {
+  if (!storage?.getItem || !storage?.setItem || !storage?.removeItem) {
+    throw new Error("Appearance storage is unavailable.");
+  }
+
+  return runAppearanceStorageTransaction(storage, () => {
+    storage.setItem("prepmatrix_theme_mode", NEW_STUDENT_APPEARANCE_DEFAULTS.themeMode);
+    storage.setItem("prepmatrix_default_theme", NEW_STUDENT_APPEARANCE_DEFAULTS.themeMode);
+    storage.setItem("prepmatrix_accent_rgb_light", NEW_STUDENT_APPEARANCE_DEFAULTS.accentRgbLight);
+    storage.setItem("prepmatrix_accent_rgb_dark", NEW_STUDENT_APPEARANCE_DEFAULTS.accentRgbDark);
+    storage.removeItem("prepmatrix_bg_image_id");
+
+    return NEW_STUDENT_APPEARANCE_DEFAULTS;
+  });
+}
+
 export const APPEARANCE_STORAGE_KEYS = Object.freeze([
+  "prepmatrix_theme_mode",
   "prepmatrix_default_theme",
   "prepmatrix_font_size",
   "prepmatrix_card_size",

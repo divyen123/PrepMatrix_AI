@@ -442,86 +442,99 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
             <span className="goal-reminder-dialog-mark" aria-hidden="true"><Target size={19} /><ListTodo size={11} /></span>
             <div><h2 id="goal-reminder-center-title">Goal & To-Do Center</h2></div>
           </div>
-          <div className="goal-reminder-header-controls">
-            <label className="goal-reminder-show-completed"><input checked={plannerSettings.showCompleted} onChange={(event) => persistSettings({ ...plannerSettings, showCompleted: event.target.checked })} type="checkbox" /> Show completed items</label>
-            <div className="goal-reminder-header-actions">
-              <div className="goal-reminder-bulk-menu-wrap">
-                <button
-                  aria-controls="goal-reminder-bulk-menu"
-                  aria-expanded={bulkMenuOpen}
-                  aria-haspopup="menu"
-                  aria-label="Open clear-all menu"
-                  className="goal-reminder-more-btn"
-                  onClick={() => {
-                    setConfirmBulkClear("");
-                    setGoalComposerOpen(false);
-                    setBulkMenuOpen((current) => !current);
-                  }}
-                  ref={bulkMenuButtonRef}
-                  title="Clear saved goals or to-do's"
-                  type="button"
-                ><EllipsisVertical size={18} /></button>
-                {bulkMenuOpen && (
-                  <div
-                    aria-label="Clear saved goals or to-do's"
-                    className="goal-reminder-bulk-menu"
-                    id="goal-reminder-bulk-menu"
-                    ref={bulkMenuRef}
-                    role="menu"
-                  >
-                    {BULK_CLEAR_ACTIONS.map((action) => {
-                      const count = plannerData[action.key].length;
-                      return confirmBulkClear === action.key ? (
-                        <div className="goal-reminder-bulk-confirm" key={action.key} role="none">
-                          <span><strong>Clear all?</strong></span>
-                          <button
-                            aria-label={`Confirm ${action.label.toLowerCase()}`}
-                            className="planner-confirm-btn is-confirm"
-                            onClick={() => clearAllItems(action)}
-                            role="menuitem"
-                            title="Confirm clear all"
-                            type="button"
-                          ><Check size={13} strokeWidth={3} /></button>
-                          <button
-                            aria-label={`Cancel ${action.label.toLowerCase()}`}
-                            className="planner-confirm-btn is-cancel"
-                            onClick={() => setConfirmBulkClear("")}
-                            role="menuitem"
-                            title="Cancel"
-                            type="button"
-                          ><X size={13} strokeWidth={3} /></button>
-                        </div>
-                      ) : (
-                        <button
-                          className="goal-reminder-bulk-option"
-                          disabled={count === 0}
-                          key={action.key}
-                          onClick={() => setConfirmBulkClear(action.key)}
-                          role="menuitem"
-                          type="button"
-                        ><Trash2 aria-hidden="true" size={14} /><span>{action.label}</span><strong>{count}</strong></button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+          <div className="goal-reminder-header-actions">
+            <div className="goal-reminder-bulk-menu-wrap">
               <button
-                aria-expanded={aboutOpen}
-                aria-haspopup="dialog"
-                aria-label="About goals and to-do tasks"
-                className="goal-reminder-about-btn"
+                aria-controls="goal-reminder-bulk-menu"
+                aria-expanded={bulkMenuOpen}
+                aria-haspopup="menu"
+                aria-label="Open goal and to-do options"
+                className="goal-reminder-more-btn"
                 onClick={() => {
                   setConfirmBulkClear("");
-                  setBulkMenuOpen(false);
                   setGoalComposerOpen(false);
-                  setAboutOpen(true);
+                  setBulkMenuOpen((current) => !current);
                 }}
-                ref={aboutButtonRef}
-                title="How goals and to-do tasks work"
+                ref={bulkMenuButtonRef}
+                title="More options"
                 type="button"
-              ><Info size={18} /></button>
-              <button aria-label="Close goal and to-do center" className="goal-reminder-close-btn" onClick={closeCenter} ref={closeButtonRef} type="button"><X size={18} /></button>
+              ><EllipsisVertical size={18} /></button>
+              {bulkMenuOpen && (
+                <div
+                  aria-label="Goal and to-do options"
+                  className="goal-reminder-bulk-menu"
+                  id="goal-reminder-bulk-menu"
+                  ref={bulkMenuRef}
+                  role="menu"
+                >
+                  <button
+                    aria-checked={plannerSettings.showCompleted}
+                    className="goal-reminder-show-completed"
+                    onClick={() => persistSettings({
+                      ...plannerSettings,
+                      showCompleted: !plannerSettings.showCompleted,
+                    })}
+                    role="menuitemcheckbox"
+                    type="button"
+                  >
+                    <span aria-hidden="true" className="goal-reminder-menu-check">
+                      {plannerSettings.showCompleted && <Check size={12} strokeWidth={3} />}
+                    </span>
+                    <span>Show completed items</span>
+                  </button>
+                  <div className="goal-reminder-bulk-menu-divider" role="separator" />
+                  {BULK_CLEAR_ACTIONS.map((action) => {
+                    const count = plannerData[action.key].length;
+                    return confirmBulkClear === action.key ? (
+                      <div className="goal-reminder-bulk-confirm" key={action.key} role="none">
+                        <span><strong>Clear all?</strong></span>
+                        <button
+                          aria-label={`Confirm ${action.label.toLowerCase()}`}
+                          className="planner-confirm-btn is-confirm"
+                          onClick={() => clearAllItems(action)}
+                          role="menuitem"
+                          title="Confirm clear all"
+                          type="button"
+                        ><Check size={13} strokeWidth={3} /></button>
+                        <button
+                          aria-label={`Cancel ${action.label.toLowerCase()}`}
+                          className="planner-confirm-btn is-cancel"
+                          onClick={() => setConfirmBulkClear("")}
+                          role="menuitem"
+                          title="Cancel"
+                          type="button"
+                        ><X size={13} strokeWidth={3} /></button>
+                      </div>
+                    ) : (
+                      <button
+                        className="goal-reminder-bulk-option"
+                        disabled={count === 0}
+                        key={action.key}
+                        onClick={() => setConfirmBulkClear(action.key)}
+                        role="menuitem"
+                        type="button"
+                      ><Trash2 aria-hidden="true" size={14} /><span>{action.label}</span><strong>{count}</strong></button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
+            <button
+              aria-expanded={aboutOpen}
+              aria-haspopup="dialog"
+              aria-label="About goals and to-do tasks"
+              className="goal-reminder-about-btn"
+              onClick={() => {
+                setConfirmBulkClear("");
+                setBulkMenuOpen(false);
+                setGoalComposerOpen(false);
+                setAboutOpen(true);
+              }}
+              ref={aboutButtonRef}
+              title="How goals and to-do tasks work"
+              type="button"
+            ><Info size={18} /></button>
+            <button aria-label="Close goal and to-do center" className="goal-reminder-close-btn" onClick={closeCenter} ref={closeButtonRef} type="button"><X size={18} /></button>
           </div>
         </header>
 

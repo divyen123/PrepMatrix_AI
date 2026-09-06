@@ -26,6 +26,15 @@ test("the center opens as an accessible right-side drawer with stacked goal and 
   assert.doesNotMatch(source, /getDueReminders|createReminderDraft|visibleReminders/u);
   assert.doesNotMatch(source, /A quick guide to dated outcomes, small next actions, and completed-item controls\./u);
   assert.doesNotMatch(source, /goal-reminder-about-description/u);
+  const menuStart = source.indexOf('className="goal-reminder-bulk-menu"');
+  const completedToggle = source.indexOf('className="goal-reminder-show-completed"');
+  const bulkClearActions = source.indexOf("{BULK_CLEAR_ACTIONS.map", menuStart);
+  assert.ok(menuStart >= 0 && menuStart < completedToggle && completedToggle < bulkClearActions);
+  assert.match(source, /aria-checked=\{plannerSettings\.showCompleted\}[\s\S]*?role="menuitemcheckbox"/u);
+  assert.doesNotMatch(source, /goal-reminder-header-controls/u);
+  assert.match(styles, /\.goal-reminder-dialog-header\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?flex-direction:\s*row;/u);
+  assert.match(styles, /\.goal-reminder-bulk-menu\s*\{[\s\S]*?background:\s*var\(--bg\);[\s\S]*?backdrop-filter:\s*none;/u);
+  assert.match(styles, /body\.has-bg-image \.goal-reminder-bulk-menu\s*\{[\s\S]*?background:\s*rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\);/u);
   assert.match(styles, /\.goal-reminder-stats\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,/u);
   assert.match(styles, /\.goal-reminder-backdrop\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?inset:\s*0;[\s\S]*?justify-content:\s*flex-end;[\s\S]*?background-color:\s*rgba\(2, 6, 16, 0\.48\);/u);
   assert.match(styles, /backdrop-filter:\s*blur\(10px\) brightness\(0\.78\) saturate\(0\.82\);/u);

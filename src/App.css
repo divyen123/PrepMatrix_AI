@@ -5355,10 +5355,10 @@ body.dark .entry-splash-loader {
 }
 
 .workspace-logo-title {
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 999px;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.13);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   color: var(--text);
   font-family: "Space Grotesk", sans-serif;
   font-size: clamp(1.55rem, 2.6vw, 2.45rem);
@@ -5367,7 +5367,7 @@ body.dark .entry-splash-loader {
   line-height: 1;
   margin: 0;
   opacity: 0;
-  padding: 0.78rem 1.2rem 0.86rem;
+  padding: 0;
   pointer-events: none;
   transform: translateX(-18px) scale(0.96);
   transform-origin: left center;
@@ -5376,16 +5376,7 @@ body.dark .entry-splash-loader {
 }
 
 .workspace-logo-title::before {
-  background: inherit;
-  border-bottom: inherit;
-  border-left: inherit;
-  content: "";
-  height: 14px;
-  left: -5px;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%) rotate(45deg);
-  width: 14px;
+  content: none;
 }
 
 .workspace-logo-wrap:hover .workspace-logo-title,
@@ -5395,9 +5386,9 @@ body.dark .entry-splash-loader {
 }
 
 body.dark .workspace-logo-title {
-  background: rgba(22, 32, 38, 0.92);
-  border-color: rgba(148, 163, 184, 0.16);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.3);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 @media (max-width: 720px) {
@@ -5407,7 +5398,7 @@ body.dark .workspace-logo-title {
 
   .workspace-logo-title {
     font-size: 1.35rem;
-    padding: 0.66rem 0.95rem 0.72rem;
+    padding: 0;
   }
 }
 
@@ -9670,7 +9661,7 @@ body.dark .completion-reward-popup {
 
 .workspace-logo-title {
   max-width: 164px !important;
-  padding: 0.58rem 0.78rem 0.64rem !important;
+  padding: 0 !important;
   font-size: 1.25rem !important;
   letter-spacing: 0 !important;
   overflow: hidden !important;
@@ -20678,22 +20669,18 @@ body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {
   align-items: center;
   gap: 18px;
   padding: 34px 30px 30px;
-  overflow: hidden;
+  overflow: visible;
   color: var(--text);
   text-align: center;
   z-index: 1;
-  background: var(--surface-strong);
-  background: color-mix(in srgb, var(--surface-strong) 94%, transparent);
-  border: 1px solid color-mix(in srgb, rgb(var(--accent-rgb)) 34%, var(--border));
-  border-radius: 26px;
-  box-shadow:
-    0 30px 90px rgba(0, 0, 0, 0.38),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   animation: logoutPanelEnter 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .logout-transition-panel:focus {
-  outline: 2px solid rgba(var(--accent-rgb), 0.34);
-  outline-offset: 4px;
+  outline: none;
 }
 
 .logout-transition.is-exiting .logout-transition-panel {

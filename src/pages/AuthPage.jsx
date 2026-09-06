@@ -80,7 +80,7 @@ function AuthPage({ onLogin }) {
     }
 
     if (isRegister && isSeniorSecondaryClass(form.grade) && !form.schoolStream.trim()) {
-      setMessage("Choose or enter the Class 11/12 stream or subject group.");
+      setMessage("Choose the Class 11/12 stream or subject group.");
       return;
     }
 
@@ -116,7 +116,9 @@ function AuthPage({ onLogin }) {
           // The Kids route also derives mandatory setup from the server.
         }
       }
-      onLogin(result.user, result.workspace, result.profileContext);
+      onLogin(result.user, result.workspace, result.profileContext, {
+        initializeDefaultAppearance: isRegister,
+      });
       const returnTo = safeAuthReturnTo(location.search);
       navigate(
         returnTo && !routePolicy.isYoungKidsLearner ? returnTo : routePolicy.homeRoute,
@@ -256,20 +258,19 @@ function AuthPage({ onLogin }) {
               )}
 
               {isSchoolAcademicLevel(form.academicLevel) && isSeniorSecondaryClass(form.grade) ? (
-                <label className="field-stack">
+                <label className="field-stack" htmlFor="registration-senior-stream-options">
                   Stream / subject group
-                  <input
-                    list="registration-senior-stream-options"
+                  <select
+                    id="registration-senior-stream-options"
                     onChange={(event) => updateField("schoolStream", event.target.value)}
-                    placeholder="Choose or type a stream"
                     required
                     value={form.schoolStream}
-                  />
-                  <datalist id="registration-senior-stream-options">
+                  >
+                    <option disabled value="">Choose stream / subject group</option>
                     {SENIOR_SECONDARY_STREAM_OPTIONS.map((option) => (
-                      <option key={option} value={option} />
+                      <option key={option} value={option}>{option}</option>
                     ))}
-                  </datalist>
+                  </select>
                 </label>
               ) : null}
 
