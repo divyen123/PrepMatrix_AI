@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Keyboard, X } from "lucide-react";
+import { X } from "lucide-react";
 import { APP_SHORTCUT_GUIDE_GROUPS } from "../utils/appKeyboardShortcuts";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 import "./KeyboardShortcutDialog.css";
@@ -108,7 +108,6 @@ export default function KeyboardShortcutDialog({ onClose, open = false }) {
       role="presentation"
     >
       <section
-        aria-describedby="keyboard-shortcut-dialog-description"
         aria-labelledby="keyboard-shortcut-dialog-title"
         aria-modal="true"
         className="keyboard-shortcut-dialog"
@@ -116,16 +115,7 @@ export default function KeyboardShortcutDialog({ onClose, open = false }) {
         role="dialog"
       >
         <header className="keyboard-shortcut-dialog-header">
-          <span aria-hidden="true" className="keyboard-shortcut-dialog-mark">
-            <Keyboard size={21} />
-          </span>
-          <div>
-            <span className="section-tag">Keyboard guide</span>
-            <h2 id="keyboard-shortcut-dialog-title">Move through PrepMatrix faster</h2>
-            <p id="keyboard-shortcut-dialog-description">
-              Workspace, navigation, and page-specific shortcuts in one place.
-            </p>
-          </div>
+          <h2 id="keyboard-shortcut-dialog-title">Shortcut keyboard guide</h2>
           <button
             aria-label="Close keyboard shortcut guide"
             className="keyboard-shortcut-dialog-close"
@@ -138,7 +128,7 @@ export default function KeyboardShortcutDialog({ onClose, open = false }) {
           </button>
         </header>
 
-        <div className="keyboard-shortcut-dialog-body">
+        <div aria-label="Keyboard shortcuts" className="keyboard-shortcut-dialog-body" tabIndex={0}>
           <KeyboardShortcutGroups />
         </div>
       </section>

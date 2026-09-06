@@ -30,11 +30,13 @@ test("shares the three shortcut groups between the About page and global dialog"
     assert.match(markup, /role="dialog"/u);
     assert.match(markup, /aria-modal="true"/u);
     assert.match(markup, /aria-labelledby="keyboard-shortcut-dialog-title"/u);
-    assert.match(markup, /aria-describedby="keyboard-shortcut-dialog-description"/u);
+    assert.match(markup, />Shortcut keyboard guide<\/h2>/u);
     assert.match(markup, /Close keyboard shortcut guide/u);
+    assert.match(markup, /aria-label="Keyboard shortcuts"[^>]*tabindex="0"/u);
     assert.match(markup, />Workspace</u);
     assert.match(markup, />Navigation</u);
     assert.match(markup, />Page actions</u);
+    assert.doesNotMatch(markup, /Move through PrepMatrix faster|Workspace, navigation, and page-specific shortcuts in one place/u);
     assert.doesNotMatch(markup, /anywhere outside a text field to return to this guide/u);
   } finally {
     await vite.close();
@@ -92,5 +94,8 @@ test("uses a blurred backdrop and an opaque surface for every theme", () => {
     dialogStyles,
     /\.keyboard-shortcut-dialog-body\s*\{[^}]*overflow: auto;[^}]*overscroll-behavior: contain;/u,
   );
+  assert.match(dialogStyles, /\.keyboard-shortcut-dialog-header\s*\{[^}]*min-height: 58px;[^}]*padding: 9px 14px 9px 20px;/u);
+  assert.match(dialogStyles, /max-height: calc\(100dvh - 40px\);/u);
+  assert.doesNotMatch(dialogStyles, /max-height: min\(780px|scrollbar-width: none|::-webkit-scrollbar/u);
   assert.match(dialogStyles, /@media \(prefers-reduced-motion: reduce\)/u);
 });
