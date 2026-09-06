@@ -106,6 +106,16 @@ test("builds a compact profile summary", () => {
     describeAcademicProfileSlot(profileB),
     "Postgraduate / Master's | M.Tech | Engineering & Technology",
   );
+  assert.equal(
+    describeAcademicProfileSlot({
+      academicLevel: "Senior / Higher Secondary School",
+      academicTrack: "CBSE",
+      schoolType: "school",
+      grade: "Class 12",
+      schoolStream: "Commerce",
+    }),
+    "Senior / Higher Secondary School | Class 12 | CBSE | Commerce",
+  );
 });
 
 test("binds deletion to both the fixed slot and immutable data ID", () => {

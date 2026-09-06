@@ -1,5 +1,6 @@
 import {
   isSchoolAcademicLevel,
+  isSeniorSecondaryClass,
   normalizeAcademicProfile,
 } from "./academicProfile.js";
 
@@ -16,6 +17,7 @@ const SCHOOL_CURRICULUM_TRACKS = new Set([
 const ACADEMIC_CHANGE_FIELDS = Object.freeze([
   { key: "academicLevel", label: "Academic stage" },
   { key: "grade", label: "Grade / class" },
+  { key: "schoolStream", label: "Stream / subject group" },
   { key: "degree", label: "Degree / major" },
   { key: "academicTrack", label: "Board / field" },
   { key: "department", label: "Specialization / department" },
@@ -26,6 +28,7 @@ const SEMANTIC_ACADEMIC_KEYS = Object.freeze([
   "academicTrack",
   "schoolType",
   "grade",
+  "schoolStream",
   "degree",
   "department",
 ]);
@@ -38,6 +41,7 @@ function draftFromProfile(input = {}) {
     department: profile.department,
     degree: profile.degree,
     grade: profile.grade,
+    schoolStream: profile.schoolStream,
     schoolType: profile.schoolType,
   };
 }
@@ -66,7 +70,13 @@ export function getActiveSettingsAcademicDraft(state) {
 
 export function updateSettingsAcademicDraft(state, patch = {}) {
   const current = getActiveSettingsAcademicDraft(state);
-  const next = { ...current, ...patch, academicLevel: state.activeStage };
+  const gradeChanged = Object.prototype.hasOwnProperty.call(patch, "grade");
+  const next = {
+    ...current,
+    ...patch,
+    ...(gradeChanged && !isSeniorSecondaryClass(patch.grade) ? { schoolStream: "" } : {}),
+    academicLevel: state.activeStage,
+  };
   return {
     ...state,
     byStage: { ...state.byStage, [state.activeStage]: next },
@@ -88,6 +98,7 @@ export function switchSettingsAcademicStage(state, nextStage) {
     academicLevel: normalizedStage,
     academicTrack: compatibleTrack,
     grade: "",
+    schoolStream: "",
     degree: "",
     department: "",
   });
@@ -116,6 +127,7 @@ export function buildSettingsAcademicSaveProfile(state, institutionName = "") {
     department: school ? "" : active.department,
     degree: school ? "" : active.degree,
     grade: school ? active.grade : "",
+    schoolStream: school ? active.schoolStream : "",
     institutionName,
     schoolType: school ? "school" : "college",
   });

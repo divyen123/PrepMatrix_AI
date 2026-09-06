@@ -28,6 +28,21 @@ export const SCHOOL_CLASS_OPTIONS = Object.freeze(
   ],
 );
 
+export const SENIOR_SECONDARY_STREAM_OPTIONS = Object.freeze([
+  "Science - Physics, Chemistry & Mathematics (PCM)",
+  "Science - Physics, Chemistry & Biology (PCB)",
+  "Science - Physics, Chemistry, Mathematics & Biology (PCMB)",
+  "Computer Science / Informatics Practices",
+  "Commerce",
+  "Commerce with Mathematics",
+  "Commerce with Computer Applications",
+  "Humanities / Arts",
+  "Agriculture",
+  "Home Science",
+  "Vocational / Skill-based",
+  "Other",
+]);
+
 export const TRACK_OPTIONS = Object.freeze([
   "General",
   "CBSE",
@@ -312,6 +327,14 @@ export function isSchoolAcademicLevel(value) {
   return SCHOOL_BANDS.has(bandFromLevel(value));
 }
 
+export function isSeniorSecondaryClass(value) {
+  const source = value && typeof value === "object"
+    ? [value.grade, value.academicLevel]
+    : [value];
+  const classNumber = extractClassNumber(...source);
+  return classNumber === 11 || classNumber === 12;
+}
+
 export function normalizeAcademicProfile(input = {}) {
   const source = input && typeof input === "object" ? input : { academicLevel: input };
   const rawAcademicLevel = sanitizeText(source.academicLevel, 100);
@@ -319,6 +342,10 @@ export function normalizeAcademicProfile(input = {}) {
   const rawDegree = sanitizeText(source.degree ?? source.major ?? source.qualification, 120);
   const rawDepartment = sanitizeText(source.department ?? source.fieldOfStudy ?? source.field, 120);
   const rawTrack = sanitizeText(source.academicTrack ?? source.track ?? source.board, 100);
+  const rawSchoolStream = sanitizeText(
+    source.schoolStream ?? source.subjectGroup ?? source.stream,
+    120,
+  );
   const rawSchoolType = matcherText(source.schoolType);
   const classNumber = extractClassNumber(rawAcademicLevel, rawGrade);
   const earlyYearsGrade = extractEarlyYearsGrade(rawAcademicLevel, rawGrade);
@@ -353,6 +380,9 @@ export function normalizeAcademicProfile(input = {}) {
     : rawDegree;
   const degree = schoolType === "school" ? "" : derivedDegree;
   const department = schoolType === "school" ? "" : rawDepartment;
+  const schoolStream = schoolType === "school" && (classNumber === 11 || classNumber === 12)
+    ? rawSchoolStream
+    : "";
 
   return {
     academicLevel: LEVEL_BY_BAND[band],
@@ -361,6 +391,7 @@ export function normalizeAcademicProfile(input = {}) {
     grade,
     degree,
     department,
+    schoolStream,
     institutionName: sanitizeText(source.institutionName ?? source.institution, 160),
     band,
     classNumber: classNumber || null,
@@ -373,7 +404,9 @@ function promptValue(value) {
 
 function audienceLabel(profile) {
   const qualification = profile.grade || profile.degree || profile.academicLevel;
-  const field = profile.department && profile.department !== "General / Undeclared"
+  const field = profile.schoolStream
+    ? `, ${profile.schoolStream}`
+    : profile.department && profile.department !== "General / Undeclared"
     ? `, ${profile.department}`
     : "";
   return `${qualification}${field}`;
@@ -393,7 +426,8 @@ export function buildLearnerAcademicContext(input = {}, options = {}) {
     promptLines.push(`${gradeLabel}: ${promptValue(profile.grade)}.`);
   }
   if (profile.degree) promptLines.push(`Degree or qualification: ${promptValue(profile.degree)}.`);
-  if (profile.academicTrack !== "General") promptLines.push(`Board, stream, or pathway: ${promptValue(profile.academicTrack)}.`);
+  if (profile.academicTrack !== "General") promptLines.push(`Board, curriculum, or pathway: ${promptValue(profile.academicTrack)}.`);
+  if (profile.schoolStream) promptLines.push(`Stream or subject group: ${promptValue(profile.schoolStream)}.`);
   if (profile.department && profile.department !== "General / Undeclared") {
     promptLines.push(`Department or field: ${promptValue(profile.department)}.`);
   }
@@ -425,6 +459,7 @@ export function academicProfilePayload(input = {}) {
     grade: profile.grade,
     degree: profile.degree,
     department: profile.department,
+    schoolStream: profile.schoolStream,
     institutionName: profile.institutionName,
   };
 }

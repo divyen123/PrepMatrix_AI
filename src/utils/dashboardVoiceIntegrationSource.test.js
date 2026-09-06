@@ -64,3 +64,13 @@ test("attachment speech is delivered once to chat instead of running twice", () 
     /if \(!hasAttachments\) \{[\s\S]*setSearchInput\(""\);[\s\S]*return;[\s\S]*\}[\s\S]*sendDashboardChatMessage\(window\.sendToChatbot, spokenText\)/u,
   );
 });
+
+test("global voice shortcut opens foreground capture without disabling wake mode", () => {
+  const branchStart = appSource.indexOf('if (shortcut.action === "open-voice-assistant")');
+  const branchEnd = appSource.indexOf('if (shortcut.action === "toggle-assistant")', branchStart);
+  const shortcutBranch = appSource.slice(branchStart, branchEnd);
+
+  assert.ok(branchStart >= 0 && branchEnd > branchStart);
+  assert.match(shortcutBranch, /if \(!voiceAssistant\.isProcessing\) \{\s*voiceAssistant\.askWithVoice\?\.\(\);/u);
+  assert.doesNotMatch(shortcutBranch, /isListening|isCommandListening|stopListening|pauseWakeMode|setWakeMode/u);
+});

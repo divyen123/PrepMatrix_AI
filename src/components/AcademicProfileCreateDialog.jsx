@@ -12,8 +12,10 @@ import {
   ACADEMIC_LEVEL_OPTIONS,
   DEPARTMENT_OPTIONS,
   SCHOOL_CLASS_OPTIONS,
+  SENIOR_SECONDARY_STREAM_OPTIONS,
   TRACK_OPTIONS,
   isSchoolAcademicLevel,
+  isSeniorSecondaryClass,
 } from "../utils/academicProfile";
 import {
   buildAcademicProfileCreationPayload,
@@ -26,6 +28,7 @@ const ACADEMIC_PROFILE_CREATE_EXIT_MS = 460;
 const EMPTY_ACADEMIC_PROFILE = Object.freeze({
   academicLevel: "Undergraduate / Bachelor's",
   academicTrack: "General",
+  schoolStream: "",
   degree: "",
   department: "Computer Science",
   grade: "",
@@ -71,6 +74,10 @@ export default function AcademicProfileCreateDialog({
   const schoolProfile = useMemo(
     () => isSchoolAcademicLevel(draft.academicLevel),
     [draft.academicLevel],
+  );
+  const seniorSecondaryProfile = useMemo(
+    () => schoolProfile && isSeniorSecondaryClass(draft.grade),
+    [draft.grade, schoolProfile],
   );
 
   useEffect(() => {
@@ -160,7 +167,13 @@ export default function AcademicProfileCreateDialog({
   const updateField = (field, value) => {
     setError("");
     setDraft((current) => {
-      if (field !== "academicLevel") return { ...current, [field]: value };
+      if (field !== "academicLevel") {
+        return {
+          ...current,
+          [field]: value,
+          ...(field === "grade" && !isSeniorSecondaryClass(value) ? { schoolStream: "" } : {}),
+        };
+      }
 
       const currentIsSchool = isSchoolAcademicLevel(current.academicLevel);
       const nextIsSchool = isSchoolAcademicLevel(value);
@@ -172,6 +185,7 @@ export default function AcademicProfileCreateDialog({
           : currentIsSchool ? "Computer Science" : current.department,
         degree: nextIsSchool || currentIsSchool ? "" : current.degree,
         grade: nextIsSchool && currentIsSchool ? current.grade : "",
+        schoolStream: nextIsSchool && currentIsSchool ? current.schoolStream : "",
         academicTrack: currentIsSchool !== nextIsSchool ? "General" : current.academicTrack,
       };
     });
@@ -296,7 +310,7 @@ export default function AcademicProfileCreateDialog({
             </label>
 
             {schoolProfile ? (
-              <label className="is-full" htmlFor="profile-b-grade">
+              <label className={seniorSecondaryProfile ? undefined : "is-full"} htmlFor="profile-b-grade">
                 <span>Exact class</span>
                 <select
                   id="profile-b-grade"
@@ -335,6 +349,25 @@ export default function AcademicProfileCreateDialog({
                 </label>
               </>
             )}
+
+            {seniorSecondaryProfile ? (
+              <label htmlFor="profile-b-school-stream">
+                <span>Stream / subject group</span>
+                <input
+                  id="profile-b-school-stream"
+                  list="profile-b-senior-stream-options"
+                  onChange={(event) => updateField("schoolStream", event.target.value)}
+                  placeholder="Choose or type a stream"
+                  required
+                  value={draft.schoolStream}
+                />
+                <datalist id="profile-b-senior-stream-options">
+                  {SENIOR_SECONDARY_STREAM_OPTIONS.map((option) => (
+                    <option key={option} value={option} />
+                  ))}
+                </datalist>
+              </label>
+            ) : null}
           </div>
 
           <p aria-live="polite" className={`academic-profile-create-error${error ? " is-visible" : ""}`} role={error ? "alert" : undefined}>

@@ -12704,6 +12704,164 @@ body.dark .sidebar-widgets .exam-widget-btn.is-task-failed {
   white-space: nowrap;
 }
 
+/* Compiler-style fenced code shared by typed chat and voice answers. */
+.assistant-code-block {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin: 12px 0 8px;
+  overflow: hidden;
+  color: #dbeafe;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 14px;
+  background: #090e1a;
+  box-shadow:
+    0 12px 28px rgba(2, 6, 23, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  box-sizing: border-box;
+  white-space: normal !important;
+}
+
+.assistant-code-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 10px 0 13px;
+  color: #aab6ca;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.17);
+  background: linear-gradient(180deg, #171e2d, #121826);
+  box-sizing: border-box;
+}
+
+.assistant-code-window-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.assistant-code-window-dots i {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #fb7185;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.assistant-code-window-dots i:nth-child(2) {
+  background: #fbbf24;
+}
+
+.assistant-code-window-dots i:nth-child(3) {
+  background: #34d399;
+}
+
+.assistant-code-language {
+  min-width: 0;
+  overflow: hidden;
+  color: #cbd5e1;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body button.assistant-code-copy {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  width: auto !important;
+  min-width: 62px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 9px !important;
+  color: #b9c5d8 !important;
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  box-shadow: none !important;
+  font: 700 0.7rem/1 "Inter", sans-serif !important;
+  white-space: nowrap;
+}
+
+body button.assistant-code-copy:hover,
+body button.assistant-code-copy:focus-visible {
+  color: #ffffff !important;
+  border-color: rgba(125, 211, 252, 0.45) !important;
+  background: rgba(14, 165, 233, 0.14) !important;
+  transform: none !important;
+}
+
+body button.assistant-code-copy.is-copied {
+  color: #86efac !important;
+  border-color: rgba(52, 211, 153, 0.32) !important;
+  background: rgba(16, 185, 129, 0.11) !important;
+}
+
+.assistant-code-viewport {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: rgba(125, 211, 252, 0.4) transparent;
+  scrollbar-width: thin;
+  box-sizing: border-box;
+}
+
+.assistant-code-viewport:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.48);
+  outline-offset: -2px;
+}
+
+.assistant-code-viewport::-webkit-scrollbar {
+  height: 6px;
+}
+
+.assistant-code-viewport::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(125, 211, 252, 0.38);
+}
+
+.assistant-code-block pre {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  padding: 16px 18px;
+  color: #dbeafe;
+  background:
+    linear-gradient(90deg, rgba(56, 189, 248, 0.035), transparent 38%),
+    #090e1a;
+  box-sizing: border-box;
+  tab-size: 2;
+  text-align: left;
+  white-space: pre !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
+.assistant-code-block pre > code {
+  display: block !important;
+  padding: 0 !important;
+  color: inherit !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+  font-size: 0.83rem !important;
+  font-weight: 500 !important;
+  line-height: 1.65 !important;
+  text-shadow: none !important;
+  white-space: pre !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
 .sidebar-chatbot-portal .chat-table-scroll {
   width: 100%;
   max-width: 100%;
@@ -23424,8 +23582,9 @@ body .resource-detail-back:focus-visible {
   }
 }
 
-/* This stays last so table answers remain wider than optional material cards. */
-.sidebar-chatbot-portal .chat-message.assistant:has(.chat-table-scroll) {
+/* This stays last so structured answers remain wider than optional material cards. */
+.sidebar-chatbot-portal .chat-message.assistant:has(.chat-table-scroll),
+.sidebar-chatbot-portal .chat-message.assistant:has(.assistant-code-block) {
   align-self: flex-start;
   width: min(100%, 980px);
   max-width: 100% !important;

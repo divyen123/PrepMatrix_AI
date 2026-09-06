@@ -97,11 +97,11 @@ function matchAt(source, offset, youtubeToken, linksAllowed) {
     };
   }
 
-  const strong = remaining.match(/^\*\*([^*\n]{1,240})\*\*/u);
+  const strong = remaining.match(/^(?:\*\*([^*\n]{1,240})\*\*|__([^_\n]{1,240})__)/u);
   if (strong) {
     return {
       end: offset + strong[0].length,
-      token: { type: "strong", value: strong[1] },
+      token: { type: "strong", value: strong[1] ?? strong[2] },
     };
   }
 

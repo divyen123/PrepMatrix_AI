@@ -144,6 +144,7 @@ function resolveQuickVoiceAnswer(spokenText = "") {
 
 function cleanAssistantTextForSpeech(text = "") {
   return text
+    .replace(/^\s*(?:`{3,}|~{3,})[^\n]*$/gm, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/__([^_]+)__/g, "$1")
     .replace(/`([^`]+)`/g, "$1")

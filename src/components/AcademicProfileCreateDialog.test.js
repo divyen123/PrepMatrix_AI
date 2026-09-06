@@ -50,6 +50,15 @@ test("validates a distinct Profile B and builds the registration academic payloa
     );
     assert.equal(
       validateAcademicProfileCreationDraft({
+        academicLevel: "Senior / Higher Secondary School",
+        academicTrack: "CBSE",
+        grade: "Class 12",
+        institutionName: "Prep School",
+      }, activeProfile),
+      "Choose or enter the Class 11/12 stream or subject group.",
+    );
+    assert.equal(
+      validateAcademicProfileCreationDraft({
         academicLevel: "Primary School",
         academicTrack: "CBSE",
         grade: "Class 3",
@@ -74,6 +83,7 @@ test("validates a distinct Profile B and builds the registration academic payloa
         grade: "Class 3",
         degree: "",
         department: "",
+        schoolStream: "",
         institutionName: "Prep School",
       },
     );
@@ -89,6 +99,15 @@ test("validates a distinct Profile B and builds the registration academic payloa
     assert.equal(collegePayload.grade, "");
     assert.equal(collegePayload.degree, "MBA");
     assert.equal(collegePayload.department, "Management");
+
+    const seniorPayload = buildAcademicProfileCreationPayload({
+      academicLevel: "Senior / Higher Secondary School",
+      academicTrack: "CBSE",
+      grade: "Class 11",
+      schoolStream: "Commerce with Mathematics",
+      institutionName: "Prep School",
+    });
+    assert.equal(seniorPayload.schoolStream, "Commerce with Mathematics");
   } finally {
     await vite?.close();
   }
@@ -109,6 +128,7 @@ test("uses an accessible, animated, compact, responsive dialog with registration
     "Academic stage",
     "Board / curriculum / field",
     "Exact class",
+    "Stream / subject group",
     "Degree / qualification",
     "Department / specialization",
   ]) {
@@ -142,6 +162,9 @@ test("uses an accessible, animated, compact, responsive dialog with registration
   assert.match(source, /document\.body\.style\.overflow = "hidden"/u);
   assert.match(source, /focusTarget\.focus\(\)/u);
   assert.match(source, /onCreateAcademicProfile\(buildAcademicProfileCreationPayload\(draft\)\)/u);
+  assert.match(source, /seniorSecondaryProfile/u);
+  assert.match(source, /profile-b-senior-stream-options/u);
+  assert.match(source, /value=\{draft\.schoolStream\}/u);
   assert.match(source, /const currentProfileName = activeProfile\?\.displayName \|\| activeProfile\?\.label \|\| "Profile A"/u);
   assert.match(source, /<small>Current<\/small> \{currentProfileName\}/u);
   assert.match(source, /<small>New<\/small> Profile B/u);

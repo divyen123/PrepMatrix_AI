@@ -106,6 +106,19 @@ test("registration creates fixed Profile A metadata and makes it active", () => 
   assert.equal(state.activeProfile.institutionName, "R.M.K Engineering College");
   assert.equal(ACADEMIC_PROFILE_DATA_VERSION, 2);
   assert.equal(ACADEMIC_PROFILE_KEYS.includes("institutionName"), true);
+  assert.equal(ACADEMIC_PROFILE_KEYS.includes("schoolStream"), true);
+});
+
+test("persists a Class 11 or 12 stream in the academic profile snapshot", () => {
+  const profile = academicProfileSnapshot({
+    academicLevel: "Senior / Higher Secondary School",
+    academicTrack: "State Board",
+    grade: "Class 12",
+    schoolStream: "Biology",
+    institutionName: "Prep School",
+  });
+
+  assert.equal(profile.schoolStream, "Biology");
 });
 
 test("legacy users project their current top-level profile as Profile A without a read-time write", () => {

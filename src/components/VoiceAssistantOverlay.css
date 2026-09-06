@@ -537,6 +537,36 @@
   overflow-wrap: anywhere;
 }
 
+.voice-reply-body .chat-paragraph {
+  margin: 0 0 12px;
+}
+
+.voice-reply-body .chat-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.voice-reply-body .chat-bullet-list,
+.voice-reply-body .chat-num-list {
+  margin: 8px 0 12px;
+  padding-left: 24px;
+}
+
+.voice-reply-body .chat-bullet-list > li {
+  list-style-type: disc;
+}
+
+.voice-reply-body .chat-num-list > li {
+  list-style-type: decimal;
+}
+
+.voice-reply-body .chat-spacer {
+  height: 8px;
+}
+
+.voice-reply-body .assistant-code-block {
+  margin: 14px 0;
+}
+
 .voice-reply-body::-webkit-scrollbar {
   width: 4px;
 }

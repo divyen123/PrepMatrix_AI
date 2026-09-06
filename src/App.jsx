@@ -825,6 +825,21 @@ function App() {
     setDarkMode,
   });
 
+  const handleLockApp = useCallback(() => {
+    lockRestoreWakeModeRef.current = Boolean(
+      voiceAssistant.wakeMode || localStorage.getItem("prepmatrix_wake_mode") === "true",
+    );
+    voiceAssistant.pauseWakeMode?.();
+    window.studyVoiceAssistant?.pauseWakeListening?.();
+    window.speechSynthesis?.cancel?.();
+    window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
+    sessionStorage.setItem(APP_LOCK_STORAGE_KEY, "true");
+    setAppLockError("");
+    setProfilePreviewOpen(false);
+    setSidebarOpen(false);
+    setAppLocked(true);
+  }, [voiceAssistant]);
+
   useEffect(() => {
     if (authLoading || !userProfile || isAuthRoute || appLocked) return undefined;
 
@@ -838,7 +853,8 @@ function App() {
           && activeModal.matches(".sidebar-chatbot-portal");
         const closesActiveGoals = shortcut.action === "toggle-goals"
           && activeModal.matches(".goal-reminder-dialog");
-        if (!closesActiveChat && !closesActiveGoals) {
+        const locksApp = shortcut.action === "lock-app";
+        if (!closesActiveChat && !closesActiveGoals && !locksApp) {
           event.preventDefault();
           return;
         }
@@ -846,16 +862,14 @@ function App() {
 
       event.preventDefault();
 
-      if (shortcut.action === "toggle-microphone") {
+      if (shortcut.action === "open-voice-assistant") {
         if (!voiceAssistant.supported) {
           toast.info("Voice shortcuts are not supported in this browser.", {
             toastId: "keyboard-voice-unavailable",
           });
           return;
         }
-        if (voiceAssistant.isListening || voiceAssistant.isCommandListening) {
-          voiceAssistant.stopListening?.();
-        } else if (!voiceAssistant.isProcessing) {
+        if (!voiceAssistant.isProcessing) {
           voiceAssistant.askWithVoice?.();
         }
         return;
@@ -882,6 +896,11 @@ function App() {
         } else {
           toggleGoalReminderCenter();
         }
+        return;
+      }
+
+      if (shortcut.action === "lock-app") {
+        handleLockApp();
         return;
       }
 
@@ -948,6 +967,7 @@ function App() {
   }, [
     appLocked,
     authLoading,
+    handleLockApp,
     isAuthRoute,
     isKidsLearner,
     location.pathname,
@@ -1954,21 +1974,6 @@ function App() {
     } catch {
       toast.error("Could not check for updates. Try again when you are online.");
     }
-  };
-
-  const handleLockApp = () => {
-    lockRestoreWakeModeRef.current = Boolean(
-      voiceAssistant.wakeMode || localStorage.getItem("prepmatrix_wake_mode") === "true",
-    );
-    voiceAssistant.pauseWakeMode?.();
-    window.studyVoiceAssistant?.pauseWakeListening?.();
-    window.speechSynthesis?.cancel?.();
-    window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
-    sessionStorage.setItem(APP_LOCK_STORAGE_KEY, "true");
-    setAppLockError("");
-    setProfilePreviewOpen(false);
-    setSidebarOpen(false);
-    setAppLocked(true);
   };
 
   const handleUnlockApp = async (password) => {

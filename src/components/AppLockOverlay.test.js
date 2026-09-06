@@ -44,6 +44,7 @@ test("persists lock state per browser session and verifies the account password"
   assert.match(appSource, /api\.post\("\/api\/auth\/check-password", \{ password \}\)/u);
   assert.match(appSource, /sessionStorage\.removeItem\(APP_LOCK_STORAGE_KEY\)/u);
   assert.match(appSource, /disabled: authLoading \|\| !userProfile \|\| appLocked/u);
+  assert.match(appSource, /if \(shortcut\.action === "lock-app"\) \{\s*handleLockApp\(\);\s*return;\s*\}/u);
   assert.match(appSource, /const handleCancelLogout = \(\) => \{[\s\S]*?setAppLocked\(true\)/u);
   assert.match(appSource, /inert=\{appLocked \|\| logoutConfirmOpen \|\| logoutTransitionPhase !== "idle" \? true : undefined\}/u);
   assert.match(appSource, /appLocked && userProfile && !\(logoutConfirmOpen && logoutReturnsToLock\)/u);

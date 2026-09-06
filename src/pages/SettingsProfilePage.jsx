@@ -36,7 +36,11 @@ import {
 } from "recharts";
 import { getAcademicProfileDisplayName } from "../utils/academicProfileNames";
 import { toast } from "react-toastify";
-import { isSchoolAcademicLevel, normalizeAcademicProfile } from "../utils/academicProfile";
+import {
+  isSchoolAcademicLevel,
+  isSeniorSecondaryClass,
+  normalizeAcademicProfile,
+} from "../utils/academicProfile";
 import { getAcademicProfileSlots } from "../utils/academicProfileSlots";
 import {
   APP_USAGE_LIMIT_OPTIONS,
@@ -410,6 +414,9 @@ export default function SettingsProfilePage({
     ["Academic stage", displayValue(academicProfile.academicLevel)],
     [schoolProfile ? "Board / curriculum" : "Field / stream", displayValue(academicProfile.academicTrack)],
     [schoolProfile ? "Grade / class" : "Degree / major", displayValue(schoolProfile ? academicProfile.grade : academicProfile.degree)],
+    ...(schoolProfile && isSeniorSecondaryClass(academicProfile)
+      ? [["Stream / subject group", displayValue(academicProfile.schoolStream)]]
+      : []),
     ...(schoolProfile ? [] : [["Specialization", displayValue(academicProfile.department)]]),
     ["Institution", displayValue(academicProfile.institutionName || userProfile?.institutionName)],
   ];

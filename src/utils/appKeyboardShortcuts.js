@@ -19,12 +19,13 @@ export const APP_SHORTCUT_GUIDE_GROUPS = Object.freeze([
     label: "Workspace",
     description: "Open the tools you use most without leaving the keyboard.",
     items: [
-      { keys: ["Ctrl", "Shift", "M"], label: "Start or stop the assistant microphone" },
+      { keys: ["Ctrl", "Shift", "M"], label: "Open the voice assistant microphone" },
       { keys: ["Ctrl", "Shift", "A"], label: "Open or close AI Chat" },
       { keys: ["Ctrl", "K"], label: "Focus the Dashboard Ask AI bar" },
       { keys: ["Ctrl", "Shift", "T"], label: "Open or close Goals & To-Do" },
       { keys: ["Ctrl", ","], label: "Open Settings" },
       { keys: ["Ctrl", "Shift", "H"], label: "View alert history" },
+      { keys: ["Ctrl", "Shift", "L"], label: "Lock app" },
       { keys: ["Esc"], label: "Close the active popup, drawer, or AI Chat" },
       { keys: ["?"], label: "Open this keyboard shortcut guide" },
     ],
@@ -72,7 +73,7 @@ export function resolveAppKeyboardShortcut(event) {
   const primary = Boolean(event.ctrlKey || event.metaKey);
 
   if (primary && event.shiftKey && !event.altKey && key === "m") {
-    return { action: "toggle-microphone" };
+    return { action: "open-voice-assistant" };
   }
   if (primary && event.shiftKey && !event.altKey && key === "a") {
     return { action: "toggle-assistant" };
@@ -82,6 +83,9 @@ export function resolveAppKeyboardShortcut(event) {
   }
   if (primary && event.shiftKey && !event.altKey && key === "h") {
     return { action: "open-alert-history" };
+  }
+  if (primary && event.shiftKey && !event.altKey && key === "l") {
+    return { action: "lock-app" };
   }
   if (primary && !event.shiftKey && !event.altKey && key === "k") {
     return { action: "focus-ask" };

@@ -4,10 +4,12 @@ import {
   ACADEMIC_LEVEL_OPTIONS,
   EARLY_YEARS_GRADE_OPTIONS,
   SCHOOL_CLASS_OPTIONS,
+  SENIOR_SECONDARY_STREAM_OPTIONS,
   TRACK_OPTIONS,
   academicProfilePayload,
   buildLearnerAcademicContext,
   isSchoolAcademicLevel,
+  isSeniorSecondaryClass,
   normalizeAcademicProfile,
 } from "./academicProfile.js";
 
@@ -21,6 +23,9 @@ test("exports the complete level and school-class taxonomies", () => {
     [...EARLY_YEARS_GRADE_OPTIONS, ...Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`)],
   );
   assert.ok(TRACK_OPTIONS.includes("State Board"));
+  assert.ok(SENIOR_SECONDARY_STREAM_OPTIONS.includes("Commerce"));
+  assert.ok(SENIOR_SECONDARY_STREAM_OPTIONS.some((option) => /Computer Science/iu.test(option)));
+  assert.ok(SENIOR_SECONDARY_STREAM_OPTIONS.some((option) => /Biology/iu.test(option)));
 });
 
 test("normalizes Nursery, LKG, UKG, and Kindergarten aliases into the early-years band", () => {
@@ -73,6 +78,30 @@ test("classifies Class 10 as secondary and Class 12 as senior or higher secondar
   assert.equal(classTwelve.academicLevel, "Senior / Higher Secondary School");
   assert.equal(classTwelve.band, "senior");
   assert.equal(classTwelve.grade, "Class 12");
+  assert.equal(isSeniorSecondaryClass(classTen), false);
+  assert.equal(isSeniorSecondaryClass(classTwelve), true);
+});
+
+test("retains a subject group only for Class 11 and Class 12", () => {
+  const classEleven = normalizeAcademicProfile({
+    academicLevel: "Senior / Higher Secondary School",
+    grade: "Class 11",
+    schoolStream: "Computer Science / Informatics Practices",
+  });
+  const classTen = normalizeAcademicProfile({
+    academicLevel: "Secondary School",
+    grade: "Class 10",
+    schoolStream: "Commerce",
+  });
+  const college = normalizeAcademicProfile({
+    academicLevel: "Undergraduate / Bachelor's",
+    degree: "B.Com",
+    schoolStream: "Commerce",
+  });
+
+  assert.equal(classEleven.schoolStream, "Computer Science / Informatics Practices");
+  assert.equal(classTen.schoolStream, "");
+  assert.equal(college.schoolStream, "");
 });
 
 test("keeps legacy senior-secondary names compatible with State Board profiles", () => {
@@ -181,6 +210,21 @@ test("builds read-aloud-friendly hard constraints for early-years learners", () 
   assert.ok(context.promptLines.some((line) => /Difficulty is relative to this learner stage/iu.test(line)));
 });
 
+test("includes a senior-secondary stream in the learner context", () => {
+  const context = buildLearnerAcademicContext({
+    academicLevel: "Senior / Higher Secondary School",
+    academicTrack: "CBSE",
+    grade: "Class 12",
+    schoolStream: "Science - Physics, Chemistry & Biology (PCB)",
+  });
+
+  assert.equal(context.schoolStream, "Science - Physics, Chemistry & Biology (PCB)");
+  assert.match(context.audienceLabel, /Class 12, Science/u);
+  assert.ok(context.promptLines.includes(
+    'Stream or subject group: "Science - Physics, Chemistry & Biology (PCB)".',
+  ));
+});
+
 test("creates a canonical early-years persistence payload and clears college-only fields", () => {
   const payload = academicProfilePayload({
     academicLevel: "Early Childhood",
@@ -198,6 +242,7 @@ test("creates a canonical early-years persistence payload and clears college-onl
     grade: "LKG",
     degree: "",
     department: "",
+    schoolStream: "",
     institutionName: "Little Stars",
   });
 });
@@ -216,6 +261,7 @@ test("creates a canonical persistence payload without derived prompt fields", ()
     grade: "",
     degree: "MBBS",
     department: "",
+    schoolStream: "",
     institutionName: "City Medical College",
   });
 });

@@ -9,6 +9,7 @@ const ACADEMIC_FIELDS = Object.freeze([
   "academicTrack",
   "schoolType",
   "grade",
+  "schoolStream",
   "degree",
   "department",
   "institutionName",

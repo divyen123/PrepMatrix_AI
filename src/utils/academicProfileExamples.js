@@ -342,6 +342,7 @@ export function resolveAcademicProfileExampleDomain(input = {}) {
   const profile = normalizeAcademicProfile(input);
   const profileText = matcherText(
     profile.academicTrack,
+    profile.schoolStream,
     profile.degree,
     profile.department,
   );
@@ -389,11 +390,12 @@ export function resolveAcademicProfileExampleDomain(input = {}) {
 
 function contextLabel(profile) {
   const qualification = profile.grade || profile.degree || profile.academicLevel;
-  const field = profile.department && profile.department !== "General / Undeclared"
+  const field = profile.schoolStream
+    || (profile.department && profile.department !== "General / Undeclared"
     ? profile.department
     : profile.academicTrack !== "General"
       ? profile.academicTrack
-      : "";
+      : "");
   return [qualification, field].filter(Boolean).join(" · ");
 }
 
@@ -402,11 +404,12 @@ export function getAcademicProfileExamples(input = {}) {
   const domain = resolveAcademicProfileExampleDomain(profile);
   const examples = EXAMPLE_SETS[domain] || EXAMPLE_SETS.general;
   const relatedTopics = [examples.topic, ...examples.additionalChapters];
-  const fieldLabel = profile.department && profile.department !== "General / Undeclared"
+  const fieldLabel = profile.schoolStream
+    || (profile.department && profile.department !== "General / Undeclared"
     ? profile.department
     : profile.academicTrack !== "General"
       ? profile.academicTrack
-      : profile.degree || profile.academicLevel;
+      : profile.degree || profile.academicLevel);
   const learnerLabel = profile.schoolType === "school"
     ? `${profile.grade || profile.academicLevel} student`
     : `${fieldLabel} student`;

@@ -269,6 +269,7 @@ export async function backfillLegacyAcademicProfileData(db, user, {
         department: activeProfile.department,
         schoolType: activeProfile.schoolType,
         grade: activeProfile.grade,
+        schoolStream: activeProfile.schoolStream,
         degree: activeProfile.degree,
         academicProfileDataVersion: targetVersion,
         academicProfileDataMigratedAt: migratedAt,

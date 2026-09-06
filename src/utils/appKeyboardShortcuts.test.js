@@ -23,7 +23,7 @@ function keyboardEvent(overrides = {}) {
 test("resolves global workspace shortcuts", () => {
   assert.deepEqual(
     resolveAppKeyboardShortcut(keyboardEvent({ ctrlKey: true, shiftKey: true, key: "M" })),
-    { action: "toggle-microphone" },
+    { action: "open-voice-assistant" },
   );
   assert.deepEqual(
     resolveAppKeyboardShortcut(keyboardEvent({ ctrlKey: true, key: "k" })),
@@ -32,6 +32,10 @@ test("resolves global workspace shortcuts", () => {
   assert.deepEqual(
     resolveAppKeyboardShortcut(keyboardEvent({ ctrlKey: true, key: "," })),
     { action: "open-settings" },
+  );
+  assert.deepEqual(
+    resolveAppKeyboardShortcut(keyboardEvent({ ctrlKey: true, shiftKey: true, key: "L" })),
+    { action: "lock-app" },
   );
 });
 
@@ -51,11 +55,26 @@ test("guide presents workspace, navigation, and page-specific actions", () => {
     ["workspace", "navigation", "page-actions"],
   );
   assert.ok(APP_SHORTCUT_GUIDE_GROUPS.flatMap((group) => group.items).length >= 25);
+  assert.deepEqual(
+    APP_SHORTCUT_GUIDE_GROUPS
+      .find((group) => group.id === "workspace")
+      ?.items.find((item) => item.label === "Open the voice assistant microphone")
+      ?.keys,
+    ["Ctrl", "Shift", "M"],
+  );
+  assert.deepEqual(
+    APP_SHORTCUT_GUIDE_GROUPS
+      .find((group) => group.id === "workspace")
+      ?.items.find((item) => item.label === "Lock app")
+      ?.keys,
+    ["Ctrl", "Shift", "L"],
+  );
 });
 
 test("ignores repeats and shortcuts with conflicting modifiers", () => {
   assert.equal(resolveAppKeyboardShortcut(keyboardEvent({ ctrlKey: true, key: "k", repeat: true })), null);
   assert.equal(resolveAppKeyboardShortcut(keyboardEvent({ altKey: true, ctrlKey: true, key: "1" })), null);
+  assert.equal(resolveAppKeyboardShortcut(keyboardEvent({ altKey: true, ctrlKey: true, shiftKey: true, key: "L" })), null);
 });
 
 test("does not open the guide while the user is typing", () => {

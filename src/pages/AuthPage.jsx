@@ -4,9 +4,11 @@ import {
   ACADEMIC_LEVEL_OPTIONS,
   DEPARTMENT_OPTIONS,
   SCHOOL_CLASS_OPTIONS,
+  SENIOR_SECONDARY_STREAM_OPTIONS,
   TRACK_OPTIONS,
   academicProfilePayload,
   isSchoolAcademicLevel,
+  isSeniorSecondaryClass,
 } from "../utils/academicProfile";
 import { getLearnerRoutePolicy } from "../utils/learnerRouting";
 import { academicProfileStorageKey } from "../utils/academicProfileScope";
@@ -20,6 +22,7 @@ const emptyProfile = {
   institutionName: "",
   academicLevel: "Undergraduate / Bachelor's",
   academicTrack: "General",
+  schoolStream: "",
   grade: "",
   degree: "",
   department: "Computer Science",
@@ -48,7 +51,11 @@ function AuthPage({ onLogin }) {
   }, [location.pathname]);
 
   const updateField = (field, value) => {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "grade" && !isSeniorSecondaryClass(value) ? { schoolStream: "" } : {}),
+    }));
   };
 
   const handleSubmit = async (event) => {
@@ -69,6 +76,11 @@ function AuthPage({ onLogin }) {
 
     if (isRegister && isSchoolAcademicLevel(form) && !form.grade.trim()) {
       setMessage("Choose the learner's exact class.");
+      return;
+    }
+
+    if (isRegister && isSeniorSecondaryClass(form.grade) && !form.schoolStream.trim()) {
+      setMessage("Choose or enter the Class 11/12 stream or subject group.");
       return;
     }
 
@@ -219,7 +231,7 @@ function AuthPage({ onLogin }) {
               </label>
 
               {isSchoolAcademicLevel(form.academicLevel) ? (
-                <label className="field-stack auth-field-full">
+                <label className={`field-stack${isSeniorSecondaryClass(form.grade) ? "" : " auth-field-full"}`}>
                   Exact class
                   <select
                     onChange={(event) => updateField("grade", event.target.value)}
@@ -242,6 +254,24 @@ function AuthPage({ onLogin }) {
                   />
                 </label>
               )}
+
+              {isSchoolAcademicLevel(form.academicLevel) && isSeniorSecondaryClass(form.grade) ? (
+                <label className="field-stack">
+                  Stream / subject group
+                  <input
+                    list="registration-senior-stream-options"
+                    onChange={(event) => updateField("schoolStream", event.target.value)}
+                    placeholder="Choose or type a stream"
+                    required
+                    value={form.schoolStream}
+                  />
+                  <datalist id="registration-senior-stream-options">
+                    {SENIOR_SECONDARY_STREAM_OPTIONS.map((option) => (
+                      <option key={option} value={option} />
+                    ))}
+                  </datalist>
+                </label>
+              ) : null}
 
               {!isSchoolAcademicLevel(form.academicLevel) && (
                 <label className="field-stack auth-field-full">

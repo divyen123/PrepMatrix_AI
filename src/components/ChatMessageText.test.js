@@ -13,6 +13,17 @@ const tableReply = `3. **Concrete example**
 | 2 | Enqueue 10 | 0 | 0 | \`[10 _ _ _ _]\` | |
 | 3 | Enqueue 20 | 0 | 1 | \`[10 20 _ _ _]\` |`;
 
+const fencedCodeReply = [
+  "A readable example:",
+  "``` python",
+  "def flatten(matrix):",
+  "    return [value for row in matrix for value in row]",
+  "",
+  "print(\"<script>not markup</script>\")",
+  "```",
+  "Use it when the input is a list of lists.",
+].join("\n");
+
 test("renders answer tables as aligned semantic markup instead of raw pipe text", async () => {
   const vite = await createServer({
     appType: "custom",
@@ -53,14 +64,66 @@ test("keeps ordinary pipe prose while preserving lists and safe inline formattin
       "/src/components/ChatMessageText.jsx",
     );
     const markup = renderToStaticMarkup(React.createElement(ChatMessageText, {
-      text: "Choose A | B without a delimiter.\n- **Review** `FIFO`\n2. Explain the result",
+      text: "Choose A | B without a delimiter.\n- **Review** `FIFO`\n• __Keep indentation__\n2. Explain the result",
     }));
 
     assert.doesNotMatch(markup, /<table/u);
     assert.match(markup, /<p class="chat-paragraph">Choose A \| B without a delimiter\.<\/p>/u);
     assert.match(markup, /<ul class="chat-bullet-list">/u);
     assert.match(markup, /<strong>Review<\/strong> <code class="chat-inline-code">FIFO<\/code>/u);
+    assert.match(markup, /<strong>Keep indentation<\/strong>/u);
     assert.match(markup, /<ol class="chat-num-list" start="2">/u);
+  } finally {
+    await vite.close();
+  }
+});
+
+test("renders fenced source code in a labelled compiler-style block", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { default: ChatMessageText } = await vite.ssrLoadModule(
+      "/src/components/ChatMessageText.jsx",
+    );
+    const markup = renderToStaticMarkup(React.createElement(ChatMessageText, {
+      text: fencedCodeReply,
+    }));
+
+    assert.match(markup, /class="assistant-code-block"/u);
+    assert.match(markup, /class="assistant-code-language">Python<\/span>/u);
+    assert.match(markup, /<pre><code>def flatten\(matrix\):\n {4}return/u);
+    assert.match(markup, /&lt;script&gt;not markup&lt;\/script&gt;/u);
+    assert.match(markup, /aria-label="Copy Python code"/u);
+    assert.doesNotMatch(markup, /``` python|```<\/p>/u);
+  } finally {
+    await vite.close();
+  }
+});
+
+test("uses the same fenced-code renderer in voice assistant answers", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { default: VoiceAssistantOverlay } = await vite.ssrLoadModule(
+      "/src/components/VoiceAssistantOverlay.jsx",
+    );
+    const markup = renderToStaticMarkup(React.createElement(VoiceAssistantOverlay, {
+      reply: fencedCodeReply,
+      voiceStatus: "answered",
+    }));
+
+    assert.match(markup, /class="voice-reply-body"/u);
+    assert.match(markup, /class="assistant-code-block"/u);
+    assert.match(markup, /class="assistant-code-language">Python<\/span>/u);
+    assert.match(markup, /<pre><code>def flatten\(matrix\):\n {4}return/u);
   } finally {
     await vite.close();
   }
@@ -80,5 +143,17 @@ test("keeps wide answer tables contained and aligned in the chat message", async
   assert.match(
     stylesheet,
     /\.sidebar-chatbot-portal \.chat-markdown-table th,[\s\S]*?text-align:\s*left;[\s\S]*?vertical-align:\s*top;[\s\S]*?white-space:\s*normal\s*!important;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.assistant-code-block\s*\{[\s\S]*?max-width:\s*100%;[\s\S]*?background:\s*#090e1a;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.assistant-code-viewport\s*\{[\s\S]*?overflow-x:\s*auto;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.assistant-code-block pre\s*\{[\s\S]*?white-space:\s*pre\s*!important;/u,
   );
 });

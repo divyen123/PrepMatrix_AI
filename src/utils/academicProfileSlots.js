@@ -16,6 +16,7 @@ function normalizeSlot(profile, index) {
     academicTrack: normalized.academicTrack,
     schoolType: normalized.schoolType,
     grade: normalized.grade,
+    schoolStream: normalized.schoolStream,
     degree: normalized.degree,
     department: normalized.department,
     institutionName: normalized.institutionName,
@@ -52,7 +53,7 @@ export function describeAcademicProfileSlot(profile = {}) {
   const qualification = profile.schoolType === "school"
     ? profile.grade
     : profile.degree;
-  return [profile.academicLevel, qualification, profile.academicTrack]
+  return [profile.academicLevel, qualification, profile.academicTrack, profile.schoolStream]
     .map((value) => String(value || "").trim())
     .filter(Boolean)
     .join(" | ");

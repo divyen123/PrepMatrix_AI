@@ -13,6 +13,7 @@ export const ACADEMIC_PROFILE_CONTEXT_KEYS = Object.freeze([
   "academicTrack",
   "schoolType",
   "grade",
+  "schoolStream",
   "degree",
   "department",
 ]);

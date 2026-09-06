@@ -1,6 +1,7 @@
 import {
   academicProfilePayload,
   isSchoolAcademicLevel,
+  isSeniorSecondaryClass,
   normalizeAcademicProfile,
 } from "./academicProfile.js";
 import { getSettingsAcademicProfileChanges } from "./settingsAcademicDrafts.js";
@@ -12,6 +13,7 @@ export function buildAcademicProfileCreationPayload(draft = {}) {
     department: schoolProfile ? "" : draft.department,
     degree: schoolProfile ? "" : draft.degree,
     grade: schoolProfile ? draft.grade : "",
+    schoolStream: schoolProfile ? draft.schoolStream : "",
     institutionName: String(draft.institutionName || "").trim(),
     schoolType: schoolProfile ? "school" : "college",
   });
@@ -28,6 +30,10 @@ export function validateAcademicProfileCreationDraft(draft, activeProfile = {}) 
 
   if (isSchoolAcademicLevel(draft?.academicLevel) && !String(draft?.grade || "").trim()) {
     return "Choose the learner's exact class.";
+  }
+
+  if (isSeniorSecondaryClass(draft?.grade) && !String(draft?.schoolStream || "").trim()) {
+    return "Choose or enter the Class 11/12 stream or subject group.";
   }
 
   const candidate = buildAcademicProfileCreationPayload(draft);

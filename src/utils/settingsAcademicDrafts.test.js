@@ -29,6 +29,7 @@ test("restores each stage's academic draft when switching back", () => {
     degree: "B.Tech",
     department: "Information Technology",
     grade: "",
+    schoolStream: "",
     schoolType: "college",
   });
 
@@ -131,6 +132,42 @@ test("includes class and curriculum changes in the confirmation summary", () => 
   );
 
   assert.deepEqual(changes.map(({ key }) => key), ["grade", "academicTrack"]);
+});
+
+test("saves the Class 11 or 12 stream and clears it when leaving senior secondary", () => {
+  let state = createSettingsAcademicDrafts({
+    academicLevel: "Senior / Higher Secondary School",
+    academicTrack: "CBSE",
+    grade: "Class 12",
+    schoolStream: "Commerce",
+  });
+
+  const senior = buildSettingsAcademicSaveProfile(state, "Prep School");
+  assert.equal(senior.schoolStream, "Commerce");
+
+  state = updateSettingsAcademicDraft(state, { grade: "Class 10" });
+  assert.equal(getActiveSettingsAcademicDraft(state).schoolStream, "");
+  assert.equal(buildSettingsAcademicSaveProfile(state, "Prep School").schoolStream, "");
+});
+
+test("includes a stream change in the confirmation summary", () => {
+  const changes = getSettingsAcademicProfileChanges(
+    {
+      academicLevel: "Senior / Higher Secondary School",
+      academicTrack: "CBSE",
+      grade: "Class 12",
+      schoolStream: "Commerce",
+    },
+    {
+      academicLevel: "Senior / Higher Secondary School",
+      academicTrack: "CBSE",
+      grade: "Class 12",
+      schoolStream: "Humanities / Arts",
+    },
+  );
+
+  assert.deepEqual(changes.map(({ key }) => key), ["schoolStream"]);
+  assert.equal(changes[0].label, "Stream / subject group");
 });
 
 test("builds current-to-old rows for an academic profile restore preview", () => {

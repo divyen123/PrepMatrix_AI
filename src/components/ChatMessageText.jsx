@@ -1,4 +1,5 @@
 import { tokenizeChatMessageInline } from "../utils/chatMessageLinks";
+import AssistantCodeBlock from "./AssistantCodeBlock";
 
 function isEscaped(source, index) {
   let slashCount = 0;
@@ -60,11 +61,48 @@ function tableAlignments(value, columnCount) {
   return alignments.every(Boolean) ? alignments : null;
 }
 
+function openingCodeFence(value = "") {
+  const match = String(value).match(/^\s{0,3}(`{3,}|~{3,})\s*([^\s`~]*)\s*$/u);
+  if (!match) return null;
+
+  return {
+    character: match[1][0],
+    length: match[1].length,
+    language: match[2] || "",
+  };
+}
+
+function closesCodeFence(value = "", fence) {
+  const marker = String(value).trim();
+  return marker.length >= fence.length
+    && Array.from(marker).every((character) => character === fence.character);
+}
+
 function parseChatMessageBlocks(text = "") {
   const lines = String(text).split(/\r?\n/u);
   const blocks = [];
 
   for (let index = 0; index < lines.length;) {
+    const fence = openingCodeFence(lines[index]);
+    if (fence) {
+      const codeLines = [];
+      let cursor = index + 1;
+
+      while (cursor < lines.length && !closesCodeFence(lines[cursor], fence)) {
+        codeLines.push(lines[cursor]);
+        cursor += 1;
+      }
+
+      blocks.push({
+        type: "code",
+        language: fence.language,
+        value: codeLines.join("\n"),
+        sourceIndex: index,
+      });
+      index = cursor < lines.length ? cursor + 1 : cursor;
+      continue;
+    }
+
     const headers = splitTableRow(lines[index]);
     const alignments = headers?.length > 1
       ? tableAlignments(lines[index + 1] ?? "", headers.length)
@@ -134,6 +172,16 @@ export default function ChatMessageText({
   );
 
   return parseChatMessageBlocks(text).map((block) => {
+    if (block.type === "code") {
+      return (
+        <AssistantCodeBlock
+          code={block.value}
+          key={`code-block-${block.sourceIndex}`}
+          language={block.language}
+        />
+      );
+    }
+
     if (block.type === "table") {
       return (
         <div
@@ -174,7 +222,9 @@ export default function ChatMessageText({
       return <div aria-hidden="true" className="chat-spacer" key={`spacer-${block.sourceIndex}`} />;
     }
 
-    const isBullet = cleanBlock.startsWith("* ") || cleanBlock.startsWith("- ");
+    const isBullet = cleanBlock.startsWith("* ")
+      || cleanBlock.startsWith("- ")
+      || cleanBlock.startsWith("• ");
     const numMatch = cleanBlock.match(/^(\d+)\.\s+(.*)/u);
 
     if (isBullet) {

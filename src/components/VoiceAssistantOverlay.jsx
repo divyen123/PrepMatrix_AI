@@ -1,58 +1,8 @@
 import React from "react";
 import { ArrowLeft, Copy, MessageSquare, Volume2, VolumeX } from "lucide-react";
+import ChatMessageText from "./ChatMessageText";
 import Strands from "./Strands";
 import "./VoiceAssistantOverlay.css";
-
-function renderInlineFormatting(text = "") {
-  const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`)/g).filter(Boolean);
-
-  return parts.map((part, index) => {
-    if ((part.startsWith("**") && part.endsWith("**")) || (part.startsWith("__") && part.endsWith("__"))) {
-      return <strong key={`${part}-${index}`}>{part.slice(2, -2).trim()}</strong>;
-    }
-
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return <code key={`${part}-${index}`}>{part.slice(1, -1)}</code>;
-    }
-
-    return part;
-  });
-}
-
-function formatReplyBlocks(text = "") {
-  return text
-    .replace(/\r\n/g, "\n")
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line, index) => {
-      const numbered = line.match(/^(\d+)\.\s*(.*)$/);
-      if (numbered) {
-        return (
-          <div className="voice-reply-line numbered" key={`${line}-${index}`}>
-            <span className="voice-reply-marker">{numbered[1]}.</span>
-            <span>{renderInlineFormatting(numbered[2])}</span>
-          </div>
-        );
-      }
-
-      const bullet = line.match(/^[-*•]\s+(.*)$/);
-      if (bullet) {
-        return (
-          <div className="voice-reply-line bullet" key={`${line}-${index}`}>
-            <span className="voice-reply-marker">•</span>
-            <span>{renderInlineFormatting(bullet[1])}</span>
-          </div>
-        );
-      }
-
-      return (
-        <p className="voice-reply-paragraph" key={`${line}-${index}`}>
-          {renderInlineFormatting(line)}
-        </p>
-      );
-    });
-}
 
 /* Strand color palettes per voice state */
 const STATE_STRAND_PROPS = {
@@ -257,7 +207,7 @@ function VoiceAssistantOverlay({
               </div>
             </div>
             <div className="voice-reply-body">
-              {formatReplyBlocks(reply)}
+              <ChatMessageText linksAllowed={false} text={reply} />
             </div>
           </div>
         )}

@@ -18,9 +18,11 @@ import {
   ACADEMIC_LEVEL_OPTIONS,
   DEPARTMENT_OPTIONS,
   SCHOOL_CLASS_OPTIONS,
+  SENIOR_SECONDARY_STREAM_OPTIONS,
   TRACK_OPTIONS,
   academicProfilePayload,
   isSchoolAcademicLevel,
+  isSeniorSecondaryClass,
   normalizeAcademicProfile,
 } from "../utils/academicProfile";
 import {
@@ -472,6 +474,7 @@ function SettingsPage({
   const profileTrack = activeAcademicDraft.academicTrack;
   const department = activeAcademicDraft.department;
   const grade = activeAcademicDraft.grade;
+  const schoolStream = activeAcademicDraft.schoolStream;
   const degree = activeAcademicDraft.degree;
   const [profileImage, setProfileImage] = useState(userProfile?.profileImage || "");
   const activeProfileDisplayName = getAcademicProfileDisplayName(activeAcademicProfileSlot);
@@ -546,6 +549,7 @@ function SettingsPage({
       department: userProfile?.department,
       degree: userProfile?.degree,
       grade: userProfile?.grade,
+      schoolStream: userProfile?.schoolStream,
       schoolType: userProfile?.schoolType,
     });
     setAcademicDrafts((current) => hydrateSettingsAcademicDrafts(
@@ -560,6 +564,7 @@ function SettingsPage({
     userProfile?.department,
     userProfile?.degree,
     userProfile?.grade,
+    userProfile?.schoolStream,
     userProfile?.schoolType,
     userProfile?.activeAcademicProfileId,
   ]);
@@ -1414,6 +1419,11 @@ function SettingsPage({
     };
     if (!academicFieldsEditable) {
       await commitProfileSave(identityPayload);
+      return;
+    }
+
+    if (isSeniorSecondaryClass(grade) && !String(schoolStream || "").trim()) {
+      toast.error("Choose or enter the Class 11/12 stream or subject group.");
       return;
     }
 
@@ -2309,6 +2319,24 @@ function SettingsPage({
               </select>
             </label>
           </div>
+
+          {isSchoolAcademicLevel(educationStage) && isSeniorSecondaryClass(grade) ? (
+            <label className="field-stack">
+              <span>Stream / Subject Group</span>
+              <input
+                disabled={!academicFieldsEditable}
+                list="settings-senior-stream-options"
+                value={schoolStream}
+                onChange={(e) => updateAcademicDraft({ schoolStream: e.target.value })}
+                placeholder="Choose or type a stream"
+              />
+              <datalist id="settings-senior-stream-options">
+                {SENIOR_SECONDARY_STREAM_OPTIONS.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
+            </label>
+          ) : null}
 
           {youngKidsMode && !hasTwoProfiles ? (
             <div className="academic-profile-note settings-academic-profile-note" role="note">
