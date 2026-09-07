@@ -12,7 +12,7 @@ const TREND_PLAN_ACTIONS = Object.freeze({
   VIEW_PLAN: Object.freeze({
     kind: "view-plan",
     label: "View Plan",
-    route: "/planner",
+    route: "/planner/schedule",
   }),
 });
 

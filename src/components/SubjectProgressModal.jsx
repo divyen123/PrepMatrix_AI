@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   CircleDashed,
   Clock3,
+  GraduationCap,
   PenTool,
   Sparkles,
   Target,
@@ -144,6 +145,11 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
   const handleQuiz = () => {
     if (!isQuizEligible) return;
     closeWithAction(() => navigate(`/quiz?subject=${encodeURIComponent(subject)}`));
+  };
+
+  const handleAttendExam = () => {
+    if (!isSubjectComplete) return;
+    closeWithAction(() => navigate(`/exam?section=attend&subject=${encodeURIComponent(subject)}`));
   };
 
   const handleOpenAskAI = () => {
@@ -374,22 +380,43 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
               </p>
             </div>
 
-            <div className="subject-next-step">
-              <span>Recommended next step</span>
-              <strong>{nextTask?.topic || "Run a revision quiz"}</strong>
-              <ArrowRight aria-hidden="true" size={16} />
-            </div>
+            {isSubjectComplete ? (
+              <button
+                className="subject-next-step"
+                onClick={handleQuiz}
+                type="button"
+              >
+                <span>Recommended next step</span>
+                <strong>Run a revision quiz</strong>
+                <ArrowRight aria-hidden="true" size={16} />
+              </button>
+            ) : (
+              <div className="subject-next-step">
+                <span>Recommended next step</span>
+                <strong>{nextTask?.topic || "Create a study plan"}</strong>
+                <ArrowRight aria-hidden="true" size={16} />
+              </div>
+            )}
           </aside>
         </div>
 
         <footer className="subject-modal-actions">
-          <button className="subject-action-btn" onClick={handleReferMaterial} type="button">
-            <span className="subject-action-icon"><BookOpen size={17} /></span>
-            <span><strong>Refer material</strong><small>Open curated resources</small></span>
+          <button
+            className="subject-action-btn is-study"
+            onClick={isSubjectComplete ? handleAttendExam : handleReferMaterial}
+            type="button"
+          >
+            <span className="subject-action-icon">
+              {isSubjectComplete ? <GraduationCap size={17} /> : <BookOpen size={17} />}
+            </span>
+            <span>
+              <strong>{isSubjectComplete ? "Attend exam" : "Refer material"}</strong>
+              <small>{isSubjectComplete ? "Test your completed subject" : "Open curated resources"}</small>
+            </span>
             <ArrowRight size={15} />
           </button>
           <button
-            className="subject-action-btn"
+            className="subject-action-btn is-quiz"
             disabled={!isQuizEligible}
             onClick={handleQuiz}
             title={!isQuizEligible ? quizLockMessage : "Take a subject quiz"}
@@ -400,7 +427,7 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
             <ArrowRight size={15} />
           </button>
           <button
-            className="subject-action-btn primary"
+            className="subject-action-btn is-ai"
             onClick={handleOpenAskAI}
             ref={askAIButtonRef}
             type="button"

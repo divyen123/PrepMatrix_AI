@@ -3257,6 +3257,7 @@ function App() {
                               isExamEligible={metrics.isExamEligible}
                               onActiveAttemptChange={setActiveExamAttemptId}
                               parentAccessGranted={kidsParentAccess.unlocked}
+                              schedule={schedule}
                               subjects={subjects}
                               tasksToExamEligibility={metrics.tasksToExamEligibility}
                               userProfile={userProfile}

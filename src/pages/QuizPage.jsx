@@ -34,6 +34,7 @@ import {
   QUIZ_SESSION_STATUSES,
   clearQuizSession,
   createQuizSession,
+  getQuizSessionEntry,
   quizSessionAnsweredCount,
   readQuizSession,
   writeQuizSession,
@@ -75,6 +76,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [quizSession, setQuizSession] = useState(null);
+  const [deferredQuizSession, setDeferredQuizSession] = useState(null);
   const [focusedQuestionIndex, setFocusedQuestionIndex] = useState(0);
   const [flaggedQuestionIds, setFlaggedQuestionIds] = useState({});
   const [multiplayerAttempt, setMultiplayerAttempt] = useState(null);
@@ -85,6 +87,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   const [showDropdown, setShowDropdown] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
+  const requestedSubject = searchParams.get("subject")?.trim() || "";
   const [pendingInviteCode, setPendingInviteCode] = useState(
     () => searchParams.get("join") || quizBattleInviteCodeFromHash(window.location.hash),
   );
@@ -149,32 +152,36 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       }) || { ...stored, status: QUIZ_SESSION_STATUSES.PAUSED }
       : null;
 
-    quizSessionRef.current = pausedSession;
-    setQuizSession(pausedSession);
+    const entry = getQuizSessionEntry(requestedSubject, pausedSession);
+    const restoredSession = entry.session;
+    quizSessionRef.current = restoredSession;
+    setQuizSession(restoredSession);
+    setDeferredQuizSession(entry.deferredSession);
     setResult(null);
     setFlaggedQuestionIds({});
     setFocusedQuestionIndex(0);
 
-    if (pausedSession) {
+    if (restoredSession) {
       hasInitializedSubject.current = true;
-      setTopic(pausedSession.topic);
-      setSubjectName(pausedSession.subjectName);
-      setSearchQuery(pausedSession.subjectName);
-      setQuestionLimit(pausedSession.questionLimit);
-      setQuestions(pausedSession.questions);
-      setAnswers(pausedSession.answers);
-      setQuizMeta(pausedSession.quizMeta);
+      setTopic(restoredSession.topic);
+      setSubjectName(restoredSession.subjectName);
+      setSearchQuery(restoredSession.subjectName);
+      setQuestionLimit(restoredSession.questionLimit);
+      setQuestions(restoredSession.questions);
+      setAnswers(restoredSession.answers);
+      setQuizMeta(restoredSession.quizMeta);
       return;
     }
 
+    hasInitializedSubject.current = Boolean(entry.subjectName);
     setTopic("");
-    setSubjectName("");
-    setSearchQuery("");
+    setSubjectName(entry.subjectName);
+    setSearchQuery(entry.subjectName);
     setQuestionLimit(5);
     setQuestions([]);
     setAnswers({});
     setQuizMeta(null);
-  }, [academicProfileDataId]);
+  }, [academicProfileDataId, requestedSubject]);
 
   useEffect(() => {
     if (hasInitializedSubject.current) return;
@@ -185,7 +192,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     hasInitializedSubject.current = true;
     setSubjectName(initialSubject);
     setSearchQuery(initialSubject);
-  }, [searchParams, subjects]);
+  }, [academicProfileDataId, searchParams, subjects]);
 
   const filteredSubjects = getRankedQuizSubjects(subjects, searchQuery);
 
@@ -470,6 +477,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   };
 
   const startQuiz = async () => {
+    if (deferredQuizSession || hasUnfinishedSoloQuiz) return;
     if (!quizEligibility.isEligible) {
       setSaveError(quizEligibilityMessage);
       return;
@@ -635,6 +643,30 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     if (!resumed) {
       setSaveError("This paused quiz could not be restored. Refresh and try again.");
     }
+  };
+
+  const resumeDeferredQuiz = () => {
+    if (!deferredQuizSession) return;
+    const resumed = writeQuizSession(window.localStorage, academicProfileDataId, {
+      ...deferredQuizSession,
+      status: QUIZ_SESSION_STATUSES.ACTIVE,
+    });
+    if (!resumed) {
+      setSaveError("This paused quiz could not be restored. Refresh and try again.");
+      return;
+    }
+
+    setSaveError("");
+    quizSessionRef.current = resumed;
+    setQuizSession(resumed);
+    setDeferredQuizSession(null);
+    setSubjectName(resumed.subjectName);
+    setSearchQuery(resumed.subjectName);
+    setTopic(resumed.topic);
+    setQuestionLimit(resumed.questionLimit);
+    setQuestions(resumed.questions);
+    setAnswers(resumed.answers);
+    setQuizMeta(resumed.quizMeta);
   };
 
   const stayOnQuiz = useCallback(() => {
@@ -816,6 +848,19 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
           <h3>Build a quiz from your exact topic</h3>
         </div>
 
+        {deferredQuizSession && (
+          <div className="quiz-resume-banner" id="quiz-saved-session-status" role="status">
+            <div>
+              <strong>{deferredQuizSession.subjectName} quiz is paused</strong>
+              <span>
+                {quizSessionAnsweredCount(deferredQuizSession)}/{deferredQuizSession.questions.length} answers saved.
+                {" "}Resume and finish it before starting another quiz.
+              </span>
+            </div>
+            <button onClick={resumeDeferredQuiz} type="button">Resume saved quiz</button>
+          </div>
+        )}
+
         <div className="quiz-builder-grid">
           <label className="field-stack quiz-builder-field quiz-subject-field">
             Subject
@@ -945,9 +990,9 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
 
         <AiCreditCost feature={AI_FEATURES.QUIZ} />
         <button
-          aria-describedby="quiz-eligibility-status"
+          aria-describedby={deferredQuizSession ? "quiz-eligibility-status quiz-saved-session-status" : "quiz-eligibility-status"}
           className="action-btn"
-          disabled={isGenerating || hasUnfinishedSoloQuiz || !quizEligibility.isEligible || hasInsufficientCredits(AI_FEATURES.QUIZ)}
+          disabled={isGenerating || hasUnfinishedSoloQuiz || Boolean(deferredQuizSession) || !quizEligibility.isEligible || hasInsufficientCredits(AI_FEATURES.QUIZ)}
           onClick={startQuiz}
           title={!quizEligibility.isEligible ? quizEligibilityMessage : hasInsufficientCredits(AI_FEATURES.QUIZ) ? "Not enough AI credits" : "Generate AI quiz"}
           type="button"

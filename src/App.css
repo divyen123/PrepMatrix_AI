@@ -16881,16 +16881,33 @@ body.has-bg-image .subject-modal-summary.is-complete strong {
   line-height: 1.55;
 }
 
-.subject-next-step {
+body .subject-progress-modal button.subject-next-step,
+body .subject-progress-modal .subject-next-step {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 3px 10px;
+  width: 100%;
   margin-top: auto;
   padding: 13px 14px;
-  background: var(--accent-soft);
-  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  text-align: left;
+  background: var(--accent-soft) !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.2) !important;
   border-radius: 14px;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .subject-progress-modal button.subject-next-step:hover,
+body .subject-progress-modal button.subject-next-step:focus-visible {
+  background: rgba(var(--accent-rgb), 0.18) !important;
+  border-color: rgba(var(--accent-rgb), 0.45) !important;
+  outline: 2px solid rgba(var(--accent-rgb), 0.45);
+  outline-offset: 2px;
+}
+
+body .subject-progress-modal button.subject-next-step::after {
+  content: none;
 }
 
 .subject-next-step span {
@@ -16928,7 +16945,9 @@ body.has-bg-image .subject-modal-summary.is-complete strong {
   -webkit-backdrop-filter: blur(18px);
 }
 
+body .subject-progress-modal button.subject-action-btn,
 body .subject-progress-modal .subject-action-btn {
+  --subject-action-tone: #2387d9;
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
@@ -16938,34 +16957,35 @@ body .subject-progress-modal .subject-action-btn {
   min-height: 58px;
   padding: 8px 10px;
   text-align: left;
-  color: var(--text);
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
+  color: var(--text) !important;
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--subject-action-tone) 22%, transparent), transparent 50%),
+    linear-gradient(145deg, color-mix(in srgb, var(--subject-action-tone) 9%, var(--surface-strong)), color-mix(in srgb, var(--subject-action-tone) 3%, var(--surface))) !important;
+  border: 1px solid color-mix(in srgb, var(--subject-action-tone) 25%, var(--border)) !important;
   border-radius: 14px;
-  box-shadow: none;
-  transform: none;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
-body .subject-progress-modal .subject-action-btn:hover,
+body .subject-progress-modal .subject-action-btn:hover:not(:disabled),
 body .subject-progress-modal .subject-action-btn:focus-visible {
-  color: var(--text);
-  background: var(--accent-soft);
-  border-color: rgba(var(--accent-rgb), 0.3);
-  box-shadow: 0 10px 26px rgba(var(--accent-rgb), 0.12);
+  color: var(--text) !important;
+  border-color: color-mix(in srgb, var(--subject-action-tone) 55%, var(--border)) !important;
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--subject-action-tone) 15%, transparent) !important;
   outline: none;
-  transform: translateY(-2px);
+  transform: translateY(-2px) !important;
 }
 
-body .subject-progress-modal .subject-action-btn.primary {
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.72));
-  border-color: rgba(var(--accent-rgb), 0.5);
+body .subject-progress-modal .subject-action-btn.is-quiz {
+  --subject-action-tone: #8068dc;
 }
 
-body .subject-progress-modal .subject-action-btn.primary:hover,
-body .subject-progress-modal .subject-action-btn.primary:focus-visible {
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent-strong, var(--accent)), var(--accent));
+body .subject-progress-modal .subject-action-btn.is-ai {
+  --subject-action-tone: #cf8616;
+}
+
+body .subject-progress-modal .subject-action-btn::after {
+  content: none;
 }
 
 .subject-action-icon {
@@ -16973,14 +16993,9 @@ body .subject-progress-modal .subject-action-btn.primary:focus-visible {
   place-items: center;
   width: 32px;
   height: 32px;
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--subject-action-tone);
+  background: color-mix(in srgb, var(--subject-action-tone) 13%, transparent);
   border-radius: 10px;
-}
-
-.subject-action-btn.primary .subject-action-icon {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.16);
 }
 
 .subject-action-btn > span:nth-child(2) {
@@ -17002,16 +17017,8 @@ body .subject-progress-modal .subject-action-btn.primary:focus-visible {
   font-weight: 600;
 }
 
-.subject-action-btn.primary small {
-  color: rgba(255, 255, 255, 0.72);
-}
-
 .subject-action-btn > svg {
-  color: var(--text-muted);
-}
-
-.subject-action-btn.primary > svg {
-  color: #fff;
+  color: var(--subject-action-tone);
 }
 
 body.has-bg-image .subject-progress-modal,
@@ -17153,7 +17160,6 @@ body.has-bg-image .subject-action-btn small {
 body.has-bg-image .subject-progress-modal .subject-modal-stat-grid article,
 body.has-bg-image .subject-progress-modal .subject-timeline-section,
 body.has-bg-image .subject-progress-modal .subject-readiness-section,
-body.has-bg-image .subject-progress-modal .subject-action-btn,
 body.has-bg-image .subject-progress-modal .subject-timeline-rail > span,
 body.has-bg-image .subject-progress-modal .subject-task-status.pending {
   background: rgba(255, 255, 255, 0.045);
@@ -17180,9 +17186,20 @@ body.has-bg-image .subject-progress-modal .subject-modal-actions {
 
 body.has-bg-image.no-glass-cards .subject-progress-modal .subject-modal-stat-grid article,
 body.has-bg-image.no-glass-cards .subject-progress-modal .subject-timeline-section,
-body.has-bg-image.no-glass-cards .subject-progress-modal .subject-readiness-section,
-body.has-bg-image.no-glass-cards .subject-progress-modal .subject-action-btn {
+body.has-bg-image.no-glass-cards .subject-progress-modal .subject-readiness-section {
   background: rgba(var(--bg-surface-rgb), 0.82);
+}
+
+body.has-bg-image .subject-progress-modal .subject-action-btn {
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--subject-action-tone) 24%, transparent), transparent 50%),
+    rgba(var(--bg-surface-rgb, 18, 27, 45), var(--glass-opacity, 0.68)) !important;
+}
+
+body.has-bg-image.no-glass-cards .subject-progress-modal .subject-action-btn {
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--subject-action-tone) 18%, transparent), transparent 50%),
+    rgba(var(--bg-surface-rgb, 18, 27, 45), 0.94) !important;
 }
 /* Opaque frosted trend modal and compact planner action */
 .trend-modal-content {
@@ -20576,17 +20593,17 @@ body.has-bg-image .quiz-page .quiz-subject-field .autocomplete-dropdown {
   color: var(--danger);
 }
 
-body .subject-progress-modal .subject-action-btn:disabled,
-body .subject-progress-modal .subject-action-btn:disabled:hover,
-body .subject-progress-modal .subject-action-btn:disabled:focus-visible {
-  color: var(--text-muted);
-  background: var(--surface-muted);
-  border-color: var(--border);
-  box-shadow: none;
+body .subject-progress-modal button.subject-action-btn:disabled,
+body .subject-progress-modal button.subject-action-btn:disabled:hover,
+body .subject-progress-modal button.subject-action-btn:disabled:focus-visible {
+  color: var(--text-muted) !important;
+  background: var(--surface-muted) !important;
+  border-color: var(--border) !important;
+  box-shadow: none !important;
   cursor: not-allowed;
   opacity: 0.58;
   outline: none;
-  transform: none;
+  transform: none !important;
 }
 
 body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {

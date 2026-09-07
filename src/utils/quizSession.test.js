@@ -4,6 +4,7 @@ import {
   QUIZ_SESSION_STATUSES,
   clearQuizSession,
   createQuizSession,
+  getQuizSessionEntry,
   getQuizSessionStorageKey,
   readQuizSession,
   writeQuizSession,
@@ -83,4 +84,48 @@ test("removes corrupt or incompatible persisted quiz data", () => {
   storage.setItem(key, "not-json");
   assert.equal(readQuizSession(storage, "profile-data-d"), null);
   assert.equal(storage.getItem(key), null);
+});
+
+test("subject shortcuts prefill the requested subject without losing another subject's saved quiz", () => {
+  const storage = memoryStorage();
+  const saved = writeQuizSession(storage, "profile-entry", createQuizSession({
+    answers: { "q-1": 1 },
+    questions,
+    sessionId: "math-quiz",
+    status: QUIZ_SESSION_STATUSES.PAUSED,
+    subjectName: "Math",
+    topic: "Addition",
+  }));
+  const entry = getQuizSessionEntry("  Data analytics  ", saved);
+
+  assert.equal(entry.subjectName, "Data analytics");
+  assert.equal(entry.session, null);
+  assert.equal(entry.deferredSession, saved);
+  assert.deepEqual(entry.deferredSession.answers, { "q-1": 1 });
+  assert.deepEqual(readQuizSession(storage, "profile-entry"), saved);
+});
+
+test("ordinary quiz visits and matching subject shortcuts restore the saved subject and answers", () => {
+  const saved = createQuizSession({
+    answers: { "q-1": 1 },
+    questions,
+    subjectName: "Math",
+    topic: "Addition",
+  });
+
+  for (const subject of ["", " math "]) {
+    const entry = getQuizSessionEntry(subject, saved);
+    assert.equal(entry.subjectName, "Math");
+    assert.equal(entry.session, saved);
+    assert.equal(entry.deferredSession, null);
+    assert.deepEqual(entry.session.answers, { "q-1": 1 });
+  }
+});
+
+test("subject shortcuts initialize quiz setup when no draft exists", () => {
+  assert.deepEqual(getQuizSessionEntry("Data analytics"), {
+    subjectName: "Data analytics",
+    session: null,
+    deferredSession: null,
+  });
 });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   AlertTriangle,
@@ -59,6 +59,7 @@ import {
   getExamCertificateId,
 } from "../utils/examCertificate";
 import { EXAM_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
+import { getExamSubjectPrefill } from "../utils/examSubjectPrefill";
 import { academicProfilePayload } from "../utils/academicProfile";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import {
@@ -1424,6 +1425,7 @@ function ExamPage({
   academicProfileDataId = "",
   activeAttemptId: persistedActiveAttemptId = "",
   subjects = [],
+  schedule = [],
   academicLevel = "College",
   academicTrack = "General",
   userProfile = {},
@@ -1437,13 +1439,25 @@ function ExamPage({
   const { hasInsufficientCredits } = useAiQuota();
   const { tasks: backgroundTasks } = useBackgroundTasks();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const names = useMemo(() => subjectNames(subjects), [subjects]);
+  const requestedSection = searchParams.get("section");
+  const requestedSubject = requestedSection === "attend" ? searchParams.get("subject") : "";
+  const subjectPrefill = useMemo(
+    () => getExamSubjectPrefill(requestedSubject, subjects, schedule),
+    [requestedSubject, subjects, schedule],
+  );
+  const names = useMemo(() => [...new Set([
+    ...subjectNames(subjects),
+    ...(subjectPrefill ? [subjectPrefill.subjectName] : []),
+  ])], [subjects, subjectPrefill]);
   const readinessPercent = Math.max(0, Math.min(100, Math.round(Number(examReadiness) || 0)));
   const isOnlineExamEligible = typeof examEligibilityOverride === "boolean"
     ? examEligibilityOverride
     : readinessPercent >= EXAM_ELIGIBILITY_THRESHOLD;
-  const requestedSection = searchParams.get("section");
+  const canOpenAttendSetup = isOnlineExamEligible || Boolean(subjectPrefill);
+  const subjectPrefillKey = `${location.key}:${academicProfileDataId}:${requestedSubject || ""}`;
+  const appliedSubjectPrefillRef = useRef(subjectPrefill ? subjectPrefillKey : "");
   const requestedAttendHandledRef = useRef(false);
   const preparingRef = useRef(false);
   const backgroundProfileId = String(
@@ -1452,14 +1466,14 @@ function ExamPage({
   const paperTaskKey = getBackgroundTaskKey("question-paper", backgroundProfileId);
   const retainedPaperTask = backgroundTasks[paperTaskKey] || null;
   const [section, setSection] = useState(() => (
-    requestedSection === "attend" && isOnlineExamEligible
+    requestedSection === "attend" && canOpenAttendSetup
       ? "attend"
       : retainedPaperTask
         ? "paper"
         : "overview"
   ));
-  const [subjectName, setSubjectName] = useState(() => names[0] || "");
-  const [scopeText, setScopeText] = useState("");
+  const [subjectName, setSubjectName] = useState(() => subjectPrefill?.subjectName || names[0] || "");
+  const [scopeText, setScopeText] = useState(() => subjectPrefill?.scopeText || "");
   const [difficulty, setDifficulty] = useState("medium");
   const [preparedExam, setPreparedExam] = useState(null);
   const [activeAttempt, setActiveAttempt] = useState(null);
@@ -1486,17 +1500,30 @@ function ExamPage({
   }, [names, subjectName]);
 
   useEffect(() => {
+    if (!requestedSubject) {
+      appliedSubjectPrefillRef.current = "";
+      return;
+    }
+    if (!subjectPrefill || appliedSubjectPrefillRef.current === subjectPrefillKey
+      || activeAttempt || isPreparing || isStarting) return;
+    appliedSubjectPrefillRef.current = subjectPrefillKey;
+    setSubjectName(subjectPrefill.subjectName);
+    setScopeText(subjectPrefill.scopeText);
+    setPreparedExam(null);
+  }, [activeAttempt, isPreparing, isStarting, requestedSubject, subjectPrefill, subjectPrefillKey]);
+
+  useEffect(() => {
     if (requestedSection !== "attend") {
       requestedAttendHandledRef.current = false;
-    } else if (isOnlineExamEligible && !requestedAttendHandledRef.current) {
-      requestedAttendHandledRef.current = true;
+    } else if (canOpenAttendSetup && requestedAttendHandledRef.current !== subjectPrefillKey) {
+      requestedAttendHandledRef.current = subjectPrefillKey;
       setSection("attend");
     }
 
-    if (!isOnlineExamEligible && section === "attend" && !activeAttempt) {
+    if (!canOpenAttendSetup && section === "attend" && !activeAttempt) {
       setSection("overview");
     }
-  }, [activeAttempt, isOnlineExamEligible, requestedSection, section]);
+  }, [activeAttempt, canOpenAttendSetup, requestedSection, section, subjectPrefillKey]);
 
   const loadResults = useCallback(async () => {
     try {
@@ -1803,7 +1830,7 @@ function ExamPage({
             <div className="exam-form-grid">
               <label className="field-stack">
                 Subject
-                <select disabled={isPreparing} onChange={(event) => setSubjectName(event.target.value)} value={subjectName}>
+                <select disabled={isPreparing} onChange={(event) => { setSubjectName(event.target.value); setScopeText(""); }} value={subjectName}>
                   <option value="">Choose subject</option>
                   {names.map((name) => <option key={name} value={name}>{name}</option>)}
                 </select>

@@ -20,13 +20,13 @@ test("trend action prompts the learner to create a plan without scheduled tasks"
   });
 });
 
-test("trend action opens the existing plan when a schedule is present", () => {
+test("trend action opens the planner schedule when a plan is present", () => {
   assert.deepEqual(
     getTrendPlanAction([{ name: "DBMS" }], [{ date: "2026-07-14", tasks: [] }]),
     {
       kind: "view-plan",
       label: "View Plan",
-      route: "/planner",
+      route: "/planner/schedule",
     }
   );
 });

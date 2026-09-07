@@ -198,3 +198,16 @@ export function quizSessionAnsweredCount(session) {
   return Object.keys(session?.answers || {}).length;
 }
 
+export function getQuizSessionEntry(requestedSubject = "", savedSession = null) {
+  const subjectName = cleanText(requestedSubject, 160);
+  const restoreSession = savedSession && (
+    !subjectName
+    || subjectName.toLowerCase() === savedSession.subjectName.trim().toLowerCase()
+  );
+
+  return {
+    subjectName: restoreSession ? savedSession.subjectName : subjectName,
+    session: restoreSession ? savedSession : null,
+    deferredSession: restoreSession ? null : savedSession,
+  };
+}
