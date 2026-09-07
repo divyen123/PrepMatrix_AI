@@ -351,9 +351,35 @@ function EntrySplash() {
 }
 
 function LogoutTransition({ phase }) {
+  const [appearance] = useState(() => {
+    const bodyStyle = window.getComputedStyle(document.body);
+    const captureLayer = (pseudoElement) => {
+      const layer = window.getComputedStyle(document.body, pseudoElement);
+      return Object.fromEntries([
+        "backgroundColor", "backgroundImage", "backgroundPosition", "backgroundSize",
+        "backgroundRepeat", "backgroundAttachment", "filter", "inset",
+        "maskImage", "maskSize", "maskPosition", "maskRepeat",
+      ].map((property) => [property, layer[property]]));
+    };
+
+    // Auth navigation changes the body theme before the logout fade finishes.
+    // Preserve its current colors and image framing for this transition only.
+    return {
+      style: {
+        backgroundColor: bodyStyle.getPropertyValue("--bg").trim(),
+        "--text": bodyStyle.getPropertyValue("--text").trim(),
+        "--accent": bodyStyle.getPropertyValue("--accent").trim(),
+        "--accent-rgb": bodyStyle.getPropertyValue("--accent-rgb").trim(),
+      },
+      image: document.body.classList.contains("has-bg-image") ? captureLayer("::after") : null,
+      foreground: document.body.classList.contains("has-bg-image") ? captureLayer("::before") : null,
+    };
+  });
+
   return (
-    <div className={`logout-transition${phase === "exiting" ? " is-exiting" : ""}`}>
-      <div aria-hidden="true" className="logout-transition-halo" />
+    <div className={`logout-transition${phase === "exiting" ? " is-exiting" : ""}`} style={appearance.style}>
+      {appearance.image && <div aria-hidden="true" className="logout-transition-background" style={appearance.image} />}
+      {appearance.foreground && <div aria-hidden="true" className="logout-transition-background" style={appearance.foreground} />}
       <div
         aria-atomic="true"
         aria-live="polite"
@@ -366,9 +392,7 @@ function LogoutTransition({ phase }) {
           <LogOut size={28} strokeWidth={2.3} />
         </span>
         <div className="logout-transition-copy">
-          <span>PrepMatrix</span>
           <h2>Logging out...</h2>
-          <p>Closing your session securely.</p>
         </div>
         <div aria-hidden="true" className="logout-transition-progress">
           <span />
