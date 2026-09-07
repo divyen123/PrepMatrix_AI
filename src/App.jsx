@@ -468,6 +468,7 @@ function App() {
   const [completionReward, setCompletionReward] = useState(null);
   const [entrySplash, setEntrySplash] = useState(true);
   const [dashboardVoiceHintPending, setDashboardVoiceHintPending] = useState(false);
+  const [dashboardWelcomePending, setDashboardWelcomePending] = useState(true);
   const [keyboardShortcutGuideOpen, setKeyboardShortcutGuideOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [parentLockConfirmOpen, setParentLockConfirmOpen] = useState(false);
@@ -517,6 +518,10 @@ function App() {
   const [topBarVisible, setTopBarVisible] = useState(true);
   const consumeDashboardVoiceEntryHint = useCallback(() => {
     setDashboardVoiceHintPending(false);
+  }, []);
+
+  const consumeDashboardWelcome = useCallback(() => {
+    setDashboardWelcomePending(false);
   }, []);
   const clearTopBarHideTimeout = useCallback(() => {
     if (!topBarHideTimeoutRef.current) return;
@@ -1175,6 +1180,7 @@ function App() {
         && hasDashboardVoiceHintReentryGapElapsed(hiddenAt, now)
       ) {
         setDashboardVoiceHintPending(true);
+        setDashboardWelcomePending(true);
       }
     };
 
@@ -1694,6 +1700,7 @@ function App() {
     setWorkspaceLoaded(true);
     setNotification(`Welcome, ${profile.username}.`);
     setDashboardVoiceHintPending(true);
+    setDashboardWelcomePending(true);
 
     if (localStorage.getItem("prepmatrix_wake_mode") === "true") {
       voiceAssistant.setWakeMode(true);
@@ -2062,6 +2069,7 @@ function App() {
         applyWorkspace(payload.workspace, payload.user, payload.profileContext);
         setWorkspaceLoaded(true);
         setDashboardVoiceHintPending(true);
+        setDashboardWelcomePending(true);
 
         // Trigger entry splash on session recovery (same as explicit login)
         if (splashTimeoutRef.current) {
@@ -3069,6 +3077,8 @@ function App() {
                               availableRoutes={dashboardAvailableRoutes}
                               homeRoute={learnerRoutePolicy.homeRoute}
                               voiceAssistant={voiceAssistant}
+                              showEntryWelcome={dashboardWelcomePending}
+                              onEntryWelcomeConsumed={consumeDashboardWelcome}
                               showEntryVoiceHint={dashboardVoiceHintPending
                                 && !entrySplash
                                 && !userProfile.needsOnboardingGuide}

@@ -122,6 +122,28 @@ export function DashboardVoiceEntryHint({ hint = "" }) {
   );
 }
 
+export function DashboardGreeting({
+  firstName,
+  showEntryWelcome = false,
+  onEntryWelcomeConsumed,
+}) {
+  // Keep the greeting for this entire dashboard visit after the app consumes it.
+  // A route remount starts a new visit; a fresh app entry can welcome us in place.
+  const [isWelcomeVisit, setIsWelcomeVisit] = useState(showEntryWelcome);
+
+  useEffect(() => {
+    if (!showEntryWelcome) return;
+    setIsWelcomeVisit(true);
+    onEntryWelcomeConsumed?.();
+  }, [onEntryWelcomeConsumed, showEntryWelcome]);
+
+  return (
+    <h1 className="db-welcome">
+      {showEntryWelcome || isWelcomeVisit ? "Welcome" : "Keep going"}, {firstName}!
+    </h1>
+  );
+}
+
 function DashboardPage({
   academicProfileDataId = "",
   academicLevel,
@@ -137,6 +159,8 @@ function DashboardPage({
   availableRoutes,
   homeRoute = "/dashboard",
   voiceAssistant,
+  showEntryWelcome = false,
+  onEntryWelcomeConsumed,
   showEntryVoiceHint = false,
   onEntryVoiceHintConsumed,
 }) {
@@ -471,7 +495,11 @@ function DashboardPage({
     <section className="db-page">
       {/* ── Welcome + Search ────────────────────────────────── */}
       <div className="db-hero">
-        <h1 className="db-welcome">Welcome, {firstName}!</h1>
+        <DashboardGreeting
+          firstName={firstName}
+          showEntryWelcome={showEntryWelcome}
+          onEntryWelcomeConsumed={onEntryWelcomeConsumed}
+        />
         <p className="db-tagline">What would you like to work on today?</p>
 
         <div
