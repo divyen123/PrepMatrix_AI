@@ -37,6 +37,6 @@ test("keeps the main intro concise with a smaller brand title", () => {
   assert.doesNotMatch(stylesheet, /\.entry-splash-message\s*\{/u);
   assert.match(
     stylesheet,
-    /\.entry-splash-title\s*\{[\s\S]*?font-size:\s*clamp\(2\.75rem, 6\.4vw, 5\.3rem\);/u,
+    /\.entry-splash-title\s*\{[\s\S]*?font-size:\s*clamp\(2\.4rem, 5\.2vw, 4\.5rem\);/u,
   );
 });

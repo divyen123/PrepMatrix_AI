@@ -5283,7 +5283,7 @@ body.dark .auth-brand-lockup h1 {
 .entry-splash-title {
   color: var(--entry-splash-text);
   font-family: "Space Grotesk", sans-serif;
-  font-size: clamp(2.75rem, 6.4vw, 5.3rem);
+  font-size: clamp(2.4rem, 5.2vw, 4.5rem);
   font-weight: 700;
   letter-spacing: -0.075em;
   line-height: 0.94;
@@ -5407,7 +5407,7 @@ body.dark .auth-brand-lockup h1 {
   }
 
   .entry-splash-title {
-    font-size: clamp(2.55rem, 14.5vw, 3.85rem);
+    font-size: clamp(2.25rem, 12vw, 3.4rem);
   }
 }
 
@@ -5423,7 +5423,7 @@ body.dark .auth-brand-lockup h1 {
   }
 
   .entry-splash-title {
-    font-size: clamp(2.3rem, 9vh, 3.65rem);
+    font-size: clamp(2.1rem, 7.5vh, 3.2rem);
   }
 
   .entry-splash-loader {

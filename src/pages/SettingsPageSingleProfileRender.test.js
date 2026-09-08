@@ -122,10 +122,13 @@ test("renders Settings for one profile without deletion guidance", async () => {
       /<input(?=[^>]*aria-label="Auto-lock app")(?=[^>]*checked="")[^>]*>/u,
     );
     assert.match(markup, /Keyboard, mouse, or touch activity restarts the countdown\./u);
-    assert.match(markup, />Auto-lock delay</u);
+    assert.doesNotMatch(markup, /settings-auto-lock-delay/u);
+    assert.doesNotMatch(markup, /Choose 2 to 1440 minutes\./u);
+    assert.match(markup, /aria-label="Auto-lock duration in minutes"/u);
+    assert.match(markup, />mins<\/span>/u);
     assert.match(
       markup,
-      /<input(?=[^>]*id="settings-auto-lock-minutes")(?=[^>]*min="2")(?=[^>]*value="5")[^>]*>/u,
+      /<input(?=[^>]*id="settings-auto-lock-minutes")(?=[^>]*min="2")(?=[^>]*max="1440")(?=[^>]*value="5")[^>]*>/u,
     );
     assert.doesNotMatch(
       markup,

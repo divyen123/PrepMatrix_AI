@@ -382,33 +382,44 @@ function hexToRgb(hex) {
     : null;
 }
 
-function ToggleSwitch({ checked, onChange, label, subtitle, labelAccessory = null, disabled = false }) {
+function ToggleSwitch({
+  checked,
+  onChange,
+  label,
+  subtitle,
+  labelAccessory = null,
+  trailingControl = null,
+  disabled = false,
+}) {
   return (
     <div className="toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div className="toggle-row-title">
           <strong style={{ fontSize: '0.95rem' }}>{label}</strong>
           {labelAccessory}
         </div>
         {subtitle && <p className="card-subtext" style={{ margin: '4px 0 0', fontSize: '0.82rem' }}>{subtitle}</p>}
       </div>
-      <label className="toggle-switch-label" style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.65 : 1 }}>
-        <input aria-label={label} type="checkbox" checked={checked} onChange={onChange} disabled={disabled} style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} />
-        <span style={{
-          position: 'absolute', inset: 0, borderRadius: '999px',
-          background: checked ? 'rgba(var(--accent-rgb), 0.6)' : 'var(--surface-muted)',
-          border: `1px solid ${checked ? 'rgba(var(--accent-rgb), 0.4)' : 'var(--border)'}`,
-          transition: 'all 0.25s ease'
-        }}>
+      <div className="toggle-row-actions">
+        {trailingControl}
+        <label className="toggle-switch-label" style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.65 : 1 }}>
+          <input aria-label={label} type="checkbox" checked={checked} onChange={onChange} disabled={disabled} style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} />
           <span style={{
-            position: 'absolute', top: '3px', left: checked ? '24px' : '3px',
-            width: '18px', height: '18px', borderRadius: '50%',
-            background: checked ? 'var(--accent)' : 'var(--text-muted)',
-            transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
-          }} />
-        </span>
-      </label>
+            position: 'absolute', inset: 0, borderRadius: '999px',
+            background: checked ? 'rgba(var(--accent-rgb), 0.6)' : 'var(--surface-muted)',
+            border: `1px solid ${checked ? 'rgba(var(--accent-rgb), 0.4)' : 'var(--border)'}`,
+            transition: 'all 0.25s ease'
+          }}>
+            <span style={{
+              position: 'absolute', top: '3px', left: checked ? '24px' : '3px',
+              width: '18px', height: '18px', borderRadius: '50%',
+              background: checked ? 'var(--accent)' : 'var(--text-muted)',
+              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+            }} />
+          </span>
+        </label>
+      </div>
     </div>
   );
 }
@@ -2600,39 +2611,34 @@ function SettingsPage({
             />
           </div>
 
-          <div className={`settings-auto-lock${autoLockEnabled ? " is-enabled" : ""}`}>
+          <div className="settings-auto-lock">
             <ToggleSwitch
               checked={autoLockEnabled}
               onChange={(event) => onAutoLockEnabledChange?.(event.target.checked)}
               label="Auto-lock app"
               subtitle="Lock PrepMatrix after the selected period of inactivity. Keyboard, mouse, or touch activity restarts the countdown."
+              trailingControl={(
+                <label
+                  className={`settings-auto-lock-minute-control${autoLockEnabled ? "" : " is-disabled"}`}
+                >
+                  <input
+                    aria-label="Auto-lock duration in minutes"
+                    disabled={!autoLockEnabled}
+                    id="settings-auto-lock-minutes"
+                    inputMode="numeric"
+                    max={AUTO_LOCK_MAX_MINUTES}
+                    min={AUTO_LOCK_MIN_MINUTES}
+                    onBlur={commitAutoLockMinutes}
+                    onChange={(event) => setAutoLockMinutesDraft(event.target.value)}
+                    onKeyDown={handleAutoLockMinutesKeyDown}
+                    step="1"
+                    type="number"
+                    value={autoLockMinutesDraft}
+                  />
+                  <span aria-hidden="true">mins</span>
+                </label>
+              )}
             />
-            <label
-              className={`settings-auto-lock-delay${autoLockEnabled ? "" : " is-disabled"}`}
-              htmlFor="settings-auto-lock-minutes"
-            >
-              <span>Auto-lock delay</span>
-              <span className="settings-auto-lock-minute-control">
-                <input
-                  aria-describedby="settings-auto-lock-minutes-help"
-                  disabled={!autoLockEnabled}
-                  id="settings-auto-lock-minutes"
-                  inputMode="numeric"
-                  max={AUTO_LOCK_MAX_MINUTES}
-                  min={AUTO_LOCK_MIN_MINUTES}
-                  onBlur={commitAutoLockMinutes}
-                  onChange={(event) => setAutoLockMinutesDraft(event.target.value)}
-                  onKeyDown={handleAutoLockMinutesKeyDown}
-                  step="1"
-                  type="number"
-                  value={autoLockMinutesDraft}
-                />
-                <span aria-hidden="true">minutes</span>
-              </span>
-              <small id="settings-auto-lock-minutes-help">
-                Choose {AUTO_LOCK_MIN_MINUTES} to {AUTO_LOCK_MAX_MINUTES} minutes.
-              </small>
-            </label>
           </div>
 
           <ToggleSwitch
