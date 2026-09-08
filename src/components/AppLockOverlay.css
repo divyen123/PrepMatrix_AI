@@ -169,7 +169,7 @@ body:has(.app-lock-backdrop) {
 .app-lock-panel h2 {
   color: var(--app-lock-text);
   font-family: "Space Grotesk", sans-serif;
-  font-size: clamp(2.7rem, 5vw, 4rem);
+  font-size: clamp(2.55rem, 4.6vw, 3.7rem);
   font-weight: 700;
   letter-spacing: -0.075em;
   line-height: 0.95;
@@ -247,6 +247,14 @@ body .app-lock-backdrop .app-lock-panel input:focus {
   margin: -1px 0 0;
 }
 
+.app-lock-actions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 2px;
+  width: 100%;
+}
+
 body .app-lock-backdrop .app-lock-unlock-btn,
 body .app-lock-backdrop .app-lock-logout-btn {
   align-items: center;
@@ -260,6 +268,7 @@ body .app-lock-backdrop .app-lock-logout-btn {
   gap: 8px;
   justify-content: center;
   min-height: 49px;
+  min-width: 0;
   transition:
     background 320ms ease,
     border-color 320ms ease,
@@ -276,7 +285,6 @@ body .app-lock-backdrop .app-lock-unlock-btn {
   box-shadow: 0 10px 28px rgba(168, 84, 220, 0.13) !important;
   color: rgba(255, 255, 255, 0.92) !important;
   filter: brightness(0.84) saturate(0.84);
-  margin-top: 2px;
 }
 
 body .app-lock-backdrop .app-lock-unlock-btn:hover:not(:disabled),
@@ -294,7 +302,6 @@ body .app-lock-backdrop .app-lock-logout-btn {
   border: 1px solid rgba(225, 210, 240, 0.12) !important;
   box-shadow: none !important;
   color: rgba(227, 216, 239, 0.66) !important;
-  margin-top: 12px;
 }
 
 body .app-lock-backdrop .app-lock-logout-btn:hover:not(:disabled),
@@ -408,7 +415,7 @@ body .app-lock-backdrop .app-lock-logout-btn:disabled {
   }
 
   .app-lock-panel h2 {
-    font-size: clamp(2.5rem, 14vw, 3.3rem);
+    font-size: clamp(2.35rem, 13vw, 3.05rem);
     margin-top: 15px;
   }
 }
@@ -430,7 +437,7 @@ body .app-lock-backdrop .app-lock-logout-btn:disabled {
   }
 
   .app-lock-panel h2 {
-    font-size: clamp(2.3rem, 8.25vh, 3.05rem);
+    font-size: clamp(2.15rem, 7.75vh, 2.85rem);
     margin-top: 12px;
   }
 
@@ -449,10 +456,6 @@ body .app-lock-backdrop .app-lock-logout-btn:disabled {
   body .app-lock-backdrop .app-lock-unlock-btn,
   body .app-lock-backdrop .app-lock-logout-btn {
     min-height: 45px;
-  }
-
-  body .app-lock-backdrop .app-lock-logout-btn {
-    margin-top: 9px;
   }
 }
 

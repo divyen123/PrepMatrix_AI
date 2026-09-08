@@ -60,6 +60,7 @@ test("dismissal is sticky for refreshes while a fresh mount starts visible", () 
 });
 
 test("reduced motion shortens presentation without bypassing data readiness", () => {
+  assert.equal(QUIZ_BATTLE_INTRO_MINIMUM_MS, 4200);
   assert.deepEqual(getQuizBattleIntroDurations(false), {
     minimumMs: QUIZ_BATTLE_INTRO_MINIMUM_MS,
     exitMs: QUIZ_BATTLE_INTRO_EXIT_MS,

@@ -29,7 +29,7 @@ test("shows the logout animation over a translucent, theme-aware workspace", () 
   assert.match(appStyles, /animation: logoutProgressSweep/u);
   const overlayRule = appStyles.match(/\.logout-transition\s*\{([^}]*)\}/u)?.[1] || "";
   assert.match(overlayRule, /background: color-mix\([^;]+transparent\);/u);
-  assert.match(overlayRule, /backdrop-filter: blur\(14px\) brightness\(0\.78\) saturate\(0\.88\);/u);
+  assert.match(overlayRule, /backdrop-filter: blur\(18px\) brightness\(0\.72\) saturate\(0\.84\);/u);
   assert.match(logoutSource, /--logout-theme-bg/u);
   assert.doesNotMatch(overlayRule, /background: var\(--bg\)|radial-gradient|rgba\(4, 8, 17/u);
 });

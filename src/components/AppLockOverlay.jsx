@@ -124,16 +124,17 @@ export default function AppLockOverlay({
             value={password}
           />
           {errorMessage && <p className="app-lock-error" role="alert">{errorMessage}</p>}
-          <button className="app-lock-unlock-btn" disabled={busy || !password.trim()} type="submit">
-            <UnlockKeyhole aria-hidden="true" size={17} />
-            {busy ? "Unlocking..." : "Unlock app"}
-          </button>
+          <div className="app-lock-actions">
+            <button className="app-lock-unlock-btn" disabled={busy || !password.trim()} type="submit">
+              <UnlockKeyhole aria-hidden="true" size={17} />
+              {busy ? "Unlocking..." : "Unlock app"}
+            </button>
+            <button className="app-lock-logout-btn" disabled={busy} onClick={onLogout} type="button">
+              <LogOut aria-hidden="true" size={16} />
+              Log out instead
+            </button>
+          </div>
         </form>
-
-        <button className="app-lock-logout-btn" disabled={busy} onClick={onLogout} type="button">
-          <LogOut aria-hidden="true" size={16} />
-          Log out instead
-        </button>
       </section>
     </div>
   );

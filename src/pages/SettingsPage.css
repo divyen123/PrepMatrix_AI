@@ -518,6 +518,86 @@ body .settings-page .settings-profile-info-trigger:focus-visible {
   gap: 5px;
 }
 
+.settings-page .settings-auto-lock {
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-page .settings-auto-lock .toggle-row {
+  padding-bottom: 6px !important;
+  border-bottom: 0 !important;
+}
+
+.settings-page .settings-auto-lock-delay {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.7fr) minmax(180px, 1.3fr);
+  align-items: center;
+  gap: 5px 12px;
+  margin: 2px 0 0 12px;
+  padding: 10px 12px;
+  color: var(--text);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 12px;
+  background: rgba(var(--accent-rgb), 0.06);
+  transition: opacity 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.settings-page .settings-auto-lock.is-enabled .settings-auto-lock-delay {
+  border-color: rgba(var(--accent-rgb), 0.34);
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.settings-page .settings-auto-lock-delay.is-disabled {
+  opacity: 0.58;
+}
+
+.settings-page .settings-auto-lock-delay > span:first-child {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.settings-page .settings-auto-lock-minute-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settings-page .settings-auto-lock-minute-control input {
+  width: 92px;
+  height: 36px;
+  min-height: 36px;
+  padding: 7px 10px;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.settings-page .settings-auto-lock-minute-control input:focus-visible {
+  border-color: rgba(var(--accent-rgb), 0.62);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.14);
+  outline: none;
+}
+
+.settings-page .settings-auto-lock-minute-control input:disabled {
+  cursor: not-allowed;
+}
+
+.settings-page .settings-auto-lock-minute-control > span {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.settings-page .settings-auto-lock-delay small {
+  grid-column: 2;
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  line-height: 1.35;
+}
+
 .settings-page .settings-action-alerts-info {
   position: relative;
   z-index: 25;
@@ -981,6 +1061,15 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 
   .settings-page .notification-history-setting-btn {
     width: 100% !important;
+  }
+
+  .settings-page .settings-auto-lock-delay {
+    grid-template-columns: 1fr;
+    margin-left: 0;
+  }
+
+  .settings-page .settings-auto-lock-delay small {
+    grid-column: 1;
   }
 }
 

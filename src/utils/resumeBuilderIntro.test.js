@@ -7,11 +7,6 @@ import {
   getResumeBuilderIntroDurations,
   resumeBuilderIntroReducer,
 } from "./resumeBuilderIntro.js";
-import {
-  QUIZ_BATTLE_INTRO_EXIT_MS,
-  QUIZ_BATTLE_INTRO_MINIMUM_MS,
-} from "./quizBattleIntro.js";
-
 function dispatchAll(state, actions) {
   return actions.reduce(resumeBuilderIntroReducer, state);
 }
@@ -72,8 +67,8 @@ test("finishes once per mount and a fresh mount starts visible", () => {
 });
 
 test("reduced motion shortens presentation without bypassing data readiness", () => {
-  assert.equal(RESUME_BUILDER_INTRO_MINIMUM_MS, QUIZ_BATTLE_INTRO_MINIMUM_MS);
-  assert.equal(RESUME_BUILDER_INTRO_EXIT_MS, QUIZ_BATTLE_INTRO_EXIT_MS);
+  assert.equal(RESUME_BUILDER_INTRO_MINIMUM_MS, 4200);
+  assert.equal(RESUME_BUILDER_INTRO_EXIT_MS, 650);
   assert.deepEqual(getResumeBuilderIntroDurations(false), {
     minimumMs: RESUME_BUILDER_INTRO_MINIMUM_MS,
     exitMs: RESUME_BUILDER_INTRO_EXIT_MS,

@@ -5124,7 +5124,7 @@ body.dark .auth-brand-lockup h1 {
   --entry-splash-secondary: #ff9ffc;
   --entry-splash-text: #f5f0ff;
   --entry-splash-muted: rgba(210, 200, 240, 0.68);
-  animation: entrySplashFadeOut 3.4s ease forwards;
+  animation: entrySplashFadeOut 3.9s ease forwards;
   background:
     radial-gradient(circle at 50% -8%, rgba(191, 111, 255, 0.19), transparent 42%),
     radial-gradient(circle at 78% 84%, rgba(255, 159, 252, 0.12), transparent 34%),
@@ -5171,7 +5171,7 @@ body.dark .auth-brand-lockup h1 {
 }
 
 .entry-splash-rings {
-  animation: entrySplashRingsReveal 3.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: entrySplashRingsReveal 3.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   height: 100%;
   inset: 0;
   mask-image: radial-gradient(circle, #000 0 48%, rgba(0, 0, 0, 0.92) 60%, transparent 76%);
@@ -5222,7 +5222,7 @@ body.dark .auth-brand-lockup h1 {
 
 .entry-splash-card {
   align-items: center;
-  animation: entrySplashContentReveal 3.4s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+  animation: entrySplashContentReveal 3.9s cubic-bezier(0.19, 1, 0.22, 1) forwards;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -5320,6 +5320,23 @@ body.dark .auth-brand-lockup h1 {
   display: block;
   height: 100%;
   width: 38%;
+}
+
+/* Session recovery can outlast the normal intro on a slow connection. Keep
+   the splash visible until loading completes, then run the full exit sequence. */
+.entry-splash.is-loading,
+.entry-splash.is-loading .entry-splash-rings,
+.entry-splash.is-loading .entry-splash-card {
+  animation: none;
+}
+
+.entry-splash.is-loading .entry-splash-rings {
+  opacity: 0.96;
+}
+
+.entry-splash.is-loading .entry-splash-card {
+  opacity: 1;
+  transform: none;
 }
 
 @keyframes entrySplashContentReveal {
@@ -20796,8 +20813,8 @@ body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {
   overflow: hidden;
   padding: 24px;
   background: color-mix(in srgb, var(--logout-theme-bg, var(--bg)) 22%, transparent);
-  backdrop-filter: blur(14px) brightness(0.78) saturate(0.88);
-  -webkit-backdrop-filter: blur(14px) brightness(0.78) saturate(0.88);
+  backdrop-filter: blur(18px) brightness(0.72) saturate(0.84);
+  -webkit-backdrop-filter: blur(18px) brightness(0.72) saturate(0.84);
   animation: logoutTransitionEnter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
   isolation: isolate;
 }

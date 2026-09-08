@@ -1,4 +1,4 @@
-export const RESUME_BUILDER_INTRO_MINIMUM_MS = 2200;
+export const RESUME_BUILDER_INTRO_MINIMUM_MS = 4200;
 export const RESUME_BUILDER_INTRO_EXIT_MS = 650;
 
 export function getResumeBuilderIntroDurations(prefersReducedMotion = false) {

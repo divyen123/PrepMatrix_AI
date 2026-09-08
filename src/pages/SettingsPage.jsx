@@ -91,6 +91,12 @@ import {
   VOICE_VOLUME_MIN,
   normalizeVoicePreferences,
 } from "../utils/voicePreferences";
+import {
+  AUTO_LOCK_DEFAULT_MINUTES,
+  AUTO_LOCK_MAX_MINUTES,
+  AUTO_LOCK_MIN_MINUTES,
+  normalizeAutoLockMinutes,
+} from "../utils/autoLock";
 import { toast } from "react-toastify";
 import "./SettingsPage.css";
 
@@ -423,6 +429,10 @@ function SettingsPage({
   activeVoiceName, onPreviewVoice, setVoicePreferences, voicePreferences,
   cursorStyle: parentCursorStyle, setCursorStyle: setParentCursorStyle,
   autoHideTopBar, onAutoHideTopBarChange,
+  autoLockEnabled = false,
+  autoLockMinutes = AUTO_LOCK_DEFAULT_MINUTES,
+  onAutoLockEnabledChange,
+  onAutoLockMinutesChange,
   onBackgroundThemeChange,
   youngKidsMode = false,
   kidsParentAccess = null,
@@ -626,6 +636,9 @@ function SettingsPage({
   }, [otpCountdown, isOtpVerified]);
 
   // System Preferences state
+  const [autoLockMinutesDraft, setAutoLockMinutesDraft] = useState(() => String(
+    normalizeAutoLockMinutes(autoLockMinutes, AUTO_LOCK_DEFAULT_MINUTES),
+  ));
   const [soundEnabled, setSoundEnabled] = useState(() => {
     const stored = localStorage.getItem("prepmatrix_sound_enabled");
     return stored === null ? true : stored === "true";
@@ -635,6 +648,27 @@ function SettingsPage({
   const [notificationStatus, setNotificationStatus] = useState("checking");
   const [notificationIntent, setNotificationIntent] = useState(readNotificationIntent);
   const [notificationTestBusy, setNotificationTestBusy] = useState(false);
+
+  useEffect(() => {
+    setAutoLockMinutesDraft(String(
+      normalizeAutoLockMinutes(autoLockMinutes, AUTO_LOCK_DEFAULT_MINUTES),
+    ));
+  }, [autoLockMinutes]);
+
+  const commitAutoLockMinutes = () => {
+    const normalized = normalizeAutoLockMinutes(
+      autoLockMinutesDraft,
+      normalizeAutoLockMinutes(autoLockMinutes, AUTO_LOCK_DEFAULT_MINUTES),
+    );
+    setAutoLockMinutesDraft(String(normalized));
+    onAutoLockMinutesChange?.(normalized);
+  };
+
+  const handleAutoLockMinutesKeyDown = (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    commitAutoLockMinutes();
+  };
 
   useEffect(() => {
     let isActive = true;
@@ -2564,6 +2598,41 @@ function SettingsPage({
               label="Auto-hide Top Bar"
               subtitle="Hide the top bar until you move the cursor to the top edge of the screen."
             />
+          </div>
+
+          <div className={`settings-auto-lock${autoLockEnabled ? " is-enabled" : ""}`}>
+            <ToggleSwitch
+              checked={autoLockEnabled}
+              onChange={(event) => onAutoLockEnabledChange?.(event.target.checked)}
+              label="Auto-lock app"
+              subtitle="Lock PrepMatrix after the selected period of inactivity. Keyboard, mouse, or touch activity restarts the countdown."
+            />
+            <label
+              className={`settings-auto-lock-delay${autoLockEnabled ? "" : " is-disabled"}`}
+              htmlFor="settings-auto-lock-minutes"
+            >
+              <span>Auto-lock delay</span>
+              <span className="settings-auto-lock-minute-control">
+                <input
+                  aria-describedby="settings-auto-lock-minutes-help"
+                  disabled={!autoLockEnabled}
+                  id="settings-auto-lock-minutes"
+                  inputMode="numeric"
+                  max={AUTO_LOCK_MAX_MINUTES}
+                  min={AUTO_LOCK_MIN_MINUTES}
+                  onBlur={commitAutoLockMinutes}
+                  onChange={(event) => setAutoLockMinutesDraft(event.target.value)}
+                  onKeyDown={handleAutoLockMinutesKeyDown}
+                  step="1"
+                  type="number"
+                  value={autoLockMinutesDraft}
+                />
+                <span aria-hidden="true">minutes</span>
+              </span>
+              <small id="settings-auto-lock-minutes-help">
+                Choose {AUTO_LOCK_MIN_MINUTES} to {AUTO_LOCK_MAX_MINUTES} minutes.
+              </small>
+            </label>
           </div>
 
           <ToggleSwitch

@@ -69,13 +69,17 @@ test("renders Settings for one profile without deletion guidance", async () => {
     const settingsProps = {
       academicLevel: userProfile.academicLevel,
       academicTrack: userProfile.academicTrack,
+      autoLockEnabled: true,
+      autoLockMinutes: 5,
       completed: [],
       darkMode: true,
       goalReminderData: { goals: [], reminders: [], tasks: [] },
       goalReminderSettings: {},
       materialBookmarks: [],
       onAcademicProfileChange: noop,
+      onAutoLockEnabledChange: noop,
       onAutoHideTopBarChange: noop,
+      onAutoLockMinutesChange: noop,
       onPreviewVoice: noop,
       resumeBuilder: {},
       schedule: [],
@@ -112,6 +116,31 @@ test("renders Settings for one profile without deletion guidance", async () => {
     assert.doesNotMatch(markup, /settings-profile-parent-guidance/u);
     assert.doesNotMatch(markup, /Study Goals &amp; To-Do/u);
     assert.match(markup, /dashboard-full-span settings-card settings-system-card/u);
+    assert.match(markup, /aria-label="Auto-lock app"/u);
+    assert.match(
+      markup,
+      /<input(?=[^>]*aria-label="Auto-lock app")(?=[^>]*checked="")[^>]*>/u,
+    );
+    assert.match(markup, /Keyboard, mouse, or touch activity restarts the countdown\./u);
+    assert.match(markup, />Auto-lock delay</u);
+    assert.match(
+      markup,
+      /<input(?=[^>]*id="settings-auto-lock-minutes")(?=[^>]*min="2")(?=[^>]*value="5")[^>]*>/u,
+    );
+    assert.doesNotMatch(
+      markup,
+      /<input(?=[^>]*id="settings-auto-lock-minutes")(?=[^>]*disabled="")[^>]*>/u,
+    );
+
+    const autoLockDisabledMarkup = renderSettings({ autoLockEnabled: false });
+    assert.doesNotMatch(
+      autoLockDisabledMarkup,
+      /<input(?=[^>]*aria-label="Auto-lock app")(?=[^>]*checked="")[^>]*>/u,
+    );
+    assert.match(
+      autoLockDisabledMarkup,
+      /<input(?=[^>]*id="settings-auto-lock-minutes")(?=[^>]*disabled="")[^>]*>/u,
+    );
 
     const kidsMarkup = renderSettings({ youngKidsMode: true });
     assert.doesNotMatch(kidsMarkup, /Study Goals &amp; To-Do/u);

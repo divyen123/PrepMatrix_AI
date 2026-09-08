@@ -123,6 +123,12 @@ import {
   toggleGoalReminderCenter,
 } from "./utils/goalReminderStore";
 import { resolveAppKeyboardShortcut } from "./utils/appKeyboardShortcuts";
+import {
+  normalizeAutoLockMinutes,
+  readAutoLockPreferences,
+  subscribeToAutoLock,
+  writeAutoLockPreferences,
+} from "./utils/autoLock";
 import CustomCursor from "./components/CustomCursor";
 import { SidebarStudyPet } from "./components/StudyPet";
 import GoalReminderCenter from "./components/GoalReminderCenter";
@@ -197,7 +203,7 @@ function MagicRingsFallback() {
 const MagicRings = lazy(() => import("./components/MagicRings")
   .catch(() => ({ default: MagicRingsFallback })));
 
-const ENTRY_SPLASH_DURATION_MS = 3_400;
+const ENTRY_SPLASH_DURATION_MS = 3_900;
 const ENTRY_SPLASH_REDUCED_MOTION_MS = 700;
 const LOGOUT_TRANSITION_MIN_MS = 700;
 const LOGOUT_USAGE_FLUSH_TIMEOUT_MS = 1_500;
@@ -355,9 +361,15 @@ function CompletionRewardPopup({ reward, onClose }) {
   );
 }
 
-function EntrySplash() {
+function EntrySplash({ loading = false }) {
   return (
-    <div aria-atomic="true" aria-live="polite" className="entry-splash" role="status">
+    <div
+      aria-atomic="true"
+      aria-busy={loading}
+      aria-live="polite"
+      className={`entry-splash${loading ? " is-loading" : ""}`}
+      role="status"
+    >
       <div className="entry-splash-rings" aria-hidden="true">
         <Suspense fallback={<MagicRingsFallback />}>
           <MagicRings
@@ -373,7 +385,7 @@ function EntrySplash() {
             followMouse={false}
             hoverScale={1}
             lineThickness={1.15}
-            maxRenderDuration={ENTRY_SPLASH_DURATION_MS}
+            maxRenderDuration={loading ? 0 : ENTRY_SPLASH_DURATION_MS}
             noiseAmount={0}
             opacity={0.72}
             parallax={0.025}
@@ -571,6 +583,11 @@ function App() {
   const [autoHideTopBar, setAutoHideTopBar] = useState(
     () => localStorage.getItem(TOPBAR_AUTO_HIDE_STORAGE_KEY) === "true"
   );
+  const [autoLockPreferences, setAutoLockPreferences] = useState(
+    () => readAutoLockPreferences(),
+  );
+  const autoLockEnabled = autoLockPreferences.enabled;
+  const autoLockMinutes = autoLockPreferences.minutes;
   const [topBarVisible, setTopBarVisible] = useState(true);
   const consumeDashboardVoiceEntryHint = useCallback(() => {
     setDashboardVoiceHintPending(false);
@@ -593,6 +610,23 @@ function App() {
     setAutoHideTopBar(nextValue);
     localStorage.setItem(TOPBAR_AUTO_HIDE_STORAGE_KEY, String(nextValue));
   }, [clearTopBarHideTimeout]);
+  const handleAutoLockEnabledChange = useCallback((enabled) => {
+    setAutoLockPreferences((current) => ({
+      ...current,
+      enabled: Boolean(enabled),
+    }));
+  }, []);
+  const handleAutoLockMinutesChange = useCallback((minutes) => {
+    setAutoLockPreferences((current) => ({
+      ...current,
+      minutes: normalizeAutoLockMinutes(minutes, current.minutes),
+    }));
+  }, []);
+
+  useEffect(() => {
+    writeAutoLockPreferences(autoLockPreferences);
+  }, [autoLockPreferences]);
+
   const showTopBar = useCallback(() => {
     if (!autoHideTopBar) return;
 
@@ -894,6 +928,8 @@ function App() {
 
   const handleLockApp = useCallback(() => {
     setKeyboardShortcutGuideOpen(false);
+    setLogoutConfirmOpen(false);
+    setLogoutReturnsToLock(false);
     lockRestoreWakeModeRef.current = Boolean(
       voiceAssistant.wakeMode || localStorage.getItem("prepmatrix_wake_mode") === "true",
     );
@@ -907,6 +943,37 @@ function App() {
     setSidebarOpen(false);
     setAppLocked(true);
   }, [voiceAssistant]);
+
+  const autoLockActionRef = useRef(handleLockApp);
+  useEffect(() => {
+    autoLockActionRef.current = handleLockApp;
+  }, [handleLockApp]);
+
+  useEffect(() => {
+    if (
+      !autoLockEnabled
+      || authLoading
+      || !userIdentity
+      || isAuthRoute
+      || appLocked
+      || entrySplash
+      || logoutTransitionPhase !== "idle"
+    ) return undefined;
+
+    return subscribeToAutoLock(() => autoLockActionRef.current?.(), {
+      enabled: true,
+      minutes: autoLockMinutes,
+    });
+  }, [
+    appLocked,
+    authLoading,
+    autoLockEnabled,
+    autoLockMinutes,
+    entrySplash,
+    isAuthRoute,
+    logoutTransitionPhase,
+    userIdentity,
+  ]);
 
   useEffect(() => {
     if (authLoading || !userProfile || isAuthRoute || appLocked) return undefined;
@@ -2638,7 +2705,7 @@ function App() {
         <span className="motion-ring motion-ring-two" />
         <span className="motion-grid" />
       </div>
-      {entrySplash && <EntrySplash />}
+      {entrySplash && <EntrySplash loading={authLoading} />}
       {logoutTransitionPhase !== "idle" && <LogoutTransition phase={logoutTransitionPhase} />}
 
       {userProfile && !isAuthRoute && sidebarOpen && (
@@ -3450,7 +3517,11 @@ function App() {
                               cursorStyle={cursorStyle}
                               setCursorStyle={setCursorStyle}
                               autoHideTopBar={autoHideTopBar}
+                              autoLockEnabled={autoLockEnabled}
+                              autoLockMinutes={autoLockMinutes}
                               onAutoHideTopBarChange={handleAutoHideTopBarChange}
+                              onAutoLockEnabledChange={handleAutoLockEnabledChange}
+                              onAutoLockMinutesChange={handleAutoLockMinutesChange}
                               kidsParentAccess={kidsParentAccess}
                               onKidsParentAccessChange={updateKidsParentAccess}
                               onKidsParentLocked={updateKidsParentAccess}
