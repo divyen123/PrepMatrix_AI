@@ -20650,7 +20650,9 @@ body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {
   place-items: center;
   overflow: hidden;
   padding: 24px;
-  background: var(--bg);
+  background: color-mix(in srgb, var(--logout-theme-bg, var(--bg)) 22%, transparent);
+  backdrop-filter: blur(14px) brightness(0.78) saturate(0.88);
+  -webkit-backdrop-filter: blur(14px) brightness(0.78) saturate(0.88);
   animation: logoutTransitionEnter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
   isolation: isolate;
 }
@@ -20658,13 +20660,6 @@ body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {
 .logout-transition.is-exiting {
   pointer-events: none;
   animation: logoutTransitionExit 280ms ease both;
-}
-
-.logout-transition-background {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
 }
 
 .logout-transition-panel {
@@ -20676,7 +20671,7 @@ body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {
   gap: 18px;
   padding: 34px 30px 30px;
   overflow: visible;
-  color: var(--text);
+  color: var(--logout-theme-text, var(--text));
   text-align: center;
   z-index: 1;
   background: transparent;
@@ -20699,7 +20694,7 @@ body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {
   width: 68px;
   height: 68px;
   place-items: center;
-  color: var(--accent);
+  color: var(--logout-theme-accent, var(--accent));
   background: transparent;
   border: 0;
   box-shadow: none;
@@ -20718,7 +20713,7 @@ body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {
 
 .logout-transition-copy h2 {
   margin: 0;
-  color: var(--text);
+  color: var(--logout-theme-text, var(--text));
   font-family: "Space Grotesk", sans-serif;
   font-size: clamp(1.65rem, 5vw, 2.15rem);
   letter-spacing: -0.035em;
@@ -20728,7 +20723,7 @@ body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {
   width: min(230px, 74vw);
   height: 5px;
   overflow: hidden;
-  background: rgba(var(--accent-rgb), 0.12);
+  background: rgba(var(--logout-theme-accent-rgb, var(--accent-rgb)), 0.18);
   border-radius: 999px;
 }
 
@@ -20736,7 +20731,7 @@ body .subject-progress-modal .subject-action-btn:disabled .subject-action-icon {
   display: block;
   width: 42%;
   height: 100%;
-  background: var(--accent);
+  background: var(--logout-theme-accent, var(--accent));
   border-radius: inherit;
   animation: logoutProgressSweep 1.05s ease-in-out infinite;
 }

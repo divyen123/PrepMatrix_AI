@@ -353,33 +353,19 @@ function EntrySplash() {
 function LogoutTransition({ phase }) {
   const [appearance] = useState(() => {
     const bodyStyle = window.getComputedStyle(document.body);
-    const captureLayer = (pseudoElement) => {
-      const layer = window.getComputedStyle(document.body, pseudoElement);
-      return Object.fromEntries([
-        "backgroundColor", "backgroundImage", "backgroundPosition", "backgroundSize",
-        "backgroundRepeat", "backgroundAttachment", "filter", "inset",
-        "maskImage", "maskSize", "maskPosition", "maskRepeat",
-      ].map((property) => [property, layer[property]]));
-    };
 
-    // Auth navigation changes the body theme before the logout fade finishes.
-    // Preserve its current colors and image framing for this transition only.
+    // Keep the transition controls matched to the theme that was active when
+    // logout started, while the real workspace remains visible underneath.
     return {
-      style: {
-        backgroundColor: bodyStyle.getPropertyValue("--bg").trim(),
-        "--text": bodyStyle.getPropertyValue("--text").trim(),
-        "--accent": bodyStyle.getPropertyValue("--accent").trim(),
-        "--accent-rgb": bodyStyle.getPropertyValue("--accent-rgb").trim(),
-      },
-      image: document.body.classList.contains("has-bg-image") ? captureLayer("::after") : null,
-      foreground: document.body.classList.contains("has-bg-image") ? captureLayer("::before") : null,
+      "--logout-theme-bg": bodyStyle.getPropertyValue("--bg").trim(),
+      "--logout-theme-text": bodyStyle.getPropertyValue("--text").trim(),
+      "--logout-theme-accent": bodyStyle.getPropertyValue("--accent").trim(),
+      "--logout-theme-accent-rgb": bodyStyle.getPropertyValue("--accent-rgb").trim(),
     };
   });
 
   return (
-    <div className={`logout-transition${phase === "exiting" ? " is-exiting" : ""}`} style={appearance.style}>
-      {appearance.image && <div aria-hidden="true" className="logout-transition-background" style={appearance.image} />}
-      {appearance.foreground && <div aria-hidden="true" className="logout-transition-background" style={appearance.foreground} />}
+    <div className={`logout-transition${phase === "exiting" ? " is-exiting" : ""}`} style={appearance}>
       <div
         aria-atomic="true"
         aria-live="polite"
@@ -1786,12 +1772,6 @@ function App() {
       window.clearTimeout(splashTimeoutRef.current);
     }
 
-    setEntrySplash(false);
-    setDashboardVoiceHintPending(false);
-    setUserProfile(null);
-    setWorkspaceLoaded(false);
-    applyWorkspace({}, null);
-    setNotification("Logged out of PrepMatrix.");
     setLogoutTransitionPhase("exiting");
 
     if (logoutTransitionTimeoutRef.current) {
@@ -1802,6 +1782,12 @@ function App() {
       : LOGOUT_TRANSITION_EXIT_MS;
 
     logoutTransitionTimeoutRef.current = window.setTimeout(() => {
+      setEntrySplash(false);
+      setDashboardVoiceHintPending(false);
+      setUserProfile(null);
+      setWorkspaceLoaded(false);
+      applyWorkspace({}, null);
+      setNotification("Logged out of PrepMatrix.");
       setLogoutTransitionPhase("idle");
       logoutInFlightRef.current = false;
       logoutTransitionTimeoutRef.current = null;
