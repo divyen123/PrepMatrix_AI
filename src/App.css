@@ -5172,15 +5172,13 @@ body.dark .auth-brand-lockup h1 {
 
 .entry-splash-rings {
   animation: entrySplashRingsReveal 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  height: min(920px, 92vmin);
-  left: 50%;
+  height: 100%;
+  inset: 0;
   mask-image: radial-gradient(circle, #000 0 48%, rgba(0, 0, 0, 0.92) 60%, transparent 76%);
   -webkit-mask-image: radial-gradient(circle, #000 0 48%, rgba(0, 0, 0, 0.92) 60%, transparent 76%);
   pointer-events: none;
   position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(920px, 92vmin);
+  width: 100%;
   z-index: 1;
 }
 
@@ -5255,7 +5253,7 @@ body.dark .auth-brand-lockup h1 {
   animation: entrySplashMarkFloat 1.8s ease-in-out infinite;
   background: linear-gradient(135deg, var(--entry-splash-primary), var(--entry-splash-secondary));
   border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: clamp(20px, 3vw, 28px);
+  border-radius: 50%;
   box-shadow:
     0 18px 54px rgba(191, 111, 255, 0.4),
     0 0 32px rgba(255, 159, 252, 0.16),
@@ -5364,7 +5362,6 @@ body.dark .auth-brand-lockup h1 {
 @keyframes entrySplashRingsReveal {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.78);
   }
 
   24%, 80% {
@@ -5373,7 +5370,6 @@ body.dark .auth-brand-lockup h1 {
 
   100% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(1.08);
   }
 }
 
@@ -5393,17 +5389,11 @@ body.dark .auth-brand-lockup h1 {
     padding: 20px;
   }
 
-  .entry-splash-rings {
-    height: min(680px, 145vw);
-    width: min(680px, 145vw);
-  }
-
   .entry-splash-card {
     gap: 10px;
   }
 
   .entry-splash-brand-mark {
-    border-radius: 20px;
     height: 82px;
     width: 82px;
   }
@@ -5414,17 +5404,11 @@ body.dark .auth-brand-lockup h1 {
 }
 
 @media (max-height: 600px) {
-  .entry-splash-rings {
-    height: min(620px, 118vh);
-    width: min(620px, 118vh);
-  }
-
   .entry-splash-card {
     gap: 7px;
   }
 
   .entry-splash-brand-mark {
-    border-radius: 17px;
     font-size: 2rem;
     height: 68px;
     width: 68px;
@@ -5453,7 +5437,6 @@ body.dark .auth-brand-lockup h1 {
 
   .entry-splash-rings {
     opacity: 0.58;
-    transform: translate(-50%, -50%);
   }
 
   .entry-splash-card {
