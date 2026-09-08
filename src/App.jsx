@@ -186,6 +186,19 @@ const AboutPage = lazyRetry(() => import("./pages/AboutPage"));
 const ExamPage = lazyRetry(() => import("./pages/ExamPage"));
 const ExamAboutPage = lazyRetry(() => import("./pages/ExamAboutPage"));
 
+function MagicRingsFallback() {
+  return (
+    <div className="magic-rings">
+      <span className="entry-splash-rings-fallback" />
+    </div>
+  );
+}
+
+const MagicRings = lazy(() => import("./components/MagicRings")
+  .catch(() => ({ default: MagicRingsFallback })));
+
+const ENTRY_SPLASH_DURATION_MS = 2_400;
+const ENTRY_SPLASH_REDUCED_MOTION_MS = 700;
 const LOGOUT_TRANSITION_MIN_MS = 700;
 const LOGOUT_USAGE_FLUSH_TIMEOUT_MS = 1_500;
 const LOGOUT_TRANSITION_EXIT_MS = 280;
@@ -219,6 +232,12 @@ function readStoredThemeMode() {
 
 function systemPrefersDarkMode() {
   return Boolean(window.matchMedia?.("(prefers-color-scheme: dark)")?.matches);
+}
+
+function getEntrySplashDuration() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+    ? ENTRY_SPLASH_REDUCED_MOTION_MS
+    : ENTRY_SPLASH_DURATION_MS;
 }
 
 function resolveThemeModeDarkValue(mode) {
@@ -338,12 +357,39 @@ function CompletionRewardPopup({ reward, onClose }) {
 
 function EntrySplash() {
   return (
-    <div className="entry-splash" role="status" aria-live="polite">
-      <div className="entry-splash-orbit" aria-hidden="true" />
+    <div aria-atomic="true" aria-live="polite" className="entry-splash" role="status">
+      <div className="entry-splash-rings" aria-hidden="true">
+        <Suspense fallback={<MagicRingsFallback />}>
+          <MagicRings
+            alphaMode="luminance"
+            attenuation={21}
+            baseRadius={0.24}
+            blur={0.25}
+            clickBurst={false}
+            color="#bf6fff"
+            colorTwo="#ff9ffc"
+            fadeIn={0.45}
+            fadeOut={0.5}
+            followMouse={false}
+            hoverScale={1}
+            lineThickness={1.15}
+            maxRenderDuration={ENTRY_SPLASH_DURATION_MS}
+            noiseAmount={0}
+            opacity={0.72}
+            parallax={0.025}
+            radiusStep={0.055}
+            ringCount={8}
+            ringGap={1.1}
+            rotation={20}
+            scaleRate={0.08}
+            speed={1.5}
+          />
+        </Suspense>
+      </div>
       <div className="entry-splash-card">
-        <span className="entry-splash-logo" aria-hidden="true">P</span>
-        <h2>PrepMatrix</h2>
-        <p>Preparing your study workspace</p>
+        <span className="entry-splash-brand-mark" aria-hidden="true">P</span>
+        <h2 className="entry-splash-title">PrepMatrix</h2>
+        <p className="entry-splash-message">Preparing your study workspace</p>
         <div className="entry-splash-loader" aria-hidden="true"><span /></div>
       </div>
     </div>
@@ -1723,7 +1769,7 @@ function App() {
     setEntrySplash(true);
     splashTimeoutRef.current = window.setTimeout(() => {
       setEntrySplash(false);
-    }, 2400);
+    }, getEntrySplashDuration());
   };
 
   const handleLogout = async () => {
@@ -2088,7 +2134,7 @@ function App() {
         setEntrySplash(true);
         splashTimeoutRef.current = window.setTimeout(() => {
           setEntrySplash(false);
-        }, 2400);
+        }, getEntrySplashDuration());
       })
       .catch((error) => {
         if (!isMounted) return;
