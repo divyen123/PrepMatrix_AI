@@ -5124,7 +5124,7 @@ body.dark .auth-brand-lockup h1 {
   --entry-splash-secondary: #ff9ffc;
   --entry-splash-text: #f5f0ff;
   --entry-splash-muted: rgba(210, 200, 240, 0.68);
-  animation: entrySplashFadeOut 2.4s ease forwards;
+  animation: entrySplashFadeOut 3.4s ease forwards;
   background:
     radial-gradient(circle at 50% -8%, rgba(191, 111, 255, 0.19), transparent 42%),
     radial-gradient(circle at 78% 84%, rgba(255, 159, 252, 0.12), transparent 34%),
@@ -5171,7 +5171,7 @@ body.dark .auth-brand-lockup h1 {
 }
 
 .entry-splash-rings {
-  animation: entrySplashRingsReveal 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: entrySplashRingsReveal 3.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   height: 100%;
   inset: 0;
   mask-image: radial-gradient(circle, #000 0 48%, rgba(0, 0, 0, 0.92) 60%, transparent 76%);
@@ -5222,7 +5222,7 @@ body.dark .auth-brand-lockup h1 {
 
 .entry-splash-card {
   align-items: center;
-  animation: entrySplashContentReveal 2.4s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+  animation: entrySplashContentReveal 3.4s cubic-bezier(0.19, 1, 0.22, 1) forwards;
   display: flex;
   flex-direction: column;
   gap: 12px;

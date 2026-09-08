@@ -197,7 +197,7 @@ function MagicRingsFallback() {
 const MagicRings = lazy(() => import("./components/MagicRings")
   .catch(() => ({ default: MagicRingsFallback })));
 
-const ENTRY_SPLASH_DURATION_MS = 2_400;
+const ENTRY_SPLASH_DURATION_MS = 3_400;
 const ENTRY_SPLASH_REDUCED_MOTION_MS = 700;
 const LOGOUT_TRANSITION_MIN_MS = 700;
 const LOGOUT_USAGE_FLUSH_TIMEOUT_MS = 1_500;
