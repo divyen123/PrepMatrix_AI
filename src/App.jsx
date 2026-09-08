@@ -3575,7 +3575,6 @@ function App() {
           errorMessage={appLockError}
           onLogout={handleLockedLogout}
           onUnlock={handleUnlockApp}
-          userLabel={userProfile.email || userProfile.username || "your account"}
         />
       )}
 

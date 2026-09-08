@@ -20,7 +20,6 @@ test("renders an accessible password-gated app lock dialog", async () => {
       errorMessage: "That password is incorrect. Try again.",
       onLogout() {},
       onUnlock() {},
-      userLabel: "student@example.com",
     }));
 
     assert.match(markup, /role="dialog"/u);
@@ -32,6 +31,8 @@ test("renders an accessible password-gated app lock dialog", async () => {
     assert.match(markup, /type="password"/u);
     assert.match(markup, /That password is incorrect\. Try again\./u);
     assert.match(markup, /Log out instead/u);
+    assert.doesNotMatch(markup, /Enter the password for/u);
+    assert.doesNotMatch(markup, /aria-describedby/u);
   } finally {
     await vite.close();
   }
@@ -54,4 +55,8 @@ test("persists lock state per browser session and verifies the account password"
   assert.match(stylesheet, /\.app-lock-rings/u);
   assert.match(stylesheet, /\.app-lock-panel[\s\S]*?background: transparent/u);
   assert.match(stylesheet, /\.app-lock-brand-mark[\s\S]*?border-radius: 50%/u);
+  assert.match(stylesheet, /html:has\(\.app-lock-backdrop\)[\s\S]*?overflow: hidden !important/u);
+  assert.match(stylesheet, /\.app-lock-backdrop \{[\s\S]*?overflow-y: auto/u);
+  assert.match(stylesheet, /\.app-lock-backdrop::before[\s\S]*?inset: 0/u);
+  assert.match(stylesheet, /\.app-lock-backdrop::-webkit-scrollbar[\s\S]*?display: none/u);
 });

@@ -18,7 +18,6 @@ export default function AppLockOverlay({
   errorMessage = "",
   onLogout,
   onUnlock,
-  userLabel = "your account",
 }) {
   const [password, setPassword] = useState("");
   const panelRef = useRef(null);
@@ -100,7 +99,6 @@ export default function AppLockOverlay({
         </Suspense>
       </div>
       <section
-        aria-describedby="app-lock-description"
         aria-labelledby="app-lock-title"
         aria-modal="true"
         className="app-lock-panel"
@@ -113,9 +111,6 @@ export default function AppLockOverlay({
           <LockKeyhole aria-hidden="true" size={14} strokeWidth={2.3} />
           Session locked
         </span>
-        <p id="app-lock-description">
-          Enter the password for <strong>{userLabel}</strong> to continue.
-        </p>
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="app-lock-password">Account password</label>
