@@ -5313,21 +5313,10 @@ body.dark .auth-brand-lockup h1 {
   width: 38%;
 }
 
-/* Session recovery can outlast the normal intro on a slow connection. Keep
-   the splash visible until loading completes, then run the full exit sequence. */
-.entry-splash.is-loading,
-.entry-splash.is-loading .entry-splash-rings,
-.entry-splash.is-loading .entry-splash-card {
+/* Let the reveal run once while session recovery is pending. Only pause the
+   outer fade so a slow connection holds the completed intro without replaying it. */
+.entry-splash.is-loading {
   animation: none;
-}
-
-.entry-splash.is-loading .entry-splash-rings {
-  opacity: 0.96;
-}
-
-.entry-splash.is-loading .entry-splash-card {
-  opacity: 1;
-  transform: none;
 }
 
 @keyframes entrySplashContentReveal {
@@ -5336,14 +5325,9 @@ body.dark .auth-brand-lockup h1 {
     transform: translateY(24px) scale(0.94);
   }
 
-  18%, 80% {
+  18%, 100% {
     opacity: 1;
     transform: translateY(0) scale(1);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateY(-10px) scale(1.02);
   }
 }
 
@@ -5372,12 +5356,8 @@ body.dark .auth-brand-lockup h1 {
     opacity: 0;
   }
 
-  24%, 80% {
+  24%, 100% {
     opacity: 0.96;
-  }
-
-  100% {
-    opacity: 0;
   }
 }
 

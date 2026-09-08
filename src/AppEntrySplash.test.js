@@ -28,7 +28,22 @@ test("keeps the main splash visible while session recovery is pending", () => {
   assert.match(appSource, /<EntrySplash loading=\{authLoading\} \/>/u);
   assert.match(
     stylesheet,
-    /\.entry-splash\.is-loading,[\s\S]*?animation:\s*none;/u,
+    /\.entry-splash\.is-loading\s*\{\s*animation:\s*none;/u,
+  );
+});
+
+test("reveals the entry splash once without replaying after session recovery", () => {
+  assert.doesNotMatch(
+    stylesheet,
+    /\.entry-splash\.is-loading \.entry-splash-(?:rings|card)/u,
+  );
+  assert.match(
+    stylesheet,
+    /@keyframes entrySplashContentReveal[\s\S]*?18%, 100%\s*\{\s*opacity:\s*1;\s*transform:\s*translateY\(0\) scale\(1\);/u,
+  );
+  assert.match(
+    stylesheet,
+    /@keyframes entrySplashRingsReveal[\s\S]*?24%, 100%\s*\{\s*opacity:\s*0\.96;/u,
   );
 });
 
