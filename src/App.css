@@ -5123,7 +5123,6 @@ body.dark .auth-brand-lockup h1 {
   --entry-splash-primary: #bf6fff;
   --entry-splash-secondary: #ff9ffc;
   --entry-splash-text: #f5f0ff;
-  --entry-splash-muted: rgba(210, 200, 240, 0.68);
   animation: entrySplashFadeOut 3.9s ease forwards;
   background:
     radial-gradient(circle at 50% -8%, rgba(191, 111, 255, 0.19), transparent 42%),
@@ -5284,20 +5283,12 @@ body.dark .auth-brand-lockup h1 {
 .entry-splash-title {
   color: var(--entry-splash-text);
   font-family: "Space Grotesk", sans-serif;
-  font-size: clamp(3rem, 7vw, 5.8rem);
+  font-size: clamp(2.75rem, 6.4vw, 5.3rem);
   font-weight: 700;
   letter-spacing: -0.075em;
   line-height: 0.94;
   margin: 0;
   text-shadow: 0 10px 40px rgba(9, 9, 15, 0.75);
-}
-
-.entry-splash-message {
-  color: var(--entry-splash-muted);
-  font-size: clamp(0.95rem, 1.8vw, 1.16rem);
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  margin: 0;
 }
 
 .entry-splash-loader {
@@ -5416,7 +5407,7 @@ body.dark .auth-brand-lockup h1 {
   }
 
   .entry-splash-title {
-    font-size: clamp(2.8rem, 16vw, 4.2rem);
+    font-size: clamp(2.55rem, 14.5vw, 3.85rem);
   }
 }
 
@@ -5432,7 +5423,7 @@ body.dark .auth-brand-lockup h1 {
   }
 
   .entry-splash-title {
-    font-size: clamp(2.5rem, 10vh, 4rem);
+    font-size: clamp(2.3rem, 9vh, 3.65rem);
   }
 
   .entry-splash-loader {
@@ -14726,7 +14717,8 @@ button.bg-palette-thumbnail-btn:hover {
   font-size: 1.35rem !important;
   font-weight: 900 !important;
   letter-spacing: -0.06em !important;
-  box-shadow: 0 8px 28px rgba(191,111,255,0.4) !important;
+  box-shadow: none !important;
+  filter: none !important;
   position: relative !important;
   flex-shrink: 0 !important;
 }

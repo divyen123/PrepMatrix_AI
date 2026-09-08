@@ -31,3 +31,12 @@ test("keeps the main splash visible while session recovery is pending", () => {
     /\.entry-splash\.is-loading,[\s\S]*?animation:\s*none;/u,
   );
 });
+
+test("keeps the main intro concise with a smaller brand title", () => {
+  assert.doesNotMatch(appSource, /Preparing your study workspace/u);
+  assert.doesNotMatch(stylesheet, /\.entry-splash-message\s*\{/u);
+  assert.match(
+    stylesheet,
+    /\.entry-splash-title\s*\{[\s\S]*?font-size:\s*clamp\(2\.75rem, 6\.4vw, 5\.3rem\);/u,
+  );
+});

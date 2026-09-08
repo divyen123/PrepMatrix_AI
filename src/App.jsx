@@ -401,7 +401,6 @@ function EntrySplash({ loading = false }) {
       <div className="entry-splash-card">
         <span className="entry-splash-brand-mark" aria-hidden="true">P</span>
         <h2 className="entry-splash-title">PrepMatrix</h2>
-        <p className="entry-splash-message">Preparing your study workspace</p>
         <div className="entry-splash-loader" aria-hidden="true"><span /></div>
       </div>
     </div>
