@@ -560,7 +560,7 @@ function App() {
   const [logoutReturnsToLock, setLogoutReturnsToLock] = useState(false);
   const [logoutTransitionPhase, setLogoutTransitionPhase] = useState("idle");
   const [appLocked, setAppLocked] = useState(
-    () => sessionStorage.getItem(APP_LOCK_STORAGE_KEY) === "true",
+    () => localStorage.getItem(APP_LOCK_STORAGE_KEY) === "true",
   );
   const [appLockBusy, setAppLockBusy] = useState(false);
   const [appLockError, setAppLockError] = useState("");
@@ -952,7 +952,7 @@ function App() {
     window.studyVoiceAssistant?.pauseWakeListening?.();
     window.speechSynthesis?.cancel?.();
     window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false } }));
-    sessionStorage.setItem(APP_LOCK_STORAGE_KEY, "true");
+    localStorage.setItem(APP_LOCK_STORAGE_KEY, "true");
     setAppLockError("");
     setProfilePreviewOpen(false);
     setSidebarOpen(false);
@@ -1820,6 +1820,9 @@ function App() {
   };
 
   const handleLogin = (profile, workspace, requestedContext = null, options = {}) => {
+    localStorage.removeItem(APP_LOCK_STORAGE_KEY);
+    setAppLocked(false);
+    setAppLockError("");
     if (options.initializeDefaultAppearance) {
       try {
         initializeNewStudentAppearance(localStorage);
@@ -1857,11 +1860,9 @@ function App() {
   const handleLogout = async () => {
     if (logoutInFlightRef.current) return;
 
-    const logoutStartedFromLock = logoutReturnsToLock;
     logoutInFlightRef.current = true;
     setLogoutConfirmOpen(false);
     setLogoutReturnsToLock(false);
-    if (logoutStartedFromLock) setAppLocked(false);
     setLogoutTransitionPhase("active");
     setSidebarOpen(false);
     setProfilePreviewOpen(false);
@@ -1878,23 +1879,24 @@ function App() {
     const usageFlushTimeout = new Promise((resolve) => {
       window.setTimeout(resolve, LOGOUT_USAGE_FLUSH_TIMEOUT_MS);
     });
-    const logoutRequest = Promise.race([
+    const usageFlushRequest = Promise.race([
       requestAppUsageFlush(),
       usageFlushTimeout,
     ])
-      .catch(() => undefined)
-      .then(() => api.logout())
       .catch(() => undefined);
+    const logoutRequest = api.logout().catch(() => undefined);
+
+    // Make a confirmed logout durable before waiting for the transition or network.
+    clearStoredAuthState();
+    localStorage.removeItem(APP_LOCK_STORAGE_KEY);
+    setAppLocked(false);
+    setAppLockError("");
 
     await Promise.all([
+      usageFlushRequest,
       logoutRequest,
       minimumTransition,
     ]);
-
-    clearStoredAuthState();
-    sessionStorage.removeItem(APP_LOCK_STORAGE_KEY);
-    setAppLocked(false);
-    setAppLockError("");
 
     if (splashTimeoutRef.current) {
       window.clearTimeout(splashTimeoutRef.current);
@@ -1925,7 +1927,7 @@ function App() {
   const handleAccountDeleted = () => {
     resetAcademicProfileIntro();
     clearStoredAuthState();
-    sessionStorage.removeItem(APP_LOCK_STORAGE_KEY);
+    localStorage.removeItem(APP_LOCK_STORAGE_KEY);
     setAppLocked(false);
     setAppLockError("");
     voiceAssistant.pauseWakeMode?.();
@@ -1947,7 +1949,7 @@ function App() {
 
   const clearAuthenticatedUi = (message = "Please log in again to continue.") => {
     resetAcademicProfileIntro();
-    sessionStorage.removeItem(APP_LOCK_STORAGE_KEY);
+    localStorage.removeItem(APP_LOCK_STORAGE_KEY);
     setAppLocked(false);
     setAppLockError("");
     voiceAssistant.pauseWakeMode?.();
@@ -2156,13 +2158,17 @@ function App() {
         splashTimeoutRef.current = null;
       }
       setEntrySplash(false);
-      sessionStorage.removeItem(APP_LOCK_STORAGE_KEY);
+      localStorage.removeItem(APP_LOCK_STORAGE_KEY);
       setAppLocked(false);
       if (lockRestoreWakeModeRef.current) {
         window.setTimeout(() => voiceAssistant.setWakeMode?.(true), 120);
       }
       toast.success("PrepMatrix unlocked.");
     } catch (error) {
+      if (error?.status === 401) {
+        clearAuthenticatedUi(error?.message || "Please log in again to continue.");
+        return;
+      }
       setAppLockError(error instanceof Error
         ? error.message
         : "PrepMatrix could not verify your password.");
@@ -2180,7 +2186,7 @@ function App() {
   const handleCancelLogout = () => {
     setLogoutConfirmOpen(false);
     if (logoutReturnsToLock && userProfile) {
-      sessionStorage.setItem(APP_LOCK_STORAGE_KEY, "true");
+      localStorage.setItem(APP_LOCK_STORAGE_KEY, "true");
       setAppLocked(true);
     }
     setLogoutReturnsToLock(false);
@@ -2231,12 +2237,15 @@ function App() {
         setDashboardVoiceHintPending(false);
 
         if (error?.code === "PASSWORD_CHANGED") {
+          localStorage.removeItem(APP_LOCK_STORAGE_KEY);
+          setAppLocked(false);
+          setAppLockError("");
           setNotification("Your password was changed. Please log in again.");
           return;
         }
 
         if (error?.status === 401) {
-          sessionStorage.removeItem(APP_LOCK_STORAGE_KEY);
+          localStorage.removeItem(APP_LOCK_STORAGE_KEY);
           setAppLocked(false);
           setAppLockError("");
           return;
@@ -2727,7 +2736,7 @@ function App() {
         <span className="motion-ring motion-ring-two" />
         <span className="motion-grid" />
       </div>
-      {entrySplash && !appLocked && <EntrySplash loading={authLoading} />}
+      {entrySplash && <EntrySplash loading={authLoading} />}
       {logoutTransitionPhase !== "idle" && <LogoutTransition phase={logoutTransitionPhase} />}
 
       {userProfile && !isAuthRoute && sidebarOpen && (
@@ -3662,7 +3671,7 @@ function App() {
         </div>
       )}
 
-      {appLocked && userProfile && !(logoutConfirmOpen && logoutReturnsToLock) && (
+      {appLocked && !entrySplash && userProfile && !(logoutConfirmOpen && logoutReturnsToLock) && (
         <AppLockOverlay
           busy={appLockBusy}
           errorMessage={appLockError}

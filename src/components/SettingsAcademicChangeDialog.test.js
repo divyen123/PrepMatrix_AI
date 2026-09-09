@@ -109,7 +109,10 @@ test("keeps academic editing in Settings and owns two-slot controls in the guide
 
   assert.match(guideSource, /"Visit " \+ \(getAcademicProfileDisplayName\(slots\.inactiveProfile\)/u);
   assert.match(guideSource, /await onVisitAcademicProfile\(targetProfile\)/u);
-  assert.match(guideSource, /await onDeleteAcademicProfile\(selectedProfileForDeletion\)/u);
+  assert.match(
+    guideSource,
+    /await onDeleteAcademicProfile\(selectedProfileForDeletion, currentPassword\)/u,
+  );
   assert.match(guideSource, /<SettingsAcademicProfileDeleteDialog/u);
   assert.match(
     guideSource,

@@ -12,14 +12,18 @@ function sourceBetween(startMarker, endMarker) {
   return appSource.slice(start, end);
 }
 
-test("renders only the dedicated lock scene while the session lock is active", () => {
+test("keeps the workspace background out of both the restored intro and lock scene", () => {
   assert.match(
     appSource,
     /\{hasActiveBackgroundImage\s*&&\s*!appLocked\s*&&\s*<AppBackground\s*\/>\}/u,
   );
   assert.match(
     appSource,
-    /\{entrySplash\s*&&\s*!appLocked\s*&&\s*<EntrySplash\s+loading=\{authLoading\}\s*\/>\}/u,
+    /\{entrySplash\s*&&\s*<EntrySplash\s+loading=\{authLoading\}\s*\/>\}/u,
+  );
+  assert.match(
+    appSource,
+    /\{appLocked\s*&&\s*!entrySplash\s*&&\s*userProfile\s*&&[\s\S]*?<AppLockOverlay/u,
   );
 
   const lockHandler = sourceBetween(
@@ -41,7 +45,7 @@ test("restores the saved workspace background when a successful unlock exits loc
 
   assert.match(
     unlockHandler,
-    /sessionStorage\.removeItem\(APP_LOCK_STORAGE_KEY\);\s*setAppLocked\(false\);/u,
+    /localStorage\.removeItem\(APP_LOCK_STORAGE_KEY\);\s*setAppLocked\(false\);/u,
   );
   assert.match(unlockHandler, /setEntrySplash\(false\)/u);
   assert.doesNotMatch(

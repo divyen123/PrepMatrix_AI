@@ -42,19 +42,27 @@ test("renders an accessible password-gated app lock dialog", async () => {
   }
 });
 
-test("persists lock state per browser session and verifies the account password", () => {
+test("persists lock state across app restarts and verifies the account password", () => {
   const appSource = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
   const stylesheet = readFileSync(new URL("./AppLockOverlay.css", import.meta.url), "utf8");
 
   assert.match(appSource, /APP_LOCK_STORAGE_KEY = "prepmatrix_app_locked"/u);
-  assert.match(appSource, /sessionStorage\.setItem\(APP_LOCK_STORAGE_KEY, "true"\)/u);
+  assert.match(
+    appSource,
+    /useState\(\s*\(\) => localStorage\.getItem\(APP_LOCK_STORAGE_KEY\) === "true",\s*\)/u,
+  );
+  assert.match(appSource, /localStorage\.setItem\(APP_LOCK_STORAGE_KEY, "true"\)/u);
   assert.match(appSource, /api\.post\("\/api\/auth\/check-password", \{ password \}\)/u);
-  assert.match(appSource, /sessionStorage\.removeItem\(APP_LOCK_STORAGE_KEY\)/u);
+  assert.match(appSource, /localStorage\.removeItem\(APP_LOCK_STORAGE_KEY\)/u);
+  assert.doesNotMatch(
+    appSource,
+    /sessionStorage\.(?:getItem|setItem|removeItem)\(APP_LOCK_STORAGE_KEY/u,
+  );
   assert.match(appSource, /disabled: authLoading \|\| !userProfile \|\| appLocked/u);
   assert.match(appSource, /if \(shortcut\.action === "lock-app"\) \{\s*handleLockApp\(\);\s*return;\s*\}/u);
   assert.match(appSource, /const handleCancelLogout = \(\) => \{[\s\S]*?setAppLocked\(true\)/u);
   assert.match(appSource, /inert=\{appLocked \|\| logoutConfirmOpen \|\| logoutTransitionPhase !== "idle" \? true : undefined\}/u);
-  assert.match(appSource, /appLocked && userProfile && !\(logoutConfirmOpen && logoutReturnsToLock\)/u);
+  assert.match(appSource, /appLocked && !entrySplash && userProfile && !\(logoutConfirmOpen && logoutReturnsToLock\)/u);
   assert.match(stylesheet, /backdrop-filter: none;/u);
   assert.match(stylesheet, /-webkit-backdrop-filter: none;/u);
   assert.match(

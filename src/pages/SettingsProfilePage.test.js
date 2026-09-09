@@ -173,7 +173,10 @@ test("registers the guarded route, global tracker, responsive charts, and backgr
   const trackerSource = readFileSync(new URL("../hooks/useAppUsageTracker.js", import.meta.url), "utf8");
 
   assert.match(appSource, /useAppUsageTracker\(userProfile, Boolean\(userIdentity\)\)/u);
-  assert.match(appSource, /requestAppUsageFlush\(\)[\s\S]*?\.then\(\(\) => api\.logout\(\)\)/u);
+  assert.match(
+    appSource,
+    /const usageFlushRequest = Promise\.race\([\s\S]*?requestAppUsageFlush\(\)[\s\S]*?const logoutRequest = api\.logout\(\)[\s\S]*?clearStoredAuthState\(\)[\s\S]*?await Promise\.all/u,
+  );
   assert.match(appSource, /<SettingsProfilePage[\s\S]*?path="\/settings\/profile"/u);
   assert.match(pageSource, /<ComposedChart[\s\S]*?<Bar[\s\S]*?<Line/u);
   assert.match(pageSource, /saveAppUsageLimit\(usageIdentity, minutes\)/u);
