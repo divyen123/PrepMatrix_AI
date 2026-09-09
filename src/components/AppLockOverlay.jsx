@@ -79,8 +79,8 @@ export default function AppLockOverlay({
             baseRadius={0.24}
             blur={0.35}
             clickBurst={false}
-            color="#bf6fff"
-            colorTwo="#ff9ffc"
+            color="#16889a"
+            colorTwo="#315a9d"
             fadeIn={0.75}
             fadeOut={0.65}
             followMouse={false}

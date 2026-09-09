@@ -143,7 +143,7 @@ function AuthPage({ onLogin }) {
           waveAmplitude={1}
           particleSize={1.5}
           lerpSpeed={0.05}
-          color={"#FF9FFC"}
+          color={"#3b98aa"}
           autoAnimate={true}
           particleVariance={1}
         />

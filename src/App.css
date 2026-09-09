@@ -5125,15 +5125,12 @@ body:has(.entry-splash) {
 }
 
 .entry-splash {
-  --entry-splash-bg: #09090f;
-  --entry-splash-primary: #bf6fff;
-  --entry-splash-secondary: #ff9ffc;
-  --entry-splash-text: #f5f0ff;
+  --entry-splash-bg: #050a10;
+  --entry-splash-primary: #0f766e;
+  --entry-splash-secondary: #315a9d;
+  --entry-splash-text: #edf6fb;
   animation: entrySplashFadeOut 2.9s ease forwards;
-  background:
-    radial-gradient(circle at 50% -8%, rgba(191, 111, 255, 0.19), transparent 42%),
-    radial-gradient(circle at 78% 84%, rgba(255, 159, 252, 0.12), transparent 34%),
-    var(--entry-splash-bg);
+  background: var(--entry-splash-bg);
   color: var(--entry-splash-text);
   contain: layout paint;
   display: grid;
@@ -5149,11 +5146,9 @@ body:has(.entry-splash) {
 }
 
 .entry-splash::before {
-  background:
-    radial-gradient(circle at 38% 40%, rgba(191, 111, 255, 0.2), transparent 30%),
-    radial-gradient(circle at 64% 60%, rgba(255, 159, 252, 0.15), transparent 28%);
+  background: transparent;
   content: "";
-  filter: blur(34px);
+  filter: none;
   inset: -18%;
   opacity: 0.85;
   pointer-events: none;
@@ -5165,8 +5160,8 @@ body:has(.entry-splash) {
   background: radial-gradient(
     circle at center,
     transparent 0 35%,
-    rgba(9, 9, 15, 0.18) 66%,
-    rgba(9, 9, 15, 0.72) 100%
+    rgba(5, 10, 16, 0.18) 66%,
+    rgba(5, 10, 16, 0.72) 100%
   );
   content: "";
   inset: 0;
@@ -5209,12 +5204,12 @@ body:has(.entry-splash) {
   background: repeating-radial-gradient(
     circle,
     transparent 0 11%,
-    rgba(191, 111, 255, 0.28) 11.2% 11.45%,
+    rgba(22, 136, 154, 0.28) 11.2% 11.45%,
     transparent 11.7% 18%,
-    rgba(255, 159, 252, 0.2) 18.2% 18.45%,
+    rgba(49, 90, 157, 0.2) 18.2% 18.45%,
     transparent 18.7% 25%
   );
-  filter: drop-shadow(0 0 18px rgba(191, 111, 255, 0.24));
+  filter: none;
   mask-image: radial-gradient(circle, #000 18%, rgba(0, 0, 0, 0.88) 54%, transparent 76%);
   opacity: 1;
   transition: opacity 240ms ease;
@@ -5242,8 +5237,8 @@ body:has(.entry-splash) {
 .entry-splash-card::before {
   background: radial-gradient(
     ellipse at center,
-    rgba(9, 9, 15, 0.82) 0 32%,
-    rgba(9, 9, 15, 0.52) 52%,
+    rgba(5, 10, 16, 0.82) 0 32%,
+    rgba(5, 10, 16, 0.52) 52%,
     transparent 74%
   );
   content: "";
@@ -5256,13 +5251,10 @@ body:has(.entry-splash) {
 .entry-splash-brand-mark {
   align-items: center;
   animation: entrySplashMarkFloat 1.8s ease-in-out infinite;
-  background: linear-gradient(135deg, var(--entry-splash-primary), var(--entry-splash-secondary));
+  background: linear-gradient(135deg, var(--entry-splash-primary) 0%, #16889a 48%, var(--entry-splash-secondary) 100%);
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 50%;
-  box-shadow:
-    0 18px 54px rgba(191, 111, 255, 0.4),
-    0 0 32px rgba(255, 159, 252, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  box-shadow: none;
   color: #ffffff;
   display: inline-flex;
   font-family: "Space Grotesk", sans-serif;
@@ -5294,7 +5286,7 @@ body:has(.entry-splash) {
   letter-spacing: -0.075em;
   line-height: 0.94;
   margin: 0;
-  text-shadow: 0 10px 40px rgba(9, 9, 15, 0.75);
+  text-shadow: none;
 }
 
 .entry-splash-loader {
@@ -5313,7 +5305,7 @@ body:has(.entry-splash) {
   animation: entrySplashLoad 1.45s ease-in-out infinite;
   background: linear-gradient(90deg, var(--entry-splash-primary), var(--entry-splash-secondary));
   border-radius: inherit;
-  box-shadow: 0 0 16px rgba(255, 159, 252, 0.62);
+  box-shadow: none;
   display: block;
   height: 100%;
   width: 38%;
@@ -14628,7 +14620,7 @@ button.bg-palette-thumbnail-btn:hover {
 
 /* ── Force the whole auth-layout shell to be dark ── */
 .app-container.auth-layout {
-  background: #09090f !important;
+  background: #050a10 !important;
 }
 
 /* ── The auth page section: dark base, full-screen, centered, NO overflow clipping ── */
@@ -14649,7 +14641,7 @@ button.bg-palette-thumbnail-btn:hover {
   box-sizing: border-box !important;
   gap: 0 !important;
   /* DARK background — beats every earlier white/gradient rule */
-  background: #09090f !important;
+  background: #050a10 !important;
   background-image: none !important;
   /* Isolate so that the particle canvas z-indices work correctly */
   isolation: isolate;
@@ -14675,7 +14667,7 @@ button.bg-palette-thumbnail-btn:hover {
   position: fixed !important;
   pointer-events: none !important;
   border-radius: 50%;
-  filter: blur(100px);
+  filter: none;
   z-index: 1 !important;
 }
 .auth-glow-top {
@@ -14684,14 +14676,14 @@ button.bg-palette-thumbnail-btn:hover {
   top: -180px;
   left: 50%;
   transform: translateX(-50%);
-  background: radial-gradient(circle, rgba(191,111,255,0.22) 0%, transparent 70%);
+  background: transparent;
 }
 .auth-glow-bottom {
   width: 420px;
   height: 420px;
   bottom: -130px;
   right: 8%;
-  background: radial-gradient(circle, rgba(255,159,252,0.18) 0%, transparent 70%);
+  background: transparent;
 }
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬ Brand lockup Ã¢â€â‚¬Ã¢â€â‚¬ */
@@ -14717,7 +14709,7 @@ button.bg-palette-thumbnail-btn:hover {
 }
 
 .auth-page--isolated .auth-logo-mark {
-  background: linear-gradient(135deg, #bf6fff, #ff9ffc) !important;
+  background: linear-gradient(135deg, #0f766e 0%, #16889a 48%, #315a9d 100%) !important;
   color: #fff !important;
   border-radius: 16px !important;
   width: 48px !important;
@@ -14756,14 +14748,13 @@ button.bg-palette-thumbnail-btn:hover {
   max-width: 420px !important;
   flex-shrink: 1 !important;
   /* 50% transparent dark glass */
-  background: rgba(18, 14, 32, 0.50) !important;
+  background: rgba(7, 18, 28, 0.50) !important;
   border: 1px solid rgba(255,255,255,0.09) !important;
   border-radius: 24px !important;
   padding: clamp(16px, 3.5vw, 24px) !important;
   backdrop-filter: blur(28px) saturate(1.4) !important;
   -webkit-backdrop-filter: blur(28px) saturate(1.4) !important;
   box-shadow:
-    0 0 0 1px rgba(191,111,255,0.08),
     0 24px 56px rgba(0,0,0,0.55),
     inset 0 1px 0 rgba(255,255,255,0.06) !important;
   overflow-y: auto !important;
@@ -14855,7 +14846,7 @@ button.bg-palette-thumbnail-btn:hover {
 .auth-card--v2 .auth-copy h2 {
   font-size: clamp(1.15rem, 2.8vw, 1.5rem) !important;
   font-weight: 700 !important;
-  color: #f5f0ff !important;
+  color: #edf6fb !important;
   margin: 0 0 8px !important;
   letter-spacing: -0.025em !important;
   text-shadow: none !important;
@@ -14863,7 +14854,7 @@ button.bg-palette-thumbnail-btn:hover {
 
 .auth-card--v2 .auth-copy p {
   font-size: 0.855rem !important;
-  color: rgba(210,200,240,0.58) !important;
+  color: rgba(190,207,218,0.62) !important;
   margin: 0 !important;
   line-height: 1.6 !important;
 }
@@ -14909,7 +14900,7 @@ button.bg-palette-thumbnail-btn:hover {
   gap: 6px !important;
   font-size: 0.78rem !important;
   font-weight: 600 !important;
-  color: rgba(210,200,240,0.65) !important;
+  color: rgba(190,207,218,0.70) !important;
   letter-spacing: 0.02em !important;
   text-transform: none !important;
 }
@@ -14920,7 +14911,7 @@ button.bg-palette-thumbnail-btn:hover {
   background: rgba(255,255,255,0.07) !important;
   border: 1px solid rgba(255,255,255,0.13) !important;
   border-radius: 10px !important;
-  color: #f0eeff !important;
+  color: #edf6fb !important;
   font-size: 0.9rem !important;
   padding: 8px 12px !important;
   outline: none !important;
@@ -14932,19 +14923,21 @@ button.bg-palette-thumbnail-btn:hover {
 }
 
 .auth-form--v2 .field-stack input::placeholder {
-  color: rgba(180,170,220,0.3) !important;
+  color: rgba(155,180,194,0.38) !important;
 }
 
 .auth-form--v2 .field-stack input:focus,
 .auth-form--v2 .field-stack select:focus {
-  border-color: rgba(191,111,255,0.6) !important;
-  box-shadow: 0 0 0 3px rgba(191,111,255,0.16) !important;
+  border-color: rgba(22,136,154,0.72) !important;
+  box-shadow: none !important;
   background: rgba(255,255,255,0.10) !important;
+  outline: 2px solid rgba(22,136,154,0.34) !important;
+  outline-offset: 1px !important;
 }
 
 .auth-form--v2 .field-stack select option {
-  background: #1a1030 !important;
-  color: #f0eeff !important;
+  background: #0b1824 !important;
+  color: #edf6fb !important;
 }
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬ Submit button Ã¢â€â‚¬Ã¢â€â‚¬ */
@@ -14954,19 +14947,19 @@ button.bg-palette-thumbnail-btn:hover {
   margin-top: 6px !important;
   border: none !important;
   border-radius: 12px !important;
-  background: linear-gradient(135deg, #bf6fff, #ff9ffc) !important;
+  background: linear-gradient(135deg, #0f766e 0%, #16889a 48%, #315a9d 100%) !important;
   color: #fff !important;
   font-size: 0.94rem !important;
   font-weight: 700 !important;
   letter-spacing: 0.01em !important;
   cursor: pointer !important;
-  box-shadow: 0 6px 22px rgba(191,111,255,0.38) !important;
+  box-shadow: none !important;
   transition: transform 0.17s, box-shadow 0.17s, opacity 0.17s !important;
 }
 
 .auth-submit-btn:hover {
   transform: translateY(-2px) !important;
-  box-shadow: 0 10px 30px rgba(191,111,255,0.5) !important;
+  box-shadow: none !important;
 }
 
 .auth-submit-btn:active {
@@ -14977,9 +14970,9 @@ button.bg-palette-thumbnail-btn:hover {
 /* Ã¢â€â‚¬Ã¢â€â‚¬ Error / info message Ã¢â€â‚¬Ã¢â€â‚¬ */
 .auth-card--v2 .auth-message {
   font-size: 0.82rem !important;
-  color: #ff9ffc !important;
-  background: rgba(255,159,252,0.10) !important;
-  border: 1px solid rgba(255,159,252,0.22) !important;
+  color: #64b8c5 !important;
+  background: rgba(22,136,154,0.10) !important;
+  border: 1px solid rgba(22,136,154,0.24) !important;
   border-radius: 8px !important;
   padding: 8px 12px !important;
   margin: 0 0 10px !important;
@@ -14991,18 +14984,18 @@ button.bg-palette-thumbnail-btn:hover {
   margin-top: 18px !important;
   text-align: center !important;
   font-size: 0.82rem !important;
-  color: rgba(200,190,230,0.5) !important;
+  color: rgba(178,198,210,0.55) !important;
 }
 
 .auth-card--v2 .auth-switch a {
-  color: #c97fff !important;
+  color: #56afc0 !important;
   font-weight: 600 !important;
   text-decoration: none !important;
   transition: color 0.2s !important;
 }
 
 .auth-card--v2 .auth-switch a:hover {
-  color: #ff9ffc !important;
+  color: #73bfcc !important;
 }
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬ Responsive: collapse to 1-col on small screens Ã¢â€â‚¬Ã¢â€â‚¬ */
@@ -15626,6 +15619,85 @@ html[data-cursor-mode="blob-cursor"] [type="radio"] {
   margin-left: -13px;
   margin-top: -13px;
   background: linear-gradient(135deg, rgba(251,113,133,0.9) 0%, rgba(45,212,191,0.9) 100%);
+}
+
+/* Keep the cursor inside branded auth, intro, and lock scenes on the same cool palette. */
+body:has(.auth-page--isolated),
+body:has(.entry-splash),
+body:has(.app-lock-backdrop) {
+  --scene-cursor-primary: #16889a;
+  --scene-cursor-secondary: #315a9d;
+  --scene-cursor-text: #edf6fb;
+}
+
+body:has(.auth-page--isolated) .custom-cursor-dot,
+body:has(.entry-splash) .custom-cursor-dot,
+body:has(.app-lock-backdrop) .custom-cursor-dot {
+  background: var(--scene-cursor-primary);
+  box-shadow: none;
+}
+
+body:has(.auth-page--isolated) .custom-cursor-ring,
+body:has(.entry-splash) .custom-cursor-ring,
+body:has(.app-lock-backdrop) .custom-cursor-ring {
+  background: rgba(22, 136, 154, 0.05);
+  border-color: rgba(22, 136, 154, 0.58);
+}
+
+body:has(.auth-page--isolated) .custom-cursor-dot.cursor-dot--hover,
+body:has(.entry-splash) .custom-cursor-dot.cursor-dot--hover,
+body:has(.app-lock-backdrop) .custom-cursor-dot.cursor-dot--hover {
+  background: var(--scene-cursor-secondary);
+  box-shadow: none;
+}
+
+body:has(.auth-page--isolated) .custom-cursor-ring.cursor-ring--hover,
+body:has(.entry-splash) .custom-cursor-ring.cursor-ring--hover,
+body:has(.app-lock-backdrop) .custom-cursor-ring.cursor-ring--hover {
+  background: rgba(49, 90, 157, 0.07);
+  border-color: rgba(49, 90, 157, 0.72);
+}
+
+body:has(.auth-page--isolated) .custom-cursor-dot.cursor-dot--click,
+body:has(.entry-splash) .custom-cursor-dot.cursor-dot--click,
+body:has(.app-lock-backdrop) .custom-cursor-dot.cursor-dot--click {
+  background: var(--scene-cursor-text);
+  box-shadow: none;
+}
+
+body:has(.auth-page--isolated) .custom-cursor-ring.cursor-ring--click,
+body:has(.entry-splash) .custom-cursor-ring.cursor-ring--click,
+body:has(.app-lock-backdrop) .custom-cursor-ring.cursor-ring--click {
+  background: rgba(237, 246, 251, 0.08);
+  border-color: rgba(237, 246, 251, 0.76);
+}
+
+body:has(.auth-page--isolated) .custom-cursor-ring.cursor-blob-body,
+body:has(.entry-splash) .custom-cursor-ring.cursor-blob-body,
+body:has(.app-lock-backdrop) .custom-cursor-ring.cursor-blob-body {
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.58), rgba(49, 90, 157, 0.58));
+  border: none;
+  box-shadow: none;
+}
+
+body:has(.auth-page--isolated) .custom-cursor-ring.cursor-blob-body.cursor-ring--hover,
+body:has(.entry-splash) .custom-cursor-ring.cursor-blob-body.cursor-ring--hover,
+body:has(.app-lock-backdrop) .custom-cursor-ring.cursor-blob-body.cursor-ring--hover {
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.72), rgba(49, 90, 157, 0.72));
+  box-shadow: none;
+}
+
+body:has(.auth-page--isolated) .custom-cursor-ring.cursor-blob-body.cursor-ring--click,
+body:has(.entry-splash) .custom-cursor-ring.cursor-blob-body.cursor-ring--click,
+body:has(.app-lock-backdrop) .custom-cursor-ring.cursor-blob-body.cursor-ring--click {
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.86), rgba(49, 90, 157, 0.86));
+}
+
+body:has(.auth-page--isolated) .custom-cursor-dot.cursor-blob-dot,
+body:has(.entry-splash) .custom-cursor-dot.cursor-blob-dot,
+body:has(.app-lock-backdrop) .custom-cursor-dot.cursor-blob-dot {
+  background: var(--scene-cursor-text);
+  box-shadow: none;
 }
 
 /* Continuous morphing animation */

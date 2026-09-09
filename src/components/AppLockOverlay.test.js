@@ -67,7 +67,7 @@ test("persists lock state across app restarts and verifies the account password"
   assert.match(stylesheet, /-webkit-backdrop-filter: none;/u);
   assert.match(
     stylesheet,
-    /\.app-lock-backdrop\s*\{[\s\S]*?background:[\s\S]*?#06050b;/u,
+    /\.app-lock-backdrop\s*\{[\s\S]*?--app-lock-bg:\s*#050a10;[\s\S]*?background:\s*var\(--app-lock-bg\);/u,
   );
   assert.match(stylesheet, /\.app-lock-rings/u);
   assert.match(stylesheet, /\.app-lock-panel[\s\S]*?background: transparent/u);
