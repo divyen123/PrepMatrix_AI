@@ -39,6 +39,8 @@ import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDi
 import LearningStudyStudio from "../components/LearningStudyStudio";
 import MedicalTrainingLab from "../components/MedicalTrainingLab";
 import MedicalTrainingLabIntake from "../components/MedicalTrainingLabIntake";
+import CodeMatrixSetupReturn from "../components/CodeMatrixSetupReturn";
+import { CODE_MATRIX_PATH, getCodeMatrixEligibility, getCodeMatrixSetupSteps } from "../utils/codeMatrixProfile.js";
 import api from "../utils/apiClient";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import {
@@ -769,6 +771,7 @@ function StartLearningPage({
     [preparationProfile],
   );
   const placementEligible = preparationMode === "placement" && careerEligibility.enabled;
+  const codeMatrixEligibility = useMemo(() => getCodeMatrixEligibility(preparationProfile, subjects), [preparationProfile, subjects]);
   const medicalEligible = preparationMode === "medical" && medicalEligibility.enabled;
   const savedPlacementNotes = useMemo(
     () => getSavedPlacementNotes(notebooks),
@@ -797,6 +800,13 @@ function StartLearningPage({
 
   useEffect(() => {
     const hash = String(location.hash || "").toLowerCase();
+    if (hash === "#notebook-preparation") {
+      setIntakeMode("notebook");
+      setWorkspaceView("intake");
+      const requestedSubject = new URLSearchParams(location.search).get("subject");
+      if (requestedSubject) setSubjectName(requestedSubject.slice(0, 160));
+      return;
+    }
     if (hash === "#subject-mastery") {
       setMasteryDialogOpen(true);
       return;
@@ -825,7 +835,7 @@ function StartLearningPage({
       });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [location.hash, medicalEligible, placementEligible]);
+  }, [location.hash, location.search, medicalEligible, placementEligible]);
 
   const savedSubjectNames = useMemo(
     () => normalizeSubjectNames(subjects),
@@ -1192,7 +1202,7 @@ function StartLearningPage({
     if (analyzing || careerAnalyzing || medicalAnalyzing || saving) return;
     setWorkspaceView("intake");
     setIntakeMode(null);
-    if (isPlacementPrepHash(location.hash) || isMedicalTrainingHash(location.hash)) {
+    if (isPlacementPrepHash(location.hash) || isMedicalTrainingHash(location.hash) || location.hash === "#notebook-preparation") {
       navigate("/learn", { replace: true });
     }
   };
@@ -3365,6 +3375,7 @@ function StartLearningPage({
   const showLearningHero = shouldShowStartLearningHero({ intakeMode, workspaceView });
   return (
     <div className="learning-page">
+      <CodeMatrixSetupReturn step="notebook" complete={getCodeMatrixSetupSteps({ notebooks: notebookHistory })[1].complete} subjectName={subjectName} />
       {showLearningHero ? (
         <section className="card learning-hero">
           <div className="learning-hero-copy">
@@ -3428,6 +3439,19 @@ function StartLearningPage({
                 </div>
               </div>
               <div className="learning-intake-choice-grid">
+                {codeMatrixEligibility.eligible && (
+                  <button
+                    className="learning-intake-choice-card is-code-matrix"
+                    onClick={() => navigate(CODE_MATRIX_PATH)}
+                    type="button"
+                  >
+                    <span><Code2 aria-hidden="true" size={21} /></span>
+                    <strong>CodeMatrix</strong>
+                    <small>Write, run, and debug your code. See the result in one workspace.</small>
+                    <em>Open compiler</em>
+                    <ChevronRight aria-hidden="true" size={18} />
+                  </button>
+                )}
                 <button
                   className="learning-intake-choice-card is-notebook"
                   onClick={openNotebookIntake}

@@ -74,6 +74,7 @@ import {
 } from "./learningNotebookRoutes.js";
 import { registerLearningNoteRoutes } from "./learningNoteRoutes.js";
 import { registerLearningMemoryRoutes } from "./learningMemoryRoutes.js";
+import { registerCodeMatrixRoutes, ensureCodeMatrixIndexes, CODE_MATRIX_WORKSPACES_COLLECTION, CODE_MATRIX_SUBMISSIONS_COLLECTION, CODE_MATRIX_RATE_LIMITS_COLLECTION } from "./codeMatrixRoutes.js";
 import registerAppUsageRoutes, {
   APP_USAGE_COUNTERS_COLLECTION,
   APP_USAGE_PREFERENCES_COLLECTION,
@@ -281,6 +282,7 @@ async function getDb() {
       try {
       await migrateProfileScopedUniqueIndexes(db);
       await Promise.all([
+        ensureCodeMatrixIndexes(db),
         db.collection("users").createIndex({ usernameKey: 1 }, { unique: true }),
         db.collection("users").createIndex({ emailKey: 1 }, { unique: true, partialFilterExpression: { emailKey: { $type: "string" } } }),
         db.collection("sessions").createIndex({ token: 1 }, { unique: true }),
@@ -1250,6 +1252,9 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
         db.collection("chatSessions").deleteMany({ userId }),
         db.collection("exams").deleteMany({ userId }),
         db.collection(LEARNING_NOTEBOOKS_COLLECTION).deleteMany({ userId }),
+        db.collection(CODE_MATRIX_WORKSPACES_COLLECTION).deleteMany({ userId }),
+        db.collection(CODE_MATRIX_SUBMISSIONS_COLLECTION).deleteMany({ userId }),
+        db.collection(CODE_MATRIX_RATE_LIMITS_COLLECTION).deleteMany({ userId }),
         db.collection("examAttempts").deleteMany({ userId }),
         db.collection("examStartLocks").deleteMany({ userId }),
         db.collection("scheduledReminderDeliveries").deleteMany({ userId }),
@@ -1837,6 +1842,8 @@ registerLearningMemoryRoutes(app, {
   requireAuth,
   withProfileWriteFence: withAcademicProfileWriteFence,
 });
+
+registerCodeMatrixRoutes(app, { getDb, requireAuth, withProfileWriteFence: withAcademicProfileWriteFence });
 
 registerQuizBattleRoutes(app, {
   aiQuota,

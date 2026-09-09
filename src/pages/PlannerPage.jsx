@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import CodeMatrixSetupReturn from "../components/CodeMatrixSetupReturn";
+import { getCodeMatrixSetupSteps } from "../utils/codeMatrixProfile.js";
 import { toast } from "react-toastify";
 import {
   ArrowLeft,
@@ -257,6 +259,7 @@ function PlannerPage({
 
   return (
     <section className={`page-stack planner-route-page${kidsMode ? " is-kids-planner" : ""}`}>
+      <CodeMatrixSetupReturn step="plan" complete={getCodeMatrixSetupSteps({ schedule })[2].complete} />
       {plannerView === "hub" ? (
         <>
           <div className="section-intro planner-hub-intro">

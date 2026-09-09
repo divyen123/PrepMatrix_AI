@@ -175,6 +175,7 @@ const AuthPage = lazyRetry(() => import("./pages/AuthPage"));
 const DashboardPage = lazyRetry(() => import("./pages/DashboardPage"));
 const NotesPage = lazyRetry(() => import("./pages/NotesPage"));
 const StartLearningPage = lazyRetry(() => import("./pages/StartLearningPage"));
+const CodeMatrixPage = lazyRetry(() => import("./pages/CodeMatrixPage"));
 const PlannerPage = lazyRetry(() => import("./pages/PlannerPage"));
 const QuizPage = lazyRetry(() => import("./pages/QuizPage"));
 const KidsLearningPage = lazyRetry(() => import("./pages/KidsLearningPage"));
@@ -1167,7 +1168,7 @@ function App() {
     );
   };
   const activeRoute = visibleNavItems.find((item) => location.pathname.startsWith(item.to));
-  const titleLabel = activeRoute?.label || (
+  const titleLabel = location.pathname === "/learn/code-matrix" ? "CodeMatrix" : activeRoute?.label || (
     location.pathname.startsWith("/exam/about") ? "Exam Guide" :
     location.pathname.startsWith("/exam") ? "Exam" :
     location.pathname.startsWith("/notification-history") ? "Alert History" :
@@ -3330,6 +3331,23 @@ function App() {
                             </LearningRouteBoundary>
                           }
                           path="/learn"
+                        />
+                        <Route
+                          element={learnerRoutePolicy.isYoungKidsLearner ? (
+                            <Navigate replace to="/learn" />
+                          ) : (
+                            <LearningRouteBoundary>
+                              <CodeMatrixPage
+                                key={activeAcademicProfileDataId}
+                                academicProfileDataId={activeAcademicProfileDataId}
+                                userProfile={{ ...userProfile, academicLevel, academicTrack }}
+                                subjects={subjects}
+                                schedule={schedule}
+                                workspaceLoaded={workspaceLoaded}
+                              />
+                            </LearningRouteBoundary>
+                          )}
+                          path="/learn/code-matrix"
                         />
                         <Route
                           element={

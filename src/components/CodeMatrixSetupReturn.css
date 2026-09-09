@@ -1,0 +1,19 @@
+.cmx-setup-return {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 14px;
+  background: var(--surface-strong);
+  color: var(--text);
+}
+.cmx-setup-return > div, .cmx-setup-return nav, .cmx-setup-return a { display: flex; align-items: center; gap: 10px; }
+.cmx-setup-return small { display: block; margin-top: 4px; color: var(--text-muted); font-size: 12px; }
+.cmx-setup-return nav { flex-wrap: wrap; }
+.cmx-setup-return a { padding: 9px 12px; color: var(--text); font-size: 13px; text-decoration: none; border-radius: 9px; }
+.cmx-setup-return a:hover { background: var(--surface-muted); }
+.cmx-setup-return a.cmx-setup-next { background: var(--accent-soft); color: var(--accent-strong); }

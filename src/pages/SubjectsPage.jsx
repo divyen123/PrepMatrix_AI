@@ -1,6 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import CodeMatrixSetupReturn from "../components/CodeMatrixSetupReturn";
+import { getCodeMatrixSetupSteps } from "../utils/codeMatrixProfile.js";
 import AddSubject from "../components/AddSubject";
 import SubjectList from "../components/SubjectList";
 import SubjectSnapshotDialog from "../components/SubjectSnapshotDialog";
@@ -18,9 +20,18 @@ function SubjectsPage({
   userProfile,
   kidsMode = false,
 }) {
+  const location = useLocation();
   const addSubjectRef = useRef(null);
   const subjectLibraryRef = useRef(null);
   const [activeSnapshot, setActiveSnapshot] = useState(null);
+  useEffect(() => {
+    if (location.hash !== "#add-subject") return;
+    const frame = requestAnimationFrame(() => {
+      addSubjectRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      addSubjectRef.current?.querySelector("input")?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [location.hash]);
   const totalChapters = subjects.reduce(
     (sum, subject) => sum + (Number(subject?.chapters) || 0),
     0,
@@ -70,6 +81,7 @@ function SubjectsPage({
 
   return (
     <section className="page-stack">
+      <CodeMatrixSetupReturn step="subjects" complete={getCodeMatrixSetupSteps({ subjects })[0].complete} subjectName={subjects.at(-1)?.name || ""} />
       <div className="section-intro">
         <span className="section-tag">Subjects</span>
         <h2>Build your study portfolio</h2>

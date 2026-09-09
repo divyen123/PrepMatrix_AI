@@ -11,6 +11,8 @@ export const PROFILE_SCOPED_OWNED_COLLECTIONS = Object.freeze([
   "chatSessions",
   "exams",
   "learningNotebooks",
+  "codeMatrixWorkspaces",
+  "codeMatrixSubmissions",
   "examAttempts",
   "scheduledReminderDeliveries",
   "notificationHistory",

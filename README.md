@@ -15,6 +15,7 @@ Live Backend: [https://prepmatrix-ai.onrender.com](https://prepmatrix-ai.onrende
 * **🤖 AI Study Assistant:** Provides learner- and planner-aware explanations, study guidance, topic breakdowns, and contextual answers through authenticated chat.
 * **📎 Attachment-Aware AI Chat & History:** Accepts validated image and PDF context, extracts PDF text, and stores conversations that users can load, rename, clear, or delete.
 * **Start Learning Notebooks:** Uses Gemini 3.5 Flash-Lite to understand PDFs natively and build revision notes, questions, and concept maps, with a Groq fallback and a one-time, account-scoped privacy disclosure before material is sent.
+* **CodeMatrix:** A compiler workspace in Start Learning for coding subjects and relevant academic profiles, with separate language drafts, program input, output, error locations, Python traces, SQL tables, and web previews. Optional account setup links to Subjects, notebook preparation, and Planner.
 * **📊 Telemetry & Analytics:** Visualizes completion, task distribution, subject progress, topic timelines, focus areas, weekly patterns, and completion-based readiness.
 * **🏆 Gamification & Readiness:** Converts planner activity into XP, levels, badges, momentum feedback, streak indicators, readiness bands, and recovery guidance.
 * **🎙️ Voice-Command Assistant:** Uses browser speech recognition and synthesis for navigation, scrolling, study questions, spoken replies, and voice-captured doubts.
@@ -66,6 +67,36 @@ graph TD
 * **Integrated AI Operations:** Connects profile-aware chat, privacy-gated native PDF learning notebooks, quiz generation, exams, question papers, and browser voice features through configurable services.
 * **Data Integrity & Backups:** Persists user-scoped study data and provides JSON export, import, workspace reset, and password-confirmed account deletion controls.
 
+
+## CodeMatrix configuration
+
+Open **Start Learning → CodeMatrix** (`/learn/code-matrix`). Computing degrees, departments, streams, and subjects determine eligibility; a board or a broad Science/Engineering label alone does not. Middle school and later learners can qualify through a coding subject. Early years and primary profiles are excluded.
+
+The workspace offers writing, running, and debugging without a lessons submodule. On first entry, it suggests **Add subject**, **Start learning** (notebook preparation), and **Create plan**, in that order. Completed steps disappear, the next missing step is recommended, and **Continue to compiler** dismisses setup. Drafts and setup progress belong to the active academic profile and sync to MongoDB, with a browser checkpoint for interrupted saves.
+
+| Language | Execution and debugging |
+| --- | --- |
+| Python | Pyodide 0.27.7, with stdin, exceptions and up to 200 recorded line/variable steps. Variables are captured before each line, rather than through live breakpoints. |
+| JavaScript | Isolated worker with console output, runtime errors, `readLine()` / `prompt()` input, and awaited code. |
+| SQL | sql.js 1.13.0 (SQLite dialect). Each run gets a fresh `students(id, name, age, grade, marks)` practice database; results are bounded tables. |
+| HTML / CSS / JavaScript | Combined isolated webpage preview. Put JavaScript in the `script.js` tab; inline scripts in HTML and external resources are blocked. Common loops and recursion have cooperative execution guards. |
+| C / C++ / Java | Judge0 CE service configured on the backend; real compiler/runtime output with source locations. Java uses `Main.java`. |
+
+Python and SQLite download their pinned core runtime assets from jsDelivr. Additional Python packages and external JS imports are not enabled. Worker programs have a 10-second execution deadline and Stop terminates them; initial runtime loading has a separate 45-second deadline. Web previews use a separate sandbox with console capture. Full breakpoint debugging is not provided for C, C++, Java, SQL or JavaScript.
+
+To enable C, C++ and Java, configure the backend environment (see `.env.example`):
+
+```dotenv
+JUDGE0_CE_BASE_URL=https://your-judge0-service.example
+JUDGE0_CE_TOKEN=
+JUDGE0_CE_AUTH_HEADER=X-Auth-Token
+```
+
+Use a Judge0 CE deployment with language IDs **50 (C)**, **54 (C++)**, and **62 (Java)**. The service must accept base64 submissions and enforce resource/network restrictions. The token is server-only; leave it empty only when the trusted service does not require one. Source and stdin are sent to this configured service. The app never runs student programs as processes on its own server. Service configuration enables the controls; it does not claim a successful health check. Without configuration these three languages remain editable and saved, with execution clearly unavailable.
+
+Compiler endpoints require the existing authentication and academic-profile scope. Submissions are rate limited per account, use private provider tokens, and expire locally after 24 hours. Terminal results are cached. Stopping a remote run stops waiting for its result; execution remains bounded by the compiler service. Account/profile deletion includes CodeMatrix records. Remote retention is controlled by the Judge0 operator.
+
+Run focused regression checks with `node --test src/utils/codeMatrix*.test.js server/codeMatrix*.test.js`. Coverage includes profile eligibility, setup progress, drafts, authentication/scope boundaries, compiler adapter failures, cancellation, output limits, and preview guards.
 
 ## 📄 License
 
