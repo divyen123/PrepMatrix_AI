@@ -55,7 +55,12 @@ test("persists lock state per browser session and verifies the account password"
   assert.match(appSource, /const handleCancelLogout = \(\) => \{[\s\S]*?setAppLocked\(true\)/u);
   assert.match(appSource, /inert=\{appLocked \|\| logoutConfirmOpen \|\| logoutTransitionPhase !== "idle" \? true : undefined\}/u);
   assert.match(appSource, /appLocked && userProfile && !\(logoutConfirmOpen && logoutReturnsToLock\)/u);
-  assert.match(stylesheet, /backdrop-filter: blur\(18px\) saturate\(0\.58\) brightness\(0\.52\)/u);
+  assert.match(stylesheet, /backdrop-filter: none;/u);
+  assert.match(stylesheet, /-webkit-backdrop-filter: none;/u);
+  assert.match(
+    stylesheet,
+    /\.app-lock-backdrop\s*\{[\s\S]*?background:[\s\S]*?#06050b;/u,
+  );
   assert.match(stylesheet, /\.app-lock-rings/u);
   assert.match(stylesheet, /\.app-lock-panel[\s\S]*?background: transparent/u);
   assert.match(stylesheet, /\.app-lock-brand-mark[\s\S]*?border-radius: 50%/u);

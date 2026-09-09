@@ -5118,12 +5118,18 @@ body.dark .auth-brand-lockup h1 {
 
 
 /* Post-auth brand splash */
+html:has(.entry-splash),
+body:has(.entry-splash) {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
 .entry-splash {
   --entry-splash-bg: #09090f;
   --entry-splash-primary: #bf6fff;
   --entry-splash-secondary: #ff9ffc;
   --entry-splash-text: #f5f0ff;
-  animation: entrySplashFadeOut 3.9s ease forwards;
+  animation: entrySplashFadeOut 2.9s ease forwards;
   background:
     radial-gradient(circle at 50% -8%, rgba(191, 111, 255, 0.19), transparent 42%),
     radial-gradient(circle at 78% 84%, rgba(255, 159, 252, 0.12), transparent 34%),
@@ -5170,7 +5176,7 @@ body.dark .auth-brand-lockup h1 {
 }
 
 .entry-splash-rings {
-  animation: entrySplashRingsReveal 3.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: entrySplashRingsReveal 2.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   height: 100%;
   inset: 0;
   mask-image: radial-gradient(circle, #000 0 48%, rgba(0, 0, 0, 0.92) 60%, transparent 76%);
@@ -5221,7 +5227,7 @@ body.dark .auth-brand-lockup h1 {
 
 .entry-splash-card {
   align-items: center;
-  animation: entrySplashContentReveal 3.9s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+  animation: entrySplashContentReveal 2.9s cubic-bezier(0.19, 1, 0.22, 1) forwards;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -10967,9 +10973,14 @@ body.dark .about-info-btn:hover {
    hides the dark/light toggle (the image dictates the palette).
    ================================================================ */
 
+html:has(body.has-bg-image),
 body.has-bg-image {
   background-image: none !important;
   background-color: #000 !important;
+  overscroll-behavior-y: none;
+}
+
+body.has-bg-image {
   position: relative;
   z-index: 0;
 
@@ -10985,30 +10996,70 @@ body.has-bg-image {
   --shadow: 0 20px 50px rgba(0, 0, 0, 0.3) !important;
 }
 
-/* Background image layer Ã¢â‚¬â€ sits behind everything */
-body.has-bg-image::after {
-  content: "";
+/* A viewport-owned layer keeps the selected image independent of page scroll. */
+.app-background-layer {
+  background: #000;
+  contain: strict;
+  height: 100vh;
+  height: 100lvh;
+  isolation: isolate;
+  left: 0;
+  overflow: hidden;
+  pointer-events: none;
   position: fixed;
+  top: 0;
+  width: 100vw;
+  z-index: 0;
+}
+
+.app-background-backdrop,
+.app-background-foreground,
+.app-background-overlay {
+  display: block;
+  pointer-events: none;
+  position: absolute;
+}
+
+.app-background-backdrop {
   inset: calc(var(--bg-image-blur-inset, 0px) + var(--bg-image-backdrop-inset-extra, 0px));
-  z-index: -2;
   background-image: var(--bg-image);
   background-size: cover;
   background-position: var(--bg-image-position, center);
-  background-attachment: fixed;
   background-repeat: no-repeat;
-  pointer-events: none;
   filter:
     brightness(var(--bg-brightness, 1))
     blur(calc(var(--bg-image-blur, 0px) + var(--bg-image-backdrop-blur-extra, 0px)));
   transition: filter 0.3s ease, inset 0.3s ease;
+  z-index: 0;
 }
 
+.app-background-foreground {
+  background-image: var(--bg-image-foreground, none);
+  background-position: var(--bg-image-foreground-position, center);
+  background-repeat: no-repeat;
+  background-size: var(--bg-image-foreground-size, cover);
+  filter: brightness(var(--bg-image-foreground-brightness, 1));
+  inset: 0;
+  transition: background 0.3s ease, filter 0.3s ease;
+  z-index: 1;
+}
+
+.app-background-overlay {
+  background: rgba(0, 0, 0, var(--bg-overlay-opacity, 0.55));
+  inset: 0;
+  transition: background 0.3s ease;
+  z-index: 2;
+}
+
+body.has-bg-image::before,
+body.has-bg-image::after {
+  content: none;
+}
 
 .background-theme-transition-layer {
   position: fixed;
   inset: 0;
   z-index: 0;
-  background-attachment: fixed;
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
@@ -11021,27 +11072,6 @@ body.has-bg-image::after {
 .background-theme-transition-layer.is-fading {
   opacity: 0;
 }
-/* Dark overlay to control background brightness Ã¢â‚¬â€ sits above image, below content */
-body.has-bg-image::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-color: transparent;
-  background-image:
-    linear-gradient(
-      rgba(0, 0, 0, var(--bg-overlay-opacity, 0.55)),
-      rgba(0, 0, 0, var(--bg-overlay-opacity, 0.55))
-    ),
-    var(--bg-image-foreground, none);
-  background-position: center, var(--bg-image-foreground-position, center);
-  background-repeat: no-repeat, no-repeat;
-  background-size: 100% 100%, var(--bg-image-foreground-size, cover);
-  background-attachment: fixed, fixed;
-  pointer-events: none;
-  filter: brightness(var(--bg-image-foreground-brightness, 1));
-  transition: background 0.3s ease, filter 0.3s ease;
-}
 
 /* Remove radial-gradient background from body when image is set */
 body.has-bg-image.dark {
@@ -11052,6 +11082,8 @@ body.has-bg-image.dark {
 body.has-bg-image .page-glow,
 body.has-bg-image .page-glow-left,
 body.has-bg-image .page-glow-right,
+body.has-bg-image .app-container::before,
+body.has-bg-image .app-container::after,
 body.has-bg-image .motion-stage {
   display: none !important;
 }

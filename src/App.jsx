@@ -34,6 +34,7 @@ import { AiCreditIndicator } from "./components/AiQuotaProvider";
 import useVoiceAssistant from "./hooks/useVoiceAssistant";
 import useAppUsageTracker from "./hooks/useAppUsageTracker";
 import { requestAppUsageFlush } from "./utils/appUsageSync";
+import { acquireDocumentScrollLock } from "./utils/documentScrollLock";
 import api, {
   ACADEMIC_PROFILE_DELETE_TIMEOUT_MS,
   AUTH_RECOVERY_TIMEOUT_MS,
@@ -203,7 +204,7 @@ function MagicRingsFallback() {
 const MagicRings = lazy(() => import("./components/MagicRings")
   .catch(() => ({ default: MagicRingsFallback })));
 
-const ENTRY_SPLASH_DURATION_MS = 3_900;
+const ENTRY_SPLASH_DURATION_MS = 2_900;
 const ENTRY_SPLASH_REDUCED_MOTION_MS = 700;
 const LOGOUT_TRANSITION_MIN_MS = 700;
 const LOGOUT_USAGE_FLUSH_TIMEOUT_MS = 1_500;
@@ -362,6 +363,11 @@ function CompletionRewardPopup({ reward, onClose }) {
 }
 
 function EntrySplash({ loading = false }) {
+  useEffect(() => {
+    const releaseScrollLock = acquireDocumentScrollLock();
+    return () => releaseScrollLock();
+  }, []);
+
   return (
     <div
       aria-atomic="true"
@@ -403,6 +409,16 @@ function EntrySplash({ loading = false }) {
         <h2 className="entry-splash-title">PrepMatrix</h2>
         <div className="entry-splash-loader" aria-hidden="true"><span /></div>
       </div>
+    </div>
+  );
+}
+
+function AppBackground() {
+  return (
+    <div className="app-background-layer" aria-hidden="true">
+      <span className="app-background-backdrop" />
+      <span className="app-background-foreground" />
+      <span className="app-background-overlay" />
     </div>
   );
 }
@@ -2135,6 +2151,11 @@ function App() {
         return;
       }
 
+      if (splashTimeoutRef.current) {
+        window.clearTimeout(splashTimeoutRef.current);
+        splashTimeoutRef.current = null;
+      }
+      setEntrySplash(false);
       sessionStorage.removeItem(APP_LOCK_STORAGE_KEY);
       setAppLocked(false);
       if (lockRestoreWakeModeRef.current) {
@@ -2693,7 +2714,9 @@ function App() {
   }, []);
 
   return (
-    <div className={`app-container app-shell-layout ${userProfile && !isAuthRoute ? "has-sidebar" : "auth-layout"} ${sidebarCollapsed ? "is-sidebar-collapsed" : ""} cursor-mode--${cursorStyle}${isKidsLearner ? " is-kids-mode" : ""}`}>
+    <>
+      {hasActiveBackgroundImage && !appLocked && <AppBackground />}
+      <div className={`app-container app-shell-layout ${userProfile && !isAuthRoute ? "has-sidebar" : "auth-layout"} ${sidebarCollapsed ? "is-sidebar-collapsed" : ""} cursor-mode--${cursorStyle}${isKidsLearner ? " is-kids-mode" : ""}`}>
       <CustomCursor mode={cursorStyle} />
       <div className="page-glow page-glow-left" />
       <div className="page-glow page-glow-right" />
@@ -2704,7 +2727,7 @@ function App() {
         <span className="motion-ring motion-ring-two" />
         <span className="motion-grid" />
       </div>
-      {entrySplash && <EntrySplash loading={authLoading} />}
+      {entrySplash && !appLocked && <EntrySplash loading={authLoading} />}
       {logoutTransitionPhase !== "idle" && <LogoutTransition phase={logoutTransitionPhase} />}
 
       {userProfile && !isAuthRoute && sidebarOpen && (
@@ -3673,7 +3696,8 @@ function App() {
         toastClassName="prepmatrix-toast"
       />
       <PwaManager />
-    </div>
+      </div>
+    </>
   );
 }
 

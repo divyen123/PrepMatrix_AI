@@ -4,20 +4,23 @@ import test from "node:test";
 
 const appSource = readFileSync(new URL("./App.jsx", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("./App.css", import.meta.url), "utf8");
+const entrySplashStart = appSource.indexOf("function EntrySplash");
+const entrySplashEnd = appSource.indexOf("\nfunction LogoutTransition", entrySplashStart);
+const entrySplashSource = appSource.slice(entrySplashStart, entrySplashEnd);
 
-test("uses the extended 3.9-second main entry sequence", () => {
-  assert.match(appSource, /const ENTRY_SPLASH_DURATION_MS = 3_900;/u);
+test("uses the 2.9-second main entry sequence", () => {
+  assert.match(appSource, /const ENTRY_SPLASH_DURATION_MS = 2_900;/u);
   assert.match(
     stylesheet,
-    /animation:\s*entrySplashFadeOut 3\.9s ease forwards;/u,
+    /animation:\s*entrySplashFadeOut 2\.9s ease forwards;/u,
   );
   assert.match(
     stylesheet,
-    /animation:\s*entrySplashRingsReveal 3\.9s [^;]+ forwards;/u,
+    /animation:\s*entrySplashRingsReveal 2\.9s [^;]+ forwards;/u,
   );
   assert.match(
     stylesheet,
-    /animation:\s*entrySplashContentReveal 3\.9s [^;]+ forwards;/u,
+    /animation:\s*entrySplashContentReveal 2\.9s [^;]+ forwards;/u,
   );
 });
 
@@ -44,6 +47,29 @@ test("reveals the entry splash once without replaying after session recovery", (
   assert.match(
     stylesheet,
     /@keyframes entrySplashRingsReveal[\s\S]*?24%, 100%\s*\{\s*opacity:\s*0\.96;/u,
+  );
+});
+
+test("locks document scrolling for the full entry splash mount", () => {
+  assert.ok(entrySplashStart >= 0 && entrySplashEnd > entrySplashStart);
+  assert.match(
+    appSource,
+    /import\s*\{\s*acquireDocumentScrollLock\s*\}\s*from\s*["']\.\/utils\/documentScrollLock["'];/u,
+  );
+
+  const lockAcquisition = entrySplashSource.indexOf(
+    "const releaseScrollLock = acquireDocumentScrollLock()",
+  );
+  const effectStart = entrySplashSource.lastIndexOf("useEffect", lockAcquisition);
+  const effectEnd = entrySplashSource.indexOf("}, []);", lockAcquisition);
+  const scrollLockEffect = entrySplashSource.slice(effectStart, effectEnd);
+
+  assert.ok(lockAcquisition >= 0 && effectStart >= 0 && effectEnd > lockAcquisition);
+  assert.match(scrollLockEffect, /return\s+\(\)\s*=>\s*releaseScrollLock\(\);/u);
+  assert.doesNotMatch(scrollLockEffect, /style\.overflow/u);
+  assert.match(
+    stylesheet,
+    /html:has\(\.entry-splash\),\s*body:has\(\.entry-splash\)\s*\{[^}]*overflow:\s*hidden !important;[^}]*overscroll-behavior:\s*none;/u,
   );
 });
 
