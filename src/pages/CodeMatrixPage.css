@@ -2,8 +2,8 @@
 .cmx-page h1, .cmx-page h2, .cmx-page h3 { font-family: "Space Grotesk", "Manrope", sans-serif; color: var(--text); }
 .cmx-header, .cmx-heading, .cmx-header-actions, .cmx-actions, .cmx-toolbar { display: flex; align-items: center; gap: 14px; }
 .cmx-header { justify-content: space-between; flex-wrap: wrap; }
-.cmx-heading { align-items: flex-start; }
-.cmx-back { display: grid; place-items: center; width: 38px; height: 38px; margin-top: 24px; color: var(--text-muted); border: 1px solid var(--border); border-radius: 12px; }
+.cmx-heading { align-items: center; }
+.cmx-back { display: grid; place-items: center; width: 38px; height: 38px; color: var(--text-muted); border: 1px solid var(--border); border-radius: 12px; }
 .cmx-back:hover { color: var(--accent); background: var(--accent-soft); }
 .cmx-eyebrow { color: var(--text-muted); font-size: 10px; letter-spacing: 1.8px; font-weight: 700; }
 .cmx-heading h1 { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 9px 0 5px; font-size: clamp(25px, 3vw, 34px); letter-spacing: -1.2px; }
@@ -52,10 +52,12 @@ body .cmx-file-actions button, body .cmx-reset button, body .cmx-trace-controls 
 body .cmx-file-actions button:hover { color: #f4fbff; background: #233744; }
 .cmx-editor { flex: 1; min-height: 0; overflow: hidden; }
 .cmx-editor-footer { flex-shrink: 0; display: flex; justify-content: space-between; gap: 10px; padding: 9px 15px; border-top: 1px solid #263440; color: #728799; font-size: 10px; }
-body .cmx-result-tabs button, body .cmx-file-tabs button { display: inline-flex; align-items: center; gap: 7px; min-height: 46px; padding: 0 12px; color: #8297a9; background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0; font-size: 12px; box-shadow: none; transform: none; }
-body .cmx-result-tabs button[aria-selected=true], body .cmx-file-tabs button[aria-selected=true] { border-bottom-color: #57d4b4; color: #6ce3c3; }
-.cmx-result-tabs { justify-content: flex-start; gap: 6px; padding: 0 12px; }
-.cmx-file-tabs { display: flex; min-width: 0; overflow-x: auto; }
+body .cmx-page .cmx-result-tabs button, body .cmx-page .cmx-file-tabs button { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 6px; width: auto; min-width: 0; height: 30px; min-height: 30px; margin: 0; padding: 0 10px; color: #a4b5c4; background: #1b2833; border: 1px solid #344451; border-radius: 8px; font-size: 11px; line-height: 1; box-shadow: none; transform: none; }
+body .cmx-page .cmx-result-tabs button[aria-selected=true], body .cmx-page .cmx-file-tabs button[aria-selected=true] { border-color: #428675; background: #183a33; color: #82ecd0; }
+body .cmx-page .cmx-result-tabs button:hover, body .cmx-page .cmx-file-tabs button:hover { background: #294039; }
+body .cmx-page .cmx-result-tabs button:focus-visible, body .cmx-page .cmx-file-tabs button:focus-visible { outline: 2px solid #82ecd0; outline-offset: 2px; }
+.cmx-result-tabs { justify-content: flex-end; gap: 6px; padding: 0 12px; }
+.cmx-file-tabs { display: flex; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; }
 .cmx-file-tabs button { white-space: nowrap; }
 .cmx-result-content { flex: 1; min-height: 0; overflow: auto; }
 .cmx-result-content iframe { width: 100%; height: 100%; min-height: 300px; border: 0; background: white; }
@@ -64,15 +66,18 @@ body .cmx-result-tabs button[aria-selected=true], body .cmx-file-tabs button[ari
 .cmx-empty strong { font-size: 15px; font-weight: 550; color: #b1c3d1; }
 .cmx-empty > span { max-width: 260px; font-size: 12px; line-height: 1.8; }
 .cmx-empty kbd { border: 1px solid #2c3b48; padding: 5px 9px; margin-top: 8px; border-radius: 6px; font-size: 10px; color: #8fa5b8; }
-.cmx-input { flex-shrink: 0; border-top: 1px solid #283540; background: #111b24; padding: 14px 16px; }
-.cmx-input label { display: flex; align-items: center; gap: 8px; color: #bfd0dd; font-size: 12px; margin-bottom: 9px; }
-.cmx-input label > span { font-family: Consolas, monospace; color: #6b879b; font-size: 10px; }
-.cmx-input textarea { box-sizing: border-box; width: 100%; resize: vertical; max-height: 180px; min-height: 68px; padding: 10px 12px; border: 1px solid #2a3b47; border-radius: 8px; background: #0c141c; color: #e1ebf2; font: 12px/1.6 'Cascadia Code', Consolas, monospace; }
-.cmx-input small { display: block; color: #6f8698; font-size: 10px; margin-top: 6px; }
 .cmx-result-status { flex-shrink: 0; display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid #253642; padding: 9px 15px; color: #92a8b9; font-size: 11px; }
 .cmx-result-status.is-success { color: #63d9b2; background: #19342a60; }
 .cmx-result-status.is-error, .cmx-result-status.is-timeout { color: #ff9f9f; background: #3e222250; }
 .cmx-output { padding: 18px; }
+.cmx-running-message { display: flex; align-items: center; gap: 8px; padding: 12px 18px 0; color: #89a5b5; font-size: 11px; }
+.cmx-terminal { min-height: 80px; cursor: text; }
+.cmx-terminal-text { white-space: pre-wrap; overflow-wrap: anywhere; color: #c7e0da; font: 12px/1.85 'Cascadia Code', Consolas, monospace; }
+.cmx-terminal-entry { display: inline; margin: 0; padding: 0; }
+body .cmx-page .cmx-terminal-entry input { display: inline-block; max-width: 100%; min-width: 12ch; min-height: 0; height: 1.85em; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: #eefaf7; caret-color: #82ecd0; box-shadow: none; outline: none; vertical-align: baseline; font: inherit; line-height: inherit; }
+.cmx-terminal-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 18px; color: #718c9e; font-size: 10px; }
+body .cmx-page .cmx-terminal-hint button { min-height: 26px; padding: 3px 8px; border: 1px solid #344451; border-radius: 6px; background: transparent; color: #a4b5c4; font-size: 10px; box-shadow: none; }
+.cmx-result-status.is-waiting { color: #f1cf8d; background: #332d2050; }
 .cmx-output pre, .cmx-debug-content pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 14px; color: #c7e0da; font: 12px/1.85 'Cascadia Code', Consolas, monospace; }
 .cmx-output .cmx-stderr, .cmx-debug-content .cmx-stderr { color: #ffa6a6; }
 .cmx-no-output { color: #829bae; font-size: 12px; }

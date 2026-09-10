@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CodeMatrix runtime regression checks</title>
+    <style>
+      body { max-width: 1000px; margin: 32px auto; padding: 20px; font: 15px system-ui; }
+      button { padding: 10px 14px; }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 16px; background: #f2f4f6; }
+    </style>
+  </head>
+  <body>
+    <h1>CodeMatrix runtime regression checks</h1>
+    <p>Runs isolated sample programs with automatic terminal input. No account or backend is used.</p>
+    <button id="smoke">Run smoke tests</button>
+    <p id="status" role="status">Ready</p>
+    <pre id="live" aria-label="Current program output"></pre>
+    <pre id="output" aria-label="Test results"></pre>
+    <script type="module" src="./browser-smoke.js"></script>
+  </body>
+</html>

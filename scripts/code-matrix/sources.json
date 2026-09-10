@@ -1,0 +1,62 @@
+[
+  {
+    "path": "runtime/clang/clang",
+    "url": "https://raw.githubusercontent.com/binji/wasm-clang/648c4a89997a351eef75cdaec3ef5b89d4937dec/clang",
+    "sha256": "2a466f0e990329d3230b869d04fc20803eae96a7feb3a3f6c93e25a77b8aed1d"
+  },
+  {
+    "path": "runtime/clang/LICENSE",
+    "url": "https://raw.githubusercontent.com/binji/wasm-clang/648c4a89997a351eef75cdaec3ef5b89d4937dec/LICENSE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "path": "runtime/clang/LICENSE.llvm",
+    "url": "https://raw.githubusercontent.com/binji/wasm-clang/648c4a89997a351eef75cdaec3ef5b89d4937dec/LICENSE.llvm",
+    "sha256": "ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47"
+  },
+  {
+    "path": "runtime/clang/lld",
+    "url": "https://raw.githubusercontent.com/binji/wasm-clang/648c4a89997a351eef75cdaec3ef5b89d4937dec/lld",
+    "sha256": "36419ed202011765222098d7701218378b67f634d50f0a4625059ae2c9860f48"
+  },
+  {
+    "path": "runtime/clang/memfs",
+    "url": "https://raw.githubusercontent.com/binji/wasm-clang/648c4a89997a351eef75cdaec3ef5b89d4937dec/memfs",
+    "sha256": "2c72ee42bd9430029dda8c6bafc9f37143f6fe88d5f1ea950a70259ab748bcfe"
+  },
+  {
+    "path": "runtime/clang/shared.js",
+    "url": "https://raw.githubusercontent.com/binji/wasm-clang/648c4a89997a351eef75cdaec3ef5b89d4937dec/shared.js",
+    "sha256": "4de0be862bda1a7571c1f0632abe3c62c47a56e734cc6b703155805a4b160b1c"
+  },
+  {
+    "path": "runtime/clang/sysroot.tar",
+    "url": "https://raw.githubusercontent.com/binji/wasm-clang/648c4a89997a351eef75cdaec3ef5b89d4937dec/sysroot.tar",
+    "sha256": "2435a7b549af30c2be7ec249c405bc2e911ab0c6003012f0909ec3c131bff867"
+  },
+  {
+    "path": "doppio/package.tgz",
+    "url": "https://registry.npmjs.org/doppiojvm/-/doppiojvm-0.5.0.tgz",
+    "sha256": "62ce4d126c934a899487d12c2bb19175e9ce3cba5ee02d67a00fe8ee158d6ff2"
+  },
+  {
+    "path": "doppio/java_home.tar.gz",
+    "url": "https://github.com/plasma-umass/doppio_jcl/releases/download/v3.2/java_home.tar.gz",
+    "sha256": "bee079d16b8631ff56d3bdc66b4d03e0ecbf9ee46baeef9b041c0bc497f25c34"
+  },
+  {
+    "path": "runtime/doppio/browserfs.min.js",
+    "url": "https://cdn.jsdelivr.net/npm/browserfs@1.0.0/dist/browserfs.min.js",
+    "sha256": "c7a94e972e04e134269fca0c6cb114cac70f472fb3becf9dbf61f841cc5fb2c7"
+  },
+  {
+    "path": "runtime/doppio/LICENSE.browserfs",
+    "url": "https://cdn.jsdelivr.net/npm/browserfs@1.0.0/LICENSE",
+    "sha256": "6a1f8d85fafc18e329415c82cd3c726048fb97fb4fab61379703a0cb21fd8e3c"
+  },
+  {
+    "path": "runtime/doppio/LICENSE.openjdk",
+    "url": "https://raw.githubusercontent.com/openjdk/jdk8u/jdk8u402-b06/LICENSE",
+    "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726"
+  }
+]

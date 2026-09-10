@@ -91,13 +91,21 @@ export function serializeCodeMatrixScriptData(value) {
     .replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }
 
-export function buildCodeMatrixRuntimeCsp(language) {
+export function buildCodeMatrixRuntimeCsp(language, assets = '') {
   const { pyodide, sql } = CODE_MATRIX_RUNTIMES;
-  const scripts = language === 'python' ? `${pyodide}pyodide.js ${pyodide}pyodide.asm.js`
+  let scripts = language === 'python' ? `${pyodide}pyodide.js ${pyodide}pyodide.asm.js`
     : language === 'sql' ? `${sql}sql-wasm.js` : '';
-  const connections = language === 'python'
+  let connections = language === 'python'
     ? `${pyodide}pyodide.asm.wasm ${pyodide}python_stdlib.zip ${pyodide}pyodide-lock.json`
-    : language === 'sql' ? `${sql}sql-wasm.wasm` : "'none'";
+    : language === 'sql' ? `${sql}sql-wasm.js ${sql}sql-wasm.wasm` : "'none'";
+  if (['c', 'cpp'].includes(language)) connections = ['clang', 'lld', 'memfs', 'sysroot.tar', 'shared.js'].map((name) => `${assets}clang/${name}`).join(' ');
+  if (language === 'java') {
+    connections = ['browserfs.min.js', 'doppio.js', 'java-home.zip'].map((name) => assets + 'doppio/' + name).join(' ');
+  }
+  if (language === 'javascript' && assets) {
+    scripts = ['quickjs.mjs', 'ffi.mjs', 'module.mjs'].map((name) => `${assets}javascript/${name}`).join(' ');
+    connections = `${assets}javascript/emscripten-module.wasm`;
+  }
   return `default-src 'none'; base-uri 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; script-src 'unsafe-inline' 'unsafe-eval' blob: ${scripts}; worker-src blob:; connect-src ${connections};`;
 }
 
@@ -135,7 +143,10 @@ function codeMatrixFrameMain(token, workerSource, limits) {
       || event.data?.token !== token || !event.ports[0]) return;
     parentPort = event.ports[0];
     window.removeEventListener('message', connect);
-    parentPort.onmessage = (event) => { if (event.data?.type === 'stop') cleanup(); };
+    parentPort.onmessage = (event) => {
+      if (event.data?.type === 'stop') cleanup();
+      else if (event.data?.type === 'input') workerPort?.postMessage(event.data);
+    };
     parentPort.start();
     try {
       const channel = new MessageChannel();
@@ -151,9 +162,12 @@ function codeMatrixFrameMain(token, workerSource, limits) {
         if (data?.type === 'ready' && !running) {
           running = true;
           clearTimeout(timer);
-          timer = setTimeout(() => fail('Execution exceeded 10 seconds.', 'timeout'), limits.runMs);
+          // The parent enforces cumulative execution time, excluding time spent
+          // waiting for terminal input. Its clock survives a blocked worker.
           parentPort.postMessage({ type: 'running' });
           workerPort.postMessage({ type: 'run' });
+        } else if (['input-request', 'input-resumed', 'compiling'].includes(data?.type)) {
+          parentPort.postMessage(data);
         } else if (data?.type === 'snapshot' && data.result) {
           snapshot = data.result;
           parentPort.postMessage(data);
@@ -162,7 +176,7 @@ function codeMatrixFrameMain(token, workerSource, limits) {
         }
       };
       workerPort.start();
-      timer = setTimeout(() => fail('Runtime loading exceeded 45 seconds.', 'timeout'), limits.bootMs);
+      timer = setTimeout(() => fail('Compiler loading or compilation exceeded two minutes.', 'timeout'), limits.bootMs);
       worker.postMessage({ type: 'connect', job: event.data.job }, [channel.port2]);
     } catch (error) { fail(error.message || 'Could not create an isolated worker.'); }
   }
@@ -170,8 +184,8 @@ function codeMatrixFrameMain(token, workerSource, limits) {
   window.addEventListener('pagehide', cleanup);
 }
 
-function buildFrameSource(language, token) {
-  const csp = buildCodeMatrixRuntimeCsp(language);
+function buildFrameSource(language, token, assets) {
+  const csp = buildCodeMatrixRuntimeCsp(language, assets);
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"></head><body><script>(${codeMatrixFrameMain.toString()})(${serializeCodeMatrixScriptData(token)},${serializeCodeMatrixScriptData(buildCodeMatrixWorkerSource())},${JSON.stringify(CODE_MATRIX_LIMITS)});</script></body></html>`;
 }
 
@@ -181,18 +195,20 @@ function buildFrameSource(language, token) {
  * Only the exact pinned core runtime assets are allowed by the inherited CSP;
  * extra Python packages, external JS imports and SQL extensions are unsupported.
  *
- * @param {{language: 'javascript'|'js'|'python'|'py'|'sql'|'sqlite', code: string,
- *   input?: string, debug?: boolean,
- *   onEvent?: (event: {type: 'status', status: 'loading'|'running', language: string, message: string}) => void}} options
+ * @param {{language: 'javascript'|'js'|'python'|'py'|'sql'|'sqlite'|'c'|'cpp'|'java', code: string,
+ *   input?: string, interactive?: boolean, debug?: boolean,
+ *   onEvent?: (event: {type: 'status'|'output'|'input-request', status?: string, message?: string, result?: object, id?: number}) => void}} options
  * @returns {{promise: Promise<{stdout: string, stderr: string,
  *   status: 'success'|'error'|'timeout'|'stopped', durationMs: number,
  *   tables?: Array<{columns: string[], values: Array<Array<string|number|null>>}>,
- *   trace?: Array<{line: number, locals: Record<string, string>}>}>, cancel: () => void}}
+ *   trace?: Array<{line: number, locals: Record<string, string>}>}>, cancel: () => void,
+ *   submitInput: (value: string|null) => boolean}}
  *
  * promise always resolves, including validation/boot errors and cancellation.
  * durationMs excludes boot; it is 0 if execution never started. Loading gets
- * 45 seconds; execution gets another 10 seconds (including awaited JS/Python).
- * JS has console, print, input, readLine()/prompt(); EOF is null. A non-undefined
+ * two minutes; execution gets 10 seconds, excluding up to five minutes waiting
+ * for each terminal line. submitInput(null) closes stdin for the current run.
+ * JS has console, print, readLine()/prompt(); EOF is null. A non-undefined
  * async return is printed. Detached async work ends when the program resolves.
  * Python debug records locals BEFORE each executed line, capped at 200; locals
  * are bounded repr strings. SQL starts with students(id,name,age,grade,marks).
@@ -202,8 +218,8 @@ function buildFrameSource(language, token) {
  * pagehide also cancels. Every terminal path removes the iframe (terminating
  * its workers), closes ports and clears timers. CSP/Worker failures fail closed.
  */
-export function createCodeMatrixBrowserRun({ language, code, input = '', debug = false, onEvent } = {}) {
-  const aliases = { js: 'javascript', javascript: 'javascript', py: 'python', python: 'python', sql: 'sql', sqlite: 'sql' };
+export function createCodeMatrixBrowserRun({ language, code, input = '', interactive = false, debug = false, onEvent } = {}) {
+  const aliases = { js: 'javascript', javascript: 'javascript', py: 'python', python: 'python', sql: 'sql', sqlite: 'sql', c: 'c', cpp: 'cpp', java: 'java' };
   const normalizedLanguage = typeof language === 'string' && Object.hasOwn(aliases, language.toLowerCase())
     ? aliases[language.toLowerCase()] : null;
   let resolve;
@@ -214,6 +230,10 @@ export function createCodeMatrixBrowserRun({ language, code, input = '', debug =
   let done = false;
   let started = null;
   let latest = { stdout: '', stderr: '' };
+  let waitingId = null;
+  let activeSince = null;
+  let executionMs = 0;
+  let inputBytes = 0;
   const clock = () => globalThis.performance?.now() ?? Date.now();
   const emit = (status, message) => {
     if (typeof onEvent === 'function') {
@@ -221,10 +241,24 @@ export function createCodeMatrixBrowserRun({ language, code, input = '', debug =
       catch { /* A UI observer must not orphan the runtime. */ }
     }
   };
+  const emitEvent = (value) => {
+    try { onEvent?.(value); } catch { /* UI observers cannot interrupt cleanup. */ }
+  };
+  const pauseClock = () => {
+    clearTimeout(timer);
+    if (activeSince !== null) executionMs += clock() - activeSince;
+    activeSince = null;
+  };
+  const resumeClock = () => {
+    clearTimeout(timer);
+    activeSince = clock();
+    timer = setTimeout(() => stopWith('timeout', 'Execution exceeded 10 seconds.'), Math.max(0, CODE_MATRIX_LIMITS.runMs - executionMs));
+  };
   const finish = (raw) => {
     if (done) return;
     done = true;
-    clearTimeout(timer);
+    pauseClock();
+    waitingId = null;
     globalThis.window?.removeEventListener('pagehide', cancel);
     if (channel) {
       try { channel.port1.postMessage({ type: 'stop' }); } catch { /* Already closed. */ }
@@ -238,14 +272,25 @@ export function createCodeMatrixBrowserRun({ language, code, input = '', debug =
       iframe.onerror = null;
       iframe.remove();
     }
-    resolve(normalizeCodeMatrixResult({ ...raw, durationMs: started === null ? 0 : clock() - started }));
+    resolve(normalizeCodeMatrixResult({ ...raw, durationMs: started === null ? 0 : executionMs }));
   };
   const stopWith = (status, message) => finish({
     ...latest, status,
     stderr: message ? boundCodeMatrixText(latest.stderr + '\n' + message, CODE_MATRIX_LIMITS.outputChars) : latest.stderr,
   });
   function cancel() { stopWith('stopped', 'Execution stopped.'); }
-  const handle = { promise, cancel };
+  const submitInput = (value) => {
+    if (done || waitingId === null || (value !== null && typeof value !== 'string')) return false;
+    const size = value === null ? 0 : new TextEncoder().encode(value).length;
+    if (size + inputBytes > CODE_MATRIX_LIMITS.inputChars) return false;
+    inputBytes += size;
+    channel.port1.postMessage({ type: 'input', id: waitingId, value });
+    waitingId = null;
+    resumeClock();
+    emit('running', 'Running code…');
+    return true;
+  };
+  const handle = { promise, cancel, submitInput };
   if (!normalizedLanguage || typeof code !== 'string' || typeof input !== 'string') {
     stopWith('error', 'Provide a supported language and string code/input.');
     return handle;
@@ -268,8 +313,9 @@ export function createCodeMatrixBrowserRun({ language, code, input = '', debug =
     iframe.setAttribute('title', 'Code Matrix isolated runtime');
     iframe.hidden = true;
     iframe.referrerPolicy = 'no-referrer';
-    iframe.srcdoc = buildFrameSource(normalizedLanguage, token);
-    const job = { language: normalizedLanguage, code, input, debug: debug === true };
+    const assets = new URL('/code-matrix/runtime/', globalThis.location?.href || 'http://localhost/').href;
+    iframe.srcdoc = buildFrameSource(normalizedLanguage, token, assets);
+    const job = { language: normalizedLanguage, code, input, interactive: interactive === true, debug: debug === true, assets };
     let connected = false;
     iframe.onload = () => {
       if (done || connected) return;
@@ -287,21 +333,29 @@ export function createCodeMatrixBrowserRun({ language, code, input = '', debug =
       const data = event.data;
       if (data?.type === 'running' && started === null) {
         started = clock();
-        clearTimeout(timer);
-        timer = setTimeout(() => stopWith('timeout', 'Execution exceeded 10 seconds.'), CODE_MATRIX_LIMITS.runMs);
+        resumeClock();
         emit('running', 'Running code…');
+      } else if (data?.type === 'input-request' && interactive && started !== null && waitingId === null && Number.isSafeInteger(data.id)) {
+        pauseClock();
+        waitingId = data.id;
+        timer = setTimeout(() => stopWith('timeout', 'No terminal input was received for five minutes.'), CODE_MATRIX_LIMITS.inputWaitMs);
+        emitEvent({ type: 'input-request', id: data.id, result: latest });
+        emit('waiting', 'Waiting for input');
+      } else if (data?.type === 'compiling') {
+        emit('loading', 'Loading compiler and compiling your code…');
       } else if (data?.type === 'snapshot' && data.result) {
         latest = normalizeCodeMatrixResult(data.result);
+        emitEvent({ type: 'output', result: latest });
       } else if (data?.type === 'result' && data.result) {
         finish(data.result);
       }
     };
     channel.port1.start();
-    timer = setTimeout(() => stopWith('timeout', 'Runtime loading exceeded 45 seconds.'), CODE_MATRIX_LIMITS.bootMs);
+    timer = setTimeout(() => stopWith('timeout', 'Compiler loading or compilation exceeded two minutes.'), CODE_MATRIX_LIMITS.bootMs);
     window.addEventListener('pagehide', cancel);
     (document.body || document.documentElement).appendChild(iframe);
     emit('loading', normalizedLanguage === 'javascript' ? 'Preparing isolated JavaScript runtime…'
-      : `Loading ${normalizedLanguage === 'python' ? 'Python (Pyodide 0.27.7)' : 'SQLite (sql.js 1.13.0)'}…`);
+      : `Loading ${normalizedLanguage === 'python' ? 'Python' : normalizedLanguage === 'sql' ? 'SQLite' : 'compiler'}…`);
   } catch (error) { stopWith('error', error.message || 'Could not initialize the browser runtime.'); }
   return handle;
 }

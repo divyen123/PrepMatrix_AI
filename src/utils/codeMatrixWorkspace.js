@@ -2,9 +2,9 @@ import { academicProfileStorageKey } from "./academicProfileScope.js";
 
 export const CODE_MATRIX_LANGUAGES = Object.freeze([
   { id: "python", label: "Python", file: "main.py", runtime: "browser" },
-  { id: "c", label: "C", file: "main.c", runtime: "remote" },
-  { id: "cpp", label: "C++", file: "main.cpp", runtime: "remote" },
-  { id: "java", label: "Java", file: "Main.java", runtime: "remote" },
+  { id: "c", label: "C", file: "main.c", runtime: "browser" },
+  { id: "cpp", label: "C++", file: "main.cpp", runtime: "browser" },
+  { id: "java", label: "Java", file: "Main.java", runtime: "browser" },
   { id: "javascript", label: "JavaScript", file: "script.js", runtime: "browser" },
   { id: "sql", label: "SQL", file: "query.sql", runtime: "browser" },
   { id: "html", label: "HTML", file: "index.html", runtime: "preview" },

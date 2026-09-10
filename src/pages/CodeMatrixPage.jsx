@@ -2,12 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Bug, CalendarDays, Check, ChevronLeft, ChevronRight, CircleAlert, Code2, Download, FileCode2, LoaderCircle, Play, Plus, RotateCcw, Settings2, Square, Terminal, X } from "lucide-react";
 import CodeMatrixEditor from "../components/CodeMatrixEditor";
+import CodeMatrixTerminal from "../components/CodeMatrixTerminal";
 import useCodeMatrixWorkspace from "../hooks/useCodeMatrixWorkspace.js";
-import api from "../utils/apiClient";
 import { getCodeMatrixEligibility, getCodeMatrixSetupSteps } from "../utils/codeMatrixProfile.js";
-import { CODE_MATRIX_LANGUAGES, CODE_MATRIX_MAX_CODE, CODE_MATRIX_MAX_INPUT, CODE_MATRIX_STARTERS, codeMatrixSetupNavigation, getCodeMatrixDiagnostics } from "../utils/codeMatrixWorkspace.js";
+import { CODE_MATRIX_LANGUAGES, CODE_MATRIX_MAX_CODE, CODE_MATRIX_STARTERS, codeMatrixSetupNavigation, getCodeMatrixDiagnostics } from "../utils/codeMatrixWorkspace.js";
 import { buildCodeMatrixPreview, createCodeMatrixBrowserRun } from "../utils/codeMatrixRuntime.js";
-import { createCodeMatrixRemoteRun } from "../utils/codeMatrixRemote.js";
 import "./CodeMatrixPage.css";
 
 const SETUP_COPY = {
@@ -16,7 +15,7 @@ const SETUP_COPY = {
   plan: { title: "Plan your study schedule", description: "Make room for your subjects around the time you have available.", button: "Create plan", icon: CalendarDays },
 };
 const SYNC_LABELS = { loading: "Loading your workspace…", saving: "Saving…", saved: "All changes saved", pending: "Saved on this device · syncing…", local: "Saved on this device · sync unavailable", unsaved: "Draft not saved · retry saving" };
-const STATUS_LABELS = { success: "Completed", error: "Execution error", timeout: "Time limit reached", stopped: "Stopped", running: "Running", loading: "Preparing runtime" };
+const STATUS_LABELS = { success: "Completed", error: "Execution error", timeout: "Time limit reached", stopped: "Stopped", running: "Running", waiting: "Waiting for input", loading: "Preparing runtime" };
 const EMPTY_DIAGNOSTICS = [];
 
 function ResultTables({ tables }) {
@@ -35,9 +34,9 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   const eligibility = useMemo(() => getCodeMatrixEligibility(userProfile, subjects), [userProfile, subjects]);
   const { workspace, update, ready, syncState, setup, flush, retry } = useCodeMatrixWorkspace(academicProfileDataId, eligibility.defaultLanguage);
   const [showSetup, setShowSetup] = useState(false);
-  const [capabilities, setCapabilities] = useState(null);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [waiting, setWaiting] = useState(false);
   const [runtimeMessage, setRuntimeMessage] = useState("");
   const [resultTab, setResultTab] = useState("output");
   const [webTab, setWebTab] = useState("");
@@ -55,14 +54,11 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   const editorLanguage = isWeb ? webTab || workspace.language : workspace.language;
   const editorFile = CODE_MATRIX_LANGUAGES.find(({ id }) => id === editorLanguage)?.file;
   const code = workspace.drafts[editorLanguage];
-  const input = workspace.inputs[workspace.language];
   const completedSteps = useMemo(() => [...new Set([...workspace.completedSteps, ...(setup?.completedSteps || [])])], [setup, workspace.completedSteps]);
   const steps = useMemo(() => getCodeMatrixSetupSteps({ subjects, schedule, completedSteps }), [subjects, schedule, completedSteps]);
   const remaining = steps.filter((step) => !step.complete);
   const setupVisible = showSetup || (!workspace.setupDismissed && remaining.length > 0);
-  const remoteReady = capabilities?.remote?.configured === true;
-  const unavailable = language.runtime === "remote" && !remoteReady;
-  const unchanged = result?.code === code && result?.language === editorLanguage && (isWeb || result?.input === input);
+  const unchanged = result?.code === code && result?.language === editorLanguage;
   const diagnosticLanguage = isWeb ? "javascript" : editorLanguage;
   const diagnosticCode = workspace.drafts[diagnosticLanguage];
   const errorDiagnostics = useMemo(() => result?.code === diagnosticCode && result?.language === diagnosticLanguage
@@ -71,14 +67,6 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   const trace = unchanged ? result?.trace || [] : [];
 
   useEffect(() => { setResultTab(isWeb ? "preview" : "output"); }, [isWeb]);
-
-  useEffect(() => {
-    let active = true;
-    api.get("/api/code-matrix/capabilities", { academicProfileId: academicProfileDataId })
-      .then((payload) => { if (active) setCapabilities(payload); })
-      .catch(() => { if (active) setCapabilities({ remote: { configured: false }, unavailable: true }); });
-    return () => { active = false; };
-  }, [academicProfileDataId]);
 
   useEffect(() => {
     if (!ready || !workspaceLoaded) return;
@@ -110,16 +98,18 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   }, [preview]);
 
   const stop = useCallback(() => {
+    runSequenceRef.current += 1;
     runRef.current?.cancel();
     runRef.current = null;
     setBusy(false);
+    setWaiting(false);
     setPreview(null);
     setRuntimeMessage("");
     setResult((current) => current ? ({ ...current, status: "stopped" }) : current);
   }, []);
 
   const run = useCallback(async (debug = false) => {
-    if (busy || unavailable || !eligibility.eligible || !ready) return;
+    if (busy || !eligibility.eligible || !ready) return;
     if (new TextEncoder().encode(code).length > CODE_MATRIX_MAX_CODE) { setNotice("Keep this file under 50 KB before running."); return; }
     setNotice("");
     setTraceIndex(0);
@@ -135,26 +125,40 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
     }
     setPreview(null);
     setBusy(true);
+    setWaiting(false);
     setResultTab(debug ? "debug" : "output");
     setRuntimeMessage("Preparing your run…");
-    setResult(null);
-    const snapshot = { code, input, language: editorLanguage };
+    const snapshot = { code, language: editorLanguage };
+    setResult({ ...snapshot, stdout: '', stderr: '', status: 'loading' });
     try {
-      const task = language.runtime === "remote"
-        ? createCodeMatrixRemoteRun({ language: workspace.language, code, input, academicProfileId: academicProfileDataId, onEvent: (event) => setRuntimeMessage(event.message || "Compiling and running…") })
-        : createCodeMatrixBrowserRun({ language: workspace.language, code, input, debug, onEvent: (event) => setRuntimeMessage(event.message || "Running your code…") });
+      const task = createCodeMatrixBrowserRun({ language: workspace.language, code, interactive: true, debug, onEvent: (event) => {
+        if (!mountedRef.current || sequence !== runSequenceRef.current) return;
+        if (event.type === 'output') setResult((current) => ({ ...current, ...event.result, ...snapshot, status: current?.status || 'running' }));
+        if (event.type === 'input-request') { setWaiting(true); setResultTab('output'); }
+        if (event.type === 'status') {
+          setRuntimeMessage(event.message || 'Running your code…');
+          setResult((current) => ({ ...current, status: event.status }));
+        }
+      } });
       runRef.current = task;
       const outcome = await task.promise;
       if (!mountedRef.current || sequence !== runSequenceRef.current) return;
       setResult({ ...outcome, ...snapshot });
+      if (debug) setResultTab('debug');
       if (debug && outcome.trace?.length) setActiveLine(outcome.trace[0].line);
       else if (outcome.stderr) setActiveLine(getCodeMatrixDiagnostics(outcome.stderr, editorLanguage)[0]?.line || 0);
     } catch (error) {
       if (mountedRef.current && sequence === runSequenceRef.current) setResult({ ...snapshot, status: "error", stdout: "", stderr: error.message || "The code could not be executed. Please try again." });
     } finally {
-      if (mountedRef.current && sequence === runSequenceRef.current) { setBusy(false); setRuntimeMessage(""); runRef.current = null; }
+      if (mountedRef.current && sequence === runSequenceRef.current) { setBusy(false); setWaiting(false); setRuntimeMessage(""); runRef.current = null; }
     }
-  }, [academicProfileDataId, busy, code, editorLanguage, eligibility.eligible, input, isWeb, language.runtime, ready, unavailable, workspace]);
+  }, [busy, code, editorLanguage, eligibility.eligible, isWeb, ready, workspace]);
+
+  const submitInput = (value) => {
+    if (!runRef.current?.submitInput(value)) { setNotice('Input could not be sent. Keep terminal input under 64 KB per run.'); return false; }
+    setWaiting(false);
+    return true;
+  };
 
   const editCode = useCallback((value) => {
     update((current) => ({ drafts: { ...current.drafts, [editorLanguage]: value } }));
@@ -189,7 +193,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
       <header className="cmx-header">
         <div className="cmx-heading">
           <Link className="cmx-back" to="/learn" aria-label="Back to Start Learning"><ArrowLeft size={20} /></Link>
-          <div><span className="cmx-eyebrow">START LEARNING / CODE WORKSPACE</span><h1><Code2 size={29} aria-hidden="true" />CodeMatrix<span className="cmx-beta">Compiler</span></h1><p>Write. Run. Debug. Make it work.</p></div>
+          <div><h1><Code2 size={29} aria-hidden="true" />CodeMatrix<span className="cmx-beta">Compiler</span></h1></div>
         </div>
         <div className="cmx-header-actions">
           {!setupVisible && remaining.length > 0 && <button type="button" className="cmx-button cmx-quiet" onClick={() => { if (busy || preview) stop(); setShowSetup(true); }}><Settings2 size={15} />Finish setup <span>{3 - remaining.length}/3</span></button>}
@@ -226,14 +230,13 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
         <>
           <div className="cmx-toolbar">
             <label className="cmx-language"><span>Language</span><select aria-label="Programming language" value={workspace.language} onChange={(event) => changeLanguage(event.target.value)}>{CODE_MATRIX_LANGUAGES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-            <span className="cmx-runtime-label">{isWeb ? "Web preview" : workspace.language === "sql" ? "SQLite · practice database" : language.runtime === "remote" ? remoteReady ? "Remote compiler" : "Compiler unavailable" : "Runs in your browser"}</span>
+            <span className="cmx-runtime-label">{isWeb ? "Web preview" : workspace.language === "sql" ? "SQLite · practice database" : "Runs in your browser"}</span>
             <div className="cmx-actions">
-              {(busy || preview) && <button type="button" className="cmx-button" onClick={stop}><Square size={15} />{language.runtime === "remote" ? "Stop waiting" : "Stop"}</button>}
-              <button type="button" className="cmx-button" disabled={busy || unavailable} onClick={() => void run(true)} title={workspace.language === "python" ? "Run with a recorded line and variable trace" : "Run code and inspect errors"}><Bug size={16} />Debug</button>
-              <button type="button" className="cmx-button cmx-primary" disabled={busy || unavailable} onClick={() => void run()}>{busy ? <LoaderCircle className="cmx-spin" size={16} /> : <Play size={16} fill="currentColor" />} {busy ? "Running…" : isWeb ? "Run preview" : "Run code"}</button>
+              {(busy || preview) && <button type="button" className="cmx-button" onClick={stop}><Square size={15} />Stop</button>}
+              <button type="button" className="cmx-button" disabled={busy} onClick={() => void run(true)} title={workspace.language === "python" ? "Run with a recorded line and variable trace" : "Run code and inspect errors"}><Bug size={16} />Debug</button>
+              <button type="button" className="cmx-button cmx-primary" disabled={busy} onClick={() => void run()}>{busy ? <LoaderCircle className="cmx-spin" size={16} /> : <Play size={16} fill="currentColor" />} {busy ? "Running…" : isWeb ? "Run preview" : "Run code"}</button>
             </div>
           </div>
-          {unavailable && <div className="cmx-notice" role="status"><CircleAlert size={18} /><span>{capabilities ? "The C, C++, and Java compiler service is not available yet. Your code is still saved. Python, SQL, JavaScript, and web previews are ready to use." : "Checking compiler availability…"}</span></div>}
           {notice && <div className="cmx-notice" role="alert"><CircleAlert size={18} />{notice}<button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}><X size={16} /></button></div>}
           <div className="cmx-workbench">
             <section className="cmx-source" aria-label="Source code">
@@ -254,7 +257,8 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
               {result && <div className={`cmx-result-status is-${result.status}`} role="status"><span>{STATUS_LABELS[result.status] || result.status}{!unchanged && !isWeb && result.code && " · code changed since this run"}</span>{Number.isFinite(result.durationMs) && <span>{(result.durationMs / 1000).toFixed(2)} s</span>}</div>}
               <div className="cmx-result-content" role="tabpanel" aria-label={resultTab === "preview" ? "Web preview" : resultTab === "debug" ? "Debug results" : "Program output"}>
                 {preview && <iframe ref={previewRef} title="CodeMatrix webpage preview" hidden={resultTab !== "preview"} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={preview.srcDoc} />}
-                {busy ? <div className="cmx-empty" role="status"><LoaderCircle className="cmx-spin" size={26} /><strong>{runtimeMessage}</strong><span>You can stop execution at any time.</span></div> : resultTab === "preview" ? (
+                {busy && !waiting && <div className="cmx-running-message" role="status"><LoaderCircle className="cmx-spin" size={14} />{runtimeMessage}</div>}
+                {resultTab === "preview" ? (
                   preview ? null : <div className="cmx-empty"><Code2 size={30} /><strong>Your page will appear here</strong><span>Edit the three files and select Run preview.</span></div>
                 ) : resultTab === "debug" ? (
                   <div className="cmx-debug-content">
@@ -263,14 +267,9 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
                     {result?.stderr ? <><strong className="cmx-error-heading">Execution details</strong><pre className="cmx-stderr">{result.stderr}</pre>{errorDiagnostics[0]?.line && <button type="button" className="cmx-button" onClick={() => { if (isWeb) setWebTab("javascript"); setActiveLine(errorDiagnostics[0].line); }}>Go to {isWeb ? "script.js · " : ""}line {errorDiagnostics[0].line}<ArrowRight size={14} /></button>}</> : result ? <p className="cmx-debug-success"><Check size={16} />{result.status === "stopped" ? "Execution was stopped." : "No runtime errors were reported."}</p> : <div className="cmx-empty"><Bug size={28} /><strong>Find what needs fixing</strong><span>Select Debug to run and inspect your code.</span></div>}
                   </div>
                 ) : result ? (
-                  <div className="cmx-output"><ResultTables tables={result.tables || []} />{result.stdout && <pre>{result.stdout}</pre>}{result.stderr && <pre className="cmx-stderr">{result.stderr}</pre>}{!result.stdout && !result.stderr && !result.tables?.length && <p className="cmx-no-output">{result.status === "stopped" ? "Execution stopped." : "Finished with no console output."}</p>}</div>
-                ) : <div className="cmx-empty"><Terminal size={30} /><strong>Your output starts here</strong><span>Write your code, add any input, and press Run code.</span><kbd>Ctrl / ⌘ + Enter</kbd></div>}
+                  <div className="cmx-output"><ResultTables tables={result.tables || []} /><CodeMatrixTerminal output={result.stdout} error={result.stderr} waiting={waiting} busy={busy || !!result.tables?.length} onInput={submitInput} /></div>
+                ) : <div className="cmx-empty"><Terminal size={30} /><strong>Your output starts here</strong><span>Run your code. Type here when your program asks for input.</span><kbd>Ctrl / ⌘ + Enter</kbd></div>}
               </div>
-              {!isWeb && workspace.language !== "sql" && <div className="cmx-input"><label htmlFor="cmx-stdin">Program input <span>stdin</span></label><textarea id="cmx-stdin" value={input} maxLength={CODE_MATRIX_MAX_INPUT} onChange={(event) => {
-                const value = event.target.value;
-                if (new TextEncoder().encode(value).length > CODE_MATRIX_MAX_INPUT) { setNotice("Program input can contain up to 10 KB."); return; }
-                update((current) => ({ inputs: { ...current.inputs, [workspace.language]: value } }));
-              }} placeholder="Enter input here, one value per line" rows={3} spellCheck={false} /><small>{workspace.language === "javascript" ? "Use readLine() or prompt() to read each input line." : "Input is supplied when you run the program."}</small></div>}
             </section>
           </div>
           <footer className="cmx-footnote"><span id="code-matrix-editor-help">Ctrl / ⌘ + Enter to run · Tab to indent · Esc, then Tab to leave the editor</span><span>{workspace.language === "sql" ? "Each run starts with a fresh SQLite database." : isWeb ? "Preview is isolated from your account." : "Your code is saved separately for each language."}</span></footer>

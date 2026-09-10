@@ -1,6 +1,10 @@
 {
   "headers": [
     {
+      "source": "/code-matrix/runtime/(.*)",
+      "headers": [{ "key": "Access-Control-Allow-Origin", "value": "*" }]
+    },
+    {
       "source": "/sw.js",
       "headers": [
         {
@@ -42,7 +46,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!api/|assets/|favicon.svg|success.mp3|.*\\..*).*)",
+      "source": "/((?!api/|assets/|code-matrix/runtime/|favicon.svg|success.mp3|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

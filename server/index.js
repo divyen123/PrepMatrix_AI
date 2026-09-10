@@ -3122,6 +3122,9 @@ registerExamRoutes(app, {
 });
 
 // Serve static assets from Vite build in production
+app.use('/code-matrix/runtime', express.static(path.join(__dirname, '../dist/code-matrix/runtime'), {
+  setHeaders(res) { res.setHeader('Access-Control-Allow-Origin', '*'); },
+}));
 app.use(express.static(path.join(__dirname, "../dist")));
 
 // SPA Router fallback: serve index.html for all non-API paths

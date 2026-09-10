@@ -247,7 +247,7 @@ export function registerCodeMatrixRoutes(app, {
     const eligibility = await access(db, req, "capabilities", () => eligibilityFor(db, req));
     return res.json({
       remote: judge0.capabilities(),
-      browser: { languages: CODE_MATRIX_LANGUAGES.filter((language) => !["c", "cpp", "java"].includes(language)), health: "client_managed" },
+      browser: { languages: CODE_MATRIX_LANGUAGES, health: "client_managed" },
       eligibility, limits: CODE_MATRIX_LIMITS, rateLimits: CODE_MATRIX_RATE_LIMITS, onboardingRequired: false,
     });
   }));

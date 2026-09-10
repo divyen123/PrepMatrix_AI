@@ -1,7 +1,10 @@
+import { prepareCodeMatrixCompiler } from './codeMatrixCompilers.js';
+import { prepareCodeMatrixJavaScript } from './codeMatrixJavaScript.js';
 // Only serialize this module's worker entry point; never invoke it in the app.
 export const CODE_MATRIX_LIMITS = Object.freeze({
-  bootMs: 45_000,
+  bootMs: 120_000,
   runMs: 10_000,
+  inputWaitMs: 300_000,
   sourceChars: 256_000,
   inputChars: 64_000,
   outputChars: 65_536, // Per stream, including the truncation marker (UTF-16).
@@ -91,7 +94,7 @@ export function normalizeCodeMatrixResult(raw, limits = CODE_MATRIX_LIMITS, boun
 
 // Executed only by the opaque-origin iframe's blob Worker. Keep dependencies
 // explicit so bundlers cannot accidentally move execution into the app realm.
-function codeMatrixWorkerMain(limits, runtimes, readLines, bound, normalize) {
+function codeMatrixWorkerMain(limits, runtimes, readLines, bound, normalize, prepareCompiler, prepareJavaScript) {
   const scope = globalThis;
   const now = performance.now.bind(performance);
   let connected = false;
@@ -102,13 +105,36 @@ function codeMatrixWorkerMain(limits, runtimes, readLines, bound, normalize) {
     const port = event.ports[0];
     const send = port.postMessage.bind(port);
     const job = event.data.job;
-    const readLine = readLines(job.input);
+    const recordedLine = readLines(job.input);
+    let waitingInput = null;
+    let inputSequence = 0;
+    let inputClosed = false;
+    const readLine = job.interactive ? async () => {
+      if (inputClosed) return null;
+      const id = ++inputSequence;
+      snapshot(true);
+      send({ type: 'input-request', id });
+      const line = await new Promise((resolve) => { waitingInput = { id, resolve }; });
+      if (line === null) inputClosed = true;
+      else append('stdout', line + '\n');
+      send({ type: 'input-resumed', id });
+      return line;
+    } : recordedLine;
     const state = { stdout: '', stderr: '', status: 'success', durationMs: 0 };
     let started = 0;
     let lastSnapshot = -Infinity;
+    let snapshotTimer;
     let complete = false;
-    const snapshot = () => {
-      if (complete || now() - lastSnapshot < 100) return;
+    const snapshot = (force = false) => {
+      if (complete) return;
+      if (!force && now() - lastSnapshot < 60) {
+        // Flush the trailing chunk too, including prompts emitted just after
+        // an asynchronous runtime requests input.
+        snapshotTimer ??= setTimeout(() => { snapshotTimer = undefined; snapshot(true); }, 60);
+        return;
+      }
+      clearTimeout(snapshotTimer);
+      snapshotTimer = undefined;
       lastSnapshot = now();
       send({ type: 'snapshot', result: normalize(state, limits, bound) });
     };
@@ -167,6 +193,7 @@ function codeMatrixWorkerMain(limits, runtimes, readLines, bound, normalize) {
       }
       state.durationMs = started ? now() - started : 0;
       complete = true;
+      clearTimeout(snapshotTimer);
       send({ type: 'result', result: normalize(state, limits, bound) });
       port.close();
     };
@@ -181,14 +208,18 @@ function codeMatrixWorkerMain(limits, runtimes, readLines, bound, normalize) {
 
     let python;
     let SQL;
+    let compiledRun;
     try {
       if (job.language === 'python') {
+        if (job.interactive && (typeof WebAssembly.Suspending !== 'function' || typeof WebAssembly.promising !== 'function')) {
+          throw new Error('Interactive Python needs a browser with WebAssembly JSPI. Please update Chrome or Edge, or use another browser that supports JSPI.');
+        }
         // Pinned API: https://pyodide.org/en/0.27.7/usage/api/js-api.html
         // Streams/EOF: https://pyodide.org/en/0.27.7/usage/streams.html
         scope.importScripts(runtimes.pyodide + 'pyodide.js');
         python = await scope.loadPyodide({
           indexURL: runtimes.pyodide,
-          stdin: readLine,
+          stdin: recordedLine,
           stdout: (line) => append('stdout', line + '\n'),
           stderr: (line) => append('stderr', line + '\n'),
         });
@@ -197,19 +228,65 @@ function codeMatrixWorkerMain(limits, runtimes, readLines, bound, normalize) {
         const errDecoder = new TextDecoder();
         python.setStdout({ write: (bytes) => { append('stdout', outDecoder.decode(bytes, { stream: true })); return bytes.length; } });
         python.setStderr({ write: (bytes) => { append('stderr', errDecoder.decode(bytes, { stream: true })); return bytes.length; } });
+        if (job.interactive) {
+          python.registerJsModule('code_matrix_terminal', { readLine });
+          await python.runPythonAsync(`
+import sys, io
+from pyodide.ffi import run_sync
+from code_matrix_terminal import readLine
+class _CodeMatrixInput(io.TextIOBase):
+    def __init__(self):
+        self.pending = ''
+    def readable(self): return True
+    def isatty(self): return True
+    def readline(self, size=-1):
+        if size == 0: return ''
+        if not self.pending:
+            value = run_sync(readLine())
+            if value is None: return ''
+            self.pending = str(value) + '\\n'
+        count = len(self.pending) if size < 0 else min(size, len(self.pending))
+        result, self.pending = self.pending[:count], self.pending[count:]
+        return result
+    def read(self, size=-1):
+        result = ''
+        while size < 0 or len(result) < size:
+            line = self.readline(-1 if size < 0 else size - len(result))
+            if not line: break
+            result += line
+        return result
+sys.stdin = _CodeMatrixInput()
+`);
+        }
       } else if (job.language === 'sql') {
-        scope.importScripts(runtimes.sql + 'sql-wasm.js');
-        SQL = await scope.initSqlJs({ locateFile: () => runtimes.sql + 'sql-wasm.wasm' });
+        const response = await fetch(runtimes.sql + 'sql-wasm.js', { credentials: 'omit' });
+        if (!response.ok) throw new Error('Could not load SQLite. Please retry.');
+        const initSqlJs = new Function(await response.text() + '\nreturn initSqlJs;')();
+        SQL = await initSqlJs({ locateFile: () => runtimes.sql + 'sql-wasm.wasm' });
+      } else if (['c', 'cpp', 'java'].includes(job.language)) {
+        send({ type: 'compiling' });
+        compiledRun = await prepareCompiler({ job, assets: job.assets, append, readLine });
+      } else if (job.language === 'javascript' && job.interactive) {
+        compiledRun = await prepareJavaScript({ assets: job.assets, code: job.code, append, readLine });
       }
       send({ type: 'ready' });
     } catch (error) { finish(error); return; }
 
     port.onmessage = async (event) => {
+      if (event.data?.type === 'input' && waitingInput?.id === event.data.id) {
+        const value = event.data.value;
+        if (value !== null && (typeof value !== 'string' || value.length > limits.inputChars)) return;
+        const resolve = waitingInput.resolve;
+        waitingInput = null;
+        resolve(value);
+        return;
+      }
       if (event.data?.type !== 'run' || started || complete) return;
       started = now();
-      port.onmessage = null;
       try {
-        if (job.language === 'javascript') {
+        if (compiledRun) {
+          await compiledRun();
+        } else if (job.language === 'javascript') {
           const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
           const run = new AsyncFunction('console', 'print', 'readLine', 'prompt', 'input', '"use strict";\n' + job.code);
           const returned = await run(console, scope.print, readLine, scope.prompt, job.input);
@@ -341,5 +418,5 @@ await _cm_execute(_cm_source, _cm_debug, _cm_capture, _cm_trace_limit, _cm_local
 }
 
 export function buildCodeMatrixWorkerSource() {
-  return `(${codeMatrixWorkerMain.toString()})(${JSON.stringify(CODE_MATRIX_LIMITS)},${JSON.stringify(CODE_MATRIX_RUNTIMES)},${createCodeMatrixLineReader.toString()},${boundCodeMatrixText.toString()},${normalizeCodeMatrixResult.toString()});`;
+  return `(${codeMatrixWorkerMain.toString()})(${JSON.stringify(CODE_MATRIX_LIMITS)},${JSON.stringify(CODE_MATRIX_RUNTIMES)},${createCodeMatrixLineReader.toString()},${boundCodeMatrixText.toString()},${normalizeCodeMatrixResult.toString()},${prepareCodeMatrixCompiler.toString()},${prepareCodeMatrixJavaScript.toString()});`;
 }

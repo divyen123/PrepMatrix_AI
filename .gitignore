@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .env
 
+# Download/build cache for the pinned browser compilers.
+scripts/code-matrix/vendor/
+

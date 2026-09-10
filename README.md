@@ -76,27 +76,35 @@ The workspace offers writing, running, and debugging without a lessons submodule
 
 | Language | Execution and debugging |
 | --- | --- |
-| Python | Pyodide 0.27.7, with stdin, exceptions and up to 200 recorded line/variable steps. Variables are captured before each line, rather than through live breakpoints. |
-| JavaScript | Isolated worker with console output, runtime errors, `readLine()` / `prompt()` input, and awaited code. |
+| Python | Pyodide 0.27.7, with live terminal input, exceptions and up to 200 recorded line/variable steps. Variables are captured before each line. |
+| JavaScript | QuickJS 0.32.0 adapter with console output, runtime errors, synchronous `readLine()` / `prompt()` input, and awaited code/timers. |
 | SQL | sql.js 1.13.0 (SQLite dialect). Each run gets a fresh `students(id, name, age, grade, marks)` practice database; results are bounded tables. |
 | HTML / CSS / JavaScript | Combined isolated webpage preview. Put JavaScript in the `script.js` tab; inline scripts in HTML and external resources are blocked. Common loops and recursion have cooperative execution guards. |
-| C / C++ / Java | Judge0 CE service configured on the backend; real compiler/runtime output with source locations. Java uses `Main.java`. |
+| C / C++ | Bundled WebAssembly Clang, C11 / C++17, standard console input/output and compiler errors. C++ includes the standard library. |
+| Java | Bundled Doppio JVM 0.5.0 and OpenJDK 8 class library/compiler. Use Java 8 syntax and a `Main` class in `Main.java`; `Scanner` and buffered console input are supported. |
 
-Python and SQLite download their pinned core runtime assets from jsDelivr. Additional Python packages and external JS imports are not enabled. Worker programs have a 10-second execution deadline and Stop terminates them; initial runtime loading has a separate 45-second deadline. Web previews use a separate sandbox with console capture. Full breakpoint debugging is not provided for C, C++, Java, SQL or JavaScript.
+Select **Run code**, then type directly beside the program's prompt in the output terminal and press **Enter**. Blank lines are allowed. **End input** (or Ctrl+D) sends EOF; **Stop** terminates the isolated worker. There is no separate input box to fill before running. Output/Debug/Preview and the web file tabs use compact rounded controls.
 
-To enable C, C++ and Java, configure the backend environment (see `.env.example`):
+**No compiler API key, paid subscription, Docker, local compiler installation, or new `.env` values are needed.** Use an updated Chrome or Edge browser: C/C++ and interactive Python require WebAssembly JSPI. Unsupported browsers display an explanation when running. C/C++ downloads roughly 60 MB and Java roughly 40 MB on first use; allow the first compilation to finish. These assets are served by the frontend and normal hosting/bandwidth costs still apply. Python and SQLite load pinned runtime files from jsDelivr. Offline execution is not guaranteed.
 
-```dotenv
-JUDGE0_CE_BASE_URL=https://your-judge0-service.example
-JUDGE0_CE_TOKEN=
-JUDGE0_CE_AUTH_HEADER=X-Auth-Token
+For local development:
+
+```sh
+npm ci
+npm run dev
 ```
 
-Use a Judge0 CE deployment with language IDs **50 (C)**, **54 (C++)**, and **62 (Java)**. The service must accept base64 submissions and enforce resource/network restrictions. The token is server-only; leave it empty only when the trusted service does not require one. Source and stdin are sent to this configured service. The app never runs student programs as processes on its own server. Service configuration enables the controls; it does not claim a successful health check. Without configuration these three languages remain editable and saved, with execution clearly unavailable.
+Run the existing application backend as usual for login and draft synchronization. Student programs execute in a fresh browser worker inside an opaque-origin iframe; they do not run as processes on the app server. Programs get no access to account storage or arbitrary network resources. The compiler supports console exercises and standard libraries, with no external packages, operating-system integration, Java GUI, or multi-file project tooling. C/C++ file-system operations beyond stdin/stdout are unsupported. Java's temporary files disappear after every run.
 
-Compiler endpoints require the existing authentication and academic-profile scope. Submissions are rate limited per account, use private provider tokens, and expire locally after 24 hours. Terminal results are cached. Stopping a remote run stops waiting for its result; execution remains bounded by the compiler service. Account/profile deletion includes CodeMatrix records. Remote retention is controlled by the Judge0 operator.
+Runtime loading/compilation has a two-minute deadline. Execution has a cumulative 10-second deadline, excluding time waiting for terminal input (up to five minutes per prompt). Input and output are bounded. Debug shows compiler/runtime errors and source locations; Python additionally supports stepping through a recorded trace. Full live breakpoint debugging is not provided.
+
+`npm run build` verifies the bundled runtime checksums before building. To restore or rebuild compiler assets, run `npm run codematrix:assets` (requires internet, `tar`, and installed npm dependencies). Sources and hashes are pinned in `scripts/code-matrix/sources.json`; bundled assets and license notices live under `public/code-matrix/runtime`. Include this directory when publishing the frontend. Vite, Vite preview, Express, and Vercel configurations allow the isolated runtime to fetch these public files with CORS; other hosts need `Access-Control-Allow-Origin: *` on this directory and must serve its files before the SPA fallback.
+
+The existing authenticated Judge0 API endpoints remain available for older clients, but the CodeMatrix page does not call them. `JUDGE0_CE_*` variables are optional and can stay blank for this browser compiler.
 
 Run focused regression checks with `node --test src/utils/codeMatrix*.test.js server/codeMatrix*.test.js`. Coverage includes profile eligibility, setup progress, drafts, authentication/scope boundaries, compiler adapter failures, cancellation, output limits, and preview guards.
+
+For real browser runtime checks, start Vite and open `/scripts/code-matrix/browser-smoke.html`, then select **Run smoke tests**. The page checks C/C++ standard input, Java Scanner/EOF, JavaScript input after `await`, Python blank input/EOF, SQLite tables, error line numbers, cancellation, and the execution deadline. Append `?language=javascript` to check one language. This development fixture is not included in the application build.
 
 ## 📄 License
 

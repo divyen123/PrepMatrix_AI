@@ -1,0 +1,107 @@
+[
+  {
+    "path": "clang/clang",
+    "bytes": 31214472,
+    "sha256": "2a466f0e990329d3230b869d04fc20803eae96a7feb3a3f6c93e25a77b8aed1d"
+  },
+  {
+    "path": "clang/LICENSE",
+    "bytes": 11358,
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "path": "clang/LICENSE.llvm",
+    "bytes": 15140,
+    "sha256": "ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47"
+  },
+  {
+    "path": "clang/lld",
+    "bytes": 19490094,
+    "sha256": "36419ed202011765222098d7701218378b67f634d50f0a4625059ae2c9860f48"
+  },
+  {
+    "path": "clang/memfs",
+    "bytes": 345442,
+    "sha256": "2c72ee42bd9430029dda8c6bafc9f37143f6fe88d5f1ea950a70259ab748bcfe"
+  },
+  {
+    "path": "clang/shared.js",
+    "bytes": 23973,
+    "sha256": "4de0be862bda1a7571c1f0632abe3c62c47a56e734cc6b703155805a4b160b1c"
+  },
+  {
+    "path": "clang/sysroot.tar",
+    "bytes": 9297920,
+    "sha256": "2435a7b549af30c2be7ec249c405bc2e911ab0c6003012f0909ec3c131bff867"
+  },
+  {
+    "path": "doppio/ASSEMBLY_EXCEPTION",
+    "bytes": 1503,
+    "sha256": "1f77c06fcfe384b4283f158e72e1439c4cadd7d9ff097adcd785c38c789d8275"
+  },
+  {
+    "path": "doppio/browserfs.min.js",
+    "bytes": 216167,
+    "sha256": "c7a94e972e04e134269fca0c6cb114cac70f472fb3becf9dbf61f841cc5fb2c7"
+  },
+  {
+    "path": "doppio/doppio.js",
+    "bytes": 397690,
+    "sha256": "b0d29717a38190a3d4dd964140433b813f26c67fbccd020e991076bd6472e489"
+  },
+  {
+    "path": "doppio/java-home.zip",
+    "bytes": 40314279,
+    "sha256": "9dea6044af3850a7cdddb393cf863be67f295f0de497631469fdd8c43a437320"
+  },
+  {
+    "path": "doppio/LICENSE",
+    "bytes": 1108,
+    "sha256": "556cb6dd172368a2ec3870704f4d5c4997ed081db96fd98cf6fbf700470513b5"
+  },
+  {
+    "path": "doppio/LICENSE.browserfs",
+    "bytes": 6211,
+    "sha256": "6a1f8d85fafc18e329415c82cd3c726048fb97fb4fab61379703a0cb21fd8e3c"
+  },
+  {
+    "path": "doppio/LICENSE.openjdk",
+    "bytes": 19274,
+    "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726"
+  },
+  {
+    "path": "doppio/THIRD_PARTY_README",
+    "bytes": 177094,
+    "sha256": "c77ba9f668fee7e9b810f1493e518adf87233ac8793e4b37c9b3d1ed7846f1c0"
+  },
+  {
+    "path": "javascript/emscripten-module.wasm",
+    "bytes": 1027523,
+    "sha256": "b790f3842eef48d154984cea48d35303b5c3c3696fedab4dc79f314bde005dba"
+  },
+  {
+    "path": "javascript/ffi.mjs",
+    "bytes": 8869,
+    "sha256": "cbd74d48e7c40f2f937380e8878375272dc79cffbf6ba5017965bb8cc1a661bf"
+  },
+  {
+    "path": "javascript/LICENSE",
+    "bytes": 1102,
+    "sha256": "3c6040aa318612a234cc951609b640c0c63d85ae5a98a9330d3116f1553a79db"
+  },
+  {
+    "path": "javascript/LICENSE.variant",
+    "bytes": 2263,
+    "sha256": "446a69ae534aa8612d8b16d3bfc670c5a5050597dca3ce9820441a60d5d04fbb"
+  },
+  {
+    "path": "javascript/module.mjs",
+    "bytes": 11265,
+    "sha256": "cbbd7eff0bc4a0fbe669e470bd19f4030ce0994bc2c663ead4a86a45d54cd3d0"
+  },
+  {
+    "path": "javascript/quickjs.mjs",
+    "bytes": 67509,
+    "sha256": "00ef5428b024a1af597c3fd697abe5ab4a70bc9f6da8538b2084e6c96ac5fbca"
+  }
+]

@@ -105,6 +105,17 @@ async function runWorker(job, overrides = {}) {
   return { result: await result, messages };
 }
 
+test('worker publishes the last output chunk while an asynchronous program is still waiting', async () => {
+  const { result, messages } = await runWorker({ language: 'javascript', code: `
+    console.log('Starting');
+    await new Promise(resolve => setTimeout(resolve, 5));
+    console.log('Next prompt');
+    await new Promise(resolve => setTimeout(resolve, 100));
+  ` });
+  assert.equal(result.status, 'success');
+  assert.ok(messages.some(message => message.type === 'snapshot' && message.result.stdout.includes('Next prompt')));
+});
+
 test('worker executes async JavaScript, input, console streams and returns', async () => {
   const { result } = await runWorker({ language: 'javascript', input: 'Ada\n7\n', code: `
     print(prompt('Name:'));
@@ -222,7 +233,7 @@ test('parent uses only private ports, isolates frames and keeps user source out 
   assert.equal(frame.contentWindow.sent.length, 1);
   assert.equal(frame.contentWindow.sent[0][0].job.code, code);
   assert.equal(frame.contentWindow.sent[0][2][0], browser.channels[0].port2);
-  assert.equal(browser.timers.values().next().value.ms, 45_000);
+  assert.equal(browser.timers.values().next().value.ms, limits.bootMs);
   browser.advance(30_000);
   browser.message({ type: 'running' });
   assert.equal(browser.timers.values().next().value.ms, 10_000);
@@ -245,6 +256,59 @@ test('cancel and pagehide settle once with partial output and clean all resource
   assert.equal(result.status, 'stopped');
   assert.equal(result.stdout, 'before loop\n');
   browser.assertClean();
+});
+
+test('terminal input pauses the deadline, echoes through the worker and resumes the remaining budget', async (t) => {
+  const browser = mockBrowser(t);
+  const events = [];
+  const run = createCodeMatrixBrowserRun({ language: 'c', code: '', interactive: true, onEvent: (event) => events.push(event) });
+  assert.equal(run.submitInput('too early'), false);
+  browser.message({ type: 'running' });
+  browser.advance(300);
+  browser.message({ type: 'snapshot', result: { stdout: 'Number: ', stderr: '', status: 'success' } });
+  browser.message({ type: 'input-request', id: 1 });
+  assert.equal(browser.timers.values().next().value.ms, limits.inputWaitMs);
+  assert.equal(events.find((event) => event.type === 'input-request').result.stdout, 'Number: ');
+  browser.advance(60_000);
+  assert.equal(run.submitInput('5'), true);
+  assert.equal(run.submitInput('duplicate'), false);
+  assert.deepEqual(browser.channels[0].port1.sent.at(-1), { type: 'input', id: 1, value: '5' });
+  assert.equal(browser.timers.values().next().value.ms, 9700);
+  browser.advance(200);
+  browser.message({ type: 'input-request', id: 2 });
+  assert.equal(run.submitInput('x'.repeat(limits.inputChars)), false);
+  assert.equal(run.submitInput(null), true);
+  browser.advance(100);
+  browser.message({ type: 'result', result: { status: 'success', stdout: 'Number: 5\n10\n' } });
+  assert.equal((await run.promise).durationMs, 600);
+  assert.equal(run.submitInput(null), false);
+  browser.assertClean();
+});
+
+test('waiting for input can be cancelled or timed out with partial output preserved', async (t) => {
+  const browser = mockBrowser(t);
+  for (const [index, action] of ['stop', 'timeout'].entries()) {
+    const run = createCodeMatrixBrowserRun({ language: 'java', code: '', interactive: true });
+    browser.message({ type: 'running' }, index);
+    browser.message({ type: 'snapshot', result: { stdout: 'Name: ' } }, index);
+    browser.message({ type: 'input-request', id: 1 }, index);
+    if (action === 'stop') run.cancel(); else browser.fireTimer();
+    const result = await run.promise;
+    assert.equal(result.status, action === 'stop' ? 'stopped' : 'timeout');
+    assert.equal(result.stdout, 'Name: ');
+    assert.equal(run.submitInput('late'), false);
+  }
+  browser.assertClean();
+});
+
+test('local compiler CSP permits specific assets without exposing app endpoints', () => {
+  for (const language of ['c', 'cpp', 'java', 'javascript']) {
+    const csp = buildCodeMatrixRuntimeCsp(language, 'https://app.test/code-matrix/runtime/');
+    assert.doesNotMatch(csp, /'self'|\*|\/api/);
+    const urls = csp.match(/https:\/\/[^ ;]+/g);
+    assert.ok(urls.length > 0);
+    assert.ok(urls.every((url) => url.startsWith('https://app.test/code-matrix/runtime/') && !url.endsWith('/')));
+  }
 });
 
 test('loading and execution deadlines are independent; repeated running messages cannot extend them', async (t) => {

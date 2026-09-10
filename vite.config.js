@@ -7,6 +7,7 @@ import react from '@vitejs/plugin-react'
 export const PWA_BUILD_VERSION_PLACEHOLDER = "__PREPMATRIX_BUILD_VERSION__"
 export const PWA_PUBLIC_FINGERPRINT_PATHS = Object.freeze([
   "public/sw.js",
+  "public/code-matrix/runtime/manifest.json",
   "public/manifest.webmanifest",
   "public/mediapipe/vision_wasm_internal.js",
   "public/mediapipe/vision_wasm_internal.wasm",
@@ -114,9 +115,20 @@ export function prepmatrixPwaBuildPlugin() {
   }
 }
 
+function codeMatrixRuntimeCors(server) {
+  server.middlewares.use('/code-matrix/runtime/', (_req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    next();
+  });
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), prepmatrixPwaBuildPlugin()],
+  plugins: [react(), prepmatrixPwaBuildPlugin(), {
+    name: 'code-matrix-runtime-cors',
+    configureServer: codeMatrixRuntimeCors,
+    configurePreviewServer: codeMatrixRuntimeCors,
+  }],
   server: {
     proxy: {
       "/api": {
