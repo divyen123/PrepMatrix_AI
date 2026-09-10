@@ -1,0 +1,38 @@
+.student-details-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 18000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 8, 16, .68);
+  backdrop-filter: blur(8px);
+}
+.student-details-dialog {
+  position: relative;
+  width: min(100%, 420px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface-strong);
+  color: var(--text);
+  box-shadow: 0 24px 80px #0006;
+}
+.student-details-dialog .student-details-close { position: absolute; top: 14px; right: 14px; padding: 7px; border-radius: 10px; }
+.student-details-icon { display: inline-flex; padding: 12px; border-radius: 14px; background: #14b8a61a; color: #14b8a6; }
+.student-details-dialog h2 { margin: 18px 0 8px; font-size: 24px; }
+.student-details-dialog p { margin: 0 0 22px; line-height: 1.6; font-size: 14px; color: var(--text-muted); }
+.student-details-dialog label { display: block; margin: 16px 0 8px; font-size: 14px; font-weight: 600; }
+.student-details-dialog input { width: 100%; min-width: 0; box-sizing: border-box; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-muted); color: inherit; font: inherit; }
+.student-details-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.student-details-dialog button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; font: inherit; font-size: 14px; cursor: pointer; color: inherit; background: transparent; }
+body .student-details-dialog button.student-details-save { background: #0f766e !important; color: #fff !important; border-color: #0f766e !important; }
+.student-details-dialog :is(input, button):focus-visible { outline: 2px solid #14b8a6; outline-offset: 3px; }
+.student-details-dialog button:disabled { opacity: .65; cursor: wait; }
+.student-details-dialog .student-details-error { color: #f87171; margin: 14px 0 0; }
+.student-details-spinner { animation: student-details-spin 1s linear infinite; }
+@keyframes student-details-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .student-details-spinner { animation: none; } }

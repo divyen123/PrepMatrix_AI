@@ -5,6 +5,7 @@ import SmartSuggestion from "../components/SmartSuggestion";
 import ProgressBar1 from "../components/Progressbar1";
 import WeeklyReview from "../components/WeeklyReview";
 import SubjectPlanDialog from "../components/SubjectPlanDialog";
+import DashboardSetupChecklist from "../components/DashboardSetupChecklist";
 import {
   buildHomeNavigationRoute,
   getHomeNavigationSuggestions,
@@ -152,6 +153,8 @@ function DashboardPage({
   schedule,
   completed,
   userProfile,
+  workspaceLoaded = true,
+  showSetupChecklist = true,
   subjects = [],
   setSubjects,
   hasActiveSchedule,
@@ -807,6 +810,15 @@ function DashboardPage({
           </div>
         )}
       </div>
+
+      {showSetupChecklist && userProfile?.setupChecklistEnabled && workspaceLoaded && academicProfileDataId && (
+        <DashboardSetupChecklist
+          academicProfileDataId={academicProfileDataId}
+          key={academicProfileDataId}
+          schedule={schedule}
+          subjects={subjects}
+        />
+      )}
 
       {configureSubject && (
         <SubjectPlanDialog

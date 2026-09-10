@@ -9,6 +9,7 @@ import webpush from "web-push";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import registerExamRoutes, { isGroqJsonGenerationFailure } from "./examRoutes.js";
+import { getStudentOnboardingState, validateStudentDetails } from "../src/utils/studentOnboarding.js";
 import { normalizeGeneratedQuestions } from "./generatedQuizQuestions.js";
 import {
   buildChatAttachmentUserContent,
@@ -426,7 +427,7 @@ function sanitizeUser(user) {
     academicProfiles: academicProfilesState.academicProfiles,
     activeAcademicProfileId: academicProfilesState.activeAcademicProfileId,
     profileImage: user.profileImage || "",
-    needsOnboardingGuide: user.onboardingGuidePending === true,
+    ...getStudentOnboardingState(user),
     createdAt: user.createdAt,
   };
 }
@@ -1124,6 +1125,8 @@ app.post("/api/auth/register", async (req, res) => {
       academicProfileDataVersion: ACADEMIC_PROFILE_DATA_VERSION,
       sharedDarkMode: false,
       onboardingGuidePending: true,
+      profileDetailsPending: true,
+      setupChecklistEnabled: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -1441,6 +1444,16 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
     const update = {};
     const unset = {};
     const requestedProfile = req.body ?? {};
+
+    if (requestedProfile.completeOnboardingProfile === true) {
+      const details = validateStudentDetails({ username, age });
+      if (details.error) return res.status(400).json({ error: details.error });
+      Object.assign(update, details, { profileDetailsPending: false, onboardingGuidePending: false });
+    } else if (currentUser.profileDetailsPending === true && username !== undefined && age !== undefined) {
+      const details = validateStudentDetails({ username, age });
+      // Ordinary Settings saves may still omit age after the student chooses Later.
+      if (!details.error) update.profileDetailsPending = false;
+    }
 
     if (username) update.username = username.trim();
 

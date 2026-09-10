@@ -1735,7 +1735,15 @@ function ExamPage({
   return (
     <section className="page-stack exam-page">
       <header className="exam-page__header">
-        <div><span className="section-tag">Exam workspace</span><h2>Practice under pressure. Prepare with precision.</h2><p>Attend secure online exams, create exact question papers, and review results after release.</p></div>
+        <div>
+          <span className="section-tag">Exam workspace</span>
+          {section === "overview" ? (
+            <>
+              <h2>Practice under pressure. Prepare with precision.</h2>
+              <p>Attend secure online exams, create exact question papers, and review results after release.</p>
+            </>
+          ) : null}
+        </div>
         <button className="exam-about-btn" onClick={() => navigate("/exam/about")} title="How the Exam workspace works" type="button"><Info size={16} /><span>About</span></button>
       </header>
 

@@ -1,0 +1,43 @@
+.dashboard-setup {
+  position: fixed;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 80;
+  width: min(340px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-strong);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(20px);
+}
+body .dashboard-setup .dashboard-setup-toggle {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 54px;
+  padding: 14px 16px; border: 0; border-radius: 0; color: var(--text); background: transparent;
+  font-size: 14px; text-align: left; transform: none; box-shadow: none;
+}
+.dashboard-setup-toggle strong { flex: 1; }
+.dashboard-setup-toggle > span { color: var(--text-muted); font-size: 12px; }
+.dashboard-setup-intro { margin: 0; padding: 0 16px; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.dashboard-setup progress { display: block; width: calc(100% - 32px); height: 5px; margin: 12px 16px; border: 0; border-radius: 5px; accent-color: var(--accent); overflow: hidden; }
+.dashboard-setup progress::-webkit-progress-bar { background: var(--surface-muted); }
+.dashboard-setup progress::-webkit-progress-value { background: var(--accent); }
+.dashboard-setup ol { list-style: none; padding: 0 10px 10px; margin: 0; }
+.dashboard-setup li { display: flex; align-items: flex-start; gap: 10px; padding: 12px 8px; border-radius: 12px; }
+.dashboard-setup li.is-next { background: var(--accent-soft); }
+.dashboard-setup-icon { display: flex; padding-top: 2px; color: var(--text-muted); }
+.dashboard-setup li > div { flex: 1; min-width: 0; }
+.dashboard-setup li strong { display: block; font-size: 13px; line-height: 1.5; font-weight: 600; }
+.dashboard-setup li small { padding-top: 3px; color: var(--accent-strong); font-size: 10px; font-weight: 700; }
+.dashboard-setup li a { display: inline-flex; align-items: center; min-height: 32px; margin-top: 6px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text); background: var(--surface-muted); text-decoration: none; }
+.dashboard-setup .is-next a { background: var(--accent-strong); color: white; }
+.dashboard-setup .is-complete .dashboard-setup-icon { color: var(--accent); }
+.dashboard-setup-done { display: block; margin-top: 2px; color: var(--text-muted); font-size: 11px; }
+.dashboard-setup-status { padding: 0 16px 12px; margin: 0; font-size: 12px; color: var(--text-muted); }
+body .dashboard-setup-status button { min-height: 32px; padding: 4px 8px; border-radius: 8px; font-size: 12px; }
+.dashboard-setup :is(button, a):focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (max-width: 600px) {
+  .dashboard-setup { right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); }
+}

@@ -3,14 +3,19 @@ import { useLocation } from "react-router-dom";
 import api from "../utils/apiClient";
 import { getLearnerRoutePolicy } from "../utils/learnerRouting";
 import PrepMatrixGuideDialog from "./PrepMatrixGuideDialog";
+import StudentDetailsDialog from "./StudentDetailsDialog";
 
-function FirstLoginGuideCoordinator() {
+function FirstLoginGuideCoordinator({ onUserUpdated }) {
   const location = useLocation();
   const checkGenerationRef = useRef(0);
   const checkedSessionRef = useRef(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [academicProfile, setAcademicProfile] = useState({});
   const [userName, setUserName] = useState("");
+  const [student, setStudent] = useState(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const onUserUpdatedRef = useRef(onUserUpdated);
+  useEffect(() => { onUserUpdatedRef.current = onUserUpdated; }, [onUserUpdated]);
   const isAuthRoute = location.pathname === "/login" || location.pathname === "/register";
 
   useEffect(() => {
@@ -23,6 +28,8 @@ function FirstLoginGuideCoordinator() {
       setGuideOpen(false);
       setAcademicProfile({});
       setUserName("");
+      setStudent(null);
+      setDetailsOpen(false);
       return undefined;
     }
 
@@ -65,11 +72,13 @@ function FirstLoginGuideCoordinator() {
               // The main kids route owns access errors and recovery messaging.
             }
           }
+          if (generation !== checkGenerationRef.current) return;
           checkedSessionRef.current = true;
-          if (!user?.needsOnboardingGuide) return;
+          setStudent(user);
           setAcademicProfile(routePolicy.academicProfile);
           setUserName(user.username || "");
-          setGuideOpen(true);
+          setGuideOpen(user.needsOnboardingGuide === true);
+          setDetailsOpen(!user.needsOnboardingGuide && user.needsProfileDetails === true);
         })
         .catch(() => {
           // App handles expired sessions and backend availability messaging.
@@ -95,19 +104,39 @@ function FirstLoginGuideCoordinator() {
 
   const closeGuide = useCallback(() => {
     setGuideOpen(false);
-    api.put("/api/auth/onboarding-guide", {}).catch(() => {
+    setDetailsOpen(student?.needsProfileDetails === true);
+    const generation = checkGenerationRef.current;
+    api.put("/api/auth/onboarding-guide", {}).then(() => {
+      if (generation === checkGenerationRef.current) {
+        onUserUpdatedRef.current?.({ id: student?.id, needsOnboardingGuide: false });
+      }
+    }).catch(() => {
       // Keep the server flag pending so the guide can be offered again later.
     });
-  }, []);
+  }, [student]);
 
   return (
-    <PrepMatrixGuideDialog
-      academicProfile={academicProfile}
-      onClose={closeGuide}
-      open={guideOpen}
-      userName={userName}
-      variant="onboarding"
-    />
+    <>
+      <PrepMatrixGuideDialog
+        academicProfile={academicProfile}
+        onClose={closeGuide}
+        open={guideOpen}
+        userName={userName}
+        variant="onboarding"
+      />
+      {!guideOpen && detailsOpen && student && (
+        <StudentDetailsDialog
+          key={student.id}
+          onLater={() => setDetailsOpen(false)}
+          onSaved={(saved) => {
+            setDetailsOpen(false);
+            setStudent(saved);
+            onUserUpdatedRef.current?.(saved);
+          }}
+          user={student}
+        />
+      )}
+    </>
   );
 }
 

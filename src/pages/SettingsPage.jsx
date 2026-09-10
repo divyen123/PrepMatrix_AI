@@ -486,6 +486,8 @@ function SettingsPage({
   // Account settings state
   const [username, setUsername] = useState(userProfile?.username || "");
   const [age, setAge] = useState(userProfile?.age || "");
+  useEffect(() => { setUsername(userProfile?.username || ""); }, [userProfile?.username]);
+  useEffect(() => { setAge(userProfile?.age || ""); }, [userProfile?.age]);
   const [institutionName, setInstitutionName] = useState(userProfile?.institutionName || "");
   const [academicDrafts, setAcademicDrafts] = useState(() => createSettingsAcademicDrafts(
     initialAcademicProfile,

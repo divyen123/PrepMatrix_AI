@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Notification from "./components/Notification";
+import FirstLoginGuideCoordinator from "./components/FirstLoginGuideCoordinator";
+import { mergeOnboardingProfile } from "./utils/studentOnboarding.js";
 import Chatbot from "./components/Chatbot";
 import VoiceAssistant from "./components/VoiceAssistant";
 import VoiceAssistantOverlay from "./components/VoiceAssistantOverlay";
@@ -3236,13 +3238,16 @@ function App() {
                               onEntryWelcomeConsumed={consumeDashboardWelcome}
                               showEntryVoiceHint={dashboardVoiceHintPending
                                 && !entrySplash
-                                && !userProfile.needsOnboardingGuide}
+                                && !userProfile.needsOnboardingGuide
+                                && !userProfile.needsProfileDetails}
                               onEntryVoiceHintConsumed={consumeDashboardVoiceEntryHint}
                               completed={completed}
                               metrics={metrics}
                               overviewCards={overviewCards}
                               schedule={schedule}
                               userProfile={userProfile}
+                              workspaceLoaded={workspaceLoaded}
+                              showSetupChecklist={!appLocked && !logoutConfirmOpen && logoutTransitionPhase === "idle"}
                               subjects={subjects}
                               setSubjects={updateSubjects}
                               hasActiveSchedule={schedule.length > 0}
@@ -3723,6 +3728,12 @@ function App() {
         toastClassName="prepmatrix-toast"
       />
       <PwaManager />
+      {!authLoading && userProfile && !appLocked && (
+        <FirstLoginGuideCoordinator
+          key={userProfile.id}
+          onUserUpdated={(saved) => setUserProfile((current) => mergeOnboardingProfile(current, saved))}
+        />
+      )}
       </div>
     </>
   );
