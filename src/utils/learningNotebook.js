@@ -791,7 +791,7 @@ function normalizeCareerTopicQuestions(value, topicId) {
     return [{
       id: cleanIdentifier(source.id, `${topicId}-question-${index + 1}`),
       question,
-      guidance: cleanContent(source.guidance ?? source.answer ?? source.explanation, 2200),
+      guidance: cleanContent(source.answer, 2200) || cleanContent(source.guidance ?? source.explanation, 2200),
     }];
   });
 }

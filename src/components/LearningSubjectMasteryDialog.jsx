@@ -116,7 +116,6 @@ function LearningSubjectMasteryDialog({
   const onCloseRef = useRef(onClose);
   const previousFocusRef = useRef(null);
   const titleId = useId();
-  const descriptionId = useId();
   const rows = useMemo(() => masteryRows(notebooks, now), [notebooks, now]);
   const totals = useMemo(() => rows.reduce((summary, row) => ({
     learned: summary.learned + row.learnedCount,
@@ -192,7 +191,6 @@ function LearningSubjectMasteryDialog({
       role="presentation"
     >
       <section
-        aria-describedby={descriptionId}
         aria-labelledby={titleId}
         aria-modal="true"
         className="learning-subject-mastery-dialog"
@@ -207,9 +205,6 @@ function LearningSubjectMasteryDialog({
           <div>
             <span className="learning-subject-mastery-eyebrow">Learning progress</span>
             <h2 id={titleId}>Subject mastery</h2>
-            <p id={descriptionId}>
-              Learned topics compared with each notebook&apos;s complete topic set.
-            </p>
           </div>
           <button
             aria-label="Close subject mastery"

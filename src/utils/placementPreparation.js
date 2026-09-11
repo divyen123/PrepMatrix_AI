@@ -240,6 +240,18 @@ export function buildPlacementItemGuidance({
   topic,
 } = {}) {
   const isInterview = kind === "interview";
+  if (isInterview) {
+    const answer = [item?.answer, item?.guidance, item?.explanation]
+      .map((value) => cleanText(value, 2200)).find(Boolean) || "";
+    // Remove only the stock additions used by older versions; keep the saved answer.
+    const directAnswer = answer
+      .replaceAll("Answer framework: clarify the question, state the core idea, walk through one concrete example, discuss the important trade-off, and finish with a concise takeaway.", "")
+      .replaceAll("Coding guidance: clarify inputs and constraints, outline a baseline and an optimized approach, state time and space complexity, trace edge cases, then implement and test the code with normal, boundary, and invalid cases.", "")
+      .replace(/^(?:answer|model answer|sample answer):\s*/iu, "")
+      .replace(/^(?:mention|state|explain|note) that\s+/iu, "")
+      .trim();
+    return directAnswer;
+  }
   const label = cleanText(
     isInterview ? item?.question ?? item : item?.title ?? item?.text ?? item,
     700,
@@ -249,16 +261,10 @@ export function buildPlacementItemGuidance({
   const sections = [];
 
   if (suppliedGuidance) sections.push(suppliedGuidance);
-  if (isInterview) {
-    sections.push(
-      "Answer framework: clarify the question, state the core idea, walk through one concrete example, discuss the important trade-off, and finish with a concise takeaway.",
-    );
-  } else {
-    sections.push(
-      `Practice goal: ${label || "Complete the task independently"}. Work once with guidance, repeat from memory, then explain what changed and why.`,
-      "Completion check: record the result, one mistake you corrected, and the next variation you can solve without help.",
-    );
-  }
+  sections.push(
+    `Practice goal: ${label || "Complete the task independently"}. Work once with guidance, repeat from memory, then explain what changed and why.`,
+    "Completion check: record the result, one mistake you corrected, and the next variation you can solve without help.",
+  );
   if (coding) {
     sections.push(
       "Coding guidance: clarify inputs and constraints, outline a baseline and an optimized approach, state time and space complexity, trace edge cases, then implement and test the code with normal, boundary, and invalid cases.",
@@ -335,6 +341,7 @@ export function buildPlacementChatPrompt({
   targetRole,
   topic,
 } = {}) {
+  const isInterview = target?.kind === "interview";
   const coding = isCodingPlacementItem({ item: target, topic });
   const normalizedPreparationSource = normalizePlacementPreparationSource(
     preparationSource ?? target?.metadata?.preparationSource,
@@ -344,7 +351,9 @@ export function buildPlacementChatPrompt({
     || normalizedPreparationSource.label;
   const customWorkspace = notebook?.artifactKind === "placement-workspace";
   return [
-    "Coach me on this placement preparation item using an interactive, interview-ready explanation.",
+    isInterview
+      ? "Answer this exact interview question directly with a complete, interview-ready model answer."
+      : "Coach me on this placement preparation item using an interactive, interview-ready explanation.",
     preparationContext
       ? `Learner-provided preparation context:\n${preparationContext}`
       : "",
@@ -358,9 +367,12 @@ export function buildPlacementChatPrompt({
     cleanText(topic?.title, 180) ? `Preparation topic: ${cleanText(topic.title, 180)}.` : "",
     `Item: ${cleanText(target?.title, 700)}.`,
     cleanText(target?.explanation, 2400) ? `Current guidance:\n${cleanText(target.explanation, 2400)}` : "",
-    coding
+    isInterview
+      ? "Use concise bullet points with the specific facts, reasoning, and examples needed to answer every part of the question. Include code or pseudocode, actual complexity, and edge cases only if the question asks for a coding solution. Do not substitute a generic answer framework or coding checklist, and do not withhold the answer behind a practice question."
+      : coding
       ? "Include an approach comparison, complexity analysis, edge cases, a code-oriented walkthrough, and a small practice challenge."
       : "Include a strong answer structure, one concrete example, likely follow-up questions, and a short practice challenge.",
-    "Keep the response practical and ask me to attempt the final check before revealing a model answer.",
+    isInterview ? "Put the answer first, then add a relevant follow-up only if helpful."
+      : "Keep the response practical and ask me to attempt the final check before revealing a model answer.",
   ].filter(Boolean).join("\n\n");
 }

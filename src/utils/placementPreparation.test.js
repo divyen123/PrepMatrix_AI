@@ -4,6 +4,7 @@ import { upsertLearningPlannerTask } from "./learningPlanner.js";
 import {
   buildPlacementActionTarget,
   buildPlacementChatPrompt,
+  buildPlacementItemGuidance,
   clearPlacementHistory,
   createPlacementDraft,
   deletePlacementHistoryEntry,
@@ -139,8 +140,8 @@ test("builds stable coding targets with note, planner, and editable chat context
   assert.equal(first.id, second.id);
   assert.equal(first.unitKey, first.id);
   assert.equal(first.metadata.notebookId, "notebook-1");
-  assert.match(first.explanation, /Coding guidance/u);
-  assert.match(first.explanation, /time and space complexity/u);
+  assert.equal(first.explanation, item.guidance);
+  assert.doesNotMatch(first.explanation, /Answer framework|Coding guidance/u);
 
   const planner = upsertLearningPlannerTask(
     [{ day: 1, date: "2026-08-09", tasks: [] }],
@@ -161,8 +162,9 @@ test("builds stable coding targets with note, planner, and editable chat context
     topic,
   });
   assert.match(prompt, /Target role: Backend intern/u);
-  assert.match(prompt, /code-oriented walkthrough/u);
-  assert.match(prompt, /attempt the final check/u);
+  assert.match(prompt, /complete, interview-ready model answer/u);
+  assert.match(prompt, /only if the question asks for a coding solution/u);
+  assert.doesNotMatch(prompt, /ask me to attempt the final check/u);
 });
 
 test("normalizes and preserves learner-provided preparation context in hidden workspace history", () => {
@@ -249,4 +251,29 @@ test("detects language-specific practice text as coding guidance", () => {
 
   assert.match(target.explanation, /Coding guidance/u);
   assert.match(target.explanation, /implement and test the code/u);
+});
+
+test("each interview check returns its own answer without role-wide coding boilerplate", () => {
+  const topic = { title: "OSI Model", whyItMatters: "Full Stack developers work with application protocols." };
+  const answers = [
+    { question: "Name the OSI layers from bottom to top.", guidance: "Physical, Data Link, Network, Transport, Session, Presentation, Application." },
+    { question: "At which OSI layer does HTTP operate?", guidance: "HTTP is an Application-layer protocol, at layer 7." },
+  ];
+  for (const item of answers) {
+    const answer = buildPlacementItemGuidance({ item, topic, kind: "interview", codingRelevant: true });
+    assert.equal(answer, item.guidance);
+    assert.doesNotMatch(answer, /Answer framework|Coding guidance|inputs and constraints/u);
+  }
+});
+
+test("uses explicit model answers, cleans legacy wrappers, and does not invent missing answers", () => {
+  assert.equal(buildPlacementItemGuidance({ kind: "interview", item: {
+    question: "How does TCP differ from UDP?",
+    guidance: "Compare protocols.", answer: "TCP provides a reliable, ordered byte stream. UDP sends independent datagrams without delivery or ordering guarantees.",
+  } }), "TCP provides a reliable, ordered byte stream. UDP sends independent datagrams without delivery or ordering guarantees.");
+  const boilerplate = "Answer framework: clarify the question, state the core idea, walk through one concrete example, discuss the important trade-off, and finish with a concise takeaway.";
+  assert.equal(buildPlacementItemGuidance({ kind: "interview", item: {
+    guidance: `Mention that HTTP operates at the Application layer.\n\n${boilerplate}`,
+  } }), "HTTP operates at the Application layer.");
+  assert.equal(buildPlacementItemGuidance({ kind: "interview", item: "A question without a saved answer?" }), "");
 });

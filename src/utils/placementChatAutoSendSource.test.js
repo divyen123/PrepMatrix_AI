@@ -14,11 +14,11 @@ test("placement preparation Ask AI opens a fresh chat and opts into automatic su
   assert.ok(askSource.includes("createNewChat: true"));
   assert.ok(askSource.includes("autoSend: true"));
   assert.ok(askSource.includes("message: buildPlacementChatPrompt({"));
-  assert.equal(
-    startLearningSource.match(/askPlacementItemAI\(target, topic\)/gu)?.length,
-    2,
-    "Interview checks and Practice next should share the automatic Ask AI launch",
-  );
+  assert.match(startLearningSource, /onAskAI=\{askPlacementItemAI\}/u);
+  const cardSource = readFileSync(new URL("../components/PlacementPrepTopicCard.jsx", import.meta.url), "utf8");
+  assert.match(cardSource, /onAskAI\(target, topic\)/u);
+  assert.equal(cardSource.match(/\{renderActions\(target\)\}/gu)?.length, 2,
+    "Interview checks and Practice next should share the automatic Ask AI launch");
 });
 
 test("Chatbot commits fresh-chat state before consuming an external auto-send once", () => {

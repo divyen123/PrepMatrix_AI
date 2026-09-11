@@ -34,7 +34,7 @@ import { createPortal } from "react-dom";
 import { jsPDF } from "jspdf";
 import { useLocation, useNavigate } from "react-router-dom";
 import LearningMasteryMap from "../components/LearningMasteryMap";
-import PlacementPrepDisclosure from "../components/PlacementPrepDisclosure";
+import PlacementPrepTopicCard from "../components/PlacementPrepTopicCard";
 import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDialog";
 import LearningStudyStudio from "../components/LearningStudyStudio";
 import MedicalTrainingLab from "../components/MedicalTrainingLab";
@@ -4814,84 +4814,17 @@ function StartLearningPage({
                 </div>
                 <div className="learning-career-analysis-grid">
                   {listFrom(careerAnalysis.topics).map((topic, index) => (
-                    <article key={topic?.id || topic?.title || index}>
-                      <span>{String(index + 1).padStart(2, "0")}</span>
-                      <h4>{cleanText(topic?.title, 180)}</h4>
-                      <p>{cleanText(topic?.explanation, 3000)}</p>
-                      {cleanText(topic?.whyItMatters, 900) && (
-                        <aside><strong>Why it matters</strong>{cleanText(topic.whyItMatters, 900)}</aside>
-                      )}
-                      {listFrom(topic?.interviewQuestions).length > 0 && (
-                        <div>
-                          <h5>Interview checks</h5>
-                          {listFrom(topic.interviewQuestions).map((question, questionIndex) => {
-                            const target = placementActionTarget(topic, question, "interview", questionIndex);
-                            const noteOptions = placementNoteOptions(target);
-                            return (
-                              <PlacementPrepDisclosure
-                                key={target.id}
-                                label={cleanText(question?.question || question, 500)}
-                              >
-                                {target.explanation.split(/\n{2,}/).map((paragraph, guidanceIndex) => (
-                                  <p key={`${target.id}-guidance-${guidanceIndex}`}>{paragraph}</p>
-                                ))}
-                                <div className="learning-career-item-actions">
-                                  <button
-                                    disabled={isLearningNoteSaving(target, noteOptions)}
-                                    onClick={() => savePlacementItem(target)}
-                                    type="button"
-                                  >
-                                    <Save size={14} /> {isLearningNoteSaving(target, noteOptions) ? "Saving..." : "Save"}
-                                  </button>
-                                  <button onClick={() => askPlacementItemAI(target, topic)} type="button">
-                                    <MessageSquareText size={14} /> Ask AI
-                                  </button>
-                                  <button onClick={() => openPlannerForNode(target)} type="button">
-                                    <CalendarPlus size={14} /> Add to planner
-                                  </button>
-                                </div>
-                              </PlacementPrepDisclosure>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {listFrom(topic?.practiceSteps).length > 0 && (
-                        <div>
-                          <h5>Practice next</h5>
-                          <div className="learning-career-practice-list">
-                            {listFrom(topic.practiceSteps).map((step, stepIndex) => {
-                              const target = placementActionTarget(topic, step, "practice", stepIndex);
-                              const noteOptions = placementNoteOptions(target);
-                              return (
-                                <PlacementPrepDisclosure
-                                  key={target.id}
-                                  label={cleanText(step?.title || step?.text || step, 500)}
-                                >
-                                  {target.explanation.split(/\n{2,}/).map((paragraph, guidanceIndex) => (
-                                    <p key={`${target.id}-guidance-${guidanceIndex}`}>{paragraph}</p>
-                                  ))}
-                                  <div className="learning-career-item-actions">
-                                    <button
-                                      disabled={isLearningNoteSaving(target, noteOptions)}
-                                      onClick={() => savePlacementItem(target)}
-                                      type="button"
-                                    >
-                                      <Save size={14} /> {isLearningNoteSaving(target, noteOptions) ? "Saving..." : "Save"}
-                                    </button>
-                                    <button onClick={() => askPlacementItemAI(target, topic)} type="button">
-                                      <MessageSquareText size={14} /> Ask AI
-                                    </button>
-                                    <button onClick={() => openPlannerForNode(target)} type="button">
-                                      <CalendarPlus size={14} /> Add to planner
-                                    </button>
-                                  </div>
-                                </PlacementPrepDisclosure>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </article>
+                    <PlacementPrepTopicCard
+                      key={topic?.id || topic?.title || index}
+                      topic={topic}
+                      index={index}
+                      getActionTarget={placementActionTarget}
+                      getNoteOptions={placementNoteOptions}
+                      isSaving={isLearningNoteSaving}
+                      onSave={savePlacementItem}
+                      onAskAI={askPlacementItemAI}
+                      onAddToPlanner={openPlannerForNode}
+                    />
                   ))}
                 </div>
                 {listFrom(careerAnalysis.preparationPlan).length > 0 && (

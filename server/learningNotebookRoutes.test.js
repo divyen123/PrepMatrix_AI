@@ -3391,6 +3391,10 @@ test("uses Gemini structured output for career topics and returns a normalized t
   assert.equal(harness.updates.length, 0);
   assert.equal(res.body.transient, true);
   assert.equal(res.body.notebook.careerPreparation.topicAnalysis.topics.length, 0);
+  const careerPrompt = requests[0].body.contents[0].parts[0].text;
+  assert.match(careerPrompt, /explanation as 4-7 concise bullet points/u);
+  assert.match(careerPrompt, /guidance field must contain a complete model answer to that exact question/u);
+  assert.match(careerPrompt, /a computing topic alone does not make a conceptual question a coding task/u);
   assert.equal(res.body.topicAnalysis.targetRole, "Backend engineering intern");
   assert.deepEqual(res.body.topicAnalysis.topics.map((topic) => topic.title), ["Arrays", "Graphs"]);
   assert.ok(res.body.topicAnalysis.topics[0].explanation.length > 20);

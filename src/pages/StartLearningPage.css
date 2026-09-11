@@ -3344,6 +3344,7 @@ body .learning-career-save:hover:not(:disabled) {
 
 .learning-career-analysis-grid > article {
   display: grid;
+  align-content: start;
   min-width: 0;
   gap: 9px;
   padding: 16px;
@@ -3352,8 +3353,24 @@ body .learning-career-save:hover:not(:disabled) {
   border-radius: 15px;
 }
 
-.learning-career-analysis-grid > article > span {
+.learning-career-topic-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.learning-career-topic-heading h4 {
+  flex: 1;
+  min-width: 0;
+  padding-top: 3px;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.learning-career-topic-number {
   display: grid;
+  flex: 0 0 32px;
   width: 32px;
   height: 32px;
   place-items: center;
@@ -3430,6 +3447,37 @@ body .learning-career-save:hover:not(:disabled) {
   margin: 0;
   padding-left: 17px;
 }
+
+.learning-career-points {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.learning-career-analysis-grid .learning-career-points ul {
+  gap: 8px;
+  padding-left: 20px;
+}
+
+.learning-career-points li::marker { color: var(--accent); }
+.learning-career-points li code { font-size: .92em; }
+.learning-career-points pre {
+  max-width: 100%;
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-muted);
+  color: var(--text);
+  font-size: .8rem;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.learning-career-answer { padding: 0 13px 12px; }
+.learning-career-answer-label { display: block; margin-bottom: 8px; font-size: .82rem; color: var(--text); }
 
 .learning-career-plan {
   display: grid;

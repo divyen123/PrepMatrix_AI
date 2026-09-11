@@ -60,6 +60,7 @@ test("toggles local disclosure state and animates content without a fixed height
     new URL("../pages/StartLearningPage.jsx", import.meta.url),
     "utf8",
   );
+  const cardSource = readFileSync(new URL("./PlacementPrepTopicCard.jsx", import.meta.url), "utf8");
   const stylesheet = readFileSync(
     new URL("../pages/StartLearningPage.css", import.meta.url),
     "utf8",
@@ -68,9 +69,10 @@ test("toggles local disclosure state and animates content without a fixed height
   assert.match(componentSource, /setIsOpen\(\(current\) => !current\)/u);
   assert.match(componentSource, /aria-controls=\{panelId\}/u);
   assert.match(componentSource, /inert=\{!isOpen\}/u);
-  assert.equal((pageSource.match(/<PlacementPrepDisclosure/gu) || []).length, 2);
-  assert.match(pageSource, /<h5>Interview checks<\/h5>[\s\S]*?<PlacementPrepDisclosure/u);
-  assert.match(pageSource, /<h5>Practice next<\/h5>[\s\S]*?<PlacementPrepDisclosure/u);
+  assert.match(pageSource, /<PlacementPrepTopicCard/u);
+  assert.equal((cardSource.match(/<PlacementPrepDisclosure/gu) || []).length, 2);
+  assert.match(cardSource, /<h5>Interview checks<\/h5>[\s\S]*?<PlacementPrepDisclosure/u);
+  assert.match(cardSource, /<h5>Practice next<\/h5>[\s\S]*?<PlacementPrepDisclosure/u);
   assert.doesNotMatch(pageSource, /<details className="learning-career-item-details"/u);
 
   assert.match(stylesheet, /\.learning-career-item-panel\s*\{[\s\S]*?grid-template-rows:\s*0fr[\s\S]*?opacity:\s*0[\s\S]*?grid-template-rows 300ms/u);

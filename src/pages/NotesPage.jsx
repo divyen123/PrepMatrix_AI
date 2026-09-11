@@ -107,6 +107,7 @@ function NotesPage({
   const notesDesktopSearchRef = useRef(null);
   const notesMobileSearchRef = useRef(null);
   const noteCaptureTopicRef = useRef(null);
+  const noteUtilityDialogRef = useRef(null);
   const curriculumExamples = useMemo(
     () => getAcademicProfileExamples(userProfile),
     [userProfile],
@@ -149,6 +150,45 @@ function NotesPage({
     document.addEventListener("keydown", handleNotesKeyboardShortcut);
     return () => document.removeEventListener("keydown", handleNotesKeyboardShortcut);
   }, [isCaptureOpen, isStatusOpen, selectedNoteId]);
+
+  useEffect(() => {
+    if (!isCaptureOpen && !isStatusOpen) return;
+    const previousFocus = document.activeElement;
+    const releaseScrollLock = acquireDocumentScrollLock();
+    const focusFrame = window.requestAnimationFrame(() => {
+      const initialFocus = isCaptureOpen
+        ? noteCaptureTopicRef.current
+        : noteUtilityDialogRef.current?.querySelector("button");
+      initialFocus?.focus({ preventScroll: true });
+    });
+    const handleDialogKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsCaptureOpen(false);
+        setIsStatusOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const controls = [...(noteUtilityDialogRef.current?.querySelectorAll(
+        'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled)',
+      ) || [])];
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (!controls.includes(document.activeElement)
+        || (event.shiftKey && document.activeElement === first)
+        || (!event.shiftKey && document.activeElement === last)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first)?.focus();
+      }
+    };
+    document.addEventListener("keydown", handleDialogKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleDialogKeyDown);
+      releaseScrollLock();
+      if (previousFocus?.isConnected) previousFocus.focus?.({ preventScroll: true });
+    };
+  }, [isCaptureOpen, isStatusOpen]);
 
   const canManageSchedule = !kidsMode || parentAccessGranted;
   const requestParentPlannerAccess = () => {
@@ -1214,7 +1254,7 @@ function NotesPage({
 
       {isCaptureOpen && createPortal(
         <div
-          className="learning-dialog-backdrop"
+          className="note-details-overlay notes-dialog-overlay"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setIsCaptureOpen(false);
           }}
@@ -1222,20 +1262,22 @@ function NotesPage({
         >
           <form
             aria-labelledby="note-capture-title"
+            aria-describedby="note-capture-description"
             aria-modal="true"
-            className="card notes-form-card notes-modal-card"
+            className="note-details-dialog notes-form-card notes-modal-card"
             onSubmit={addNote}
+            ref={noteUtilityDialogRef}
             role="dialog"
           >
-            <div className="learning-dialog-header">
+            <div className="notes-dialog-header">
               <div>
                 <span className="section-tag">Capture</span>
                 <h3 id="note-capture-title">Add a study note</h3>
-                <p className="card-desc">
+                <p className="card-desc" id="note-capture-description">
                   Save doubts, questions, and revision reminders before they disappear.
                 </p>
               </div>
-              <button aria-label="Close" onClick={() => setIsCaptureOpen(false)} type="button">
+              <button aria-label="Close" className="note-details-close" onClick={() => setIsCaptureOpen(false)} type="button">
                 <X size={17} />
               </button>
             </div>
@@ -1282,7 +1324,7 @@ function NotesPage({
 
       {isStatusOpen && createPortal(
         <div
-          className="learning-dialog-backdrop"
+          className="note-details-overlay notes-dialog-overlay"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setIsStatusOpen(false);
           }}
@@ -1291,15 +1333,16 @@ function NotesPage({
           <article
             aria-labelledby="note-status-title"
             aria-modal="true"
-            className="card notes-summary-card notes-modal-card"
+            className="note-details-dialog notes-summary-card notes-modal-card"
+            ref={noteUtilityDialogRef}
             role="dialog"
           >
-            <div className="learning-dialog-header">
+            <div className="notes-dialog-header">
               <div>
                 <span className="section-tag">Board status</span>
                 <h3 id="note-status-title">Doubt metrics</h3>
               </div>
-              <button aria-label="Close" onClick={() => setIsStatusOpen(false)} type="button">
+              <button aria-label="Close" className="note-details-close" onClick={() => setIsStatusOpen(false)} type="button">
                 <X size={17} />
               </button>
             </div>
