@@ -104,6 +104,32 @@ body .cmx-page .cmx-terminal-hint button { min-height: 26px; padding: 3px 8px; b
 .cmx-reset { padding: 8px 14px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; background: #332c20; color: #e8ca9e; font-size: 11px; }
 body .cmx-reset button { color: #e8ca9e; border-color: #675136; padding: 5px 8px; }
 .cmx-loading { display: flex; align-items: center; justify-content: center; min-height: 50vh; color: var(--text-muted); }
+/* Use the space reclaimed by the desktop top bar without stretching the page. */
+@media (min-width: 992px) and (hover: hover) and (pointer: fine) {
+  .app-main-content.topbar-auto-hide-enabled:not(.topbar-visible) > .workspace-main:has(.cmx-page.is-compiler) {
+    height: 100dvh;
+    flex: 0 0 auto;
+  }
+  .app-main-content.topbar-auto-hide-enabled:not(.topbar-visible) .route-stage:has(> .cmx-page.is-compiler) {
+    flex: 1;
+    min-height: 0;
+  }
+  .app-main-content.topbar-auto-hide-enabled:not(.topbar-visible) .cmx-page.is-compiler {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    padding-bottom: 0;
+  }
+  .app-main-content.topbar-auto-hide-enabled:not(.topbar-visible) .cmx-page.is-compiler > :not(.cmx-workbench) {
+    flex-shrink: 0;
+  }
+  .app-main-content.topbar-auto-hide-enabled:not(.topbar-visible) .cmx-workbench {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+}
 .cmx-spin { animation: cmx-spin 1s linear infinite; }
 @keyframes cmx-spin { to { transform: rotate(360deg); } }
 @media (max-width: 1000px) { .cmx-runtime-label { display: none; } .cmx-header-actions { justify-content: flex-start; } }

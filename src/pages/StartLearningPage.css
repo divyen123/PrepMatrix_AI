@@ -2292,8 +2292,14 @@ body .learning-dialog-header > button {
   gap: 14px;
 }
 
+.learning-intake-source-panel.is-workspace-choice {
+  align-self: start;
+  padding: 6px 0;
+}
+
 .learning-intake-choice {
   display: grid;
+  align-content: start;
   gap: 18px;
   min-height: 100%;
 }
@@ -2302,6 +2308,12 @@ body .learning-dialog-header > button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+body .learning-page .learning-intake-choice-card:last-child:nth-child(3) {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: calc((100% - 14px) / 2);
 }
 
 body .learning-page .learning-intake-choice-card {
@@ -2313,12 +2325,20 @@ body .learning-page .learning-intake-choice-card {
   gap: 7px 12px;
   padding: 18px;
   color: var(--text) !important;
-  background: linear-gradient(145deg, rgba(var(--choice-rgb), 0.09), transparent 58%), var(--surface-muted) !important;
-  border: 1px solid rgba(var(--choice-rgb), 0.2) !important;
+  background: linear-gradient(145deg, rgba(var(--choice-rgb), 0.16), rgba(var(--choice-rgb), 0.035)), var(--surface-muted) !important;
+  border: 1px solid rgba(var(--choice-rgb), 0.3) !important;
   border-radius: 18px;
   box-shadow: none !important;
   text-align: left;
   transform: none !important;
+}
+
+body .learning-page .learning-intake-choice-card.is-code-matrix {
+  --choice-rgb: 59, 130, 246;
+}
+
+body .learning-page .learning-intake-choice-card.is-notebook {
+  --choice-rgb: 20, 184, 166;
 }
 
 body .learning-page .learning-intake-choice-card.is-placement {
@@ -2326,7 +2346,7 @@ body .learning-page .learning-intake-choice-card.is-placement {
 }
 
 body .learning-page .learning-intake-choice-card.is-medical {
-  --choice-rgb: 41, 168, 150;
+  --choice-rgb: 214, 163, 38;
 }
 
 .learning-intake-choice-card > span {
@@ -2335,7 +2355,7 @@ body .learning-page .learning-intake-choice-card.is-medical {
   height: 42px;
   grid-row: 1 / span 3;
   place-items: center;
-  color: rgb(var(--choice-rgb));
+  color: color-mix(in srgb, rgb(var(--choice-rgb)) 60%, var(--text));
   background: rgba(var(--choice-rgb), 0.12);
   border: 1px solid rgba(var(--choice-rgb), 0.18);
   border-radius: 13px;
@@ -2353,7 +2373,7 @@ body .learning-page .learning-intake-choice-card.is-medical {
 }
 
 .learning-intake-choice-card > em {
-  color: rgb(var(--choice-rgb));
+  color: color-mix(in srgb, rgb(var(--choice-rgb)) 60%, var(--text));
   font-size: 0.66rem;
   font-style: normal;
   font-weight: 800;
@@ -2368,8 +2388,8 @@ body .learning-page .learning-intake-choice-card.is-medical {
 
 body .learning-page .learning-intake-choice-card:hover:not(:disabled),
 body .learning-page .learning-intake-choice-card:focus-visible {
-  background: linear-gradient(145deg, rgba(var(--choice-rgb), 0.13), transparent 62%), var(--surface-strong) !important;
-  border-color: rgba(var(--choice-rgb), 0.32) !important;
+  background: linear-gradient(145deg, rgba(var(--choice-rgb), 0.22), rgba(var(--choice-rgb), 0.06)), var(--surface-strong) !important;
+  border-color: rgba(var(--choice-rgb), 0.45) !important;
   transform: none !important;
 }
 
@@ -3338,19 +3358,72 @@ body .learning-career-save:hover:not(:disabled) {
 
 .learning-career-analysis-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  container-type: inline-size;
 }
 
 .learning-career-analysis-grid > article {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
   align-content: start;
   min-width: 0;
-  gap: 9px;
-  padding: 16px;
+  gap: 28px;
+  padding: 26px;
   background: var(--surface-muted);
   border: 1px solid var(--border);
-  border-radius: 15px;
+  border-radius: 20px;
+}
+
+.learning-career-analysis-grid > .is-explanation-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.learning-career-topic-overview,
+.learning-career-topic-support {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 18px;
+}
+
+.learning-career-topic-support {
+  gap: 14px;
+}
+
+.learning-career-topic-support .learning-career-support-section {
+  --placement-section-tone: #3b82f6;
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--placement-section-tone) 22%, var(--border));
+  border-left: 3px solid color-mix(in srgb, var(--placement-section-tone) 60%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--placement-section-tone) 6%, var(--surface-muted));
+}
+
+.learning-career-support-section.is-relevance { --placement-section-tone: #14b8a6; }
+.learning-career-support-section.is-practice { --placement-section-tone: #d6a326; }
+
+.learning-career-topic-support .learning-career-support-section > :is(h5, strong) {
+  margin: 0;
+  font-size: .94rem;
+  color: color-mix(in srgb, var(--placement-section-tone) 48%, var(--text));
+}
+
+@container (max-width: 760px) {
+  .learning-career-analysis-grid > article {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+    padding: 20px;
+  }
+}
+
+@container (max-width: 420px) {
+  .learning-career-analysis-grid > article { padding: 16px; }
+  .learning-career-topic-support .learning-career-support-section { padding: 12px; }
 }
 
 .learning-career-topic-heading {
@@ -3370,14 +3443,14 @@ body .learning-career-save:hover:not(:disabled) {
 
 .learning-career-topic-number {
   display: grid;
-  flex: 0 0 32px;
-  width: 32px;
-  height: 32px;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
   place-items: center;
   color: var(--accent);
   background: var(--accent-soft);
   border-radius: 10px;
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 850;
 }
 
@@ -3456,8 +3529,13 @@ body .learning-career-save:hover:not(:disabled) {
 }
 
 .learning-career-analysis-grid .learning-career-points ul {
-  gap: 8px;
+  gap: 10px;
   padding-left: 20px;
+}
+
+.learning-career-analysis-grid .learning-career-points li {
+  font-size: .94rem;
+  line-height: 1.75;
 }
 
 .learning-career-points li::marker { color: var(--accent); }
@@ -3560,6 +3638,11 @@ body .learning-career-save:hover:not(:disabled) {
 @media (max-width: 700px) {
   .learning-intake-choice-grid {
     grid-template-columns: 1fr;
+  }
+
+  body .learning-page .learning-intake-choice-card:last-child:nth-child(3) {
+    grid-column: auto;
+    width: 100%;
   }
 
   .learning-workspace.is-intake .learning-notebook-list,
@@ -3880,7 +3963,7 @@ body .learning-career-topic-grid button {
 }
 
 .learning-career-analysis-grid h4 {
-  font-size: 1.08rem;
+  font-size: 1.16rem;
 }
 
 .learning-career-analysis-grid h5 {

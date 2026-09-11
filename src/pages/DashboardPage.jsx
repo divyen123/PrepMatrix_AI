@@ -41,6 +41,8 @@ const CARD_TONES = [
   { glow: "rgba(168,85,247,0.22)",  labelColor: "#c084fc", bg: "rgba(168,85,247,0.06)" },
 ];
 
+const NAVIGATION_SUGGESTION_LIMIT = 7;
+
 function getNextNavigationSuggestionIndex(currentIndex, key, count) {
   if (!count) return -1;
   if (key === "ArrowDown") return (currentIndex + 1 + count) % count;
@@ -60,7 +62,7 @@ function getNavigationOptions(suggestions, navigationCommand, currentRoute) {
     description: commandRoute === currentRoute
       ? `You’re already on ${navigationCommand.label}`
       : `Open ${navigationCommand.label}`,
-  }, ...suggestions].slice(0, 6);
+  }, ...suggestions].slice(0, NAVIGATION_SUGGESTION_LIMIT);
 }
 
 export function DashboardNavigationSuggestions({
@@ -287,7 +289,7 @@ function DashboardPage({
           availableRoutes,
           currentRoute,
           homeRoute,
-          limit: 6,
+          limit: NAVIGATION_SUGGESTION_LIMIT,
         }),
     [attachments.length, availableRoutes, currentRoute, homeRoute, trimmedSearchInput],
   );

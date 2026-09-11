@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import {
   createPwaLifecycleController,
+  isPwaInstallSuggestionEligible,
+  PWA_INSTALL_SUGGESTION_DELAY_MS,
   selectPwaSurface,
 } from "../utils/pwaLifecycle";
 import "./PwaManager.css";
@@ -20,6 +22,7 @@ function SurfaceIcon({ surface }) {
 }
 
 export function PwaStatusDock({
+  allowInstall = false,
   onApplyUpdate,
   onDismissInstall,
   onDismissIosGuide,
@@ -27,14 +30,14 @@ export function PwaStatusDock({
   onInstall,
   snapshot,
 }) {
-  const surface = selectPwaSurface(snapshot);
+  const surface = selectPwaSurface(snapshot, { allowInstall });
   if (!surface) return null;
 
   const content = {
     install: {
-      eyebrow: "Installable app",
-      title: "Install PrepMatrix",
-      detail: "Open your study workspace from your home screen or app menu.",
+      eyebrow: "Install PrepMatrix",
+      title: "Take PrepMatrix with you",
+      detail: "Install PrepMatrix for quick access to your learning workspace.",
     },
     ios: {
       eyebrow: "Add to Home Screen",
@@ -131,11 +134,9 @@ export function PwaStatusDock({
 
       {surface === "install" && (
         <button
-          aria-label={`Dismiss ${surface === "ios" ? "installation guidance" : "PrepMatrix installation notice"}`}
+          aria-label="Dismiss PrepMatrix installation notice"
           className="pwa-status-dock__close"
-          onClick={surface === "install"
-            ? onDismissInstall
-            : onDismissIosGuide}
+          onClick={onDismissInstall}
           type="button"
         >
           <X aria-hidden="true" size={15} />
@@ -145,12 +146,21 @@ export function PwaStatusDock({
   );
 }
 
-export default function PwaManager({ runtime }) {
+export default function PwaManager({ runtime, installPromptContext }) {
   const controller = useMemo(
     () => createPwaLifecycleController(runtime),
     [runtime],
   );
   const [snapshot, setSnapshot] = useState(() => controller.getSnapshot());
+  const installEligible = isPwaInstallSuggestionEligible(installPromptContext);
+  const [installDelayElapsed, setInstallDelayElapsed] = useState(false);
+
+  useEffect(() => {
+    setInstallDelayElapsed(false);
+    if (!installEligible) return undefined;
+    const timer = window.setTimeout(() => setInstallDelayElapsed(true), PWA_INSTALL_SUGGESTION_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [installEligible]);
 
   useEffect(() => {
     setSnapshot(controller.getSnapshot());
@@ -164,6 +174,7 @@ export default function PwaManager({ runtime }) {
 
   return (
     <PwaStatusDock
+      allowInstall={installEligible && installDelayElapsed}
       onApplyUpdate={() => void controller.applyUpdate()}
       onDismissInstall={controller.dismissInstall}
       onDismissIosGuide={controller.dismissIosGuide}

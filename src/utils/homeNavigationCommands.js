@@ -1,10 +1,12 @@
 import { isMaterialSuggestionRequest } from "./chatMaterialSuggestions.js";
+import { CODE_MATRIX_PATH } from "./codeMatrixProfile.js";
 
 const NAVIGATION_LEAD_PATTERN = /^(?:(?:please|kindly)\s+)?(?:(?:can|could|would|will)\s+you\s+)?(?:take\s+me(?:\s+to)?|bring\s+me(?:\s+to)?|send\s+me(?:\s+to)?|go(?:\s+to)?|head\s+to|navigate(?:\s+to)?|switch\s+to|move\s+to|open(?:\s+up)?|show(?:\s+me)?|view|visit|launch|access|display|see)\s+/;
 const HOME_ALIASES = new Set(["home", "homepage", "home page", "main page"]);
 export const GOAL_REMINDER_SHORTCUT_ROUTE = "/dashboard#goals-reminders";
 const DEFAULT_SUGGESTION_ROUTE_PRIORITY = Object.freeze([
   "/learn",
+  CODE_MATRIX_PATH,
   "/planner",
   GOAL_REMINDER_SHORTCUT_ROUTE,
   "/resources",
@@ -197,6 +199,13 @@ const DESTINATIONS = Object.freeze([
       /\b(?:upload|add)\s+(?:a\s+|my\s+)?(?:study\s+)?(?:file|source|pdf)\b/,
       /\b(?:learn|study)\s+(?:a\s+|this\s+|my\s+)?topic\b/,
     ],
+  }),
+  defineDestination({
+    id: "code-matrix",
+    route: CODE_MATRIX_PATH,
+    label: "CodeMatrix",
+    description: "Write, run, and debug code",
+    aliases: ["code matrix", "compiler", "online compiler", "code editor", "code workspace", "coding workspace"],
   }),
   defineDestination({
     id: "subject-mastery",

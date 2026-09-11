@@ -189,7 +189,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
 
   if (!ready || !workspaceLoaded) return <section className="cmx-page cmx-loading" role="status"><LoaderCircle className="cmx-spin" /> Opening CodeMatrix…</section>;
   return (
-    <section className="cmx-page">
+    <section className={`cmx-page${eligibility.eligible && !setupVisible ? " is-compiler" : ""}`}>
       <header className="cmx-header">
         <div className="cmx-heading">
           <Link className="cmx-back" to="/learn" aria-label="Back to Start Learning"><ArrowLeft size={20} /></Link>
@@ -272,7 +272,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
               </div>
             </section>
           </div>
-          <footer className="cmx-footnote"><span id="code-matrix-editor-help">Ctrl / ⌘ + Enter to run · Tab to indent · Esc, then Tab to leave the editor</span><span>{workspace.language === "sql" ? "Each run starts with a fresh SQLite database." : isWeb ? "Preview is isolated from your account." : "Your code is saved separately for each language."}</span></footer>
+          <footer className="cmx-footnote"><span id="code-matrix-editor-help">Ctrl / ⌘ + Enter to run · Tab to indent · Esc, then Tab to leave the editor</span>{(workspace.language === "sql" || isWeb) && <span>{workspace.language === "sql" ? "Each run starts with a fresh SQLite database." : "Preview is isolated from your account."}</span>}</footer>
         </>
       )}
     </section>

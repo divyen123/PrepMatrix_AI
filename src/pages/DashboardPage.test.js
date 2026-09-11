@@ -48,6 +48,11 @@ test("renders page shortcuts as an accessible keyboard-selectable list", async (
             label: "Planner",
             route: "/planner",
           },
+          {
+            description: "Write, run, and debug code",
+            label: "CodeMatrix",
+            route: "/learn/code-matrix",
+          },
         ],
       },
     ));
@@ -59,6 +64,8 @@ test("renders page shortcuts as an accessible keyboard-selectable list", async (
     assert.match(markup, /aria-selected="false"/u);
     assert.match(markup, /aria-selected="true"/u);
     assert.match(markup, /Study materials and saved bookmarks/u);
+    assert.match(markup, /CodeMatrix/u);
+    assert.match(markup, /Write, run, and debug code/u);
   } finally {
     await vite.close();
   }

@@ -6,7 +6,9 @@ import {
   isIosDevice,
   isSafariBrowser,
   isStandaloneDisplay,
+  isPwaInstallSuggestionEligible,
   PWA_INSTALLED_STORAGE_KEY,
+  PWA_INSTALL_DISMISSED_STORAGE_KEY,
   selectPwaSurface,
 } from "./pwaLifecycle.js";
 
@@ -118,6 +120,150 @@ function createRuntime({ getInstalledRelatedApps = null, storageRef = new FakeSt
 }
 
 const flushPromises = () => new Promise((resolve) => setImmediate(resolve));
+
+test("only a ready signed-in dashboard is eligible for installation suggestions", () => {
+  const ready = { authenticated: true, authLoading: false, workspaceReady: true, pathname: "/dashboard" };
+  assert.equal(isPwaInstallSuggestionEligible(ready), true);
+  assert.equal(isPwaInstallSuggestionEligible({ ...ready, pathname: "/dashboard/" }), true);
+  assert.equal(isPwaInstallSuggestionEligible(), false);
+  for (const pathname of ["/login", "/login/", "/register", "/forgot-password", "/reset-password", "/", "/learn"]) {
+    assert.equal(isPwaInstallSuggestionEligible({ ...ready, pathname }), false, pathname);
+  }
+  for (const state of [{ authenticated: false }, { authLoading: true }, { workspaceReady: false }, { blocked: true }]) {
+    assert.equal(isPwaInstallSuggestionEligible({ ...ready, ...state }), false);
+  }
+});
+
+test("persists dismissal through refresh, repeated browser prompts, and iOS guidance", async () => {
+  for (const dismiss of ["dismissInstall", "dismissIosGuide"]) {
+    const storageRef = new FakeStorage();
+    const runtime = createRuntime({ storageRef });
+    const controller = createPwaLifecycleController(runtime);
+    await controller.start();
+    controller[dismiss]();
+    runtime.windowRef.emit("beforeinstallprompt", { prompt: async () => undefined });
+    assert.equal(selectPwaSurface(controller.getSnapshot()), null);
+    assert.equal(storageRef.getItem(PWA_INSTALL_DISMISSED_STORAGE_KEY), "1");
+    assert.equal(storageRef.getItem(PWA_INSTALLED_STORAGE_KEY), null);
+    controller.stop();
+
+    const laterRuntime = createRuntime({ storageRef, getInstalledRelatedApps: async () => [] });
+    laterRuntime.navigatorRef.userAgent = "iPhone Safari";
+    const laterController = createPwaLifecycleController(laterRuntime);
+    await laterController.start();
+    assert.equal(selectPwaSurface(laterController.getSnapshot()), null);
+    laterRuntime.windowRef.emit("beforeinstallprompt", { prompt: async () => undefined });
+    assert.equal(laterController.getSnapshot().canInstall, true);
+    assert.equal(selectPwaSurface(laterController.getSnapshot()), null);
+    laterController.stop();
+  }
+});
+
+test("a dismissal in another tab hides the current suggestion", async () => {
+  const runtime = createRuntime();
+  const controller = createPwaLifecycleController(runtime);
+  await controller.start();
+  runtime.windowRef.emit("beforeinstallprompt", { prompt: async () => undefined });
+  assert.equal(selectPwaSurface(controller.getSnapshot()), "install");
+  runtime.windowRef.emit("storage", { key: PWA_INSTALL_DISMISSED_STORAGE_KEY, newValue: "1" });
+  assert.equal(selectPwaSurface(controller.getSnapshot()), null);
+  controller.stop();
+});
+
+test("blocked storage still allows dismissing a suggestion for this session", async () => {
+  const runtime = createRuntime({ storageRef: {
+    getItem() { throw new Error("Blocked"); },
+    setItem() { throw new Error("Blocked"); },
+  } });
+  const controller = createPwaLifecycleController(runtime);
+  await controller.start();
+  runtime.windowRef.emit("beforeinstallprompt", { prompt: async () => undefined });
+  controller.dismissInstall();
+  runtime.windowRef.emit("focus");
+  runtime.windowRef.emit("beforeinstallprompt", { prompt: async () => undefined });
+  assert.equal(selectPwaSurface(controller.getSnapshot()), null);
+  controller.stop();
+});
+
+test("an empty related-app list alone does not erase a confirmed installation", async () => {
+  const storageRef = new FakeStorage();
+  storageRef.setItem(PWA_INSTALLED_STORAGE_KEY, "1");
+  const runtime = createRuntime({ storageRef, getInstalledRelatedApps: async () => [] });
+  const controller = createPwaLifecycleController(runtime);
+  await controller.start();
+  runtime.windowRef.emit("focus");
+  await flushPromises();
+  assert.equal(storageRef.getItem(PWA_INSTALLED_STORAGE_KEY), "1");
+  assert.equal(controller.getSnapshot().isInstalled, true);
+  assert.equal(selectPwaSurface(controller.getSnapshot()), null);
+  controller.stop();
+});
+
+test("late detection responses cannot undo a newer installed event, standalone launch, or cross-tab installation", async () => {
+  for (const signal of ["appinstalled", "standalone", "storage"]) {
+    for (const fails of [false, true]) {
+      let settle;
+      const installedApps = new Promise((resolve, reject) => {
+        settle = () => fails ? reject(new Error("Detection failed")) : resolve([]);
+      });
+      const runtime = createRuntime({ getInstalledRelatedApps: () => installedApps });
+      const controller = createPwaLifecycleController(runtime);
+      const starting = controller.start();
+      await flushPromises();
+      if (signal === "standalone") {
+        runtime.standaloneQuery.matches = true;
+        runtime.standaloneQuery.emit("change");
+      } else if (signal === "storage") {
+        runtime.windowRef.emit("storage", { key: PWA_INSTALLED_STORAGE_KEY, newValue: "1" });
+      } else {
+        runtime.windowRef.emit("appinstalled");
+      }
+      settle();
+      await starting;
+      assert.equal(controller.getSnapshot().isInstalled, true, `${signal}, failed=${fails}`);
+      assert.equal(controller.getSnapshot().installDetectionPending, false);
+      assert.equal(runtime.storageRef.getItem(PWA_INSTALLED_STORAGE_KEY), "1");
+      assert.equal(selectPwaSurface(controller.getSnapshot()), null);
+      controller.stop();
+    }
+  }
+});
+
+test("declining the native browser prompt persists dismissal without recording an installation", async () => {
+  const runtime = createRuntime();
+  const controller = createPwaLifecycleController(runtime);
+  await controller.start();
+  runtime.windowRef.emit("beforeinstallprompt", {
+    prompt: async () => undefined,
+    userChoice: Promise.resolve({ outcome: "dismissed" }),
+  });
+  assert.equal((await controller.install()).outcome, "dismissed");
+  assert.equal(runtime.storageRef.getItem(PWA_INSTALL_DISMISSED_STORAGE_KEY), "1");
+  assert.equal(runtime.storageRef.getItem(PWA_INSTALLED_STORAGE_KEY), null);
+  controller.stop();
+});
+
+test("a pending detection check cannot undo an accepted native prompt", async () => {
+  let resolveCheck;
+  const runtime = createRuntime({ getInstalledRelatedApps: async () => [] });
+  const controller = createPwaLifecycleController(runtime);
+  await controller.start();
+  runtime.windowRef.emit("beforeinstallprompt", {
+    prompt: async () => undefined,
+    userChoice: Promise.resolve({ outcome: "accepted" }),
+  });
+  runtime.navigatorRef.getInstalledRelatedApps = () => new Promise((resolve) => { resolveCheck = resolve; });
+  runtime.windowRef.emit("focus");
+  await flushPromises();
+  await controller.install();
+  resolveCheck([]);
+  await flushPromises();
+  assert.equal(controller.getSnapshot().isInstalled, true);
+  assert.equal(controller.getSnapshot().installDetectionPending, false);
+  assert.equal(runtime.storageRef.getItem(PWA_INSTALLED_STORAGE_KEY), null);
+  assert.equal(selectPwaSurface(controller.getSnapshot()), null);
+  controller.stop();
+});
 
 test("detects standalone display and iOS/iPadOS Safari without browser globals", () => {
   const standaloneWindow = { matchMedia: () => ({ matches: true }) };
@@ -261,7 +407,7 @@ test("waits for installed-related-app detection before exposing a captured insta
   controller.stop();
 });
 
-test("treats a successful related-app check as authoritative over a stale marker", async () => {
+test("a fresh install prompt plus an empty related-app check clears a stale marker", async () => {
   const storageRef = new FakeStorage();
   storageRef.setItem(PWA_INSTALLED_STORAGE_KEY, "1");
   const runtime = createRuntime({

@@ -22,7 +22,7 @@ const baseSnapshot = {
   updateReady: false,
 };
 
-async function renderDock(snapshot) {
+async function renderDock(snapshot, allowInstall = true) {
   const vite = await createServer({
     appType: "custom",
     logLevel: "silent",
@@ -31,7 +31,7 @@ async function renderDock(snapshot) {
 
   try {
     const { PwaStatusDock } = await vite.ssrLoadModule("/src/components/PwaManager.jsx");
-    return renderToStaticMarkup(React.createElement(PwaStatusDock, { snapshot }));
+    return renderToStaticMarkup(React.createElement(PwaStatusDock, { snapshot, allowInstall }));
   } finally {
     await vite.close();
   }
@@ -58,9 +58,17 @@ test("shows the native install action only while the browser provides an install
   const installMarkup = await renderDock({ ...baseSnapshot, canInstall: true });
   const unavailableMarkup = await renderDock(baseSnapshot);
   assert.match(installMarkup, /Install PrepMatrix/u);
+  assert.match(installMarkup, /Take PrepMatrix with you/u);
   assert.match(installMarkup, />Install app</u);
   assert.match(installMarkup, />Not now</u);
   assert.equal(unavailableMarkup, "");
+});
+
+test("hides native and iOS suggestions outside the eligible dashboard without hiding status notices", async () => {
+  assert.equal(await renderDock({ ...baseSnapshot, canInstall: true }, false), "");
+  assert.equal(await renderDock({ ...baseSnapshot, isIos: true }, false), "");
+  assert.match(await renderDock({ ...baseSnapshot, updateReady: true }, false), /Update &amp; reload/u);
+  assert.match(await renderDock({ ...baseSnapshot, isOnline: false }, false), /You’re offline/u);
 });
 
 test("renders no install-related dock once the app is installed", async () => {

@@ -14,6 +14,7 @@ const STANDARD_ROUTES = new Set([
   "/dashboard",
   "/subjects",
   "/learn",
+  "/learn/code-matrix",
   "/planner",
   "/analytics",
   "/notes",
@@ -72,6 +73,10 @@ test("resolves natural navigation commands and common page aliases", () => {
     ["I want to view my study notes", "/notes", "Notes"],
     ["open exam eligibility", "/exam/about", "Exam Guide"],
     ["visit notification history", "/notification-history", "Alert History"],
+    ["CodeMatrix", "/learn/code-matrix", "CodeMatrix"],
+    ["open code matrix", "/learn/code-matrix", "CodeMatrix"],
+    ["go to codematrix", "/learn/code-matrix", "CodeMatrix"],
+    ["open compiler", "/learn/code-matrix", "CodeMatrix"],
   ];
 
   cases.forEach(([input, route, label]) => {
@@ -279,6 +284,10 @@ test("requires exact account availability for gated content destinations", () =>
 });
 
 test("never resolves or suggests a route unavailable to the current account", () => {
+  const nonCodingRoutes = [...STANDARD_ROUTES].filter((route) => route !== "/learn/code-matrix");
+  assert.equal(resolveHomeNavigationCommand("open CodeMatrix", { availableRoutes: nonCodingRoutes }), null);
+  assert.equal(getHomeNavigationSuggestions("code matrix", { availableRoutes: nonCodingRoutes })
+    .some(({ route }) => route === "/learn/code-matrix"), false);
   const schoolRoutes = [...STANDARD_ROUTES].filter((route) => route !== "/resume-builder");
 
   assert.equal(
@@ -473,7 +482,7 @@ test("returns accessible defaults for an empty autocomplete query", () => {
   });
   assert.deepEqual(
     prioritized.map(({ route }) => route),
-    ["/learn", "/planner", "/resources", "/analytics"]
+    ["/learn", "/learn/code-matrix", "/planner", "/resources"]
   );
   assert.equal(
     getHomeNavigationSuggestions("", {
@@ -481,18 +490,19 @@ test("returns accessible defaults for an empty autocomplete query", () => {
       currentRoute: "/learn",
       limit: 1,
     })[0]?.route,
-    "/planner"
+    "/learn/code-matrix"
   );
 
   const dashboardShortcuts = getHomeNavigationSuggestions("", {
     availableRoutes: new Set([...STANDARD_ROUTES, ...STANDARD_CONTENT_ROUTES]),
     currentRoute: "/dashboard",
-    limit: 6,
+    limit: 7,
   });
   assert.deepEqual(
     dashboardShortcuts.map(({ route }) => route),
     [
       "/learn",
+      "/learn/code-matrix",
       "/planner",
       GOAL_REMINDER_SHORTCUT_ROUTE,
       "/resources",
@@ -500,7 +510,8 @@ test("returns accessible defaults for an empty autocomplete query", () => {
       "/quiz",
     ],
   );
-  assert.equal(dashboardShortcuts[2]?.label, "Goals & To-Do");
+  assert.equal(dashboardShortcuts[1]?.label, "CodeMatrix");
+  assert.equal(dashboardShortcuts[3]?.label, "Goals & To-Do");
 });
 
 test("does not hijack ordinary study questions or invent unknown routes", () => {
@@ -515,6 +526,9 @@ test("does not hijack ordinary study questions or invent unknown routes", () => 
     "where can I learn to make a timetable",
     "should I create a resume now",
     "explain material science",
+    "explain how a compiler works",
+    "how do I debug code in CodeMatrix",
+    "write Python code to sort a list",
     "Show me React materials",
     "what is a planner algorithm",
     "how do operating systems schedule tasks",

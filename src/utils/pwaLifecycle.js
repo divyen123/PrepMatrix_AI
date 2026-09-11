@@ -5,6 +5,19 @@ export const PWA_SERVICE_WORKER_OPTIONS = Object.freeze({
 });
 export const PWA_UPDATE_CHECK_THROTTLE_MS = 60_000;
 export const PWA_INSTALLED_STORAGE_KEY = "prepmatrix:pwa-installed";
+export const PWA_INSTALL_DISMISSED_STORAGE_KEY = "prepmatrix:pwa-install-dismissed";
+export const PWA_INSTALL_SUGGESTION_DELAY_MS = 12_000;
+
+export function isPwaInstallSuggestionEligible({
+  authenticated = false,
+  authLoading = true,
+  pathname = "",
+  workspaceReady = false,
+  blocked = false,
+} = {}) {
+  return authenticated && !authLoading && workspaceReady && !blocked
+    && pathname.replace(/\/+$/u, "") === "/dashboard";
+}
 
 const INSTALLED_DISPLAY_MODES = Object.freeze([
   "standalone",
@@ -72,6 +85,7 @@ export function createPwaSnapshot(runtime = {}) {
   const windowRef = runtime.windowRef ?? defaults.windowRef;
   const isStandalone = isStandaloneDisplay({ documentRef, navigatorRef, windowRef });
   const hasInstalledMarker = readInstalledMarker(storageRef);
+  const installDismissed = readStorageFlag(storageRef, PWA_INSTALL_DISMISSED_STORAGE_KEY);
   const isInstalled = isStandalone || hasInstalledMarker;
   const supportsInstalledAppsCheck = typeof navigatorRef?.getInstalledRelatedApps === "function";
 
@@ -79,7 +93,7 @@ export function createPwaSnapshot(runtime = {}) {
     canInstall: false,
     error: "",
     installBusy: false,
-    installDismissed: false,
+    installDismissed,
     installedThisSession: false,
     installDetectionPending: !isStandalone && supportsInstalledAppsCheck,
     installDetectionVerified: isStandalone,
@@ -88,7 +102,7 @@ export function createPwaSnapshot(runtime = {}) {
     isInstalled,
     isOnline: navigatorRef?.onLine !== false,
     isStandalone,
-    iosGuideDismissed: false,
+    iosGuideDismissed: installDismissed,
     registrationReady: false,
     supported: Boolean(navigatorRef?.serviceWorker),
     updateBusy: false,
@@ -97,9 +111,10 @@ export function createPwaSnapshot(runtime = {}) {
   };
 }
 
-export function selectPwaSurface(snapshot = {}) {
+export function selectPwaSurface(snapshot = {}, { allowInstall = true } = {}) {
   if (snapshot.updateReady && !snapshot.updateDismissed) return "update";
   if (snapshot.isOnline === false) return "offline";
+  if (!allowInstall) return null;
   if (
     snapshot.canInstall
     && !snapshot.installDismissed
@@ -124,12 +139,16 @@ export function selectPwaSurface(snapshot = {}) {
   return null;
 }
 
-function readInstalledMarker(storageRef) {
+function readStorageFlag(storageRef, key) {
   try {
-    return storageRef?.getItem?.(PWA_INSTALLED_STORAGE_KEY) === "1";
+    return storageRef?.getItem?.(key) === "1";
   } catch {
     return false;
   }
+}
+
+function readInstalledMarker(storageRef) {
+  return readStorageFlag(storageRef, PWA_INSTALLED_STORAGE_KEY);
 }
 
 function writeInstalledMarker(storageRef) {
@@ -200,6 +219,7 @@ export function createPwaLifecycleController(options = {}) {
   let hasReloaded = false;
   let installedAppsCheckPromise = null;
   let installedAppsCheckGeneration = Number.NEGATIVE_INFINITY;
+  let installationRevision = 0;
 
   const publish = (patch) => {
     const nextSnapshot = { ...snapshot, ...patch };
@@ -219,13 +239,16 @@ export function createPwaLifecycleController(options = {}) {
   };
 
   const rememberInstalled = () => {
+    installationRevision += 1;
     writeInstalledMarker(storageRef);
     deferredInstallPrompt = null;
   };
 
   const refreshInstalledState = async () => {
     const requestGeneration = generation;
-    const canCommit = () => started && generation === requestGeneration;
+    const requestInstallationRevision = installationRevision;
+    const canCommit = () => started && generation === requestGeneration
+      && installationRevision === requestInstallationRevision;
     const isStandalone = isStandaloneDisplay({ documentRef, navigatorRef, windowRef });
     const hasInstalledMarker = readInstalledMarker(storageRef);
     if (isStandalone) {
@@ -284,13 +307,15 @@ export function createPwaLifecycleController(options = {}) {
       .then(() => navigatorRef.getInstalledRelatedApps())
       .then((relatedApps) => {
         if (!canCommit()) return snapshot.isInstalled;
-        const isInstalled = Array.isArray(relatedApps) && relatedApps.length > 0;
-        if (isInstalled) rememberInstalled();
-        else clearInstalledMarker(storageRef);
+        const detectedInstalledApp = Array.isArray(relatedApps) && relatedApps.length > 0;
+        // An empty list can also mean this browser cannot identify the installed app.
+        // Keep confirmed installation evidence until a fresh native install event.
+        const isInstalled = detectedInstalledApp || readInstalledMarker(storageRef);
+        if (detectedInstalledApp) rememberInstalled();
         publish({
           canInstall: isInstalled ? false : Boolean(deferredInstallPrompt?.prompt),
           installDetectionPending: false,
-          installDetectionVerified: true,
+          installDetectionVerified: detectedInstalledApp,
           ...(isInstalled ? {
             installDismissed: true,
             iosGuideDismissed: true,
@@ -411,7 +436,7 @@ export function createPwaLifecycleController(options = {}) {
     if (snapshot.isInstalled && !snapshot.installDetectionVerified) {
       clearInstalledMarker(storageRef);
       publish({
-        installDismissed: false,
+        installDismissed: readStorageFlag(storageRef, PWA_INSTALL_DISMISSED_STORAGE_KEY),
         installDetectionVerified: false,
         isInstalled: false,
       });
@@ -421,7 +446,6 @@ export function createPwaLifecycleController(options = {}) {
       canInstall: !snapshot.installDetectionPending && Boolean(event?.prompt),
       error: "",
       installBusy: false,
-      installDismissed: false,
       iosGuideDismissed: true,
     });
   };
@@ -446,6 +470,10 @@ export function createPwaLifecycleController(options = {}) {
   };
 
   const handleInstallMarkerChange = (event) => {
+    if (event?.key === PWA_INSTALL_DISMISSED_STORAGE_KEY && event?.newValue === "1") {
+      publish({ installDismissed: true, iosGuideDismissed: true });
+      return;
+    }
     if (event?.key !== PWA_INSTALLED_STORAGE_KEY || event?.newValue !== "1") return;
     rememberInstalled();
     publish({
@@ -561,6 +589,8 @@ export function createPwaLifecycleController(options = {}) {
       const choice = await promptEvent.userChoice;
       const outcome = choice?.outcome === "accepted" ? "accepted" : "dismissed";
       deferredInstallPrompt = null;
+      if (outcome === "accepted") installationRevision += 1;
+      if (outcome === "dismissed") dismissInstall();
       publish({
         canInstall: false,
         installBusy: false,
@@ -606,8 +636,15 @@ export function createPwaLifecycleController(options = {}) {
     publish({ updateDismissed: true });
   };
 
-  const dismissInstall = () => publish({ installDismissed: true });
-  const dismissIosGuide = () => publish({ iosGuideDismissed: true });
+  const dismissInstall = () => {
+    try {
+      storageRef?.setItem?.(PWA_INSTALL_DISMISSED_STORAGE_KEY, "1");
+    } catch {
+      // Still respect the dismissal in this session when storage is unavailable.
+    }
+    publish({ installDismissed: true, iosGuideDismissed: true });
+  };
+  const dismissIosGuide = dismissInstall;
 
   return {
     applyUpdate,

@@ -3420,7 +3420,9 @@ function StartLearningPage({
       <div className={`learning-workspace is-${workspaceView}`}>
         <aside className="learning-source-rail" aria-label="Sources and learning history">
           <section
-            className="card learning-intake-source-panel"
+            className={intakeMode === null
+              ? "learning-intake-source-panel is-workspace-choice"
+              : "card learning-intake-source-panel"}
             id={intakeMode === "medical" ? "medical-training" : "placement-prep"}
           >
           {intakeMode === null ? (
@@ -3429,13 +3431,6 @@ function StartLearningPage({
                 <div>
                   <span className="section-tag">Choose a workspace</span>
                   <h3>What do you want to prepare?</h3>
-                  <p>
-                    {medicalEligible
-                      ? "Keep course notebooks and Medical training in separate workspaces."
-                      : placementEligible
-                        ? "Keep course notebooks and placement notes in separate workspaces."
-                        : "Build and revisit focused course notebooks in one learning workspace."}
-                  </p>
                 </div>
               </div>
               <div className="learning-intake-choice-grid">

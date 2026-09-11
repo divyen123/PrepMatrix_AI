@@ -106,6 +106,7 @@ import {
   getLearningMedicalTrainingEligibility,
 } from "./utils/learningNotebook";
 import { getGoalReminderShortcutRoutes } from "./utils/homeNavigationCommands";
+import { CODE_MATRIX_PATH, getCodeMatrixEligibility } from "./utils/codeMatrixProfile.js";
 import { hasDashboardVoiceHintReentryGapElapsed } from "./utils/dashboardVoiceHints";
 import { getPrimarySidebarNavItems } from "./utils/sidebarNavigation";
 import {
@@ -854,6 +855,10 @@ function App() {
     }),
     [academicLevel, academicTrack, userProfile]
   );
+  const codeMatrixEligibility = useMemo(
+    () => getCodeMatrixEligibility({ ...userProfile, academicLevel, academicTrack }, subjects),
+    [academicLevel, academicTrack, subjects, userProfile],
+  );
   const visibleNavItems = useMemo(
     () => NAV_ITEMS
       .filter(
@@ -893,6 +898,9 @@ function App() {
       ...(visibleRoutes.has("/learn") && !learnerRoutePolicy.isYoungKidsLearner
         ? ["/learn#subject-mastery"]
         : []),
+      ...(visibleRoutes.has("/learn") && codeMatrixEligibility.eligible && !learnerRoutePolicy.isYoungKidsLearner
+        ? [CODE_MATRIX_PATH]
+        : []),
       ...(visibleRoutes.has("/learn")
         && learningCareerEligibility.enabled
         && !learningMedicalTrainingEligibility.enabled
@@ -921,6 +929,7 @@ function App() {
       ] : []),
     ];
   }, [
+    codeMatrixEligibility.eligible,
     isKidsLearner,
     learnerRoutePolicy.isYoungKidsLearner,
     learningCareerEligibility.enabled,
@@ -3727,7 +3736,17 @@ function App() {
         position="top-right"
         toastClassName="prepmatrix-toast"
       />
-      <PwaManager />
+      <PwaManager
+        installPromptContext={{
+          authenticated: Boolean(userProfile),
+          authLoading,
+          pathname: location.pathname,
+          workspaceReady: workspaceLoaded,
+          blocked: appLocked || entrySplash || workspaceTransitioning || logoutConfirmOpen
+            || logoutTransitionPhase !== "idle"
+            || Boolean(userProfile?.needsOnboardingGuide || userProfile?.needsProfileDetails),
+        }}
+      />
       {!authLoading && userProfile && !appLocked && (
         <FirstLoginGuideCoordinator
           key={userProfile.id}
