@@ -18,10 +18,9 @@ import {
 import Timetable from "../components/Timetable";
 import WorktreeMapper from "../components/WorktreeMapper";
 import PredictiveMemoryReview from "../components/PredictiveMemoryReview";
+import PlannerExamInvitation from "../components/PlannerExamInvitation";
 import api from "../utils/apiClient";
-import { mergeMemoryReviewSchedule } from "../utils/learningMemoryReviewExperience.js";
 import { buildMemoryReviewRoute } from "../utils/memoryReviewNavigation.js";
-import { subscribeToLocalDateChanges } from "../utils/localDateRefresh.js";
 import { isEditableShortcutTarget } from "../utils/appKeyboardShortcuts.js";
 import "./PlannerPage.css";
 
@@ -93,6 +92,9 @@ function PlannerPage({
   kidsMode = false,
   parentAccessGranted = true,
   plannerAttention = null,
+  memoryReviewData = { schedule: [], completed: [] },
+  setMemoryReviewData,
+  onBeforeAttendExam,
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -104,7 +106,6 @@ function PlannerPage({
   const [memoryNotebooks, setMemoryNotebooks] = useState([]);
   const [memoryNotebooksLoading, setMemoryNotebooksLoading] = useState(() => !kidsMode);
   const [memoryNotebooksError, setMemoryNotebooksError] = useState("");
-  const [today, setToday] = useState(() => new Date());
 
   useEffect(() => {
     if (plannerView !== "hub") return undefined;
@@ -157,7 +158,6 @@ function PlannerPage({
     }, { replace: true, state: nextState });
   }, [location.hash, location.pathname, location.search, location.state, navigate]);
 
-  useEffect(() => subscribeToLocalDateChanges(setToday), []);
 
   useEffect(() => {
     if (kidsMode) {
@@ -187,16 +187,17 @@ function PlannerPage({
     };
   }, [kidsMode]);
 
-  useEffect(() => {
-    if (kidsMode || memoryNotebooksLoading || typeof setSchedule !== "function") return;
-    setSchedule((currentSchedule) => mergeMemoryReviewSchedule(currentSchedule, {
-      notebooks: memoryNotebooks,
-      scheduleStartDate,
-      completed,
-      today,
-      maxDaily: 3,
+  const setRecallSchedule = useCallback((next) => {
+    setMemoryReviewData?.((current) => ({
+      ...current, schedule: typeof next === "function" ? next(current.schedule) : next,
     }));
-  }, [completed, kidsMode, memoryNotebooks, memoryNotebooksLoading, scheduleStartDate, setSchedule, today]);
+  }, [setMemoryReviewData]);
+
+  const setRecallCompleted = useCallback((next) => {
+    setMemoryReviewData?.((current) => ({
+      ...current, completed: typeof next === "function" ? next(current.completed) : next,
+    }));
+  }, [setMemoryReviewData]);
 
   const handleMemoryNotebookUpdated = useCallback(async (payload) => {
     const notebookId = String(payload?.notebook?.id || payload?.candidate?.notebookId || "").trim();
@@ -259,6 +260,9 @@ function PlannerPage({
 
   return (
     <section className={`page-stack planner-route-page${kidsMode ? " is-kids-planner" : ""}`}>
+      {plannerView === "schedule" && !kidsMode && (
+        <PlannerExamInvitation schedule={schedule} completed={completed} setSchedule={setSchedule} onBeforeAttendExam={onBeforeAttendExam} />
+      )}
       <CodeMatrixSetupReturn step="plan" complete={getCodeMatrixSetupSteps({ schedule })[2].complete} />
       {plannerView === "hub" ? (
         <>
@@ -377,6 +381,14 @@ function PlannerPage({
                   academicProfileDataId={academicProfileDataId}
                   canManageSchedule={!kidsMode || parentAccessGranted}
                   completed={completed}
+                  onAttendExam={!kidsMode ? async () => {
+                    try {
+                      await onBeforeAttendExam?.();
+                      navigate("/exam?section=attend");
+                    } catch (error) {
+                      toast.error(error.message || "Could not save your progress. Please try again.");
+                    }
+                  } : undefined}
                   onOpenMemoryReview={handleOpenScheduledMemoryReview}
                   onOpenSubjects={() => navigate("/subjects#subject-library")}
                   onRequestParentAccess={() => navigate("/kids", {
@@ -404,15 +416,15 @@ function PlannerPage({
 
             {plannerView === "recall" && (
               <PredictiveMemoryReview
-                completed={completed}
+                completed={memoryReviewData.completed}
                 loadError={memoryNotebooksError}
                 loading={memoryNotebooksLoading}
                 notebooks={memoryNotebooks}
                 onNotebookUpdated={handleMemoryNotebookUpdated}
-                schedule={schedule}
+                schedule={memoryReviewData.schedule}
                 scheduleStartDate={scheduleStartDate}
-                setCompleted={setCompleted}
-                setSchedule={setSchedule}
+                setCompleted={setRecallCompleted}
+                setSchedule={setRecallSchedule}
                 standalone
               />
             )}

@@ -3380,6 +3380,24 @@ body .learning-career-save:hover:not(:disabled) {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.learning-career-analysis-grid > article.is-practice-wide {
+  grid-template-areas:
+    "overview support"
+    "practice practice";
+}
+
+.learning-career-analysis-grid > article.is-practice-wide > .learning-career-topic-overview {
+  grid-area: overview;
+}
+
+.learning-career-analysis-grid > article.is-practice-wide > .learning-career-topic-support {
+  grid-area: support;
+}
+
+.learning-career-analysis-grid > article.is-practice-wide > .learning-career-support-section.is-practice {
+  grid-area: practice;
+}
+
 .learning-career-topic-overview,
 .learning-career-topic-support {
   display: grid;
@@ -3392,7 +3410,7 @@ body .learning-career-save:hover:not(:disabled) {
   gap: 14px;
 }
 
-.learning-career-topic-support .learning-career-support-section {
+.learning-career-topic-card .learning-career-support-section {
   --placement-section-tone: #3b82f6;
   display: grid;
   min-width: 0;
@@ -3407,23 +3425,35 @@ body .learning-career-save:hover:not(:disabled) {
 .learning-career-support-section.is-relevance { --placement-section-tone: #14b8a6; }
 .learning-career-support-section.is-practice { --placement-section-tone: #d6a326; }
 
-.learning-career-topic-support .learning-career-support-section > :is(h5, strong) {
+.learning-career-topic-card .learning-career-support-section > :is(h5, strong) {
   margin: 0;
   font-size: .94rem;
   color: color-mix(in srgb, var(--placement-section-tone) 48%, var(--text));
 }
 
 @container (max-width: 760px) {
-  .learning-career-analysis-grid > article {
+  .learning-career-analysis-grid > article,
+  .learning-career-analysis-grid > article.is-practice-wide {
     grid-template-columns: minmax(0, 1fr);
     gap: 22px;
     padding: 20px;
+  }
+
+  .learning-career-analysis-grid > article.is-practice-wide {
+    grid-template-areas:
+      "overview"
+      "support"
+      "practice";
+  }
+
+  .learning-career-analysis-grid > article.is-practice-wide .learning-career-practice-list {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @container (max-width: 420px) {
   .learning-career-analysis-grid > article { padding: 16px; }
-  .learning-career-topic-support .learning-career-support-section { padding: 12px; }
+  .learning-career-topic-card .learning-career-support-section { padding: 12px; }
 }
 
 .learning-career-topic-heading {
@@ -4068,6 +4098,21 @@ body .learning-career-topic-grid button {
 .learning-career-practice-list {
   display: grid;
   gap: 8px;
+}
+
+.learning-career-topic-card.is-practice-wide .learning-career-practice-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.learning-career-topic-card.is-practice-wide .learning-career-practice-list > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+@container (max-width: 760px) {
+  .learning-career-topic-card.is-practice-wide .learning-career-practice-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .learning-career-item-details {

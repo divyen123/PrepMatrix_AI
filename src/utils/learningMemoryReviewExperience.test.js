@@ -12,6 +12,8 @@ import {
   mergeMemoryReviewSchedule,
 } from "./learningMemoryReviewExperience.js";
 import { MEMORY_REVIEW_DISMISSALS_FIELD } from "./learningMemoryPlanner.js";
+import { separatePlannerRecall } from "./plannerLifecycle.js";
+import { clearPlannerScheduleState } from "./plannerScheduleProgress.js";
 import {
   MEMORY_REVIEW_RECHECK_REVISION_FIELD,
   PLANNER_RECHECK_PENDING_FIELD,
@@ -75,6 +77,20 @@ function notebook() {
     },
   };
 }
+
+test("recall cards still open after a study schedule is cleared, without repopulating it", () => {
+  const state = separatePlannerRecall({ schedule: [{ day: 1, date: "2026-07-04", tasks: [{ task: "Study mitosis" }] }], completed: ["Study mitosis"] });
+  const cleared = clearPlannerScheduleState(state);
+  const experience = buildMemoryReviewExperience({ notebooks: [notebook()],
+    schedule: cleared.memoryReviewData.schedule, completed: cleared.memoryReviewData.completed,
+    today: "2026-07-04T08:00:00.000Z" });
+  assert.equal(experience.pendingEntries.length, 1);
+  assert.ok(createMemoryReviewQuiz(experience.pendingEntries[0], { dateKey: experience.dateKey }));
+  const reloaded = separatePlannerRecall({ ...cleared, memoryReviewData: { ...cleared.memoryReviewData, schedule: experience.schedule } });
+  assert.deepEqual(reloaded.schedule, []);
+  assert.deepEqual(reloaded.completed, []);
+  assert.equal(reloaded.memoryReviewData.schedule[0].tasks.length, 1);
+});
 
 test("creates today's pending Planner experience without mutating the schedule", () => {
   const schedule = [{ day: 1, date: "2026-07-04", tasks: [] }];

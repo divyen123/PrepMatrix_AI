@@ -127,7 +127,9 @@ test("registers deep Planner routes and retains accessible themed card behavior"
   assert.match(appSource, /location\.pathname === "\/planner"[\s\S]*?location\.pathname\.startsWith\("\/planner\/"\)[\s\S]*?\? "\/planner"/u);
   assert.match(pageSource, /return <Navigate replace to="\/planner" \/>/u);
   assert.match(pageSource, /kidsMode && plannerView === "recall"/u);
-  assert.match(pageSource, /setSchedule\(\(currentSchedule\) => mergeMemoryReviewSchedule\(currentSchedule, \{/u);
+  assert.doesNotMatch(pageSource, /mergeMemoryReviewSchedule/u);
+  assert.match(pageSource, /schedule=\{memoryReviewData\.schedule\}/u);
+  assert.match(pageSource, /setSchedule=\{setRecallSchedule\}/u);
   assert.match(pageSource, /navigate\(buildMemoryReviewRoute\(task\)\)/u);
   assert.match(pageSource, /onOpenMemoryReview=\{handleOpenScheduledMemoryReview\}/u);
   assert.match(pageSource, /<nav aria-label="Planner workspaces"/u);

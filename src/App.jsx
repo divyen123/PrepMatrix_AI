@@ -65,6 +65,7 @@ import {
 } from "./utils/appearanceTheme";
 import { initializeNewStudentAppearance } from "./utils/appearanceStorage";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
+import { normalizeMemoryReviewData, separatePlannerRecall } from "./utils/plannerLifecycle.js";
 import {
   getPlannerScheduleAttention,
   subscribeToPlannerAttentionClock,
@@ -504,6 +505,7 @@ function App() {
   const [subjects, setSubjects] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [completed, setCompleted] = useState([]);
+  const [memoryReviewData, setMemoryReviewData] = useState(() => normalizeMemoryReviewData());
   const [scheduleStartDate, setScheduleStartDate] = useState(null);
   const [academicLevel, setAcademicLevel] = useState("College");
   const [academicTrack, setAcademicTrack] = useState("General");
@@ -1264,8 +1266,10 @@ function App() {
         : profileTrack,
     });
     setSubjects(nextSubjects);
-    setSchedule(nextSchedule);
-    setCompleted(Array.isArray(workspace?.completed) ? workspace.completed : []);
+    const plannerState = separatePlannerRecall({ ...workspace, schedule: nextSchedule });
+    setSchedule(plannerState.schedule);
+    setCompleted(plannerState.completed);
+    setMemoryReviewData(plannerState.memoryReviewData);
     setAcademicLevel(nextAcademicProfile.academicLevel);
     setAcademicTrack(nextAcademicProfile.academicTrack);
     if (profile) {
@@ -1477,6 +1481,7 @@ function App() {
     subjects,
     schedule,
     completed,
+    memoryReviewData,
     materialBookmarks,
     resumeBuilder,
     goalReminderData,
@@ -1484,6 +1489,24 @@ function App() {
     darkMode,
     scheduleStartDate,
   });
+
+  const savePlannerBeforeExam = async () => {
+    const scope = activeAcademicProfileDataId;
+    const epoch = workspaceScopeEpochRef.current;
+    const snapshot = workspaceSnapshot();
+    if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = null;
+    await workspaceSavePromiseRef.current;
+    if (scope !== getApiAcademicProfileScope() || epoch !== workspaceScopeEpochRef.current) {
+      throw new Error("Your academic profile changed. Open the planner again to continue.");
+    }
+    const request = api.saveWorkspace(snapshot, { academicProfileId: scope });
+    workspaceSavePromiseRef.current = request.catch(() => undefined);
+    await request;
+    if (scope !== getApiAcademicProfileScope() || epoch !== workspaceScopeEpochRef.current) {
+      throw new Error("Your academic profile changed. Open the planner again to continue.");
+    }
+  };
 
   const updateAcademicProfile = useCallback((patch = {}, options = {}) => {
     const normalized = normalizeAcademicProfile({
@@ -2071,6 +2094,7 @@ function App() {
     setSubjects([]);
     setSchedule([]);
     setCompleted([]);
+    setMemoryReviewData(normalizeMemoryReviewData());
     setResetConfirmOpen(false);
     setNotification("Planner reset successfully.");
     return true;
@@ -2307,6 +2331,7 @@ function App() {
         subjects,
         schedule,
         completed,
+        memoryReviewData,
         materialBookmarks,
         resumeBuilder,
         goalReminderData,
@@ -2343,6 +2368,7 @@ function App() {
   }, [
     activeAcademicProfileDataId,
     completed,
+    memoryReviewData,
     darkMode,
     goalReminderData,
     goalReminderSettings,
@@ -3366,12 +3392,16 @@ function App() {
                         <Route
                           element={
                             <PlannerPage
+                              key={activeAcademicProfileDataId}
                               academicProfile={learnerRoutePolicy.academicProfile}
                               academicProfileDataId={activeAcademicProfileDataId}
                               completed={completed}
                               kidsMode={learnerRoutePolicy.isYoungKidsLearner}
                               parentAccessGranted={kidsParentAccess.unlocked}
                               plannerAttention={plannerAttention}
+                              onBeforeAttendExam={savePlannerBeforeExam}
+                              memoryReviewData={memoryReviewData}
+                              setMemoryReviewData={setMemoryReviewData}
                               schedule={schedule}
                               setCompleted={updateCompletedWithRewards}
                               setSchedule={setSchedule}
@@ -3541,6 +3571,7 @@ function App() {
                         <Route
                           element={parentGuidedKidsRoute(
                             <SettingsPage
+                              memoryReviewData={memoryReviewData}
                               activeVoiceName={voiceAssistant.activeVoiceName}
                               onPreviewVoice={voiceAssistant.previewVoice}
                               setVoicePreferences={voiceAssistant.setVoicePreferences}
@@ -3733,7 +3764,7 @@ function App() {
         limit={3}
         newestOnTop
         pauseOnFocusLoss={false}
-        position="top-right"
+        position="bottom-right"
         toastClassName="prepmatrix-toast"
       />
       <PwaManager

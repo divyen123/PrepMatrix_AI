@@ -16,6 +16,7 @@ import {
 } from "../utils/scheduleDates";
 import { isEditableShortcutTarget } from "../utils/appKeyboardShortcuts";
 import { subscribeToLocalDateChanges } from "../utils/localDateRefresh";
+import { getScheduleCompletion } from "../utils/plannerLifecycle.js";
 import {
   PLANNER_UNLOCK_QUIZ_QUESTION_COUNT,
   clearPlannerScheduleState,
@@ -48,7 +49,7 @@ export function ClearScheduleConfirmation({
     >
       <strong id="clear-schedule-title">Clear this schedule?</strong>
       <p id="clear-schedule-description">
-        This removes the planner and its completion history. Your subjects stay saved.
+        This clears the study schedule and its completion history. Saved recall checks stay available in Recall Session. Your subjects stay saved.
       </p>
       <div className="planner-clear-confirmation-actions">
         <button
@@ -216,6 +217,7 @@ export function PlannerScheduleDay({
   );
 }
 function Timetable({
+  onAttendExam,
   academicProfile = {},
   academicProfileDataId = "",
   subjects,
@@ -239,6 +241,7 @@ function Timetable({
   const [lastAction, setLastAction] = useState(null); // "rebalance" | "backlog"
   const [showGenerateForm, setShowGenerateForm] = useState(schedule.length === 0);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
+  const scheduleComplete = getScheduleCompletion(schedule, completed).complete;
   const [today, setToday] = useState(() => new Date());
   const [unlockQuizTarget, setUnlockQuizTarget] = useState(null);
   const academicProfileIdRef = useRef(academicProfileDataId);
@@ -755,7 +758,7 @@ function Timetable({
     setLastAction(null);
     setShowGenerateForm(true);
     setShowClearConfirmation(false);
-    toast.success("Schedule cleared. Your subjects are still saved.", {
+    toast.success("Schedule cleared. Subjects and Recall Session checks remain saved.", {
       toastId: "planner-cleared",
     });
   };
@@ -975,7 +978,7 @@ function Timetable({
               <Download size={14} />
               <span>Export</span>
             </button>
-            <button className="secondary-btn action-btn" onClick={rebalanceSchedule} type="button">
+            <button className="secondary-btn action-btn" disabled={scheduleComplete} onClick={rebalanceSchedule} type="button">
               Rebalance
             </button>
             {previousSchedule && lastAction === "rebalance" && (
@@ -983,7 +986,7 @@ function Timetable({
                 ↩ Undo
               </button>
             )}
-            <button className="secondary-btn action-btn" onClick={handleMissedTasks} type="button">
+            <button className="secondary-btn action-btn" disabled={scheduleComplete} onClick={handleMissedTasks} type="button">
               <span className="desktop-only-text">Recover backlog</span>
               <span className="mobile-only-text">Recover</span>
             </button>
@@ -1010,6 +1013,12 @@ function Timetable({
         )}
       </div>
 
+      {scheduleComplete && (
+        <div className="planner-complete-summary" role="status">
+          <div><strong>Schedule complete · 100%</strong><p>All study tasks are finished. Your memory checks are available in Recall Session.</p></div>
+          {onAttendExam && <button className="action-btn" onClick={onAttendExam} type="button">Attend exam</button>}
+        </div>
+      )}
       <div className="timetable" id="timetable">
         {schedule.length === 0 ? (
           <p className="empty-state">No timetable generated yet.</p>

@@ -529,7 +529,7 @@ function WorktreeMapper({ academicProfile = {}, variant = "default" }) {
       {isFullscreen && (
         <ToastContainer
           containerId="worktree-fs-toast"
-          position="top-center"
+          position="bottom-right"
           autoClose={2200}
           closeOnClick
           draggable={false}
@@ -537,7 +537,7 @@ function WorktreeMapper({ academicProfile = {}, variant = "default" }) {
           newestOnTop
           pauseOnFocusLoss={false}
           toastClassName="prepmatrix-toast"
-          style={{ zIndex: 99999, position: "absolute", top: "18px", left: "calc(50% - 150px)", transform: "translateX(-50%)", width: "min(400px, calc(100vw - 48px))" }}
+          style={{ zIndex: 99999, position: "absolute", top: "auto", right: "18px", bottom: "18px", left: "auto", transform: "none", width: "min(360px, calc(100% - 36px))" }}
         />
       )}
       {/* Header bar */}

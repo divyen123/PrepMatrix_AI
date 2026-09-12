@@ -1,0 +1,34 @@
+.planner-exam-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 18000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 8, 16, .68);
+  backdrop-filter: blur(8px);
+}
+.planner-exam-dialog {
+  width: min(100%, 460px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: linear-gradient(var(--surface-strong), var(--surface-strong)), var(--bg);
+  color: var(--text);
+  box-shadow: 0 24px 80px #0006;
+}
+.planner-exam-icon { display: inline-flex; padding: 12px; border-radius: 14px; background: #14b8a61a; color: #14b8a6; }
+.planner-exam-badge { margin-left: 14px; color: var(--text); font-size: 14px; font-weight: 600; }
+.planner-exam-dialog h2 { margin: 22px 0 12px; font-size: 25px; line-height: 1.3; }
+.planner-exam-dialog p { margin: 0; line-height: 1.65; color: var(--text-muted); }
+.planner-exam-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.planner-exam-actions button { display: inline-flex; align-items: center; gap: 8px; border-radius: 12px; padding: 11px 16px; }
+body .planner-exam-actions .action-btn { background: #0f766e !important; color: #fff !important; border-color: #0f766e !important; }
+.planner-exam-dialog .planner-exam-error { color: var(--danger, #f87171); margin-top: 14px; }
+.planner-exam-dialog button:focus-visible { outline: 2px solid var(--accent, #14b8a6); outline-offset: 3px; }
+.planner-exam-spinner { animation: planner-exam-spin 1s linear infinite; }
+@keyframes planner-exam-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .planner-exam-spinner { animation: none; } }

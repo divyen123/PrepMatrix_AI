@@ -356,7 +356,6 @@ function SubjectPlanDialog({
       role="presentation"
     >
       <section
-        aria-describedby="subject-plan-description"
         aria-labelledby="subject-plan-title"
         aria-modal="true"
         className="subject-plan-dialog"
@@ -370,9 +369,6 @@ function SubjectPlanDialog({
           <div>
             <span className="subject-plan-eyebrow">Subject planning workspace</span>
             <h2 id="subject-plan-title">Configure {subject?.name}</h2>
-            <p id="subject-plan-description">
-              Name chapters, add focus topics, and set a realistic study rhythm.
-            </p>
           </div>
           <button
             aria-label="Close subject planner"

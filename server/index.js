@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import registerExamRoutes, { isGroqJsonGenerationFailure } from "./examRoutes.js";
 import { getStudentOnboardingState, validateStudentDetails } from "../src/utils/studentOnboarding.js";
+import { normalizeMemoryReviewData, separatePlannerRecall } from "../src/utils/plannerLifecycle.js";
 import { normalizeGeneratedQuestions } from "./generatedQuizQuestions.js";
 import {
   buildChatAttachmentUserContent,
@@ -441,6 +442,7 @@ function defaultWorkspace(user) {
     subjects: [],
     schedule: [],
     completed: [],
+    memoryReviewData: normalizeMemoryReviewData(),
     academicLevel: academicProfile.academicLevel,
     academicTrack: academicProfile.academicTrack,
     schoolStream: academicProfile.schoolStream,
@@ -468,8 +470,7 @@ function normalizeWorkspace(doc, user) {
   });
   return {
     subjects: Array.isArray(doc?.subjects) ? doc.subjects : [],
-    schedule: Array.isArray(doc?.schedule) ? doc.schedule : [],
-    completed: Array.isArray(doc?.completed) ? doc.completed : [],
+    ...separatePlannerRecall(doc || {}),
     academicLevel: academicProfile.academicLevel,
     academicTrack: academicProfile.academicTrack,
     schoolStream: academicProfile.schoolStream,
@@ -1712,7 +1713,7 @@ app.put("/api/workspace", requireAuth(async (req, res) => {
     const requestedDarkMode = Object.prototype.hasOwnProperty.call(req.body ?? {}, "darkMode")
       ? Boolean(req.body.darkMode)
       : activeUser.sharedDarkMode;
-    const allowed = ["subjects", "schedule", "completed", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "scheduleStartDate"];
+    const allowed = ["subjects", "schedule", "completed", "memoryReviewData", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "scheduleStartDate"];
     const update = allowed.reduce((next, key) => {
       if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
       return next;
@@ -1720,6 +1721,7 @@ app.put("/api/workspace", requireAuth(async (req, res) => {
     for (const key of ["subjects", "schedule", "completed", "materialBookmarks"]) {
       if (key in update && !Array.isArray(update[key])) update[key] = [];
     }
+    if ("memoryReviewData" in update) update.memoryReviewData = normalizeMemoryReviewData(update.memoryReviewData);
     if ("materialBookmarks" in update) update.materialBookmarks = normalizeMaterialBookmarks(update.materialBookmarks);
     if ("goalReminderData" in update) update.goalReminderData = normalizeGoalReminderData(update.goalReminderData);
     if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);
@@ -1770,7 +1772,7 @@ app.post("/api/workspace/import", requireAuth(async (req, res) => {
     const requestedDarkMode = Object.prototype.hasOwnProperty.call(req.body ?? {}, "darkMode")
       ? Boolean(req.body.darkMode)
       : activeUser.sharedDarkMode;
-    const allowed = ["subjects", "schedule", "completed", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "scheduleStartDate"];
+    const allowed = ["subjects", "schedule", "completed", "memoryReviewData", "materialBookmarks", "resumeBuilder", "goalReminderData", "goalReminderSettings", "scheduleStartDate"];
     const update = allowed.reduce((next, key) => {
       if (Object.prototype.hasOwnProperty.call(req.body ?? {}, key)) next[key] = req.body[key];
       return next;
@@ -1778,6 +1780,7 @@ app.post("/api/workspace/import", requireAuth(async (req, res) => {
     for (const key of ["subjects", "schedule", "completed", "materialBookmarks"]) {
       if (key in update && !Array.isArray(update[key])) update[key] = [];
     }
+    if ("memoryReviewData" in update) update.memoryReviewData = normalizeMemoryReviewData(update.memoryReviewData);
     if ("materialBookmarks" in update) update.materialBookmarks = normalizeMaterialBookmarks(update.materialBookmarks);
     if ("goalReminderData" in update) update.goalReminderData = normalizeGoalReminderData(update.goalReminderData);
     if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);

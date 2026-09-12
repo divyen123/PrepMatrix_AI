@@ -19,7 +19,7 @@ function Notification({ message }) {
   if (!show) return null;
 
   return (
-    <div className="notification-popup">
+    <div aria-live="polite" className="notification-popup" role="status">
       {message}
     </div>
   );

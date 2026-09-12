@@ -1,3 +1,5 @@
+import { isPlannerMemoryReviewTask } from "./plannerScheduleProgress.js";
+
 export function extractSubjectFromTask(taskName = "") {
   return taskName.split(" - ")[0]?.trim() || taskName.trim();
 }
@@ -30,7 +32,7 @@ export function getPlannerMetrics(schedule = [], completed = []) {
   safeSchedule.forEach((day) => {
     const tasks = Array.isArray(day?.tasks) ? day.tasks : [];
     tasks.forEach((task) => {
-      if (!task || typeof task.task !== "string") return;
+      if (!task || typeof task.task !== "string" || !task.task.trim() || isPlannerMemoryReviewTask(task)) return;
       totalTasks += 1;
 
       const taskName = task.task;
@@ -76,7 +78,8 @@ export function getPlannerMetrics(schedule = [], completed = []) {
     .sort(([, left], [, right]) => right.pending - left.pending || left.done - right.done)
     .map(([subjectName]) => subjectName)[0] || null;
 
-  const todayTasks = Array.isArray(safeSchedule[0]?.tasks) ? safeSchedule[0].tasks : [];
+  const todayTasks = Array.isArray(safeSchedule[0]?.tasks)
+    ? safeSchedule[0].tasks.filter((task) => !isPlannerMemoryReviewTask(task)) : [];
 
   return {
     hasScheduledPlanner: totalTasks > 0,
@@ -102,7 +105,7 @@ export function getSubjectQuizEligibility(subjectName = "", schedule = [], compl
   const completedSet = new Set(Array.isArray(completed) ? completed : []);
   const scheduledTasks = safeSchedule.flatMap((day) => (
     Array.isArray(day?.tasks) ? day.tasks : []
-  )).filter((task) => task && typeof task.task === "string");
+  )).filter((task) => task && typeof task.task === "string" && !isPlannerMemoryReviewTask(task));
   const exactLegacyPrefix = `${cleanSubjectName} -`;
   const normalizedLegacyPrefix = `${normalizedSubjectName} -`;
   const hasExactSubjectMatch = scheduledTasks.some((task) => {

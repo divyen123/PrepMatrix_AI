@@ -396,3 +396,17 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
     transition-duration: 0.01ms !important;
   }
 }
+.planner-complete-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 24px;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, #14b8a6 30%, var(--border));
+  border-radius: 18px;
+  background: color-mix(in srgb, #14b8a6 8%, var(--surface-strong));
+}
+.planner-complete-summary strong { font-size: 1.1rem; }
+.planner-complete-summary p { color: var(--text-muted); margin: 8px 0 0; line-height: 1.6; }

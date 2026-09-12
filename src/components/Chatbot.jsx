@@ -1636,17 +1636,17 @@ function Chatbot({
                     </button>
                   ) : null}
                 </div>
-                <span
-                  aria-live="polite"
-                  className={`chat-history-search-status${historySearchError ? " is-error" : ""}`}
-                >
-                  {historySearchError
-                    || (historySearchQuery
-                      ? historySearchLoading
+                {(historySearchError || historySearchQuery) && (
+                  <span
+                    aria-live="polite"
+                    className={`chat-history-search-status${historySearchError ? " is-error" : ""}`}
+                  >
+                    {historySearchError
+                      || (historySearchLoading
                         ? "Searching titles and messages..."
-                        : `${visibleSessions.length} result${visibleSessions.length === 1 ? "" : "s"} found`
-                      : "Searches titles and message text")}
-                </span>
+                        : `${visibleSessions.length} result${visibleSessions.length === 1 ? "" : "s"} found`)}
+                  </span>
+                )}
               </div>
 
               <div className="history-sessions-list" id="chat-history-session-list">

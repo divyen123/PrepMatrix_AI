@@ -1,4 +1,5 @@
 import { CalendarPlus, MessageSquareText, Save } from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
 import PlacementPrepContent from "./PlacementPrepContent";
 import PlacementPrepDisclosure from "./PlacementPrepDisclosure";
 
@@ -18,9 +19,70 @@ export default function PlacementPrepTopicCard({
   const questions = Array.isArray(topic?.interviewQuestions) ? topic.interviewQuestions : [];
   const practiceSteps = Array.isArray(topic?.practiceSteps) ? topic.practiceSteps : [];
   const hasSupport = Boolean(topic?.whyItMatters?.trim() || questions.length || practiceSteps.length);
+  const overviewRef = useRef(null);
+  const practiceRef = useRef(null);
+  const [practiceLayout, setPracticeLayout] = useState("side");
+
+  useLayoutEffect(() => {
+    if (!practiceSteps.length || practiceLayout !== "side") return undefined;
+
+    const measurePracticeSpace = () => {
+      const overviewRect = overviewRef.current?.getBoundingClientRect();
+      const practiceRect = practiceRef.current?.getBoundingClientRect();
+      if (!overviewRect || !practiceRect) return;
+
+      // Practice is safe to span the card when the overview has ended before
+      // the right column reaches it. If the overview is still flowing, keep
+      // Practice next in that column so the two sections never collide.
+      if (overviewRect.bottom <= practiceRect.top + 4) setPracticeLayout("wide");
+    };
+
+    const frame = window.requestAnimationFrame(measurePracticeSpace);
+    const resizeObserver = typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(measurePracticeSpace);
+    if (resizeObserver) {
+      if (overviewRef.current) resizeObserver.observe(overviewRef.current);
+      if (practiceRef.current) resizeObserver.observe(practiceRef.current);
+    }
+    window.addEventListener("resize", measurePracticeSpace);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", measurePracticeSpace);
+    };
+  }, [practiceLayout, practiceSteps.length]);
+
+  const renderPracticeSection = () => practiceSteps.length > 0 && (
+    <section
+      aria-label="Practice next"
+      className="learning-career-support-section is-practice"
+      ref={practiceRef}
+    >
+      <h5>Practice next</h5>
+      <div className="learning-career-practice-list">
+        {practiceSteps.map((step, stepIndex) => {
+          const target = getActionTarget(topic, step, "practice", stepIndex);
+          return (
+            <PlacementPrepDisclosure key={target.id} label={String(step?.title || step?.text || step).trim().slice(0, 500)}>
+              <div className="learning-career-answer"><PlacementPrepContent text={target.explanation} /></div>
+              {renderActions(target)}
+            </PlacementPrepDisclosure>
+          );
+        })}
+      </div>
+    </section>
+  );
+
+  const topicClassName = [
+    "learning-career-topic-card",
+    hasSupport ? "" : "is-explanation-only",
+    practiceLayout === "wide" ? "is-practice-wide" : "",
+  ].filter(Boolean).join(" ");
+
   return (
-    <article className={hasSupport ? "learning-career-topic-card" : "learning-career-topic-card is-explanation-only"}>
-      <div className="learning-career-topic-overview">
+    <article className={topicClassName}>
+      <div className="learning-career-topic-overview" ref={overviewRef}>
         <header className="learning-career-topic-heading">
           <span className="learning-career-topic-number">{String(index + 1).padStart(2, "0")}</span>
           <h4>{String(topic?.title || "").trim().slice(0, 180)}</h4>
@@ -54,24 +116,10 @@ export default function PlacementPrepTopicCard({
               })}
             </section>
           )}
-          {practiceSteps.length > 0 && (
-            <section className="learning-career-support-section is-practice" aria-label="Practice next">
-              <h5>Practice next</h5>
-              <div className="learning-career-practice-list">
-                {practiceSteps.map((step, stepIndex) => {
-                  const target = getActionTarget(topic, step, "practice", stepIndex);
-                  return (
-                    <PlacementPrepDisclosure key={target.id} label={String(step?.title || step?.text || step).trim().slice(0, 500)}>
-                      <div className="learning-career-answer"><PlacementPrepContent text={target.explanation} /></div>
-                      {renderActions(target)}
-                    </PlacementPrepDisclosure>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+          {practiceLayout === "side" && renderPracticeSection()}
         </div>
       )}
+      {practiceLayout === "wide" && renderPracticeSection()}
     </article>
   );
 }

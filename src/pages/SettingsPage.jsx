@@ -427,7 +427,7 @@ function ToggleSwitch({
 function SettingsPage({
   userProfile, setUserProfile, setAcademicLevel, setAcademicTrack,
   darkMode, setDarkMode, subjects, schedule, completed, materialBookmarks,
-  goalReminderData, goalReminderSettings, resumeBuilder,
+  goalReminderData, goalReminderSettings, resumeBuilder, memoryReviewData,
   academicLevel, academicTrack, setSubjects, setSchedule, setCompleted,
   setMaterialBookmarks, setGoalReminderData, setGoalReminderSettings, setResumeBuilder,
   setNotification, onAccountDeleted,
@@ -1683,6 +1683,7 @@ function SettingsPage({
       subjects,
       schedule,
       completed,
+      memoryReviewData,
       materialBookmarks,
       resumeBuilder: {
         draft: resumeBuilder?.draft,
@@ -1758,6 +1759,7 @@ function SettingsPage({
       subjects: [],
       schedule: [],
       completed: [],
+      memoryReviewData: { schedule: [], completed: [] },
       materialBookmarks: [],
       resumeBuilder: normalizeResumeBuilderState(null, userProfile),
       goalReminderData: normalizePlannerData(DEFAULT_GOAL_REMINDER_DATA),
