@@ -76,6 +76,7 @@ export function PreparedNotes({ notebooks = [], notes = [] }) {
 
 export default function PlannerHistoryDialog({ academicProfileDataId, entries, notebooks = [], notebooksLoading, notebooksError, onRetryNotebooks, onClose }) {
   const dialogRef = useRef(null);
+  const [closing, setClosing] = useState(false);
   const [tab, setTab] = useState('schedules');
   const [notes, setNotes] = useState([]);
   const [notesLoading, setNotesLoading] = useState(true);
@@ -91,6 +92,21 @@ export default function PlannerHistoryDialog({ academicProfileDataId, entries, n
   }, []);
 
   useEffect(() => {
+    if (!closing) return undefined;
+    const timeout = window.setTimeout(onClose, 240);
+    return () => window.clearTimeout(timeout);
+  }, [closing, onClose]);
+
+  const requestClose = () => {
+    if (closing) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      onClose();
+      return;
+    }
+    setClosing(true);
+  };
+
+  useEffect(() => {
     let current = true;
     setNotesLoading(true);
     setNotesError('');
@@ -101,18 +117,23 @@ export default function PlannerHistoryDialog({ academicProfileDataId, entries, n
     return () => { current = false; };
   }, [academicProfileDataId, retry]);
 
-  return createPortal(<dialog className="study-history-dialog" ref={dialogRef} aria-labelledby="study-history-title" onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <header className="study-history-header"><History size={24} /><div><span className="section-tag">Your learning record</span><h2 id="study-history-title">Study history</h2></div><button type="button" aria-label="Close study history" onClick={onClose}><X size={19} /></button></header>
-    <div className="study-history-tabs" role="tablist" aria-label="History type" onKeyDown={(event) => {
-      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-      event.preventDefault();
-      const nextTab = event.key === 'Home' ? 'schedules' : event.key === 'End' ? 'notes' : tab === 'schedules' ? 'notes' : 'schedules';
-      setTab(nextTab);
-      dialogRef.current?.querySelector(`#study-history-${nextTab}-tab`)?.focus();
-    }}>
-      <button id="study-history-schedules-tab" role="tab" tabIndex={tab === 'schedules' ? 0 : -1} aria-controls="study-history-panel" aria-selected={tab === 'schedules'} type="button" onClick={() => setTab('schedules')}>Schedules ({entries.length})</button>
-      <button id="study-history-notes-tab" role="tab" tabIndex={tab === 'notes' ? 0 : -1} aria-controls="study-history-panel" aria-selected={tab === 'notes'} type="button" onClick={() => setTab('notes')}>Prepared notes</button>
-    </div>
+  return createPortal(<dialog className={`study-history-dialog planner-history-dialog${closing ? ' is-closing' : ''}`} ref={dialogRef} aria-labelledby="study-history-title" onCancel={(event) => { event.preventDefault(); requestClose(); }} onClick={(event) => { if (event.target === event.currentTarget) requestClose(); }} onAnimationEnd={(event) => { if (closing && event.target === event.currentTarget && event.animationName === 'planner-history-out') onClose(); }}>
+    <header className="study-history-header">
+      <History size={24} /><h2 id="study-history-title">Study history</h2>
+      <div className="study-history-header-actions">
+        <div className="study-history-tabs" role="tablist" aria-label="History type" onKeyDown={(event) => {
+          if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          const nextTab = event.key === 'Home' ? 'schedules' : event.key === 'End' ? 'notes' : tab === 'schedules' ? 'notes' : 'schedules';
+          setTab(nextTab);
+          dialogRef.current?.querySelector(`#study-history-${nextTab}-tab`)?.focus();
+        }}>
+          <button id="study-history-schedules-tab" role="tab" tabIndex={tab === 'schedules' ? 0 : -1} aria-controls="study-history-panel" aria-selected={tab === 'schedules'} type="button" onClick={() => setTab('schedules')}>Schedules ({entries.length})</button>
+          <button id="study-history-notes-tab" role="tab" tabIndex={tab === 'notes' ? 0 : -1} aria-controls="study-history-panel" aria-selected={tab === 'notes'} type="button" onClick={() => setTab('notes')}>Prepared notes</button>
+        </div>
+        <button type="button" className="study-history-close" aria-label="Close study history" onClick={requestClose}><X size={19} /></button>
+      </div>
+    </header>
     <div id="study-history-panel" className="study-history-content" role="tabpanel" aria-labelledby={`study-history-${tab}-tab`}>
       {notesError && <p role="alert">{notesError} <button type="button" onClick={() => setRetry((value) => value + 1)}>Retry notes</button></p>}
       {tab === 'schedules' ? <PlannerHistoryRecords entries={entries} notes={notes} notesLoading={notesLoading} /> : <>
@@ -121,6 +142,6 @@ export default function PlannerHistoryDialog({ academicProfileDataId, entries, n
         {!notesLoading && !notebooksLoading && <PreparedNotes notebooks={notebooks} notes={notes} />}
       </>}
     </div>
-    <footer className="study-history-footer"><span>Scheduled dates describe the plan; archived dates record when it was saved to history.</span><button type="button" onClick={onClose}>Done</button></footer>
+    <footer className="study-history-footer"><button type="button" onClick={requestClose}>Done</button></footer>
   </dialog>, document.body);
 }

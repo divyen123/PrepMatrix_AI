@@ -41,3 +41,114 @@ body .study-history-tabs button[aria-selected=true] { color: var(--accent); back
 .study-history-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 24px; border-top: 1px solid var(--border); flex-shrink: 0; }
 .study-history-footer span { color: var(--text-muted); font-size: 11px; line-height: 1.6; max-width: 490px; }
 @media (max-width: 600px) { .study-history-header, .study-history-content, .study-history-footer { padding: 16px; } .study-history-tabs { padding: 12px 16px; } .study-history-facts { grid-template-columns: 1fr; gap: 8px; } .study-history-facts > div { display: flex; justify-content: space-between; gap: 10px; } .study-history-facts dd { margin: 0; } }
+
+.planner-history-dialog[open] {
+  animation: planner-history-in 220ms ease both;
+}
+
+.planner-history-dialog[open]::backdrop {
+  animation: planner-history-backdrop-in 220ms ease both;
+}
+
+.planner-history-dialog[open].is-closing {
+  animation: planner-history-out 180ms ease both;
+}
+
+.planner-history-dialog[open].is-closing::backdrop {
+  animation: planner-history-backdrop-out 180ms ease both;
+}
+
+.planner-history-dialog .study-history-header {
+  padding: 16px 24px;
+}
+
+.planner-history-dialog .study-history-header h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.planner-history-dialog .study-history-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.planner-history-dialog .study-history-tabs {
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+body .planner-history-dialog .study-history-tabs button {
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.planner-history-dialog .study-history-footer {
+  justify-content: flex-end;
+  padding: 9px 24px;
+}
+
+@keyframes planner-history-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes planner-history-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(6px); }
+}
+
+@keyframes planner-history-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes planner-history-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (max-width: 600px) {
+  .planner-history-dialog .study-history-header {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .planner-history-dialog .study-history-header-actions {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+
+  .planner-history-dialog .study-history-footer {
+    padding: 8px 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .planner-history-dialog .study-history-header {
+    padding-inline: 12px;
+  }
+
+  .planner-history-dialog .study-history-tabs {
+    gap: 6px;
+  }
+
+  body .planner-history-dialog .study-history-tabs button {
+    padding-inline: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planner-history-dialog[open],
+  .planner-history-dialog[open].is-closing,
+  .planner-history-dialog[open]::backdrop,
+  .planner-history-dialog[open].is-closing::backdrop {
+    animation: none;
+  }
+}
