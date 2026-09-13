@@ -96,9 +96,8 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   }, [academicProfileDataId, eligibility.eligible, assistantConnectionAttempt]);
 
   useEffect(() => {
-    const source = sourceRef.current;
-    if (!source) return undefined;
-    const syncFullscreen = () => setSourceFullscreen(document.fullscreenElement === source);
+    // The editor mounts after the workspace loads; read its current ref on each event.
+    const syncFullscreen = () => setSourceFullscreen(Boolean(sourceRef.current) && document.fullscreenElement === sourceRef.current);
     document.addEventListener("fullscreenchange", syncFullscreen);
     return () => document.removeEventListener("fullscreenchange", syncFullscreen);
   }, []);

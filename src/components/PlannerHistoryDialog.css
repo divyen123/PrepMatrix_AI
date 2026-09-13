@@ -88,6 +88,34 @@ body .planner-history-dialog .study-history-tabs button {
   white-space: nowrap;
 }
 
+body .planner-history-dialog .study-history-close {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, var(--border)) !important;
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface-muted)) !important;
+  color: color-mix(in srgb, var(--danger) 75%, var(--text-muted)) !important;
+}
+
+body .planner-history-dialog .study-history-close:hover {
+  background: color-mix(in srgb, var(--danger) 16%, var(--surface-muted)) !important;
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border)) !important;
+  color: var(--danger) !important;
+}
+
+body .planner-history-dialog .study-history-close:focus-visible {
+  outline: 2px solid var(--danger);
+  outline-offset: 3px;
+}
+
+.planner-history-dialog .study-history-close svg {
+  width: 16px;
+  height: 16px;
+}
+
 .planner-history-dialog .study-history-footer {
   justify-content: flex-end;
   padding: 9px 24px;
