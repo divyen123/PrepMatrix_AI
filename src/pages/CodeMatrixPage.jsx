@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Bug, CalendarDays, Check, ChevronLeft, ChevronRight, CircleAlert, Code2, Download, FileCode2, LoaderCircle, Maximize2, Minimize2, Play, Plus, RotateCcw, Settings2, Square, Terminal, X } from "lucide-react";
 import CodeMatrixEditor from "../components/CodeMatrixEditor";
 import CodeMatrixTerminal from "../components/CodeMatrixTerminal";
+import CodeMatrixAssistant from '../components/CodeMatrixAssistant';
+import api from '../utils/apiClient';
+import { codeReviewSnapshot, codeReviewMatchesDraft, createCodeReviewSession } from '../utils/codeMatrixReview';
 import useCodeMatrixWorkspace from "../hooks/useCodeMatrixWorkspace.js";
 import useCodeRunRewards from '../hooks/useCodeRunRewards';
 import { getCodeMatrixEligibility, getCodeMatrixSetupSteps } from "../utils/codeMatrixProfile.js";
@@ -44,11 +47,18 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   const [webTab, setWebTab] = useState("");
   const [traceIndex, setTraceIndex] = useState(0);
   const [activeLine, setActiveLine] = useState(0);
+  const [lineRequest, setLineRequest] = useState(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [preview, setPreview] = useState(null);
   const [sourceSplit, setSourceSplit] = useState(0.55);
   const [sourceFullscreen, setSourceFullscreen] = useState(false);
+  const [assistantAvailability, setAssistantAvailability] = useState('loading');
+  const [assistantConnectionAttempt, setAssistantConnectionAttempt] = useState(0);
+  const reviewSession = useMemo(() => createCodeReviewSession((snapshot, requestId) => api.post('/api/code-matrix/review', snapshot, {
+    academicProfileId: academicProfileDataId, headers: { 'Idempotency-Key': requestId }, timeoutMs: 55_000,
+  })), [academicProfileDataId]);
+  const reviewSnapshot = useMemo(() => !busy ? codeReviewSnapshot(result) : null, [busy, result]);
   const runRef = useRef(null);
   const runSequenceRef = useRef(0);
   const previewRef = useRef(null);
@@ -74,6 +84,16 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   const trace = unchanged ? result?.trace || [] : [];
 
   useEffect(() => { setResultTab(isWeb ? "preview" : "output"); }, [isWeb]);
+
+  useEffect(() => {
+    if (!eligibility.eligible) return undefined;
+    let active = true;
+    setAssistantAvailability('loading');
+    api.get('/api/code-matrix/assistant', { academicProfileId: academicProfileDataId }).then((response) => {
+      if (active) setAssistantAvailability(response.available ? 'available' : 'unavailable');
+    }).catch(() => { if (active) setAssistantAvailability('error'); });
+    return () => { active = false; };
+  }, [academicProfileDataId, eligibility.eligible, assistantConnectionAttempt]);
 
   useEffect(() => {
     const source = sourceRef.current;
@@ -136,11 +156,12 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
     setNotice("");
     setTraceIndex(0);
     setActiveLine(0);
+    setLineRequest(null);
     const sequence = ++runSequenceRef.current;
     if (isWeb) {
       const channel = crypto.randomUUID();
       const srcDoc = buildCodeMatrixPreview({ html: workspace.drafts.html, css: workspace.drafts.css, javascript: workspace.drafts.javascript, channel });
-      setResult({ status: "success", stdout: "", stderr: "", code: workspace.drafts.javascript, language: "javascript", previewChannel: channel });
+      setResult({ status: "success", stdout: "", stderr: "", code: workspace.drafts.javascript, language: "javascript", previewChannel: channel, files: { html: workspace.drafts.html, css: workspace.drafts.css } });
       setPreview({ srcDoc, channel });
       setResultTab("preview");
       return;
@@ -172,7 +193,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
       if (debug && outcome.trace?.length) setActiveLine(outcome.trace[0].line);
       else if (outcome.stderr) setActiveLine(getCodeMatrixDiagnostics(outcome.stderr, editorLanguage)[0]?.line || 0);
     } catch (error) {
-      if (mountedRef.current && sequence === runSequenceRef.current) setResult({ ...snapshot, status: "error", stdout: "", stderr: error.message || "The code could not be executed. Please try again." });
+      if (mountedRef.current && sequence === runSequenceRef.current) setResult({ ...snapshot, status: "error", errorOrigin: 'environment', stdout: "", stderr: error.message || "The code could not be executed. Please try again." });
     } finally {
       if (mountedRef.current && sequence === runSequenceRef.current) { setBusy(false); setWaiting(false); setRuntimeMessage(""); runRef.current = null; }
     }
@@ -250,6 +271,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
     setResult(null);
     setPreview(null);
     setActiveLine(0);
+    setLineRequest(null);
     setNotice("");
     setResetOpen(false);
     setResultTab(["html", "css"].includes(value) ? "preview" : "output");
@@ -319,7 +341,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
           <div className="cmx-workbench" ref={workbenchRef} style={{ "--cmx-workbench-columns": `${sourceSplit}fr 10px ${1 - sourceSplit}fr` }}>
             <section className={`cmx-source${sourceFullscreen ? " is-source-fullscreen" : ""}`} ref={sourceRef} aria-label="Source code">
               <div className="cmx-panel-bar">
-                {isWeb ? <div className="cmx-file-tabs" role="tablist" aria-label="Web files">{["html", "css", "javascript"].map((id) => <button type="button" role="tab" aria-selected={editorLanguage === id} key={id} onClick={() => { setWebTab(id); setActiveLine(0); }}>{CODE_MATRIX_LANGUAGES.find((item) => item.id === id).file}</button>)}</div> : <span><FileCode2 size={15} />{editorFile}</span>}
+                {isWeb ? <div className="cmx-file-tabs" role="tablist" aria-label="Web files">{["html", "css", "javascript"].map((id) => <button type="button" role="tab" aria-selected={editorLanguage === id} key={id} onClick={() => { setWebTab(id); setActiveLine(0); setLineRequest(null); }}>{CODE_MATRIX_LANGUAGES.find((item) => item.id === id).file}</button>)}</div> : <span><FileCode2 size={15} />{editorFile}</span>}
                 <div className="cmx-file-actions"><button type="button" aria-label="Download code" title="Download code" onClick={downloadCode}><Download size={16} /></button><button type="button" aria-label={sourceFullscreen ? "Exit code fullscreen" : "Open code fullscreen"} title={sourceFullscreen ? "Exit code fullscreen" : "Open code fullscreen"} onClick={() => void toggleSourceFullscreen()}>{sourceFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button><button type="button" aria-label="Reset code to starter" title="Reset code to starter" onClick={() => setResetOpen(true)}><RotateCcw size={15} /></button></div>
               </div>
               {resetOpen && <div className="cmx-reset-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setResetOpen(false); }}>
@@ -330,13 +352,13 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
                   <div className="cmx-reset-actions"><button type="button" className="cmx-button cmx-primary" onClick={() => { editCode(CODE_MATRIX_STARTERS[editorLanguage]); setResetOpen(false); }}>Reset file</button><button type="button" className="cmx-button" onClick={() => setResetOpen(false)}>Cancel</button></div>
                 </section>
               </div>}
-              <CodeMatrixEditor key={editorLanguage} value={code} language={editorLanguage} onChange={editCode} onRun={() => void run()} onLimit={() => setNotice("Each code file can contain up to 50 KB. The edit exceeded that limit.")} diagnostics={diagnostics} activeLine={activeLine} />
+              <CodeMatrixEditor key={editorLanguage} value={code} language={editorLanguage} onChange={editCode} onRun={() => void run()} onLimit={() => setNotice("Each code file can contain up to 50 KB. The edit exceeded that limit.")} diagnostics={diagnostics} activeLine={activeLine} lineRequest={lineRequest} />
               <div className="cmx-editor-footer"><span>{code.split("\n").length} lines · {code.length.toLocaleString()} characters</span><span>UTF-8</span></div>
             </section>
             <div className="cmx-resize-handle" role="separator" aria-label="Resize code and output panels" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="70" aria-valuenow={Math.round(sourceSplit * 100)} tabIndex="0" onPointerDown={startResize} onKeyDown={handleResizeKeyDown}><span aria-hidden="true" /></div>
             <section className="cmx-results" aria-label="Execution results">
               {result && <div className={`cmx-result-status is-${result.status}`} role="status"><span>{STATUS_LABELS[result.status] || result.status}{!unchanged && !isWeb && result.code && " · code changed since this run"}</span>{Number.isFinite(result.durationMs) && <span>{(result.durationMs / 1000).toFixed(2)} s</span>}</div>}
-              <div className="cmx-result-content" role="region" aria-label={resultTab === "preview" ? "Web preview" : resultTab === "debug" ? "Debug results" : "Program output"}>
+              <div className={`cmx-result-content${reviewSnapshot ? ' has-assistant' : ''}`} role="region" aria-label={resultTab === "preview" ? "Web preview" : resultTab === "debug" ? "Debug results" : "Program output"}>
                 {preview && <iframe ref={previewRef} title="CodeMatrix webpage preview" hidden={resultTab !== "preview"} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={preview.srcDoc} />}
                 {busy && !waiting && <div className="cmx-running-message" role="status"><LoaderCircle className="cmx-spin" size={14} />{runtimeMessage}</div>}
                 {resultTab === "preview" ? (
@@ -350,6 +372,13 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
                 ) : result ? (
                   <div className="cmx-output"><ResultTables tables={result.tables || []} /><CodeMatrixTerminal output={result.stdout} error={result.stderr} waiting={waiting} busy={busy || !!result.tables?.length} onInput={submitInput} /></div>
                 ) : <div className="cmx-empty"><Terminal size={30} /><strong>Your output starts here</strong><span>Run your code. Type here when your program asks for input.</span><kbd>Ctrl / ⌘ + Enter</kbd></div>}
+                {reviewSnapshot && <CodeMatrixAssistant
+                  key={academicProfileDataId + JSON.stringify(reviewSnapshot)} snapshot={reviewSnapshot} session={reviewSession}
+                  stale={!codeReviewMatchesDraft(reviewSnapshot, workspace.drafts)} availability={assistantAvailability}
+                  onRetryAvailability={() => setAssistantConnectionAttempt((value) => value + 1)}
+                  onGoToLine={(line) => { if (isWeb) setWebTab('javascript'); setActiveLine(line); setLineRequest({ line, language: diagnosticLanguage }); }}
+                  onRun={() => void run()}
+                />}
               </div>
             </section>
           </div>

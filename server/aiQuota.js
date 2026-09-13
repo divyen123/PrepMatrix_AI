@@ -6,6 +6,7 @@ export const AI_QUOTA_LOCKS_COLLECTION = "aiQuotaLocks";
 
 export const AI_QUOTA_FEATURES = Object.freeze({
   chat: 1,
+  code_review: 1,
   quiz: 3,
   career_analysis: 5,
   learning_notebook: 12,
@@ -24,6 +25,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 
 const FEATURE_ENV_KEYS = Object.freeze({
   chat: "AI_CREDIT_COST_CHAT",
+  code_review: "AI_CREDIT_COST_CODE_REVIEW",
   quiz: "AI_CREDIT_COST_QUIZ",
   career_analysis: "AI_CREDIT_COST_CAREER_ANALYSIS",
   learning_notebook: "AI_CREDIT_COST_LEARNING_NOTEBOOK",

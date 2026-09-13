@@ -254,6 +254,18 @@ test("reports a fresh UTC-month allowance and weighted committed usage", async (
   assert.equal(committed.quota.remaining, 97);
 });
 
+test('CodeMatrix reviews share the student monthly allowance across profiles without affecting other students', async () => {
+  const { service } = createHarness({ config: { limit: 1 } });
+  const first = await service.reserve({ userId: 'student-a', feature: 'code_review', requestId: IDS.chat1 });
+  assert.equal(first.cost, 1);
+  await service.commit({ eventId: first.eventId, reservationToken: first.reservationToken, replayPayload: { review: { summary: 'Inspect this line.' } } });
+  await expectQuotaError(service.reserve({ userId: 'student-a', academicProfileId: PROFILE_B, feature: 'code_review', requestId: IDS.chat2 }), 'AI_USER_QUOTA_EXHAUSTED', 429);
+  assert.equal((await service.getStatus('student-b')).remaining, 1);
+  const replay = await service.reserve({ userId: 'student-a', feature: 'code_review', requestId: IDS.chat1 });
+  assert.equal(replay.state, 'replay');
+  assert.equal((await service.getStatus('student-a')).used, 1);
+});
+
 test("isolates students and resets accounting exactly at the UTC month boundary", async () => {
   const harness = createHarness({ initialTime: "2026-07-31T23:59:59.999Z" });
   const reserved = await harness.service.reserve({

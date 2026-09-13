@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 
 export const AI_FEATURES = Object.freeze({
   CHAT: "chat",
+  CODE_REVIEW: "code_review",
   QUIZ: "quiz",
   CAREER_ANALYSIS: "career_analysis",
   LEARNING_NOTEBOOK: "learning_notebook",
@@ -11,6 +12,7 @@ export const AI_FEATURES = Object.freeze({
 
 export const AI_DEFAULT_COSTS = Object.freeze({
   [AI_FEATURES.CHAT]: 1,
+  [AI_FEATURES.CODE_REVIEW]: 1,
   [AI_FEATURES.QUIZ]: 3,
   [AI_FEATURES.CAREER_ANALYSIS]: 5,
   [AI_FEATURES.LEARNING_NOTEBOOK]: 12,
@@ -20,6 +22,7 @@ export const AI_DEFAULT_COSTS = Object.freeze({
 
 export const AI_FEATURE_LABELS = Object.freeze({
   [AI_FEATURES.CHAT]: "Study chat or voice question",
+  [AI_FEATURES.CODE_REVIEW]: "CodeMatrix error review",
   [AI_FEATURES.QUIZ]: "Quiz generation",
   [AI_FEATURES.CAREER_ANALYSIS]: "Professional-topic analysis",
   [AI_FEATURES.LEARNING_NOTEBOOK]: "Learning notebook",

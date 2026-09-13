@@ -80,6 +80,7 @@ import {
 import { registerLearningNoteRoutes } from "./learningNoteRoutes.js";
 import { registerLearningMemoryRoutes } from "./learningMemoryRoutes.js";
 import { registerCodeMatrixRoutes, ensureCodeMatrixIndexes, CODE_MATRIX_WORKSPACES_COLLECTION, CODE_MATRIX_SUBMISSIONS_COLLECTION, CODE_MATRIX_RATE_LIMITS_COLLECTION } from "./codeMatrixRoutes.js";
+import { registerCodeMatrixReviewRoutes } from './codeMatrixReviewRoutes.js';
 import registerAppUsageRoutes, {
   APP_USAGE_COUNTERS_COLLECTION,
   APP_USAGE_PREFERENCES_COLLECTION,
@@ -1874,6 +1875,7 @@ registerLearningMemoryRoutes(app, {
 });
 
 registerCodeMatrixRoutes(app, { getDb, requireAuth, withProfileWriteFence: withAcademicProfileWriteFence });
+registerCodeMatrixReviewRoutes(app, { getDb, requireAuth, aiQuota, mutationSecurity: requireNotificationMutationSecurity });
 registerMomentumRoutes(app, { getDb, requireAuth, mutationSecurity: requireNotificationMutationSecurity });
 
 registerQuizBattleRoutes(app, {

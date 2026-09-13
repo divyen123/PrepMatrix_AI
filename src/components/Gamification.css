@@ -476,6 +476,18 @@ body.has-bg-image .badge-guidance-tooltip {
   gap: 8px;
 }
 
+.gamification-card .xp-ring-wrap > .momentum-stats-grid {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.gamification-card .xp-ring-wrap > .momentum-stats-grid article {
+  min-width: 0;
+  align-content: center;
+  overflow-wrap: anywhere;
+}
+
 .gamification-card .momentum-stats-grid article {
   gap: 4px;
   min-height: 64px;

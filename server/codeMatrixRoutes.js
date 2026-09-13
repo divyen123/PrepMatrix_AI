@@ -22,6 +22,7 @@ export const CODE_MATRIX_COLLECTIONS = Object.freeze({
   notebooksCollectionName: "learningNotebooks",
 });
 export const CODE_MATRIX_RATE_LIMITS = Object.freeze({
+  review: Object.freeze([{ limit: 6, windowMs: 60_000 }]),
   workspaceRead: Object.freeze([{ limit: 120, windowMs: 60_000 }]),
   workspaceWrite: Object.freeze([{ limit: 60, windowMs: 60_000 }]),
   capabilities: Object.freeze([{ limit: 120, windowMs: 60_000 }]),

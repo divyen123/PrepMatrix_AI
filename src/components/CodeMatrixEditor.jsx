@@ -26,7 +26,7 @@ const editorTheme = EditorView.theme({
   ".cm-selectionBackground": { background: "#284850 !important" },
 });
 
-export default function CodeMatrixEditor({ value, language, onChange, onRun, onLimit, diagnostics = [], activeLine = 0 }) {
+export default function CodeMatrixEditor({ value, language, onChange, onRun, onLimit, diagnostics = [], activeLine = 0, lineRequest = null }) {
   const hostRef = useRef(null);
   const viewRef = useRef(null);
   const languageRef = useRef(new Compartment());
@@ -85,6 +85,15 @@ export default function CodeMatrixEditor({ value, language, onChange, onRun, onL
     const line = view.state.doc.line(activeLine);
     view.dispatch({ selection: { anchor: line.from, head: line.to }, effects: EditorView.scrollIntoView(line.from, { y: "center" }) });
   }, [activeLine]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !lineRequest || lineRequest.language !== language
+      || lineRequest.line < 1 || lineRequest.line > view.state.doc.lines) return;
+    const line = view.state.doc.line(lineRequest.line);
+    view.dispatch({ selection: { anchor: line.from, head: line.to }, effects: EditorView.scrollIntoView(line.from, { y: "center" }) });
+    view.focus();
+  }, [lineRequest, language]);
 
   return <div className="cmx-editor" ref={hostRef} />;
 }

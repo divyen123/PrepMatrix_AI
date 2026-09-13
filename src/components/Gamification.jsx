@@ -16,31 +16,26 @@ const BADGE_META = {
     icon: "🌱",
     title: "Getting started",
     tone: "starter",
-    message: "Plant your first streak by completing one scheduled task.",
   },
   "Momentum builder": {
     icon: "⚡",
     title: "Momentum builder",
     tone: "momentum",
-    message: "You are building rhythm. Keep the streak alive today.",
   },
   "Focused learner": {
     icon: "🎯",
     title: "Focused learner",
     tone: "focused",
-    message: "Strong focus pattern detected. Push one harder topic next.",
   },
   "Consistent finisher": {
     icon: "🏅",
     title: "Consistent finisher",
     tone: "consistent",
-    message: "Your completion habit is becoming reliable.",
   },
   "Pro learner": {
     icon: "🚀",
     title: "Pro learner",
     tone: "pro",
-    message: "Elite pace. Keep recovery sessions balanced with progress.",
   },
 };
 
@@ -274,9 +269,19 @@ function Gamification({
             <span>{xp}</span>
             <small>XP</small>
           </div>
-          <div className="badge-summary">
-            <strong>{badgeMeta.title}</strong>
-            <p>{badgeMeta.message}</p>
+          <div className="momentum-stats-grid">
+            <article>
+              <span>Level</span>
+              <strong>{level}</strong>
+            </article>
+            <article>
+              <span>Streak</span>
+              <strong>{streak}d</strong>
+            </article>
+            <article>
+              <span>Today</span>
+              <strong>{todayProgress}%</strong>
+            </article>
           </div>
         </div>
 
@@ -323,21 +328,6 @@ function Gamification({
             >
               Attend quiz
             </button>
-          </article>
-        </div>
-
-        <div className="momentum-stats-grid">
-          <article>
-            <span>Level</span>
-            <strong>{level}</strong>
-          </article>
-          <article>
-            <span>Streak</span>
-            <strong>{streak}d</strong>
-          </article>
-          <article>
-            <span>Today</span>
-            <strong>{todayProgress}%</strong>
           </article>
         </div>
 
