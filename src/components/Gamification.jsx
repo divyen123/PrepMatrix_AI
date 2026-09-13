@@ -11,6 +11,9 @@ import './MomentumViews.css';
 const MOMENTUM_GUIDANCE =
   "Earn XP through study tasks, exams, quizzes, and successful CodeMatrix runs. Global XP stays with you after a schedule is cleared.";
 
+const MOMENTUM_REWARDS =
+  "10 XP per study task · 40 XP per submitted exam · 10 XP per completed quiz · existing Battle rewards · 10 XP per four successful code runs.";
+
 const BADGE_META = {
   "Getting started": {
     icon: "🌱",
@@ -253,6 +256,7 @@ function Gamification({
             </button>
             <span className="badge-guidance-tooltip" id={badgeGuidanceId} role="tooltip">
               {MOMENTUM_GUIDANCE}
+              <span className="badge-reward-guidance">{MOMENTUM_REWARDS}</span>
             </span>
           </div>
         </div>
