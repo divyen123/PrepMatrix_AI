@@ -11,6 +11,9 @@ import { fileURLToPath } from "node:url";
 import registerExamRoutes, { isGroqJsonGenerationFailure } from "./examRoutes.js";
 import { getStudentOnboardingState, validateStudentDetails } from "../src/utils/studentOnboarding.js";
 import { normalizeMemoryReviewData, separatePlannerRecall } from "../src/utils/plannerLifecycle.js";
+import { mergePlannerHistory, normalizePlannerHistory } from "../src/utils/plannerHistory.js";
+import registerMomentumRoutes from './momentumRoutes.js';
+import { MOMENTUM_EVENTS_COLLECTION, syncWorkspaceMomentum, awardAssessmentMomentum } from './momentumService.js';
 import { normalizeGeneratedQuestions } from "./generatedQuizQuestions.js";
 import {
   buildChatAttachmentUserContent,
@@ -285,6 +288,7 @@ async function getDb() {
       await migrateProfileScopedUniqueIndexes(db);
       await Promise.all([
         ensureCodeMatrixIndexes(db),
+        db.collection(MOMENTUM_EVENTS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, recordedAt: -1 }),
         db.collection("users").createIndex({ usernameKey: 1 }, { unique: true }),
         db.collection("users").createIndex({ emailKey: 1 }, { unique: true, partialFilterExpression: { emailKey: { $type: "string" } } }),
         db.collection("sessions").createIndex({ token: 1 }, { unique: true }),
@@ -443,6 +447,7 @@ function defaultWorkspace(user) {
     schedule: [],
     completed: [],
     memoryReviewData: normalizeMemoryReviewData(),
+    plannerHistory: [],
     academicLevel: academicProfile.academicLevel,
     academicTrack: academicProfile.academicTrack,
     schoolStream: academicProfile.schoolStream,
@@ -471,6 +476,7 @@ function normalizeWorkspace(doc, user) {
   return {
     subjects: Array.isArray(doc?.subjects) ? doc.subjects : [],
     ...separatePlannerRecall(doc || {}),
+    plannerHistory: normalizePlannerHistory(doc?.plannerHistory),
     academicLevel: academicProfile.academicLevel,
     academicTrack: academicProfile.academicTrack,
     schoolStream: academicProfile.schoolStream,
@@ -1244,6 +1250,7 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
 
       await Promise.all([
         db.collection("workspaces").deleteMany({ userId }),
+        db.collection(MOMENTUM_EVENTS_COLLECTION).deleteMany({ userId }),
         db.collection("notes").deleteMany({ userId }),
         db.collection("quizAttempts").deleteMany({ userId }),
         db.collection(KIDS_ATTEMPTS_COLLECTION).deleteMany({ userId }),
@@ -1727,6 +1734,12 @@ app.put("/api/workspace", requireAuth(async (req, res) => {
     if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);
     if ("resumeBuilder" in update) update.resumeBuilder = normalizeResumeBuilderState(update.resumeBuilder, activeUser);
     if (!(await requireYoungKidsScheduleAccess(req, res, db, update, activeUser))) return;
+    const momentumWorkspace = await db.collection('workspaces').findOne(academicProfileFilter(req)) || {};
+    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, 'plannerHistory')) {
+      const saved = await db.collection('workspaces').findOne(academicProfileFilter(req));
+      update.plannerHistory = mergePlannerHistory(saved?.plannerHistory, req.body.plannerHistory);
+    }
+    update.momentumSchedule = await syncWorkspaceMomentum(db, academicProfileFilter(req), momentumWorkspace, { ...momentumWorkspace, ...update });
     if (typeof requestedDarkMode === "boolean") {
       await db.collection("users").updateOne(
         { _id: req.user._id, deletingAt: { $exists: false } },
@@ -1781,6 +1794,7 @@ app.post("/api/workspace/import", requireAuth(async (req, res) => {
       if (key in update && !Array.isArray(update[key])) update[key] = [];
     }
     if ("memoryReviewData" in update) update.memoryReviewData = normalizeMemoryReviewData(update.memoryReviewData);
+    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, 'plannerHistory')) update.plannerHistory = normalizePlannerHistory(req.body.plannerHistory);
     if ("materialBookmarks" in update) update.materialBookmarks = normalizeMaterialBookmarks(update.materialBookmarks);
     if ("goalReminderData" in update) update.goalReminderData = normalizeGoalReminderData(update.goalReminderData);
     if ("goalReminderSettings" in update) update.goalReminderSettings = normalizeGoalReminderSettings(update.goalReminderSettings);
@@ -1860,6 +1874,7 @@ registerLearningMemoryRoutes(app, {
 });
 
 registerCodeMatrixRoutes(app, { getDb, requireAuth, withProfileWriteFence: withAcademicProfileWriteFence });
+registerMomentumRoutes(app, { getDb, requireAuth, mutationSecurity: requireNotificationMutationSecurity });
 
 registerQuizBattleRoutes(app, {
   aiQuota,
@@ -2249,6 +2264,7 @@ app.post("/api/quizzes", requireParentGuidedFeature("Quiz", async (req, res) => 
   if (replayFilter) {
     const existing = await attempts.findOne(replayFilter);
     if (existing) {
+      await withAcademicProfileWriteFence(db, req, () => awardAssessmentMomentum(db, academicProfileFilter(req), 'quiz', existing));
       res.set("Cache-Control", "no-store");
       return res.json({ attempt: publicQuizAttempt(existing), idempotent: true });
     }
@@ -2259,7 +2275,13 @@ app.post("/api/quizzes", requireParentGuidedFeature("Quiz", async (req, res) => 
     result = await withAcademicProfileWriteFence(
       db,
       req,
-      () => attempts.insertOne(attempt),
+      async () => {
+        const workspace = await db.collection('workspaces').findOne(academicProfileFilter(req));
+        attempt.momentumScheduleId = workspace?.momentumSchedule?.id || '';
+        const inserted = await attempts.insertOne(attempt);
+        await awardAssessmentMomentum(db, academicProfileFilter(req), 'quiz', { ...attempt, _id: inserted.insertedId });
+        return inserted;
+      },
     );
   } catch (error) {
     if (error?.code !== 11000 || !replayFilter) throw error;

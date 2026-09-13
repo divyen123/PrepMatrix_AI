@@ -20,6 +20,7 @@ export default function useLearningInsights({ academicProfileDataId = "" } = {})
 
   useEffect(() => {
     let isCurrent = true;
+    setNotebooks([]);
     setLoading(true);
     setError("");
 
@@ -55,6 +56,7 @@ export default function useLearningInsights({ academicProfileDataId = "" } = {})
 
   return {
     error,
+    notebooks,
     insights,
     loading,
     reload,

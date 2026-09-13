@@ -1,0 +1,42 @@
+.momentum-title-row { display: flex; align-items: center; gap: 8px; }
+.momentum-title-row h3 { margin: 0; }
+body .gamification-card .momentum-icon-button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 26px; min-width: 26px; height: 28px; min-height: 28px; padding: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important; color: var(--accent); transform: none; }
+body .gamification-card .momentum-icon-button::before, body .gamification-card .momentum-icon-button::after { display: none; }
+body .gamification-card .momentum-icon-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.momentum-icon-button svg { transition: transform 650ms cubic-bezier(.22,1,.36,1); }
+.momentum-icon-button[aria-pressed=true] svg { transform: rotate(180deg); }
+.momentum-view-label { margin: 5px 0 0; font-size: 11px; color: var(--text-muted); }
+.gamification-card > .gamification-scroll-region.momentum-pages { display: grid; overflow: hidden; }
+.momentum-page { grid-area: 1 / 1; display: grid; gap: 14px; align-content: start; min-width: 0; transition: transform 700ms cubic-bezier(.22,1,.36,1), opacity 500ms ease, visibility 700ms; }
+.momentum-page--schedule { transform: translateX(0); opacity: 1; }
+.momentum-page--global { transform: translateX(110%); opacity: 0; visibility: hidden; }
+.momentum-pages.is-global .momentum-page--schedule { transform: translateX(-110%); opacity: 0; visibility: hidden; }
+.momentum-pages.is-global .momentum-page--global { transform: translateX(0); opacity: 1; visibility: visible; }
+.global-momentum-sources { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.global-momentum-sources article { border: 1px solid var(--border); background: var(--surface-muted); border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.global-momentum-sources article:last-child { grid-column: 1 / -1; }
+.global-momentum-sources span { font-size: 12px; color: var(--text-muted); }
+.global-momentum-sources strong { font-size: 18px; color: var(--text); }
+.global-momentum-sources strong small { font-size: 10px; font-weight: 500; }
+.momentum-coding-progress { padding: 12px 14px; border-radius: 14px; background: var(--accent-soft); border: 1px solid var(--border); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 12px; }
+.momentum-coding-progress > div { width: 100%; height: 5px; border-radius: 5px; overflow: hidden; background: var(--surface-muted); }
+.momentum-coding-progress i { display: block; height: 100%; background: var(--accent); }
+.momentum-coding-progress > small { color: var(--text-muted); }
+.momentum-refresh-error { font-size: 12px; color: var(--text-muted); }
+.momentum-history-total { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.momentum-history-total strong { font-size: 26px; color: var(--accent); }
+.momentum-history-totals { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 22px; }
+.momentum-history-totals > div { flex: 1 1 100px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }
+.momentum-history-totals dt { font-size: 12px; color: var(--text-muted); }
+.momentum-history-totals dd { margin: 4px 0 0; font-weight: 700; }
+.momentum-history-list { margin: 0; padding: 0; list-style: none; }
+.momentum-history-list > li { display: flex; justify-content: space-between; gap: 16px; padding: 16px 0; border-top: 1px solid var(--border); }
+.momentum-history-list > li > div { min-width: 0; overflow-wrap: anywhere; }
+.momentum-history-list strong, .momentum-history-kind { display: block; }
+.momentum-history-kind { color: var(--accent); font-size: 11px; margin-bottom: 5px; }
+.momentum-history-list strong { font-size: 14px; }
+.momentum-history-list p { font-size: 12px; margin: 5px 0; color: var(--text-muted); }
+.momentum-history-list small { font-size: 11px; color: var(--text-muted); }
+.momentum-history-list b { flex-shrink: 0; color: var(--accent); font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .momentum-page, .momentum-icon-button svg { transition: none; } }
+@media (max-width: 600px) { .momentum-title-row { gap: 4px; } .momentum-title-row h3 { font-size: 17px; } .global-momentum-sources article { padding: 10px; } }

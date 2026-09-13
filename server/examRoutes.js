@@ -1273,6 +1273,7 @@ export default function registerExamRoutes(app, dependencies) {
         userId: req.user._id,
         academicProfileId,
         examId,
+        momentumScheduleId: workspace?.momentumSchedule?.id || '',
         status: "in_progress",
         startedAt,
         minimumSubmitAt: new Date(startedAt.getTime() + MINIMUM_EXAM_SUBMIT_MS),

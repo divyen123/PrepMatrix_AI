@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BookOpen, Bug, CalendarDays, Check, ChevronLeft, ChevronRight, CircleAlert, Code2, Download, FileCode2, LoaderCircle, Play, Plus, RotateCcw, Settings2, Square, Terminal, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Bug, CalendarDays, Check, ChevronLeft, ChevronRight, CircleAlert, Code2, Download, FileCode2, LoaderCircle, Maximize2, Minimize2, Play, Plus, RotateCcw, Settings2, Square, Terminal, X } from "lucide-react";
 import CodeMatrixEditor from "../components/CodeMatrixEditor";
 import CodeMatrixTerminal from "../components/CodeMatrixTerminal";
 import useCodeMatrixWorkspace from "../hooks/useCodeMatrixWorkspace.js";
+import useCodeRunRewards from '../hooks/useCodeRunRewards';
 import { getCodeMatrixEligibility, getCodeMatrixSetupSteps } from "../utils/codeMatrixProfile.js";
 import { CODE_MATRIX_LANGUAGES, CODE_MATRIX_MAX_CODE, CODE_MATRIX_STARTERS, codeMatrixSetupNavigation, getCodeMatrixDiagnostics } from "../utils/codeMatrixWorkspace.js";
 import { buildCodeMatrixPreview, createCodeMatrixBrowserRun } from "../utils/codeMatrixRuntime.js";
@@ -31,6 +32,7 @@ function ResultTables({ tables }) {
 }
 
 export default function CodeMatrixPage({ academicProfileDataId = "", userProfile = {}, subjects = [], schedule = [], workspaceLoaded = true }) {
+  const recordSuccessfulRun = useCodeRunRewards(academicProfileDataId);
   const eligibility = useMemo(() => getCodeMatrixEligibility(userProfile, subjects), [userProfile, subjects]);
   const { workspace, update, ready, syncState, setup, flush, retry } = useCodeMatrixWorkspace(academicProfileDataId, eligibility.defaultLanguage);
   const [showSetup, setShowSetup] = useState(false);
@@ -45,9 +47,14 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   const [resetOpen, setResetOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [preview, setPreview] = useState(null);
+  const [sourceSplit, setSourceSplit] = useState(0.55);
+  const [sourceFullscreen, setSourceFullscreen] = useState(false);
   const runRef = useRef(null);
   const runSequenceRef = useRef(0);
   const previewRef = useRef(null);
+  const workbenchRef = useRef(null);
+  const sourceRef = useRef(null);
+  const resizeCleanupRef = useRef(null);
   const mountedRef = useRef(true);
   const language = CODE_MATRIX_LANGUAGES.find(({ id }) => id === workspace.language) || CODE_MATRIX_LANGUAGES[0];
   const isWeb = language.runtime === "preview";
@@ -69,6 +76,21 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   useEffect(() => { setResultTab(isWeb ? "preview" : "output"); }, [isWeb]);
 
   useEffect(() => {
+    const source = sourceRef.current;
+    if (!source) return undefined;
+    const syncFullscreen = () => setSourceFullscreen(document.fullscreenElement === source);
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
+
+  useEffect(() => {
+    if (!resetOpen) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setResetOpen(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [resetOpen]);
+
+  useEffect(() => {
     if (!ready || !workspaceLoaded) return;
     const observed = steps.filter((step) => step.complete).map((step) => step.id);
     if (observed.some((id) => !workspace.completedSteps.includes(id))) update({ completedSteps: observed });
@@ -76,7 +98,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; runSequenceRef.current += 1; runRef.current?.cancel(); };
+    return () => { mountedRef.current = false; runSequenceRef.current += 1; runRef.current?.cancel(); resizeCleanupRef.current?.(); };
   }, []);
 
   useEffect(() => {
@@ -129,6 +151,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
     setResultTab(debug ? "debug" : "output");
     setRuntimeMessage("Preparing your run…");
     const snapshot = { code, language: editorLanguage };
+    const rewardRunId = crypto.randomUUID();
     setResult({ ...snapshot, stdout: '', stderr: '', status: 'loading' });
     try {
       const task = createCodeMatrixBrowserRun({ language: workspace.language, code, interactive: true, debug, onEvent: (event) => {
@@ -144,6 +167,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
       const outcome = await task.promise;
       if (!mountedRef.current || sequence !== runSequenceRef.current) return;
       setResult({ ...outcome, ...snapshot });
+      if (outcome.status === 'success' && code.trim()) recordSuccessfulRun(rewardRunId, editorLanguage);
       if (debug) setResultTab('debug');
       if (debug && outcome.trace?.length) setActiveLine(outcome.trace[0].line);
       else if (outcome.stderr) setActiveLine(getCodeMatrixDiagnostics(outcome.stderr, editorLanguage)[0]?.line || 0);
@@ -152,7 +176,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
     } finally {
       if (mountedRef.current && sequence === runSequenceRef.current) { setBusy(false); setWaiting(false); setRuntimeMessage(""); runRef.current = null; }
     }
-  }, [busy, code, editorLanguage, eligibility.eligible, isWeb, ready, workspace]);
+  }, [busy, code, editorLanguage, eligibility.eligible, isWeb, ready, workspace, recordSuccessfulRun]);
 
   const submitInput = (value) => {
     if (!runRef.current?.submitInput(value)) { setNotice('Input could not be sent. Keep terminal input under 64 KB per run.'); return false; }
@@ -164,6 +188,60 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
     update((current) => ({ drafts: { ...current.drafts, [editorLanguage]: value } }));
     setActiveLine(0);
   }, [editorLanguage, update]);
+
+  const updateSourceSplit = useCallback((clientX) => {
+    const workbench = workbenchRef.current;
+    if (!workbench) return;
+    const bounds = workbench.getBoundingClientRect();
+    const nextSplit = (clientX - bounds.left) / bounds.width;
+    setSourceSplit(Math.min(0.7, Math.max(0.3, nextSplit)));
+  }, []);
+
+  const startResize = useCallback((event) => {
+    if (event.button !== 0) return;
+    const workbench = workbenchRef.current;
+    if (!workbench || workbench.getBoundingClientRect().width < 750) return;
+    event.preventDefault();
+    resizeCleanupRef.current?.();
+    const onMove = (moveEvent) => updateSourceSplit(moveEvent.clientX);
+    const cleanup = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", cleanup);
+      window.removeEventListener("pointercancel", cleanup);
+      document.body.classList.remove("cmx-is-resizing");
+      resizeCleanupRef.current = null;
+    };
+    resizeCleanupRef.current = cleanup;
+    document.body.classList.add("cmx-is-resizing");
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", cleanup);
+    window.addEventListener("pointercancel", cleanup);
+  }, [updateSourceSplit]);
+
+  const adjustSourceSplit = useCallback((amount) => {
+    setSourceSplit((current) => Math.min(0.7, Math.max(0.3, current + amount)));
+  }, []);
+
+  const handleResizeKeyDown = useCallback((event) => {
+    if (event.key === "ArrowLeft") { event.preventDefault(); adjustSourceSplit(-0.05); }
+    if (event.key === "ArrowRight") { event.preventDefault(); adjustSourceSplit(0.05); }
+  }, [adjustSourceSplit]);
+
+  const toggleSourceFullscreen = useCallback(async () => {
+    const source = sourceRef.current;
+    if (!source) return;
+    if (document.fullscreenElement === source) {
+      await document.exitFullscreen();
+      return;
+    }
+    if (sourceFullscreen) { setSourceFullscreen(false); return; }
+    try {
+      if (typeof source.requestFullscreen !== "function") throw new Error("Fullscreen is unavailable");
+      await source.requestFullscreen();
+    } catch {
+      setSourceFullscreen(true);
+    }
+  }, [sourceFullscreen]);
 
   function changeLanguage(value) {
     if (busy) stop();
@@ -238,24 +316,27 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
             </div>
           </div>
           {notice && <div className="cmx-notice" role="alert"><CircleAlert size={18} />{notice}<button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}><X size={16} /></button></div>}
-          <div className="cmx-workbench">
-            <section className="cmx-source" aria-label="Source code">
+          <div className="cmx-workbench" ref={workbenchRef} style={{ "--cmx-workbench-columns": `${sourceSplit}fr 10px ${1 - sourceSplit}fr` }}>
+            <section className={`cmx-source${sourceFullscreen ? " is-source-fullscreen" : ""}`} ref={sourceRef} aria-label="Source code">
               <div className="cmx-panel-bar">
                 {isWeb ? <div className="cmx-file-tabs" role="tablist" aria-label="Web files">{["html", "css", "javascript"].map((id) => <button type="button" role="tab" aria-selected={editorLanguage === id} key={id} onClick={() => { setWebTab(id); setActiveLine(0); }}>{CODE_MATRIX_LANGUAGES.find((item) => item.id === id).file}</button>)}</div> : <span><FileCode2 size={15} />{editorFile}</span>}
-                <div className="cmx-file-actions"><button type="button" aria-label="Download code" title="Download code" onClick={downloadCode}><Download size={16} /></button><button type="button" aria-label="Reset code to starter" title="Reset code to starter" onClick={() => setResetOpen(!resetOpen)}><RotateCcw size={15} /></button></div>
+                <div className="cmx-file-actions"><button type="button" aria-label="Download code" title="Download code" onClick={downloadCode}><Download size={16} /></button><button type="button" aria-label={sourceFullscreen ? "Exit code fullscreen" : "Open code fullscreen"} title={sourceFullscreen ? "Exit code fullscreen" : "Open code fullscreen"} onClick={() => void toggleSourceFullscreen()}>{sourceFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button><button type="button" aria-label="Reset code to starter" title="Reset code to starter" onClick={() => setResetOpen(true)}><RotateCcw size={15} /></button></div>
               </div>
-              {resetOpen && <div className="cmx-reset" role="group" aria-label="Confirm resetting code"><span>Replace {editorFile} with its starter code?</span><button type="button" onClick={() => { editCode(CODE_MATRIX_STARTERS[editorLanguage]); setResetOpen(false); }}>Reset file</button><button type="button" onClick={() => setResetOpen(false)}>Cancel</button></div>}
+              {resetOpen && <div className="cmx-reset-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setResetOpen(false); }}>
+                <section className="cmx-reset-dialog" role="dialog" aria-modal="true" aria-labelledby="cmx-reset-title" aria-describedby="cmx-reset-description" onMouseDown={(event) => event.stopPropagation()}>
+                  <div className="cmx-reset-dialog-heading"><span className="cmx-reset-dialog-icon"><RotateCcw size={17} /></span><button type="button" className="cmx-reset-close" aria-label="Close reset confirmation" onClick={() => setResetOpen(false)}><X size={16} /></button></div>
+                  <h2 id="cmx-reset-title">Reset {editorFile}?</h2>
+                  <p id="cmx-reset-description">Your current code in this file will be replaced with the starter code.</p>
+                  <div className="cmx-reset-actions"><button type="button" className="cmx-button cmx-primary" onClick={() => { editCode(CODE_MATRIX_STARTERS[editorLanguage]); setResetOpen(false); }}>Reset file</button><button type="button" className="cmx-button" onClick={() => setResetOpen(false)}>Cancel</button></div>
+                </section>
+              </div>}
               <CodeMatrixEditor key={editorLanguage} value={code} language={editorLanguage} onChange={editCode} onRun={() => void run()} onLimit={() => setNotice("Each code file can contain up to 50 KB. The edit exceeded that limit.")} diagnostics={diagnostics} activeLine={activeLine} />
               <div className="cmx-editor-footer"><span>{code.split("\n").length} lines · {code.length.toLocaleString()} characters</span><span>UTF-8</span></div>
             </section>
+            <div className="cmx-resize-handle" role="separator" aria-label="Resize code and output panels" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="70" aria-valuenow={Math.round(sourceSplit * 100)} tabIndex="0" onPointerDown={startResize} onKeyDown={handleResizeKeyDown}><span aria-hidden="true" /></div>
             <section className="cmx-results" aria-label="Execution results">
-              <div className="cmx-panel-bar cmx-result-tabs" role="tablist" aria-label="Results">
-                {isWeb && <button type="button" role="tab" aria-selected={resultTab === "preview"} onClick={() => setResultTab("preview")}>Preview</button>}
-                <button type="button" role="tab" aria-selected={resultTab === "output"} onClick={() => setResultTab("output")}><Terminal size={15} />Output</button>
-                <button type="button" role="tab" aria-selected={resultTab === "debug"} onClick={() => setResultTab("debug")}><Bug size={15} />Debug{errorDiagnostics.length > 0 && <span className="cmx-error-count">{errorDiagnostics.length}</span>}</button>
-              </div>
               {result && <div className={`cmx-result-status is-${result.status}`} role="status"><span>{STATUS_LABELS[result.status] || result.status}{!unchanged && !isWeb && result.code && " · code changed since this run"}</span>{Number.isFinite(result.durationMs) && <span>{(result.durationMs / 1000).toFixed(2)} s</span>}</div>}
-              <div className="cmx-result-content" role="tabpanel" aria-label={resultTab === "preview" ? "Web preview" : resultTab === "debug" ? "Debug results" : "Program output"}>
+              <div className="cmx-result-content" role="region" aria-label={resultTab === "preview" ? "Web preview" : resultTab === "debug" ? "Debug results" : "Program output"}>
                 {preview && <iframe ref={previewRef} title="CodeMatrix webpage preview" hidden={resultTab !== "preview"} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={preview.srcDoc} />}
                 {busy && !waiting && <div className="cmx-running-message" role="status"><LoaderCircle className="cmx-spin" size={14} />{runtimeMessage}</div>}
                 {resultTab === "preview" ? (

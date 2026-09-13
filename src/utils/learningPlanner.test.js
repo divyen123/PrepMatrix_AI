@@ -4,6 +4,7 @@ import {
   buildLearningPlannerTaskName,
   findLearningPlannerTask,
   findLearningPlannerTaskForNode,
+  getLearningPlannerAvailability,
   getLearningPlannerCompletionState,
   getLearningScheduleDateOptions,
   setLearningPlannerNodeCompletion,
@@ -45,6 +46,30 @@ test("lists only real non-past schedule dates", () => {
     ).map(({ dateKey }) => dateKey),
     ["2026-07-26", "2026-07-27"],
   );
+});
+
+test("requires a schedule before adding notebook work, including after clearing a plan", () => {
+  for (const emptySchedule of [[], null, undefined]) {
+    const availability = getLearningPlannerAvailability(emptySchedule, "2026-07-26", "2026-07-26");
+    assert.equal(availability.message, "Add a schedule first");
+    assert.deepEqual(availability.dateOptions, []);
+    assert.equal(upsertLearningPlannerTask(emptySchedule, project, node, "2026-07-26", "2026-07-26", "2026-07-26"), null);
+  }
+});
+
+test("distinguishes an unavailable schedule from one with a real upcoming date", () => {
+  const snapshot = structuredClone(schedule);
+  const expired = getLearningPlannerAvailability(schedule, "", "2026-07-28");
+  assert.equal(expired.message, "Update your schedule first");
+  assert.deepEqual(expired.dateOptions, []);
+
+  const undated = getLearningPlannerAvailability([{ day: 1, tasks: [] }], "", "2026-07-26");
+  assert.equal(undated.message, "Update your schedule first");
+
+  const available = getLearningPlannerAvailability(schedule, "", "2026-07-26");
+  assert.equal(available.message, "");
+  assert.deepEqual(available.dateOptions.map(({ dateKey }) => dateKey), ["2026-07-26", "2026-07-27"]);
+  assert.deepEqual(schedule, snapshot);
 });
 
 test("adds a selected learning node with stable source metadata", () => {

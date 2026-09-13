@@ -1,14 +1,19 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { getPlannerMetrics } from "../utils/plannerMetrics";
+import { CheckCircle2, History } from 'lucide-react';
+import { createPlannerHistoryEntry, getLandscapeData, normalizePlannerHistory } from '../utils/plannerHistory';
+import PlannerHistoryDialog from './PlannerHistoryDialog';
 
-function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
+function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = [], completed = [], history = [], scheduleStartDate = '', notebooks = [], notebooksLoading, notebooksError, onRetryNotebooks }) {
   const [isVisible, setIsVisible] = useState(false);
   const [tooltipInfo, setTooltipInfo] = useState(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const observer = useRef(null);
 
   const setObserverTarget = useCallback((node) => {
     if (observer.current) observer.current.disconnect();
+    if (!node) return;
+    if (typeof IntersectionObserver === 'undefined') { setIsVisible(true); return; }
     observer.current = new IntersectionObserver(
       (entries) => {
         if (entries.length > 0 && entries[0].isIntersecting) {
@@ -19,32 +24,18 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
     );
     if (node) observer.current.observe(node);
   }, []);
+  useEffect(() => () => observer.current?.disconnect(), []);
 
-  const metrics = getPlannerMetrics(schedule, completed);
-
-  const chartData = subjects.map((subject) => {
-    const stats = metrics.subjectStats[subject.name] || {
-      done: 0,
-      pending: 0,
-      total: 0,
-    };
-    const totalChapters = Math.max(subject.chapters, stats.total, 1);
-    const completionRate = Math.round((stats.done / totalChapters) * 100) || 0;
-    const pendingRate = Math.max(0, 100 - completionRate);
-    
-    return {
-      id: subject.id,
-      subject: subject.name,
-      difficulty: subject.difficulty || "medium",
-      done: stats.done,
-      pending: stats.pending,
-      completionRate,
-      pendingRate,
-    };
-  });
-
-  const sortedData = [...chartData].sort((a, b) => b.pending - a.pending || b.pendingRate - a.pendingRate);
-  const focusLeader = sortedData[0];
+  const savedHistory = useMemo(() => normalizePlannerHistory(history), [history]);
+  const currentRecord = useMemo(() => {
+    const entry = createPlannerHistoryEntry({ subjects, schedule, completed, scheduleStartDate }, { id: 'current-schedule', now: '2000-01-01T00:00:00Z' });
+    return entry ? { ...entry, archivedAt: '', isCurrent: true } : null;
+  }, [subjects, schedule, completed, scheduleStartDate]);
+  const sortedData = useMemo(() => getLandscapeData(subjects, schedule, completed, savedHistory), [subjects, schedule, completed, savedHistory]);
+  const focusLeader = sortedData.find((item) => item.pending > 0);
+  const hasActiveSchedule = sortedData.some((item) => item.total > 0);
+  const hasHistory = savedHistory.length > 0;
+  const latestFullyCompleted = savedHistory[0]?.fullyCompleted;
 
   return (
     <section className="card landscape-card">
@@ -53,9 +44,15 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
           <span className="section-tag">Focus Map</span>
           <h2>Subject landscape</h2>
         </div>
+        <button type="button" className="landscape-history-button" onClick={() => { setTooltipInfo(null); setHistoryOpen(true); }}><History size={16} />View history</button>
       </div>
 
-      {chartData.length === 0 ? (
+      {!hasActiveSchedule && hasHistory && <div className="landscape-history-message" role="status">
+        <CheckCircle2 size={23} /><div><strong>{latestFullyCompleted ? 'Already completed — your progress is saved' : 'Your completed work is saved'}</strong>
+          <p>The active schedule was cleared. View history for completed chapters, topics, and prepared notes.</p></div>
+      </div>}
+
+      {sortedData.length === 0 ? (
         <p className="empty-state">
           Add subjects and generate a timetable to unlock the study landscape.
         </p>
@@ -81,7 +78,7 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
                   <div className="custom-bar-label">
                     <span>{item.subject}</span>
                     <span className="custom-bar-count">
-                      {item.done}/{item.done + item.pending} ch
+                      {item.total ? `${item.done}/${item.total} tasks` : item.historicalCount ? `${item.historicalCount} completed previously` : 'No active schedule'}
                     </span>
                   </div>
                   <div className="custom-bar-track">
@@ -101,6 +98,7 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
                       }}
                     />
                   </div>
+                  {item.total > 0 && item.historicalCount > 0 && <small className="landscape-history-caption">{item.historicalCount} completed tasks also saved in history</small>}
                 </div>
               ))}
             </div>
@@ -108,12 +106,12 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
 
           <div className="landscape-side">
             <div className="landscape-panel">
-              <span className="panel-label">Top Priority</span>
-              <strong>{focusLeader?.subject || "No subjects yet"}</strong>
+              <span className="panel-label">{focusLeader ? 'Top priority' : 'Study progress'}</span>
+              <strong>{focusLeader?.subject || (hasActiveSchedule ? 'Schedule completed' : hasHistory ? 'Completed previously' : 'Ready for a new plan')}</strong>
               <p>
                 {focusLeader && focusLeader.pending > 0
-                  ? `${focusLeader.pending} unfinished chapters are sitting in this subject.`
-                  : "All caught up or generate a schedule to see priorities."}
+                  ? `${focusLeader.pending} ${focusLeader.pending === 1 ? 'task remains' : 'tasks remain'} in your current schedule for this subject.`
+                  : hasHistory ? 'Your previous completed tasks are available in View history.' : hasActiveSchedule ? 'Every scheduled task has been completed.' : 'Create a schedule to see current study priorities.'}
               </p>
             </div>
 
@@ -125,12 +123,14 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
                 <span><i className="legend-dot hard" /> Hard</span>
               </div>
               <p>
-                Darker filled regions represent completed work, while lighter translucent sections indicate pending chapters.
+                Filled regions show completed tasks. Translucent regions show pending tasks in the active schedule. Historical work is labelled separately.
               </p>
             </div>
           </div>
         </div>
       )}
+
+      {historyOpen && <PlannerHistoryDialog academicProfileDataId={academicProfileDataId} entries={currentRecord ? [currentRecord, ...savedHistory] : savedHistory} notebooks={notebooks} notebooksLoading={notebooksLoading} notebooksError={notebooksError} onRetryNotebooks={onRetryNotebooks} onClose={() => setHistoryOpen(false)} />}
 
       {tooltipInfo && createPortal(
         <div 
@@ -140,9 +140,9 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [] }) {
           <strong>{tooltipInfo.item.subject}</strong>
           <div className="tooltip-metrics">
             <span><i className={`dot ${tooltipInfo.item.difficulty}`}></i> Difficulty: {tooltipInfo.item.difficulty}</span>
-            <span>✓ Completed: {tooltipInfo.item.done}</span>
-            <span>⏱ Pending: {tooltipInfo.item.pending}</span>
-            <span>% Coverage: {tooltipInfo.item.completionRate}%</span>
+            <span>Completed: {tooltipInfo.item.total ? tooltipInfo.item.done : tooltipInfo.item.historicalCount}</span>
+            <span>{tooltipInfo.item.total ? `Pending: ${tooltipInfo.item.pending}` : tooltipInfo.item.historicalCount ? 'Saved history · no active schedule' : 'No active schedule'}</span>
+            {tooltipInfo.item.total > 0 && <span>Schedule completion: {tooltipInfo.item.completionRate}%</span>}
           </div>
         </div>,
         document.body

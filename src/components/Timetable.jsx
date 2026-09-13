@@ -37,6 +37,7 @@ import { buildPlannerUnlockQuizRequest } from "../utils/plannerUnlockQuiz";
 export function ClearScheduleConfirmation({
   onCancel = () => {},
   onDelete = () => {},
+  busy = false,
 }) {
   return (
     <div
@@ -49,11 +50,12 @@ export function ClearScheduleConfirmation({
     >
       <strong id="clear-schedule-title">Clear this schedule?</strong>
       <p id="clear-schedule-description">
-        This clears the study schedule and its completion history. Saved recall checks stay available in Recall Session. Your subjects stay saved.
+        This removes the active schedule. Completed tasks are kept in Analytics history. Saved recall checks stay available in Recall Session. Your subjects stay saved.
       </p>
       <div className="planner-clear-confirmation-actions">
         <button
           className="planner-clear-cancel-btn"
+          disabled={busy}
           onClick={onCancel}
           type="button"
         >
@@ -61,10 +63,11 @@ export function ClearScheduleConfirmation({
         </button>
         <button
           className="planner-clear-delete-btn"
+          disabled={busy}
           onClick={onDelete}
           type="button"
         >
-          Delete
+          {busy ? 'Saving history…' : 'Delete'}
         </button>
       </div>
     </div>
@@ -217,6 +220,7 @@ export function PlannerScheduleDay({
   );
 }
 function Timetable({
+  onClearSchedule,
   onAttendExam,
   academicProfile = {},
   academicProfileDataId = "",
@@ -538,6 +542,7 @@ function Timetable({
         planMode,
         startDate,
       });
+      if (result.length) result[0] = { ...result[0], momentumToken: crypto.randomUUID() };
 
       setUnlockQuizTarget(null);
       setSchedule(result);
@@ -736,13 +741,22 @@ function Timetable({
     setShowClearConfirmation(true);
   };
 
-  const handleClearSchedule = () => {
+  const handleClearSchedule = async () => {
+    if (loading) return;
     if (!canManageSchedule) {
       setShowClearConfirmation(false);
       requestParentAccess();
       return;
     }
 
+    if (onClearSchedule) {
+      setLoading(true);
+      try { await onClearSchedule(); }
+      catch (error) {
+        toast.error(error.message || 'Could not clear your schedule. Your progress is unchanged.');
+        return;
+      } finally { setLoading(false); }
+    }
     const clearedState = clearPlannerScheduleState({
       completed,
       schedule,
@@ -758,7 +772,7 @@ function Timetable({
     setLastAction(null);
     setShowGenerateForm(true);
     setShowClearConfirmation(false);
-    toast.success("Schedule cleared. Subjects and Recall Session checks remain saved.", {
+    toast.success("Schedule cleared. Completed work is saved in Analytics history. Subjects and Recall Session checks remain saved.", {
       toastId: "planner-cleared",
     });
   };
@@ -899,6 +913,7 @@ function Timetable({
             </button>
             {showClearConfirmation && (
               <ClearScheduleConfirmation
+                busy={loading}
                 onCancel={() => setShowClearConfirmation(false)}
                 onDelete={handleClearSchedule}
               />

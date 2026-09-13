@@ -33,6 +33,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { jsPDF } from "jspdf";
 import { useLocation, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import LearningMasteryMap from "../components/LearningMasteryMap";
 import PlacementPrepTopicCard from "../components/PlacementPrepTopicCard";
 import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDialog";
@@ -60,6 +61,7 @@ import {
   validateChatAttachmentSelection,
 } from "../utils/chatAttachments";
 import {
+  getLearningPlannerAvailability,
   getLearningPlannerCompletionState,
   getLearningScheduleDateOptions,
   setLearningPlannerNodeCompletion,
@@ -138,6 +140,7 @@ const LEARNING_SOURCE_ACCEPT = `${LEARNING_ATTACHMENT_ACCEPT},${TEXT_SOURCE_ACCE
 const MAX_TEXT_SOURCE_BYTES = 30_000;
 const MAX_TEXT_TOTAL_CHARS = 60_000;
 const MAX_LEARNING_PROMPT_CHARS = 3_000;
+const PLANNER_REQUIRED_NOTICE_ID = "learning-planner-required";
 const MAX_PLACEMENT_CONTEXT_CHARS = 3_000;
 const CUSTOM_PLACEMENT_SOURCE_VALUE = "__custom_context__";
 const LEARNING_BACKGROUND_FEATURES = Object.freeze({
@@ -1039,8 +1042,8 @@ function StartLearningPage({
     [nodes, selectedNodeId],
   );
   const dateOptions = useMemo(
-    () => getLearningScheduleDateOptions(schedule, scheduleStartDate),
-    [schedule, scheduleStartDate],
+    () => plannerDialogOpen ? getLearningScheduleDateOptions(schedule, scheduleStartDate) : [],
+    [plannerDialogOpen, schedule, scheduleStartDate],
   );
   const careerVisible = useMemo(
     () => placementEligible && (
@@ -1295,6 +1298,8 @@ function StartLearningPage({
     setMedicalTopics(fields.topics);
     setMedicalError("");
   }, [activeNotebook, courseNotebooks, intakeMode, medicalAnalyzing, medicalDraft, saving, userProfile]);
+
+  useEffect(() => () => toast.dismiss(PLANNER_REQUIRED_NOTICE_ID), [academicProfileDataId]);
 
   useEffect(() => {
     if (!plannerDialogOpen) return;
@@ -3111,14 +3116,44 @@ function StartLearningPage({
   };
 
   const openPlannerForNode = (node) => {
-    if (!node) return;
+    if (!node) return false;
+    const availableDates = requirePlannerDates();
+    if (!availableDates.length) return false;
     const isNotebookNode = nodes.some((item) => item.id === node.id);
     if (isNotebookNode) setSelectedNodeId(node.id);
     setPlannerCustomNode(isNotebookNode ? null : node);
     setPlannerNodeId(node.id);
-    setPlannerDateKey(dateOptions[0]?.dateKey || "");
+    setPlannerDateKey(availableDates[0].dateKey);
     setPlannerError("");
     setPlannerDialogOpen(true);
+    return true;
+  };
+
+  const requirePlannerDates = () => {
+    const availability = getLearningPlannerAvailability(schedule, scheduleStartDate);
+    if (availability.dateOptions.length) {
+      toast.dismiss(PLANNER_REQUIRED_NOTICE_ID);
+      return availability.dateOptions;
+    }
+
+    closePlannerDialog();
+    toast.info(({ closeToast }) => (
+      <div className="learning-planner-notice">
+        <strong>{availability.message}</strong>
+        <p>{availability.detail}</p>
+        <button onClick={() => { closeToast(); navigate("/planner"); }} type="button">
+          Open Planner <ChevronRight size={14} aria-hidden="true" />
+        </button>
+      </div>
+    ), {
+      toastId: PLANNER_REQUIRED_NOTICE_ID,
+      autoClose: 8000,
+      closeOnClick: false,
+      pauseOnFocusLoss: true,
+      role: "status",
+      icon: <CalendarPlus size={22} aria-hidden="true" />,
+    });
+    return [];
   };
 
   const placementActionTarget = (topic, item, kind, index) => buildPlacementActionTarget({
@@ -3213,10 +3248,11 @@ function StartLearningPage({
   const toggleLearningNodeCompletion = (node) => {
     const state = completionStateByNodeId.get(node?.id);
     if (!node || !state?.isScheduled) {
-      openPlannerForNode(node);
-      setNotification?.(
-        `${node?.title || "This learning unit"} is not scheduled yet. Choose a planner date first.`,
-      );
+      if (openPlannerForNode(node)) {
+        setNotification?.(
+          `${node.title} is not scheduled yet. Choose a planner date first.`,
+        );
+      }
       return;
     }
 
@@ -3276,6 +3312,7 @@ function StartLearningPage({
   };
 
   const addToPlanner = () => {
+    if (!requirePlannerDates().length) return;
     const node = plannerCustomNode?.id === plannerNodeId
       ? plannerCustomNode
       : nodes.find((item) => item.id === plannerNodeId);
@@ -5067,14 +5104,20 @@ function StartLearningPage({
             {plannerError && <p className="learning-inline-error" role="alert">{plannerError}</p>}
             {!dateOptions.length && (
               <p className="learning-dialog-note">
-                Generate a dated planner schedule first, then return to add this learning unit.
+                {getLearningPlannerAvailability(schedule, scheduleStartDate).message}. Open Planner to choose upcoming study dates.
               </p>
             )}
             <div className="learning-dialog-actions">
               <button onClick={closePlannerDialog} type="button">Cancel</button>
-              <button disabled={(!nodes.length && !plannerCustomNode) || !dateOptions.length} onClick={addToPlanner} type="button">
-                <CalendarPlus size={16} /> Add to planner
-              </button>
+              {dateOptions.length ? (
+                <button disabled={!nodes.length && !plannerCustomNode} onClick={addToPlanner} type="button">
+                  <CalendarPlus size={16} /> Add to planner
+                </button>
+              ) : (
+                <button onClick={() => { closePlannerDialog(); navigate("/planner"); }} type="button">
+                  Open Planner <ChevronRight size={16} />
+                </button>
+              )}
             </div>
           </section>
         </div>,

@@ -115,6 +115,20 @@ export function getLearningScheduleDateOptions(
   });
 }
 
+export function getLearningPlannerAvailability(schedule = [], scheduleStartDate = "", today = new Date()) {
+  const dateOptions = getLearningScheduleDateOptions(schedule, scheduleStartDate, today);
+  if (dateOptions.length) return { dateOptions, message: "", detail: "" };
+
+  const hasSchedule = Array.isArray(schedule) && schedule.length > 0;
+  return {
+    dateOptions,
+    message: hasSchedule ? "Update your schedule first" : "Add a schedule first",
+    detail: hasSchedule
+      ? "Your planner has no upcoming study dates. Create or update a schedule, then add this learning unit."
+      : "Create a schedule in Planner, then return to add this learning unit.",
+  };
+}
+
 export function findLearningPlannerTask(
   schedule = [],
   projectOrId = {},

@@ -1,12 +1,15 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Swords, X } from "lucide-react";
+import { ArrowRight, History, Swords, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { combinedMomentumXp } from "../utils/quizBattleUi";
 import "./Gamification.css";
+import GlobalMomentum from './GlobalMomentum';
+import MomentumHistoryDialog from './MomentumHistoryDialog';
+import './MomentumViews.css';
 
 const MOMENTUM_GUIDANCE =
-  "Complete planner tasks and Quiz Battles to unlock stronger badges and higher levels.";
+  "Earn XP through study tasks, exams, quizzes, and successful CodeMatrix runs. Global XP stays with you after a schedule is cleared.";
 
 const BADGE_META = {
   "Getting started": {
@@ -58,6 +61,10 @@ function Gamification({
   onRetryBattleStats,
   schedule,
   subjects = [],
+  momentum,
+  momentumLoading = false,
+  momentumError = '',
+  onRetryMomentum,
 }) {
   const navigate = useNavigate();
   const battleDetailsId = useId();
@@ -67,11 +74,16 @@ function Gamification({
   const battleDetailsRef = useRef(null);
   const battleDetailsTriggerRef = useRef(null);
   const [battleDetailsOpen, setBattleDetailsOpen] = useState(false);
+  const [globalView, setGlobalView] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const metrics = getPlannerMetrics(schedule, completed);
   const momentumXp = combinedMomentumXp(
-    completed.length,
-    battleStatsEnabled ? battleStats?.battleXp : 0,
+    metrics.completedTasks,
+    battleStatsEnabled ? momentum?.schedule?.breakdown?.battle : 0,
   );
+  momentumXp.totalXp += (momentum?.schedule?.breakdown?.exam || 0) + (momentum?.schedule?.breakdown?.quiz || 0);
+  momentumXp.level = Math.floor(momentumXp.totalXp / 100) + 1;
+  momentumXp.levelProgress = momentumXp.totalXp % 100;
   const xp = momentumXp.totalXp;
   const level = momentumXp.level;
   const levelProgress = momentumXp.levelProgress;
@@ -85,7 +97,7 @@ function Gamification({
       ? 0
       : Math.round((todayCompleted / todayTasks.length) * 100);
   const streak = todayCompleted > 0 ? 1 : 0;
-  const badge = getBadge(xp);
+  const badge = getBadge(globalView ? momentum?.global?.totalXp || 0 : xp);
   const badgeMeta = BADGE_META[badge];
   const nextLevelXp = level * 100;
   const xpToNext = Math.max(nextLevelXp - xp, 0);
@@ -130,8 +142,10 @@ function Gamification({
       <div className="gamification-orb" aria-hidden="true" />
       <div className="gamification-header">
         <div>
-          <span className="section-tag">Momentum</span>
-          <h3>Study momentum</h3>
+          <span className="section-tag">{globalView ? 'Global momentum' : 'Momentum'}</span>
+          <div className="momentum-title-row"><h3>Study momentum</h3><button type="button" className="momentum-icon-button" aria-label={globalView ? 'Show schedule momentum' : 'Show global momentum'} title={globalView ? 'Show schedule momentum' : 'Show global momentum'} aria-pressed={globalView} onClick={() => { setBattleDetailsOpen(false); setGlobalView((current) => !current); }}><ArrowRight size={18} /></button>
+            {globalView && <button type="button" className="momentum-icon-button" aria-label="View global XP history" title="View XP history" onClick={() => setHistoryOpen(true)}><History size={17} /></button>}
+          </div><p className="momentum-view-label">{globalView ? 'Lifetime progress · this academic profile' : 'Current schedule · tasks, exams and quizzes'}</p>
         </div>
         <div className="gamification-header-actions">
           {battleStatsEnabled && (
@@ -175,11 +189,11 @@ function Gamification({
                   <dl className="battle-insights-list">
                     <div>
                       <dt>Planner XP</dt>
-                      <dd>{momentumXp.plannerXp}</dd>
+                      <dd>{globalView ? momentum?.global?.breakdown?.study || 0 : momentumXp.plannerXp}</dd>
                     </div>
                     <div>
                       <dt>Battle XP</dt>
-                      <dd>{battleStatsLoading ? "Loading…" : momentumXp.battleXp}</dd>
+                      <dd>{battleStatsLoading ? "Loading…" : globalView ? momentum?.global?.breakdown?.battle || 0 : momentumXp.battleXp}</dd>
                     </div>
                     <div>
                       <dt>Battles played</dt>
@@ -249,7 +263,9 @@ function Gamification({
         </div>
       </div>
 
-      <div className="gamification-scroll-region">
+      <div className={`gamification-scroll-region momentum-pages${globalView ? ' is-global' : ''}`}>
+        <div className="momentum-page momentum-page--schedule" aria-hidden={globalView} inert={globalView}>
+        {momentumError && <p className="momentum-refresh-error" role="status">Assessment XP could not be refreshed. <button type="button" onClick={onRetryMomentum}>Retry</button></p>}
         <div className="xp-ring-wrap">
           <div
             className="xp-ring"
@@ -334,7 +350,12 @@ function Gamification({
           <strong>{xpToNext} XP needed</strong>
         </div>
 
+        </div>
+        <div className="momentum-page momentum-page--global" aria-hidden={!globalView} inert={!globalView}>
+          <GlobalMomentum data={momentum} loading={momentumLoading} error={momentumError} onRetry={onRetryMomentum} />
+        </div>
       </div>
+      {historyOpen && <MomentumHistoryDialog data={momentum} onClose={() => setHistoryOpen(false)} />}
     </section>
   );
 }

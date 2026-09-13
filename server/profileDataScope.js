@@ -5,6 +5,7 @@ export const ACADEMIC_PROFILE_HEADER = "x-academic-profile-id";
 
 export const PROFILE_SCOPED_OWNED_COLLECTIONS = Object.freeze([
   "workspaces",
+  "momentumEvents",
   "notes",
   "worktrees",
   "quizAttempts",

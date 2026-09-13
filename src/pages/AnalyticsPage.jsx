@@ -11,11 +11,13 @@ import Readiness from "../components/Readiness";
 import TopicTimeline from "../components/TopicTimeline";
 import useLearningInsights from "../hooks/useLearningInsights";
 import useQuizBattleStats from "../hooks/useQuizBattleStats";
+import useMomentum from '../hooks/useMomentum';
 
-function AnalyticsPage({ academicProfileDataId = "", subjects, schedule, completed, quizBattlesEnabled = true, userProfile = {} }) {
+function AnalyticsPage({ academicProfileDataId = "", subjects, schedule, completed, plannerHistory = [], scheduleStartDate = '', quizBattlesEnabled = true, userProfile = {} }) {
   const location = useLocation();
   const learning = useLearningInsights({ academicProfileDataId });
   const battles = useQuizBattleStats({ academicProfileDataId, enabled: quizBattlesEnabled });
+  const momentum = useMomentum(academicProfileDataId, String(battles.stats?.battleXp || 0));
 
   useEffect(() => {
     if (location.hash === "#topic-progress") {
@@ -54,6 +56,11 @@ function AnalyticsPage({ academicProfileDataId = "", subjects, schedule, complet
 
       <div className="analytics-support-grid">
         <Gamification
+          key={academicProfileDataId}
+          momentum={momentum.data}
+          momentumLoading={momentum.loading}
+          momentumError={momentum.error}
+          onRetryMomentum={momentum.reload}
           battleStats={battles.stats}
           battleStatsError={battles.error}
           battleStatsEnabled={quizBattlesEnabled}
@@ -70,7 +77,7 @@ function AnalyticsPage({ academicProfileDataId = "", subjects, schedule, complet
       <div id="topic-progress">
         <TopicTimeline completed={completed} schedule={schedule} subjects={subjects} userProfile={userProfile} />
       </div>
-      <FocusLandscape completed={completed} schedule={schedule} subjects={subjects} />
+      <FocusLandscape key={academicProfileDataId} academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} subjects={subjects} history={plannerHistory} scheduleStartDate={scheduleStartDate} notebooks={learning.notebooks} notebooksLoading={learning.loading} notebooksError={learning.error} onRetryNotebooks={learning.reload} />
     </section>
   );
 }

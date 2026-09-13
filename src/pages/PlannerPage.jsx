@@ -95,6 +95,7 @@ function PlannerPage({
   memoryReviewData = { schedule: [], completed: [] },
   setMemoryReviewData,
   onBeforeAttendExam,
+  onClearSchedule,
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -377,6 +378,7 @@ function PlannerPage({
                 </div>
 
                 <Timetable
+                  onClearSchedule={onClearSchedule}
                   academicProfile={academicProfile}
                   academicProfileDataId={academicProfileDataId}
                   canManageSchedule={!kidsMode || parentAccessGranted}

@@ -66,6 +66,7 @@ import {
 import { initializeNewStudentAppearance } from "./utils/appearanceStorage";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
 import { normalizeMemoryReviewData, separatePlannerRecall } from "./utils/plannerLifecycle.js";
+import { buildClearedPlannerWorkspace, mergePlannerHistory, normalizePlannerHistory } from "./utils/plannerHistory.js";
 import {
   getPlannerScheduleAttention,
   subscribeToPlannerAttentionClock,
@@ -506,6 +507,8 @@ function App() {
   const [schedule, setSchedule] = useState([]);
   const [completed, setCompleted] = useState([]);
   const [memoryReviewData, setMemoryReviewData] = useState(() => normalizeMemoryReviewData());
+  const [plannerHistory, setPlannerHistory] = useState([]);
+  const plannerClearAttemptRef = useRef(null);
   const [scheduleStartDate, setScheduleStartDate] = useState(null);
   const [academicLevel, setAcademicLevel] = useState("College");
   const [academicTrack, setAcademicTrack] = useState("General");
@@ -1270,6 +1273,7 @@ function App() {
     setSchedule(plannerState.schedule);
     setCompleted(plannerState.completed);
     setMemoryReviewData(plannerState.memoryReviewData);
+    setPlannerHistory(normalizePlannerHistory(workspace.plannerHistory));
     setAcademicLevel(nextAcademicProfile.academicLevel);
     setAcademicTrack(nextAcademicProfile.academicTrack);
     if (profile) {
@@ -1482,6 +1486,7 @@ function App() {
     schedule,
     completed,
     memoryReviewData,
+    plannerHistory,
     materialBookmarks,
     resumeBuilder,
     goalReminderData,
@@ -1505,6 +1510,36 @@ function App() {
     await request;
     if (scope !== getApiAcademicProfileScope() || epoch !== workspaceScopeEpochRef.current) {
       throw new Error("Your academic profile changed. Open the planner again to continue.");
+    }
+  };
+
+  const clearPlannerSchedule = async () => {
+    if (workspaceMutationInFlightRef.current) throw new Error('Another workspace update is in progress. Please try again.');
+    const scope = activeAcademicProfileDataId;
+    const epoch = workspaceScopeEpochRef.current;
+    const snapshot = workspaceSnapshot();
+    const attemptKey = JSON.stringify([scope, snapshot]);
+    if (plannerClearAttemptRef.current?.key !== attemptKey) {
+      plannerClearAttemptRef.current = { key: attemptKey, cleared: buildClearedPlannerWorkspace(snapshot) };
+    }
+    const cleared = plannerClearAttemptRef.current.cleared;
+    workspaceMutationInFlightRef.current = true;
+    if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = null;
+    try {
+      await workspaceSavePromiseRef.current;
+      if (scope !== getApiAcademicProfileScope() || epoch !== workspaceScopeEpochRef.current) throw new Error('Your academic profile changed. Open Planner again.');
+      const request = api.saveWorkspace(cleared, { academicProfileId: scope });
+      workspaceSavePromiseRef.current = request.catch(() => undefined);
+      const response = await request;
+      if (scope !== getApiAcademicProfileScope() || epoch !== workspaceScopeEpochRef.current) throw new Error('Your academic profile changed. Open Planner again.');
+      setPlannerHistory(mergePlannerHistory(cleared.plannerHistory, response?.workspace?.plannerHistory));
+      setSchedule([]);
+      setCompleted([]);
+      setScheduleStartDate(null);
+      plannerClearAttemptRef.current = null;
+    } finally {
+      workspaceMutationInFlightRef.current = false;
     }
   };
 
@@ -2332,6 +2367,7 @@ function App() {
         schedule,
         completed,
         memoryReviewData,
+        plannerHistory,
         materialBookmarks,
         resumeBuilder,
         goalReminderData,
@@ -2346,7 +2382,14 @@ function App() {
         academicProfileId: requestedAcademicProfileId,
       });
       workspaceSavePromiseRef.current = saveRequest.catch(() => undefined);
-      saveRequest.then(() => {
+      saveRequest.then((response) => {
+        window.dispatchEvent(new CustomEvent('prepmatrix:momentum-updated', { detail: { academicProfileId: requestedAcademicProfileId } }));
+        if (requestedEpoch === workspaceScopeEpochRef.current && requestedAcademicProfileId === getApiAcademicProfileScope()) {
+          setPlannerHistory((current) => {
+            const merged = mergePlannerHistory(current, response?.workspace?.plannerHistory);
+            return JSON.stringify(current) === JSON.stringify(merged) ? current : merged;
+          });
+        }
         clearResumeDraftCheckpoint(requestedAcademicProfileId, {
           throughUpdatedAt: snapshot.resumeBuilder?.updatedAt,
         });
@@ -2369,6 +2412,7 @@ function App() {
     activeAcademicProfileDataId,
     completed,
     memoryReviewData,
+    plannerHistory,
     darkMode,
     goalReminderData,
     goalReminderSettings,
@@ -3402,6 +3446,7 @@ function App() {
                               onBeforeAttendExam={savePlannerBeforeExam}
                               memoryReviewData={memoryReviewData}
                               setMemoryReviewData={setMemoryReviewData}
+                              onClearSchedule={clearPlannerSchedule}
                               schedule={schedule}
                               setCompleted={updateCompletedWithRewards}
                               setSchedule={setSchedule}
@@ -3416,6 +3461,8 @@ function App() {
                           element={
                             <AnalyticsPage
                               academicProfileDataId={activeAcademicProfileDataId}
+                              plannerHistory={plannerHistory}
+                              scheduleStartDate={scheduleStartDate}
                               completed={completed}
                               quizBattlesEnabled={!learnerRoutePolicy.isYoungKidsLearner}
                               schedule={schedule}
@@ -3571,6 +3618,7 @@ function App() {
                         <Route
                           element={parentGuidedKidsRoute(
                             <SettingsPage
+                              plannerHistory={plannerHistory}
                               memoryReviewData={memoryReviewData}
                               activeVoiceName={voiceAssistant.activeVoiceName}
                               onPreviewVoice={voiceAssistant.previewVoice}
