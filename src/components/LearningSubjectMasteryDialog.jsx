@@ -1,9 +1,10 @@
-import { useEffect, useId, useMemo, useRef } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   BookOpenCheck,
   BrainCircuit,
   CheckCircle2,
+  ChevronDown,
   Layers3,
   LoaderCircle,
   RefreshCw,
@@ -46,6 +47,8 @@ function masteryRows(notebooks, now) {
 }
 
 function NotebookMasteryRow({ row }) {
+  const [topicsOpen, setTopicsOpen] = useState(false);
+  const topicsId = useId();
   const visibleTopics = row.learnedTopicTitles.slice(0, 4);
   const remainingCount = Math.max(row.learnedTopicTitles.length - visibleTopics.length, 0);
   const progressLabel = `${row.title}: ${row.learnedCount} of ${row.totalTopics} topics learned`;
@@ -72,31 +75,53 @@ function NotebookMasteryRow({ row }) {
       </div>
 
       <div className="learning-subject-mastery-row__metrics">
-        <span><BookOpenCheck aria-hidden="true" size={15} /> {row.learnedCount} of {row.totalTopics} learned</span>
+        <span>
+          <BookOpenCheck aria-hidden="true" size={15} /> {row.learnedCount} of {row.totalTopics} learned
+          <button
+            type="button"
+            className="learning-subject-mastery-topics-toggle"
+            aria-label={`${topicsOpen ? "Hide" : "Show"} learned topics for ${row.title}`}
+            aria-expanded={topicsOpen}
+            aria-controls={topicsId}
+            onClick={() => setTopicsOpen((value) => !value)}
+          >
+            <ChevronDown aria-hidden="true" size={14} />
+          </button>
+        </span>
         <span><BrainCircuit aria-hidden="true" size={15} /> {row.masteredCount} mastered</span>
       </div>
 
-      <div className="learning-subject-mastery-topics">
-        <span className="learning-subject-mastery-topics__label">Learned topics</span>
-        {visibleTopics.length ? (
-          <div>
-            {visibleTopics.map((topic, index) => (
-              <span className="learning-subject-mastery-topic" key={`${row.id}-${topic}-${index}`}>
-                <CheckCircle2 aria-hidden="true" size={13} />
-                {topic}
-              </span>
-            ))}
-            {remainingCount > 0 && (
-              <span className="learning-subject-mastery-topic is-more">+{remainingCount} more</span>
+      <div
+        className="learning-subject-mastery-topics-disclosure"
+        id={topicsId}
+        data-open={topicsOpen}
+        aria-hidden={!topicsOpen}
+        inert={!topicsOpen}
+      >
+        <div className="learning-subject-mastery-topics-clip">
+          <div className="learning-subject-mastery-topics">
+            <span className="learning-subject-mastery-topics__label">Learned topics</span>
+            {visibleTopics.length ? (
+              <div>
+                {visibleTopics.map((topic, index) => (
+                  <span className="learning-subject-mastery-topic" key={`${row.id}-${topic}-${index}`}>
+                    <CheckCircle2 aria-hidden="true" size={13} />
+                    {topic}
+                  </span>
+                ))}
+                {remainingCount > 0 && (
+                  <span className="learning-subject-mastery-topic is-more">+{remainingCount} more</span>
+                )}
+              </div>
+            ) : (
+              <p>
+                {row.totalTopics
+                  ? "No topics have been marked as learned yet."
+                  : "This notebook does not have generated topics yet."}
+              </p>
             )}
           </div>
-        ) : (
-          <p>
-            {row.totalTopics
-              ? "No topics have been marked as learned yet."
-              : "This notebook does not have generated topics yet."}
-          </p>
-        )}
+        </div>
       </div>
     </article>
   );

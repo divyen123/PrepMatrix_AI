@@ -51,12 +51,12 @@ export default function CodeMatrixAssistant({ snapshot, session, stale, availabi
         {review ? <div className="cmx-assistant-review">
           <p className="cmx-assistant-summary" role="status">{review.summary}</p>
           <div className="cmx-assistant-step is-location"><h3><MapPin size={14} aria-hidden="true" />Where to look</h3><p>{review.where}</p>
-            {review.line && <button type="button" className="cmx-assistant-line" disabled={stale} onClick={() => onGoToLine(review.line)}>Go to line {review.line}<ArrowRight size={13} aria-hidden="true" /></button>}
+            {review.line && <button type="button" className="cmx-assistant-line cmx-assistant-action" disabled={stale} onClick={() => onGoToLine(review.line)}>Go to line {review.line}<ArrowRight size={12} aria-hidden="true" /></button>}
           </div>
           <div className="cmx-assistant-step is-hint"><h3><Lightbulb size={14} aria-hidden="true" />Try next</h3><ul>{review.tryNext.map((hint, i) => <li key={i}>{hint}</li>)}</ul></div>
           <div className="cmx-assistant-step is-avoid"><h3><TriangleAlert size={14} aria-hidden="true" />What to avoid</h3><ul>{review.avoid.map((hint, i) => <li key={i}>{hint}</li>)}</ul></div>
           <div className="cmx-assistant-step is-check"><h3><CheckCheck size={14} aria-hidden="true" />Check your fix</h3><p>{review.check}</p></div>
-          <div className="cmx-assistant-footer"><span>You make the fix. Run it when ready.</span><button type="button" onClick={onRun}>Run again<ArrowRight size={14} aria-hidden="true" /></button></div>
+          <div className="cmx-assistant-footer"><span>You make the fix. Run it when ready.</span><button type="button" className="cmx-assistant-action" onClick={onRun}>Run again<ArrowRight size={12} aria-hidden="true" /></button></div>
         </div> : <>
           <p className="cmx-assistant-intro">Understand the error, find where to look, and work out the fix yourself.</p>
           {loading ? <div className="cmx-assistant-loading" role="status"><LoaderCircle size={17} className="cmx-spin" aria-hidden="true" /><span>Finding a useful hint<span className="cmx-assistant-loading-detail">Your code stays editable while we review this run.</span></span></div> : <>

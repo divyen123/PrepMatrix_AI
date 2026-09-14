@@ -253,6 +253,70 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-close:focus-visi
   color: var(--accent);
 }
 
+body .learning-subject-mastery-dialog .learning-subject-mastery-row__metrics button.learning-subject-mastery-topics-toggle {
+  flex: 0 0 24px;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+  cursor: pointer;
+  transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease !important;
+}
+
+body .learning-subject-mastery-dialog .learning-subject-mastery-row__metrics button.learning-subject-mastery-topics-toggle:hover,
+body .learning-subject-mastery-dialog .learning-subject-mastery-row__metrics button.learning-subject-mastery-topics-toggle:focus-visible {
+  color: var(--text) !important;
+  background: var(--accent-soft) !important;
+  border-color: rgba(var(--accent-rgb), 0.24) !important;
+}
+
+body .learning-subject-mastery-dialog .learning-subject-mastery-row__metrics button.learning-subject-mastery-topics-toggle:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px;
+}
+
+.learning-subject-mastery-topics-toggle svg {
+  color: inherit;
+  transition: transform 240ms ease;
+}
+
+.learning-subject-mastery-topics-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.learning-subject-mastery-topics-disclosure {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition: grid-template-rows 240ms ease, opacity 180ms ease, visibility 0s linear 240ms;
+}
+
+.learning-subject-mastery-topics-disclosure[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition: grid-template-rows 240ms ease, opacity 180ms ease, visibility 0s;
+}
+
+.learning-subject-mastery-topics-clip {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .learning-subject-mastery-topics {
   margin-top: 13px;
   padding-top: 12px;
@@ -526,8 +590,15 @@ body.has-bg-image.no-glass-cards .learning-subject-mastery-footer {
     animation: none;
   }
 
-  .learning-subject-mastery-progress i {
+  .learning-subject-mastery-progress i,
+  .learning-subject-mastery-topics-toggle svg,
+  .learning-subject-mastery-topics-disclosure,
+  .learning-subject-mastery-topics-disclosure[data-open="true"] {
     transition: none;
+  }
+
+  body .learning-subject-mastery-dialog .learning-subject-mastery-row__metrics button.learning-subject-mastery-topics-toggle {
+    transition: none !important;
   }
 
   .learning-subject-mastery-state .is-spinning {

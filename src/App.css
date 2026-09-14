@@ -6965,23 +6965,42 @@ body.dark {
   color: var(--in-app-notice-tone);
 }
 
-.prepmatrix-toast .Toastify__close-button,
-.Toastify__toast .Toastify__close-button {
+body .Toastify__toast-container .Toastify__toast .Toastify__close-button {
+  display: inline-grid !important;
+  place-items: center;
   align-self: flex-start;
-  width: 24px;
-  min-width: 24px;
-  height: 24px;
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  padding: 0 !important;
   margin: -2px -2px 0 8px;
-  color: var(--text-muted);
+  color: var(--text-muted) !important;
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  transform: none !important;
+  transition: color 170ms ease, opacity 170ms ease !important;
   opacity: 0.85;
 }
 
-.prepmatrix-toast .Toastify__close-button:hover,
-.prepmatrix-toast .Toastify__close-button:focus-visible,
-.Toastify__toast .Toastify__close-button:hover,
-.Toastify__toast .Toastify__close-button:focus-visible {
-  color: var(--text);
+body .Toastify__toast-container .Toastify__toast .Toastify__close-button::before,
+body .Toastify__toast-container .Toastify__toast .Toastify__close-button::after {
+  content: none !important;
+}
+
+body .Toastify__toast-container .Toastify__toast .Toastify__close-button:hover,
+body .Toastify__toast-container .Toastify__toast .Toastify__close-button:focus-visible {
+  color: var(--text) !important;
   opacity: 1;
+}
+
+body .Toastify__toast-container .Toastify__toast .Toastify__close-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .Toastify__progress-bar {

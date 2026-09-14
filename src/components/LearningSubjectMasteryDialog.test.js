@@ -61,6 +61,10 @@ test("renders an accessible per-notebook subject mastery comparison", async () =
     assert.match(markup, /1 of 2 learned/u);
     assert.match(markup, /50%/u);
     assert.match(markup, /Descriptive statistics/u);
+    assert.match(markup, /aria-label="Show learned topics for Data Analytics Notebook" aria-expanded="false"/u);
+    const disclosureId = markup.match(/aria-controls="([^"]+)"/u)?.[1];
+    assert.ok(disclosureId);
+    assert.ok(markup.includes(`id="${disclosureId}" data-open="false" aria-hidden="true" inert=""`));
     assert.match(markup, /Close subject mastery/u);
   } finally {
     await vite.close();
