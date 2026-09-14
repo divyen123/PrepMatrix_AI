@@ -2191,9 +2191,23 @@ body .learning-dialog-header > button {
 
 .learning-intake-choice {
   display: grid;
+  width: 100%;
+  margin-inline: auto;
   align-content: start;
-  gap: 18px;
+  gap: 0;
   min-height: 100%;
+}
+
+.learning-intake-choice.is-count-1 {
+  max-width: 430px;
+}
+
+.learning-intake-choice.is-count-2 {
+  max-width: 874px;
+}
+
+.learning-intake-choice.is-count-3 {
+  max-width: 1318px;
 }
 
 .learning-intake-choice-grid {
@@ -2201,6 +2215,7 @@ body .learning-dialog-header > button {
   grid-template-columns: repeat(auto-fit, minmax(280px, 430px));
   justify-content: center;
   gap: 14px;
+  margin-block-start: clamp(48px, 4vw, 60px);
 }
 
 body .learning-page .learning-intake-choice-card {

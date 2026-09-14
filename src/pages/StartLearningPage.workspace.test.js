@@ -119,14 +119,20 @@ test("centers the available workspace cards and omits history from the chooser",
   assert.ok(stylesheet.includes("justify-content: center;"));
   assert.ok(stylesheet.includes(".learning-workspace.is-intake.is-choice-home .learning-source-rail {"));
   assert.ok(stylesheet.includes("width: min(100%, 1320px);"));
+  assert.ok(stylesheet.includes(".learning-intake-choice.is-count-2 {"));
+  assert.ok(stylesheet.includes("max-width: 874px;"));
+  assert.ok(stylesheet.includes("margin-block-start: clamp(48px, 4vw, 60px);"));
   assert.equal(stylesheet.includes("learning-intake-choice-card:last-child:nth-child(3)"), false);
   assert.ok(stylesheet.includes(".learning-intake-choice-card.is-medical"));
   assert.ok(stylesheet.includes(".learning-workspace.is-medical"));
   assert.ok(stylesheet.includes(".learning-workspace.is-medical .learning-medical-workspace"));
   assert.ok(pageSource.includes('is-${workspaceView}${intakeMode === null ? " is-choice-home" : ""}'));
+  assert.ok(pageSource.includes("const workspaceChoiceCount = 1"));
+  assert.ok(pageSource.includes('learning-intake-choice is-count-${workspaceChoiceCount}'));
   assert.ok(pageSource.includes("{activeArtifactKind && ("));
   assert.equal(pageSource.includes("learning-saved-kind-grid"), false);
   assert.equal(pageSource.includes('"Learning history"'), false);
+  assert.equal(pageSource.includes("What do you want to prepare?"), false);
 
   const mobileStyles = stylesheet.slice(stylesheet.indexOf("@media (max-width: 700px)"));
   assert.ok(mobileStyles.includes(".learning-intake-choice-grid {"));

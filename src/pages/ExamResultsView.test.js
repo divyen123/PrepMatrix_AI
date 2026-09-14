@@ -36,6 +36,14 @@ test("simplifies the View Results heading without changing result behavior", () 
   assert.match(resultsPanelSource, /<Eye size=\{14\} \/> View result/u);
 });
 
+test("shows the empty results message without a card container", () => {
+  assert.match(
+    resultsPanelSource,
+    /<div className="exam-empty-state"><Award size=\{28\} \/><h3>No submitted exams yet<\/h3><p>Complete an online exam and its release countdown will appear here\.<\/p><\/div>/u,
+  );
+  assert.doesNotMatch(resultsPanelSource, /className="card exam-empty-state"/u);
+});
+
 test("compacts only the results heading, grid, and result cards", () => {
   assert.match(
     stylesheet,

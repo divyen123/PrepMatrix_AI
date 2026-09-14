@@ -775,6 +775,10 @@ function StartLearningPage({
   const placementEligible = preparationMode === "placement" && careerEligibility.enabled;
   const codeMatrixEligibility = useMemo(() => getCodeMatrixEligibility(preparationProfile, subjects), [preparationProfile, subjects]);
   const medicalEligible = preparationMode === "medical" && medicalEligibility.enabled;
+  const workspaceChoiceCount = 1
+    + Number(codeMatrixEligibility.eligible)
+    + Number(placementEligible)
+    + Number(medicalEligible);
   const savedPlacementNotes = useMemo(
     () => getSavedPlacementNotes(notebooks),
     [notebooks],
@@ -3438,11 +3442,10 @@ function StartLearningPage({
             id={intakeMode === "medical" ? "medical-training" : "placement-prep"}
           >
           {intakeMode === null ? (
-            <div className="learning-intake-choice">
+            <div className={`learning-intake-choice is-count-${workspaceChoiceCount}`}>
               <div className="learning-panel-heading">
                 <div>
                   <span className="section-tag">Choose a workspace</span>
-                  <h3>What do you want to prepare?</h3>
                 </div>
               </div>
               <div className="learning-intake-choice-grid">

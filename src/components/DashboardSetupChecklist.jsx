@@ -55,27 +55,34 @@ export default function DashboardSetupChecklist({ academicProfileDataId, subject
         <span>{completeCount}/3</span>
         {collapsed ? <ChevronUp aria-hidden="true" size={17} /> : <ChevronDown aria-hidden="true" size={17} />}
       </button>
-      <div hidden={collapsed} id={contentId}>
-        <p className="dashboard-setup-intro">Set up your study space, one step at a time.</p>
-        <progress aria-label="Study setup progress" max={3} value={completeCount} />
-        {status === "loading" ? <p className="dashboard-setup-status" role="status">Checking your progress…</p> : (
-          <ol>
-            {steps.map((step) => {
-              const { title, button, to, icon: Icon } = ACTIONS[step.id];
-              return (
-                <li className={step.complete ? "is-complete" : step.recommended ? "is-next" : ""} key={step.id}>
-                  <span className="dashboard-setup-icon">{step.complete ? <Check aria-label="Completed" size={17} /> : <Icon aria-hidden="true" size={17} />}</span>
-                  <div>
-                    <strong>{title}</strong>
-                    {step.complete ? <span className="dashboard-setup-done">Completed</span> : <Link to={to}>{button}</Link>}
-                  </div>
-                  {step.recommended && <small>Next</small>}
-                </li>
-              );
-            })}
-          </ol>
-        )}
-        {status === "error" && <p className="dashboard-setup-status" role="status">Could not refresh progress. <button onClick={() => setAttempt((value) => value + 1)} type="button">Retry</button></p>}
+      <div
+        aria-hidden={collapsed}
+        className={`dashboard-setup-content${collapsed ? " is-collapsed" : ""}`}
+        id={contentId}
+        inert={collapsed ? "" : undefined}
+      >
+        <div className="dashboard-setup-content-inner">
+          <p className="dashboard-setup-intro">Set up your study space, one step at a time.</p>
+          <progress aria-label="Study setup progress" max={3} value={completeCount} />
+          {status === "loading" ? <p className="dashboard-setup-status" role="status">Checking your progress…</p> : (
+            <ol>
+              {steps.map((step) => {
+                const { title, button, to, icon: Icon } = ACTIONS[step.id];
+                return (
+                  <li className={step.complete ? "is-complete" : step.recommended ? "is-next" : ""} key={step.id}>
+                    <span className="dashboard-setup-icon">{step.complete ? <Check aria-label="Completed" size={17} /> : <Icon aria-hidden="true" size={17} />}</span>
+                    <div>
+                      <strong>{title}</strong>
+                      {step.complete ? <span className="dashboard-setup-done">Completed</span> : <Link to={to}>{button}</Link>}
+                    </div>
+                    {step.recommended && <small>Next</small>}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+          {status === "error" && <p className="dashboard-setup-status" role="status">Could not refresh progress. <button onClick={() => setAttempt((value) => value + 1)} type="button">Retry</button></p>}
+        </div>
       </div>
     </aside>, document.body,
   );

@@ -1245,7 +1245,7 @@ function ResultsPanel({ results, onRefresh, userProfile }) {
             </article>
           );
         }) : (
-          <div className="card exam-empty-state"><Award size={28} /><h3>No submitted exams yet</h3><p>Complete an online exam and its release countdown will appear here.</p></div>
+          <div className="exam-empty-state"><Award size={28} /><h3>No submitted exams yet</h3><p>Complete an online exam and its release countdown will appear here.</p></div>
         )}
       </div>
 
