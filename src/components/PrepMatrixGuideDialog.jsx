@@ -9,120 +9,56 @@ import {
   BrainCircuit,
   Calendar,
   CheckCircle2,
-  Lightbulb,
   Sparkles,
   StickyNote,
   Target,
   X,
 } from "lucide-react";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
+import PrepMatrixGuideDemo from "./PrepMatrixGuideDemo";
 
 const GUIDE_STEPS = [
   {
-    icon: Target,
-    label: "Set your profile",
-    title: "Choose the right learning profile",
-    route: "/subjects",
-    action: "Open Subjects",
-    summary: "Start by telling PrepMatrix what and how you study so its suggestions stay relevant.",
-    instructions: [
-      "Open Subjects from the sidebar.",
-      "Choose your student class and board or stream in the Class profile card.",
-      "Use the profile that matches your current syllabus; materials and AI suggestions use it as context.",
-    ],
-    tip: "You can update the learning profile later without recreating your account.",
+    id: "profile", icon: Target, label: "Your profile",
+    title: "Make learning fit you",
+    route: "/settings", routeState: { highlightProfileInstitution: true }, action: "Open Settings",
+    hint: "See how your academic profile gives your study tools context.",
   },
   {
-    icon: BookOpen,
-    label: "Add subjects",
-    title: "Build your complete subject list",
-    route: "/subjects",
-    action: "Add Subjects",
-    summary: "Add every subject that should appear in the study schedule before generating a plan.",
-    instructions: [
-      "Enter a clear subject name from your current curriculum.",
-      "Add the total number of chapters or study units you need to cover.",
-      "Set the difficulty to Easy, Medium, or Hard so the planner can balance the workload.",
-      "Select Add subject and repeat for the rest of your syllabus. Review or edit entries in Subject library.",
-    ],
-    tip: "Accurate chapter counts and difficulty levels produce a more useful timetable.",
+    id: "subjects", icon: BookOpen, label: "Add subjects",
+    title: "A subject becomes a study plan",
+    route: "/subjects#add-subject", action: "Open Subjects",
+    hint: "Add a subject, choose its difficulty, and watch your library grow.",
   },
   {
-    icon: Calendar,
-    label: "Plan your exam",
-    title: "Set the exam date and study strategy",
-    route: "/planner",
-    action: "Open Planner",
-    summary: "Turn your subject list into a focused schedule based on the time available before the exam.",
-    instructions: [
-      "Open Planner after you have added at least one subject.",
-      "Choose a future Exam date.",
-      "Select an Exam strategy: Balanced coverage, High priority first, Revision-heavy, or Rapid coverage.",
-      "Select Generate schedule. Plans are limited to 30 days to keep the daily view focused.",
-    ],
-    tip: "Balanced coverage is a reliable starting point; use Revision-heavy when the exam is close and most topics are familiar.",
+    id: "plan", icon: Calendar, label: "Make a plan",
+    title: "Turn chapters into study days",
+    route: "/planner/schedule", action: "Open Planner",
+    hint: "Choose a strategy and see how your schedule takes shape.",
   },
   {
-    icon: BrainCircuit,
-    label: "Start learning",
-    title: "Turn sources into a revision notebook",
-    route: "/learn",
-    action: "Start Learning",
-    summary: "Upload study material or add chapter names, then work through prioritized questions, revised notes, and a connected mind map.",
-    instructions: [
-      "Open Start Learning and upload a PDF, image, text file, or Markdown notes, or enter a subject with chapter names.",
-      "Review the important questions first, then move through the revised notes and topic outline.",
-      "Refine chapter, topic, or subtopic names and save the notebook when the structure matches your syllabus.",
-      "Use Ask AI for a selected concept, export the notebook as a PDF, or add a learning unit to an available planner date.",
-    ],
-    tip: "Sync named chapters to Subjects so future generated schedules use the real chapter titles.",
+    id: "learn", icon: BrainCircuit, label: "Start learning",
+    title: "See your material come together",
+    route: "/learn#notebook-preparation", action: "Start Learning",
+    hint: "Build a notebook, add a topic to your planner, then complete it.",
   },
   {
-    icon: CheckCircle2,
-    label: "Follow the plan",
-    title: "Complete daily tasks and recover missed work",
-    route: "/planner",
-    action: "View Schedule",
-    summary: "Use the generated timetable as your daily checklist and keep it accurate as you study.",
-    instructions: [
-      "Work through each Day card and mark a task complete only after finishing it.",
-      "Use Recover backlog to move incomplete work forward when a day does not go as planned.",
-      "Use Rebalance to smooth overloaded days, and Undo if you want to restore the previous layout.",
-      "Create a New schedule when your exam date or priorities change; export the plan when you need a PDF copy.",
-      "Use the Goal & To-Do Center for dated outcomes and compact next actions.",
-    ],
-    tip: "Update task completion daily—Dashboard readiness and Analytics depend on this progress.",
+    id: "follow", icon: CheckCircle2, label: "Daily progress",
+    title: "Small wins move you forward",
+    route: "/planner/schedule", action: "View Schedule",
+    hint: "Complete a task and move missed work to a new day.",
   },
   {
-    icon: StickyNote,
-    label: "Study & revise",
-    title: "Use notes, quizzes, and materials together",
-    route: "/notes",
-    action: "Open Notes",
-    summary: "Support the timetable with focused learning tools instead of keeping study information in separate places.",
-    instructions: [
-      "Use Notes to save chapter summaries, doubts, and topics that still need attention.",
-      "Open Quiz for topic-level practice and use the result to identify weak areas.",
-      "Use Materials for syllabus-aware videos, articles, and references; bookmark useful resources for revision.",
-      "Select the sidebar pet to open the AI study companion for explanations, outlines, or planner-aware advice.",
-      "After reaching 80% planner completion, use Exam for a secure online attempt or a printable question paper.",
-    ],
-    tip: "Keep one short note for each difficult topic, then quiz yourself after revising it.",
+    id: "revise", icon: StickyNote, label: "Study & revise",
+    title: "Remember more with a quick review",
+    route: "/notes", action: "Open Notes",
+    hint: "Try a note, a practice question, and a saved learning resource.",
   },
   {
-    icon: BarChart3,
-    label: "Review progress",
-    title: "Measure progress and adjust the next week",
-    route: "/analytics",
-    action: "View Analytics",
-    summary: "Use your completion data to decide what needs attention rather than relying on guesswork.",
-    instructions: [
-      "Check Dashboard for the current overview, momentum, and upcoming work.",
-      "Open Analytics to review completion patterns, workload distribution, and exam readiness.",
-      "Use Report for a detailed subject breakdown and exportable PDF summary.",
-      "Return to Planner to rebalance or create a new schedule when the data shows a workload problem.",
-    ],
-    tip: "Review Analytics at least once a week and adjust the plan before unfinished work becomes a backlog.",
+    id: "review", icon: BarChart3, label: "See your progress",
+    title: "Know what to work on next",
+    route: "/analytics", action: "View Analytics",
+    hint: "Select a progress lane to find your next study priority.",
   },
 ];
 
@@ -136,6 +72,7 @@ function getFocusableElements(container) {
 function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName = "", variant = "manual" }) {
   const navigate = useNavigate();
   const dialogRef = useRef(null);
+  const stepNavRef = useRef(null);
   const closeButtonRef = useRef(null);
   const onCloseRef = useRef(onClose);
   const [activeStep, setActiveStep] = useState(0);
@@ -148,10 +85,7 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
     index === 1
       ? {
           ...guideStep,
-          instructions: [
-            `Enter a clear subject name, such as ${curriculumExamples.subject}.`,
-            ...guideStep.instructions.slice(1),
-          ],
+          hint: `Try a subject such as ${curriculumExamples.subject}, then add it to the preview.`,
         }
       : guideStep
   )), [curriculumExamples.subject]);
@@ -162,7 +96,19 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
   }, [onClose]);
 
   useEffect(() => {
-    if (!open) return undefined;
+    const nav = stepNavRef.current;
+    const selected = nav?.querySelector('[aria-current="step"]');
+    if (!open || !selected || nav.scrollWidth <= nav.clientWidth) return;
+    const navBounds = nav.getBoundingClientRect();
+    const selectedBounds = selected.getBoundingClientRect();
+    nav.scrollTo({
+      left: nav.scrollLeft + selectedBounds.left - navBounds.left - (nav.clientWidth - selectedBounds.width) / 2,
+      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+  }, [activeStep, open]);
+
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return undefined;
 
     const previouslyFocused = document.activeElement;
     const previousOverflow = document.body.style.overflow;
@@ -206,11 +152,11 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
   const closeGuide = (reason) => onCloseRef.current?.(reason);
   const goToStepPage = () => {
     closeGuide("route");
-    navigate(step.route);
+    navigate(step.route, { state: step.routeState });
   };
   const displayName = String(userName || "").trim();
 
-  return createPortal(
+  const dialog = (
     <div
       className={`guide-dialog-backdrop${isOnboarding ? " guide-dialog-backdrop--onboarding" : ""}`}
       onMouseDown={(event) => {
@@ -222,7 +168,7 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
         aria-describedby="guide-dialog-description"
         aria-labelledby="guide-dialog-title"
         aria-modal="true"
-        className="guide-dialog"
+        className="guide-dialog guide-dialog--visual"
         ref={dialogRef}
         role="dialog"
       >
@@ -233,12 +179,10 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
             <h2 id="guide-dialog-title">
               {isOnboarding
                 ? `Welcome to PrepMatrix${displayName ? `, ${displayName}` : ""}`
-                : "How to use PrepMatrix AI"}
+                : "Learn PrepMatrix by doing"}
             </h2>
             <p id="guide-dialog-description">
-              {isOnboarding
-                ? "Here’s the quickest path from your first subject to a confident weekly review."
-                : `Follow these ${guideSteps.length} steps from first setup to weekly progress review.`}
+              Try a mini demo or watch it unfold, then use it in your workspace.
             </p>
           </div>
           <button
@@ -258,7 +202,7 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
         </div>
 
         <div className="guide-dialog-body">
-          <nav aria-label="Guide steps" className="guide-step-nav">
+          <nav aria-label="Guide steps" className="guide-step-nav" ref={stepNavRef}>
             {guideSteps.map(({ icon: Icon, label }, index) => (
               <button
                 aria-current={activeStep === index ? "step" : undefined}
@@ -268,7 +212,7 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
                 type="button"
               >
                 <span className="guide-step-number">
-                  {activeStep > index ? <CheckCircle2 aria-hidden="true" size={15} /> : index + 1}
+                  {index + 1}
                 </span>
                 <span className="guide-step-icon">{createElement(Icon, { "aria-hidden": true, size: 16 })}</span>
                 <span>{label}</span>
@@ -279,19 +223,15 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
           <article className="guide-step-content" key={step.label}>
             <div className="guide-step-eyebrow">
               <span>Step {activeStep + 1} of {guideSteps.length}</span>
-              <span>{step.label}</span>
             </div>
             <h3>{step.title}</h3>
-            <p className="guide-step-summary">{step.summary}</p>
-            <ol className="guide-instruction-list">
-              {step.instructions.map((instruction, index) => (
-                <li key={instruction}><span>{index + 1}</span><p>{instruction}</p></li>
-              ))}
-            </ol>
-            <div className="guide-tip">
-              <Lightbulb aria-hidden="true" size={17} />
-              <p><strong>Helpful tip</strong>{step.tip}</p>
-            </div>
+            <p className="guide-step-summary">{step.hint}</p>
+            <PrepMatrixGuideDemo
+              key={step.id}
+              stepId={step.id}
+              examples={curriculumExamples}
+              profileLabel={curriculumExamples.contextLabel}
+            />
           </article>
         </div>
 
@@ -304,7 +244,7 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
           >
             <ArrowLeft aria-hidden="true" size={14} /> Previous
           </button>
-          <span aria-live="polite">{activeStep + 1} / {guideSteps.length}</span>
+          <span aria-live="polite">{activeStep + 1} / {guideSteps.length} · {step.label}</span>
           <div>
             <button className="guide-compact-btn route" onClick={goToStepPage} type="button">{step.action}</button>
             {activeStep < guideSteps.length - 1 ? (
@@ -319,9 +259,10 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
           </div>
         </footer>
       </section>
-    </div>,
-    document.body
+    </div>
   );
+
+  return typeof document === "undefined" ? dialog : createPortal(dialog, document.body);
 }
 
 export default PrepMatrixGuideDialog;

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  DEFAULT_GOAL_REMINDER_SETTINGS,
   clearPlannerCollection,
   calculateStudyTargetPerformance,
   getDueReminders,
@@ -13,9 +14,14 @@ import {
   normalizePlannerData,
   normalizePlannerSettings,
   postponeGoalToTomorrow,
+  readPlannerData,
+  readPlannerSettings,
   summarizePlannerData,
   syncStudyTargetReminders,
+  writePlannerData,
+  writePlannerSettings,
 } from "./goalReminderStore.js";
+import { normalizeGoalReminderSettings } from "../../server/goalReminderWorkspace.js";
 
 test("normalizes planner records and skips empty items", () => {
   const data = normalizePlannerData({
@@ -124,6 +130,7 @@ test("normalizes reminder nudge preferences to supported values", () => {
     repeatSeconds: 20,
     snoozeMinutes: 30,
     showCompleted: false,
+    introCompleted: { goals: false, todos: false },
   });
 
   assert.equal(normalizePlannerSettings({ repeatSeconds: 4 }).repeatSeconds, 20);
@@ -143,6 +150,7 @@ test("saving study targets preserves a disabled target-linked reminder preferenc
     repeatSeconds: 30,
     snoozeMinutes: 30,
     showCompleted: false,
+    introCompleted: { goals: true, todos: false },
   };
 
   assert.deepEqual(mergeStudyTargetSettings(current, 6.5, "3"), {
@@ -150,6 +158,51 @@ test("saving study targets preserves a disabled target-linked reminder preferenc
     dailyStudyTarget: 6.5,
     weeklyReviewTarget: "3",
   });
+});
+
+test("intro completion starts separately for each section and accepts only boolean true", () => {
+  assert.deepEqual(normalizePlannerSettings(), DEFAULT_GOAL_REMINDER_SETTINGS);
+  assert.deepEqual(normalizePlannerSettings({ introCompleted: { goals: true } }).introCompleted, {
+    goals: true,
+    todos: false,
+  });
+  assert.deepEqual(normalizePlannerSettings({ introCompleted: { todos: true } }).introCompleted, {
+    goals: false,
+    todos: true,
+  });
+
+  for (const value of [false, "true", "false", 1, 0, {}, [], null, undefined]) {
+    const settings = normalizePlannerSettings({ introCompleted: { goals: value, todos: value } });
+    assert.deepEqual(settings.introCompleted, { goals: false, todos: false });
+  }
+});
+
+test("completed intros survive storage, server round trips, preference edits, and clearing items", () => {
+  const stored = new Map();
+  const storage = {
+    getItem: (key) => stored.get(key) ?? null,
+    setItem: (key, value) => stored.set(key, value),
+  };
+  writePlannerSettings({ introCompleted: { goals: true, todos: true } }, storage);
+  writePlannerData({
+    goals: [{ id: "g1", title: "Finish revision" }],
+    todos: [{ id: "t1", title: "Read a chapter" }],
+  }, storage);
+
+  writePlannerData(clearPlannerCollection(readPlannerData(storage), "goals"), storage);
+  writePlannerData(clearPlannerCollection(readPlannerData(storage), "todos"), storage);
+  const updatedSettings = mergeStudyTargetSettings(readPlannerSettings(storage), 6, "3");
+  const serverSettings = normalizeGoalReminderSettings(JSON.parse(JSON.stringify({
+    ...updatedSettings,
+    showCompleted: false,
+  })));
+  writePlannerSettings(JSON.parse(JSON.stringify(serverSettings)), storage);
+
+  assert.deepEqual(readPlannerData(storage), { goals: [], reminders: [], todos: [] });
+  assert.deepEqual(readPlannerSettings(storage).introCompleted, { goals: true, todos: true });
+  assert.equal(readPlannerSettings(storage).dailyStudyTarget, 6);
+  assert.equal(readPlannerSettings(storage).weeklyReviewTarget, "3");
+  assert.equal(readPlannerSettings(storage).showCompleted, false);
 });
 
 test("creates only scheduled review alerts and removes legacy daily target reminders", () => {

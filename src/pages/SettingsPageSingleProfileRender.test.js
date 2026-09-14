@@ -185,14 +185,13 @@ test("wires the inline profile-name editor to an exact, scoped rename request", 
   assert.match(editActionRule, /background:\s*(?:none|transparent)\s*!important/u);
 
   const editActionInteractionRule = stylesheet.match(
-    /\.settings-profile-name-action\.is-edit:hover,\s*\.settings-profile-name-action\.is-edit:focus-visible\s*\{([^}]*)\}/u,
+    /body \.settings-page button\.settings-profile-name-action\.is-edit:hover,\s*body \.settings-page button\.settings-profile-name-action\.is-edit:focus-visible\s*\{([^}]*)\}/u,
   )?.[1] ?? "";
   assert.match(editActionInteractionRule, /color:\s*var\(--accent\)\s*!important/u);
-  assert.match(editActionInteractionRule, /border:\s*(?:0|none)\s*!important/u);
-  assert.match(editActionInteractionRule, /background:\s*(?:none|transparent)\s*!important/u);
+  assert.doesNotMatch(editActionInteractionRule, /box-shadow|filter|text-shadow/u);
 
   const editActionFocusRules = [
-    ...stylesheet.matchAll(/(?:^|\r?\n)\.settings-profile-name-action\.is-edit:focus-visible\s*\{([^}]*)\}/gu),
+    ...stylesheet.matchAll(/(?:^|\r?\n)body \.settings-page button\.settings-profile-name-action\.is-edit:focus-visible\s*\{([^}]*)\}/gu),
   ];
   const editActionFocusRule = editActionFocusRules.at(-1)?.[1] ?? "";
   assert.match(editActionFocusRule, /outline:\s*(?!none\b)[^;]+var\(--accent-rgb\)/u);

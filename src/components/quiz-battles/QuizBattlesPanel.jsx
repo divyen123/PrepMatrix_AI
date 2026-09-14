@@ -1267,8 +1267,7 @@ export default function QuizBattlesPanel({
       {loading ? (
         <div className="battle-loading" role="status">Loading your battles…</div>
       ) : error ? null : battles.length === 0 ? (
-        <div className="battle-empty card">
-          <Swords aria-hidden="true" size={34} />
+        <div className="battle-empty">
           <h3>No battles yet</h3>
           <p>Create a private duel or enter a friend’s invite code.</p>
         </div>

@@ -1,10 +1,12 @@
 ﻿import ResourcesHub from "../components/ResourcesHub";
 
+import "./ResourcesPage.css";
+
 function ResourcesPage({
   academicProfile = {},
   academicLevel,
   academicTrack,
-  subjects,
+  subjects = [],
   schedule,
   completed,
   materialBookmarks,
@@ -13,11 +15,13 @@ function ResourcesPage({
   onRemoveBookmark,
 }) {
   return (
-    <section className="page-stack">
-      <div className="section-intro">
-        <span className="section-tag">Materials</span>
-        <h2>Suggested learning materials by subject</h2>
-      </div>
+    <section className="page-stack resources-page">
+      {subjects.length > 0 && (
+        <div className="section-intro">
+          <span className="section-tag">Materials</span>
+          <h2>Suggested learning materials by subject</h2>
+        </div>
+      )}
 
       <ResourcesHub
         academicProfile={academicProfile}

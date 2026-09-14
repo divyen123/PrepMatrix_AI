@@ -9,9 +9,10 @@ import "./DashboardSetupChecklist.css";
 
 const ACTIONS = {
   subjects: { title: "Add your subjects", button: "Add subject", to: "/subjects#add-subject", icon: Plus },
-  notebook: { title: "Prepare a notebook", button: "Start learning", to: "/learn#notebook-preparation", icon: BookOpen },
   plan: { title: "Plan your schedule", button: "Create plan", to: "/planner/schedule", icon: CalendarDays },
+  notebook: { title: "Prepare a notebook", button: "Start learning", to: "/learn#notebook-preparation", icon: BookOpen },
 };
+const ACTION_ORDER = Object.keys(ACTIONS);
 
 export default function DashboardSetupChecklist({ academicProfileDataId, subjects = [], schedule = [] }) {
   const contentId = useId();
@@ -19,7 +20,8 @@ export default function DashboardSetupChecklist({ academicProfileDataId, subject
   const [completedSteps, setCompletedSteps] = useState(() => readCodeMatrixDraft(academicProfileDataId)?.completedSteps || []);
   const [status, setStatus] = useState("loading");
   const [attempt, setAttempt] = useState(0);
-  const steps = useMemo(() => getCodeMatrixSetupSteps({ subjects, schedule, completedSteps }), [subjects, schedule, completedSteps]);
+  const steps = useMemo(() => getCodeMatrixSetupSteps({ subjects, schedule, completedSteps })
+    .sort((left, right) => ACTION_ORDER.indexOf(left.id) - ACTION_ORDER.indexOf(right.id)), [subjects, schedule, completedSteps]);
   const completeCount = steps.filter((step) => step.complete).length;
 
   useEffect(() => {

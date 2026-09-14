@@ -61,8 +61,15 @@ test("renders the Planner hub and isolates each workspace on its own subpage", a
     const scheduleMarkup = renderRoute("/planner/schedule");
     assert.match(scheduleMarkup, /aria-label="Back to Planner workspaces"[^>]*href="\/planner"/u);
     assert.match(scheduleMarkup, /<span class="section-tag">Schedule<\/span>/u);
-    assert.match(scheduleMarkup, /<h2>Study schedule<\/h2>/u);
+    assert.match(scheduleMarkup, /<h3>Add a subject first<\/h3>/u);
+    assert.doesNotMatch(scheduleMarkup, /Study schedule|Exam date|Exam strategy|No timetable generated yet/u);
     assert.doesNotMatch(scheduleMarkup, /worktree-container|memory-review-panel/u);
+
+    const configuredScheduleMarkup = renderRoute("/planner/schedule", {
+      subjects: [{ name: "Maths", chapters: 4, difficulty: "easy" }],
+    });
+    assert.match(configuredScheduleMarkup, /<h2>Study schedule<\/h2>/u);
+    assert.match(configuredScheduleMarkup, /No timetable generated yet/u);
 
     const worktreeMarkup = renderRoute("/planner/worktree");
     assert.match(worktreeMarkup, /aria-label="Back to Planner workspaces"[^>]*href="\/planner"/u);

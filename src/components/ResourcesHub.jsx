@@ -236,16 +236,10 @@ function ResourcesHub({
       ) : null}
 
       {!activeResource && guide.subjects.length === 0 ? (
-        <section className="card resources-shell">
-          <div className="section-intro compact-intro">
-            <span className="section-tag">Resources</span>
-            <h2>Learning materials</h2>
-          </div>
-          <p className="empty-state">
-            Add subjects first. PrepMatrix will then suggest chapter-wise learning lanes,
-            revision prompts, and practice searches for each subject.
-          </p>
-        </section>
+        <p className="resources-empty-message">
+          Add subjects first. PrepMatrix will then suggest chapter-wise learning lanes,
+          revision prompts, and practice searches for each subject.
+        </p>
       ) : null}
 
       {activeResource ? (

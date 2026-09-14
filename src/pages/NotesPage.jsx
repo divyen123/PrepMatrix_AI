@@ -702,9 +702,22 @@ function NotesPage({
     completed: completedCount,
     inProcess: inProcessCount,
   } = getNotesBoardStatusCounts(notes, plannerStates);
+  const isNotesEmpty = !isNotesLoading && notes.length === 0;
 
   return (
-    <section className="page-stack notes-page">
+    <section className={`page-stack notes-page${isNotesEmpty ? " is-empty" : ""}`}>
+      {isNotesEmpty ? (
+        <p className="notes-empty-message" ref={notesListHeadingRef} tabIndex={-1}>
+          No notes here yet.{" "}
+          <button
+            className="notes-empty-add"
+            onClick={() => setIsCaptureOpen(true)}
+            type="button"
+          >
+            Add your first note here.
+          </button>
+        </p>
+      ) : (
       <section className={`card notes-list-card${confirmClearNotes ? " is-confirming-clear" : ""}`}>
         <div className="notes-list-header">
           <div>
@@ -811,11 +824,7 @@ function NotesPage({
         {isNotesLoading ? (
           <p className="empty-state">Loading stored notes...</p>
         ) : filteredNotes.length === 0 ? (
-          <p className="empty-state">
-            {notes.length === 0
-              ? "No notes here yet. Add a doubt to start your revision queue."
-              : "No stored notes match your search."}
-          </p>
+          <p className="empty-state">No stored notes match your search.</p>
         ) : (
           <div className="notes-list-grid" onScroll={handleNotesScroll}>
             {paginatedNotes.map((note) => {
@@ -1037,6 +1046,7 @@ function NotesPage({
           </div>
         )}
       </section>
+      )}
 
       {selectedNote && typeof document !== "undefined" && createPortal(
         <div

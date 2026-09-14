@@ -720,7 +720,13 @@ body .quiz-page .battle-card-actions button[aria-busy="true"] {
 }
 
 .battle-empty {
+  display: grid;
+  gap: 12px;
   justify-items: center;
+}
+
+.battle-empty p {
+  margin: 0;
 }
 
 .battle-detail {

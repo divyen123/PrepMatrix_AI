@@ -1,0 +1,84 @@
+.subjects-page .subjects-page-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.subjects-page-intro > div {
+  min-width: 0;
+}
+
+.subjects-page .subjects-page-intro .academic-manage-btn {
+  flex: 0 0 auto;
+  align-self: flex-end;
+}
+
+.subjects-page .subjects-page-grid.is-empty {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.subjects-page .subjects-add-subject {
+  width: 100%;
+  max-width: 680px;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.subjects-page .subjects-add-subject > .card {
+  gap: 14px;
+  padding: 24px;
+}
+
+.subjects-page .subjects-add-subject h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.subjects-page .subjects-add-subject .card-subtext {
+  margin: 0 0 2px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.subjects-page .subjects-add-subject .form-grid {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.subjects-page .subjects-add-subject .input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.subjects-page .subjects-add-subject input,
+.subjects-page .subjects-add-subject select {
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.subjects-page .subjects-add-subject .action-btn {
+  align-self: stretch;
+  min-height: 42px !important;
+}
+
+@media (max-width: 520px) {
+  .subjects-page .subjects-page-intro {
+    gap: 12px;
+  }
+
+  .subjects-page .subjects-add-subject > .card {
+    padding: 18px;
+    gap: 12px;
+  }
+
+  .subjects-page .subjects-add-subject .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

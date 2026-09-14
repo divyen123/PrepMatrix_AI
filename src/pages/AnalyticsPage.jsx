@@ -12,8 +12,9 @@ import TopicTimeline from "../components/TopicTimeline";
 import useLearningInsights from "../hooks/useLearningInsights";
 import useQuizBattleStats from "../hooks/useQuizBattleStats";
 import useMomentum from '../hooks/useMomentum';
+import "./AnalyticsPage.css";
 
-function AnalyticsPage({ academicProfileDataId = "", subjects, schedule, completed, plannerHistory = [], scheduleStartDate = '', quizBattlesEnabled = true, userProfile = {} }) {
+function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, completed, plannerHistory = [], scheduleStartDate = '', quizBattlesEnabled = true, userProfile = {} }) {
   const location = useLocation();
   const learning = useLearningInsights({ academicProfileDataId });
   const battles = useQuizBattleStats({ academicProfileDataId, enabled: quizBattlesEnabled });
@@ -74,10 +75,18 @@ function AnalyticsPage({ academicProfileDataId = "", subjects, schedule, complet
         <GoalTracker completed={completed} schedule={schedule} subjects={subjects} userProfile={userProfile} />
       </div>
 
-      <div id="topic-progress">
-        <TopicTimeline completed={completed} schedule={schedule} subjects={subjects} userProfile={userProfile} />
-      </div>
-      <FocusLandscape key={academicProfileDataId} academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} subjects={subjects} history={plannerHistory} scheduleStartDate={scheduleStartDate} notebooks={learning.notebooks} notebooksLoading={learning.loading} notebooksError={learning.error} onRetryNotebooks={learning.reload} />
+      {subjects.length > 0 ? (
+        <>
+          <div id="topic-progress">
+            <TopicTimeline completed={completed} schedule={schedule} subjects={subjects} userProfile={userProfile} />
+          </div>
+          <FocusLandscape key={academicProfileDataId} academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} subjects={subjects} history={plannerHistory} scheduleStartDate={scheduleStartDate} notebooks={learning.notebooks} notebooksLoading={learning.loading} notebooksError={learning.error} onRetryNotebooks={learning.reload} />
+        </>
+      ) : (
+        <p className="analytics-subject-empty" id="topic-progress">
+          Add subjects and generate a timetable to unlock animated topic lanes and study landscape.
+        </p>
+      )}
     </section>
   );
 }

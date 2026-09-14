@@ -444,9 +444,7 @@ export default function SettingsProfilePage({
           <ArrowLeft aria-hidden="true" size={19} />
         </button>
         <div>
-          <span className="settings-profile-eyebrow">Settings / User information</span>
           <h1>User information</h1>
-          <p>Your account, academic profile, study progress, and private app-activity insights.</p>
         </div>
         <span className="settings-profile-local-badge">
           <ShieldCheck aria-hidden="true" size={15} /> Synced account

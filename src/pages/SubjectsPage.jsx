@@ -10,6 +10,7 @@ import {
   isSchoolAcademicLevel,
   normalizeAcademicProfile,
 } from "../utils/academicProfile";
+import "./SubjectsPage.css";
 
 function SubjectsPage({
   academicLevel,
@@ -24,6 +25,7 @@ function SubjectsPage({
   const addSubjectRef = useRef(null);
   const subjectLibraryRef = useRef(null);
   const [activeSnapshot, setActiveSnapshot] = useState(null);
+  const hasSubjects = subjects.length > 0;
   useEffect(() => {
     if (location.hash !== "#add-subject") return;
     const frame = requestAnimationFrame(() => {
@@ -80,85 +82,81 @@ function SubjectsPage({
   };
 
   return (
-    <section className="page-stack">
+    <section className="page-stack subjects-page">
       <CodeMatrixSetupReturn step="subjects" complete={getCodeMatrixSetupSteps({ subjects })[0].complete} subjectName={subjects.at(-1)?.name || ""} />
-      <div className="section-intro">
-        <span className="section-tag">Subjects</span>
-        <h2>Build your study portfolio</h2>
+      <div className="section-intro subjects-page-intro">
+        <div>
+          <span className="section-tag">Subjects</span>
+          <h2>Build your study portfolio</h2>
+        </div>
+        <Link
+          aria-label="Manage academic profile in Settings"
+          className="academic-manage-btn"
+          state={{ highlightProfileInstitution: true }}
+          to="/settings"
+        >
+          Manage
+        </Link>
       </div>
 
-      <div className="page-two-column subjects-page-grid">
+      <div className={`page-two-column subjects-page-grid${hasSubjects ? "" : " is-empty"}`}>
         <div className="page-stack">
           <section className="class-profile-card">
-            <div className="academic-profile-heading">
-              <div>
-                <span className="section-tag">Learner context</span>
-                <h3>One profile for every study module</h3>
-              </div>
-              <Link
-                aria-label="Manage academic profile in Settings"
-                className="academic-manage-btn"
-                state={{ highlightProfileInstitution: true }}
-                to="/settings"
-              >
-                Manage
-              </Link>
-            </div>
-
             <div className="academic-profile-summary" aria-live="polite">
               <div><span>Stage</span><strong>{academicProfile.academicLevel}</strong></div>
               <div><span>Class / qualification</span><strong>{qualification}</strong></div>
               <div><span>Curriculum / field</span><strong>{academicProfile.academicTrack}</strong></div>
             </div>
-
-
-
           </section>
 
-          <div className="subject-page-anchor" ref={addSubjectRef}>
+          <div className="subject-page-anchor subjects-add-subject" ref={addSubjectRef}>
             <AddSubject subjects={subjects} setSubjects={setSubjects} />
           </div>
-          <div className="subject-page-anchor" ref={subjectLibraryRef}>
-            <SubjectList
-              academicProfile={academicProfile}
-              hasActiveSchedule={hasActiveSchedule}
-              kidsMode={kidsMode}
-              setSubjects={setSubjects}
-              subjects={subjects}
-            />
-          </div>
+          {hasSubjects && (
+            <div className="subject-page-anchor" ref={subjectLibraryRef}>
+              <SubjectList
+                academicProfile={academicProfile}
+                hasActiveSchedule={hasActiveSchedule}
+                kidsMode={kidsMode}
+                setSubjects={setSubjects}
+                subjects={subjects}
+              />
+            </div>
+          )}
         </div>
 
-        <div className="page-stack subjects-side-panel">
-          <article className="card route-highlight-card subject-overview-card">
-            <span className="section-tag">Overview</span>
-            <h3>Subject load snapshot</h3>
-            <ul className="metric-list">
-              {snapshotMetrics.map((metric) => (
-                <li className="subject-snapshot-metric" key={metric.id}>
-                  <button
-                    aria-expanded={activeSnapshot === metric.id}
-                    aria-haspopup="dialog"
-                    aria-label={`${metric.desktopLabel}: ${metric.value}. Open details`}
-                    className="subject-snapshot-trigger"
-                    onClick={() => setActiveSnapshot(metric.id)}
-                    type="button"
-                  >
-                    <strong>{metric.value}</strong>
-                    <span className="desktop-only-text">{metric.desktopLabel}</span>
-                    <span className="mobile-only-text">{metric.mobileLabel}</span>
-                    <span className="subject-snapshot-open-cue" aria-hidden="true">
-                      <ChevronRight size={16} />
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </article>
-        </div>
+        {hasSubjects && (
+          <div className="page-stack subjects-side-panel">
+            <article className="card route-highlight-card subject-overview-card">
+              <span className="section-tag">Overview</span>
+              <h3>Subject load snapshot</h3>
+              <ul className="metric-list">
+                {snapshotMetrics.map((metric) => (
+                  <li className="subject-snapshot-metric" key={metric.id}>
+                    <button
+                      aria-expanded={activeSnapshot === metric.id}
+                      aria-haspopup="dialog"
+                      aria-label={`${metric.desktopLabel}: ${metric.value}. Open details`}
+                      className="subject-snapshot-trigger"
+                      onClick={() => setActiveSnapshot(metric.id)}
+                      type="button"
+                    >
+                      <strong>{metric.value}</strong>
+                      <span className="desktop-only-text">{metric.desktopLabel}</span>
+                      <span className="mobile-only-text">{metric.mobileLabel}</span>
+                      <span className="subject-snapshot-open-cue" aria-hidden="true">
+                        <ChevronRight size={16} />
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          </div>
+        )}
       </div>
 
-      {activeSnapshot && (
+      {hasSubjects && activeSnapshot && (
         <SubjectSnapshotDialog
           activeSnapshot={activeSnapshot}
           onClose={() => setActiveSnapshot(null)}

@@ -1,0 +1,8 @@
+.analytics-subject-empty {
+  margin: 0;
+  padding: 24px 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  text-align: center;
+}

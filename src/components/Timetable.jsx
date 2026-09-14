@@ -889,6 +889,22 @@ function Timetable({
     }
   };
 
+  if (subjects.length === 0) {
+    return (
+      <section className="planner-empty-schedule">
+        <div className="planner-subjects-empty is-standalone" role="note">
+          <div>
+            <h3>Add a subject first</h3>
+            <p>Your schedule uses the chapters and difficulty saved on the Subjects page.</p>
+          </div>
+          <button className="secondary-btn action-btn" onClick={onOpenSubjects} type="button">
+            Open Subjects
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="card schedule-card">
       <div className="schedule-card-header">
@@ -936,17 +952,6 @@ function Timetable({
             </div>
           ) : (
           <>
-            {subjects.length === 0 && (
-              <div className="planner-subjects-empty" role="note">
-                <div>
-                  <strong>Add a subject first</strong>
-                  <p>Your schedule uses the chapters and difficulty saved on the Subjects page.</p>
-                </div>
-                <button className="secondary-btn action-btn" onClick={onOpenSubjects} type="button">
-                  Open Subjects
-                </button>
-              </div>
-            )}
             <div className="form-grid planner-target-grid">
               <label className="field-stack compact-field">
                 Exam date

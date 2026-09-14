@@ -1,0 +1,617 @@
+.guide-demo {
+  margin-top: 17px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.77rem;
+  line-height: 1.45;
+}
+
+.guide-demo :is(button, input, select, textarea) {
+  font-family: inherit;
+}
+
+.guide-demo-toolbar,
+.guide-demo-label,
+.guide-demo-transport,
+.guide-demo-scene-heading {
+  display: flex;
+  align-items: center;
+}
+
+.guide-demo-toolbar {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+  padding: 9px 13px;
+  background: var(--surface-muted);
+}
+
+.guide-demo-label {
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.guide-demo-label svg,
+.guide-demo-scene-heading > svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.guide-demo-transport {
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo button[class] {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 0.73rem !important;
+  font-weight: 550 !important;
+  line-height: 1.35;
+  white-space: normal;
+  cursor: pointer;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo button[class] > svg {
+  flex: 0 0 auto;
+  filter: none;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo .guide-demo-control {
+  --guide-button-bg: var(--surface);
+  --guide-button-border: var(--border);
+  min-height: 30px;
+  padding: 5px 8px;
+  font-size: 0.7rem !important;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo :is(.guide-demo-action, .guide-demo-choice) {
+  --guide-button-border: var(--border);
+  --guide-button-bg: var(--surface-strong);
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo .guide-demo-action:not(.is-secondary) {
+  --guide-button-border: rgba(var(--accent-rgb), 0.32);
+  --guide-button-bg: rgba(var(--accent-rgb), 0.12);
+  --guide-button-text: var(--text);
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo button[class]:not(:disabled):hover {
+  --guide-button-border: rgba(var(--accent-rgb), 0.45);
+  --guide-button-bg: rgba(var(--accent-rgb), 0.1);
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo button[class].is-active,
+body .guide-dialog.guide-dialog--visual .guide-demo button[class].is-complete {
+  --guide-button-bg: rgba(var(--accent-rgb), 0.12);
+  --guide-button-border: rgba(var(--accent-rgb), 0.36);
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo button[class]:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.guide-demo-phases {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  padding: 0 13px;
+  background: var(--surface-muted);
+}
+
+.guide-demo-phases > span {
+  height: 3px;
+  background: var(--border);
+  transition: background-color 180ms ease;
+}
+
+.guide-demo-phases > span[data-active="true"] {
+  background: rgba(var(--accent-rgb), 0.45);
+}
+
+.guide-demo-phases > span[data-complete="true"] {
+  background: var(--accent);
+}
+
+.guide-demo-stage {
+  padding: 17px;
+}
+
+.guide-demo-scene {
+  display: grid;
+  align-content: start;
+  gap: 13px;
+  min-width: 0;
+}
+
+.guide-demo-scene-heading {
+  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
+}
+
+.guide-demo-scene-heading strong {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.guide-demo-scene-heading > small {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.guide-demo-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.guide-demo-form,
+.guide-demo-result,
+.guide-demo-field {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 10px;
+}
+
+.guide-demo-form > .guide-demo-action {
+  justify-self: start;
+}
+
+.guide-demo-field {
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.guide-demo-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo .guide-demo-field :is(input, select, textarea) {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  margin: 0;
+  padding: 8px 10px;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px;
+  background: var(--surface-strong) !important;
+  box-shadow: none !important;
+  font-size: 0.76rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo .guide-demo-field textarea {
+  resize: vertical;
+  min-height: 74px;
+  max-height: 180px;
+}
+
+.guide-demo-result > small,
+.guide-demo-caption,
+.guide-demo-preview-card small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.guide-demo-preview-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-muted);
+  transition: border-color 200ms ease, background-color 200ms ease;
+}
+
+.guide-demo-preview-card > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.guide-demo-preview-card > div {
+  min-width: 0;
+}
+
+.guide-demo-preview-card strong,
+.guide-demo-profile-context strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.guide-demo-preview-card p,
+.guide-demo-prompt,
+.guide-demo-question,
+.guide-demo-inline-feedback {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 0.73rem;
+  line-height: 1.5;
+}
+
+.guide-demo-preview-card.is-complete {
+  border-color: rgba(var(--accent-rgb), 0.25);
+  background: rgba(var(--accent-rgb), 0.07);
+}
+
+.guide-demo-placeholder {
+  min-height: 146px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-style: dashed;
+  text-align: center;
+}
+
+.guide-demo-profile-context {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.guide-demo-profile-context small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.guide-demo-profile-context > div,
+.guide-demo-task > span:not(.guide-demo-checkbox),
+.guide-demo-bar > span:first-child,
+.guide-demo-scene-heading strong,
+.guide-demo-outline > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.guide-demo-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 46px;
+  height: 46px;
+  color: var(--accent);
+  border-radius: 14px;
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.guide-demo-choices,
+.guide-demo-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.guide-demo-timeline {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.guide-demo-day {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  padding: 10px;
+  min-width: 0;
+  min-height: 108px;
+  border-top: 2px solid var(--border);
+  border-radius: 0 0 8px 8px;
+  background: var(--surface-muted);
+  transition: border-color 180ms ease;
+}
+
+.guide-demo-day > small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.guide-demo-day[data-active="true"] {
+  border-top-color: var(--accent);
+}
+
+.guide-demo-task-chip {
+  min-width: 0;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.guide-demo-task-chip.is-complete {
+  color: var(--text);
+  animation: guideDemoSlotIn 280ms ease both;
+}
+
+.guide-demo-day:nth-child(2) .guide-demo-task-chip.is-complete {
+  animation-delay: 65ms;
+}
+
+.guide-demo-day:nth-child(3) .guide-demo-task-chip.is-complete {
+  animation-delay: 130ms;
+}
+
+.guide-demo-plan > .guide-demo-action,
+.guide-demo-tasks > .guide-demo-action {
+  justify-self: start;
+}
+
+.guide-demo-outline {
+  display: grid;
+  gap: 8px;
+  border-left: 2px solid var(--border);
+  padding: 9px 0 4px 13px;
+  transition: border-color 220ms ease;
+}
+
+.guide-demo-outline.is-active {
+  border-left-color: var(--accent);
+}
+
+.guide-demo-outline > strong {
+  font-size: 0.77rem;
+  font-weight: 550;
+}
+
+.guide-demo-topic,
+body .guide-dialog.guide-dialog--visual .guide-demo button.guide-demo-topic {
+  justify-content: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  min-width: 0;
+  font-size: 0.71rem;
+  text-align: left;
+}
+
+.guide-demo-topic > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.guide-demo-topic small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.guide-demo-meter {
+  display: block;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 9px;
+  background: var(--border);
+}
+
+.guide-demo-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.guide-demo-list,
+.guide-demo-bars,
+.guide-demo-answer-list {
+  display: grid;
+  gap: 7px;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo button.guide-demo-task {
+  --guide-button-border: var(--border);
+  display: grid;
+  grid-template-columns: 21px minmax(0, 1fr) auto;
+  gap: 9px;
+  min-height: 44px;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.guide-demo-task > small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-align: right;
+}
+
+.guide-demo-checkbox {
+  display: grid;
+  place-items: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--accent);
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.is-complete > .guide-demo-checkbox {
+  border-color: rgba(var(--accent-rgb), 0.45);
+  background: rgba(var(--accent-rgb), 0.15);
+}
+
+.is-complete > .guide-demo-checkbox svg {
+  animation: guideDemoCheckIn 220ms ease both;
+}
+
+.guide-demo-revision-panel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 150px;
+}
+
+.guide-demo-revision-panel > .guide-demo-action {
+  justify-self: start;
+}
+
+.guide-demo-question {
+  color: var(--text);
+  font-weight: 550;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo .guide-demo-answer-list .guide-demo-choice {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-demo button.guide-demo-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  padding: 9px 11px;
+  text-align: left;
+}
+
+.guide-demo-bar > strong {
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.guide-demo-bar > .guide-demo-meter {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.guide-demo-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 10px 14px;
+  min-height: 41px;
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  background: rgba(var(--accent-rgb), 0.04);
+  font-size: 0.71rem;
+  line-height: 1.5;
+}
+
+.guide-demo-feedback > span {
+  display: flex;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.guide-demo-note {
+  margin: 0;
+  padding: 8px 14px 10px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+@keyframes guideDemoSlotIn {
+  from { opacity: 0.2; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes guideDemoCheckIn {
+  from { transform: scale(0.4); }
+  to { transform: scale(1); }
+}
+
+@media (max-width: 620px) {
+  .guide-demo-stage {
+    padding: 13px;
+  }
+
+  .guide-demo-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .guide-demo-placeholder {
+    min-height: 85px;
+  }
+
+  .guide-demo-toolbar {
+    padding-inline: 10px;
+  }
+
+  .guide-demo-timeline {
+    gap: 5px;
+  }
+
+  .guide-demo-day {
+    padding: 8px 6px;
+  }
+
+  .guide-demo-scene-heading > small {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+
+  body .guide-dialog.guide-dialog--visual .guide-demo button.guide-demo-task {
+    grid-template-columns: 21px minmax(0, 1fr);
+  }
+
+  .guide-demo-task > small {
+    grid-column: 2;
+    text-align: left;
+  }
+}
+
+@media (max-width: 380px) {
+  .guide-demo-field-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .guide-demo-timeline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .guide-demo-day {
+    min-height: 0;
+    padding: 9px;
+  }
+}
+
+@media (pointer: coarse) {
+  body .guide-dialog.guide-dialog--visual .guide-demo button[class] {
+    min-height: 44px;
+  }
+
+  body .guide-dialog.guide-dialog--visual .guide-demo .guide-demo-field :is(input, select, textarea) {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-demo *,
+  .guide-demo *::before,
+  .guide-demo *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

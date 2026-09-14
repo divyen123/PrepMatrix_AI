@@ -2954,6 +2954,7 @@ function App() {
               <div className="sidebar-companion-row">
               <SidebarStudyPet />
               <GoalReminderCenter
+                key={activeAcademicProfileDataId}
                 academicProfile={learnerRoutePolicy.academicProfile}
                 data={goalReminderData}
                 onDataChange={setGoalReminderData}

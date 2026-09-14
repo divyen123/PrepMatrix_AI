@@ -115,3 +115,270 @@ body .about-guide-secondary {
     grid-template-columns: 39px minmax(0, 1fr) 36px;
   }
 }
+
+/* The practice tour shares the app theme, with its own compact control sizing. */
+.guide-dialog.guide-dialog--visual,
+.guide-dialog-backdrop--onboarding .guide-dialog.guide-dialog--visual {
+  width: min(1080px, 100%);
+  height: min(660px, calc(100dvh - var(--guide-frame-top) - 48px));
+  max-height: calc(100dvh - var(--guide-frame-top) - 48px);
+  border-radius: 22px;
+}
+
+.guide-dialog--visual .guide-dialog-header {
+  gap: 12px;
+  padding: 17px 22px;
+}
+
+.guide-dialog--visual .guide-dialog-header .section-tag {
+  margin-bottom: 3px;
+  padding: 3px 9px;
+  font-size: 0.7rem;
+}
+
+.guide-dialog--visual .guide-dialog-header h2 {
+  font-size: 1.2rem;
+}
+
+.guide-dialog--visual .guide-dialog-body {
+  grid-template-columns: 208px minmax(0, 1fr);
+}
+
+.guide-dialog--visual .guide-step-nav {
+  align-content: start;
+  gap: 5px;
+  padding: 14px 10px;
+}
+
+body .guide-dialog.guide-dialog--visual button[class] {
+  color: var(--guide-button-text, var(--text)) !important;
+  border: 1px solid var(--guide-button-border, transparent) !important;
+  background: var(--guide-button-bg, transparent) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+  text-shadow: none !important;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease !important;
+}
+
+body .guide-dialog.guide-dialog--visual button[class]::before,
+body .guide-dialog.guide-dialog--visual button[class]::after {
+  display: none !important;
+}
+
+body .guide-dialog.guide-dialog--visual button[class]:focus-visible,
+body .guide-dialog.guide-dialog--visual :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 3px;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-step-nav button {
+  --guide-button-text: var(--text-muted);
+  grid-template-columns: 22px 25px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 46px;
+  gap: 7px;
+  padding: 7px 8px;
+  font-size: 0.73rem;
+  font-weight: 550;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-step-nav button:hover {
+  --guide-button-bg: rgba(var(--accent-rgb), 0.055);
+  --guide-button-text: var(--text);
+}
+
+body .guide-dialog.guide-dialog--visual .guide-step-nav button.active {
+  --guide-button-bg: rgba(var(--accent-rgb), 0.11);
+  --guide-button-border: rgba(var(--accent-rgb), 0.23);
+  --guide-button-text: var(--text);
+}
+
+.guide-dialog--visual .guide-step-icon {
+  width: 25px;
+  height: 28px;
+  background: transparent;
+}
+
+.guide-dialog--visual .guide-step-number {
+  width: 22px;
+  height: 22px;
+  font-size: 0.7rem;
+}
+
+.guide-dialog--visual .guide-step-content {
+  min-width: 0;
+  padding: 22px 26px 18px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.guide-dialog--visual .guide-step-eyebrow {
+  margin-bottom: 7px;
+}
+
+.guide-dialog--visual .guide-step-eyebrow span {
+  padding: 0;
+  color: var(--text-muted);
+  border: 0;
+  background: transparent;
+  font-size: 0.7rem;
+}
+
+.guide-dialog--visual .guide-step-content > h3 {
+  margin-bottom: 7px;
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+}
+
+.guide-dialog--visual .guide-step-summary {
+  font-size: 0.79rem;
+  line-height: 1.5;
+}
+
+.guide-dialog--visual .guide-dialog-actions {
+  min-height: 62px;
+  padding: 11px 20px;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-compact-btn {
+  --guide-button-border: var(--border);
+  --guide-button-bg: var(--surface-muted);
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-compact-btn.route {
+  --guide-button-border: transparent;
+  --guide-button-bg: transparent;
+  --guide-button-text: var(--text-muted);
+}
+
+body .guide-dialog.guide-dialog--visual .guide-compact-btn:not(.secondary):not(.route) {
+  --guide-button-text: var(--accent-strong);
+  --guide-button-border: rgba(var(--accent-rgb), 0.35);
+  --guide-button-bg: rgba(var(--accent-rgb), 0.13);
+}
+
+body .guide-dialog.guide-dialog--visual .guide-compact-btn:not(:disabled):hover {
+  --guide-button-border: rgba(var(--accent-rgb), 0.42);
+  --guide-button-bg: rgba(var(--accent-rgb), 0.17);
+}
+
+body .guide-dialog.guide-dialog--visual .guide-dialog-close {
+  --guide-button-text: #d94861;
+  --guide-button-border: rgba(239, 91, 108, 0.28);
+  --guide-button-bg: rgba(239, 91, 108, 0.085);
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+body.dark .guide-dialog.guide-dialog--visual .guide-dialog-close {
+  --guide-button-text: #ff899a;
+}
+
+body .guide-dialog.guide-dialog--visual .guide-dialog-close:hover {
+  --guide-button-border: rgba(239, 91, 108, 0.48);
+  --guide-button-bg: rgba(239, 91, 108, 0.16);
+}
+
+@media (max-width: 840px) {
+  .guide-dialog--visual .guide-dialog-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .guide-dialog--visual .guide-step-nav {
+    display: flex;
+    gap: 5px;
+    padding: 9px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: thin;
+  }
+
+  body .guide-dialog.guide-dialog--visual .guide-step-nav button {
+    flex: 0 0 auto;
+    grid-template-columns: 22px auto;
+    min-height: 36px;
+    padding: 5px 8px;
+  }
+
+  .guide-dialog--visual .guide-step-icon {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .guide-dialog.guide-dialog--visual,
+  .guide-dialog-backdrop--onboarding .guide-dialog.guide-dialog--visual {
+    height: calc(100dvh - var(--guide-frame-top) - 16px);
+    max-height: calc(100dvh - var(--guide-frame-top) - 16px);
+    border-radius: 17px;
+  }
+
+  .guide-dialog--visual .guide-dialog-header {
+    padding: 13px;
+    gap: 9px;
+  }
+
+  .guide-dialog--visual .guide-dialog-header h2 {
+    font-size: 1rem;
+  }
+
+  .guide-dialog--visual .guide-step-content {
+    padding: 17px 14px;
+    scrollbar-gutter: auto;
+  }
+
+  .guide-dialog--visual .guide-dialog-actions {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 9px 11px;
+    gap: 8px;
+  }
+
+  .guide-dialog--visual .guide-dialog-actions > div {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  body .guide-dialog.guide-dialog--visual .guide-compact-btn {
+    min-height: 36px;
+    padding: 7px 9px;
+    font-size: 0.7rem;
+  }
+
+  body .guide-dialog.guide-dialog--visual .guide-compact-btn.route {
+    display: inline-flex;
+  }
+}
+
+@media (pointer: coarse) {
+  body .guide-dialog.guide-dialog--visual :is(.guide-compact-btn, .guide-step-nav button, .guide-dialog-close) {
+    min-height: 44px;
+  }
+
+  body .guide-dialog.guide-dialog--visual .guide-dialog-close {
+    min-width: 44px;
+  }
+
+  .guide-dialog--visual .guide-dialog-header {
+    grid-template-columns: 39px minmax(0, 1fr) 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body .guide-dialog.guide-dialog--visual *,
+  body .guide-dialog.guide-dialog--visual button[class] {
+    animation: none !important;
+    transition: none !important;
+  }
+}

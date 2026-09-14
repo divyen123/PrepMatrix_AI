@@ -255,12 +255,13 @@ function PlannerPage({
   }
 
   const subpageCopy = PLANNER_SUBPAGE_COPY[plannerView];
+  const isScheduleEmpty = plannerView === "schedule" && subjects.length === 0;
   const visibleDestinations = kidsMode
     ? PLANNER_DESTINATIONS.filter((destination) => destination.id !== "recall")
     : PLANNER_DESTINATIONS;
 
   return (
-    <section className={`page-stack planner-route-page${kidsMode ? " is-kids-planner" : ""}`}>
+    <section className={`page-stack planner-route-page${kidsMode ? " is-kids-planner" : ""}${isScheduleEmpty ? " has-no-subjects" : ""}`}>
       {plannerView === "schedule" && !kidsMode && (
         <PlannerExamInvitation schedule={schedule} completed={completed} setSchedule={setSchedule} onBeforeAttendExam={onBeforeAttendExam} />
       )}
@@ -344,7 +345,7 @@ function PlannerPage({
           <div className={`planner-subpage-content is-${plannerView}`}>
             {plannerView === "schedule" && (
               <>
-                {showPermissionBanner && (
+                {showPermissionBanner && !isScheduleEmpty && (
                   <article className="card info-card reminders-banner">
                     <div style={{ flex: 1 }}>
                       <h4 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>Enable Action Alerts</h4>
@@ -373,9 +374,6 @@ function PlannerPage({
                     </div>
                   </article>
                 )}
-
-                <div className="planner-support-strip">
-                </div>
 
                 <Timetable
                   onClearSchedule={onClearSchedule}

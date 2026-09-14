@@ -33,6 +33,7 @@ body .dashboard-setup .dashboard-setup-toggle {
 .dashboard-setup li small { padding-top: 3px; color: var(--accent-strong); font-size: 10px; font-weight: 700; }
 .dashboard-setup li a { display: inline-flex; align-items: center; min-height: 32px; margin-top: 6px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text); background: var(--surface-muted); text-decoration: none; }
 .dashboard-setup .is-next a { background: var(--accent-strong); color: white; }
+body.dark .dashboard-setup .is-next a { background: var(--text); color: var(--bg); border-color: var(--text); }
 .dashboard-setup .is-complete .dashboard-setup-icon { color: var(--accent); }
 .dashboard-setup-done { display: block; margin-top: 2px; color: var(--text-muted); font-size: 11px; }
 .dashboard-setup-status { padding: 0 16px 12px; margin: 0; font-size: 12px; color: var(--text-muted); }

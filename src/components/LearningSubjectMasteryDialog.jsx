@@ -142,6 +142,7 @@ function LearningSubjectMasteryDialog({
   const previousFocusRef = useRef(null);
   const titleId = useId();
   const rows = useMemo(() => masteryRows(notebooks, now), [notebooks, now]);
+  const isEmpty = !loading && !error && rows.length === 0;
   const totals = useMemo(() => rows.reduce((summary, row) => ({
     learned: summary.learned + row.learnedCount,
     topics: summary.topics + row.totalTopics,
@@ -218,7 +219,7 @@ function LearningSubjectMasteryDialog({
       <section
         aria-labelledby={titleId}
         aria-modal="true"
-        className="learning-subject-mastery-dialog"
+        className={`learning-subject-mastery-dialog${isEmpty ? " is-empty" : ""}`}
         id="learning-subject-mastery-dialog"
         ref={dialogRef}
         role="dialog"
@@ -242,7 +243,7 @@ function LearningSubjectMasteryDialog({
           </button>
         </header>
 
-        {!loading && !error && (
+        {!loading && !error && rows.length > 0 && (
           <div className="learning-subject-mastery-summary" aria-label="Mastery summary">
             <article>
               <Layers3 aria-hidden="true" size={17} />

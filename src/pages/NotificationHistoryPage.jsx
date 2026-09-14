@@ -9,7 +9,6 @@ import {
   CalendarClock,
   Check,
   CircleDollarSign,
-  Inbox,
   Mail,
   MailOpen,
   RefreshCw,
@@ -219,6 +218,7 @@ function NotificationHistoryPage() {
   );
 
   const storedNotificationCount = notifications.length;
+  const isHistoryEmpty = !loading && !loadError && storedNotificationCount === 0;
   const totalCount = summaryNotifications.length;
   const visibleUnreadCount = summaryNotifications.filter((notification) => !notification.readAt).length;
   const readCount = Math.max(0, totalCount - visibleUnreadCount);
@@ -456,102 +456,109 @@ function NotificationHistoryPage() {
         </div>
       </header>
 
-      <section aria-label="Alert history summary" className="notification-history-summary">
-        <article className="notification-summary-card">
-          <span className="notification-summary-icon"><Bell aria-hidden="true" size={18} /></span>
-          <div>
-            <span>Total</span>
-            <strong>{loading ? "—" : totalCount}</strong>
-          </div>
-        </article>
-        <article className="notification-summary-card is-unread">
-          <span className="notification-summary-icon"><Mail aria-hidden="true" size={18} /></span>
-          <div>
-            <span>Unread</span>
-            <strong>{loading ? "—" : visibleUnreadCount}</strong>
-          </div>
-        </article>
-        <article className="notification-summary-card is-read">
-          <span className="notification-summary-icon"><MailOpen aria-hidden="true" size={18} /></span>
-          <div>
-            <span>Read</span>
-            <strong>{loading ? "—" : readCount}</strong>
-          </div>
-        </article>
-      </section>
-
-      <section className="notification-history-panel" aria-labelledby="notification-history-list-title">
-        <div className="notification-history-panel-header">
-          <div>
-            <span className="section-tag">Recent updates</span>
-            <h2 id="notification-history-list-title">{listTitle}</h2>
-          </div>
-          {!loading && !loadError && storedNotificationCount > 0 && (
-            <div className="notification-history-controls" ref={clearAllControlsRef}>
-              <NotificationHistoryFilter
-                closeSignal={selectedId}
-                customEndDate={customEndDate}
-                customStartDate={customStartDate}
-                dateFilter={dateFilter}
-                onDateFilterChange={handleNotificationDateFilterChange}
-                onOpen={() => {
-                  setConfirmDeleteId(null);
-                  setConfirmClearAll(false);
-                }}
-                onReset={resetNotificationFilters}
-                onSortOrderChange={setSortOrder}
-                onStatusFilterChange={setStatusFilter}
-                sortOrder={sortOrder}
-                statusFilter={statusFilter}
-              />
-              {confirmClearAll ? (
-                <div
-                  aria-label="Confirm clearing all alerts"
-                  className="notification-clear-confirm"
-                  role="group"
-                >
-                  <button
-                    autoFocus
-                    aria-busy={clearingAll}
-                    aria-label="Confirm clear all alerts"
-                    className="notification-clear-action is-confirm"
-                    disabled={clearingAll || deletingId !== null}
-                    onClick={clearAllNotifications}
-                    title="Confirm clear all"
-                    type="button"
-                  >
-                    <Check aria-hidden="true" size={14} />
-                  </button>
-                  <button
-                    aria-label="Cancel clearing all alerts"
-                    className="notification-clear-action is-cancel"
-                    disabled={clearingAll}
-                    onClick={restoreClearAllTrigger}
-                    title="Cancel"
-                    type="button"
-                  >
-                    <X aria-hidden="true" size={14} />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  aria-label="Clear all alerts"
-                  className="notification-clear-action is-trigger"
-                  disabled={deletingId !== null}
-                  onClick={() => {
-                    setActionError("");
-                    setConfirmDeleteId(null);
-                    setConfirmClearAll(true);
-                  }}
-                  title="Clear all alerts"
-                  type="button"
-                >
-                  <Trash2 aria-hidden="true" size={14} />
-                </button>
-              )}
+      {!isHistoryEmpty && (
+        <section aria-label="Alert history summary" className="notification-history-summary">
+          <article className="notification-summary-card">
+            <span className="notification-summary-icon"><Bell aria-hidden="true" size={18} /></span>
+            <div>
+              <span>Total</span>
+              <strong>{loading ? "—" : totalCount}</strong>
             </div>
-          )}
-        </div>
+          </article>
+          <article className="notification-summary-card is-unread">
+            <span className="notification-summary-icon"><Mail aria-hidden="true" size={18} /></span>
+            <div>
+              <span>Unread</span>
+              <strong>{loading ? "—" : visibleUnreadCount}</strong>
+            </div>
+          </article>
+          <article className="notification-summary-card is-read">
+            <span className="notification-summary-icon"><MailOpen aria-hidden="true" size={18} /></span>
+            <div>
+              <span>Read</span>
+              <strong>{loading ? "—" : readCount}</strong>
+            </div>
+          </article>
+        </section>
+      )}
+
+      <section
+        className={isHistoryEmpty ? "notification-history-empty" : "notification-history-panel"}
+        aria-labelledby={isHistoryEmpty ? "notification-history-empty-title" : "notification-history-list-title"}
+      >
+        {!isHistoryEmpty && (
+          <div className="notification-history-panel-header">
+            <div>
+              <span className="section-tag">Recent updates</span>
+              <h2 id="notification-history-list-title">{listTitle}</h2>
+            </div>
+            {!loading && !loadError && storedNotificationCount > 0 && (
+              <div className="notification-history-controls" ref={clearAllControlsRef}>
+                <NotificationHistoryFilter
+                  closeSignal={selectedId}
+                  customEndDate={customEndDate}
+                  customStartDate={customStartDate}
+                  dateFilter={dateFilter}
+                  onDateFilterChange={handleNotificationDateFilterChange}
+                  onOpen={() => {
+                    setConfirmDeleteId(null);
+                    setConfirmClearAll(false);
+                  }}
+                  onReset={resetNotificationFilters}
+                  onSortOrderChange={setSortOrder}
+                  onStatusFilterChange={setStatusFilter}
+                  sortOrder={sortOrder}
+                  statusFilter={statusFilter}
+                />
+                {confirmClearAll ? (
+                  <div
+                    aria-label="Confirm clearing all alerts"
+                    className="notification-clear-confirm"
+                    role="group"
+                  >
+                    <button
+                      autoFocus
+                      aria-busy={clearingAll}
+                      aria-label="Confirm clear all alerts"
+                      className="notification-clear-action is-confirm"
+                      disabled={clearingAll || deletingId !== null}
+                      onClick={clearAllNotifications}
+                      title="Confirm clear all"
+                      type="button"
+                    >
+                      <Check aria-hidden="true" size={14} />
+                    </button>
+                    <button
+                      aria-label="Cancel clearing all alerts"
+                      className="notification-clear-action is-cancel"
+                      disabled={clearingAll}
+                      onClick={restoreClearAllTrigger}
+                      title="Cancel"
+                      type="button"
+                    >
+                      <X aria-hidden="true" size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    aria-label="Clear all alerts"
+                    className="notification-clear-action is-trigger"
+                    disabled={deletingId !== null}
+                    onClick={() => {
+                      setActionError("");
+                      setConfirmDeleteId(null);
+                      setConfirmClearAll(true);
+                    }}
+                    title="Clear all alerts"
+                    type="button"
+                  >
+                    <Trash2 aria-hidden="true" size={14} />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {actionError && (
           <div className="notification-inline-alert" role="alert">
@@ -582,11 +589,8 @@ function NotificationHistoryPage() {
           </div>
         ) : storedNotificationCount === 0 ? (
           <div className="notification-state-card">
-            <span className="notification-state-icon">
-              <Inbox aria-hidden="true" size={25} />
-            </span>
-            <h3>No alerts yet</h3>
-            <p>Only incomplete work, due items, credit resets, and stalled learning topics appear here.</p>
+            <h3 id="notification-history-empty-title">No alerts yet</h3>
+            <p>Incomplete work, due items, credit resets, and stalled learning topics appear here.</p>
           </div>
         ) : visibleNotifications.length === 0 ? (
           <div className="notification-state-card">

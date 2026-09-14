@@ -7,6 +7,8 @@ const readSource = (path) => readFileSync(new URL(path, import.meta.url), "utf8"
 test("the center opens as an accessible right-side drawer with stacked goal and to-do panels", () => {
   const source = readSource("./GoalReminderCenter.jsx");
   const styles = readSource("./GoalReminderCenter.css");
+  const introSource = readSource("./GoalTodoIntro.jsx");
+  const introStyles = readSource("./GoalTodoIntro.css");
   const appSource = readSource("../App.jsx");
 
   assert.match(source, /Goal & To-Do Center/u);
@@ -26,6 +28,12 @@ test("the center opens as an accessible right-side drawer with stacked goal and 
   assert.doesNotMatch(source, /getDueReminders|createReminderDraft|visibleReminders/u);
   assert.doesNotMatch(source, /A quick guide to dated outcomes, small next actions, and completed-item controls\./u);
   assert.doesNotMatch(source, /goal-reminder-about-description/u);
+  assert.doesNotMatch(source, /goal-reminder-about|How goals and to-do tasks work|About goals and to-do tasks|<Info/u);
+  assert.match(source, /GoalTodoIntro/u);
+  assert.match(source, /showGoalIntro/u);
+  assert.match(source, /showTodoIntro/u);
+  assert.match(source, /onGetStarted=\{\(\) => finishIntro\("goals"\)\}/u);
+  assert.match(source, /onGetStarted=\{\(\) => finishIntro\("todos"\)\}/u);
   const menuStart = source.indexOf('className="goal-reminder-bulk-menu"');
   const completedToggle = source.indexOf('className="goal-reminder-show-completed"');
   const bulkClearActions = source.indexOf("{BULK_CLEAR_ACTIONS.map", menuStart);
@@ -52,7 +60,14 @@ test("the center opens as an accessible right-side drawer with stacked goal and 
   assert.doesNotMatch(styles, /\.goal-reminder-backdrop\.is-closing\s*\{[^}]*pointer-events:\s*none;/u);
   assert.match(styles, /@media \(max-width: 520px\)[\s\S]*?\.goal-reminder-dialog\s*\{[\s\S]*?width:\s*100%;[\s\S]*?border-radius:\s*0;/u);
   assert.match(styles, /\.planner-goal-composer-popover\s*\{[\s\S]*?background:\s*var\(--bg\);/u);
-  assert.match(styles, /body\.has-bg-image \.goal-reminder-about-dialog,[\s\S]*?background:\s*rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\);/u);
+  assert.doesNotMatch(styles, /goal-reminder-about/u);
+  assert.match(introSource, /Get started/u);
+  assert.match(introSource, /setTimeout/u);
+  assert.match(introSource, /prefers-reduced-motion/u);
+  assert.match(introSource, /Turn an aim into a goal/u);
+  assert.match(introSource, /Make room for small wins/u);
+  assert.match(introStyles, /\.goal-todo-intro\s*\{/u);
+  assert.match(introStyles, /@media \(prefers-reduced-motion: reduce\)/u);
   assert.doesNotMatch(appSource, /syncStudyTargetReminders/u);
 });
 

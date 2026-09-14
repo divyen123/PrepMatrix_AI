@@ -22,6 +22,7 @@ export const DEFAULT_GOAL_REMINDER_SETTINGS = Object.freeze({
   repeatSeconds: 20,
   snoozeMinutes: 10,
   showCompleted: true,
+  introCompleted: Object.freeze({ goals: false, todos: false }),
 });
 
 const SNOOZE_MINUTE_OPTIONS = Object.freeze([5, 10, 15, 30, 60]);
@@ -172,6 +173,10 @@ export function normalizePlannerSettings(value) {
     repeatSeconds,
     snoozeMinutes,
     showCompleted: source.showCompleted !== false,
+    introCompleted: {
+      goals: source.introCompleted?.goals === true,
+      todos: source.introCompleted?.todos === true,
+    },
   };
 }
 
