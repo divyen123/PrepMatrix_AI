@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { AiQuotaError } from './aiQuota.js';
 import { registerCodeMatrixReviewRoutes } from './codeMatrixReviewRoutes.js';
-import { CodeReviewError } from './codeMatrixReview.js';
+import { CodeReviewError, createCodeReviewProvider } from './codeMatrixReview.js';
 
 const input = { language: 'python', code: 'print(1/0)', stderr: 'ZeroDivisionError', status: 'error' };
 const review = { summary: 'Inspect the divisor.', line: 1, where: 'Check the division.', tryNext: ['Trace the divisor.'], avoid: ['Avoid hiding the exception.'], check: 'Try a non-zero divisor.' };
 function harness({ configured = true, generate = async () => review, limit = 2, commitThrows = false, fenceFailsAfterGenerate = false } = {}) {
   const routes = new Map(), events = new Map();
-  let providerCalls = 0, refunds = 0;
+  let providerCalls = 0, refunds = 0, reservations = 0, commits = 0;
   const db = { collection: () => ({ findOne: async () => ({ subjects: [] }), updateOne: async () => ({ matchedCount: 1 }) }) };
   const quota = (userId) => ({ remaining: limit - [...events.values()].filter((event) => event.userId === userId && event.state !== 'refunded').length, limit });
   const key = (id) => JSON.stringify([id.userId, id.academicProfileId, id.feature, id.requestId]);
@@ -21,6 +21,7 @@ function harness({ configured = true, generate = async () => review, limit = 2, 
     lookup,
     responseHeaders: (q, cost = 1) => ({ 'X-AI-Credit-Remaining': q.remaining, 'X-AI-Credit-Cost': cost }),
     reserve: async (id) => {
+      reservations++;
       const prior = await lookup(id);
       if (prior.state === 'replay') return prior;
       if (quota(id.userId).remaining < 1) throw new AiQuotaError('AI_USER_QUOTA_EXHAUSTED', 'No credits', { status: 429, quota: quota(id.userId) });
@@ -29,6 +30,7 @@ function harness({ configured = true, generate = async () => review, limit = 2, 
       return { state: 'reserved', eventId, reservationToken: 'token', cost: 1, quota: quota(id.userId) };
     },
     commit: async ({ eventId, replayPayload }) => {
+      commits++;
       const event = events.get(eventId);
       event.state = 'committed'; event.payload = replayPayload;
       if (commitThrows) throw new Error('Lost acknowledgement');
@@ -46,7 +48,8 @@ function harness({ configured = true, generate = async () => review, limit = 2, 
     },
   });
   return {
-    get calls() { return providerCalls; }, get refunds() { return refunds; }, events,
+    get calls() { return providerCalls; }, get refunds() { return refunds; },
+    get reservations() { return reservations; }, get commits() { return commits; }, events,
     async request({ body = input, user = 'alice', profile = 'profile-a', coding = true, method = 'POST' } = {}) {
       const req = { body, user: user ? { _id: user, coding } : null, academicProfileId: profile };
       const res = { statusCode: 200, headers: {}, set(k, v) { this.headers[k] = v; }, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
@@ -105,4 +108,54 @@ test('lost commit acknowledgements recover the saved review without refund or re
   assert.deepEqual(response.body.review, review);
   assert.equal(h.calls, 1);
   assert.equal(h.refunds, 0);
+});
+
+test('a provider correction retry charges once and saves the validated hint for free replay', async () => {
+  let fetchCalls = 0;
+  const provider = createCodeReviewProvider({ env: { CODEMATRIX_AI_API_KEY: 'test' }, fetchImpl: async () => {
+    fetchCalls++;
+    const value = fetchCalls === 1 ? { ...review, tryNext: ['print(1 / 2)'] } : review;
+    return { ok: true, json: async () => ({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(value) } }] }) };
+  } });
+  const h = harness({ generate: (body) => provider.review(body) });
+
+  const result = await h.request();
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(result.body.review, review);
+  assert.equal(result.headers['X-AI-Credit-Remaining'], '1');
+  assert.equal(fetchCalls, 2);
+  assert.equal(h.calls, 1);
+  assert.equal(h.reservations, 1);
+  assert.equal(h.commits, 1);
+  assert.equal(h.refunds, 0);
+  assert.equal(h.events.size, 1);
+
+  const replay = await h.request();
+  assert.equal(replay.body.idempotent, true);
+  assert.deepEqual(replay.body.review, review);
+  assert.equal(fetchCalls, 2);
+  assert.equal(h.reservations, 1);
+  assert.equal(h.commits, 1);
+});
+
+test('two rejected provider completions refund the single reservation without committing a hint', async () => {
+  let fetchCalls = 0;
+  const provider = createCodeReviewProvider({ env: { CODEMATRIX_AI_API_KEY: 'test' }, fetchImpl: async () => {
+    fetchCalls++;
+    return { ok: true, json: async () => ({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ ...review, tryNext: ['print(1 / 2)'] }) } }] }) };
+  } });
+  const h = harness({ generate: (body) => provider.review(body) });
+
+  const result = await h.request();
+  assert.equal(result.statusCode, 502);
+  assert.equal(result.body.code, 'CODE_REVIEW_INVALID_OUTPUT');
+  assert.equal(result.body.creditsRefunded, true);
+  assert.equal(result.headers['X-AI-Credit-Remaining'], '2');
+  assert.equal(Object.hasOwn(result.body, 'review'), false);
+  assert.equal(fetchCalls, 2);
+  assert.equal(h.calls, 1);
+  assert.equal(h.reservations, 1);
+  assert.equal(h.commits, 0);
+  assert.equal(h.refunds, 1);
+  assert.equal(h.events.size, 1);
 });

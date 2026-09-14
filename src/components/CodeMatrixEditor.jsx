@@ -25,6 +25,16 @@ const editorTheme = EditorView.theme({
   "&.cm-focused": { outline: "none" },
   ".cm-selectionBackground": { background: "#284850 !important" },
 });
+const lightTheme = EditorView.theme({
+  "&": { color: "#152033", background: "#ffffff", colorScheme: "light" },
+  ".cm-content": { caretColor: "#152033" },
+  ".cm-cursor, .cm-dropCursor": { borderLeftColor: "#152033" },
+  ".cm-gutters": { background: "#f8fafc", color: "#64748b" },
+  ".cm-activeLine, .cm-activeLineGutter": { background: "#edf3f8" },
+  ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": { background: "#cce5ef !important" },
+  ".cm-selectionMatch": { background: "#e1f0ea" },
+  "&.cm-focused .cm-matchingBracket": { background: "#d4e9e4", outline: "1px solid #8bb9ad" },
+}, { dark: false });
 
 export default function CodeMatrixEditor({ value, language, onChange, onRun, onLimit, diagnostics = [], activeLine = 0, lineRequest = null }) {
   const hostRef = useRef(null);
@@ -36,11 +46,13 @@ export default function CodeMatrixEditor({ value, language, onChange, onRun, onL
   useEffect(() => { changeRef.current = onChange; runRef.current = onRun; limitRef.current = onLimit; }, [onChange, onRun, onLimit]);
 
   useEffect(() => {
+    const appearance = new Compartment();
+    let dark = document.body.classList.contains("dark");
     const view = new EditorView({
       parent: hostRef.current,
       state: EditorState.create({
         extensions: [
-          basicSetup, oneDark, editorTheme,
+          basicSetup, appearance.of([dark ? oneDark : lightTheme, editorTheme]),
           languageRef.current.of([]),
           EditorState.changeFilter.of((transaction) => {
             if (!transaction.docChanged || transaction.annotation(externalUpdate)) return true;
@@ -59,7 +71,15 @@ export default function CodeMatrixEditor({ value, language, onChange, onRun, onL
       }),
     });
     viewRef.current = view;
-    return () => { viewRef.current = null; view.destroy(); };
+    // Follow the effective app theme without recreating the editor or its undo history.
+    const observer = new MutationObserver(() => {
+      const nextDark = document.body.classList.contains("dark");
+      if (nextDark === dark) return;
+      dark = nextDark;
+      view.dispatch({ effects: appearance.reconfigure([dark ? oneDark : lightTheme, editorTheme]) });
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    return () => { observer.disconnect(); viewRef.current = null; view.destroy(); };
   }, []);
 
   useEffect(() => {

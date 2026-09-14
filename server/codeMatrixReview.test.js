@@ -4,6 +4,9 @@ import { CODE_REVIEW_SYSTEM_PROMPT, normalizeCodeReviewRequest, codeReviewReques
 
 const input = { language: 'python', code: 'total = 5\ncount = 0\nprint(total / count)', status: 'error', stderr: 'ZeroDivisionError: division by zero' };
 const review = { summary: 'The divisor is zero when this line runs.', line: 3, where: 'Inspect count before the division.', tryNext: ['Trace how count gets its value.'], avoid: ['Do not suppress the exception without understanding the input.'], check: 'Test with both zero and non-zero counts.' };
+const syntaxInput = { language: 'python', code: 'n=int(input("Enter a number: "))\nif n%2==0:\n print(n," is even")\nelse:\n print("odd)', status: 'error', stderr: 'SyntaxError: unterminated string literal (detected at line 5)' };
+const syntaxReview = { summary: 'A text value on the final line appears to start without a matching ending quote.', line: 5, where: 'Inspect the text passed to print in the else branch.', tryNext: ['Compare the quote boundaries on this line with the working branch.'], avoid: ['Do not confuse a closing parenthesis with the end of a string.'], check: 'Run once with an even number and once with an odd number.' };
+const completion = (value, finishReason = 'stop') => ({ ok: true, json: async () => ({ choices: [{ finish_reason: finishReason, message: { content: JSON.stringify(value) } }] }) });
 test('validates a failed run and rejects oversized, successful, or infrastructure requests', () => {
   assert.deepEqual(normalizeCodeReviewRequest({ ...input, userId: 'ignored', input: 'not sent' }), input);
   for (const patch of [{ code: 'x'.repeat(52000) }, { stderr: 'x'.repeat(8100) }, { status: 'success' }, { stderr: 'Failed to fetch' }, { language: 'shell' }]) {
@@ -52,4 +55,84 @@ test('provider failures are sanitized and incomplete output is never shown', asy
   await assert.rejects(provider(async () => { throw Error('sensitive provider detail'); }).review(input), (error) => !error.message.includes('sensitive'));
   await assert.rejects(provider(async () => ({ ok: false, status: 429, json: async () => ({ error: 'private' }) })).review(input), { status: 429 });
   await assert.rejects(provider(async () => ({ ok: true, json: async () => ({ choices: [{ finish_reason: 'length', message: { content: JSON.stringify(review) } }] }) })).review(input), { code: 'CODE_REVIEW_INVALID_OUTPUT' });
+});
+
+test('regenerates a rejected missing-quote hint without replaying the rejected response or changing the run', async () => {
+  const requests = [];
+  const rejected = { ...syntaxReview, where: 'Inspect the existing print("odd) on line 5. REJECTED_RESPONSE_MARKER' };
+  const provider = createCodeReviewProvider({ env: { CODEMATRIX_AI_API_KEY: 'test' }, fetchImpl: async (_url, options) => {
+    requests.push({ body: JSON.parse(options.body), signal: options.signal });
+    return completion(requests.length === 1 ? rejected : syntaxReview);
+  } });
+
+  assert.deepEqual(await provider.review(syntaxInput), syntaxReview);
+  assert.equal(requests.length, 2);
+  assert.strictEqual(requests[0].signal, requests[1].signal);
+  assert.equal(requests[0].body.messages[0].content, CODE_REVIEW_SYSTEM_PROMPT);
+  assert.notEqual(requests[1].body.messages[0].content, CODE_REVIEW_SYSTEM_PROMPT);
+  assert.ok(requests[1].body.messages[0].content.includes(CODE_REVIEW_SYSTEM_PROMPT));
+  assert.ok(!JSON.stringify(requests[1].body.messages).includes('REJECTED_RESPONSE_MARKER'));
+  for (const { body } of requests) {
+    assert.equal(body.messages.length, 2);
+    assert.deepEqual(body.messages.filter((message) => message.role === 'user').map((message) => JSON.parse(message.content)), [syntaxInput]);
+    assert.equal(body.messages.some((message) => message.role === 'assistant'), false);
+    assert.equal(body.response_format.json_schema.strict, true);
+    assert.ok(body.max_completion_tokens <= 2200);
+  }
+});
+
+test('retries malformed JSON and truncated completions before returning a complete validated hint', async () => {
+  for (const first of [
+    { ok: true, json: async () => ({ choices: [{ finish_reason: 'stop', message: { content: '{"summary":' } }] }) },
+    completion(syntaxReview, 'length'),
+  ]) {
+    let calls = 0;
+    const provider = createCodeReviewProvider({ env: { CODEMATRIX_AI_API_KEY: 'test' }, fetchImpl: async () => ++calls === 1 ? first : completion(syntaxReview) });
+    assert.deepEqual(await provider.review(syntaxInput), syntaxReview);
+    assert.equal(calls, 2);
+  }
+});
+
+test('stops after two invalid completions and never relaxes the no-code validator', async () => {
+  let calls = 0;
+  const provider = createCodeReviewProvider({ env: { CODEMATRIX_AI_API_KEY: 'test' }, fetchImpl: async () => {
+    calls++;
+    return completion({ ...syntaxReview, tryNext: ['Replace the last line with print("odd").'] });
+  } });
+  await assert.rejects(provider.review(syntaxInput), { code: 'CODE_REVIEW_INVALID_OUTPUT' });
+  assert.equal(calls, 2);
+});
+
+test('limits reasoning only for supported GPT-OSS models', async () => {
+  for (const model of [undefined, 'openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b-custom']) {
+    let body;
+    const provider = createCodeReviewProvider({ env: { CODEMATRIX_AI_API_KEY: 'test', ...(model ? { CODEMATRIX_AI_MODEL: model } : {}) }, fetchImpl: async (_url, options) => {
+      body = JSON.parse(options.body);
+      return completion(review);
+    } });
+    assert.deepEqual(await provider.review(input), review);
+    if (!model || ['openai/gpt-oss-20b', 'openai/gpt-oss-120b'].includes(model)) {
+      assert.equal(body.reasoning_effort, 'low');
+      assert.equal(body.include_reasoning, false);
+    } else {
+      assert.equal(Object.hasOwn(body, 'reasoning_effort'), false);
+      assert.equal(Object.hasOwn(body, 'include_reasoning'), false);
+    }
+    assert.equal(body.model, model || 'openai/gpt-oss-20b');
+  }
+});
+
+test('does not retry connection failures, HTTP failures, or provider refusals', async () => {
+  for (const response of [
+    () => { throw Error('sensitive provider detail'); },
+    () => ({ ok: false, status: 429, json: async () => ({ error: 'sensitive provider detail' }) }),
+    () => ({ ok: false, status: 503, json: async () => ({ error: 'sensitive provider detail' }) }),
+    () => ({ ok: true, json: async () => ({ choices: [{ finish_reason: 'stop', message: { content: null, refusal: 'sensitive provider detail' } }] }) }),
+    () => ({ ok: true, json: async () => ({ choices: [{ finish_reason: 'content_filter', message: { content: null } }] }) }),
+  ]) {
+    let calls = 0;
+    const provider = createCodeReviewProvider({ env: { CODEMATRIX_AI_API_KEY: 'test' }, fetchImpl: async () => { calls++; return response(); } });
+    await assert.rejects(provider.review(input), (error) => !error.message.includes('sensitive provider detail'));
+    assert.equal(calls, 1);
+  }
 });
