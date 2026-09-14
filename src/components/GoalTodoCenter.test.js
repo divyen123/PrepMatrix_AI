@@ -80,8 +80,11 @@ test("the center opens as an accessible right-side drawer with a unified first-e
   assert.match(introStyles, /@keyframes goalTodoIntroTypingCursor/u);
   assert.match(introStyles, /@keyframes goalTodoIntroStartIn/u);
   assert.match(introStyles, /\.goal-todo-intro-start\.is-ready\s*\{[\s\S]*?animation:\s*goalTodoIntroStartIn/u);
+  assert.match(introStyles, /\.goal-todo-intro-start\s*\{[\s\S]*?box-shadow:\s*none !important;/u);
+  assert.match(introStyles, /\.goal-todo-intro-start:hover\s*\{[\s\S]*?box-shadow:\s*none !important;/u);
   assert.doesNotMatch(introStyles, /goal-todo-intro-(story|card|steps|play|caption)|goalTodoIntroStartNudge/u);
   assert.match(introStyles, /@media \(prefers-reduced-motion: reduce\)/u);
+  assert.match(styles, /\.goal-reminder-dialog-mark\s*\{[\s\S]*?box-shadow:\s*none;/u);
   const introPanel = styles.match(/\.planner-unified-intro-panel\s*\{([^}]*)\}/u)?.[1] || "";
   assert.doesNotMatch(introPanel, /background|border|border-radius/u);
   assert.doesNotMatch(appSource, /syncStudyTargetReminders/u);

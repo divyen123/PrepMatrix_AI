@@ -112,7 +112,6 @@ import {
   isMedicalTrainingHash,
   isPlacementPrepHash,
   sortStartLearningNotebooks,
-  shouldShowStartLearningHero,
 } from "../utils/startLearningWorkspace";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import {
@@ -3409,37 +3408,10 @@ function StartLearningPage({
     : activeArtifactKind === "medical"
       ? noSavedMedicalTraining
       : noSavedNotebooks;
-  const showLearningHero = shouldShowStartLearningHero({ intakeMode, workspaceView });
   return (
     <div className="learning-page">
       <CodeMatrixSetupReturn step="notebook" complete={getCodeMatrixSetupSteps({ notebooks: notebookHistory })[1].complete} subjectName={subjectName} />
-      {showLearningHero ? (
-        <section className="card learning-hero">
-          <div className="learning-hero-copy">
-            <div className="learning-hero-eyebrow">
-              <span className="section-tag"><Sparkles size={14} /> AI learning workspace</span>
-              <button
-                aria-controls="learning-subject-mastery-dialog"
-                aria-expanded={masteryDialogOpen}
-                aria-haspopup="dialog"
-                aria-label="Open subject mastery"
-                className="learning-mastery-trigger"
-                onClick={() => setMasteryDialogOpen(true)}
-                title="Subject mastery"
-                type="button"
-              >
-                <Target aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <h2>Start Learning</h2>
-          </div>
-          <div className="learning-hero-metrics" aria-label="Learning notebook summary">
-            <div><strong>{notebookHistory.length}</strong><span>Notebook history</span></div>
-            <div><strong>{activeNotebook?.chapters.length || 0}</strong><span>Mapped chapters</span></div>
-            <div><strong>{nodes.length}</strong><span>Study concepts</span></div>
-          </div>
-        </section>
-      ) : workspaceView === "medical" ? (
+      {workspaceView === "medical" && (
         <nav className="learning-workspace-compact-controls" aria-label="Opened learning workspace controls">
           <button
             aria-label="Back to Start Learning home"
@@ -3452,10 +3424,13 @@ function StartLearningPage({
             <span>Back to Start Learning</span>
           </button>
         </nav>
-      ) : null}
+      )}
 
-      <div className={`learning-workspace is-${workspaceView}`}>
-        <aside className="learning-source-rail" aria-label="Sources and learning history">
+      <div className={`learning-workspace is-${workspaceView}${intakeMode === null ? " is-choice-home" : ""}`}>
+        <aside
+          aria-label={activeArtifactKind ? "Sources and learning history" : "Learning workspace choices"}
+          className="learning-source-rail"
+        >
           <section
             className={intakeMode === null
               ? "learning-intake-source-panel is-workspace-choice"
@@ -3535,13 +3510,30 @@ function StartLearningPage({
                       : "Notebook preparation"}
                 </strong>
               </div>
-              <button
-                aria-label="Back to preparation choices"
-                onClick={returnToPreparationChoice}
-                type="button"
-              >
-                <ArrowLeft size={15} /> Back
-              </button>
+              <div className="learning-intake-flow-actions">
+                {intakeMode === "notebook" && (
+                  <button
+                    aria-controls="learning-subject-mastery-dialog"
+                    aria-expanded={masteryDialogOpen}
+                    aria-haspopup="dialog"
+                    aria-label="Open subject mastery"
+                    className="learning-mastery-trigger"
+                    onClick={() => setMasteryDialogOpen(true)}
+                    title="Subject mastery"
+                    type="button"
+                  >
+                    <Target aria-hidden="true" size={18} />
+                  </button>
+                )}
+                <button
+                  aria-label="Back to preparation choices"
+                  className="learning-intake-return-button"
+                  onClick={returnToPreparationChoice}
+                  type="button"
+                >
+                  <ArrowLeft size={15} /> Back
+                </button>
+              </div>
             </div>
           )}
           {intakeMode === "notebook" ? (
@@ -3996,6 +3988,7 @@ function StartLearningPage({
           </div>
           ) : null}
           </section>
+          {activeArtifactKind && (
           <section className="card learning-saved-panel">
             <div className="learning-saved-heading">
               <div>
@@ -4005,7 +3998,7 @@ function StartLearningPage({
                 <strong>
                   {activeArtifactKind === "placement" ? "Placement history"
                     : activeArtifactKind === "medical" ? "Medical training history"
-                      : activeArtifactKind === "notebook" ? "Notebook history" : "Learning history"}
+                      : "Notebook history"}
                 </strong>
               </div>
               <span className="learning-history-global-actions">
@@ -4047,32 +4040,6 @@ function StartLearningPage({
               <div className="learning-rail-empty">
                 <p>{notebooksError}</p>
                 <button onClick={loadNotebooks} type="button">Retry</button>
-              </div>
-            )}
-            {activeArtifactKind === null && !notebooksError && (
-              <div className="learning-saved-kind-grid">
-                <button className="learning-saved-kind-card is-notebook" onClick={openNotebookIntake} type="button">
-                  <span><BookOpenCheck aria-hidden="true" size={17} /></span>
-                  <strong>{notebookHistory.length}</strong>
-                  <small>Notebook history</small>
-                  <ChevronRight aria-hidden="true" size={16} />
-                </button>
-                {placementEligible && (
-                  <button className="learning-saved-kind-card is-placement" onClick={openPlacementIntake} type="button">
-                    <span><BriefcaseBusiness aria-hidden="true" size={17} /></span>
-                    <strong>{savedPlacementNotes.length}</strong>
-                    <small>Placement history</small>
-                    <ChevronRight aria-hidden="true" size={16} />
-                  </button>
-                )}
-                {medicalEligible && (
-                  <button className="learning-saved-kind-card is-medical" onClick={openMedicalIntake} type="button">
-                    <span><Stethoscope aria-hidden="true" size={17} /></span>
-                    <strong>{savedMedicalTrainingNotes.length}</strong>
-                    <small>Medical training history</small>
-                    <ChevronRight aria-hidden="true" size={16} />
-                  </button>
-                )}
               </div>
             )}
             {activeArtifactKind !== null && savedPanelEmpty && (
@@ -4217,6 +4184,7 @@ function StartLearningPage({
               </div>
             )}
           </section>
+          )}
         </aside>
 
         <section className="learning-notebook-stage" aria-live="polite">

@@ -218,7 +218,7 @@ body .goal-reminder-launcher-button:focus-visible {
   color: #fff;
   background: var(--gradient-primary);
   border-radius: 11px;
-  box-shadow: 0 6px 16px rgba(var(--accent-rgb), 0.16);
+  box-shadow: none;
 }
 
 .goal-reminder-dialog-mark svg:last-child {

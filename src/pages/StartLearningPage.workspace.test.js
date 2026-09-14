@@ -113,14 +113,20 @@ test("keeps legacy placement guides visible and gives every history row a confir
   );
 });
 
-test("styles the workspace chooser and saved-work selectors responsively", () => {
+test("centers the available workspace cards and omits history from the chooser", () => {
   assert.ok(stylesheet.includes(".learning-intake-choice-grid {"));
-  assert.ok(stylesheet.includes("grid-template-columns: repeat(2, minmax(0, 1fr));"));
-  assert.ok(stylesheet.includes(".learning-saved-kind-grid {"));
-  assert.ok(stylesheet.includes(".learning-notebook-row.is-placement,"));
+  assert.ok(stylesheet.includes("grid-template-columns: repeat(auto-fit, minmax(280px, 430px));"));
+  assert.ok(stylesheet.includes("justify-content: center;"));
+  assert.ok(stylesheet.includes(".learning-workspace.is-intake.is-choice-home .learning-source-rail {"));
+  assert.ok(stylesheet.includes("width: min(100%, 1320px);"));
+  assert.equal(stylesheet.includes("learning-intake-choice-card:last-child:nth-child(3)"), false);
   assert.ok(stylesheet.includes(".learning-intake-choice-card.is-medical"));
   assert.ok(stylesheet.includes(".learning-workspace.is-medical"));
   assert.ok(stylesheet.includes(".learning-workspace.is-medical .learning-medical-workspace"));
+  assert.ok(pageSource.includes('is-${workspaceView}${intakeMode === null ? " is-choice-home" : ""}'));
+  assert.ok(pageSource.includes("{activeArtifactKind && ("));
+  assert.equal(pageSource.includes("learning-saved-kind-grid"), false);
+  assert.equal(pageSource.includes('"Learning history"'), false);
 
   const mobileStyles = stylesheet.slice(stylesheet.indexOf("@media (max-width: 700px)"));
   assert.ok(mobileStyles.includes(".learning-intake-choice-grid {"));
@@ -220,16 +226,18 @@ test("automatically adds generated guides to history and supports pinning and gl
   assert.equal(pageSource.includes("Save preparation"), false);
 });
 
-test("keeps Subject Mastery out of opened notebook and placement toolbars", () => {
+test("places Subject Mastery beside Back in Notebook preparation", () => {
   assert.equal(
     pageSource.match(/className="learning-mastery-trigger"/gu)?.length,
     1,
-    "Subject Mastery should remain only in the home and input hero",
+    "Subject Mastery should appear only in Notebook preparation",
   );
   assert.match(
     pageSource,
-    /className="learning-workspace-compact-controls"[\s\S]*?className="learning-workspace-return-button"/u,
+    /className="learning-intake-flow-actions"[\s\S]*?intakeMode === "notebook"[\s\S]*?className="learning-mastery-trigger"[\s\S]*?className="learning-intake-return-button"/u,
   );
+  assert.doesNotMatch(pageSource, /AI learning workspace|className="card learning-hero"/u);
+  assert.doesNotMatch(stylesheet, /\.learning-hero(?:[\s:{])/u);
 });
 
 test("keeps the Start Learning return control inside opened notebook and placement cards", () => {

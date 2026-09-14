@@ -141,7 +141,7 @@ body .goal-reminder-dialog .goal-todo-intro-start {
   color: #fff !important;
   background: var(--gradient-primary) !important;
   border-color: transparent !important;
-  box-shadow: 0 9px 22px rgba(var(--accent-rgb), 0.24) !important;
+  box-shadow: none !important;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -156,7 +156,7 @@ body .goal-reminder-dialog .goal-todo-intro-start.is-ready {
 
 body .goal-reminder-dialog .goal-todo-intro-start:hover {
   background: var(--gradient-primary) !important;
-  box-shadow: 0 12px 26px rgba(var(--accent-rgb), 0.34) !important;
+  box-shadow: none !important;
 }
 
 .goal-todo-intro-start svg {
