@@ -2,47 +2,64 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  justify-content: safe center;
-  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
+  max-width: 510px;
+  margin: auto;
   color: var(--text);
-  scrollbar-width: thin;
+  text-align: center;
 }
 
-.goal-todo-intro-heading,
-.goal-todo-intro-footer {
+.goal-todo-intro-heading {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+}
+
+.goal-todo-intro-heading > div {
   min-width: 0;
 }
 
-.goal-todo-intro-heading > strong {
-  font-size: 0.88rem;
-  line-height: 1.4;
+.goal-todo-intro-heading > div > span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.goal-todo-intro-heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(1rem, 1.9vw, 1.22rem);
+  line-height: 1.26;
 }
 
 body .goal-reminder-dialog .goal-todo-intro button {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 5px !important;
+  gap: 6px !important;
   min-width: 0 !important;
-  min-height: 30px !important;
-  padding: 5px 8px !important;
+  min-height: 31px !important;
+  padding: 6px 9px !important;
   color: var(--text) !important;
   background: transparent !important;
   border: 1px solid transparent !important;
-  border-radius: 8px !important;
+  border-radius: 9px !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  transform: none !important;
   font-size: 0.72rem !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
   line-height: 1.3 !important;
   text-shadow: none !important;
   -webkit-text-fill-color: currentColor !important;
@@ -70,137 +87,168 @@ body .goal-reminder-dialog .goal-todo-intro-play {
   color: var(--text-muted) !important;
 }
 
-.goal-todo-intro-preview {
-  flex: 0 0 auto;
-  padding: 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 13px;
-}
-
-.goal-todo-intro-example {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--text-muted);
-  font-size: 0.7rem;
-}
-
-.goal-todo-intro-goal,
-.goal-todo-intro-task {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 52px;
-  min-width: 0;
-  padding: 7px;
-  background: var(--surface-muted);
-  border-radius: 9px;
-  transition: background-color 300ms ease, transform 300ms ease;
-}
-
-.goal-todo-intro-goal.is-complete,
-.goal-todo-intro-task.is-complete {
-  background: var(--accent-soft);
-}
-
-.goal-todo-intro-goal-copy {
+.goal-todo-intro-story {
   display: grid;
-  gap: 6px;
-  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 26px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  overflow: hidden;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--surface)), var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 15px;
 }
 
-.goal-todo-intro-goal-copy > strong {
-  font-size: 0.8rem;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.goal-todo-intro-meta {
+.goal-todo-intro-card {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 5px 10px;
-  color: var(--text-muted);
-  font-size: 0.7rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  overflow: hidden;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: background-color 260ms ease, border-color 260ms ease, transform 260ms ease;
 }
 
-.goal-todo-intro-meta > span {
+.goal-todo-intro-card.is-goal {
+  background: color-mix(in srgb, var(--accent) 11%, var(--surface));
+}
+
+.goal-todo-intro-card.is-todo {
+  background: color-mix(in srgb, #5d7cff 11%, var(--surface));
+}
+
+.goal-todo-intro-story.is-phase-1 .goal-todo-intro-card.is-todo,
+.goal-todo-intro-story.is-phase-2 .goal-todo-intro-card {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+}
+
+.goal-todo-intro-card.is-complete {
+  background: color-mix(in srgb, var(--accent) 17%, var(--surface));
+}
+
+.goal-todo-intro-card-label,
+.goal-todo-intro-card-meta,
+.goal-todo-intro-card-status {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
 }
 
-.goal-todo-intro-checkbox {
-  display: inline-block;
-  flex: 0 0 15px;
-  width: 15px;
-  height: 15px;
-  border: 1px solid var(--text-muted);
-  border-radius: 4px;
-}
-
-body .goal-reminder-dialog .goal-todo-intro-check {
-  flex: 0 0 30px;
-  width: 30px;
-  padding: 5px !important;
-}
-
-body .goal-reminder-dialog .goal-todo-intro-task-action {
-  flex: 1;
+.goal-todo-intro-item {
   justify-content: flex-start !important;
-  gap: 9px !important;
+  min-height: 52px !important;
+  padding: 7px !important;
   text-align: left;
+  background: color-mix(in srgb, var(--surface) 78%, transparent) !important;
+  border-color: color-mix(in srgb, var(--border) 80%, transparent) !important;
 }
 
-.goal-todo-intro-task-action > span:not(.goal-todo-intro-checkbox) {
-  flex: 1;
+.goal-todo-intro-item:hover {
+  transform: translateY(-1px);
+}
+
+.goal-todo-intro-check {
+  display: inline-flex;
+  flex: 0 0 22px;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+  border: 1px solid currentColor;
+  border-radius: 7px;
+}
+
+.goal-todo-intro-item-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.goal-todo-intro-item-copy strong,
+.goal-todo-intro-item-copy small {
   overflow-wrap: anywhere;
 }
 
-.goal-todo-intro-task-action > svg,
-.goal-todo-intro-undo {
-  flex-shrink: 0;
+.goal-todo-intro-item-copy strong {
+  color: var(--text);
+  font-size: 0.76rem;
+  line-height: 1.28;
 }
 
-.goal-todo-intro-task.is-complete .goal-todo-intro-task-action > span,
-.goal-todo-intro-goal.is-complete .goal-todo-intro-goal-copy > strong {
-  text-decoration: line-through;
-  text-decoration-color: var(--text-muted);
-}
-
-.goal-todo-intro-track {
-  height: 3px;
-  margin: 12px 0 7px;
-  overflow: hidden;
-  background: var(--surface-muted);
-  border-radius: 99px;
-}
-
-.goal-todo-intro-track > span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  border-radius: inherit;
-  transition: width 450ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.goal-todo-intro-result {
-  display: block;
+.goal-todo-intro-item-copy small {
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
+  line-height: 1.3;
+}
+
+.goal-todo-intro-card-meta {
+  flex-wrap: wrap;
+  gap: 5px 9px;
+  min-height: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.goal-todo-intro-card-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.goal-todo-intro-card-status {
+  margin-top: auto;
+  color: var(--accent);
+}
+
+.goal-todo-intro-path {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  opacity: 0.78;
+}
+
+.goal-todo-intro-path svg {
+  transform: rotate(45deg);
 }
 
 .goal-todo-intro-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
 }
 
 body .goal-reminder-dialog .goal-todo-intro-steps button {
-  flex: 1;
-  white-space: nowrap;
-  font-size: 0.7rem !important;
+  justify-content: flex-start !important;
   color: var(--text-muted) !important;
+  white-space: nowrap;
+}
+
+body .goal-reminder-dialog .goal-todo-intro-steps button > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  color: inherit;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-muted);
+  border-radius: 99px;
 }
 
 body .goal-reminder-dialog .goal-todo-intro-steps button.is-current {
@@ -209,62 +257,76 @@ body .goal-reminder-dialog .goal-todo-intro-steps button.is-current {
   border-color: var(--border) !important;
 }
 
-.goal-todo-intro-steps button > span {
-  font-variant-numeric: tabular-nums;
-}
-
 .goal-todo-intro-caption {
+  min-height: 2.6em;
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.76rem;
-  line-height: 1.5;
-}
-
-.goal-todo-intro-footer {
-  margin-top: 2px;
-}
-
-.goal-todo-intro-footer > span {
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  line-height: 1.4;
+  font-size: 0.77rem;
+  line-height: 1.42;
 }
 
 body .goal-reminder-dialog .goal-todo-intro-start {
-  flex: 0 0 auto;
-  min-height: 34px !important;
-  padding: 7px 10px !important;
+  min-height: 37px !important;
+  padding: 8px 13px !important;
   color: var(--text) !important;
-  background: var(--accent-soft) !important;
-  border-color: var(--border) !important;
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface)) !important;
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border)) !important;
+  animation: goalTodoIntroStartNudge 2.5s ease-in-out infinite;
 }
 
-@media (max-width: 380px) {
+.goal-todo-intro-start > svg {
+  color: var(--accent);
+  transform: rotate(45deg);
+}
+
+@keyframes goalTodoIntroStartNudge {
+  0%, 68%, 100% { transform: translateX(0); }
+  75% { transform: translateX(3px); }
+  83% { transform: translateX(-2px); }
+  91% { transform: translateX(2px); }
+}
+
+@media (max-width: 450px) {
+  .goal-todo-intro-story {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-todo-intro-path {
+    height: 16px;
+  }
+
+  .goal-todo-intro-path svg {
+    transform: rotate(135deg);
+  }
+}
+
+@media (max-width: 350px) {
   .goal-todo-intro-heading,
-  .goal-todo-intro-footer {
+  .goal-todo-intro-steps {
+    display: flex;
     flex-wrap: wrap;
   }
 
-  .goal-todo-intro-footer {
-    align-items: flex-start;
+  body .goal-reminder-dialog .goal-todo-intro-steps button {
+    flex: 1 1 88px;
   }
 }
 
 @media (pointer: coarse) {
   body .goal-reminder-dialog .goal-todo-intro button {
-    min-height: 44px !important;
+    min-height: 42px !important;
   }
 
-  body .goal-reminder-dialog .goal-todo-intro-check {
-    flex-basis: 44px;
-    width: 44px;
+  .goal-todo-intro-item {
+    min-height: 54px !important;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .goal-todo-intro-track > span,
-  .goal-todo-intro-goal,
-  .goal-todo-intro-task {
+  .goal-todo-intro-card,
+  .goal-todo-intro-item,
+  body .goal-reminder-dialog .goal-todo-intro-start {
     transition: none;
+    animation: none;
   }
 }

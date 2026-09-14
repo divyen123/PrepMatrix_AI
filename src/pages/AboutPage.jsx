@@ -15,9 +15,7 @@ import {
   Mic,
   Network,
   Palette,
-  PlayCircle,
   RefreshCcw,
-  Sparkles,
   StickyNote,
   TimerReset,
   TrendingUp,
@@ -105,26 +103,7 @@ function AboutPage({ academicProfile = {} }) {
         </div>
       </div>
 
-      <section className="card about-hero-card">
-        <div className="about-hero-copy">
-          <span className="about-hero-kicker"><Sparkles size={14} /> Plan clearly. Study confidently.</span>
-          <h3>Plan, study, practice, and measure progress in one workspace.</h3>
-          <p>
-            PrepMatrix AI connects subjects, schedules, goals, to-dos, study tools, secure exams, and analytics around your learning profile.
-          </p>
-          <button className="about-guide-trigger" onClick={() => setGuideOpen(true)} type="button">
-            <PlayCircle size={17} /> View guide <ArrowRight size={15} />
-          </button>
-        </div>
-        <div className="about-hero-flow" aria-label="Recommended workflow">
-          <span><strong>01</strong> Set up</span>
-          <span><strong>02</strong> Stay on track</span>
-          <span><strong>03</strong> Practice & review</span>
-        </div>
-      </section>
-
-      <div className="about-section-heading">
-        <div><span className="section-tag">One connected study system</span><h3>What PrepMatrix brings together</h3></div>
+      <div className="about-guide-row">
         <button className="about-guide-secondary" onClick={() => setGuideOpen(true)} type="button">
           How to use PrepMatrix <ArrowRight size={14} />
         </button>

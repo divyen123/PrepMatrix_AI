@@ -20,42 +20,46 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasScheduledPlanner]);
 
+  if (!hasScheduledPlanner) {
+    return (
+      <div className="weekly-review-empty-state" role="status">
+        Generate a timetable in Planner to unlock your weekly review.
+      </div>
+    );
+  }
+
+  if (!visibleReview) {
+    return (
+      <div className="weekly-review-empty-state" role="status">
+        Generating your planner-aware weekly summary...
+      </div>
+    );
+  }
+
   return (
     <section className="card weekly-review-card weekly-review-output" style={{ padding: "24px" }}>
-      {visibleReview ? (
-        <>
-          <div className="weekly-review-output-header">
-            <span>Generated review</span>
-            <strong>{visibleReview.headline}</strong>
-          </div>
+      <div className="weekly-review-output-header">
+        <span>Generated review</span>
+        <strong>{visibleReview.headline}</strong>
+      </div>
 
-          <div className="weekly-review-highlights">
-            {visibleReview.highlights.map((item) => (
-              <article key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-              </article>
-            ))}
-          </div>
+      <div className="weekly-review-highlights">
+        {visibleReview.highlights.map((item) => (
+          <article key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </article>
+        ))}
+      </div>
 
-          <div className="weekly-review-actions">
-            <span>Action plan</span>
-            <ul>
-              {visibleReview.actions.map((action) => (
-                <li key={action}>{action}</li>
-              ))}
-            </ul>
-          </div>
-        </>
-      ) : (
-        <div className="weekly-review-header">
-          <p className="empty-state">
-            {hasScheduledPlanner
-              ? "Generating your planner-aware weekly summary..."
-              : "Generate a timetable in Planner to unlock your weekly review."}
-          </p>
-        </div>
-      )}
+      <div className="weekly-review-actions">
+        <span>Action plan</span>
+        <ul>
+          {visibleReview.actions.map((action) => (
+            <li key={action}>{action}</li>
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }

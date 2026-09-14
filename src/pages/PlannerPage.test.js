@@ -62,6 +62,8 @@ test("renders the Planner hub and isolates each workspace on its own subpage", a
     assert.match(scheduleMarkup, /aria-label="Back to Planner workspaces"[^>]*href="\/planner"/u);
     assert.match(scheduleMarkup, /<span class="section-tag">Schedule<\/span>/u);
     assert.match(scheduleMarkup, /<h3>Add a subject first<\/h3>/u);
+    assert.match(scheduleMarkup, />Add subject</u);
+    assert.doesNotMatch(scheduleMarkup, />Open Subjects</u);
     assert.doesNotMatch(scheduleMarkup, /Study schedule|Exam date|Exam strategy|No timetable generated yet/u);
     assert.doesNotMatch(scheduleMarkup, /worktree-container|memory-review-panel/u);
 

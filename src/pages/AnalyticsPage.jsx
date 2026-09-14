@@ -84,7 +84,7 @@ function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, co
         </>
       ) : (
         <p className="analytics-subject-empty" id="topic-progress">
-          Add subjects and generate a timetable to unlock animated topic lanes and study landscape.
+          Add subjects and generate a timetable to unlock topic lanes and study landscape.
         </p>
       )}
     </section>

@@ -898,7 +898,7 @@ function Timetable({
             <p>Your schedule uses the chapters and difficulty saved on the Subjects page.</p>
           </div>
           <button className="secondary-btn action-btn" onClick={onOpenSubjects} type="button">
-            Open Subjects
+            Add subject
           </button>
         </div>
       </section>

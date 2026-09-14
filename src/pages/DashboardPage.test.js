@@ -20,6 +20,33 @@ test("opens the Planner schedule subpage from Planned Tasks for mouse and keyboa
   );
 });
 
+test("renders the locked weekly review as centered background-free copy", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { default: WeeklyReview } = await vite.ssrLoadModule("/src/components/WeeklyReview.jsx");
+    const markup = renderToStaticMarkup(React.createElement(WeeklyReview, {
+      completed: [],
+      schedule: [],
+    }));
+    const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+
+    assert.match(markup, /class="weekly-review-empty-state"/u);
+    assert.match(markup, /Generate a timetable in Planner to unlock your weekly review\./u);
+    assert.doesNotMatch(markup, /weekly-review-card|weekly-review-output/u);
+    assert.match(
+      stylesheet,
+      /\.weekly-review-empty-state\s*\{[^}]*place-items: center;[^}]*background: transparent;[^}]*border: 0;[^}]*box-shadow: none;[^}]*text-align: center;/u,
+    );
+  } finally {
+    await vite.close();
+  }
+});
+
 test("renders page shortcuts as an accessible keyboard-selectable list", async () => {
   const vite = await createServer({
     appType: "custom",

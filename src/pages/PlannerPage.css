@@ -358,6 +358,10 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
   line-height: 1.65;
 }
 
+.planner-empty-schedule .planner-subjects-empty .action-btn {
+  align-self: center;
+}
+
 .planner-subpage-content.is-schedule .timetable {
   grid-auto-rows: max-content;
   max-height: none;

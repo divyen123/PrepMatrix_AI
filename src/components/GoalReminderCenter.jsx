@@ -145,26 +145,28 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
   );
   const activeGoals = plannerData.goals.filter((item) => !item.completed).length;
   const openTodos = plannerData.todos.filter((item) => !item.completed).length;
-  const showGoalIntro = !plannerSettings.introCompleted.goals && plannerData.goals.length === 0;
-  const showTodoIntro = !plannerSettings.introCompleted.todos && plannerData.todos.length === 0;
+  const hasPlannerItems = plannerData.goals.length > 0 || plannerData.todos.length > 0;
+  const showUnifiedIntro = !plannerSettings.introCompleted.goals
+    && !plannerSettings.introCompleted.todos
+    && !hasPlannerItems;
 
   useEffect(() => {
     if (!open) return;
-    const goals = plannerSettings.introCompleted.goals || plannerData.goals.length > 0;
-    const todos = plannerSettings.introCompleted.todos || plannerData.todos.length > 0;
+    const introWasStarted = plannerSettings.introCompleted.goals || plannerSettings.introCompleted.todos;
+    const goals = introWasStarted || hasPlannerItems;
+    const todos = introWasStarted || hasPlannerItems;
     if (goals === plannerSettings.introCompleted.goals && todos === plannerSettings.introCompleted.todos) return;
     onSettingsChange?.(normalizePlannerSettings({ ...plannerSettings, introCompleted: { goals, todos } }));
-  }, [onSettingsChange, open, plannerData.goals.length, plannerData.todos.length, plannerSettings]);
+  }, [hasPlannerItems, onSettingsChange, open, plannerSettings]);
 
   const persistData = (next) => onDataChange?.(normalizePlannerData(next));
   const persistSettings = (next) => onSettingsChange?.(normalizePlannerSettings(next));
-  const finishIntro = (section) => {
+  const finishIntro = () => {
     persistSettings({
       ...plannerSettings,
-      introCompleted: { ...plannerSettings.introCompleted, [section]: true },
+      introCompleted: { goals: true, todos: true },
     });
-    if (section === "goals") setGoalComposerOpen(true);
-    else window.requestAnimationFrame(() => todoInputRef.current?.focus());
+    window.requestAnimationFrame(() => todoInputRef.current?.focus());
   };
   const closeGoalComposer = (restoreFocus = true) => {
     setGoalComposerOpen(false);
@@ -502,10 +504,20 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
         </div>
 
         <div className="goal-reminder-dialog-body">
+          {showUnifiedIntro ? (
+            <section aria-labelledby="planner-onboarding-heading" className="planner-unified-intro-panel">
+              <GoalTodoIntro
+                active={open && !closing}
+                goalTitle={`Review ${curriculumExamples.chapter}`}
+                onGetStarted={finishIntro}
+                todoTitle={`Practise ${curriculumExamples.topic}`}
+              />
+            </section>
+          ) : <>
           <section aria-labelledby="planner-goals-heading" className="planner-list-panel planner-goals-panel">
             <div className="planner-panel-heading">
               <div><h3 className="planner-panel-label" id="planner-goals-heading">Goals</h3></div>
-              {!showGoalIntro && <div className="planner-panel-heading-actions">
+              <div className="planner-panel-heading-actions">
                 <strong>{activeGoals} active</strong>
                 <button
                   aria-controls="planner-goal-composer"
@@ -523,12 +535,9 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
                   title="Add goal"
                   type="button"
                 ><Plus aria-hidden="true" size={16} /></button>
-              </div>}
+              </div>
             </div>
 
-            {showGoalIntro ? (
-              <GoalTodoIntro active={open && !closing} exampleTitle={`Review ${curriculumExamples.chapter}`} kind="goals" onGetStarted={() => finishIntro("goals")} />
-            ) : <>
             {goalComposerOpen && (
               <div
                 aria-labelledby="planner-goal-composer-title"
@@ -582,17 +591,13 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
                 );
               })}
             </div>
-            </>}
           </section>
 
           <section aria-labelledby="quick-todo-heading" className="planner-list-panel planner-todo-panel">
             <div className="planner-panel-heading">
               <div><h3 className="planner-panel-label" id="quick-todo-heading">Quick to-do</h3></div>
-              {!showTodoIntro && <strong>{openTodos} open</strong>}
+              <strong>{openTodos} open</strong>
             </div>
-            {showTodoIntro ? (
-              <GoalTodoIntro active={open && !closing} exampleTitle={`Practise ${curriculumExamples.topic}`} kind="todos" onGetStarted={() => finishIntro("todos")} />
-            ) : <>
             <form className="planner-todo-composer" onSubmit={createTodo}>
               <input aria-label="New to-do task" maxLength="160" onChange={(event) => setTodoDraft(event.target.value)} placeholder="Add a small next task" ref={todoInputRef} value={todoDraft} />
               <button aria-label="Add to-do task" disabled={!todoDraft.trim()} title="Add task" type="submit"><Plus size={15} /></button>
@@ -629,8 +634,8 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
                 );
               })}
             </div>
-            </>}
           </section>
+          </>}
 
         </div>
 

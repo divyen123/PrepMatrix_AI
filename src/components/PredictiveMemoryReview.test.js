@@ -100,7 +100,7 @@ test("supports a standalone note-like card grid with visible loading and empty s
   assert.match(componentSource, /aria-labelledby=\{standalone \? undefined : "memory-review-title"\}/u);
   assert.match(componentSource, /standalone \? \([\s\S]*?memory-review-standalone-toolbar[\s\S]*?\) : \([\s\S]*?<header className="memory-review-heading">/u);
   assert.match(componentSource, /loading \? "Loading" : `\$\{experience\.pendingEntries\.length\} due`/u);
-  assert.match(componentSource, /No memory checks are due right now/u);
+  assert.match(componentSource, /className="memory-review-empty is-idle"[\s\S]*?No memory checks are due right now/u);
   assert.match(componentSource, /Memory checks are temporarily unavailable/u);
   assert.match(
     stylesheet,
@@ -114,6 +114,10 @@ test("supports a standalone note-like card grid with visible loading and empty s
   assert.match(
     stylesheet,
     /\.memory-review-panel\.is-standalone \.memory-review-card \{[\s\S]*?min-height: 180px;[\s\S]*?flex-direction: column;[\s\S]*?padding: 16px;[\s\S]*?background:/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.memory-review-panel\.is-standalone \.memory-review-empty\.is-idle \{[\s\S]*?place-items: center;[\s\S]*?text-align: center;[\s\S]*?background: transparent;[\s\S]*?border: 0;[\s\S]*?box-shadow: none;/u,
   );
 });
 

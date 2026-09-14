@@ -23,7 +23,7 @@
   width: 100%;
   max-width: 680px;
   min-width: 0;
-  margin-inline: auto;
+  margin: 20px auto 0;
 }
 
 .subjects-page .subjects-add-subject > .card {

@@ -3482,6 +3482,19 @@ body.dark select option:hover {
   gap: 18px;
 }
 
+.weekly-review-empty-state {
+  display: grid;
+  min-height: 132px;
+  place-items: center;
+  padding: 20px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  line-height: 1.65;
+  text-align: center;
+}
+
 .resources-bookmark-header,
 .weekly-review-header {
   align-items: flex-start;
@@ -6905,7 +6918,11 @@ body.dark {
   position: fixed;
   top: auto;
   right: max(18px, env(safe-area-inset-right));
-  bottom: max(18px, env(safe-area-inset-bottom));
+  bottom: calc(
+    var(--dashboard-floating-bottom, max(18px, env(safe-area-inset-bottom)))
+    + var(--dashboard-setup-stack-height, 0px)
+    + var(--pwa-status-dock-stack-height, 0px)
+  );
   left: auto;
   z-index: 2210;
   width: min(360px, calc(100vw - 36px));
@@ -6919,7 +6936,12 @@ body.dark {
 .Toastify__toast-container {
   top: auto;
   right: max(18px, env(safe-area-inset-right));
-  bottom: max(18px, env(safe-area-inset-bottom));
+  bottom: calc(
+    var(--dashboard-floating-bottom, max(18px, env(safe-area-inset-bottom)))
+    + var(--dashboard-setup-stack-height, 0px)
+    + var(--pwa-status-dock-stack-height, 0px)
+    + var(--app-notification-stack-height, 0px)
+  );
   left: auto;
   width: min(360px, calc(100vw - 36px));
   z-index: 2210;
@@ -7146,7 +7168,12 @@ body.no-glass-cards .Toastify__toast {
   .Toastify__toast-container {
     top: auto;
     right: 12px;
-    bottom: 12px;
+    bottom: calc(
+      max(12px, env(safe-area-inset-bottom))
+      + var(--dashboard-setup-stack-height, 0px)
+      + var(--pwa-status-dock-stack-height, 0px)
+      + var(--app-notification-stack-height, 0px)
+    );
     left: auto;
     width: min(360px, calc(100vw - 24px));
   }
@@ -19074,12 +19101,17 @@ body.has-bg-image .subject-ai-field textarea::placeholder {
   letter-spacing: 0.08em;
 }
 
+.about-guide-row,
 .about-section-heading {
   display: flex;
   align-items: end;
   justify-content: space-between;
   gap: 18px;
   margin: 8px 0 0;
+}
+
+.about-guide-row {
+  justify-content: flex-end;
 }
 
 .about-section-heading h3 {

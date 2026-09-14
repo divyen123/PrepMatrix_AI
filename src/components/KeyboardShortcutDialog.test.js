@@ -66,6 +66,15 @@ test("keeps AI credits above a flat, footer-free keyboard guide on About", () =>
   assert.doesNotMatch(appStyles, /\.about-shortcuts-card|\.about-shortcuts-tip/u);
 });
 
+test("keeps the About page focused after removing its introductory overview", () => {
+  assert.doesNotMatch(aboutSource, /Plan, study, practice, and measure progress in one workspace\./u);
+  assert.doesNotMatch(aboutSource, /One connected study system/u);
+  assert.doesNotMatch(aboutSource, /What PrepMatrix brings together/u);
+  assert.doesNotMatch(aboutSource, /about-hero-card|about-hero-flow|about-hero-copy/u);
+  assert.match(aboutSource, /className="about-guide-row"/u);
+  assert.match(aboutSource, /How to use PrepMatrix/u);
+});
+
 test("supports focus-safe dismissal and locks background scrolling", () => {
   assert.match(dialogSource, /createPortal\(content, document\.body\)/u);
   assert.match(dialogSource, /acquireDocumentScrollLock\(\)/u);

@@ -43,11 +43,11 @@ test("requires a subject before enabling schedule generation", async () => {
     }));
 
     assert.match(emptyMarkup, /Add a subject first/u);
-    assert.match(emptyMarkup, />Open Subjects</u);
+    assert.match(emptyMarkup, />Add subject</u);
     assert.equal(findGenerateButton(emptyMarkup), "");
     assert.doesNotMatch(emptyMarkup, /Exam date|Exam strategy|No timetable generated yet|Study schedule|schedule-card/u);
 
-    assert.doesNotMatch(configuredMarkup, /Add a subject first|>Open Subjects/u);
+    assert.doesNotMatch(configuredMarkup, /Add a subject first|>Add subject/u);
     assert.match(configuredMarkup, /Exam date|Exam strategy/u);
     assert.match(configuredMarkup, /No timetable generated yet/u);
     assert.doesNotMatch(findGenerateButton(configuredMarkup), /disabled=/u);

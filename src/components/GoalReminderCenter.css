@@ -316,6 +316,18 @@ body .goal-reminder-close-btn:hover {
   border-radius: 18px;
 }
 
+.planner-unified-intro-panel {
+  display: flex;
+  grid-row: 1 / -1;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px;
+  overflow: hidden;
+  background: rgba(var(--accent-rgb), 0.045);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+}
+
 .planner-panel-heading {
   display: flex;
   align-items: center;
@@ -1176,7 +1188,8 @@ body.has-bg-image .planner-goal-composer-popover {
     padding: 8px 10px 12px;
   }
 
-  .planner-list-panel {
+  .planner-list-panel,
+  .planner-unified-intro-panel {
     padding: 10px;
     border-radius: 14px;
   }

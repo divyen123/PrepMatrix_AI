@@ -1,8 +1,8 @@
 .dashboard-setup {
   position: fixed;
   right: max(24px, env(safe-area-inset-right));
-  bottom: max(24px, env(safe-area-inset-bottom));
-  z-index: 80;
+  bottom: var(--dashboard-floating-bottom, max(18px, env(safe-area-inset-bottom)));
+  z-index: 2180;
   width: min(340px, calc(100vw - 32px));
   max-height: calc(100dvh - 48px);
   overflow: auto;
@@ -40,5 +40,5 @@ body.dark .dashboard-setup .is-next a { background: var(--text); color: var(--bg
 body .dashboard-setup-status button { min-height: 32px; padding: 4px 8px; border-radius: 8px; font-size: 12px; }
 .dashboard-setup :is(button, a):focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 @media (max-width: 600px) {
-  .dashboard-setup { right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); }
+  .dashboard-setup { right: 16px; }
 }

@@ -4,7 +4,7 @@ import test from "node:test";
 
 const readSource = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
-test("the center opens as an accessible right-side drawer with stacked goal and to-do panels", () => {
+test("the center opens as an accessible right-side drawer with a unified first-entry onboarding", () => {
   const source = readSource("./GoalReminderCenter.jsx");
   const styles = readSource("./GoalReminderCenter.css");
   const introSource = readSource("./GoalTodoIntro.jsx");
@@ -30,10 +30,10 @@ test("the center opens as an accessible right-side drawer with stacked goal and 
   assert.doesNotMatch(source, /goal-reminder-about-description/u);
   assert.doesNotMatch(source, /goal-reminder-about|How goals and to-do tasks work|About goals and to-do tasks|<Info/u);
   assert.match(source, /GoalTodoIntro/u);
-  assert.match(source, /showGoalIntro/u);
-  assert.match(source, /showTodoIntro/u);
-  assert.match(source, /onGetStarted=\{\(\) => finishIntro\("goals"\)\}/u);
-  assert.match(source, /onGetStarted=\{\(\) => finishIntro\("todos"\)\}/u);
+  assert.match(source, /showUnifiedIntro/u);
+  assert.match(source, /planner-unified-intro-panel/u);
+  assert.match(source, /onGetStarted=\{finishIntro\}/u);
+  assert.doesNotMatch(source, /showGoalIntro|showTodoIntro|finishIntro\("goals"\)|finishIntro\("todos"\)/u);
   const menuStart = source.indexOf('className="goal-reminder-bulk-menu"');
   const completedToggle = source.indexOf('className="goal-reminder-show-completed"');
   const bulkClearActions = source.indexOf("{BULK_CLEAR_ACTIONS.map", menuStart);
@@ -55,6 +55,7 @@ test("the center opens as an accessible right-side drawer with stacked goal and 
   assert.match(styles, /\.goal-reminder-dialog-body\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*repeat\(2, minmax\(0, 1fr\)\);/u);
   assert.match(styles, /\.planner-goals-panel\s*\{[\s\S]*?grid-row:\s*1;/u);
   assert.match(styles, /\.planner-todo-panel\s*\{[\s\S]*?grid-row:\s*2;/u);
+  assert.match(styles, /\.planner-unified-intro-panel\s*\{[\s\S]*?grid-row:\s*1 \/ -1;/u);
   assert.match(styles, /@keyframes goalReminderDrawerIn[\s\S]*?translateX\(100%\)[\s\S]*?translateX\(0\)/u);
   assert.match(styles, /@keyframes goalReminderDrawerOut[\s\S]*?translateX\(0\)[\s\S]*?translateX\(100%\)/u);
   assert.doesNotMatch(styles, /\.goal-reminder-backdrop\.is-closing\s*\{[^}]*pointer-events:\s*none;/u);
@@ -64,9 +65,15 @@ test("the center opens as an accessible right-side drawer with stacked goal and 
   assert.match(introSource, /Get started/u);
   assert.match(introSource, /setTimeout/u);
   assert.match(introSource, /prefers-reduced-motion/u);
-  assert.match(introSource, /Turn an aim into a goal/u);
-  assert.match(introSource, /Make room for small wins/u);
+  assert.match(introSource, /One simple plan for goals and to-dos/u);
+  assert.match(introSource, /Quick to-do/u);
+  assert.match(introSource, /Navigation/u);
+  assert.doesNotMatch(introSource, /Try it here\. Examples aren’t saved\./u);
+  assert.equal((introSource.match(/Get started/g) || []).length, 1);
   assert.match(introStyles, /\.goal-todo-intro\s*\{/u);
+  assert.match(introStyles, /@keyframes goalTodoIntroStartNudge/u);
+  assert.match(introStyles, /\.goal-todo-intro-card\.is-goal/u);
+  assert.match(introStyles, /\.goal-todo-intro-card\.is-todo/u);
   assert.match(introStyles, /@media \(prefers-reduced-motion: reduce\)/u);
   assert.doesNotMatch(appSource, /syncStudyTargetReminders/u);
 });

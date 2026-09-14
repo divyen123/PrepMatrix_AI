@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Download,
   RefreshCw,
@@ -12,6 +12,8 @@ import {
   PWA_INSTALL_SUGGESTION_DELAY_MS,
   selectPwaSurface,
 } from "../utils/pwaLifecycle";
+import useFloatingOverlayStackSlot from "../hooks/useFloatingOverlayStackSlot";
+import { FLOATING_OVERLAY_STACK_PROPERTIES } from "../utils/floatingOverlayStack";
 import "./PwaManager.css";
 
 function SurfaceIcon({ surface }) {
@@ -31,6 +33,8 @@ export function PwaStatusDock({
   snapshot,
 }) {
   const surface = selectPwaSurface(snapshot, { allowInstall });
+  const dockRef = useRef(null);
+  useFloatingOverlayStackSlot(dockRef, FLOATING_OVERLAY_STACK_PROPERTIES.pwaStatus, Boolean(surface));
   if (!surface) return null;
 
   const content = {
@@ -63,6 +67,7 @@ export function PwaStatusDock({
       aria-atomic="true"
       aria-live="polite"
       className={`pwa-status-dock pwa-status-dock--${surface}`}
+      ref={dockRef}
       role="status"
     >
       <span className="pwa-status-dock__icon">

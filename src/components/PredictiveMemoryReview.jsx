@@ -526,8 +526,7 @@ export default function PredictiveMemoryReview({
           })}
         </div>
       ) : (
-        <div className="memory-review-empty" role="status">
-          <BrainCircuit aria-hidden="true" size={22} />
+        <div className="memory-review-empty is-idle" role="status">
           <div>
             <strong>No memory checks are due right now</strong>
             <span>Keep learning from your notebooks. A recall card will appear when a concept approaches its review point.</span>

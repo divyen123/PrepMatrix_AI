@@ -1,10 +1,12 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { BookOpen, CalendarDays, Check, ChevronDown, ChevronUp, ListChecks, Plus } from "lucide-react";
 import api from "../utils/apiClient";
 import { getCodeMatrixSetupSteps } from "../utils/codeMatrixProfile.js";
 import { readCodeMatrixDraft } from "../utils/codeMatrixWorkspace.js";
+import useFloatingOverlayStackSlot from "../hooks/useFloatingOverlayStackSlot";
+import { FLOATING_OVERLAY_STACK_PROPERTIES } from "../utils/floatingOverlayStack";
 import "./DashboardSetupChecklist.css";
 
 const ACTIONS = {
@@ -16,6 +18,7 @@ const ACTION_ORDER = Object.keys(ACTIONS);
 
 export default function DashboardSetupChecklist({ academicProfileDataId, subjects = [], schedule = [] }) {
   const contentId = useId();
+  const setupRef = useRef(null);
   const [collapsed, setCollapsed] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 600px)").matches);
   const [completedSteps, setCompletedSteps] = useState(() => readCodeMatrixDraft(academicProfileDataId)?.completedSteps || []);
   const [status, setStatus] = useState("loading");
@@ -40,10 +43,12 @@ export default function DashboardSetupChecklist({ academicProfileDataId, subject
     return () => { active = false; window.removeEventListener("online", load); };
   }, [academicProfileDataId, attempt, subjects, schedule]);
 
+  useFloatingOverlayStackSlot(setupRef, FLOATING_OVERLAY_STACK_PROPERTIES.dashboardSetup, completeCount < steps.length);
+
   if (completeCount === steps.length) return null;
 
   return createPortal(
-    <aside aria-label="Complete actions" className="dashboard-setup">
+    <aside aria-label="Complete actions" className="dashboard-setup" ref={setupRef}>
       <button aria-controls={contentId} aria-expanded={!collapsed} className="dashboard-setup-toggle" onClick={() => setCollapsed((value) => !value)} type="button">
         <ListChecks aria-hidden="true" size={20} />
         <strong>Complete actions</strong>
