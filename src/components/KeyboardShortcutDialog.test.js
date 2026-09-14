@@ -71,8 +71,10 @@ test("keeps the About page focused after removing its introductory overview", ()
   assert.doesNotMatch(aboutSource, /One connected study system/u);
   assert.doesNotMatch(aboutSource, /What PrepMatrix brings together/u);
   assert.doesNotMatch(aboutSource, /about-hero-card|about-hero-flow|about-hero-copy/u);
-  assert.match(aboutSource, /className="about-guide-row"/u);
+  assert.match(aboutSource, /className="about-header-nav"[\s\S]*?className="about-guide-row"/u);
+  assert.match(aboutSource, /className="about-guide-secondary"/u);
   assert.match(aboutSource, /How to use PrepMatrix/u);
+  assert.match(appStyles, /\.about-header-nav \.about-guide-row\s*\{[\s\S]*?margin:\s*0 0 0 auto;/u);
 });
 
 test("supports focus-safe dismissal and locks background scrolling", () => {

@@ -1,151 +1,125 @@
 import { useEffect, useState } from "react";
-import {
-  CalendarClock,
-  Check,
-  CheckCircle2,
-  Flag,
-  ListTodo,
-  Navigation,
-  Pause,
-  Play,
-  RotateCcw,
-  Target,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import "./GoalTodoIntro.css";
 
-const INTRO_STEPS = [
-  {
-    label: "Choose",
-    caption: "Start with one outcome and one small next action.",
-  },
-  {
-    label: "Plan",
-    caption: "Give the goal a date and keep the next action visible.",
-  },
-  {
-    label: "Progress",
-    caption: "Check them off as you move forward.",
-  },
+const INTRO_POINTS = [
+  "Choose one clear goal.",
+  "Add one small next action.",
+  "Give it a date and priority.",
+  "Check progress as you go.",
 ];
 
-function shouldPlayInitially() {
-  if (typeof window === "undefined") return true;
-  return !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const CHARACTER_DELAY_MS = 30;
+const LINE_DELAY_MS = 260;
+
+function getPrefersReducedMotion() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 }
 
-function GoalTodoIntro({ active, goalTitle, onGetStarted, todoTitle }) {
-  const [preview, setPreview] = useState(() => ({ phase: 0, playing: shouldPlayInitially() }));
-  const { phase, playing } = preview;
-  const finished = phase === INTRO_STEPS.length - 1;
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(getPrefersReducedMotion);
 
   useEffect(() => {
-    if (!active || !playing || finished) return undefined;
+    const mediaQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!mediaQuery) return undefined;
+
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
+    updatePreference();
+    mediaQuery.addEventListener?.("change", updatePreference);
+    return () => mediaQuery.removeEventListener?.("change", updatePreference);
+  }, []);
+
+  return prefersReducedMotion;
+}
+
+function GoalTodoIntro({ active, onGetStarted }) {
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const [typingLine, setTypingLine] = useState(0);
+  const [typedCharacters, setTypedCharacters] = useState(0);
+  const [typingComplete, setTypingComplete] = useState(false);
+
+  useEffect(() => {
+    if (!active) {
+      setTypingLine(0);
+      setTypedCharacters(0);
+      setTypingComplete(false);
+      return;
+    }
+
+    if (prefersReducedMotion) {
+      setTypingLine(INTRO_POINTS.length);
+      setTypedCharacters(0);
+      setTypingComplete(true);
+      return;
+    }
+
+    setTypingLine(0);
+    setTypedCharacters(0);
+    setTypingComplete(false);
+  }, [active, prefersReducedMotion]);
+
+  useEffect(() => {
+    if (!active || prefersReducedMotion || typingLine >= INTRO_POINTS.length) return undefined;
+
+    const currentPoint = INTRO_POINTS[typingLine];
+    const hasFinishedCurrentPoint = typedCharacters >= currentPoint.length;
     const timer = window.setTimeout(() => {
-      setPreview((current) => {
-        const nextPhase = Math.min(current.phase + 1, INTRO_STEPS.length - 1);
-        return { phase: nextPhase, playing: nextPhase < INTRO_STEPS.length - 1 };
-      });
-    }, 2200);
+      if (hasFinishedCurrentPoint) {
+        setTypingLine((line) => line + 1);
+        setTypedCharacters(0);
+        return;
+      }
+
+      setTypedCharacters((characters) => characters + 1);
+    }, hasFinishedCurrentPoint ? LINE_DELAY_MS : CHARACTER_DELAY_MS);
+
     return () => window.clearTimeout(timer);
-  }, [active, finished, phase, playing]);
+  }, [active, prefersReducedMotion, typedCharacters, typingLine]);
 
-  const selectPhase = (nextPhase) => setPreview({ phase: nextPhase, playing: false });
-  const togglePlayback = () => setPreview((current) => (
-    current.phase === INTRO_STEPS.length - 1
-      ? { phase: 0, playing: true }
-      : { ...current, playing: !current.playing }
-  ));
-
-  const goalMeta = phase === 0
-    ? "Choose an outcome"
-    : phase === 1
-      ? "Tomorrow · Normal priority"
-      : "Ready to complete";
-  const todoMeta = phase === 0
-    ? "Add a small next action"
-    : phase === 1
-      ? "Keep it in today’s view"
-      : "Ready to check off";
+  useEffect(() => {
+    if (typingLine === INTRO_POINTS.length) setTypingComplete(true);
+  }, [typingLine]);
 
   return (
     <div className={`goal-todo-intro${active ? " is-active" : ""}`}>
       <header className="goal-todo-intro-heading">
-        <div>
-          <span>Quick start</span>
-          <h3 id="planner-onboarding-heading">One simple plan for goals and to-dos</h3>
-        </div>
-        <button
-          aria-label={`${finished ? "Replay" : playing ? "Pause" : "Play"} quick start animation`}
-          className="goal-todo-intro-play"
-          onClick={togglePlayback}
-          type="button"
-        >
-          {finished ? <RotateCcw aria-hidden="true" size={14} /> : playing ? <Pause aria-hidden="true" size={14} /> : <Play aria-hidden="true" size={14} />}
-          <span>{finished ? "Replay" : playing ? "Pause" : "Play"}</span>
-        </button>
+        <span>Quick start</span>
+        <h3 id="planner-onboarding-heading">Build momentum, one step at a time</h3>
       </header>
 
-      <div className={`goal-todo-intro-story is-phase-${phase}`}>
-        <section className={`goal-todo-intro-card is-goal${finished ? " is-complete" : ""}`}>
-          <div className="goal-todo-intro-card-label"><Target aria-hidden="true" size={15} /><span>Goal</span></div>
-          <button
-            aria-label={finished ? "Replay goal example" : "Advance goal example"}
-            className="goal-todo-intro-item"
-            onClick={() => selectPhase(finished ? 0 : Math.min(phase + 1, INTRO_STEPS.length - 1))}
-            type="button"
-          >
-            <span aria-hidden="true" className="goal-todo-intro-check">
-              {finished && <Check size={13} strokeWidth={3} />}
-            </span>
-            <span className="goal-todo-intro-item-copy">
-              <strong>{goalTitle}</strong>
-              <small>{goalMeta}</small>
-            </span>
-          </button>
-          <div className="goal-todo-intro-card-meta">
-            {phase > 0 && <span><CalendarClock aria-hidden="true" size={12} /> Tomorrow</span>}
-            {phase > 0 && <span><Flag aria-hidden="true" size={12} /> Priority</span>}
-          </div>
-        </section>
+      <ul aria-hidden="true" className="goal-todo-intro-points">
+        {INTRO_POINTS.map((point, index) => {
+          const isComplete = index < typingLine;
+          const isCurrent = index === typingLine && !typingComplete;
+          const isRevealed = isComplete || isCurrent || typingComplete;
+          const visiblePoint = isComplete || typingComplete
+            ? point
+            : isCurrent
+              ? point.slice(0, typedCharacters)
+              : "";
 
-        <span aria-hidden="true" className="goal-todo-intro-path"><Navigation size={15} /></span>
+          return (
+            <li
+              className={`goal-todo-intro-point${isRevealed ? " is-revealed" : ""}${isCurrent ? " is-typing" : ""}`}
+              key={point}
+            >
+              <span className="goal-todo-intro-typed-line">{visiblePoint}</span>
+            </li>
+          );
+        })}
+      </ul>
 
-        <section className={`goal-todo-intro-card is-todo${finished ? " is-complete" : ""}`}>
-          <div className="goal-todo-intro-card-label"><ListTodo aria-hidden="true" size={15} /><span>Quick to-do</span></div>
-          <button
-            aria-label={finished ? "Replay to-do example" : "Advance to-do example"}
-            className="goal-todo-intro-item"
-            onClick={() => selectPhase(finished ? 0 : Math.min(phase + 1, INTRO_STEPS.length - 1))}
-            type="button"
-          >
-            <span aria-hidden="true" className="goal-todo-intro-check">
-              {finished && <CheckCircle2 size={15} />}
-            </span>
-            <span className="goal-todo-intro-item-copy">
-              <strong>{todoTitle}</strong>
-              <small>{todoMeta}</small>
-            </span>
-          </button>
-          <span className="goal-todo-intro-card-status">{finished ? "Done" : "Next"}</span>
-        </section>
-      </div>
+      <p className="goal-todo-intro-screen-reader-copy">
+        {INTRO_POINTS.join(" ")}
+      </p>
 
-      <div aria-label="Quick start animation steps" className="goal-todo-intro-steps" role="group">
-        {INTRO_STEPS.map((step, index) => (
-          <button
-            aria-pressed={phase === index}
-            className={phase === index ? "is-current" : ""}
-            key={step.label}
-            onClick={() => selectPhase(index)}
-            type="button"
-          >
-            <span>{index + 1}</span>{step.label}
-          </button>
-        ))}
-      </div>
-      <p aria-live="polite" className="goal-todo-intro-caption">{INTRO_STEPS[phase].caption}</p>
-      <button className="goal-todo-intro-start" onClick={onGetStarted} type="button">
-        Get started <Navigation aria-hidden="true" size={15} />
+      <button
+        className={`goal-todo-intro-start${typingComplete ? " is-ready" : ""}`}
+        onClick={onGetStarted}
+        type="button"
+      >
+        Get started <ArrowRight aria-hidden="true" size={16} />
       </button>
     </div>
   );

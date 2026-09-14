@@ -323,9 +323,6 @@ body .goal-reminder-close-btn:hover {
   min-height: 0;
   padding: 14px;
   overflow: hidden;
-  background: rgba(var(--accent-rgb), 0.045);
-  border: 1px solid var(--border);
-  border-radius: 18px;
 }
 
 .planner-panel-heading {
@@ -1191,7 +1188,6 @@ body.has-bg-image .planner-goal-composer-popover {
   .planner-list-panel,
   .planner-unified-intro-panel {
     padding: 10px;
-    border-radius: 14px;
   }
 
   .planner-list-panel .planner-panel-heading {

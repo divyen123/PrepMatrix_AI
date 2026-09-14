@@ -97,16 +97,15 @@ function AboutPage({ academicProfile = {} }) {
         <button aria-label="Go back" className="icon-shell-btn back-nav-btn page-back-control" onClick={() => navigate(-1)} title="Go back" type="button">
           <ArrowLeft aria-hidden="true" size={18} />
         </button>
-        <div>
+        <div className="about-header-copy">
           <span className="section-tag">About application</span>
           <h2>PrepMatrix AI</h2>
         </div>
-      </div>
-
-      <div className="about-guide-row">
-        <button className="about-guide-secondary" onClick={() => setGuideOpen(true)} type="button">
-          How to use PrepMatrix <ArrowRight size={14} />
-        </button>
+        <div className="about-guide-row">
+          <button className="about-guide-secondary" onClick={() => setGuideOpen(true)} type="button">
+            How to use PrepMatrix <ArrowRight size={14} />
+          </button>
+        </div>
       </div>
 
       <div className="about-features-grid">

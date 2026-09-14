@@ -508,9 +508,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
             <section aria-labelledby="planner-onboarding-heading" className="planner-unified-intro-panel">
               <GoalTodoIntro
                 active={open && !closing}
-                goalTitle={`Review ${curriculumExamples.chapter}`}
                 onGetStarted={finishIntro}
-                todoTitle={`Practise ${curriculumExamples.topic}`}
               />
             </section>
           ) : <>

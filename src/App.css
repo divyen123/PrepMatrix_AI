@@ -6947,6 +6947,23 @@ body.dark {
   z-index: 2210;
 }
 
+/* React Toastify loads its bottom-right position rule after this stylesheet.
+   Match both classes so its fallback bottom offset cannot cover the dashboard dock. */
+body .Toastify__toast-container.Toastify__toast-container--bottom-right {
+  --toastify-toast-right: max(18px, env(safe-area-inset-right));
+  --toastify-toast-bottom: calc(
+    var(--dashboard-floating-bottom, max(18px, env(safe-area-inset-bottom)))
+    + var(--dashboard-setup-stack-height, 0px)
+    + var(--pwa-status-dock-stack-height, 0px)
+    + var(--app-notification-stack-height, 0px)
+  );
+  top: auto;
+  right: var(--toastify-toast-right);
+  bottom: var(--toastify-toast-bottom);
+  left: auto;
+  width: min(360px, calc(100vw - 36px));
+}
+
 .prepmatrix-toast,
 .Toastify__toast {
   min-height: 50px;
@@ -7174,6 +7191,20 @@ body.no-glass-cards .Toastify__toast {
       + var(--pwa-status-dock-stack-height, 0px)
       + var(--app-notification-stack-height, 0px)
     );
+    left: auto;
+    width: min(360px, calc(100vw - 24px));
+  }
+
+  body .Toastify__toast-container.Toastify__toast-container--bottom-right {
+    --toastify-toast-right: 12px;
+    --toastify-toast-bottom: calc(
+      max(12px, env(safe-area-inset-bottom))
+      + var(--dashboard-setup-stack-height, 0px)
+      + var(--pwa-status-dock-stack-height, 0px)
+      + var(--app-notification-stack-height, 0px)
+    );
+    right: var(--toastify-toast-right);
+    bottom: var(--toastify-toast-bottom);
     left: auto;
     width: min(360px, calc(100vw - 24px));
   }
@@ -18961,6 +18992,10 @@ body.has-bg-image .subject-ai-field textarea::placeholder {
   margin-bottom: 4px;
 }
 
+.about-header-copy {
+  min-width: 0;
+}
+
 .about-header-nav .back-nav-btn {
   display: grid;
   place-items: center;
@@ -19112,6 +19147,11 @@ body.has-bg-image .subject-ai-field textarea::placeholder {
 
 .about-guide-row {
   justify-content: flex-end;
+}
+
+.about-header-nav .about-guide-row {
+  flex: 0 0 auto;
+  margin: 0 0 0 auto;
 }
 
 .about-section-heading h3 {
@@ -19913,6 +19953,14 @@ body.has-bg-image .guide-dialog {
 }
 
 @media (max-width: 620px) {
+  .about-header-nav {
+    flex-wrap: wrap;
+  }
+
+  .about-header-nav .about-guide-row {
+    margin-left: auto;
+  }
+
   .about-hero-card {
     min-height: 0;
     padding: 26px 22px;
