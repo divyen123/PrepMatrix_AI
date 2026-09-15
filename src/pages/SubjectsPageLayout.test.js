@@ -38,6 +38,18 @@ test("places the add form and subject snapshot side by side only after subjects 
     stylesheet,
     /@media \(max-width: 1180px\)[\s\S]*?\.subjects-page \.subjects-page-grid\.has-subjects\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/u,
   );
+  assert.match(
+    stylesheet,
+    /@media \(min-width: 1181px\)[\s\S]*?\.subjects-page \.subjects-page-grid\.has-subjects\s*\{[\s\S]*?align-items:\s*stretch;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.subjects-page \.subjects-page-grid\.has-subjects \.subjects-add-subject,[\s\S]*?\.subjects-page \.subjects-page-grid\.has-subjects \.subjects-side-panel\s*\{[\s\S]*?align-self:\s*stretch;[\s\S]*?display:\s*flex;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.subjects-page \.subjects-page-grid\.has-subjects \.subjects-add-subject > \.card,[\s\S]*?\.subjects-page \.subjects-page-grid\.has-subjects \.subjects-side-panel > \.subject-overview-card\s*\{[\s\S]*?flex:\s*1 1 auto;/u,
+  );
 });
 
 test("uses the concise Hard subjects label in the snapshot and its dialog", () => {

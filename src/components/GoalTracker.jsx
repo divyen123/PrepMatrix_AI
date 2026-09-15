@@ -108,6 +108,12 @@ function GoalTracker({ completed, schedule, subjects = [], userProfile = {} }) {
             />
           </label>
 
+          {!subjects.length && (
+            <p className="goal-subjects-empty-notice" role="status">
+              Add subjects to track the goal
+            </p>
+          )}
+
           {goal ? (
             <div className="goal-match-summary" aria-live="polite">
               <span>Matched subject</span>

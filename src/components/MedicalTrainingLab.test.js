@@ -30,6 +30,12 @@ test("medical training keeps privacy and education boundaries visible", () => {
   assert.equal(/placement preparation|coding interview/iu.test(`${labSource}\n${intakeSource}`), false);
 });
 
+test("medical training privacy notice remains readable in light mode", () => {
+  assert.ok(styles.includes("--medical-privacy-title: color-mix(in srgb, var(--text) 88%, #0f766e)"));
+  assert.ok(styles.includes("--medical-privacy-copy: color-mix(in srgb, var(--text) 78%, #155e75)"));
+  assert.ok(styles.includes(".medical-lab-privacy span {\n  color: var(--medical-privacy-copy);"));
+});
+
 test("medical training has responsive and reduced-motion styles", () => {
   assert.ok(styles.includes("@media (max-width: 700px)"));
   assert.ok(styles.includes("@media (prefers-reduced-motion: reduce)"));

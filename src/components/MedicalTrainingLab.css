@@ -45,6 +45,18 @@
   padding: 14px 16px;
 }
 
+/* Keep the intake privacy notice legible against both light and dark surfaces. */
+.medical-lab-privacy {
+  --medical-privacy-copy: color-mix(in srgb, var(--text) 78%, #155e75);
+  --medical-privacy-title: color-mix(in srgb, var(--text) 88%, #0f766e);
+  color: var(--medical-privacy-title);
+}
+
+.medical-lab-privacy strong,
+.medical-lab-privacy svg {
+  color: var(--medical-privacy-title);
+}
+
 .medical-lab-privacy svg,
 .medical-lab-boundary svg {
   flex: 0 0 auto;
@@ -63,6 +75,10 @@
   font-size: 0.82rem;
   line-height: 1.55;
   margin: 0;
+}
+
+.medical-lab-privacy span {
+  color: var(--medical-privacy-copy);
 }
 
 .medical-lab-fields {

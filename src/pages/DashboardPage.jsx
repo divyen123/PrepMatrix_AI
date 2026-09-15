@@ -13,6 +13,7 @@ import {
 } from "../utils/homeNavigationCommands";
 import { getDashboardCommandExampleCopy } from "../utils/dashboardCommandExamples";
 import { runDashboardGoalReminderShortcut } from "../utils/dashboardGoalReminderShortcut";
+import { getDashboardOverviewCardAction } from "../utils/dashboardOverviewCards";
 import { sendDashboardChatMessage } from "../utils/chatMessageBridge";
 import {
   DASHBOARD_VOICE_HINT_DURATION_MS,
@@ -179,6 +180,7 @@ function DashboardPage({
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [submissionNotice, setSubmissionNotice] = useState("");
+  const [overviewNotice, setOverviewNotice] = useState("");
   const [voiceEntryHint, setVoiceEntryHint] = useState("");
   const dragDepthRef = useRef(0);
   const inputRef     = useRef(null);
@@ -255,6 +257,10 @@ function DashboardPage({
     navigate,
     schedule: (callback) => window.requestAnimationFrame(callback),
   }), [location, navigate]);
+
+  useEffect(() => {
+    if (subjects.length) setOverviewNotice("");
+  }, [subjects.length]);
 
   const saveConfiguration = (updatedSubject) => {
     if (typeof setSubjects === "function") {
@@ -496,6 +502,24 @@ function DashboardPage({
     setActivePanel((prev) => (prev === id ? null : id));
   };
 
+  const handleOverviewCardActivation = (card) => {
+    const action = getDashboardOverviewCardAction(card.label, subjects.length);
+
+    if (action.type === "notice") {
+      setOverviewNotice(action.message);
+      return;
+    }
+
+    setOverviewNotice("");
+    if (action.type === "subjects") {
+      if (childMode) navigate("/learn");
+      else setShowSubjectsPopup((prev) => !prev);
+      return;
+    }
+
+    navigate(action.route);
+  };
+
   return (
     <section className="db-page">
       {/* ── Welcome + Search ────────────────────────────────── */}
@@ -687,27 +711,13 @@ function DashboardPage({
                 "--card-bg":          tone.bg,
                 cursor:               "pointer",
               }}
-              onClick={() => {
-                if (card.label.toLowerCase().includes("subject")) {
-                  if (childMode) navigate("/learn");
-                  else setShowSubjectsPopup((prev) => !prev);
-                }
-                else if (card.label.toLowerCase().includes("planned")) navigate("/planner/schedule");
-                else if (card.label.toLowerCase().includes("remaining")) navigate("/analytics#topic-progress");
-                else navigate("/analytics");
-              }}
+              onClick={() => handleOverviewCardActivation(card)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  if (card.label.toLowerCase().includes("subject")) {
-                    if (childMode) navigate("/learn");
-                    else setShowSubjectsPopup((prev) => !prev);
-                  }
-                  else if (card.label.toLowerCase().includes("planned")) navigate("/planner/schedule");
-                  else if (card.label.toLowerCase().includes("remaining")) navigate("/analytics#topic-progress");
-                  else navigate("/analytics");
+                  handleOverviewCardActivation(card);
                 }
               }}
             >
@@ -718,6 +728,12 @@ function DashboardPage({
           );
         })}
       </div>
+
+      {overviewNotice && (
+        <p aria-atomic="true" className="db-overview-notice" role="status">
+          {overviewNotice}
+        </p>
+      )}
 
       {/* ── Panel Buttons ───────────────────────────────────── */}
       <div className="db-panel-buttons" role="group" aria-label="Dashboard panels">

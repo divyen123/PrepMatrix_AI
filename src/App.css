@@ -2703,6 +2703,18 @@ body.dark .theme-icon-btn:hover {
   gap: 10px;
 }
 
+.goal-subjects-empty-notice {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface-muted));
+  border: 1px solid color-mix(in srgb, var(--warning) 28%, var(--border));
+  border-radius: 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .goal-match-summary {
   display: grid;
   gap: 6px;
@@ -3275,13 +3287,14 @@ body.dark .weekly-day-track {
 }
 
 .next-milestone-strip {
-  align-items: center;
+  align-items: stretch;
   background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.14), rgba(var(--accent-rgb), 0.03));
   border: 1px solid rgba(var(--accent-rgb), 0.18);
   border-radius: 22px;
   display: flex;
-  gap: 18px;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: flex-start;
   margin-top: 4px;
   padding: 18px 20px;
 }
@@ -3303,24 +3316,14 @@ body.dark .weekly-day-track {
   color: var(--text);
   font-family: "Space Grotesk", sans-serif;
   font-size: clamp(1.15rem, 2vw, 1.55rem);
+  white-space: nowrap;
 }
 
 .next-milestone-strip p {
   color: var(--text-muted);
   font-weight: 800;
   margin: 0;
-  text-align: right;
-}
-
-@media (max-width: 700px) {
-  .next-milestone-strip {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .next-milestone-strip p {
-    text-align: left;
-  }
+  text-align: left;
 }
 
 .class-profile-card {
@@ -22059,7 +22062,7 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   color: var(--text-muted);
   font-size: 0.76rem;
   line-height: 1.4;
-  text-align: left;
+  text-align: center;
 }
 
 .db-command-help--warning {
@@ -22584,6 +22587,21 @@ body.dark .db-search-input:focus,
   color: var(--text-muted);
   line-height: 1.45;
   margin-top: 0.1rem;
+}
+
+.db-overview-notice {
+  width: fit-content;
+  max-width: 100%;
+  margin: 1rem auto 0;
+  padding: 0.65rem 1rem;
+  color: var(--text);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.4;
+  text-align: center;
 }
 
 /* -- Panel toggle buttons – centered under the search bar ------ */

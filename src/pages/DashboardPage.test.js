@@ -6,17 +6,35 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 import { getDashboardCommandExampleCopy } from "../utils/dashboardCommandExamples.js";
 import { runDashboardGoalReminderShortcut } from "../utils/dashboardGoalReminderShortcut.js";
+import { getDashboardOverviewCardAction } from "../utils/dashboardOverviewCards.js";
 
-test("opens the Planner schedule subpage from Planned Tasks for mouse and keyboard", () => {
+test("routes Planned Tasks through the shared mouse and keyboard card handler", () => {
   const pageSource = readFileSync(new URL("./DashboardPage.jsx", import.meta.url), "utf8");
-  const plannedTaskRoutes = pageSource.match(
-    /card\.label\.toLowerCase\(\)\.includes\("planned"\)\) navigate\("\/planner\/schedule"\)/gu,
-  ) || [];
 
-  assert.equal(plannedTaskRoutes.length, 2);
-  assert.doesNotMatch(
-    pageSource,
-    /card\.label\.toLowerCase\(\)\.includes\("planned"\)\) navigate\("\/planner"\)/u,
+  assert.deepEqual(
+    getDashboardOverviewCardAction("Planned tasks", 0),
+    { type: "navigate", route: "/planner/schedule" },
+  );
+  assert.match(pageSource, /onClick=\{\(\) => handleOverviewCardActivation\(card\)\}/u);
+  assert.match(pageSource, /handleOverviewCardActivation\(card\);/u);
+});
+
+test("keeps Completed and Remaining cards on the dashboard until a subject exists", () => {
+  assert.deepEqual(
+    getDashboardOverviewCardAction("Completed", 0),
+    { type: "notice", message: "Add a subject first to view your progress." },
+  );
+  assert.deepEqual(
+    getDashboardOverviewCardAction("Remaining", 0),
+    { type: "notice", message: "Add a subject first to view your progress." },
+  );
+  assert.deepEqual(
+    getDashboardOverviewCardAction("Completed", 1),
+    { type: "navigate", route: "/analytics" },
+  );
+  assert.deepEqual(
+    getDashboardOverviewCardAction("Remaining", 1),
+    { type: "navigate", route: "/analytics#topic-progress" },
   );
 });
 

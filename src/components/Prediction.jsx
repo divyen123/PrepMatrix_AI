@@ -1,12 +1,14 @@
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 
-function Prediction({ schedule, completed }) {
+function Prediction({ schedule, completed, subjects = [] }) {
   const metrics = getPlannerMetrics(schedule, completed);
 
   let headline = "You need a stronger study rhythm.";
   let supportingText = "Aim to complete at least one planned task in the next session.";
 
-  if (metrics.completionRate >= 80) {
+  if (!subjects.length) {
+    supportingText = "Add a subject first to start tracking your study progress.";
+  } else if (metrics.completionRate >= 80) {
     headline = "You are on track for a strong finish.";
     supportingText = "Keep revision quality high and maintain the current pace.";
   } else if (metrics.completionRate >= 50) {
