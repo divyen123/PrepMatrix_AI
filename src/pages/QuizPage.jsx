@@ -104,6 +104,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     || Boolean(searchParams.get("battle"))
     || Boolean(quizBattleInviteCodeFromHash(location.hash))
   );
+  const [battleActionsHost, setBattleActionsHost] = useState(null);
 
   const updateQuizRoute = (mode, battleId = "") => {
     const next = new URLSearchParams(searchParams);
@@ -141,6 +142,40 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       document.getElementById(`quiz-tab-${nextMode}`)?.focus();
     });
   };
+
+  const quizModeTabs = !isYoungKidsLearner && (
+    <div
+      aria-label="Quiz mode"
+      className="quiz-mode-tabs"
+      onKeyDown={handleQuizTabKeyDown}
+      role="tablist"
+    >
+      <button
+        aria-controls="quiz-panel-solo"
+        aria-selected={!battleTabActive}
+        id="quiz-tab-solo"
+        onClick={() => updateQuizRoute("solo")}
+        role="tab"
+        tabIndex={battleTabActive ? -1 : 0}
+        type="button"
+      >
+        <Check aria-hidden="true" size={15} />
+        Solo quiz
+      </button>
+      <button
+        aria-controls="quiz-panel-battles"
+        aria-selected={battleTabActive}
+        id="quiz-tab-battles"
+        onClick={() => updateQuizRoute("battles")}
+        role="tab"
+        tabIndex={battleTabActive ? 0 : -1}
+        type="button"
+      >
+        <Swords aria-hidden="true" size={15} />
+        Quiz Battles
+      </button>
+    </div>
+  );
 
   useEffect(() => {
     hasInitializedSubject.current = false;
@@ -775,39 +810,12 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
           !isYoungKidsLearner ? "has-mode-tabs" : "",
         ].filter(Boolean).join(" ")}
       >
-      {!isYoungKidsLearner && (
-        <div
-          aria-label="Quiz mode"
-          className="quiz-mode-tabs"
-          onKeyDown={handleQuizTabKeyDown}
-          role="tablist"
-        >
-          <button
-            aria-controls="quiz-panel-solo"
-            aria-selected={!battleTabActive}
-            id="quiz-tab-solo"
-            onClick={() => updateQuizRoute("solo")}
-            role="tab"
-            tabIndex={battleTabActive ? -1 : 0}
-            type="button"
-          >
-            <Check aria-hidden="true" size={15} />
-            Solo quiz
-          </button>
-          <button
-            aria-controls="quiz-panel-battles"
-            aria-selected={battleTabActive}
-            id="quiz-tab-battles"
-            onClick={() => updateQuizRoute("battles")}
-            role="tab"
-            tabIndex={battleTabActive ? 0 : -1}
-            type="button"
-          >
-            <Swords aria-hidden="true" size={15} />
-            Quiz Battles
-          </button>
+      {battleTabActive ? (
+        <div className="quiz-battles-header">
+          <div className="quiz-battle-dashboard-slot" ref={setBattleActionsHost} />
+          {quizModeTabs}
         </div>
-      )}
+      ) : quizModeTabs}
 
       {battleTabActive ? (
         <div
@@ -818,6 +826,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
           <QuizBattlesPanel
             academicProfile={learnerContext}
             academicProfileDataId={academicProfileDataId}
+            dashboardActionsHost={battleActionsHost}
             completed={completed}
             initialBattleId={searchParams.get("battle") || ""}
             initialInviteCode={pendingInviteCode}

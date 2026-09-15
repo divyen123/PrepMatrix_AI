@@ -30,8 +30,21 @@
   transform: none !important;
 }
 
-.quiz-mode-shell.is-battles > .quiz-mode-tabs {
-  justify-self: end;
+.quiz-mode-shell.is-battles > .quiz-battles-header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.quiz-mode-shell.is-battles .quiz-battle-dashboard-slot {
+  min-width: 0;
+}
+
+.quiz-mode-shell.is-battles .quiz-mode-tabs {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .quiz-mode-tabs {
@@ -316,6 +329,10 @@ body .quiz-page .quiz-mode-tabs button:focus-visible {
 .battle-dashboard-actions {
   gap: 10px;
   justify-content: flex-start;
+}
+
+.quiz-battles-header .battle-dashboard-actions {
+  flex-wrap: wrap;
 }
 
 .battle-dashboard-actions button,
@@ -1342,10 +1359,17 @@ body.has-bg-image .quiz-battle-intro p {
     padding-right: 0;
   }
 
-  .quiz-mode-shell.is-battles > .quiz-mode-tabs {
+  .quiz-mode-shell.is-battles > .quiz-battles-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .quiz-mode-shell.is-battles .quiz-mode-tabs {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     justify-self: stretch;
+    margin-left: 0;
     width: 100%;
   }
 

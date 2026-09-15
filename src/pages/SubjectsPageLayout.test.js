@@ -36,7 +36,7 @@ test("places the add form and subject snapshot side by side only after subjects 
   );
   assert.match(
     stylesheet,
-    /@media \(max-width: 1280px\)[\s\S]*?\.subjects-page \.subjects-page-grid\.has-subjects\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/u,
+    /@media \(max-width: 1180px\)[\s\S]*?\.subjects-page \.subjects-page-grid\.has-subjects\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/u,
   );
 });
 

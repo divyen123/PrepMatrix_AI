@@ -87,7 +87,7 @@
   min-height: 42px !important;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1180px) {
   .subjects-page .subjects-page-grid.has-subjects {
     grid-template-columns: minmax(0, 1fr);
   }

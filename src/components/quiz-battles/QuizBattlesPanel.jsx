@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -145,6 +146,7 @@ export default function QuizBattlesPanel({
   academicProfile = {},
   academicProfileDataId = "",
   completed = [],
+  dashboardActionsHost = null,
   initialBattleId = "",
   initialInviteCode = "",
   onAttemptStateChange,
@@ -1052,6 +1054,47 @@ export default function QuizBattlesPanel({
     );
   };
 
+  const dashboardActions = (
+    <div className="battle-dashboard-actions">
+      <button
+        aria-controls="quiz-battle-create-panel"
+        aria-expanded={showCreate}
+        className="primary-btn"
+        onClick={() => {
+          setShowCreate((value) => !value);
+          setShowJoin(false);
+        }}
+        type="button"
+      >
+        <Plus aria-hidden="true" size={17} />
+        Create battle
+      </button>
+      <button
+        aria-controls="quiz-battle-join-panel"
+        aria-expanded={showJoin}
+        className="secondary-btn"
+        onClick={() => {
+          setShowJoin((value) => !value);
+          setShowCreate(false);
+        }}
+        type="button"
+      >
+        <UserPlus aria-hidden="true" size={17} />
+        Join with code
+      </button>
+      <button
+        aria-label="Refresh battles"
+        className="battle-refresh-btn"
+        disabled={loading}
+        onClick={() => void refreshList()}
+        title="Refresh battles"
+        type="button"
+      >
+        <RefreshCw aria-hidden="true" size={17} />
+      </button>
+    </div>
+  );
+
   const confirmationAction = confirmationCopy(pendingConfirmation);
 
   if (introState.phase !== "done") {
@@ -1078,44 +1121,9 @@ export default function QuizBattlesPanel({
 
   return (
     <div className="battle-panel battle-panel-entry">
-      <div className="battle-dashboard-actions">
-        <button
-          aria-controls="quiz-battle-create-panel"
-          aria-expanded={showCreate}
-          className="primary-btn"
-          onClick={() => {
-            setShowCreate((value) => !value);
-            setShowJoin(false);
-          }}
-          type="button"
-        >
-          <Plus aria-hidden="true" size={17} />
-          Create battle
-        </button>
-        <button
-          aria-controls="quiz-battle-join-panel"
-          aria-expanded={showJoin}
-          className="secondary-btn"
-          onClick={() => {
-            setShowJoin((value) => !value);
-            setShowCreate(false);
-          }}
-          type="button"
-        >
-          <UserPlus aria-hidden="true" size={17} />
-          Join with code
-        </button>
-        <button
-          aria-label="Refresh battles"
-          className="battle-refresh-btn"
-          disabled={loading}
-          onClick={() => void refreshList()}
-          title="Refresh battles"
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={17} />
-        </button>
-      </div>
+      {dashboardActionsHost
+        ? createPortal(dashboardActions, dashboardActionsHost)
+        : dashboardActions}
 
       {error && <div className="battle-alert" role="alert">{error}</div>}
 
