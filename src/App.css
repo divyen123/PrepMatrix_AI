@@ -22629,7 +22629,7 @@ body.dark .db-search-input:focus,
   width: fit-content;
   max-width: 100%;
   max-height: 5em;
-  margin: 1.25rem auto 0;
+  margin: 1.5rem auto 0;
   padding: 0;
   overflow: hidden;
   color: var(--text);
@@ -22662,7 +22662,7 @@ body.dark .db-search-input:focus,
 
   to {
     max-height: 5em;
-    margin-top: 1.25rem;
+    margin-top: 1.5rem;
     opacity: 1;
     transform: translateY(0);
   }
@@ -22671,7 +22671,7 @@ body.dark .db-search-input:focus,
 @keyframes dbOverviewNoticeOut {
   from {
     max-height: 5em;
-    margin-top: 1.25rem;
+    margin-top: 1.5rem;
     opacity: 1;
     transform: translateY(0);
   }
@@ -22719,10 +22719,10 @@ body.dark .db-search-input:focus,
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.db-panel-btn:hover {
+.db-page .db-panel-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
+  box-shadow: none !important;
   transform: translateY(-1px);
 }
 
@@ -22912,6 +22912,10 @@ body.dark .db-search-input:focus,
 
 .db-subjects-add-btn {
   padding: 0.6rem 2rem;
+}
+
+.db-page .db-subjects-add-btn:hover {
+  box-shadow: none !important;
 }
 
 .db-subjects-timeline {

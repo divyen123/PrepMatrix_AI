@@ -183,6 +183,7 @@ function DashboardPage({
   const [submissionNotice, setSubmissionNotice] = useState("");
   const [overviewNotice, setOverviewNotice] = useState("");
   const [overviewNoticePhase, setOverviewNoticePhase] = useState("hidden");
+  const [overviewNoticeSource, setOverviewNoticeSource] = useState(null);
   const [voiceEntryHint, setVoiceEntryHint] = useState("");
   const dragDepthRef = useRef(0);
   const inputRef     = useRef(null);
@@ -201,9 +202,10 @@ function DashboardPage({
     }
   }, []);
 
-  const showOverviewNotice = useCallback((message) => {
+  const showOverviewNotice = useCallback((message, source) => {
     clearOverviewNoticeDismissTimer();
     setOverviewNotice(message);
+    setOverviewNoticeSource(source);
     setOverviewNoticePhase("visible");
   }, [clearOverviewNoticeDismissTimer]);
 
@@ -213,6 +215,7 @@ function DashboardPage({
     overviewNoticeDismissTimerRef.current = window.setTimeout(() => {
       setOverviewNotice("");
       setOverviewNoticePhase("hidden");
+      setOverviewNoticeSource(null);
       overviewNoticeDismissTimerRef.current = null;
     }, OVERVIEW_NOTICE_TRANSITION_MS);
   }, [clearOverviewNoticeDismissTimer]);
@@ -534,8 +537,11 @@ function DashboardPage({
     const action = getDashboardOverviewCardAction(card.label, subjects.length);
 
     if (action.type === "notice") {
-      if (overviewNoticePhase === "visible") dismissOverviewNotice();
-      else showOverviewNotice(action.message);
+      if (overviewNoticePhase === "visible" && overviewNoticeSource === card.label) {
+        dismissOverviewNotice();
+      } else {
+        showOverviewNotice(action.message, card.label);
+      }
       return;
     }
 

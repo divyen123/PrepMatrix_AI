@@ -56,17 +56,35 @@ test("uses a centered add-subject empty state for the dashboard Subjects panel",
   );
 });
 
-test("places the empty-progress notice below the dashboard buttons with a background-free fade", () => {
+test("keeps dashboard action button hovers free of an outside glow", () => {
+  const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+
+  assert.match(
+    stylesheet,
+    /\.db-page \.db-panel-btn:hover\s*\{[\s\S]*?box-shadow: none !important;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.db-page \.db-subjects-add-btn:hover\s*\{[\s\S]*?box-shadow: none !important;/u,
+  );
+});
+
+test("keeps the empty-progress notice open when switching progress cards and closes it on a repeat click", () => {
   const pageSource = readFileSync(new URL("./DashboardPage.jsx", import.meta.url), "utf8");
   const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
   const panelButtonsIndex = pageSource.indexOf('className="db-panel-buttons"');
   const noticeIndex = pageSource.indexOf('className={`db-overview-notice');
 
   assert.ok(panelButtonsIndex >= 0 && noticeIndex > panelButtonsIndex);
-  assert.match(pageSource, /overviewNoticePhase === "visible"\) dismissOverviewNotice\(\);\s*else showOverviewNotice\(action\.message\);/u);
+  assert.match(pageSource, /const \[overviewNoticeSource, setOverviewNoticeSource\] = useState\(null\);/u);
+  assert.match(
+    pageSource,
+    /overviewNoticePhase === "visible" && overviewNoticeSource === card\.label\) \{\s*dismissOverviewNotice\(\);\s*\} else \{\s*showOverviewNotice\(action\.message, card\.label\);/u,
+  );
+  assert.match(pageSource, /setOverviewNoticeSource\(null\);/u);
   assert.match(
     stylesheet,
-    /\.db-overview-notice\s*\{[\s\S]*?margin: 1\.25rem auto 0;[\s\S]*?padding: 0;[\s\S]*?background: transparent;[\s\S]*?border: 0;[\s\S]*?box-shadow: none;[\s\S]*?text-align: center;/u,
+    /\.db-overview-notice\s*\{[\s\S]*?margin: 1\.5rem auto 0;[\s\S]*?padding: 0;[\s\S]*?background: transparent;[\s\S]*?border: 0;[\s\S]*?box-shadow: none;[\s\S]*?text-align: center;/u,
   );
   assert.match(stylesheet, /\.db-overview-notice\.is-visible\s*\{[\s\S]*?animation: dbOverviewNoticeIn 220ms/u);
   assert.match(stylesheet, /\.db-overview-notice\.is-closing\s*\{[\s\S]*?animation: dbOverviewNoticeOut 220ms/u);
