@@ -84,7 +84,7 @@
 .medical-lab-source-focus-row {
   display: grid;
   grid-template-columns: max-content minmax(220px, 1fr);
-  align-items: end;
+  align-items: start;
   gap: 12px;
 }
 
