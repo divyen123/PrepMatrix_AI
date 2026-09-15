@@ -218,6 +218,7 @@ body .learning-page .learning-dropzone {
 }
 
 .learning-notebook-source-row {
+  --learning-notebook-source-control-height: 118px;
   display: grid;
   grid-template-columns: minmax(0, 35fr) 1px minmax(0, 65fr);
   align-items: stretch;
@@ -230,7 +231,16 @@ body .learning-page .learning-dropzone {
   min-width: 0;
 }
 
-.learning-notebook-upload-column .learning-dropzone,
+.learning-notebook-upload-column {
+  align-items: flex-start;
+}
+
+.learning-notebook-upload-column .learning-dropzone {
+  flex: 0 0 var(--learning-notebook-source-control-height);
+  min-height: var(--learning-notebook-source-control-height);
+  height: var(--learning-notebook-source-control-height);
+}
+
 .learning-notebook-prompt-column .learning-prompt-field {
   flex: 1;
 }
@@ -409,7 +419,8 @@ body .learning-notebook-delete:focus-visible {
 }
 
 .learning-prompt-field textarea {
-  min-height: 118px;
+  min-height: var(--learning-notebook-source-control-height);
+  height: var(--learning-notebook-source-control-height);
 }
 
 .learning-field > .learning-prompt-meta {

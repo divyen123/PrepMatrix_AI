@@ -229,6 +229,18 @@ test("keeps notebook uploads and prompts together with plural chapter and topic 
   );
   assert.match(
     stylesheet,
+    /\.learning-notebook-upload-column\s*\{[\s\S]*?align-items:\s*flex-start;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-notebook-upload-column \.learning-dropzone\s*\{[\s\S]*?flex:\s*0 0 var\(--learning-notebook-source-control-height\);[\s\S]*?height:\s*var\(--learning-notebook-source-control-height\);/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-prompt-field textarea\s*\{[\s\S]*?height:\s*var\(--learning-notebook-source-control-height\);/u,
+  );
+  assert.match(
+    stylesheet,
     /\.learning-notebook-source-divider\s*\{[\s\S]*?width:\s*1px;[\s\S]*?background:\s*var\(--border\);/u,
   );
   assert.match(
