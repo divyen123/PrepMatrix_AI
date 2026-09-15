@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import SubjectProgressModal from "./SubjectProgressModal";
 
+const TOPIC_LANE_TONES = ["azure", "teal", "violet", "amber", "rose"];
+
 function getSubjectProgress(subjects, schedule, completed) {
   const completedSet = new Set(completed || []);
 
@@ -130,7 +132,7 @@ function TopicTimeline({ subjects = [], schedule = [], completed = [], userProfi
           >
             {progress.map((subject, index) => (
               <article
-                className="topic-lane-card clickable-lane-card"
+                className={`topic-lane-card clickable-lane-card topic-lane-card--${TOPIC_LANE_TONES[index % TOPIC_LANE_TONES.length]}`}
                 key={subject.id}
                 style={{ animationDelay: `${index * 70}ms` }}
                 aria-label={`Open ${subject.name} progress details`}

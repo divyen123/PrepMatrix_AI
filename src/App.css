@@ -4128,10 +4128,46 @@ body.dark .bookmark-btn {
 }
 
 .topic-lane-card {
+  --topic-lane-rgb: 74, 137, 225;
+
   display: grid;
   gap: 12px;
   padding: 18px;
+  border-color: rgba(var(--topic-lane-rgb), 0.3);
+  background:
+    linear-gradient(135deg, rgba(var(--topic-lane-rgb), 0.15), rgba(var(--topic-lane-rgb), 0.025) 68%),
+    var(--surface-muted);
   animation: laneRise 0.42s ease both;
+}
+
+.topic-lane-card--azure {
+  --topic-lane-rgb: 74, 137, 225;
+}
+
+.topic-lane-card--teal {
+  --topic-lane-rgb: 42, 166, 151;
+}
+
+.topic-lane-card--violet {
+  --topic-lane-rgb: 138, 98, 214;
+}
+
+.topic-lane-card--amber {
+  --topic-lane-rgb: 204, 151, 58;
+}
+
+.topic-lane-card--rose {
+  --topic-lane-rgb: 203, 93, 128;
+}
+
+.topic-lane-card.clickable-lane-card:hover {
+  border-color: rgba(var(--topic-lane-rgb), 0.54);
+  box-shadow: 0 12px 30px rgba(var(--topic-lane-rgb), 0.12);
+}
+
+.topic-lane-card.clickable-lane-card:focus-visible {
+  border-color: rgba(var(--topic-lane-rgb), 0.7);
+  box-shadow: 0 0 0 3px rgba(var(--topic-lane-rgb), 0.2);
 }
 
 .topic-lane-top {
@@ -4146,7 +4182,7 @@ body.dark .bookmark-btn {
 }
 
 .topic-lane-top span {
-  color: var(--accent);
+  color: rgb(var(--topic-lane-rgb));
   font-weight: 900;
 }
 
@@ -4160,7 +4196,7 @@ body.dark .bookmark-btn {
 .topic-lane-track div {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent), #31c5a6);
+  background: linear-gradient(90deg, rgb(var(--topic-lane-rgb)), rgba(var(--topic-lane-rgb), 0.64));
   transition: width 0.4s ease;
 }
 
@@ -4178,8 +4214,8 @@ body.dark .bookmark-btn {
 }
 
 .topic-lane-dots span.done {
-  background: var(--accent);
-  box-shadow: 0 0 0 4px rgba(11, 143, 116, 0.1);
+  background: rgb(var(--topic-lane-rgb));
+  box-shadow: 0 0 0 4px rgba(var(--topic-lane-rgb), 0.1);
 }
 
 .topic-lane-card p {

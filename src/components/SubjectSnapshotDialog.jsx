@@ -38,8 +38,8 @@ const SNAPSHOT_COPY = {
     actionTarget: "subject-library",
     eyebrow: "Priority review",
     Icon: ShieldAlert,
-    metricLabel: "hard-priority subjects",
-    title: "Hard-priority subjects",
+    metricLabel: "hard subjects",
+    title: "Hard subjects",
   },
 };
 
@@ -209,7 +209,7 @@ function SubjectSnapshotDialog({
   const { Icon } = snapshot;
   const listedSubjects = activeSnapshot === "hard" ? hardSubjects : safeSubjects;
   const emptyTitle = activeSnapshot === "hard"
-    ? "No hard-priority subjects"
+    ? "No hard subjects"
     : "No subjects to show yet";
   const emptyCopy = activeSnapshot === "hard"
     ? "Subjects marked Hard will appear here automatically."

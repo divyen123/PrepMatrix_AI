@@ -122,7 +122,18 @@ test("centers the available workspace cards and omits history from the chooser",
   assert.ok(stylesheet.includes(".learning-intake-choice.is-count-2 {"));
   assert.ok(stylesheet.includes("max-width: 874px;"));
   assert.ok(stylesheet.includes("margin-block-start: clamp(48px, 4vw, 60px);"));
-  assert.equal(stylesheet.includes("learning-intake-choice-card:last-child:nth-child(3)"), false);
+  assert.match(
+    stylesheet,
+    /\.learning-intake-choice\.is-count-3\s*\{[\s\S]*?max-width:\s*874px;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-intake-choice\.is-count-3 \.learning-intake-choice-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(280px, 430px\)\);/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-intake-choice\.is-count-3 \.learning-intake-choice-card:nth-child\(3\)\s*\{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?justify-self:\s*center;[\s\S]*?max-width:\s*430px;/u,
+  );
   assert.ok(stylesheet.includes(".learning-intake-choice-card.is-medical"));
   assert.ok(stylesheet.includes(".learning-workspace.is-medical"));
   assert.ok(stylesheet.includes(".learning-workspace.is-medical .learning-medical-workspace"));
@@ -137,6 +148,10 @@ test("centers the available workspace cards and omits history from the chooser",
   const mobileStyles = stylesheet.slice(stylesheet.indexOf("@media (max-width: 700px)"));
   assert.ok(mobileStyles.includes(".learning-intake-choice-grid {"));
   assert.ok(mobileStyles.includes("grid-template-columns: 1fr;"));
+  assert.match(
+    mobileStyles,
+    /\.learning-intake-choice\.is-count-3 \.learning-intake-choice-card:nth-child\(3\)\s*\{[\s\S]*?grid-column:\s*auto;[\s\S]*?justify-self:\s*stretch;/u,
+  );
 });
 
 test("opens generated notebooks on a real topic and keeps focused sessions topic-scoped", () => {

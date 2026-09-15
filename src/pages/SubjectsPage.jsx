@@ -58,7 +58,7 @@ function SubjectsPage({
       value: totalChapters,
     },
     {
-      desktopLabel: "Hard-priority subjects",
+      desktopLabel: "Hard subjects",
       id: "hard",
       mobileLabel: "Hard",
       value: hardSubjects,
@@ -99,30 +99,17 @@ function SubjectsPage({
         </Link>
       </div>
 
-      <div className={`page-two-column subjects-page-grid${hasSubjects ? "" : " is-empty"}`}>
-        <div className="page-stack">
-          <section className="class-profile-card">
-            <div className="academic-profile-summary" aria-live="polite">
-              <div><span>Stage</span><strong>{academicProfile.academicLevel}</strong></div>
-              <div><span>Class / qualification</span><strong>{qualification}</strong></div>
-              <div><span>Curriculum / field</span><strong>{academicProfile.academicTrack}</strong></div>
-            </div>
-          </section>
-
-          <div className="subject-page-anchor subjects-add-subject" ref={addSubjectRef}>
-            <AddSubject subjects={subjects} setSubjects={setSubjects} />
+      <div className={`page-two-column subjects-page-grid${hasSubjects ? " has-subjects" : " is-empty"}`}>
+        <section className="class-profile-card">
+          <div className="academic-profile-summary" aria-live="polite">
+            <div><span>Stage</span><strong>{academicProfile.academicLevel}</strong></div>
+            <div><span>Class / qualification</span><strong>{qualification}</strong></div>
+            <div><span>Curriculum / field</span><strong>{academicProfile.academicTrack}</strong></div>
           </div>
-          {hasSubjects && (
-            <div className="subject-page-anchor" ref={subjectLibraryRef}>
-              <SubjectList
-                academicProfile={academicProfile}
-                hasActiveSchedule={hasActiveSchedule}
-                kidsMode={kidsMode}
-                setSubjects={setSubjects}
-                subjects={subjects}
-              />
-            </div>
-          )}
+        </section>
+
+        <div className="subject-page-anchor subjects-add-subject" ref={addSubjectRef}>
+          <AddSubject subjects={subjects} setSubjects={setSubjects} />
         </div>
 
         {hasSubjects && (
@@ -152,6 +139,18 @@ function SubjectsPage({
                 ))}
               </ul>
             </article>
+          </div>
+        )}
+
+        {hasSubjects && (
+          <div className="subject-page-anchor subjects-library" ref={subjectLibraryRef}>
+            <SubjectList
+              academicProfile={academicProfile}
+              hasActiveSchedule={hasActiveSchedule}
+              kidsMode={kidsMode}
+              setSubjects={setSubjects}
+              subjects={subjects}
+            />
           </div>
         )}
       </div>

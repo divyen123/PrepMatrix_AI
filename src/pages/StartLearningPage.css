@@ -2207,7 +2207,7 @@ body .learning-dialog-header > button {
 }
 
 .learning-intake-choice.is-count-3 {
-  max-width: 1318px;
+  max-width: 874px;
 }
 
 .learning-intake-choice-grid {
@@ -2216,6 +2216,19 @@ body .learning-dialog-header > button {
   justify-content: center;
   gap: 14px;
   margin-block-start: clamp(48px, 4vw, 60px);
+}
+
+/* Keep a three-workspace set balanced: the final card sits below, centered
+   beneath the first two instead of being left-aligned on its own row. */
+.learning-intake-choice.is-count-3 .learning-intake-choice-grid {
+  grid-template-columns: repeat(2, minmax(280px, 430px));
+}
+
+.learning-intake-choice.is-count-3 .learning-intake-choice-card:nth-child(3) {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: 100%;
+  max-width: 430px;
 }
 
 body .learning-page .learning-intake-choice-card {
@@ -3543,6 +3556,12 @@ body .learning-career-save:hover:not(:disabled) {
 @media (max-width: 700px) {
   .learning-intake-choice-grid {
     grid-template-columns: 1fr;
+  }
+
+  .learning-intake-choice.is-count-3 .learning-intake-choice-card:nth-child(3) {
+    grid-column: auto;
+    justify-self: stretch;
+    max-width: none;
   }
 
   .learning-workspace.is-intake .learning-notebook-list,
