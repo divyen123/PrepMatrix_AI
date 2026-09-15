@@ -232,7 +232,7 @@ body .learning-page .learning-dropzone {
 }
 
 .learning-notebook-upload-column {
-  align-items: flex-start;
+  align-items: center;
 }
 
 .learning-notebook-upload-column .learning-dropzone {

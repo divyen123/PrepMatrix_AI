@@ -229,7 +229,7 @@ test("keeps notebook uploads and prompts together with plural chapter and topic 
   );
   assert.match(
     stylesheet,
-    /\.learning-notebook-upload-column\s*\{[\s\S]*?align-items:\s*flex-start;/u,
+    /\.learning-notebook-upload-column\s*\{[\s\S]*?align-items:\s*center;/u,
   );
   assert.match(
     stylesheet,
