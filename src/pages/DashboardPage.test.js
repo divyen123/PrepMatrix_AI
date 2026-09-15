@@ -84,7 +84,7 @@ test("keeps the empty-progress notice open when switching progress cards and clo
   assert.match(pageSource, /setOverviewNoticeSource\(null\);/u);
   assert.match(
     stylesheet,
-    /\.db-overview-notice\s*\{[\s\S]*?margin: 1\.75rem auto 0;[\s\S]*?padding: 0;[\s\S]*?background: transparent;[\s\S]*?border: 0;[\s\S]*?box-shadow: none;[\s\S]*?font-size: 0\.9rem;[\s\S]*?text-align: center;/u,
+    /\.db-overview-notice\s*\{[\s\S]*?margin: 2rem auto 0;[\s\S]*?padding: 0;[\s\S]*?background: transparent;[\s\S]*?border: 0;[\s\S]*?box-shadow: none;[\s\S]*?font-size: 0\.9rem;[\s\S]*?font-weight: 600;[\s\S]*?text-align: center;/u,
   );
   assert.match(stylesheet, /\.db-overview-notice\.is-visible\s*\{[\s\S]*?animation: dbOverviewNoticeIn 220ms/u);
   assert.match(stylesheet, /\.db-overview-notice\.is-closing\s*\{[\s\S]*?animation: dbOverviewNoticeOut 220ms/u);

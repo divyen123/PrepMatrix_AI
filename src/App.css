@@ -22629,7 +22629,7 @@ body.dark .db-search-input:focus,
   width: fit-content;
   max-width: 100%;
   max-height: 5em;
-  margin: 1.75rem auto 0;
+  margin: 2rem auto 0;
   padding: 0;
   overflow: hidden;
   color: var(--text);
@@ -22638,7 +22638,7 @@ body.dark .db-search-input:focus,
   border-radius: 0;
   box-shadow: none;
   font-size: 0.9rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.4;
   text-align: center;
 }
@@ -22662,7 +22662,7 @@ body.dark .db-search-input:focus,
 
   to {
     max-height: 5em;
-    margin-top: 1.75rem;
+    margin-top: 2rem;
     opacity: 1;
     transform: translateY(0);
   }
@@ -22671,7 +22671,7 @@ body.dark .db-search-input:focus,
 @keyframes dbOverviewNoticeOut {
   from {
     max-height: 5em;
-    margin-top: 1.75rem;
+    margin-top: 2rem;
     opacity: 1;
     transform: translateY(0);
   }
