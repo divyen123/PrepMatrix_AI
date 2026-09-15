@@ -6,7 +6,6 @@ import {
   LoaderCircle,
   Plus,
   ShieldCheck,
-  Stethoscope,
 } from "lucide-react";
 import { AiCreditCost } from "./AiQuotaProvider";
 import { AI_FEATURES } from "../utils/aiQuota";
@@ -152,12 +151,6 @@ function MedicalTrainingLabIntake({
           ))}
         </div>
       </div>
-
-      <p className="medical-lab-disclaimer">
-        <Stethoscope aria-hidden="true" size={15} />
-        Educational conceptual practice only. This workspace does not assess, diagnose, prescribe,
-        or replace qualified supervision and current local guidance.
-      </p>
 
       {error && <p className="learning-inline-error" role="alert">{error}</p>}
       <button
