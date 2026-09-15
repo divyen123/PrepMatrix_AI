@@ -43,6 +43,7 @@ const CARD_TONES = [
 ];
 
 const NAVIGATION_SUGGESTION_LIMIT = 7;
+const OVERVIEW_NOTICE_TRANSITION_MS = 220;
 
 function getNextNavigationSuggestionIndex(currentIndex, key, count) {
   if (!count) return -1;
@@ -181,15 +182,42 @@ function DashboardPage({
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [submissionNotice, setSubmissionNotice] = useState("");
   const [overviewNotice, setOverviewNotice] = useState("");
+  const [overviewNoticePhase, setOverviewNoticePhase] = useState("hidden");
   const [voiceEntryHint, setVoiceEntryHint] = useState("");
   const dragDepthRef = useRef(0);
   const inputRef     = useRef(null);
   const panelContentRef = useRef(null);
   const voiceEntryHintClaimedRef = useRef(false);
+  const overviewNoticeDismissTimerRef = useRef(null);
   const suggestionListId = useId();
   const searchHelpId = useId();
 
   const [configureSubject, setConfigureSubject] = useState(null);
+
+  const clearOverviewNoticeDismissTimer = useCallback(() => {
+    if (overviewNoticeDismissTimerRef.current !== null) {
+      window.clearTimeout(overviewNoticeDismissTimerRef.current);
+      overviewNoticeDismissTimerRef.current = null;
+    }
+  }, []);
+
+  const showOverviewNotice = useCallback((message) => {
+    clearOverviewNoticeDismissTimer();
+    setOverviewNotice(message);
+    setOverviewNoticePhase("visible");
+  }, [clearOverviewNoticeDismissTimer]);
+
+  const dismissOverviewNotice = useCallback(() => {
+    clearOverviewNoticeDismissTimer();
+    setOverviewNoticePhase("closing");
+    overviewNoticeDismissTimerRef.current = window.setTimeout(() => {
+      setOverviewNotice("");
+      setOverviewNoticePhase("hidden");
+      overviewNoticeDismissTimerRef.current = null;
+    }, OVERVIEW_NOTICE_TRANSITION_MS);
+  }, [clearOverviewNoticeDismissTimer]);
+
+  useEffect(() => clearOverviewNoticeDismissTimer, [clearOverviewNoticeDismissTimer]);
 
   useEffect(() => {
     if (!location.state?.focusGlobalAsk) return undefined;
@@ -259,8 +287,8 @@ function DashboardPage({
   }), [location, navigate]);
 
   useEffect(() => {
-    if (subjects.length) setOverviewNotice("");
-  }, [subjects.length]);
+    if (subjects.length && overviewNotice) dismissOverviewNotice();
+  }, [dismissOverviewNotice, overviewNotice, subjects.length]);
 
   const saveConfiguration = (updatedSubject) => {
     if (typeof setSubjects === "function") {
@@ -506,11 +534,12 @@ function DashboardPage({
     const action = getDashboardOverviewCardAction(card.label, subjects.length);
 
     if (action.type === "notice") {
-      setOverviewNotice(action.message);
+      if (overviewNoticePhase === "visible") dismissOverviewNotice();
+      else showOverviewNotice(action.message);
       return;
     }
 
-    setOverviewNotice("");
+    if (overviewNotice) dismissOverviewNotice();
     if (action.type === "subjects") {
       if (childMode) navigate("/learn");
       else setShowSubjectsPopup((prev) => !prev);
@@ -729,12 +758,6 @@ function DashboardPage({
         })}
       </div>
 
-      {overviewNotice && (
-        <p aria-atomic="true" className="db-overview-notice" role="status">
-          {overviewNotice}
-        </p>
-      )}
-
       {/* ── Panel Buttons ───────────────────────────────────── */}
       <div className="db-panel-buttons" role="group" aria-label="Dashboard panels">
         {PANEL_BUTTONS.map(({ id, label, icon: Icon }) => (
@@ -750,6 +773,16 @@ function DashboardPage({
           </button>
         ))}
       </div>
+
+      {overviewNotice && (
+        <p
+          aria-atomic="true"
+          className={`db-overview-notice ${overviewNoticePhase === "visible" ? "is-visible" : "is-closing"}`}
+          role={overviewNoticePhase === "visible" ? "status" : undefined}
+        >
+          {overviewNotice}
+        </p>
+      )}
 
       {/* ── Panel Content ───────────────────────────────────── */}
       <div
@@ -788,44 +821,54 @@ function DashboardPage({
 
       {/* ── Subjects Timeline ───────────────────────────────────── */}
       <div className={`db-subjects-timeline-wrapper ${showSubjectsPopup ? "open" : ""}`}>
-        <div className="db-subjects-timeline-header">
-          <h3>Your Subjects</h3>
-          <button
-            className="primary-btn db-subjects-open-btn"
-            onClick={() => navigate("/subjects#subject-library")}
-            type="button"
-          >
-            Open subjects
-          </button>
-        </div>
-        
         {subjects.length === 0 ? (
-          <p className="db-subjects-empty">No subjects added yet.</p>
-        ) : (
-          <div className="db-subjects-timeline">
-            {subjects.map((s, index) => (
-              <div 
-                key={s.id} 
-                className="db-timeline-node"
-                style={{ animationDelay: `${index * 0.15}s`, cursor: "pointer" }}
-                onClick={() => setConfigureSubject(s)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setConfigureSubject(s);
-                  }
-                }}
-              >
-                <div className="db-timeline-dot"></div>
-                <div className="db-timeline-content">
-                  <span className="db-timeline-name">{s.name}</span>
-                  <span className="db-timeline-chapters">{s.chapters || 0} chapters</span>
-                </div>
-              </div>
-            ))}
+          <div className="db-subjects-empty">
+            <p>No subjects added yet.</p>
+            <button
+              className="primary-btn db-subjects-add-btn"
+              onClick={() => navigate("/subjects#add-subject")}
+              type="button"
+            >
+              Add subjects
+            </button>
           </div>
+        ) : (
+          <>
+            <div className="db-subjects-timeline-header">
+              <h3>Your Subjects</h3>
+              <button
+                className="primary-btn db-subjects-open-btn"
+                onClick={() => navigate("/subjects#subject-library")}
+                type="button"
+              >
+                Open subjects
+              </button>
+            </div>
+            <div className="db-subjects-timeline">
+              {subjects.map((s, index) => (
+                <div
+                  key={s.id}
+                  className="db-timeline-node"
+                  style={{ animationDelay: `${index * 0.15}s`, cursor: "pointer" }}
+                  onClick={() => setConfigureSubject(s)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setConfigureSubject(s);
+                    }
+                  }}
+                >
+                  <div className="db-timeline-dot"></div>
+                  <div className="db-timeline-content">
+                    <span className="db-timeline-name">{s.name}</span>
+                    <span className="db-timeline-chapters">{s.chapters || 0} chapters</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

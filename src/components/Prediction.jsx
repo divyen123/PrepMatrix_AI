@@ -1,4 +1,6 @@
 import { getPlannerMetrics } from "../utils/plannerMetrics";
+import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 function Prediction({ schedule, completed, subjects = [] }) {
   const metrics = getPlannerMetrics(schedule, completed);
@@ -21,7 +23,21 @@ function Prediction({ schedule, completed, subjects = [] }) {
       <h2>Study prediction</h2>
       <p className="prediction-score">{metrics.completionRate}%</p>
       <p>{headline}</p>
-      <p className="card-subtext">{supportingText}</p>
+      {subjects.length === 0 ? (
+        <div className="prediction-subjects-action">
+          <p className="card-subtext">{supportingText}</p>
+          <Link
+            aria-label="Add a subject"
+            className="prediction-subjects-action-link"
+            title="Add a subject"
+            to="/subjects#add-subject"
+          >
+            <ArrowRight aria-hidden="true" size={17} />
+          </Link>
+        </div>
+      ) : (
+        <p className="card-subtext">{supportingText}</p>
+      )}
     </section>
   );
 }

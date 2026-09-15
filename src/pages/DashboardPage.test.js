@@ -38,6 +38,40 @@ test("keeps Completed and Remaining cards on the dashboard until a subject exist
   );
 });
 
+test("uses a centered add-subject empty state for the dashboard Subjects panel", () => {
+  const pageSource = readFileSync(new URL("./DashboardPage.jsx", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+
+  assert.match(
+    pageSource,
+    /subjects\.length === 0 \? \([\s\S]*?className="db-subjects-empty"[\s\S]*?No subjects added yet\.[\s\S]*?className="primary-btn db-subjects-add-btn"[\s\S]*?navigate\("\/subjects#add-subject"\)[\s\S]*?Add subjects/u,
+  );
+  assert.match(
+    pageSource,
+    /\) : \([\s\S]*?className="db-subjects-timeline-header"[\s\S]*?Your Subjects[\s\S]*?Open subjects/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.db-subjects-empty\s*\{[\s\S]*?justify-items: center;[\s\S]*?text-align: center;/u,
+  );
+});
+
+test("places the empty-progress notice below the dashboard buttons with a background-free fade", () => {
+  const pageSource = readFileSync(new URL("./DashboardPage.jsx", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+  const panelButtonsIndex = pageSource.indexOf('className="db-panel-buttons"');
+  const noticeIndex = pageSource.indexOf('className={`db-overview-notice');
+
+  assert.ok(panelButtonsIndex >= 0 && noticeIndex > panelButtonsIndex);
+  assert.match(pageSource, /overviewNoticePhase === "visible"\) dismissOverviewNotice\(\);\s*else showOverviewNotice\(action\.message\);/u);
+  assert.match(
+    stylesheet,
+    /\.db-overview-notice\s*\{[\s\S]*?margin: 1\.25rem auto 0;[\s\S]*?padding: 0;[\s\S]*?background: transparent;[\s\S]*?border: 0;[\s\S]*?box-shadow: none;[\s\S]*?text-align: center;/u,
+  );
+  assert.match(stylesheet, /\.db-overview-notice\.is-visible\s*\{[\s\S]*?animation: dbOverviewNoticeIn 220ms/u);
+  assert.match(stylesheet, /\.db-overview-notice\.is-closing\s*\{[\s\S]*?animation: dbOverviewNoticeOut 220ms/u);
+});
+
 test("renders the locked weekly review as centered background-free copy", async () => {
   const vite = await createServer({
     appType: "custom",
