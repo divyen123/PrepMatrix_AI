@@ -48,7 +48,10 @@ test("supports either a saved notebook or independent typed placement context", 
   assert.ok(placementSource.includes("notebookHistory.map((notebook)"));
   assert.ok(placementSource.includes('className="learning-placement-context"'));
   assert.ok(placementSource.includes("setCareerContext(event.target.value)"));
-  assert.ok(placementSource.includes("A notebook is not required."));
+  assert.doesNotMatch(
+    placementSource,
+    /Type any topic, project, job description, or interview context\. A notebook is not required\./u,
+  );
   assert.ok(pageSource.includes('useState(CUSTOM_PLACEMENT_SOURCE_VALUE)'));
   assert.ok(pageSource.includes('"/api/learning-notebooks/career-analyze"'));
   assert.ok(pageSource.includes('`/api/learning-notebooks/${encodeURIComponent(request.notebookId)}/career-analyze`'));
@@ -63,11 +66,39 @@ test("supports either a saved notebook or independent typed placement context", 
   assert.ok(pageSource.includes("Context:"));
   assert.ok(pageSource.includes('"/api/learning-notebooks?includePlacementWorkspace=true"'));
   assert.ok(pageSource.includes("A placement context you type is saved with its"));
-  assert.ok(pageSource.includes("isPlacementWorkspaceNotebook"));
-  assert.ok(pageSource.includes(") : !activeNotebook || isPlacementWorkspaceNotebook(activeNotebook) ? ("));
-  assert.ok(pageSource.includes("isPlacementWorkspaceNotebook(activeNotebook) ? [] : learningNodes(activeNotebook)"));
+  assert.ok(pageSource.includes("isLearningWorkspaceNotebook"));
+  assert.ok(pageSource.includes(") : !activeNotebook || isLearningWorkspaceNotebook(activeNotebook) ? ("));
+  assert.ok(pageSource.includes("isLearningWorkspaceNotebook(activeNotebook) ? [] : learningNodes(activeNotebook)"));
   assert.ok(stylesheet.includes(".learning-field .learning-placement-context"));
   assert.ok(stylesheet.includes(".learning-placement-source-options"));
+});
+
+test("keeps the placement source, role, topics, and quick-add controls in their requested layout", () => {
+  const placementStart = pageSource.indexOf('intakeMode === "placement" ? (');
+  const placementEnd = pageSource.indexOf(") : null}", placementStart);
+  const placementSource = pageSource.slice(placementStart, placementEnd);
+
+  assert.ok(placementStart >= 0 && placementEnd > placementStart, "expected the placement intake");
+  assert.match(
+    placementSource,
+    /className="learning-placement-source-role-row"[\s\S]*?<fieldset className="learning-placement-source">[\s\S]*?<legend>Preparation source<\/legend>[\s\S]*?<\/fieldset>[\s\S]*?className="learning-field learning-placement-role"[\s\S]*?<span>Target role<\/span>/u,
+  );
+  assert.match(
+    placementSource,
+    /className="learning-field learning-placement-topics"[\s\S]*?<span>Topics to analyze<\/span>[\s\S]*?<textarea/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-placement-source-role-row\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*max-content minmax\(220px, 1fr\);/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-placement-topics\s*\{[\s\S]*?width:\s*100%;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-placement-suggestions > div\s*\{[\s\S]*?display:\s*flex;[\s\S]*?flex-wrap:\s*nowrap;/u,
+  );
 });
 
 test("uses an independent Medical training workspace and persistence contract", () => {
@@ -85,6 +116,14 @@ test("uses an independent Medical training workspace and persistence contract", 
   assert.ok(pageSource.includes("medicalTraining:"));
   assert.ok(pageSource.includes('["My reasoning", answer].join("\\n")'));
   assert.ok(pageSource.includes("finish saving to history before opening its study coach"));
+  assert.ok(pageSource.includes("CUSTOM_MEDICAL_SOURCE_VALUE"));
+  assert.ok(pageSource.includes("usesCustomMedicalSource"));
+  assert.ok(pageSource.includes('sourceMode={usesCustomMedicalSource ? "custom" : "notebook"}'));
+  assert.ok(pageSource.includes('onSourceModeChange={selectMedicalTrainingSource}'));
+  assert.ok(pageSource.includes('"/api/learning-notebooks/medical-training-analyze"'));
+  assert.ok(pageSource.includes('`/api/learning-notebooks/${encodeURIComponent(request.notebookId)}/medical-training-analyze`'));
+  assert.ok(pageSource.includes('setMedicalError("Describe the fictional educational context you want to train with.")'));
+  assert.ok(pageSource.includes("isLearningWorkspaceNotebook"));
 
   const medicalListStart = pageSource.indexOf("savedMedicalTrainingNotes.map((note)");
   const medicalListEnd = pageSource.indexOf("</section>", medicalListStart);
@@ -152,6 +191,52 @@ test("centers the available workspace cards and omits history from the chooser",
     mobileStyles,
     /\.learning-intake-choice\.is-count-3 \.learning-intake-choice-card:nth-child\(3\)\s*\{[\s\S]*?grid-column:\s*auto;[\s\S]*?justify-self:\s*stretch;/u,
   );
+});
+
+test("keeps enabled Start Learning workspace cards color-toned outside hover", () => {
+  assert.match(
+    stylesheet,
+    /body \.learning-page \.learning-intake-choice-card:not\(:disabled\),\s*body \.learning-page \.learning-intake-choice-card:focus-visible\s*\{[\s\S]*?rgba\(var\(--choice-rgb\), 0\.22\)[\s\S]*?rgba\(var\(--choice-rgb\), 0\.06\)[\s\S]*?border-color: rgba\(var\(--choice-rgb\), 0\.45\) !important;/u,
+  );
+  assert.match(
+    stylesheet,
+    /body \.learning-page \.learning-intake-choice-card\s*\{[\s\S]*?rgba\(var\(--choice-rgb\), 0\.16\)[\s\S]*?border: 1px solid rgba\(var\(--choice-rgb\), 0\.3\) !important;/u,
+  );
+});
+
+test("keeps notebook uploads and prompts together with plural chapter and topic fields", () => {
+  const intakeStart = pageSource.indexOf('{intakeMode === "notebook" ? (');
+  const intakeEnd = pageSource.indexOf("{!analyzing && analysisError", intakeStart);
+  const intakeSource = pageSource.slice(intakeStart, intakeEnd);
+
+  assert.ok(intakeStart >= 0 && intakeEnd > intakeStart, "expected the notebook intake");
+  assert.match(
+    intakeSource,
+    /className="learning-notebook-source-row"[\s\S]*?className="learning-notebook-upload-column"[\s\S]*?className="learning-dropzone"[\s\S]*?className="learning-notebook-source-divider"[\s\S]*?className="learning-notebook-prompt-column"[\s\S]*?className="learning-field learning-prompt-field"/u,
+  );
+  assert.doesNotMatch(
+    intakeSource,
+    /Use a prompt by itself, or combine it with a subject, chapter, topic, or upload\./u,
+  );
+  assert.doesNotMatch(intakeSource, /learning-scope-builder|Notebook scope/u);
+  assert.match(
+    intakeSource,
+    /className="learning-notebook-detail-fields"[\s\S]*?<span>Chapter\(s\)<\/span>[\s\S]*?setManualChapters[\s\S]*?<span>Topic\(s\)<\/span>[\s\S]*?setManualTopics/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-notebook-source-row\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*minmax\(0, 35fr\) 1px minmax\(0, 65fr\);/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-notebook-source-divider\s*\{[\s\S]*?width:\s*1px;[\s\S]*?background:\s*var\(--border\);/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-notebook-detail-fields\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);/u,
+  );
+  assert.match(pageSource, /const topicNames = parseChapterNames\(manualTopics\);/u);
+  assert.match(pageSource, /topics: topicNames,/u);
 });
 
 test("opens generated notebooks on a real topic and keeps focused sessions topic-scoped", () => {

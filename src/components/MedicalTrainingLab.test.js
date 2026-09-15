@@ -30,6 +30,31 @@ test("medical training keeps privacy and education boundaries visible", () => {
   assert.equal(/placement preparation|coding interview/iu.test(`${labSource}\n${intakeSource}`), false);
 });
 
+test("medical training supports a typed context or a saved notebook", () => {
+  assert.ok(intakeSource.includes("Type context"));
+  assert.ok(intakeSource.includes("Saved notebook"));
+  assert.ok(intakeSource.includes("onSourceModeChange(\"custom\")"));
+  assert.ok(intakeSource.includes("onSourceModeChange(\"notebook\")"));
+  assert.ok(intakeSource.includes("Your context"));
+  assert.ok(intakeSource.includes("sourceMode = \"custom\""));
+  assert.ok(intakeSource.includes("medical-lab-source-focus-row"));
+  assert.ok(intakeSource.includes("medical-lab-topics"));
+  assert.equal(
+    intakeSource.includes("Choose a learning source, then add concepts"),
+    false,
+  );
+  assert.equal(
+    intakeSource.includes("Build and save a health-science notebook first"),
+    false,
+  );
+});
+
+test("medical training keeps six reasoning starters in a two-row desktop grid", () => {
+  assert.ok(styles.includes(".medical-lab-quick-add > div {\n  display: grid;"));
+  assert.ok(styles.includes("grid-template-columns: repeat(3, minmax(0, 1fr));"));
+  assert.ok(styles.includes(".medical-lab-source-focus-row"));
+});
+
 test("medical training privacy notice remains readable in light mode", () => {
   assert.ok(styles.includes("--medical-privacy-title: color-mix(in srgb, var(--text) 88%, #0f766e)"));
   assert.ok(styles.includes("--medical-privacy-copy: color-mix(in srgb, var(--text) 78%, #155e75)"));

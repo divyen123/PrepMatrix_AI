@@ -81,10 +81,89 @@
   color: var(--medical-privacy-copy);
 }
 
-.medical-lab-fields {
+.medical-lab-source-focus-row {
   display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  grid-template-columns: max-content minmax(220px, 1fr);
+  align-items: end;
+  gap: 12px;
+}
+
+.medical-lab-source {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.medical-lab-source > legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--text, #f3f4fb);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.medical-lab-source-options {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(17, 22, 39, 0.62);
+  border: 1px solid rgba(169, 154, 243, 0.2);
+  border-radius: 12px;
+}
+
+.medical-lab-source-options > label {
+  position: relative;
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  color: var(--text-muted, #9da4b7);
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 750;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.medical-lab-source-options > label.is-selected {
+  color: var(--text-primary, #f3f4fb);
+  background: rgba(47, 98, 112, 0.28);
+  border-color: rgba(103, 221, 197, 0.28);
+}
+
+.medical-lab-source-options > label:focus-within {
+  outline: 2px solid rgba(103, 221, 197, 0.42);
+  outline-offset: 2px;
+}
+
+.medical-lab-source-options > label:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.medical-lab-source-options input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.medical-lab-training-focus,
+.medical-lab-topics {
+  min-width: 0;
+}
+
+.medical-lab-topics {
+  width: 100%;
+}
+
+.learning-field .medical-lab-context {
+  min-height: 84px;
 }
 
 .medical-lab-quick-add {
@@ -101,8 +180,8 @@
 }
 
 .medical-lab-quick-add > div {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -118,7 +197,13 @@
   gap: 7px;
   justify-content: center;
   min-height: 38px;
+  min-width: 0;
   padding: 8px 12px;
+}
+
+.medical-lab-quick-add button {
+  width: 100%;
+  text-align: left;
 }
 
 .medical-lab-quick-add button:hover,
@@ -739,11 +824,15 @@
 }
 
 @media (max-width: 700px) {
-  .medical-lab-fields,
+  .medical-lab-source-focus-row,
   .medical-lab-topic-grid,
   .medical-options-grid,
   .medical-principles-grid {
     grid-template-columns: 1fr;
+  }
+
+  .medical-lab-quick-add > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .medical-lab-intake__heading,

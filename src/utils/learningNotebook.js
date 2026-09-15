@@ -12,6 +12,7 @@ export const MAX_LEARNING_MIND_MAP_NODES = 180;
 export const MAX_LEARNING_CAREER_TOPICS = 12;
 export const MAX_PLACEMENT_PREPARATION_SOURCE_LENGTH = 3000;
 export const PLACEMENT_WORKSPACE_ARTIFACT_KIND = "placement-workspace";
+export const MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND = "medical-training-workspace";
 export const MEDICAL_TRAINING_EDUCATIONAL_NOTICE =
   "Educational conceptual practice only; not medical advice, diagnosis, treatment, prescribing, dosing, or emergency guidance.";
 
@@ -1256,10 +1257,14 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
     options.updatedAt ?? source?.updatedAt,
     now,
   );
-  const artifactKind = cleanInline(source?.artifactKind, 80) === PLACEMENT_WORKSPACE_ARTIFACT_KIND
-    ? PLACEMENT_WORKSPACE_ARTIFACT_KIND
+  const rawArtifactKind = cleanInline(source?.artifactKind, 80);
+  const artifactKind = [
+    PLACEMENT_WORKSPACE_ARTIFACT_KIND,
+    MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND,
+  ].includes(rawArtifactKind)
+    ? rawArtifactKind
     : "";
-  const preparationSource = artifactKind
+  const preparationSource = artifactKind === PLACEMENT_WORKSPACE_ARTIFACT_KIND
     ? normalizePlacementPreparationSource(
       source?.preparationSource ?? source?.customContext ?? source?.context,
       options.preparationSource,
@@ -1287,7 +1292,10 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
 
   return {
     ...(notebookId ? { id: notebookId } : {}),
-    ...(artifactKind ? { artifactKind, preparationSource } : {}),
+    ...(artifactKind ? {
+      artifactKind,
+      ...(artifactKind === PLACEMENT_WORKSPACE_ARTIFACT_KIND ? { preparationSource } : {}),
+    } : {}),
     pinned: source?.pinned === true,
     title: cleanInline(source?.title, 180)
       || `${subjectName}${chapterNames.length === 1 ? ` - ${chapterNames[0]}` : ""}`,

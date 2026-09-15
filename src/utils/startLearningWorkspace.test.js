@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   getSavedPlacementNotes,
   getStartLearningArtifactKind,
+  isLearningWorkspaceNotebook,
+  isMedicalTrainingWorkspaceNotebook,
   isMedicalTrainingHash,
   isPlacementPrepHash,
   isPlacementWorkspaceNotebook,
@@ -66,7 +68,7 @@ test("sorts pinned notebook and placement histories above recent unpinned work",
   assert.deepEqual(notes.map((note) => note.historyId), ["older-pinned", "recent"]);
 });
 
-test("hides the placement workspace from notebook history while retaining its preparation history", () => {
+test("hides workspace artifacts from notebook history while retaining their preparation histories", () => {
   const hiddenWorkspace = {
     id: "placement-workspace-1",
     artifactKind: "placement-workspace",
@@ -90,11 +92,20 @@ test("hides the placement workspace from notebook history while retaining its pr
     title: "Data Structures",
     updatedAt: "2026-09-02T11:00:00.000Z",
   };
+  const medicalWorkspace = {
+    id: "medical-workspace-1",
+    artifactKind: "medical-training-workspace",
+    title: "Medical training workspace",
+    updatedAt: "2026-09-04T11:00:00.000Z",
+  };
 
   assert.equal(isPlacementWorkspaceNotebook(hiddenWorkspace), true);
+  assert.equal(isMedicalTrainingWorkspaceNotebook(medicalWorkspace), true);
+  assert.equal(isLearningWorkspaceNotebook(hiddenWorkspace), true);
+  assert.equal(isLearningWorkspaceNotebook(medicalWorkspace), true);
   assert.equal(isPlacementWorkspaceNotebook(visibleNotebook), false);
   assert.deepEqual(
-    sortStartLearningNotebooks([hiddenWorkspace, visibleNotebook]).map((item) => item.id),
+    sortStartLearningNotebooks([hiddenWorkspace, medicalWorkspace, visibleNotebook]).map((item) => item.id),
     ["notebook-1"],
   );
 

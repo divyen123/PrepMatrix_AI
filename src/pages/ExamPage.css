@@ -358,6 +358,34 @@ body.has-bg-image.no-glass-cards .exam-page .exam-feature-card {
   backdrop-filter: none !important;
 }
 
+/* Keep each available destination visibly color-coded; locked cards remain muted. */
+body .exam-page .exam-feature-card:not(:disabled) {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--exam-feature-tone) 52%, var(--border)) !important;
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--exam-feature-tone) 27%, transparent), transparent 44%),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--exam-feature-tone) 12%, var(--surface-strong)) 0%,
+      color-mix(in srgb, var(--exam-feature-tone) 5%, var(--surface)) 100%
+    ) !important;
+  box-shadow:
+    0 24px 55px rgba(15, 23, 42, 0.13),
+    0 0 0 1px color-mix(in srgb, var(--exam-feature-tone) 12%, transparent) !important;
+}
+
+body.has-bg-image:not(.no-glass-cards) .exam-page .exam-feature-card:not(:disabled) {
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--exam-feature-tone) 29%, transparent), transparent 46%),
+    rgba(var(--bg-surface-rgb, 18, 27, 45), var(--glass-opacity, 0.68)) !important;
+}
+
+body.has-bg-image.no-glass-cards .exam-page .exam-feature-card:not(:disabled) {
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--exam-feature-tone) 22%, transparent), transparent 46%),
+    rgba(var(--bg-surface-rgb, 18, 27, 45), 0.94) !important;
+}
+
 @media (max-width: 920px) {
   .exam-feature-grid {
     grid-template-columns: 1fr;

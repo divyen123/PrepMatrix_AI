@@ -108,7 +108,7 @@ import {
 import {
   getSavedPlacementNotes,
   getStartLearningArtifactKind,
-  isPlacementWorkspaceNotebook,
+  isLearningWorkspaceNotebook,
   isMedicalTrainingHash,
   isPlacementPrepHash,
   sortStartLearningNotebooks,
@@ -128,9 +128,7 @@ import {
   hasLearningPrivacyConsent,
 } from "../utils/learningPrivacyConsent";
 import {
-  normalizeSubjectChapterNames,
   normalizeSubjectNames,
-  normalizeSubjectTopics,
 } from "../utils/subjectPlanning";
 import "./StartLearningPage.css";
 
@@ -142,6 +140,8 @@ const MAX_LEARNING_PROMPT_CHARS = 3_000;
 const PLANNER_REQUIRED_NOTICE_ID = "learning-planner-required";
 const MAX_PLACEMENT_CONTEXT_CHARS = 3_000;
 const CUSTOM_PLACEMENT_SOURCE_VALUE = "__custom_context__";
+const MAX_MEDICAL_CONTEXT_CHARS = 3_000;
+const CUSTOM_MEDICAL_SOURCE_VALUE = "__custom_medical_context__";
 const LEARNING_BACKGROUND_FEATURES = Object.freeze({
   career: "learning-career-analysis",
   medical: "learning-medical-analysis",
@@ -663,7 +663,7 @@ function StartLearningPage({
   const notebookSaveChainRef = useRef(Promise.resolve());
   const activeNotebookRef = useRef(null);
   const careerAnalysisRequestRef = useRef({ context: "", notebookId: "", pending: false, sequence: 0 });
-  const medicalAnalysisRequestRef = useRef({ notebookId: "", pending: false, sequence: 0 });
+  const medicalAnalysisRequestRef = useRef({ context: "", notebookId: "", pending: false, sequence: 0 });
   const [notebooks, setNotebooks] = useState([]);
   const [notebooksLoading, setNotebooksLoading] = useState(true);
   const [notebooksError, setNotebooksError] = useState("");
@@ -678,6 +678,8 @@ function StartLearningPage({
   const [careerError, setCareerError] = useState("");
   const [careerDraft, setCareerDraft] = useState(null);
   const [activeCareerHistoryId, setActiveCareerHistoryId] = useState("");
+  const [medicalSourceValue, setMedicalSourceValue] = useState(CUSTOM_MEDICAL_SOURCE_VALUE);
+  const [medicalContext, setMedicalContext] = useState("");
   const [medicalFocus, setMedicalFocus] = useState("");
   const [medicalTopics, setMedicalTopics] = useState("");
   const [medicalAnalyzing, setMedicalAnalyzing] = useState(false);
@@ -691,8 +693,7 @@ function StartLearningPage({
   const [subjectPickerOpen, setSubjectPickerOpen] = useState(false);
   const [subjectOptionIndex, setSubjectOptionIndex] = useState(0);
   const [manualChapters, setManualChapters] = useState("");
-  const [scopeChapter, setScopeChapter] = useState("");
-  const [scopeTopic, setScopeTopic] = useState("");
+  const [manualTopics, setManualTopics] = useState("");
   const [learningPrompt, setLearningPrompt] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
@@ -784,7 +785,7 @@ function StartLearningPage({
     [notebooks],
   );
   const courseNotebooks = useMemo(
-    () => notebooks.filter((notebook) => !isPlacementWorkspaceNotebook(notebook)),
+    () => notebooks.filter((notebook) => !isLearningWorkspaceNotebook(notebook)),
     [notebooks],
   );
   const selectedCareerSourceNotebook = useMemo(
@@ -792,9 +793,14 @@ function StartLearningPage({
     [careerSourceValue, courseNotebooks],
   );
   const usesCustomPlacementSource = careerSourceValue === CUSTOM_PLACEMENT_SOURCE_VALUE;
+  const selectedMedicalSourceNotebook = useMemo(
+    () => courseNotebooks.find((notebook) => notebook.id === medicalSourceValue) || null,
+    [courseNotebooks, medicalSourceValue],
+  );
+  const usesCustomMedicalSource = medicalSourceValue === CUSTOM_MEDICAL_SOURCE_VALUE;
   const savedMedicalTrainingNotes = useMemo(
-    () => getSavedMedicalTrainingNotes(courseNotebooks),
-    [courseNotebooks],
+    () => getSavedMedicalTrainingNotes(notebooks),
+    [notebooks],
   );
   const notebookHistory = useMemo(
     () => sortStartLearningNotebooks(notebooks),
@@ -847,39 +853,6 @@ function StartLearningPage({
     () => normalizeSubjectNames(subjects),
     [subjects],
   );
-  const selectedSavedSubject = useMemo(() => {
-    const selectedName = cleanText(subjectName, 160).toLocaleLowerCase();
-    if (!selectedName) return null;
-    return subjects.find((subject) => {
-      const name = typeof subject === "string"
-        ? subject
-        : subject?.name || subject?.subjectName || subject?.title || subject?.label;
-      return cleanText(name, 160).toLocaleLowerCase() === selectedName;
-    }) || null;
-  }, [subjectName, subjects]);
-  const savedChapterOptions = useMemo(() => {
-    if (!selectedSavedSubject || typeof selectedSavedSubject !== "object") return [];
-    const sourceNames = Array.isArray(selectedSavedSubject.chapterNames)
-      ? selectedSavedSubject.chapterNames
-      : [];
-    const chapterCount = Math.max(
-      Number.parseInt(selectedSavedSubject.chapters, 10) || 0,
-      sourceNames.length,
-    );
-    const names = normalizeSubjectChapterNames(sourceNames, chapterCount);
-    return Array.from(
-      { length: chapterCount },
-      (_, index) => names[index] || `Chapter ${index + 1}`,
-    );
-  }, [selectedSavedSubject]);
-  const savedTopicOptions = useMemo(
-    () => normalizeSubjectTopics(
-      selectedSavedSubject && typeof selectedSavedSubject === "object"
-        ? selectedSavedSubject.topics
-        : [],
-    ),
-    [selectedSavedSubject],
-  );
   const visibleSavedSubjectNames = useMemo(() => {
     const query = subjectName.trim().toLocaleLowerCase();
     if (!query) return savedSubjectNames;
@@ -913,6 +886,15 @@ function StartLearningPage({
   }, [careerSourceValue, notebooksLoading, selectedCareerSourceNotebook]);
 
   useEffect(() => {
+    if (
+      notebooksLoading
+      || medicalSourceValue === CUSTOM_MEDICAL_SOURCE_VALUE
+      || selectedMedicalSourceNotebook
+    ) return;
+    setMedicalSourceValue(CUSTOM_MEDICAL_SOURCE_VALUE);
+  }, [medicalSourceValue, notebooksLoading, selectedMedicalSourceNotebook]);
+
+  useEffect(() => {
     if (placementEligible) return;
     careerAnalysisRequestRef.current = {
       context: "",
@@ -934,6 +916,7 @@ function StartLearningPage({
   useEffect(() => {
     if (medicalEligible) return;
     medicalAnalysisRequestRef.current = {
+      context: "",
       notebookId: "",
       pending: false,
       sequence: medicalAnalysisRequestRef.current.sequence + 1,
@@ -952,11 +935,11 @@ function StartLearningPage({
   }, []);
 
   const nodes = useMemo(
-    () => isPlacementWorkspaceNotebook(activeNotebook) ? [] : learningNodes(activeNotebook),
+    () => isLearningWorkspaceNotebook(activeNotebook) ? [] : learningNodes(activeNotebook),
     [activeNotebook],
   );
   const masteryNotebooks = useMemo(() => {
-    if (!activeNotebook || isPlacementWorkspaceNotebook(activeNotebook)) return courseNotebooks;
+    if (!activeNotebook || isLearningWorkspaceNotebook(activeNotebook)) return courseNotebooks;
     return [
       activeNotebook,
       ...courseNotebooks.filter((notebook) => notebook.id !== activeNotebook.id),
@@ -1143,9 +1126,10 @@ function StartLearningPage({
     setActiveNotebook(normalized);
   };
 
-  const selectMedicalNotebook = (notebookId, historyId = "") => {
+  const selectMedicalNotebook = (notebookId, historyId = "", { includeWorkspace = false } = {}) => {
     if (careerAnalyzing || historyBusy || medicalAnalyzing || saving) return false;
-    const notebook = courseNotebooks.find((item) => item.id === notebookId);
+    const availableNotebooks = includeWorkspace ? notebooks : courseNotebooks;
+    const notebook = availableNotebooks.find((item) => item.id === notebookId);
     if (!notebook) return false;
     const normalized = normalizeNotebook(notebook);
     const selectedHistory = getMedicalTrainingHistoryEntry(normalized, historyId);
@@ -1159,9 +1143,31 @@ function StartLearningPage({
     setActiveNotebook(normalized);
     setActiveMedicalHistoryId(selectedHistory?.id || "");
     setMedicalError("");
+    setMedicalSourceValue(
+      isLearningWorkspaceNotebook(normalized) ? CUSTOM_MEDICAL_SOURCE_VALUE : normalized.id,
+    );
+    setMedicalContext("");
     setMedicalFocus(fields.focus);
     setMedicalTopics(fields.topics);
     return true;
+  };
+
+  const selectMedicalTrainingSource = (sourceMode) => {
+    if (careerAnalyzing || historyBusy || medicalAnalyzing || saving) return;
+    if (sourceMode === "custom") {
+      setMedicalSourceValue(CUSTOM_MEDICAL_SOURCE_VALUE);
+      setActiveMedicalHistoryId("");
+      setMedicalError("");
+      return;
+    }
+
+    const firstNotebook = courseNotebooks[0];
+    if (!firstNotebook) {
+      setMedicalSourceValue(CUSTOM_MEDICAL_SOURCE_VALUE);
+      setMedicalError("");
+      return;
+    }
+    selectMedicalNotebook(firstNotebook.id);
   };
 
   const openNotebookIntake = () => {
@@ -1185,20 +1191,14 @@ function StartLearningPage({
 
   const openMedicalIntake = () => {
     if (!medicalEligible || careerAnalyzing || medicalAnalyzing || saving) return;
-    const draftNotebook = medicalDraft
-      ? courseNotebooks.find((notebook) => notebook.id === medicalDraft.notebookId)
-      : null;
-    const targetNotebook = draftNotebook
-      || (activeNotebook && !isPlacementWorkspaceNotebook(activeNotebook) ? activeNotebook : null)
-      || courseNotebooks[0]
-      || null;
-    if (targetNotebook) {
-      selectMedicalNotebook(targetNotebook.id);
-    } else {
+    if (!medicalFocus && !medicalTopics) {
       const fields = getMedicalTrainingInputValues(null, null, userProfile);
       setMedicalFocus(fields.focus);
       setMedicalTopics(fields.topics);
     }
+    setMedicalSourceValue(CUSTOM_MEDICAL_SOURCE_VALUE);
+    setMedicalContext("");
+    setActiveMedicalHistoryId("");
     setMedicalError("");
     setIntakeMode("medical");
     setWorkspaceView("intake");
@@ -1220,7 +1220,7 @@ function StartLearningPage({
   };
 
   const openSavedMedicalTraining = (note) => {
-    if (!note?.notebookId || !selectMedicalNotebook(note.notebookId, note.historyId)) return;
+    if (!note?.notebookId || !selectMedicalNotebook(note.notebookId, note.historyId, { includeWorkspace: true })) return;
     setIntakeMode("medical");
     setWorkspaceView("medical");
   };
@@ -1284,23 +1284,19 @@ function StartLearningPage({
   useEffect(() => {
     if (
       intakeMode !== "medical"
-      || (activeNotebook && !isPlacementWorkspaceNotebook(activeNotebook))
+      || usesCustomMedicalSource
+      || selectedMedicalSourceNotebook
       || medicalAnalyzing
       || saving
-      || !courseNotebooks.length
     ) return;
-    const notebook = medicalDraft
-      ? courseNotebooks.find((item) => item.id === medicalDraft.notebookId)
-      : courseNotebooks[0];
-    if (!notebook) return;
-    const normalized = normalizeNotebook(notebook);
-    const fields = getMedicalTrainingInputValues(normalized, medicalDraft, userProfile);
-    activeNotebookRef.current = normalized;
-    setActiveNotebook(normalized);
-    setMedicalFocus(fields.focus);
-    setMedicalTopics(fields.topics);
-    setMedicalError("");
-  }, [activeNotebook, courseNotebooks, intakeMode, medicalAnalyzing, medicalDraft, saving, userProfile]);
+    setMedicalSourceValue(CUSTOM_MEDICAL_SOURCE_VALUE);
+  }, [
+    intakeMode,
+    medicalAnalyzing,
+    saving,
+    selectedMedicalSourceNotebook,
+    usesCustomMedicalSource,
+  ]);
 
   useEffect(() => () => toast.dismiss(PLANNER_REQUIRED_NOTICE_ID), [academicProfileDataId]);
 
@@ -1418,10 +1414,6 @@ function StartLearningPage({
   };
 
   const chooseSavedSubject = (name) => {
-    if (cleanText(name, 160).toLocaleLowerCase() !== subjectName.trim().toLocaleLowerCase()) {
-      setScopeChapter("");
-      setScopeTopic("");
-    }
     setSubjectName(name);
     setSubjectPickerOpen(false);
     setSubjectOptionIndex(0);
@@ -1472,18 +1464,15 @@ function StartLearningPage({
   }, []);
 
   const getAnalysisRequest = () => {
-    const selectedChapter = cleanText(scopeChapter, 180);
-    const selectedTopic = cleanText(scopeTopic, 180);
-    const chapterNames = parseChapterNames(
-      [selectedChapter, manualChapters].filter(Boolean).join("\n"),
-    );
+    const chapterNames = parseChapterNames(manualChapters);
+    const topicNames = parseChapterNames(manualTopics);
     const cleanSubject = cleanText(subjectName, 160);
     const cleanPrompt = cleanText(learningPrompt, MAX_LEARNING_PROMPT_CHARS);
     const requestedPrompt = cleanPrompt;
-    const requestedOutline = selectedChapter || selectedTopic
+    const requestedOutline = chapterNames.length && topicNames.length
       ? [{
-          chapterName: selectedChapter || chapterNames[0] || "",
-          topics: selectedTopic ? [selectedTopic] : [],
+          chapterName: chapterNames[0],
+          topics: topicNames,
         }]
       : [];
     const hasManualScope = Boolean(cleanSubject && chapterNames.length);
@@ -1523,8 +1512,7 @@ function StartLearningPage({
     setSources([]);
     setSubjectName("");
     setManualChapters("");
-    setScopeChapter("");
-    setScopeTopic("");
+    setManualTopics("");
     setLearningPrompt("");
     setAnalyzing(false);
     if (notify) setNotification?.("Your learning notebook is ready.");
@@ -1631,6 +1619,8 @@ function StartLearningPage({
       120,
     );
     if (!requestNotebookId || !payload?.medicalTraining) return false;
+    const requestContext = cleanText(request.context, MAX_MEDICAL_CONTEXT_CHARS);
+    const usesNotebookSource = request.sourceMode === "notebook" || Boolean(request.notebookId);
     const requestedTopics = parseCareerTopics(request.topics);
     const trainingFocus = cleanText(request.trainingFocus, 160);
     const sourceNotebook = payload?.notebook ? normalizeNotebook(payload.notebook) : null;
@@ -1660,6 +1650,10 @@ function StartLearningPage({
     ]);
     setMedicalDraft(draft);
     setActiveMedicalHistoryId(draft.id);
+    setMedicalSourceValue(usesNotebookSource
+      ? requestNotebookId
+      : CUSTOM_MEDICAL_SOURCE_VALUE);
+    setMedicalContext(usesNotebookSource ? "" : requestContext);
     setMedicalFocus(draft.analysis.trainingTitle || trainingFocus);
     setMedicalTopics(requestedTopics.join("\n"));
     setMedicalError("");
@@ -1897,24 +1891,28 @@ function StartLearningPage({
     runCareerAnalysis(request);
   };
 
-  const runMedicalAnalysis = async ({ notebookId, trainingFocus, topics }) => {
+  const runMedicalAnalysis = async ({ context, notebookId, sourceMode, trainingFocus, topics }) => {
     if (hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)) {
       setMedicalError(getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }));
       return;
     }
 
     const requestNotebookId = cleanText(notebookId, 120);
+    const requestContext = requestNotebookId
+      ? ""
+      : cleanText(context, MAX_MEDICAL_CONTEXT_CHARS);
     if (
-      !requestNotebookId
+      (!requestNotebookId && !requestContext)
       || medicalAnalysisRequestRef.current.pending
       || medicalBackgroundTask
     ) return;
-    if (activeNotebookRef.current?.id !== requestNotebookId) {
+    if (requestNotebookId && activeNotebookRef.current?.id !== requestNotebookId) {
       setMedicalError("The medical training source changed. Review the selected source and try again.");
       return;
     }
     const sequence = medicalAnalysisRequestRef.current.sequence + 1;
     medicalAnalysisRequestRef.current = {
+      context: requestContext,
       notebookId: requestNotebookId,
       pending: true,
       sequence,
@@ -1922,7 +1920,9 @@ function StartLearningPage({
     setMedicalAnalyzing(true);
     setMedicalError("");
     const request = {
+      context: requestContext,
       notebookId: requestNotebookId,
+      sourceMode: sourceMode === "notebook" || requestNotebookId ? "notebook" : "custom",
       topics: parseCareerTopics(topics),
       trainingFocus: cleanText(trainingFocus, 160),
     };
@@ -1931,9 +1931,13 @@ function StartLearningPage({
       await runTask({
         academicProfileId: backgroundProfileId,
         execute: async () => {
+          const endpoint = request.notebookId
+            ? `/api/learning-notebooks/${encodeURIComponent(request.notebookId)}/medical-training-analyze`
+            : "/api/learning-notebooks/medical-training-analyze";
           const result = await api.post(
-            `/api/learning-notebooks/${encodeURIComponent(requestNotebookId)}/medical-training-analyze`,
+            endpoint,
             {
+              ...(request.notebookId ? {} : { context: request.context }),
               trainingFocus: request.trainingFocus,
               topics: request.topics,
               privacyConsent: {
@@ -1975,13 +1979,22 @@ function StartLearningPage({
       setMedicalError(medicalEligibility.reason);
       return;
     }
-    const notebookId = activeNotebook?.id || "";
-    if (!notebookId) {
-      setMedicalError("Choose a health-science notebook for this Medical training.");
+    const context = usesCustomMedicalSource
+      ? cleanText(medicalContext, MAX_MEDICAL_CONTEXT_CHARS)
+      : "";
+    const notebookId = usesCustomMedicalSource ? "" : selectedMedicalSourceNotebook?.id || "";
+    if (usesCustomMedicalSource && !context) {
+      setMedicalError("Describe the fictional educational context you want to train with.");
+      return;
+    }
+    if (!usesCustomMedicalSource && !notebookId) {
+      setMedicalError("Choose an available notebook or type your own context.");
       return;
     }
     const request = {
+      context,
       notebookId,
+      sourceMode: usesCustomMedicalSource ? "custom" : "notebook",
       trainingFocus: cleanText(medicalFocus, 160)
         || medicalEligibility.disciplineLabel
         || "Health-science conceptual reasoning",
@@ -2112,9 +2125,18 @@ function StartLearningPage({
     if (!task) return;
     const request = task.meta?.request || {};
     const requestNotebookId = cleanText(request.notebookId, 120);
+    const requestContext = cleanText(request.context, MAX_MEDICAL_CONTEXT_CHARS);
+    const usesNotebookSource = request.sourceMode === "notebook" || Boolean(requestNotebookId);
+    setMedicalSourceValue(usesNotebookSource
+      ? requestNotebookId
+      : CUSTOM_MEDICAL_SOURCE_VALUE);
+    setMedicalContext(usesNotebookSource ? "" : requestContext);
+    setMedicalFocus(cleanText(request.trainingFocus, 160));
+    setMedicalTopics(parseCareerTopics(request.topics).join("\n"));
     if (task.status === "running") {
       medicalAnalysisRequestRef.current = {
         ...medicalAnalysisRequestRef.current,
+        context: requestContext,
         notebookId: requestNotebookId,
         pending: true,
       };
@@ -2124,8 +2146,6 @@ function StartLearningPage({
         activeNotebookRef.current = normalized;
         setActiveNotebook(normalized);
       }
-      setMedicalFocus(cleanText(request.trainingFocus, 160));
-      setMedicalTopics(parseCareerTopics(request.topics).join("\n"));
       setMedicalError("");
       setMedicalAnalyzing(true);
       setIntakeMode("medical");
@@ -2138,6 +2158,7 @@ function StartLearningPage({
     presentedBackgroundRunsRef.current.add(presentationId);
     medicalAnalysisRequestRef.current = {
       ...medicalAnalysisRequestRef.current,
+      context: requestContext,
       notebookId: requestNotebookId,
       pending: false,
     };
@@ -3557,21 +3578,47 @@ function StartLearningPage({
             ref={fileInputRef}
             type="file"
           />
-          <button
-            className="learning-dropzone"
-            disabled={preparingSources || sources.length >= MAX_CHAT_ATTACHMENTS}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault();
-              handleFiles(event.dataTransfer.files);
-            }}
-            type="button"
-          >
-            {preparingSources ? <LoaderCircle className="spinner" size={25} /> : <UploadCloud size={25} />}
-            <strong>{preparingSources ? "Preparing sources…" : "Upload files"}</strong>
-            <span>PDF, image, TXT or Markdown · up to 3</span>
-          </button>
+          <div className="learning-notebook-source-row">
+            <div className="learning-notebook-upload-column">
+              <button
+                className="learning-dropzone"
+                disabled={preparingSources || sources.length >= MAX_CHAT_ATTACHMENTS}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  handleFiles(event.dataTransfer.files);
+                }}
+                type="button"
+              >
+                {preparingSources ? <LoaderCircle className="spinner" size={25} /> : <UploadCloud size={25} />}
+                <strong>{preparingSources ? "Preparing sources…" : "Upload files"}</strong>
+                <span>PDF, image, TXT or Markdown · up to 3</span>
+              </button>
+            </div>
+            <span aria-hidden="true" className="learning-notebook-source-divider" />
+            <div className="learning-notebook-prompt-column">
+              <label className="learning-field learning-prompt-field">
+                <span>What do you want to learn?</span>
+                <textarea
+                  disabled={analyzing}
+                  maxLength={MAX_LEARNING_PROMPT_CHARS}
+                  onChange={(event) => {
+                    setLearningPrompt(event.target.value);
+                    setAnalysisError("");
+                  }}
+                  placeholder={curriculumExamples.learningPromptPlaceholder}
+                  rows={5}
+                  value={learningPrompt}
+                />
+                <small className="learning-prompt-meta">
+                  <span>
+                    {learningPrompt.length.toLocaleString()}/{MAX_LEARNING_PROMPT_CHARS.toLocaleString()}
+                  </span>
+                </small>
+              </label>
+            </div>
+          </div>
 
           {sourceError && <p className="learning-inline-error" role="alert">{sourceError}</p>}
           {sources.length > 0 && (
@@ -3597,7 +3644,6 @@ function StartLearningPage({
             </div>
           )}
 
-          <div className="learning-or-divider"><span>or build from a prompt</span></div>
           <div
             className={subjectPickerOpen
               ? "learning-field learning-subject-field is-open"
@@ -3701,96 +3747,38 @@ function StartLearningPage({
                 : "No saved subjects yet. Type a subject here or add one from the Subjects page."}
             </small>
           </div>
-          <div className="learning-scope-builder">
-            <div className="learning-scope-heading">
-              <span>Notebook scope</span>
-              <small>Link generated content to a chapter and topic from this subject.</small>
-            </div>
-            <div className="learning-scope-fields">
-              <label className="learning-field">
-                <span>Chapter</span>
-                <input
-                  autoComplete="off"
-                  disabled={analyzing}
-                  list="learning-chapter-options"
-                  onChange={(event) => {
-                    const nextChapter = event.target.value;
-                    setScopeChapter(nextChapter);
-                    if (!nextChapter.trim()) setScopeTopic("");
-                    setAnalysisError("");
-                  }}
-                  placeholder={savedChapterOptions.length ? "Choose or type a chapter" : curriculumExamples.chapterPlaceholder}
-                  value={scopeChapter}
-                />
-                <datalist id="learning-chapter-options">
-                  {savedChapterOptions.map((chapter) => (
-                    <option key={chapter} value={chapter} />
-                  ))}
-                </datalist>
-                <small>
-                  {savedChapterOptions.length
-                    ? `${savedChapterOptions.length} saved chapter${savedChapterOptions.length === 1 ? "" : "s"} available.`
-                    : "Type a chapter or leave it blank for AI to organize."}
-                </small>
-              </label>
-              <label className="learning-field">
-                <span>Topic</span>
-                <input
-                  autoComplete="off"
-                  disabled={analyzing || !scopeChapter.trim()}
-                  list="learning-topic-options"
-                  onChange={(event) => {
-                    setScopeTopic(event.target.value);
-                    setAnalysisError("");
-                  }}
-                  placeholder={!scopeChapter.trim() ? "Choose a chapter first" : savedTopicOptions.length ? "Choose or type a topic" : curriculumExamples.topicPlaceholder}
-                  value={scopeTopic}
-                />
-                <datalist id="learning-topic-options">
-                  {savedTopicOptions.map((topic) => (
-                    <option key={topic} value={topic} />
-                  ))}
-                </datalist>
-                <small>Optional focus inside the selected chapter.</small>
-              </label>
-            </div>
+          <div className="learning-notebook-detail-fields">
+            <label className="learning-field">
+              <span>Chapter(s)</span>
+              <textarea
+                autoComplete="off"
+                disabled={analyzing}
+                onChange={(event) => {
+                  setManualChapters(event.target.value);
+                  setAnalysisError("");
+                }}
+                placeholder={curriculumExamples.moreChaptersPlaceholder}
+                rows={4}
+                value={manualChapters}
+              />
+              <small>Add one or more chapters with commas or new lines.</small>
+            </label>
+            <label className="learning-field">
+              <span>Topic(s)</span>
+              <textarea
+                autoComplete="off"
+                disabled={analyzing}
+                onChange={(event) => {
+                  setManualTopics(event.target.value);
+                  setAnalysisError("");
+                }}
+                placeholder={curriculumExamples.topicPlaceholder}
+                rows={4}
+                value={manualTopics}
+              />
+              <small>Add one or more topics with commas or new lines.</small>
+            </label>
           </div>
-          <label className="learning-field">
-            <span>More chapters (optional)</span>
-            <textarea
-              disabled={analyzing}
-              onChange={(event) => {
-                setManualChapters(event.target.value);
-                setAnalysisError("");
-              }}
-              placeholder={curriculumExamples.moreChaptersPlaceholder}
-              rows={4}
-              value={manualChapters}
-            />
-            <small>Add extra chapters with commas or new lines.</small>
-          </label>
-          <label className="learning-field learning-prompt-field">
-            <span>What do you want to learn?</span>
-            <textarea
-              disabled={analyzing}
-              maxLength={MAX_LEARNING_PROMPT_CHARS}
-              onChange={(event) => {
-                setLearningPrompt(event.target.value);
-                setAnalysisError("");
-              }}
-              placeholder={curriculumExamples.learningPromptPlaceholder}
-              rows={5}
-              value={learningPrompt}
-            />
-            <small className="learning-prompt-meta">
-              <span>
-                Use a prompt by itself, or combine it with a subject, chapter, topic, or upload.
-              </span>
-              <span>
-                {learningPrompt.length.toLocaleString()}/{MAX_LEARNING_PROMPT_CHARS.toLocaleString()}
-              </span>
-            </small>
-          </label>
           {!analyzing && analysisError && (
             <p className="learning-inline-error" role="alert">{analysisError}</p>
           )}
@@ -3826,29 +3814,38 @@ function StartLearningPage({
           <MedicalTrainingLabIntake
             analyzing={medicalAnalyzing}
             canAnalyze={Boolean(
-              activeNotebook?.id
+              (usesCustomMedicalSource
+                ? cleanText(medicalContext, MAX_MEDICAL_CONTEXT_CHARS)
+                : selectedMedicalSourceNotebook?.id)
               && parseCareerTopics(medicalTopics).length
               && !medicalAnalyzing
               && !saving
               && !hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)
             )}
+            context={medicalContext}
             error={medicalError}
             focus={medicalFocus}
             notebooks={courseNotebooks}
             notebooksLoading={notebooksLoading}
             onAnalyze={analyzeMedicalTopics}
+            onContextChange={(value) => {
+              setMedicalContext(value);
+              setMedicalError("");
+            }}
             onFocusChange={(value) => {
               setMedicalFocus(value);
               setMedicalError("");
             }}
             onNotebookChange={selectMedicalNotebook}
             onQuickAdd={addMedicalTopic}
+            onSourceModeChange={selectMedicalTrainingSource}
             onTopicsChange={(value) => {
               setMedicalTopics(value);
               setMedicalError("");
             }}
             saving={saving}
-            selectedNotebookId={activeNotebook?.id || ""}
+            selectedNotebookId={selectedMedicalSourceNotebook?.id || ""}
+            sourceMode={usesCustomMedicalSource ? "custom" : "notebook"}
             suggestedTopics={MEDICAL_TRAINING_STARTERS}
             topicCount={parseCareerTopics(medicalTopics).length}
             topics={medicalTopics}
@@ -3867,71 +3864,35 @@ function StartLearningPage({
               <span className="learning-count">{parseCareerTopics(careerTopics).length}/12</span>
             </div>
 
-            <fieldset className="learning-placement-source">
-              <legend>Preparation source</legend>
-              <div className="learning-placement-source-options">
-                <label className={usesCustomPlacementSource ? "is-selected" : ""}>
-                  <input
-                    checked={usesCustomPlacementSource}
-                    disabled={careerAnalyzing || saving}
-                    name="placement-source-mode"
-                    onChange={() => selectCareerPreparationSource(CUSTOM_PLACEMENT_SOURCE_VALUE)}
-                    type="radio"
-                  />
-                  <FileText aria-hidden="true" size={14} />
-                  <span>Type context</span>
-                </label>
-                <label className={!usesCustomPlacementSource ? "is-selected" : ""}>
-                  <input
-                    checked={!usesCustomPlacementSource}
-                    disabled={careerAnalyzing || saving || notebooksLoading || !courseNotebooks.length}
-                    name="placement-source-mode"
-                    onChange={() => selectCareerPreparationSource(notebookHistory[0]?.id || CUSTOM_PLACEMENT_SOURCE_VALUE)}
-                    type="radio"
-                  />
-                  <BookOpenCheck aria-hidden="true" size={14} />
-                  <span>Saved notebook</span>
-                </label>
-              </div>
-
-              {usesCustomPlacementSource ? (
-                <label className="learning-field">
-                  <span>Your context</span>
-                  <textarea
-                    className="learning-placement-context"
-                    disabled={careerAnalyzing || saving}
-                    maxLength={MAX_PLACEMENT_CONTEXT_CHARS}
-                    onChange={(event) => {
-                      setCareerContext(event.target.value);
-                      setCareerError("");
-                    }}
-                    placeholder="e.g. TCP/IP networking for a backend engineering interview, with emphasis on HTTP, routing, and API troubleshooting"
-                    rows={3}
-                    value={careerContext}
-                  />
-                  <small>
-                    Type any topic, project, job description, or interview context. A notebook is not required.
-                  </small>
-                </label>
-              ) : (
-                <label className="learning-field">
-                  <span>Notebook</span>
-                  <select
-                    disabled={careerAnalyzing || saving || notebooksLoading}
-                    onChange={(event) => selectCareerPreparationSource(event.target.value)}
-                    value={selectedCareerSourceNotebook?.id || ""}
-                  >
-                    {notebookHistory.map((notebook) => (
-                      <option key={notebook.id} value={notebook.id}>{notebook.title}</option>
-                    ))}
-                  </select>
-                  <small>The selected notebook is used as the preparation context.</small>
-                </label>
-              )}
-            </fieldset>
-
-            <div className="learning-career-fields">
-              <label className="learning-field">
+            <div className="learning-placement-source-role-row">
+              <fieldset className="learning-placement-source">
+                <legend>Preparation source</legend>
+                <div className="learning-placement-source-options">
+                  <label className={usesCustomPlacementSource ? "is-selected" : ""}>
+                    <input
+                      checked={usesCustomPlacementSource}
+                      disabled={careerAnalyzing || saving}
+                      name="placement-source-mode"
+                      onChange={() => selectCareerPreparationSource(CUSTOM_PLACEMENT_SOURCE_VALUE)}
+                      type="radio"
+                    />
+                    <FileText aria-hidden="true" size={14} />
+                    <span>Type context</span>
+                  </label>
+                  <label className={!usesCustomPlacementSource ? "is-selected" : ""}>
+                    <input
+                      checked={!usesCustomPlacementSource}
+                      disabled={careerAnalyzing || saving || notebooksLoading || !courseNotebooks.length}
+                      name="placement-source-mode"
+                      onChange={() => selectCareerPreparationSource(notebookHistory[0]?.id || CUSTOM_PLACEMENT_SOURCE_VALUE)}
+                      type="radio"
+                    />
+                    <BookOpenCheck aria-hidden="true" size={14} />
+                    <span>Saved notebook</span>
+                  </label>
+                </div>
+              </fieldset>
+              <label className="learning-field learning-placement-role">
                 <span>Target role</span>
                 <input
                   disabled={careerAnalyzing || saving}
@@ -3940,18 +3901,51 @@ function StartLearningPage({
                   value={careerRole}
                 />
               </label>
-              <label className="learning-field">
-                <span>Topics to analyze</span>
-                <textarea
-                  disabled={careerAnalyzing || saving}
-                  onChange={(event) => setCareerTopics(event.target.value)}
-                  placeholder={curriculumExamples.placementTopicsPlaceholder}
-                  rows={6}
-                  value={careerTopics}
-                />
-                <small>Separate topics with commas or new lines. Add up to 12.</small>
-              </label>
             </div>
+
+            {usesCustomPlacementSource ? (
+              <label className="learning-field">
+                <span>Your context</span>
+                <textarea
+                  className="learning-placement-context"
+                  disabled={careerAnalyzing || saving}
+                  maxLength={MAX_PLACEMENT_CONTEXT_CHARS}
+                  onChange={(event) => {
+                    setCareerContext(event.target.value);
+                    setCareerError("");
+                  }}
+                  placeholder="e.g. TCP/IP networking for a backend engineering interview, with emphasis on HTTP, routing, and API troubleshooting"
+                  rows={3}
+                  value={careerContext}
+                />
+              </label>
+            ) : (
+              <label className="learning-field">
+                <span>Notebook</span>
+                <select
+                  disabled={careerAnalyzing || saving || notebooksLoading}
+                  onChange={(event) => selectCareerPreparationSource(event.target.value)}
+                  value={selectedCareerSourceNotebook?.id || ""}
+                >
+                  {notebookHistory.map((notebook) => (
+                    <option key={notebook.id} value={notebook.id}>{notebook.title}</option>
+                  ))}
+                </select>
+                <small>The selected notebook is used as the preparation context.</small>
+              </label>
+            )}
+
+            <label className="learning-field learning-placement-topics">
+              <span>Topics to analyze</span>
+              <textarea
+                disabled={careerAnalyzing || saving}
+                onChange={(event) => setCareerTopics(event.target.value)}
+                placeholder={curriculumExamples.placementTopicsPlaceholder}
+                rows={6}
+                value={careerTopics}
+              />
+              <small>Separate topics with commas or new lines. Add up to 12.</small>
+            </label>
 
             <div className="learning-placement-suggestions" aria-label="Suggested placement topics">
               <span>Quick add</span>
@@ -4210,7 +4204,7 @@ function StartLearningPage({
                 ))}
               </ol>
             </div>
-          ) : !activeNotebook || isPlacementWorkspaceNotebook(activeNotebook) ? (
+          ) : !activeNotebook || isLearningWorkspaceNotebook(activeNotebook) ? (
             <div className="card learning-empty-stage">
               <div className="learning-empty-visual" aria-hidden="true">
                 <span><FileText size={26} /></span>
@@ -4945,9 +4939,10 @@ function StartLearningPage({
                 <>
                   <p>
                     To build Medical training, PrepMatrix sends only the academic training focus,
-                    concept labels, and relevant registered academic-profile context to Google
-                    Gemini for AI processing. The selected notebook is an owned save location; its
-                    uploaded source contents are not included in this Medical training request.
+                    concept labels, typed academic context when provided, and relevant registered
+                    academic-profile context to Google Gemini for AI processing. A selected notebook
+                    supplies context only; its uploaded source contents are not included in this
+                    Medical training request.
                   </p>
                   <p>
                     If Gemini cannot complete the request, the same focus, concept labels, and

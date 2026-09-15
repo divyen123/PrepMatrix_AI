@@ -73,6 +73,7 @@ import {
   DEFAULT_GROQ_LEARNING_FALLBACK_MODELS,
   DEFAULT_GROQ_LEARNING_MODEL,
   LEARNING_NOTEBOOKS_COLLECTION,
+  MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND,
   PLACEMENT_WORKSPACE_ARTIFACT_KIND,
   buildLearningModelCandidates,
   registerLearningNotebookRoutes,
@@ -326,6 +327,14 @@ async function getDb() {
           {
             unique: true,
             partialFilterExpression: { artifactKind: PLACEMENT_WORKSPACE_ARTIFACT_KIND },
+          },
+        ),
+        db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex(
+          { userId: 1, academicProfileId: 1, artifactKind: 1 },
+          {
+            name: "medical_training_workspace_by_profile",
+            unique: true,
+            partialFilterExpression: { artifactKind: MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND },
           },
         ),
         db.collection(KIDS_ATTEMPTS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, completedAt: -1 }),

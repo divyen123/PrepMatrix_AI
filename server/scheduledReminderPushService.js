@@ -32,6 +32,7 @@ export const AI_CREDIT_RESET_ALERT_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 
 const LEARNING_NOTEBOOKS_COLLECTION = "learningNotebooks";
 const PLACEMENT_WORKSPACE_ARTIFACT_KIND = "placement-workspace";
+const MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND = "medical-training-workspace";
 
 const LOCAL_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const LOCAL_TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -310,7 +311,11 @@ export function getStaleLearningTopicAlertOccurrences(
 
   return (Array.isArray(notebooks) ? notebooks : [])
     .map((notebook) => {
-      if (!notebook || notebook.artifactKind === PLACEMENT_WORKSPACE_ARTIFACT_KIND) return null;
+      if (
+        !notebook
+        || [PLACEMENT_WORKSPACE_ARTIFACT_KIND, MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND]
+          .includes(notebook.artifactKind)
+      ) return null;
       const id = safeText(notebook._id ?? notebook.id, 120);
       const createdAt = validDate(notebook.createdAt);
       if (!id || !createdAt) return null;
@@ -637,7 +642,9 @@ export async function runScheduledReminderPushSweep({
     const learningNotebooks = await learningNotebooksCollection.find({
       userId: user._id,
       academicProfileId: profileContext.academicProfileId,
-      artifactKind: { $ne: PLACEMENT_WORKSPACE_ARTIFACT_KIND },
+      artifactKind: {
+        $nin: [PLACEMENT_WORKSPACE_ARTIFACT_KIND, MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND],
+      },
     }).toArray();
     summary.learningNotebooksExamined += learningNotebooks.length;
     const learningAlerts = getStaleLearningTopicAlertOccurrences(learningNotebooks, {

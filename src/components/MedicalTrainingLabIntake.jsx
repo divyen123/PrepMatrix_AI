@@ -1,5 +1,7 @@
 import {
+  BookOpenCheck,
   BrainCircuit,
+  FileText,
   HeartPulse,
   LoaderCircle,
   Plus,
@@ -12,22 +14,27 @@ import { AI_FEATURES } from "../utils/aiQuota";
 function MedicalTrainingLabIntake({
   analyzing,
   canAnalyze,
+  context = "",
   error,
   focus,
   notebooks,
   notebooksLoading,
   onAnalyze,
+  onContextChange = () => {},
   onFocusChange,
   onNotebookChange,
   onQuickAdd,
+  onSourceModeChange = () => {},
   onTopicsChange,
   saving,
   selectedNotebookId,
+  sourceMode = "custom",
   suggestedTopics,
   topicCount,
   topics,
 }) {
   const inputsDisabled = analyzing || saving;
+  const usesTypedContext = sourceMode === "custom";
 
   return (
     <div className="medical-lab-intake">
@@ -35,10 +42,6 @@ function MedicalTrainingLabIntake({
         <div>
           <span className="section-tag"><HeartPulse size={13} /> Health-science reasoning lab</span>
           <h3>Build a medical training session</h3>
-          <p>
-            Choose a learning source, then add concepts or a fictional educational scenario to
-            reason through.
-          </p>
         </div>
         <span className="learning-count">{topicCount}/12</span>
       </div>
@@ -51,34 +54,35 @@ function MedicalTrainingLabIntake({
         </div>
       </div>
 
-      <label className="learning-field">
-        <span>Learning source</span>
-        <select
-          disabled={inputsDisabled || notebooksLoading || !notebooks.length}
-          onChange={(event) => onNotebookChange(event.target.value)}
-          value={selectedNotebookId}
-        >
-          <option disabled value="">
-            {notebooksLoading ? "Loading saved notebooks..." : "Choose a saved health-science notebook"}
-          </option>
-          {notebooks.map((notebook) => (
-            <option key={notebook.id} value={notebook.id}>{notebook.title}</option>
-          ))}
-        </select>
-        <small>
-          This chooses the owned notebook where you can save the training. Its uploaded contents are
-          not sent with this Medical training request.
-        </small>
-      </label>
-
-      {!notebooksLoading && !notebooks.length && (
-        <p className="learning-placement-notebook-note">
-          Build and save a health-science notebook first so you have an owned place to save training.
-        </p>
-      )}
-
-      <div className="medical-lab-fields">
-        <label className="learning-field">
+      <div className="medical-lab-source-focus-row">
+        <fieldset className="medical-lab-source">
+          <legend>Learning source</legend>
+          <div className="medical-lab-source-options">
+            <label className={usesTypedContext ? "is-selected" : ""}>
+              <input
+                checked={usesTypedContext}
+                disabled={inputsDisabled}
+                name="medical-training-source-mode"
+                onChange={() => onSourceModeChange("custom")}
+                type="radio"
+              />
+              <FileText aria-hidden="true" size={14} />
+              <span>Type context</span>
+            </label>
+            <label className={!usesTypedContext ? "is-selected" : ""}>
+              <input
+                checked={!usesTypedContext}
+                disabled={inputsDisabled || notebooksLoading || !notebooks.length}
+                name="medical-training-source-mode"
+                onChange={() => onSourceModeChange("notebook")}
+                type="radio"
+              />
+              <BookOpenCheck aria-hidden="true" size={14} />
+              <span>Saved notebook</span>
+            </label>
+          </div>
+        </fieldset>
+        <label className="learning-field medical-lab-training-focus">
           <span>Training focus</span>
           <input
             disabled={inputsDisabled}
@@ -88,18 +92,50 @@ function MedicalTrainingLabIntake({
           />
           <small>Use a discipline, system, mechanism, or reasoning skill, not a job role.</small>
         </label>
-        <label className="learning-field">
-          <span>Concepts or fictional educational scenarios</span>
-          <textarea
-            disabled={inputsDisabled}
-            onChange={(event) => onTopicsChange(event.target.value)}
-            placeholder={"Mechanisms of shock\nInterpreting an arterial blood gas\nFictional acute breathlessness scenario"}
-            rows={7}
-            value={topics}
-          />
-          <small>Separate items with commas or new lines. Add up to 12.</small>
-        </label>
       </div>
+
+      {usesTypedContext ? (
+        <label className="learning-field">
+          <span>Your context</span>
+          <textarea
+            className="medical-lab-context"
+            disabled={inputsDisabled}
+            onChange={(event) => onContextChange(event.target.value)}
+            placeholder="e.g. A fictional acute care teaching case focused on respiratory physiology and safe clinical reasoning"
+            rows={3}
+            value={context}
+          />
+        </label>
+      ) : (
+        <label className="learning-field">
+          <span>Notebook</span>
+          <select
+            disabled={inputsDisabled || notebooksLoading}
+            onChange={(event) => onNotebookChange(event.target.value)}
+            value={selectedNotebookId}
+          >
+            <option disabled value="">
+              {notebooksLoading ? "Loading saved notebooks..." : "Choose a saved health-science notebook"}
+            </option>
+            {notebooks.map((notebook) => (
+              <option key={notebook.id} value={notebook.id}>{notebook.title}</option>
+            ))}
+          </select>
+          <small>The selected notebook is used as the learning context.</small>
+        </label>
+      )}
+
+      <label className="learning-field medical-lab-topics">
+        <span>Concepts or fictional educational scenarios</span>
+        <textarea
+          disabled={inputsDisabled}
+          onChange={(event) => onTopicsChange(event.target.value)}
+          placeholder={"Mechanisms of shock\nInterpreting an arterial blood gas\nFictional acute breathlessness scenario"}
+          rows={6}
+          value={topics}
+        />
+        <small>Separate items with commas or new lines. Add up to 12.</small>
+      </label>
 
       <div className="medical-lab-quick-add" aria-label="Suggested health-science reasoning topics">
         <span>Reasoning starters</span>

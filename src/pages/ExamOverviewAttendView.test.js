@@ -73,6 +73,21 @@ test("matches Planner-style card motion across input, theme, and viewport modes"
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.exam-feature-card/u);
 });
 
+test("keeps enabled Overview cards color-toned while locked cards stay muted", () => {
+  assert.match(
+    stylesheet,
+    /body \.exam-page \.exam-feature-card:not\(:disabled\)\s*\{[\s\S]*?border-color: color-mix\(in srgb, var\(--exam-feature-tone\) 52%, var\(--border\)\) !important;[\s\S]*?color-mix\(in srgb, var\(--exam-feature-tone\) 27%, transparent\)[\s\S]*?0 24px 55px/u,
+  );
+  assert.match(
+    stylesheet,
+    /body\.has-bg-image:not\(\.no-glass-cards\) \.exam-page \.exam-feature-card:not\(:disabled\)\s*\{[\s\S]*?color-mix\(in srgb, var\(--exam-feature-tone\) 29%, transparent\)/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.exam-feature-card\.is-locked:disabled\s*\{[\s\S]*?opacity: 0\.72;/u,
+  );
+});
+
 test("removes only the requested Attend Exam subtitle", () => {
   assert.doesNotMatch(
     pageSource,

@@ -1,5 +1,6 @@
 import { getPlacementHistory } from "./placementPreparation.js";
 import {
+  MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND,
   PLACEMENT_WORKSPACE_ARTIFACT_KIND,
   normalizePlacementPreparationSource,
 } from "./learningNotebook.js";
@@ -51,9 +52,17 @@ export function isPlacementWorkspaceNotebook(notebook) {
   return String(notebook?.artifactKind || "").trim() === PLACEMENT_WORKSPACE_ARTIFACT_KIND;
 }
 
+export function isMedicalTrainingWorkspaceNotebook(notebook) {
+  return String(notebook?.artifactKind || "").trim() === MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND;
+}
+
+export function isLearningWorkspaceNotebook(notebook) {
+  return isPlacementWorkspaceNotebook(notebook) || isMedicalTrainingWorkspaceNotebook(notebook);
+}
+
 export function sortStartLearningNotebooks(notebooks = []) {
   return [...(Array.isArray(notebooks) ? notebooks : [])]
-    .filter((notebook) => !isPlacementWorkspaceNotebook(notebook))
+    .filter((notebook) => !isLearningWorkspaceNotebook(notebook))
     .sort((left, right) => {
       const pinOrder = Number(right?.pinned === true) - Number(left?.pinned === true);
       if (pinOrder) return pinOrder;
