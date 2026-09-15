@@ -225,7 +225,7 @@ test("keeps notebook uploads and prompts together with plural chapter and topic 
   );
   assert.match(
     stylesheet,
-    /\.learning-notebook-source-row\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*minmax\(0, 35fr\) 1px minmax\(0, 65fr\);/u,
+    /\.learning-notebook-source-row\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*minmax\(0, 30fr\) 1px minmax\(0, 70fr\);/u,
   );
   assert.match(
     stylesheet,

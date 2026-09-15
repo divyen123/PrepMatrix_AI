@@ -220,7 +220,7 @@ body .learning-page .learning-dropzone {
 .learning-notebook-source-row {
   --learning-notebook-source-control-height: 118px;
   display: grid;
-  grid-template-columns: minmax(0, 35fr) 1px minmax(0, 65fr);
+  grid-template-columns: minmax(0, 30fr) 1px minmax(0, 70fr);
   align-items: stretch;
   gap: clamp(14px, 2vw, 24px);
 }
