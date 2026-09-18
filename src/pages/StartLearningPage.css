@@ -237,7 +237,7 @@ body .learning-page .learning-dropzone {
 }
 
 .learning-notebook-upload-column .learning-dropzone {
-  flex: 0 0 var(--learning-notebook-source-control-height);
+  flex: 0 0 calc(var(--learning-notebook-source-control-height) + 16px);
   min-height: var(--learning-notebook-source-control-height);
   height: var(--learning-notebook-source-control-height);
 }
@@ -3770,6 +3770,19 @@ body .learning-page .learning-content-card:hover {
   transform: none;
 }
 
+/* Keep the Topic outline workspace free of the generic card glow. */
+body .learning-page .learning-content-card:has(> .learning-tab-panels > .learning-outline-view.is-active),
+body .learning-page .learning-content-card:has(> .learning-tab-panels > .learning-outline-view.is-active):hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .learning-page .learning-content-card:has(> .learning-tab-panels > .learning-outline-view.is-active)::before,
+body .learning-page .learning-content-card:has(> .learning-tab-panels > .learning-outline-view.is-active):hover::before {
+  opacity: 0 !important;
+  transform: translateX(-100%) !important;
+}
+
 .learning-note-section {
   background: var(--surface-muted);
 }
@@ -3812,16 +3825,13 @@ body .learning-page .learning-content-card:hover {
   line-height: 1.65;
 }
 
-.learning-outline-topic {
+body .learning-page .learning-outline-topic,
+body .learning-page .learning-outline-topic:hover {
   padding: 12px;
-  background: var(--surface-muted);
+  background: var(--surface-strong);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  box-shadow: none;
-}
-
-.learning-outline-topic:hover {
-  background: var(--surface-strong);
+  border-color: rgba(var(--accent-rgb), 0.5);
   box-shadow: none;
 }
 

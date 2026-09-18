@@ -3564,10 +3564,8 @@ function StartLearningPage({
           <>
           <div className="learning-panel-heading">
             <div>
-              <span className="section-tag">Sources</span>
               <h3>Build a notebook</h3>
             </div>
-            <span className="learning-count">{sources.length}/{MAX_CHAT_ATTACHMENTS}</span>
           </div>
 
           <input
@@ -3847,21 +3845,18 @@ function StartLearningPage({
             selectedNotebookId={selectedMedicalSourceNotebook?.id || ""}
             sourceMode={usesCustomMedicalSource ? "custom" : "notebook"}
             suggestedTopics={MEDICAL_TRAINING_STARTERS}
-            topicCount={parseCareerTopics(medicalTopics).length}
             topics={medicalTopics}
           />
           ) : intakeMode === "placement" ? (
           <div className="learning-placement-intake">
             <div className="learning-panel-heading">
               <div>
-                <span className="section-tag"><Sparkles size={13} /> Personalized analysis</span>
                 <h3>Build your placement preparation</h3>
                 <p>
                   Use a saved notebook or type your own context, then choose the interview topics
                   you want explained.
                 </p>
               </div>
-              <span className="learning-count">{parseCareerTopics(careerTopics).length}/12</span>
             </div>
 
             <div className="learning-placement-source-role-row">

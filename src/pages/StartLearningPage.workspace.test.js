@@ -233,7 +233,7 @@ test("keeps notebook uploads and prompts together with plural chapter and topic 
   );
   assert.match(
     stylesheet,
-    /\.learning-notebook-upload-column \.learning-dropzone\s*\{[\s\S]*?flex:\s*0 0 var\(--learning-notebook-source-control-height\);[\s\S]*?height:\s*var\(--learning-notebook-source-control-height\);/u,
+    /\.learning-notebook-upload-column \.learning-dropzone\s*\{[\s\S]*?flex:\s*0 0 calc\(var\(--learning-notebook-source-control-height\) \+ 16px\);[\s\S]*?height:\s*var\(--learning-notebook-source-control-height\);/u,
   );
   assert.match(
     stylesheet,

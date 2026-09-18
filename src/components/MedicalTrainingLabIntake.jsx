@@ -2,7 +2,6 @@ import {
   BookOpenCheck,
   BrainCircuit,
   FileText,
-  HeartPulse,
   LoaderCircle,
   Plus,
   ShieldCheck,
@@ -29,7 +28,6 @@ function MedicalTrainingLabIntake({
   selectedNotebookId,
   sourceMode = "custom",
   suggestedTopics,
-  topicCount,
   topics,
 }) {
   const inputsDisabled = analyzing || saving;
@@ -39,10 +37,8 @@ function MedicalTrainingLabIntake({
     <div className="medical-lab-intake">
       <div className="medical-lab-intake__heading">
         <div>
-          <span className="section-tag"><HeartPulse size={13} /> Health-science reasoning lab</span>
           <h3>Build a medical training session</h3>
         </div>
-        <span className="learning-count">{topicCount}/12</span>
       </div>
 
       <div className="medical-lab-privacy" role="note">
