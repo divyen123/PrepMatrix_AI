@@ -128,6 +128,7 @@ import {
   hasLearningPrivacyConsent,
 } from "../utils/learningPrivacyConsent";
 import {
+  getSubjectNotebookPrefill,
   normalizeSubjectNames,
 } from "../utils/subjectPlanning";
 import "./StartLearningPage.css";
@@ -1414,7 +1415,12 @@ function StartLearningPage({
   };
 
   const chooseSavedSubject = (name) => {
+    const prefill = getSubjectNotebookPrefill(subjects, name);
     setSubjectName(name);
+    if (prefill) {
+      setManualChapters(prefill.chapterNames.join("\n"));
+      setManualTopics(prefill.topics.join("\n"));
+    }
     setSubjectPickerOpen(false);
     setSubjectOptionIndex(0);
     setAnalysisError("");
@@ -3670,7 +3676,13 @@ function StartLearningPage({
                 disabled={analyzing}
                 id="learning-subject-input"
                 onChange={(event) => {
-                  setSubjectName(event.target.value);
+                  const nextSubjectName = event.target.value;
+                  const prefill = getSubjectNotebookPrefill(subjects, nextSubjectName);
+                  setSubjectName(nextSubjectName);
+                  if (prefill) {
+                    setManualChapters(prefill.chapterNames.join("\n"));
+                    setManualTopics(prefill.topics.join("\n"));
+                  }
                   setSubjectOptionIndex(0);
                   setSubjectPickerOpen(savedSubjectNames.length > 0);
                 }}

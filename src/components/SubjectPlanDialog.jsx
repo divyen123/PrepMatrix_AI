@@ -11,20 +11,12 @@ import {
   X,
 } from "lucide-react";
 import {
-  DEFAULT_STUDY_PREFERENCES,
   applySubjectChapterNameDraft,
   normalizeSubjectChapterNames,
-  normalizeStudyPreferences,
   normalizeSubjectTopics,
 } from "../utils/subjectPlanning";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import "./SubjectPlanDialog.css";
-
-const GOAL_COPY = {
-  coverage: "Cover each study unit once in a clear sequence.",
-  practice: "Turn each unit into a focused practice session.",
-  revision: "Treat each unit as a compact revision block.",
-};
 
 function SubjectPlanDialog({
   academicProfile = {},
@@ -49,10 +41,6 @@ function SubjectPlanDialog({
   const [topicInput, setTopicInput] = useState("");
   const [topicError, setTopicError] = useState("");
   const [topics, setTopics] = useState(() => normalizeSubjectTopics(subject?.topics));
-  const [difficulty, setDifficulty] = useState(subject?.difficulty || "medium");
-  const [preferences, setPreferences] = useState(() =>
-    normalizeStudyPreferences(subject?.studyPreferences)
-  );
   const curriculumExamples = useMemo(
     () => getAcademicProfileExamples(academicProfile),
     [academicProfile]
@@ -63,18 +51,14 @@ function SubjectPlanDialog({
   }, [onClose]);
 
   const originalConfiguration = useMemo(() => ({
-    difficulty: subject?.difficulty || "medium",
     chapterNames: normalizeSubjectChapterNames(subject?.chapterNames, chapterCount),
     topics: normalizeSubjectTopics(subject?.topics),
-    studyPreferences: normalizeStudyPreferences(subject?.studyPreferences),
   }), [chapterCount, subject]);
 
   const nextConfiguration = useMemo(() => ({
-    difficulty,
     chapterNames: normalizeSubjectChapterNames(chapterNames, chapterCount),
     topics: normalizeSubjectTopics(topics),
-    studyPreferences: normalizeStudyPreferences(preferences),
-  }), [chapterCount, chapterNames, difficulty, preferences, topics]);
+  }), [chapterCount, chapterNames, topics]);
 
   const hasPendingChapterName = Boolean(String(chapterNameInput || "").trim());
   const isDirty = hasPendingChapterName || JSON.stringify(originalConfiguration) !== JSON.stringify(nextConfiguration);
@@ -291,8 +275,6 @@ function SubjectPlanDialog({
     setChapterNumber(1);
     setChapterError("");
     setTopics([]);
-    setPreferences({ ...DEFAULT_STUDY_PREFERENCES });
-    setDifficulty(subject?.difficulty || "medium");
     setTopicInput("");
     setTopicError("");
   };
@@ -355,7 +337,7 @@ function SubjectPlanDialog({
             onClick={() => requestClose()}
             type="button"
           >
-            <X size={18} />
+            <X size={15} />
           </button>
         </header>
 
@@ -527,88 +509,6 @@ function SubjectPlanDialog({
             </div>
           </section>
 
-          <section className="subject-plan-panel subject-rhythm-panel" aria-labelledby="subject-rhythm-heading">
-              <div className="subject-plan-panel-heading">
-                <div>
-                  <span className="subject-plan-step">02</span>
-                  <div>
-                    <h3 id="subject-rhythm-heading">Study rhythm</h3>
-                    <p>These settings shape order, frequency, and time labels.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="subject-plan-fields">
-                <label>
-                  <span>Difficulty</span>
-                  <select onChange={(event) => setDifficulty(event.target.value)} value={difficulty}>
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Target sessions / week</span>
-                  <select
-                    onChange={(event) => setPreferences((current) => ({
-                      ...current,
-                      sessionsPerWeek: Number(event.target.value),
-                    }))}
-                    value={preferences.sessionsPerWeek}
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7].map((value) => (
-                      <option key={value} value={value}>{value} {value === 1 ? "session" : "sessions"}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>Session length</span>
-                  <select
-                    onChange={(event) => setPreferences((current) => ({
-                      ...current,
-                      sessionMinutes: Number(event.target.value),
-                    }))}
-                    value={preferences.sessionMinutes}
-                  >
-                    {[25, 40, 45, 60, 90].map((value) => (
-                      <option key={value} value={value}>{value} minutes</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>Preferred time</span>
-                  <select
-                    onChange={(event) => setPreferences((current) => ({
-                      ...current,
-                      preferredTime: event.target.value,
-                    }))}
-                    value={preferences.preferredTime}
-                  >
-                    <option value="any">Flexible</option>
-                    <option value="morning">Morning</option>
-                    <option value="midday">Midday</option>
-                    <option value="afternoon">Afternoon</option>
-                    <option value="evening">Evening</option>
-                    <option value="night">Night</option>
-                  </select>
-                </label>
-                <label className="subject-plan-field-full">
-                  <span>Study goal</span>
-                  <select
-                    onChange={(event) => setPreferences((current) => ({
-                      ...current,
-                      studyGoal: event.target.value,
-                    }))}
-                    value={preferences.studyGoal}
-                  >
-                    <option value="coverage">Learn and cover</option>
-                    <option value="practice">Practice and apply</option>
-                    <option value="revision">Revise and retain</option>
-                  </select>
-                  <small>{GOAL_COPY[preferences.studyGoal]}</small>
-                </label>
-              </div>
-          </section>
         </div>
 
         <footer className="subject-plan-footer">

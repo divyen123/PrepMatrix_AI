@@ -251,6 +251,30 @@ test("keeps notebook uploads and prompts together with plural chapter and topic 
   assert.match(pageSource, /topics: topicNames,/u);
 });
 
+test("prefills editable notebook details from a selected saved subject and keeps its menu opaque", () => {
+  const chooserStart = pageSource.indexOf("const chooseSavedSubject = (name) => {");
+  const chooserEnd = pageSource.indexOf("const handleSubjectPickerKeyDown", chooserStart);
+  const chooserSource = pageSource.slice(chooserStart, chooserEnd);
+
+  assert.ok(chooserStart >= 0 && chooserEnd > chooserStart, "expected saved-subject chooser");
+  assert.match(
+    chooserSource,
+    /getSubjectNotebookPrefill\(subjects, name\)[\s\S]*?setManualChapters\(prefill\.chapterNames\.join\("\\n"\)\)[\s\S]*?setManualTopics\(prefill\.topics\.join\("\\n"\)\)/u,
+  );
+  assert.match(
+    pageSource,
+    /const nextSubjectName = event\.target\.value;[\s\S]*?getSubjectNotebookPrefill\(subjects, nextSubjectName\)[\s\S]*?setManualChapters\(prefill\.chapterNames\.join\("\\n"\)\)[\s\S]*?setManualTopics\(prefill\.topics\.join\("\\n"\)\)/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-subject-options\s*\{[\s\S]*?background:\s*linear-gradient\(var\(--surface-strong\), var\(--surface-strong\)\), var\(--bg\);[\s\S]*?backdrop-filter:\s*none;/u,
+  );
+  assert.match(
+    stylesheet,
+    /body\.has-bg-image \.learning-page \.learning-subject-options\s*\{[\s\S]*?background:\s*linear-gradient\(var\(--surface-strong\), var\(--surface-strong\)\), var\(--bg\) !important;/u,
+  );
+});
+
 test("opens generated notebooks on a real topic and keeps focused sessions topic-scoped", () => {
   assert.ok(
     pageSource.includes(

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   applySubjectChapterNameDraft,
+  getSubjectNotebookPrefill,
   getSubjectStudyUnits,
   getSubjectStudyUnitRecords,
   normalizeStudyPreferences,
@@ -36,6 +37,35 @@ test("normalizes optional topics without blanks or case-insensitive duplicates",
     normalizeSubjectTopics([" Arrays ", "", "arrays", { title: "Trees" }, { name: "Graphs" }]),
     ["Arrays", "Trees", "Graphs"],
   );
+});
+
+test("returns saved subject chapters and topics for notebook preparation", () => {
+  assert.deepEqual(
+    getSubjectNotebookPrefill([
+      {
+        name: "Computer Networks",
+        chapters: 2,
+        chapterNames: [" Network models ", "Routing"],
+        topics: ["Packets", { title: "TCP" }, "packets"],
+      },
+    ], "computer networks"),
+    {
+      chapterNames: ["Network models", "Routing"],
+      topics: ["Packets", "TCP"],
+    },
+  );
+  assert.deepEqual(
+    getSubjectNotebookPrefill([{
+      name: "Biology",
+      chapters: [{ name: "Cells", topics: ["Organelles"] }],
+      topics: ["Genetics"],
+    }], "Biology"),
+    {
+      chapterNames: ["Cells"],
+      topics: ["Genetics", "Organelles"],
+    },
+  );
+  assert.equal(getSubjectNotebookPrefill([], "Unknown"), null);
 });
 
 test("adds focus topics alongside every named or fallback chapter", () => {

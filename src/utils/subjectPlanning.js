@@ -38,6 +38,43 @@ export function normalizeSubjectNames(value) {
   return names;
 }
 
+function subjectName(subject) {
+  const rawName = typeof subject === "string"
+    ? subject
+    : subject?.name ?? subject?.subjectName ?? subject?.title ?? subject?.label;
+  return String(rawName || "").trim().slice(0, 160);
+}
+
+function asList(value) {
+  if (Array.isArray(value)) return value;
+  return value === undefined || value === null || value === "" ? [] : [value];
+}
+
+export function getSubjectNotebookPrefill(subjects, selectedSubjectName) {
+  const selectedKey = String(selectedSubjectName || "").trim().toLocaleLowerCase();
+  if (!selectedKey || !Array.isArray(subjects)) return null;
+
+  const subject = subjects.find((candidate) => (
+    subjectName(candidate).toLocaleLowerCase() === selectedKey
+  ));
+  if (!subject || typeof subject !== "object") return null;
+
+  const configuredChapterNames = asList(subject.chapterNames);
+  const chapterSource = configuredChapterNames.length
+    ? configuredChapterNames
+    : Array.isArray(subject.chapters) ? subject.chapters : [];
+  const chapterNames = normalizeSubjectChapterNames(chapterSource, chapterSource.length)
+    .filter(Boolean);
+  const nestedTopics = Array.isArray(subject.chapters)
+    ? subject.chapters.flatMap((chapter) => asList(chapter?.topics))
+    : [];
+
+  return {
+    chapterNames,
+    topics: normalizeSubjectTopics([...asList(subject.topics), ...nestedTopics]),
+  };
+}
+
 export function normalizeSubjectTopics(value) {
   if (!Array.isArray(value)) return [];
 
