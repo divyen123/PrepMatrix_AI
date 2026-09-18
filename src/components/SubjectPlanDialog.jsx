@@ -5,12 +5,8 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronRight,
-  Clock3,
-  Layers3,
   Plus,
   RotateCcw,
-  Sparkles,
-  Target,
   Trash2,
   X,
 } from "lucide-react";
@@ -18,7 +14,6 @@ import {
   DEFAULT_STUDY_PREFERENCES,
   applySubjectChapterNameDraft,
   normalizeSubjectChapterNames,
-  getSubjectPlanAnalysis,
   normalizeStudyPreferences,
   normalizeSubjectTopics,
 } from "../utils/subjectPlanning";
@@ -83,14 +78,6 @@ function SubjectPlanDialog({
 
   const hasPendingChapterName = Boolean(String(chapterNameInput || "").trim());
   const isDirty = hasPendingChapterName || JSON.stringify(originalConfiguration) !== JSON.stringify(nextConfiguration);
-  const configuredSubject = useMemo(
-    () => ({ ...subject, ...nextConfiguration }),
-    [nextConfiguration, subject],
-  );
-  const analysis = useMemo(
-    () => getSubjectPlanAnalysis(configuredSubject),
-    [configuredSubject],
-  );
   const selectedTopicKeys = useMemo(
     () => new Set(topics.map((topic) => topic.toLocaleLowerCase())),
     [topics],
@@ -339,14 +326,6 @@ function SubjectPlanDialog({
     requestClose(onOpenPlanner);
   };
 
-  const hours = analysis.totalMinutes / 60;
-  const hoursLabel = Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
-  const contentSummary = [
-    `${chapterCount} ${chapterCount === 1 ? "chapter" : "chapters"}`,
-    namedChapters.length ? `${namedChapters.length} named` : null,
-    topics.length ? `${topics.length} focus ${topics.length === 1 ? "topic" : "topics"}` : null,
-  ].filter(Boolean).join(", ");
-
   return createPortal(
     <div
       className={`subject-plan-backdrop${isClosing ? " is-closing" : ""}`}
@@ -380,29 +359,6 @@ function SubjectPlanDialog({
           </button>
         </header>
 
-        <div className="subject-plan-summary" aria-label="Current subject plan summary">
-          <article>
-            <Layers3 aria-hidden="true" size={16} />
-            <span>Study units</span>
-            <strong>{analysis.unitCount}</strong>
-          </article>
-          <article>
-            <CalendarDays aria-hidden="true" size={16} />
-            <span>Weekly target</span>
-            <strong>{analysis.preferences.sessionsPerWeek} sessions</strong>
-          </article>
-          <article>
-            <Clock3 aria-hidden="true" size={16} />
-            <span>Session length</span>
-            <strong>{analysis.preferences.sessionMinutes} min</strong>
-          </article>
-          <article>
-            <Target aria-hidden="true" size={16} />
-            <span>Plan intensity</span>
-            <strong>{analysis.intensity}</strong>
-          </article>
-        </div>
-
         <div className="subject-plan-body">
           <section className="subject-plan-panel subject-topic-panel" aria-labelledby="subject-content-heading">
             <div className="subject-plan-panel-heading">
@@ -419,9 +375,7 @@ function SubjectPlanDialog({
               <div className="subject-unit-group-heading">
                 <div>
                   <h4>Chapter names</h4>
-                  <p>Optional. Blank chapters stay as Chapter N.</p>
                 </div>
-                <span className="subject-plan-count">{namedChapters.length}/{chapterCount}</span>
               </div>
 
               <div className="subject-chapter-composer">
@@ -505,7 +459,6 @@ function SubjectPlanDialog({
               <div className="subject-unit-group-heading">
                 <div>
                   <h4>Focus topics</h4>
-                  <p>Optional topics are added alongside every chapter.</p>
                 </div>
                 <span className="subject-plan-count">{topics.length}/60</span>
               </div>
@@ -574,8 +527,7 @@ function SubjectPlanDialog({
             </div>
           </section>
 
-          <aside className="subject-plan-side">
-            <section className="subject-plan-panel" aria-labelledby="subject-rhythm-heading">
+          <section className="subject-plan-panel subject-rhythm-panel" aria-labelledby="subject-rhythm-heading">
               <div className="subject-plan-panel-heading">
                 <div>
                   <span className="subject-plan-step">02</span>
@@ -656,24 +608,7 @@ function SubjectPlanDialog({
                   <small>{GOAL_COPY[preferences.studyGoal]}</small>
                 </label>
               </div>
-            </section>
-
-            <section className="subject-plan-analysis" aria-labelledby="subject-analysis-heading">
-              <div>
-                <span><Sparkles size={14} /> Planner analysis</span>
-                <strong id="subject-analysis-heading">{analysis.estimatedWeeks} week{analysis.estimatedWeeks === 1 ? "" : "s"} at target pace</strong>
-              </div>
-              <p>
-                {contentSummary}. Approximately <strong>{hoursLabel} hours</strong> across {analysis.unitCount} planned sessions.
-              </p>
-              <div className="subject-plan-analysis-bar" aria-hidden="true">
-                <span style={{ width: `${Math.min(100, Math.max(16, (analysis.unitCount / Math.max(analysis.preferences.sessionsPerWeek * 4, 1)) * 100))}%` }} />
-              </div>
-              <small>
-                Focus topics are added alongside chapters. Unnamed chapters keep their Chapter N fallback.
-              </small>
-            </section>
-          </aside>
+          </section>
         </div>
 
         <footer className="subject-plan-footer">
