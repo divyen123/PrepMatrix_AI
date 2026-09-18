@@ -2631,7 +2631,7 @@ function App() {
 
     // Canvas Background colors
     const bgLight = localStorage.getItem("prepmatrix_bg_light") || "#f8fafc";
-    const bgDark = localStorage.getItem("prepmatrix_bg_dark") || "#090d16";
+    const bgDark = localStorage.getItem("prepmatrix_bg_dark") || "#070b15";
     const activeBg = effectiveDarkMode ? bgDark : bgLight;
     document.documentElement.style.setProperty("--bg", activeBg);
     document.body.style.setProperty("--bg", activeBg);

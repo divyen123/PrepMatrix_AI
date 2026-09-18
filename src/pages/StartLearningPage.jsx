@@ -3546,7 +3546,7 @@ function StartLearningPage({
                     title="Subject mastery"
                     type="button"
                   >
-                    <Target aria-hidden="true" size={18} />
+                    <Target aria-hidden="true" size={15} />
                   </button>
                 )}
                 <button
@@ -4306,6 +4306,7 @@ function StartLearningPage({
                           style={{ "--reveal-index": index }}
                         >
                           <button
+                            aria-controls={`learning-question-answer-${question.id}`}
                             aria-expanded={expanded}
                             onClick={() => toggleQuestion(question.id)}
                             type="button"
@@ -4315,10 +4316,14 @@ function StartLearningPage({
                               <small>{question.priority}</small>
                               <strong>{question.question}</strong>
                             </span>
-                            {expanded ? <ChevronDown size={17} /> : <ChevronRight size={17} />}
+                            <ChevronDown aria-hidden="true" className="learning-question-chevron" size={17} />
                           </button>
-                          {expanded && (
-                            <div className="learning-question-answer">
+                          <div
+                            aria-hidden={!expanded}
+                            className="learning-question-answer"
+                            id={`learning-question-answer-${question.id}`}
+                          >
+                            <div className="learning-question-answer__content">
                               {(question.answer || "Use Ask AI to work through this question step by step.")
                                 .split(/\n{2,}/)
                                 .filter(Boolean)
@@ -4332,7 +4337,7 @@ function StartLearningPage({
                                 </aside>
                               )}
                             </div>
-                          )}
+                          </div>
                         </article>
                       );
                     })}

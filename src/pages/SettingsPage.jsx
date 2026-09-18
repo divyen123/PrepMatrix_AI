@@ -907,7 +907,7 @@ function SettingsPage({
     localStorage.getItem("prepmatrix_bg_light") || "#e2e8f0"
   );
   const [bgDark, setBgDark] = useState(
-    localStorage.getItem("prepmatrix_bg_dark") || "#1e293b"
+    localStorage.getItem("prepmatrix_bg_dark") || "#070b15"
   );
 
   // Glassy toggles state
@@ -1084,7 +1084,7 @@ function SettingsPage({
     transparency: localStorage.getItem("prepmatrix_accent_opacity") || "0.16",
     contrast: localStorage.getItem("prepmatrix_border_opacity") || "0.3",
     bgLight: localStorage.getItem("prepmatrix_bg_light") || "#f8fafc",
-    bgDark: localStorage.getItem("prepmatrix_bg_dark") || "#090d16",
+    bgDark: localStorage.getItem("prepmatrix_bg_dark") || "#070b15",
     glassyCards: localStorage.getItem("prepmatrix_glassy_panels") !== "false",
     glassyButtons: localStorage.getItem("prepmatrix_glassy_buttons") !== "false",
     fontStyle: localStorage.getItem("prepmatrix_font_style") || "sans",

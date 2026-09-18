@@ -206,12 +206,17 @@ function PlannerUnlockQuizDialog({
   const normalizedTopicDetails = normalizePlannerUnlockTopicDetails(topicDetails);
   const isTopicDetailsRequired = Boolean(context?.needsTopicDetails);
 
+  const preventBackdropDismissal = (event) => {
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   const dialog = (
     <div
       className="planner-unlock-quiz-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onCloseRef.current?.();
-      }}
+      onClick={preventBackdropDismissal}
+      onMouseDown={preventBackdropDismissal}
       role="presentation"
     >
       <section

@@ -24001,3 +24001,57 @@ body .resource-detail-back:focus-visible {
   width: min(100%, 980px);
   max-width: 100% !important;
 }
+
+/* Deepen the saved Color Palette in dark mode without changing image themes. */
+body.dark:not(.has-bg-image) {
+  --palette-dark-canvas: color-mix(in srgb, var(--bg) 62%, #020617);
+  --palette-dark-depth: color-mix(in srgb, var(--bg) 44%, #020617);
+  --surface: rgba(7, 13, 25, 0.9);
+  --surface-strong: rgba(11, 19, 34, 0.97);
+  --surface-muted: rgba(218, 229, 255, 0.04);
+  --border: rgba(204, 219, 255, 0.11);
+  --shadow: 0 28px 80px rgba(0, 0, 0, 0.5);
+  --shadow-soft: 0 14px 34px rgba(0, 0, 0, 0.32);
+  --gradient-card: linear-gradient(145deg, rgba(13, 22, 39, 0.94), rgba(5, 10, 20, 0.86));
+  background:
+    radial-gradient(circle at 12% 8%, rgba(0, 166, 200, 0.13), transparent 30%),
+    radial-gradient(circle at 82% 14%, rgba(109, 93, 252, 0.1), transparent 30%),
+    radial-gradient(circle at 58% 88%, rgba(249, 115, 91, 0.07), transparent 28%),
+    linear-gradient(135deg, var(--palette-dark-canvas), var(--palette-dark-depth));
+}
+
+body.dark:not(.has-bg-image)::before {
+  background:
+    linear-gradient(rgba(226, 232, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(226, 232, 255, 0.026) 1px, transparent 1px);
+}
+
+body.dark:not(.has-bg-image) .app-container::after {
+  opacity: 0.2;
+  background:
+    conic-gradient(from 160deg at 78% 22%, rgba(109, 93, 252, 0.17), transparent 24%, rgba(0, 166, 200, 0.13), transparent 58%, rgba(249, 115, 91, 0.08), transparent 86%),
+    radial-gradient(circle at 50% 55%, transparent, rgba(0, 0, 0, 0.72));
+}
+
+body.dark:not(.has-bg-image) .motion-stage {
+  opacity: 0.62;
+}
+
+body.dark:not(.has-bg-image) .page-glow {
+  opacity: 0.2;
+}
+
+body.dark:not(.has-bg-image) .motion-grid {
+  opacity: 0.1;
+}
+
+body.dark:not(.has-bg-image) .app-sidebar,
+body.dark:not(.has-bg-image) .workspace-topbar {
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--palette-dark-canvas) 92%, #111827),
+      color-mix(in srgb, var(--palette-dark-depth) 92%, #020617)
+    ) padding-box,
+    var(--gradient-border) border-box !important;
+}

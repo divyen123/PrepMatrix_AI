@@ -354,8 +354,39 @@ test("places Subject Mastery beside Back in Notebook preparation", () => {
     pageSource,
     /className="learning-intake-flow-actions"[\s\S]*?intakeMode === "notebook"[\s\S]*?className="learning-mastery-trigger"[\s\S]*?className="learning-intake-return-button"/u,
   );
+  assert.match(
+    pageSource,
+    /className="learning-mastery-trigger"[\s\S]*?<Target aria-hidden="true" size=\{15\} \/>/u,
+  );
+  assert.match(
+    stylesheet,
+    /body \.learning-page \.learning-mastery-trigger\s*\{[\s\S]*?width:\s*34px !important;[\s\S]*?height:\s*34px !important;[\s\S]*?color:\s*var\(--text-muted\) !important;[\s\S]*?background:\s*var\(--surface-muted\) !important;[\s\S]*?border:\s*1px solid var\(--border\) !important;/u,
+  );
   assert.doesNotMatch(pageSource, /AI learning workspace|className="card learning-hero"/u);
   assert.doesNotMatch(stylesheet, /\.learning-hero(?:[\s:{])/u);
+});
+
+test("expands important questions in place with an animated answer panel", () => {
+  assert.match(
+    pageSource,
+    /aria-controls=\{`learning-question-answer-\$\{question\.id\}`\}[\s\S]*?aria-expanded=\{expanded\}[\s\S]*?<ChevronDown aria-hidden="true" className="learning-question-chevron" size=\{17\} \/>[\s\S]*?aria-hidden=\{!expanded\}[\s\S]*?className="learning-question-answer"[\s\S]*?className="learning-question-answer__content"/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-question-card\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-rows:\s*auto 0fr;[\s\S]*?transition:[\s\S]*?grid-template-rows 300ms/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-question-card\.is-open\s*\{[\s\S]*?grid-template-rows:\s*auto 1fr;[\s\S]*?border-color:/u,
+  );
+  assert.doesNotMatch(
+    stylesheet,
+    /\.learning-question-card\.is-open\s*\{[^}]*grid-column:/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.learning-question-answer\s*\{[\s\S]*?min-height:\s*0;[\s\S]*?overflow:\s*hidden;/u,
+  );
 });
 
 test("keeps the Start Learning return control inside opened notebook and placement cards", () => {

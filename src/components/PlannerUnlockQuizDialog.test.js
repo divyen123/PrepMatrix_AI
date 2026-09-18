@@ -174,11 +174,27 @@ test("planner unlock dialog explains eligibility and never starts a blocked quiz
 });
 
 test("planner unlock dialog is portaled above scroll-clipped planner cards", async () => {
+  const source = await readFile(
+    new URL("./PlannerUnlockQuizDialog.jsx", import.meta.url),
+    "utf8",
+  );
   const styles = await readFile(
     new URL("./PlannerUnlockQuizDialog.css", import.meta.url),
     "utf8",
   );
 
+  assert.match(
+    source,
+    /const preventBackdropDismissal = \(event\) => \{[\s\S]*?event\.preventDefault\(\);[\s\S]*?event\.stopPropagation\(\);[\s\S]*?\};/u,
+  );
+  assert.match(
+    source,
+    /className="planner-unlock-quiz-backdrop"[\s\S]*?onClick=\{preventBackdropDismissal\}[\s\S]*?onMouseDown=\{preventBackdropDismissal\}/u,
+  );
+  assert.doesNotMatch(
+    source,
+    /event\.target === event\.currentTarget\) onCloseRef\.current\?\.\(\)/u,
+  );
   assert.match(
     styles,
     /\.planner-unlock-quiz-backdrop\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*3200;/su,
@@ -186,6 +202,10 @@ test("planner unlock dialog is portaled above scroll-clipped planner cards", asy
   assert.match(
     styles,
     /\.planner-unlock-quiz-dialog\s*\{[^}]*max-height:[^;]+;[^}]*overflow:\s*hidden;/su,
+  );
+  assert.match(
+    styles,
+    /\.planner-unlock-quiz-dialog\s*\{[\s\S]*?background:[\s\S]*?var\(--bg\);/u,
   );
   const primaryButtonRule = styles.match(
     /body \.planner-unlock-quiz-dialog \.planner-unlock-quiz-primary\s*\{[^}]*\}/su,
