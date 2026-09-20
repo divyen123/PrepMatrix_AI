@@ -8998,8 +8998,8 @@ body.dark .app-container::after {
 @media (min-width: 992px) {
   .app-shell-layout.has-sidebar.is-sidebar-collapsed .app-main-content {
     margin-left: 180px !important;
-    width: calc(100% - 280px) !important;
-    max-width: calc(100% - 280px) !important;
+    width: calc(var(--app-scaled-viewport-width, 100vw) - 280px) !important;
+    max-width: calc(var(--app-scaled-viewport-width, 100vw) - 280px) !important;
   }
   
   .app-shell-layout.has-sidebar .workspace-topbar {
@@ -9968,9 +9968,10 @@ body.dark .completion-reward-popup {
 
 /* Final shell alignment polish */
 @media (min-width: 992px) {
-  .app-main-content {
+  .app-shell-layout.has-sidebar .app-main-content {
     margin-left: 280px !important;
-    width: calc(100vw - 280px) !important;
+    width: calc(var(--app-scaled-viewport-width, 100vw) - 280px) !important;
+    max-width: calc(var(--app-scaled-viewport-width, 100vw) - 280px) !important;
   }
 }
 
@@ -13179,6 +13180,14 @@ body.dark .sidebar-widgets .exam-widget-btn.is-task-failed {
   white-space: nowrap;
 }
 
+.assistant-code-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+body button.assistant-code-execute,
 body button.assistant-code-copy {
   display: inline-flex !important;
   align-items: center !important;
@@ -13198,12 +13207,36 @@ body button.assistant-code-copy {
   white-space: nowrap;
 }
 
+body button.assistant-code-execute {
+  min-width: 70px !important;
+  color: #e8fff8 !important;
+  border-color: rgba(52, 211, 153, 0.3) !important;
+  background: #15342e !important;
+  -webkit-text-fill-color: #e8fff8 !important;
+}
+
+body button.assistant-code-execute:hover,
+body button.assistant-code-execute:focus-visible,
 body button.assistant-code-copy:hover,
 body button.assistant-code-copy:focus-visible {
   color: #ffffff !important;
   border-color: rgba(125, 211, 252, 0.45) !important;
   background: rgba(14, 165, 233, 0.14) !important;
   transform: none !important;
+}
+
+body button.assistant-code-execute:hover,
+body button.assistant-code-execute:focus-visible {
+  color: #ffffff !important;
+  border-color: rgba(110, 231, 183, 0.62) !important;
+  background: #1c4a40 !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+body button.assistant-code-execute::after,
+body button.assistant-code-copy::after {
+  display: none !important;
+  content: none !important;
 }
 
 body button.assistant-code-copy.is-copied {
@@ -15058,8 +15091,8 @@ button.bg-palette-thumbnail-btn:hover {
 
 .auth-card--v2.auth-card--register .auth-fields-base,
 .auth-card--v2.auth-card--register .auth-fields-register {
-  gap: 6px !important;
-  margin-bottom: 6px !important;
+  gap: 10px !important;
+  margin-bottom: 10px !important;
 }
 
 .auth-card--v2.auth-card--register .field-stack {
@@ -16206,8 +16239,8 @@ body:has(.app-lock-backdrop) .custom-cursor-dot.cursor-blob-dot {
 
   .auth-card--v2.auth-card--register .auth-fields-base,
   .auth-card--v2.auth-card--register .auth-fields-register {
-    gap: 8px !important;
-    margin-bottom: 8px !important;
+    gap: 10px !important;
+    margin-bottom: 10px !important;
   }
 
   .auth-card--v2.auth-card--register .field-stack {
@@ -23852,15 +23885,6 @@ body .resource-subject-card:focus-visible {
 .resource-subject-card__copy {
   display: grid;
   align-content: end;
-  gap: 5px;
-}
-
-.resource-subject-card__copy small {
-  color: var(--text-muted);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
 }
 
 .resource-subject-card__title {

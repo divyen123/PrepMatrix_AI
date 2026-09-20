@@ -104,6 +104,35 @@ test("renders fenced source code in a labelled compiler-style block", async () =
   }
 });
 
+test("offers Execute only for AI code that CodeMatrix can run", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { default: ChatMessageText } = await vite.ssrLoadModule(
+      "/src/components/ChatMessageText.jsx",
+    );
+    const executableMarkup = renderToStaticMarkup(React.createElement(ChatMessageText, {
+      onExecuteCode: () => {},
+      text: fencedCodeReply,
+    }));
+    const proseMarkup = renderToStaticMarkup(React.createElement(ChatMessageText, {
+      onExecuteCode: () => {},
+      text: "```markdown\n# Study plan\n```",
+    }));
+
+    assert.match(executableMarkup, /class="assistant-code-execute"/u);
+    assert.match(executableMarkup, /aria-label="Execute Python code in CodeMatrix"/u);
+    assert.match(executableMarkup, />Execute<\/span>/u);
+    assert.doesNotMatch(proseMarkup, /assistant-code-execute|>Execute<\/span>/u);
+  } finally {
+    await vite.close();
+  }
+});
+
 test("uses the same fenced-code renderer in voice assistant answers", async () => {
   const vite = await createServer({
     appType: "custom",

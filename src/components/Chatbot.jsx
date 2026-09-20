@@ -161,6 +161,7 @@ function Chatbot({
   schedule = [],
   completed = [],
   materialBookmarks = [],
+  onOpenCodeMatrix,
   onSaveBookmark,
   setDarkMode,
   subjects = [],
@@ -478,6 +479,12 @@ function Chatbot({
       first.focus({ preventScroll: true });
     }
   }, []);
+
+  const handleExecuteCode = useCallback((launch) => {
+    if (typeof onOpenCodeMatrix !== "function") return;
+    setOpen(false);
+    onOpenCodeMatrix(launch);
+  }, [onOpenCodeMatrix]);
 
   const closeSessionContextMenu = useCallback((restoreFocus = false) => {
     const trigger = sessionMenuTriggerRef.current;
@@ -1877,6 +1884,9 @@ function Chatbot({
                     ) : null}
                     <ChatMessageText
                       linksAllowed={!childMode}
+                      onExecuteCode={!childMode && message.role === "assistant"
+                        ? handleExecuteCode
+                        : undefined}
                       text={message.text}
                       youtubeContext={!childMode
                         && message.role === "assistant"

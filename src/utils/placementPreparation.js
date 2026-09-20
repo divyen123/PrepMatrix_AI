@@ -10,6 +10,209 @@ function cleanText(value, maxLength = 4000) {
   return String(value ?? "").replace(/\r\n/g, "\n").trim().slice(0, maxLength);
 }
 
+function listFrom(value) {
+  if (Array.isArray(value)) return value;
+  if (value === undefined || value === null || value === "") return [];
+  return [value];
+}
+
+const NOTEBOOK_ROLE_RULES = [
+  {
+    role: "Full-stack developer",
+    signals: [/\bfull[\s-]?stack\b/iu],
+  },
+  {
+    role: "UI/UX designer",
+    signals: [
+      /\bui\s*\/\s*ux\b|\buser (?:interface|experience)\b|\binteraction design\b/iu,
+      /\bwirefram(?:e|ing)\b|\bdesign systems?\b|\bfigma\b/iu,
+    ],
+  },
+  {
+    role: "Frontend developer",
+    signals: [
+      /\bfront[\s-]?end\b|\bweb (?:development|design)\b/iu,
+      /\breact(?:\.js)?\b|\bangular\b|\bvue(?:\.js)?\b|\bhtml\b|\bcss\b/iu,
+    ],
+  },
+  {
+    role: "Backend developer",
+    signals: [
+      /\bback[\s-]?end\b|\bserver[\s-]?side\b|\bmicroservices?\b/iu,
+      /\brest(?:ful)?\s+api\b|\bapi (?:design|development|techniques?)\b|\bcrud\b/iu,
+      /\bnode(?:\.js)?\b|\bexpress(?:\.js)?\b|\bspring boot\b|\bdjango\b/iu,
+    ],
+  },
+  {
+    role: "Mobile application developer",
+    signals: [
+      /\bmobile (?:app|application)\b|\bandroid\b|\bios development\b/iu,
+      /\bflutter\b|\breact native\b|\bswiftui\b|\bkotlin\b/iu,
+    ],
+  },
+  {
+    role: "DevOps engineer",
+    signals: [
+      /\bdevops\b|\bsite reliability\b|\bsre\b|\bci\s*\/\s*cd\b/iu,
+      /\bdocker\b|\bkubernetes\b|\bterraform\b|\bcontainer orchestration\b/iu,
+    ],
+  },
+  {
+    role: "Cybersecurity analyst",
+    signals: [
+      /\bcyber[\s-]?security\b|\binformation security\b|\bnetwork security\b/iu,
+      /\bethical hacking\b|\bpenetration testing\b|\bmalware\b|\bcryptograph/iu,
+    ],
+  },
+  {
+    role: "Network engineer",
+    signals: [
+      /\bdata communication\b|\bcomputer networks?\b|\bnetworking\b/iu,
+      /\btcp\s*\/\s*ip\b|\brouting protocols?\b|\bsubnetting\b/iu,
+    ],
+  },
+  {
+    role: "Machine learning engineer",
+    signals: [
+      /\bmachine learning\b|\bdeep learning\b|\bartificial intelligence\b/iu,
+      /\bneural networks?\b|\bcomputer vision\b|\bnatural language processing\b|\bnlp\b/iu,
+    ],
+  },
+  {
+    role: "Data scientist",
+    signals: [/\bdata science\b|\bpredictive model(?:ing|ling)\b|\bfeature engineering\b/iu],
+  },
+  {
+    role: "Data analyst",
+    signals: [
+      /\bdata analytics?\b|\bbusiness intelligence\b|\bdata visuali[sz]ation\b/iu,
+      /\bpower\s*bi\b|\btableau\b|\bexploratory data analysis\b/iu,
+    ],
+  },
+  {
+    role: "Database engineer",
+    signals: [/\bdatabase systems?\b|\bdbms\b|\bdatabase administration\b|\bsql database\b/iu],
+  },
+  {
+    role: "Cloud engineer",
+    signals: [/\bcloud computing\b|\bamazon web services\b|\baws\b|\bmicrosoft azure\b|\bgoogle cloud\b/iu],
+  },
+  {
+    role: "Quantum computing research intern",
+    signals: [/\bquantum comput(?:ing|ation)\b|\bquantum algorithms?\b|\bqubits?\b/iu],
+  },
+  {
+    role: "Software engineering intern",
+    signals: [
+      /\bsoftware engineering\b|\bdata structures?\b|\balgorithms?\b/iu,
+      /\boperating systems?\b|\bobject[\s-]?oriented programming\b|\bcomputer science\b/iu,
+      /\bjava programming\b|\bpython programming\b|\bc\+\+(?:\s|$)/iu,
+    ],
+  },
+  {
+    role: "Finance analyst",
+    signals: [/\bfinance\b|\baccounting\b|\binvestment analysis\b|\beconomics\b/iu],
+  },
+  {
+    role: "Business analyst",
+    signals: [/\bbusiness analytics?\b|\bbusiness management\b|\bmarketing analytics?\b/iu],
+  },
+  {
+    role: "Legal research intern",
+    signals: [/\blaw\b|\blegal studies\b|\bjurisprudence\b|\bconstitutional studies\b/iu],
+  },
+  {
+    role: "Engineering graduate trainee",
+    signals: [
+      /\bmechanical engineering\b|\bcivil engineering\b|\belectrical engineering\b/iu,
+      /\belectronics engineering\b|\bembedded systems?\b|\bvlsi\b/iu,
+    ],
+  },
+];
+
+export function getNotebookPlacementTopics(notebook, limit = 12) {
+  const chapters = listFrom(
+    notebook?.chapters
+      || notebook?.outline?.chapters
+      || notebook?.structure?.chapters
+      || notebook?.studyGuide?.chapters,
+  );
+  const candidates = [
+    ...chapters.flatMap((chapter) => listFrom(chapter?.topics || chapter?.children)),
+    ...listFrom(notebook?.topics),
+  ];
+  const seen = new Set();
+  const boundedLimit = Math.max(0, Math.min(Number(limit) || 12, 12));
+
+  return candidates.map((topic) => cleanText(
+    topic?.title || topic?.name || topic?.label || topic?.text || topic,
+    140,
+  )).filter((topic) => {
+    const key = topic.toLocaleLowerCase();
+    if (!topic || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, boundedLimit);
+}
+
+export function getNotebookPlacementRoleSuggestion(notebook, fallbackRole = "") {
+  const savedRole = cleanText(
+    notebook?.careerPreparation?.topicAnalysis?.targetRole
+      || listFrom(notebook?.careerPreparation?.history)
+        .map((entry) => entry?.analysis?.targetRole)
+        .find(Boolean)
+      || notebook?.targetRole,
+    160,
+  );
+  if (savedRole) return savedRole;
+
+  const chapters = listFrom(
+    notebook?.chapters
+      || notebook?.outline?.chapters
+      || notebook?.structure?.chapters
+      || notebook?.studyGuide?.chapters,
+  );
+  const primaryText = [notebook?.subjectName, notebook?.subject, notebook?.title, notebook?.name]
+    .map((value) => cleanText(value, 240))
+    .filter(Boolean)
+    .join(" ");
+  const supportingText = [
+    notebook?.summary,
+    notebook?.overview,
+    ...chapters.map((chapter) => chapter?.title || chapter?.name || chapter?.label),
+    ...getNotebookPlacementTopics(notebook),
+  ].map((value) => cleanText(value, 600)).filter(Boolean).join(" ");
+
+  const match = NOTEBOOK_ROLE_RULES.map((rule, index) => ({
+    index,
+    role: rule.role,
+    score: rule.signals.reduce((score, signal) => (
+      score + (signal.test(primaryText) ? 4 : 0) + (signal.test(supportingText) ? 1 : 0)
+    ), 0),
+  })).filter((candidate) => candidate.score > 0)
+    .sort((left, right) => right.score - left.score || left.index - right.index)[0];
+
+  return match?.role || cleanText(fallbackRole, 160) || "Graduate trainee";
+}
+
+export function canCompletePlacementRole(value, suggestion) {
+  const typed = cleanText(value, 160).replace(/\s+/gu, " ").toLocaleLowerCase();
+  const complete = cleanText(suggestion, 160).replace(/\s+/gu, " ").toLocaleLowerCase();
+  if (!typed || !complete || typed === complete) return false;
+  if (complete.startsWith(typed)) return true;
+
+  const typedWords = typed.split(" ");
+  const completeWords = complete.split(" ");
+  if (
+    typedWords.length <= completeWords.length
+    && typedWords.every((word, index) => completeWords[index]?.startsWith(word))
+  ) return true;
+
+  const compactTyped = typed.replace(/[^a-z0-9]+/gu, "");
+  const acronym = completeWords.map((word) => word[0]).join("");
+  return compactTyped.length >= 2 && acronym.startsWith(compactTyped);
+}
+
 function stablePart(value, fallback) {
   const part = cleanText(value, 120)
     .toLocaleLowerCase()
@@ -302,6 +505,7 @@ export function buildPlacementActionTarget({
   const preparationContext = normalizedPreparationSource.context
     || normalizedPreparationSource.label;
   const topicSummary = cleanText(topic?.whyItMatters ?? topic?.explanation, 1200);
+  const itemIsCodingRelevant = isCodingPlacementItem({ codingRelevant, item, topic });
 
   return {
     chapterName: `Placement prep${cleanText(targetRole, 160) ? ` - ${cleanText(targetRole, 160)}` : ""}`,
@@ -316,6 +520,7 @@ export function buildPlacementActionTarget({
     ].filter(Boolean),
     kind,
     metadata: {
+      codingRelevant: itemIsCodingRelevant,
       kind,
       notebookId: cleanText(notebook?.id, 120),
       preparationSource: normalizedPreparationSource,

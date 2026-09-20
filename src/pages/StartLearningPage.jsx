@@ -42,6 +42,7 @@ import MedicalTrainingLab from "../components/MedicalTrainingLab";
 import MedicalTrainingLabIntake from "../components/MedicalTrainingLabIntake";
 import CodeMatrixSetupReturn from "../components/CodeMatrixSetupReturn";
 import { CODE_MATRIX_PATH, getCodeMatrixEligibility, getCodeMatrixSetupSteps } from "../utils/codeMatrixProfile.js";
+import { buildPlacementCodeMatrixHandoff } from "../utils/placementCodeMatrix.js";
 import api from "../utils/apiClient";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import {
@@ -83,9 +84,12 @@ import { buildMaterialGuidePath } from "../utils/materialGuideNavigation";
 import {
   buildPlacementActionTarget,
   buildPlacementChatPrompt,
+  canCompletePlacementRole,
   createPlacementDraft,
   clearPlacementHistory,
   deletePlacementHistoryEntry,
+  getNotebookPlacementRoleSuggestion,
+  getNotebookPlacementTopics,
   getPlacementHistoryEntry,
   mergePlacementDraft,
   normalizePlacementPreparationSource,
@@ -641,6 +645,7 @@ function StartLearningPage({
   subjects = [],
   completed = [],
   schedule = [],
+  onOpenCodeMatrix,
   setSchedule,
   setCompleted,
   scheduleStartDate,
@@ -794,6 +799,13 @@ function StartLearningPage({
     [careerSourceValue, courseNotebooks],
   );
   const usesCustomPlacementSource = careerSourceValue === CUSTOM_PLACEMENT_SOURCE_VALUE;
+  const careerRoleSuggestion = useMemo(
+    () => getNotebookPlacementRoleSuggestion(
+      selectedCareerSourceNotebook,
+      curriculumExamples.placementRolePlaceholder,
+    ),
+    [curriculumExamples.placementRolePlaceholder, selectedCareerSourceNotebook],
+  );
   const selectedMedicalSourceNotebook = useMemo(
     () => courseNotebooks.find((notebook) => notebook.id === medicalSourceValue) || null,
     [courseNotebooks, medicalSourceValue],
@@ -1125,6 +1137,23 @@ function StartLearningPage({
     const normalized = normalizeNotebook(notebook);
     activeNotebookRef.current = normalized;
     setActiveNotebook(normalized);
+    setActiveCareerHistoryId("");
+    setCareerRole("");
+    setCareerTopics(getNotebookPlacementTopics(normalized).join("\n"));
+  };
+
+  const completeSuggestedCareerRole = (event) => {
+    if (
+      usesCustomPlacementSource
+      || event.key !== "Tab"
+      || event.shiftKey
+      || event.altKey
+      || event.ctrlKey
+      || event.metaKey
+      || !canCompletePlacementRole(careerRole, careerRoleSuggestion)
+    ) return;
+    event.preventDefault();
+    setCareerRole(careerRoleSuggestion);
   };
 
   const selectMedicalNotebook = (notebookId, historyId = "", { includeWorkspace = false } = {}) => {
@@ -3226,6 +3255,18 @@ function StartLearningPage({
     }));
   };
 
+  const openPlacementItemInCodeMatrix = (target, topic) => {
+    if (!codeMatrixEligibility.eligible || typeof onOpenCodeMatrix !== "function") return;
+    const handoff = buildPlacementCodeMatrixHandoff({
+      fallbackLanguage: codeMatrixEligibility.defaultLanguage,
+      notebook: activeNotebook,
+      target,
+      topic,
+    });
+    if (!handoff) return;
+    onOpenCodeMatrix(handoff);
+  };
+
   const medicalActionTarget = (module, item, kind, index) => buildMedicalTrainingActionTarget({
     focus: medicalAnalysis?.trainingTitle || medicalFocus,
     index,
@@ -3902,11 +3943,20 @@ function StartLearningPage({
               <label className="learning-field learning-placement-role">
                 <span>Target role</span>
                 <input
+                  aria-describedby="learning-placement-role-suggestion"
                   disabled={careerAnalyzing || saving}
                   onChange={(event) => setCareerRole(event.target.value)}
-                  placeholder={`e.g. ${curriculumExamples.placementRolePlaceholder}`}
+                  onKeyDown={completeSuggestedCareerRole}
+                  placeholder={usesCustomPlacementSource
+                    ? `e.g. ${curriculumExamples.placementRolePlaceholder}`
+                    : `Suggested: ${careerRoleSuggestion}`}
                   value={careerRole}
                 />
+                <span className="sr-only" id="learning-placement-role-suggestion">
+                  {usesCustomPlacementSource
+                    ? "Enter the role you are preparing for."
+                    : `Suggested from the selected notebook: ${careerRoleSuggestion}. Type the beginning and press Tab to complete it.`}
+                </span>
               </label>
             </div>
 
@@ -4824,6 +4874,8 @@ function StartLearningPage({
                 <div className="learning-career-analysis-grid">
                   {listFrom(careerAnalysis.topics).map((topic, index) => (
                     <PlacementPrepTopicCard
+                      codingRelevant={activeNotebook?.careerPreparation?.codingRelevant}
+                      codeMatrixAvailable={codeMatrixEligibility.eligible && typeof onOpenCodeMatrix === "function"}
                       key={topic?.id || topic?.title || index}
                       topic={topic}
                       index={index}
@@ -4833,6 +4885,7 @@ function StartLearningPage({
                       onSave={savePlacementItem}
                       onAskAI={askPlacementItemAI}
                       onAddToPlanner={openPlannerForNode}
+                      onCode={openPlacementItemInCodeMatrix}
                     />
                   ))}
                 </div>

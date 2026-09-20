@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Play } from "lucide-react";
+import { buildChatCodeMatrixLaunch } from "../utils/codeMatrixLaunch.js";
 
 const LANGUAGE_LABELS = Object.freeze({
   bash: "Bash",
@@ -54,12 +55,15 @@ function languageLabel(value = "") {
     || normalized.charAt(0).toLocaleUpperCase() + normalized.slice(1);
 }
 
-export default function AssistantCodeBlock({ code = "", language = "" }) {
+export default function AssistantCodeBlock({ code = "", language = "", onExecute }) {
   const copiedTimerRef = useRef(null);
   const [copiedCode, setCopiedCode] = useState("");
   const normalizedCode = String(code).replace(/\n$/u, "");
   const label = languageLabel(language);
   const copied = copiedCode === normalizedCode && Boolean(normalizedCode);
+  const executionLaunch = typeof onExecute === "function"
+    ? buildChatCodeMatrixLaunch({ code: normalizedCode, language })
+    : null;
 
   useEffect(() => () => {
     if (copiedTimerRef.current) window.clearTimeout(copiedTimerRef.current);
@@ -90,18 +94,31 @@ export default function AssistantCodeBlock({ code = "", language = "" }) {
           <i />
         </span>
         <span className="assistant-code-language">{label}</span>
-        <button
-          aria-label={copied ? "Code copied" : `Copy ${label} code`}
-          className={`assistant-code-copy${copied ? " is-copied" : ""}`}
-          disabled={!normalizedCode}
-          onClick={copyCode}
-          type="button"
-        >
-          {copied
-            ? <Check aria-hidden="true" size={14} strokeWidth={2.4} />
-            : <Copy aria-hidden="true" size={14} strokeWidth={2.2} />}
-          <span>{copied ? "Copied" : "Copy"}</span>
-        </button>
+        <span className="assistant-code-actions">
+          {executionLaunch && (
+            <button
+              aria-label={`Execute ${label} code in CodeMatrix`}
+              className="assistant-code-execute"
+              onClick={() => onExecute(executionLaunch)}
+              type="button"
+            >
+              <Play aria-hidden="true" fill="currentColor" size={12} strokeWidth={2.3} />
+              <span>Execute</span>
+            </button>
+          )}
+          <button
+            aria-label={copied ? "Code copied" : `Copy ${label} code`}
+            className={`assistant-code-copy${copied ? " is-copied" : ""}`}
+            disabled={!normalizedCode}
+            onClick={copyCode}
+            type="button"
+          >
+            {copied
+              ? <Check aria-hidden="true" size={14} strokeWidth={2.4} />
+              : <Copy aria-hidden="true" size={14} strokeWidth={2.2} />}
+            <span>{copied ? "Copied" : "Copy"}</span>
+          </button>
+        </span>
       </header>
       <div
         aria-label={`Scrollable ${label} code`}

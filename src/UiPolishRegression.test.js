@@ -26,3 +26,14 @@ test("desktop density and custom cursor top-layer support stay wired", () => {
   assert.match(cursorSource, /popover="manual"/u);
   assert.match(cursorSource, /window\.addEventListener\("pointermove", onPointerMove, \{ capture: true/u);
 });
+
+test("desktop content keeps one centered width across sidebar states", () => {
+  assert.match(
+    appStyles,
+    /\.app-shell-layout\.has-sidebar \.app-main-content\s*\{[\s\S]*?width: calc\(var\(--app-scaled-viewport-width, 100vw\) - 280px\) !important;[\s\S]*?max-width: calc\(var\(--app-scaled-viewport-width, 100vw\) - 280px\) !important;/u,
+  );
+  assert.match(
+    appStyles,
+    /\.app-shell-layout\.has-sidebar\.is-sidebar-collapsed \.app-main-content\s*\{[\s\S]*?margin-left: 180px !important;[\s\S]*?width: calc\(var\(--app-scaled-viewport-width, 100vw\) - 280px\) !important;/u,
+  );
+});

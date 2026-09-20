@@ -101,6 +101,17 @@ test("keeps the placement source, role, topics, and quick-add controls in their 
   );
 });
 
+test("prefills placement topics from a selected notebook and supports Tab role completion", () => {
+  assert.ok(pageSource.includes("getNotebookPlacementTopics(normalized).join(\"\\n\")"));
+  assert.ok(pageSource.includes("getNotebookPlacementRoleSuggestion("));
+  assert.ok(pageSource.includes("canCompletePlacementRole(careerRole, careerRoleSuggestion)"));
+  assert.ok(pageSource.includes('event.key !== "Tab"'));
+  assert.ok(pageSource.includes("event.preventDefault()"));
+  assert.ok(pageSource.includes("setCareerRole(careerRoleSuggestion)"));
+  assert.ok(pageSource.includes(": `Suggested: ${careerRoleSuggestion}`"));
+  assert.ok(pageSource.includes("onChange={(event) => setCareerTopics(event.target.value)}"));
+});
+
 test("uses an independent Medical training workspace and persistence contract", () => {
   assert.ok(pageSource.includes('className="learning-intake-choice-card is-medical"'));
   assert.ok(pageSource.includes('intakeMode === "medical" ? ('));

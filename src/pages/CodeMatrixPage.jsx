@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Bug, CalendarDays, Check, ChevronLeft, ChevronRight, CircleAlert, Code2, Download, FileCode2, LoaderCircle, Maximize2, Minimize2, Play, Plus, RotateCcw, Settings2, Square, Terminal, X } from "lucide-react";
 import CodeMatrixEditor from "../components/CodeMatrixEditor";
 import CodeMatrixTerminal from "../components/CodeMatrixTerminal";
@@ -9,8 +9,10 @@ import { codeReviewSnapshot, codeReviewMatchesDraft, createCodeReviewSession } f
 import useCodeMatrixWorkspace from "../hooks/useCodeMatrixWorkspace.js";
 import useCodeRunRewards from '../hooks/useCodeRunRewards';
 import { getCodeMatrixEligibility, getCodeMatrixSetupSteps } from "../utils/codeMatrixProfile.js";
+import { normalizeCodeMatrixLaunch } from "../utils/codeMatrixLaunch.js";
 import { CODE_MATRIX_LANGUAGES, CODE_MATRIX_MAX_CODE, CODE_MATRIX_STARTERS, codeMatrixSetupNavigation, getCodeMatrixDiagnostics } from "../utils/codeMatrixWorkspace.js";
 import { buildCodeMatrixPreview, createCodeMatrixBrowserRun } from "../utils/codeMatrixRuntime.js";
+import { normalizePlacementCodeMatrixHandoff } from "../utils/placementCodeMatrix.js";
 import "./CodeMatrixPage.css";
 
 const SETUP_COPY = {
@@ -34,10 +36,29 @@ function ResultTables({ tables }) {
   ));
 }
 
-export default function CodeMatrixPage({ academicProfileDataId = "", userProfile = {}, subjects = [], schedule = [], workspaceLoaded = true }) {
+export default function CodeMatrixPage({
+  academicProfileDataId = "",
+  embedded = false,
+  launch = null,
+  userProfile = {},
+  subjects = [],
+  schedule = [],
+  workspaceLoaded = true,
+}) {
+  const location = useLocation();
+  const routePlacementHandoff = useMemo(
+    () => normalizePlacementCodeMatrixHandoff(location.state?.placementCodeMatrix),
+    [location.state],
+  );
+  const popupLaunch = useMemo(() => normalizeCodeMatrixLaunch(launch), [launch]);
+  const activeLaunch = popupLaunch || routePlacementHandoff;
   const recordSuccessfulRun = useCodeRunRewards(academicProfileDataId);
   const eligibility = useMemo(() => getCodeMatrixEligibility(userProfile, subjects), [userProfile, subjects]);
-  const { workspace, update, ready, syncState, setup, flush, retry } = useCodeMatrixWorkspace(academicProfileDataId, eligibility.defaultLanguage);
+  const compilerAvailable = embedded || eligibility.eligible;
+  const { workspace, update, ready, syncState, setup, flush, retry } = useCodeMatrixWorkspace(
+    academicProfileDataId,
+    activeLaunch?.language || eligibility.defaultLanguage,
+  );
   const [showSetup, setShowSetup] = useState(false);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -55,6 +76,8 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   const [sourceFullscreen, setSourceFullscreen] = useState(false);
   const [assistantAvailability, setAssistantAvailability] = useState('loading');
   const [assistantConnectionAttempt, setAssistantConnectionAttempt] = useState(0);
+  const [sessionLanguage, setSessionLanguage] = useState("");
+  const [sessionDrafts, setSessionDrafts] = useState(null);
   const reviewSession = useMemo(() => createCodeReviewSession((snapshot, requestId) => api.post('/api/code-matrix/review', snapshot, {
     academicProfileId: academicProfileDataId, headers: { 'Idempotency-Key': requestId }, timeoutMs: 55_000,
   })), [academicProfileDataId]);
@@ -65,19 +88,27 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   const workbenchRef = useRef(null);
   const sourceRef = useRef(null);
   const resizeCleanupRef = useRef(null);
+  const appliedLaunchRef = useRef("");
   const mountedRef = useRef(true);
-  const language = CODE_MATRIX_LANGUAGES.find(({ id }) => id === workspace.language) || CODE_MATRIX_LANGUAGES[0];
+  const sessionMode = Boolean(embedded && activeLaunch?.source === "chat" && activeLaunch.code);
+  const workspaceLanguage = sessionMode
+    ? sessionLanguage || activeLaunch.language
+    : workspace.language;
+  const drafts = sessionMode && sessionDrafts ? sessionDrafts : workspace.drafts;
+  const language = CODE_MATRIX_LANGUAGES.find(({ id }) => id === workspaceLanguage) || CODE_MATRIX_LANGUAGES[0];
   const isWeb = language.runtime === "preview";
-  const editorLanguage = isWeb ? webTab || workspace.language : workspace.language;
+  const editorLanguage = isWeb ? webTab || workspaceLanguage : workspaceLanguage;
   const editorFile = CODE_MATRIX_LANGUAGES.find(({ id }) => id === editorLanguage)?.file;
-  const code = workspace.drafts[editorLanguage];
+  const code = drafts[editorLanguage];
   const completedSteps = useMemo(() => [...new Set([...workspace.completedSteps, ...(setup?.completedSteps || [])])], [setup, workspace.completedSteps]);
   const steps = useMemo(() => getCodeMatrixSetupSteps({ subjects, schedule, completedSteps }), [subjects, schedule, completedSteps]);
   const remaining = steps.filter((step) => !step.complete);
-  const setupVisible = showSetup || (!workspace.setupDismissed && remaining.length > 0);
+  const setupVisible = !embedded && (showSetup || (
+    !activeLaunch && !workspace.setupDismissed && remaining.length > 0
+  ));
   const unchanged = result?.code === code && result?.language === editorLanguage;
   const diagnosticLanguage = isWeb ? "javascript" : editorLanguage;
-  const diagnosticCode = workspace.drafts[diagnosticLanguage];
+  const diagnosticCode = drafts[diagnosticLanguage];
   const errorDiagnostics = useMemo(() => result?.code === diagnosticCode && result?.language === diagnosticLanguage
     ? getCodeMatrixDiagnostics(result?.stderr, diagnosticLanguage) : EMPTY_DIAGNOSTICS, [diagnosticCode, diagnosticLanguage, result]);
   const diagnostics = editorLanguage === diagnosticLanguage ? errorDiagnostics : EMPTY_DIAGNOSTICS;
@@ -86,14 +117,14 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   useEffect(() => { setResultTab(isWeb ? "preview" : "output"); }, [isWeb]);
 
   useEffect(() => {
-    if (!eligibility.eligible) return undefined;
+    if (!compilerAvailable) return undefined;
     let active = true;
     setAssistantAvailability('loading');
     api.get('/api/code-matrix/assistant', { academicProfileId: academicProfileDataId }).then((response) => {
       if (active) setAssistantAvailability(response.available ? 'available' : 'unavailable');
     }).catch(() => { if (active) setAssistantAvailability('error'); });
     return () => { active = false; };
-  }, [academicProfileDataId, eligibility.eligible, assistantConnectionAttempt]);
+  }, [academicProfileDataId, assistantConnectionAttempt, compilerAvailable]);
 
   useEffect(() => {
     // The editor mounts after the workspace loads; read its current ref on each event.
@@ -149,8 +180,34 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
     setResult((current) => current ? ({ ...current, status: "stopped" }) : current);
   }, []);
 
+  useEffect(() => {
+    if (!ready || !activeLaunch) return;
+    const handoffKey = `${embedded ? "embedded" : location.key}:${activeLaunch.id}:${activeLaunch.language}`;
+    if (appliedLaunchRef.current === handoffKey) return;
+    appliedLaunchRef.current = handoffKey;
+    if (busy) stop();
+    if (sessionMode) {
+      setSessionLanguage(activeLaunch.language);
+      setSessionDrafts({
+        ...workspace.drafts,
+        [activeLaunch.language]: activeLaunch.code,
+      });
+    } else if (workspace.language !== activeLaunch.language) {
+      update({ language: activeLaunch.language });
+    }
+    setShowSetup(false);
+    setWebTab(["html", "css"].includes(activeLaunch.language) ? activeLaunch.language : "");
+    setResult(null);
+    setPreview(null);
+    setResultTab(["html", "css"].includes(activeLaunch.language) ? "preview" : "output");
+    setTraceIndex(0);
+    setActiveLine(0);
+    setLineRequest(null);
+    setNotice("");
+  }, [activeLaunch, busy, embedded, location.key, ready, sessionMode, stop, update, workspace.drafts, workspace.language]);
+
   const run = useCallback(async (debug = false) => {
-    if (busy || !eligibility.eligible || !ready) return;
+    if (busy || !compilerAvailable || !ready) return;
     if (new TextEncoder().encode(code).length > CODE_MATRIX_MAX_CODE) { setNotice("Keep this file under 50 KB before running."); return; }
     setNotice("");
     setTraceIndex(0);
@@ -159,8 +216,8 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
     const sequence = ++runSequenceRef.current;
     if (isWeb) {
       const channel = crypto.randomUUID();
-      const srcDoc = buildCodeMatrixPreview({ html: workspace.drafts.html, css: workspace.drafts.css, javascript: workspace.drafts.javascript, channel });
-      setResult({ status: "success", stdout: "", stderr: "", code: workspace.drafts.javascript, language: "javascript", previewChannel: channel, files: { html: workspace.drafts.html, css: workspace.drafts.css } });
+      const srcDoc = buildCodeMatrixPreview({ html: drafts.html, css: drafts.css, javascript: drafts.javascript, channel });
+      setResult({ status: "success", stdout: "", stderr: "", code: drafts.javascript, language: "javascript", previewChannel: channel, files: { html: drafts.html, css: drafts.css } });
       setPreview({ srcDoc, channel });
       setResultTab("preview");
       return;
@@ -174,7 +231,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
     const rewardRunId = crypto.randomUUID();
     setResult({ ...snapshot, stdout: '', stderr: '', status: 'loading' });
     try {
-      const task = createCodeMatrixBrowserRun({ language: workspace.language, code, interactive: true, debug, onEvent: (event) => {
+      const task = createCodeMatrixBrowserRun({ language: workspaceLanguage, code, interactive: true, debug, onEvent: (event) => {
         if (!mountedRef.current || sequence !== runSequenceRef.current) return;
         if (event.type === 'output') setResult((current) => ({ ...current, ...event.result, ...snapshot, status: current?.status || 'running' }));
         if (event.type === 'input-request') { setWaiting(true); setResultTab('output'); }
@@ -196,7 +253,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
     } finally {
       if (mountedRef.current && sequence === runSequenceRef.current) { setBusy(false); setWaiting(false); setRuntimeMessage(""); runRef.current = null; }
     }
-  }, [busy, code, editorLanguage, eligibility.eligible, isWeb, ready, workspace, recordSuccessfulRun]);
+  }, [busy, code, compilerAvailable, drafts, editorLanguage, isWeb, ready, recordSuccessfulRun, workspaceLanguage]);
 
   const submitInput = (value) => {
     if (!runRef.current?.submitInput(value)) { setNotice('Input could not be sent. Keep terminal input under 64 KB per run.'); return false; }
@@ -205,9 +262,17 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
   };
 
   const editCode = useCallback((value) => {
-    update((current) => ({ drafts: { ...current.drafts, [editorLanguage]: value } }));
+    if (sessionMode) {
+      setSessionDrafts((current) => ({
+        ...workspace.drafts,
+        ...(current || {}),
+        [editorLanguage]: value,
+      }));
+    } else {
+      update((current) => ({ drafts: { ...current.drafts, [editorLanguage]: value } }));
+    }
     setActiveLine(0);
-  }, [editorLanguage, update]);
+  }, [editorLanguage, sessionMode, update, workspace.drafts]);
 
   const updateSourceSplit = useCallback((clientX) => {
     const workbench = workbenchRef.current;
@@ -265,7 +330,8 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
 
   function changeLanguage(value) {
     if (busy) stop();
-    update({ language: value });
+    if (sessionMode) setSessionLanguage(value);
+    else update({ language: value });
     setWebTab("");
     setResult(null);
     setPreview(null);
@@ -288,20 +354,40 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
 
   if (!ready || !workspaceLoaded) return <section className="cmx-page cmx-loading" role="status"><LoaderCircle className="cmx-spin" /> Opening CodeMatrix…</section>;
   return (
-    <section className={`cmx-page${eligibility.eligible && !setupVisible ? " is-compiler" : ""}`}>
-      <header className="cmx-header">
-        <div className="cmx-heading">
-          <Link className="cmx-back" to="/learn" aria-label="Back to Start Learning"><ArrowLeft size={20} /></Link>
-          <div><h1><Code2 size={29} aria-hidden="true" />CodeMatrix<span className="cmx-beta">Compiler</span></h1></div>
-        </div>
-        <div className="cmx-header-actions">
-          {!setupVisible && remaining.length > 0 && <button type="button" className="cmx-button cmx-quiet" onClick={() => { if (busy || preview) stop(); setShowSetup(true); }}><Settings2 size={15} />Finish setup <span>{3 - remaining.length}/3</span></button>}
-          <span className={`cmx-sync is-${syncState}`} role="status"><span />{SYNC_LABELS[syncState]}</span>
-          {["local", "unsaved"].includes(syncState) && <button type="button" className="cmx-button cmx-quiet" onClick={() => void retry()}>Retry sync</button>}
-        </div>
-      </header>
+    <section className={`cmx-page${compilerAvailable && !setupVisible ? " is-compiler" : ""}${embedded ? " is-embedded" : ""}`}>
+      {!embedded && (
+        <header className="cmx-header">
+          <div className="cmx-heading">
+            <Link
+              aria-label={routePlacementHandoff ? "Back to placement preparation" : "Back to Start Learning"}
+              className="cmx-back"
+              to={routePlacementHandoff?.returnTo || "/learn"}
+            >
+              <ArrowLeft size={20} />
+            </Link>
+            <div><h1><Code2 size={29} aria-hidden="true" />CodeMatrix<span className="cmx-beta">Compiler</span></h1></div>
+          </div>
+          <div className="cmx-header-actions">
+            {!setupVisible && remaining.length > 0 && <button type="button" className="cmx-button cmx-quiet" onClick={() => { if (busy || preview) stop(); setShowSetup(true); }}><Settings2 size={15} />Finish setup <span>{3 - remaining.length}/3</span></button>}
+            <span className={`cmx-sync is-${syncState}`} role="status"><span />{SYNC_LABELS[syncState]}</span>
+            {["local", "unsaved"].includes(syncState) && <button type="button" className="cmx-button cmx-quiet" onClick={() => void retry()}>Retry sync</button>}
+          </div>
+        </header>
+      )}
 
-      {!eligibility.eligible ? (
+      {activeLaunch && compilerAvailable && !setupVisible && (
+        <aside className="cmx-placement-handoff" aria-labelledby="cmx-placement-handoff-title">
+          <span className="cmx-placement-handoff-icon"><Code2 aria-hidden="true" size={16} /></span>
+          <div>
+            <span>{activeLaunch.source === "chat" ? "AI Chat code" : "Placement practice"} · {CODE_MATRIX_LANGUAGES.find(({ id }) => id === activeLaunch.language)?.label || "CodeMatrix"}</span>
+            <strong id="cmx-placement-handoff-title">{activeLaunch.title}</strong>
+            <p>{activeLaunch.task}</p>
+          </div>
+        </aside>
+      )}
+      {embedded && <span className="sr-only" id="code-matrix-editor-help">Ctrl or Command plus Enter runs code. Press Tab to indent.</span>}
+
+      {!compilerAvailable ? (
         <section className="cmx-setup cmx-eligibility">
           <Code2 size={36} /><h2>A workspace for your coding subjects</h2>
           <p>{eligibility.reason} Add a relevant subject, or update your academic profile to match your course.</p>
@@ -328,11 +414,11 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
       ) : (
         <>
           <div className="cmx-toolbar">
-            <label className="cmx-language"><span>Language</span><select aria-label="Programming language" value={workspace.language} onChange={(event) => changeLanguage(event.target.value)}>{CODE_MATRIX_LANGUAGES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-            <span className="cmx-runtime-label">{isWeb ? "Web preview" : workspace.language === "sql" ? "SQLite · practice database" : "Runs in your browser"}</span>
+            <label className="cmx-language"><span>Language</span><select aria-label="Programming language" value={workspaceLanguage} onChange={(event) => changeLanguage(event.target.value)}>{CODE_MATRIX_LANGUAGES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+            <span className="cmx-runtime-label">{isWeb ? "Web preview" : workspaceLanguage === "sql" ? "SQLite · practice database" : "Runs in your browser"}</span>
             <div className="cmx-actions">
               {(busy || preview) && <button type="button" className="cmx-button" onClick={stop}><Square size={15} />Stop</button>}
-              <button type="button" className="cmx-button" disabled={busy} onClick={() => void run(true)} title={workspace.language === "python" ? "Run with a recorded line and variable trace" : "Run code and inspect errors"}><Bug size={16} />Debug</button>
+              <button type="button" className="cmx-button" disabled={busy} onClick={() => void run(true)} title={workspaceLanguage === "python" ? "Run with a recorded line and variable trace" : "Run code and inspect errors"}><Bug size={16} />Debug</button>
               <button type="button" className="cmx-button cmx-primary" disabled={busy} onClick={() => void run()}>{busy ? <LoaderCircle className="cmx-spin" size={16} /> : <Play size={16} fill="currentColor" />} {busy ? "Running…" : isWeb ? "Run preview" : "Run code"}</button>
             </div>
           </div>
@@ -364,7 +450,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
                   preview ? null : <div className="cmx-empty"><Code2 size={30} /><strong>Your page will appear here</strong><span>Edit the three files and select Run preview.</span></div>
                 ) : resultTab === "debug" ? (
                   <div className="cmx-debug-content">
-                    <p className="cmx-debug-caption">{workspace.language === "python" ? "Debug records the lines and variables from your Python run. Step through the captured trace below." : "Run with Debug to inspect compiler and runtime errors. Line-by-line traces are available for Python."}</p>
+                    <p className="cmx-debug-caption">{workspaceLanguage === "python" ? "Debug records the lines and variables from your Python run. Step through the captured trace below." : "Run with Debug to inspect compiler and runtime errors. Line-by-line traces are available for Python."}</p>
                     {trace.length > 0 && <div className="cmx-trace"><div className="cmx-trace-controls"><button type="button" aria-label="Previous trace step" disabled={traceIndex === 0} onClick={() => jumpTrace(traceIndex - 1)}><ChevronLeft size={17} /></button><span>Step {traceIndex + 1} / {trace.length} · Line {trace[traceIndex]?.line}</span><button type="button" aria-label="Next trace step" disabled={traceIndex >= trace.length - 1} onClick={() => jumpTrace(traceIndex + 1)}><ChevronRight size={17} /></button></div><h3>Variables before this line</h3><dl>{Object.entries(trace[traceIndex]?.locals || {}).map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{String(value)}</dd></div>)}</dl>{Object.keys(trace[traceIndex]?.locals || {}).length === 0 && <p>No variables yet.</p>}</div>}
                     {result?.stderr ? <><strong className="cmx-error-heading">Execution details</strong><pre className="cmx-stderr">{result.stderr}</pre>{errorDiagnostics[0]?.line && <button type="button" className="cmx-button" onClick={() => { if (isWeb) setWebTab("javascript"); setActiveLine(errorDiagnostics[0].line); }}>Go to {isWeb ? "script.js · " : ""}line {errorDiagnostics[0].line}<ArrowRight size={14} /></button>}</> : result ? <p className="cmx-debug-success"><Check size={16} />{result.status === "stopped" ? "Execution was stopped." : "No runtime errors were reported."}</p> : <div className="cmx-empty"><Bug size={28} /><strong>Find what needs fixing</strong><span>Select Debug to run and inspect your code.</span></div>}
                   </div>
@@ -373,7 +459,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
                 ) : <div className="cmx-empty"><Terminal size={30} /><strong>Your output starts here</strong><span>Run your code. Type here when your program asks for input.</span><kbd>Ctrl / ⌘ + Enter</kbd></div>}
                 {reviewSnapshot && <CodeMatrixAssistant
                   key={academicProfileDataId + JSON.stringify(reviewSnapshot)} snapshot={reviewSnapshot} session={reviewSession}
-                  stale={!codeReviewMatchesDraft(reviewSnapshot, workspace.drafts)} availability={assistantAvailability}
+                  stale={!codeReviewMatchesDraft(reviewSnapshot, drafts)} availability={assistantAvailability}
                   onRetryAvailability={() => setAssistantConnectionAttempt((value) => value + 1)}
                   onGoToLine={(line) => { if (isWeb) setWebTab('javascript'); setActiveLine(line); setLineRequest({ line, language: diagnosticLanguage }); }}
                   onRun={() => void run()}
@@ -381,7 +467,7 @@ export default function CodeMatrixPage({ academicProfileDataId = "", userProfile
               </div>
             </section>
           </div>
-          <footer className="cmx-footnote"><span id="code-matrix-editor-help">Ctrl / ⌘ + Enter to run · Tab to indent · Esc, then Tab to leave the editor</span>{(workspace.language === "sql" || isWeb) && <span>{workspace.language === "sql" ? "Each run starts with a fresh SQLite database." : "Preview is isolated from your account."}</span>}</footer>
+          {!embedded && <footer className="cmx-footnote"><span id="code-matrix-editor-help">Ctrl / ⌘ + Enter to run · Tab to indent · Esc, then Tab to leave the editor</span>{(workspaceLanguage === "sql" || isWeb) && <span>{workspaceLanguage === "sql" ? "Each run starts with a fresh SQLite database." : "Preview is isolated from your account."}</span>}</footer>}
         </>
       )}
     </section>

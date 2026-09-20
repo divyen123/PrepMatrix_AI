@@ -5,9 +5,12 @@ import {
   buildPlacementActionTarget,
   buildPlacementChatPrompt,
   buildPlacementItemGuidance,
+  canCompletePlacementRole,
   clearPlacementHistory,
   createPlacementDraft,
   deletePlacementHistoryEntry,
+  getNotebookPlacementRoleSuggestion,
+  getNotebookPlacementTopics,
   getPlacementHistory,
   getSavedPlacementAnalysis,
   hasSavedPlacementPreparation,
@@ -15,6 +18,50 @@ import {
   normalizePlacementPreparationSource,
   setPlacementHistoryPinned,
 } from "./placementPreparation.js";
+
+test("derives editable placement topic drafts from the selected notebook", () => {
+  const notebook = {
+    subjectName: "REST API",
+    topics: [{ title: "HTTP methods" }],
+    chapters: [{
+      title: "API techniques",
+      topics: [
+        { title: "HTTP methods" },
+        { name: "Authentication" },
+        "Error handling",
+      ],
+    }],
+  };
+
+  assert.deepEqual(getNotebookPlacementTopics(notebook), [
+    "HTTP methods",
+    "Authentication",
+    "Error handling",
+  ]);
+  assert.deepEqual(getNotebookPlacementTopics({ chapters: [{ title: "Chapter only" }] }), []);
+});
+
+test("suggests a notebook-related role and only completes a related typed prefix", () => {
+  assert.equal(getNotebookPlacementRoleSuggestion({
+    subjectName: "REST API",
+    title: "API Techniques",
+    chapters: [{ topics: [{ title: "Build CRUD endpoints with Express.js" }] }],
+  }), "Backend developer");
+  assert.equal(getNotebookPlacementRoleSuggestion({
+    subjectName: "Data analytics",
+    chapters: [{ topics: [{ title: "Tableau dashboards" }] }],
+  }), "Data analyst");
+  assert.equal(getNotebookPlacementRoleSuggestion({
+    careerPreparation: { topicAnalysis: { targetRole: "Platform engineering intern" } },
+  }), "Platform engineering intern");
+
+  assert.equal(canCompletePlacementRole("Back", "Backend developer"), true);
+  assert.equal(canCompletePlacementRole("back dev", "Backend developer"), true);
+  assert.equal(canCompletePlacementRole("bd", "Backend developer"), true);
+  assert.equal(canCompletePlacementRole("Data analyst", "Data analyst"), false);
+  assert.equal(canCompletePlacementRole("Frontend", "Backend developer"), false);
+  assert.equal(canCompletePlacementRole("", "Backend developer"), false);
+});
 
 function analysisPayload() {
   return {

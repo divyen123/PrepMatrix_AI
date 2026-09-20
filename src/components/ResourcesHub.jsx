@@ -329,7 +329,6 @@ function ResourcesHub({
                   <BookOpen aria-hidden="true" size={22} />
                 </span>
                 <span className="resource-subject-card__copy">
-                  <small>Subject</small>
                   <span className="resource-subject-card__title">{resource.subject}</span>
                 </span>
                 <span className="resource-subject-card__footer">

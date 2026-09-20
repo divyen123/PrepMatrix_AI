@@ -30,6 +30,7 @@ import Notification from "./components/Notification";
 import FirstLoginGuideCoordinator from "./components/FirstLoginGuideCoordinator";
 import { mergeOnboardingProfile } from "./utils/studentOnboarding.js";
 import Chatbot from "./components/Chatbot";
+import CodeMatrixWindow from "./components/CodeMatrixWindow";
 import VoiceAssistant from "./components/VoiceAssistant";
 import VoiceAssistantOverlay from "./components/VoiceAssistantOverlay";
 import { AiCreditIndicator } from "./components/AiQuotaProvider";
@@ -119,6 +120,7 @@ import {
 } from "./utils/learningNotebook";
 import { getGoalReminderShortcutRoutes } from "./utils/homeNavigationCommands";
 import { CODE_MATRIX_PATH, getCodeMatrixEligibility } from "./utils/codeMatrixProfile.js";
+import { normalizeCodeMatrixLaunch } from "./utils/codeMatrixLaunch.js";
 import { hasDashboardVoiceHintReentryGapElapsed } from "./utils/dashboardVoiceHints";
 import { getPrimarySidebarNavItems } from "./utils/sidebarNavigation";
 import {
@@ -602,6 +604,7 @@ function App() {
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [workspaceTransitioning, setWorkspaceTransitioning] = useState(false);
   const [notification, setNotification] = useState("");
+  const [codeMatrixWindow, setCodeMatrixWindow] = useState(null);
   const [completionReward, setCompletionReward] = useState(null);
   const [entrySplash, setEntrySplash] = useState(true);
   const [dashboardVoiceHintPending, setDashboardVoiceHintPending] = useState(false);
@@ -933,6 +936,20 @@ function App() {
     () => getCodeMatrixEligibility({ ...userProfile, academicLevel, academicTrack }, subjects),
     [academicLevel, academicTrack, subjects, userProfile],
   );
+  const openCodeMatrixWindow = useCallback((value) => {
+    const launch = normalizeCodeMatrixLaunch(value);
+    if (!launch) return;
+    setCodeMatrixWindow({
+      instanceId: globalThis.crypto?.randomUUID?.() || `code-matrix-window-${Date.now()}`,
+      launch,
+    });
+  }, []);
+  const closeCodeMatrixWindow = useCallback(() => setCodeMatrixWindow(null), []);
+
+  useEffect(() => {
+    if (!appLocked && userProfile && !isAuthRoute) return;
+    setCodeMatrixWindow(null);
+  }, [appLocked, isAuthRoute, userProfile]);
   const visibleNavItems = useMemo(
     () => NAV_ITEMS
       .filter(
@@ -3290,6 +3307,7 @@ function App() {
               childMode={isKidsLearner}
               completed={completed}
               materialBookmarks={materialBookmarks}
+              onOpenCodeMatrix={openCodeMatrixWindow}
               onReset={resetPlanner}
               onSaveBookmark={saveMaterialBookmark}
               schedule={schedule}
@@ -3666,6 +3684,7 @@ function App() {
                                   academicLevel={academicLevel}
                                   academicTrack={academicTrack}
                                   completed={completed}
+                                  onOpenCodeMatrix={openCodeMatrixWindow}
                                   schedule={schedule}
                                   scheduleStartDate={scheduleStartDate}
                                   setCompleted={updateCompletedWithRewards}
@@ -4014,6 +4033,22 @@ function App() {
         onClose={() => setKeyboardShortcutGuideOpen(false)}
         open={keyboardShortcutGuideOpen && Boolean(userProfile) && !isAuthRoute && !appLocked}
       />
+
+      {codeMatrixWindow && userProfile && !isAuthRoute && !appLocked && (
+        <CodeMatrixWindow key={codeMatrixWindow.instanceId} onClose={closeCodeMatrixWindow}>
+          <Suspense fallback={<section className="cmx-page cmx-loading" role="status">Opening CodeMatrix…</section>}>
+            <CodeMatrixPage
+              academicProfileDataId={activeAcademicProfileDataId}
+              embedded
+              launch={codeMatrixWindow.launch}
+              schedule={schedule}
+              subjects={subjects}
+              userProfile={{ ...userProfile, academicLevel, academicTrack }}
+              workspaceLoaded={workspaceLoaded}
+            />
+          </Suspense>
+        </CodeMatrixWindow>
+      )}
 
       {logoutConfirmOpen && (
         <div className="confirm-modal-backdrop" role="presentation">

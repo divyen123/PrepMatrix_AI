@@ -1,10 +1,21 @@
-import { CalendarPlus, MessageSquareText, Save } from "lucide-react";
+import { CalendarPlus, Code2, MessageSquareText, Save } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
+import { isCodingPlacementItem } from "../utils/placementPreparation";
 import PlacementPrepContent from "./PlacementPrepContent";
 import PlacementPrepDisclosure from "./PlacementPrepDisclosure";
 
 export default function PlacementPrepTopicCard({
-  topic, index, getActionTarget, getNoteOptions, isSaving, onSave, onAskAI, onAddToPlanner,
+  codingRelevant = false,
+  codeMatrixAvailable = false,
+  topic,
+  index,
+  getActionTarget,
+  getNoteOptions,
+  isSaving,
+  onSave,
+  onAskAI,
+  onAddToPlanner,
+  onCode,
 }) {
   const renderActions = (target) => {
     const saving = isSaving(target, getNoteOptions(target));
@@ -19,6 +30,25 @@ export default function PlacementPrepTopicCard({
   const questions = Array.isArray(topic?.interviewQuestions) ? topic.interviewQuestions : [];
   const practiceSteps = Array.isArray(topic?.practiceSteps) ? topic.practiceSteps : [];
   const hasSupport = Boolean(topic?.whyItMatters?.trim() || questions.length || practiceSteps.length);
+  const codingPracticeIndex = practiceSteps.findIndex((item) => (
+    isCodingPlacementItem({ codingRelevant, item, topic })
+  ));
+  const codingQuestionIndex = questions.findIndex((item) => (
+    isCodingPlacementItem({ codingRelevant, item, topic })
+  ));
+  const topicIsCoding = isCodingPlacementItem({ codingRelevant, topic });
+  const codeTarget = codeMatrixAvailable && typeof onCode === "function"
+    ? codingPracticeIndex >= 0
+      ? getActionTarget(topic, practiceSteps[codingPracticeIndex], "practice", codingPracticeIndex)
+      : codingQuestionIndex >= 0
+        ? getActionTarget(topic, questions[codingQuestionIndex], "interview", codingQuestionIndex)
+        : topicIsCoding
+          ? getActionTarget(topic, {
+              id: `${topic?.id || "placement-topic"}-code-practice`,
+              title: `Implement ${topic?.title || "this placement topic"}`,
+            }, "practice", 0)
+          : null
+    : null;
   const overviewRef = useRef(null);
   const practiceRef = useRef(null);
   const [practiceLayout, setPracticeLayout] = useState("side");
@@ -86,6 +116,18 @@ export default function PlacementPrepTopicCard({
         <header className="learning-career-topic-heading">
           <span className="learning-career-topic-number">{String(index + 1).padStart(2, "0")}</span>
           <h4>{String(topic?.title || "").trim().slice(0, 180)}</h4>
+          {codeTarget?.metadata?.codingRelevant && (
+            <button
+              aria-label={`Code ${String(topic?.title || "this topic").trim().slice(0, 180)} yourself in CodeMatrix`}
+              className="learning-career-code-action"
+              onClick={() => onCode(codeTarget, topic)}
+              title="Open this topic in CodeMatrix"
+              type="button"
+            >
+              <Code2 aria-hidden="true" size={13} />
+              <span>Code it yourself</span>
+            </button>
+          )}
         </header>
         <PlacementPrepContent text={topic?.explanation} />
       </div>

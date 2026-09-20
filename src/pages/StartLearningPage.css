@@ -3352,18 +3352,76 @@ body .learning-career-save:hover:not(:disabled) {
 }
 
 .learning-career-topic-heading {
-  display: flex;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   align-items: flex-start;
   gap: 12px;
   min-width: 0;
 }
 
 .learning-career-topic-heading h4 {
-  flex: 1;
   min-width: 0;
   padding-top: 3px;
   overflow-wrap: anywhere;
   line-height: 1.5;
+}
+
+body .learning-career-code-action {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 8px;
+  color: var(--text) !important;
+  background: color-mix(in srgb, var(--bg) 88%, var(--accent) 12%) !important;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border)) !important;
+  border-radius: 8px;
+  box-shadow: none !important;
+  filter: none !important;
+  font-size: 0.7rem;
+  font-weight: 780;
+  line-height: 1;
+  -webkit-text-fill-color: currentColor !important;
+  text-shadow: none;
+  transform: none !important;
+  white-space: nowrap;
+}
+
+body .learning-career-code-action:hover:not(:disabled),
+body .learning-career-code-action:active,
+body .learning-career-code-action:focus-visible {
+  color: var(--text) !important;
+  background: color-mix(in srgb, var(--bg) 80%, var(--accent) 20%) !important;
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border)) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+body .learning-career-code-action:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 68%, var(--text));
+  outline-offset: 1px;
+}
+
+body.has-bg-image .learning-page .learning-career-code-action,
+body.has-bg-image .learning-page .learning-career-code-action:hover:not(:disabled),
+body.has-bg-image .learning-page .learning-career-code-action:active,
+body.has-bg-image .learning-page .learning-career-code-action:focus-visible {
+  color: #f7fafc !important;
+  background: #111a24 !important;
+  border-color: #536170 !important;
+  -webkit-text-fill-color: #f7fafc !important;
+}
+
+body .learning-career-code-action::after {
+  display: none !important;
+  content: none !important;
+}
+
+body .learning-career-code-action svg {
+  flex: 0 0 auto;
 }
 
 .learning-career-topic-number {
@@ -3444,6 +3502,17 @@ body .learning-career-save:hover:not(:disabled) {
   gap: 5px;
   margin: 0;
   padding-left: 17px;
+}
+
+@container (max-width: 560px) {
+  .learning-career-topic-heading {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  body .learning-career-code-action {
+    grid-column: 2;
+    justify-self: start;
+  }
 }
 
 .learning-career-points {
@@ -4124,37 +4193,65 @@ body .learning-career-item-trigger:focus-visible {
 .learning-career-item-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  align-items: center;
+  gap: 6px;
   padding: 2px 13px 13px;
 }
 
 body .learning-career-item-actions button {
   display: inline-flex;
-  min-height: 36px;
+  min-width: 0;
+  min-height: 32px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 7px 10px;
-  color: var(--text-muted) !important;
-  background: var(--surface-strong) !important;
+  gap: 5px;
+  padding: 5px 8px;
+  color: var(--text) !important;
+  background: color-mix(in srgb, var(--bg) 94%, var(--text) 6%) !important;
   border: 1px solid var(--border) !important;
-  border-radius: 9px;
+  border-radius: 8px;
   box-shadow: none !important;
-  font-size: 0.75rem;
+  filter: none !important;
+  font-size: 0.7rem;
   font-weight: 760;
+  line-height: 1;
+  -webkit-text-fill-color: currentColor !important;
+  text-shadow: none;
   transform: none !important;
+  white-space: nowrap;
 }
 
 body .learning-career-item-actions button:hover:not(:disabled),
 body .learning-career-item-actions button:focus-visible {
-  color: var(--accent) !important;
-  background: var(--accent-soft) !important;
+  color: var(--text) !important;
+  background: color-mix(in srgb, var(--bg) 86%, var(--accent) 14%) !important;
   border-color: rgba(var(--accent-rgb), 0.32) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
 }
 
 body .learning-career-item-actions button:focus-visible {
   outline: 2px solid rgba(var(--accent-rgb), 0.45);
   outline-offset: 2px;
+}
+
+body.has-bg-image .learning-page .learning-career-item-actions button,
+body.has-bg-image .learning-page .learning-career-item-actions button:hover:not(:disabled),
+body.has-bg-image .learning-page .learning-career-item-actions button:focus-visible {
+  color: #f7fafc !important;
+  background: #111a24 !important;
+  border-color: #536170 !important;
+  -webkit-text-fill-color: #f7fafc !important;
+}
+
+body .learning-career-item-actions button::after {
+  display: none !important;
+  content: none !important;
+}
+
+body .learning-career-item-actions button svg {
+  flex: 0 0 auto;
 }
 
 @media (max-width: 620px) {
@@ -4163,6 +4260,6 @@ body .learning-career-item-actions button:focus-visible {
   }
 
   body .learning-career-item-actions button {
-    flex: 1 1 118px;
+    flex: 0 1 auto;
   }
 }

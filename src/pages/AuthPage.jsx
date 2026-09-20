@@ -163,11 +163,7 @@ function AuthPage({ onLogin }) {
       <article className={`auth-card auth-card--v2${isRegister ? " auth-card--register" : ""}`}>
         <div className="auth-copy">
           <h2>{isRegister ? "Create your study profile" : "Welcome back"}</h2>
-          <p>
-            {isRegister
-              ? "Set up your institution, class, and learning path to get personalised quizzes and plans."
-              : "Sign in to continue your personalised study journey."}
-          </p>
+          {!isRegister && <p>Sign in to continue your personalised study journey.</p>}
         </div>
 
         <form className="auth-form auth-form--v2" onSubmit={handleSubmit}>

@@ -138,6 +138,7 @@ function parseChatMessageBlocks(text = "") {
 
 export default function ChatMessageText({
   linksAllowed = true,
+  onExecuteCode,
   text = "",
   youtubeContext = false,
 }) {
@@ -178,6 +179,7 @@ export default function ChatMessageText({
           code={block.value}
           key={`code-block-${block.sourceIndex}`}
           language={block.language}
+          onExecute={onExecuteCode}
         />
       );
     }
