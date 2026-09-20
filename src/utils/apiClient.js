@@ -230,6 +230,11 @@ const api = {
   register: (body) => request("/api/auth/register", { method: "POST", body: JSON.stringify(body) }),
   logout: () => request("/api/auth/logout", { method: "POST", body: JSON.stringify({}) }),
   deleteAccount: (password) => request("/api/auth/account", { method: "DELETE", body: JSON.stringify({ password }) }),
+  saveAppPreferences: (preferences) => request("/api/auth/preferences", {
+    academicProfileId: null,
+    method: "PUT",
+    body: JSON.stringify({ preferences }),
+  }),
   saveWorkspace: (body, options = {}) => request("/api/workspace", { ...options, method: "PUT", body: JSON.stringify(body) }),
   importWorkspace: (body, options = {}) => request("/api/workspace/import", { ...options, method: "POST", body: JSON.stringify(body) }),
   syncAppUsage: (body, options = {}) => request("/api/app-usage/sync", {

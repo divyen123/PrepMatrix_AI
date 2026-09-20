@@ -63,7 +63,17 @@ import {
   resolveBackgroundImageBlurPx,
   resolveEffectiveDarkMode,
 } from "./utils/appearanceTheme";
-import { initializeNewStudentAppearance } from "./utils/appearanceStorage";
+import {
+  initializeNewStudentAppearance,
+  NEW_STUDENT_APPEARANCE_DEFAULTS,
+} from "./utils/appearanceStorage";
+import {
+  APP_PREFERENCES_UPDATED_EVENT,
+  appPreferencesEqual,
+  normalizeAppPreferences,
+  readStoredAppPreferences,
+  writeStoredAppPreferences,
+} from "./utils/appPreferences";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
 import { normalizeMemoryReviewData, separatePlannerRecall } from "./utils/plannerLifecycle.js";
 import { buildClearedPlannerWorkspace, mergePlannerHistory, normalizePlannerHistory } from "./utils/plannerHistory.js";
@@ -219,6 +229,9 @@ const TOPBAR_HIDE_DELAY_MS = 3500;
 const APP_LOCK_STORAGE_KEY = "prepmatrix_app_locked";
 const THEME_MODE_STORAGE_KEY = "prepmatrix_theme_mode";
 const THEME_MODES = new Set(["light", "dark", "system"]);
+const PREFERENCES_PENDING_STORAGE_PREFIX = "prepmatrix_preferences_sync_pending:";
+const PREFERENCES_OWNER_STORAGE_KEY = "prepmatrix_preferences_owner";
+const PREFERENCES_RETRY_DELAYS_MS = [1000, 3000, 10000, 30000];
 
 const NOTIFICATION_INTENT_KEY = "prepmatrix_notifications_enabled";
 const TOPBAR_AUTO_HIDE_STORAGE_KEY = "prepmatrix_topbar_auto_hide";
@@ -241,6 +254,29 @@ function readStoredThemeMode() {
   const storedMode = localStorage.getItem(THEME_MODE_STORAGE_KEY);
   if (THEME_MODES.has(storedMode)) return storedMode;
   return localStorage.getItem("prepmatrix_default_theme") === "dark" ? "dark" : "light";
+}
+
+function getPreferenceOwnerKey(profile) {
+  return String(profile?.id || profile?._id || profile?.email || "").trim();
+}
+
+function getPendingPreferencesStorageKey(ownerKey) {
+  const normalizedOwnerKey = String(ownerKey || "").trim();
+  return normalizedOwnerKey
+    ? `${PREFERENCES_PENDING_STORAGE_PREFIX}${encodeURIComponent(normalizedOwnerKey)}`
+    : "";
+}
+
+function readPendingAppPreferences(ownerKey) {
+  const storageKey = getPendingPreferencesStorageKey(ownerKey);
+  if (!storageKey) return null;
+  try {
+    const stored = localStorage.getItem(storageKey);
+    return stored ? normalizeAppPreferences(JSON.parse(stored)) : null;
+  } catch {
+    localStorage.removeItem(storageKey);
+    return null;
+  }
 }
 
 function systemPrefersDarkMode() {
@@ -503,6 +539,9 @@ function App() {
   const profilePreviewTimerRef = useRef(null);
   const topBarHideTimeoutRef = useRef(null);
   const resumeBuilderRef = useRef(null);
+  const preferencesSaveTimeoutRef = useRef(null);
+  const preferencesSavePromiseRef = useRef(Promise.resolve());
+  const lastSavedPreferencesRef = useRef("");
   const [subjects, setSubjects] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [completed, setCompleted] = useState([]);
@@ -517,6 +556,8 @@ function App() {
   resumeBuilderRef.current = resumeBuilder;
   const [goalReminderData, setGoalReminderData] = useState(() => normalizePlannerData(DEFAULT_GOAL_REMINDER_DATA));
   const [goalReminderSettings, setGoalReminderSettings] = useState(() => normalizePlannerSettings(DEFAULT_GOAL_REMINDER_SETTINGS));
+  const [appPreferences, setAppPreferences] = useState(() => readStoredAppPreferences());
+  const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   const [themeMode, setThemeMode] = useState(readStoredThemeMode);
   const [darkMode, setDarkModeState] = useState(() => resolveThemeModeDarkValue(themeMode));
   const themeModeRef = useRef(themeMode);
@@ -531,6 +572,10 @@ function App() {
     localStorage.setItem(THEME_MODE_STORAGE_KEY, nextMode);
     setThemeMode(nextMode);
     setDarkModeState(nextDarkMode);
+    setAppPreferences((preferences) => {
+      const next = normalizeAppPreferences({ ...preferences, themeMode: nextMode });
+      return appPreferencesEqual(preferences, next) ? preferences : next;
+    });
   }, []);
   const setDarkMode = useCallback((value, options = {}) => {
     const nextDarkMode = typeof value === "function"
@@ -595,7 +640,7 @@ function App() {
       window.clearTimeout(academicProfileIntroTimerRef.current);
     }
   }, []);
-  const [cursorStyle, setCursorStyle] = useState(() => {
+  const [cursorStyle, setCursorStyleState] = useState(() => {
     const saved = localStorage.getItem("prepmatrix_cursor_style") || "app-cursor";
     // Migrate old neon-cursor preference to blob-cursor
     if (saved === "neon-cursor") {
@@ -604,6 +649,18 @@ function App() {
     }
     return saved;
   });
+  const setCursorStyle = useCallback((value) => {
+    setCursorStyleState((current) => {
+      const requested = typeof value === "function" ? value(current) : value;
+      const next = normalizeAppPreferences({ cursorStyle: requested }).cursorStyle;
+      localStorage.setItem("prepmatrix_cursor_style", next);
+      setAppPreferences((preferences) => normalizeAppPreferences({
+        ...preferences,
+        cursorStyle: next,
+      }));
+      return next;
+    });
+  }, []);
   const [autoHideTopBar, setAutoHideTopBar] = useState(
     () => localStorage.getItem(TOPBAR_AUTO_HIDE_STORAGE_KEY) === "true"
   );
@@ -633,6 +690,10 @@ function App() {
     setTopBarVisible(true);
     setAutoHideTopBar(nextValue);
     localStorage.setItem(TOPBAR_AUTO_HIDE_STORAGE_KEY, String(nextValue));
+    setAppPreferences((preferences) => normalizeAppPreferences({
+      ...preferences,
+      autoHideTopBar: nextValue,
+    }));
   }, [clearTopBarHideTimeout]);
   const handleAutoLockEnabledChange = useCallback((enabled) => {
     setAutoLockPreferences((current) => ({
@@ -648,7 +709,15 @@ function App() {
   }, []);
 
   useEffect(() => {
-    writeAutoLockPreferences(autoLockPreferences);
+    const normalized = writeAutoLockPreferences(autoLockPreferences);
+    setAppPreferences((preferences) => {
+      const next = normalizeAppPreferences({
+        ...preferences,
+        autoLockEnabled: normalized.enabled,
+        autoLockMinutes: normalized.minutes,
+      });
+      return appPreferencesEqual(preferences, next) ? preferences : next;
+    });
   }, [autoLockPreferences]);
 
   const showTopBar = useCallback(() => {
@@ -1222,7 +1291,12 @@ function App() {
     setProfilePreviewSide((side) => (side === "photo" ? "logo" : "photo"));
   };
 
-  const applyWorkspace = (workspace = {}, profile = null, requestedContext = null) => {
+  const applyWorkspace = (
+    workspace = {},
+    profile = null,
+    requestedContext = null,
+    preferenceOptions = {},
+  ) => {
     const nextProfileContext = resolveAcademicProfileContext(
       requestedContext || workspace?.profileContext || {},
       profile || {},
@@ -1306,12 +1380,69 @@ function App() {
     const nextGoalReminderData = normalizePlannerData(workspace?.goalReminderData || DEFAULT_GOAL_REMINDER_DATA);
     setGoalReminderData(nextGoalReminderData);
     setGoalReminderSettings(nextGoalReminderSettings);
-    if (themeModeRef.current === "system") {
-      const nextSystemDarkMode = systemPrefersDarkMode();
-      darkModeRef.current = nextSystemDarkMode;
-      setDarkModeState(nextSystemDarkMode);
+    if (profile) {
+      const hasServerPreferences = profile.appPreferences
+        && typeof profile.appPreferences === "object";
+      const preferenceOwnerKey = getPreferenceOwnerKey(profile);
+      const pendingPreferences = readPendingAppPreferences(preferenceOwnerKey);
+      const preferenceOverride = preferenceOptions?.appPreferences
+        ? normalizeAppPreferences(preferenceOptions.appPreferences)
+        : null;
+      const storedPreferenceOwnerKey = localStorage.getItem(PREFERENCES_OWNER_STORAGE_KEY) || "";
+      const canUseLocalPreferences = !storedPreferenceOwnerKey
+        || storedPreferenceOwnerKey === preferenceOwnerKey;
+      const hasLocalThemePreference = canUseLocalPreferences
+        && Boolean(localStorage.getItem(THEME_MODE_STORAGE_KEY));
+      const localPreferences = canUseLocalPreferences
+        ? readStoredAppPreferences(localStorage)
+        : normalizeAppPreferences();
+      const nextPreferences = preferenceOverride
+        || pendingPreferences
+        || (hasServerPreferences
+          ? normalizeAppPreferences(profile.appPreferences, localPreferences)
+          : normalizeAppPreferences({
+          ...localPreferences,
+          ...(!hasLocalThemePreference && typeof workspace.darkMode === "boolean"
+            ? { themeMode: workspace.darkMode ? "dark" : "light" }
+            : {}),
+          }));
+
+      writeStoredAppPreferences(nextPreferences, localStorage, {
+        preserveLocalCustomBackground: canUseLocalPreferences,
+      });
+      if (preferenceOwnerKey) {
+        localStorage.setItem(PREFERENCES_OWNER_STORAGE_KEY, preferenceOwnerKey);
+      }
+      const storedBackgroundImageId = localStorage.getItem("prepmatrix_bg_image_id") || "";
+      const storedBackgroundPreset = resolveBackgroundPresetForProfile(storedBackgroundImageId);
+      setAppPreferences(nextPreferences);
+      setActiveBackgroundImageId(storedBackgroundImageId);
+      setLiveCustomBackgroundImageActive(Boolean(storedBackgroundPreset));
+      setCursorStyleState(nextPreferences.cursorStyle);
+      setAutoHideTopBar(nextPreferences.autoHideTopBar);
+      setAutoLockPreferences({
+        enabled: nextPreferences.autoLockEnabled,
+        minutes: nextPreferences.autoLockMinutes,
+      });
+      voiceAssistant.setVoicePreferences?.(nextPreferences.voicePreferences);
+      voiceAssistant.setWakeMode?.(nextPreferences.wakeMode);
+      applyAppearanceMode(nextPreferences.themeMode);
+      lastSavedPreferencesRef.current = hasServerPreferences
+        && !preferenceOverride
+        && !pendingPreferences
+        ? JSON.stringify(nextPreferences)
+        : "";
+      setPreferencesHydrated(true);
     } else {
-      applyAppearanceMode(workspace.darkMode ? "dark" : "light");
+      setPreferencesHydrated(false);
+      lastSavedPreferencesRef.current = "";
+      if (themeModeRef.current === "system") {
+        const nextSystemDarkMode = systemPrefersDarkMode();
+        darkModeRef.current = nextSystemDarkMode;
+        setDarkModeState(nextSystemDarkMode);
+      } else {
+        applyAppearanceMode(workspace.darkMode ? "dark" : "light");
+      }
     }
     setScheduleStartDate(workspace.scheduleStartDate || null);
     setActiveExamAttemptId(
@@ -1322,6 +1453,28 @@ function App() {
   };
   currentUserProfileRef.current = userProfile;
   applyWorkspaceRef.current = applyWorkspace;
+
+  const refreshAppPreferencesFromStorage = useCallback((overrides = {}) => {
+    const isBrowserEvent = typeof Event !== "undefined" && overrides instanceof Event;
+    const nextPreferences = normalizeAppPreferences({
+      ...readStoredAppPreferences(localStorage),
+      ...(!isBrowserEvent && overrides && typeof overrides === "object" ? overrides : {}),
+    });
+    setAppPreferences((current) => (
+      appPreferencesEqual(current, nextPreferences) ? current : nextPreferences
+    ));
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener(
+      APP_PREFERENCES_UPDATED_EVENT,
+      refreshAppPreferencesFromStorage,
+    );
+    return () => window.removeEventListener(
+      APP_PREFERENCES_UPDATED_EVENT,
+      refreshAppPreferencesFromStorage,
+    );
+  }, [refreshAppPreferencesFromStorage]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -1893,9 +2046,18 @@ function App() {
     localStorage.removeItem(APP_LOCK_STORAGE_KEY);
     setAppLocked(false);
     setAppLockError("");
+    let newStudentPreferences = null;
     if (options.initializeDefaultAppearance) {
+      newStudentPreferences = normalizeAppPreferences({
+        ...NEW_STUDENT_APPEARANCE_DEFAULTS,
+      });
       try {
         initializeNewStudentAppearance(localStorage);
+        writeStoredAppPreferences(newStudentPreferences, localStorage, {
+          preserveLocalCustomBackground: false,
+        });
+        localStorage.removeItem(getPendingPreferencesStorageKey(getPreferenceOwnerKey(profile)));
+        localStorage.setItem(PREFERENCES_OWNER_STORAGE_KEY, getPreferenceOwnerKey(profile));
         applyAppearanceMode("light");
       } catch {
         themeModeRef.current = "light";
@@ -1907,7 +2069,9 @@ function App() {
       setLiveCustomBackgroundImageActive(false);
     }
     setUserProfile(profile);
-    applyWorkspace(workspace, profile, requestedContext);
+    applyWorkspace(workspace, profile, requestedContext, {
+      appPreferences: newStudentPreferences,
+    });
     setWorkspaceLoaded(true);
     setNotification(`Welcome, ${profile.username}.`);
     setDashboardVoiceHintPending(true);
@@ -2346,6 +2510,101 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!userProfile || !preferencesHydrated) return undefined;
+
+    const normalizedPreferences = normalizeAppPreferences(appPreferences);
+    const serializedPreferences = JSON.stringify(normalizedPreferences);
+    if (serializedPreferences === lastSavedPreferencesRef.current) return undefined;
+
+    const preferenceOwnerKey = getPreferenceOwnerKey(userProfile);
+    if (!preferenceOwnerKey) return undefined;
+    const pendingStorageKey = getPendingPreferencesStorageKey(preferenceOwnerKey);
+    localStorage.setItem(pendingStorageKey, serializedPreferences);
+    if (preferencesSaveTimeoutRef.current) {
+      window.clearTimeout(preferencesSaveTimeoutRef.current);
+    }
+
+    let disposed = false;
+    let retryAttempt = 0;
+    let retryTimeoutId = null;
+    let retryTriggersInstalled = false;
+    const isCurrentPreferenceOwner = () => (
+      !disposed
+      && getPreferenceOwnerKey(currentUserProfileRef.current) === preferenceOwnerKey
+    );
+    const handleVisibleRetry = () => {
+      if (document.visibilityState === "visible") savePreferences();
+    };
+    const removeRetryTriggers = () => {
+      if (!retryTriggersInstalled) return;
+      retryTriggersInstalled = false;
+      window.removeEventListener("online", savePreferences);
+      window.removeEventListener("focus", savePreferences);
+      document.removeEventListener("visibilitychange", handleVisibleRetry);
+    };
+    const installRetryTriggers = () => {
+      if (retryTriggersInstalled || !isCurrentPreferenceOwner()) return;
+      retryTriggersInstalled = true;
+      window.addEventListener("online", savePreferences);
+      window.addEventListener("focus", savePreferences);
+      document.addEventListener("visibilitychange", handleVisibleRetry);
+    };
+    const scheduleRetry = () => {
+      if (!isCurrentPreferenceOwner()) return;
+      installRetryTriggers();
+      if (retryAttempt >= PREFERENCES_RETRY_DELAYS_MS.length) return;
+      const retryDelay = PREFERENCES_RETRY_DELAYS_MS[retryAttempt];
+      retryAttempt += 1;
+      retryTimeoutId = window.setTimeout(savePreferences, retryDelay);
+    };
+    function savePreferences() {
+      if (!isCurrentPreferenceOwner()) return;
+      removeRetryTriggers();
+      if (retryTimeoutId) {
+        window.clearTimeout(retryTimeoutId);
+        retryTimeoutId = null;
+      }
+      preferencesSaveTimeoutRef.current = null;
+      const saveRequest = preferencesSavePromiseRef.current
+        .catch(() => undefined)
+        .then(() => {
+          if (!isCurrentPreferenceOwner()) return null;
+          return api.saveAppPreferences(normalizedPreferences);
+        });
+      preferencesSavePromiseRef.current = saveRequest.catch(() => undefined);
+      saveRequest
+        .then((response) => {
+          if (!response || !isCurrentPreferenceOwner()) return;
+          const savedPreferences = normalizeAppPreferences(
+            response?.preferences,
+            normalizedPreferences,
+          );
+          lastSavedPreferencesRef.current = JSON.stringify(savedPreferences);
+          if (
+            lastSavedPreferencesRef.current === serializedPreferences
+            && localStorage.getItem(pendingStorageKey) === serializedPreferences
+          ) {
+            localStorage.removeItem(pendingStorageKey);
+          }
+        })
+        .catch(() => {
+          scheduleRetry();
+        });
+    }
+
+    preferencesSaveTimeoutRef.current = window.setTimeout(savePreferences, 350);
+    return () => {
+      disposed = true;
+      if (preferencesSaveTimeoutRef.current) {
+        window.clearTimeout(preferencesSaveTimeoutRef.current);
+        preferencesSaveTimeoutRef.current = null;
+      }
+      if (retryTimeoutId) window.clearTimeout(retryTimeoutId);
+      removeRetryTriggers();
+    };
+  }, [appPreferences, preferencesHydrated, userProfile]);
+
+  useEffect(() => {
     if (
       !userProfile
       || !workspaceLoaded
@@ -2450,7 +2709,7 @@ function App() {
     
     document.documentElement.style.setProperty("--accent", `rgb(${activeRgb})`);
     document.body.style.setProperty("--accent", `rgb(${activeRgb})`);
-  }, [darkMode, isAuthRoute, learnerRoutePolicy.academicProfile, learnerRoutePolicy.isYoungKidsLearner]);
+  }, [appPreferences, darkMode, isAuthRoute, learnerRoutePolicy.academicProfile, learnerRoutePolicy.isYoungKidsLearner]);
 
   useEffect(() => {
     const handleSWMessage = (event) => {
@@ -2749,7 +3008,7 @@ function App() {
       document.documentElement.style.removeProperty("--bg-brightness");
       document.body.style.removeProperty("--bg-brightness");
     }
-  }, [darkMode, isAuthRoute, learnerRoutePolicy.academicProfile, learnerRoutePolicy.isYoungKidsLearner]);
+  }, [appPreferences, darkMode, isAuthRoute, learnerRoutePolicy.academicProfile, learnerRoutePolicy.isYoungKidsLearner]);
 
   useEffect(() => {
     document.title = `PrepMatrix | ${titleLabel}`;
@@ -2801,6 +3060,10 @@ function App() {
 
     if (topBarHideTimeoutRef.current) {
       window.clearTimeout(topBarHideTimeoutRef.current);
+    }
+
+    if (preferencesSaveTimeoutRef.current) {
+      window.clearTimeout(preferencesSaveTimeoutRef.current);
     }
   }, []);
 
@@ -3657,6 +3920,7 @@ function App() {
                               setResumeBuilder={updateResumeBuilderDraft}
                               setNotification={setNotification}
                               onAccountDeleted={handleAccountDeleted}
+                              onPreferencesChange={refreshAppPreferencesFromStorage}
                               cursorStyle={cursorStyle}
                               setCursorStyle={setCursorStyle}
                               autoHideTopBar={autoHideTopBar}

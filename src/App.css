@@ -15596,6 +15596,26 @@ body.dark .auth-submit-btn:active,
    CUSTOM CURSOR
    ========================================================================== */
 
+.custom-cursor-layer {
+  position: fixed;
+  inset: 0 auto auto 0;
+  z-index: 2147483647;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  pointer-events: none;
+  zoom: var(--app-ui-scale-inverse, 1);
+}
+
+.custom-cursor-layer:popover-open {
+  display: block;
+}
+
 /* Hide OS cursor only when custom cursor mode is active */
 html[data-cursor-mode="app-cursor"] *,
 html[data-cursor-mode="app-cursor"] *::before,
@@ -23843,10 +23863,16 @@ body .resource-subject-card:focus-visible {
   text-transform: uppercase;
 }
 
-.resource-subject-card__copy strong {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: clamp(1.2rem, 2vw, 1.55rem);
-  line-height: 1.18;
+.resource-subject-card__title {
+  max-width: 24ch;
+  color: currentColor;
+  font-family: var(--font-family-base, "Manrope", sans-serif);
+  font-size: clamp(1.04rem, 1.45vw, 1.28rem);
+  font-weight: var(--font-weight-bold, 600);
+  line-height: 1.3;
+  letter-spacing: -0.018em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .resource-subject-card__footer {
@@ -23991,6 +24017,73 @@ body .resource-detail-back:focus-visible {
   .resource-subject-card:focus-visible .resource-subject-card__footer svg,
   body .resource-detail-back:hover {
     transform: none;
+  }
+}
+
+/* Desktop density: browser 100% now matches the former 90% workspace scale. */
+@media (min-width: 800px) {
+  :root {
+    --app-ui-scale: 0.9;
+    --app-ui-scale-inverse: 1.1111111111;
+    --app-scaled-viewport-width: 111.111111vw;
+    --app-scaled-viewport-height: 111.111111vh;
+    --app-scaled-dynamic-viewport-height: 111.111111dvh;
+  }
+
+  body {
+    zoom: var(--app-ui-scale);
+  }
+
+  .app-container,
+  .app-container.has-sidebar,
+  .app-container.auth-layout,
+  .app-main-content {
+    min-height: var(--app-scaled-viewport-height) !important;
+  }
+
+  /* Explicit viewport units are also scaled by CSS zoom. These viewport-owned
+     surfaces use the inverse size so their backdrops still reach every edge. */
+  .app-background-layer,
+  .trend-modal-backdrop,
+  .voice-overlay-backdrop,
+  .kids-parent-backdrop,
+  .learning-privacy-backdrop,
+  .cmx-source.is-source-fullscreen,
+  .cmx-source:fullscreen {
+    width: var(--app-scaled-viewport-width) !important;
+    height: var(--app-scaled-dynamic-viewport-height) !important;
+  }
+
+  .entry-splash,
+  .app-lock-backdrop {
+    min-height: var(--app-scaled-dynamic-viewport-height) !important;
+  }
+
+  .timer-dock-panel,
+  .goal-reminder-dialog {
+    height: var(--app-scaled-dynamic-viewport-height) !important;
+    max-height: var(--app-scaled-dynamic-viewport-height) !important;
+  }
+
+  body:has(.app-container.auth-layout),
+  body:has(.app-container.auth-layout) #root,
+  .app-container.auth-layout,
+  .app-container.auth-layout .app-main-content,
+  .app-container.auth-layout .workspace-main,
+  .app-container.auth-layout .route-stage,
+  .app-container.auth-layout .auth-page,
+  .auth-page--isolated {
+    width: var(--app-scaled-viewport-width) !important;
+    height: var(--app-scaled-dynamic-viewport-height) !important;
+    min-height: var(--app-scaled-dynamic-viewport-height) !important;
+    max-width: var(--app-scaled-viewport-width) !important;
+    max-height: var(--app-scaled-dynamic-viewport-height) !important;
+  }
+}
+
+@media (min-width: 992px) {
+  .app-sidebar {
+    height: var(--app-scaled-viewport-height) !important;
   }
 }
 

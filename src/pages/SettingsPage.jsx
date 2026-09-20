@@ -431,6 +431,7 @@ function SettingsPage({
   academicLevel, academicTrack, setSubjects, setSchedule, setCompleted,
   setMaterialBookmarks, setGoalReminderData, setGoalReminderSettings, setResumeBuilder,
   setNotification, onAccountDeleted,
+  onPreferencesChange,
   onAcademicProfileChange,
   academicProfileDataId = "",
   profileContext = null,
@@ -454,10 +455,14 @@ function SettingsPage({
   const location = useLocation();
   const assistantVoicePreferences = normalizeVoicePreferences(voicePreferences);
   const updateVoicePreference = (key, value) => {
-    setVoicePreferences?.((currentPreferences) => ({
-      ...currentPreferences,
-      [key]: value,
-    }));
+    setVoicePreferences?.((currentPreferences) => {
+      const nextPreferences = normalizeVoicePreferences({
+        ...currentPreferences,
+        [key]: value,
+      });
+      onPreferencesChange?.({ voicePreferences: nextPreferences });
+      return nextPreferences;
+    });
   };
   const handleVoicePreview = (preferenceOverrides) => {
     if (!onPreviewVoice?.(preferenceOverrides)) {
@@ -786,6 +791,7 @@ function SettingsPage({
     const next = !wakeMode;
     setWakeMode(next);
     localStorage.setItem("prepmatrix_wake_mode", next ? "true" : "false");
+    onPreferencesChange?.({ wakeMode: next });
     if (next) {
       window.studyVoiceAssistant?.startWakeListening?.();
     } else {
@@ -1310,7 +1316,8 @@ function SettingsPage({
   // Persist toggle preferences to localStorage
   useEffect(() => {
     localStorage.setItem("prepmatrix_sound_enabled", String(soundEnabled));
-  }, [soundEnabled]);
+    onPreferencesChange?.({ soundEnabled });
+  }, [onPreferencesChange, soundEnabled]);
 
   useEffect(() => {
     if (!confirmDeleteAccount && !showPasswordStep) {
@@ -2142,6 +2149,7 @@ function SettingsPage({
       kidsBackgroundsEligible,
     });
     onBackgroundThemeChange?.(persistedBgImageId, Boolean(persistedBackgroundPreset));
+    onPreferencesChange?.();
 
     toast.success("Appearance configurations applied successfully!");
   };

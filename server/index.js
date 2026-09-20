@@ -62,6 +62,7 @@ import {
   registerNotificationHistoryRoutes,
 } from "./notificationHistory.js";
 import { normalizeResumeBuilderState } from "../src/utils/resumeBuilder.js";
+import { normalizeAppPreferences } from "../src/utils/appPreferences.js";
 import {
   RESUME_GENERATIONS_COLLECTION,
   RESUME_GENERATION_LOCKS_COLLECTION,
@@ -442,6 +443,9 @@ function sanitizeUser(user) {
     academicProfiles: academicProfilesState.academicProfiles,
     activeAcademicProfileId: academicProfilesState.activeAcademicProfileId,
     profileImage: user.profileImage || "",
+    appPreferences: user.appPreferences && typeof user.appPreferences === "object"
+      ? normalizeAppPreferences(user.appPreferences)
+      : null,
     ...getStudentOnboardingState(user),
     createdAt: user.createdAt,
   };
@@ -1702,6 +1706,30 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
   } finally {
     await profileMutationLock?.release().catch(() => undefined);
   }
+}));
+
+app.put("/api/auth/preferences", requireAuth(async (req, res) => {
+  const db = await getDb();
+  const activeUser = await db.collection("users").findOne({
+    _id: req.user._id,
+    deletingAt: { $exists: false },
+  });
+  if (!activeUser) {
+    return res.status(409).json({
+      error: "Account deletion is already in progress.",
+      code: "ACCOUNT_DELETION_IN_PROGRESS",
+    });
+  }
+
+  const preferences = normalizeAppPreferences(
+    req.body?.preferences ?? req.body,
+    activeUser.appPreferences,
+  );
+  await db.collection("users").updateOne(
+    { _id: req.user._id, deletingAt: { $exists: false } },
+    { $set: { appPreferences: preferences, updatedAt: new Date() } },
+  );
+  return res.json({ preferences });
 }));
 
 app.put("/api/workspace", requireAuth(async (req, res) => {

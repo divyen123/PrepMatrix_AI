@@ -96,6 +96,12 @@ body:not(.dark) .cmx-page {
 .cmx-sync.is-local > span, .cmx-sync.is-unsaved > span { background: var(--warning); }
 body .cmx-page .cmx-button, .cmx-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; padding: 10px 15px; min-height: 40px; border: 1px solid var(--border); background: var(--surface-strong); border-radius: 10px; color: var(--text); font-size: 12px; font-weight: 650; text-decoration: none; box-shadow: none; white-space: nowrap; }
 body .cmx-page .cmx-primary, .cmx-button.cmx-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+body.dark .cmx-page .cmx-button.cmx-primary,
+body.has-bg-image .cmx-page .cmx-button.cmx-primary {
+  background: var(--text) !important;
+  border-color: var(--text) !important;
+  color: var(--bg) !important;
+}
 body .cmx-page .cmx-primary:hover { filter: brightness(1.08); }
 body .cmx-page .cmx-quiet { background: transparent; border-color: transparent; padding: 8px; min-height: 32px; }
 .cmx-button:focus-visible, .cmx-page a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
