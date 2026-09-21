@@ -781,6 +781,17 @@ body.has-bg-image .notes-page .planner-date-menu {
   animation: noteDetailsDialogIn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.note-details-dialog.paper-crumple-note {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  animation: noteDetailsPaperIn 300ms ease both;
+}
+
+.note-details-dialog.paper-crumple-note::-webkit-scrollbar {
+  display: none;
+  width: 0;
+}
+
 body.dark .note-details-dialog {
   --note-details-solid-surface: #121b2d;
 }
@@ -867,13 +878,11 @@ body.no-glass-cards .note-details-dialog {
 .note-details-heading {
   display: grid;
   gap: 5px;
-  margin-top: 18px;
+  margin-top: 12px;
 }
 
-.note-details-heading > span,
 .note-details-content h3,
-.note-details-saved-topics h3,
-.note-details-meta span {
+.note-details-saved-topics h3 {
   color: var(--text-muted);
   font-size: 0.66rem;
   font-weight: 800;
@@ -893,34 +902,6 @@ body.no-glass-cards .note-details-dialog {
 .note-details-heading time {
   color: var(--text-muted);
   font-size: 0.72rem;
-}
-
-.note-details-meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.note-details-meta > div {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-  padding: 12px 13px;
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-}
-
-.note-details-meta strong {
-  color: var(--text);
-  font-size: 0.82rem;
-}
-
-.note-details-meta small {
-  color: var(--text-muted);
-  font-size: 0.65rem;
-  overflow-wrap: anywhere;
 }
 
 .note-details-content {
@@ -1203,6 +1184,11 @@ body.no-glass-cards .note-details-dialog {
   }
 }
 
+@keyframes noteDetailsPaperIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @media (max-width: 640px) {
   .note-details-overlay {
     align-items: end;
@@ -1214,10 +1200,6 @@ body.no-glass-cards .note-details-dialog {
     max-height: calc(100dvh - 24px);
     padding: 18px;
     border-radius: 22px;
-  }
-
-  .note-details-meta {
-    grid-template-columns: 1fr;
   }
 
   .note-details-edit-field.is-priority {

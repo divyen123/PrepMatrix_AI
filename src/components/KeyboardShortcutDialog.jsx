@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { APP_SHORTCUT_GUIDE_GROUPS } from "../utils/appKeyboardShortcuts";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
+import SpotlightCard from "./SpotlightCard";
 import "./KeyboardShortcutDialog.css";
 
 function getFocusableElements(container) {
@@ -12,11 +13,11 @@ function getFocusableElements(container) {
   ));
 }
 
-export function KeyboardShortcutGroups() {
+export function KeyboardShortcutGroups({ spotlight = false }) {
   return (
     <div className="about-shortcut-groups">
-      {APP_SHORTCUT_GUIDE_GROUPS.map((group) => (
-        <article className="about-shortcut-group" key={group.id}>
+      {APP_SHORTCUT_GUIDE_GROUPS.map((group) => {
+        const content = <>
           <div className="about-shortcut-group-heading">
             <h4>{group.label}</h4>
             <p>{group.description}</p>
@@ -42,8 +43,11 @@ export function KeyboardShortcutGroups() {
               </li>
             ))}
           </ul>
-        </article>
-      ))}
+        </>;
+        return spotlight
+          ? <SpotlightCard as="article" className="about-shortcut-group" key={group.id} spotlightColor="rgba(var(--accent-rgb), 0.22)">{content}</SpotlightCard>
+          : <article className="about-shortcut-group" key={group.id}>{content}</article>;
+      })}
     </div>
   );
 }

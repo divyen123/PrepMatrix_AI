@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Library,
   FileUser,
+  FileSearch,
   Menu,
   X,
   Info,
@@ -208,6 +209,7 @@ const ReportPage = lazyRetry(() => import("./pages/ReportPage"));
 const ResourcesPage = lazyRetry(() => import("./pages/ResourcesPage"));
 const SubjectsPage = lazyRetry(() => import("./pages/SubjectsPage"));
 const ResumeBuilderPage = lazyRetry(() => import("./pages/ResumeBuilderPage"));
+const ResumeAnalyzerPage = lazyRetry(() => import("./pages/ResumeAnalyzerPage"));
 const SettingsPage = lazyRetry(() => import("./pages/SettingsPage"));
 const SettingsProfilePage = lazyRetry(() => import("./pages/SettingsProfilePage"));
 const AcademicProfilesGuidePage = lazyRetry(() => import("./pages/AcademicProfilesGuidePage"));
@@ -334,6 +336,13 @@ const NAV_ITEMS = [
     label: "Resume Builder",
     helper: "Create, edit, and export a professional resume",
     icon: FileUser,
+    resumeOnly: true,
+  },
+  {
+    to: "/resume-analyzer",
+    label: "Resume Analyzer",
+    helper: "Compare your resume with a job description",
+    icon: FileSearch,
     resumeOnly: true,
   },
 ];
@@ -3876,6 +3885,21 @@ function App() {
                             )
                           }
                           path="/resume-builder"
+                        />
+                        <Route
+                          element={
+                            isKidsLearner ? (
+                              <Navigate replace to={learnerRoutePolicy.homeRoute} />
+                            ) : resumeEligibility.enabled ? (
+                              <ResumeAnalyzerPage
+                                resumeBuilder={resumeBuilder}
+                                userProfile={userProfile}
+                              />
+                            ) : (
+                              <Navigate replace to="/subjects" />
+                            )
+                          }
+                          path="/resume-analyzer"
                         />
                         <Route
                           element={standardOnlyRoute(

@@ -13,6 +13,7 @@ import { Download, Search, Trash2, Check, X, Swords, Flag } from "lucide-react";
 import api from "../utils/apiClient";
 import QuizBattlesPanel from "../components/quiz-battles/QuizBattlesPanel";
 import QuizExitDialog from "../components/QuizExitDialog";
+import LatticeLoader from "../components/LatticeLoader";
 import {
   AI_FEATURES,
   createAiIdempotencyKey,
@@ -998,16 +999,20 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
         {saveError && <p className="auth-message" role="alert">{saveError}</p>}
 
         <AiCreditCost feature={AI_FEATURES.QUIZ} />
-        <button
-          aria-describedby={deferredQuizSession ? "quiz-eligibility-status quiz-saved-session-status" : "quiz-eligibility-status"}
-          className="action-btn"
-          disabled={isGenerating || hasUnfinishedSoloQuiz || Boolean(deferredQuizSession) || !quizEligibility.isEligible || hasInsufficientCredits(AI_FEATURES.QUIZ)}
-          onClick={startQuiz}
-          title={!quizEligibility.isEligible ? quizEligibilityMessage : hasInsufficientCredits(AI_FEATURES.QUIZ) ? "Not enough AI credits" : "Generate AI quiz"}
-          type="button"
-        >
-          {isGenerating ? "Generating topic quiz..." : "Generate AI quiz"}
-        </button>
+        {isGenerating ? (
+          <LatticeLoader className="generation-lattice-loader" label="Generating AI quiz" />
+        ) : (
+          <button
+            aria-describedby={deferredQuizSession ? "quiz-eligibility-status quiz-saved-session-status" : "quiz-eligibility-status"}
+            className="action-btn"
+            disabled={hasUnfinishedSoloQuiz || Boolean(deferredQuizSession) || !quizEligibility.isEligible || hasInsufficientCredits(AI_FEATURES.QUIZ)}
+            onClick={startQuiz}
+            title={!quizEligibility.isEligible ? quizEligibilityMessage : hasInsufficientCredits(AI_FEATURES.QUIZ) ? "Not enough AI credits" : "Generate AI quiz"}
+            type="button"
+          >
+            Generate AI quiz
+          </button>
+        )}
       </section>
 
       {questions.length > 0 && (

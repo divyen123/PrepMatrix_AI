@@ -1,0 +1,112 @@
+.paper-crumple-note {
+  --pc-x: 0px;
+  --pc-y: 0px;
+  --pc-rotation: 0deg;
+  --pc-scale: 1;
+  --pc-crease-opacity: 0;
+  --pc-exit-x: 0px;
+  --pc-exit-y: 0px;
+  --pc-fold-x: 0px;
+  --pc-fold-y: 0px;
+  --pc-wad-x: 0px;
+  --pc-wad-y: 0px;
+  --pc-exit-rotation: 38deg;
+  position: relative;
+  transform: translate3d(var(--pc-x), var(--pc-y), 0) rotate(var(--pc-rotation)) scale(var(--pc-scale));
+  transform-origin: center;
+  will-change: transform;
+}
+
+.paper-crumple-note::before,
+.paper-crumple-note::after {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  content: "";
+  opacity: var(--pc-crease-opacity);
+  pointer-events: none;
+}
+
+.paper-crumple-note::before {
+  background:
+    linear-gradient(38deg, transparent 34%, rgba(255, 255, 255, 0.42) 35%, transparent 37%),
+    linear-gradient(139deg, transparent 57%, rgba(0, 0, 0, 0.3) 58%, transparent 60%),
+    linear-gradient(73deg, transparent 68%, rgba(255, 255, 255, 0.25) 69%, transparent 71%);
+  mix-blend-mode: soft-light;
+}
+
+.paper-crumple-note::after {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35), transparent 45%, rgba(0, 0, 0, 0.22));
+  clip-path: polygon(0 0, 35% 0, 0 34%);
+}
+
+.paper-crumple-note .note-details-header,
+.paper-crumple-note .note-details-heading,
+.paper-crumple-note .note-details-content-head,
+.paper-crumple-note .note-details-saved-topics,
+.paper-crumple-note .note-details-footer {
+  touch-action: none;
+}
+
+.paper-crumple-note.is-dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.paper-crumple-note.is-returning {
+  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.paper-crumple-note.is-returning::before,
+.paper-crumple-note.is-returning::after {
+  transition: opacity 460ms ease;
+}
+
+.paper-crumple-note.is-crumpling {
+  pointer-events: none;
+  animation: paperCrumpleAway 560ms cubic-bezier(0.64, 0, 0.78, 0) forwards !important;
+}
+
+.paper-crumple-note.is-crumpling::before,
+.paper-crumple-note.is-crumpling::after {
+  animation: paperCrumpleCrease 560ms ease-in forwards;
+}
+
+@keyframes paperCrumpleAway {
+  0% {
+    opacity: 1;
+    transform: translate3d(var(--pc-x), var(--pc-y), 0) rotate(var(--pc-rotation)) scale(var(--pc-scale));
+    clip-path: inset(0 round 24px);
+  }
+  35% {
+    opacity: 1;
+    transform: translate3d(var(--pc-fold-x), var(--pc-fold-y), 0) rotate(15deg) scale(0.78);
+    clip-path: polygon(0 4%, 39% 0, 100% 9%, 94% 54%, 100% 96%, 52% 100%, 0 88%);
+  }
+  70% {
+    opacity: 0.94;
+    transform: translate3d(var(--pc-wad-x), var(--pc-wad-y), 0) rotate(29deg) scale(0.35);
+    clip-path: polygon(4% 23%, 35% 3%, 85% 11%, 100% 54%, 78% 100%, 18% 87%);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--pc-exit-x), var(--pc-exit-y), 0) rotate(var(--pc-exit-rotation)) scale(0.06);
+    clip-path: polygon(13% 29%, 45% 8%, 90% 35%, 85% 75%, 38% 93%, 8% 66%);
+  }
+}
+
+@keyframes paperCrumpleCrease {
+  0% { opacity: var(--pc-crease-opacity); }
+  55% { opacity: 0.68; }
+  100% { opacity: 0.85; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-crumple-note,
+  .paper-crumple-note.is-returning,
+  .paper-crumple-note.is-crumpling {
+    animation: none !important;
+    transition: none !important;
+  }
+}

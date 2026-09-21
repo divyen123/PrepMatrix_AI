@@ -926,6 +926,12 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
   margin-top: 0 !important;
 }
 
+.settings-page .settings-glass-controls--full {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 0;
+}
+
 .settings-page .settings-background-image-controls {
   display: contents;
 }
@@ -983,7 +989,7 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
   margin-top: 1px;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 700px) {
   .settings-page .settings-glass-controls {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;

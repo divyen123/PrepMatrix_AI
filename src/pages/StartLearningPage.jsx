@@ -38,6 +38,7 @@ import LearningMasteryMap from "../components/LearningMasteryMap";
 import PlacementPrepTopicCard from "../components/PlacementPrepTopicCard";
 import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDialog";
 import LearningStudyStudio from "../components/LearningStudyStudio";
+import LatticeLoader from "../components/LatticeLoader";
 import MedicalTrainingLab from "../components/MedicalTrainingLab";
 import MedicalTrainingLabIntake from "../components/MedicalTrainingLabIntake";
 import CodeMatrixSetupReturn from "../components/CodeMatrixSetupReturn";
@@ -3833,32 +3834,19 @@ function StartLearningPage({
           {!analyzing && analysisError && (
             <p className="learning-inline-error" role="alert">{analysisError}</p>
           )}
-          <button
-            className="learning-analyze-btn"
-            disabled={analyzing || preparingSources || hasInsufficientCredits(AI_FEATURES.LEARNING_NOTEBOOK)}
-            onClick={analyzeNotebook}
-            type="button"
-          >
-            {analyzing ? <LoaderCircle className="spinner" size={17} /> : <BrainCircuit size={17} />}
-            {analyzing ? "Building notebook…" : "Analyze & start learning"}
-            <AiCreditCost feature={AI_FEATURES.LEARNING_NOTEBOOK} />
-          </button>
-
-          {analyzing && (
-            <div className="learning-intake-progress" role="status">
-              <span className="learning-intake-progress-icon">
-                <LoaderCircle className="spinner" size={18} />
-              </span>
-              <div>
-                <strong>{ANALYSIS_STEPS[analysisStep]}</strong>
-                <small>Step {analysisStep + 1} of {ANALYSIS_STEPS.length}. Your notebook will open here when ready.</small>
-              </div>
-              <span
-                aria-hidden="true"
-                className="learning-intake-progress-bar"
-                style={{ "--learning-progress": `${((analysisStep + 1) / ANALYSIS_STEPS.length) * 100}%` }}
-              />
-            </div>
+          {analyzing ? (
+            <LatticeLoader className="generation-lattice-loader" label="Building notebook" />
+          ) : (
+            <button
+              className="learning-analyze-btn"
+              disabled={preparingSources || hasInsufficientCredits(AI_FEATURES.LEARNING_NOTEBOOK)}
+              onClick={analyzeNotebook}
+              type="button"
+            >
+              <BrainCircuit size={17} />
+              Analyze & start learning
+              <AiCreditCost feature={AI_FEATURES.LEARNING_NOTEBOOK} />
+            </button>
           )}
           </>
           ) : intakeMode === "medical" ? (
@@ -4021,24 +4009,27 @@ function StartLearningPage({
             </div>
 
             {careerError && <p className="learning-inline-error" role="alert">{careerError}</p>}
-            <button
-              className="learning-career-analyze"
-              disabled={
-                careerAnalyzing
-                || saving
-                || (usesCustomPlacementSource
-                  ? !cleanText(careerContext, MAX_PLACEMENT_CONTEXT_CHARS)
-                  : !selectedCareerSourceNotebook)
-                || !parseCareerTopics(careerTopics).length
-                || hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)
-              }
-              onClick={analyzeCareerTopics}
-              type="button"
-            >
-              {careerAnalyzing ? <LoaderCircle className="spinner" size={17} /> : <BrainCircuit size={17} />}
-              {careerAnalyzing ? "Analyzing preparation topics..." : "Analyze preparation topics"}
-              <AiCreditCost feature={AI_FEATURES.CAREER_ANALYSIS} />
-            </button>
+            {careerAnalyzing ? (
+              <LatticeLoader className="generation-lattice-loader" label="Analyzing preparation topics" />
+            ) : (
+              <button
+                className="learning-career-analyze"
+                disabled={
+                  saving
+                  || (usesCustomPlacementSource
+                    ? !cleanText(careerContext, MAX_PLACEMENT_CONTEXT_CHARS)
+                    : !selectedCareerSourceNotebook)
+                  || !parseCareerTopics(careerTopics).length
+                  || hasInsufficientCredits(AI_FEATURES.CAREER_ANALYSIS)
+                }
+                onClick={analyzeCareerTopics}
+                type="button"
+              >
+                <BrainCircuit size={17} />
+                Analyze preparation topics
+                <AiCreditCost feature={AI_FEATURES.CAREER_ANALYSIS} />
+              </button>
+            )}
           </div>
           ) : null}
           </section>
@@ -4243,23 +4234,9 @@ function StartLearningPage({
 
         <section className="learning-notebook-stage" aria-live="polite">
           {analyzing ? (
-            <div className="card learning-analysis-state" role="status">
-              <div className="learning-analysis-orbit" aria-hidden="true">
-                <BrainCircuit size={34} />
-                <span />
-                <span />
-              </div>
-              <span className="section-tag">Notebook intelligence</span>
+            <div className="learning-analysis-copy">
               <h3>{ANALYSIS_STEPS[analysisStep]}</h3>
               <p>PrepMatrix is organizing the source into a clean study path. You can keep this page open.</p>
-              <ol className="learning-analysis-steps">
-                {ANALYSIS_STEPS.map((step, index) => (
-                  <li className={index < analysisStep ? "is-done" : index === analysisStep ? "is-current" : ""} key={step}>
-                    <span>{index < analysisStep ? <Check size={13} /> : index + 1}</span>
-                    <strong>{step}</strong>
-                  </li>
-                ))}
-              </ol>
             </div>
           ) : !activeNotebook || isLearningWorkspaceNotebook(activeNotebook) ? (
             <div className="card learning-empty-stage">

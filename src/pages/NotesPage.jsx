@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { CalendarDays, Check, Copy, Pencil, Search, Trash2, X } from "lucide-react";
+import PaperCrumple from "../components/PaperCrumple";
 import api from "../utils/apiClient";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
@@ -646,12 +647,6 @@ function NotesPage({
     ? selectedNote.leftTopics.filter(Boolean)
     : [];
   const selectedCreatedAt = formatNoteDate(selectedNote?.createdAt);
-  const selectedPlannerDate = selectedNote
-    ? scheduleDateOptions.find((option) => option.dateKey === selectedPlannerState?.dateKey)?.label
-      || selectedNote.plannedDate
-      || ""
-    : "";
-
   const filteredNotes = useMemo(() => {
     const statusFiltered = filter === "All"
       ? notes
@@ -1056,13 +1051,15 @@ function NotesPage({
           }}
           role="presentation"
         >
-          <section
+          <PaperCrumple
             aria-describedby={isNoteDialogEditing ? "note-edit-help" : "note-details-description"}
             aria-labelledby="note-details-title"
             aria-modal="true"
             className="note-details-dialog"
+            dialogRef={noteDetailsModalRef}
+            disabled={isNoteDialogEditing || noteDialogDeletePending}
             id="note-details-dialog"
-            ref={noteDetailsModalRef}
+            onDismiss={closeNoteDetails}
             role="dialog"
           >
             <header className="note-details-header">
@@ -1087,7 +1084,6 @@ function NotesPage({
             </header>
 
             <div className="note-details-heading">
-              <span>{isNoteDialogEditing ? "Editing study note" : "Study note"}</span>
               <h2 id="note-details-title">
                 {isNoteDialogEditing
                   ? editNoteTopic.trim() || "Untitled note"
@@ -1096,24 +1092,6 @@ function NotesPage({
               {selectedCreatedAt ? (
                 <time dateTime={selectedNote.createdAt}>Saved {selectedCreatedAt}</time>
               ) : null}
-            </div>
-
-            <div className="note-details-meta" aria-label="Note information">
-              <div>
-                <span>Status</span>
-                <strong>{selectedNoteStatus}</strong>
-              </div>
-              <div>
-                <span>Planner</span>
-                <strong>
-                  {selectedPlannerState?.state === "completed"
-                    ? "Completed"
-                    : selectedPlannerState?.state === "added"
-                      ? "Added"
-                      : "Not scheduled"}
-                </strong>
-                {selectedPlannerDate ? <small>{selectedPlannerDate}</small> : null}
-              </div>
             </div>
 
             <section
@@ -1257,7 +1235,7 @@ function NotesPage({
                 </div>
               )}
             </footer>
-          </section>
+          </PaperCrumple>
         </div>,
         document.body,
       )}

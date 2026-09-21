@@ -37,6 +37,7 @@ import {
   X,
 } from "lucide-react";
 import DistractionAwareFocusRoom from "../components/DistractionAwareFocusRoom";
+import LatticeLoader from "../components/LatticeLoader";
 import { speakFocusNudge } from "../utils/focusRoomNudge";
 import api from "../utils/apiClient";
 import {
@@ -1069,10 +1070,14 @@ function PaperBuilder({
         <div className="exam-paper-summary">
           <div><Clock3 size={17} /><span>Recommended maximum time</span><strong>{suggestedMinutes} minutes</strong></div>
           <div><Code2 size={17} /><span>Subject mode</span><strong>{codingHeavy ? "Coding-heavy" : "Standard"}</strong></div>
-          <button className="exam-primary-btn" disabled={!canGenerate} onClick={generate} type="button">
-            {isGenerating ? <><LoaderCircle className="spin" size={17} /> Generating paper...</> : <><Sparkles size={17} /> Generate question paper</>}
-            <AiCreditCost feature={AI_FEATURES.QUESTION_PAPER} />
-          </button>
+          {isGenerating ? (
+            <LatticeLoader className="generation-lattice-loader" label="Generating question paper" />
+          ) : (
+            <button className="exam-primary-btn" disabled={!canGenerate} onClick={generate} type="button">
+              <Sparkles size={17} /> Generate question paper
+              <AiCreditCost feature={AI_FEATURES.QUESTION_PAPER} />
+            </button>
+          )}
         </div>
       </section>
 

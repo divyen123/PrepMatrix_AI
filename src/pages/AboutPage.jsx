@@ -22,6 +22,7 @@ import {
   Trophy,
 } from "lucide-react";
 import PrepMatrixGuideDialog from "../components/PrepMatrixGuideDialog";
+import SpotlightCard from "../components/SpotlightCard";
 import { KeyboardShortcutGroups } from "../components/KeyboardShortcutDialog";
 import {
   AI_DEFAULT_COSTS,
@@ -110,14 +111,14 @@ function AboutPage({ academicProfile = {} }) {
 
       <div className="about-features-grid">
         {FEATURES.map(({ icon: Icon, title, desc }) => (
-          <article className="card feature-info-card" key={title}>
+          <SpotlightCard as="article" className="card feature-info-card" key={title} spotlightColor="rgba(var(--accent-rgb), 0.24)">
             <div className="feature-icon-wrapper">{createElement(Icon, { size: 20 })}</div>
             <div><h4>{title}</h4><p>{desc}</p></div>
-          </article>
+          </SpotlightCard>
         ))}
       </div>
 
-      <section aria-labelledby="about-credits-title" className="card about-credits-card">
+      <SpotlightCard aria-labelledby="about-credits-title" as="section" className="card about-credits-card" spotlightColor="rgba(var(--accent-rgb), 0.2)">
         <div className="about-credits-intro">
           <span className="section-tag">AI credits</span>
           <h3 id="about-credits-title">Your monthly AI allowance</h3>
@@ -161,7 +162,7 @@ function AboutPage({ academicProfile = {} }) {
             })}
           </dl>
         </div>
-      </section>
+      </SpotlightCard>
 
       <section
         aria-labelledby="about-shortcuts-title"
@@ -179,7 +180,7 @@ function AboutPage({ academicProfile = {} }) {
           </div>
         </header>
 
-        <KeyboardShortcutGroups />
+        <KeyboardShortcutGroups spotlight />
       </section>
 
       <footer className="about-footer">&copy; 2026 PrepMatrix AI &bull; All rights reserved &bull; Tailored for Divyen R M</footer>

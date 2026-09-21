@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
 import {
   AlertCircle,
   Award,
@@ -1492,6 +1493,11 @@ export default function ResumeBuilderPage({
                   placeholder={curriculumExamples.resumeToolsPlaceholder}
                   hint="Separate tools with commas, such as VS Code, Git, GitHub, or Figma."
                 />
+              </div>
+
+              <div className="resume-skill-gap-prompt">
+                <div><FileText size={18} aria-hidden="true" /><span><strong>Tailor this resume to a role</strong><small>Compare your draft with a job description and see which skills need clearer evidence.</small></span></div>
+                <Link to="/resume-analyzer">Check Skill Gaps</Link>
               </div>
 
               <div className="resume-subsection">

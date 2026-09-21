@@ -252,6 +252,35 @@ const api = {
     method: "POST",
     body: JSON.stringify(body),
   }),
+  extractResumeText: async (file, options = {}) => {
+    const extension = String(file?.name || "").toLowerCase();
+    const type = /\.pdf$/u.test(extension)
+      ? "application/pdf"
+      : /\.txt$/u.test(extension)
+        ? "text/plain"
+        : "";
+    if (!file || !["application/pdf", "text/plain"].includes(type)) {
+      throw new Error("Upload a PDF or plain-text resume.");
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("The resume file must be 5 MB or smaller.");
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    for (let offset = 0; offset < bytes.length; offset += 32768) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
+    }
+    return request("/api/resume-builder/extract-text", {
+      ...options,
+      method: "POST",
+      timeoutMs: options.timeoutMs || 30000,
+      body: JSON.stringify({
+        name: file.name,
+        type,
+        dataUrl: `data:${type};base64,${btoa(binary)}`,
+      }),
+    });
+  },
   getResumeHistory: (options = {}) => request("/api/resume-builder/history", options),
   getResumeHistoryItem: (id, options = {}) => request(
     `/api/resume-builder/history/${encodeURIComponent(id)}`,

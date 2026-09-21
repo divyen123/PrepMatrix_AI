@@ -19321,12 +19321,36 @@ body.has-bg-image .subject-ai-field textarea::placeholder {
   gap: 14px;
   min-height: 142px;
   padding: 20px;
-  transition: transform 180ms ease, border-color 180ms ease;
 }
 
-.feature-info-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(var(--accent-rgb), 0.3);
+.about-page-route .card.card-spotlight:hover,
+body.dark .about-page-route .card.card-spotlight:hover {
+  transform: none !important;
+  box-shadow: var(--shadow) !important;
+}
+
+.about-page-route .feature-info-card.card-spotlight:hover {
+  border-color: var(--border) !important;
+}
+
+.about-page-route .about-credits-card.card-spotlight:hover {
+  border-color: rgba(var(--accent-rgb), 0.24) !important;
+}
+
+.about-page-route .card.card-spotlight::before,
+body.dark .about-page-route .card.card-spotlight::before {
+  height: 100% !important;
+  background: radial-gradient(circle at var(--mouse-x) var(--mouse-y), var(--spotlight-color), transparent 80%) !important;
+  opacity: 0 !important;
+  transform: none !important;
+  transition: opacity 0.5s ease !important;
+}
+
+.about-page-route .card.card-spotlight:hover::before,
+.about-page-route .card.card-spotlight:focus-within::before,
+body.dark .about-page-route .card.card-spotlight:hover::before,
+body.dark .about-page-route .card.card-spotlight:focus-within::before {
+  opacity: 0.6 !important;
 }
 
 .feature-icon-wrapper {

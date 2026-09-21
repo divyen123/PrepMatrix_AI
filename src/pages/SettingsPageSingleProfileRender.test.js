@@ -7,6 +7,7 @@ import { MemoryRouter } from "react-router-dom";
 import { createServer } from "vite";
 
 const stylesheet = readFileSync(new URL("./SettingsPage.css", import.meta.url), "utf8");
+const componentSource = readFileSync(new URL("./SettingsPage.jsx", import.meta.url), "utf8");
 
 test("keeps the three Appearance wake sliders equal on one desktop row", () => {
   assert.match(
@@ -18,8 +19,16 @@ test("keeps the three Appearance wake sliders equal on one desktop row", () => {
     /\.settings-page \.settings-background-image-controls\s*\{\s*display:\s*contents;\s*\}/u,
   );
   assert.match(
+    componentSource,
+    /Preset Accent Color Palette[\s\S]*?className="settings-glass-controls settings-glass-controls--full"[\s\S]*?label="Glass Panel Opacity"[\s\S]*?label="Background Image Blur"[\s\S]*?label="Background Brightness"/u,
+  );
+  assert.match(
     stylesheet,
-    /@media \(max-width: 1180px\)[\s\S]*?\.settings-page \.settings-glass-controls\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);[\s\S]*?\.settings-page \.settings-background-image-controls\s*\{[\s\S]*?display:\s*grid;/u,
+    /\.settings-page \.settings-glass-controls--full\s*\{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?width:\s*100%;/u,
+  );
+  assert.match(
+    stylesheet,
+    /@media \(max-width: 700px\)[\s\S]*?\.settings-page \.settings-glass-controls\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);[\s\S]*?\.settings-page \.settings-background-image-controls\s*\{[\s\S]*?display:\s*grid;/u,
   );
 });
 

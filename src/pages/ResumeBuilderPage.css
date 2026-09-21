@@ -998,6 +998,31 @@ textarea.resume-field__control {
   font-size: 0.76rem;
 }
 
+.resume-skill-gap-prompt {
+  align-items: center;
+  background: color-mix(in srgb, var(--resume-accent-ui) 8%, var(--resume-panel));
+  border: 1px solid color-mix(in srgb, var(--resume-accent-ui) 34%, var(--resume-border));
+  border-radius: 13px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 15px;
+}
+
+.resume-skill-gap-prompt > div { align-items: flex-start; display: flex; gap: 10px; min-width: 0; }
+.resume-skill-gap-prompt svg { color: var(--resume-accent-ui); flex: none; margin-top: 2px; }
+.resume-skill-gap-prompt span { display: grid; gap: 4px; }
+.resume-skill-gap-prompt strong { font-size: .86rem; }
+.resume-skill-gap-prompt small { color: var(--resume-muted); font-size: .76rem; line-height: 1.45; }
+.resume-builder-page .resume-skill-gap-prompt a { border: 1px solid var(--resume-accent-ui); border-radius: 9px; color: var(--resume-accent-ui); flex: none; font-size: .78rem; font-weight: 750; padding: 9px 11px; text-decoration: none; }
+.resume-builder-page .resume-skill-gap-prompt a:hover,
+.resume-builder-page .resume-skill-gap-prompt a:focus-visible { background: color-mix(in srgb, var(--resume-accent-ui) 13%, transparent); }
+
+@media (max-width: 600px) {
+  .resume-skill-gap-prompt { align-items: stretch; flex-direction: column; }
+  .resume-builder-page .resume-skill-gap-prompt a { align-self: flex-start; }
+}
+
 .resume-subsection,
 .resume-layout-group {
   margin-top: 22px;

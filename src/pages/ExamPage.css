@@ -1067,7 +1067,7 @@ body.has-bg-image.no-glass-cards .exam-page .exam-feature-card:not(:disabled) {
   color: var(--accent);
 }
 
-.exam-paper-summary span {
+.exam-paper-summary > div > span {
   color: var(--text-secondary);
   font-size: 0.61rem;
 }
@@ -2566,7 +2566,8 @@ body.has-bg-image .exam-result-modal > section {
     grid-template-columns: 1fr 1fr;
   }
 
-  .exam-paper-summary > button {
+  .exam-paper-summary > button,
+  .exam-paper-summary > .generation-lattice-loader {
     grid-column: 1 / -1;
   }
 
@@ -2666,7 +2667,8 @@ body.has-bg-image .exam-result-modal > section {
   }
 
   .exam-field-wide,
-  .exam-paper-summary > button {
+  .exam-paper-summary > button,
+  .exam-paper-summary > .generation-lattice-loader {
     grid-column: auto;
   }
   .exam-toggle-grid .exam-toggle-option {

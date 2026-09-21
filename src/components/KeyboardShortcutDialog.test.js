@@ -59,7 +59,7 @@ test("keeps AI credits above a flat, footer-free keyboard guide on About", () =>
   const shortcutsIndex = aboutSource.indexOf('className="about-shortcuts-section"');
 
   assert.ok(creditsIndex >= 0 && shortcutsIndex > creditsIndex);
-  assert.match(aboutSource, /<KeyboardShortcutGroups \/>/u);
+  assert.match(aboutSource, /<KeyboardShortcutGroups spotlight \/>/u);
   assert.doesNotMatch(aboutSource, /card about-shortcuts-card|about-shortcuts-tip/u);
   assert.doesNotMatch(aboutSource, /anywhere outside a text field to return to this guide/u);
   assert.match(appStyles, /\.about-shortcuts-section\s*\{[^}]*scroll-margin-top: 88px;[^}]*\}/u);

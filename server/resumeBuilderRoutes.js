@@ -10,6 +10,7 @@ import {
   getRequestAcademicProfileId,
   withAcademicProfileWriteFence,
 } from "./profileDataScope.js";
+import { extractResumeText, ResumeTextExtractionError } from "./resumeTextExtraction.js";
 
 export const RESUME_GENERATIONS_COLLECTION = "resumeGenerations";
 export const RESUME_GENERATION_LOCKS_COLLECTION = "resumeGenerationLocks";
@@ -274,6 +275,31 @@ export function registerResumeBuilderRoutes(app, {
     }
     return handler(req, res);
   });
+
+  app.post(
+    "/api/resume-builder/extract-text",
+    requireResumeHistoryAccess(async (req, res) => {
+      res.set("Cache-Control", "no-store");
+      if (!req.is("application/json")) {
+        return res.status(415).json({
+          error: "Send the resume as JSON.",
+          code: "RESUME_JSON_REQUIRED",
+        });
+      }
+      try {
+        const text = await extractResumeText(req.body);
+        return res.json({ text });
+      } catch (error) {
+        if (error instanceof ResumeTextExtractionError) {
+          return res.status(error.status).json({ error: error.message, code: error.code });
+        }
+        return res.status(500).json({
+          error: "The resume could not be processed. Please try again.",
+          code: "RESUME_EXTRACTION_UNAVAILABLE",
+        });
+      }
+    }),
+  );
 
   app.get(
     "/api/resume-builder/history",

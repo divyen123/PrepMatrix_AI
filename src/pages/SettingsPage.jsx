@@ -3029,55 +3029,8 @@ function SettingsPage({
                   label="Glassy Cards & Panels"
                   subtitle="Apply glass blur and transparency to containers"
                 />
-
-                <div className="settings-glass-controls">
-                  <SettingsWakeControl
-                    displayValue={`${Math.round(glassOpacity * 100)}%`}
-                    disabled={!glassyCards}
-                    endLabel="Opaque"
-                    formatValue={(value) => `${Math.round(value * 100)} percent opacity`}
-                    label="Glass Panel Opacity"
-                    max={0.9}
-                    min={0.1}
-                    onChange={setGlassOpacity}
-                    startLabel="Transparent"
-                    step={0.05}
-                    value={glassOpacity}
-                  />
-
-                  <div className="settings-background-image-controls">
-                    <div title={!hasSelectedBackgroundImage ? "Select an image background to adjust blur." : undefined}>
-                      <SettingsWakeControl
-                        displayValue={`${Math.round(backgroundImageBlur)}px`}
-                        disabled={!hasSelectedBackgroundImage}
-                        endLabel="Blurred"
-                        formatValue={(value) => `${Math.round(value)} pixels of blur`}
-                        label="Background Image Blur"
-                        max={BACKGROUND_IMAGE_BLUR_MAX_PX}
-                        min={0}
-                        onChange={(value) => setBackgroundImageBlur(normalizeBackgroundImageBlurPx(value))}
-                        startLabel="Sharp"
-                        step={1}
-                        value={backgroundImageBlur}
-                      />
-                    </div>
-                    {hasSelectedBackgroundImage && (
-                      <SettingsWakeControl
-                        displayValue={`${Math.round((1 - bgOverlayOpacity) * 100)}%`}
-                        endLabel="Bright"
-                        formatValue={(value) => `${Math.round(value * 100)} percent brightness`}
-                        label="Background Brightness"
-                        max={1}
-                        min={0.02}
-                        onChange={(value) => setBgOverlayOpacity(1 - value)}
-                        startLabel="Dim"
-                        step={0.02}
-                        value={1 - bgOverlayOpacity}
-                      />
-                    )}
-                  </div>
-                </div>
               </div>
+
             </div>
 
             {/* Right Column: Customization Presets & Mouse Settings */}
@@ -3188,6 +3141,54 @@ function SettingsPage({
               </div>
             </div>
 
+            {/* The sliders use both appearance columns below the accent palette. */}
+            <div className="settings-glass-controls settings-glass-controls--full">
+              <SettingsWakeControl
+                displayValue={`${Math.round(glassOpacity * 100)}%`}
+                disabled={!glassyCards}
+                endLabel="Opaque"
+                formatValue={(value) => `${Math.round(value * 100)} percent opacity`}
+                label="Glass Panel Opacity"
+                max={0.9}
+                min={0.1}
+                onChange={setGlassOpacity}
+                startLabel="Transparent"
+                step={0.05}
+                value={glassOpacity}
+              />
+
+              <div className="settings-background-image-controls">
+                <div title={!hasSelectedBackgroundImage ? "Select an image background to adjust blur." : undefined}>
+                  <SettingsWakeControl
+                    displayValue={`${Math.round(backgroundImageBlur)}px`}
+                    disabled={!hasSelectedBackgroundImage}
+                    endLabel="Blurred"
+                    formatValue={(value) => `${Math.round(value)} pixels of blur`}
+                    label="Background Image Blur"
+                    max={BACKGROUND_IMAGE_BLUR_MAX_PX}
+                    min={0}
+                    onChange={(value) => setBackgroundImageBlur(normalizeBackgroundImageBlurPx(value))}
+                    startLabel="Sharp"
+                    step={1}
+                    value={backgroundImageBlur}
+                  />
+                </div>
+                {hasSelectedBackgroundImage && (
+                  <SettingsWakeControl
+                    displayValue={`${Math.round((1 - bgOverlayOpacity) * 100)}%`}
+                    endLabel="Bright"
+                    formatValue={(value) => `${Math.round(value * 100)} percent brightness`}
+                    label="Background Brightness"
+                    max={1}
+                    min={0.02}
+                    onChange={(value) => setBgOverlayOpacity(1 - value)}
+                    startLabel="Dim"
+                    step={0.02}
+                    value={1 - bgOverlayOpacity}
+                  />
+                )}
+              </div>
+            </div>
           </div>
 
           <button
