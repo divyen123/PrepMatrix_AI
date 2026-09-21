@@ -145,6 +145,67 @@ body .settings-context-menu button svg {
   grid-template-columns: 18px minmax(0, 1fr) 16px;
 }
 
+.settings-context-profile-submenu {
+  width: 240px;
+}
+
+.settings-context-profile-heading {
+  padding: 5px 9px 7px;
+  color: var(--settings-menu-muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+body .settings-context-menu-shell .settings-context-profile-submenu button {
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  min-height: 48px;
+}
+
+.settings-context-profile-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-context-profile-text strong,
+.settings-context-profile-text small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-context-profile-text strong {
+  font-size: 0.78rem;
+  font-weight: 690;
+}
+
+.settings-context-profile-text small {
+  color: var(--settings-menu-muted);
+  font-size: 0.66rem;
+  font-weight: 560;
+}
+
+.settings-context-profile-pending {
+  color: var(--settings-menu-muted) !important;
+  font-size: 0.65rem;
+}
+
+.settings-context-profile-note,
+.settings-context-profile-error {
+  margin: 5px 9px 6px;
+  color: var(--settings-menu-muted);
+  font-size: 0.69rem;
+  line-height: 1.4;
+}
+
+.settings-context-profile-error {
+  color: #dc334f;
+}
+
 body .settings-context-menu-shell .settings-context-danger,
 body .settings-context-menu-shell .settings-context-danger:hover,
 body .settings-context-menu-shell .settings-context-danger:focus-visible {
@@ -162,6 +223,10 @@ body .settings-context-menu-shell .settings-context-danger:focus-visible {
     right: 6px !important;
     left: auto !important;
     width: min(190px, calc(100vw - 44px));
+  }
+
+  .settings-context-profile-submenu {
+    width: min(240px, calc(100vw - 44px));
   }
 }
 

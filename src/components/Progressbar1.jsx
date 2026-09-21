@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import confetti from "canvas-confetti";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import successSound from "../assets/success.mp3";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { academicProfileStorageKey } from "../utils/academicProfileScope";

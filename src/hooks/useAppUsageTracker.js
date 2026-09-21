@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import {
   APP_USAGE_LIMIT_REACHED_EVENT,
   addAppUsageSeconds,

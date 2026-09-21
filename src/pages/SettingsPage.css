@@ -915,9 +915,9 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 
 .settings-page .settings-glass-controls {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: clamp(12px, 1.5vw, 20px);
+  gap: 12px;
   margin-top: 14px;
 }
 
@@ -926,13 +926,14 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
   margin-top: 0 !important;
 }
 
-.settings-page .settings-glass-controls input[type="range"] {
-  min-width: 0;
-  width: 100%;
+.settings-page .settings-background-image-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(12px, 1.5vw, 20px);
 }
 
-.settings-page .settings-glass-controls > div > div:last-child > span {
-  white-space: nowrap;
+.settings-page .settings-background-image-controls > div {
+  min-width: 0;
 }
 
 .settings-page input[type="range"] {
@@ -985,7 +986,7 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 }
 
 @media (max-width: 1180px) {
-  .settings-page .settings-glass-controls {
+  .settings-page .settings-background-image-controls {
     grid-template-columns: 1fr;
     gap: 12px;
   }
@@ -1153,40 +1154,11 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 }
 
 .settings-page .assistant-voice-range {
-  display: grid;
   min-width: 0;
-  gap: 6px;
   padding: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-}
-
-.settings-page .assistant-voice-range > span {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.settings-page .assistant-voice-range strong,
-.settings-page .assistant-voice-range output {
-  color: var(--text);
-  font-size: 0.64rem;
-  font-weight: 800;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.settings-page .assistant-voice-range output {
-  color: var(--accent);
-}
-
-.settings-page .assistant-voice-range input[type="range"] {
-  width: 100%;
-  margin: 0;
-  accent-color: var(--accent);
-  cursor: pointer;
 }
 
 .settings-page .assistant-voice-footer {
@@ -1244,6 +1216,107 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 
   .settings-page .assistant-voice-preview-btn {
     width: 100% !important;
+  }
+}
+
+/* Wake sliders share the palette of the active light, dark, or image theme. */
+.settings-page {
+  --settings-wake-track: color-mix(in srgb, var(--text) 24%, transparent);
+  --settings-wake-crest: color-mix(in srgb, var(--accent) 72%, var(--text) 28%);
+}
+
+.settings-page .settings-wake-control {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.settings-page .settings-wake-control__heading,
+.settings-page .settings-wake-control__ends {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settings-page .settings-wake-control__heading strong {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.settings-page .settings-wake-control__heading output {
+  flex: none;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-page .settings-wake-control__ends {
+  margin-top: -3px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
+.settings-page .assistant-voice-range .settings-wake-control__heading strong,
+.settings-page .assistant-voice-range .settings-wake-control__heading output {
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+
+body .settings-page button.wake-slider__handle,
+body .settings-page button.wake-slider__handle:hover,
+body .settings-page button.wake-slider__handle:focus-visible {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: transparent !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+}
+
+body .settings-page button.wake-slider__handle::before,
+body .settings-page button.wake-slider__handle::after {
+  content: none !important;
+}
+
+body .settings-page button.wake-slider__handle:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+}
+
+body.has-bg-image .settings-page {
+  --settings-wake-track: rgba(255, 255, 255, 0.27);
+  --settings-wake-crest: color-mix(in srgb, var(--accent) 65%, white 35%);
+}
+
+body.has-bg-image .settings-page .assistant-voice-range {
+  background: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.88);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+body.has-bg-image.no-glass-cards .settings-page .assistant-voice-range {
+  background: rgb(var(--bg-surface-rgb, 18, 27, 45));
+}
+
+@media (max-width: 480px) {
+  .settings-page .settings-background-image-controls {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 .settings-academic-profile-note {

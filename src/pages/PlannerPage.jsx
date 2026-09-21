@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import CodeMatrixSetupReturn from "../components/CodeMatrixSetupReturn";
 import { getCodeMatrixSetupSteps } from "../utils/codeMatrixProfile.js";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import {
   ArrowLeft,
   BrainCircuit,

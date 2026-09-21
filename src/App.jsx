@@ -92,7 +92,7 @@ import {
   academicProfilePayload,
   normalizeAcademicProfile,
 } from "./utils/academicProfile";
-import { buildAcademicProfileDeletePayload } from "./utils/academicProfileSlots";
+import { buildAcademicProfileDeletePayload, getAcademicProfileSlots } from "./utils/academicProfileSlots";
 import { getAcademicProfileDisplayName } from "./utils/academicProfileNames";
 import {
   clearAcademicProfileBrowserData,
@@ -109,7 +109,12 @@ import {
   getYoungKidsParentRouteDecision,
   isYoungKidsNavRoute,
 } from "./utils/learnerRouting";
-import { buildLoginRedirect } from "./utils/authReturnTo";
+import { buildLoginRedirect, safeAuthReturnTo } from "./utils/authReturnTo";
+import {
+  rememberExplicitLogout,
+  wasExplicitlyLoggedOut,
+} from "./utils/authPersistence.js";
+import { recoverAuthSession } from "./utils/authRecovery.js";
 import {
   SUBJECT_SCHEDULE_MUTATION_MODES,
   getSubjectScheduleMutationMode,
@@ -163,7 +168,7 @@ import { claimFirstProfileBGuide } from "./utils/academicProfileGuide";
 import { useAiQuota } from "./utils/aiQuota";
 import "./App.css";
 import "./components/GoalReminderCenter.css";
-import { ToastContainer, toast } from "react-toastify";
+import { ToastContainer, toast } from "./utils/toast";
 import "react-toastify/dist/ReactToastify.css";
 
 const lazyRetry = (componentImport) =>
@@ -766,6 +771,7 @@ function App() {
     [academicLevel, academicTrack, userProfile],
   );
   const isKidsLearner = learnerRoutePolicy.isKidsLearner;
+  const quickActionProfileSlots = useMemo(() => getAcademicProfileSlots(userProfile), [userProfile]);
   const userIdentity = userProfile?.id || userProfile?._id || userProfile?.email || "";
   useAppUsageTracker(userProfile, Boolean(userIdentity));
   const kidsGamepadIcon = resolveKidsGamepadIcon(activeBackgroundImageId);
@@ -880,6 +886,9 @@ function App() {
   }), [learningTaskActivity, plannerAttention.active, plannerAttention.pendingCount]);
 
   const isAuthRoute = location.pathname === "/login" || location.pathname === "/register";
+  const authenticatedAuthTarget = (
+    !learnerRoutePolicy.isYoungKidsLearner && safeAuthReturnTo(location.search)
+  ) || learnerRoutePolicy.homeRoute;
   useEffect(() => {
     if (authLoading || !userProfile || isAuthRoute || appLocked) {
       setKeyboardShortcutGuideOpen(false);
@@ -2112,6 +2121,7 @@ function App() {
     if (logoutInFlightRef.current) return;
 
     logoutInFlightRef.current = true;
+    rememberExplicitLogout();
     setLogoutConfirmOpen(false);
     setLogoutReturnsToLock(false);
     setLogoutTransitionPhase("active");
@@ -2177,6 +2187,7 @@ function App() {
 
   const handleAccountDeleted = () => {
     resetAcademicProfileIntro();
+    rememberExplicitLogout();
     clearStoredAuthState();
     localStorage.removeItem(APP_LOCK_STORAGE_KEY);
     setAppLocked(false);
@@ -2463,7 +2474,22 @@ function App() {
   useEffect(() => {
     let isMounted = true;
 
-    api.me()
+    if (wasExplicitlyLoggedOut()) {
+      clearStoredAuthState();
+      localStorage.removeItem(APP_LOCK_STORAGE_KEY);
+      setAppLocked(false);
+      setAppLockError("");
+      setEntrySplash(false);
+      setAuthLoading(false);
+      // A prior offline logout may have left the HttpOnly cookie behind. Retry
+      // its server-side cleanup without allowing that cookie to restore the UI.
+      api.logout().catch(() => undefined);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    recoverAuthSession((options) => (options ? api.me(options) : api.me()))
       .then((payload) => {
         if (!isMounted) return;
         setUserProfile(payload.user);
@@ -3398,6 +3424,8 @@ function App() {
               )}
               {(!isKidsLearner || kidsParentAccess.unlocked) && (
                 <SettingsContextMenu
+                  academicProfiles={quickActionProfileSlots.profiles}
+                  activeAcademicProfileId={quickActionProfileSlots.activeProfile?.id || ""}
                   appearanceDisabled={hasActiveBackgroundImage}
                   currentTheme={themeMode}
                   onAppearanceChange={applyAppearanceMode}
@@ -3417,10 +3445,12 @@ function App() {
                   }}
                   onRefreshAppData={handleRefreshAppData}
                   onRestartVoiceAssistant={handleRestartVoiceAssistant}
-                  onSwitchAcademicProfile={() => {
+                  onSwitchAcademicProfile={async (profile) => {
+                    await visitAcademicProfile(profile);
                     setSidebarOpen(false);
-                    navigate("/settings/profiles");
+                    toast.success(`Now viewing ${getAcademicProfileDisplayName(profile)}.`);
                   }}
+                  workspaceTransitioning={workspaceTransitioning}
                 />
               )}
             </div>
@@ -3570,7 +3600,9 @@ function App() {
           {/* Auth pages rendered OUTSIDE Routes so the component instance is
               shared between /login and /register — no flash on route change */}
           {isAuthRoute ? (
-            authLoading ? null : (
+            authLoading ? null : userProfile ? (
+              <Navigate replace to={authenticatedAuthTarget} />
+            ) : (
               <Suspense fallback={<RouteLoading />}>
                 <AuthPage onLogin={handleLogin} />
               </Suspense>

@@ -9,6 +9,7 @@ const componentSource = readFileSync(
 const stylesheet = readFileSync(new URL("./DashboardSetupChecklist.css", import.meta.url), "utf8");
 
 test("animates the Complete actions panel while preserving its accessibility state", () => {
+  assert.match(componentSource, /const \[collapsed, setCollapsed\] = useState\(true\)/u);
   assert.doesNotMatch(componentSource, /(?:^|\s)hidden=\{collapsed\}/u);
   assert.match(componentSource, /aria-hidden=\{collapsed\}/u);
   assert.match(componentSource, /inert=\{collapsed \? "" : undefined\}/u);
@@ -30,4 +31,12 @@ test("animates the Complete actions panel while preserving its accessibility sta
     stylesheet,
     /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.dashboard-setup-content,[\s\S]*?transition-duration:\s*0\.01ms;/u,
   );
+});
+
+test("uses theme-aware SpringCheck progress and unboxed action arrows", () => {
+  assert.match(componentSource, /<SpringCheck[\s\S]*?checked=\{step\.complete\}[\s\S]*?readOnly[\s\S]*?animateOnMount/u);
+  assert.match(componentSource, /key=\{`\$\{step\.id\}-\$\{collapsed \? "closed" : "open"\}`\}/u);
+  assert.match(componentSource, /<Link aria-label=\{button\} className="dashboard-setup-action"/u);
+  assert.match(stylesheet, /body\.has-bg-image \.dashboard-setup\s*\{[\s\S]*?background:\s*rgb\(var\(--bg-surface-rgb/u);
+  assert.match(stylesheet, /a\.dashboard-setup-action\s*\{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;/u);
 });

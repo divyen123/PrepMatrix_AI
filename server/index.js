@@ -149,6 +149,12 @@ import {
   createAiQuotaService,
   getAiQuotaConfig,
 } from "./aiQuota.js";
+import {
+  SESSION_COOKIE_MAX_AGE_MS,
+  createPersistentSessionDocument,
+  persistentSessionFilter,
+  persistentSessionTouch,
+} from "./authSessionPolicy.js";
 
 dotenv.config();
 setQuizBattleAcademicProfileCleanup(cleanupQuizBattleAcademicProfileData);
@@ -263,7 +269,6 @@ const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_DB = process.env.MONGODB_DB || "prepmatrix";
 const FRONTEND_URL = process.env.FRONTEND_URL || "";
 const SESSION_COOKIE = "prepmatrix_session";
-const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
 const REMINDER_CRON_SECRET = process.env.REMINDER_CRON_SECRET?.trim() || "";
 const ENABLE_IN_PROCESS_REMINDERS = process.env.ENABLE_IN_PROCESS_REMINDERS !== "false";
 const PUSH_TEST_COOLDOWN_MS = 60 * 1000;
@@ -389,7 +394,7 @@ function cookieOptions() {
 function setSessionCookie(res, token) {
   res.cookie(SESSION_COOKIE, token, {
     ...cookieOptions(),
-    maxAge: SESSION_DURATION_MS,
+    maxAge: SESSION_COOKIE_MAX_AGE_MS,
   });
 }
 
@@ -795,8 +800,7 @@ async function requireYoungKidsScheduleAccess(req, res, db, update, user = req.u
 async function createSession(userId) {
   const db = await getDb();
   const token = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
-  await db.collection("sessions").insertOne({ token, userId, createdAt: new Date(), expiresAt });
+  await db.collection("sessions").insertOne(createPersistentSessionDocument({ token, userId }));
   return token;
 }
 
@@ -816,8 +820,8 @@ async function getAuthenticatedSession(req) {
   if (!token) return { user: null, token: null, session: null, reason: "missing" };
 
   const db = await getDb();
-  const session = await db.collection("sessions").findOne({ token, expiresAt: { $gt: new Date() } });
-  if (!session) return { user: null, token, session: null, reason: "expired" };
+  const session = await db.collection("sessions").findOne(persistentSessionFilter(token));
+  if (!session) return { user: null, token, session: null, reason: "missing_session" };
 
   const storedUser = await db.collection("users").findOne({ _id: session.userId });
   if (!storedUser) return { user: null, token, session, reason: "missing_user" };
@@ -832,7 +836,7 @@ async function getAuthenticatedSession(req) {
   const now = new Date();
   await db.collection("sessions").updateOne(
     { _id: session._id },
-    { $set: { lastSeenAt: now, expiresAt: new Date(now.getTime() + SESSION_DURATION_MS) } }
+    persistentSessionTouch(now),
   );
 
   return { user, token, session, reason: null };
@@ -1518,6 +1522,7 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
         return res.status(400).json({ error: "Password must be at least 4 characters long." });
       }
       update.passwordHash = hashPassword(password);
+      update.passwordChangedAt = new Date();
     }
 
     if (age !== undefined) update.age = age === null ? null : Number(age);
@@ -1674,6 +1679,7 @@ app.put("/api/auth/profile", requireAuth(async (req, res) => {
       : null;
 
     if (password) {
+      await db.collection("sessions").deleteMany({ userId: req.user._id });
       const token = await createSession(req.user._id);
       setSessionCookie(res, token);
       return res.json({

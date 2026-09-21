@@ -21,7 +21,7 @@ import {
 import "./SettingsContextMenu.css";
 
 const MENU_WIDTH = 282;
-const SUBMENU_WIDTH = 190;
+const SUBMENU_WIDTH = 240;
 const VIEWPORT_GAP = 12;
 
 const THEME_OPTIONS = [
@@ -35,6 +35,8 @@ function clamp(value, minimum, maximum) {
 }
 
 export default function SettingsContextMenu({
+  academicProfiles = [],
+  activeAcademicProfileId = "",
   appearanceDisabled = false,
   currentTheme = "light",
   onAppearanceChange,
@@ -46,16 +48,24 @@ export default function SettingsContextMenu({
   onRefreshAppData,
   onRestartVoiceAssistant,
   onSwitchAcademicProfile,
+  workspaceTransitioning = false,
 }) {
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
   const [menuPosition, setMenuPosition] = useState(null);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [switchingProfileId, setSwitchingProfileId] = useState("");
+  const [profileError, setProfileError] = useState("");
   const showAppearanceMenu = appearanceOpen && !appearanceDisabled;
+  const showProfileMenu = profileOpen;
+  const profileBusy = Boolean(switchingProfileId) || workspaceTransitioning;
 
   const closeMenu = ({ restoreFocus = false } = {}) => {
     setMenuPosition(null);
     setAppearanceOpen(false);
+    setProfileOpen(false);
+    setProfileError("");
     if (restoreFocus) {
       window.requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
     }
@@ -75,6 +85,8 @@ export default function SettingsContextMenu({
     const availableHeight = Math.max(280, rect.top - VIEWPORT_GAP - 8);
 
     setAppearanceOpen(false);
+    setProfileOpen(false);
+    setProfileError("");
     setMenuPosition({
       left: clamp(left, VIEWPORT_GAP, Math.max(VIEWPORT_GAP, window.innerWidth - MENU_WIDTH - VIEWPORT_GAP)),
       bottom: Math.max(VIEWPORT_GAP, window.innerHeight - rect.top + 8),
@@ -99,6 +111,9 @@ export default function SettingsContextMenu({
         if (showAppearanceMenu) {
           setAppearanceOpen(false);
           menuRef.current?.querySelector('[data-menu-action="appearance"]')?.focus({ preventScroll: true });
+        } else if (showProfileMenu) {
+          setProfileOpen(false);
+          menuRef.current?.querySelector('[data-menu-action="profile"]')?.focus({ preventScroll: true });
         } else {
           closeMenu({ restoreFocus: true });
         }
@@ -116,7 +131,7 @@ export default function SettingsContextMenu({
       window.removeEventListener("resize", handleViewportChange);
       window.removeEventListener("scroll", handleViewportChange, true);
     };
-  }, [menuPosition, showAppearanceMenu]);
+  }, [menuPosition, showAppearanceMenu, showProfileMenu]);
 
   useEffect(() => {
     if (!menuPosition) return;
@@ -130,6 +145,29 @@ export default function SettingsContextMenu({
     action?.();
   };
 
+  const chooseProfile = async (profile) => {
+    if (!profile?.id || profileBusy || profile.deletionPending) return;
+    if (profile.id === activeAcademicProfileId) {
+      closeMenu();
+      return;
+    }
+    if (!onSwitchAcademicProfile) {
+      setProfileError("Profile switching is unavailable right now.");
+      return;
+    }
+
+    setSwitchingProfileId(profile.id);
+    setProfileError("");
+    try {
+      await onSwitchAcademicProfile(profile);
+      closeMenu();
+    } catch (error) {
+      setProfileError(error?.message || "Could not change the academic profile.");
+    } finally {
+      setSwitchingProfileId("");
+    }
+  };
+
   const handleRootMenuKeyDown = (event) => {
     if (event.defaultPrevented) return;
     if (
@@ -139,8 +177,18 @@ export default function SettingsContextMenu({
     ) {
       event.preventDefault();
       setAppearanceOpen(true);
+      setProfileOpen(false);
       window.requestAnimationFrame(() => {
         menuRef.current?.querySelector('[data-menu-level="theme"]')?.focus({ preventScroll: true });
+      });
+      return;
+    }
+    if (event.key === "ArrowRight" && event.target?.dataset?.menuAction === "profile" && !profileBusy) {
+      event.preventDefault();
+      setAppearanceOpen(false);
+      setProfileOpen(true);
+      window.requestAnimationFrame(() => {
+        menuRef.current?.querySelector('[data-menu-level="profile"]:not(:disabled)')?.focus({ preventScroll: true });
       });
       return;
     }
@@ -186,6 +234,32 @@ export default function SettingsContextMenu({
     items[nextIndex]?.focus({ preventScroll: true });
   };
 
+  const handleProfileMenuKeyDown = (event) => {
+    if (event.key === "ArrowLeft") {
+      event.stopPropagation();
+      event.preventDefault();
+      setProfileOpen(false);
+      menuRef.current?.querySelector('[data-menu-action="profile"]')?.focus({ preventScroll: true });
+      return;
+    }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.stopPropagation();
+    const items = Array.from(
+      menuRef.current?.querySelectorAll('[data-menu-level="profile"]:not(:disabled)') || [],
+    );
+    if (!items.length) return;
+    event.preventDefault();
+    const currentIndex = items.indexOf(document.activeElement);
+    const nextIndex = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? items.length - 1
+        : event.key === "ArrowDown"
+          ? (currentIndex + 1 + items.length) % items.length
+          : (currentIndex - 1 + items.length) % items.length;
+    items[nextIndex]?.focus({ preventScroll: true });
+  };
+
   const menu = menuPosition && typeof document !== "undefined"
     ? createPortal(
       <div
@@ -215,7 +289,10 @@ export default function SettingsContextMenu({
           <div
             className={`settings-context-submenu-anchor${appearanceDisabled ? " is-disabled" : ""}`}
             onMouseEnter={() => {
-              if (!appearanceDisabled) setAppearanceOpen(true);
+              if (!appearanceDisabled) {
+                setAppearanceOpen(true);
+                setProfileOpen(false);
+              }
             }}
             onMouseLeave={() => setAppearanceOpen(false)}
           >
@@ -226,7 +303,10 @@ export default function SettingsContextMenu({
               data-menu-level="root"
               disabled={appearanceDisabled}
               onClick={() => {
-                if (!appearanceDisabled) setAppearanceOpen(true);
+                if (!appearanceDisabled) {
+                  setAppearanceOpen(true);
+                  setProfileOpen(false);
+                }
               }}
               role="menuitem"
               title={appearanceDisabled
@@ -276,10 +356,73 @@ export default function SettingsContextMenu({
             <LockKeyhole aria-hidden="true" size={17} />
             <span>Lock app</span>
           </button>
-          <button data-menu-level="root" onClick={() => runAction(onSwitchAcademicProfile)} role="menuitem" type="button">
-            <UserRoundCog aria-hidden="true" size={17} />
-            <span>Switch academic profile</span>
-          </button>
+          <div
+            className="settings-context-submenu-anchor"
+            onMouseEnter={() => {
+              if (!profileBusy) {
+                setAppearanceOpen(false);
+                setProfileOpen(true);
+              }
+            }}
+            onMouseLeave={() => {
+              if (!switchingProfileId) setProfileOpen(false);
+            }}
+          >
+            <button
+              aria-expanded={showProfileMenu}
+              aria-haspopup="menu"
+              data-menu-action="profile"
+              data-menu-level="root"
+              disabled={profileBusy}
+              onClick={() => {
+                setAppearanceOpen(false);
+                setProfileOpen(true);
+              }}
+              role="menuitem"
+              type="button"
+            >
+              <UserRoundCog aria-hidden="true" size={17} />
+              <span>Switch academic profile</span>
+              <ChevronRight aria-hidden="true" className="settings-context-chevron" size={15} />
+            </button>
+            {showProfileMenu && (
+              <div
+                aria-label="Choose academic profile"
+                className="settings-context-submenu settings-context-profile-submenu"
+                onKeyDown={handleProfileMenuKeyDown}
+                role="menu"
+              >
+                <div className="settings-context-profile-heading" role="presentation">Academic profiles</div>
+                {academicProfiles.map((profile) => {
+                  const isActive = profile.id === activeAcademicProfileId;
+                  return (
+                    <button
+                      aria-checked={isActive}
+                      data-menu-level="profile"
+                      disabled={profileBusy || Boolean(profile.deletionPending)}
+                      key={profile.id}
+                      onClick={() => void chooseProfile(profile)}
+                      role="menuitemradio"
+                      title={profile.deletionPending ? "This profile is being deleted." : undefined}
+                      type="button"
+                    >
+                      <UserRoundCog aria-hidden="true" size={17} />
+                      <span className="settings-context-profile-text">
+                        <strong>{profile.displayName}</strong>
+                        <small>{isActive ? "Current profile" : profile.label}</small>
+                      </span>
+                      {isActive && <Check aria-hidden="true" className="settings-context-check" size={15} />}
+                      {switchingProfileId === profile.id && <span className="settings-context-profile-pending">Switching…</span>}
+                    </button>
+                  );
+                })}
+                {academicProfiles.length < 2 && (
+                  <p className="settings-context-profile-note">Only one profile is available.</p>
+                )}
+                {profileError && <p className="settings-context-profile-error" role="alert">{profileError}</p>}
+              </div>
+            )}
+          </div>
           <button data-menu-level="root" onClick={() => runAction(onRestartVoiceAssistant)} role="menuitem" type="button">
             <Mic2 aria-hidden="true" size={17} />
             <span>Restart voice assistant</span>

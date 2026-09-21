@@ -1,25 +1,26 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
-import { BookOpen, CalendarDays, Check, ChevronDown, ChevronUp, ListChecks, Plus } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp, ListChecks } from "lucide-react";
 import api from "../utils/apiClient";
 import { getCodeMatrixSetupSteps } from "../utils/codeMatrixProfile.js";
 import { readCodeMatrixDraft } from "../utils/codeMatrixWorkspace.js";
 import useFloatingOverlayStackSlot from "../hooks/useFloatingOverlayStackSlot";
 import { FLOATING_OVERLAY_STACK_PROPERTIES } from "../utils/floatingOverlayStack";
+import SpringCheck from "./SpringCheck";
 import "./DashboardSetupChecklist.css";
 
 const ACTIONS = {
-  subjects: { title: "Add your subjects", button: "Add subject", to: "/subjects#add-subject", icon: Plus },
-  plan: { title: "Plan your schedule", button: "Create plan", to: "/planner/schedule", icon: CalendarDays },
-  notebook: { title: "Prepare a notebook", button: "Start learning", to: "/learn#notebook-preparation", icon: BookOpen },
+  subjects: { title: "Add your subjects", button: "Add subject", to: "/subjects#add-subject" },
+  plan: { title: "Plan your schedule", button: "Create plan", to: "/planner/schedule" },
+  notebook: { title: "Prepare a notebook", button: "Start learning", to: "/learn#notebook-preparation" },
 };
 const ACTION_ORDER = Object.keys(ACTIONS);
 
 export default function DashboardSetupChecklist({ academicProfileDataId, subjects = [], schedule = [] }) {
   const contentId = useId();
   const setupRef = useRef(null);
-  const [collapsed, setCollapsed] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 600px)").matches);
+  const [collapsed, setCollapsed] = useState(true);
   const [completedSteps, setCompletedSteps] = useState(() => readCodeMatrixDraft(academicProfileDataId)?.completedSteps || []);
   const [status, setStatus] = useState("loading");
   const [attempt, setAttempt] = useState(0);
@@ -67,15 +68,28 @@ export default function DashboardSetupChecklist({ academicProfileDataId, subject
           {status === "loading" ? <p className="dashboard-setup-status" role="status">Checking your progress…</p> : (
             <ol>
               {steps.map((step) => {
-                const { title, button, to, icon: Icon } = ACTIONS[step.id];
+                const { title, button, to } = ACTIONS[step.id];
                 return (
                   <li className={step.complete ? "is-complete" : step.recommended ? "is-next" : ""} key={step.id}>
-                    <span className="dashboard-setup-icon">{step.complete ? <Check aria-label="Completed" size={17} /> : <Icon aria-hidden="true" size={17} />}</span>
-                    <div>
-                      <strong>{title}</strong>
-                      {step.complete ? <span className="dashboard-setup-done">Completed</span> : <Link to={to}>{button}</Link>}
-                    </div>
-                    {step.recommended && <small>Next</small>}
+                    <SpringCheck
+                      key={`${step.id}-${collapsed ? "closed" : "open"}`}
+                      label={title}
+                      checked={step.complete}
+                      readOnly
+                      animateOnMount
+                      color="var(--text)"
+                      fillColor="var(--accent)"
+                      checkColor="var(--dashboard-setup-check-ink)"
+                      boxSize={24}
+                      boxRadius={7}
+                      fontSize={13}
+                      doneOpacity={0.55}
+                    />
+                    {!step.complete && (
+                      <Link aria-label={button} className="dashboard-setup-action" title={button} to={to}>
+                        <ArrowRight aria-hidden="true" size={18} strokeWidth={2.2} />
+                      </Link>
+                    )}
                   </li>
                 );
               })}

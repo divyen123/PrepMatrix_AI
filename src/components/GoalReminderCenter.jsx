@@ -12,7 +12,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import GoalTodoIntro from "./GoalTodoIntro";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 

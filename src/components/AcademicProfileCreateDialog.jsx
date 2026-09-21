@@ -7,7 +7,7 @@ import {
   UserRoundPlus,
   X,
 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import {
   ACADEMIC_LEVEL_OPTIONS,
   DEPARTMENT_OPTIONS,

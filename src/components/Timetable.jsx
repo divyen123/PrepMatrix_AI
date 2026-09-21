@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { ArrowRight, Download, LockOpen, RotateCcw, Trash2 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import successSound from "../assets/success.mp3";
 import PlannerUnlockQuizDialog from "./PlannerUnlockQuizDialog";
 import api from "../utils/apiClient";

@@ -26,6 +26,7 @@ test("uses a draggable compact macOS-style window with close, maximize, and geni
   assert.match(windowSource, /<h2 id="code-matrix-window-title">CodeMatrix<\/h2>/u);
   assert.match(windowSource, /setMaximized\(\(current\) => !current\)/u);
   assert.match(windowStyles, /\.code-matrix-window-header\s*\{[\s\S]*?grid-template-rows|\.code-matrix-window\s*\{[\s\S]*?grid-template-rows:\s*38px/u);
+  assert.match(windowStyles, /width:\s*min\(1080px, calc\(100vw - 40px\)\)/u);
   assert.match(windowStyles, /\.code-matrix-window-close\s*\{\s*background:\s*#ff5f57/u);
   assert.match(windowStyles, /\.code-matrix-window-maximize\s*\{\s*background:\s*#28c840/u);
   assert.match(windowStyles, /@keyframes code-matrix-window-genie-out/u);

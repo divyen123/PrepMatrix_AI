@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import {
   AlertTriangle,
   ArrowRight,

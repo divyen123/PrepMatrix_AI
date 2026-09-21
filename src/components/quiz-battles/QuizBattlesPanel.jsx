@@ -14,7 +14,7 @@ import {
   UserPlus,
   XCircle,
 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "../../utils/toast";
 import api from "../../utils/apiClient";
 import {
   AI_FEATURES,

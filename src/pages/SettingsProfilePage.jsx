@@ -35,7 +35,7 @@ import {
   YAxis,
 } from "recharts";
 import { getAcademicProfileDisplayName } from "../utils/academicProfileNames";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import {
   isSchoolAcademicLevel,
   isSeniorSecondaryClass,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 import { Code2 } from 'lucide-react';
 import { createElement } from 'react';
 import api, { getApiAcademicProfileScope } from '../utils/apiClient';

@@ -9,7 +9,10 @@ const clearDataDialogSource = readFileSync(new URL("./components/SettingsClearDa
 test("wires settings quick actions to real app workflows", () => {
   assert.match(appSource, /<SettingsContextMenu/u);
   assert.match(appSource, /onOpenSettings=\{\(\) => \{[\s\S]*?navigate\("\/settings"\)/u);
-  assert.match(appSource, /onSwitchAcademicProfile=\{\(\) => \{[\s\S]*?navigate\("\/settings\/profiles"\)/u);
+  assert.match(appSource, /academicProfiles=\{quickActionProfileSlots\.profiles\}/u);
+  assert.match(appSource, /activeAcademicProfileId=\{quickActionProfileSlots\.activeProfile\?\.id \|\| ""\}/u);
+  assert.match(appSource, /onSwitchAcademicProfile=\{async \(profile\) => \{[\s\S]*?await visitAcademicProfile\(profile\)/u);
+  assert.match(appSource, /workspaceTransitioning=\{workspaceTransitioning\}/u);
   assert.match(appSource, /onOpenAlertHistory=\{\(\) => \{[\s\S]*?navigate\("\/notification-history"\)/u);
   assert.match(appSource, /const handleRefreshAppData = async \(\) => \{[\s\S]*?api\.saveWorkspace[\s\S]*?api\.me[\s\S]*?refreshAiQuota/u);
   assert.match(appSource, /const handleCheckForUpdates = async \(\) => \{[\s\S]*?registration\.update\(\)/u);

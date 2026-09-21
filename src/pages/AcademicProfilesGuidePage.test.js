@@ -56,6 +56,8 @@ test("renders an understandable two-profile catalogue with shared and separate b
     ));
 
     assert.match(markup, /<h1>How Profile A and Profile B work<\/h1>/u);
+    assert.doesNotMatch(markup, /Settings \/ Academic profiles/u);
+    assert.doesNotMatch(markup, /A clear guide to switching between two independent learning workspaces\./u);
     assert.doesNotMatch(markup, /<h1>How Engineering and Medical Studies work<\/h1>/u);
     assert.match(markup, /Current: Medical Studies/u);
     assert.match(markup, /Two profiles, one account/u);

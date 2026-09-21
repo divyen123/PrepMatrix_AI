@@ -29,7 +29,11 @@ test("renders Settings for one profile without deletion guidance", async () => {
         addEventListener() {},
         clearTimeout,
         localStorage,
-        matchMedia: () => ({ matches: false }),
+        matchMedia: () => ({
+          matches: false,
+          addEventListener() {},
+          removeEventListener() {},
+        }),
         removeEventListener() {},
         setTimeout,
       },
@@ -116,6 +120,20 @@ test("renders Settings for one profile without deletion guidance", async () => {
     assert.doesNotMatch(markup, /settings-profile-parent-guidance/u);
     assert.doesNotMatch(markup, /Study Goals &amp; To-Do/u);
     assert.match(markup, /dashboard-full-span settings-card settings-system-card/u);
+    for (const label of ["Speed", "Pitch", "Volume", "Glass Panel Opacity", "Background Image Blur"]) {
+      assert.match(
+        markup,
+        new RegExp(`<button(?=[^>]*aria-label="${label}")(?=[^>]*role="slider")[^>]*>`, "u"),
+      );
+    }
+    assert.doesNotMatch(markup, /aria-label="Background Brightness"/u);
+    values.set("prepmatrix_bg_image_id", "crescent-moon");
+    const imageBackgroundMarkup = renderSettings();
+    assert.match(
+      imageBackgroundMarkup,
+      /class="settings-background-image-controls"[\s\S]*?aria-label="Background Image Blur"[\s\S]*?aria-label="Background Brightness"/u,
+    );
+    values.delete("prepmatrix_bg_image_id");
     assert.match(markup, /aria-label="Auto-lock app"/u);
     assert.match(
       markup,

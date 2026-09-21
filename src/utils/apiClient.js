@@ -1,3 +1,5 @@
+import { clearExplicitLogout } from "./authPersistence.js";
+
 export const API_BASE = (import.meta.env?.VITE_API_URL || "").trim().replace(/\/+$/, "");
 export const HAS_CONFIGURED_API = Boolean(API_BASE);
 export const AUTH_RECOVERY_TIMEOUT_MS = 65000;
@@ -197,8 +199,9 @@ async function request(path, options = {}) {
       clearStoredAuthState();
     }
 
-    if (payload.token) {
+    if (response.ok && payload.token) {
       localStorage.setItem("prepmatrix_auth_token", payload.token);
+      clearExplicitLogout();
     }
 
     if (!response.ok) {

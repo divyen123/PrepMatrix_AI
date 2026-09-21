@@ -16,7 +16,7 @@ import {
   Trash2,
   UserRoundPlus,
 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import AcademicProfileCreateDialog from "../components/AcademicProfileCreateDialog";
 import SettingsAcademicProfileDeleteDialog from "../components/SettingsAcademicProfileDeleteDialog";
 import {
@@ -398,9 +398,7 @@ export default function AcademicProfilesGuidePage({
           <ArrowLeft aria-hidden="true" size={19} />
         </button>
         <div>
-          <span className="academic-profile-guide-kicker">Settings / Academic profiles</span>
           <h1>How Profile A and Profile B work</h1>
-          <p>A clear guide to switching between two independent learning workspaces.</p>
         </div>
         <span className="academic-profiles-current-badge">
           <CheckCircle2 aria-hidden="true" size={15} /> Current: {getAcademicProfileDisplayName(slots.activeProfile)}

@@ -26,7 +26,7 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import apiClient from "../utils/apiClient";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
-import { toast, ToastContainer } from "react-toastify";
+import { toast, ToastContainer } from "../utils/toast";
 
 // Default curated templates
 const MOOD_PRESETS = [
@@ -532,7 +532,7 @@ function WorktreeMapper({ academicProfile = {}, variant = "default" }) {
           position="bottom-right"
           autoClose={2200}
           closeOnClick
-          draggable={false}
+          draggable
           limit={3}
           newestOnTop
           pauseOnFocusLoss={false}

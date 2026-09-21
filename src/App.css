@@ -24172,3 +24172,235 @@ body.dark:not(.has-bg-image) .workspace-topbar {
     ) padding-box,
     var(--gradient-border) border-box !important;
 }
+
+/* ChatGPT-style new-chat state: centered copy and composer without a welcome bubble. */
+.sidebar-chatbot-portal .chat-main.is-new-chat .chat-messages {
+  flex: 0 0 auto !important;
+  align-items: center;
+  width: 100%;
+  min-height: 0 !important;
+  margin-top: auto;
+  padding: 0 24px 18px !important;
+  overflow: visible;
+  box-sizing: border-box;
+}
+
+.sidebar-chatbot-portal .chat-new-chat-prompt {
+  width: min(760px, 100%);
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.sidebar-chatbot-portal .chat-new-chat-prompt h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(1.45rem, 3vw, 2.15rem);
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.sidebar-chatbot-portal .chat-new-chat-prompt p {
+  max-width: 560px;
+  margin: 10px auto 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  text-wrap: balance;
+}
+
+.sidebar-chatbot-portal .chat-main.is-new-chat .chat-input {
+  position: relative !important;
+  bottom: auto !important;
+  align-self: center;
+  width: min(760px, calc(100% - 32px));
+  margin: 0 auto auto;
+  padding: 0 0 12px !important;
+  background: transparent !important;
+  border-top: 0 !important;
+  box-sizing: border-box;
+}
+
+.sidebar-chatbot-portal .chat-main.is-new-chat .chat-credit-row {
+  padding-inline: 4px;
+}
+
+/* ThoughtLine replaces the assistant bubble while an answer is being generated. */
+.sidebar-chatbot-portal .chat-thinking-line {
+  display: flex;
+  align-self: flex-start;
+  align-items: center;
+  min-height: 42px;
+  padding: 8px 2px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  .sidebar-chatbot-portal .chat-main.is-new-chat .chat-messages {
+    padding: 0 18px 14px !important;
+  }
+
+  .sidebar-chatbot-portal .chat-new-chat-prompt h2 {
+    font-size: clamp(1.3rem, 6vw, 1.7rem);
+  }
+
+  .sidebar-chatbot-portal .chat-new-chat-prompt p {
+    margin-top: 8px;
+    font-size: 0.78rem;
+  }
+
+  .sidebar-chatbot-portal .chat-main.is-new-chat .chat-input {
+    width: calc(100% - 24px);
+  }
+}
+
+/* SwipeToast hosts keep React-Toastify's queue and overlay positioning only. */
+@keyframes prepmatrix-swipe-host-lifecycle {
+  from { opacity: 1; }
+  to { opacity: 1; }
+}
+
+.prepmatrix-swipe-host-enter,
+.prepmatrix-swipe-host-exit {
+  animation: prepmatrix-swipe-host-lifecycle 1ms linear both;
+}
+
+body .Toastify__toast-container .prepmatrix-swipe-toast-host {
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0 !important;
+  overflow: visible;
+  color: inherit !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body .Toastify__toast-container .prepmatrix-swipe-toast-host .Toastify__toast-body {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+body .Toastify__toast-container .prepmatrix-swipe-toast-host .Toastify__toast-icon,
+body .Toastify__toast-container .prepmatrix-swipe-toast-host .Toastify__close-button,
+body .Toastify__toast-container .prepmatrix-swipe-toast-host .Toastify__progress-bar,
+body .Toastify__toast-container .prepmatrix-swipe-toast-host .Toastify__progress-bar--wrp {
+  display: none !important;
+}
+
+.prepmatrix-swipe-toast-host .swipe-toast {
+  --swipe-toast-surface: var(--surface-strong);
+  --swipe-toast-ink: var(--text);
+  --swipe-toast-tone: var(--accent);
+}
+
+.prepmatrix-swipe-toast-host .swipe-toast--success {
+  --swipe-toast-tone: var(--accent);
+}
+
+.prepmatrix-swipe-toast-host .swipe-toast--error {
+  --swipe-toast-tone: var(--danger);
+}
+
+.prepmatrix-swipe-toast-host .swipe-toast--warning {
+  --swipe-toast-tone: var(--warning);
+}
+
+.prepmatrix-swipe-toast-host .swipe-toast--info {
+  --swipe-toast-tone: var(--accent-cyan, var(--accent));
+}
+
+body.dark .prepmatrix-swipe-toast-host .swipe-toast__card {
+  box-shadow:
+    0 22px 54px rgba(0, 0, 0, 0.44),
+    0 0 0 1px color-mix(in srgb, var(--swipe-toast-tone) 7%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+body.has-bg-image .prepmatrix-swipe-toast-host .swipe-toast {
+  --swipe-toast-surface: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  --swipe-toast-ink: var(--text, #f3f5f6);
+}
+
+body.has-bg-image .prepmatrix-swipe-toast-host .swipe-toast__card {
+  background: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  border-color: color-mix(in srgb, var(--swipe-toast-tone) 42%, rgba(255, 255, 255, 0.14));
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+body.no-glass-cards .prepmatrix-swipe-toast-host .swipe-toast__card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+body .prepmatrix-swipe-toast-host .swipe-toast__action {
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 28px !important;
+  height: 28px !important;
+  padding: 0 9px !important;
+  color: var(--st-bg) !important;
+  background: var(--st-ink) !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none;
+}
+
+body .prepmatrix-swipe-toast-host .swipe-toast__close {
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  color: color-mix(in srgb, var(--st-ink) 72%, transparent) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+}
+
+body .prepmatrix-swipe-toast-host .swipe-toast__action:hover {
+  opacity: 0.88;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .prepmatrix-swipe-toast-host .swipe-toast__close:hover {
+  color: var(--st-ink) !important;
+  background: color-mix(in srgb, var(--st-ink) 10%, transparent) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+@media (max-width: 820px) {
+  body .Toastify__toast-container .prepmatrix-swipe-toast-host {
+    width: 100%;
+  }
+}

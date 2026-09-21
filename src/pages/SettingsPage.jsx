@@ -8,6 +8,7 @@ import SettingsProfileInfo from "../components/SettingsProfileInfo";
 import SettingsActionAlertsInfo from "../components/SettingsActionAlertsInfo";
 import SettingsAcademicChangeDialog from "../components/SettingsAcademicChangeDialog";
 import SettingsClearDataDialog from "../components/SettingsClearDataDialog";
+import WakeSlider from "../components/WakeSlider";
 import {
   DEFAULT_GOAL_REMINDER_DATA,
   DEFAULT_GOAL_REMINDER_SETTINGS,
@@ -97,7 +98,7 @@ import {
   AUTO_LOCK_MIN_MINUTES,
   normalizeAutoLockMinutes,
 } from "../utils/autoLock";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import "./SettingsPage.css";
 
 const COLOR_PRESETS = [
@@ -108,17 +109,6 @@ const COLOR_PRESETS = [
   { name: "Orange", light: "194, 65, 12", dark: "249, 115, 22" },
   { name: "Rose", light: "190, 24, 74", dark: "244, 63, 94" },
 ];
-const VOICE_RANGE_PREVIEW_KEYS = new Set([
-  "ArrowDown",
-  "ArrowLeft",
-  "ArrowRight",
-  "ArrowUp",
-  "End",
-  "Home",
-  "PageDown",
-  "PageUp",
-]);
-
 const CUSTOM_BACKGROUND_ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const CUSTOM_BACKGROUND_MAX_FILE_BYTES = 12 * 1024 * 1024;
 const CUSTOM_BACKGROUND_INITIAL_MAX_EDGE = 1920;
@@ -424,6 +414,41 @@ function ToggleSwitch({
   );
 }
 
+function SettingsWakeControl({
+  label,
+  displayValue,
+  startLabel,
+  endLabel,
+  className = "",
+  ...sliderProps
+}) {
+  return (
+    <div className={`settings-wake-control${className ? ` ${className}` : ""}`}>
+      <div className="settings-wake-control__heading">
+        <strong>{label}</strong>
+        <output>{displayValue}</output>
+      </div>
+      <WakeSlider
+        ariaLabel={label}
+        bars={24}
+        crestColor="var(--settings-wake-crest)"
+        fillColor="var(--accent)"
+        gap={3}
+        height={42}
+        restHeight={9}
+        trackColor="var(--settings-wake-track)"
+        {...sliderProps}
+      />
+      {startLabel || endLabel ? (
+        <div aria-hidden="true" className="settings-wake-control__ends">
+          <span>{startLabel}</span>
+          <span>{endLabel}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SettingsPage({
   userProfile, setUserProfile, setAcademicLevel, setAcademicTrack,
   darkMode, setDarkMode, subjects, schedule, completed, materialBookmarks,
@@ -469,11 +494,6 @@ function SettingsPage({
       toast.error("Voice preview is not supported in this browser.");
     }
   };
-  const previewVoiceAdjustment = (event, key) => {
-    if (event.type === "keyup" && !VOICE_RANGE_PREVIEW_KEYS.has(event.key)) return;
-    handleVoicePreview({ [key]: Number(event.currentTarget.value) });
-  };
-
   const initialAcademicProfile = normalizeAcademicProfile({
     ...userProfile,
     academicLevel: academicLevel || userProfile?.academicLevel,
@@ -2696,62 +2716,44 @@ function SettingsPage({
             </div>
 
             <div className="assistant-voice-modifiers">
-              <label className="assistant-voice-range" htmlFor="assistant-voice-rate">
-                <span>
-                  <strong>Speed</strong>
-                  <output>{assistantVoicePreferences.rate.toFixed(2)}x</output>
-                </span>
-                <input
-                  aria-valuetext={`${assistantVoicePreferences.rate.toFixed(2)} times speed`}
-                  id="assistant-voice-rate"
-                  max={VOICE_RATE_MAX}
-                  min={VOICE_RATE_MIN}
-                  onChange={(event) => updateVoicePreference("rate", Number(event.target.value))}
-                  onKeyUp={(event) => previewVoiceAdjustment(event, "rate")}
-                  onPointerUp={(event) => previewVoiceAdjustment(event, "rate")}
-                  step="0.1"
-                  type="range"
-                  value={assistantVoicePreferences.rate}
-                />
-              </label>
+              <SettingsWakeControl
+                className="assistant-voice-range"
+                displayValue={`${assistantVoicePreferences.rate.toFixed(2)}x`}
+                formatValue={(value) => `${value.toFixed(2)} times speed`}
+                label="Speed"
+                max={VOICE_RATE_MAX}
+                min={VOICE_RATE_MIN}
+                onChange={(value) => updateVoicePreference("rate", value)}
+                onInteractionEnd={(value) => handleVoicePreview({ rate: value })}
+                step={0.1}
+                value={assistantVoicePreferences.rate}
+              />
 
-              <label className="assistant-voice-range" htmlFor="assistant-voice-pitch">
-                <span>
-                  <strong>Pitch</strong>
-                  <output>{Math.round(assistantVoicePreferences.pitch * 100)}%</output>
-                </span>
-                <input
-                  aria-valuetext={`${Math.round(assistantVoicePreferences.pitch * 100)} percent pitch`}
-                  id="assistant-voice-pitch"
-                  max={VOICE_PITCH_MAX}
-                  min={VOICE_PITCH_MIN}
-                  onChange={(event) => updateVoicePreference("pitch", Number(event.target.value))}
-                  onKeyUp={(event) => previewVoiceAdjustment(event, "pitch")}
-                  onPointerUp={(event) => previewVoiceAdjustment(event, "pitch")}
-                  step="0.1"
-                  type="range"
-                  value={assistantVoicePreferences.pitch}
-                />
-              </label>
+              <SettingsWakeControl
+                className="assistant-voice-range"
+                displayValue={`${Math.round(assistantVoicePreferences.pitch * 100)}%`}
+                formatValue={(value) => `${Math.round(value * 100)} percent pitch`}
+                label="Pitch"
+                max={VOICE_PITCH_MAX}
+                min={VOICE_PITCH_MIN}
+                onChange={(value) => updateVoicePreference("pitch", value)}
+                onInteractionEnd={(value) => handleVoicePreview({ pitch: value })}
+                step={0.1}
+                value={assistantVoicePreferences.pitch}
+              />
 
-              <label className="assistant-voice-range" htmlFor="assistant-voice-volume">
-                <span>
-                  <strong>Volume</strong>
-                  <output>{Math.round(assistantVoicePreferences.volume * 100)}%</output>
-                </span>
-                <input
-                  aria-valuetext={`${Math.round(assistantVoicePreferences.volume * 100)} percent volume`}
-                  id="assistant-voice-volume"
-                  max={VOICE_VOLUME_MAX}
-                  min={VOICE_VOLUME_MIN}
-                  onChange={(event) => updateVoicePreference("volume", Number(event.target.value))}
-                  onKeyUp={(event) => previewVoiceAdjustment(event, "volume")}
-                  onPointerUp={(event) => previewVoiceAdjustment(event, "volume")}
-                  step="0.05"
-                  type="range"
-                  value={assistantVoicePreferences.volume}
-                />
-              </label>
+              <SettingsWakeControl
+                className="assistant-voice-range"
+                displayValue={`${Math.round(assistantVoicePreferences.volume * 100)}%`}
+                formatValue={(value) => `${Math.round(value * 100)} percent volume`}
+                label="Volume"
+                max={VOICE_VOLUME_MAX}
+                min={VOICE_VOLUME_MIN}
+                onChange={(value) => updateVoicePreference("volume", value)}
+                onInteractionEnd={(value) => handleVoicePreview({ volume: value })}
+                step={0.05}
+                value={assistantVoicePreferences.volume}
+              />
             </div>
 
             <div className="assistant-voice-footer">
@@ -2953,35 +2955,6 @@ function SettingsPage({
               })}
             </div>
 
-            {/* Brightness/Dimness Slider — only visible when an image bg is selected */}
-            {hasSelectedBackgroundImage && (
-              <div style={{ marginTop: "14px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text)" }}>Background Brightness</span>
-                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
-                    {Math.round((1 - bgOverlayOpacity) * 100)}%
-                  </span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Dim</span>
-                  <input
-                    type="range"
-                    min="0.02"
-                    max="1.00"
-                    step="0.02"
-                    value={1 - bgOverlayOpacity}
-                    onChange={(e) => setBgOverlayOpacity(1 - parseFloat(e.target.value))}
-                    style={{
-                      flex: 1,
-                      accentColor: "rgb(var(--accent-rgb))",
-                      height: "6px",
-                      cursor: "pointer",
-                    }}
-                  />
-                  <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Bright</span>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="workspace-grid settings-appearance-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
@@ -3058,73 +3031,51 @@ function SettingsPage({
                 />
 
                 <div className="settings-glass-controls">
-                {/* Glass Card Transparency Slider */}
-                <div style={{ marginTop: "14px" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                    <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text)" }}>Glass Panel Opacity</span>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
-                      {Math.round(glassOpacity * 100)}%
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Transparent</span>
-                    <input
-                      type="range"
-                      min="0.10"
-                      max="0.90"
-                      step="0.05"
-                      value={glassOpacity}
-                      disabled={!glassyCards}
-                      onChange={(e) => setGlassOpacity(parseFloat(e.target.value))}
-                      style={{
-                        flex: 1,
-                        accentColor: "rgb(var(--accent-rgb))",
-                        height: "6px",
-                        cursor: glassyCards ? "pointer" : "not-allowed",
-                        opacity: glassyCards ? 1 : 0.4,
-                      }}
-                    />
-                    <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Opaque</span>
-                  </div>
-                </div>
+                  <SettingsWakeControl
+                    displayValue={`${Math.round(glassOpacity * 100)}%`}
+                    disabled={!glassyCards}
+                    endLabel="Opaque"
+                    formatValue={(value) => `${Math.round(value * 100)} percent opacity`}
+                    label="Glass Panel Opacity"
+                    max={0.9}
+                    min={0.1}
+                    onChange={setGlassOpacity}
+                    startLabel="Transparent"
+                    step={0.05}
+                    value={glassOpacity}
+                  />
 
-                {/* Background Image Blur Slider */}
-                <div
-                  style={{
-                    marginTop: "14px",
-                    opacity: hasSelectedBackgroundImage ? 1 : 0.5,
-                    transition: "opacity 0.2s ease",
-                  }}
-                  title={!hasSelectedBackgroundImage ? "Select an image background to adjust blur." : undefined}
-                >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                    <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text)" }}>Background Image Blur</span>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
-                      {Math.round(backgroundImageBlur)}px
-                    </span>
+                  <div className="settings-background-image-controls">
+                    <div title={!hasSelectedBackgroundImage ? "Select an image background to adjust blur." : undefined}>
+                      <SettingsWakeControl
+                        displayValue={`${Math.round(backgroundImageBlur)}px`}
+                        disabled={!hasSelectedBackgroundImage}
+                        endLabel="Blurred"
+                        formatValue={(value) => `${Math.round(value)} pixels of blur`}
+                        label="Background Image Blur"
+                        max={BACKGROUND_IMAGE_BLUR_MAX_PX}
+                        min={0}
+                        onChange={(value) => setBackgroundImageBlur(normalizeBackgroundImageBlurPx(value))}
+                        startLabel="Sharp"
+                        step={1}
+                        value={backgroundImageBlur}
+                      />
+                    </div>
+                    {hasSelectedBackgroundImage && (
+                      <SettingsWakeControl
+                        displayValue={`${Math.round((1 - bgOverlayOpacity) * 100)}%`}
+                        endLabel="Bright"
+                        formatValue={(value) => `${Math.round(value * 100)} percent brightness`}
+                        label="Background Brightness"
+                        max={1}
+                        min={0.02}
+                        onChange={(value) => setBgOverlayOpacity(1 - value)}
+                        startLabel="Dim"
+                        step={0.02}
+                        value={1 - bgOverlayOpacity}
+                      />
+                    )}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Sharp</span>
-                    <input
-                      aria-label="Background image blur"
-                      aria-disabled={!hasSelectedBackgroundImage}
-                      type="range"
-                      min="0"
-                      max={BACKGROUND_IMAGE_BLUR_MAX_PX}
-                      step="1"
-                      value={backgroundImageBlur}
-                      disabled={!hasSelectedBackgroundImage}
-                      onChange={(e) => setBackgroundImageBlur(normalizeBackgroundImageBlurPx(e.target.value))}
-                      style={{
-                        flex: 1,
-                        accentColor: "rgb(var(--accent-rgb))",
-                        height: "6px",
-                        cursor: hasSelectedBackgroundImage ? "pointer" : "not-allowed",
-                      }}
-                    />
-                    <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Blurred</span>
-                  </div>
-                </div>
                 </div>
               </div>
             </div>

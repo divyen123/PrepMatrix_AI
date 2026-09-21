@@ -33,7 +33,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { jsPDF } from "jspdf";
 import { useLocation, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import LearningMasteryMap from "../components/LearningMasteryMap";
 import PlacementPrepTopicCard from "../components/PlacementPrepTopicCard";
 import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDialog";

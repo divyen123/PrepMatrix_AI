@@ -8,7 +8,7 @@ import {
 } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import { Download, Search, Trash2, Check, X, Swords, Flag } from "lucide-react";
 import api from "../utils/apiClient";
 import QuizBattlesPanel from "../components/quiz-battles/QuizBattlesPanel";

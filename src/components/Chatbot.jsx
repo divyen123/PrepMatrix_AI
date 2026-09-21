@@ -18,7 +18,7 @@ import {
   getChatAutoSendMessage,
   getChatMessageAcceptance,
 } from "../utils/chatMessageBridge";
-import { getChatExperienceCopy } from "../utils/chatExperience";
+import { getChatExperienceCopy, getNewChatPrompt } from "../utils/chatExperience";
 import { normalizeChatAssistantContext } from "../utils/chatAssistantContext";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 import api, { API_BASE } from "../utils/apiClient";
@@ -42,6 +42,7 @@ import {
 } from "../utils/aiQuota";
 import { AiCreditCost } from "./AiQuotaProvider";
 import ChatMessageText from "./ChatMessageText";
+import ThoughtLine from "./ThoughtLine";
 import {
   MessageSquare,
   Plus,
@@ -171,6 +172,7 @@ function Chatbot({
   const navigate = useNavigate();
   const { hasInsufficientCredits } = useAiQuota();
   const chatExperience = getChatExperienceCopy(childMode);
+  const newChatPrompt = useMemo(() => getNewChatPrompt(subjects), [subjects]);
   const scrollRef = useRef(null);
   const lastMessageRef = useRef(null);
   const previousLoadingRef = useRef(false);
@@ -227,6 +229,7 @@ function Chatbot({
   const [input, setInput] = useState("");
   const [pendingAutoSendMessage, setPendingAutoSendMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [generatingResponse, setGeneratingResponse] = useState(false);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [clearingSessions, setClearingSessions] = useState(false);
   const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
@@ -260,13 +263,12 @@ function Chatbot({
     model: "llama-3.1-8b-instant",
     message: "",
   });
-  const [messages, setMessages] = useState(() => [
-    {
-      id: "intro",
-      role: "assistant",
-      text: getChatExperienceCopy(childMode).intro,
-    },
-  ]);
+  const [messages, setMessages] = useState(() => (
+    childMode
+      ? [{ id: "intro", role: "assistant", text: getChatExperienceCopy(true).intro }]
+      : []
+  ));
+  const isNewChat = !childMode && !activeSessionId && messages.length === 0 && !loading;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -545,6 +547,7 @@ function Chatbot({
     sessionLoadSeqRef.current += 1;
     isSendingRef.current = false;
     setPreparingAttachments(false);
+    setGeneratingResponse(false);
   }, []);
 
   // Select a session to load details
@@ -591,17 +594,13 @@ function Chatbot({
     setAssistantContext(normalizeChatAssistantContext(nextContext));
     setActiveSessionId(null);
     setActiveSessionTitle("New Chat");
-    setMessages([
-      {
-        id: "intro",
-        role: "assistant",
-        text: chatExperience.intro,
-      },
-    ]);
+    setMessages(childMode
+      ? [{ id: "intro", role: "assistant", text: chatExperience.intro }]
+      : []);
     if (window.innerWidth <= 768) {
       setHistoryOpen(false);
     }
-  }, [chatExperience.intro, invalidateViewWork]);
+  }, [chatExperience.intro, childMode, invalidateViewWork]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -1069,6 +1068,7 @@ function Chatbot({
         && viewEpochRef.current === requestEpoch
         && chatRequestSeqRef.current === requestId;
       isSendingRef.current = true;
+      setGeneratingResponse(true);
       setLoading(true);
 
       try {
@@ -1167,6 +1167,7 @@ function Chatbot({
       } finally {
         if (isCurrentRequest()) {
           isSendingRef.current = false;
+          setGeneratingResponse(false);
           setLoading(false);
         }
       }
@@ -1795,7 +1796,7 @@ function Chatbot({
 
             {/* Right Panel: Active Chat */}
             <div
-              className={`chat-main${isDraggingFiles ? " is-file-dragging" : ""}`}
+              className={`chat-main${isNewChat ? " is-new-chat" : ""}${isDraggingFiles ? " is-file-dragging" : ""}`}
               onDragEnter={handleChatDragEnter}
               onDragLeave={handleChatDragLeave}
               onDragOver={handleChatDragOver}
@@ -1849,6 +1850,12 @@ function Chatbot({
               </div>
 
               <div className="chat-messages" ref={scrollRef}>
+                {isNewChat ? (
+                  <div className="chat-new-chat-prompt">
+                    <h2>{newChatPrompt}</h2>
+                    <p>Get explanations, summaries, and study strategies tailored to your plan.</p>
+                  </div>
+                ) : null}
                 {messages.map((message, messageIndex) => (
                   <div
                     className={`chat-message ${message.role}`}
@@ -1917,10 +1924,26 @@ function Chatbot({
                   </div>
                 ))}
 
-                {loading ? (
+                {loading && generatingResponse ? (
+                  <div className="chat-thinking-line">
+                    <ThoughtLine
+                      breathDepth={0.42}
+                      breathPeriod={1.6}
+                      collapseOnSettle={false}
+                      collapsible={false}
+                      color="var(--text-muted)"
+                      fontSize={14}
+                      glyphColor="var(--accent)"
+                      label="Thinking…"
+                      shimmerDuration={1.8}
+                      showTimer
+                      working
+                    />
+                  </div>
+                ) : loading ? (
                   <div className="chat-message assistant thinking-message">
                     <Loader2 size={14} className="spinner" />
-                    <span>Thinking...</span>
+                    <span>Loading chat...</span>
                   </div>
                 ) : null}
               </div>
