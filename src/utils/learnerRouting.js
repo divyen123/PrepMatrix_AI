@@ -22,7 +22,6 @@ export const YOUNG_KIDS_PARENT_GUIDED_ROUTES = Object.freeze([
   "/notes",
   "/settings",
   "/quiz",
-  "/notification-history",
   "/exam",
   "/exam/about",
 ]);

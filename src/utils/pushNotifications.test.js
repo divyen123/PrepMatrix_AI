@@ -620,7 +620,7 @@ test("service worker rejects cross-origin backslash navigation and avoids substr
     },
   });
   await pushWork;
-  assert.equal(pushHarness.notifications[0].options.data.url, "/notification-history");
+  assert.equal(pushHarness.notifications[0].options.data.url, "/settings");
 
   const clickHarness = createServiceWorkerHarness([deceptiveClient]);
   let clickWork;

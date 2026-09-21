@@ -2,11 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { NavLink } from "react-router-dom";
 import {
-  BellRing,
   Check,
   ChevronRight,
   Download,
-  History,
   LockKeyhole,
   LogOut,
   Mic2,
@@ -43,7 +41,6 @@ export default function SettingsContextMenu({
   onCheckForUpdates,
   onLockApp,
   onLogout,
-  onOpenAlertHistory,
   onOpenSettings,
   onRefreshAppData,
   onRestartVoiceAssistant,
@@ -427,12 +424,6 @@ export default function SettingsContextMenu({
             <Mic2 aria-hidden="true" size={17} />
             <span>Restart voice assistant</span>
           </button>
-          <button data-menu-level="root" onClick={() => runAction(onOpenAlertHistory)} role="menuitem" type="button">
-            <History aria-hidden="true" size={17} />
-            <span>View alert history</span>
-            <BellRing aria-hidden="true" className="settings-context-trailing-icon" size={14} />
-          </button>
-
           <div aria-hidden="true" className="settings-context-separator" />
 
           <button

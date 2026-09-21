@@ -13,7 +13,6 @@ test("wires settings quick actions to real app workflows", () => {
   assert.match(appSource, /activeAcademicProfileId=\{quickActionProfileSlots\.activeProfile\?\.id \|\| ""\}/u);
   assert.match(appSource, /onSwitchAcademicProfile=\{async \(profile\) => \{[\s\S]*?await visitAcademicProfile\(profile\)/u);
   assert.match(appSource, /workspaceTransitioning=\{workspaceTransitioning\}/u);
-  assert.match(appSource, /onOpenAlertHistory=\{\(\) => \{[\s\S]*?navigate\("\/notification-history"\)/u);
   assert.match(appSource, /const handleRefreshAppData = async \(\) => \{[\s\S]*?api\.saveWorkspace[\s\S]*?api\.me[\s\S]*?refreshAiQuota/u);
   assert.match(appSource, /const handleCheckForUpdates = async \(\) => \{[\s\S]*?registration\.update\(\)/u);
   assert.match(appSource, /const handleRestartVoiceAssistant = \(\) => \{[\s\S]*?pauseWakeMode[\s\S]*?setWakeMode/u);

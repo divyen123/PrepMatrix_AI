@@ -106,53 +106,15 @@ class FakeDeliveryCollection {
   }
 }
 
-class FakeHistoryCollection {
-  constructor({ failWrites = false } = {}) {
-    this.documents = new Map();
-    this.failWrites = failWrites;
-  }
-
-  async updateOne(filter, update) {
-    if (this.failWrites) throw new Error("history unavailable");
-    const key = `${filter.userId}:${filter.eventKey}`;
-    if (this.documents.has(key)) {
-      return { matchedCount: 1, modifiedCount: 0, upsertedCount: 0, upsertedId: null };
-    }
-    const document = { _id: key, ...update.$setOnInsert };
-    this.documents.set(key, document);
-    return { matchedCount: 0, modifiedCount: 0, upsertedCount: 1, upsertedId: key };
-  }
-
-  find({ userId }) {
-    let documents = [...this.documents.values()].filter((document) => document.userId === userId);
-    const cursor = {
-      sort: () => cursor,
-      skip: (count) => {
-        documents = documents.slice(count);
-        return cursor;
-      },
-      project: () => cursor,
-      toArray: async () => documents,
-    };
-    return cursor;
-  }
-
-  async deleteMany() {
-    return { deletedCount: 0 };
-  }
-}
-
 function createSweepDb({
   users,
   workspace,
   learningNotebooks = [],
   deliveries = new FakeDeliveryCollection(),
-  history = new FakeHistoryCollection(),
   userUpdate,
 }) {
   return {
     deliveries,
-    history,
     db: {
       collection(name) {
         if (name === "users") {
@@ -167,7 +129,6 @@ function createSweepDb({
           return { find: () => ({ toArray: async () => learningNotebooks }) };
         }
         if (name === "scheduledReminderDeliveries") return deliveries;
-        if (name === "notificationHistory") return history;
         throw new Error(`Unexpected collection: ${name}`);
       },
     },
@@ -412,15 +373,17 @@ test("sends each goal occurrence once per browser device", async () => {
   };
 
   const first = await runScheduledReminderPushSweep(options);
-  const historyAfterFirst = setup.history.documents.size;
+  const deliveriesAfterFirst = [...setup.deliveries.documents.values()];
   const duplicate = await runScheduledReminderPushSweep(options);
 
   assert.equal(first.sent, 2);
   assert.equal(duplicate.sent, 0);
-  assert.equal(historyAfterFirst, 1);
-  assert.equal(setup.history.documents.size, 1);
-  assert.equal([...setup.history.documents.values()].every((document) => !("deviceId" in document)), true);
-  assert.equal([...setup.history.documents.values()].every((document) => document.kind === "goal-due"), true);
+  assert.equal(deliveriesAfterFirst.length, 2);
+  assert.equal(deliveriesAfterFirst.every((document) => document.alertKind === "goal-due"), true);
+  assert.equal(deliveriesAfterFirst.every((document) => document.sentAt?.getTime() === DUE_NOW.getTime()), true);
+  assert.equal(deliveriesAfterFirst.every((document) => !("claimId" in document)), true);
+  assert.equal(new Set(deliveriesAfterFirst.map(({ deviceId }) => deviceId)).size, 2);
+  assert.equal(setup.deliveries.documents.size, 2);
   assert.equal(sends.length, 2);
   assert.equal(new Set(sends.map(([subscription]) => subscription.endpoint)).size, 2);
   assert.equal(sends.every(([, , deliveryOptions]) => deliveryOptions.timeout === 15_000), true);
@@ -489,7 +452,7 @@ test("sends only actionable planner, goal, learning, and credit alerts", async (
     "learning-topic-unstarted",
     "ai-credit-reset",
   ]));
-  assert.equal(setup.history.documents.size, 4);
+  assert.equal(setup.deliveries.documents.size, 4);
   assert.equal(kinds.includes("scheduled-reminder"), false);
 });
 
@@ -575,11 +538,10 @@ test("clears transient claims for retry and removes an expired current subscript
   assert.equal(updates[0].update.$pull.pushSubscriptions.deviceId, DEVICE_TWO);
 });
 
-test("history write failures cannot cause a scheduled push to be delivered again", async () => {
+test("a sent delivery ledger entry suppresses the same push on later sweeps", async () => {
   const setup = createSweepDb({
-    users: [{ _id: "user-history-failure", pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
+    users: [{ _id: "user-delivery-ledger", pushSubscriptions: [subscriptionRecord(DEVICE_ONE, 1)] }],
     workspace: { goalReminderData: { goals: [goal()] } },
-    history: new FakeHistoryCollection({ failWrites: true }),
   });
   const sends = [];
   const options = {
@@ -598,6 +560,11 @@ test("history write failures cannot cause a scheduled push to be delivered again
   assert.equal(first.failed, 0);
   assert.equal(repeated.sent, 0);
   assert.equal(sends.length, 1);
+  assert.equal(setup.deliveries.documents.size, 1);
+  const [delivery] = setup.deliveries.documents.values();
+  assert.equal(delivery.sentAt.getTime(), DUE_NOW.getTime());
+  assert.equal("claimId" in delivery, false);
+  assert.equal("claimedAt" in delivery, false);
 });
 
 test("bounds actionable alert bursts and defers the remainder to later sweeps", async () => {

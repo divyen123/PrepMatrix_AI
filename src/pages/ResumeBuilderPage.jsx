@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
 import {
   AlertCircle,
   Award,
@@ -14,6 +13,7 @@ import {
   Eye,
   EyeOff,
   FileText,
+  FileSearch,
   FolderKanban,
   GraduationCap,
   Languages,
@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import ResumeHistorySection from "../components/ResumeHistorySection";
 import ResumeBuilderIntro from "../components/ResumeBuilderIntro";
+import ResumeAnalyzerDialog from "../components/ResumeAnalyzerDialog";
 import api from "../utils/apiClient";
 import {
   RESUME_ACCENTS,
@@ -619,6 +620,7 @@ export default function ResumeBuilderPage({
   const [historyError, setHistoryError] = useState("");
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [previewFullscreenOpen, setPreviewFullscreenOpen] = useState(false);
+  const [analyzerOpen, setAnalyzerOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [prefersReducedMotion] = useState(() => (
@@ -642,6 +644,7 @@ export default function ResumeBuilderPage({
   const previewFullscreenDialogRef = useRef(null);
   const previewFullscreenCloseRef = useRef(null);
   const previewFullscreenTriggerRef = useRef(null);
+  const analyzerTriggerRef = useRef(null);
   const previewPaperRef = useRef(null);
   const setPreviewPaper = useCallback((node) => {
     previewPaperRef.current = node;
@@ -681,6 +684,20 @@ export default function ResumeBuilderPage({
   const closePreviewFullscreen = useCallback(() => {
     setPreviewFullscreenOpen(false);
     window.requestAnimationFrame(() => previewFullscreenTriggerRef.current?.focus({ preventScroll: true }));
+  }, []);
+
+  const closeAnalyzer = useCallback(() => {
+    setAnalyzerOpen(false);
+    window.requestAnimationFrame(() => analyzerTriggerRef.current?.focus({ preventScroll: true }));
+  }, []);
+
+  const editResumeFromAnalyzer = useCallback(() => {
+    setAnalyzerOpen(false);
+    setActiveSection("skills");
+    setMobileView("edit");
+    window.requestAnimationFrame(() => {
+      document.querySelector(".resume-editor-panel textarea")?.focus();
+    });
   }, []);
 
   const loadResumeHistory = useCallback(async () => {
@@ -1159,6 +1176,17 @@ export default function ResumeBuilderPage({
             <span><ShieldCheck size={14} /> Enabled for {academicProfile.academicTrack || academicProfile.academicLevel || "your profile"}</span>
             <span><CheckCircle2 size={14} /> Draft saved automatically</span>
           </div>
+          <button
+            aria-controls={analyzerOpen ? "resume-analyzer-dialog" : undefined}
+            aria-expanded={analyzerOpen}
+            aria-haspopup="dialog"
+            className="resume-analyze-button"
+            onClick={() => setAnalyzerOpen(true)}
+            ref={analyzerTriggerRef}
+            type="button"
+          >
+            <FileSearch aria-hidden="true" size={17} /> Analyze Resume
+          </button>
         </div>
         <div className="resume-quota-card" aria-live="polite">
           <div className="resume-quota-card__top">
@@ -1495,11 +1523,6 @@ export default function ResumeBuilderPage({
                 />
               </div>
 
-              <div className="resume-skill-gap-prompt">
-                <div><FileText size={18} aria-hidden="true" /><span><strong>Tailor this resume to a role</strong><small>Compare your draft with a job description and see which skills need clearer evidence.</small></span></div>
-                <Link to="/resume-analyzer">Check Skill Gaps</Link>
-              </div>
-
               <div className="resume-subsection">
                 <div className="resume-subsection__title"><Award size={18} /><div><strong>Certifications</strong><span>Courses, licenses, and credentials</span></div></div>
                 {draft.certifications.map((item, index) => (
@@ -1765,6 +1788,16 @@ export default function ResumeBuilderPage({
           {notice.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
           <span>{notice.message}</span>
         </div>
+      )}
+
+      {analyzerOpen && (
+        <ResumeAnalyzerDialog
+          academicProfileId={academicProfileDataId}
+          onClose={closeAnalyzer}
+          onEditResume={editResumeFromAnalyzer}
+          resumeBuilder={builder}
+          userProfile={resumeAcademicProfile}
+        />
       )}
 
       {previewFullscreenOpen && typeof document !== "undefined" && createPortal(

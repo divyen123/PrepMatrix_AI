@@ -20,7 +20,7 @@ import {
   withAcademicProfileWriteFence,
 } from "./profileDataScope.js";
 
-test("profile purge manifest contains owned study data and excludes account ledgers", () => {
+test("profile purge manifest contains owned study data and excludes account ledgers and removed history", () => {
   for (const collectionName of [
     "workspaces",
     "notes",
@@ -28,6 +28,7 @@ test("profile purge manifest contains owned study data and excludes account ledg
     "chatSessions",
     "exams",
     "examAttempts",
+    "scheduledReminderDeliveries",
     "learningNotebooks",
     "questionPapers",
     "resumeHistory",
@@ -43,6 +44,7 @@ test("profile purge manifest contains owned study data and excludes account ledg
     "resumeGenerations",
     "resumeGenerationLocks",
     "kidsParentSettings",
+    "notificationHistory",
   ]) {
     assert.equal(PROFILE_SCOPED_OWNED_COLLECTIONS.includes(collectionName), false);
   }

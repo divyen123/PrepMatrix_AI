@@ -22,7 +22,6 @@ export const APP_SHORTCUT_GUIDE_GROUPS = Object.freeze([
       { keys: ["Ctrl", "K"], label: "Focus the Dashboard Ask AI bar" },
       { keys: ["Ctrl", "Shift", "T"], label: "Open or close Goals & To-Do" },
       { keys: ["Ctrl", ","], label: "Open Settings" },
-      { keys: ["Ctrl", "Shift", "H"], label: "View alert history" },
       { keys: ["Ctrl", "Shift", "L"], label: "Lock app" },
       { keys: ["Esc"], label: "Close the active popup, drawer, or AI Chat" },
       { keys: ["?"], label: "Open this keyboard shortcut guide" },
@@ -78,9 +77,6 @@ export function resolveAppKeyboardShortcut(event) {
   }
   if (primary && event.shiftKey && !event.altKey && key === "t") {
     return { action: "toggle-goals" };
-  }
-  if (primary && event.shiftKey && !event.altKey && key === "h") {
-    return { action: "open-alert-history" };
   }
   if (primary && event.shiftKey && !event.altKey && key === "l") {
     return { action: "lock-app" };

@@ -1,7 +1,6 @@
-import { createElement, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
-  ArrowRight,
   BriefcaseBusiness,
   CheckCircle2,
   ClipboardPaste,
@@ -12,11 +11,13 @@ import {
   ShieldCheck,
   Sparkles,
   UploadCloud,
+  X,
 } from "lucide-react";
 import api from "../utils/apiClient";
+import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 import { normalizeResumeDraft } from "../utils/resumeBuilder";
 import { analyzeSkillGap } from "../utils/skillGapAnalysis";
-import "./ResumeAnalyzerPage.css";
+import "./ResumeAnalyzerDialog.css";
 
 const MAX_RESUME_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_RESUME_TEXT_LENGTH = 50000;
@@ -63,7 +64,10 @@ const RESULT_GROUPS = [
   },
 ];
 
-export default function ResumeAnalyzerPage({ resumeBuilder, userProfile }) {
+export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, onEditResume, resumeBuilder, userProfile }) {
+  const dialogRef = useRef(null);
+  const closeRef = useRef(null);
+  const resultsRef = useRef(null);
   const builderDraft = useMemo(
     () => normalizeResumeDraft(resumeBuilder?.draft, userProfile),
     [resumeBuilder?.draft, userProfile],
@@ -78,6 +82,51 @@ export default function ResumeAnalyzerPage({ resumeBuilder, userProfile }) {
   const [error, setError] = useState("");
   const [results, setResults] = useState(null);
   const uploadSequence = useRef(0);
+
+  useEffect(() => {
+    if (!results?.requestedSkills.length) return;
+    resultsRef.current?.scrollIntoView({
+      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "start",
+    });
+  }, [results]);
+
+  useEffect(() => {
+    const releaseScrollLock = acquireDocumentScrollLock();
+    const focusFrame = window.requestAnimationFrame(() => closeRef.current?.focus({ preventScroll: true }));
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose?.();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(dialogRef.current?.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) || []).filter((element) => element.getClientRects().length);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!dialogRef.current?.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+      releaseScrollLock();
+      uploadSequence.current += 1;
+    };
+  }, [onClose]);
 
   const chooseSource = (nextSource) => {
     uploadSequence.current += 1;
@@ -105,7 +154,7 @@ export default function ResumeAnalyzerPage({ resumeBuilder, userProfile }) {
 
     setFileLoading(true);
     try {
-      const response = await api.extractResumeText(file);
+      const response = await api.extractResumeText(file, { academicProfileId });
       if (sequence !== uploadSequence.current) return;
       const text = String(response?.text || "").trim().slice(0, MAX_RESUME_TEXT_LENGTH);
       if (!text) throw new Error("No readable text was found. Try a text-based PDF or paste the resume text.");
@@ -147,17 +196,33 @@ export default function ResumeAnalyzerPage({ resumeBuilder, userProfile }) {
     }
   };
 
-  return (
-    <section className="resume-analyzer-page">
-      <header className="resume-analyzer-hero">
-        <div className="resume-analyzer-hero__mark"><FileSearch size={28} aria-hidden="true" /></div>
-        <div className="resume-analyzer-hero__copy">
-          <span className="resume-analyzer-eyebrow"><Sparkles size={14} aria-hidden="true" /> Career workspace</span>
-          <h1>Resume Analyzer</h1>
-          <p>Compare your resume with a job description and see where to add clearer proof of your skills.</p>
-        </div>
-        <Link className="resume-analyzer-hero__link" to="/resume-builder">Open Resume Builder <ArrowRight size={16} aria-hidden="true" /></Link>
-      </header>
+  const content = (
+    <div
+      className="resume-analyzer-dialog-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose?.();
+      }}
+      role="presentation"
+    >
+      <section
+        aria-describedby="resume-analyzer-dialog-description"
+        aria-labelledby="resume-analyzer-dialog-title"
+        aria-modal="true"
+        className="resume-analyzer-dialog resume-analyzer-page"
+        id="resume-analyzer-dialog"
+        ref={dialogRef}
+        role="dialog"
+      >
+        <header className="resume-analyzer-dialog-header">
+          <div>
+            <span className="resume-analyzer-eyebrow"><Sparkles size={14} aria-hidden="true" /> Resume Builder / Resume Analyzer</span>
+            <h2 id="resume-analyzer-dialog-title">Analyze Resume</h2>
+            <p id="resume-analyzer-dialog-description">Compare your resume with a job description and see where to add clearer proof of your skills.</p>
+          </div>
+          <button aria-label="Close resume analyzer" className="resume-analyzer-dialog-close" onClick={onClose} ref={closeRef} type="button"><X size={20} aria-hidden="true" /></button>
+        </header>
+
+        <div className="resume-analyzer-dialog-body">
 
       <div className="resume-analyzer-layout">
         <section className="resume-analyzer-card resume-analyzer-input-card" aria-labelledby="resume-analyzer-resume-title">
@@ -186,7 +251,7 @@ export default function ResumeAnalyzerPage({ resumeBuilder, userProfile }) {
               {builderHasContent ? (
                 <><CheckCircle2 size={19} aria-hidden="true" /><p><strong>Your current draft is ready.</strong> The comparison uses its skills, experience, projects, and certifications.</p></>
               ) : (
-                <><FileText size={19} aria-hidden="true" /><p><strong>Your draft has no career details yet.</strong> <Link to="/resume-builder">Add skills or experience</Link> to use it here.</p></>
+                <><FileText size={19} aria-hidden="true" /><p><strong>Your draft has no career details yet.</strong> <button onClick={onEditResume} type="button">Add skills or experience</button> to use it here.</p></>
               )}
             </div>
           )}
@@ -237,7 +302,7 @@ export default function ResumeAnalyzerPage({ resumeBuilder, userProfile }) {
       {error && <div className="resume-analyzer-message" role="alert">{error}</div>}
 
       {results && results.requestedSkills.length > 0 && (
-        <section className="resume-analyzer-results" aria-label="Skill gap results" aria-live="polite">
+        <section className="resume-analyzer-results" aria-label="Skill gap results" aria-live="polite" ref={resultsRef}>
           <header className="resume-analyzer-results__heading">
             <div><span className="resume-analyzer-eyebrow">Comparison complete</span><h2>What this role asks for</h2><p>{results.requestedSkills.length} specific requirements recognized in the job description.</p></div>
             <span className="resume-analyzer-results__count">{results.requestedSkills.length} skills reviewed</span>
@@ -262,6 +327,9 @@ export default function ResumeAnalyzerPage({ resumeBuilder, userProfile }) {
           <p className="resume-analyzer-caveat"><ShieldCheck size={16} aria-hidden="true" /> This checks explicit wording in the supplied text. “Not shown” means the resume did not mention a recognized skill; it does not measure your ability.</p>
         </section>
       )}
-    </section>
+        </div>
+      </section>
+    </div>
   );
+  return typeof document === "undefined" ? content : createPortal(content, document.body);
 }

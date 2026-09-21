@@ -1952,7 +1952,11 @@ function Chatbot({
                     />
                   </div>
                 ) : loading ? (
-                  <div className="chat-message assistant thinking-message">
+                  <div
+                    aria-live="polite"
+                    className="chat-message assistant thinking-message chat-loading-message"
+                    role="status"
+                  >
                     <Loader2 size={14} className="spinner" />
                     <span>Loading chat...</span>
                   </div>

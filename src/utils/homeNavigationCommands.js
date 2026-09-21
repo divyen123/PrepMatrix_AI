@@ -20,7 +20,6 @@ const DEFAULT_SUGGESTION_ROUTE_PRIORITY = Object.freeze([
   "/kids",
   "/ai-chat",
   "/settings",
-  "/notification-history",
   "/about",
   "/exam",
   "/exam/about",
@@ -432,16 +431,6 @@ const DESTINATIONS = Object.freeze([
     intentPatterns: [
       /\b(?:change|edit|update|open|show|view)\s+(?:my\s+|the\s+)?(?:settings|preferences|profile|account|appearance)\b/,
       /\b(?:change|configure|turn\s+(?:on|off))\s+(?:my\s+|the\s+)?(?:voice|wake\s+mode|theme|background)\b/,
-    ],
-  }),
-  defineDestination({
-    id: "notification-history",
-    route: "/notification-history",
-    label: "Alert History",
-    description: "Actionable planner, goal, credit, and learning alerts",
-    aliases: ["notifications", "notification history", "past notifications", "alerts", "alert history", "reminder history"],
-    intentPatterns: [
-      /\b(?:show|open|view|check|review)\s+(?:me\s+)?(?:my\s+|the\s+)?(?:past\s+)?(?:notifications?|alerts?|reminder\s+history)\b/,
     ],
   }),
   defineDestination({

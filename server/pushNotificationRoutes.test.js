@@ -37,10 +37,8 @@ async function withRoutes({
   user = null,
   updateOne,
   sendNotification = async () => {},
-  historyInsertOne,
 }, run) {
   const updates = [];
-  const historyDocuments = [];
   const users = {
     findOne: async () => user,
     updateOne: async (filter, update) => {
@@ -48,29 +46,17 @@ async function withRoutes({
       return updateOne ? updateOne(filter, update, updates.length) : { modifiedCount: 1 };
     },
   };
-  const history = {
-    insertOne: async (document) => {
-      if (historyInsertOne) return historyInsertOne(document);
-      historyDocuments.push(document);
-      return { insertedId: `history-${historyDocuments.length}` };
-    },
-    find: () => {
-      const cursor = {
-        sort: () => cursor,
-        skip: () => cursor,
-        project: () => cursor,
-        toArray: async () => [],
-      };
-      return cursor;
-    },
-    deleteMany: async () => ({ deletedCount: 0 }),
-  };
   const app = express();
   app.use(express.json());
   registerPushNotificationRoutes(app, {
     additionalHosts: [],
     ensureVapidConfigured: async () => ({ publicKey: "public-test-key" }),
-    getDb: async () => ({ collection: (name) => name === "users" ? users : history }),
+    getDb: async () => ({
+      collection(name) {
+        if (name === "users") return users;
+        throw new Error(`Unexpected collection: ${name}`);
+      },
+    }),
     logger: { error() {} },
     mutationSecurity,
     pushTestCooldownMs: 60_000,
@@ -89,7 +75,7 @@ async function withRoutes({
   const address = server.address();
   const baseUrl = `http://127.0.0.1:${address.port}`;
   try {
-    await run({ baseUrl, historyDocuments, updates });
+    await run({ baseUrl, updates });
   } finally {
     await new Promise((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());
@@ -142,7 +128,7 @@ test("status is read-only and reports a valid stored device", async () => {
   });
 });
 
-test("test delivery is device-scoped, rate-claimed, bounded, and excluded from alert history", async () => {
+test("test delivery is device-scoped, rate-claimed, and bounded", async () => {
   const record = createPushSubscriptionRecord({
     deviceId: DEVICE_ID,
     subscription: validSubscription(),
@@ -152,7 +138,7 @@ test("test delivery is device-scoped, rate-claimed, bounded, and excluded from a
   await withRoutes({
     user: { _id: USER_ID, pushSubscriptions: [record] },
     sendNotification: async (...args) => deliveries.push(args),
-  }, async ({ baseUrl, historyDocuments, updates }) => {
+  }, async ({ baseUrl, updates }) => {
     const response = await fetch(`${baseUrl}/api/notifications/test`, jsonOptions("POST", {
       deviceId: record.deviceId,
       subscriptionVersion: record.subscriptionVersion,
@@ -165,29 +151,6 @@ test("test delivery is device-scoped, rate-claimed, bounded, and excluded from a
     assert.equal(matched.subscriptionVersion, record.subscriptionVersion);
     assert.equal(deliveries.length, 1);
     assert.equal(deliveries[0][2].timeout, PUSH_DELIVERY_TIMEOUT_MS);
-    assert.equal(historyDocuments.length, 0);
-  });
-});
-
-test("an accepted test push still succeeds when history persistence fails", async () => {
-  const record = createPushSubscriptionRecord({
-    deviceId: DEVICE_ID,
-    subscription: validSubscription(),
-    timezoneOffset: -330,
-  });
-  let deliveries = 0;
-  await withRoutes({
-    user: { _id: USER_ID, pushSubscriptions: [record] },
-    sendNotification: async () => { deliveries += 1; },
-    historyInsertOne: async () => { throw new Error("history unavailable"); },
-  }, async ({ baseUrl }) => {
-    const response = await fetch(`${baseUrl}/api/notifications/test`, jsonOptions("POST", {
-      deviceId: record.deviceId,
-      subscriptionVersion: record.subscriptionVersion,
-    }));
-
-    assert.equal(response.status, 200);
-    assert.equal(deliveries, 1);
   });
 });
 

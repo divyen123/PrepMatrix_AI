@@ -101,7 +101,6 @@ body .settings-context-menu button svg {
 }
 
 .settings-context-chevron,
-.settings-context-trailing-icon,
 .settings-context-check {
   color: var(--settings-menu-muted) !important;
 }

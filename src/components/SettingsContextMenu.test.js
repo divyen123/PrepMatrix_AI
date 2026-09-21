@@ -14,7 +14,6 @@ const ACTION_LABELS = [
   "Lock app",
   "Switch academic profile",
   "Restart voice assistant",
-  "View alert history",
   "Log out",
 ];
 

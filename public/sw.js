@@ -270,7 +270,7 @@ self.addEventListener("push", (event) => {
   const body = payload.body || "Open PrepMatrix to review this alert.";
   const icon = "/pwa/brand-icon-192.png";
   const badge = "/pwa/notification-badge-96.png";
-  const targetUrl = safeAppPath(payload.url, "/notification-history");
+  const targetUrl = safeAppPath(payload.url, "/settings");
   const tag = typeof payload.tag === "string" && payload.tag.length <= 80
     ? payload.tag
     : "prepmatrix-action-alert";

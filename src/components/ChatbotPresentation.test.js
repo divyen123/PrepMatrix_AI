@@ -18,3 +18,14 @@ test("renders sent user text without a bubble across app themes", () => {
     /\.sidebar-chatbot-portal \.chat-message\.user\s*\{[\s\S]*?color:\s*var\(--text\) !important;[\s\S]*?background:\s*transparent !important;[\s\S]*?border:\s*0 !important;[\s\S]*?box-shadow:\s*none !important;/u,
   );
 });
+
+test("renders the conversation-loading status without a message bubble", () => {
+  assert.match(
+    componentSource,
+    /aria-live="polite"[\s\S]*?className="chat-message assistant thinking-message chat-loading-message"[\s\S]*?role="status"[\s\S]*?<Loader2 size=\{14\} className="spinner" \/>[\s\S]*?<span>Loading chat\.\.\.<\/span>/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.sidebar-chatbot-portal \.chat-loading-message\s*\{[\s\S]*?background:\s*transparent !important;[\s\S]*?border:\s*0 !important;[\s\S]*?box-shadow:\s*none !important;/u,
+  );
+});

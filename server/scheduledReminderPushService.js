@@ -11,9 +11,6 @@ import {
   normalizeTimezoneOffset,
 } from "./pushNotificationService.js";
 import {
-  recordNotificationHistorySafely,
-} from "./notificationHistory.js";
-import {
   academicProfileContext,
   withAcademicProfileWriteFence,
 } from "./profileDataScope.js";
@@ -713,7 +710,6 @@ export async function runScheduledReminderPushSweep({
           claimedThisSweep += 1;
 
           const serializedPayload = buildNotificationAlertPayload(occurrence);
-          const notification = JSON.parse(serializedPayload);
           await withProfileWriteFence(
             db,
             profileWriteRequest,
@@ -750,21 +746,7 @@ export async function runScheduledReminderPushSweep({
           const marked = await withProfileWriteFence(
             db,
             profileWriteRequest,
-            async () => {
-              const result = await markScheduledReminderSent(deliveriesCollection, deliveryId, claimId, sweepNow);
-              await recordNotificationHistorySafely({
-                db,
-                userId: user._id,
-                academicProfileId: profileContext.academicProfileId,
-                eventKey: `${notification.kind}:${occurrence.logicalEventKey}`,
-                kind: notification.kind,
-                title: notification.title,
-                body: notification.body,
-                url: notification.url,
-                createdAt: sweepNow,
-              }, logger);
-              return result;
-            },
+            () => markScheduledReminderSent(deliveriesCollection, deliveryId, claimId, sweepNow),
           );
           if (marked.modifiedCount === 1) summary.sent += 1;
           else summary.raced += 1;

@@ -6,7 +6,6 @@ const appCss = readFileSync(new URL("../App.css", import.meta.url), "utf8");
 const aboutSource = readFileSync(new URL("./AboutPage.jsx", import.meta.url), "utf8");
 const academicProfilesSource = readFileSync(new URL("./AcademicProfilesGuidePage.jsx", import.meta.url), "utf8");
 const examAboutSource = readFileSync(new URL("./ExamAboutPage.jsx", import.meta.url), "utf8");
-const notificationHistorySource = readFileSync(new URL("./NotificationHistoryPage.jsx", import.meta.url), "utf8");
 const plannerSource = readFileSync(new URL("./PlannerPage.jsx", import.meta.url), "utf8");
 const settingsProfileSource = readFileSync(new URL("./SettingsProfilePage.jsx", import.meta.url), "utf8");
 const startLearningSource = readFileSync(new URL("./StartLearningPage.jsx", import.meta.url), "utf8");
@@ -15,7 +14,6 @@ test("page-header back controls share the compact icon-only treatment", () => {
   assert.match(plannerSource, /className="planner-subpage-back page-back-control"/u);
   assert.match(aboutSource, /className="icon-shell-btn back-nav-btn page-back-control"/u);
   assert.match(academicProfilesSource, /className="academic-profile-guide-back page-back-control"/u);
-  assert.match(notificationHistorySource, /className="notification-history-back page-back-control"/u);
   assert.match(settingsProfileSource, /className="settings-profile-back page-back-control"/u);
   assert.match(examAboutSource, /className="exam-guide-back page-back-control"/u);
   assert.match(startLearningSource, /className="learning-workspace-return-button is-inside-card"/u);
@@ -25,7 +23,6 @@ test("page-header back controls keep accessible names and expected destinations"
   assert.match(plannerSource, /aria-label="Back to Planner workspaces"[\s\S]*?title="Back to Planner workspaces"[\s\S]*?to="\/planner"/u);
   assert.match(aboutSource, /aria-label="Go back"[\s\S]*?title="Go back"/u);
   assert.match(academicProfilesSource, /aria-label="Back to Settings"[\s\S]*?navigate\("\/settings"\)[\s\S]*?title="Back to Settings"/u);
-  assert.match(notificationHistorySource, /aria-label="Back to settings"[\s\S]*?navigate\("\/settings"\)[\s\S]*?title="Back to settings"/u);
   assert.match(settingsProfileSource, /aria-label="Back to Settings"[\s\S]*?navigate\("\/settings"\)[\s\S]*?title="Back to Settings"/u);
   assert.match(examAboutSource, /aria-label="Back to Exam"[\s\S]*?navigate\("\/exam"\)[\s\S]*?title="Back to Exam"/u);
   assert.match(startLearningSource, /aria-label="Back to Start Learning home"[\s\S]*?returnToPreparationChoice[\s\S]*?title="Back to Start Learning home"/u);

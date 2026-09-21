@@ -57,10 +57,7 @@ import {
 } from "./pushNotificationService.js";
 import { registerPushNotificationRoutes } from "./pushNotificationRoutes.js";
 import { runNotificationAlertPushSweep } from "./scheduledReminderPushService.js";
-import {
-  NOTIFICATION_HISTORY_COLLECTION,
-  registerNotificationHistoryRoutes,
-} from "./notificationHistory.js";
+import { removeRetiredNotificationHistory } from "./retiredDataCleanup.js";
 import { normalizeResumeBuilderState } from "../src/utils/resumeBuilder.js";
 import { normalizeAppPreferences } from "../src/utils/appPreferences.js";
 import {
@@ -293,6 +290,7 @@ async function getDb() {
       await client.connect();
       const db = client.db(MONGODB_DB);
       try {
+      await removeRetiredNotificationHistory(db);
       await migrateProfileScopedUniqueIndexes(db);
       await Promise.all([
         ensureCodeMatrixIndexes(db),
@@ -323,8 +321,6 @@ async function getDb() {
         db.collection(RESUME_HISTORY_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1, _id: -1 }),
         db.collection("scheduledReminderDeliveries").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         db.collection("scheduledReminderDeliveries").createIndex({ userId: 1, academicProfileId: 1, expiresAt: 1 }),
-        db.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, createdAt: -1, _id: -1 }),
-        db.collection(NOTIFICATION_HISTORY_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, readAt: 1 }),
         db.collection("questionPapers").createIndex({ userId: 1, academicProfileId: 1, createdAt: -1 }),
         db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
         db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, subjectName: 1 }),
@@ -1287,7 +1283,6 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
         db.collection("examAttempts").deleteMany({ userId }),
         db.collection("examStartLocks").deleteMany({ userId }),
         db.collection("scheduledReminderDeliveries").deleteMany({ userId }),
-        db.collection(NOTIFICATION_HISTORY_COLLECTION).deleteMany({ userId }),
         db.collection("questionPapers").deleteMany({ userId }),
         db.collection(RESUME_GENERATIONS_COLLECTION).deleteMany({ userId }),
         db.collection(RESUME_HISTORY_COLLECTION).deleteMany({ userId }),
@@ -1873,13 +1868,6 @@ registerPushNotificationRoutes(app, {
   pushTestCooldownMs: PUSH_TEST_COOLDOWN_MS,
   requireAuth,
   webpush,
-});
-
-registerNotificationHistoryRoutes(app, {
-  getDb,
-  mutationSecurity: requireNotificationMutationSecurity,
-  requireAuth,
-  withProfileWriteFence: withAcademicProfileWriteFence,
 });
 
 registerAppUsageRoutes(app, {

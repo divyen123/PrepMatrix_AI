@@ -16,7 +16,6 @@ export const PROFILE_SCOPED_OWNED_COLLECTIONS = Object.freeze([
   "codeMatrixSubmissions",
   "examAttempts",
   "scheduledReminderDeliveries",
-  "notificationHistory",
   "questionPapers",
   "resumeHistory",
   "kidsAttempts",
@@ -53,13 +52,6 @@ export const PROFILE_SCOPED_UNIQUE_INDEX_MIGRATIONS = Object.freeze([
     name: "userId_1_academicProfileId_1_requestId_1",
     partialFilterExpression: { requestId: { $type: "string" } },
     obsolete: [{ name: "userId_1_requestId_1", key: { userId: 1, requestId: 1 } }],
-  },
-  {
-    collectionName: "notificationHistory",
-    key: { userId: 1, academicProfileId: 1, eventKey: 1 },
-    name: "userId_1_academicProfileId_1_eventKey_1",
-    partialFilterExpression: { eventKey: { $type: "string" } },
-    obsolete: [{ name: "userId_1_eventKey_1", key: { userId: 1, eventKey: 1 } }],
   },
   {
     collectionName: "kidsAttempts",

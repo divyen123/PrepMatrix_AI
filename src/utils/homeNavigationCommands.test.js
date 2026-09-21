@@ -25,7 +25,6 @@ const STANDARD_ROUTES = new Set([
   "/resources",
   "/resume-builder",
   "/settings",
-  "/notification-history",
   "/about",
 ]);
 const STANDARD_CONTENT_ROUTES = new Set([
@@ -72,7 +71,6 @@ test("resolves natural navigation commands and common page aliases", () => {
     ["take me to the home page", "/dashboard", "Dashboard"],
     ["I want to view my study notes", "/notes", "Notes"],
     ["open exam eligibility", "/exam/about", "Exam Guide"],
-    ["visit notification history", "/notification-history", "Alert History"],
     ["CodeMatrix", "/learn/code-matrix", "CodeMatrix"],
     ["open code matrix", "/learn/code-matrix", "CodeMatrix"],
     ["go to codematrix", "/learn/code-matrix", "CodeMatrix"],

@@ -24279,6 +24279,16 @@ body.dark:not(.has-bg-image) .workspace-topbar {
   box-shadow: none;
 }
 
+/* Keep the conversation-loading status readable without presenting it as a message bubble. */
+.sidebar-chatbot-portal .chat-loading-message {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 @media (max-width: 640px) {
   .sidebar-chatbot-portal .chat-main.is-new-chat .chat-messages {
     padding: 0 18px 14px !important;

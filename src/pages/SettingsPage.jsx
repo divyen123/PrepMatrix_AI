@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, History, X, RefreshCw } from "lucide-react";
+import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, X, RefreshCw } from "lucide-react";
 import api from "../utils/apiClient";
 import KidsPerformanceSettings from "../components/kids/KidsPerformanceSettings";
 import SettingsDataInfo from "../components/SettingsDataInfo";
@@ -2798,25 +2798,6 @@ function SettingsPage({
                 </button>
               </div>
             )}
-            <div className="notification-history-setting-row">
-              <div className="notification-history-setting-copy">
-                <span className="notification-history-setting-icon">
-                  <History aria-hidden="true" size={15} />
-                </span>
-                <div>
-                  <strong>Alert history</strong>
-                  <span>Review actionable alerts and remove messages you no longer need.</span>
-                </div>
-              </div>
-              <button
-                className="secondary-btn notification-history-setting-btn"
-                onClick={() => navigate("/notification-history")}
-                type="button"
-              >
-                <History aria-hidden="true" size={14} />
-                View alerts
-              </button>
-            </div>
           </div>
         </div>
 
