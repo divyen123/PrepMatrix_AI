@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { animate, useReducedMotion } from "motion/react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  ArrowDown01Icon,
-  SparklesIcon,
-  Tick02Icon,
-} from "@hugeicons/core-free-icons";
+import ArrowDown01Icon from "@hugeicons/core-free-icons/ArrowDown01Icon";
+import SparklesIcon from "@hugeicons/core-free-icons/SparklesIcon";
+import Tick02Icon from "@hugeicons/core-free-icons/Tick02Icon";
 import "./ThoughtLine.css";
 
 const EASE_OUT = [0.23, 1, 0.32, 1];

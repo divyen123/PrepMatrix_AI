@@ -7,7 +7,7 @@ import {
   useTransform,
 } from "motion/react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import "./SwipeToast.css";
 
 const EASE_OUT = [0.23, 1, 0.32, 1];
