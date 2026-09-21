@@ -1,7 +1,6 @@
-import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  BriefcaseBusiness,
   CheckCircle2,
   ClipboardPaste,
   FileSearch,
@@ -9,7 +8,6 @@ import {
   Lightbulb,
   ListChecks,
   ShieldCheck,
-  Sparkles,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -22,6 +20,7 @@ import "./ResumeAnalyzerDialog.css";
 const MAX_RESUME_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_RESUME_TEXT_LENGTH = 50000;
 const MAX_JOB_DESCRIPTION_LENGTH = 12000;
+const DIALOG_EXIT_MS = 220;
 
 function hasResumeContent(draft) {
   return Boolean(
@@ -35,9 +34,9 @@ function hasResumeContent(draft) {
 }
 
 const SOURCE_OPTIONS = [
-  { id: "builder", label: "Current draft", icon: FileText, description: "Use your Resume Builder content" },
-  { id: "upload", label: "Upload resume", icon: UploadCloud, description: "PDF or plain text, up to 5 MB" },
-  { id: "paste", label: "Paste resume", icon: ClipboardPaste, description: "Paste text from any document" },
+  { id: "builder", label: "Current draft", icon: FileText },
+  { id: "upload", label: "Upload resume", icon: UploadCloud },
+  { id: "paste", label: "Paste text", icon: ClipboardPaste },
 ];
 
 const RESULT_GROUPS = [
@@ -81,7 +80,19 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
   const [fileLoading, setFileLoading] = useState(false);
   const [error, setError] = useState("");
   const [results, setResults] = useState(null);
+  const [isClosing, setIsClosing] = useState(false);
   const uploadSequence = useRef(0);
+  const exitTimer = useRef(null);
+
+  const requestClose = useCallback((afterClose = onClose) => {
+    if (exitTimer.current !== null) return;
+    setIsClosing(true);
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    exitTimer.current = window.setTimeout(() => {
+      exitTimer.current = null;
+      afterClose?.();
+    }, reducedMotion ? 0 : DIALOG_EXIT_MS);
+  }, [onClose]);
 
   useEffect(() => {
     if (!results?.requestedSkills.length) return;
@@ -98,7 +109,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
-        onClose?.();
+        requestClose();
         return;
       }
       if (event.key !== "Tab") return;
@@ -125,8 +136,9 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
       document.removeEventListener("keydown", handleKeyDown);
       releaseScrollLock();
       uploadSequence.current += 1;
+      window.clearTimeout(exitTimer.current);
     };
-  }, [onClose]);
+  }, [requestClose]);
 
   const chooseSource = (nextSource) => {
     uploadSequence.current += 1;
@@ -198,14 +210,13 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
 
   const content = (
     <div
-      className="resume-analyzer-dialog-backdrop"
+      className={`resume-analyzer-dialog-backdrop${isClosing ? " is-closing" : ""}`}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose?.();
+        if (event.target === event.currentTarget) requestClose();
       }}
       role="presentation"
     >
       <section
-        aria-describedby="resume-analyzer-dialog-description"
         aria-labelledby="resume-analyzer-dialog-title"
         aria-modal="true"
         className="resume-analyzer-dialog resume-analyzer-page"
@@ -215,11 +226,9 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
       >
         <header className="resume-analyzer-dialog-header">
           <div>
-            <span className="resume-analyzer-eyebrow"><Sparkles size={14} aria-hidden="true" /> Resume Builder / Resume Analyzer</span>
-            <h2 id="resume-analyzer-dialog-title">Analyze Resume</h2>
-            <p id="resume-analyzer-dialog-description">Compare your resume with a job description and see where to add clearer proof of your skills.</p>
+            <h2 id="resume-analyzer-dialog-title">Compare your resume with a job description and see where to add clearer proof of your skills.</h2>
           </div>
-          <button aria-label="Close resume analyzer" className="resume-analyzer-dialog-close" onClick={onClose} ref={closeRef} type="button"><X size={20} aria-hidden="true" /></button>
+          <button aria-label="Close resume analyzer" className="resume-analyzer-dialog-close" onClick={() => requestClose()} ref={closeRef} type="button"><X size={20} aria-hidden="true" /></button>
         </header>
 
         <div className="resume-analyzer-dialog-body">
@@ -231,7 +240,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
             <div><h2 id="resume-analyzer-resume-title">Your resume</h2><p>Choose what to compare against the role.</p></div>
           </div>
           <div className="resume-analyzer-source-grid" role="group" aria-label="Resume source">
-            {SOURCE_OPTIONS.map(({ id, label, icon: Icon, description }) => (
+            {SOURCE_OPTIONS.map(({ id, label, icon: Icon }) => (
               <button
                 aria-pressed={source === id}
                 className={source === id ? "resume-analyzer-source is-selected" : "resume-analyzer-source"}
@@ -241,7 +250,6 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
               >
                 {createElement(Icon, { size: 19, "aria-hidden": "true" })}
                 <strong>{label}</strong>
-                <small>{description}</small>
               </button>
             ))}
           </div>
@@ -249,9 +257,9 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
           {source === "builder" && (
             <div className="resume-analyzer-source-panel">
               {builderHasContent ? (
-                <><CheckCircle2 size={19} aria-hidden="true" /><p><strong>Your current draft is ready.</strong> The comparison uses its skills, experience, projects, and certifications.</p></>
+                <><CheckCircle2 size={19} aria-hidden="true" /><div className="resume-analyzer-draft-details"><strong>{builderDraft.personal.fullName || "Name not added"}</strong><span>{builderDraft.personal.headline || "Headline not added"}</span></div></>
               ) : (
-                <><FileText size={19} aria-hidden="true" /><p><strong>Your draft has no career details yet.</strong> <button onClick={onEditResume} type="button">Add skills or experience</button> to use it here.</p></>
+                <><FileText size={19} aria-hidden="true" /><p><strong>Your draft has no career details yet.</strong> <button onClick={() => requestClose(onEditResume)} type="button">Add skills or experience</button> to use it here.</p></>
               )}
             </div>
           )}
@@ -264,13 +272,13 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
             </label>
           )}
           {source === "paste" && (
-            <label className="resume-analyzer-field">
+            <label className="resume-analyzer-field resume-analyzer-paste-field">
               <span>Resume text</span>
               <textarea
                 maxLength={MAX_RESUME_TEXT_LENGTH}
                 onChange={(event) => { setResumeText(event.target.value); setResults(null); setError(""); }}
                 placeholder="Paste your resume content here…"
-                rows={10}
+                rows={6}
                 value={resumeText}
               />
             </label>
@@ -280,18 +288,18 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
         <section className="resume-analyzer-card resume-analyzer-input-card" aria-labelledby="resume-analyzer-job-title">
           <div className="resume-analyzer-card__heading">
             <span className="resume-analyzer-step">02</span>
-            <div><h2 id="resume-analyzer-job-title">Target job</h2><p>Paste the role&apos;s requirements and qualifications.</p></div>
+            <div><h2 id="resume-analyzer-job-title">Target job description</h2><p>Paste the role&apos;s requirements and qualifications.</p></div>
           </div>
-          <label className="resume-analyzer-field resume-analyzer-job-field">
-            <span><BriefcaseBusiness size={16} aria-hidden="true" /> Job description</span>
+          <div className="resume-analyzer-field resume-analyzer-job-field">
             <textarea
+              aria-label="Target job description"
               maxLength={MAX_JOB_DESCRIPTION_LENGTH}
               onChange={(event) => { setJobDescription(event.target.value); setResults(null); setError(""); }}
               placeholder="Paste the job description, especially its skills and requirements…"
-              rows={13}
+              rows={7}
               value={jobDescription}
             />
-          </label>
+          </div>
           <div className="resume-analyzer-actions">
             <span>Comparison uses the text you provide.</span>
             <button disabled={fileLoading} onClick={handleAnalyze} type="button"><FileSearch size={18} aria-hidden="true" /> Check Skill Gaps</button>

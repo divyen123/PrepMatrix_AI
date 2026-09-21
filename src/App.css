@@ -10308,6 +10308,22 @@ body.chat-open {
   border-color: rgba(239, 68, 68, 0.3);
 }
 
+.logout-confirm-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logout-confirm-heading .confirm-modal-icon {
+  flex: 0 0 52px;
+}
+
+.logout-confirm-heading h2 {
+  margin: 0;
+  font-size: clamp(1.2rem, 3vw, 1.5rem);
+  line-height: 1.25;
+}
+
 .confirm-modal-copy {
   display: grid;
   gap: 10px;

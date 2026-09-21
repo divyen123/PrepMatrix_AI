@@ -183,19 +183,33 @@ async function request(path, options = {}) {
     clearTimeout(timeoutId);
 
     const payload = await response.json().catch(() => ({}));
+    if (path === "/api/auth/me" && token !== localStorage.getItem("prepmatrix_auth_token")) {
+      const error = new Error("Sign-in changed while the session was loading.");
+      error.code = "STALE_AUTH_REQUEST";
+      throw error;
+    }
     if (token && token === localStorage.getItem("prepmatrix_auth_token")) {
       publishQuota(response, path);
     }
     finishAiIdempotencyRequest(idempotencyFingerprint, payload);
 
-    if (response.status === 401) {
+    const currentToken = localStorage.getItem("prepmatrix_auth_token");
+    if (
+      response.status === 401
+      && path !== "/api/auth/login"
+      && path !== "/api/auth/register"
+      && token === currentToken
+    ) {
       clearStoredAuthState();
       if (payload.code === "PASSWORD_CHANGED") {
         notifySessionEnded(payload.error || "Your password was changed. Please log in again.");
       }
     }
 
-    if (path === "/api/auth/logout" || (path === "/api/auth/account" && response.ok)) {
+    if (
+      (path === "/api/auth/logout" || (path === "/api/auth/account" && response.ok))
+      && token === localStorage.getItem("prepmatrix_auth_token")
+    ) {
       clearStoredAuthState();
     }
 

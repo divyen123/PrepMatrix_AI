@@ -506,31 +506,6 @@ body.has-bg-image .resume-builder-intro p {
   color: var(--resume-accent-ui);
 }
 
-body .resume-builder-page .resume-analyze-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 39px;
-  margin-top: 15px;
-  padding: 0 14px;
-  border: 1px solid color-mix(in srgb, var(--resume-accent-ui) 52%, var(--resume-border));
-  border-radius: 10px;
-  color: var(--text, #eef3fb);
-  background: color-mix(in srgb, var(--resume-accent-ui) 13%, var(--resume-panel-strong));
-  font-size: 0.79rem;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-body .resume-builder-page .resume-analyze-button:hover,
-body .resume-builder-page .resume-analyze-button:focus-visible {
-  border-color: var(--resume-accent-ui);
-  background: color-mix(in srgb, var(--resume-accent-ui) 22%, var(--resume-panel-strong));
-  outline: 2px solid color-mix(in srgb, var(--resume-accent-ui) 24%, transparent);
-  outline-offset: 2px;
-}
-
 .resume-quota-card {
   position: relative;
   z-index: 1;

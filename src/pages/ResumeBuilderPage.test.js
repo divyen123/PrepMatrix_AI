@@ -31,10 +31,13 @@ test("renders New beside the full-screen preview control", async () => {
 
     assert.match(toolbar, /aria-label="Start a new resume"/u);
     assert.match(toolbar, />New<\/span>/u);
+    assert.match(toolbar, /resume-preview-analyze-button/u);
+    assert.match(toolbar, />Analyze<\/span>/u);
     assert.match(toolbar, /aria-label="Open full screen resume preview"/u);
     assert.ok(
-      toolbar.indexOf("Start a new resume") < toolbar.indexOf("Open full screen resume preview"),
-      "New should appear immediately before the full-screen control",
+      toolbar.indexOf("Start a new resume") < toolbar.indexOf("Analyze")
+        && toolbar.indexOf("Analyze") < toolbar.indexOf("Open full screen resume preview"),
+      "Analyze should sit between New and the full-screen control",
     );
   } finally {
     await vite.close();

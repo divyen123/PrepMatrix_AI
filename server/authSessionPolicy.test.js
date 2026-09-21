@@ -6,6 +6,7 @@ import {
   createPersistentSessionDocument,
   persistentSessionFilter,
   persistentSessionTouch,
+  retireLegacySessionExpiry,
 } from "./authSessionPolicy.js";
 
 const serverSource = readFileSync(new URL("./index.js", import.meta.url), "utf8");
@@ -50,6 +51,55 @@ test("keeps the browser session cookie for a practical remembered-login window",
   assert.ok(Number.isSafeInteger(SESSION_COOKIE_MAX_AGE_MS));
 });
 
+test("retires the old session TTL index before clearing saved session expiry fields", async () => {
+  const calls = [];
+  const collection = {
+    listIndexes: () => ({
+      toArray: async () => [
+        { name: "token_1", key: { token: 1 }, unique: true },
+        { name: "expiresAt_1", key: { expiresAt: 1 }, expireAfterSeconds: 0 },
+      ],
+    }),
+    dropIndex: async (name) => { calls.push(["dropIndex", name]); },
+    updateMany: async (filter, update) => {
+      calls.push(["updateMany", filter, update]);
+      return { modifiedCount: 2 };
+    },
+  };
+
+  const result = await retireLegacySessionExpiry(collection);
+  assert.equal(result.modifiedCount, 2);
+  assert.deepEqual(calls, [
+    ["dropIndex", "expiresAt_1"],
+    ["updateMany", { expiresAt: { $exists: true } }, { $unset: { expiresAt: "" } }],
+  ]);
+});
+
+test("session expiry retirement is safe to repeat and tolerates another server dropping the index", async () => {
+  let updates = 0;
+  const collection = {
+    listIndexes: () => ({
+      toArray: async () => [{ name: "expiresAt_1", key: { expiresAt: 1 }, expireAfterSeconds: 0 }],
+    }),
+    dropIndex: async () => { throw Object.assign(new Error("index not found"), { code: 27 }); },
+    updateMany: async () => { updates += 1; return { modifiedCount: 0 }; },
+  };
+
+  await retireLegacySessionExpiry(collection);
+  assert.equal(updates, 1);
+});
+
+test("session expiry retirement propagates database failures", async () => {
+  const failure = new Error("database unavailable");
+  await assert.rejects(retireLegacySessionExpiry({
+    listIndexes: () => ({ toArray: async () => [
+      { name: "expiresAt_1", key: { expiresAt: 1 }, expireAfterSeconds: 0 },
+    ] }),
+    dropIndex: async () => { throw failure; },
+    updateMany: async () => { throw new Error("should not run"); },
+  }), failure);
+});
+
 test("wires the persistent policy into session creation and recovery", () => {
   const createSessionStart = serverSource.indexOf("async function createSession");
   const requestTokenStart = serverSource.indexOf("function getRequestToken", createSessionStart);
@@ -64,6 +114,8 @@ test("wires the persistent policy into session creation and recovery", () => {
   assert.doesNotMatch(createSessionSource, /expiresAt/u);
   assert.match(authenticationSource, /findOne\(persistentSessionFilter\(token\)\)/u);
   assert.match(authenticationSource, /persistentSessionTouch\(now\)/u);
+  assert.match(serverSource, /await retireLegacySessionExpiry\(sessions\)/u);
+  assert.doesNotMatch(serverSource, /collection\("sessions"\)\.createIndex\(\{ expiresAt: 1 \}/u);
 });
 
 test("password changes revoke durable sessions before issuing the replacement", () => {

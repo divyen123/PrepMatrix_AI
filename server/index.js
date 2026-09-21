@@ -151,6 +151,7 @@ import {
   createPersistentSessionDocument,
   persistentSessionFilter,
   persistentSessionTouch,
+  retireLegacySessionExpiry,
 } from "./authSessionPolicy.js";
 
 dotenv.config();
@@ -290,6 +291,9 @@ async function getDb() {
       await client.connect();
       const db = client.db(MONGODB_DB);
       try {
+        const sessions = db.collection("sessions");
+        await sessions.createIndex({ token: 1 }, { unique: true });
+        await retireLegacySessionExpiry(sessions);
       await removeRetiredNotificationHistory(db);
       await migrateProfileScopedUniqueIndexes(db);
       await Promise.all([
@@ -297,8 +301,6 @@ async function getDb() {
         db.collection(MOMENTUM_EVENTS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, recordedAt: -1 }),
         db.collection("users").createIndex({ usernameKey: 1 }, { unique: true }),
         db.collection("users").createIndex({ emailKey: 1 }, { unique: true, partialFilterExpression: { emailKey: { $type: "string" } } }),
-        db.collection("sessions").createIndex({ token: 1 }, { unique: true }),
-        db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         db.collection(ACADEMIC_PROFILE_LOCKS_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         db.collection("worktrees").createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
         db.collection("quizAttempts").createIndex({ userId: 1, academicProfileId: 1, createdAt: -1 }),

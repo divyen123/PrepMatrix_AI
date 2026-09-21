@@ -152,7 +152,7 @@ test("kids, goals, guides, and resumes follow the active profile", () => {
   assert.match(resumeSource, /resumeFieldPlaceholder/u);
 
   assert.match(guideSource, /getAcademicProfileExamples\(academicProfile\)/u);
-  assert.match(guideSource, /such as \$\{curriculumExamples\.subject\}/u);
+  assert.match(guideSource, /such as \{curriculumExamples\.subject\}/u);
   assert.doesNotMatch(guideSource, /Mathematics or Data Structures/u);
 });
 

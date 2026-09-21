@@ -1,0 +1,23 @@
+.auth-recovery-notice {
+  width: min(440px, calc(100% - 32px));
+  margin: clamp(40px, 14vh, 140px) auto 40px;
+  padding: 28px;
+  text-align: center;
+}
+
+.auth-recovery-notice h1 {
+  margin: 14px 0 10px;
+  font-size: clamp(1.4rem, 4vw, 1.8rem);
+}
+
+.auth-recovery-notice .card-subtext {
+  margin: 0;
+}
+
+.auth-recovery-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}

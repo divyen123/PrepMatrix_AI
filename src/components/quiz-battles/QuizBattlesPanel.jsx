@@ -41,6 +41,7 @@ import {
 import { AiCreditCost } from "../AiQuotaProvider";
 import QuizBattleConfirmDialog from "./QuizBattleConfirmDialog";
 import QuizBattleIntro from "./QuizBattleIntro";
+import CodeSlots from "./CodeSlots";
 import "./QuizBattles.css";
 
 function formatDeadline(value) {
@@ -1128,9 +1129,8 @@ export default function QuizBattlesPanel({
       {error && <div className="battle-alert" role="alert">{error}</div>}
 
       {showCreate && (
-        <form className="battle-form card" id="quiz-battle-create-panel" onSubmit={createBattle}>
+        <form className="battle-form battle-create-form card" id="quiz-battle-create-panel" onSubmit={createBattle}>
           <div>
-            <span className="section-tag">Create a private duel</span>
             <h3>Generate one shared 10-question quiz</h3>
           </div>
           <div className="battle-form-grid">
@@ -1207,26 +1207,31 @@ export default function QuizBattlesPanel({
       )}
 
       {showJoin && (
-        <section className="battle-form card" id="quiz-battle-join-panel">
+        <section className="battle-form battle-join-form card" id="quiz-battle-join-panel">
           <div>
-            <span className="section-tag">Private invite</span>
             <h3>Join your friend’s battle</h3>
           </div>
           <form className="battle-code-form" onSubmit={previewInvite}>
-            <label>
-              10-character code
-              <input
-                autoComplete="off"
-                className="text-input battle-code-input"
-                maxLength={10}
-                onChange={(event) => {
-                  setJoinCode(normalizeQuizBattleInviteCode(event.target.value));
+            <div className="battle-code-field">
+              <span>10-character code</span>
+              <CodeSlots
+                accentColor="var(--text)"
+                ariaLabel="10-character battle invite code"
+                className="battle-join-code-slots"
+                digitColor="var(--bg)"
+                gap={6}
+                inkColor="var(--text)"
+                length={10}
+                onChange={(code) => {
+                  previewRequestRef.current += 1;
+                  setJoinCode(normalizeQuizBattleInviteCode(code));
                   setInvitePreview(null);
                 }}
-                placeholder="ABCD234EFG"
+                slotColor="var(--bg-secondary)"
+                slotSize={36}
                 value={joinCode}
               />
-            </label>
+            </div>
             <button
               className="secondary-btn"
               disabled={busyAction === "preview" || joinCode.length !== 10}
@@ -1272,7 +1277,7 @@ export default function QuizBattlesPanel({
         </section>
       )}
 
-      {loading ? (
+      {!showCreate && !showJoin && (loading ? (
         <div className="battle-loading" role="status">Loading your battles…</div>
       ) : error ? null : battles.length === 0 ? (
         <div className="battle-empty">
@@ -1291,7 +1296,7 @@ export default function QuizBattlesPanel({
             </details>
           )}
         </div>
-      )}
+      ))}
     </div>
   );
 }

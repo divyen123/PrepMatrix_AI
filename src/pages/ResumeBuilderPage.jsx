@@ -1176,17 +1176,6 @@ export default function ResumeBuilderPage({
             <span><ShieldCheck size={14} /> Enabled for {academicProfile.academicTrack || academicProfile.academicLevel || "your profile"}</span>
             <span><CheckCircle2 size={14} /> Draft saved automatically</span>
           </div>
-          <button
-            aria-controls={analyzerOpen ? "resume-analyzer-dialog" : undefined}
-            aria-expanded={analyzerOpen}
-            aria-haspopup="dialog"
-            className="resume-analyze-button"
-            onClick={() => setAnalyzerOpen(true)}
-            ref={analyzerTriggerRef}
-            type="button"
-          >
-            <FileSearch aria-hidden="true" size={17} /> Analyze Resume
-          </button>
         </div>
         <div className="resume-quota-card" aria-live="polite">
           <div className="resume-quota-card__top">
@@ -1715,6 +1704,18 @@ export default function ResumeBuilderPage({
               >
                 <Plus aria-hidden="true" size={15} />
                 <span>New</span>
+              </button>
+              <button
+                aria-controls={analyzerOpen ? "resume-analyzer-dialog" : undefined}
+                aria-expanded={analyzerOpen}
+                aria-haspopup="dialog"
+                className="resume-icon-button resume-preview-new-button resume-preview-analyze-button"
+                onClick={() => setAnalyzerOpen(true)}
+                ref={analyzerTriggerRef}
+                type="button"
+              >
+                <FileSearch aria-hidden="true" size={15} />
+                <span>Analyze</span>
               </button>
               <button
                 aria-controls="resume-preview-fullscreen-dialog"

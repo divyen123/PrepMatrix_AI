@@ -94,7 +94,7 @@ test("terminal auth failures and an unlock 401 cannot leave a stale lock", () =>
   );
   const unauthorized = sourceBetween(
     "if (error?.status === 401)",
-    "setNotification(HAS_CONFIGURED_API",
+    "setAuthRecoveryUnavailable(true)",
     recoveryCatch,
   );
 

@@ -54,3 +54,67 @@ test("only a successful authentication token clears explicit logout", async (t) 
   assert.equal(storage.getItem(EXPLICIT_LOGOUT_STORAGE_KEY), null);
   assert.equal(storage.getItem("prepmatrix_auth_token"), "new-session");
 });
+
+test("a late unauthorized request cannot clear a newer saved session", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousLocalStorage = globalThis.localStorage;
+  const storage = createMemoryStorage({ prepmatrix_auth_token: "old-session" });
+  globalThis.localStorage = storage;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    globalThis.localStorage = previousLocalStorage;
+  });
+
+  let finishRequest;
+  globalThis.fetch = () => new Promise((resolve) => { finishRequest = resolve; });
+  const pending = api.me();
+  storage.setItem("prepmatrix_auth_token", "new-session");
+  finishRequest(response({ error: "Login required." }, { ok: false, status: 401 }));
+
+  await assert.rejects(pending, { code: "STALE_AUTH_REQUEST" });
+  assert.equal(storage.getItem("prepmatrix_auth_token"), "new-session");
+
+  globalThis.fetch = async () => response({ error: "Login required." }, { ok: false, status: 401 });
+  await assert.rejects(api.me(), { status: 401 });
+  assert.equal(storage.getItem("prepmatrix_auth_token"), null);
+});
+
+test("a late session recovery cannot replace a newer saved login", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousLocalStorage = globalThis.localStorage;
+  const storage = createMemoryStorage({ prepmatrix_auth_token: "old-session" });
+  globalThis.localStorage = storage;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    globalThis.localStorage = previousLocalStorage;
+  });
+
+  let finishRequest;
+  globalThis.fetch = () => new Promise((resolve) => { finishRequest = resolve; });
+  const pending = api.me();
+  storage.setItem("prepmatrix_auth_token", "new-session");
+  finishRequest(response({ token: "old-session", user: { username: "Former account" } }));
+
+  await assert.rejects(pending, { code: "STALE_AUTH_REQUEST" });
+  assert.equal(storage.getItem("prepmatrix_auth_token"), "new-session");
+});
+
+test("a late logout response cannot clear a newer saved session", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousLocalStorage = globalThis.localStorage;
+  const storage = createMemoryStorage({ prepmatrix_auth_token: "old-session" });
+  globalThis.localStorage = storage;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    globalThis.localStorage = previousLocalStorage;
+  });
+
+  let finishRequest;
+  globalThis.fetch = () => new Promise((resolve) => { finishRequest = resolve; });
+  const pending = api.logout();
+  storage.setItem("prepmatrix_auth_token", "new-session");
+  finishRequest(response({ ok: true }));
+
+  await pending;
+  assert.equal(storage.getItem("prepmatrix_auth_token"), "new-session");
+});

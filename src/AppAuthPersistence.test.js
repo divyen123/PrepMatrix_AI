@@ -53,6 +53,18 @@ test("redirects a recovered user away from login and registration", () => {
   );
   assert.match(
     appSource,
-    /\{isAuthRoute \? \([\s\S]*?authLoading \? null : userProfile \? \([\s\S]*?<Navigate replace to=\{authenticatedAuthTarget\} \/>/u,
+    /\{authRecoveryUnavailable \? \([\s\S]*?\) : isAuthRoute \? \(\s*authLoading \? null : userProfile \? \([\s\S]*?<Navigate replace to=\{authenticatedAuthTarget\} \/>/u,
   );
+});
+
+test("keeps temporary session recovery failures on a retry screen", () => {
+  const startup = sourceBetween(
+    "useEffect(() => {\n    let isMounted = true;",
+    "  useEffect(() => {\n    const handleSessionEnded",
+  );
+  assert.match(startup, /if \(error\?\.status === 401\) \{[\s\S]*?setAuthRecoveryUnavailable\(false\)/u);
+  assert.match(startup, /setAuthRecoveryUnavailable\(true\)/u);
+  assert.match(appSource, /\{authRecoveryUnavailable \? \(\s*<AuthRecoveryNotice/u);
+  assert.match(appSource, /window\.setTimeout\(retrySavedSession, AUTH_RECOVERY_AUTO_RETRY_MS\)/u);
+  assert.match(appSource, /window\.addEventListener\("online", retrySavedSession\)/u);
 });

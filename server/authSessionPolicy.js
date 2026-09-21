@@ -24,3 +24,25 @@ export function persistentSessionTouch(now = new Date()) {
     $unset: { expiresAt: "" },
   };
 }
+
+export async function retireLegacySessionExpiry(collection) {
+  const indexes = await collection.listIndexes().toArray();
+  const expiryIndexes = indexes.filter((index) => (
+    index?.key?.expiresAt === 1
+    && typeof index.expireAfterSeconds === "number"
+  ));
+
+  for (const index of expiryIndexes) {
+    try {
+      await collection.dropIndex(index.name);
+    } catch (error) {
+      // Another server may have removed the same index during deployment.
+      if (error?.code !== 27 && error?.codeName !== "IndexNotFound") throw error;
+    }
+  }
+
+  return collection.updateMany(
+    { expiresAt: { $exists: true } },
+    { $unset: { expiresAt: "" } },
+  );
+}

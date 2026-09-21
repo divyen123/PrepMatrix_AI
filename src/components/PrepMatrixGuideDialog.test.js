@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { createServer } from "vite";
 
-test("the practice guide works for both manual help and first-time onboarding", async () => {
+test("the compact stepper guide works for both manual help and first-time onboarding", async () => {
   const vite = await createServer({
     appType: "custom",
     logLevel: "silent",
@@ -33,16 +33,16 @@ test("the practice guide works for both manual help and first-time onboarding", 
     for (const markup of [manual, onboarding]) {
       assert.match(markup, /role="dialog"/u);
       assert.match(markup, /aria-modal="true"/u);
-      assert.match(markup, /data-step="profile"/u);
-      assert.match(markup, /BDS/u);
-      assert.match(markup, /Watch demo/u);
-      assert.match(markup, /Open Settings/u);
-      assert.equal((markup.match(/class="guide-step-number"/gu) || []).length, 7);
-      assert.doesNotMatch(markup, /guide-instruction-list|guide-tip/u);
+      assert.match(markup, /class="rb-stepper"/u);
+      assert.match(markup, /Set up your profile/u);
+      assert.match(markup, /aria-current="step"/u);
+      assert.match(markup, /class="rb-stepper-next">Next/u);
+      assert.equal((markup.match(/class="rb-stepper-indicator-group"/gu) || []).length, 4);
+      assert.doesNotMatch(markup, /guide-step-nav|guide-demo|Watch demo|Open Settings/u);
     }
-    assert.match(manual, /Learn PrepMatrix by doing/u);
+    assert.match(manual, /How to use PrepMatrix/u);
     assert.match(onboarding, /Welcome to PrepMatrix, Mohan/u);
-    assert.match(onboarding, /guide-dialog-backdrop--onboarding/u);
+    assert.match(onboarding, /prep-guide-backdrop--onboarding/u);
   } finally {
     await vite.close();
   }

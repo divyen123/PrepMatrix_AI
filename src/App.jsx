@@ -43,7 +43,6 @@ import api, {
   AUTH_RECOVERY_TIMEOUT_MS,
   clearStoredAuthState,
   getApiAcademicProfileScope,
-  HAS_CONFIGURED_API,
   setApiAcademicProfileScope,
 } from "./utils/apiClient";
 import {
@@ -162,6 +161,7 @@ import LearningRouteBoundary from "./components/LearningRouteBoundary";
 import PwaManager from "./components/PwaManager";
 import AcademicProfileIntroDialog from "./components/AcademicProfileIntroDialog";
 import AppLockOverlay from "./components/AppLockOverlay";
+import AuthRecoveryNotice from "./components/AuthRecoveryNotice";
 import KeyboardShortcutDialog from "./components/KeyboardShortcutDialog";
 import SettingsContextMenu from "./components/SettingsContextMenu";
 import { claimFirstProfileBGuide } from "./utils/academicProfileGuide";
@@ -231,6 +231,7 @@ const ENTRY_SPLASH_REDUCED_MOTION_MS = 700;
 const LOGOUT_TRANSITION_MIN_MS = 700;
 const LOGOUT_USAGE_FLUSH_TIMEOUT_MS = 1_500;
 const LOGOUT_TRANSITION_EXIT_MS = 280;
+const AUTH_RECOVERY_AUTO_RETRY_MS = 15_000;
 const TOPBAR_HIDE_DELAY_MS = 3500;
 const APP_LOCK_STORAGE_KEY = "prepmatrix_app_locked";
 const THEME_MODE_STORAGE_KEY = "prepmatrix_theme_mode";
@@ -605,6 +606,8 @@ function App() {
   const [kidsParentAccess, setKidsParentAccess] = useState(LOCKED_KIDS_PARENT_ACCESS);
   const [activeExamAttemptId, setActiveExamAttemptId] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
+  const [authRecoveryUnavailable, setAuthRecoveryUnavailable] = useState(false);
+  const [authRecoveryAttempt, setAuthRecoveryAttempt] = useState(0);
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [workspaceTransitioning, setWorkspaceTransitioning] = useState(false);
   const [notification, setNotification] = useState("");
@@ -2457,6 +2460,12 @@ function App() {
     }
   };
 
+  const retrySavedSession = useCallback(() => {
+    if (wasExplicitlyLoggedOut()) return;
+    setAuthLoading(true);
+    setAuthRecoveryAttempt((attempt) => attempt + 1);
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -2478,6 +2487,7 @@ function App() {
     recoverAuthSession((options) => (options ? api.me(options) : api.me()))
       .then((payload) => {
         if (!isMounted) return;
+        setAuthRecoveryUnavailable(false);
         setUserProfile(payload.user);
         applyWorkspace(payload.workspace, payload.user, payload.profileContext);
         setWorkspaceLoaded(true);
@@ -2501,6 +2511,7 @@ function App() {
         setDashboardVoiceHintPending(false);
 
         if (error?.code === "PASSWORD_CHANGED") {
+          setAuthRecoveryUnavailable(false);
           localStorage.removeItem(APP_LOCK_STORAGE_KEY);
           setAppLocked(false);
           setAppLockError("");
@@ -2509,16 +2520,14 @@ function App() {
         }
 
         if (error?.status === 401) {
+          setAuthRecoveryUnavailable(false);
           localStorage.removeItem(APP_LOCK_STORAGE_KEY);
           setAppLocked(false);
           setAppLockError("");
           return;
         }
 
-        setNotification(HAS_CONFIGURED_API
-          ? "Backend is waking up or temporarily offline. Please wait a moment and refresh."
-          : "Backend URL is not configured. Set VITE_API_URL in Vercel to keep login sessions active."
-        );
+        setAuthRecoveryUnavailable(true);
       })
       .finally(() => {
         if (isMounted) setAuthLoading(false);
@@ -2527,7 +2536,7 @@ function App() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [authRecoveryAttempt]);
 
   useEffect(() => {
     const handleSessionEnded = (event) => {
@@ -2537,6 +2546,16 @@ function App() {
     window.addEventListener("prepmatrixAuthSessionEnded", handleSessionEnded);
     return () => window.removeEventListener("prepmatrixAuthSessionEnded", handleSessionEnded);
   }, []);
+
+  useEffect(() => {
+    if (!authRecoveryUnavailable || authLoading) return undefined;
+    const timeout = window.setTimeout(retrySavedSession, AUTH_RECOVERY_AUTO_RETRY_MS);
+    window.addEventListener("online", retrySavedSession);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("online", retrySavedSession);
+    };
+  }, [authLoading, authRecoveryUnavailable, retrySavedSession]);
 
   useEffect(() => {
     if (!userProfile || !preferencesHydrated) return undefined;
@@ -3581,7 +3600,18 @@ function App() {
         <main className="workspace-main">
           {/* Auth pages rendered OUTSIDE Routes so the component instance is
               shared between /login and /register — no flash on route change */}
-          {isAuthRoute ? (
+          {authRecoveryUnavailable ? (
+            <AuthRecoveryNotice
+              busy={authLoading}
+              onRetry={retrySavedSession}
+              onSignIn={() => {
+                rememberExplicitLogout();
+                clearStoredAuthState();
+                setAuthRecoveryUnavailable(false);
+                navigate("/login", { replace: true });
+              }}
+            />
+          ) : isAuthRoute ? (
             authLoading ? null : userProfile ? (
               <Navigate replace to={authenticatedAuthTarget} />
             ) : (
@@ -4065,13 +4095,11 @@ function App() {
             className="confirm-modal"
             role="dialog"
           >
-            <div className="confirm-modal-icon warning" aria-hidden="true">
-              <LogOut size={22} strokeWidth={2.5} />
-            </div>
-            <div className="confirm-modal-copy">
-              <span className="section-tag">Confirm</span>
+            <div className="logout-confirm-heading">
+              <div className="confirm-modal-icon warning" aria-hidden="true">
+                <LogOut size={22} strokeWidth={2.5} />
+              </div>
               <h2 id="logout-confirm-title">Log out of PrepMatrix?</h2>
-              <p>Your current workspace will stay saved. You will need to log in again to continue.</p>
             </div>
             <div className="confirm-modal-actions">
               <button className="secondary-btn" onClick={handleCancelLogout} type="button">
