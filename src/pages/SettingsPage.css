@@ -915,9 +915,9 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 
 .settings-page .settings-glass-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
-  gap: 12px;
+  gap: clamp(12px, 1.5vw, 20px);
   margin-top: 14px;
 }
 
@@ -927,9 +927,7 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 }
 
 .settings-page .settings-background-image-controls {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(12px, 1.5vw, 20px);
+  display: contents;
 }
 
 .settings-page .settings-background-image-controls > div {
@@ -986,7 +984,13 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 }
 
 @media (max-width: 1180px) {
+  .settings-page .settings-glass-controls {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
   .settings-page .settings-background-image-controls {
+    display: grid;
     grid-template-columns: 1fr;
     gap: 12px;
   }

@@ -10,6 +10,7 @@ const stylesheet = readFileSync(new URL("./DashboardSetupChecklist.css", import.
 
 test("animates the Complete actions panel while preserving its accessibility state", () => {
   assert.match(componentSource, /const \[collapsed, setCollapsed\] = useState\(true\)/u);
+  assert.match(componentSource, /className=\{`dashboard-setup\$\{collapsed \? " is-collapsed" : ""\}`\}/u);
   assert.doesNotMatch(componentSource, /(?:^|\s)hidden=\{collapsed\}/u);
   assert.match(componentSource, /aria-hidden=\{collapsed\}/u);
   assert.match(componentSource, /inert=\{collapsed \? "" : undefined\}/u);
@@ -31,6 +32,8 @@ test("animates the Complete actions panel while preserving its accessibility sta
     stylesheet,
     /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.dashboard-setup-content,[\s\S]*?transition-duration:\s*0\.01ms;/u,
   );
+  assert.match(stylesheet, /\.dashboard-setup\s*\{[\s\S]*?overflow:\s*auto;/u);
+  assert.match(stylesheet, /\.dashboard-setup\.is-collapsed\s*\{\s*overflow:\s*hidden;\s*\}/u);
 });
 
 test("uses theme-aware SpringCheck progress and unboxed action arrows", () => {

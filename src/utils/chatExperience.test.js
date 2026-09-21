@@ -18,28 +18,36 @@ test("keeps the standard study-assistant copy for older learners", () => {
   assert.match(copy.subtitle, /planner-aware/i);
 });
 
-test("builds the new-chat prompt from added subjects", () => {
+test("shows exactly one added subject in the new-chat prompt", () => {
   assert.equal(
     getNewChatPrompt([
       { name: "Mathematics" },
       { name: "Physics" },
       { name: "Chemistry" },
-    ]),
-    "Ask about Mathematics, Physics, or Chemistry",
+    ], () => 0.4),
+    "Ask about Physics",
   );
 });
 
-test("deduplicates and caps long subject lists in the new-chat prompt", () => {
+test("shuffles across normalized subjects without listing the others", () => {
+  const subjects = [
+    { name: "Mathematics" },
+    { name: " mathematics " },
+    { name: "Physics" },
+    { name: "Chemistry" },
+  ];
+
   assert.equal(
-    getNewChatPrompt([
-      { name: "Mathematics" },
-      { name: " mathematics " },
-      { name: "Physics" },
-      { name: "Chemistry" },
-      { name: "Biology" },
-      { name: "English" },
-    ]),
-    "Ask about Mathematics, Physics, Chemistry, or 2 more subjects",
+    getNewChatPrompt(subjects, () => 0),
+    "Ask about Mathematics",
+  );
+  assert.equal(
+    getNewChatPrompt(subjects, () => 0.99),
+    "Ask about Chemistry",
+  );
+  assert.equal(
+    getNewChatPrompt(subjects, () => 0, "Ask about Mathematics"),
+    "Ask about Physics",
   );
 });
 

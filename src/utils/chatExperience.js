@@ -16,22 +16,16 @@ export function getChatExperienceCopy(childMode = false) {
   return childMode ? KIDS_CHAT_EXPERIENCE : STANDARD_CHAT_EXPERIENCE;
 }
 
-function formatSubjectPrompt(names) {
-  if (names.length === 1) return names[0];
-  if (names.length === 2) return `${names[0]} or ${names[1]}`;
-  return `${names.slice(0, -1).join(", ")}, or ${names.at(-1)}`;
-}
-
-export function getNewChatPrompt(subjects = []) {
+export function getNewChatPrompt(subjects = [], random = Math.random, previousPrompt = "") {
   const names = normalizeSubjectNames(subjects);
   if (!names.length) return STANDARD_CHAT_EXPERIENCE.intro;
 
-  const visibleNames = names.slice(0, 3);
-  const remainingCount = names.length - visibleNames.length;
-  const subjectPrompt = remainingCount
-    ? visibleNames.join(", ")
-    : formatSubjectPrompt(visibleNames);
-  if (!remainingCount) return `Ask about ${subjectPrompt}`;
-
-  return `Ask about ${subjectPrompt}, or ${remainingCount} more ${remainingCount === 1 ? "subject" : "subjects"}`;
+  const choices = names.length > 1
+    ? names.filter((name) => `Ask about ${name}` !== previousPrompt)
+    : names;
+  const sample = Number(typeof random === "function" ? random() : 0);
+  const index = Number.isFinite(sample)
+    ? Math.min(choices.length - 1, Math.max(0, Math.floor(sample * choices.length)))
+    : 0;
+  return `Ask about ${choices[index]}`;
 }

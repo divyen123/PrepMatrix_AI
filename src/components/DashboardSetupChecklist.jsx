@@ -49,7 +49,7 @@ export default function DashboardSetupChecklist({ academicProfileDataId, subject
   if (completeCount === steps.length) return null;
 
   return createPortal(
-    <aside aria-label="Complete actions" className="dashboard-setup" ref={setupRef}>
+    <aside aria-label="Complete actions" className={`dashboard-setup${collapsed ? " is-collapsed" : ""}`} ref={setupRef}>
       <button aria-controls={contentId} aria-expanded={!collapsed} className="dashboard-setup-toggle" onClick={() => setCollapsed((value) => !value)} type="button">
         <ListChecks aria-hidden="true" size={20} />
         <strong>Complete actions</strong>

@@ -6,6 +6,23 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { createServer } from "vite";
 
+const stylesheet = readFileSync(new URL("./SettingsPage.css", import.meta.url), "utf8");
+
+test("keeps the three Appearance wake sliders equal on one desktop row", () => {
+  assert.match(
+    stylesheet,
+    /\.settings-page \.settings-glass-controls\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.settings-page \.settings-background-image-controls\s*\{\s*display:\s*contents;\s*\}/u,
+  );
+  assert.match(
+    stylesheet,
+    /@media \(max-width: 1180px\)[\s\S]*?\.settings-page \.settings-glass-controls\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);[\s\S]*?\.settings-page \.settings-background-image-controls\s*\{[\s\S]*?display:\s*grid;/u,
+  );
+});
+
 test("renders Settings for one profile without deletion guidance", async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
   const originalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");

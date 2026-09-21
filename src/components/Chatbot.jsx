@@ -172,7 +172,10 @@ function Chatbot({
   const navigate = useNavigate();
   const { hasInsufficientCredits } = useAiQuota();
   const chatExperience = getChatExperienceCopy(childMode);
-  const newChatPrompt = useMemo(() => getNewChatPrompt(subjects), [subjects]);
+  const [newChatPrompt, setNewChatPrompt] = useState(() => getNewChatPrompt(subjects));
+  const shuffleNewChatPrompt = useCallback(() => {
+    setNewChatPrompt((current) => getNewChatPrompt(subjects, Math.random, current));
+  }, [subjects]);
   const scrollRef = useRef(null);
   const lastMessageRef = useRef(null);
   const previousLoadingRef = useRef(false);
@@ -194,6 +197,7 @@ function Chatbot({
   const chatDialogRef = useRef(null);
   const chatInputRef = useRef(null);
   const previouslyFocusedChatRef = useRef(null);
+  const chatWasOpenRef = useRef(false);
 
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
@@ -269,6 +273,12 @@ function Chatbot({
       : []
   ));
   const isNewChat = !childMode && !activeSessionId && messages.length === 0 && !loading;
+
+  useEffect(() => {
+    const justOpened = open && !chatWasOpenRef.current;
+    chatWasOpenRef.current = open;
+    if (justOpened && !childMode) shuffleNewChatPrompt();
+  }, [childMode, open, shuffleNewChatPrompt]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -594,13 +604,14 @@ function Chatbot({
     setAssistantContext(normalizeChatAssistantContext(nextContext));
     setActiveSessionId(null);
     setActiveSessionTitle("New Chat");
+    if (!childMode) shuffleNewChatPrompt();
     setMessages(childMode
       ? [{ id: "intro", role: "assistant", text: chatExperience.intro }]
       : []);
     if (window.innerWidth <= 768) {
       setHistoryOpen(false);
     }
-  }, [chatExperience.intro, childMode, invalidateViewWork]);
+  }, [chatExperience.intro, childMode, invalidateViewWork, shuffleNewChatPrompt]);
 
   useEffect(() => {
     if (!open) return undefined;
