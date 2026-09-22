@@ -20831,6 +20831,31 @@ body.has-bg-image .sidebar-nav::-webkit-scrollbar-thumb:hover {
   min-width: 0 !important;
 }
 
+.sidebar-chatbot-portal .chat-voice-pill-slot {
+  display: flex;
+  flex: 0 0 38px;
+  align-items: center;
+  justify-content: flex-end;
+  width: 38px;
+  min-width: 38px;
+  transition: flex-basis 200ms ease, width 200ms ease;
+}
+
+.sidebar-chatbot-portal .chat-voice-pill-slot.is-listening {
+  flex-basis: 160px;
+  width: 160px;
+}
+
+.sidebar-chatbot-portal .chat-composer-row.is-voice-listening :is(.chat-upload-btn, .chat-send-btn) {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-chatbot-portal .chat-voice-pill-slot {
+    transition: none;
+  }
+}
+
 .sidebar-chatbot-portal .chat-file-input {
   display: none !important;
 }
@@ -22594,30 +22619,30 @@ body.dark .db-search-input:focus,
   transform: scale(1.1);
 }
 
-/* Mic active state */
-.db-mic-btn--active {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.12);
+.db-search-form .db-mic-slot {
+  display: flex;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: flex-end;
+  width: 32px;
+  min-width: 32px;
+  transition: flex-basis 200ms ease, width 200ms ease;
 }
 
-.db-mic-btn--active:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.2);
+.db-search-form .db-mic-slot.is-listening {
+  flex-basis: 150px;
+  width: 150px;
 }
 
-/* Pulsing red dot when recording */
-.db-mic-pulse {
-  display: block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ef4444;
-  animation: db-mic-pulse 0.9s ease-in-out infinite;
+.db-search-form .db-mic-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
-@keyframes db-mic-pulse {
-  0%, 100% { transform: scale(1);   opacity: 1; }
-  50%       { transform: scale(1.5); opacity: 0.6; }
+@media (prefers-reduced-motion: reduce) {
+  .db-search-form .db-mic-slot {
+    transition: none;
+  }
 }
 
 /* Drag-over state for the search form */

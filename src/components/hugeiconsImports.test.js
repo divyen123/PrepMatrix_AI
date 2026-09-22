@@ -4,7 +4,13 @@ import { basename, dirname } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-const components = ["ThoughtLine.jsx", "SwipeToast.jsx", "SpringCheck.jsx"];
+const components = [
+  "ThoughtLine.jsx",
+  "SwipeToast.jsx",
+  "SpringCheck.jsx",
+  "VoicePill.jsx",
+  "quiz-battles/CodeSlots.jsx",
+];
 
 test("Hugeicons imports bypass the package index with exact-case icon files", async () => {
   const specifiers = new Set();
@@ -18,7 +24,9 @@ test("Hugeicons imports bypass the package index with exact-case icon files", as
 
   assert.deepEqual([...specifiers].sort(), [
     "@hugeicons/core-free-icons/ArrowDown01Icon",
+    "@hugeicons/core-free-icons/ArrowLeft01Icon",
     "@hugeicons/core-free-icons/Cancel01Icon",
+    "@hugeicons/core-free-icons/Mic01Icon",
     "@hugeicons/core-free-icons/SparklesIcon",
     "@hugeicons/core-free-icons/Tick02Icon",
   ]);

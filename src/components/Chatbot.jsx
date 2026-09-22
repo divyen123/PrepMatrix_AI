@@ -43,6 +43,7 @@ import {
 import { AiCreditCost } from "./AiQuotaProvider";
 import ChatMessageText from "./ChatMessageText";
 import ThoughtLine from "./ThoughtLine";
+import VoicePill from "./VoicePill";
 import {
   MessageSquare,
   Plus,
@@ -54,8 +55,6 @@ import {
   Check,
   Loader2,
   Send,
-  Mic,
-  Square,
   Copy,
   Paperclip,
   FileText,
@@ -180,6 +179,8 @@ function Chatbot({
   const lastMessageRef = useRef(null);
   const previousLoadingRef = useRef(false);
   const chatRecognitionRef = useRef(null);
+  const voicePillRef = useRef(null);
+  const discardChatVoiceRef = useRef(false);
   const fileInputRef = useRef(null);
   const resumeWakeAfterChatMicRef = useRef(false);
   const mountedRef = useRef(true);
@@ -1377,9 +1378,15 @@ function Chatbot({
     return () => window.removeEventListener("voiceRecordingChange", handler);
   }, []);
 
+  useEffect(() => {
+    if (isVoiceRecording) voicePillRef.current?.start();
+    else voicePillRef.current?.stop();
+  }, [isVoiceRecording]);
+
   const handleMicClick = useCallback(() => {
     const activeRecognition = chatRecognitionRef.current;
     if (activeRecognition) {
+      voicePillRef.current?.stop();
       try {
         activeRecognition.stop();
       } catch {
@@ -1397,10 +1404,14 @@ function Chatbot({
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
+      voicePillRef.current?.stop();
       setInput("Voice recognition is not supported in this browser.");
       return;
     }
 
+    voicePillRef.current?.start();
+    discardChatVoiceRef.current = false;
+    setIsVoiceRecording(true);
     resumeWakeAfterChatMicRef.current = localStorage.getItem("prepmatrix_wake_mode") === "true";
     if (resumeWakeAfterChatMicRef.current) {
       window.studyVoiceAssistant?.pauseWakeListening?.();
@@ -1444,14 +1455,16 @@ function Chatbot({
 
     recognition.onend = () => {
       chatRecognitionRef.current = null;
+      voicePillRef.current?.stop();
       setIsVoiceRecording(false);
       window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false, source: "chatbot" } }));
 
       const spokenText = finalTranscript.trim();
-      if (heardSpeech && spokenText) {
+      if (!discardChatVoiceRef.current && heardSpeech && spokenText) {
         setInput(spokenText);
         sendMessage(spokenText, { keepInput: true });
       }
+      discardChatVoiceRef.current = false;
 
       if (resumeWakeAfterChatMicRef.current) {
         window.setTimeout(() => {
@@ -1465,6 +1478,7 @@ function Chatbot({
       recognition.start();
     } catch {
       chatRecognitionRef.current = null;
+      voicePillRef.current?.stop();
       setIsVoiceRecording(false);
       window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false, source: "chatbot" } }));
       if (resumeWakeAfterChatMicRef.current) {
@@ -2012,7 +2026,7 @@ function Chatbot({
                     <span>Local commands still work. Add credits next month for AI answers.</span>
                   )}
                 </div>
-                <div className="chat-composer-row">
+                <div className={`chat-composer-row${isVoiceRecording ? " is-voice-listening" : ""}`}>
                 <textarea
                   aria-label="Message study assistant"
                   onChange={(event) => setInput(event.target.value)}
@@ -2045,16 +2059,30 @@ function Chatbot({
                   {preparingAttachments ? <Loader2 aria-hidden="true" className="spinner" size={16} /> : <Paperclip aria-hidden="true" size={16} />}
                   {attachments.length ? <span className="chat-upload-count">{attachments.length}</span> : null}
                 </button> : null}
-                <button
-                  aria-label={isVoiceRecording ? "Stop recording" : "Start voice recording"}
-                  className={`chat-icon-btn chat-mic-btn${isVoiceRecording ? " recording" : ""}`}
-                  disabled={loading || preparingAttachments}
-                  onClick={handleMicClick}
-                  type="button"
-                  title={isVoiceRecording ? "Stop recording" : "Start voice recording"}
-                >
-                  {isVoiceRecording ? <Square size={16} /> : <Mic size={16} />}
-                </button>
+                <span className={`chat-voice-pill-slot${isVoiceRecording ? " is-listening" : ""}`}>
+                  <VoicePill
+                    accentColor="var(--accent)"
+                    ariaLabel="Start or stop voice recording"
+                    background="var(--surface-strong)"
+                    className="chat-voice-pill"
+                    disabled={loading || preparingAttachments}
+                    iconColor="var(--text-muted)"
+                    mode="toggle"
+                    onStart={handleMicClick}
+                    onStop={({ reason }) => {
+                      if (reason === "unmount" || reason === "external") return;
+                      if (chatRecognitionRef.current) {
+                        discardChatVoiceRef.current = reason === "cancel" || reason === "escape" || reason === "disabled";
+                        handleMicClick();
+                      } else if (isVoiceRecording) {
+                        window.studyVoiceAssistant?.stopListening?.();
+                      }
+                    }}
+                    reactive="simulated"
+                    ref={voicePillRef}
+                    size={38}
+                  />
+                </span>
                 <button
                   aria-label="Send message"
                   className="chat-icon-btn chat-send-btn"

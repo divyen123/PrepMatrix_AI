@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { animate, motion as Motion, motionValue, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Tick02Icon } from '@hugeicons/core-free-icons';
+import Tick02Icon from '@hugeicons/core-free-icons/Tick02Icon';
 
 import './CodeSlots.css';
 

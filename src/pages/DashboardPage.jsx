@@ -6,6 +6,7 @@ import ProgressBar1 from "../components/Progressbar1";
 import WeeklyReview from "../components/WeeklyReview";
 import SubjectPlanDialog from "../components/SubjectPlanDialog";
 import DashboardSetupChecklist from "../components/DashboardSetupChecklist";
+import VoicePill from "../components/VoicePill";
 import {
   buildHomeNavigationRoute,
   getHomeNavigationSuggestions,
@@ -187,6 +188,7 @@ function DashboardPage({
   const [voiceEntryHint, setVoiceEntryHint] = useState("");
   const dragDepthRef = useRef(0);
   const inputRef     = useRef(null);
+  const voicePillRef = useRef(null);
   const panelContentRef = useRef(null);
   const voiceEntryHintClaimedRef = useRef(false);
   const overviewNoticeDismissTimerRef = useRef(null);
@@ -263,6 +265,11 @@ function DashboardPage({
     }, DASHBOARD_VOICE_HINT_DURATION_MS);
     return () => window.clearTimeout(hideTimer);
   }, [voiceEntryHint]);
+
+  useEffect(() => {
+    if (voiceAssistant?.isCommandListening) voicePillRef.current?.start();
+    else voicePillRef.current?.stop();
+  }, [voiceAssistant?.isCommandListening]);
 
   useEffect(() => {
     const panelId = DASHBOARD_PANEL_HASHES[location.hash.toLowerCase()];
@@ -441,6 +448,7 @@ function DashboardPage({
 
     if (!voiceAssistant?.supported) {
       setSubmissionNotice("Voice recognition is not supported in this browser.");
+      voicePillRef.current?.stop();
       return;
     }
     if (voiceAssistant.isCommandListening || voiceAssistant.isProcessing) return;
@@ -531,6 +539,15 @@ function DashboardPage({
       }, { replace: true });
     }
     setActivePanel((prev) => (prev === id ? null : id));
+  };
+
+  const handleMicStop = ({ reason }) => {
+    if (reason === "unmount" || reason === "disabled" || !voiceAssistant?.supported) return;
+    const resumeWakeMode = voiceAssistant.wakeMode;
+    voiceAssistant.stopListening?.();
+    if (resumeWakeMode) {
+      window.setTimeout(() => voiceAssistant.setWakeMode?.(true), 0);
+    }
   };
 
   const handleOverviewCardActivation = (card) => {
@@ -663,20 +680,22 @@ function DashboardPage({
           </button>
 
           {/* Mic */}
-          <button
-            type="button"
-            className={`db-search-action-btn db-mic-btn${voiceAssistant?.isCommandListening ? " db-mic-btn--active" : ""}`}
-            disabled={voiceAssistant?.isCommandListening || voiceAssistant?.isProcessing}
-            onClick={handleMic}
-            title={voiceAssistant?.isCommandListening ? "Listening..." : "Voice input"}
-            aria-label={voiceAssistant?.isCommandListening ? "Listening to voice input" : "Voice input"}
-          >
-            {voiceAssistant?.isCommandListening ? (
-              <span className="db-mic-pulse" aria-hidden="true" />
-            ) : (
-              <Mic size={16} />
-            )}
-          </button>
+          <span className={`db-mic-slot${voiceAssistant?.isCommandListening ? " is-listening" : ""}`}>
+            <VoicePill
+              accentColor="var(--accent)"
+              ariaLabel={voiceAssistant?.isCommandListening ? "Stop voice input" : "Voice input"}
+              background="var(--surface)"
+              className="db-mic-btn"
+              disabled={voiceAssistant?.isProcessing}
+              iconColor="var(--text-muted)"
+              mode="toggle"
+              onStart={handleMic}
+              onStop={handleMicStop}
+              reactive="simulated"
+              ref={voicePillRef}
+              size={32}
+            />
+          </span>
 
           {/* Ask button — only when text is typed or files are attached */}
           {(searchInput || attachments.length > 0) && (
