@@ -525,7 +525,7 @@
 .learning-studio-coach__actions {
   display: grid;
   gap: 7px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .learning-studio-coach__actions button {
@@ -543,6 +543,11 @@
   text-align: left;
 }
 
+.learning-studio-coach__actions button:last-child {
+  grid-column: 1 / -1;
+  justify-content: center;
+}
+
 .learning-studio-coach__actions button:hover {
   background: var(--accent-soft);
   border-color: rgba(var(--accent-rgb), 0.34);
@@ -554,11 +559,12 @@
   opacity: 0.58;
 }
 
-.learning-studio-coach__thinking,
 .learning-studio-coach__error {
   align-items: center;
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-muted));
   border: 1px solid var(--border);
   border-radius: 10px;
+  color: var(--danger);
   display: flex;
   font-size: 0.68rem;
   gap: 7px;
@@ -567,13 +573,20 @@
 }
 
 .learning-studio-coach__thinking {
-  background: var(--accent-soft);
+  align-items: center;
+  align-self: center;
+  background: transparent;
+  border: none;
   color: var(--accent);
-}
-
-.learning-studio-coach__error {
-  background: color-mix(in srgb, var(--danger) 12%, var(--surface-muted));
-  color: var(--danger);
+  display: flex;
+  font-size: 0.76rem;
+  font-weight: 600;
+  gap: 8px;
+  justify-content: center;
+  justify-self: center;
+  margin: auto;
+  padding: 16px;
+  text-align: center;
 }
 
 .learning-studio-coach__empty {
@@ -610,12 +623,102 @@
   padding-right: 3px;
 }
 
-.learning-studio-coach__response p {
+.learning-studio-coach__response p,
+.learning-studio-coach__response-copy .chat-paragraph {
   color: var(--text);
   font-size: 0.74rem;
   line-height: 1.65;
   margin: 0;
   white-space: pre-line;
+}
+
+.learning-studio-coach__response-copy .chat-bullet-list,
+.learning-studio-coach__response-copy .chat-num-list {
+  color: var(--text);
+  font-size: 0.74rem;
+  line-height: 1.6;
+  margin: 2px 0 6px;
+  padding-left: 20px;
+}
+
+.learning-studio-coach__response-copy .chat-bullet-list > li {
+  list-style-type: disc;
+}
+
+.learning-studio-coach__response-copy .chat-num-list > li {
+  list-style-type: decimal;
+}
+
+.learning-studio-coach__response-copy li {
+  margin: 2px 0;
+}
+
+.learning-studio-coach__response-copy strong {
+  color: var(--text-bright, #fff);
+  font-weight: 700;
+}
+
+.learning-studio-coach__response-copy em {
+  font-style: italic;
+}
+
+.learning-studio-coach__response-copy hr.chat-divider {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 8px 0;
+  width: 100%;
+}
+
+.learning-studio-coach__response-copy .chat-inline-code {
+  background: var(--surface-muted, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--accent);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85em;
+  padding: 1px 5px;
+}
+
+.learning-studio-coach__response-copy .chat-table-scroll {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 6px 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-gutter: stable;
+}
+
+.learning-studio-coach__response-copy .chat-markdown-table {
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  text-align: left;
+  width: 100%;
+}
+
+.learning-studio-coach__response-copy .chat-markdown-table th,
+.learning-studio-coach__response-copy .chat-markdown-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 6px 10px;
+  vertical-align: top;
+  white-space: normal;
+}
+
+.learning-studio-coach__response-copy .chat-markdown-table th {
+  background: var(--surface-muted, rgba(255, 255, 255, 0.04));
+  color: var(--text-bright, #fff);
+  font-weight: 700;
+}
+
+.learning-studio-coach__response-copy .chat-markdown-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.learning-studio-coach__response-copy .chat-markdown-table [data-align="center"] {
+  text-align: center;
+}
+
+.learning-studio-coach__response-copy .chat-markdown-table [data-align="right"] {
+  text-align: right;
 }
 
 .learning-studio-coach__response > button {

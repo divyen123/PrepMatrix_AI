@@ -375,8 +375,16 @@ export default function CodeMatrixPage({
         </header>
       )}
 
-
-
+      {!embedded && activeLaunch && compilerAvailable && !setupVisible && (
+        <aside className="cmx-placement-handoff" aria-labelledby="cmx-placement-handoff-title">
+          <span className="cmx-placement-handoff-icon"><Code2 aria-hidden="true" size={16} /></span>
+          <div>
+            <span>{activeLaunch.source === "chat" ? "AI Chat code" : "Placement practice"} · {CODE_MATRIX_LANGUAGES.find(({ id }) => id === activeLaunch.language)?.label || "CodeMatrix"}</span>
+            <strong id="cmx-placement-handoff-title">{activeLaunch.title}</strong>
+            <p>{activeLaunch.task}</p>
+          </div>
+        </aside>
+      )}
 
       {!compilerAvailable ? (
         <section className="cmx-setup cmx-eligibility">

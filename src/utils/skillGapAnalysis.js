@@ -468,7 +468,65 @@ export function analyzeSkillGap({ resumeText = "", draft = null, jobDescription 
   });
 
   const findings = critiqueResume({ draft, resumeText, needsEvidence, notShown, role });
+  const targetRole = detectTargetRole(jobDescription, role);
   return role
-    ? { matched, needsEvidence, notShown, requestedSkills, findings, roleNames: role.roleNames, inputType: "role" }
-    : { matched, needsEvidence, notShown, requestedSkills, findings };
+    ? { matched, needsEvidence, notShown, requestedSkills, findings, roleNames: role.roleNames, targetRole, inputType: "role" }
+    : { matched, needsEvidence, notShown, requestedSkills, findings, targetRole };
+}
+
+export function detectTargetRole(input = "", role = null) {
+  if (role?.roleNames?.length) {
+    return role.roleNames[0];
+  }
+  const text = cleanLine(input);
+  if (!text) return "Target role";
+
+  const lines = linesOf(input);
+  const firstLine = cleanLine(lines[0] || "");
+
+  if (lines.length === 1 && text.length <= 50 && !/[:;.!?]/u.test(text)) {
+    const match = ROLE_PROFILES.find((p) => p.pattern.test(text));
+    if (match) return match.name;
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  for (const line of lines) {
+    const labelMatch = line.match(/(?:job\s+title|position|role|title)\s*[:\-–]\s*([^\r\n,;]+)/i);
+    if (labelMatch) {
+      const candidate = cleanLine(labelMatch[1]);
+      if (candidate.length >= 3 && candidate.length <= 60) {
+        const match = ROLE_PROFILES.find((p) => p.pattern.test(candidate));
+        return match ? match.name : candidate;
+      }
+    }
+  }
+
+  const hiringMatch = text.match(/(?:looking\s+for|seeking|hiring|in\s+search\s+of)\s+(?:an?|our\s+next)\s+([A-Za-z0-9\s/+#.-]{3,45}?)(?=\s+(?:to|who|with|for|in|\.|,|$|\n))/i);
+  if (hiringMatch) {
+    const candidate = cleanLine(hiringMatch[1]);
+    if (candidate.length >= 3 && !/^(?:person|someone|individual|candidate|professional|team\s+member)$/i.test(candidate)) {
+      const match = ROLE_PROFILES.find((p) => p.pattern.test(candidate));
+      return match ? match.name : candidate;
+    }
+  }
+
+  const matchedProfiles = ROLE_PROFILES.flatMap((profile) => {
+    const match = profile.pattern.exec(text);
+    return match ? [{ ...profile, position: match.index }] : [];
+  }).sort((a, b) => a.position - b.position);
+
+  if (matchedProfiles.length > 0) {
+    return matchedProfiles[0].name;
+  }
+
+  const generalRoleMatch = text.match(/\b(?:Senior|Junior|Lead|Principal|Associate|Staff|Chief)?\s*(?:Software|Frontend|Front-end|Backend|Back-end|Full[\s-]?stack|Web|Mobile|iOS|Android|DevOps|Cloud|Data|Machine\s+Learning|ML|AI|QA|Quality\s+Assurance|Systems?|Security|Product|Project|UI\/UX|UX|UI|Graphic|Sales|Marketing|Business)\s+(?:Developer|Engineer|Architect|Designer|Analyst|Scientist|Manager|Specialist|Consultant|Tester|Lead|Administrator|Associate|Representative|Executive)\b/i);
+  if (generalRoleMatch) {
+    return generalRoleMatch[0].trim();
+  }
+
+  if (firstLine.length >= 3 && firstLine.length <= 45 && !/[:;.!?]/u.test(firstLine)) {
+    return firstLine;
+  }
+
+  return "Target role";
 }

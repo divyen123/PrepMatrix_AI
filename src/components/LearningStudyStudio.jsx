@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { hasLearningNodeAchievement } from "../utils/learningMastery";
+import ChatMessageText from "./ChatMessageText";
 import "./LearningStudyStudio.css";
 
 const SESSION_STEPS = [
@@ -46,9 +47,9 @@ const SELF_RATINGS = [
 const COACH_ACTIONS = [
   { id: "simpler", label: "Explain simpler", icon: Lightbulb },
   { id: "analogy", label: "Give an analogy", icon: WandSparkles },
-  { id: "hint", label: "Hint only", icon: Sparkles },
   { id: "example", label: "Another example", icon: FileQuestion },
   { id: "challenge", label: "Challenge me", icon: Target },
+  { id: "hint", label: "Hint only", icon: Sparkles },
 ];
 
 const STATUS_LABELS = {
@@ -621,13 +622,13 @@ function LearningStudyStudio({
               <div className="learning-studio-coach__response">
                 <span>{coachState.label || "Coach guidance"}</span>
                 <div className="learning-studio-coach__response-copy">
-                  {String(coachState.response).split(/\n{2,}/).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                  <ChatMessageText linksAllowed={false} text={coachState.response} />
                 </div>
                 <button disabled={coachNoteSaving} onClick={() => onSaveToNotes?.(currentNode, coachNoteOverride)} type="button"><NotebookPen size={14} /> {coachNoteSaving ? "Saving..." : "Save guidance"}</button>
               </div>
-            ) : (
+            ) : !coachState.loading ? (
               <p className="learning-studio-coach__empty">Choose a focused action. The coach receives this concept and your current learning stage-not a blank chat.</p>
-            )}
+            ) : null}
           </div>
         </aside>
 

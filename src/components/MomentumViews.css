@@ -48,6 +48,16 @@ body .momentum-history-dialog .momentum-history-close:focus-visible { outline: 2
 @media (max-width: 600px) { .momentum-title-row { gap: 4px; } .momentum-title-row h3 { font-size: 17px; } .global-momentum-sources article { padding: 10px; } }
 @media (max-width: 600px) { .momentum-history-dialog .study-history-header { padding: 14px 16px; } .momentum-history-dialog .study-history-content { padding: 4px 16px; } .momentum-history-dialog .study-history-footer { padding: 8px 16px; } }
 
+.global-momentum-card {
+  background:
+    linear-gradient(145deg, rgba(11, 143, 116, 0.08), transparent 52%),
+    var(--surface) !important;
+}
+
+.global-momentum-card > .gamification-orb {
+  display: none !important;
+}
+
 .momentum-comet-dial {
   flex-shrink: 0;
   display: flex;

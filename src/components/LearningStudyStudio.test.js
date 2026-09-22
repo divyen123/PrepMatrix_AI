@@ -211,4 +211,78 @@ test("uses theme-aware horizontal support panels and fixed circular radar contro
   assert.match(stylesheet, /\.learning-studio-misconceptions article p\s*\{[\s\S]*?-webkit-line-clamp:\s*3[\s\S]*?max-height:\s*calc\(1\.45em\s*\*\s*3\)[\s\S]*?text-overflow:\s*ellipsis/u);
   assert.match(stylesheet, /\.learning-studio-misconceptions article button\s*\{[\s\S]*?border-radius:\s*50%/u);
   assert.match(stylesheet, /\.learning-studio-misconceptions form button\s*\{[\s\S]*?height:\s*32px[\s\S]*?width:\s*32px/u);
+  assert.match(stylesheet, /\.learning-studio-coach__actions\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/u);
+  assert.match(stylesheet, /\.learning-studio-coach__actions button:last-child\s*\{[\s\S]*?grid-column:\s*1\s*\/\s*-1/u);
+  assert.match(stylesheet, /\.learning-studio-coach__thinking\s*\{[\s\S]*?background:\s*transparent;[\s\S]*?border:\s*none;[\s\S]*?justify-content:\s*center;/u);
 });
+
+test("renders AI Coach with structured markdown, reordered buttons, and hidden empty notice while loading", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { default: LearningStudyStudio } = await vite.ssrLoadModule(
+      "/src/components/LearningStudyStudio.jsx",
+    );
+    const node = {
+      id: "topic-1",
+      title: "HTTP Methods",
+      type: "topic",
+    };
+
+    // 1. Loading state test: no empty notice when loading
+    const loadingMarkup = renderToStaticMarkup(React.createElement(LearningStudyStudio, {
+      coachState: { loading: true },
+      nodes: [node],
+      notebook: { id: "nb-1", chapters: [{ id: "c1", title: "Web", topics: [node] }] },
+      progressByNodeId: new Map([[node.id, { status: "ready" }]]),
+      selectedNode: node,
+    }));
+
+    assert.match(loadingMarkup, /Coach is preparing focused guidance\.\.\./u);
+    assert.doesNotMatch(
+      loadingMarkup,
+      /Choose a focused action\. The coach receives this concept and your current learning stage-not a blank chat\./u,
+    );
+
+    // 2. Button ordering test: Hint only should be after Another example and Challenge me
+    const exampleIdx = loadingMarkup.indexOf("Another example");
+    const challengeIdx = loadingMarkup.indexOf("Challenge me");
+    const hintIdx = loadingMarkup.indexOf("Hint only");
+    assert.ok(exampleIdx !== -1 && challengeIdx !== -1 && hintIdx !== -1);
+    assert.ok(hintIdx > exampleIdx, "Hint only should be placed after Another example");
+    assert.ok(hintIdx > challengeIdx, "Hint only should be placed after Challenge me");
+
+    // 3. Structured markdown response test (no raw symbols)
+    const markdownResponse = [
+      "**Worked Example – Library Book API**",
+      "| HTTP Method | Purpose |",
+      "|---|---|",
+      "| GET | Retrieve list |",
+      "---",
+      "1. First step",
+      "* Note item",
+    ].join("\n");
+
+    const responseMarkup = renderToStaticMarkup(React.createElement(LearningStudyStudio, {
+      coachState: { label: "Worked Example", response: markdownResponse },
+      nodes: [node],
+      notebook: { id: "nb-1", chapters: [{ id: "c1", title: "Web", topics: [node] }] },
+      progressByNodeId: new Map([[node.id, { status: "ready" }]]),
+      selectedNode: node,
+    }));
+
+    assert.match(responseMarkup, /<strong>Worked Example – Library Book API<\/strong>/u);
+    assert.match(responseMarkup, /<table class="chat-markdown-table">/u);
+    assert.match(responseMarkup, /<hr class="chat-divider"\s*\/>/u);
+    assert.match(responseMarkup, /<ol class="chat-num-list"/u);
+    assert.match(responseMarkup, /<ul class="chat-bullet-list"/u);
+    assert.doesNotMatch(responseMarkup, /\*\*Worked Example/u);
+  } finally {
+    await vite.close();
+  }
+});
+

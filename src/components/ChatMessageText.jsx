@@ -224,6 +224,10 @@ export default function ChatMessageText({
       return <div aria-hidden="true" className="chat-spacer" key={`spacer-${block.sourceIndex}`} />;
     }
 
+    if (/^[-*_]{3,}$/.test(cleanBlock)) {
+      return <hr className="chat-divider" key={`divider-${block.sourceIndex}`} />;
+    }
+
     const isBullet = cleanBlock.startsWith("* ")
       || cleanBlock.startsWith("- ")
       || cleanBlock.startsWith("• ");

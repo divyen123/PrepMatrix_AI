@@ -287,7 +287,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
         <section className="resume-analyzer-results" aria-label="Resume review results" aria-live="polite" ref={resultsRef}>
           <div className="resume-analyzer-results-heading">
             <div>
-              <span className="resume-analyzer-eyebrow">Your review</span>
+              <span className="resume-analyzer-eyebrow">{results.targetRole || (results.roleNames?.[0] || "Target role")}</span>
               <h2>Where your resume can improve</h2>
             </div>
             {source === "builder" && onEditResume && <button className="resume-analyzer-edit-button" onClick={() => requestClose(onEditResume)} type="button">Edit resume</button>}

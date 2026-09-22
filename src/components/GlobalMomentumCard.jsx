@@ -52,7 +52,6 @@ export default function GlobalMomentumCard({ momentum, momentumLoading = false, 
 
   return (
     <section className="card gamification-card global-momentum-card">
-      <div className="gamification-orb" aria-hidden="true" />
       <div className="gamification-header">
         <div>
           <div className="momentum-title-row">

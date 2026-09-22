@@ -251,4 +251,22 @@ test("reviews pasted or extracted resume descriptions as well as builder drafts"
   assert.ok(result.findings.some((item) => item.category === "experience"));
   assert.ok(result.findings.some((item) => item.category === "projects"));
   assert.equal(new Set(result.findings.map((item) => item.id)).size, result.findings.length);
+  assert.equal(result.targetRole, "Software developer");
 });
+
+test("automatically extracts the target role from a job description with requirements", () => {
+  const result = analyzeSkillGap({
+    resumeText: "Built React web apps.",
+    jobDescription: "We are looking for a Senior Frontend Developer to lead UI engineering. Required: React, CSS, Git.",
+  });
+
+  assert.equal(result.targetRole, "Frontend developer");
+
+  const resultWithHeader = analyzeSkillGap({
+    resumeText: "Experienced with Python and SQL.",
+    jobDescription: "Job Title: Data Analyst\nAbout us: We build analytics.\nRequirements: Python, SQL.",
+  });
+
+  assert.equal(resultWithHeader.targetRole, "Data analyst");
+});
+
