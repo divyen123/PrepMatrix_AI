@@ -830,8 +830,19 @@ body.no-glass-cards .note-details-dialog {
 
 .note-details-chips {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.note-details-chips time {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
 }
 
 .note-details-dialog .note-priority,
@@ -897,11 +908,9 @@ body.no-glass-cards .note-details-dialog {
   font-size: clamp(1.25rem, 3vw, 1.7rem);
   line-height: 1.25;
   overflow-wrap: anywhere;
-}
-
-.note-details-heading time {
-  color: var(--text-muted);
-  font-size: 0.72rem;
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
 }
 
 .note-details-content {
@@ -930,6 +939,9 @@ body.no-glass-cards .note-details-dialog {
   line-height: 1.7;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
 }
 
 .note-details-content > p.is-empty {

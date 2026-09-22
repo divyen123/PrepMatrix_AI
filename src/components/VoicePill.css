@@ -1,4 +1,4 @@
-.voice-pill {
+button.voice-pill {
   --vp-accent: #f5f5f5;
   --vp-icon: #a1a1aa;
   --vp-bg: #27272a;
@@ -24,11 +24,14 @@
   isolation: isolate;
   width: var(--vp-size);
   height: var(--vp-size);
+  min-width: var(--vp-size);
+  min-height: var(--vp-size);
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: var(--vp-radius);
   background: transparent;
+  overflow: visible;
   color: var(--vp-icon);
   font-family: inherit;
   cursor: pointer;
@@ -71,6 +74,8 @@
   position: absolute;
   inset: 0 0 0 calc(-1 * (var(--vp-reach) + var(--vp-extra)));
   border-radius: var(--vp-radius);
+  border: 1px solid color-mix(in srgb, var(--vp-accent) 28%, transparent);
+  box-sizing: border-box;
   background: var(--vp-bg);
   clip-path: inset(0 0 0 calc(var(--vp-reach) + var(--vp-extra)) round var(--vp-radius));
   pointer-events: none;

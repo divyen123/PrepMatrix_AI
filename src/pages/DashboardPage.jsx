@@ -7,6 +7,7 @@ import WeeklyReview from "../components/WeeklyReview";
 import SubjectPlanDialog from "../components/SubjectPlanDialog";
 import DashboardSetupChecklist from "../components/DashboardSetupChecklist";
 import VoicePill from "../components/VoicePill";
+import BorderGlow from "../components/BorderGlow";
 import {
   buildHomeNavigationRoute,
   getHomeNavigationSuggestions,
@@ -16,6 +17,7 @@ import { getDashboardCommandExampleCopy } from "../utils/dashboardCommandExample
 import { runDashboardGoalReminderShortcut } from "../utils/dashboardGoalReminderShortcut";
 import { getDashboardOverviewCardAction } from "../utils/dashboardOverviewCards";
 import { sendDashboardChatMessage } from "../utils/chatMessageBridge";
+import { createDashboardChatVoiceCapture } from "../utils/dashboardChatVoiceCapture";
 import {
   DASHBOARD_VOICE_HINT_DURATION_MS,
   getNextDashboardVoiceHint,
@@ -186,9 +188,16 @@ function DashboardPage({
   const [overviewNoticePhase, setOverviewNoticePhase] = useState("hidden");
   const [overviewNoticeSource, setOverviewNoticeSource] = useState(null);
   const [voiceEntryHint, setVoiceEntryHint] = useState("");
+  const [dashboardVoiceListening, setDashboardVoiceListening] = useState(false);
+  const [dashboardVoiceSending, setDashboardVoiceSending] = useState(false);
   const dragDepthRef = useRef(0);
   const inputRef     = useRef(null);
   const voicePillRef = useRef(null);
+  const dashboardCaptureRef = useRef(null);
+  const dashboardVoiceSendingRef = useRef(false);
+  const resumeWakeAfterDashboardChatRef = useRef(false);
+  const voiceAssistantRef = useRef(voiceAssistant);
+  voiceAssistantRef.current = voiceAssistant;
   const panelContentRef = useRef(null);
   const voiceEntryHintClaimedRef = useRef(false);
   const overviewNoticeDismissTimerRef = useRef(null);
@@ -266,10 +275,20 @@ function DashboardPage({
     return () => window.clearTimeout(hideTimer);
   }, [voiceEntryHint]);
 
-  useEffect(() => {
-    if (voiceAssistant?.isCommandListening) voicePillRef.current?.start();
-    else voicePillRef.current?.stop();
-  }, [voiceAssistant?.isCommandListening]);
+  const restoreWakeAfterDashboardChat = useCallback(() => {
+    if (!resumeWakeAfterDashboardChatRef.current) return;
+    resumeWakeAfterDashboardChatRef.current = false;
+    try {
+      if (window.localStorage.getItem("prepmatrix_wake_mode") !== "true") return;
+    } catch {
+      // Restore the user's original wake preference if storage is unavailable.
+    }
+    voiceAssistantRef.current?.setWakeMode?.(true);
+  }, []);
+
+  useEffect(() => () => {
+    dashboardCaptureRef.current?.cancel();
+  }, []);
 
   useEffect(() => {
     const panelId = DASHBOARD_PANEL_HASHES[location.hash.toLowerCase()];
@@ -382,7 +401,7 @@ function DashboardPage({
   const handleSearch = async (e) => {
     e.preventDefault();
     setVoiceEntryHint("");
-    if (voiceAssistant?.isCommandListening || voiceAssistant?.isProcessing) return;
+    if (dashboardVoiceListening || dashboardVoiceSending || voiceAssistant?.isCommandListening || voiceAssistant?.isProcessing) return;
     const query = searchInput.trim();
     if (!query && attachments.length === 0) {
       if (window.openStudyAssistant) window.openStudyAssistant();
@@ -446,35 +465,51 @@ function DashboardPage({
     setSuggestionsOpen(false);
     setActiveSuggestionIndex(-1);
 
-    if (!voiceAssistant?.supported) {
-      setSubmissionNotice("Voice recognition is not supported in this browser.");
+    if (dashboardCaptureRef.current || dashboardVoiceSendingRef.current || voiceAssistant?.isProcessing) {
       voicePillRef.current?.stop();
       return;
     }
-    if (voiceAssistant.isCommandListening || voiceAssistant.isProcessing) return;
 
-    const hasAttachments = attachments.length > 0;
-    voiceAssistant.askWithVoice({
-      onTranscript: async (spokenText) => {
-        if (!hasAttachments) {
-          setSearchInput("");
-          return;
+    resumeWakeAfterDashboardChatRef.current = Boolean(voiceAssistant?.wakeMode);
+    if (resumeWakeAfterDashboardChatRef.current) voiceAssistant.pauseWakeMode?.();
+
+    const capture = createDashboardChatVoiceCapture({
+      onStart: () => setDashboardVoiceListening(true),
+      onTranscript: (spokenText) => setSearchInput(spokenText),
+      onError: (message) => setSubmissionNotice(message),
+      onSubmit: async (spokenText) => {
+        dashboardVoiceSendingRef.current = true;
+        setDashboardVoiceSending(true);
+        try {
+          window.openStudyAssistant?.();
+          const delivery = await sendDashboardChatMessage(window.sendToChatbotAndWait, spokenText);
+          if (!delivery.accepted) {
+            setSearchInput(spokenText);
+            setSubmissionNotice(delivery.message);
+            window.requestAnimationFrame(() => inputRef.current?.focus());
+          } else {
+            setSearchInput("");
+            setSubmissionNotice("");
+          }
+        } finally {
+          dashboardVoiceSendingRef.current = false;
+          setDashboardVoiceSending(false);
+          restoreWakeAfterDashboardChat();
         }
-        setSearchInput(spokenText);
-
-        const delivery = await sendDashboardChatMessage(window.sendToChatbot, spokenText);
-        if (!delivery.accepted) {
-          if (delivery.reason === "unavailable") window.openStudyAssistant?.();
-          setSubmissionNotice(delivery.message);
-          window.requestAnimationFrame(() => inputRef.current?.focus());
-          return;
-        }
-
-        setSearchInput("");
-        setSubmissionNotice("");
       },
-      processTranscript: !hasAttachments,
+      onStop: ({ submitted }) => {
+        if (dashboardCaptureRef.current === capture) dashboardCaptureRef.current = null;
+        setDashboardVoiceListening(false);
+        voicePillRef.current?.stop();
+        if (!submitted) restoreWakeAfterDashboardChat();
+      },
     });
+    dashboardCaptureRef.current = capture;
+    if (!capture.start()) {
+      dashboardCaptureRef.current = null;
+      voicePillRef.current?.stop();
+      restoreWakeAfterDashboardChat();
+    }
   };
 
   const handleAttach = () => {
@@ -542,11 +577,10 @@ function DashboardPage({
   };
 
   const handleMicStop = ({ reason }) => {
-    if (reason === "unmount" || reason === "disabled" || !voiceAssistant?.supported) return;
-    const resumeWakeMode = voiceAssistant.wakeMode;
-    voiceAssistant.stopListening?.();
-    if (resumeWakeMode) {
-      window.setTimeout(() => voiceAssistant.setWakeMode?.(true), 0);
+    if (["cancel", "escape", "unmount", "disabled", "blur", "mic-denied"].includes(reason)) {
+      dashboardCaptureRef.current?.cancel();
+    } else {
+      dashboardCaptureRef.current?.finish();
     }
   };
 
@@ -680,13 +714,13 @@ function DashboardPage({
           </button>
 
           {/* Mic */}
-          <span className={`db-mic-slot${voiceAssistant?.isCommandListening ? " is-listening" : ""}`}>
+          <span className={`db-mic-slot${dashboardVoiceListening ? " is-listening" : ""}`}>
             <VoicePill
               accentColor="var(--accent)"
-              ariaLabel={voiceAssistant?.isCommandListening ? "Stop voice input" : "Voice input"}
+              ariaLabel={dashboardVoiceListening ? "Stop voice input" : "Dictate to AI Chat"}
               background="var(--surface)"
               className="db-mic-btn"
-              disabled={voiceAssistant?.isProcessing}
+              disabled={dashboardVoiceSending || voiceAssistant?.isProcessing}
               iconColor="var(--text-muted)"
               mode="toggle"
               onStart={handleMic}
@@ -702,7 +736,7 @@ function DashboardPage({
             <button
               type="submit"
               className="db-search-send"
-              disabled={voiceAssistant?.isCommandListening || voiceAssistant?.isProcessing}
+              disabled={dashboardVoiceListening || dashboardVoiceSending || voiceAssistant?.isProcessing}
               aria-label={navigationCommand
                 ? `${navigationCommandIsCurrent ? "View" : "Open"} ${navigationCommand.label}`
                 : "Ask AI"}
@@ -724,6 +758,11 @@ function DashboardPage({
             ) : (
               <span className="db-command-help-copy">
                 {submissionNotice
+                  || (dashboardVoiceListening
+                    ? "Listening. Pause for four seconds to send your question to AI Chat."
+                    : dashboardVoiceSending
+                      ? "AI Chat is answering your question."
+                      : "")
                   || (attachments.length
                   ? "Attached files will be sent to the AI study assistant."
                   : navigationCommand
@@ -871,9 +910,19 @@ function DashboardPage({
             </div>
             <div className="db-subjects-timeline">
               {subjects.map((s, index) => (
-                <div
-                  key={s.id}
+                <BorderGlow
+                  animated={showSubjectsPopup}
+                  backgroundColor="var(--surface-muted)"
+                  borderRadius={12}
                   className="db-timeline-node"
+                  colors={["var(--accent)", "var(--violet, #c084fc)", "var(--aqua, #38bdf8)"]}
+                  coneSpread={28}
+                  edgeSensitivity={24}
+                  fillOpacity={0.18}
+                  glowColor="var(--accent)"
+                  glowIntensity={0.75}
+                  glowRadius={18}
+                  key={s.id}
                   style={{ animationDelay: `${index * 0.15}s`, cursor: "pointer" }}
                   onClick={() => setConfigureSubject(s)}
                   role="button"
@@ -890,7 +939,7 @@ function DashboardPage({
                     <span className="db-timeline-name">{s.name}</span>
                     <span className="db-timeline-chapters">{s.chapters || 0} chapters</span>
                   </div>
-                </div>
+                </BorderGlow>
               ))}
             </div>
           </>

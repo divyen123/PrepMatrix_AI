@@ -4,7 +4,7 @@ import "./PaperCrumple.css";
 
 const CRUMPLE_DURATION_MS = 560;
 const RETURN_DURATION_MS = 460;
-const DRAG_TARGETS = ".note-details-header, .note-details-heading, .note-details-content-head, .note-details-saved-topics, .note-details-footer";
+const DRAG_TARGETS = ".note-details-footer";
 const INTERACTIVE_TARGETS = "button, a, input, textarea, select, [contenteditable='true']";
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
@@ -12,7 +12,7 @@ const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, v
 function canStartDrag(event) {
   if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return false;
   if (!(event.target instanceof Element) || event.target.closest(INTERACTIVE_TARGETS)) return false;
-  // Leave the body paragraph available for scrolling and selecting text.
+  // Keep note text selectable; dragging starts only from blank paper or the footer.
   return event.target === event.currentTarget || Boolean(event.target.closest(DRAG_TARGETS));
 }
 

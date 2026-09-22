@@ -21,6 +21,7 @@ import {
 import { getChatExperienceCopy, getNewChatPrompt } from "../utils/chatExperience";
 import { normalizeChatAssistantContext } from "../utils/chatAssistantContext";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
+import { readStoredWakeMode } from "../utils/voicePreferences";
 import api, { API_BASE } from "../utils/apiClient";
 import {
   CHAT_ATTACHMENT_ACCEPT,
@@ -1280,6 +1281,11 @@ function Chatbot({
       });
     };
 
+    window.sendToChatbotAndWait = async (voiceText) => {
+      setOpen(true);
+      return sendMessage(voiceText);
+    };
+
     window.openStudyAssistant = () => setOpen(true);
     window.toggleStudyAssistant = () => setOpen((current) => !current);
 
@@ -1307,6 +1313,7 @@ function Chatbot({
     return () => {
       window.removeEventListener("prepmatrixOpenChatSession", openChatSession);
       delete window.sendToChatbot;
+      delete window.sendToChatbotAndWait;
       delete window.openStudyAssistant;
       delete window.toggleStudyAssistant;
       delete window.triggerChatAttachment;
@@ -1368,20 +1375,18 @@ function Chatbot({
     });
   }, [messages, loading]);
 
-  // Sync mic recording state from VoiceAssistant via custom event
-  useEffect(() => {
-    const handler = (e) => {
-      if (chatRecognitionRef.current) return;
-      setIsVoiceRecording(Boolean(e.detail?.isRecording));
-    };
-    window.addEventListener("voiceRecordingChange", handler);
-    return () => window.removeEventListener("voiceRecordingChange", handler);
-  }, []);
-
   useEffect(() => {
     if (isVoiceRecording) voicePillRef.current?.start();
     else voicePillRef.current?.stop();
   }, [isVoiceRecording]);
+
+  const resumeWakeAfterChatMic = useCallback(() => {
+    if (!resumeWakeAfterChatMicRef.current) return;
+    resumeWakeAfterChatMicRef.current = false;
+    if (readStoredWakeMode()) {
+      window.studyVoiceAssistant?.setWakeMode?.(true);
+    }
+  }, []);
 
   const handleMicClick = useCallback(() => {
     const activeRecognition = chatRecognitionRef.current;
@@ -1395,10 +1400,6 @@ function Chatbot({
       chatRecognitionRef.current = null;
       setIsVoiceRecording(false);
       window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false, source: "chatbot" } }));
-      if (resumeWakeAfterChatMicRef.current) {
-        window.studyVoiceAssistant?.setWakeMode?.(true);
-        resumeWakeAfterChatMicRef.current = false;
-      }
       return;
     }
 
@@ -1412,7 +1413,7 @@ function Chatbot({
     voicePillRef.current?.start();
     discardChatVoiceRef.current = false;
     setIsVoiceRecording(true);
-    resumeWakeAfterChatMicRef.current = localStorage.getItem("prepmatrix_wake_mode") === "true";
+    resumeWakeAfterChatMicRef.current = readStoredWakeMode();
     if (resumeWakeAfterChatMicRef.current) {
       window.studyVoiceAssistant?.pauseWakeListening?.();
     } else {
@@ -1460,17 +1461,21 @@ function Chatbot({
       window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false, source: "chatbot" } }));
 
       const spokenText = finalTranscript.trim();
-      if (!discardChatVoiceRef.current && heardSpeech && spokenText) {
-        setInput(spokenText);
-        sendMessage(spokenText, { keepInput: true });
-      }
+      const shouldSend = !discardChatVoiceRef.current && heardSpeech && spokenText;
       discardChatVoiceRef.current = false;
-
-      if (resumeWakeAfterChatMicRef.current) {
-        window.setTimeout(() => {
-          window.studyVoiceAssistant?.setWakeMode?.(true);
-          resumeWakeAfterChatMicRef.current = false;
-        }, 350);
+      if (shouldSend) {
+        setInput(spokenText);
+        void (async () => {
+          try {
+            await sendMessage(spokenText, { keepInput: true });
+          } catch (error) {
+            console.error("Could not send dictated chat message:", error);
+          } finally {
+            resumeWakeAfterChatMic();
+          }
+        })();
+      } else {
+        resumeWakeAfterChatMic();
       }
     };
 
@@ -1481,12 +1486,9 @@ function Chatbot({
       voicePillRef.current?.stop();
       setIsVoiceRecording(false);
       window.dispatchEvent(new CustomEvent("voiceRecordingChange", { detail: { isRecording: false, source: "chatbot" } }));
-      if (resumeWakeAfterChatMicRef.current) {
-        window.studyVoiceAssistant?.setWakeMode?.(true);
-        resumeWakeAfterChatMicRef.current = false;
-      }
+      resumeWakeAfterChatMic();
     }
-  }, [sendMessage]);
+  }, [resumeWakeAfterChatMic, sendMessage]);
 
   useEffect(() => {
     window.toggleChatMic = () => {
@@ -2074,8 +2076,6 @@ function Chatbot({
                       if (chatRecognitionRef.current) {
                         discardChatVoiceRef.current = reason === "cancel" || reason === "escape" || reason === "disabled";
                         handleMicClick();
-                      } else if (isVoiceRecording) {
-                        window.studyVoiceAssistant?.stopListening?.();
                       }
                     }}
                     reactive="simulated"

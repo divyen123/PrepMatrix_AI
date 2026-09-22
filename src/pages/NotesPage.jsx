@@ -1070,6 +1070,9 @@ function NotesPage({
                 <span className={`note-status is-${selectedNoteStatus.toLowerCase()}`}>
                   {selectedNoteStatus}
                 </span>
+                {selectedCreatedAt ? (
+                  <time dateTime={selectedNote.createdAt}>Saved {selectedCreatedAt}</time>
+                ) : null}
               </div>
               <button
                 aria-label="Close note details"
@@ -1089,9 +1092,6 @@ function NotesPage({
                   ? editNoteTopic.trim() || "Untitled note"
                   : selectedNote.topic || "Untitled note"}
               </h2>
-              {selectedCreatedAt ? (
-                <time dateTime={selectedNote.createdAt}>Saved {selectedCreatedAt}</time>
-              ) : null}
             </div>
 
             <section

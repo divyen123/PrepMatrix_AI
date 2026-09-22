@@ -22157,6 +22157,42 @@ body.has-bg-image.no-glass-cards .app-main-content > .workspace-topbar {
   }
 }
 
+/* Mark the current page through its label instead of a filled navigation row. */
+.app-sidebar .sidebar-nav {
+  --sidebar-active-ink: color-mix(in srgb, var(--accent) 50%, var(--text));
+}
+
+body.dark .app-sidebar .sidebar-nav,
+body.has-bg-image .app-sidebar .sidebar-nav {
+  --sidebar-active-ink: color-mix(in srgb, var(--accent) 55%, #fff);
+}
+
+.app-sidebar .sidebar-nav .sidebar-link.active,
+.app-sidebar .sidebar-nav .sidebar-link.active:hover {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+}
+
+.app-sidebar .sidebar-nav .sidebar-link.active::before {
+  opacity: 0 !important;
+}
+
+.app-sidebar .sidebar-nav .sidebar-link.active .sidebar-link-label {
+  color: var(--sidebar-active-ink) !important;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.app-sidebar .sidebar-nav .sidebar-link.active .sidebar-link-icon {
+  color: var(--sidebar-active-ink) !important;
+  transform: none;
+}
+
 ﻿
 /* ================================================================
    DASHBOARD PAGE  (db-* namespace)
@@ -23000,6 +23036,7 @@ body.dark .db-search-input:focus,
   padding: 1rem 0;
   max-height: 1000px;
   opacity: 1;
+  overflow: visible;
 }
 
 .db-subjects-timeline-header {
@@ -23037,28 +23074,32 @@ body.dark .db-search-input:focus,
 }
 
 .db-subjects-timeline {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  --db-subject-card-width: calc((100% - 4rem) / 5);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 1rem;
 }
 
 @media (max-width: 900px) {
-  .db-subjects-timeline { grid-template-columns: repeat(3, 1fr); }
+  .db-subjects-timeline { --db-subject-card-width: calc((100% - 2rem) / 3); }
 }
 @media (max-width: 600px) {
-  .db-subjects-timeline { grid-template-columns: repeat(2, 1fr); }
+  .db-subjects-timeline { --db-subject-card-width: calc((100% - 1rem) / 2); }
 }
 @media (max-width: 400px) {
-  .db-subjects-timeline { grid-template-columns: 1fr; }
+  .db-subjects-timeline { --db-subject-card-width: 100%; }
 }
 
 .db-timeline-node {
+  flex: 0 1 var(--db-subject-card-width);
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.05);
+  background: var(--surface-muted);
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
   padding: 1.5rem 1rem;
   border-radius: 12px;
   opacity: 0;
@@ -23068,10 +23109,21 @@ body.dark .db-search-input:focus,
   cursor: default;
 }
 
+.db-timeline-node .border-glow-inner {
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
 .db-timeline-node:hover {
   transform: translateY(-5px);
-  border-color: rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.06);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: var(--surface-muted);
+}
+
+.db-timeline-node:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
 }
 
 @keyframes timelinePop {
