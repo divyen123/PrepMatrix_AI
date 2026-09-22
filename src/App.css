@@ -23090,7 +23090,7 @@ body.dark .db-search-input:focus,
   margin: 0 auto;
   max-width: 760px;
   position: relative;
-  left: clamp(12px, 2vw, 30px);
+  left: clamp(30px, 5vw, 70px);
   width: 100%;
 }
 

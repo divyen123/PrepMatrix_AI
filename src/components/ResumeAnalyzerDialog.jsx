@@ -207,11 +207,11 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
         <div className="resume-analyzer-dialog-body">
 
       {!results && (
-      <div className="resume-analyzer-layout">
+      <div className="resume-analyzer-layout resume-analyzer-layout--stacked">
         <section className="resume-analyzer-card resume-analyzer-input-card" aria-labelledby="resume-analyzer-resume-title">
           <div className="resume-analyzer-card__heading">
             <span className="resume-analyzer-step">01</span>
-            <div><h2 id="resume-analyzer-resume-title">Your resume</h2><p>Choose what you want reviewed.</p></div>
+            <div><p id="resume-analyzer-resume-title">Choose what you want reviewed.</p></div>
           </div>
           <div className="resume-analyzer-source-grid" role="group" aria-label="Resume source">
             {SOURCE_OPTIONS.map(({ id, label, icon: Icon }) => (
@@ -252,17 +252,17 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
                 maxLength={MAX_RESUME_TEXT_LENGTH}
                 onChange={(event) => { setResumeText(event.target.value); setResults(null); setError(""); }}
                 placeholder="Paste your resume content here…"
-                rows={6}
+                rows={4}
                 value={resumeText}
               />
             </label>
           )}
         </section>
 
-        <section className="resume-analyzer-card resume-analyzer-input-card" aria-labelledby="resume-analyzer-job-title">
+        <section className="resume-analyzer-card resume-analyzer-input-card resume-analyzer-job-card" aria-labelledby="resume-analyzer-job-title">
           <div className="resume-analyzer-card__heading">
             <span className="resume-analyzer-step">02</span>
-            <div><h2 id="resume-analyzer-job-title">Job role or description</h2><p>Enter a job title or paste its requirements.</p></div>
+            <div><p id="resume-analyzer-job-title">Enter a job title or paste its requirements.</p></div>
           </div>
           <div className="resume-analyzer-field resume-analyzer-job-field">
             <textarea
@@ -270,12 +270,12 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
               maxLength={MAX_JOB_DESCRIPTION_LENGTH}
               onChange={(event) => { setJobDescription(event.target.value); setResults(null); setError(""); }}
               placeholder="e.g. Software developer, or paste a job description…"
-              rows={7}
+              rows={1}
               value={jobDescription}
             />
           </div>
           <div className="resume-analyzer-actions">
-            <button disabled={fileLoading} onClick={handleAnalyze} type="button"><FileSearch size={18} aria-hidden="true" /> Review Resume</button>
+            <button disabled={fileLoading} onClick={handleAnalyze} type="button"><FileSearch size={16} aria-hidden="true" /> Review</button>
           </div>
         </section>
       </div>

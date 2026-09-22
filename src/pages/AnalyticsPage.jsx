@@ -6,7 +6,7 @@ import Gamification from "../components/Gamification";
 import GoalTracker from "../components/GoalTracker";
 import LearningProgressSummary from "../components/LearningProgressSummary";
 import Prediction from "../components/Prediction";
-import ProgressBar1 from "../components/Progressbar1";
+import GlobalMomentumCard from "../components/GlobalMomentumCard";
 import Readiness from "../components/Readiness";
 import TopicTimeline from "../components/TopicTimeline";
 import useLearningInsights from "../hooks/useLearningInsights";
@@ -71,7 +71,12 @@ function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, co
           schedule={schedule}
           subjects={subjects}
         />
-        <ProgressBar1 academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} variant="analytics" />
+        <GlobalMomentumCard
+          momentum={momentum.data}
+          momentumLoading={momentum.loading}
+          momentumError={momentum.error}
+          onRetryMomentum={momentum.reload}
+        />
         <GoalTracker completed={completed} schedule={schedule} subjects={subjects} userProfile={userProfile} />
       </div>
 
