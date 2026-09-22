@@ -37,12 +37,7 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
   }
 
   return (
-    <section className="card weekly-review-card weekly-review-output" style={{ padding: "24px" }}>
-      <div className="weekly-review-output-header">
-        <span>Generated review</span>
-        <strong>{visibleReview.headline}</strong>
-      </div>
-
+    <section aria-label="Weekly review" className="card weekly-review-card weekly-review-output">
       <div className="weekly-review-highlights">
         {visibleReview.highlights.map((item) => (
           <article key={item.label}>
@@ -54,11 +49,20 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
 
       <div className="weekly-review-actions">
         <span>Action plan</span>
-        <ul>
-          {visibleReview.actions.map((action) => (
-            <li key={action}>{action}</li>
+        <ol className="weekly-review-timeline">
+          {visibleReview.actions.map((action, index) => (
+            <li
+              key={action}
+              style={{
+                "--timeline-step-delay": `${index * 360}ms`,
+                "--timeline-line-delay": `${index * 360 + 140}ms`,
+              }}
+            >
+              <span aria-hidden="true" className="weekly-review-timeline-marker">{index + 1}</span>
+              <p>{action}</p>
+            </li>
           ))}
-        </ul>
+        </ol>
       </div>
     </section>
   );

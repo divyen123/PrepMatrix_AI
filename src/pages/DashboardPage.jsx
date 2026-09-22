@@ -938,7 +938,13 @@ function DashboardPage({
                     }
                   }}
                 >
-                  <div className="db-timeline-dot"></div>
+                  <img
+                    alt=""
+                    aria-hidden="true"
+                    className="db-timeline-pin"
+                    draggable="false"
+                    src="/assets/dashboard-subject-pin.png"
+                  />
                   <div className="db-timeline-content">
                     <span className="db-timeline-name">{s.name}</span>
                     <span className="db-timeline-chapters">{s.chapters || 0} chapters</span>
