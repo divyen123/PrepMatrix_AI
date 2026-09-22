@@ -287,7 +287,6 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
             <div>
               <span className="resume-analyzer-eyebrow">Your review</span>
               <h2>Where your resume can improve</h2>
-              <p>Start with the highest priority changes. Use only examples and results you can verify.</p>
             </div>
             {source === "builder" && onEditResume && <button className="resume-analyzer-edit-button" onClick={() => requestClose(onEditResume)} type="button">Edit resume</button>}
           </div>

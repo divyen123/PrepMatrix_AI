@@ -71,7 +71,7 @@ function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, co
           schedule={schedule}
           subjects={subjects}
         />
-        <ProgressBar1 academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} />
+        <ProgressBar1 academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} variant="analytics" />
         <GoalTracker completed={completed} schedule={schedule} subjects={subjects} userProfile={userProfile} />
       </div>
 

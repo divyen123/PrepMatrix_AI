@@ -6,3 +6,10 @@
   line-height: 1.6;
   text-align: center;
 }
+
+.analytics-completion-dial {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  padding: 4px 0;
+}

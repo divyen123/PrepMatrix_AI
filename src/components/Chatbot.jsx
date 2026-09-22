@@ -1926,7 +1926,7 @@ function Chatbot({
                   </button>
                   <div className="chat-heading-copy">
                     <strong>{activeSessionId ? activeSessionTitle : chatExperience.heading}</strong>
-                    <span>{chatExperience.subtitle}</span>
+                    {chatExperience.subtitle && <span>{chatExperience.subtitle}</span>}
                   </div>
                 </div>
 
@@ -2088,27 +2088,39 @@ function Chatbot({
                   )}
                 </div>
                 <div className={`chat-composer-row${isVoiceRecording ? " is-voice-listening" : ""}`}>
-                <textarea
-                  aria-label="Message study assistant"
-                  onChange={(event) => setInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                      event.preventDefault();
-                      sendMessage();
+                <div className="chat-composer-field">
+                  <textarea
+                    aria-label="Message study assistant"
+                    onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                        event.preventDefault();
+                        sendMessage();
+                      }
+                    }}
+                    placeholder={
+                      childMode
+                        ? "Ask a learning question..."
+                        : assistantContext
+                          ? "Ask about this fictional conceptual exercise..."
+                        : (attachments.length ? "Ask about the attached file..." : "Ask anything...")
                     }
-                  }}
-                  placeholder={
-                    childMode
-                      ? "Ask a learning question..."
-                      : assistantContext
-                        ? "Ask about this fictional conceptual exercise..."
-                      : (attachments.length ? "Ask about the attached file..." : "Ask anything...")
-                  }
-                  value={input}
-                  className="chat-input-field"
-                  ref={chatInputRef}
-                  rows={1}
-                />
+                    value={input}
+                    className="chat-input-field"
+                    ref={chatInputRef}
+                    rows={1}
+                  />
+                  <button
+                    aria-label="Send message"
+                    className="chat-icon-btn chat-send-btn"
+                    disabled={loading || preparingAttachments || (!input.trim() && !attachments.length) || (attachments.length > 0 && hasInsufficientCredits(AI_FEATURES.CHAT))}
+                    onClick={() => sendMessage()}
+                    type="button"
+                    title={attachments.length > 0 && hasInsufficientCredits(AI_FEATURES.CHAT) ? "Not enough AI credits for this request" : "Send message"}
+                  >
+                    <Send size={16} />
+                  </button>
+                </div>
                 {!childMode && !assistantContext ? <button
                   aria-label="Attach images, PDF, or PowerPoint files"
                   className={`chat-icon-btn chat-upload-btn${attachments.length ? " has-attachments" : ""}`}
@@ -2142,16 +2154,6 @@ function Chatbot({
                     size={38}
                   />
                 </span>
-                <button
-                  aria-label="Send message"
-                  className="chat-icon-btn chat-send-btn"
-                  disabled={loading || preparingAttachments || (!input.trim() && !attachments.length) || (attachments.length > 0 && hasInsufficientCredits(AI_FEATURES.CHAT))}
-                  onClick={() => sendMessage()}
-                  type="button"
-                  title={attachments.length > 0 && hasInsufficientCredits(AI_FEATURES.CHAT) ? "Not enough AI credits for this request" : "Send message"}
-                >
-                  <Send size={16} />
-                </button>
                 </div>
               </div>
             </div>

@@ -2609,18 +2609,6 @@ body.dark .theme-icon-btn:hover {
   gap: 18px;
 }
 
-.smart-suggestion-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.smart-suggestion-header span {
-  color: var(--text-muted);
-  font-weight: 700;
-}
-
 .smart-suggestion-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3692,17 +3680,16 @@ body.dark .stored-search-field {
 }
 
 .weekly-review-output {
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.14), rgba(255, 255, 255, 0.58));
-  border: 1px solid rgba(var(--accent-rgb), 0.18);
-  border-radius: 26px;
+  background: transparent;
+  border: 0;
   box-sizing: border-box;
   color: var(--text);
   display: grid;
   gap: 14px;
-  width: 100%;
-  max-width: 1080px;
+  width: 94%;
+  max-width: 1000px;
   margin-inline: auto;
-  padding: 20px;
+  padding: 0;
 }
 
 .weekly-review-actions > span,
@@ -3734,12 +3721,9 @@ body.dark .stored-search-field {
 }
 
 .weekly-review-actions {
-  background: rgba(255, 255, 255, 0.48);
-  border: 1px solid rgba(20, 31, 49, 0.08);
-  border-radius: 20px;
   display: grid;
   gap: 12px;
-  padding: 16px;
+  padding: 8px 0 0;
 }
 
 .weekly-review-timeline {
@@ -3809,18 +3793,16 @@ body.dark .stored-search-field {
   to { opacity: 1; transform: scaleX(1); }
 }
 
-body.dark .weekly-review-output {
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.16), rgba(255, 255, 255, 0.04));
-  border-color: rgba(var(--accent-rgb), 0.2) !important;
-}
-
-body.dark .weekly-review-highlights article,
-body.dark .weekly-review-actions {
+body.dark .weekly-review-highlights article {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.08);
 }
 
 @media (max-width: 720px) {
+  .weekly-review-output {
+    width: 100%;
+  }
+
   .weekly-review-timeline {
     grid-auto-columns: min(74vw, 280px);
     grid-auto-flow: column;
@@ -20868,6 +20850,50 @@ body.has-bg-image .sidebar-nav::-webkit-scrollbar-thumb:hover {
   min-width: 0 !important;
 }
 
+.sidebar-chatbot-portal .chat-composer-field {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  align-items: center;
+  min-width: 0;
+}
+
+.sidebar-chatbot-portal .chat-input .chat-composer-field .chat-input-field {
+  grid-area: 1 / 1 / 2 / 3;
+  width: 100% !important;
+  padding-right: 50px !important;
+}
+
+.sidebar-chatbot-portal .chat-input .chat-composer-field .chat-send-btn,
+.sidebar-chatbot-portal .chat-input .chat-composer-field .chat-send-btn:hover,
+.sidebar-chatbot-portal .chat-input .chat-composer-field .chat-send-btn:focus-visible {
+  grid-area: 1 / 2;
+  z-index: 1;
+  justify-self: center;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  color: var(--accent) !important;
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  transform: none !important;
+}
+
+.sidebar-chatbot-portal .chat-input .chat-composer-field .chat-send-btn::after {
+  content: none;
+}
+
+.sidebar-chatbot-portal .chat-input .chat-composer-field .chat-send-btn:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px;
+}
+
 .sidebar-chatbot-portal .chat-voice-pill-slot {
   display: flex;
   flex: 0 0 38px;
@@ -22965,7 +22991,9 @@ body.dark .db-search-input:focus,
 
 /* -- SmartSuggestion overrides inside the panel ---------------- */
 .db-panel-inner .smart-suggestion-card {
-  width: 100%;
+  margin-inline: auto;
+  max-width: 1000px;
+  width: 94%;
 }
 
 .db-panel-inner .smart-suggestion-strip {
@@ -23003,20 +23031,96 @@ body.dark .db-search-input:focus,
   margin: 0;
 }
 
-.db-panel-inner .smart-suggestion-header {
-  margin-bottom: 1rem;
-}
-
-.db-panel-inner .smart-suggestion-header h3 {
-  font-size: 1.1rem;
-}
-
-/* SmartSuggestion, ProgressBar1 + WeeklyReview inherit the glass look */
-.db-panel-inner .smart-suggestion-card,
+/* ProgressBar1 + WeeklyReview inherit the glass look */
 .db-panel-inner .completion-card,
 .db-panel-inner .weekly-review-card {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+.db-progress-status {
+  align-items: center;
+  display: grid;
+  gap: clamp(24px, 5vw, 48px);
+  grid-template-columns: 190px minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 760px;
+  width: 100%;
+}
+
+.db-progress-dial {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.db-progress-dial-label {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.db-progress-details {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.db-progress-milestone strong {
+  color: var(--text);
+  display: block;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.25rem, 2.4vw, 1.65rem);
+  line-height: 1.25;
+}
+
+.db-progress-milestone p {
+  color: var(--text-muted);
+  font-weight: 700;
+  margin: 8px 0 0;
+}
+
+.db-progress-today {
+  align-items: baseline;
+  align-self: flex-start;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: inline-flex;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.db-progress-today span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.db-progress-today strong {
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+@media (max-width: 560px) {
+  .db-progress-status {
+    gap: 22px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .db-progress-details {
+    align-items: center;
+    text-align: center;
+  }
+
+  .db-progress-today {
+    align-self: center;
+  }
 }
 
 /* -- Responsive ----------------------------------------------- */
@@ -23026,6 +23130,12 @@ body.dark .db-search-input:focus,
   }
   .db-panel-inner .smart-suggestion-strip {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .db-panel-inner .smart-suggestion-card {
+    width: 100%;
   }
 }
 
@@ -24339,6 +24449,10 @@ body.dark:not(.has-bg-image) .workspace-topbar {
 }
 
 /* ChatGPT-style new-chat state: centered copy and composer without a welcome bubble. */
+.sidebar-chatbot-portal .chat-main.is-new-chat {
+  padding-bottom: min(4vh, 40px);
+}
+
 .sidebar-chatbot-portal .chat-main.is-new-chat .chat-messages {
   flex: 0 0 auto !important;
   align-items: center;

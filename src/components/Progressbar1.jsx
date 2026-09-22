@@ -4,8 +4,9 @@ import { toast } from "../utils/toast";
 import successSound from "../assets/success.mp3";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { academicProfileStorageKey } from "../utils/academicProfileScope";
+import CometDial from "./CometDial";
 
-function ProgressBar1({ academicProfileDataId = "", schedule, completed }) {
+function ProgressBar1({ academicProfileDataId = "", schedule, completed, variant = "analytics" }) {
   const safeSchedule = useMemo(() => (Array.isArray(schedule) ? schedule : []), [schedule]);
   const safeCompleted = Array.isArray(completed) ? completed : [];
   const metrics = getPlannerMetrics(schedule, completed);
@@ -69,15 +70,39 @@ function ProgressBar1({ academicProfileDataId = "", schedule, completed }) {
     }
   }, [completionCelebrationKey, progress, metrics.totalTasks]);
 
+  if (variant === "dashboard") {
+    return (
+      <section className="db-progress-status" aria-label="Progress status">
+        <div className="db-progress-dial">
+          <CometDial
+            accent="var(--accent)"
+            ink="var(--text)"
+            label="Overall completion"
+            readOnly
+            size={190}
+            value={progress}
+          />
+          <span className="db-progress-dial-label">Overall completion</span>
+        </div>
+        <div className="db-progress-details">
+          <div className="db-progress-milestone">
+            <strong>{milestoneLabel}</strong>
+            <p>{milestoneDetail}</p>
+          </div>
+          <div className="db-progress-today">
+            <span>Today</span>
+            <strong>{todayLabel}</strong>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="card completion-card" style={{ padding: "20px", gap: "16px", maxWidth: "700px", margin: "0 auto", width: "100%" }}>
       <div className="completion-card-header">
         <h2 style={{ fontSize: "1.1rem" }}>Overall completion</h2>
         <span className="completion-card-value" style={{ fontSize: "1.6rem" }}>{progress}%</span>
-      </div>
-
-      <div className="progress-container">
-        <div className="progress-bar" style={{ width: `${progress}%` }} />
       </div>
 
       <div className="completion-stat-chips">
@@ -97,10 +122,20 @@ function ProgressBar1({ academicProfileDataId = "", schedule, completed }) {
 
       <div className="next-milestone-strip">
         <div>
-          <span>Milestone</span>
           <strong>{milestoneLabel}</strong>
         </div>
         <p>{milestoneDetail}</p>
+      </div>
+
+      <div className="analytics-completion-dial">
+        <CometDial
+          accent="var(--accent)"
+          ink="var(--text)"
+          label="Overall completion"
+          readOnly
+          size={200}
+          value={progress}
+        />
       </div>
 
       <div className="progress-text">

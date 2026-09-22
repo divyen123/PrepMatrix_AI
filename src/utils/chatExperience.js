@@ -3,7 +3,7 @@ import { normalizeSubjectNames } from "./subjectPlanning.js";
 const STANDARD_CHAT_EXPERIENCE = Object.freeze({
   heading: "Study assistant",
   intro: "What would you like to study?",
-  subtitle: "Planner-aware study support",
+  subtitle: "",
 });
 
 const KIDS_CHAT_EXPERIENCE = Object.freeze({

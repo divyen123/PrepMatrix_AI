@@ -868,7 +868,7 @@ function DashboardPage({
         )}
         {activePanel === "progress" && (
           <div className="db-panel-inner db-panel-enter" key="progress">
-            <ProgressBar1 academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} />
+            <ProgressBar1 academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} variant="dashboard" />
           </div>
         )}
         {activePanel === "review" && (

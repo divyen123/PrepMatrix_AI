@@ -41,12 +41,7 @@ function SmartSuggestion({ academicLevel = "College", academicTrack = "General",
   ];
 
   return (
-    <section className="card smart-suggestion-card">
-      <div className="smart-suggestion-header">
-        <h3>Smart suggestion</h3>
-        <span>{metrics.totalTasks ? `${metrics.completedTasks}/${metrics.totalTasks} done` : `${academicLevel} profile`}</span>
-      </div>
-
+    <section aria-label="Smart suggestions" className="smart-suggestion-card">
       <div className="smart-suggestion-strip">
         {suggestions.map((suggestion) => (
           <article className="suggestion-mini-card" key={suggestion.label}>

@@ -15,7 +15,7 @@ test("keeps the standard study-assistant copy for older learners", () => {
 
   assert.equal(copy.heading, "Study assistant");
   assert.equal(copy.intro, "What would you like to study?");
-  assert.match(copy.subtitle, /planner-aware/i);
+  assert.equal(copy.subtitle, "");
 });
 
 test("shows exactly one added subject in the new-chat prompt", () => {

@@ -95,6 +95,11 @@ button.voice-pill {
   box-shadow: none !important;
 }
 
+.voice-pill.chat-voice-pill::after,
+.voice-pill.db-mic-btn::after {
+  content: none;
+}
+
 .voice-pill[data-state="listening"] .voice-pill__capsule {
   clip-path: inset(0 0 round var(--vp-radius));
 }

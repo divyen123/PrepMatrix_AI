@@ -37,7 +37,7 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
   }
 
   return (
-    <section aria-label="Weekly review" className="card weekly-review-card weekly-review-output">
+    <section aria-label="Weekly review" className="weekly-review-output">
       <div className="weekly-review-highlights">
         {visibleReview.highlights.map((item) => (
           <article key={item.label}>
