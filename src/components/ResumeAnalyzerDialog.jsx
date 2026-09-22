@@ -206,6 +206,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
 
         <div className="resume-analyzer-dialog-body">
 
+      {!results && (
       <div className="resume-analyzer-layout">
         <section className="resume-analyzer-card resume-analyzer-input-card" aria-labelledby="resume-analyzer-resume-title">
           <div className="resume-analyzer-card__heading">
@@ -278,6 +279,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
           </div>
         </section>
       </div>
+      )}
 
       {error && <div className="resume-analyzer-message" role="alert">{error}</div>}
 

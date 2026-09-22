@@ -82,7 +82,7 @@
   justify-content: flex-start;
   gap: 18px;
   width: min(760px, 94vw);
-  padding-top: clamp(36px, 7vh, 80px);
+  padding-top: clamp(52px, 9vh, 100px);
 }
 
 /* ── Top section (orb + status + waveform) ── */
@@ -276,6 +276,11 @@
   text-align: center;
   overflow-wrap: anywhere;
   animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.has-reply .voice-overlay-transcript {
+  background: transparent;
+  border-color: transparent;
 }
 
 @keyframes fadeInUp {
@@ -526,7 +531,7 @@
 /* Reply body */
 .voice-reply-body {
   padding: 12px 20px 18px;
-  max-height: min(44vh, 380px);
+  max-height: min(52vh, 460px);
   overflow-y: auto;
   font-family: 'Inter', sans-serif;
   font-size: 0.975rem;
