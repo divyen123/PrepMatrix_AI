@@ -11,5 +11,5 @@
   display: grid;
   min-width: 0;
   place-items: center;
-  padding: 4px 0;
+  padding: 0 0 4px;
 }

@@ -46,6 +46,7 @@ export default function CometDial({
   label = 'Level',
   accent = '#f5f5f5',
   ink = '#fdfdfd',
+  readoutColor,
   size = 250,
   sweep = 320,
   thickness = 5,
@@ -343,6 +344,7 @@ export default function CometDial({
       style={{
         '--cd-accent': accent,
         '--cd-ink': ink,
+        '--cd-readout': readoutColor || ink,
         '--cd-size': `${size}px`,
         '--cd-figure': `${Math.round(size * 0.16)}px`
       }}

@@ -503,6 +503,16 @@ body.has-bg-image .badge-guidance-tooltip {
   border-radius: 14px;
 }
 
+.gamification-card .momentum-stats-grid article.is-rewards-earned {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.24);
+}
+
+.gamification-card .momentum-stats-grid article.is-rewards-earned span,
+.gamification-card .momentum-stats-grid article.is-rewards-earned strong {
+  color: color-mix(in srgb, #22c55e 76%, var(--text));
+}
+
 .gamification-card .momentum-stats-grid span,
 .gamification-card .next-reward-strip span {
   font-size: 0.67rem;

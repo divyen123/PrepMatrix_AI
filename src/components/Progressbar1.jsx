@@ -11,6 +11,11 @@ function ProgressBar1({ academicProfileDataId = "", schedule, completed, variant
   const safeCompleted = Array.isArray(completed) ? completed : [];
   const metrics = getPlannerMetrics(schedule, completed);
   const progress = metrics.completionRate;
+  const progressTone = progress >= 70
+    ? "#22c55e"
+    : progress >= 40
+      ? "#eab308"
+      : "#ef4444";
   const completedSet = new Set(safeCompleted);
   const todayCompleted = metrics.todayTasks.filter((task) =>
     completedSet.has(task.task)
@@ -79,6 +84,7 @@ function ProgressBar1({ academicProfileDataId = "", schedule, completed, variant
             ink="var(--text)"
             label="Overall completion"
             readOnly
+            readoutColor={progressTone}
             size={190}
             value={progress}
           />
@@ -100,6 +106,18 @@ function ProgressBar1({ academicProfileDataId = "", schedule, completed, variant
 
   return (
     <section className="card completion-card" style={{ padding: "20px", gap: "16px", maxWidth: "700px", margin: "0 auto", width: "100%" }}>
+      <div className="analytics-completion-dial">
+        <CometDial
+          accent="var(--accent)"
+          ink="var(--text)"
+          label="Overall completion"
+          readOnly
+          readoutColor={progressTone}
+          size={200}
+          value={progress}
+        />
+      </div>
+
       <div className="completion-card-header">
         <h2 style={{ fontSize: "1.1rem" }}>Overall completion</h2>
         <span className="completion-card-value" style={{ fontSize: "1.6rem" }}>{progress}%</span>
@@ -125,17 +143,6 @@ function ProgressBar1({ academicProfileDataId = "", schedule, completed, variant
           <strong>{milestoneLabel}</strong>
         </div>
         <p>{milestoneDetail}</p>
-      </div>
-
-      <div className="analytics-completion-dial">
-        <CometDial
-          accent="var(--accent)"
-          ink="var(--text)"
-          label="Overall completion"
-          readOnly
-          size={200}
-          value={progress}
-        />
       </div>
 
       <div className="progress-text">

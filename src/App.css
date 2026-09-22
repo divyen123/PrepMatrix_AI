@@ -3704,7 +3704,7 @@ body.dark .stored-search-field {
 .weekly-review-highlights {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
 .weekly-review-highlights article {
@@ -3720,10 +3720,23 @@ body.dark .stored-search-field {
   font-family: "Space Grotesk", sans-serif;
 }
 
+.weekly-review-highlights article.is-priority-subject {
+  background: rgba(234, 179, 8, 0.1);
+  border-color: rgba(234, 179, 8, 0.24);
+}
+
+.weekly-review-highlights article.is-priority-subject > span {
+  color: #ca8a04;
+}
+
 .weekly-review-actions {
   display: grid;
   gap: 12px;
   padding: 8px 0 0;
+}
+
+.weekly-review-actions > span {
+  text-align: center;
 }
 
 .weekly-review-timeline {
@@ -3796,6 +3809,17 @@ body.dark .stored-search-field {
 body.dark .weekly-review-highlights article {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark .weekly-review-highlights article.is-priority-subject,
+body.has-bg-image .weekly-review-highlights article.is-priority-subject {
+  background: rgba(234, 179, 8, 0.1);
+  border-color: rgba(250, 204, 21, 0.24);
+}
+
+body.dark .weekly-review-highlights article.is-priority-subject > span,
+body.has-bg-image .weekly-review-highlights article.is-priority-subject > span {
+  color: #facc15;
 }
 
 @media (max-width: 720px) {

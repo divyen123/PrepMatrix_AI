@@ -1,6 +1,7 @@
 .comet-dial {
   --cd-accent: #f5f5f5;
   --cd-ink: #fdfdfd;
+  --cd-readout: var(--cd-ink);
   --cd-size: 250px;
   --cd-figure: 40px;
 
@@ -72,6 +73,7 @@
   line-height: 1;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
+  color: var(--cd-readout);
 }
 
 .comet-dial__unit {

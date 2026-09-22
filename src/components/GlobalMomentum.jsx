@@ -8,7 +8,7 @@ export default function GlobalMomentum({ data, loading, error, onRetry }) {
   return <>
     <div className="xp-ring-wrap">
       <div className="xp-ring" style={{ '--xp-progress': `${progress}%` }}><span>{loading && !data ? '…' : xp}</span><small>GLOBAL XP</small></div>
-      <div className="momentum-stats-grid"><article><span>Global level</span><strong>{global?.level || 1}</strong></article><article><span>Rewards earned</span><strong>{data?.history?.length || 0}</strong></article><article><span>Code runs</span><strong>{runs}</strong></article></div>
+      <div className="momentum-stats-grid"><article><span>Global level</span><strong>{global?.level || 1}</strong></article><article className="is-rewards-earned"><span>Rewards earned</span><strong>{data?.history?.length || 0}</strong></article><article><span>Code runs</span><strong>{runs}</strong></article></div>
     </div>
     {error && <p className="momentum-refresh-error" role="status">{error} <button type="button" onClick={onRetry}>Retry</button></p>}
     <div className="global-momentum-sources">{Object.entries(MOMENTUM_LABELS).map(([kind, label]) => <article key={kind}><span>{label}</span><strong>{global?.breakdown?.[kind] || 0}<small> XP</small></strong></article>)}</div>
