@@ -13,7 +13,6 @@ import {
   PenTool,
   Sparkles,
   Target,
-  TrendingUp,
   X,
 } from "lucide-react";
 import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
@@ -275,7 +274,6 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
 
         <header className="subject-modal-hero">
           <div className="subject-modal-hero-copy">
-            <span className="subject-modal-eyebrow"><TrendingUp size={14} /> Subject performance</span>
             <h2 id="subject-progress-title">{subject}</h2>
           </div>
           <div
@@ -315,10 +313,7 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
         <div className="subject-modal-grid">
           <section className="subject-timeline-section" aria-labelledby="subject-timeline-title">
             <div className="subject-panel-heading">
-              <div>
-                <span>Learning path</span>
-                <h3 id="subject-timeline-title">Chapter timeline</h3>
-              </div>
+              <h3 id="subject-timeline-title">Chapter timeline</h3>
               <strong>{completedCount}/{totalChapters}</strong>
             </div>
 
@@ -357,10 +352,7 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
 
           <aside className="subject-readiness-section">
             <div className="subject-panel-heading">
-              <div>
-                <span>Readiness signal</span>
-                <h3>Exam outlook</h3>
-              </div>
+              <h3>Exam outlook</h3>
             </div>
 
             <div className="readiness-gauge" style={{ "--progress": `${completionPercentage * 3.6}deg` }}>

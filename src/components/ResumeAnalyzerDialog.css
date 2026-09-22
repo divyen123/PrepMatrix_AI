@@ -148,20 +148,47 @@ body .resume-analyzer-page .resume-analyzer-actions button:hover:not(:disabled),
 body .resume-analyzer-page .resume-analyzer-actions button:focus-visible { filter: brightness(1.1); transform: translateY(-1px); }
 body .resume-analyzer-page .resume-analyzer-actions button:disabled { cursor: wait; opacity: .6; }
 .resume-analyzer-message { background: color-mix(in srgb, #ef4444 9%, var(--ra-panel)); border: 1px solid color-mix(in srgb, #ef4444 37%, var(--ra-border)); border-radius: 12px; color: var(--text, #eef3fb); font-size: .87rem; padding: 13px 16px; }
-.resume-analyzer-results { display: grid; gap: 12px; }
+.resume-analyzer-results { display: grid; gap: 16px; }
+.resume-analyzer-results-heading { align-items: end; display: flex; gap: 16px; justify-content: space-between; padding: 4px 2px 0; }
+.resume-analyzer-eyebrow { color: var(--ra-accent); display: block; font-size: .71rem; font-weight: 800; letter-spacing: .11em; margin-bottom: 4px; text-transform: uppercase; }
+.resume-analyzer-results-heading h2 { font-size: 1.25rem; letter-spacing: -.025em; line-height: 1.3; margin: 0 0 5px; }
+.resume-analyzer-results-heading p { color: var(--text-muted, #9aa8c0); font-size: .84rem; line-height: 1.5; margin: 0; }
+body .resume-analyzer-page .resume-analyzer-edit-button { background: var(--ra-soft); border: 1px solid var(--ra-border); border-radius: 10px; color: var(--text, #eef3fb); cursor: pointer; flex: none; font: inherit; font-size: .82rem; font-weight: 700; padding: 9px 13px; }
+body .resume-analyzer-page .resume-analyzer-edit-button:hover,
+body .resume-analyzer-page .resume-analyzer-edit-button:focus-visible { border-color: var(--ra-accent); color: var(--ra-accent); }
+.resume-analyzer-findings { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.resume-analyzer-finding { background: var(--ra-panel); border: 1px solid var(--ra-border); border-left: 3px solid var(--ra-border); border-radius: 14px; min-width: 0; overflow-wrap: anywhere; padding: 16px 18px; }
+.resume-analyzer-finding--high { border-left-color: #f2a85b; }
+.resume-analyzer-finding--medium { border-left-color: var(--ra-accent); }
+.resume-analyzer-finding--low { border-left-color: #91a2b7; }
+.resume-analyzer-finding__top { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; margin-bottom: 9px; }
+.resume-analyzer-finding__category { background: var(--ra-soft); border: 1px solid var(--ra-border); border-radius: 99px; color: var(--text, #eef3fb); font-size: .69rem; font-weight: 750; padding: 4px 8px; text-transform: capitalize; }
+.resume-analyzer-finding__priority { color: var(--text-muted, #9aa8c0); font-size: .71rem; text-transform: capitalize; }
+.resume-analyzer-finding h3 { font-size: .95rem; line-height: 1.35; margin: 0 0 9px; }
+.resume-analyzer-finding p { font-size: .81rem; line-height: 1.55; margin: 7px 0 0; }
+.resume-analyzer-finding p strong { color: var(--text, #eef3fb); }
+.resume-analyzer-finding__evidence { color: var(--text-muted, #9aa8c0); }
+.resume-analyzer-finding__suggestion { color: var(--text, #eef3fb); }
+.resume-analyzer-finding__example { background: var(--ra-soft); border-radius: 8px; color: var(--text-muted, #9aa8c0); padding: 9px 10px; }
 .resume-analyzer-result-panel { background: var(--ra-panel); border: 1px solid var(--ra-border); border-radius: 16px; min-width: 0; padding: 18px 20px; }
-.resume-analyzer-result-panel h2,
-.resume-analyzer-result-panel h3 { font-size: 1rem; letter-spacing: -.015em; margin: 0 0 12px; }
-.resume-analyzer-result-panel--found h3 { color: var(--text-muted, #9aa8c0); }
-.resume-analyzer-skill-list { display: grid; gap: 0 22px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); list-style: none; margin: 0; padding: 0; }
-.resume-analyzer-skill-list li { border-bottom: 1px solid var(--ra-border); font-size: .88rem; line-height: 1.4; min-width: 0; overflow-wrap: anywhere; padding: 10px 0; }
-.resume-analyzer-result-panel--found .resume-analyzer-skill-list li { color: var(--text-muted, #9aa8c0); }
+.resume-analyzer-role-heading h3 { font-size: 1rem; letter-spacing: -.015em; margin: 0 0 4px; }
+.resume-analyzer-role-heading p { color: var(--text-muted, #9aa8c0); font-size: .79rem; line-height: 1.5; margin: 0; }
+.resume-analyzer-skill-group { margin-top: 17px; }
+.resume-analyzer-skill-group h4 { align-items: center; display: flex; font-size: .84rem; gap: 8px; margin: 0 0 8px; }
+.resume-analyzer-skill-group h4 span { background: var(--ra-soft); border-radius: 99px; color: var(--text-muted, #9aa8c0); font-size: .69rem; min-width: 15px; padding: 2px 6px; text-align: center; }
+.resume-analyzer-skill-list { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); list-style: none; margin: 0; padding: 0; }
+.resume-analyzer-skill { background: var(--ra-soft); border: 1px solid var(--ra-border); border-radius: 10px; display: grid; font-size: .78rem; gap: 4px; line-height: 1.45; min-width: 0; overflow-wrap: anywhere; padding: 10px 12px; }
+.resume-analyzer-skill strong { font-size: .83rem; }
+.resume-analyzer-skill span { color: var(--text-muted, #9aa8c0); }
+.resume-analyzer-skill--missing { border-color: color-mix(in srgb, #f2a85b 40%, var(--ra-border)); }
+.resume-analyzer-skill--supported { border-color: color-mix(in srgb, var(--ra-accent) 35%, var(--ra-border)); }
 .resume-analyzer-result-empty,
 .resume-analyzer-role-note { color: var(--text-muted, #9aa8c0); font-size: .8rem; line-height: 1.5; margin: 0; }
 .resume-analyzer-role-note { padding: 0 2px; }
 
 @media (max-width: 900px) {
   .resume-analyzer-layout { grid-template-columns: 1fr; }
+  .resume-analyzer-findings { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 680px) {
@@ -174,6 +201,7 @@ body .resume-analyzer-page .resume-analyzer-actions button:disabled { cursor: wa
   .resume-analyzer-source strong { font-size: .71rem; }
   .resume-analyzer-card__heading h2 { white-space: normal; }
   .resume-analyzer-actions { align-items: stretch; flex-direction: column; }
+  .resume-analyzer-results-heading { align-items: start; flex-direction: column; }
 }
 
 @media (prefers-reduced-motion: reduce) {

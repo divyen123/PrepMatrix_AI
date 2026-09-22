@@ -27,7 +27,7 @@ test("analyzer dialog offers comparison inputs and uses a populated current draf
 
     assert.match(markup, /role="dialog"/u);
     assert.match(markup, /aria-modal="true"/u);
-    assert.match(markup, /<h2 id="resume-analyzer-dialog-title">Find skills missing from your resume for a job role or description\.<\/h2>/u);
+    assert.match(markup, /<h2 id="resume-analyzer-dialog-title">Review your resume for a role<\/h2>/u);
     assert.match(markup, /aria-pressed="true"[^>]*>[^]*?Current draft/u);
     assert.match(markup, /Alex Example/u);
     assert.match(markup, /Frontend Engineer/u);
@@ -35,7 +35,7 @@ test("analyzer dialog offers comparison inputs and uses a populated current draf
     assert.match(markup, /<h2 id="resume-analyzer-job-title">Job role or description<\/h2>/u);
     assert.match(markup, /aria-label="Job role or description"/u);
     assert.doesNotMatch(markup, /Resume Builder \/ Resume Analyzer/u);
-    assert.match(markup, /Find Missing Skills/u);
+    assert.match(markup, /Review Resume/u);
   } finally {
     await vite.close();
   }

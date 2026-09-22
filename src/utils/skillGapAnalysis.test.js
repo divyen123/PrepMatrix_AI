@@ -52,10 +52,14 @@ test("does not turn generic job prose into invented skills or confuse Java with 
 });
 
 test("returns empty groups when the job description names no recognized skill", () => {
-  assert.deepEqual(analyzeSkillGap({
+  const result = analyzeSkillGap({
     resumeText: "Built software for customers.",
     jobDescription: "Looking for an enthusiastic candidate.",
-  }), { matched: [], needsEvidence: [], notShown: [], requestedSkills: [] });
+  });
+  assert.deepEqual(result.matched, []);
+  assert.deepEqual(result.needsEvidence, []);
+  assert.deepEqual(result.notShown, []);
+  assert.deepEqual(result.requestedSkills, []);
 });
 
 test("matches common aliases without treating substrings as skills", () => {
@@ -146,5 +150,105 @@ test("compares non-technical roles against the selected resume text", () => {
 
 test("does not fabricate requirements for an unknown role title", () => {
   const result = analyzeSkillGap({ jobDescription: "Rocket pilot" });
-  assert.deepEqual(result, { matched: [], needsEvidence: [], notShown: [], requestedSkills: [] });
+  assert.deepEqual(result.matched, []);
+  assert.deepEqual(result.needsEvidence, []);
+  assert.deepEqual(result.notShown, []);
+  assert.deepEqual(result.requestedSkills, []);
+});
+
+test("reviews the summary even when the resume lists every requested skill", () => {
+  const result = analyzeSkillGap({
+    draft: {
+      summary: "Hardworking and passionate professional looking for an opportunity.",
+      skills: ["React"],
+      experience: [{
+        role: "Frontend developer",
+        highlights: ["Built a React checkout flow that reduced support requests by 20% while serving 5,000 customers."],
+      }],
+    },
+    jobDescription: "React required.",
+  });
+
+  assert.equal(result.notShown.length, 0);
+  const summary = result.findings.find((item) => item.category === "summary");
+  assert.ok(summary, "generic summary should receive feedback independently of skill coverage");
+  assert.equal(typeof summary.id, "string");
+  assert.ok(["high", "medium", "low"].includes(summary.priority));
+  assert.ok(summary.title && summary.suggestion);
+});
+
+test("suggests a concrete improvement for vague experience descriptions", () => {
+  const result = analyzeSkillGap({
+    draft: {
+      experience: [{ role: "Developer", organization: "Acme", highlights: ["Responsible for development tasks."] }],
+    },
+    jobDescription: "Software developer",
+  });
+
+  const experience = result.findings.find((item) => item.category === "experience");
+  assert.ok(experience);
+  assert.match(`${experience.evidence} ${experience.title}`, /responsible|development|experience|impact|result/iu);
+  assert.ok(experience.suggestion.trim().length > 20);
+});
+
+test("flags a project that names technologies but explains no contribution or result", () => {
+  const result = analyzeSkillGap({
+    draft: { projects: [{ name: "Dashboard", technologies: "React, SQL", highlights: [] }] },
+    jobDescription: "React and SQL required.",
+  });
+
+  const project = result.findings.find((item) => item.category === "projects");
+  assert.ok(project);
+  assert.match(`${project.title} ${project.evidence} ${project.suggestion}`, /Dashboard|project/iu);
+  assert.ok(project.suggestion.trim().length > 20);
+});
+
+test("distinguishes a listed skill lacking proof from an absent role skill in feedback", () => {
+  const result = analyzeSkillGap({
+    draft: { skills: ["React"], projects: [{ name: "Web app", highlights: ["Built the web app for a class."] }] },
+    jobDescription: "React and Docker required.",
+  });
+
+  assert.deepEqual(result.needsEvidence.map((item) => item.skill), ["React"]);
+  assert.deepEqual(result.notShown.map((item) => item.skill), ["Docker"]);
+  const roleFindings = result.findings.filter((item) => item.category === "role");
+  assert.ok(roleFindings.length > 0);
+  assert.match(roleFindings.map((item) => `${item.title} ${item.suggestion}`).join(" "), /React|Docker/iu);
+});
+
+test("reviews structured draft completeness without requiring a recognized job role", () => {
+  const result = analyzeSkillGap({
+    draft: {
+      personal: { fullName: "Alex Example", headline: "Developer" },
+      summary: "Developer creating web applications for community organizations.",
+      projects: [{ name: "Volunteer portal", highlights: ["Built a booking flow used by local volunteers."] }],
+    },
+    jobDescription: "Rocket pilot",
+  });
+
+  assert.deepEqual(result.requestedSkills, []);
+  assert.ok(result.findings.length > 0, "resume review should still work for an unknown role");
+  assert.ok(result.findings.some((item) => item.category === "completeness"));
+  assert.ok(result.findings.every((item) => item.id && item.title && item.suggestion));
+});
+
+test("reviews pasted or extracted resume descriptions as well as builder drafts", () => {
+  const result = analyzeSkillGap({
+    resumeText: [
+      "Summary",
+      "Passionate and hardworking student.",
+      "Experience",
+      "Developer, Acme",
+      "Responsible for software development.",
+      "Projects",
+      "Inventory app",
+      "Python, SQL",
+    ].join("\n"),
+    jobDescription: "Software developer",
+  });
+
+  assert.ok(result.findings.some((item) => item.category === "summary"));
+  assert.ok(result.findings.some((item) => item.category === "experience"));
+  assert.ok(result.findings.some((item) => item.category === "projects"));
+  assert.equal(new Set(result.findings.map((item) => item.id)).size, result.findings.length);
 });

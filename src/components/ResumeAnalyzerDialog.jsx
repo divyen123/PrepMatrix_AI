@@ -18,6 +18,7 @@ const MAX_RESUME_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_RESUME_TEXT_LENGTH = 50000;
 const MAX_JOB_DESCRIPTION_LENGTH = 12000;
 const DIALOG_EXIT_MS = 220;
+const FINDING_PRIORITY = { high: 0, medium: 1, low: 2 };
 
 function hasResumeContent(draft) {
   return Boolean(
@@ -54,7 +55,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
   const [fileLoading, setFileLoading] = useState(false);
   const [error, setError] = useState("");
   const [results, setResults] = useState(null);
-  const foundSkills = results ? [...results.matched, ...results.needsEvidence] : [];
+  const findings = results?.findings?.slice().sort((a, b) => (FINDING_PRIORITY[a.priority] ?? 3) - (FINDING_PRIORITY[b.priority] ?? 3)) || [];
   const [isClosing, setIsClosing] = useState(false);
   const uploadSequence = useRef(0);
   const exitTimer = useRef(null);
@@ -70,7 +71,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
   }, [onClose]);
 
   useEffect(() => {
-    if (!results?.requestedSkills.length) return;
+    if (!results) return;
     resultsRef.current?.scrollIntoView({
       behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
       block: "start",
@@ -178,9 +179,6 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
       jobDescription,
     });
     setResults(nextResults);
-    if (!nextResults.requestedSkills.length) {
-      setError("Couldn’t identify the role or its skills. Try a more specific job title or paste the requirements.");
-    }
   };
 
   const content = (
@@ -201,7 +199,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
       >
         <header className="resume-analyzer-dialog-header">
           <div>
-            <h2 id="resume-analyzer-dialog-title">Find skills missing from your resume for a job role or description.</h2>
+            <h2 id="resume-analyzer-dialog-title">Review your resume for a role</h2>
           </div>
           <button aria-label="Close resume analyzer" className="resume-analyzer-dialog-close" onClick={() => requestClose()} ref={closeRef} type="button"><X size={20} aria-hidden="true" /></button>
         </header>
@@ -212,7 +210,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
         <section className="resume-analyzer-card resume-analyzer-input-card" aria-labelledby="resume-analyzer-resume-title">
           <div className="resume-analyzer-card__heading">
             <span className="resume-analyzer-step">01</span>
-            <div><h2 id="resume-analyzer-resume-title">Your resume</h2><p>Choose what to compare against the role.</p></div>
+            <div><h2 id="resume-analyzer-resume-title">Your resume</h2><p>Choose what you want reviewed.</p></div>
           </div>
           <div className="resume-analyzer-source-grid" role="group" aria-label="Resume source">
             {SOURCE_OPTIONS.map(({ id, label, icon: Icon }) => (
@@ -276,32 +274,59 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
             />
           </div>
           <div className="resume-analyzer-actions">
-            <button disabled={fileLoading} onClick={handleAnalyze} type="button"><FileSearch size={18} aria-hidden="true" /> Find Missing Skills</button>
+            <button disabled={fileLoading} onClick={handleAnalyze} type="button"><FileSearch size={18} aria-hidden="true" /> Review Resume</button>
           </div>
         </section>
       </div>
 
       {error && <div className="resume-analyzer-message" role="alert">{error}</div>}
 
-      {results && results.requestedSkills.length > 0 && (
-        <section className="resume-analyzer-results" aria-label="Skill gap results" aria-live="polite" ref={resultsRef}>
-          <div className="resume-analyzer-result-panel">
-            <h2>Missing from your resume</h2>
-            {results.notShown.length ? (
-              <ul className="resume-analyzer-skill-list">
-                {results.notShown.map(({ skill }) => <li key={skill}>{skill}</li>)}
-              </ul>
-            ) : <p className="resume-analyzer-result-empty">No missing skills found.</p>}
-          </div>
-          {foundSkills.length > 0 && (
-            <div className="resume-analyzer-result-panel resume-analyzer-result-panel--found">
-              <h3>Found in your resume</h3>
-              <ul className="resume-analyzer-skill-list">
-                {foundSkills.map(({ skill }) => <li key={skill}>{skill}</li>)}
-              </ul>
+      {results && (
+        <section className="resume-analyzer-results" aria-label="Resume review results" aria-live="polite" ref={resultsRef}>
+          <div className="resume-analyzer-results-heading">
+            <div>
+              <span className="resume-analyzer-eyebrow">Your review</span>
+              <h2>Where your resume can improve</h2>
+              <p>Start with the highest priority changes. Use only examples and results you can verify.</p>
             </div>
-          )}
-          {results.inputType === "role" && <p className="resume-analyzer-role-note">These are common skills for the role. Check the job posting for exact requirements.</p>}
+            {source === "builder" && onEditResume && <button className="resume-analyzer-edit-button" onClick={() => requestClose(onEditResume)} type="button">Edit resume</button>}
+          </div>
+          {findings.length ? (
+            <ol className="resume-analyzer-findings">
+              {findings.map((finding) => (
+                <li className={`resume-analyzer-finding resume-analyzer-finding--${finding.priority}`} key={finding.id}>
+                  <div className="resume-analyzer-finding__top">
+                    <span className="resume-analyzer-finding__category">{finding.category}</span>
+                    <span className="resume-analyzer-finding__priority">{finding.priority} priority</span>
+                  </div>
+                  <h3>{finding.title}</h3>
+                  {finding.evidence && <p className="resume-analyzer-finding__evidence"><strong>What I found:</strong> {finding.evidence}</p>}
+                  <p className="resume-analyzer-finding__suggestion"><strong>Improve it:</strong> {finding.suggestion}</p>
+                  {finding.example && <p className="resume-analyzer-finding__example"><strong>Example structure:</strong> {finding.example}</p>}
+                </li>
+              ))}
+            </ol>
+          ) : <p className="resume-analyzer-result-empty">No clear issues were found in the text provided. Review the role requirements below and check your resume manually before applying.</p>}
+          {results.requestedSkills.length > 0 ? (
+            <div className="resume-analyzer-result-panel resume-analyzer-role-panel">
+              <div className="resume-analyzer-role-heading">
+                <h3>Role requirement check</h3>
+                <p>{results.inputType === "role" ? "Common skills for this role; a job posting gives a more precise comparison." : "Skills explicitly mentioned in the job description."}</p>
+              </div>
+              {[
+                { label: "Not shown", items: results.notShown, tone: "missing" },
+                { label: "Mentioned without an example", items: results.needsEvidence, tone: "evidence" },
+                { label: "Supported by an example", items: results.matched, tone: "supported" },
+              ].filter(({ items }) => items.length > 0).map(({ label, items, tone }) => (
+                <div className="resume-analyzer-skill-group" key={tone}>
+                  <h4>{label} <span>{items.length}</span></h4>
+                  <ul className="resume-analyzer-skill-list">
+                    {items.map(({ skill, action }) => <li className={`resume-analyzer-skill resume-analyzer-skill--${tone}`} key={skill}><strong>{skill}</strong><span>{action}</span></li>)}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : <p className="resume-analyzer-role-note">No specific skills could be identified from that role description. Paste a job posting for a more tailored comparison.</p>}
         </section>
       )}
         </div>

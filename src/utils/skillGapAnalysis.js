@@ -245,8 +245,8 @@ function resumeLinesFromDraft(draft) {
   return lines;
 }
 
-const RESUME_SECTION = /^(?:(?:work\s+)?experience|employment(?:\s+history)?|work\s+history|projects?(?:\s+experience)?|skills?|technical\s+skills|tools?|summary|profile|education|certifications?)$/i;
-const EVIDENCE_SECTION = /^(?:(?:work\s+)?experience|employment(?:\s+history)?|work\s+history|projects?(?:\s+experience)?)$/i;
+const RESUME_SECTION = /^(?:(?:(?:work|professional|relevant)\s+)?experience|employment(?:\s+history)?|work\s+history|(?:selected|personal|academic)\s+projects?|projects?(?:\s+experience)?|skills?|technical\s+skills|tools?|(?:professional\s+)?summary|profile|about\s+me|education|certifications?|achievements?|awards?)$/i;
+const EVIDENCE_SECTION = /^(?:(?:(?:work|professional|relevant)\s+)?experience|employment(?:\s+history)?|work\s+history|(?:(?:selected|personal|academic)\s+)?projects?(?:\s+experience)?)$/i;
 const ACTION_VERB = /\b(?:built|developed|designed|implemented|deployed|delivered|created|managed|led|analyzed|analysed|tested|automated|optimized|optimised|maintained|configured|used|applied|integrated|trained|conducted|provided|improved|collaborated|coordinated)\b/i;
 
 function resumeLinesFromText(text) {
@@ -313,6 +313,127 @@ function requestedSkillsFromRole(input) {
   return { roleNames: roles.map(({ name }) => name), requestedSkills };
 }
 
+const VAGUE_BULLET = /^(?:[-•*]\s*)?(?:responsible for|worked on|helped with|assisted with|involved in|participated in|various tasks|handled|did)\b/i;
+const MEASURABLE_RESULT = /(?:\b\d+(?:[.,]\d+)?\s*%|\b\d+(?:[.,]\d+)?\s*(?:percent|users?|customers?|clients?|hours?|days?|minutes?|seconds?|requests?|records?|transactions?|projects?|teams?|people|students?|sales|revenue|downloads?)\b|[$₹€£]\s*\d|\b(?:reduced|increased|saved|grew|raised|cut|improved|accelerated|expanded)\b.{0,45}\b(?:by|from|to)\b)/i;
+const PURPOSE_OR_RESULT = /\b(?:so that|which enabled|enabling|resulting in|leading to|for (?:users|customers|clients|students|the team)|to (?:reduce|improve|increase|support|help|enable|automate|simplify|speed up|track|measure|deliver))\b/i;
+
+function sectionKind(heading) {
+  const normalized = heading.replace(/^#+\s*/, "").replace(/[:\s]+$/, "").trim();
+  if (!RESUME_SECTION.test(normalized)) return "";
+  if (/\b(?:summary|profile)\b|^about\s+me$/i.test(normalized)) return "summary";
+  if (/\b(?:experience|employment|work\s+history)\b/i.test(normalized)) return "experience";
+  if (/\bprojects?\b/i.test(normalized)) return "projects";
+  if (/\bskills?\b|^tools?$/i.test(normalized)) return "skills";
+  return "other";
+}
+
+function textSections(text) {
+  const sections = { summary: [], experience: [], projects: [], skills: [], other: [], unsectioned: [] };
+  let section = "unsectioned";
+  linesOf(text).forEach((line) => {
+    const nextSection = sectionKind(line);
+    if (nextSection) section = nextSection;
+    else sections[section].push(line);
+  });
+  return sections;
+}
+
+function meaningfulHighlights(items) {
+  return (Array.isArray(items) ? items : []).flatMap((item) =>
+    Array.isArray(item?.highlights) ? item.highlights.map(cleanLine).filter(Boolean) : []);
+}
+
+function addFinding(findings, id, category, priority, title, evidence, suggestion, example) {
+  findings.push({ id, category, priority, title, evidence: clip(evidence || ""), suggestion, ...(example ? { example } : {}) });
+}
+
+function critiqueResume({ draft, resumeText, needsEvidence, notShown, role }) {
+  const findings = [];
+  const structured = draft && typeof draft === "object";
+  const parsed = textSections(resumeText);
+  const summary = structured ? cleanLine(draft.summary) : parsed.summary.join(" ");
+  const experience = structured
+    ? (Array.isArray(draft.experience) ? draft.experience : []).filter((item) => item && (cleanLine(item.role) || meaningfulHighlights([item]).length))
+    : parsed.experience;
+  const projects = structured
+    ? (Array.isArray(draft.projects) ? draft.projects : []).filter((item) => item && (cleanLine(item.name) || meaningfulHighlights([item]).length))
+    : parsed.projects;
+  const experienceBullets = structured ? meaningfulHighlights(experience) : parsed.experience.filter((line) => /^(?:[-•*]\s*)?\b(?:built|developed|designed|implemented|managed|led|created|improved|worked|responsible|helped|assisted|handled|delivered|analyzed|analysed|tested|automated|optimized|optimised|deployed|configured|integrated)\b/i.test(line));
+  const projectBullets = structured ? meaningfulHighlights(projects) : parsed.projects.filter((line) => /^(?:[-•*]\s*)?\b(?:built|developed|designed|implemented|created|improved|worked|helped|delivered|analyzed|analysed|tested|automated|deployed|configured|integrated)\b/i.test(line));
+  // Plain text extracted from a PDF may lose section headings. Treat action
+  // statements as work evidence, but do not guess whether they are jobs or projects.
+  const unsectionedWork = structured ? [] : parsed.unsectioned.filter((line) => ACTION_VERB.test(line) || VAGUE_BULLET.test(line));
+  const hasResume = structured
+    ? Boolean(summary || experience.length || projects.length || draft.skills?.length || draft.tools?.length)
+    : Boolean(linesOf(resumeText).length);
+  if (!hasResume) return findings;
+
+  if (!summary) {
+    addFinding(findings, "summary-missing", "summary", "medium", "Add a focused opening summary", "",
+      "In two or three lines, state your target role, strongest relevant experience, and the kind of work you have done. Leave out claims you cannot support elsewhere in the resume.",
+      "[Target role] with experience in [relevant work]. Built [specific project or outcome] using [relevant tools].");
+  } else if (summary.split(/\s+/).length < 12 || /\b(?:hardworking|passionate|dedicated|self-motivated|team player|seeking an opportunity)\b/i.test(summary)) {
+    addFinding(findings, "summary-generic", "summary", "medium", "Make the summary more specific", summary,
+      "Replace general traits or a very short objective with your specialty, a relevant example, and the value of your work. Keep every claim tied to real experience.",
+      "[Role or specialty] who [built or improved a specific thing] using [relevant skills] for [audience or purpose].");
+  }
+
+  if (!experience.length && !projects.length && !unsectionedWork.length) {
+    addFinding(findings, "evidence-sections-missing", "completeness", "high", "Show work behind the skill list", "",
+      "Add experience, coursework, volunteering, or projects with concrete examples of what you personally built or improved. A skill list alone does not show how you used those skills.");
+  }
+  if (experience.length && !experienceBullets.length) {
+    addFinding(findings, "experience-no-detail", "experience", "high", "Describe what you did in each role", "",
+      "Add concise bullets under each role covering your action, the tools or methods you used, and the result or purpose.",
+      "[Action verb] [specific work] using [method or tool] to [result or purpose].");
+  } else if (experienceBullets.length) {
+    const vague = experienceBullets.find((line) => VAGUE_BULLET.test(line));
+    if (vague) addFinding(findings, "experience-vague", "experience", "high", "Replace a vague responsibility with your contribution", vague,
+      "Name the specific task you owned, how you did it, and what changed. Avoid phrases such as “worked on” or “responsible for” when an action is available.",
+      "[Built/designed/analyzed] [specific deliverable] with [method or tool] to [purpose or verified result].");
+    if (!experienceBullets.some((line) => MEASURABLE_RESULT.test(line) || PURPOSE_OR_RESULT.test(line))) {
+      addFinding(findings, "experience-no-outcome", "experience", "medium", "Connect experience bullets to outcomes", experienceBullets[0],
+        "Explain who benefited or what the work achieved. Add a real number if you have one; a concrete purpose or qualitative result is useful when you do not.",
+        "[Action] [deliverable] for [audience], enabling [verified outcome].");
+    }
+  }
+
+  if (projects.length && !projectBullets.length) {
+    addFinding(findings, "projects-no-detail", "projects", "high", "Explain what each project actually does", structured ? cleanLine(projects[0]?.name) : parsed.projects[0],
+      "Add one or two bullets for each important project: the problem, your contribution, how you built it, and what the result was.",
+      "Built [feature or system] using [technology] to solve [specific problem]; [verified result or demonstration].");
+  } else if (projectBullets.length && !projectBullets.some((line) => MEASURABLE_RESULT.test(line) || PURPOSE_OR_RESULT.test(line))) {
+    addFinding(findings, "projects-no-purpose", "projects", "medium", "Show the project’s purpose or result", projectBullets[0],
+      "Describe the user problem, your own contribution, and what the finished project enables. Include measured results only if you can verify them.",
+      "Built [specific feature] for [user or problem], enabling [real use or result].");
+  }
+  if (structured && projects.length && projects.some((item) => !cleanLine(item.technologies) && !meaningfulHighlights([item]).some((line) => skillPatterns.some(({ aliases }) => skillMention(line, aliases))))) {
+    addFinding(findings, "projects-no-method", "projects", "low", "Name the methods or tools used in a project", cleanLine(projects.find((item) => !cleanLine(item.technologies))?.name),
+      "Where it helps explain your work, name the actual tools, methods, or design choices in the project description. Avoid adding tools you did not use.");
+  }
+
+  if (needsEvidence.length) {
+    const names = needsEvidence.slice(0, 4).map(({ skill }) => skill).join(", ");
+    addFinding(findings, "role-skills-need-evidence", "role", "high", "Prove skills already listed", needsEvidence[0].evidence,
+      `The resume mentions ${names}, but does not show a concrete use of ${needsEvidence.length === 1 ? "it" : "them"}. Add a truthful experience or project bullet showing what you did with ${needsEvidence.length === 1 ? "the skill" : "these skills"}.`);
+  }
+  if (notShown.length) {
+    const names = notShown.slice(0, 4).map(({ skill }) => skill).join(", ");
+    addFinding(findings, "role-skills-not-shown", "role", role ? "medium" : "high", role ? "Consider common skills for this role" : "Address skills named in the job posting", "",
+      `${names}${notShown.length > 4 ? ` and ${notShown.length - 4} more` : ""} ${notShown.length === 1 ? "is" : "are"} not evident in the resume. If you have used ${notShown.length === 1 ? "it" : "them"}, show where and how. Otherwise, treat ${notShown.length === 1 ? "it" : "them"} as a development area; do not claim experience you lack.`);
+  }
+  if (structured && !cleanLine(draft.personal?.headline)) {
+    addFinding(findings, "headline-missing", "completeness", "low", "Add a clear professional headline", "",
+      "Use a role or specialty that matches your actual experience and the positions you are targeting.");
+  }
+  if (structured && !cleanLine(draft.personal?.email)) {
+    addFinding(findings, "email-missing", "completeness", "medium", "Add a contact email", "",
+      "Include an email address you check regularly so employers can reach you. Review the contact details before sharing the resume.");
+  }
+
+  return findings;
+}
+
 /**
  * Compare the selected resume with either explicit job requirements or a
  * short recognized role title. `notShown` only means the resume omits them.
@@ -346,7 +467,8 @@ export function analyzeSkillGap({ resumeText = "", draft = null, jobDescription 
     requestedSkills.push(item);
   });
 
+  const findings = critiqueResume({ draft, resumeText, needsEvidence, notShown, role });
   return role
-    ? { matched, needsEvidence, notShown, requestedSkills, roleNames: role.roleNames, inputType: "role" }
-    : { matched, needsEvidence, notShown, requestedSkills };
+    ? { matched, needsEvidence, notShown, requestedSkills, findings, roleNames: role.roleNames, inputType: "role" }
+    : { matched, needsEvidence, notShown, requestedSkills, findings };
 }
