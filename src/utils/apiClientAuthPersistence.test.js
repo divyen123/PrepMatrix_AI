@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import api from "./apiClient.js";
+import api, { responseEndsAuthSession } from "./apiClient.js";
 import {
   EXPLICIT_LOGOUT_STORAGE_KEY,
   rememberExplicitLogout,
@@ -53,6 +53,69 @@ test("only a successful authentication token clears explicit logout", async (t) 
   await api.login({ email: "student@example.com", password: "correct" });
   assert.equal(storage.getItem(EXPLICIT_LOGOUT_STORAGE_KEY), null);
   assert.equal(storage.getItem("prepmatrix_auth_token"), "new-session");
+});
+
+test("only definitive authentication failures end a saved session", () => {
+  const unauthorized = { status: 401 };
+
+  assert.equal(
+    responseEndsAuthSession("/api/auth/me", unauthorized, { error: "Login required." }),
+    true,
+  );
+  assert.equal(
+    responseEndsAuthSession("/api/workspace", unauthorized, {
+      code: "AUTH_SESSION_INVALID",
+      error: "Login required.",
+    }),
+    true,
+  );
+  assert.equal(
+    responseEndsAuthSession("/api/auth/profile", unauthorized, {
+      code: "PASSWORD_CHANGED",
+      error: "Your password was changed. Please log in again.",
+    }),
+    true,
+  );
+  assert.equal(
+    responseEndsAuthSession("/api/auth/account", unauthorized, {
+      error: "Incorrect password. Account was not deleted.",
+    }),
+    false,
+  );
+  assert.equal(
+    responseEndsAuthSession("/api/auth/profile", unauthorized, {
+      error: "Current password is incorrect.",
+    }),
+    false,
+  );
+  assert.equal(
+    responseEndsAuthSession("/api/auth/login", unauthorized, {
+      code: "AUTH_SESSION_INVALID",
+    }),
+    false,
+  );
+});
+
+test("wrong-password validation does not remove a valid remembered login", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousLocalStorage = globalThis.localStorage;
+  const previousWindow = globalThis.window;
+  const storage = createMemoryStorage({ prepmatrix_auth_token: "remembered-session" });
+  globalThis.localStorage = storage;
+  globalThis.window = undefined;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    globalThis.localStorage = previousLocalStorage;
+    globalThis.window = previousWindow;
+  });
+
+  globalThis.fetch = async () => response(
+    { error: "Incorrect password. Account was not deleted." },
+    { ok: false, status: 401 },
+  );
+
+  await assert.rejects(api.deleteAccount("wrong-password"), { status: 401 });
+  assert.equal(storage.getItem("prepmatrix_auth_token"), "remembered-session");
 });
 
 test("a late unauthorized request cannot clear a newer saved session", async (t) => {

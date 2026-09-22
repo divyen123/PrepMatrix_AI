@@ -915,13 +915,17 @@ function DashboardPage({
                   backgroundColor="var(--surface-muted)"
                   borderRadius={12}
                   className="db-timeline-node"
-                  colors={["var(--accent)", "var(--violet, #c084fc)", "var(--aqua, #38bdf8)"]}
+                  colors={[
+                    "color-mix(in srgb, var(--accent) 12%, transparent)",
+                    "color-mix(in srgb, var(--violet, #c084fc) 12%, transparent)",
+                    "color-mix(in srgb, var(--aqua, #38bdf8) 12%, transparent)",
+                  ]}
                   coneSpread={28}
                   edgeSensitivity={24}
-                  fillOpacity={0.18}
+                  fillOpacity={0.04}
                   glowColor="var(--accent)"
-                  glowIntensity={0.75}
-                  glowRadius={18}
+                  glowIntensity={0.18}
+                  glowRadius={10}
                   key={s.id}
                   style={{ animationDelay: `${index * 0.15}s`, cursor: "pointer" }}
                   onClick={() => setConfigureSubject(s)}

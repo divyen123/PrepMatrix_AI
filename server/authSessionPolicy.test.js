@@ -118,6 +118,20 @@ test("wires the persistent policy into session creation and recovery", () => {
   assert.doesNotMatch(serverSource, /collection\("sessions"\)\.createIndex\(\{ expiresAt: 1 \}/u);
 });
 
+test("marks only missing or revoked authentication as an invalid session", () => {
+  const requireAuthStart = serverSource.indexOf("function requireAuth");
+  const requireAuthEnd = serverSource.indexOf("function requireParentGuidedFeature", requireAuthStart);
+  const authMeStart = serverSource.indexOf('app.get("/api/auth/me"');
+  const authMeEnd = serverSource.indexOf('app.post("/api/auth/send-otp"', authMeStart);
+  const requireAuthSource = serverSource.slice(requireAuthStart, requireAuthEnd);
+  const authMeSource = serverSource.slice(authMeStart, authMeEnd);
+
+  assert.ok(requireAuthStart >= 0 && requireAuthEnd > requireAuthStart);
+  assert.ok(authMeStart >= 0 && authMeEnd > authMeStart);
+  assert.match(requireAuthSource, /code: "AUTH_SESSION_INVALID", error: "Login required\."/u);
+  assert.match(authMeSource, /code: "AUTH_SESSION_INVALID", error: "Login required\."/u);
+});
+
 test("password changes revoke durable sessions before issuing the replacement", () => {
   const profileRouteStart = serverSource.indexOf('app.put("/api/auth/profile"');
   const preferencesRouteStart = serverSource.indexOf('app.put("/api/auth/preferences"', profileRouteStart);

@@ -37,3 +37,14 @@ test("desktop content keeps one centered width across sidebar states", () => {
     /\.app-shell-layout\.has-sidebar\.is-sidebar-collapsed \.app-main-content\s*\{[\s\S]*?margin-left: 180px !important;[\s\S]*?width: calc\(var\(--app-scaled-viewport-width, 100vw\) - 280px\) !important;/u,
   );
 });
+
+test("marks the active sidebar page with a smoothly animated size increase", () => {
+  assert.match(
+    appStyles,
+    /\.app-sidebar \.sidebar-nav \.sidebar-link-label\s*\{[^}]*font-size: 0\.95rem;[^}]*font-weight: 600;[^}]*transition: font-size 240ms cubic-bezier\(0\.16, 1, 0\.3, 1\);/u,
+  );
+  assert.match(
+    appStyles,
+    /\.app-sidebar \.sidebar-nav \.sidebar-link\.active \.sidebar-link-label\s*\{[^}]*font-size: 1\.04rem;[^}]*font-weight: 600;/u,
+  );
+});

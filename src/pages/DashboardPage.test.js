@@ -69,6 +69,19 @@ test("keeps dashboard action button hovers free of an outside glow", () => {
   );
 });
 
+test("keeps the dashboard subject-card sweep faint", () => {
+  const pageSource = readFileSync(new URL("./DashboardPage.jsx", import.meta.url), "utf8");
+  const subjectCardGlow = pageSource.match(
+    /<BorderGlow[\s\S]*?className="db-timeline-node"[\s\S]*?>/u,
+  )?.[0] || "";
+
+  assert.match(subjectCardGlow, /animated=\{showSubjectsPopup\}/u);
+  assert.equal((subjectCardGlow.match(/12%, transparent/gu) || []).length, 3);
+  assert.match(subjectCardGlow, /fillOpacity=\{0\.04\}/u);
+  assert.match(subjectCardGlow, /glowIntensity=\{0\.18\}/u);
+  assert.match(subjectCardGlow, /glowRadius=\{10\}/u);
+});
+
 test("keeps the empty-progress notice open when switching progress cards and closes it on a repeat click", () => {
   const pageSource = readFileSync(new URL("./DashboardPage.jsx", import.meta.url), "utf8");
   const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");

@@ -82,6 +82,18 @@ export function clearStoredAuthState() {
   dispatchWindowEvent(AI_AUTH_CLEARED_EVENT);
 }
 
+export function responseEndsAuthSession(path, response, payload = {}) {
+  if (response?.status !== 401) return false;
+  if (path === "/api/auth/login" || path === "/api/auth/register") return false;
+
+  return path === "/api/auth/me"
+    || payload?.code === "AUTH_SESSION_INVALID"
+    || payload?.code === "PASSWORD_CHANGED"
+    // Keep compatibility with an older backend while the frontend and API
+    // are rolling out independently. Validation failures use different copy.
+    || payload?.error === "Login required.";
+}
+
 function dispatchWindowEvent(name, detail) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(name, { detail }));
@@ -194,15 +206,10 @@ async function request(path, options = {}) {
     finishAiIdempotencyRequest(idempotencyFingerprint, payload);
 
     const currentToken = localStorage.getItem("prepmatrix_auth_token");
-    if (
-      response.status === 401
-      && path !== "/api/auth/login"
-      && path !== "/api/auth/register"
-      && token === currentToken
-    ) {
+    if (responseEndsAuthSession(path, response, payload) && token === currentToken) {
       clearStoredAuthState();
-      if (payload.code === "PASSWORD_CHANGED") {
-        notifySessionEnded(payload.error || "Your password was changed. Please log in again.");
+      if (token || payload.code === "PASSWORD_CHANGED") {
+        notifySessionEnded(payload.error || "Please log in again to continue.");
       }
     }
 

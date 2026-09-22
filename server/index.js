@@ -948,7 +948,7 @@ function requireAuth(handler) {
           clearSessionCookie(res);
           return res.status(401).json({ code: "PASSWORD_CHANGED", error: "Your password was changed. Please log in again." });
         }
-        return res.status(401).json({ error: "Login required." });
+        return res.status(401).json({ code: "AUTH_SESSION_INVALID", error: "Login required." });
       }
       req.user = auth.user;
       req.sessionToken = auth.token;
@@ -1318,7 +1318,7 @@ app.get("/api/auth/me", async (req, res) => {
         clearSessionCookie(res);
         return res.status(401).json({ code: "PASSWORD_CHANGED", error: "Your password was changed. Please log in again." });
       }
-      return res.status(401).json({ error: "Login required." });
+      return res.status(401).json({ code: "AUTH_SESSION_INVALID", error: "Login required." });
     }
 
     setSessionCookie(res, auth.token);
