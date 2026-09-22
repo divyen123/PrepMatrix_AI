@@ -22170,7 +22170,7 @@ body.has-bg-image .app-sidebar .sidebar-nav {
 .app-sidebar .sidebar-nav .sidebar-link-label {
   display: inline-block;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 400;
   transition: font-size 240ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -22191,8 +22191,8 @@ body.has-bg-image .app-sidebar .sidebar-nav {
 
 .app-sidebar .sidebar-nav .sidebar-link.active .sidebar-link-label {
   color: var(--sidebar-active-ink) !important;
-  font-size: 1.04rem;
-  font-weight: 600;
+  font-size: 1.08rem;
+  font-weight: 700;
 }
 
 .app-sidebar .sidebar-nav .sidebar-link.active .sidebar-link-icon {
