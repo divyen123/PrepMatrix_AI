@@ -78,6 +78,15 @@ export function getPlannerMetrics(schedule = [], completed = []) {
     .sort(([, left], [, right]) => right.pending - left.pending || left.done - right.done)
     .map(([subjectName]) => subjectName)[0] || null;
 
+  const mostCompletedSubject = Object.entries(subjectStats)
+    .filter(([, stats]) => stats.done > 0)
+    .sort(([leftName, left], [rightName, right]) => (
+      right.done - left.done
+      || (right.done / right.total) - (left.done / left.total)
+      || leftName.localeCompare(rightName)
+    ))
+    .map(([subjectName]) => subjectName)[0] || null;
+
   const todayTasks = Array.isArray(safeSchedule[0]?.tasks)
     ? safeSchedule[0].tasks.filter((task) => !isPlannerMemoryReviewTask(task)) : [];
 
@@ -91,6 +100,7 @@ export function getPlannerMetrics(schedule = [], completed = []) {
     tasksToExamEligibility,
     firstPendingTask,
     weakSubject,
+    mostCompletedSubject,
     todayTasks,
     subjectStats,
     morningCompleted,

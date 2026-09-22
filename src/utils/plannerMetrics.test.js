@@ -20,6 +20,24 @@ test("weekly review unlocks for active and completed planner schedules", () => {
   assert.equal(getPlannerMetrics(schedule, ["DBMS - Joins"]).hasScheduledPlanner, true);
 });
 
+test("identifies the subject with the most completed planner topics", () => {
+  const schedule = [{
+    day: 1,
+    tasks: [
+      { task: "DBMS - Joins", subjectName: "DBMS" },
+      { task: "Operating Systems - Processes", subjectName: "Operating Systems" },
+      { task: "Operating Systems - Deadlocks", subjectName: "Operating Systems" },
+    ],
+  }];
+  const result = getPlannerMetrics(schedule, [
+    "DBMS - Joins",
+    "Operating Systems - Processes",
+    "Operating Systems - Deadlocks",
+  ]);
+
+  assert.equal(result.mostCompletedSubject, "Operating Systems");
+});
+
 test("subject quiz eligibility stays locked below 50 percent", () => {
   const schedule = [{
     day: 1,

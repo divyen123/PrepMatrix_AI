@@ -47,6 +47,7 @@ const CARD_TONES = [
 
 const NAVIGATION_SUGGESTION_LIMIT = 7;
 const OVERVIEW_NOTICE_TRANSITION_MS = 220;
+const DASHBOARD_PANEL_TRANSITION_MS = 650;
 
 function getNextNavigationSuggestionIndex(currentIndex, key, count) {
   if (!count) return -1;
@@ -178,6 +179,7 @@ function DashboardPage({
   const navigate = useNavigate();
   const [showSubjectsPopup, setShowSubjectsPopup] = useState(false);
   const [activePanel, setActivePanel] = useState(null);
+  const [renderedPanel, setRenderedPanel] = useState(null);
   const [searchInput, setSearchInput]   = useState("");
   const [isDragging, setIsDragging]     = useState(false);
   const [attachments, setAttachments] = useState([]);
@@ -199,6 +201,7 @@ function DashboardPage({
   const voiceAssistantRef = useRef(voiceAssistant);
   voiceAssistantRef.current = voiceAssistant;
   const panelContentRef = useRef(null);
+  const panelCloseTimerRef = useRef(null);
   const voiceEntryHintClaimedRef = useRef(false);
   const overviewNoticeDismissTimerRef = useRef(null);
   const suggestionListId = useId();
@@ -232,6 +235,21 @@ function DashboardPage({
   }, [clearOverviewNoticeDismissTimer]);
 
   useEffect(() => clearOverviewNoticeDismissTimer, [clearOverviewNoticeDismissTimer]);
+
+  const clearPanelCloseTimer = useCallback(() => {
+    if (panelCloseTimerRef.current !== null) {
+      window.clearTimeout(panelCloseTimerRef.current);
+      panelCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const openPanel = useCallback((panelId) => {
+    clearPanelCloseTimer();
+    setRenderedPanel(panelId);
+    setActivePanel(panelId);
+  }, [clearPanelCloseTimer]);
+
+  useEffect(() => clearPanelCloseTimer, [clearPanelCloseTimer]);
 
   useEffect(() => {
     if (!location.state?.focusGlobalAsk) return undefined;
@@ -294,7 +312,7 @@ function DashboardPage({
     const panelId = DASHBOARD_PANEL_HASHES[location.hash.toLowerCase()];
     if (!panelId) return undefined;
     if (activePanel !== panelId) {
-      setActivePanel(panelId);
+      openPanel(panelId);
       return undefined;
     }
 
@@ -306,7 +324,7 @@ function DashboardPage({
       panelContentRef.current?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activePanel, location.hash]);
+  }, [activePanel, location.hash, openPanel]);
 
   useEffect(() => runDashboardGoalReminderShortcut({
     cancel: (frame) => window.cancelAnimationFrame(frame),
@@ -573,7 +591,17 @@ function DashboardPage({
         hash: "",
       }, { replace: true });
     }
-    setActivePanel((prev) => (prev === id ? null : id));
+    if (activePanel !== id) {
+      openPanel(id);
+      return;
+    }
+
+    clearPanelCloseTimer();
+    setActivePanel(null);
+    panelCloseTimerRef.current = window.setTimeout(() => {
+      setRenderedPanel(null);
+      panelCloseTimerRef.current = null;
+    }, DASHBOARD_PANEL_TRANSITION_MS);
   };
 
   const handleMicStop = ({ reason }) => {
@@ -856,7 +884,7 @@ function DashboardPage({
         role={activePanel ? "region" : undefined}
         tabIndex={activePanel ? -1 : undefined}
       >
-        {activePanel === "suggestions" && (
+        {renderedPanel === "suggestions" && (
           <div className="db-panel-inner db-panel-enter" key="suggestions">
             <SmartSuggestion
               academicLevel={academicLevel}
@@ -866,12 +894,12 @@ function DashboardPage({
             />
           </div>
         )}
-        {activePanel === "progress" && (
+        {renderedPanel === "progress" && (
           <div className="db-panel-inner db-panel-enter" key="progress">
             <ProgressBar1 academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} variant="dashboard" />
           </div>
         )}
-        {activePanel === "review" && (
+        {renderedPanel === "review" && (
           <div className="db-panel-inner db-panel-enter" key="review">
             <WeeklyReview
               academicLevel={academicLevel}

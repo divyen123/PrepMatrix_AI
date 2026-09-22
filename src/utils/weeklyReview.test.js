@@ -11,6 +11,7 @@ function metrics(completedTasks, totalTasks, overrides = {}) {
     remainingTasks: Math.max(totalTasks - completedTasks, 0),
     firstPendingTask: completedTasks < totalTasks ? "DBMS - Transactions" : null,
     weakSubject: "DBMS",
+    mostCompletedSubject: "Operating Systems",
     ...overrides,
   };
 }
@@ -35,7 +36,13 @@ test("classifies exact progress below 50 percent as early", () => {
 });
 
 test("keeps exact 50 through 79 percent in the progress state", () => {
-  assert.equal(buildWeeklyReview(metrics(50, 100)).state, "progress");
+  const review = buildWeeklyReview(metrics(50, 100));
+
+  assert.equal(review.state, "progress");
+  assert.deepEqual(
+    review.highlights.find(({ label }) => label === "Most completed subject"),
+    { label: "Most completed subject", value: "Operating Systems" },
+  );
   assert.equal(buildWeeklyReview(metrics(79, 100)).state, "progress");
 });
 

@@ -3729,6 +3729,15 @@ body.dark .stored-search-field {
   color: #ca8a04;
 }
 
+.weekly-review-highlights article.is-most-completed-subject {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.24);
+}
+
+.weekly-review-highlights article.is-most-completed-subject > span {
+  color: #16a34a;
+}
+
 .weekly-review-actions {
   display: grid;
   gap: 12px;
@@ -3820,6 +3829,17 @@ body.has-bg-image .weekly-review-highlights article.is-priority-subject {
 body.dark .weekly-review-highlights article.is-priority-subject > span,
 body.has-bg-image .weekly-review-highlights article.is-priority-subject > span {
   color: #facc15;
+}
+
+body.dark .weekly-review-highlights article.is-most-completed-subject,
+body.has-bg-image .weekly-review-highlights article.is-most-completed-subject {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(74, 222, 128, 0.24);
+}
+
+body.dark .weekly-review-highlights article.is-most-completed-subject > span,
+body.has-bg-image .weekly-review-highlights article.is-most-completed-subject > span {
+  color: #4ade80;
 }
 
 @media (max-width: 720px) {
@@ -23069,6 +23089,8 @@ body.dark .db-search-input:focus,
   grid-template-columns: 190px minmax(0, 1fr);
   margin: 0 auto;
   max-width: 760px;
+  position: relative;
+  left: clamp(12px, 2vw, 30px);
   width: 100%;
 }
 
@@ -23104,7 +23126,44 @@ body.dark .db-search-input:focus,
 .db-progress-milestone p {
   color: var(--text-muted);
   font-weight: 700;
-  margin: 8px 0 0;
+  margin: 0;
+}
+
+.db-progress-milestone-detail {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+body .db-progress-planner-link {
+  align-items: center;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--text-muted);
+  display: inline-flex;
+  flex: 0 0 20px;
+  height: 20px;
+  justify-content: center;
+  min-height: 20px;
+  min-width: 20px;
+  padding: 0 !important;
+  transition: color 180ms ease, transform 180ms ease;
+  width: 20px;
+}
+
+body .db-progress-planner-link:hover,
+body .db-progress-planner-link:focus-visible {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--accent);
+  transform: translateX(2px);
+}
+
+body .db-progress-planner-link::after {
+  content: none !important;
 }
 
 .db-progress-today {
@@ -23135,6 +23194,7 @@ body.dark .db-search-input:focus,
     gap: 22px;
     grid-template-columns: 1fr;
     justify-items: center;
+    left: 0;
   }
 
   .db-progress-details {

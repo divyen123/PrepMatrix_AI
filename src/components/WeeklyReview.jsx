@@ -40,7 +40,14 @@ function WeeklyReview({ academicLevel = "College", academicTrack = "General", sc
     <section aria-label="Weekly review" className="weekly-review-output">
       <div className="weekly-review-highlights">
         {visibleReview.highlights.filter((item) => item.label !== "Remaining").map((item) => (
-          <article className={item.label === "Priority subject" ? "is-priority-subject" : undefined} key={item.label}>
+          <article
+            className={item.label === "Priority subject"
+              ? "is-priority-subject"
+              : item.label === "Most completed subject"
+                ? "is-most-completed-subject"
+                : undefined}
+            key={item.label}
+          >
             <span>{item.label}</span>
             <strong>{item.value}</strong>
           </article>

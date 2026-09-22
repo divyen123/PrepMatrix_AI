@@ -1,4 +1,6 @@
 import { useEffect, useMemo } from "react";
+import { ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import confetti from "canvas-confetti";
 import { toast } from "../utils/toast";
 import successSound from "../assets/success.mp3";
@@ -7,6 +9,7 @@ import { academicProfileStorageKey } from "../utils/academicProfileScope";
 import CometDial from "./CometDial";
 
 function ProgressBar1({ academicProfileDataId = "", schedule, completed, variant = "analytics" }) {
+  const navigate = useNavigate();
   const safeSchedule = useMemo(() => (Array.isArray(schedule) ? schedule : []), [schedule]);
   const safeCompleted = Array.isArray(completed) ? completed : [];
   const metrics = getPlannerMetrics(schedule, completed);
@@ -93,7 +96,20 @@ function ProgressBar1({ academicProfileDataId = "", schedule, completed, variant
         <div className="db-progress-details">
           <div className="db-progress-milestone">
             <strong>{milestoneLabel}</strong>
-            <p>{milestoneDetail}</p>
+            <div className="db-progress-milestone-detail">
+              <p>{milestoneDetail}</p>
+              {metrics.totalTasks > 0 && progress < 100 && (
+                <button
+                  aria-label="Open Planner"
+                  className="db-progress-planner-link"
+                  onClick={() => navigate("/planner")}
+                  title="Open Planner"
+                  type="button"
+                >
+                  <ArrowRight aria-hidden="true" size={15} strokeWidth={2.4} />
+                </button>
+              )}
+            </div>
           </div>
           <div className="db-progress-today">
             <span>Today</span>

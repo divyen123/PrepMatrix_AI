@@ -18,10 +18,11 @@ function getReviewContext(academicLevel, academicTrack) {
   return ` · ${level} (${track})`;
 }
 
-function getPendingHighlights(completedTasks, totalTasks, remainingTasks, weakSubject) {
+function getPendingHighlights(completedTasks, totalTasks, remainingTasks, weakSubject, mostCompletedSubject) {
   return [
     { label: "Completed", value: `${completedTasks}/${totalTasks} topics completed` },
     { label: "Priority subject", value: weakSubject || "Follow planner order" },
+    { label: "Most completed subject", value: mostCompletedSubject || "Follow planner progress" },
     { label: "Remaining", value: topicCount(remainingTasks) },
   ];
 }
@@ -41,6 +42,7 @@ export function buildWeeklyReview(
     "the next unchecked topic in Planner"
   );
   const weakSubject = cleanLabel(metrics.weakSubject);
+  const mostCompletedSubject = cleanLabel(metrics.mostCompletedSubject);
   const context = getReviewContext(academicLevel, academicTrack);
 
   if (remainingTasks === 0) {
@@ -64,7 +66,8 @@ export function buildWeeklyReview(
     completedTasks,
     totalTasks,
     remainingTasks,
-    weakSubject
+    weakSubject,
+    mostCompletedSubject
   );
   const continueAction = metrics.firstPendingTask
     ? `Continue with ${firstPendingTask}.`
