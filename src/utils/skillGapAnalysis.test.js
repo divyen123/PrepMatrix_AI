@@ -76,3 +76,75 @@ test("excludes a skill explicitly marked unnecessary without hiding another skil
 
   assert.deepEqual(result.requestedSkills.map((item) => item.skill), ["React"]);
 });
+
+test("compares a software developer role with skills actually present in the resume", () => {
+  const result = analyzeSkillGap({
+    resumeText: "Skills\nGit, SQL\nExperience\nBuilt and tested a reporting service using SQL.",
+    jobDescription: "Software developer",
+  });
+
+  assert.deepEqual(result.roleNames, ["Software developer"]);
+  assert.equal(result.inputType, "role");
+  assert.deepEqual(result.matched.map((item) => item.skill), ["Testing", "SQL"]);
+  assert.deepEqual(result.needsEvidence.map((item) => item.skill), ["Git"]);
+  assert.ok(result.notShown.some((item) => item.skill === "Data structures"));
+  assert.ok(result.notShown.some((item) => item.skill === "Debugging"));
+  assert.equal(result.requestedSkills.some((item) => item.requirement), false);
+});
+
+test("combines overlapping UI design and frontend role profiles without duplicate skills", () => {
+  const result = analyzeSkillGap({
+    draft: { skills: ["Figma", "HTML", "CSS"], projects: [{ highlights: ["Designed a Figma prototype and built a responsive HTML interface."] }] },
+    jobDescription: "UI designer, frontend developer",
+  });
+
+  assert.deepEqual(result.roleNames, ["UI/UX designer", "Frontend developer"]);
+  const skills = result.requestedSkills.map((item) => item.skill);
+  assert.equal(new Set(skills).size, skills.length);
+  assert.ok(result.matched.some((item) => item.skill === "Figma"));
+  assert.ok(result.matched.some((item) => item.skill === "HTML"));
+  assert.ok(result.notShown.some((item) => item.skill === "JavaScript"));
+  assert.ok(result.notShown.some((item) => item.skill === "User research"));
+});
+
+test("does not add a role baseline to a job description with explicit requirements", () => {
+  const result = analyzeSkillGap({
+    jobDescription: "Software developer. React and Docker required.",
+  });
+
+  assert.deepEqual(result.requestedSkills.map((item) => item.skill), ["Docker", "React"]);
+  assert.equal("roleNames" in result, false);
+});
+
+test("includes explicitly named skills alongside a short role title", () => {
+  const result = analyzeSkillGap({
+    draft: { skills: ["TypeScript"] },
+    jobDescription: "Frontend developer, TypeScript",
+  });
+
+  assert.equal(result.inputType, "role");
+  assert.equal(result.requestedSkills.filter((item) => item.skill === "TypeScript").length, 1);
+  assert.deepEqual(result.needsEvidence.map((item) => item.skill), ["TypeScript"]);
+});
+
+test("accepts a role title pasted with a trailing newline", () => {
+  const result = analyzeSkillGap({ jobDescription: "Software developer\n" });
+  assert.equal(result.inputType, "role");
+  assert.ok(result.notShown.length > 0);
+});
+
+test("compares non-technical roles against the selected resume text", () => {
+  const result = analyzeSkillGap({
+    resumeText: "Skills\nAccounting, Microsoft Excel",
+    jobDescription: "Accountant",
+  });
+
+  assert.deepEqual(result.roleNames, ["Accountant"]);
+  assert.deepEqual(result.notShown.map((item) => item.skill), ["Bookkeeping", "Communication"]);
+  assert.deepEqual(result.needsEvidence.map((item) => item.skill), ["Accounting", "Microsoft Excel"]);
+});
+
+test("does not fabricate requirements for an unknown role title", () => {
+  const result = analyzeSkillGap({ jobDescription: "Rocket pilot" });
+  assert.deepEqual(result, { matched: [], needsEvidence: [], notShown: [], requestedSkills: [] });
+});

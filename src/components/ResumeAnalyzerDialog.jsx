@@ -5,9 +5,6 @@ import {
   ClipboardPaste,
   FileSearch,
   FileText,
-  Lightbulb,
-  ListChecks,
-  ShieldCheck,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -29,7 +26,8 @@ function hasResumeContent(draft) {
     || draft.tools.length
     || draft.experience.some((item) => item.role || item.highlights.some(Boolean))
     || draft.projects.some((item) => item.name || item.technologies || item.highlights.some(Boolean))
-    || draft.certifications.some((item) => item.name),
+    || draft.certifications.some((item) => item.name)
+    || draft.achievements.some((item) => item.title || item.description),
   );
 }
 
@@ -37,30 +35,6 @@ const SOURCE_OPTIONS = [
   { id: "builder", label: "Current draft", icon: FileText },
   { id: "upload", label: "Upload resume", icon: UploadCloud },
   { id: "paste", label: "Paste text", icon: ClipboardPaste },
-];
-
-const RESULT_GROUPS = [
-  {
-    id: "matched",
-    title: "Supported in your resume",
-    subtitle: "The resume gives a concrete example of these requirements.",
-    icon: CheckCircle2,
-    empty: "No requirements have clear supporting examples yet.",
-  },
-  {
-    id: "needsEvidence",
-    title: "Add stronger evidence",
-    subtitle: "These appear in your resume, but need an experience or project example.",
-    icon: ListChecks,
-    empty: "No skills are waiting for stronger evidence.",
-  },
-  {
-    id: "notShown",
-    title: "Not shown in your resume",
-    subtitle: "The job mentions these, but this resume does not. You may already know them.",
-    icon: Lightbulb,
-    empty: "Every recognized requirement appears somewhere in your resume.",
-  },
 ];
 
 export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, onEditResume, resumeBuilder, userProfile }) {
@@ -80,6 +54,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
   const [fileLoading, setFileLoading] = useState(false);
   const [error, setError] = useState("");
   const [results, setResults] = useState(null);
+  const foundSkills = results ? [...results.matched, ...results.needsEvidence] : [];
   const [isClosing, setIsClosing] = useState(false);
   const uploadSequence = useRef(0);
   const exitTimer = useRef(null);
@@ -185,7 +160,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
     setError("");
     setResults(null);
     if (!jobDescription.trim()) {
-      setError("Paste the job description to compare its requirements with your resume.");
+      setError("Enter a job role or paste a job description.");
       return;
     }
     if (source === "builder" && !builderHasContent) {
@@ -204,7 +179,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
     });
     setResults(nextResults);
     if (!nextResults.requestedSkills.length) {
-      setError("No specific skills were recognized in that job description. Try including its requirements or qualifications section.");
+      setError("Couldn’t identify the role or its skills. Try a more specific job title or paste the requirements.");
     }
   };
 
@@ -226,7 +201,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
       >
         <header className="resume-analyzer-dialog-header">
           <div>
-            <h2 id="resume-analyzer-dialog-title">Compare your resume with a job description and see where to add clearer proof of your skills.</h2>
+            <h2 id="resume-analyzer-dialog-title">Find skills missing from your resume for a job role or description.</h2>
           </div>
           <button aria-label="Close resume analyzer" className="resume-analyzer-dialog-close" onClick={() => requestClose()} ref={closeRef} type="button"><X size={20} aria-hidden="true" /></button>
         </header>
@@ -288,21 +263,20 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
         <section className="resume-analyzer-card resume-analyzer-input-card" aria-labelledby="resume-analyzer-job-title">
           <div className="resume-analyzer-card__heading">
             <span className="resume-analyzer-step">02</span>
-            <div><h2 id="resume-analyzer-job-title">Target job description</h2><p>Paste the role&apos;s requirements and qualifications.</p></div>
+            <div><h2 id="resume-analyzer-job-title">Job role or description</h2><p>Enter a job title or paste its requirements.</p></div>
           </div>
           <div className="resume-analyzer-field resume-analyzer-job-field">
             <textarea
-              aria-label="Target job description"
+              aria-label="Job role or description"
               maxLength={MAX_JOB_DESCRIPTION_LENGTH}
               onChange={(event) => { setJobDescription(event.target.value); setResults(null); setError(""); }}
-              placeholder="Paste the job description, especially its skills and requirements…"
+              placeholder="e.g. Software developer, or paste a job description…"
               rows={7}
               value={jobDescription}
             />
           </div>
           <div className="resume-analyzer-actions">
-            <span>Comparison uses the text you provide.</span>
-            <button disabled={fileLoading} onClick={handleAnalyze} type="button"><FileSearch size={18} aria-hidden="true" /> Check Skill Gaps</button>
+            <button disabled={fileLoading} onClick={handleAnalyze} type="button"><FileSearch size={18} aria-hidden="true" /> Find Missing Skills</button>
           </div>
         </section>
       </div>
@@ -311,28 +285,23 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
 
       {results && results.requestedSkills.length > 0 && (
         <section className="resume-analyzer-results" aria-label="Skill gap results" aria-live="polite" ref={resultsRef}>
-          <header className="resume-analyzer-results__heading">
-            <div><span className="resume-analyzer-eyebrow">Comparison complete</span><h2>What this role asks for</h2><p>{results.requestedSkills.length} specific requirements recognized in the job description.</p></div>
-            <span className="resume-analyzer-results__count">{results.requestedSkills.length} skills reviewed</span>
-          </header>
-          <div className="resume-analyzer-result-grid">
-            {RESULT_GROUPS.map(({ id, title, subtitle, icon: Icon, empty }) => (
-              <section className={`resume-analyzer-result-group resume-analyzer-result-group--${id}`} key={id}>
-                <header><span className="resume-analyzer-result-group__icon">{createElement(Icon, { size: 18, "aria-hidden": "true" })}</span><div><h3>{title}</h3><p>{subtitle}</p></div><b>{results[id].length}</b></header>
-                <div className="resume-analyzer-result-list">
-                  {results[id].length ? results[id].map((item) => (
-                    <article className="resume-analyzer-result-item" key={item.skill}>
-                      <strong>{item.skill}</strong>
-                      {item.requirement && <p><span>Job:</span> {item.requirement}</p>}
-                      {item.evidence && <p><span>Resume:</span> {item.evidence}</p>}
-                      {item.action && <small>{item.action}</small>}
-                    </article>
-                  )) : <p className="resume-analyzer-result-empty">{empty}</p>}
-                </div>
-              </section>
-            ))}
+          <div className="resume-analyzer-result-panel">
+            <h2>Missing from your resume</h2>
+            {results.notShown.length ? (
+              <ul className="resume-analyzer-skill-list">
+                {results.notShown.map(({ skill }) => <li key={skill}>{skill}</li>)}
+              </ul>
+            ) : <p className="resume-analyzer-result-empty">No missing skills found.</p>}
           </div>
-          <p className="resume-analyzer-caveat"><ShieldCheck size={16} aria-hidden="true" /> This checks explicit wording in the supplied text. “Not shown” means the resume did not mention a recognized skill; it does not measure your ability.</p>
+          {foundSkills.length > 0 && (
+            <div className="resume-analyzer-result-panel resume-analyzer-result-panel--found">
+              <h3>Found in your resume</h3>
+              <ul className="resume-analyzer-skill-list">
+                {foundSkills.map(({ skill }) => <li key={skill}>{skill}</li>)}
+              </ul>
+            </div>
+          )}
+          {results.inputType === "role" && <p className="resume-analyzer-role-note">These are common skills for the role. Check the job posting for exact requirements.</p>}
         </section>
       )}
         </div>
