@@ -47,3 +47,87 @@ body .momentum-history-dialog .momentum-history-close:focus-visible { outline: 2
 @media (prefers-reduced-motion: reduce) { .momentum-page, .momentum-icon-button svg { transition: none; } }
 @media (max-width: 600px) { .momentum-title-row { gap: 4px; } .momentum-title-row h3 { font-size: 17px; } .global-momentum-sources article { padding: 10px; } }
 @media (max-width: 600px) { .momentum-history-dialog .study-history-header { padding: 14px 16px; } .momentum-history-dialog .study-history-content { padding: 4px 16px; } .momentum-history-dialog .study-history-footer { padding: 8px 16px; } }
+
+.momentum-comet-dial {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.momentum-comet-dial .comet-dial__figure {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 800;
+  color: var(--text-main, var(--text, #ffffff));
+}
+
+.momentum-comet-dial .comet-dial__sublabel {
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted, rgba(160, 175, 200, 0.7));
+  margin-top: 2px;
+}
+
+/* CodeMatrix insights popover in Global Momentum */
+.codematrix-insights-popover {
+  width: min(320px, calc(100vw - 48px));
+}
+
+.codematrix-reward-box {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-muted, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.codematrix-reward-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.codematrix-reward-status span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.codematrix-reward-status strong {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.codematrix-reward-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+
+.codematrix-reward-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.codematrix-reward-box p {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+

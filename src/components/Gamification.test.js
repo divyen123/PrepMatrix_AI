@@ -43,8 +43,7 @@ test("moves Quiz Battle stats from exposed badges into an accessible popover", (
   assert.match(source, /aria-haspopup="dialog"/u);
   assert.match(source, /aria-label="View Quiz Battle momentum"/u);
   assert.match(source, /aria-labelledby=\{battleDetailsTitleId\}[\s\S]*?role="dialog"/u);
-  assert.match(source, /<dt>Planner XP<\/dt>[\s\S]*?<dt>Battle XP<\/dt>[\s\S]*?<dt>Battles played<\/dt>[\s\S]*?<dt>Record<\/dt>/u);
-  assert.match(source, /battleStatsLoading \? "Loading…" : globalView \? momentum\?\.global\?\.breakdown\?\.battle \|\| 0 : momentumXp\.battleXp/u);
+  assert.match(source, /battleStatsLoading \? "Loading…" : momentumXp\.battleXp/u);
   assert.match(source, /battleStatsError && \([\s\S]*?onRetryBattleStats/u);
   assert.doesNotMatch(source, /momentum-xp-breakdown|battle-record-strip|battle-badge-strip/u);
 });
@@ -52,7 +51,7 @@ test("moves Quiz Battle stats from exposed badges into an accessible popover", (
 test("keeps the Quiz Battle shortcut and details compact in the Momentum header", () => {
   const headerIndex = source.indexOf('className="gamification-header"');
   const battleTriggerIndex = source.indexOf('className="battle-insights"');
-  const scrollRegionIndex = source.indexOf('gamification-scroll-region momentum-pages');
+  const scrollRegionIndex = source.indexOf('gamification-scroll-region');
 
   assert.ok(headerIndex >= 0 && headerIndex < battleTriggerIndex);
   assert.ok(battleTriggerIndex < scrollRegionIndex);

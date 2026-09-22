@@ -43,6 +43,9 @@ export default function CometDial({
   max = 100,
   step = 1,
   unit = '%',
+  sublabel,
+  children,
+  figureSize,
   label = 'Level',
   accent = '#f5f5f5',
   ink = '#fdfdfd',
@@ -346,7 +349,9 @@ export default function CometDial({
         '--cd-ink': ink,
         '--cd-readout': readoutColor || ink,
         '--cd-size': `${size}px`,
-        '--cd-figure': `${Math.round(size * 0.16)}px`
+        '--cd-figure': figureSize
+          ? (typeof figureSize === 'number' ? `${figureSize}px` : figureSize)
+          : `${Math.round(size * 0.16)}px`
       }}
     >
       <svg
@@ -359,7 +364,7 @@ export default function CometDial({
         aria-valuemin={min}
         aria-valuemax={max}
         aria-valuenow={target.current}
-        aria-valuetext={`${target.current}${unit}`}
+        aria-valuetext={`${target.current}${unit || (sublabel ? ` ${sublabel}` : '')}`}
         aria-disabled={disabled || undefined}
         onPointerDown={down}
         onKeyDown={key}
@@ -380,10 +385,15 @@ export default function CometDial({
         <circle ref={headRef} className="comet-dial__head" r={thickness * 1.8} />
       </svg>
       <div className="comet-dial__readout" aria-hidden="true">
-        <span className="comet-dial__value">
-          <span ref={figure} className="comet-dial__figure" />
-          {unit ? <span className="comet-dial__unit">{unit}</span> : null}
-        </span>
+        {children ?? (
+          <>
+            <span className="comet-dial__value">
+              <span ref={figure} className="comet-dial__figure" />
+              {unit ? <span className="comet-dial__unit">{unit}</span> : null}
+            </span>
+            {sublabel ? <span className="comet-dial__sublabel">{sublabel}</span> : null}
+          </>
+        )}
       </div>
     </div>
   );

@@ -32,10 +32,10 @@ test("analyzer dialog offers comparison inputs and uses a populated current draf
     assert.match(markup, /Alex Example/u);
     assert.match(markup, /Frontend Engineer/u);
     assert.doesNotMatch(markup, /The comparison uses its skills/u);
-    assert.match(markup, /<h2 id="resume-analyzer-job-title">Job role or description<\/h2>/u);
+    assert.match(markup, /id="resume-analyzer-job-title">Enter a job title or paste its requirements\./u);
     assert.match(markup, /aria-label="Job role or description"/u);
     assert.doesNotMatch(markup, /Resume Builder \/ Resume Analyzer/u);
-    assert.match(markup, /Review Resume/u);
+    assert.match(markup, />\s*Review\s*<\/button>/u);
   } finally {
     await vite.close();
   }

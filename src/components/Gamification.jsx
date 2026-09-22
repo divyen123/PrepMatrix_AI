@@ -3,6 +3,7 @@ import { Swords, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { combinedMomentumXp } from "../utils/quizBattleUi";
+import CometDial from "./CometDial";
 import "./Gamification.css";
 import './MomentumViews.css';
 
@@ -136,7 +137,6 @@ function Gamification({
       <div className="gamification-orb" aria-hidden="true" />
       <div className="gamification-header">
         <div>
-          <span className="section-tag">Momentum</span>
           <div className="momentum-title-row"><h3>Study momentum</h3>
           </div><p className="momentum-view-label">Current schedule · tasks, exams and quizzes</p>
         </div>
@@ -260,13 +260,22 @@ function Gamification({
       <div className="gamification-scroll-region">
         {momentumError && <p className="momentum-refresh-error" role="status">Assessment XP could not be refreshed. <button type="button" onClick={onRetryMomentum}>Retry</button></p>}
         <div className="xp-ring-wrap">
-          <div
-            className="xp-ring"
-            style={{ "--xp-progress": `${Math.max(levelProgress, 4)}%` }}
-          >
-            <span>{xp}</span>
-            <small>XP</small>
-          </div>
+          <CometDial
+            accent="var(--accent)"
+            className="momentum-comet-dial"
+            figureSize={26}
+            ink="var(--text)"
+            label="Study momentum XP"
+            max={Math.max(100, level * 100)}
+            min={Math.max(0, (level - 1) * 100)}
+            readOnly
+            size={138}
+            sublabel="XP"
+            sweep={310}
+            thickness={6}
+            unit=""
+            value={xp}
+          />
           <div className="momentum-stats-grid">
             <article>
               <span>Level</span>

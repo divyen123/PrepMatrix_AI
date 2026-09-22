@@ -59,8 +59,10 @@
 .comet-dial__readout {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
 }
 
@@ -69,7 +71,7 @@
   align-items: baseline;
   gap: 0.06em;
   font-size: var(--cd-figure);
-  font-weight: 500;
+  font-weight: 700;
   line-height: 1;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
@@ -79,6 +81,18 @@
 .comet-dial__unit {
   font-size: 0.5em;
   opacity: 0.5;
+}
+
+.comet-dial__sublabel {
+  display: block;
+  font-size: clamp(0.58rem, calc(var(--cd-size) * 0.075), 0.76rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+  margin-top: 3px;
+  line-height: 1.1;
+  text-align: center;
 }
 
 .comet-dial[data-disabled] {
