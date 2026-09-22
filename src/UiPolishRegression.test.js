@@ -41,10 +41,10 @@ test("desktop content keeps one centered width across sidebar states", () => {
 test("marks the active sidebar page with a smoothly animated size increase", () => {
   assert.match(
     appStyles,
-    /\.app-sidebar \.sidebar-nav \.sidebar-link-label\s*\{[^}]*font-size: 0\.95rem;[^}]*font-weight: 600;[^}]*transition: font-size 240ms cubic-bezier\(0\.16, 1, 0\.3, 1\);/u,
+    /\.app-sidebar \.sidebar-nav \.sidebar-link-label\s*\{[^}]*font-size: 0\.95rem;[^}]*font-weight: var\(--font-weight-normal, 400\);[^}]*transition: font-size 240ms cubic-bezier\(0\.16, 1, 0\.3, 1\);/u,
   );
   assert.match(
     appStyles,
-    /\.app-sidebar \.sidebar-nav \.sidebar-link\.active \.sidebar-link-label\s*\{[^}]*font-size: 1\.04rem;[^}]*font-weight: 600;/u,
+    /\.app-sidebar \.sidebar-nav \.sidebar-link\.active \.sidebar-link-label\s*\{[^}]*font-size: 1\.08rem;[^}]*font-weight: var\(--font-weight-bold, 600\);/u,
   );
 });

@@ -146,6 +146,8 @@ const CHAT_FOCUSABLE_SELECTOR = [
   "[tabindex]:not([tabindex=\"-1\"])",
 ].join(", ");
 
+const CHAT_PORTAL_EXIT_DURATION_MS = 340;
+
 function getChatFocusableElements(container) {
   if (!container) return [];
   return Array.from(container.querySelectorAll(CHAT_FOCUSABLE_SELECTOR)).filter(
@@ -200,6 +202,7 @@ function Chatbot({
   const chatInputRef = useRef(null);
   const previouslyFocusedChatRef = useRef(null);
   const chatWasOpenRef = useRef(false);
+  const chatCloseTimerRef = useRef(null);
 
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
@@ -232,6 +235,7 @@ function Chatbot({
   );
 
   const [open, setOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [input, setInput] = useState("");
   const [pendingAutoSendMessage, setPendingAutoSendMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -275,6 +279,39 @@ function Chatbot({
       : []
   ));
   const isNewChat = !childMode && !activeSessionId && messages.length === 0 && !loading;
+
+  const clearChatCloseTimer = useCallback(() => {
+    if (chatCloseTimerRef.current !== null) {
+      window.clearTimeout(chatCloseTimerRef.current);
+      chatCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const openChat = useCallback(() => {
+    clearChatCloseTimer();
+    setIsClosing(false);
+    setOpen(true);
+  }, [clearChatCloseTimer]);
+
+  const closeChat = useCallback(() => {
+    if (!open || isClosing) return;
+
+    setOpen(false);
+    const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (prefersReducedMotion) {
+      setIsClosing(false);
+      return;
+    }
+
+    setIsClosing(true);
+    clearChatCloseTimer();
+    chatCloseTimerRef.current = window.setTimeout(() => {
+      chatCloseTimerRef.current = null;
+      setIsClosing(false);
+    }, CHAT_PORTAL_EXIT_DURATION_MS);
+  }, [clearChatCloseTimer, isClosing, open]);
+
+  useEffect(() => clearChatCloseTimer, [clearChatCloseTimer]);
 
   useEffect(() => {
     const justOpened = open && !chatWasOpenRef.current;
@@ -467,7 +504,7 @@ function Chatbot({
     if (event.key === "Escape") {
       if (event.defaultPrevented) return;
       event.preventDefault();
-      setOpen(false);
+      closeChat();
       return;
     }
 
@@ -492,7 +529,7 @@ function Chatbot({
       event.preventDefault();
       first.focus({ preventScroll: true });
     }
-  }, []);
+  }, [closeChat]);
 
   const handleExecuteCode = useCallback((launch) => {
     if (typeof onOpenCodeMatrix !== "function") return;
@@ -639,7 +676,7 @@ function Chatbot({
   useEffect(() => {
     const handleOpenChat = (event) => {
       const requestedMessage = typeof event.detail?.message === "string" ? event.detail.message : "";
-      setOpen(true);
+      openChat();
       const nextContext = normalizeChatAssistantContext(event.detail?.context);
       if (event.detail?.createNewChat || nextContext) {
         handleNewChat(nextContext);
@@ -651,7 +688,7 @@ function Chatbot({
     };
     window.addEventListener("openPrepMatrixAIChat", handleOpenChat);
     return () => window.removeEventListener("openPrepMatrixAIChat", handleOpenChat);
-  }, [handleNewChat]);
+  }, [handleNewChat, openChat]);
 
   const openSessionActionsMenu = useCallback((session, left, top, trigger = null) => {
     sessionMenuTriggerRef.current = trigger;
@@ -1250,7 +1287,7 @@ function Chatbot({
   useEffect(() => {
     const openChatSession = (event) => {
       const sessionId = event.detail?.sessionId;
-      setOpen(true);
+      openChat();
       if (sessionId) {
         fetchSessions();
         handleSelectSession(sessionId);
@@ -1258,7 +1295,7 @@ function Chatbot({
     };
 
     window.sendToChatbot = (voiceText) => {
-      setOpen(true);
+      openChat();
       return new Promise((resolve) => {
         let settled = false;
         const settle = (result) => {
@@ -1282,12 +1319,18 @@ function Chatbot({
     };
 
     window.sendToChatbotAndWait = async (voiceText) => {
-      setOpen(true);
+      openChat();
       return sendMessage(voiceText);
     };
 
-    window.openStudyAssistant = () => setOpen(true);
-    window.toggleStudyAssistant = () => setOpen((current) => !current);
+    window.openStudyAssistant = openChat;
+    window.toggleStudyAssistant = () => {
+      if (open) {
+        closeChat();
+        return;
+      }
+      openChat();
+    };
 
     // Allow the dashboard search bar to open the chatbot's file picker
     window.triggerChatAttachment = () => {
@@ -1320,7 +1363,16 @@ function Chatbot({
       delete window.addChatbotAttachments;
       delete window.removeChatbotAttachment;
     };
-  }, [assistantContext, fetchSessions, handleSelectSession, sendMessage, prepareAttachmentFiles]);
+  }, [
+    assistantContext,
+    closeChat,
+    fetchSessions,
+    handleSelectSession,
+    open,
+    openChat,
+    prepareAttachmentFiles,
+    sendMessage,
+  ]);
 
   // Broadcast attachment count to the dashboard so it can show a badge
   useEffect(() => {
@@ -1546,13 +1598,20 @@ function Chatbot({
         style={{ display: "none" }}
       />
 
-      {open ? createPortal(
+      {(open || isClosing) ? createPortal(
         <>
-          <div className="chat-modal-backdrop" onClick={() => setOpen(false)} role="presentation" />
+          <div
+            aria-hidden="true"
+            className={`chat-modal-backdrop${isClosing ? " is-closing" : ""}`}
+            onClick={closeChat}
+            role="presentation"
+          />
           <section
+            aria-hidden={isClosing || undefined}
             aria-label={chatExperience.heading}
-            aria-modal="true"
-            className={`chatbot sidebar-chatbot-portal${childMode ? " is-kids-chat" : ""}`}
+            aria-modal={isClosing ? undefined : "true"}
+            className={`chatbot sidebar-chatbot-portal${childMode ? " is-kids-chat" : ""}${isClosing ? " is-closing" : ""}`}
+            inert={isClosing ? "" : undefined}
             onKeyDown={handleChatDialogKeyDown}
             ref={chatDialogRef}
             role="dialog"
@@ -1871,7 +1930,7 @@ function Chatbot({
                   </div>
                 </div>
 
-                <button aria-label="Close study assistant chat" className="chat-close-btn" onClick={() => setOpen(false)} type="button">
+                <button aria-label="Close study assistant chat" className="chat-close-btn" onClick={closeChat} type="button">
                   <X size={16} />
                 </button>
               </div>

@@ -22170,7 +22170,7 @@ body.has-bg-image .app-sidebar .sidebar-nav {
 .app-sidebar .sidebar-nav .sidebar-link-label {
   display: inline-block;
   font-size: 0.95rem;
-  font-weight: 400;
+  font-weight: var(--font-weight-normal, 400);
   transition: font-size 240ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -22192,7 +22192,7 @@ body.has-bg-image .app-sidebar .sidebar-nav {
 .app-sidebar .sidebar-nav .sidebar-link.active .sidebar-link-label {
   color: var(--sidebar-active-ink) !important;
   font-size: 1.08rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold, 600);
 }
 
 .app-sidebar .sidebar-nav .sidebar-link.active .sidebar-link-icon {
@@ -24548,5 +24548,108 @@ body .prepmatrix-swipe-toast-host .swipe-toast__close:hover {
 @media (max-width: 820px) {
   body .Toastify__toast-container .prepmatrix-swipe-toast-host {
     width: 100%;
+  }
+}
+
+/* The Study Assistant expands from and returns to its lower-right corner. */
+.chat-modal-backdrop {
+  animation: chat-backdrop-enter 300ms var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+.chat-modal-backdrop.is-closing {
+  animation: chat-backdrop-exit 260ms ease-in both;
+  pointer-events: none;
+}
+
+.sidebar-chatbot-portal {
+  transform-origin: right bottom;
+  will-change: opacity, transform;
+  animation: chat-genie-shell-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sidebar-chatbot-portal.is-closing {
+  animation: chat-genie-shell-exit 340ms cubic-bezier(0.55, 0, 1, 0.45) both;
+  pointer-events: none;
+}
+
+.sidebar-chatbot-portal .chat-box {
+  will-change: clip-path;
+  animation: chat-genie-mask-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sidebar-chatbot-portal.is-closing .chat-box {
+  animation: chat-genie-mask-exit 340ms cubic-bezier(0.55, 0, 1, 0.45) both;
+}
+
+@keyframes chat-backdrop-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes chat-backdrop-exit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes chat-genie-shell-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 42px, 0) scaleX(0.14) scaleY(0.16);
+  }
+  58% {
+    opacity: 1;
+    transform: translate3d(0, 7px, 0) scaleX(0.8) scaleY(0.94);
+  }
+  82% {
+    opacity: 1;
+    transform: translate3d(0, -2px, 0) scaleX(1.012) scaleY(0.992);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes chat-genie-shell-exit {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  42% {
+    opacity: 0.9;
+    transform: translate3d(0, 9px, 0) scaleX(0.74) scaleY(0.92);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 42px, 0) scaleX(0.14) scaleY(0.16);
+  }
+}
+
+@keyframes chat-genie-mask-enter {
+  0% { clip-path: inset(58% 0 0 92% round 24px); }
+  58% { clip-path: inset(4% 0 0 16% round 24px); }
+  82%, 100% { clip-path: inset(0 round 24px); }
+}
+
+@keyframes chat-genie-mask-exit {
+  0% { clip-path: inset(0 round 24px); }
+  42% { clip-path: inset(5% 0 0 22% round 24px); }
+  100% { clip-path: inset(58% 0 0 92% round 24px); }
+}
+
+@media (max-width: 768px) {
+  .sidebar-chatbot-portal {
+    transform-origin: center bottom;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-modal-backdrop,
+  .chat-modal-backdrop.is-closing,
+  .sidebar-chatbot-portal,
+  .sidebar-chatbot-portal.is-closing,
+  .sidebar-chatbot-portal .chat-box,
+  .sidebar-chatbot-portal.is-closing .chat-box {
+    animation-duration: 1ms !important;
   }
 }

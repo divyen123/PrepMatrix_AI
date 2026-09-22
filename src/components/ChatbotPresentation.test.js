@@ -29,3 +29,24 @@ test("renders the conversation-loading status without a message bubble", () => {
     /\.sidebar-chatbot-portal \.chat-loading-message\s*\{[\s\S]*?background:\s*transparent !important;[\s\S]*?border:\s*0 !important;[\s\S]*?box-shadow:\s*none !important;/u,
   );
 });
+
+test("keeps the portal mounted through the genie-style close transition", () => {
+  assert.match(componentSource, /const \[isClosing, setIsClosing\] = useState\(false\);/u);
+  assert.match(
+    componentSource,
+    /const closeChat = useCallback\(\(\) => \{[\s\S]*?setOpen\(false\);[\s\S]*?setIsClosing\(true\);[\s\S]*?window\.setTimeout\([\s\S]*?CHAT_PORTAL_EXIT_DURATION_MS/u,
+  );
+  assert.match(componentSource, /\{\(open \|\| isClosing\) \? createPortal\(/u);
+  assert.match(componentSource, /sidebar-chatbot-portal\$\{childMode \? " is-kids-chat" : ""\}\$\{isClosing \? " is-closing" : ""\}/u);
+});
+
+test("defines reversible genie motion and respects reduced-motion preferences", () => {
+  assert.match(stylesheet, /@keyframes chat-genie-shell-enter/u);
+  assert.match(stylesheet, /@keyframes chat-genie-shell-exit/u);
+  assert.match(stylesheet, /@keyframes chat-genie-mask-enter/u);
+  assert.match(stylesheet, /@keyframes chat-genie-mask-exit/u);
+  assert.match(
+    stylesheet,
+    /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.sidebar-chatbot-portal\.is-closing[\s\S]*?animation-duration:\s*1ms !important;/u,
+  );
+});

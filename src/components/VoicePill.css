@@ -88,6 +88,13 @@ button.voice-pill {
   }
 }
 
+/* The chat and dashboard mics keep their subtle fill feedback on hover,
+   without inheriting the app-wide button shadow. */
+.voice-pill.chat-voice-pill:hover,
+.voice-pill.db-mic-btn:hover {
+  box-shadow: none !important;
+}
+
 .voice-pill[data-state="listening"] .voice-pill__capsule {
   clip-path: inset(0 0 round var(--vp-radius));
 }
