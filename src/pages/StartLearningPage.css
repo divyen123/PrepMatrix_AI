@@ -3477,7 +3477,7 @@ body .learning-career-code-action svg {
 .learning-career-analysis-grid li,
 .learning-career-analysis-grid summary,
 .learning-career-analysis-grid aside {
-  color: var(--text-muted);
+  color: var(--text);
   font-size: 0.65rem;
   line-height: 1.58;
 }

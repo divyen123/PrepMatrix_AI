@@ -1746,7 +1746,7 @@ function ExamPage({
           ) : null}
         </div>
         <div className="exam-page__header-actions">
-          {section === "results" && overviewBackControl}
+          {section !== "overview" && overviewBackControl}
           {section === "results" && (
             <button
               aria-label="Refresh results"
@@ -1763,8 +1763,7 @@ function ExamPage({
       </header>
 
       {section !== "results" && (
-        <div className={`exam-eligibility-row${section !== "overview" ? " has-overview-back" : ""}`}>
-          {overviewBackControl}
+        <div className="exam-eligibility-row">
           <section className={`exam-eligibility-banner ${isOnlineExamEligible ? "is-eligible" : "is-locked"}`} aria-live="polite">
             <div className="exam-eligibility-icon" aria-hidden="true">
               {isOnlineExamEligible ? <CheckCircle2 size={20} /> : <ShieldAlert size={20} />}
@@ -1844,7 +1843,7 @@ function ExamPage({
       {section === "attend" && (
         <div className="exam-attend-layout">
           <section className="card exam-attend-form">
-            <div className="exam-section-title"><div><span className="section-tag">Attend exam</span><h2>Prepare a secure online exam</h2></div><div className="exam-heading-icon"><GraduationCap size={21} /></div></div>
+            <div className="exam-section-title"><div><h2>Prepare a secure online exam</h2></div><div className="exam-heading-icon"><GraduationCap size={21} /></div></div>
             <div className="exam-form-grid">
               <label className="field-stack">
                 Subject
@@ -1915,9 +1914,10 @@ function ExamPage({
           </section>
 
           <aside className="card exam-integrity-card">
-            <ShieldAlert size={25} />
-            <span className="section-tag">Integrity rules</span>
-            <h3>Stay inside the exam</h3>
+            <div className="exam-integrity-heading">
+              <ShieldAlert size={25} />
+              <h3>Stay inside the exam</h3>
+            </div>
             <ol><li>Fullscreen is required throughout the attempt.</li><li>Tab changes and fullscreen exits count as violations.</li><li>The first three violations show warnings.</li><li>The fourth violation submits automatically.</li><li>The timer continues after refresh or connection loss.</li></ol>
           </aside>
         </div>

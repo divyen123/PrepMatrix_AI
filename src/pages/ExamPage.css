@@ -608,19 +608,25 @@ body.has-bg-image.no-glass-cards .exam-page .exam-feature-card:not(:disabled) {
   top: 90px;
 }
 
-.exam-integrity-card > svg {
-  margin-bottom: 13px;
+.exam-integrity-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.exam-integrity-heading > svg {
+  flex: 0 0 auto;
   color: var(--exam-warning);
 }
 
 .exam-integrity-card h3 {
-  margin: 8px 0 12px;
+  margin: 0;
 }
 
 .exam-integrity-card ol {
   display: grid;
   gap: 10px;
-  margin: 0;
+  margin: 14px 0 0;
   padding-left: 19px;
   color: var(--text-secondary);
   font-size: 0.76rem;

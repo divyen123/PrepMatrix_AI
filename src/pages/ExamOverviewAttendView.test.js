@@ -37,7 +37,7 @@ test("presents all Overview destinations as full interactive cards", () => {
   assert.doesNotMatch(overviewSource, /className="card exam-feature-card/u);
 });
 
-test("places the accessible compact overview return beside the eligibility banner", () => {
+test("places the accessible compact overview return in the header actions area", () => {
   assert.doesNotMatch(pageSource, /className="exam-page__tabs"/u);
   assert.doesNotMatch(pageSource, /aria-label="Exam workspace sections"/u);
   assert.doesNotMatch(stylesheet, /\.exam-page__tabs/u);
@@ -47,16 +47,15 @@ test("places the accessible compact overview return beside the eligibility banne
   );
   assert.match(
     pageSource,
-    /className=\{`exam-eligibility-row\$\{section !== "overview" \? " has-overview-back" : ""\}`\}>\s*\{overviewBackControl\}\s*<section className=\{`exam-eligibility-banner/u,
+    /className="exam-page__header-actions"[\s\S]*?\{section !== "overview" && overviewBackControl\}/u,
   );
-  assert.match(
+  assert.doesNotMatch(
     pageSource,
-    /className="exam-page__header-actions"[\s\S]*?\{section === "results" && overviewBackControl\}/u,
+    /className=\{`exam-eligibility-row\$\{section !== "overview" \? " has-overview-back" : ""\}`\}/u,
   );
   const backButtonRule = stylesheet.match(/\.exam-overview-back\s*\{[^}]*\}/u)?.[0] || "";
   assert.match(backButtonRule, /width:\s*34px/u);
   assert.match(backButtonRule, /height:\s*34px/u);
-  assert.match(stylesheet, /\.exam-eligibility-row\.has-overview-back\s*\{[\s\S]*?grid-template-columns:\s*34px minmax\(0, 1fr\)/u);
   assert.match(stylesheet, /\.exam-subpage-return\s*\{/u);
   assert.match(stylesheet, /\.exam-overview-back:focus-visible/u);
 });
@@ -94,7 +93,9 @@ test("removes only the requested Attend Exam subtitle", () => {
     /Exactly 40 MCQs, 60 minutes, and server-side grading\./u,
   );
   assert.match(pageSource, /<h2>Prepare a secure online exam<\/h2>/u);
-  assert.match(pageSource, /<span className="section-tag">Attend exam<\/span>/u);
+  assert.doesNotMatch(pageSource, /<span className="section-tag">Attend exam<\/span>/u);
+  assert.doesNotMatch(pageSource, /<span className="section-tag">Integrity rules<\/span>/u);
+  assert.match(pageSource, /className="exam-integrity-heading"/u);
   assert.match(pageSource, /<h3>Stay inside the exam<\/h3>/u);
 });
 
