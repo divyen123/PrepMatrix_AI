@@ -39,7 +39,7 @@ function ProgressBar1({ academicProfileDataId = "", schedule, completed, variant
         : `Next milestone: ${nextMilestone}%`;
   const milestoneDetail =
     metrics.totalTasks === 0
-      ? "Add subjects and generate a timetable to unlock milestone tracking."
+      ? ""
       : progress === 100
         ? "Every planned task is complete. Strong finish."
         : `${tasksNeeded} more ${tasksNeeded === 1 ? "task" : "tasks"} needed`;
@@ -96,20 +96,22 @@ function ProgressBar1({ academicProfileDataId = "", schedule, completed, variant
         <div className="db-progress-details">
           <div className={`db-progress-milestone${metrics.totalTasks === 0 ? " is-empty" : ""}`}>
             <strong>{milestoneLabel}</strong>
-            <div className="db-progress-milestone-detail">
-              <p>{milestoneDetail}</p>
-              {metrics.totalTasks > 0 && progress < 100 && (
-                <button
-                  aria-label="Open Planner"
-                  className="db-progress-planner-link"
-                  onClick={() => navigate("/planner")}
-                  title="Open Planner"
-                  type="button"
-                >
-                  <ArrowRight aria-hidden="true" size={15} strokeWidth={2.4} />
-                </button>
-              )}
-            </div>
+            {milestoneDetail ? (
+              <div className="db-progress-milestone-detail">
+                <p>{milestoneDetail}</p>
+                {metrics.totalTasks > 0 && progress < 100 && (
+                  <button
+                    aria-label="Open Planner"
+                    className="db-progress-planner-link"
+                    onClick={() => navigate("/planner")}
+                    title="Open Planner"
+                    type="button"
+                  >
+                    <ArrowRight aria-hidden="true" size={15} strokeWidth={2.4} />
+                  </button>
+                )}
+              </div>
+            ) : null}
           </div>
           <div className="db-progress-today">
             <span>Today</span>
@@ -158,7 +160,7 @@ function ProgressBar1({ academicProfileDataId = "", schedule, completed, variant
         <div>
           <strong>{milestoneLabel}</strong>
         </div>
-        <p>{milestoneDetail}</p>
+        {milestoneDetail ? <p>{milestoneDetail}</p> : null}
       </div>
 
       <div className="progress-text">

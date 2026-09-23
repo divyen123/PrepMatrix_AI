@@ -427,20 +427,19 @@ test("positions weekly review and smart suggestions contents slightly down from 
   );
 });
 
-test("aligns and softens the empty progress milestone detail", () => {
+test("omits the empty milestone detail prompt when total tasks is zero", () => {
   const progressSource = readFileSync(new URL("../components/Progressbar1.jsx", import.meta.url), "utf8");
-  const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
 
+  assert.doesNotMatch(
+    progressSource,
+    /Add subjects and generate a timetable to unlock milestone tracking/u,
+  );
   assert.match(
     progressSource,
-    /className=\{`db-progress-milestone\$\{metrics\.totalTasks === 0 \? " is-empty" : ""\}`\}/u,
+    /metrics\.totalTasks === 0\s*\?\s*""/u,
   );
   assert.match(
-    stylesheet,
-    /\.db-progress-milestone\.is-empty \.db-progress-milestone-detail\s*\{[^}]*justify-content:\s*flex-start;/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.db-progress-milestone\.is-empty p\s*\{[^}]*font-weight:\s*600;[^}]*text-align:\s*left;/u,
+    progressSource,
+    /\{milestoneDetail \? \(\s*<div className="db-progress-milestone-detail">/u,
   );
 });
