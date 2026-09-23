@@ -122,14 +122,24 @@ function SubjectList({
 
   return (
     <section className="card subject-library-card" id="subject-library">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+      <div
+        className="subject-library-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: "1.5rem",
+          position: "relative",
+          zIndex: 1300,
+        }}
+      >
         <div>
           <h2 style={{ margin: 0 }}>Subject library</h2>
           <p className="card-subtext" style={{ marginTop: "0.5rem", marginBottom: 0 }}>
             Select a subject to add optional topics and shape how it appears in your study schedule.
           </p>
         </div>
-        <div className="subject-library-actions" style={{ display: "flex", gap: "10px", alignItems: "center", position: "relative" }}>
+        <div className="subject-library-actions" style={{ display: "flex", gap: "10px", alignItems: "center", position: "relative", zIndex: 1300 }}>
           {subjects.length > 0 && (
             <button
               aria-expanded={goalPopupOpen}

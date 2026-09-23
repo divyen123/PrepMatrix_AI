@@ -39,9 +39,9 @@
 .learning-subject-mastery-header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   gap: 14px;
-  padding: 22px 24px 19px;
+  padding: 20px 24px 18px;
   border-bottom: 1px solid var(--border);
 }
 

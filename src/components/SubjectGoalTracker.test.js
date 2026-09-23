@@ -60,6 +60,16 @@ test("GoalTracker popup is completely opaque and styled across all background th
   assert.match(stylesheet, /body\.has-bg-image\.dark \.goal-tracker-popup\s*\{[\s\S]*?background:\s*#111a24 !important;/u);
 });
 
+test("GoalTracker close button has compact circle shape with slight red tone and centered icon, and SubjectList elevates popup", () => {
+  const subjectListCss = readFileSync(new URL("./SubjectList.css", import.meta.url), "utf8");
+  assert.match(subjectListCss, /\.subject-library-card\s*\{[\s\S]*?overflow:\s*visible !important;/u);
+  assert.match(subjectListCss, /\.subject-library-card \.subject-library-actions\s*\{[\s\S]*?z-index:\s*1300;/u);
+  assert.match(stylesheet, /\.goal-tracker-close-btn\s*\{[\s\S]*?border-radius:\s*50% !important;/u);
+  assert.match(stylesheet, /\.goal-tracker-close-btn\s*\{[\s\S]*?justify-content:\s*center !important;/u);
+  assert.match(stylesheet, /\.goal-tracker-close-btn\s*\{[\s\S]*?rgba\(239,\s*68,\s*68/u);
+  assert.match(stylesheet, /body\.dark \.goal-tracker-close-btn\s*\{[\s\S]*?rgba\(239,\s*68,\s*68/u);
+});
+
 test("renders GoalTracker with mock subjects and calculates metrics", async () => {
   const vite = await createServer({
     appType: "custom",

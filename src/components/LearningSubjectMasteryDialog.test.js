@@ -56,6 +56,7 @@ test("renders an accessible per-notebook subject mastery comparison", async () =
     assert.match(markup, /aria-modal="true"/u);
     assert.match(markup, /id="learning-subject-mastery-dialog"/u);
     assert.match(markup, /Subject mastery/u);
+    assert.doesNotMatch(markup, /Learning progress/u);
     assert.doesNotMatch(markup, /Learned topics compared/u);
     assert.match(markup, /Data Analytics Notebook/u);
     assert.match(markup, /1 of 2 learned/u);

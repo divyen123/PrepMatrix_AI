@@ -229,7 +229,6 @@ function LearningSubjectMasteryDialog({
             <BrainCircuit size={22} />
           </span>
           <div>
-            <span className="learning-subject-mastery-eyebrow">Learning progress</span>
             <h2 id={titleId}>Subject mastery</h2>
           </div>
           <button

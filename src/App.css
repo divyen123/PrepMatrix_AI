@@ -23117,6 +23117,12 @@ body.dark .db-search-input:focus,
   width: 100%;
 }
 
+.db-panel-inner--suggestions,
+.db-panel-inner--review {
+  padding-top: 2.35rem;
+  width: 100%;
+}
+
 @keyframes db-fade-up {
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0);    }
@@ -23183,6 +23189,7 @@ body.has-bg-image .smart-suggestion-cta.is-yellow {
 }
 
 .db-panel-inner .smart-suggestion-card {
+  margin-top: 0.5rem;
   margin-inline: auto;
   max-width: 1000px;
   width: 94%;
@@ -23228,6 +23235,11 @@ body.has-bg-image .smart-suggestion-cta.is-yellow {
 .db-panel-inner .weekly-review-card {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+.db-panel-inner .weekly-review-output,
+.db-panel-inner .weekly-review-empty-state {
+  margin-top: 0.5rem;
 }
 
 .db-progress-status {
@@ -25043,11 +25055,16 @@ body .prepmatrix-swipe-toast-host .swipe-toast__close:hover {
 
 
 /* -- Goal Tracker Popup in Subject Library -- */
+.subject-library-card {
+  overflow: visible !important;
+}
+
 .subject-library-actions {
   display: flex;
   gap: 10px;
   align-items: center;
   position: relative;
+  z-index: 1300;
 }
 
 .track-goals-btn {
@@ -25167,27 +25184,91 @@ body.has-bg-image.dark .goal-tracker-popup {
 }
 
 .goal-tracker-close-btn {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  min-height: 26px !important;
+  max-width: 26px !important;
+  max-height: 26px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 1px solid rgba(239, 68, 68, 0.24) !important;
+  border-radius: 50% !important;
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: #e11d48 !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.08) !important;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease !important;
+}
+
+.goal-tracker-close-btn::before,
+.goal-tracker-close-btn::after {
+  display: none !important;
+}
+
+.goal-tracker-close-btn svg {
+  display: block !important;
+  width: 13px !important;
+  height: 13px !important;
+  margin: auto !important;
+  flex-shrink: 0 !important;
+  stroke: currentColor !important;
+  stroke-width: 2.4px !important;
 }
 
 .goal-tracker-close-btn:hover {
-  background: rgba(15, 23, 42, 0.08);
-  color: var(--text);
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.42) !important;
+  color: #be123c !important;
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.18) !important;
 }
 
-body.dark .goal-tracker-close-btn:hover,
+.goal-tracker-close-btn:active {
+  transform: scale(0.94);
+}
+
+.goal-tracker-close-btn:focus-visible {
+  outline: 2px solid rgba(239, 68, 68, 0.5) !important;
+  outline-offset: 1px !important;
+}
+
+body.dark .goal-tracker-close-btn {
+  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: rgba(248, 113, 113, 0.3) !important;
+  color: #fb7185 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.dark .goal-tracker-close-btn:hover {
+  background: rgba(239, 68, 68, 0.28) !important;
+  border-color: rgba(248, 113, 113, 0.5) !important;
+  color: #fecdd3 !important;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25) !important;
+}
+
+body.has-bg-image:not(.dark) .goal-tracker-close-btn {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.26) !important;
+  color: #e11d48 !important;
+}
+
+body.has-bg-image.dark .goal-tracker-close-btn {
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(248, 113, 113, 0.32) !important;
+  color: #fb7185 !important;
+}
+
 body.has-bg-image.dark .goal-tracker-close-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  background: rgba(239, 68, 68, 0.3) !important;
+  border-color: rgba(248, 113, 113, 0.55) !important;
+  color: #ffffff !important;
 }
 
 .goal-tracker-popup .goal-tracker-layout {

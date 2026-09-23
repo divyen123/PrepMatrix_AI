@@ -1,10 +1,12 @@
 import jsPDF from "jspdf";
 import { Download, FileText, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import api from "../utils/apiClient";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import "./ReportModal.css";
+
+const REPORT_MODAL_EXIT_DURATION_MS = 200;
 
 const PDF_COLORS = {
   accent: [11, 143, 116],
@@ -15,6 +17,18 @@ const PDF_COLORS = {
   paper: [255, 255, 255],
   panel: [248, 250, 252],
 };
+
+function getProgressTone(rate) {
+  if (rate >= 70) return "high"; // Green: more completed
+  if (rate >= 40) return "mid";  // Yellow: completed mid
+  return "low";                  // Red: less completed
+}
+
+function getPdfToneColor(rate) {
+  if (rate >= 70) return [16, 185, 129]; // Green
+  if (rate >= 40) return [245, 158, 11];  // Yellow
+  return [239, 68, 68];                  // Red
+}
 
 function ReportModal({
   completed = [],
@@ -29,6 +43,36 @@ function ReportModal({
   const previousFocusRef = useRef(null);
   const [attempts, setAttempts] = useState([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const closingRef = useRef(false);
+  const closeTimerRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  const handleClose = useCallback(() => {
+    if (closingRef.current) return;
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+
+    if (prefersReducedMotion) {
+      onCloseRef.current?.();
+      return;
+    }
+
+    closingRef.current = true;
+    setIsClosing(true);
+
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      onCloseRef.current?.();
+    }, REPORT_MODAL_EXIT_DURATION_MS);
+  }, []);
 
   const metrics = useMemo(
     () => getPlannerMetrics(schedule, completed),
@@ -62,7 +106,7 @@ function ReportModal({
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose?.();
+        handleClose();
         return;
       }
 
@@ -90,12 +134,13 @@ function ReportModal({
 
     return () => {
       window.cancelAnimationFrame(focusFrame);
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
       document.body.classList.remove("modal-open");
       document.body.style.overflow = previousBodyOverflow;
       document.removeEventListener("keydown", handleKeyDown);
       previousFocusRef.current?.focus?.({ preventScroll: true });
     };
-  }, [onClose]);
+  }, [handleClose]);
 
   const averageQuiz = attempts.length
     ? Math.round(
@@ -127,6 +172,8 @@ function ReportModal({
       ? `Quiz performance stands at ${averageQuiz}% average.`
       : "Complete a topic quiz to benchmark retention.",
   ].filter(Boolean);
+
+  const planTone = getProgressTone(metrics.completionRate);
 
   const exportReportPDF = () => {
     setIsExporting(true);
@@ -185,17 +232,18 @@ function ReportModal({
 
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(18);
-      setTextColor(PDF_COLORS.accent);
+      const planColor = getPdfToneColor(metrics.completionRate);
+      setTextColor(planColor);
       pdf.text(`${metrics.completionRate}%`, pageWidth - margin - 8, y + 13, { align: "right" });
       pdf.setFontSize(7.5);
       setTextColor(PDF_COLORS.muted);
       pdf.text("OVERALL COMPLETION", pageWidth - margin - 8, y + 20, { align: "right" });
 
-      // Progress bar
+      // Progress bar with tone color
       const barWidth = 60;
       setFillColor([226, 232, 238]);
       pdf.roundedRect(pageWidth - margin - barWidth - 8, y + 23, barWidth, 3, 1.5, 1.5, "F");
-      setFillColor(PDF_COLORS.accent);
+      setFillColor(planColor);
       pdf.roundedRect(pageWidth - margin - barWidth - 8, y + 23, (barWidth * Math.min(Math.max(metrics.completionRate, 0), 100)) / 100, 3, 1.5, 1.5, "F");
       y += 38;
 
@@ -243,6 +291,7 @@ function ReportModal({
 
         subjectWatchlist.forEach(([sName, sStat], i) => {
           const sy = y + 10 + i * 11;
+          const sPct = sStat.total ? Math.round((sStat.done / sStat.total) * 100) : 0;
           pdf.setFont("helvetica", "bold");
           pdf.setFontSize(9);
           setTextColor(PDF_COLORS.ink);
@@ -250,8 +299,8 @@ function ReportModal({
 
           pdf.setFont("helvetica", "normal");
           pdf.setFontSize(8.5);
-          setTextColor(PDF_COLORS.muted);
-          pdf.text(`${sStat.done}/${sStat.total} done (${sStat.pending} pending)`, pageWidth - margin - 6, sy, { align: "right" });
+          setTextColor(getPdfToneColor(sPct));
+          pdf.text(`${sStat.done}/${sStat.total} done (${sPct}%)`, pageWidth - margin - 6, sy, { align: "right" });
         });
         y += subCardH + 10;
       }
@@ -305,9 +354,9 @@ function ReportModal({
 
   return createPortal(
     <div
-      className="report-modal-backdrop"
+      className={`report-modal-backdrop${isClosing ? " is-closing" : ""}`}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose?.();
+        if (e.target === e.currentTarget) handleClose();
       }}
       role="presentation"
     >
@@ -315,7 +364,7 @@ function ReportModal({
         aria-describedby="report-modal-subtitle"
         aria-labelledby="report-modal-title"
         aria-modal="true"
-        className="report-modal"
+        className={`report-modal${isClosing ? " is-closing" : ""}`}
         ref={dialogRef}
         role="dialog"
       >
@@ -335,7 +384,8 @@ function ReportModal({
           <button
             aria-label="Close report dialog"
             className="report-modal-close"
-            onClick={onClose}
+            disabled={isClosing}
+            onClick={handleClose}
             ref={closeButtonRef}
             type="button"
           >
@@ -344,11 +394,13 @@ function ReportModal({
         </header>
 
         <div className="report-modal-body">
-          {/* Completion summary banner */}
+          {/* Completion summary banner with color-toned bar */}
           <div className="report-progress-banner">
             <div className="report-progress-info">
               <span className="report-progress-label">Plan Completion</span>
-              <strong>{metrics.completionRate}%</strong>
+              <strong className={`report-progress-val is-${planTone}`}>
+                {metrics.completionRate}%
+              </strong>
               <small>
                 {metrics.completedTasks} of {metrics.totalTasks} tasks completed
               </small>
@@ -362,7 +414,7 @@ function ReportModal({
               role="progressbar"
             >
               <div
-                className="report-progress-fill"
+                className={`report-progress-fill is-${planTone}`}
                 style={{ width: `${Math.min(Math.max(metrics.completionRate, 0), 100)}%` }}
               />
             </div>
@@ -396,24 +448,25 @@ function ReportModal({
             </div>
           </div>
 
-          {/* Subjects breakdown */}
+          {/* Subjects breakdown with color-toned bars */}
           {subjectWatchlist.length > 0 && (
             <div className="report-section-block">
               <h3 className="report-section-heading">Subject Progress</h3>
               <div className="report-subject-list">
                 {subjectWatchlist.map(([sName, sStat]) => {
                   const pct = sStat.total ? Math.round((sStat.done / sStat.total) * 100) : 0;
+                  const subTone = getProgressTone(pct);
                   return (
                     <div className="report-subject-item" key={sName}>
                       <div className="report-subject-row">
                         <span className="report-subject-name">{sName}</span>
-                        <span className="report-subject-stats">
+                        <span className={`report-subject-stats is-${subTone}`}>
                           {sStat.done}/{sStat.total} done ({pct}%)
                         </span>
                       </div>
                       <div className="report-mini-track">
                         <div
-                          className="report-mini-fill"
+                          className={`report-mini-fill is-${subTone}`}
                           style={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }}
                         />
                       </div>
@@ -440,15 +493,16 @@ function ReportModal({
 
         <footer className="report-modal-footer">
           <button
-            className="secondary-btn report-footer-cancel-btn"
-            onClick={onClose}
+            className="report-footer-cancel-btn"
+            disabled={isClosing}
+            onClick={handleClose}
             type="button"
           >
             Close
           </button>
           <button
-            className="secondary-btn report-export-pdf-btn"
-            disabled={isExporting}
+            className="report-export-pdf-btn"
+            disabled={isExporting || isClosing}
             onClick={exportReportPDF}
             type="button"
           >

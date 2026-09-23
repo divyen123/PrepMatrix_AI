@@ -605,6 +605,7 @@ body .subject-topic-item button:focus-visible {
 
 .subject-plan-footer-actions {
   flex: 0 0 auto;
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 6px;

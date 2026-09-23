@@ -1,3 +1,22 @@
+.subject-library-card {
+  overflow: visible !important;
+}
+
+.subject-library-card .subject-library-header {
+  position: relative;
+  z-index: 1300;
+}
+
+.subject-library-card .subject-library-actions {
+  position: relative;
+  z-index: 1300;
+}
+
+.subject-library-card .subjects-scroll-container {
+  position: relative;
+  z-index: 1;
+}
+
 .subject-library-card .subject-row {
   gap: 8px;
   padding: 0;

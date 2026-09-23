@@ -54,4 +54,6 @@ test("subject planning layout has one compact scroll owner", () => {
   assert.match(close, /border-radius:\s*999px !important;/u);
   assert.match(close, /background:\s*rgba\(239, 68, 68, 0\.1\) !important;/u);
   assert.match(source, /<X size=\{15\} \/>/u);
+  assert.doesNotMatch(source, /Saving updates this subject in the current timetable/u);
+  assert.match(stylesheet, /\.subject-plan-footer-actions\s*\{[\s\S]*?margin-left:\s*auto;/u);
 });

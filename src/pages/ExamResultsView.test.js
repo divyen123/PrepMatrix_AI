@@ -47,7 +47,7 @@ test("shows the empty results message without a card container", () => {
 test("compacts only the results heading, grid, and result cards", () => {
   assert.match(
     stylesheet,
-    /\.exam-results-section \.exam-section-title\s*\{[\s\S]*?margin-bottom:\s*12px/u,
+    /\.exam-results-section \.exam-section-title\s*\{[\s\S]*?margin-bottom:\s*24px/u,
   );
   assert.match(
     stylesheet,

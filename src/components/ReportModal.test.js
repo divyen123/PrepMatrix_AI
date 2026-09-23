@@ -41,7 +41,7 @@ test("renders View report button opposite to the section title on AnalyticsPage"
 
 test("ReportModal popup is 100% opaque and styled across all background themes", () => {
   assert.match(reportModalCss, /\.report-modal\s*\{[\s\S]*?background:\s*#ffffff !important;/u);
-  assert.match(reportModalCss, /\.report-modal\s*\{[\s\S]*?opacity:\s*1 !important;/u);
+  assert.match(reportModalCss, /\.report-modal\s*\{[\s\S]*?opacity:\s*1;/u);
   assert.match(reportModalCss, /\.report-modal\s*\{[\s\S]*?backdrop-filter:\s*none !important;/u);
   assert.match(reportModalCss, /body\.dark \.report-modal\s*\{[\s\S]*?background:\s*#121c26 !important;/u);
   assert.match(reportModalCss, /body\.has-bg-image:not\(\.dark\) \.report-modal\s*\{[\s\S]*?background:\s*#ffffff !important;/u);
@@ -59,3 +59,57 @@ test("ReportModal includes minimal report content and PDF export capabilities", 
   assert.match(reportModalSource, /Recommended Recovery/u);
   assert.match(reportModalSource, /Export report PDF/u);
 });
+
+test("ReportModal applies green, yellow, and red color tones based on completion rate", () => {
+  assert.match(reportModalSource, /function getProgressTone\(rate\)\s*\{/u);
+  assert.match(reportModalSource, /if\s*\(rate\s*>=\s*70\)\s*return\s*"high"/u);
+  assert.match(reportModalSource, /if\s*\(rate\s*>=\s*40\)\s*return\s*"mid"/u);
+  assert.match(reportModalSource, /return\s*"low"/u);
+
+  // Plan completion uses tone
+  assert.match(reportModalSource, /report-progress-fill is-\$\{planTone\}/u);
+  assert.match(reportModalSource, /report-progress-val is-\$\{planTone\}/u);
+
+  // Subject progress uses tone
+  assert.match(reportModalSource, /report-mini-fill is-\$\{subTone\}/u);
+  assert.match(reportModalSource, /report-subject-stats is-\$\{subTone\}/u);
+
+  // CSS tones defined
+  assert.match(reportModalCss, /\.report-progress-fill\.is-high[\s\S]*?#10b981/u);
+  assert.match(reportModalCss, /\.report-progress-fill\.is-mid[\s\S]*?#f59e0b/u);
+  assert.match(reportModalCss, /\.report-progress-fill\.is-low[\s\S]*?#ef4444/u);
+  assert.match(reportModalCss, /\.report-mini-fill\.is-high[\s\S]*?#10b981/u);
+  assert.match(reportModalCss, /\.report-mini-fill\.is-mid[\s\S]*?#f59e0b/u);
+  assert.match(reportModalCss, /\.report-mini-fill\.is-low[\s\S]*?#ef4444/u);
+});
+
+test("Export report PDF button maintains clear visibility across light, hover, and dark mode", () => {
+  assert.match(reportModalCss, /\.report-export-pdf-btn\s*\{[\s\S]*?color:\s*#ffffff !important;/u);
+  assert.match(reportModalCss, /\.report-export-pdf-btn:hover\s*\{[\s\S]*?color:\s*#ffffff !important;/u);
+  assert.match(reportModalCss, /body\.dark \.report-modal \.report-export-pdf-btn\s*\{[\s\S]*?color:\s*#ffffff !important;/u);
+  assert.match(reportModalCss, /body\.dark \.report-modal \.report-export-pdf-btn:hover\s*\{[\s\S]*?color:\s*#ffffff !important;/u);
+});
+
+test("ReportModal opens and closes with smooth fade-in and fade-out transitions", () => {
+  // CSS enter and exit keyframes
+  assert.match(reportModalCss, /animation:\s*reportModalFadeIn/u);
+  assert.match(reportModalCss, /@keyframes\s*reportModalFadeIn/u);
+  assert.match(reportModalCss, /\.report-modal-backdrop\.is-closing\s*\{[\s\S]*?animation:\s*reportModalFadeOut/u);
+  assert.match(reportModalCss, /@keyframes\s*reportModalFadeOut/u);
+
+  assert.match(reportModalCss, /animation:\s*reportModalSlideIn/u);
+  assert.match(reportModalCss, /@keyframes\s*reportModalSlideIn/u);
+  assert.match(reportModalCss, /\.report-modal-backdrop\.is-closing\s*\.report-modal[\s\S]*?animation:\s*reportModalSlideOut/u);
+  assert.match(reportModalCss, /@keyframes\s*reportModalSlideOut/u);
+
+  // Accessible reduced motion
+  assert.match(reportModalCss, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.report-modal/u);
+
+  // Component exit delay and class toggling
+  assert.match(reportModalSource, /REPORT_MODAL_EXIT_DURATION_MS\s*=\s*200;/u);
+  assert.match(reportModalSource, /const\s*\[isClosing,\s*setIsClosing\]\s*=\s*useState\(false\);/u);
+  assert.match(reportModalSource, /report-modal-backdrop\$\{isClosing \? " is-closing" : ""\}/u);
+  assert.match(reportModalSource, /report-modal\$\{isClosing \? " is-closing" : ""\}/u);
+  assert.match(reportModalSource, /handleClose/u);
+});
+

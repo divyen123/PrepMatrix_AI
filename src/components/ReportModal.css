@@ -8,7 +8,12 @@
   background: rgba(5, 9, 18, 0.55);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  animation: reportModalFadeIn 0.18s ease-out both;
+  animation: reportModalFadeIn 0.22s ease-out both;
+}
+
+.report-modal-backdrop.is-closing {
+  pointer-events: none;
+  animation: reportModalFadeOut 0.2s ease-in both;
 }
 
 @keyframes reportModalFadeIn {
@@ -20,6 +25,15 @@
   }
 }
 
+@keyframes reportModalFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 .report-modal {
   position: relative;
   width: min(640px, calc(100vw - 32px));
@@ -28,26 +42,54 @@
   flex-direction: column;
   overflow: hidden;
   border-radius: 22px;
-  animation: reportModalSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: reportModalSlideIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
 
   /* 100% OPAQUE DEFAULT (LIGHT) */
   background: #ffffff !important;
   color: #1e293b !important;
   border: 1px solid rgba(15, 23, 42, 0.12) !important;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22), 0 4px 14px rgba(15, 23, 42, 0.08) !important;
-  opacity: 1 !important;
+  opacity: 1;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+.report-modal-backdrop.is-closing .report-modal,
+.report-modal.is-closing {
+  pointer-events: none;
+  animation: reportModalSlideOut 0.2s cubic-bezier(0.4, 0, 1, 1) both;
 }
 
 @keyframes reportModalSlideIn {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.98);
+    transform: translateY(12px) scale(0.97);
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes reportModalSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .report-modal-backdrop,
+  .report-modal-backdrop.is-closing,
+  .report-modal,
+  .report-modal-backdrop.is-closing .report-modal,
+  .report-modal.is-closing {
+    animation: none !important;
+    transition: none !important;
   }
 }
 
@@ -104,9 +146,15 @@ body.has-bg-image.dark .report-modal {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  color: rgb(var(--accent-rgb, 11, 143, 116));
-  background: rgba(var(--accent-rgb, 11, 143, 116), 0.12);
-  border: 1px solid rgba(var(--accent-rgb, 11, 143, 116), 0.2);
+  color: #0b8f74;
+  background: rgba(11, 143, 116, 0.12);
+  border: 1px solid rgba(11, 143, 116, 0.22);
+}
+
+body.dark .report-modal-icon {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.22);
 }
 
 .report-modal-title-wrap h2 {
@@ -206,7 +254,7 @@ body.has-bg-image.dark .report-progress-banner {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgb(var(--accent-rgb, 11, 143, 116));
+  color: var(--text-muted, #64748b);
 }
 
 .report-progress-info strong {
@@ -214,6 +262,18 @@ body.has-bg-image.dark .report-progress-banner {
   font-family: "Space Grotesk", sans-serif;
   font-weight: 700;
   color: var(--text, #1e293b);
+}
+
+.report-progress-val.is-high {
+  color: #10b981 !important;
+}
+
+.report-progress-val.is-mid {
+  color: #f59e0b !important;
+}
+
+.report-progress-val.is-low {
+  color: #ef4444 !important;
 }
 
 .report-progress-info small {
@@ -224,7 +284,7 @@ body.has-bg-image.dark .report-progress-banner {
 
 .report-progress-track {
   width: 100%;
-  height: 7px;
+  height: 8px;
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.08);
   overflow: hidden;
@@ -237,8 +297,39 @@ body.dark .report-progress-track {
 .report-progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: rgb(var(--accent-rgb, 11, 143, 116));
-  transition: width 0.3s ease;
+  background: #0b8f74;
+  transition: width 0.35s ease;
+}
+
+/* PROGRESS BAR COLOR TONES (High = Green, Mid = Yellow, Low = Red) */
+.report-progress-fill.is-high,
+.report-mini-fill.is-high {
+  background: #10b981 !important; /* Green: more completed (>= 70%) */
+}
+
+.report-progress-fill.is-mid,
+.report-mini-fill.is-mid {
+  background: #f59e0b !important; /* Yellow: completed mid (40% - 69%) */
+}
+
+.report-progress-fill.is-low,
+.report-mini-fill.is-low {
+  background: #ef4444 !important; /* Red: less completed (< 40%) */
+}
+
+body.dark .report-progress-fill.is-high,
+body.dark .report-mini-fill.is-high {
+  background: #10b981 !important;
+}
+
+body.dark .report-progress-fill.is-mid,
+body.dark .report-mini-fill.is-mid {
+  background: #f59e0b !important;
+}
+
+body.dark .report-progress-fill.is-low,
+body.dark .report-mini-fill.is-low {
+  background: #ef4444 !important;
 }
 
 /* 4-METRIC GRID */
@@ -314,7 +405,7 @@ body.has-bg-image.dark .report-stat-card {
 .report-subject-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   padding: 12px 14px;
   border-radius: 12px;
   background: #f8fafc;
@@ -339,7 +430,7 @@ body.has-bg-image.dark .report-subject-list {
 .report-subject-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .report-subject-row {
@@ -360,9 +451,33 @@ body.has-bg-image.dark .report-subject-list {
   color: var(--text-muted, #64748b);
 }
 
+.report-subject-stats.is-high {
+  color: #059669;
+}
+
+.report-subject-stats.is-mid {
+  color: #d97706;
+}
+
+.report-subject-stats.is-low {
+  color: #dc2626;
+}
+
+body.dark .report-subject-stats.is-high {
+  color: #34d399;
+}
+
+body.dark .report-subject-stats.is-mid {
+  color: #fbbf24;
+}
+
+body.dark .report-subject-stats.is-low {
+  color: #f87171;
+}
+
 .report-mini-track {
   width: 100%;
-  height: 5px;
+  height: 6px;
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.08);
   overflow: hidden;
@@ -375,7 +490,8 @@ body.dark .report-mini-track {
 .report-mini-fill {
   height: 100%;
   border-radius: 999px;
-  background: rgb(var(--accent-rgb, 11, 143, 116));
+  background: #0b8f74;
+  transition: width 0.35s ease;
 }
 
 /* ACTION LIST */
@@ -426,9 +542,14 @@ body.has-bg-image.dark .report-action-list li {
   place-items: center;
   font-size: 0.72rem;
   font-weight: 700;
-  color: rgb(var(--accent-rgb, 11, 143, 116));
-  background: rgba(var(--accent-rgb, 11, 143, 116), 0.14);
+  color: #0b8f74;
+  background: rgba(11, 143, 116, 0.14);
   flex: 0 0 auto;
+}
+
+body.dark .report-action-num {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
 }
 
 /* MODAL FOOTER */
@@ -442,29 +563,153 @@ body.has-bg-image.dark .report-action-list li {
   flex: 0 0 auto;
 }
 
-.report-export-pdf-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+/* BUTTON ISOLATION: Prevent global App.css button overrides from clashing */
+body .report-modal button {
+  isolation: isolate;
+  filter: none !important;
+  text-shadow: none !important;
+}
+
+body .report-modal button::before,
+body .report-modal button::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* EXPORT PDF BUTTON: High contrast & visible text across light, dark, and hover */
+body .report-modal .report-export-pdf-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  min-height: 38px !important;
+  padding: 8px 18px !important;
+  border-radius: 11px !important;
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease !important;
+
+  /* High contrast emerald/teal in light mode */
+  background: #0b8f74 !important;
   color: #ffffff !important;
-  background: rgb(var(--accent-rgb, 11, 143, 116)) !important;
-  border: 1px solid rgb(var(--accent-rgb, 11, 143, 116)) !important;
-  font-weight: 600;
-  font-size: 0.85rem;
-  border-radius: 11px;
-  padding: 8px 16px;
-  min-height: 38px;
+  border: 1px solid #0b8f74 !important;
+  box-shadow: 0 4px 14px rgba(11, 143, 116, 0.28) !important;
 }
 
-.report-export-pdf-btn:hover {
-  filter: brightness(1.08);
+body .report-modal .report-export-pdf-btn * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none !important;
 }
 
-.report-footer-cancel-btn {
-  font-size: 0.85rem;
-  border-radius: 11px;
-  padding: 8px 14px;
-  min-height: 38px;
+body .report-modal .report-export-pdf-btn:hover {
+  background: #076b57 !important;
+  border-color: #076b57 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 18px rgba(11, 143, 116, 0.38) !important;
+  filter: none !important;
+}
+
+body .report-modal .report-export-pdf-btn:hover * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* DARK MODE: Solid crisp emerald button with pure white text */
+body.dark .report-modal .report-export-pdf-btn {
+  background: #0b8f74 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+}
+
+body.dark .report-modal .report-export-pdf-btn * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+body.dark .report-modal .report-export-pdf-btn:hover {
+  background: #0ea5e9 !important;
+  border-color: #0ea5e9 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.45) !important;
+  filter: none !important;
+}
+
+body.dark .report-modal .report-export-pdf-btn:hover * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* WALLPAPER MODES */
+body.has-bg-image .report-modal .report-export-pdf-btn {
+  background: #0b8f74 !important;
+  color: #ffffff !important;
+  border: 1px solid #0b8f74 !important;
+}
+
+body.has-bg-image .report-modal .report-export-pdf-btn * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+body.has-bg-image .report-modal .report-export-pdf-btn:hover {
+  background: #076b57 !important;
+  color: #ffffff !important;
+}
+
+body.has-bg-image.dark .report-modal .report-export-pdf-btn {
+  background: #0b8f74 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+body.has-bg-image.dark .report-modal .report-export-pdf-btn:hover {
+  background: #0ea5e9 !important;
+  color: #ffffff !important;
+}
+
+/* CLOSE BUTTON */
+body .report-modal .report-footer-cancel-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 38px !important;
+  padding: 8px 16px !important;
+  border-radius: 11px !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+
+  color: #334155 !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+body .report-modal .report-footer-cancel-btn:hover {
+  color: #0f172a !important;
+  background: #e2e8f0 !important;
+  border-color: #94a3b8 !important;
+  transform: translateY(-1px) !important;
+}
+
+body.dark .report-modal .report-footer-cancel-btn {
+  color: #e2e8f0 !important;
+  background: #1e293b !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+body.dark .report-modal .report-footer-cancel-btn:hover {
+  color: #ffffff !important;
+  background: #334155 !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  transform: translateY(-1px) !important;
 }
 
 @media (max-width: 520px) {

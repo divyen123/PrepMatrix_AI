@@ -400,3 +400,29 @@ test("offers the rotating voice hint once per real app entry and after the splas
   assert.match(stylesheet, /\.db-voice-entry-hint\s*\{[^}]*text-shadow: none;/u);
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/u);
 });
+
+test("positions weekly review and smart suggestions contents slightly down from panel buttons", () => {
+  const pageSource = readFileSync(new URL("./DashboardPage.jsx", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+
+  assert.match(
+    pageSource,
+    /className="db-panel-inner db-panel-inner--suggestions db-panel-enter"/u,
+  );
+  assert.match(
+    pageSource,
+    /className="db-panel-inner db-panel-inner--review db-panel-enter"/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.db-panel-inner--suggestions,\s*\.db-panel-inner--review\s*\{[^}]*padding-top:\s*2\.35rem;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.db-panel-inner \.smart-suggestion-card\s*\{[^}]*margin-top:\s*0\.5rem;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.db-panel-inner \.weekly-review-output,\s*\.db-panel-inner \.weekly-review-empty-state\s*\{[^}]*margin-top:\s*0\.5rem;/u,
+  );
+});

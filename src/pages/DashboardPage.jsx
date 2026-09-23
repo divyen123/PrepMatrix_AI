@@ -885,7 +885,7 @@ function DashboardPage({
         tabIndex={activePanel ? -1 : undefined}
       >
         {renderedPanel === "suggestions" && (
-          <div className="db-panel-inner db-panel-enter" key="suggestions">
+          <div className="db-panel-inner db-panel-inner--suggestions db-panel-enter" key="suggestions">
             <SmartSuggestion
               academicLevel={academicLevel}
               academicTrack={academicTrack}
@@ -896,12 +896,12 @@ function DashboardPage({
           </div>
         )}
         {renderedPanel === "progress" && (
-          <div className="db-panel-inner db-panel-enter" key="progress">
+          <div className="db-panel-inner db-panel-inner--progress db-panel-enter" key="progress">
             <ProgressBar1 academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} variant="dashboard" />
           </div>
         )}
         {renderedPanel === "review" && (
-          <div className="db-panel-inner db-panel-enter" key="review">
+          <div className="db-panel-inner db-panel-inner--review db-panel-enter" key="review">
             <WeeklyReview
               academicLevel={academicLevel}
               academicTrack={academicTrack}

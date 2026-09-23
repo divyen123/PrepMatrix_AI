@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   BookOpen,
-  CalendarDays,
   CheckCircle2,
   ChevronRight,
   Plus,
@@ -511,19 +510,12 @@ function SubjectPlanDialog({
         </div>
 
         <footer className="subject-plan-footer">
-          <div className="subject-plan-save-note">
-            {hasActiveSchedule ? (
-              <>
-                <CalendarDays aria-hidden="true" size={15} />
-                <span>Saving updates this subject in the current timetable without moving other tasks.</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 aria-hidden="true" size={15} />
-                <span>These settings will shape your first generated timetable.</span>
-              </>
-            )}
-          </div>
+          {!hasActiveSchedule && (
+            <div className="subject-plan-save-note">
+              <CheckCircle2 aria-hidden="true" size={15} />
+              <span>These settings will shape your first generated timetable.</span>
+            </div>
+          )}
           <div className="subject-plan-footer-actions">
             <button className="subject-plan-reset" disabled={!isDirty} onClick={resetPlanOptions} type="button">
               <RotateCcw size={15} />

@@ -169,7 +169,7 @@ function GoalTracker({
               onClick={onClose}
               type="button"
             >
-              <X size={16} />
+              <X aria-hidden="true" size={14} />
             </button>
           )}
         </div>
@@ -207,7 +207,7 @@ function GoalTracker({
               onClick={onClose}
               type="button"
             >
-              <X size={16} />
+              <X aria-hidden="true" size={14} />
             </button>
           )}
         </div>
