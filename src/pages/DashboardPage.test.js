@@ -427,7 +427,7 @@ test("positions weekly review and smart suggestions contents slightly down from 
   );
 });
 
-test("centers and softens the empty progress milestone detail", () => {
+test("aligns and softens the empty progress milestone detail", () => {
   const progressSource = readFileSync(new URL("../components/Progressbar1.jsx", import.meta.url), "utf8");
   const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
 
@@ -437,10 +437,10 @@ test("centers and softens the empty progress milestone detail", () => {
   );
   assert.match(
     stylesheet,
-    /\.db-progress-milestone\.is-empty \.db-progress-milestone-detail\s*\{[^}]*justify-content:\s*center;/u,
+    /\.db-progress-milestone\.is-empty \.db-progress-milestone-detail\s*\{[^}]*justify-content:\s*flex-start;/u,
   );
   assert.match(
     stylesheet,
-    /\.db-progress-milestone\.is-empty p\s*\{[^}]*font-weight:\s*600;[^}]*text-align:\s*center;[^}]*text-wrap:\s*balance;/u,
+    /\.db-progress-milestone\.is-empty p\s*\{[^}]*font-weight:\s*600;[^}]*text-align:\s*left;/u,
   );
 });

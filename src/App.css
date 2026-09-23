@@ -23321,13 +23321,12 @@ body.has-bg-image .smart-suggestion-cta.is-empty:hover {
 }
 
 .db-progress-milestone.is-empty .db-progress-milestone-detail {
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .db-progress-milestone.is-empty p {
   font-weight: 600;
-  text-align: center;
-  text-wrap: balance;
+  text-align: left;
 }
 
 .db-progress-milestone-detail {
@@ -23400,6 +23399,14 @@ body .db-progress-planner-link::after {
 
   .db-progress-details {
     align-items: center;
+    text-align: center;
+  }
+
+  .db-progress-milestone.is-empty .db-progress-milestone-detail {
+    justify-content: center;
+  }
+
+  .db-progress-milestone.is-empty p {
     text-align: center;
   }
 
