@@ -4259,7 +4259,6 @@ function StartLearningPage({
             <>
               <section className="card learning-notebook-header">
                 <div className="learning-notebook-header-copy">
-                  <span className="section-tag">Active notebook</span>
                   <h2>{activeNotebook.title}</h2>
                   <p>{activeNotebook.summary || `${activeNotebook.subjectName} organized into a focused revision workspace.`}</p>
                   <div className="learning-notebook-meta">
@@ -4269,17 +4268,6 @@ function StartLearningPage({
                     {dirty && <span className="is-unsaved">Changes pending</span>}
                     {masterySaving && <span className="is-saving">Saving changes...</span>}
                   </div>
-                  {activeNotebook.coverageWarnings.length > 0 && (
-                    <details className="learning-coverage-warning">
-                      <summary>
-                        <FileText aria-hidden="true" size={14} />
-                        Coverage note ? {activeNotebook.coverageWarnings.length}
-                      </summary>
-                      <ul>
-                        {activeNotebook.coverageWarnings.map((warning) => <li key={warning}>{warning}</li>)}
-                      </ul>
-                    </details>
-                  )}
                 </div>
                 <button
                   aria-label="Back to Start Learning home"
@@ -4795,27 +4783,23 @@ function StartLearningPage({
         )}
         {activeNotebook && careerVisible && (
           <section className="learning-career-workspace" aria-label="Placement and internship preparation">
-            <section className="card learning-career-intro">
+            <header className="learning-career-intro">
               <div className="learning-career-intro-copy">
-                <span className="section-tag"><BriefcaseBusiness size={14} /> Career preparation</span>
                 <h2>Prepare for the questions that matter</h2>
               </div>
-              <button
-                aria-label="Back to Start Learning home"
-                className="learning-workspace-return-button is-inside-card"
-                onClick={returnToPreparationChoice}
-                title="Back to Start Learning home"
-                type="button"
-              >
-                <ArrowLeft aria-hidden="true" size={16} />
-                <span>Back to Start Learning</span>
-              </button>
-              <div className="learning-career-intro-metrics">
-                <span><strong>{careerFoundationTopics.length}</strong> role areas</span>
-                <span><strong>{careerCodingTopics.length}</strong> coding patterns</span>
-                <span><strong>{parseCareerTopics(careerTopics).length}</strong> selected</span>
-              </div>
-            </section>
+              {!careerAnalysisReady && (
+                <button
+                  aria-label="Back to Start Learning home"
+                  className="learning-workspace-return-button"
+                  onClick={returnToPreparationChoice}
+                  title="Back to Start Learning home"
+                  type="button"
+                >
+                  <ArrowLeft aria-hidden="true" size={16} />
+                  <span>Back to Start Learning</span>
+                </button>
+              )}
+            </header>
 
             {careerAnalysisReady && (
               <section className="card learning-career-results" aria-live="polite">
@@ -4843,6 +4827,16 @@ function StartLearningPage({
                           ? "Updating..."
                           : activeCareerHistoryEntry?.pinned ? "Unpin" : "Pin"}
                       </span>
+                    </button>
+                    <button
+                      aria-label="Back to Start Learning home"
+                      className="learning-workspace-return-button"
+                      onClick={returnToPreparationChoice}
+                      title="Back to Start Learning home"
+                      type="button"
+                    >
+                      <ArrowLeft aria-hidden="true" size={16} />
+                      <span>Back to Start Learning</span>
                     </button>
                   </div>
                 </div>

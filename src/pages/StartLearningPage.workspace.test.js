@@ -339,19 +339,22 @@ test("places the centered Practice more topic panels at the end of Placement Pre
 });
 
 test("keeps the placement guide header focused on its pin action and hides its idle glow", () => {
-  const placementHeaderStart = pageSource.indexOf('className="card learning-career-intro"');
-  const placementHeaderEnd = pageSource.indexOf("</section>", placementHeaderStart);
+  const placementHeaderStart = pageSource.indexOf('className="learning-career-intro"');
+  const placementHeaderEnd = pageSource.indexOf("</header>", placementHeaderStart);
   const placementHeaderSource = pageSource.slice(placementHeaderStart, placementHeaderEnd);
   const resultsActionsStart = pageSource.indexOf('className="learning-career-results-actions"');
   const resultsActionsEnd = pageSource.indexOf("</div>", resultsActionsStart);
   const resultsActionsSource = pageSource.slice(resultsActionsStart, resultsActionsEnd);
 
   assert.ok(placementHeaderStart >= 0 && placementHeaderEnd > placementHeaderStart);
+  assert.ok(placementHeaderSource.includes("Prepare for the questions that matter"));
+  assert.equal(placementHeaderSource.includes("Career preparation"), false);
   assert.equal(placementHeaderSource.includes("Start with role fundamentals"), false);
   assert.ok(resultsActionsStart >= 0 && resultsActionsEnd > resultsActionsStart);
   assert.ok(resultsActionsSource.includes('className="learning-career-save"'));
   assert.ok(resultsActionsSource.includes("toggleCareerHistoryPin"));
   assert.ok(resultsActionsSource.includes("Pin"));
+  assert.ok(resultsActionsSource.includes("Back to Start Learning"));
   assert.equal(resultsActionsSource.includes("learning-career-draft-status"), false);
   assert.equal(resultsActionsSource.includes("learning-count"), false);
   assert.match(
@@ -424,20 +427,19 @@ test("expands important questions in place with an animated answer panel", () =>
   );
 });
 
-test("keeps the Start Learning return control inside opened notebook and placement cards", () => {
+test("keeps the Start Learning return control inside opened notebook and placement workspaces", () => {
   const notebookHeaderStart = pageSource.indexOf('className="card learning-notebook-header"');
   const notebookHeaderEnd = pageSource.indexOf("</section>", notebookHeaderStart);
   const notebookHeaderSource = pageSource.slice(notebookHeaderStart, notebookHeaderEnd);
-  const placementHeaderStart = pageSource.indexOf('className="card learning-career-intro"');
-  const placementHeaderEnd = pageSource.indexOf("</section>", placementHeaderStart);
-  const placementHeaderSource = pageSource.slice(placementHeaderStart, placementHeaderEnd);
+  const resultsActionsStart = pageSource.indexOf('className="learning-career-results-actions"');
+  const resultsActionsEnd = pageSource.indexOf("</div>", resultsActionsStart);
+  const resultsActionsSource = pageSource.slice(resultsActionsStart, resultsActionsEnd);
 
   assert.ok(notebookHeaderStart >= 0, "expected the opened notebook header card");
-  assert.ok(placementHeaderStart >= 0, "expected the opened placement header card");
+  assert.ok(resultsActionsStart >= 0, "expected the opened placement results actions");
   assert.ok(notebookHeaderSource.includes('className="learning-workspace-return-button is-inside-card"'));
-  assert.ok(placementHeaderSource.includes('className="learning-workspace-return-button is-inside-card"'));
-  assert.ok(stylesheet.includes('"copy back"'));
-  assert.ok(stylesheet.includes('"back"\n      "copy"'));
+  assert.ok(resultsActionsSource.includes('className="learning-workspace-return-button"'));
+  assert.ok(resultsActionsSource.includes("Back to Start Learning"));
 });
 
 test("keeps notebook tab panels mounted and transitions only the active view", () => {

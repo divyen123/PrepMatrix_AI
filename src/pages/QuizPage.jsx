@@ -854,7 +854,6 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
         >
       <section className="card quiz-builder-card">
         <div className="quiz-builder-header">
-          <span className="section-tag">Adaptive setup</span>
           <h3>Build a quiz from your exact topic</h3>
         </div>
 

@@ -51,7 +51,7 @@ test("places the accessible compact overview return beside the eligibility banne
   );
   assert.match(
     pageSource,
-    /\{section === "results" && \(\s*<div className="exam-subpage-return">\s*\{overviewBackControl\}/u,
+    /className="exam-page__header-actions"[\s\S]*?\{section === "results" && overviewBackControl\}/u,
   );
   const backButtonRule = stylesheet.match(/\.exam-overview-back\s*\{[^}]*\}/u)?.[0] || "";
   assert.match(backButtonRule, /width:\s*34px/u);

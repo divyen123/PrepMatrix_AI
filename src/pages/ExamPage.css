@@ -39,6 +39,36 @@
   white-space: nowrap;
 }
 
+.exam-page__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.exam-page__header-actions .exam-icon-btn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  box-shadow: none;
+  cursor: pointer;
+  align-self: center;
+}
+
+.exam-page__header-actions .exam-icon-btn:hover,
+.exam-page__header-actions .exam-icon-btn:focus-visible {
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.36);
+  background: rgba(var(--accent-rgb), 0.1);
+  transform: none;
+  outline: none;
+}
+
 .exam-about-btn,
 .exam-primary-btn,
 .exam-secondary-btn,
@@ -2665,7 +2695,8 @@ body.has-bg-image .exam-result-modal > section {
     flex-direction: row;
   }
 
-  .exam-about-btn {
+  .exam-about-btn,
+  .exam-page__header-actions {
     align-self: flex-end;
   }
 

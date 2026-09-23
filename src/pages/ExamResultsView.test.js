@@ -19,13 +19,13 @@ test("keeps eligibility behavior but hides its banner from View Results", () => 
   assert.match(pageSource, /aria-label="Back to Exam overview"/u);
   assert.match(
     pageSource,
-    /\{section === "results" && \(\s*<div className="exam-subpage-return">\s*\{overviewBackControl\}/u,
+    /className="exam-page__header-actions"[\s\S]*?\{section === "results" && overviewBackControl\}/u,
   );
 });
 
 test("simplifies the View Results heading without changing result behavior", () => {
   assert.match(resultsPanelSource, /<h2>Released and pending exams<\/h2>/u);
-  assert.match(resultsPanelSource, /aria-label="Refresh results"/u);
+  assert.match(pageSource, /className="exam-page__header-actions"[\s\S]*?aria-label="Refresh results"/u);
   assert.doesNotMatch(resultsPanelSource, /<span className="section-tag">View results<\/span>/u);
   assert.doesNotMatch(
     resultsPanelSource,

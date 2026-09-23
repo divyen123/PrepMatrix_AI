@@ -333,7 +333,6 @@ function PlannerPage({
               <ArrowLeft aria-hidden="true" size={19} />
             </Link>
             <div className="section-intro">
-              <span className="section-tag">{subpageCopy.tag}</span>
               <div className="planner-subpage-title-row">
                 <h2>{kidsMode && plannerView === "schedule"
                 ? "See today's learning path and mark each win"

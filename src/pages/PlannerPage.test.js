@@ -60,7 +60,7 @@ test("renders the Planner hub and isolates each workspace on its own subpage", a
 
     const scheduleMarkup = renderRoute("/planner/schedule");
     assert.match(scheduleMarkup, /aria-label="Back to Planner workspaces"[^>]*href="\/planner"/u);
-    assert.match(scheduleMarkup, /<span class="section-tag">Schedule<\/span>/u);
+    assert.doesNotMatch(scheduleMarkup, /<span class="section-tag">Schedule<\/span>/u);
     assert.match(scheduleMarkup, /<h3>Add a subject first<\/h3>/u);
     assert.match(scheduleMarkup, />Add subject</u);
     assert.doesNotMatch(scheduleMarkup, />Open Subjects</u);
@@ -75,13 +75,13 @@ test("renders the Planner hub and isolates each workspace on its own subpage", a
 
     const worktreeMarkup = renderRoute("/planner/worktree");
     assert.match(worktreeMarkup, /aria-label="Back to Planner workspaces"[^>]*href="\/planner"/u);
-    assert.match(worktreeMarkup, /<span class="section-tag">Worktree<\/span>/u);
+    assert.doesNotMatch(worktreeMarkup, /<span class="section-tag">Worktree<\/span>/u);
     assert.match(worktreeMarkup, /class="worktree-container card worktree-variant--default/u);
     assert.doesNotMatch(worktreeMarkup, /<h2>Study schedule<\/h2>|memory-review-panel/u);
 
     const recallMarkup = renderRoute("/planner/recall");
     assert.match(recallMarkup, /aria-label="Back to Planner workspaces"[^>]*href="\/planner"/u);
-    assert.match(recallMarkup, /<span class="section-tag">Recall session<\/span>/u);
+    assert.doesNotMatch(recallMarkup, /<span class="section-tag">Recall session<\/span>/u);
     assert.match(recallMarkup, /class="memory-review-panel is-standalone"/u);
     assert.match(recallMarkup, /Loading memory checks/u);
     assert.doesNotMatch(recallMarkup, /No memory checks are due right now/u);

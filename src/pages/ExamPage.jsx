@@ -1220,7 +1220,6 @@ function ResultsPanel({ results, onRefresh, userProfile }) {
     <section className="exam-results-section">
       <div className="exam-section-title">
         <div><h2>Released and pending exams</h2></div>
-        <button className="exam-icon-btn" aria-label="Refresh results" onClick={onRefresh} title="Refresh results" type="button"><RefreshCcw size={16} /></button>
       </div>
 
       <div className="exam-results-grid">
@@ -1741,12 +1740,26 @@ function ExamPage({
     <section className="page-stack exam-page">
       <header className="exam-page__header">
         <div>
-          <span className="section-tag">Exam workspace</span>
+          <h2>Exam workspace</h2>
           {section === "overview" ? (
             <p className="exam-page__header-desc">Attend secure online exams, create exact question papers, and review results after release.</p>
           ) : null}
         </div>
-        <button className="exam-about-btn" onClick={() => navigate("/exam/about")} title="How the Exam workspace works" type="button"><Info size={16} /><span>About</span></button>
+        <div className="exam-page__header-actions">
+          {section === "results" && overviewBackControl}
+          {section === "results" && (
+            <button
+              aria-label="Refresh results"
+              className="exam-icon-btn"
+              onClick={loadResults}
+              title="Refresh results"
+              type="button"
+            >
+              <RefreshCcw size={16} />
+            </button>
+          )}
+          <button className="exam-about-btn" onClick={() => navigate("/exam/about")} title="How the Exam workspace works" type="button"><Info size={16} /><span>About</span></button>
+        </div>
       </header>
 
       {section !== "results" && (
@@ -1775,11 +1788,6 @@ function ExamPage({
         </div>
       )}
 
-      {section === "results" && (
-        <div className="exam-subpage-return">
-          {overviewBackControl}
-        </div>
-      )}
 
       {section === "overview" && (
         <nav aria-label="Exam destinations" className="exam-feature-grid">

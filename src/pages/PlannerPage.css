@@ -271,13 +271,15 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
 .planner-subpage-title-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
+  width: 100%;
 }
 
 #planner-recall-badge-target {
   display: inline-flex;
   align-items: center;
+  margin-left: auto;
 }
 
 .planner-subpage-header {
@@ -288,6 +290,7 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
 
 .planner-subpage-header .section-intro {
   min-width: 0;
+  flex: 1;
 }
 
 .planner-subpage-back {
