@@ -710,26 +710,8 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
   flex: 0 0 auto;
 }
 
-.settings-page .toggle-switch-label {
-  flex: 0 0 40px;
-  width: 40px !important;
-  height: 22px !important;
-}
-
-.settings-page .toggle-switch-label > span > span {
-  top: 3px !important;
-  left: 3px !important;
-  width: 14px !important;
-  height: 14px !important;
-}
-
-.settings-page .toggle-switch-label input:checked + span > span {
-  left: 21px !important;
-}
-
-.settings-page .toggle-switch-label input:focus-visible + span {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+.settings-page .settings-squish-switch {
+  flex: 0 0 auto;
 }
 
 .settings-page .settings-appearance-section {

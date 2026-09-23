@@ -200,66 +200,11 @@
 }
 
 .kids-performance-switch-control {
-  position: relative;
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   gap: 7px;
   min-width: 70px;
-  cursor: pointer;
-}
-
-.kids-performance-switch-control input[role="switch"] {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  width: 100% !important;
-  height: 100% !important;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.kids-performance-switch-track {
-  position: relative;
-  display: block;
-  flex: 0 0 42px;
-  width: 42px;
-  height: 24px;
-  background: rgba(145, 151, 176, 0.2);
-  border: 1px solid rgba(210, 214, 235, 0.24);
-  border-radius: 999px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
-}
-
-.kids-performance-switch-track::after {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 16px;
-  height: 16px;
-  content: "";
-  background: #d9ddeb;
-  border-radius: 50%;
-  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.35);
-  transition: transform 180ms ease, background 180ms ease;
-}
-
-.kids-performance-switch-control input:checked + .kids-performance-switch-track {
-  background: linear-gradient(135deg, #7465e6, #9589ff);
-  border-color: rgba(218, 213, 255, 0.55);
-  box-shadow: 0 0 0 3px rgba(139, 124, 246, 0.12);
-}
-
-.kids-performance-switch-control input:checked + .kids-performance-switch-track::after {
-  background: #fff;
-  transform: translateX(18px);
-}
-
-.kids-performance-switch-control input:focus-visible + .kids-performance-switch-track {
-  outline: 2px solid #c3bbff;
-  outline-offset: 3px;
 }
 
 .kids-performance-switch-status {
@@ -270,7 +215,7 @@
   text-transform: uppercase;
 }
 
-.kids-performance-switch-control input:checked ~ .kids-performance-switch-status {
+.kids-performance-switch-control[data-on] .kids-performance-switch-status {
   color: #cfc9ff;
 }
 
@@ -442,11 +387,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .kids-performance-spinner { animation-duration: 1.6s; }
-
-  .kids-performance-switch-track,
-  .kids-performance-switch-track::after {
-    transition: none;
-  }
 }
 
 /* Plain light mode: inherit the application palette while preserving the
@@ -511,7 +451,7 @@ body:not(.dark):not(.has-bg-image) .kids-performance-field select option {
   background: var(--surface-strong);
 }
 
-body:not(.dark):not(.has-bg-image) .kids-performance-switch-control input:checked ~ .kids-performance-switch-status {
+body:not(.dark):not(.has-bg-image) .kids-performance-switch-control[data-on] .kids-performance-switch-status {
   color: var(--accent-strong);
 }
 

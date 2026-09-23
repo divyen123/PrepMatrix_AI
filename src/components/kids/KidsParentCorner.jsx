@@ -18,6 +18,7 @@ import {
   getKidsCopy,
   isValidParentPin,
 } from "../../utils/kidsLearning";
+import SquishSwitch from "../SquishSwitch";
 
 const TIME_LIMIT_OPTIONS = [10, 15, 20, 30, 45, 60];
 
@@ -272,15 +273,53 @@ export default function KidsParentCorner({
                 </select>
               </label>
 
-              <label className="kids-parent-toggle">
-                <span><Volume2 aria-hidden="true" size={18} /><span><strong>{copy.audio}</strong><small>Uses your device’s speech voice.</small></span></span>
-                <input checked={Boolean(draft.audioEnabled)} onChange={(event) => setDraft((value) => ({ ...value, audioEnabled: event.target.checked }))} type="checkbox" />
-              </label>
+              <div className="kids-parent-toggle">
+                <label className="kids-parent-toggle-copy" htmlFor="kids-parent-audio-switch">
+                  <Volume2 aria-hidden="true" size={18} />
+                  <span><strong>{copy.audio}</strong><small>Uses your device’s speech voice.</small></span>
+                </label>
+                <SquishSwitch
+                  ariaLabel={copy.audio}
+                  checked={Boolean(draft.audioEnabled)}
+                  className="kids-parent-squish-switch"
+                  height={28}
+                  hoverScale={1.045}
+                  id="kids-parent-audio-switch"
+                  onChange={(next) => setDraft((value) => ({ ...value, audioEnabled: next }))}
+                  radius={14}
+                  speed={55}
+                  stretch={70}
+                  thumbColor="#ffffff"
+                  thumbOnColor="#ffffff"
+                  trackColor="var(--kids-switch-track, #526078)"
+                  trackOnColor="var(--kids-purple)"
+                  width={48}
+                />
+              </div>
 
-              <label className="kids-parent-toggle">
-                <span><Clock3 aria-hidden="true" size={18} /><span><strong>{copy.timer}</strong><small>The limit still works when hidden.</small></span></span>
-                <input checked={Boolean(draft.timerVisible)} onChange={(event) => setDraft((value) => ({ ...value, timerVisible: event.target.checked }))} type="checkbox" />
-              </label>
+              <div className="kids-parent-toggle">
+                <label className="kids-parent-toggle-copy" htmlFor="kids-parent-timer-switch">
+                  <Clock3 aria-hidden="true" size={18} />
+                  <span><strong>{copy.timer}</strong><small>The limit still works when hidden.</small></span>
+                </label>
+                <SquishSwitch
+                  ariaLabel={copy.timer}
+                  checked={Boolean(draft.timerVisible)}
+                  className="kids-parent-squish-switch"
+                  height={28}
+                  hoverScale={1.045}
+                  id="kids-parent-timer-switch"
+                  onChange={(next) => setDraft((value) => ({ ...value, timerVisible: next }))}
+                  radius={14}
+                  speed={55}
+                  stretch={70}
+                  thumbColor="#ffffff"
+                  thumbOnColor="#ffffff"
+                  trackColor="var(--kids-switch-track, #526078)"
+                  trackOnColor="var(--kids-purple)"
+                  width={48}
+                />
+              </div>
 
               <fieldset className="kids-language-choice">
                 <legend>{copy.language}</legend>

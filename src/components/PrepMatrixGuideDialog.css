@@ -47,6 +47,10 @@ body.has-bg-image .prep-guide-dialog {
   padding: 20px 22px 10px;
 }
 
+.prep-guide-header--without-close {
+  grid-template-columns: 42px minmax(0, 1fr);
+}
+
 .prep-guide-mark {
   display: grid;
   place-items: center;
@@ -147,6 +151,10 @@ body .prep-guide-close:hover {
     grid-template-columns: 38px minmax(0, 1fr) 32px;
     gap: 9px;
     padding: 16px 16px 6px;
+  }
+
+  .prep-guide-header--without-close {
+    grid-template-columns: 38px minmax(0, 1fr);
   }
 
   .prep-guide-mark {

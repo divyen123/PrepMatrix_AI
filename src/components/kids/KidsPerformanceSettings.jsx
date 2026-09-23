@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   BarChart3,
   Clock3,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import api from "../../utils/apiClient";
 import { normalizeAcademicProfile } from "../../utils/academicProfile";
+import SquishSwitch from "../SquishSwitch";
 import "./KidsPerformanceSettings.css";
 
 const PLAY_LIMIT_OPTIONS = Object.freeze([10, 15, 20, 30, 45, 60]);
@@ -56,26 +57,40 @@ function progressOverview(progress = {}) {
 }
 
 export function KidsExperienceSwitch({ checked, icon: Icon, label, onChange }) {
+  const switchId = useId();
+
   return (
-    <label className="kids-performance-toggle-row">
-      <span className="kids-performance-toggle-copy">
+    <div className="kids-performance-toggle-row">
+      <label className="kids-performance-toggle-copy" htmlFor={switchId}>
         {Icon ? <Icon aria-hidden="true" size={18} /> : null}
         <span>{label}</span>
-      </span>
-      <span className="kids-performance-switch-control">
-        <input
-          aria-label={label}
+      </label>
+      <span
+        className="kids-performance-switch-control"
+        data-on={checked ? "" : undefined}
+      >
+        <SquishSwitch
+          ariaLabel={label}
           checked={checked}
-          onChange={(event) => onChange?.(event.target.checked)}
-          role="switch"
-          type="checkbox"
+          className="kids-performance-squish-switch"
+          height={24}
+          hoverScale={1.045}
+          id={switchId}
+          onChange={onChange}
+          radius={12}
+          speed={55}
+          stretch={70}
+          thumbColor="#d9ddeb"
+          thumbOnColor="#ffffff"
+          trackColor="rgba(145, 151, 176, 0.2)"
+          trackOnColor="var(--kids-purple, #7465e6)"
+          width={42}
         />
-        <span aria-hidden="true" className="kids-performance-switch-track" />
         <span aria-hidden="true" className="kids-performance-switch-status">
           {checked ? "On" : "Off"}
         </span>
       </span>
-    </label>
+    </div>
   );
 }
 

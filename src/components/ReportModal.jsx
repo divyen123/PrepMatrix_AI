@@ -493,7 +493,7 @@ function ReportModal({
 
         <footer className="report-modal-footer">
           <button
-            className="report-footer-cancel-btn"
+            className="secondary-btn report-footer-cancel-btn"
             disabled={isClosing}
             onClick={handleClose}
             type="button"
@@ -501,7 +501,7 @@ function ReportModal({
             Close
           </button>
           <button
-            className="report-export-pdf-btn"
+            className="action-btn report-export-pdf-btn"
             disabled={isExporting || isClosing}
             onClick={exportReportPDF}
             type="button"

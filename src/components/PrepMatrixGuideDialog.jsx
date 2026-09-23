@@ -32,7 +32,10 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    const focusTimer = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const focusTimer = window.requestAnimationFrame(() => {
+      if (closeButtonRef.current) closeButtonRef.current.focus();
+      else dialogRef.current?.querySelector(".rb-stepper-next")?.focus();
+    });
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -82,7 +85,7 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
         ref={dialogRef}
         role="dialog"
       >
-        <header className="prep-guide-header">
+        <header className={`prep-guide-header${isOnboarding ? "" : " prep-guide-header--without-close"}`}>
           <span aria-hidden="true" className="prep-guide-mark"><Sparkles size={19} /></span>
           <div>
             <h2 id="prep-guide-title">
@@ -92,16 +95,18 @@ function PrepMatrixGuideDialog({ academicProfile = {}, open, onClose, userName =
             </h2>
             <p>Get started in four quick steps.</p>
           </div>
-          <button
-            aria-label="Close guide"
-            className="prep-guide-close"
-            onClick={() => onCloseRef.current?.("close")}
-            ref={closeButtonRef}
-            title="Close guide"
-            type="button"
-          >
-            <X aria-hidden="true" size={18} />
-          </button>
+          {isOnboarding && (
+            <button
+              aria-label="Close guide"
+              className="prep-guide-close"
+              onClick={() => onCloseRef.current?.("close")}
+              ref={closeButtonRef}
+              title="Close guide"
+              type="button"
+            >
+              <X aria-hidden="true" size={18} />
+            </button>
+          )}
         </header>
 
         <Stepper

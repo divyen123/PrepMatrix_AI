@@ -1,16 +1,99 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Target, X } from "lucide-react";
 import { extractSubjectFromTask } from "../utils/plannerMetrics";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 
+const POPUP_GAP = 10;
+const POPUP_MARGIN = 16;
+const POPUP_MAX_HEIGHT = 650;
+const POPUP_MIN_HEIGHT = 180;
+const POPUP_WIDTH = 480;
+
+function resolvePopupPosition(anchorElement) {
+  if (typeof window === "undefined") return null;
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const viewportMaxHeight = Math.max(
+    POPUP_MIN_HEIGHT,
+    viewportHeight - (POPUP_MARGIN * 2),
+  );
+  const desiredHeight = Math.min(POPUP_MAX_HEIGHT, viewportMaxHeight);
+  const popupWidth = Math.min(
+    POPUP_WIDTH,
+    Math.max(0, viewportWidth - (POPUP_MARGIN * 2)),
+  );
+
+  if (!anchorElement) {
+    return {
+      bottom: "auto",
+      left: Math.max(POPUP_MARGIN, (viewportWidth - popupWidth) / 2),
+      maxHeight: desiredHeight,
+      placement: "center",
+      top: Math.max(POPUP_MARGIN, (viewportHeight - desiredHeight) / 2),
+    };
+  }
+
+  const anchorRect = anchorElement.getBoundingClientRect();
+  const availableBelow = Math.max(
+    0,
+    viewportHeight - anchorRect.bottom - POPUP_GAP - POPUP_MARGIN,
+  );
+  const availableAbove = Math.max(
+    0,
+    anchorRect.top - POPUP_GAP - POPUP_MARGIN,
+  );
+  const openAbove =
+    availableBelow < Math.min(420, desiredHeight) &&
+    availableAbove > availableBelow;
+  const availableHeight = openAbove ? availableAbove : availableBelow;
+  const maxHeight = Math.min(
+    desiredHeight,
+    viewportMaxHeight,
+    Math.max(POPUP_MIN_HEIGHT, availableHeight),
+  );
+  const unclampedLeft = anchorRect.right - popupWidth;
+  const left = Math.min(
+    Math.max(POPUP_MARGIN, unclampedLeft),
+    Math.max(POPUP_MARGIN, viewportWidth - popupWidth - POPUP_MARGIN),
+  );
+
+  return {
+    bottom: openAbove
+      ? Math.max(POPUP_MARGIN, viewportHeight - anchorRect.top + POPUP_GAP)
+      : "auto",
+    left,
+    maxHeight,
+    placement: openAbove ? "above" : "below",
+    top: openAbove
+      ? "auto"
+      : Math.min(
+          anchorRect.bottom + POPUP_GAP,
+          Math.max(POPUP_MARGIN, viewportHeight - maxHeight - POPUP_MARGIN),
+        ),
+  };
+}
+
+function renderPopup(content) {
+  return typeof document === "undefined"
+    ? content
+    : createPortal(content, document.body);
+}
+
 function GoalTracker({
+  anchorRef,
+  closing = false,
   completed = [],
   schedule = [],
   subjects = [],
   userProfile = {},
   onClose,
 }) {
-  const safeSubjects = Array.isArray(subjects) ? subjects : [];
+  const safeSubjects = useMemo(
+    () => (Array.isArray(subjects) ? subjects : []),
+    [subjects],
+  );
   const safeCompleted = Array.isArray(completed) ? completed : [];
   const safeSchedule = Array.isArray(schedule) ? schedule : [];
 
@@ -19,6 +102,7 @@ function GoalTracker({
   const [isListOpen, setIsListOpen] = useState(false);
   const popupRef = useRef(null);
   const dropdownRef = useRef(null);
+  const [popupPosition, setPopupPosition] = useState(null);
 
   const curriculumExamples = useMemo(
     () => getAcademicProfileExamples(userProfile),
@@ -27,21 +111,45 @@ function GoalTracker({
 
   const safeDays = Math.max(1, days);
 
+  useLayoutEffect(() => {
+    const updatePopupPosition = () => {
+      setPopupPosition(resolvePopupPosition(anchorRef?.current));
+    };
+
+    updatePopupPosition();
+    window.addEventListener("resize", updatePopupPosition);
+    window.addEventListener("scroll", updatePopupPosition, { passive: true });
+    window.visualViewport?.addEventListener("resize", updatePopupPosition);
+    window.visualViewport?.addEventListener("scroll", updatePopupPosition);
+
+    return () => {
+      window.removeEventListener("resize", updatePopupPosition);
+      window.removeEventListener("scroll", updatePopupPosition);
+      window.visualViewport?.removeEventListener("resize", updatePopupPosition);
+      window.visualViewport?.removeEventListener("scroll", updatePopupPosition);
+    };
+  }, [anchorRef]);
+
+  useEffect(() => {
+    if (closing) setIsListOpen(false);
+  }, [closing]);
+
   // Close popup when clicking outside or pressing Escape
   useEffect(() => {
-    if (!onClose) return;
+    if (!onClose || closing) return undefined;
     const handleClickOutside = (event) => {
       if (
         popupRef.current &&
         !popupRef.current.contains(event.target) &&
-        !event.target.closest(".track-goals-btn")
+        !event.target?.closest?.(".track-goals-btn")
       ) {
-        onClose();
+        onClose("outside");
       }
     };
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
-        onClose();
+        event.preventDefault();
+        onClose("escape");
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -50,7 +158,7 @@ function GoalTracker({
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose]);
+  }, [closing, onClose]);
 
   // Close suggestions dropdown when clicking outside
   useEffect(() => {
@@ -69,6 +177,9 @@ function GoalTracker({
   const filteredSubjects = useMemo(() => {
     const trimmed = goal.trim().toLowerCase();
     if (!trimmed) return safeSubjects;
+    if (safeSubjects.some((sub) => sub?.name?.toLowerCase() === trimmed)) {
+      return safeSubjects;
+    }
     return safeSubjects.filter(
       (sub) => sub?.name && sub.name.toLowerCase().includes(trimmed)
     );
@@ -129,7 +240,7 @@ function GoalTracker({
   const expectedProgress = 100 / safeDays;
 
   const progressColor =
-    progress < 30 ? "#b8324b" : progress < 70 ? "#b7791f" : "#0b8f74";
+    progress < 30 ? "var(--danger)" : progress < 70 ? "var(--warning)" : "var(--accent)";
 
   let statusMessage = "Choose a goal keyword to track a subject or chapter lane.";
   let statusClass = "status-neutral";
@@ -149,24 +260,36 @@ function GoalTracker({
   }
 
   if (!safeSubjects.length) {
-    return (
+    return renderPopup(
       <section
-        aria-label="Goal tracker"
-        className="card goal-tracker-card goal-tracker-popup"
+        aria-hidden={closing || undefined}
+        aria-labelledby="goal-tracker-title"
+        aria-modal="false"
+        className={`card goal-tracker-card goal-tracker-popup${closing ? " is-closing" : ""}`}
+        data-placement={popupPosition?.placement || "center"}
+        id="subject-goal-tracker"
+        inert={closing ? "" : undefined}
         ref={popupRef}
+        role="dialog"
+        style={popupPosition ? {
+          bottom: popupPosition.bottom,
+          left: popupPosition.left,
+          maxHeight: popupPosition.maxHeight,
+          top: popupPosition.top,
+        } : undefined}
       >
         <div className="goal-tracker-header">
           <div className="goal-tracker-title-group">
             <Target aria-hidden="true" size={18} />
             <div>
-              <h3>Goal tracker</h3>
+              <h3 id="goal-tracker-title">Goal tracker</h3>
             </div>
           </div>
           {onClose && (
             <button
               aria-label="Close goal tracker"
               className="goal-tracker-close-btn"
-              onClick={onClose}
+              onClick={() => onClose("button")}
               type="button"
             >
               <X aria-hidden="true" size={14} />
@@ -180,11 +303,23 @@ function GoalTracker({
     );
   }
 
-  return (
+  return renderPopup(
     <section
-      aria-label="Goal tracker"
-      className="card goal-tracker-card goal-tracker-popup"
+      aria-hidden={closing || undefined}
+      aria-labelledby="goal-tracker-title"
+      aria-modal="false"
+      className={`card goal-tracker-card goal-tracker-popup${closing ? " is-closing" : ""}`}
+      data-placement={popupPosition?.placement || "center"}
+      id="subject-goal-tracker"
+      inert={closing ? "" : undefined}
       ref={popupRef}
+      role="dialog"
+      style={popupPosition ? {
+        bottom: popupPosition.bottom,
+        left: popupPosition.left,
+        maxHeight: popupPosition.maxHeight,
+        top: popupPosition.top,
+      } : undefined}
     >
       <div className="goal-tracker-header">
         <div className="goal-tracker-title-group">
@@ -192,7 +327,7 @@ function GoalTracker({
             <Target size={18} />
           </div>
           <div>
-            <h3>Goal tracker</h3>
+            <h3 id="goal-tracker-title">Goal tracker</h3>
             <p className="card-desc">
               Track one subject, topic, or chapter keyword against your generated plan.
             </p>
@@ -204,7 +339,7 @@ function GoalTracker({
             <button
               aria-label="Close goal tracker"
               className="goal-tracker-close-btn"
-              onClick={onClose}
+              onClick={() => onClose("button")}
               type="button"
             >
               <X aria-hidden="true" size={14} />
@@ -221,21 +356,26 @@ function GoalTracker({
             </label>
             <div className="goal-subject-input-wrapper">
               <input
+                aria-autocomplete="list"
+                aria-controls="goal-subject-suggestions"
+                aria-expanded={isListOpen}
                 id="goal-subject-input"
                 className="goal-subject-text-input"
                 autoComplete="off"
-                list="goal-subject-datalist"
                 onChange={(event) => {
                   setGoal(event.target.value);
                   setIsListOpen(true);
                 }}
                 onFocus={() => setIsListOpen(true)}
                 placeholder={`Example: ${safeSubjects[0]?.name || curriculumExamples.subject}`}
+                role="combobox"
                 type="text"
                 value={goal}
               />
               <button
+                aria-controls="goal-subject-suggestions"
                 aria-expanded={isListOpen}
+                aria-haspopup="listbox"
                 aria-label="Toggle subjects list"
                 className="goal-subject-dropdown-toggle"
                 onClick={() => setIsListOpen((prev) => !prev)}
@@ -243,25 +383,26 @@ function GoalTracker({
               >
                 <ChevronDown size={15} />
               </button>
-              <datalist id="goal-subject-datalist">
-                {safeSubjects.map((sub) => (
-                  <option key={sub.name} value={sub.name} />
-                ))}
-              </datalist>
 
               {isListOpen && (
-                <div className="goal-subject-suggestions-dropdown" role="listbox">
+                <div
+                  className="goal-subject-suggestions-dropdown"
+                  id="goal-subject-suggestions"
+                  role="listbox"
+                >
                   {filteredSubjects.length > 0 ? (
                     filteredSubjects.map((sub) => {
                       const isSelected =
                         sub.name.toLowerCase() === goal.trim().toLowerCase();
                       return (
                         <button
+                          aria-selected={isSelected}
                           key={sub.name}
                           className={`goal-subject-suggestion-btn${
                             isSelected ? " is-selected" : ""
                           }`}
                           onClick={() => handleSelectSubject(sub.name)}
+                          role="option"
                           type="button"
                         >
                           <span className="goal-subject-suggestion-name">

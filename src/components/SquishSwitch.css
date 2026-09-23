@@ -1,0 +1,147 @@
+.squish-switch-root {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+body button.squish-switch,
+body.dark button.squish-switch,
+body.has-bg-image button.squish-switch,
+body.no-glass-buttons button.squish-switch {
+  --ss-w: 44px;
+  --ss-h: 24px;
+  --ss-inset: 3px;
+  --ss-thumb: 18px;
+  --ss-r: 12px;
+  --ss-thumb-r: 9px;
+  --ss-track: color-mix(in srgb, var(--surface-strong) 86%, var(--text-muted) 14%);
+  --ss-track-on: rgba(var(--accent-rgb), 0.72);
+  --ss-thumb-color: var(--text-muted);
+  --ss-thumb-on: #ffffff;
+  --ss-fade: 320ms;
+
+  position: relative;
+  display: inline-block !important;
+  flex: 0 0 var(--ss-w) !important;
+  width: var(--ss-w) !important;
+  min-width: var(--ss-w) !important;
+  max-width: var(--ss-w) !important;
+  height: var(--ss-h) !important;
+  min-height: var(--ss-h) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  color: inherit !important;
+  border: 0 !important;
+  border-radius: var(--ss-r) !important;
+  outline: none;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  cursor: pointer;
+  filter: none !important;
+  isolation: isolate;
+  touch-action: pan-y;
+  transform: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body button.squish-switch:hover,
+body.dark button.squish-switch:hover,
+body.has-bg-image button.squish-switch:hover,
+body.no-glass-buttons button.squish-switch:hover {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body button.squish-switch::before {
+  content: none !important;
+  display: none !important;
+}
+
+body button.squish-switch::after,
+body button.squish-switch:hover::after {
+  position: absolute;
+  inset: -8px;
+  display: block !important;
+  content: "" !important;
+  opacity: 1 !important;
+  background: transparent !important;
+  pointer-events: auto;
+  transform: none !important;
+  transition: none !important;
+}
+
+body button.squish-switch[data-held] {
+  cursor: grabbing;
+}
+
+body button.squish-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.squish-switch__track {
+  position: relative;
+  display: block;
+  width: var(--ss-w);
+  height: var(--ss-h);
+  overflow: hidden;
+  border-radius: var(--ss-r);
+  background: var(--ss-track);
+  box-shadow:
+    inset 0 0 0 1px var(--border),
+    inset 0 1px 3px rgba(15, 23, 42, 0.14);
+  transition: background-color var(--ss-fade) ease, box-shadow var(--ss-fade) ease;
+}
+
+.squish-switch[data-on] .squish-switch__track {
+  background: var(--ss-track-on);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--ss-track-on) 70%, var(--border)),
+    0 0 0 3px color-mix(in srgb, var(--ss-track-on) 18%, transparent);
+}
+
+.squish-switch__thumb {
+  position: absolute;
+  top: var(--ss-inset);
+  left: 0;
+  display: block;
+  width: var(--ss-thumb);
+  height: var(--ss-thumb);
+  border-radius: var(--ss-thumb-r);
+  background: var(--ss-thumb-color);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.24);
+  transition: background-color var(--ss-fade) ease;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.squish-switch[data-on] .squish-switch__thumb {
+  background: var(--ss-thumb-on);
+}
+
+.squish-switch:focus-visible .squish-switch__track {
+  outline: 2px solid var(--ss-track-on);
+  outline-offset: 3px;
+}
+
+.squish-switch__label {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .squish-switch__track,
+  .squish-switch__thumb {
+    transition-duration: 1ms;
+  }
+}

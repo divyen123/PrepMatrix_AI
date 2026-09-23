@@ -53,11 +53,12 @@ test("renders child experience choices as accessible on and off switches", async
 
     assert.match(enabledMarkup, /role="switch"/u);
     assert.match(enabledMarkup, /aria-label="Read questions aloud"/u);
-    assert.match(enabledMarkup, /checked=""/u);
+    assert.match(enabledMarkup, /<label class="kids-performance-toggle-copy" for="[^"]+">/u);
+    assert.match(enabledMarkup, /aria-checked="true"/u);
     assert.match(enabledMarkup, />On</u);
     assert.match(disabledMarkup, /role="switch"/u);
     assert.match(disabledMarkup, /aria-label="Show countdown to child"/u);
-    assert.doesNotMatch(disabledMarkup, /checked=""/u);
+    assert.match(disabledMarkup, /aria-checked="false"/u);
     assert.match(disabledMarkup, />Off</u);
   } finally {
     await vite.close();

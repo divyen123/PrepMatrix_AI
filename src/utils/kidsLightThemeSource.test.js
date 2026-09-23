@@ -96,7 +96,13 @@ test("portaled Parent Corner owns a complete light palette and readable actions"
   );
   assert.match(
     kidsLearningCss,
-    /\.kids-parent-dialog :is\(button, input, select\):focus-visible \{/,
+    /\.kids-parent-dialog :is\(button:not\(\.squish-switch\), input, select\):focus-visible \{/,
+  );
+  assert.match(
+    kidsLearningCss,
+    new RegExp(
+      `${plainLightScope} \\.kids-parent-backdrop \\{[\\s\\S]*?--kids-switch-track: #cbd5e1;`,
+    ),
   );
 });
 

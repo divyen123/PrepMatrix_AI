@@ -199,22 +199,24 @@ function StepIndicator({ step, totalSteps, currentStep, disabled, onClick, reduc
       animate={{ scale: status === 'active' ? 1.06 : 1 }}
       transition={{ duration: reducedMotion ? 0 : 0.25 }}
     >
-      {status === 'complete' ? (
-        <svg className="rb-stepper-check" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-          <Motion.path
-            d="M5 12.5 10 17l9-10"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            initial={reducedMotion ? false : { pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: reducedMotion ? 0 : 0.28 }}
-          />
-        </svg>
-      ) : status === 'active' ? (
-        <span className="rb-stepper-active-dot" />
-      ) : (
-        step
-      )}
+      <span className="rb-stepper-indicator-content" aria-hidden="true">
+        {status === 'complete' ? (
+          <svg className="rb-stepper-check" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <Motion.path
+              d="M5 12.5 10 17l9-10"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              initial={reducedMotion ? false : { pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: reducedMotion ? 0 : 0.28 }}
+            />
+          </svg>
+        ) : status === 'active' ? (
+          <span className="rb-stepper-active-dot" />
+        ) : (
+          step
+        )}
+      </span>
     </Motion.button>
   );
 }

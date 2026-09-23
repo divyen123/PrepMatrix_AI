@@ -3,13 +3,13 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MemoryRouter } from "react-router-dom";
 import { createServer } from "vite";
 
 const analyticsPageSource = readFileSync(
   new URL("../pages/AnalyticsPage.jsx", import.meta.url),
   "utf8"
 );
+const appSource = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
 const subjectListSource = readFileSync(
   new URL("./SubjectList.jsx", import.meta.url),
   "utf8"
@@ -41,33 +41,55 @@ test("places Track goals button in SubjectList near Open materials when subjects
   assert.match(subjectListSource, /<GoalTracker/u);
 });
 
+test("forwards the active plan and completion data into the Subjects goal tracker", () => {
+  assert.match(
+    appSource,
+    /<SubjectsPage[\s\S]*?completed=\{completed\}[\s\S]*?schedule=\{schedule\}/u,
+  );
+});
+
 test("GoalTracker supports searchable typing input with interactive list suggestions", () => {
   assert.match(goalTrackerSource, /filteredSubjects/u);
   assert.match(goalTrackerSource, /className="goal-subject-suggestions-dropdown"/u);
   assert.match(goalTrackerSource, /className=\{`goal-subject-suggestion-btn/u);
   assert.match(goalTrackerSource, /className="goal-subject-dropdown-toggle"/u);
-  assert.match(goalTrackerSource, /datalist id="goal-subject-datalist"/u);
+  assert.match(goalTrackerSource, /role="combobox"/u);
+  assert.match(goalTrackerSource, /aria-haspopup="listbox"/u);
+  assert.doesNotMatch(goalTrackerSource, /<datalist/u);
   assert.match(goalTrackerSource, /onClose/u);
   assert.match(goalTrackerSource, /Escape/u);
 });
 
-test("GoalTracker popup is completely opaque and styled across all background themes", () => {
-  assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?background:\s*#ffffff !important;/u);
-  assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?opacity:\s*1 !important;/u);
-  assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?backdrop-filter:\s*none !important;/u);
-  assert.match(stylesheet, /body\.dark \.goal-tracker-popup\s*\{[\s\S]*?background:\s*#121c26 !important;/u);
-  assert.match(stylesheet, /body\.has-bg-image:not\(\.dark\) \.goal-tracker-popup\s*\{[\s\S]*?background:\s*#ffffff !important;/u);
-  assert.match(stylesheet, /body\.has-bg-image\.dark \.goal-tracker-popup\s*\{[\s\S]*?background:\s*#111a24 !important;/u);
+test("GoalTracker popup follows palette and image themes and stays viewport-scrollable", () => {
+  assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?--goal-popup-surface:\s*color-mix\(in srgb, var\(--bg\)/u);
+  assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?position:\s*fixed;/u);
+  assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?max-height:\s*calc\(100dvh - 32px\);/u);
+  assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?overflow-y:\s*auto !important;/u);
+  assert.match(stylesheet, /body\.dark \.goal-tracker-popup\s*\{[\s\S]*?var\(--bg\)/u);
+  assert.match(stylesheet, /body\.has-bg-image \.goal-tracker-popup\s*\{[\s\S]*?var\(--bg-surface-rgb/u);
+  assert.match(goalTrackerSource, /createPortal\(content, document\.body\)/u);
+  assert.match(goalTrackerSource, /resolvePopupPosition\(anchorRef\?\.current\)/u);
 });
 
-test("GoalTracker close button has compact circle shape with slight red tone and centered icon, and SubjectList elevates popup", () => {
-  const subjectListCss = readFileSync(new URL("./SubjectList.css", import.meta.url), "utf8");
-  assert.match(subjectListCss, /\.subject-library-card\s*\{[\s\S]*?overflow:\s*visible !important;/u);
-  assert.match(subjectListCss, /\.subject-library-card \.subject-library-actions\s*\{[\s\S]*?z-index:\s*1300;/u);
-  assert.match(stylesheet, /\.goal-tracker-close-btn\s*\{[\s\S]*?border-radius:\s*50% !important;/u);
+test("GoalTracker controls stay neutral instead of inheriting global green button containers", () => {
+  assert.match(stylesheet, /body \.goal-tracker-popup \.goal-subject-dropdown-toggle[\s\S]*?background:\s*transparent !important;/u);
+  assert.match(stylesheet, /body \.goal-tracker-popup \.goal-subject-dropdown-toggle[\s\S]*?box-shadow:\s*none !important;/u);
+  assert.match(stylesheet, /body \.goal-tracker-popup \.goal-subject-suggestion-btn[\s\S]*?background:\s*transparent !important;/u);
+  assert.match(stylesheet, /body \.goal-tracker-popup \.goal-subject-suggestion-btn:hover[\s\S]*?background:\s*transparent !important;/u);
+  assert.match(stylesheet, /body \.subject-library-card \.track-goals-btn:hover[\s\S]*?box-shadow:\s*none !important;/u);
+  assert.match(stylesheet, /\.goal-tracker-close-btn\s*\{[\s\S]*?background:\s*transparent !important;/u);
   assert.match(stylesheet, /\.goal-tracker-close-btn\s*\{[\s\S]*?justify-content:\s*center !important;/u);
-  assert.match(stylesheet, /\.goal-tracker-close-btn\s*\{[\s\S]*?rgba\(239,\s*68,\s*68/u);
-  assert.match(stylesheet, /body\.dark \.goal-tracker-close-btn\s*\{[\s\S]*?rgba\(239,\s*68,\s*68/u);
+});
+
+test("GoalTracker retains an exit phase for smooth fade-in and fade-out motion", () => {
+  assert.match(subjectListSource, /goalPopupClosing/u);
+  assert.match(subjectListSource, /GOAL_TRACKER_EXIT_MS = 180/u);
+  assert.match(subjectListSource, /setGoalPopupClosing\(true\)/u);
+  assert.match(goalTrackerSource, /goal-tracker-popup\$\{closing \? " is-closing" : ""\}/u);
+  assert.match(stylesheet, /\.goal-tracker-popup\.is-closing[\s\S]*?animation:\s*goalTrackerPopupOut 180ms/u);
+  assert.match(stylesheet, /@keyframes goalTrackerPopupIn/u);
+  assert.match(stylesheet, /@keyframes goalTrackerPopupOut/u);
+  assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.goal-tracker-popup/u);
 });
 
 test("renders GoalTracker with mock subjects and calculates metrics", async () => {
@@ -102,7 +124,8 @@ test("renders GoalTracker with mock subjects and calculates metrics", async () =
     assert.match(markup, /Goal tracker/u);
     assert.match(markup, /50%/u);
     assert.match(markup, /RestAPI/u);
-    assert.match(markup, /Data analytics/u);
+    assert.match(markup, /role="dialog"/u);
+    assert.match(markup, /role="combobox"/u);
   } finally {
     await vite.close();
   }

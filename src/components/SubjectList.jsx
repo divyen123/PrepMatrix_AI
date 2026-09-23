@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "../utils/toast";
 import {
@@ -16,6 +16,8 @@ import SubjectPlanDialog from "./SubjectPlanDialog";
 import { normalizeStudyPreferences, normalizeSubjectTopics } from "../utils/subjectPlanning";
 import "./SubjectList.css";
 
+const GOAL_TRACKER_EXIT_MS = 180;
+
 function SubjectList({
   academicProfile = {},
   completed = [],
@@ -29,6 +31,7 @@ function SubjectList({
   const navigate = useNavigate();
   const [editIndex, setEditIndex] = useState(null);
   const [goalPopupOpen, setGoalPopupOpen] = useState(false);
+  const [goalPopupClosing, setGoalPopupClosing] = useState(false);
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState(null);
   const [configureIndex, setConfigureIndex] = useState(null);
   const [editData, setEditData] = useState({
@@ -37,7 +40,47 @@ function SubjectList({
     difficulty: "",
   });
   const confirmRef = useRef(null);
+  const goalPopupCloseTimerRef = useRef(null);
+  const trackGoalsButtonRef = useRef(null);
   const location = useLocation();
+
+  const openGoalPopup = useCallback(() => {
+    if (goalPopupCloseTimerRef.current) {
+      window.clearTimeout(goalPopupCloseTimerRef.current);
+      goalPopupCloseTimerRef.current = null;
+    }
+    setGoalPopupClosing(false);
+    setGoalPopupOpen(true);
+  }, []);
+
+  const closeGoalPopup = useCallback((reason = "dismiss") => {
+    if (goalPopupCloseTimerRef.current) return;
+
+    setGoalPopupClosing(true);
+    goalPopupCloseTimerRef.current = window.setTimeout(() => {
+      goalPopupCloseTimerRef.current = null;
+      setGoalPopupOpen(false);
+      setGoalPopupClosing(false);
+
+      if (reason !== "outside") {
+        trackGoalsButtonRef.current?.focus({ preventScroll: true });
+      }
+    }, GOAL_TRACKER_EXIT_MS);
+  }, []);
+
+  const toggleGoalPopup = () => {
+    if (goalPopupOpen && !goalPopupClosing) {
+      closeGoalPopup("toggle");
+      return;
+    }
+    openGoalPopup();
+  };
+
+  useEffect(() => () => {
+    if (goalPopupCloseTimerRef.current) {
+      window.clearTimeout(goalPopupCloseTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     if (location.hash === "#subject-library") {
@@ -142,10 +185,12 @@ function SubjectList({
         <div className="subject-library-actions" style={{ display: "flex", gap: "10px", alignItems: "center", position: "relative", zIndex: 1300 }}>
           {subjects.length > 0 && (
             <button
-              aria-expanded={goalPopupOpen}
+              aria-controls="subject-goal-tracker"
+              aria-expanded={goalPopupOpen && !goalPopupClosing}
               aria-haspopup="dialog"
               className="secondary-btn track-goals-btn"
-              onClick={() => setGoalPopupOpen((prev) => !prev)}
+              onClick={toggleGoalPopup}
+              ref={trackGoalsButtonRef}
               type="button"
             >
               <Target aria-hidden="true" size={15} />
@@ -161,7 +206,15 @@ function SubjectList({
           </button>
 
           {goalPopupOpen && subjects.length > 0 && (
-            <GoalTracker userProfile={userProfile} completed={completed} onClose={() => setGoalPopupOpen(false)} schedule={schedule} subjects={subjects} />
+            <GoalTracker
+              anchorRef={trackGoalsButtonRef}
+              closing={goalPopupClosing}
+              completed={completed}
+              onClose={closeGoalPopup}
+              schedule={schedule}
+              subjects={subjects}
+              userProfile={userProfile}
+            />
           )}
         </div>
       </div>

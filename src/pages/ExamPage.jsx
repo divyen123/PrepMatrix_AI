@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import DistractionAwareFocusRoom from "../components/DistractionAwareFocusRoom";
 import LatticeLoader from "../components/LatticeLoader";
+import SquishSwitch from "../components/SquishSwitch";
 import { speakFocusNudge } from "../utils/focusRoomNudge";
 import api from "../utils/apiClient";
 import {
@@ -932,7 +933,7 @@ function PaperBuilder({
     <div className="exam-paper-layout">
       <section className="card exam-paper-form">
         <div className="exam-section-title">
-          <div><span className="section-tag">Paper specification</span><h2>Design the exact paper blueprint</h2><p>Allocation must match the selected total before generation.</p></div>
+          <div><h2>Design the exact paper blueprint</h2><p>Allocation must match the selected total before generation.</p></div>
           <div className={remainingMarks === 0 ? "exam-allocation-status is-complete" : "exam-allocation-status"}>
             <span>{allocatedMarks} / {totalMarks}</span>
             <small>{remainingMarks === 0 ? "Allocation complete" : remainingMarks + " marks remaining"}</small>
@@ -1035,36 +1036,57 @@ function PaperBuilder({
         </div>
 
         <div className="exam-toggle-grid">
-          <label className="exam-toggle-option">
-            <span className="exam-toggle-copy">Allow internal choices</span>
-            <input
+          <div className="exam-toggle-option">
+            <label className="exam-toggle-copy" htmlFor="exam-internal-choice-switch">
+              Allow internal choices
+            </label>
+            <SquishSwitch
+              ariaLabel="Allow internal choices"
               checked={internalChoice}
-              onChange={(event) => setInternalChoice(event.target.checked)}
-              role="switch"
-              type="checkbox"
+              className="exam-squish-switch"
+              height={24}
+              id="exam-internal-choice-switch"
+              onChange={setInternalChoice}
+              radius={12}
+              speed={55}
+              stretch={70}
+              width={42}
             />
-            <span aria-hidden="true" className="exam-toggle-control" />
-          </label>
-          <label className="exam-toggle-option">
-            <span className="exam-toggle-copy">Shuffle questions</span>
-            <input
+          </div>
+          <div className="exam-toggle-option">
+            <label className="exam-toggle-copy" htmlFor="exam-shuffle-questions-switch">
+              Shuffle questions
+            </label>
+            <SquishSwitch
+              ariaLabel="Shuffle questions"
               checked={shuffleQuestions}
-              onChange={(event) => setShuffleQuestions(event.target.checked)}
-              role="switch"
-              type="checkbox"
+              className="exam-squish-switch"
+              height={24}
+              id="exam-shuffle-questions-switch"
+              onChange={setShuffleQuestions}
+              radius={12}
+              speed={55}
+              stretch={70}
+              width={42}
             />
-            <span aria-hidden="true" className="exam-toggle-control" />
-          </label>
-          <label className="exam-toggle-option">
-            <span className="exam-toggle-copy">Include answer key</span>
-            <input
+          </div>
+          <div className="exam-toggle-option">
+            <label className="exam-toggle-copy" htmlFor="exam-answer-key-switch">
+              Include answer key
+            </label>
+            <SquishSwitch
+              ariaLabel="Include answer key"
               checked={includeAnswerKey}
-              onChange={(event) => setIncludeAnswerKey(event.target.checked)}
-              role="switch"
-              type="checkbox"
+              className="exam-squish-switch"
+              height={24}
+              id="exam-answer-key-switch"
+              onChange={setIncludeAnswerKey}
+              radius={12}
+              speed={55}
+              stretch={70}
+              width={42}
             />
-            <span aria-hidden="true" className="exam-toggle-control" />
-          </label>
+          </div>
         </div>
 
         <div className="exam-paper-summary">
@@ -1342,7 +1364,7 @@ function PaperHistory({ papers, onRefresh, onPaperLoaded }) {
   return (
     <section className="card exam-paper-history">
       <div className="exam-section-title">
-        <div><span className="section-tag">Saved history</span><h2>Generated question papers</h2></div>
+        <div><h2>Generated question papers</h2></div>
         <label className="exam-search"><Search size={15} /><input onChange={(event) => setSearch(event.target.value)} placeholder="Search papers" type="search" value={search} /></label>
       </div>
       <div className="exam-paper-history-grid">

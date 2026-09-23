@@ -41,8 +41,11 @@ test("the compact stepper guide works for both manual help and first-time onboar
       assert.doesNotMatch(markup, /guide-step-nav|guide-demo|Watch demo|Open Settings/u);
     }
     assert.match(manual, /How to use PrepMatrix/u);
+    assert.doesNotMatch(manual, /aria-label="Close guide"/u);
     assert.match(onboarding, /Welcome to PrepMatrix, Mohan/u);
     assert.match(onboarding, /prep-guide-backdrop--onboarding/u);
+    assert.match(onboarding, /aria-label="Close guide"/u);
+    assert.equal((manual.match(/class="rb-stepper-indicator-content"/gu) || []).length, 4);
   } finally {
     await vite.close();
   }

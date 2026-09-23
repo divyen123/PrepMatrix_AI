@@ -36,16 +36,31 @@ test("renders View report button opposite to the section title on AnalyticsPage"
   );
   assert.match(analyticsPageCss, /\.analytics-page-intro\s*\{[\s\S]*?justify-content:\s*space-between;/u);
   assert.match(analyticsPageCss, /\.view-report-btn\s*\{/u);
+  assert.match(
+    analyticsPageCss,
+    /body \.view-report-btn:hover\s*\{[\s\S]*?box-shadow:\s*none !important;/u,
+  );
+  assert.match(
+    analyticsPageCss,
+    /body \.view-report-btn::after\s*\{[\s\S]*?content:\s*none !important;/u,
+  );
   assert.match(analyticsPageSource, /<ReportModal/u);
 });
 
-test("ReportModal popup is 100% opaque and styled across all background themes", () => {
-  assert.match(reportModalCss, /\.report-modal\s*\{[\s\S]*?background:\s*#ffffff !important;/u);
+test("ReportModal popup follows the selected canvas, accent, and wallpaper theme", () => {
+  assert.match(reportModalCss, /--report-modal-surface:\s*var\(--bg\);/u);
+  assert.match(reportModalCss, /--report-panel-surface:[^;]*var\(--accent\)/u);
+  assert.match(reportModalCss, /--report-panel-border:[^;]*var\(--accent\)/u);
+  assert.match(reportModalCss, /\.report-modal\s*\{[\s\S]*?background:\s*var\(--report-modal-surface\) !important;/u);
+  assert.match(reportModalCss, /\.report-modal\s*\{[\s\S]*?color:\s*var\(--text\) !important;/u);
+  assert.match(reportModalCss, /\.report-modal\s*\{[\s\S]*?box-shadow:\s*[\s\S]*?var\(--shadow\),/u);
   assert.match(reportModalCss, /\.report-modal\s*\{[\s\S]*?opacity:\s*1;/u);
   assert.match(reportModalCss, /\.report-modal\s*\{[\s\S]*?backdrop-filter:\s*none !important;/u);
-  assert.match(reportModalCss, /body\.dark \.report-modal\s*\{[\s\S]*?background:\s*#121c26 !important;/u);
-  assert.match(reportModalCss, /body\.has-bg-image:not\(\.dark\) \.report-modal\s*\{[\s\S]*?background:\s*#ffffff !important;/u);
-  assert.match(reportModalCss, /body\.has-bg-image\.dark \.report-modal\s*\{[\s\S]*?background:\s*#111a24 !important;/u);
+  assert.match(
+    reportModalCss,
+    /body\.has-bg-image \.report-modal\s*\{[\s\S]*?--report-modal-surface:\s*rgb\(var\(--bg-surface-rgb\)\);/u,
+  );
+  assert.doesNotMatch(reportModalCss, /background:\s*#(?:ffffff|121c26|111a24) !important;/u);
 });
 
 test("ReportModal includes minimal report content and PDF export capabilities", () => {
@@ -83,11 +98,27 @@ test("ReportModal applies green, yellow, and red color tones based on completion
   assert.match(reportModalCss, /\.report-mini-fill\.is-low[\s\S]*?#ef4444/u);
 });
 
-test("Export report PDF button maintains clear visibility across light, hover, and dark mode", () => {
-  assert.match(reportModalCss, /\.report-export-pdf-btn\s*\{[\s\S]*?color:\s*#ffffff !important;/u);
-  assert.match(reportModalCss, /\.report-export-pdf-btn:hover\s*\{[\s\S]*?color:\s*#ffffff !important;/u);
-  assert.match(reportModalCss, /body\.dark \.report-modal \.report-export-pdf-btn\s*\{[\s\S]*?color:\s*#ffffff !important;/u);
-  assert.match(reportModalCss, /body\.dark \.report-modal \.report-export-pdf-btn:hover\s*\{[\s\S]*?color:\s*#ffffff !important;/u);
+test("Report footer actions inherit the shared theme-aware button system", () => {
+  assert.match(reportModalSource, /className="secondary-btn report-footer-cancel-btn"/u);
+  assert.match(reportModalSource, /className="action-btn report-export-pdf-btn"/u);
+  assert.doesNotMatch(reportModalCss, /#(?:0b8f74|076b57|0ea5e9)/u);
+  assert.doesNotMatch(reportModalCss, /\.report-export-pdf-btn:hover\s*\{/u);
+});
+
+test("ReportModal body uses an accent-aware scoped scrollbar", () => {
+  assert.match(
+    reportModalCss,
+    /\.report-modal-body\s*\{[\s\S]*?scrollbar-color:\s*rgba\(var\(--accent-rgb\), 0\.52\) transparent;/u,
+  );
+  assert.match(reportModalCss, /\.report-modal-body::-webkit-scrollbar-track\s*\{/u);
+  assert.match(
+    reportModalCss,
+    /\.report-modal-body::-webkit-scrollbar-thumb\s*\{[\s\S]*?background:\s*rgba\(var\(--accent-rgb\), 0\.48\);/u,
+  );
+  assert.match(
+    reportModalCss,
+    /\.report-modal-body::-webkit-scrollbar-thumb:hover\s*\{[\s\S]*?background:\s*rgba\(var\(--accent-rgb\), 0\.72\);/u,
+  );
 });
 
 test("ReportModal opens and closes with smooth fade-in and fade-out transitions", () => {
@@ -112,4 +143,3 @@ test("ReportModal opens and closes with smooth fade-in and fade-out transitions"
   assert.match(reportModalSource, /report-modal\$\{isClosing \? " is-closing" : ""\}/u);
   assert.match(reportModalSource, /handleClose/u);
 });
-

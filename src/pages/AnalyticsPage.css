@@ -38,3 +38,13 @@
   cursor: pointer;
 }
 
+/* Keep this compact action calm on hover; the global button layer otherwise
+   adds both a shimmer and an accent-coloured halo. */
+body .view-report-btn::after {
+  content: none !important;
+  display: none !important;
+}
+
+body .view-report-btn:hover {
+  box-shadow: none !important;
+}

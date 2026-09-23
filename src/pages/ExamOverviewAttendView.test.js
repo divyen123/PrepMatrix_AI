@@ -110,3 +110,11 @@ test("removes Practice under pressure header and presents description on a singl
   );
   assert.match(stylesheet, /\.exam-page__header-desc[\s\S]*?white-space:\s*nowrap/u);
 });
+
+test("removes Paper specification and Saved history badges in question paper generator", () => {
+  assert.doesNotMatch(pageSource, /<span className="section-tag">Paper specification<\/span>/u);
+  assert.doesNotMatch(pageSource, /<span className="section-tag">Saved history<\/span>/u);
+  assert.match(pageSource, /<h2>Design the exact paper blueprint<\/h2>/u);
+  assert.match(pageSource, /<h2>Generated question papers<\/h2>/u);
+});
+

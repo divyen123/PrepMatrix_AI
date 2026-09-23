@@ -163,7 +163,7 @@ test("renders Settings for one profile without deletion guidance", async () => {
     assert.match(markup, /aria-label="Auto-lock app"/u);
     assert.match(
       markup,
-      /<input(?=[^>]*aria-label="Auto-lock app")(?=[^>]*checked="")[^>]*>/u,
+      /<button(?=[^>]*aria-checked="true")(?=[^>]*aria-label="Auto-lock app")(?=[^>]*role="switch")[^>]*>/u,
     );
     assert.match(markup, /Keyboard, mouse, or touch activity restarts the countdown\./u);
     assert.doesNotMatch(markup, /settings-auto-lock-delay/u);
@@ -182,7 +182,11 @@ test("renders Settings for one profile without deletion guidance", async () => {
     const autoLockDisabledMarkup = renderSettings({ autoLockEnabled: false });
     assert.doesNotMatch(
       autoLockDisabledMarkup,
-      /<input(?=[^>]*aria-label="Auto-lock app")(?=[^>]*checked="")[^>]*>/u,
+      /<button(?=[^>]*aria-checked="true")(?=[^>]*aria-label="Auto-lock app")(?=[^>]*role="switch")[^>]*>/u,
+    );
+    assert.match(
+      autoLockDisabledMarkup,
+      /<button(?=[^>]*aria-checked="false")(?=[^>]*aria-label="Auto-lock app")(?=[^>]*role="switch")[^>]*>/u,
     );
     assert.match(
       autoLockDisabledMarkup,

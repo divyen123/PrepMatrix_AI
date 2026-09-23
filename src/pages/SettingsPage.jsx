@@ -8,6 +8,7 @@ import SettingsProfileInfo from "../components/SettingsProfileInfo";
 import SettingsActionAlertsInfo from "../components/SettingsActionAlertsInfo";
 import SettingsAcademicChangeDialog from "../components/SettingsAcademicChangeDialog";
 import SettingsClearDataDialog from "../components/SettingsClearDataDialog";
+import SquishSwitch from "../components/SquishSwitch";
 import WakeSlider from "../components/WakeSlider";
 import {
   DEFAULT_GOAL_REMINDER_DATA,
@@ -392,23 +393,19 @@ function ToggleSwitch({
       </div>
       <div className="toggle-row-actions">
         {trailingControl}
-        <label className="toggle-switch-label" style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.65 : 1 }}>
-          <input aria-label={label} type="checkbox" checked={checked} onChange={onChange} disabled={disabled} style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} />
-          <span style={{
-            position: 'absolute', inset: 0, borderRadius: '999px',
-            background: checked ? 'rgba(var(--accent-rgb), 0.6)' : 'var(--surface-muted)',
-            border: `1px solid ${checked ? 'rgba(var(--accent-rgb), 0.4)' : 'var(--border)'}`,
-            transition: 'all 0.25s ease'
-          }}>
-            <span style={{
-              position: 'absolute', top: '3px', left: checked ? '24px' : '3px',
-              width: '18px', height: '18px', borderRadius: '50%',
-              background: checked ? 'var(--accent)' : 'var(--text-muted)',
-              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
-            }} />
-          </span>
-        </label>
+        <SquishSwitch
+          ariaLabel={label}
+          checked={checked}
+          className="settings-squish-switch"
+          disabled={disabled}
+          height={22}
+          hoverScale={1.045}
+          onChange={onChange}
+          radius={11}
+          speed={55}
+          stretch={70}
+          width={40}
+        />
       </div>
     </div>
   );
@@ -807,8 +804,8 @@ function SettingsPage({
     localStorage.getItem("prepmatrix_wake_mode") === "true"
   );
 
-  const toggleWakeMode = () => {
-    const next = !wakeMode;
+  const toggleWakeMode = (nextValue) => {
+    const next = typeof nextValue === "boolean" ? nextValue : !wakeMode;
     setWakeMode(next);
     localStorage.setItem("prepmatrix_wake_mode", next ? "true" : "false");
     onPreferencesChange?.({ wakeMode: next });
@@ -820,9 +817,9 @@ function SettingsPage({
     toast.success(next ? "Wake mode enabled. Say Hey Prep, Prep Matrix, or Hey PrepMatrix." : "Wake mode disabled.");
   };
 
-  const toggleNotifications = async () => {
+  const toggleNotifications = async (nextValue) => {
     if (notificationToggleDisabled) return;
-    const nextVal = !notificationToggleChecked;
+    const nextVal = typeof nextValue === "boolean" ? nextValue : !notificationToggleChecked;
     setNotificationsBusy(true);
     setNotificationStatus("checking");
 
@@ -2635,7 +2632,7 @@ function SettingsPage({
           <div className="settings-auto-hide-topbar">
             <ToggleSwitch
               checked={autoHideTopBar}
-              onChange={(event) => onAutoHideTopBarChange?.(event.target.checked)}
+              onChange={(next) => onAutoHideTopBarChange?.(next)}
               label="Auto-hide Top Bar"
               subtitle="Hide the top bar until you move the cursor to the top edge of the screen."
             />
@@ -2644,7 +2641,7 @@ function SettingsPage({
           <div className="settings-auto-lock">
             <ToggleSwitch
               checked={autoLockEnabled}
-              onChange={(event) => onAutoLockEnabledChange?.(event.target.checked)}
+              onChange={(next) => onAutoLockEnabledChange?.(next)}
               label="Auto-lock app"
               subtitle="Lock PrepMatrix after the selected period of inactivity. Keyboard, mouse, or touch activity restarts the countdown."
               trailingControl={(
@@ -2673,7 +2670,7 @@ function SettingsPage({
 
           <ToggleSwitch
             checked={soundEnabled}
-            onChange={() => setSoundEnabled((prev) => !prev)}
+            onChange={setSoundEnabled}
             label="Completion Sound Effects"
             subtitle="Play audio chimes when clearing scheduled days or unlocking streaks"
           />
@@ -3001,7 +2998,7 @@ function SettingsPage({
                 <span className="card-subtext" style={{ fontSize: "0.8rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>Glassmorphism Customization</span>
                 <ToggleSwitch
                   checked={glassyCards}
-                  onChange={() => setGlassyCards((prev) => !prev)}
+                  onChange={setGlassyCards}
                   label="Glassy Cards & Panels"
                   subtitle="Apply glass blur and transparency to containers"
                 />

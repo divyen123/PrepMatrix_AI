@@ -35,6 +35,12 @@
 }
 
 .report-modal {
+  --report-modal-surface: var(--bg);
+  --report-panel-surface: color-mix(in srgb, var(--report-modal-surface) 92%, var(--accent) 8%);
+  --report-panel-border: color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
+  --report-control-surface: rgba(var(--accent-rgb), 0.08);
+  --report-control-surface-hover: rgba(var(--accent-rgb), 0.15);
+  --report-track-surface: color-mix(in srgb, var(--text) 10%, transparent);
   position: relative;
   width: min(640px, calc(100vw - 32px));
   max-height: min(85vh, 760px);
@@ -44,11 +50,13 @@
   border-radius: 22px;
   animation: reportModalSlideIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
 
-  /* 100% OPAQUE DEFAULT (LIGHT) */
-  background: #ffffff !important;
-  color: #1e293b !important;
-  border: 1px solid rgba(15, 23, 42, 0.12) !important;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22), 0 4px 14px rgba(15, 23, 42, 0.08) !important;
+  /* The selected canvas and accent drive the portal-rendered dialog too. */
+  background: var(--report-modal-surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--report-panel-border) !important;
+  box-shadow:
+    var(--shadow),
+    0 0 0 1px rgba(var(--accent-rgb), 0.05) !important;
   opacity: 1;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -93,32 +101,11 @@
   }
 }
 
-/* 100% OPAQUE DARK THEME */
-body.dark .report-modal {
-  background: #121c26 !important;
-  color: #f3f5f6 !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65), 0 4px 14px rgba(0, 0, 0, 0.45) !important;
-}
-
-/* 100% OPAQUE WALLPAPER LIGHT THEME */
-body.has-bg-image:not(.dark) .report-modal {
-  background: #ffffff !important;
-  color: #152033 !important;
-  border: 1px solid rgba(17, 24, 39, 0.15) !important;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* 100% OPAQUE WALLPAPER DARK THEME */
-body.has-bg-image.dark .report-modal {
-  background: #111a24 !important;
-  color: #f3f5f6 !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+/* Wallpaper themes publish a palette-matched opaque surface of their own. */
+body.has-bg-image .report-modal {
+  --report-modal-surface: rgb(var(--bg-surface-rgb));
+  --report-panel-surface: color-mix(in srgb, rgb(var(--bg-surface-rgb)) 88%, var(--accent) 12%);
+  --report-panel-border: color-mix(in srgb, var(--border) 72%, var(--accent) 28%);
 }
 
 /* MODAL HEADER */
@@ -128,7 +115,7 @@ body.has-bg-image.dark .report-modal {
   justify-content: space-between;
   gap: 16px;
   padding: 18px 22px 16px;
-  border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  border-bottom: 1px solid var(--report-panel-border);
   flex: 0 0 auto;
 }
 
@@ -146,15 +133,9 @@ body.has-bg-image.dark .report-modal {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  color: #0b8f74;
-  background: rgba(11, 143, 116, 0.12);
-  border: 1px solid rgba(11, 143, 116, 0.22);
-}
-
-body.dark .report-modal-icon {
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.22);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.24);
 }
 
 .report-modal-title-wrap h2 {
@@ -169,7 +150,7 @@ body.dark .report-modal-icon {
 .report-modal-title-wrap p {
   margin: 2px 0 0;
   font-size: 0.8rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -184,24 +165,17 @@ body .report-modal .report-modal-close {
   place-items: center !important;
   padding: 0 !important;
   border-radius: 10px !important;
-  color: var(--text-muted, #64748b) !important;
-  background: rgba(15, 23, 42, 0.05) !important;
-  border: 1px solid var(--border, rgba(0, 0, 0, 0.08)) !important;
+  color: var(--text-muted) !important;
+  background: var(--report-control-surface) !important;
+  border: 1px solid var(--report-panel-border) !important;
   box-shadow: none !important;
 }
 
 body .report-modal .report-modal-close:hover {
-  color: var(--text, #1e293b) !important;
-  background: rgba(15, 23, 42, 0.1) !important;
-}
-
-body.dark .report-modal .report-modal-close {
-  background: rgba(255, 255, 255, 0.06) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-body.dark .report-modal .report-modal-close:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
+  color: var(--text) !important;
+  background: var(--report-control-surface-hover) !important;
+  border-color: rgba(var(--accent-rgb), 0.34) !important;
+  box-shadow: none !important;
 }
 
 /* MODAL BODY */
@@ -214,6 +188,31 @@ body.dark .report-modal .report-modal-close:hover {
   flex-direction: column;
   gap: 16px;
   overscroll-behavior-y: contain;
+  scrollbar-color: rgba(var(--accent-rgb), 0.52) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+body .report-modal .report-modal-body::-webkit-scrollbar {
+  width: 10px;
+}
+
+body .report-modal .report-modal-body::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--report-modal-surface) 88%, var(--accent) 12%);
+  border-radius: 999px;
+}
+
+body .report-modal .report-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.48);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+body .report-modal .report-modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.72);
+  background-clip: padding-box;
 }
 
 /* PROGRESS BANNER */
@@ -223,23 +222,8 @@ body.dark .report-modal .report-modal-close:hover {
   gap: 10px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
-
-body.dark .report-progress-banner {
-  background: #182330;
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-body.has-bg-image:not(.dark) .report-progress-banner {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-}
-
-body.has-bg-image.dark .report-progress-banner {
-  background: #17222f;
-  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--report-panel-surface);
+  border: 1px solid var(--report-panel-border);
 }
 
 .report-progress-info {
@@ -254,14 +238,14 @@ body.has-bg-image.dark .report-progress-banner {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .report-progress-info strong {
   font-size: 1.35rem;
   font-family: "Space Grotesk", sans-serif;
   font-weight: 700;
-  color: var(--text, #1e293b);
+  color: var(--text);
 }
 
 .report-progress-val.is-high {
@@ -278,7 +262,7 @@ body.has-bg-image.dark .report-progress-banner {
 
 .report-progress-info small {
   font-size: 0.8rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   margin-left: auto;
 }
 
@@ -286,18 +270,14 @@ body.has-bg-image.dark .report-progress-banner {
   width: 100%;
   height: 8px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.08);
+  background: var(--report-track-surface);
   overflow: hidden;
-}
-
-body.dark .report-progress-track {
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .report-progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: #0b8f74;
+  background: var(--accent);
   transition: width 0.35s ease;
 }
 
@@ -345,23 +325,8 @@ body.dark .report-mini-fill.is-low {
   gap: 3px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
-
-body.dark .report-stat-card {
-  background: #182330;
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-body.has-bg-image:not(.dark) .report-stat-card {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-}
-
-body.has-bg-image.dark .report-stat-card {
-  background: #17222f;
-  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--report-panel-surface);
+  border: 1px solid var(--report-panel-border);
 }
 
 .report-stat-label {
@@ -369,20 +334,24 @@ body.has-bg-image.dark .report-stat-card {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
-.report-stat-value {
+body .report-modal .report-stat-value {
   font-size: 1.25rem;
   font-family: "Space Grotesk", sans-serif;
   font-weight: 700;
-  color: var(--text, #1e293b);
+  color: var(--text) !important;
+  background: none !important;
+  background-clip: border-box;
+  -webkit-background-clip: border-box;
+  -webkit-text-fill-color: currentColor;
   line-height: 1.2;
 }
 
 .report-stat-card small {
   font-size: 0.75rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 /* SECTION BLOCKS */
@@ -398,7 +367,7 @@ body.has-bg-image.dark .report-stat-card {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 /* SUBJECT PROGRESS LIST */
@@ -408,23 +377,8 @@ body.has-bg-image.dark .report-stat-card {
   gap: 10px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
-
-body.dark .report-subject-list {
-  background: #182330;
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-body.has-bg-image:not(.dark) .report-subject-list {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-}
-
-body.has-bg-image.dark .report-subject-list {
-  background: #17222f;
-  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--report-panel-surface);
+  border: 1px solid var(--report-panel-border);
 }
 
 .report-subject-item {
@@ -443,12 +397,12 @@ body.has-bg-image.dark .report-subject-list {
 .report-subject-name {
   font-size: 0.84rem;
   font-weight: 600;
-  color: var(--text, #1e293b);
+  color: var(--text);
 }
 
 .report-subject-stats {
   font-size: 0.78rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .report-subject-stats.is-high {
@@ -479,18 +433,14 @@ body.dark .report-subject-stats.is-low {
   width: 100%;
   height: 6px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.08);
+  background: var(--report-track-surface);
   overflow: hidden;
-}
-
-body.dark .report-mini-track {
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .report-mini-fill {
   height: 100%;
   border-radius: 999px;
-  background: #0b8f74;
+  background: var(--accent);
   transition: width 0.35s ease;
 }
 
@@ -510,28 +460,10 @@ body.dark .report-mini-track {
   gap: 10px;
   padding: 9px 12px;
   border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--report-panel-surface);
+  border: 1px solid var(--report-panel-border);
   font-size: 0.82rem;
-  color: var(--text, #1e293b);
-}
-
-body.dark .report-action-list li {
-  background: #182330;
-  border-color: rgba(255, 255, 255, 0.08);
-  color: #f3f5f6;
-}
-
-body.has-bg-image:not(.dark) .report-action-list li {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-  color: #152033;
-}
-
-body.has-bg-image.dark .report-action-list li {
-  background: #17222f;
-  border-color: rgba(255, 255, 255, 0.08);
-  color: #f3f5f6;
+  color: var(--text);
 }
 
 .report-action-num {
@@ -542,14 +474,9 @@ body.has-bg-image.dark .report-action-list li {
   place-items: center;
   font-size: 0.72rem;
   font-weight: 700;
-  color: #0b8f74;
-  background: rgba(11, 143, 116, 0.14);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.14);
   flex: 0 0 auto;
-}
-
-body.dark .report-action-num {
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.15);
 }
 
 /* MODAL FOOTER */
@@ -559,157 +486,14 @@ body.dark .report-action-num {
   justify-content: flex-end;
   gap: 10px;
   padding: 14px 22px;
-  border-top: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  border-top: 1px solid var(--report-panel-border);
   flex: 0 0 auto;
 }
 
-/* BUTTON ISOLATION: Prevent global App.css button overrides from clashing */
-body .report-modal button {
-  isolation: isolate;
-  filter: none !important;
-  text-shadow: none !important;
-}
-
-body .report-modal button::before,
-body .report-modal button::after {
-  content: none !important;
-  display: none !important;
-}
-
-/* EXPORT PDF BUTTON: High contrast & visible text across light, dark, and hover */
+/* Footer actions deliberately use the app-wide secondary/action button system. */
+body .report-modal .report-footer-cancel-btn,
 body .report-modal .report-export-pdf-btn {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 7px !important;
-  min-height: 38px !important;
-  padding: 8px 18px !important;
-  border-radius: 11px !important;
-  font-size: 0.85rem !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.01em !important;
-  cursor: pointer !important;
-  text-decoration: none !important;
-  transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease !important;
-
-  /* High contrast emerald/teal in light mode */
-  background: #0b8f74 !important;
-  color: #ffffff !important;
-  border: 1px solid #0b8f74 !important;
-  box-shadow: 0 4px 14px rgba(11, 143, 116, 0.28) !important;
-}
-
-body .report-modal .report-export-pdf-btn * {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
-  fill: none !important;
-}
-
-body .report-modal .report-export-pdf-btn:hover {
-  background: #076b57 !important;
-  border-color: #076b57 !important;
-  color: #ffffff !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 6px 18px rgba(11, 143, 116, 0.38) !important;
-  filter: none !important;
-}
-
-body .report-modal .report-export-pdf-btn:hover * {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
-}
-
-/* DARK MODE: Solid crisp emerald button with pure white text */
-body.dark .report-modal .report-export-pdf-btn {
-  background: #0b8f74 !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
-}
-
-body.dark .report-modal .report-export-pdf-btn * {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
-}
-
-body.dark .report-modal .report-export-pdf-btn:hover {
-  background: #0ea5e9 !important;
-  border-color: #0ea5e9 !important;
-  color: #ffffff !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.45) !important;
-  filter: none !important;
-}
-
-body.dark .report-modal .report-export-pdf-btn:hover * {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
-}
-
-/* WALLPAPER MODES */
-body.has-bg-image .report-modal .report-export-pdf-btn {
-  background: #0b8f74 !important;
-  color: #ffffff !important;
-  border: 1px solid #0b8f74 !important;
-}
-
-body.has-bg-image .report-modal .report-export-pdf-btn * {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
-}
-
-body.has-bg-image .report-modal .report-export-pdf-btn:hover {
-  background: #076b57 !important;
-  color: #ffffff !important;
-}
-
-body.has-bg-image.dark .report-modal .report-export-pdf-btn {
-  background: #0b8f74 !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-}
-
-body.has-bg-image.dark .report-modal .report-export-pdf-btn:hover {
-  background: #0ea5e9 !important;
-  color: #ffffff !important;
-}
-
-/* CLOSE BUTTON */
-body .report-modal .report-footer-cancel-btn {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  min-height: 38px !important;
-  padding: 8px 16px !important;
-  border-radius: 11px !important;
-  font-size: 0.85rem !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-  transition: all 0.18s ease !important;
-
-  color: #334155 !important;
-  background: #f1f5f9 !important;
-  border: 1px solid #cbd5e1 !important;
-}
-
-body .report-modal .report-footer-cancel-btn:hover {
-  color: #0f172a !important;
-  background: #e2e8f0 !important;
-  border-color: #94a3b8 !important;
-  transform: translateY(-1px) !important;
-}
-
-body.dark .report-modal .report-footer-cancel-btn {
-  color: #e2e8f0 !important;
-  background: #1e293b !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-}
-
-body.dark .report-modal .report-footer-cancel-btn:hover {
-  color: #ffffff !important;
-  background: #334155 !important;
-  border-color: rgba(255, 255, 255, 0.25) !important;
-  transform: translateY(-1px) !important;
+  white-space: nowrap;
 }
 
 @media (max-width: 520px) {

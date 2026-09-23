@@ -3700,8 +3700,10 @@ function App() {
                             <SubjectsPage
                               academicLevel={academicLevel}
                               academicTrack={academicTrack}
+                              completed={completed}
                               hasActiveSchedule={schedule.length > 0}
                               kidsMode={learnerRoutePolicy.isYoungKidsLearner}
+                              schedule={schedule}
                               setSubjects={updateSubjects}
                               subjects={subjects}
                               userProfile={userProfile}
