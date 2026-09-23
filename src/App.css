@@ -23179,6 +23179,37 @@ body.has-bg-image .smart-suggestion-cta.is-yellow {
   box-shadow: 0 8px 24px -6px rgba(234, 179, 8, 0.22);
 }
 
+.smart-suggestion-cta.is-empty {
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 0;
+  color: #ca8a04;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.dark .smart-suggestion-cta.is-empty,
+body.has-bg-image .smart-suggestion-cta.is-empty {
+  color: #facc15;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.smart-suggestion-cta.is-empty:hover {
+  color: #a16207;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.dark .smart-suggestion-cta.is-empty:hover,
+body.has-bg-image .smart-suggestion-cta.is-empty:hover {
+  color: #fde047;
+}
+
 .smart-suggestion-cta svg {
   flex-shrink: 0;
   transition: transform 0.2s ease;
@@ -23287,6 +23318,16 @@ body.has-bg-image .smart-suggestion-cta.is-yellow {
   color: var(--text-muted);
   font-weight: 700;
   margin: 0;
+}
+
+.db-progress-milestone.is-empty .db-progress-milestone-detail {
+  justify-content: center;
+}
+
+.db-progress-milestone.is-empty p {
+  font-weight: 600;
+  text-align: center;
+  text-wrap: balance;
 }
 
 .db-progress-milestone-detail {

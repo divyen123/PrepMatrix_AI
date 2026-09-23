@@ -5,7 +5,6 @@ import { getPlannerMetrics } from "../utils/plannerMetrics";
 // SmartSuggestion component renders curated dynamic recommendations.
 function SmartSuggestion({
   academicLevel = "College",
-  academicTrack = "General",
   schedule,
   completed,
   subjects = [],
@@ -18,7 +17,7 @@ function SmartSuggestion({
       <section aria-label="Smart suggestions" className="smart-suggestion-card">
         <Link
           aria-label="Add your subjects and generate a plan"
-          className="smart-suggestion-cta is-yellow"
+          className="smart-suggestion-cta is-empty"
           to="/subjects"
         >
           <span>Add your subjects and generate a plan</span>

@@ -94,7 +94,7 @@ function ProgressBar1({ academicProfileDataId = "", schedule, completed, variant
           <span className="db-progress-dial-label">Overall completion</span>
         </div>
         <div className="db-progress-details">
-          <div className="db-progress-milestone">
+          <div className={`db-progress-milestone${metrics.totalTasks === 0 ? " is-empty" : ""}`}>
             <strong>{milestoneLabel}</strong>
             <div className="db-progress-milestone-detail">
               <p>{milestoneDetail}</p>

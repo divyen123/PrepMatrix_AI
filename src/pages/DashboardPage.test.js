@@ -426,3 +426,21 @@ test("positions weekly review and smart suggestions contents slightly down from 
     /\.db-panel-inner \.weekly-review-output,\s*\.db-panel-inner \.weekly-review-empty-state\s*\{[^}]*margin-top:\s*0\.5rem;/u,
   );
 });
+
+test("centers and softens the empty progress milestone detail", () => {
+  const progressSource = readFileSync(new URL("../components/Progressbar1.jsx", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+
+  assert.match(
+    progressSource,
+    /className=\{`db-progress-milestone\$\{metrics\.totalTasks === 0 \? " is-empty" : ""\}`\}/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.db-progress-milestone\.is-empty \.db-progress-milestone-detail\s*\{[^}]*justify-content:\s*center;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.db-progress-milestone\.is-empty p\s*\{[^}]*font-weight:\s*600;[^}]*text-align:\s*center;[^}]*text-wrap:\s*balance;/u,
+  );
+});
