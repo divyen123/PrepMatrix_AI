@@ -51,3 +51,14 @@ test("Subject Performance removes redundant hero copy and uses compact footer ac
     /@media \(max-width: 800px\)\s*\{[\s\S]*?\.subject-progress-modal \.subject-modal-actions\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*gap:\s*8px;[^}]*padding:\s*10px 18px 14px;[\s\S]*?body \.subject-progress-modal \.subject-action-btn\s*\{[^}]*min-height:\s*52px;/u,
   );
 });
+
+test("removes redundant Next focus copy from Exam outlook in Subject Progress modal", () => {
+  assert.doesNotMatch(
+    modalSource,
+    /Complete it to move this subject closer to exam readiness/u,
+  );
+  assert.doesNotMatch(
+    modalSource,
+    /Next focus:.*Complete it/u,
+  );
+});

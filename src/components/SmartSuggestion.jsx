@@ -1,8 +1,48 @@
+import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 
 // SmartSuggestion component renders curated dynamic recommendations.
-function SmartSuggestion({ academicLevel = "College", academicTrack = "General", schedule, completed }) {
+function SmartSuggestion({
+  academicLevel = "College",
+  academicTrack = "General",
+  schedule,
+  completed,
+  subjects = [],
+}) {
+  const safeSubjects = Array.isArray(subjects) ? subjects : [];
   const metrics = getPlannerMetrics(schedule, completed);
+
+  if (safeSubjects.length === 0) {
+    return (
+      <section aria-label="Smart suggestions" className="smart-suggestion-card">
+        <Link
+          aria-label="Add your subjects and generate a plan"
+          className="smart-suggestion-cta is-yellow"
+          to="/subjects"
+        >
+          <span>Add your subjects and generate a plan</span>
+          <ArrowRight aria-hidden="true" size={16} />
+        </Link>
+      </section>
+    );
+  }
+
+  if (!metrics.hasScheduledPlanner) {
+    return (
+      <section aria-label="Smart suggestions" className="smart-suggestion-card">
+        <Link
+          aria-label="Generate a schedule"
+          className="smart-suggestion-cta is-yellow"
+          to="/planner/schedule"
+        >
+          <span>Generate a schedule</span>
+          <ArrowRight aria-hidden="true" size={16} />
+        </Link>
+      </section>
+    );
+  }
+
   const weakest = metrics.weakSubject;
   const isSchoolLevel = academicLevel !== "College";
 
@@ -56,5 +96,3 @@ function SmartSuggestion({ academicLevel = "College", academicTrack = "General",
 }
 
 export default SmartSuggestion;
-
-

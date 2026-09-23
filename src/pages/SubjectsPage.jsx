@@ -15,11 +15,13 @@ import "./SubjectsPage.css";
 function SubjectsPage({
   academicLevel,
   academicTrack,
+  completed = [],
   hasActiveSchedule = false,
-  subjects,
-  setSubjects,
-  userProfile,
   kidsMode = false,
+  schedule = [],
+  setSubjects,
+  subjects,
+  userProfile,
 }) {
   const location = useLocation();
   const addSubjectRef = useRef(null);
@@ -145,10 +147,13 @@ function SubjectsPage({
           <div className="subject-page-anchor subjects-library" ref={subjectLibraryRef}>
             <SubjectList
               academicProfile={academicProfile}
+              completed={completed}
               hasActiveSchedule={hasActiveSchedule}
               kidsMode={kidsMode}
+              schedule={schedule}
               setSubjects={setSubjects}
               subjects={subjects}
+              userProfile={userProfile}
             />
           </div>
         )}

@@ -204,7 +204,6 @@ const KidsLearningPage = lazyRetry(() => import("./pages/KidsLearningPage"));
 const KidsAiChatPage = lazyRetry(() => import("./pages/KidsAiChatPage"));
 const KidsStartLearningPage = lazyRetry(() => import("./pages/KidsStartLearningPage"));
 const SchoolKnowledgePage = lazyRetry(() => import("./pages/SchoolKnowledgePage"));
-const ReportPage = lazyRetry(() => import("./pages/ReportPage"));
 const ResourcesPage = lazyRetry(() => import("./pages/ResourcesPage"));
 const SubjectsPage = lazyRetry(() => import("./pages/SubjectsPage"));
 const ResumeBuilderPage = lazyRetry(() => import("./pages/ResumeBuilderPage"));
@@ -327,7 +326,6 @@ const NAV_ITEMS = [
   { to: "/notes", label: "Notes", helper: "Doubts and left topics", icon: StickyNote },
   { to: "/quiz", label: "Quiz", helper: "Topic-level checks", icon: Trophy },
   { to: "/exam", label: "Exam", helper: "Parent-guided tests and papers", icon: ClipboardList, youngKidsOnly: true },
-  { to: "/report", label: "Report", helper: "Planner intelligence", icon: ClipboardList },
   { to: "/resources", label: "Materials", helper: "Suggested study resources", icon: Library },
   {
     to: "/resume-builder",
@@ -3791,6 +3789,7 @@ function App() {
                               plannerHistory={plannerHistory}
                               scheduleStartDate={scheduleStartDate}
                               completed={completed}
+                              materialBookmarks={materialBookmarks}
                               quizBattlesEnabled={!learnerRoutePolicy.isYoungKidsLearner}
                               schedule={schedule}
                               subjects={subjects}
@@ -3860,15 +3859,7 @@ function App() {
                           path="/exam"
                         />
                         <Route
-                          element={
-                            <ReportPage
-                              completed={completed}
-                              materialBookmarks={materialBookmarks}
-                              schedule={schedule}
-                              subjects={subjects}
-                              userProfile={userProfile}
-                            />
-                          }
+                          element={<Navigate replace to="/analytics" />}
                           path="/report"
                         />
                         <Route

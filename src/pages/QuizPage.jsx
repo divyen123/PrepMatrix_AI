@@ -1121,12 +1121,16 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
         </section>
       )}
 
-      <section className="card quiz-history-card">
-        <div className="quiz-history-header">
-          <div>
-            <h3>Recent attempts</h3>
-          </div>
-          {attempts.length > 0 && (
+      {attempts.length === 0 ? (
+        <p className="quiz-history-empty-note">
+          {isHistoryLoading ? "Loading quiz history..." : "Your recent quiz attempts appear here."}
+        </p>
+      ) : (
+        <section className="card quiz-history-card">
+          <div className="quiz-history-header">
+            <div>
+              <h3>Recent attempts</h3>
+            </div>
             <div className="quiz-history-controls" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <label className="stored-search-field quiz-history-desktop-search">
                 <Search size={16} />
@@ -1176,9 +1180,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
                 </button>
               )}
             </div>
-          )}
-        </div>
-        {attempts.length > 0 && (
+          </div>
           <label className="stored-search-field quiz-history-mobile-search">
             <Search size={16} />
             <input
@@ -1189,13 +1191,10 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
               value={historySearchQuery}
             />
           </label>
-        )}
-        <div className="quiz-history-grid">
-          {isHistoryLoading ? (
-            <p className="card-subtext">Loading quiz history...</p>
-          ) : attempts.length === 0 ? (
-            <p className="card-subtext">No quiz attempts yet. Generate your first topic quiz.</p>
-          ) : filteredAttempts.length === 0 ? (
+          <div className="quiz-history-grid">
+            {isHistoryLoading ? (
+              <p className="card-subtext">Loading quiz history...</p>
+            ) : filteredAttempts.length === 0 ? (
             <p className="card-subtext">No quiz attempts match your search.</p>
           ) : (
             paginatedAttempts.map((attempt) => {
@@ -1297,6 +1296,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
           </div>
         )}
       </section>
+      )}
         </div>
       )}
       </div>

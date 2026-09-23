@@ -319,7 +319,7 @@ export default function ResumeAnalyzerDialog({
           <div>
             <h2 id="resume-analyzer-dialog-title">Review your resume for a role</h2>
           </div>
-          <button aria-label="Close resume analyzer" className="resume-analyzer-dialog-close" onClick={() => requestClose()} ref={closeRef} type="button"><X size={20} aria-hidden="true" /></button>
+          <button aria-label="Close resume analyzer" className="resume-analyzer-dialog-close" onClick={() => requestClose()} ref={closeRef} type="button"><X size={18} aria-hidden="true" /></button>
         </header>
 
         <div className="resume-analyzer-dialog-body">

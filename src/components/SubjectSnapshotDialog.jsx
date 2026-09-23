@@ -220,6 +220,14 @@ function SubjectSnapshotDialog({
   const primaryLabel = safeSubjects.length === 0
     ? "Add subject"
     : snapshot.actionLabel;
+  const snapshotHeading =
+    activeSnapshot === "subjects"
+      ? `${metricValue} total ${metricValue === 1 ? "subject" : "subjects"}`
+      : activeSnapshot === "chapters"
+        ? `${metricValue} total ${metricValue === 1 ? "chapter" : "chapters"}`
+        : activeSnapshot === "hard"
+          ? `${metricValue} hard ${metricValue === 1 ? "subject" : "subjects"}`
+          : snapshot.title;
 
   return createPortal(
     <div
@@ -242,8 +250,7 @@ function SubjectSnapshotDialog({
             <Icon size={21} />
           </span>
           <div>
-            <span className="subject-snapshot-eyebrow">{snapshot.eyebrow}</span>
-            <h2 id="subject-snapshot-title">{snapshot.title}</h2>
+            <h2 id="subject-snapshot-title">{snapshotHeading}</h2>
             {snapshot.description && <p id="subject-snapshot-description">{snapshot.description}</p>}
           </div>
           <button
@@ -256,14 +263,6 @@ function SubjectSnapshotDialog({
             <X size={18} />
           </button>
         </header>
-
-        <div className="subject-snapshot-summary">
-          <strong>{metricValue}</strong>
-          <div>
-            <span>{snapshot.metricLabel}</span>
-            <small>Updated from your current subject library</small>
-          </div>
-        </div>
 
         <div className="subject-snapshot-content">
           {listedSubjects.length === 0 ? (

@@ -1,21 +1,23 @@
 import { useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { FileText } from "lucide-react";
 import Analytics from "../components/Analytics";
 import FocusLandscape from "../components/FocusLandscape";
 import Gamification from "../components/Gamification";
-import GoalTracker from "../components/GoalTracker";
 import LearningProgressSummary from "../components/LearningProgressSummary";
 import Prediction from "../components/Prediction";
 import GlobalMomentumCard from "../components/GlobalMomentumCard";
 import Readiness from "../components/Readiness";
+import ReportModal from "../components/ReportModal";
 import TopicTimeline from "../components/TopicTimeline";
 import useLearningInsights from "../hooks/useLearningInsights";
 import useQuizBattleStats from "../hooks/useQuizBattleStats";
 import useMomentum from '../hooks/useMomentum';
 import "./AnalyticsPage.css";
 
-function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, completed, plannerHistory = [], scheduleStartDate = '', quizBattlesEnabled = true, userProfile = {} }) {
+function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, completed, plannerHistory = [], scheduleStartDate = '', quizBattlesEnabled = true, userProfile = {}, materialBookmarks = [] }) {
   const location = useLocation();
+  const [showReportModal, setShowReportModal] = useState(false);
   const learning = useLearningInsights({ academicProfileDataId });
   const battles = useQuizBattleStats({ academicProfileDataId, enabled: quizBattlesEnabled });
   const momentum = useMomentum(academicProfileDataId, String(battles.stats?.battleXp || 0));
@@ -36,8 +38,18 @@ function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, co
 
   return (
     <section className="page-stack">
-      <div className="section-intro">
-        <h2>Performance signals and study patterns</h2>
+      <div className="section-intro analytics-page-intro">
+        <div>
+          <h2>Performance signals and study patterns</h2>
+        </div>
+        <button
+          className="secondary-btn view-report-btn"
+          onClick={() => setShowReportModal(true)}
+          type="button"
+        >
+          <FileText aria-hidden="true" size={16} />
+          <span>View report</span>
+        </button>
       </div>
 
       <div className="analytics-row primary-analytics-row">
@@ -76,7 +88,6 @@ function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, co
           momentumError={momentum.error}
           onRetryMomentum={momentum.reload}
         />
-        <GoalTracker completed={completed} schedule={schedule} subjects={subjects} userProfile={userProfile} />
       </div>
 
       {subjects.length > 0 ? (
@@ -90,6 +101,16 @@ function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, co
         <p className="analytics-subject-empty" id="topic-progress">
           Add subjects and generate a timetable to unlock topic lanes and study landscape.
         </p>
+      )}
+      {showReportModal && (
+        <ReportModal
+          completed={completed}
+          materialBookmarks={materialBookmarks}
+          onClose={() => setShowReportModal(false)}
+          schedule={schedule}
+          subjects={subjects}
+          userProfile={userProfile}
+        />
       )}
     </section>
   );

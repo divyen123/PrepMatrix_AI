@@ -66,3 +66,15 @@ test("shows the battle detail sheen only during fine-pointer hover", () => {
     /@media \(hover: hover\) and \(pointer: fine\)\s*\{[\s\S]*?\.battle-detail\.card:hover::before\s*\{[\s\S]*?opacity:\s*0\.38 !important/u,
   );
 });
+
+test("displays background-free empty note when there are 0 quiz attempts", () => {
+  const appCss = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+  assert.match(
+    pageSource,
+    /\{attempts\.length === 0 \? \(\s*<p className="quiz-history-empty-note">\s*\{isHistoryLoading \? "Loading quiz history\.\.\." : "Your recent quiz attempts appear here\."\}\s*<\/p>\s*\) : \(\s*<section className="card quiz-history-card">/u,
+  );
+  assert.match(
+    appCss,
+    /\.quiz-history-empty-note\s*\{[^}]*color:\s*var\(--text-muted\);[^}]*background:\s*transparent;[^}]*border:\s*0;/u,
+  );
+});

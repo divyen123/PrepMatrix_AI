@@ -255,7 +255,6 @@ function ResourcesHub({
                 <ChevronLeft aria-hidden="true" size={18} />
               </button>
               <div className="resource-detail-title">
-                <span className="section-tag">Subject materials</span>
                 <h3 ref={subjectDetailHeadingRef} tabIndex={-1}>{activeResource.subject}</h3>
               </div>
               <span className="resource-progress-text">{activeResource.completionLabel}</span>

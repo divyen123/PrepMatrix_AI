@@ -14,6 +14,7 @@ const appSource = readSource("../App.jsx");
 const subjectPlanSource = readSource("../components/SubjectPlanDialog.jsx");
 const subjectProgressSource = readSource("../components/SubjectProgressModal.jsx");
 const goalTrackerSource = readSource("../components/GoalTracker.jsx");
+const subjectListSource = readSource("../components/SubjectList.jsx");
 const analyticsSource = readSource("../pages/AnalyticsPage.jsx");
 const topicTimelineSource = readSource("../components/TopicTimeline.jsx");
 const kidsLearningSource = readSource("../pages/KidsStartLearningPage.jsx");
@@ -122,7 +123,8 @@ test("subject planning and analytics dialogs receive the same active profile con
   assert.match(goalTrackerSource, /curriculumExamples\.subject/u);
   assert.doesNotMatch(goalTrackerSource, /curriculumExamples\.goalKeyword/u);
 
-  assert.match(analyticsSource, /<GoalTracker[^>]*userProfile=\{userProfile\}/u);
+  assert.doesNotMatch(analyticsSource, /<GoalTracker/u);
+  assert.match(subjectListSource, /<GoalTracker[^>]*userProfile=\{userProfile\}/u);
   assert.match(analyticsSource, /<TopicTimeline[^>]*userProfile=\{userProfile\}/u);
   assert.match(topicTimelineSource, /<SubjectProgressModal[\s\S]*?academicProfile=\{userProfile\}/u);
   assert.match(appSource, /<AnalyticsPage[\s\S]*?userProfile=\{userProfile\}[\s\S]*?\/>/u);

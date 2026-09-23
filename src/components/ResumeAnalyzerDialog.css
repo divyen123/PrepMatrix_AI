@@ -71,23 +71,46 @@
 
 .resume-analyzer-dialog-header > div { min-width: 0; }
 .resume-analyzer-dialog-header h2 { font-size: clamp(.91rem, 1.4vw, 1.04rem); font-weight: 700; letter-spacing: -.01em; line-height: 1.45; margin: 0; }
-body .resume-analyzer-dialog-close {
-  align-items: center;
-  background: color-mix(in srgb, #ef4444 10%, var(--ra-soft));
-  border: 1px solid color-mix(in srgb, #ef4444 30%, var(--ra-border));
-  border-radius: 50%;
-  color: color-mix(in srgb, #ef4444 65%, var(--text, #eef3fb));
-  cursor: pointer;
-  display: inline-flex;
-  flex: none;
-  height: 30px;
-  justify-content: center;
-  padding: 0;
-  width: 30px;
+body .resume-analyzer-dialog-close,
+body .resume-analyzer-dialog .resume-analyzer-dialog-close {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  color: #dc4058 !important;
+  background: rgba(239, 68, 68, 0.09) !important;
+  border: 1px solid rgba(239, 68, 68, 0.24) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: pointer !important;
+  flex: none !important;
+  overflow: hidden !important;
+  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease !important;
+}
+
+body.dark .resume-analyzer-dialog-close,
+body.dark .resume-analyzer-dialog .resume-analyzer-dialog-close {
+  color: #f87171 !important;
+  background: rgba(239, 68, 68, 0.14) !important;
+  border-color: rgba(239, 68, 68, 0.32) !important;
 }
 
 body .resume-analyzer-dialog-close:hover,
-body .resume-analyzer-dialog-close:focus-visible { border-color: #ef4444; color: #ef4444; background: color-mix(in srgb, #ef4444 16%, var(--ra-soft)); }
+body .resume-analyzer-dialog-close:focus-visible,
+body .resume-analyzer-dialog .resume-analyzer-dialog-close:hover,
+body .resume-analyzer-dialog .resume-analyzer-dialog-close:focus-visible {
+  color: #ffffff !important;
+  background: rgba(220, 38, 38, 0.82) !important;
+  border-color: rgba(248, 113, 113, 0.72) !important;
+  box-shadow: 0 7px 18px rgba(185, 28, 28, 0.2) !important;
+  transform: scale(1.05) !important;
+  outline: none !important;
+}
 .resume-analyzer-dialog-body { display: grid; gap: 18px; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 20px 22px 22px; }
 .resume-analyzer-layout { align-items: start; display: grid; gap: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .resume-analyzer-layout--stacked { grid-template-columns: 1fr; }

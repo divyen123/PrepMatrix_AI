@@ -1,10 +1,25 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Target, X } from "lucide-react";
 import { extractSubjectFromTask } from "../utils/plannerMetrics";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 
-function GoalTracker({ completed, schedule, subjects = [], userProfile = {} }) {
-  const [goal, setGoal] = useState("");
+function GoalTracker({
+  completed = [],
+  schedule = [],
+  subjects = [],
+  userProfile = {},
+  onClose,
+}) {
+  const safeSubjects = Array.isArray(subjects) ? subjects : [];
+  const safeCompleted = Array.isArray(completed) ? completed : [];
+  const safeSchedule = Array.isArray(schedule) ? schedule : [];
+
+  const [goal, setGoal] = useState(() => safeSubjects[0]?.name || "");
   const [days, setDays] = useState(5);
+  const [isListOpen, setIsListOpen] = useState(false);
+  const popupRef = useRef(null);
+  const dropdownRef = useRef(null);
+
   const curriculumExamples = useMemo(
     () => getAcademicProfileExamples(userProfile),
     [userProfile]
@@ -12,28 +27,86 @@ function GoalTracker({ completed, schedule, subjects = [], userProfile = {} }) {
 
   const safeDays = Math.max(1, days);
 
-  const goalTasks = schedule.flatMap(
+  // Close popup when clicking outside or pressing Escape
+  useEffect(() => {
+    if (!onClose) return;
+    const handleClickOutside = (event) => {
+      if (
+        popupRef.current &&
+        !popupRef.current.contains(event.target) &&
+        !event.target.closest(".track-goals-btn")
+      ) {
+        onClose();
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
+  // Close suggestions dropdown when clicking outside
+  useEffect(() => {
+    if (!isListOpen) return;
+    const handleDropdownOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsListOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleDropdownOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleDropdownOutside);
+    };
+  }, [isListOpen]);
+
+  const filteredSubjects = useMemo(() => {
+    const trimmed = goal.trim().toLowerCase();
+    if (!trimmed) return safeSubjects;
+    return safeSubjects.filter(
+      (sub) => sub?.name && sub.name.toLowerCase().includes(trimmed)
+    );
+  }, [safeSubjects, goal]);
+
+  const handleSelectSubject = (subjectName) => {
+    setGoal(subjectName);
+    setIsListOpen(false);
+  };
+
+  const normalizedGoal = goal.trim().toLowerCase();
+  const goalTasks = safeSchedule.flatMap(
     (day) =>
-      day.tasks?.filter(
-        (task) => goal && task.task.toLowerCase().includes(goal.toLowerCase())
-      ) || []
+      day.tasks?.filter((task) => {
+        if (!normalizedGoal) return false;
+        const taskName = (task.task || "").toLowerCase();
+        const subjectName = (task.subjectName || "").toLowerCase();
+        return taskName.includes(normalizedGoal) || subjectName.includes(normalizedGoal);
+      }) || []
   );
 
-  const totalGoalTasks = goalTasks.length;
-  const normalizedGoal = goal.trim().toLowerCase();
   const matchedSubjects = normalizedGoal
-    ? subjects.filter((subject) => subject.name.toLowerCase().includes(normalizedGoal))
+    ? safeSubjects.filter((subject) =>
+        subject.name.toLowerCase().includes(normalizedGoal)
+      )
     : [];
+
   const matchedSubjectNames = [
     ...new Set(
-      (matchedSubjects.length
+      matchedSubjects.length
         ? matchedSubjects.map((subject) => subject.name)
         : goalTasks.map((task) => extractSubjectFromTask(task.task)).filter(Boolean)
-      )
     ),
   ];
+
+  const totalGoalTasks = goalTasks.length;
   const completedGoalTasks = goalTasks.filter((task) =>
-    completed.includes(task.task)
+    safeCompleted.includes(task.task)
   ).length;
 
   const progress =
@@ -49,7 +122,9 @@ function GoalTracker({ completed, schedule, subjects = [], userProfile = {} }) {
 
   const remainingTasks = totalGoalTasks - completedGoalTasks;
   const estimatedDays =
-    averagePerDay === 0 ? "Not enough data" : `${Math.ceil(remainingTasks / averagePerDay)} days`;
+    averagePerDay === 0
+      ? "Not enough data"
+      : `${Math.ceil(remainingTasks / averagePerDay)} days`;
 
   const expectedProgress = 100 / safeDays;
 
@@ -73,51 +148,165 @@ function GoalTracker({ completed, schedule, subjects = [], userProfile = {} }) {
     statusClass = "status-warning";
   }
 
-  return (
-    <section className="card goal-tracker-card">
-      <div className="goal-tracker-header">
-        <div>
-          <h3>Goal tracker</h3>
-          <p className="card-desc">
-            Track one subject, topic, or chapter keyword against your generated plan.
-          </p>
+  if (!safeSubjects.length) {
+    return (
+      <section
+        aria-label="Goal tracker"
+        className="card goal-tracker-card goal-tracker-popup"
+        ref={popupRef}
+      >
+        <div className="goal-tracker-header">
+          <div className="goal-tracker-title-group">
+            <Target aria-hidden="true" size={18} />
+            <div>
+              <h3>Goal tracker</h3>
+            </div>
+          </div>
+          {onClose && (
+            <button
+              aria-label="Close goal tracker"
+              className="goal-tracker-close-btn"
+              onClick={onClose}
+              type="button"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
-        <strong className="goal-progress-value">{Math.round(progress)}%</strong>
+        <p className="goal-subjects-empty-notice" role="status">
+          Add subjects to track the goal
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section
+      aria-label="Goal tracker"
+      className="card goal-tracker-card goal-tracker-popup"
+      ref={popupRef}
+    >
+      <div className="goal-tracker-header">
+        <div className="goal-tracker-title-group">
+          <div className="goal-tracker-icon-badge" aria-hidden="true">
+            <Target size={18} />
+          </div>
+          <div>
+            <h3>Goal tracker</h3>
+            <p className="card-desc">
+              Track one subject, topic, or chapter keyword against your generated plan.
+            </p>
+          </div>
+        </div>
+        <div className="goal-tracker-header-actions">
+          <strong className="goal-progress-value">{Math.round(progress)}%</strong>
+          {onClose && (
+            <button
+              aria-label="Close goal tracker"
+              className="goal-tracker-close-btn"
+              onClick={onClose}
+              type="button"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="goal-tracker-layout">
         <div className="goal-inputs goal-inputs-horizontal">
-          <label>
-            Goal keyword
-            <input
-              onChange={(event) => setGoal(event.target.value)}
-              placeholder={`Example: ${subjects[0]?.name || curriculumExamples.subject}`}
-              type="text"
-              value={goal}
-            />
-          </label>
+          <div className="goal-input-field" ref={dropdownRef}>
+            <label htmlFor="goal-subject-input">
+              Goal keyword
+            </label>
+            <div className="goal-subject-input-wrapper">
+              <input
+                id="goal-subject-input"
+                className="goal-subject-text-input"
+                autoComplete="off"
+                list="goal-subject-datalist"
+                onChange={(event) => {
+                  setGoal(event.target.value);
+                  setIsListOpen(true);
+                }}
+                onFocus={() => setIsListOpen(true)}
+                placeholder={`Example: ${safeSubjects[0]?.name || curriculumExamples.subject}`}
+                type="text"
+                value={goal}
+              />
+              <button
+                aria-expanded={isListOpen}
+                aria-label="Toggle subjects list"
+                className="goal-subject-dropdown-toggle"
+                onClick={() => setIsListOpen((prev) => !prev)}
+                type="button"
+              >
+                <ChevronDown size={15} />
+              </button>
+              <datalist id="goal-subject-datalist">
+                {safeSubjects.map((sub) => (
+                  <option key={sub.name} value={sub.name} />
+                ))}
+              </datalist>
 
-          <label>
-            Target days
+              {isListOpen && (
+                <div className="goal-subject-suggestions-dropdown" role="listbox">
+                  {filteredSubjects.length > 0 ? (
+                    filteredSubjects.map((sub) => {
+                      const isSelected =
+                        sub.name.toLowerCase() === goal.trim().toLowerCase();
+                      return (
+                        <button
+                          key={sub.name}
+                          className={`goal-subject-suggestion-btn${
+                            isSelected ? " is-selected" : ""
+                          }`}
+                          onClick={() => handleSelectSubject(sub.name)}
+                          type="button"
+                        >
+                          <span className="goal-subject-suggestion-name">
+                            {sub.name}
+                          </span>
+                          <span className="goal-subject-suggestion-meta">
+                            {sub.chapters ? `${sub.chapters} ch` : ""}
+                            {sub.difficulty ? ` • ${sub.difficulty}` : ""}
+                          </span>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="goal-subject-suggestion-empty">
+                      <span>No matching subjects</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="goal-input-field goal-days-field">
+            <label htmlFor="goal-target-days-input">
+              Target days
+            </label>
             <input
+              id="goal-target-days-input"
+              className="goal-days-input"
               min="1"
-              onChange={(event) => setDays(Math.max(1, Number(event.target.value)))}
+              onChange={(event) =>
+                setDays(Math.max(1, Number(event.target.value)))
+              }
               type="number"
               value={days}
             />
-          </label>
-
-          {!subjects.length && (
-            <p className="goal-subjects-empty-notice" role="status">
-              Add subjects to track the goal
-            </p>
-          )}
+          </div>
 
           {goal ? (
             <div className="goal-match-summary" aria-live="polite">
               <span>Matched subject</span>
               <strong>
-                {matchedSubjectNames.length ? matchedSubjectNames.join(", ") : "No subject found"}
+                {matchedSubjectNames.length
+                  ? matchedSubjectNames.join(", ")
+                  : "No subject found"}
               </strong>
             </div>
           ) : null}
@@ -161,4 +350,3 @@ function GoalTracker({ completed, schedule, subjects = [], userProfile = {} }) {
 }
 
 export default GoalTracker;
-

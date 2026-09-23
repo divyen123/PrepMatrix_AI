@@ -365,11 +365,11 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
 
             <div className="subject-readiness-copy">
               <strong>{readinessLabel}</strong>
-              <p>
-                {nextTask
-                  ? `Next focus: ${nextTask.topic}. Complete it to move this subject closer to exam readiness.`
-                  : "All scheduled chapters are complete. Shift attention to active recall and timed practice."}
-              </p>
+              {!nextTask && (
+                <p>
+                  All scheduled chapters are complete. Shift attention to active recall and timed practice.
+                </p>
+              )}
             </div>
 
             {isSubjectComplete ? (

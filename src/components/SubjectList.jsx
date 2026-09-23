@@ -7,22 +7,28 @@ import {
   ChevronRight,
   Edit2,
   ListChecks,
+  Target,
   Trash2,
   X,
 } from "lucide-react";
+import GoalTracker from "./GoalTracker";
 import SubjectPlanDialog from "./SubjectPlanDialog";
 import { normalizeStudyPreferences, normalizeSubjectTopics } from "../utils/subjectPlanning";
 import "./SubjectList.css";
 
 function SubjectList({
   academicProfile = {},
+  completed = [],
   hasActiveSchedule = false,
   kidsMode = false,
-  subjects,
+  schedule = [],
   setSubjects,
+  subjects,
+  userProfile = {},
 }) {
   const navigate = useNavigate();
   const [editIndex, setEditIndex] = useState(null);
+  const [goalPopupOpen, setGoalPopupOpen] = useState(false);
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState(null);
   const [configureIndex, setConfigureIndex] = useState(null);
   const [editData, setEditData] = useState({
@@ -123,13 +129,31 @@ function SubjectList({
             Select a subject to add optional topics and shape how it appears in your study schedule.
           </p>
         </div>
-        <button
-          className="primary-btn"
-          onClick={() => navigate(kidsMode ? "/planner" : "/resources")}
-          type="button"
-        >
-          {kidsMode ? "Open planner" : "Open materials"}
-        </button>
+        <div className="subject-library-actions" style={{ display: "flex", gap: "10px", alignItems: "center", position: "relative" }}>
+          {subjects.length > 0 && (
+            <button
+              aria-expanded={goalPopupOpen}
+              aria-haspopup="dialog"
+              className="secondary-btn track-goals-btn"
+              onClick={() => setGoalPopupOpen((prev) => !prev)}
+              type="button"
+            >
+              <Target aria-hidden="true" size={15} />
+              Track goals
+            </button>
+          )}
+          <button
+            className="primary-btn"
+            onClick={() => navigate(kidsMode ? "/planner" : "/resources")}
+            type="button"
+          >
+            {kidsMode ? "Open planner" : "Open materials"}
+          </button>
+
+          {goalPopupOpen && subjects.length > 0 && (
+            <GoalTracker userProfile={userProfile} completed={completed} onClose={() => setGoalPopupOpen(false)} schedule={schedule} subjects={subjects} />
+          )}
+        </div>
       </div>
 
       {subjects.length === 0 ? (

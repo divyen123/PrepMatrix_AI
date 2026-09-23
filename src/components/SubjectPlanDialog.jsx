@@ -328,7 +328,6 @@ function SubjectPlanDialog({
             <BookOpen size={22} />
           </span>
           <div>
-            <span className="subject-plan-eyebrow">Subject planning workspace</span>
             <h2 id="subject-plan-title">Configure {subject?.name}</h2>
           </div>
           <button

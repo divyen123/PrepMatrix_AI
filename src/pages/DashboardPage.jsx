@@ -891,6 +891,7 @@ function DashboardPage({
               academicTrack={academicTrack}
               completed={completed}
               schedule={schedule}
+              subjects={subjects}
             />
           </div>
         )}
