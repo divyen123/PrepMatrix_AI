@@ -3235,9 +3235,11 @@ body .learning-page .learning-career-results.card::before {
   }
 }
 
-.learning-career-results-actions {
+.learning-panel-heading > .learning-career-results-actions {
   display: flex;
   flex: 0 0 auto;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
 }
@@ -3690,7 +3692,7 @@ body .learning-career-code-action svg {
     flex-direction: column;
   }
 
-  .learning-career-results-actions {
+  .learning-panel-heading > .learning-career-results-actions {
     justify-content: space-between;
   }
 

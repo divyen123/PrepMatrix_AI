@@ -68,12 +68,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 10px;
+  padding: 8px 13px;
   color: var(--memory-accent);
   background: var(--memory-accent-soft);
   border: 1px solid color-mix(in srgb, var(--memory-accent) 18%, transparent);
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 850;
   white-space: nowrap;
 }

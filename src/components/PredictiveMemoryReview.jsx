@@ -76,6 +76,7 @@ export default function PredictiveMemoryReview({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [pendingDeleteTaskId, setPendingDeleteTaskId] = useState(null);
+  const [badgeTarget, setBadgeTarget] = useState(null);
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
   const panelRef = useRef(null);
@@ -104,6 +105,25 @@ export default function PredictiveMemoryReview({
   }), [completed, notebooks, requestedTaskId, requestedUnitKey, schedule, scheduleStartDate, today]);
 
   useEffect(() => subscribeToLocalDateChanges(setToday), []);
+
+  useEffect(() => {
+    if (!standalone || typeof document === "undefined") return undefined;
+    const BADGE_TARGET_ID = "planner-recall-badge-target";
+    const existing = document.getElementById(BADGE_TARGET_ID);
+    if (existing) {
+      setBadgeTarget(existing);
+      return undefined;
+    }
+    const observer = new MutationObserver(() => {
+      const node = document.getElementById(BADGE_TARGET_ID);
+      if (node) {
+        setBadgeTarget(node);
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [standalone]);
 
   useEffect(() => {
     if (experience.changed && typeof setSchedule === "function") {
@@ -407,8 +427,7 @@ export default function PredictiveMemoryReview({
                 {loading ? "Loading" : `${experience.pendingEntries.length} due`}
               </span>
             );
-            const target = typeof document !== "undefined" && document.getElementById("planner-recall-badge-target");
-            return target ? createPortal(countBadge, target) : countBadge;
+            return badgeTarget ? createPortal(countBadge, badgeTarget) : null;
           })()}
         </div>
       ) : (
