@@ -82,3 +82,67 @@ test("toggles local disclosure state and animates content without a fixed height
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.learning-page \*[\s\S]*?transition-duration:\s*0\.01ms/u);
   assert.doesNotMatch(stylesheet, /\.learning-career-item-panel\s*\{[\s\S]*?max-height/u);
 });
+
+test("PlacementPrepTopicCard does not render Add to planner inside interview checks", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { default: PlacementPrepTopicCard } = await vite.ssrLoadModule(
+      "/src/components/PlacementPrepTopicCard.jsx",
+    );
+    const topic = {
+      id: "tcp-ip",
+      title: "TCP/IP Network model",
+      explanation: "TCP/IP layers and protocol concepts.",
+      whyItMatters: "Full stack networking essentials.",
+      interviewQuestions: [
+        { question: "What are the four layers of the TCP/IP model?" },
+      ],
+      practiceSteps: [
+        { text: "Review the four layers of the TCP/IP suite." },
+      ],
+    };
+
+    const markup = renderToStaticMarkup(
+      React.createElement(PlacementPrepTopicCard, {
+        codingRelevant: false,
+        codeMatrixAvailable: false,
+        topic,
+        index: 0,
+        getActionTarget: (_topic, item, kind, index) => ({
+          id: `placement:${topic.id}:${kind}:${index}`,
+          kind,
+          title: String(item?.question || item?.text || item),
+          explanation: "Answer details here.",
+        }),
+        getNoteOptions: () => ({}),
+        isSaving: () => false,
+        onSave: () => {},
+        onAskAI: () => {},
+        onAddToPlanner: () => {},
+      }),
+    );
+
+    // Interview checks section should have Save and Ask AI, but NOT Add to planner
+    const interviewSection = markup.slice(
+      markup.indexOf('aria-label="Interview checks"'),
+      markup.indexOf('aria-label="Practice next"'),
+    );
+    assert.match(interviewSection, /Save/u);
+    assert.match(interviewSection, /Ask AI/u);
+    assert.doesNotMatch(interviewSection, /Add to planner/u);
+
+    // Practice next section DOES still offer Add to planner
+    const practiceSection = markup.slice(markup.indexOf('aria-label="Practice next"'));
+    assert.match(practiceSection, /Save/u);
+    assert.match(practiceSection, /Ask AI/u);
+    assert.match(practiceSection, /Add to planner/u);
+  } finally {
+    await vite.close();
+  }
+});
+

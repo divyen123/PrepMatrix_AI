@@ -19,11 +19,16 @@ export default function PlacementPrepTopicCard({
 }) {
   const renderActions = (target) => {
     const saving = isSaving(target, getNoteOptions(target));
+    const isInterview = target?.kind === "interview"
+      || target?.metadata?.kind === "interview"
+      || String(target?.id || "").includes("interview");
     return (
       <div className="learning-career-item-actions">
         <button disabled={saving} onClick={() => onSave(target)} type="button"><Save size={14} /> {saving ? "Saving..." : "Save"}</button>
         <button onClick={() => onAskAI(target, topic)} type="button"><MessageSquareText size={14} /> Ask AI</button>
-        <button onClick={() => onAddToPlanner(target)} type="button"><CalendarPlus size={14} /> Add to planner</button>
+        {!isInterview && (
+          <button onClick={() => onAddToPlanner(target)} type="button"><CalendarPlus size={14} /> Add to planner</button>
+        )}
       </div>
     );
   };

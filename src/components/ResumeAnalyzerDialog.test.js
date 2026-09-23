@@ -66,3 +66,88 @@ test("analyzer stays mounted during its fade-out before closing", () => {
   assert.match(css, /\.resume-analyzer-dialog-backdrop\.is-closing/u);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/u);
 });
+
+test("formatResumeReviewNote and getResumeReviewPriority format notes accurately", async () => {
+  const vite = await createServer({ appType: "custom", logLevel: "silent", server: { middlewareMode: true } });
+  try {
+    const { formatResumeReviewNote, getResumeReviewPriority } = await vite.ssrLoadModule("/src/components/ResumeAnalyzerDialog.jsx");
+    const mockFindings = [
+      { id: "1", priority: "high", title: "Add measurable impact", suggestion: "Include metrics", evidence: "No metrics found", example: "Increased sales by 20%" },
+      { id: "2", priority: "low", title: "Check formatting", suggestion: "Keep fonts consistent" },
+    ];
+    assert.equal(getResumeReviewPriority(mockFindings), "High");
+    assert.equal(getResumeReviewPriority([{ priority: "medium" }]), "Medium");
+    assert.equal(getResumeReviewPriority([]), "Low");
+
+    const noteText = formatResumeReviewNote(
+      {
+        targetRole: "Full stack web developer",
+        notShown: [{ skill: "Docker", action: "Add Docker to project highlights" }],
+        needsEvidence: [{ skill: "React", action: "Mention where you used React" }],
+        matched: [{ skill: "JavaScript" }],
+      },
+      mockFindings,
+    );
+
+    assert.match(noteText, /Target Role: Full stack web developer/u);
+    assert.match(noteText, /\[HIGH\] Add measurable impact/u);
+    assert.match(noteText, /Suggestion: Include metrics/u);
+    assert.match(noteText, /Found: No metrics found/u);
+    assert.match(noteText, /Example: Increased sales by 20%/u);
+    assert.match(noteText, /Skills to add \/ develop:/u);
+    assert.match(noteText, /• Docker - Add Docker to project highlights/u);
+    assert.match(noteText, /Skills needing evidence:/u);
+    assert.match(noteText, /• React - Mention where you used React/u);
+    assert.match(noteText, /Matched skills:/u);
+    assert.match(noteText, /• JavaScript/u);
+    assert.match(noteText, /Saved from Resume Analyzer\./u);
+  } finally {
+    await vite.close();
+  }
+});
+
+test("analyzer dialog renders Save button alongside review results", async () => {
+  const vite = await createServer({ appType: "custom", logLevel: "silent", server: { middlewareMode: true } });
+  try {
+    const { default: ResumeAnalyzerDialog } = await vite.ssrLoadModule("/src/components/ResumeAnalyzerDialog.jsx");
+    const markup = renderToStaticMarkup(
+      React.createElement(ResumeAnalyzerDialog, {
+        initialResults: {
+          targetRole: "Full stack web developer",
+          findings: [
+            { id: "1", priority: "high", title: "Quantify achievements", suggestion: "Add numbers", category: "impact" },
+          ],
+          requestedSkills: [{ skill: "React" }],
+          notShown: [],
+          needsEvidence: [],
+          matched: [{ skill: "React", action: "Supported" }],
+        },
+        resumeBuilder: { draft: {} },
+        source: "builder",
+        userProfile: {},
+      }),
+    );
+
+    assert.match(markup, /resume-analyzer-save-button/u);
+    assert.match(markup, /aria-label="Save review to notes"/u);
+    assert.match(markup, /<span>Save<\/span><\/button>/u);
+    assert.match(markup, /Where your resume can improve/u);
+  } finally {
+    await vite.close();
+  }
+});
+
+test("analyzer dialog has save to notes handler and styling contracts", () => {
+  const source = readFileSync(new URL("./ResumeAnalyzerDialog.jsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("./ResumeAnalyzerDialog.css", import.meta.url), "utf8");
+
+  assert.match(source, /handleSaveToNotes/u);
+  assert.match(source, /onSaveToNotes/u);
+  assert.match(source, /api\.createNote/u);
+  assert.match(source, /api\.saveNotes/u);
+  assert.match(source, /resume-analyzer-save-button/u);
+  assert.match(css, /\.resume-analyzer-results-actions/u);
+  assert.match(css, /\.resume-analyzer-save-button/u);
+  assert.match(css, /\.resume-analyzer-save-button\.is-saved/u);
+});
+

@@ -1,10 +1,12 @@
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  Check,
   CheckCircle2,
   ClipboardPaste,
   FileSearch,
   FileText,
+  Save,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -38,7 +40,61 @@ const SOURCE_OPTIONS = [
   { id: "paste", label: "Paste text", icon: ClipboardPaste },
 ];
 
-export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, onEditResume, resumeBuilder, userProfile }) {
+export function getResumeReviewPriority(findings = []) {
+  if (findings.some((item) => String(item?.priority).toLowerCase() === "high")) return "High";
+  if (findings.some((item) => String(item?.priority).toLowerCase() === "medium")) return "Medium";
+  return "Low";
+}
+
+export function formatResumeReviewNote(results, findings = []) {
+  const targetRole = results?.targetRole || results?.roleNames?.[0] || "Target role";
+  const sections = [`Target Role: ${targetRole}`];
+
+  if (findings.length > 0) {
+    const findingsText = findings.map((finding, index) => {
+      const priorityTag = String(finding.priority || "medium").toUpperCase();
+      const lines = [`${index + 1}. [${priorityTag}] ${finding.title}`];
+      if (finding.suggestion) lines.push(`   Suggestion: ${finding.suggestion}`);
+      if (finding.evidence) lines.push(`   Found: ${finding.evidence}`);
+      if (finding.example) lines.push(`   Example: ${finding.example}`);
+      return lines.join("\n");
+    }).join("\n\n");
+    sections.push(`Areas to improve:\n${findingsText}`);
+  } else {
+    sections.push("Areas to improve:\nNo clear issues were found in the text provided.");
+  }
+
+  const notShown = results?.notShown || [];
+  if (notShown.length > 0) {
+    const list = notShown.map((item) => `• ${item.skill}${item.action ? ` - ${item.action}` : ""}`).join("\n");
+    sections.push(`Skills to add / develop:\n${list}`);
+  }
+
+  const needsEvidence = results?.needsEvidence || [];
+  if (needsEvidence.length > 0) {
+    const list = needsEvidence.map((item) => `• ${item.skill}${item.action ? ` - ${item.action}` : ""}`).join("\n");
+    sections.push(`Skills needing evidence:\n${list}`);
+  }
+
+  const matched = results?.matched || [];
+  if (matched.length > 0) {
+    const list = matched.map((item) => `• ${item.skill}`).join("\n");
+    sections.push(`Matched skills:\n${list}`);
+  }
+
+  sections.push("Saved from Resume Analyzer.");
+  return sections.join("\n\n");
+}
+
+export default function ResumeAnalyzerDialog({
+  academicProfileId = "",
+  initialResults = null,
+  onClose,
+  onEditResume,
+  onSaveToNotes,
+  resumeBuilder,
+  userProfile,
+}) {
   const dialogRef = useRef(null);
   const closeRef = useRef(null);
   const resultsRef = useRef(null);
@@ -54,7 +110,8 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
   const [jobDescription, setJobDescription] = useState("");
   const [fileLoading, setFileLoading] = useState(false);
   const [error, setError] = useState("");
-  const [results, setResults] = useState(null);
+  const [results, setResults] = useState(initialResults);
+  const [saveStatus, setSaveStatus] = useState("idle");
   const findings = results?.findings?.slice().sort((a, b) => (FINDING_PRIORITY[a.priority] ?? 3) - (FINDING_PRIORITY[b.priority] ?? 3)) || [];
   const [isClosing, setIsClosing] = useState(false);
   const uploadSequence = useRef(0);
@@ -122,12 +179,14 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
     setFileLoading(false);
     setError("");
     setResults(null);
+    setSaveStatus("idle");
   };
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
     const sequence = ++uploadSequence.current;
     setResults(null);
+    setSaveStatus("idle");
     setUploadedText("");
     setUploadedName("");
     setError("");
@@ -160,6 +219,7 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
   const handleAnalyze = () => {
     setError("");
     setResults(null);
+    setSaveStatus("idle");
     if (!jobDescription.trim()) {
       setError("Enter a job role or paste a job description.");
       return;
@@ -179,6 +239,64 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
       jobDescription,
     });
     setResults(nextResults);
+  };
+
+  const handleSaveToNotes = async () => {
+    if (!results || saveStatus === "saving" || saveStatus === "saved") return;
+    setSaveStatus("saving");
+    setError("");
+
+    const targetRole = results.targetRole || results.roleNames?.[0] || "Target role";
+    const noteTopic = `Resume Review: ${targetRole}`.slice(0, 120);
+    const noteDetails = formatResumeReviewNote(results, findings);
+    const notePriority = getResumeReviewPriority(findings);
+    const timestamp = new Date().toISOString();
+    const noteCandidate = {
+      id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `note-${Date.now()}`,
+      topic: noteTopic,
+      leftTopics: [],
+      details: noteDetails,
+      priority: notePriority,
+      status: "Open",
+      source: "resume-analyzer",
+      createdAt: timestamp,
+      learningContext: {
+        subject: "Placement Preparation",
+        chapter: "Resume Review",
+        topic: `${noteTopic} (${new Date().toLocaleDateString()})`,
+      },
+    };
+
+    try {
+      if (typeof onSaveToNotes === "function") {
+        await onSaveToNotes(noteCandidate);
+      } else {
+        let saved = false;
+        if (typeof api.createNote === "function") {
+          try {
+            const response = await api.createNote(noteCandidate, { academicProfileId });
+            if (response?.created) {
+              saved = true;
+            }
+          } catch {
+            // fallback to getNotes + saveNotes
+          }
+        }
+        if (!saved && typeof api.getNotes === "function" && typeof api.saveNotes === "function") {
+          const response = await api.getNotes({ academicProfileId }).catch(() => ({ notes: [] }));
+          const currentNotes = Array.isArray(response?.notes) ? response.notes : [];
+          await api.saveNotes([noteCandidate, ...currentNotes], { academicProfileId });
+          saved = true;
+        }
+        if (!saved && typeof api.createNote !== "function" && typeof api.saveNotes !== "function") {
+          throw new Error("Unable to save note. Note service is unavailable.");
+        }
+      }
+      setSaveStatus("saved");
+    } catch (saveError) {
+      setSaveStatus("idle");
+      setError(saveError instanceof Error ? saveError.message : "Could not save review to notes.");
+    }
   };
 
   const content = (
@@ -290,7 +408,34 @@ export default function ResumeAnalyzerDialog({ academicProfileId = "", onClose, 
               <span className="resume-analyzer-eyebrow">{results.targetRole || (results.roleNames?.[0] || "Target role")}</span>
               <h2>Where your resume can improve</h2>
             </div>
-            {source === "builder" && onEditResume && <button className="resume-analyzer-edit-button" onClick={() => requestClose(onEditResume)} type="button">Edit resume</button>}
+            <div className="resume-analyzer-results-actions">
+              <button
+                aria-label={saveStatus === "saved" ? "Saved to notes" : "Save review to notes"}
+                className={`resume-analyzer-save-button${saveStatus === "saved" ? " is-saved" : ""}`}
+                disabled={saveStatus === "saving" || saveStatus === "saved"}
+                onClick={handleSaveToNotes}
+                type="button"
+              >
+                {saveStatus === "saved" ? (
+                  <>
+                    <Check aria-hidden="true" size={15} />
+                    <span>Saved</span>
+                  </>
+                ) : saveStatus === "saving" ? (
+                  <span>Saving...</span>
+                ) : (
+                  <>
+                    <Save aria-hidden="true" size={15} />
+                    <span>Save</span>
+                  </>
+                )}
+              </button>
+              {source === "builder" && onEditResume && (
+                <button className="resume-analyzer-edit-button" onClick={() => requestClose(onEditResume)} type="button">
+                  Edit resume
+                </button>
+              )}
+            </div>
           </div>
           {findings.length ? (
             <ol className="resume-analyzer-findings">
