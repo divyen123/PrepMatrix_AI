@@ -716,8 +716,7 @@ function NotesPage({
       <section className={`card notes-list-card${confirmClearNotes ? " is-confirming-clear" : ""}`}>
         <div className="notes-list-header">
           <div>
-            <span className="section-tag">Stored notes</span>
-            <h3 ref={notesListHeadingRef} tabIndex={-1}>Your doubt queue</h3>
+            <h3 ref={notesListHeadingRef} tabIndex={-1}>Saved notes</h3>
           </div>
 
           <div className="notes-actions">

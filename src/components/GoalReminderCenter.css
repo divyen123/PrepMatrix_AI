@@ -300,7 +300,7 @@ body .goal-reminder-close-btn:hover {
   flex: 1;
   gap: 10px;
   min-height: 0;
-  padding: 8px 16px 10px;
+  padding: 12px 16px 10px;
   overflow: hidden;
 }
 

@@ -102,7 +102,6 @@ function TopicTimeline({ subjects = [], schedule = [], completed = [], userProfi
     <section className="card topic-timeline-card">
       <div className="timeline-header">
         <div>
-          <span className="section-tag">Timeline map</span>
           <h3>Topic progress lanes</h3>
         </div>
         <strong>{metrics.completedTasks}/{metrics.totalTasks} done</strong>

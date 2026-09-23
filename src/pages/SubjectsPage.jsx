@@ -86,7 +86,6 @@ function SubjectsPage({
       <CodeMatrixSetupReturn step="subjects" complete={getCodeMatrixSetupSteps({ subjects })[0].complete} subjectName={subjects.at(-1)?.name || ""} />
       <div className="section-intro subjects-page-intro">
         <div>
-          <span className="section-tag">Subjects</span>
           <h2>Build your study portfolio</h2>
         </div>
         <Link

@@ -37,11 +37,54 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
   const hasHistory = savedHistory.length > 0;
   const latestFullyCompleted = savedHistory[0]?.fullyCompleted;
 
+  const subjectSuggestion = useMemo(() => {
+    if (!sortedData.length) {
+      return {
+        title: "Build your study plan",
+        details: "Add subjects and generate a planner schedule to receive targeted learning recommendations."
+      };
+    }
+
+    const hardWithPending = sortedData.find((item) => item.difficulty === "hard" && item.pending > 0);
+    if (hardWithPending) {
+      return {
+        title: `Deep focus on ${hardWithPending.subject}`,
+        details: `This is a high-difficulty subject with ${hardWithPending.pending} pending ${hardWithPending.pending === 1 ? "task" : "tasks"}. Prioritize it during your peak concentration hours.`
+      };
+    }
+
+    const almostDone = sortedData.find((item) => item.completionRate >= 50 && item.pending > 0);
+    if (almostDone) {
+      return {
+        title: `Close out ${almostDone.subject}`,
+        details: `You are already ${almostDone.completionRate}% through. Completing the remaining ${almostDone.pending} ${almostDone.pending === 1 ? "task" : "tasks"} will achieve full coverage.`
+      };
+    }
+
+    if (focusLeader && focusLeader.pending > 0) {
+      return {
+        title: `Paced review for ${focusLeader.subject}`,
+        details: `Distribute the ${focusLeader.pending} pending ${focusLeader.pending === 1 ? "task" : "tasks"} across manageable focus intervals to maintain steady recall without fatigue.`
+      };
+    }
+
+    if (hasActiveSchedule) {
+      return {
+        title: "Reinforce mastered concepts",
+        details: "All scheduled tasks are completed. Use Quiz battles or Notebook review to keep these topics fresh."
+      };
+    }
+
+    return {
+      title: "Keep your momentum going",
+      details: "Revisit your notes and chapter summaries to keep your core concepts active in memory."
+    };
+  }, [sortedData, focusLeader, hasActiveSchedule]);
+
   return (
     <section className="card landscape-card">
       <div className="landscape-header">
         <div>
-          <span className="section-tag">Focus Map</span>
           <h2>Subject landscape</h2>
         </div>
         <button type="button" className="landscape-history-button" onClick={() => { setTooltipInfo(null); setHistoryOpen(true); }}><History size={16} />View history</button>
@@ -106,7 +149,7 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
 
           <div className="landscape-side">
             <div className="landscape-panel">
-              <span className="panel-label">{focusLeader ? 'Top priority' : 'Study progress'}</span>
+              <span className="landscape-panel-label">{focusLeader ? 'Top priority' : 'Study progress'}</span>
               <strong>{focusLeader?.subject || (hasActiveSchedule ? 'Schedule completed' : hasHistory ? 'Completed previously' : 'Ready for a new plan')}</strong>
               <p>
                 {focusLeader && focusLeader.pending > 0
@@ -115,16 +158,10 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
               </p>
             </div>
 
-            <div className="landscape-panel">
-              <span className="panel-label">Difficulty balance</span>
-              <div className="landscape-legend">
-                <span><i className="legend-dot easy" /> Easy</span>
-                <span><i className="legend-dot medium" /> Medium</span>
-                <span><i className="legend-dot hard" /> Hard</span>
-              </div>
-              <p>
-                Filled regions show completed tasks. Translucent regions show pending tasks in the active schedule. Historical work is labelled separately.
-              </p>
+            <div className="landscape-panel landscape-panel--suggestion">
+              <span className="landscape-panel-label">Subject suggestion</span>
+              <strong>{subjectSuggestion.title}</strong>
+              <p>{subjectSuggestion.details}</p>
             </div>
           </div>
         </div>

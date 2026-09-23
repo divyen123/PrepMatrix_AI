@@ -2205,7 +2205,6 @@ function SettingsPage({
   return (
     <section className="settings-page route-stage">
       <div className="compact-intro">
-        <span className="section-tag" style={{ marginBottom: '12px' }}>PREFERENCES</span>
         <h2>Settings</h2>
         <p className="card-subtext">Manage profile, update password, and customize application appearance.</p>
       </div>
@@ -2227,7 +2226,6 @@ function SettingsPage({
         >
           <div className="settings-account-header">
             <div className="settings-account-copy">
-              <span className="section-tag">ACCOUNT</span>
               <div className="settings-account-title-row">
                 <h3>
                   <User size={20} className="status-success" /> Profile & Information
@@ -2459,7 +2457,6 @@ function SettingsPage({
         {/* Security Credentials */}
         <div className="card settings-card settings-security-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <span className="section-tag" style={{ marginBottom: '12px' }}>SECURITY</span>
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
               <Shield size={20} className="status-warning" /> Credentials & Security
             </h3>
@@ -2630,7 +2627,6 @@ function SettingsPage({
           style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
         >
           <div>
-            <span className="section-tag" style={{ marginBottom: '12px' }}>SYSTEM</span>
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
               <Settings2 size={20} className="status-success" /> System Preferences & Toggles
             </h3>
@@ -2804,7 +2800,6 @@ function SettingsPage({
         {/* Appearance Configuration */}
         <div className="card dashboard-full-span settings-card settings-appearance-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <span className="section-tag" style={{ marginBottom: '12px' }}>APPEARANCE</span>
             <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
               <Palette size={20} className="status-success" /> Custom Color Palette & Layout
             </h3>
@@ -3183,7 +3178,6 @@ function SettingsPage({
         {/* Data Management & Danger Zone */}
         <div className="card dashboard-full-span settings-card settings-data-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <header className="settings-data-card-header">
-            <span className="section-tag" style={{ marginBottom: '12px' }}>DATA</span>
             <div className="settings-data-card-title-row">
               <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
                 <Download size={20} className="status-warning" /> Data Management & Danger Zone

@@ -325,6 +325,10 @@ body .memory-review-panel .memory-review-confirm-button:hover {
   backdrop-filter: none;
 }
 
+.memory-review-standalone-toolbar:empty {
+  display: none;
+}
+
 .memory-review-standalone-toolbar {
   display: flex;
   min-height: 30px;

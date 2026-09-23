@@ -58,12 +58,12 @@ const PLANNER_SUBPAGE_COPY = {
   schedule: {
     tag: "Schedule",
     title: "Generate, adjust, and recover your schedule",
-    description: "Keep every study block and recovery action in one focused view.",
+    description: "",
   },
   worktree: {
     tag: "Worktree",
     title: "Build a visual map of your learning",
-    description: "Connect ideas, arrange branches, and return to saved study maps.",
+    description: "",
   },
   recall: {
     tag: "Recall session",
@@ -269,7 +269,6 @@ function PlannerPage({
       {plannerView === "hub" ? (
         <>
           <div className="section-intro planner-hub-intro">
-            <span className="section-tag">{kidsMode ? "My learning spaces" : "Planner"}</span>
             <h2>{kidsMode ? "Choose what you want to work on" : "Choose your planning workspace"}</h2>
           </div>
 
@@ -335,9 +334,12 @@ function PlannerPage({
             </Link>
             <div className="section-intro">
               <span className="section-tag">{subpageCopy.tag}</span>
-              <h2>{kidsMode && plannerView === "schedule"
+              <div className="planner-subpage-title-row">
+                <h2>{kidsMode && plannerView === "schedule"
                 ? "See today's learning path and mark each win"
                 : subpageCopy.title}</h2>
+                {plannerView === "recall" && <div id="planner-recall-badge-target" />}
+              </div>
               {subpageCopy.description && <p>{subpageCopy.description}</p>}
             </div>
           </header>

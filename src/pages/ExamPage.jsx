@@ -1743,10 +1743,7 @@ function ExamPage({
         <div>
           <span className="section-tag">Exam workspace</span>
           {section === "overview" ? (
-            <>
-              <h2>Practice under pressure. Prepare with precision.</h2>
-              <p>Attend secure online exams, create exact question papers, and review results after release.</p>
-            </>
+            <p className="exam-page__header-desc">Attend secure online exams, create exact question papers, and review results after release.</p>
           ) : null}
         </div>
         <button className="exam-about-btn" onClick={() => navigate("/exam/about")} title="How the Exam workspace works" type="button"><Info size={16} /><span>About</span></button>

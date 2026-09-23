@@ -926,17 +926,43 @@ body.dark .task-chip {
 .custom-bar-tooltip {
   position: fixed;
   transform: translate(-50%, -100%);
-  background: var(--surface-strong);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border);
+  background: #ffffff !important;
+  color: #152033 !important;
+  border: 1px solid rgba(17, 24, 39, 0.12) !important;
   border-radius: 12px;
-  padding: 12px;
+  padding: 12px 14px;
   min-width: 200px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
   z-index: 9999;
   pointer-events: none;
   animation: fadeInTooltip 0.2s ease forwards;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.dark .custom-bar-tooltip,
+body.has-bg-image.dark .custom-bar-tooltip {
+  background: #101924 !important;
+  color: #f3f5f6 !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.65);
+}
+
+body.dark .custom-bar-tooltip strong,
+body.has-bg-image.dark .custom-bar-tooltip strong {
+  color: #f3f5f6 !important;
+}
+
+body.dark .custom-bar-tooltip .tooltip-metrics span,
+body.has-bg-image.dark .custom-bar-tooltip .tooltip-metrics span {
+  color: #94a3b8 !important;
+}
+
+body.has-bg-image:not(.dark) .custom-bar-tooltip {
+  background: #ffffff !important;
+  color: #152033 !important;
+  border-color: rgba(17, 24, 39, 0.14) !important;
 }
 
 
@@ -1031,14 +1057,67 @@ body.dark .task-chip {
   gap: 16px;
 }
 
+.landscape-panel-label {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 2px;
+}
+
 .landscape-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 160px;
+  min-height: 140px;
   padding: 20px;
   border-radius: 20px;
-  background: var(--surface-muted);
+  background: rgba(var(--bg-surface-rgb, 19, 30, 40), 0.28) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  opacity: 0.82;
+  transition: opacity 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+}
+
+.landscape-panel:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.landscape-panel--suggestion {
+  background: rgba(var(--bg-surface-rgb, 19, 30, 40), 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  opacity: 0.76;
+}
+
+.landscape-panel--suggestion:hover {
+  opacity: 0.95;
+}
+
+:root:not(.dark) .landscape-panel {
+  background: rgba(255, 255, 255, 0.55) !important;
+  border: 1px solid rgba(17, 24, 39, 0.08) !important;
+  opacity: 0.85;
+}
+
+:root:not(.dark) .landscape-panel--suggestion {
+  background: rgba(255, 255, 255, 0.42) !important;
+  opacity: 0.78;
+}
+
+body.dark .landscape-panel {
+  background: rgba(14, 23, 33, 0.38) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  opacity: 0.82;
+}
+
+body.dark .landscape-panel--suggestion {
+  background: rgba(14, 23, 33, 0.24) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  opacity: 0.74;
 }
 
 .landscape-panel strong {
@@ -19468,7 +19547,7 @@ body.dark .about-page-route .card.card-spotlight:focus-within::before {
 
 .about-shortcuts-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -19486,7 +19565,7 @@ body.dark .about-page-route .card.card-spotlight:focus-within::before {
 }
 
 .about-shortcuts-header h3 {
-  margin: 6px 0 5px;
+  margin: 0;
   color: var(--text);
   font-size: 1.18rem;
 }

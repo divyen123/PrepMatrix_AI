@@ -1170,7 +1170,6 @@ export default function ResumeBuilderPage({
           <span><Sparkles size={12} /></span>
         </div>
         <div className="resume-builder-hero__copy">
-          <span className="resume-builder-eyebrow">Career workspace</span>
           <h1>Resume Builder</h1>
           <div className="resume-builder-hero__meta">
             <span><ShieldCheck size={14} /> Enabled for {academicProfile.academicTrack || academicProfile.academicLevel || "your profile"}</span>

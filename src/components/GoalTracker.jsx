@@ -77,7 +77,6 @@ function GoalTracker({ completed, schedule, subjects = [], userProfile = {} }) {
     <section className="card goal-tracker-card">
       <div className="goal-tracker-header">
         <div>
-          <span className="section-tag">Goal focus</span>
           <h3>Goal tracker</h3>
           <p className="card-desc">
             Track one subject, topic, or chapter keyword against your generated plan.

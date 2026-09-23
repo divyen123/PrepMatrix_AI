@@ -99,7 +99,6 @@ function AboutPage({ academicProfile = {} }) {
           <ArrowLeft aria-hidden="true" size={18} />
         </button>
         <div className="about-header-copy">
-          <span className="section-tag">About application</span>
           <h2>PrepMatrix AI</h2>
         </div>
         <div className="about-guide-row">
@@ -174,9 +173,7 @@ function AboutPage({ academicProfile = {} }) {
         <header className="about-shortcuts-header">
           <span className="about-shortcuts-mark" aria-hidden="true"><Keyboard size={22} /></span>
           <div>
-            <span className="section-tag">Keyboard guide</span>
             <h3 id="about-shortcuts-title">Move through PrepMatrix faster</h3>
-            <p>Use these shortcuts anywhere in the workspace. Page actions pause automatically while you type in a field.</p>
           </div>
         </header>
 

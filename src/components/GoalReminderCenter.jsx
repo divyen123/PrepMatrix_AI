@@ -498,11 +498,6 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
           </div>
         </header>
 
-        <div className="goal-reminder-stats">
-          <div><Target size={16} /><span>Active goals</span><strong>{activeGoals}</strong></div>
-          <div><ListTodo size={16} /><span>Open to-dos</span><strong>{openTodos}</strong></div>
-        </div>
-
         <div className="goal-reminder-dialog-body">
           {showUnifiedIntro ? (
             <section aria-labelledby="planner-onboarding-heading" className="planner-unified-intro-panel">

@@ -107,7 +107,6 @@ export default function ResumeHistorySection({
             <History size={19} />
           </span>
           <div>
-            <span className="resume-history-eyebrow">Saved versions</span>
             <div className="resume-history-title-row">
               <h2 id="resume-history-title">Resume history</h2>
               <span className="resume-history-count" aria-label={`${normalizedEntries.length} saved resumes`}>

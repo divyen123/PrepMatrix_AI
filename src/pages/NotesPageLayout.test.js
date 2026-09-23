@@ -8,9 +8,10 @@ const styles = readFileSync(new URL("./NotesPage.css", import.meta.url), "utf8")
 test("keeps the Notes identity inside the stored-notes card", () => {
   assert.doesNotMatch(source, /<span className="section-tag">Notes<\/span>/u);
   assert.doesNotMatch(source, /<h2>Doubt board<\/h2>/u);
+  assert.doesNotMatch(source, /<span className="section-tag">Stored notes<\/span>/u);
   assert.match(
     source,
-    /className=\{`card notes-list-card[\s\S]*?<span className="section-tag">Stored notes<\/span>[\s\S]*?<h3[^>]*>Your doubt queue<\/h3>/u,
+    /className=\{`card notes-list-card[\s\S]*?<h3[^>]*>Saved notes<\/h3>/u,
   );
 });
 

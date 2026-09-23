@@ -112,8 +112,7 @@ function ResourcesHub({
         <section className="card bookmark-library-card">
           <div className="resources-bookmark-header">
             <div>
-              <span className="section-tag">Saved library</span>
-              <h3>Material bookmarks</h3>
+              <h3>Saved Materials</h3>
             </div>
             <div className="resources-bookmark-tools">
               <label className="stored-search-field bookmark-desktop-search">

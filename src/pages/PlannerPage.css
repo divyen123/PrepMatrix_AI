@@ -50,6 +50,8 @@ body .planner-route-page .planner-memory-review-btn:disabled {
 
 .planner-hub-intro {
   max-width: 760px;
+  margin-inline: auto;
+  text-align: center;
 }
 
 .planner-subpage-header .section-intro p {
@@ -264,6 +266,18 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
     rgba(var(--bg-surface-rgb, 18, 27, 45), 0.94);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+}
+
+.planner-subpage-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+#planner-recall-badge-target {
+  display: inline-flex;
+  align-items: center;
 }
 
 .planner-subpage-header {

@@ -2209,6 +2209,21 @@ body .learning-dialog-header > button {
   padding: 6px 0;
 }
 
+.learning-intake-choice .learning-panel-heading,
+.learning-intake-choice-heading {
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+}
+
+.learning-intake-choice-title {
+  margin: 0;
+  font-size: clamp(1.3rem, 2.2vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  text-align: center;
+}
+
 .learning-intake-choice {
   display: grid;
   width: 100%;

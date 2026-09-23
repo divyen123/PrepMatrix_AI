@@ -401,9 +401,15 @@ export default function PredictiveMemoryReview({
     >
       {standalone ? (
         <div className="memory-review-standalone-toolbar">
-          <span aria-live="polite" className="memory-review-count" role="status">
-            {loading ? "Loading" : `${experience.pendingEntries.length} due`}
-          </span>
+          {(() => {
+            const countBadge = (
+              <span aria-live="polite" className="memory-review-count" role="status">
+                {loading ? "Loading" : `${experience.pendingEntries.length} due`}
+              </span>
+            );
+            const target = typeof document !== "undefined" && document.getElementById("planner-recall-badge-target");
+            return target ? createPortal(countBadge, target) : countBadge;
+          })()}
         </div>
       ) : (
         <header className="memory-review-heading">

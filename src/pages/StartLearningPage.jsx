@@ -3512,10 +3512,8 @@ function StartLearningPage({
           >
           {intakeMode === null ? (
             <div className={`learning-intake-choice is-count-${workspaceChoiceCount}`}>
-              <div className="learning-panel-heading">
-                <div>
-                  <span className="section-tag">Choose a workspace</span>
-                </div>
+              <div className="learning-panel-heading learning-intake-choice-heading">
+                <h2 className="learning-intake-choice-title">Choose a workspace</h2>
               </div>
               <div className="learning-intake-choice-grid">
                 {codeMatrixEligibility.eligible && (

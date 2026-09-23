@@ -1125,7 +1125,6 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       <section className="card quiz-history-card">
         <div className="quiz-history-header">
           <div>
-            <span className="section-tag">Quiz history</span>
             <h3>Recent attempts</h3>
           </div>
           {attempts.length > 0 && (
