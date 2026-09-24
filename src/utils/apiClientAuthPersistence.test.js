@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import api, { responseEndsAuthSession } from "./apiClient.js";
+import { recoverAuthSession } from "./authRecovery.js";
 import {
   EXPLICIT_LOGOUT_STORAGE_KEY,
   rememberExplicitLogout,
@@ -49,7 +50,15 @@ test("only a successful authentication token clears explicit logout", async (t) 
   assert.equal(storage.getItem(EXPLICIT_LOGOUT_STORAGE_KEY), "true");
   assert.equal(storage.getItem("prepmatrix_auth_token"), null);
 
-  globalThis.fetch = async () => response({ token: "new-session" });
+  globalThis.fetch = async () => response({ token: "incomplete-session" });
+  await assert.rejects(
+    api.login({ email: "student@example.com", password: "correct" }),
+    { code: "AUTH_RESPONSE_INVALID" },
+  );
+  assert.equal(storage.getItem(EXPLICIT_LOGOUT_STORAGE_KEY), "true");
+  assert.equal(storage.getItem("prepmatrix_auth_token"), null);
+
+  globalThis.fetch = async () => response({ token: "new-session", user: { id: "user-1" } });
   await api.login({ email: "student@example.com", password: "correct" });
   assert.equal(storage.getItem(EXPLICIT_LOGOUT_STORAGE_KEY), null);
   assert.equal(storage.getItem("prepmatrix_auth_token"), "new-session");
@@ -223,4 +232,82 @@ test("a late logout response cannot clear a newer saved session", async (t) => {
 
   await pending;
   assert.equal(storage.getItem("prepmatrix_auth_token"), "new-session");
+});
+
+test("a wake page or incomplete 200 response cannot turn a remembered session into login", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousLocalStorage = globalThis.localStorage;
+  const storage = createMemoryStorage({
+    prepmatrix_auth_token: "remembered-session",
+    prepmatrix_app_locked: "true",
+  });
+  globalThis.localStorage = storage;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    globalThis.localStorage = previousLocalStorage;
+  });
+
+  const invalidResponses = [
+    { ...response(null), json: async () => { throw new SyntaxError("Unexpected HTML"); } },
+    response({}),
+    response({ token: "remembered-session" }),
+  ];
+  for (const invalidResponse of invalidResponses) {
+    globalThis.fetch = async () => invalidResponse;
+    await assert.rejects(api.me({ suppressAuthNotice: true }), { code: "AUTH_RESPONSE_INVALID" });
+    assert.equal(storage.getItem("prepmatrix_auth_token"), "remembered-session");
+    assert.equal(storage.getItem("prepmatrix_app_locked"), "true");
+  }
+});
+
+test("session recovery retries an incomplete wake response and restores the user", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousLocalStorage = globalThis.localStorage;
+  const storage = createMemoryStorage({ prepmatrix_auth_token: "remembered-session" });
+  globalThis.localStorage = storage;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    globalThis.localStorage = previousLocalStorage;
+  });
+
+  let attempts = 0;
+  globalThis.fetch = async () => {
+    attempts += 1;
+    return attempts === 1
+      ? response({})
+      : response({ token: "restored-session", user: { id: "user-1" }, workspace: {} });
+  };
+
+  const restored = await recoverAuthSession(
+    (options) => api.me({ ...options, suppressAuthNotice: true }),
+    { wait: async () => undefined, retryUnauthorized: true },
+  );
+  assert.equal(attempts, 2);
+  assert.equal(restored.user.id, "user-1");
+  assert.equal(storage.getItem("prepmatrix_auth_token"), "restored-session");
+});
+
+test("the session timeout also covers a stalled response body", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousLocalStorage = globalThis.localStorage;
+  const storage = createMemoryStorage({ prepmatrix_auth_token: "remembered-session" });
+  globalThis.localStorage = storage;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    globalThis.localStorage = previousLocalStorage;
+  });
+
+  globalThis.fetch = async (_url, { signal }) => ({
+    ...response(null),
+    json: () => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => {
+        const error = new Error("Response timed out.");
+        error.name = "AbortError";
+        reject(error);
+      }, { once: true });
+    }),
+  });
+
+  await assert.rejects(api.me({ timeoutMs: 20 }), { name: "AbortError" });
+  assert.equal(storage.getItem("prepmatrix_auth_token"), "remembered-session");
 });

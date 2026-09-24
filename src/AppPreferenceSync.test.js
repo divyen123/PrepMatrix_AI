@@ -13,6 +13,12 @@ test("hydrates account preferences before applying the restored workspace UI", (
   assert.match(appSource, /applyAppearanceMode\(nextPreferences\.themeMode\)/u);
 });
 
+test("a same-account local cursor survives a stale server snapshot and is resynced", () => {
+  assert.match(appSource, /preferStoredCursorStyleForOwner\([\s\S]*?serverPreferences,[\s\S]*?preferenceOwnerKey,[\s\S]*?storedPreferenceOwnerKey/u);
+  assert.match(appSource, /appPreferencesEqual\(serverPreferences, nextPreferences\)/u);
+  assert.match(appSource, /getPendingPreferencesStorageKey\(preferenceOwnerKey\),\s*JSON\.stringify\(nextPreferences\)/u);
+});
+
 test("saves changed preferences to the account and retains offline changes for retry", () => {
   assert.match(appSource, /prepmatrix_preferences_sync_pending:/u);
   assert.match(appSource, /localStorage\.setItem\(pendingStorageKey, serializedPreferences\)/u);

@@ -212,6 +212,25 @@ export function readStoredAppPreferences(storage) {
   }
 }
 
+// The selected pointer is a device preference. A server snapshot can lag behind
+// a recent local selection (for example when the API was asleep during save),
+// but a preference from another account must never be applied here.
+export function preferStoredCursorStyleForOwner(preferences, storage, ownerKey, storedOwnerKey) {
+  const normalized = normalizeAppPreferences(preferences);
+  if (!ownerKey || String(ownerKey) !== String(storedOwnerKey || "") || !storage?.getItem) {
+    return normalized;
+  }
+
+  try {
+    const storedStyle = storage.getItem("prepmatrix_cursor_style");
+    return CURSOR_STYLES.has(storedStyle)
+      ? { ...normalized, cursorStyle: storedStyle }
+      : normalized;
+  } catch {
+    return normalized;
+  }
+}
+
 export function writeStoredAppPreferences(preferences, storage, options = {}) {
   const target = resolveStorage(storage);
   const normalized = normalizeAppPreferences(preferences);

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   appPreferencesEqual,
   normalizeAppPreferences,
+  preferStoredCursorStyleForOwner,
   readStoredAppPreferences,
   writeStoredAppPreferences,
 } from "./appPreferences.js";
@@ -83,4 +84,52 @@ test("keeps uploaded backgrounds device-local while restoring synced settings", 
   assert.equal(storage.getItem("prepmatrix_bg_image_id"), "custom-background");
   assert.equal(storage.getItem("prepmatrix_theme_mode"), "dark");
   assert.equal(readStoredAppPreferences(storage).backgroundImageId, "");
+});
+
+test("keeps this account's local system cursor when the server preference is stale", () => {
+  const storage = createStorage({ prepmatrix_cursor_style: "default" });
+  const serverPreferences = normalizeAppPreferences({
+    cursorStyle: "app-cursor",
+    fontSize: "large",
+  });
+
+  const restored = preferStoredCursorStyleForOwner(
+    serverPreferences,
+    storage,
+    "account-a",
+    "account-a",
+  );
+
+  assert.equal(restored.cursorStyle, "default");
+  assert.equal(restored.fontSize, "large");
+  assert.equal(serverPreferences.cursorStyle, "app-cursor");
+});
+
+test("does not inherit another account's locally selected cursor", () => {
+  const storage = createStorage({ prepmatrix_cursor_style: "default" });
+  const serverPreferences = normalizeAppPreferences({ cursorStyle: "blob-cursor" });
+
+  assert.equal(preferStoredCursorStyleForOwner(
+    serverPreferences,
+    storage,
+    "account-b",
+    "account-a",
+  ).cursorStyle, "blob-cursor");
+  assert.equal(preferStoredCursorStyleForOwner(
+    serverPreferences,
+    storage,
+    "account-b",
+    "",
+  ).cursorStyle, "blob-cursor");
+});
+
+test("ignores invalid local cursor values", () => {
+  const storage = createStorage({ prepmatrix_cursor_style: "unknown-cursor" });
+  const restored = preferStoredCursorStyleForOwner(
+    normalizeAppPreferences({ cursorStyle: "blob-cursor" }),
+    storage,
+    "account-a",
+    "account-a",
+  );
+  assert.equal(restored.cursorStyle, "blob-cursor");
 });

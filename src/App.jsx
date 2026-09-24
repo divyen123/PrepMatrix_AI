@@ -71,6 +71,7 @@ import {
   APP_PREFERENCES_UPDATED_EVENT,
   appPreferencesEqual,
   normalizeAppPreferences,
+  preferStoredCursorStyleForOwner,
   readStoredAppPreferences,
   writeStoredAppPreferences,
 } from "./utils/appPreferences";
@@ -659,17 +660,22 @@ function App() {
     return saved;
   });
   const setCursorStyle = useCallback((value) => {
-    setCursorStyleState((current) => {
-      const requested = typeof value === "function" ? value(current) : value;
-      const next = normalizeAppPreferences({ cursorStyle: requested }).cursorStyle;
-      localStorage.setItem("prepmatrix_cursor_style", next);
-      setAppPreferences((preferences) => normalizeAppPreferences({
-        ...preferences,
-        cursorStyle: next,
-      }));
-      return next;
-    });
-  }, []);
+    const requested = typeof value === "function" ? value(cursorStyle) : value;
+    const next = normalizeAppPreferences({ cursorStyle: requested }).cursorStyle;
+    const nextPreferences = normalizeAppPreferences({ ...appPreferences, cursorStyle: next });
+    localStorage.setItem("prepmatrix_cursor_style", next);
+    const preferenceOwnerKey = getPreferenceOwnerKey(currentUserProfileRef.current);
+    if (preferenceOwnerKey) {
+      localStorage.setItem(PREFERENCES_OWNER_STORAGE_KEY, preferenceOwnerKey);
+      // Persist the complete unsynced snapshot before a quick window close.
+      localStorage.setItem(
+        getPendingPreferencesStorageKey(preferenceOwnerKey),
+        JSON.stringify(nextPreferences),
+      );
+    }
+    setCursorStyleState(next);
+    setAppPreferences(nextPreferences);
+  }, [appPreferences, cursorStyle]);
   const [autoHideTopBar, setAutoHideTopBar] = useState(
     () => localStorage.getItem(TOPBAR_AUTO_HIDE_STORAGE_KEY) === "true"
   );
@@ -1410,10 +1416,18 @@ function App() {
       const localPreferences = canUseLocalPreferences
         ? readStoredAppPreferences(localStorage)
         : normalizeAppPreferences();
+      const serverPreferences = hasServerPreferences
+        ? normalizeAppPreferences(profile.appPreferences, localPreferences)
+        : null;
       const nextPreferences = preferenceOverride
         || pendingPreferences
         || (hasServerPreferences
-          ? normalizeAppPreferences(profile.appPreferences, localPreferences)
+          ? preferStoredCursorStyleForOwner(
+            serverPreferences,
+            localStorage,
+            preferenceOwnerKey,
+            storedPreferenceOwnerKey,
+          )
           : normalizeAppPreferences({
           ...localPreferences,
           ...(!hasLocalThemePreference && typeof workspace.darkMode === "boolean"
@@ -1444,6 +1458,7 @@ function App() {
       lastSavedPreferencesRef.current = hasServerPreferences
         && !preferenceOverride
         && !pendingPreferences
+        && appPreferencesEqual(serverPreferences, nextPreferences)
         ? JSON.stringify(nextPreferences)
         : "";
       setPreferencesHydrated(true);

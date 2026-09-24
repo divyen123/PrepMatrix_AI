@@ -194,15 +194,41 @@ async function request(path, options = {}) {
       headers,
     });
 
-    clearTimeout(timeoutId);
-
-    const payload = await response.json().catch(() => ({}));
+    let payload;
+    try {
+      payload = await response.json();
+    } catch (error) {
+      // Keep an aborted body read as a timeout. A sleeping host may return an
+      // HTML wake page, but that must never count as a restored session.
+      if (controller.signal.aborted) throw error;
+      payload = {};
+    }
     if (
       path === "/api/auth/me"
       && (wasExplicitlyLoggedOut() || token !== localStorage.getItem("prepmatrix_auth_token"))
     ) {
       const error = new Error("Sign-in changed while the session was loading.");
       error.code = "STALE_AUTH_REQUEST";
+      throw error;
+    }
+    if (
+      response.ok
+      && (
+        path === "/api/auth/me"
+        || path === "/api/auth/login"
+        || path === "/api/auth/register"
+      )
+      && (
+        typeof payload?.token !== "string"
+        || !payload.token
+        || !payload.user
+        || typeof payload.user !== "object"
+        || typeof payload.user.id !== "string"
+        || !payload.user.id
+      )
+    ) {
+      const error = new Error("The server did not finish loading your sign-in. Please try again.");
+      error.code = "AUTH_RESPONSE_INVALID";
       throw error;
     }
     if (token && token === localStorage.getItem("prepmatrix_auth_token")) {
@@ -260,9 +286,8 @@ async function request(path, options = {}) {
     }
 
     return payload;
-  } catch (error) {
+  } finally {
     clearTimeout(timeoutId);
-    throw error;
   }
 }
 

@@ -61,4 +61,8 @@ test("removes redundant Next focus copy from Exam outlook in Subject Progress mo
     modalSource,
     /Next focus:.*Complete it/u,
   );
+  assert.doesNotMatch(
+    modalSource,
+    /All scheduled chapters are complete\. Shift attention to active recall and timed practice\./u,
+  );
 });

@@ -3019,7 +3019,6 @@ function SettingsPage({
                     className={`cursor-style-card ${(parentCursorStyle === "default" || !parentCursorStyle) ? "active" : ""}`}
                     onClick={() => {
                       if (setParentCursorStyle) setParentCursorStyle("default");
-                      localStorage.setItem("prepmatrix_cursor_style", "default");
                     }}
                   >
                     <div className="cursor-card-preview cursor-preview-default">
@@ -3037,7 +3036,6 @@ function SettingsPage({
                     className={`cursor-style-card ${parentCursorStyle === "app-cursor" ? "active" : ""}`}
                     onClick={() => {
                       if (setParentCursorStyle) setParentCursorStyle("app-cursor");
-                      localStorage.setItem("prepmatrix_cursor_style", "app-cursor");
                     }}
                   >
                     <div className="cursor-card-preview cursor-preview-app">
@@ -3054,7 +3052,6 @@ function SettingsPage({
                     className={`cursor-style-card ${parentCursorStyle === "blob-cursor" ? "active" : ""}`}
                     onClick={() => {
                       if (setParentCursorStyle) setParentCursorStyle("blob-cursor");
-                      localStorage.setItem("prepmatrix_cursor_style", "blob-cursor");
                     }}
                   >
                     <div className="cursor-card-preview cursor-preview-blob">
