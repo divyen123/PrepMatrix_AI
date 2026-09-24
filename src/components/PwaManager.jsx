@@ -56,7 +56,7 @@ export function PwaStatusDock({
       detail: "Cloud sync and AI features need an internet connection.",
     },
     update: {
-      eyebrow: "Update ready",
+      eyebrow: "",
       title: "A new PrepMatrix version is ready",
       detail: "Reload when you’re ready to use the latest version.",
     },
@@ -74,7 +74,9 @@ export function PwaStatusDock({
         <SurfaceIcon surface={surface} />
       </span>
       <div className="pwa-status-dock__body">
-        <span className="pwa-status-dock__eyebrow">{content.eyebrow}</span>
+        {content.eyebrow && (
+          <span className="pwa-status-dock__eyebrow">{content.eyebrow}</span>
+        )}
         <strong>{content.title}</strong>
         <p>{content.detail}</p>
         {snapshot.error && <p className="pwa-status-dock__error">{snapshot.error}</p>}

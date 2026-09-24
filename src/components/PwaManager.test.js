@@ -41,6 +41,7 @@ test("renders a persistent accessible update prompt with explicit reload and dis
   const markup = await renderDock({ ...baseSnapshot, updateReady: true });
   assert.match(markup, /role="status"/u);
   assert.match(markup, /aria-live="polite"/u);
+  assert.doesNotMatch(markup, /Update ready/u);
   assert.match(markup, /A new PrepMatrix version is ready/u);
   assert.match(markup, /Update &amp; reload/u);
   assert.match(markup, />Later</u);
