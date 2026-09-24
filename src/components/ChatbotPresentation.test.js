@@ -5,6 +5,17 @@ import test from "node:test";
 const componentSource = readFileSync(new URL("./Chatbot.jsx", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
 
+test("places the history heading below search and hides the composer credit price", () => {
+  const searchFieldIndex = componentSource.indexOf('className="chat-history-search-field"');
+  const historyHeadingIndex = componentSource.indexOf("<h3>Chat History</h3>");
+  const historyListIndex = componentSource.indexOf('className="history-sessions-list"');
+
+  assert.ok(searchFieldIndex >= 0 && searchFieldIndex < historyHeadingIndex);
+  assert.ok(historyHeadingIndex < historyListIndex);
+  assert.doesNotMatch(componentSource, /<AiCreditCost\b/u);
+  assert.match(componentSource, /\{hasInsufficientCredits\(AI_FEATURES\.CHAT\) && \(\s*<div className="chat-credit-row">/u);
+});
+
 test("reshuffles the one-subject prompt on chat entry and new-chat actions", () => {
   assert.match(componentSource, /const justOpened = open && !chatWasOpenRef\.current;/u);
   assert.match(componentSource, /setNewChatPrompt\(\(current\) => getNewChatPrompt\(subjects, Math\.random, current\)\)/u);

@@ -20,11 +20,13 @@ test("removes the Overview hero while preserving the action cards", () => {
   assert.match(overviewSource, /<strong>View Results<\/strong>/u);
 });
 
-test("removes the offline timer from Overview while retaining it for generated papers", () => {
+test("shows the compact timer only when a generated paper exists", () => {
   assert.ok(overviewSource, "expected to find the Exam Overview render block");
   assert.doesNotMatch(overviewSource, /OfflineExamTimer/u);
   assert.doesNotMatch(pageSource, /section === "overview" \|\| section === "paper"/u);
-  assert.match(pageSource, /\{section === "paper" && \(\s*<OfflineExamTimer/u);
+  assert.match(pageSource, /\{section === "paper" && papers\.length > 0 && \(\s*<OfflineExamTimer/u);
+  assert.match(pageSource, /your generated question paper appears here\./u);
+  assert.doesNotMatch(pageSource, /className="card exam-timer-card"/u);
 });
 
 test("presents all Overview destinations as full interactive cards", () => {
@@ -117,4 +119,3 @@ test("removes Paper specification and Saved history badges in question paper gen
   assert.match(pageSource, /<h2>Design the exact paper blueprint<\/h2>/u);
   assert.match(pageSource, /<h2>Generated question papers<\/h2>/u);
 });
-

@@ -81,6 +81,28 @@ test('subject pie chart animates its SVG segments and remains responsive', () =>
   );
 });
 
+test('shows subject details from pie segments without opening them from legend rows', () => {
+  const pieSegment = focusLandscapeSource.match(
+    /<circle\s+aria-hidden="true"[\s\S]*?className="subject-pie-segment"[\s\S]*?\/>/u,
+  )?.[0] || '';
+  const legendStart = focusLandscapeSource.indexOf(
+    '<li',
+    focusLandscapeSource.indexOf('className="subject-pie-legend"'),
+  );
+  const legendEnd = focusLandscapeSource.indexOf('</li>', legendStart);
+  const legendRow = legendStart >= 0 && legendEnd > legendStart
+    ? focusLandscapeSource.slice(legendStart, legendEnd)
+    : '';
+
+  assert.match(pieSegment, /onMouseEnter=\{\(event\) => showTooltip\(event, item\)\}/u);
+  assert.match(pieSegment, /onMouseLeave=\{\(\) => setTooltipInfo\(null\)\}/u);
+  assert.ok(legendRow);
+  assert.doesNotMatch(
+    legendRow,
+    /showTooltip|onBlur|onFocus|onMouseEnter|onMouseLeave|tabIndex/u,
+  );
+});
+
 test('custom-bar-tooltip is fully opaque and matches all themes', () => {
   assert.match(appStyles, /\.custom-bar-tooltip\s*\{[\s\S]*?background:\s*#ffffff\s*!important;/u);
   assert.match(appStyles, /\.custom-bar-tooltip\s*\{[\s\S]*?opacity:\s*1\s*!important;/u);

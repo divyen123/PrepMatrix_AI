@@ -14,11 +14,44 @@
 .study-plan-preview-dialog[open] {
   display: flex;
   flex-direction: column;
+  animation: study-plan-preview-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.study-plan-preview-dialog[open].is-closing {
+  animation: study-plan-preview-exit 200ms ease-in both;
 }
 
 .study-plan-preview-dialog::backdrop {
   background: rgb(3 8 15 / 65%);
   backdrop-filter: blur(8px);
+}
+
+.study-plan-preview-dialog[open]::backdrop {
+  animation: study-plan-preview-backdrop-enter 220ms ease-out both;
+}
+
+.study-plan-preview-dialog[open].is-closing::backdrop {
+  animation: study-plan-preview-backdrop-exit 200ms ease-in both;
+}
+
+@keyframes study-plan-preview-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes study-plan-preview-exit {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(6px) scale(0.99); }
+}
+
+@keyframes study-plan-preview-backdrop-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes study-plan-preview-backdrop-exit {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .study-plan-preview-header {
@@ -45,20 +78,20 @@ body .study-plan-preview-close {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  min-height: 34px;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
   padding: 0;
-  border: 1px solid var(--border) !important;
-  border-radius: 10px;
-  background: var(--surface-muted) !important;
-  color: var(--text) !important;
+  border: 1px solid color-mix(in srgb, #e77878 30%, var(--border)) !important;
+  border-radius: 50%;
+  background: color-mix(in srgb, #e77878 9%, var(--surface-muted)) !important;
+  color: color-mix(in srgb, #e77878 65%, var(--text)) !important;
   box-shadow: none !important;
   transform: none !important;
 }
 
 body .study-plan-preview-close:hover {
-  background: var(--accent-soft) !important;
+  background: color-mix(in srgb, #e77878 17%, var(--surface-muted)) !important;
 }
 
 body .study-plan-preview-close::before,
@@ -103,6 +136,11 @@ body .study-plan-preview-close::after {
   background: var(--surface-muted);
 }
 
+.study-plan-preview-day.is-complete {
+  border-color: color-mix(in srgb, #22c55e 25%, var(--border));
+  background: color-mix(in srgb, #22c55e 7%, var(--surface-muted));
+}
+
 .study-plan-preview-day h3 {
   margin: 0 0 12px;
   font-size: 0.98rem;
@@ -131,7 +169,7 @@ body .study-plan-preview-close::after {
 }
 
 .study-plan-preview-day li.is-complete .study-plan-preview-status {
-  color: var(--accent);
+  color: color-mix(in srgb, #22c55e 76%, var(--text));
 }
 
 .study-plan-preview-task-name {
@@ -153,6 +191,15 @@ body .study-plan-preview-close::after {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.88rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .study-plan-preview-dialog[open],
+  .study-plan-preview-dialog[open]::backdrop,
+  .study-plan-preview-dialog[open].is-closing,
+  .study-plan-preview-dialog[open].is-closing::backdrop {
+    animation: none;
+  }
 }
 
 @media (max-width: 600px) {

@@ -10431,9 +10431,9 @@ body.dark .completion-reward-popup {
 .sidebar-chatbot-portal {
   position: fixed !important;
   top: 92px !important;
-  right: 28px !important;
+  right: 20px !important;
   bottom: 28px !important;
-  left: 308px !important;
+  left: 292px !important;
   width: auto !important;
   max-width: none !important;
   z-index: 1200 !important;
@@ -11000,20 +11000,20 @@ body.dark .sidebar-widgets .chat-toggle-btn:hover {
 
 /* Sidebar header & New Chat button */
 .sidebar-history-header {
-  padding: 20px 18px 14px;
+  padding: 16px 18px 12px;
   border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.sidebar-history-header h3 {
+.chat-history-search-panel h3 {
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
-  margin: 0;
+  margin: 5px 8px 0;
 }
 
 .history-header-actions {
@@ -11646,7 +11646,9 @@ body.has-bg-image {
   background-position: var(--bg-image-foreground-position, center);
   background-repeat: no-repeat;
   background-size: var(--bg-image-foreground-size, cover);
-  filter: brightness(var(--bg-image-foreground-brightness, 1));
+  filter:
+    brightness(var(--bg-image-foreground-brightness, 1))
+    blur(var(--bg-image-blur, 0px));
   inset: 0;
   transition: background 0.3s ease, filter 0.3s ease;
   z-index: 1;
@@ -16650,7 +16652,7 @@ body:has(.app-lock-backdrop) .custom-cursor-dot.cursor-blob-dot {
   .chatbot .chat-header {
     position: relative !important;
     padding-right: 54px !important;
-    min-height: 92px !important;
+    min-height: 84px !important;
   }
 
   .sidebar-chatbot-portal .chat-header > div:first-child,
@@ -18540,7 +18542,8 @@ body .history-toggle-btn:focus-visible svg {
 
 /* Companion floats outside the AI chat panel. */
 .chat-header {
-  min-height: 80px;
+  min-height: 72px;
+  padding: 16px 20px 12px;
   overflow: visible;
 }
 
@@ -18878,7 +18881,7 @@ body.has-bg-image .sidebar-pet-menu > span {
 
 @media (max-width: 768px) {
   .chat-header {
-    min-height: 92px !important;
+    min-height: 84px !important;
   }
 
   .chat-header > div:first-child {
@@ -23028,7 +23031,7 @@ body.dark .db-search-input:focus,
 }
 
 /* -- Dashboard search bar: action buttons (mic / attach) ------- */
-.db-search-action-btn {
+body .db-search-form .db-search-action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -23038,17 +23041,36 @@ body.dark .db-search-input:focus,
   min-height: unset;
   padding: 0;
   border-radius: 50%;
-  border: none;
-  background: transparent;
+  border: none !important;
+  background: transparent !important;
+  background-image: none !important;
   color: var(--text-muted);
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
   cursor: pointer;
-  transition: color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+  transition: color 0.2s ease, background-color 0.2s ease;
 }
 
-.db-search-action-btn:hover {
+body .db-search-form .db-search-action-btn::after {
+  content: none !important;
+  display: none !important;
+}
+
+body .db-search-form .db-search-action-btn:hover,
+body .db-search-form .db-search-action-btn:focus-visible {
   color: var(--accent);
-  background: var(--accent-soft);
-  transform: scale(1.1);
+  background: var(--accent-soft) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+body .db-search-form .db-mic-btn[data-state="idle"] .voice-pill__capsule {
+  background: transparent !important;
+  border-color: transparent !important;
 }
 
 .db-search-form .db-mic-slot {
@@ -24981,7 +25003,7 @@ body.dark:not(.has-bg-image) .workspace-topbar {
 .sidebar-chatbot-portal .chat-new-chat-prompt h2 {
   margin: 0;
   color: var(--text);
-  font-size: clamp(1.45rem, 3vw, 2.15rem);
+  font-size: clamp(1.4rem, 2.8vw, 2rem);
   font-weight: 750;
   line-height: 1.2;
   letter-spacing: -0.035em;
@@ -25054,7 +25076,7 @@ body.dark:not(.has-bg-image) .workspace-topbar {
   }
 
   .sidebar-chatbot-portal .chat-new-chat-prompt h2 {
-    font-size: clamp(1.3rem, 6vw, 1.7rem);
+    font-size: clamp(1.3rem, 6vw, 1.6rem);
   }
 
   .sidebar-chatbot-portal .chat-new-chat-prompt p {
@@ -25335,36 +25357,6 @@ body .prepmatrix-swipe-toast-host .swipe-toast__close:hover {
   white-space: nowrap;
 }
 
-body .subject-library-card .track-goals-btn,
-body.dark .subject-library-card .track-goals-btn,
-body.has-bg-image .subject-library-card .track-goals-btn {
-  color: var(--text) !important;
-  background: var(--surface-muted) !important;
-  border: 1px solid var(--border) !important;
-  box-shadow: none !important;
-  filter: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-body .subject-library-card .track-goals-btn:hover,
-body.dark .subject-library-card .track-goals-btn:hover,
-body.has-bg-image .subject-library-card .track-goals-btn:hover,
-body .subject-library-card .track-goals-btn[aria-expanded="true"] {
-  color: var(--text) !important;
-  background: var(--surface-strong) !important;
-  border-color: var(--border) !important;
-  box-shadow: none !important;
-  filter: none !important;
-  transform: translateY(-1px) !important;
-}
-
-body .subject-library-card .track-goals-btn:focus-visible {
-  outline: 2px solid rgba(var(--accent-rgb), 0.72) !important;
-  outline-offset: 2px !important;
-  box-shadow: none !important;
-}
-
 .goal-tracker-popup {
   --goal-popup-surface: color-mix(in srgb, var(--bg) 94%, var(--surface-strong) 6%);
   --goal-popup-raised: color-mix(in srgb, var(--goal-popup-surface) 90%, var(--accent) 10%);
@@ -25506,9 +25498,7 @@ body.has-bg-image.no-glass-cards .goal-tracker-popup {
 }
 
 .goal-tracker-popup .goal-tracker-header {
-  position: sticky;
-  top: -18px;
-  z-index: 4;
+  position: static;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -26034,7 +26024,6 @@ body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-c
   }
 
   .goal-tracker-popup .goal-tracker-header {
-    top: -16px;
     margin: -16px -16px 0;
     padding: 16px 16px 11px;
   }

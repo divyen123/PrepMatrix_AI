@@ -747,7 +747,7 @@ function DashboardPage({
               accentColor="var(--accent)"
               ariaLabel={dashboardVoiceListening ? "Stop voice input" : "Dictate to AI Chat"}
               background="var(--surface)"
-              className="db-mic-btn"
+              className="db-search-action-btn db-mic-btn"
               disabled={dashboardVoiceSending || voiceAssistant?.isProcessing}
               iconColor="var(--text-muted)"
               mode="toggle"

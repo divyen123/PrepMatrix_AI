@@ -227,12 +227,7 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
                     <li
                       aria-label={`${item.subject}, ${detail}${pieData.mode === 'active' ? `, ${value} complete` : ''}`}
                       key={`${item.subject}-legend-${index}`}
-                      onBlur={() => setTooltipInfo(null)}
-                      onFocus={(event) => showTooltip(event, item)}
-                      onMouseEnter={(event) => showTooltip(event, item)}
-                      onMouseLeave={() => setTooltipInfo(null)}
                       style={{ '--subject-pie-color': item.color, '--subject-pie-delay': `${index * 90}ms` }}
-                      tabIndex={0}
                     >
                       <span aria-hidden="true" className="subject-pie-dot" />
                       <span className="subject-pie-legend-copy">

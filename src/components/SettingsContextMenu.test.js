@@ -78,6 +78,14 @@ test("keeps every requested quick action, theme choice, and opaque menu treatmen
   assert.match(source, /setProfileOpen\(false\);[\s\S]*?data-menu-action="profile"/u);
   assert.match(stylesheet, /--settings-menu-bg: #ffffff/u);
   assert.match(stylesheet, /--settings-menu-bg: #111722/u);
+  assert.match(
+    stylesheet,
+    /body\.has-bg-image \.settings-context-menu-shell\s*\{[\s\S]*?--settings-menu-bg: rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\);/u,
+  );
+  assert.match(
+    stylesheet,
+    /body\.has-bg-image \.settings-context-menu-shell\s*\{[\s\S]*?--settings-menu-border: rgba\(var\(--accent-rgb, 120, 160, 210\), 0\.34\);[\s\S]*?--settings-menu-hover: rgba\(var\(--accent-rgb, 120, 160, 210\), 0\.18\);/u,
+  );
   assert.match(stylesheet, /\.settings-context-profile-submenu \{[\s\S]*?width: 240px/u);
   assert.match(stylesheet, /backdrop-filter: none !important/u);
   assert.match(stylesheet, /opacity: 1 !important/u);

@@ -75,7 +75,7 @@ test("ReportModal includes minimal report content and PDF export capabilities", 
   assert.match(reportModalSource, /Export report PDF/u);
 });
 
-test("ReportModal applies green, yellow, and red color tones based on completion rate", () => {
+test("ReportModal applies muted green, yellow, and red tones based on completion rate", () => {
   assert.match(reportModalSource, /function getProgressTone\(rate\)\s*\{/u);
   assert.match(reportModalSource, /if\s*\(rate\s*>=\s*70\)\s*return\s*"high"/u);
   assert.match(reportModalSource, /if\s*\(rate\s*>=\s*40\)\s*return\s*"mid"/u);
@@ -89,13 +89,14 @@ test("ReportModal applies green, yellow, and red color tones based on completion
   assert.match(reportModalSource, /report-mini-fill is-\$\{subTone\}/u);
   assert.match(reportModalSource, /report-subject-stats is-\$\{subTone\}/u);
 
-  // CSS tones defined
-  assert.match(reportModalCss, /\.report-progress-fill\.is-high[\s\S]*?#10b981/u);
-  assert.match(reportModalCss, /\.report-progress-fill\.is-mid[\s\S]*?#f59e0b/u);
-  assert.match(reportModalCss, /\.report-progress-fill\.is-low[\s\S]*?#ef4444/u);
-  assert.match(reportModalCss, /\.report-mini-fill\.is-high[\s\S]*?#10b981/u);
-  assert.match(reportModalCss, /\.report-mini-fill\.is-mid[\s\S]*?#f59e0b/u);
-  assert.match(reportModalCss, /\.report-mini-fill\.is-low[\s\S]*?#ef4444/u);
+  // The subject and summary bars share muted, theme-aware status tones.
+  assert.match(reportModalCss, /--report-tone-high:\s*color-mix\([^;]*#10b981 72%/u);
+  assert.match(reportModalCss, /--report-tone-mid:\s*color-mix\([^;]*#f59e0b 72%/u);
+  assert.match(reportModalCss, /--report-tone-low:\s*color-mix\([^;]*#ef4444 72%/u);
+  assert.match(reportModalCss, /\.report-progress-fill\.is-high,\s*\.report-mini-fill\.is-high\s*\{\s*background:\s*var\(--report-tone-high\) !important;/u);
+  assert.match(reportModalCss, /\.report-progress-fill\.is-mid,\s*\.report-mini-fill\.is-mid\s*\{\s*background:\s*var\(--report-tone-mid\) !important;/u);
+  assert.match(reportModalCss, /\.report-progress-fill\.is-low,\s*\.report-mini-fill\.is-low\s*\{\s*background:\s*var\(--report-tone-low\) !important;/u);
+  assert.match(reportModalCss, /body \.report-modal \.report-stat-grid \.report-stat-card\s*\{[\s\S]*?background:\s*var\(--report-panel-surface\);[\s\S]*?box-shadow:\s*none;/u);
 });
 
 test("Report footer actions inherit the shared theme-aware button system", () => {
@@ -126,16 +127,16 @@ test("ReportModal guides incomplete setup with the correct gated footer action",
 test("ReportModal body uses an accent-aware scoped scrollbar", () => {
   assert.match(
     reportModalCss,
-    /\.report-modal-body\s*\{[\s\S]*?scrollbar-color:\s*rgba\(var\(--accent-rgb\), 0\.52\) transparent;/u,
+    /\.report-modal-body\s*\{[\s\S]*?scrollbar-color:\s*rgba\(var\(--accent-rgb\), 0\.32\) transparent;/u,
   );
   assert.match(reportModalCss, /\.report-modal-body::-webkit-scrollbar-track\s*\{/u);
   assert.match(
     reportModalCss,
-    /\.report-modal-body::-webkit-scrollbar-thumb\s*\{[\s\S]*?background:\s*rgba\(var\(--accent-rgb\), 0\.48\);/u,
+    /\.report-modal-body::-webkit-scrollbar-thumb\s*\{[\s\S]*?background:\s*rgba\(var\(--accent-rgb\), 0\.32\);/u,
   );
   assert.match(
     reportModalCss,
-    /\.report-modal-body::-webkit-scrollbar-thumb:hover\s*\{[\s\S]*?background:\s*rgba\(var\(--accent-rgb\), 0\.72\);/u,
+    /\.report-modal-body::-webkit-scrollbar-thumb:hover\s*\{[\s\S]*?background:\s*rgba\(var\(--accent-rgb\), 0\.48\);/u,
   );
 });
 

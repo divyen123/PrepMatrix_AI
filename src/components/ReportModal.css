@@ -36,11 +36,17 @@
 
 .report-modal {
   --report-modal-surface: var(--bg);
-  --report-panel-surface: color-mix(in srgb, var(--report-modal-surface) 92%, var(--accent) 8%);
-  --report-panel-border: color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
-  --report-control-surface: rgba(var(--accent-rgb), 0.08);
-  --report-control-surface-hover: rgba(var(--accent-rgb), 0.15);
+  --report-panel-surface: color-mix(in srgb, var(--report-modal-surface) 97%, var(--accent) 3%);
+  --report-panel-border: color-mix(in srgb, var(--border) 91%, var(--accent) 9%);
+  --report-control-surface: rgba(var(--accent-rgb), 0.05);
+  --report-control-surface-hover: rgba(var(--accent-rgb), 0.09);
   --report-track-surface: color-mix(in srgb, var(--text) 10%, transparent);
+  --report-tone-high: color-mix(in srgb, #10b981 72%, var(--report-modal-surface) 28%);
+  --report-tone-mid: color-mix(in srgb, #f59e0b 72%, var(--report-modal-surface) 28%);
+  --report-tone-low: color-mix(in srgb, #ef4444 72%, var(--report-modal-surface) 28%);
+  --report-tone-high-text: color-mix(in srgb, #059669 75%, var(--text) 25%);
+  --report-tone-mid-text: color-mix(in srgb, #b45309 75%, var(--text) 25%);
+  --report-tone-low-text: color-mix(in srgb, #b91c1c 75%, var(--text) 25%);
   position: relative;
   width: min(640px, calc(100vw - 32px));
   max-height: min(85vh, 760px);
@@ -56,7 +62,7 @@
   border: 1px solid var(--report-panel-border) !important;
   box-shadow:
     var(--shadow),
-    0 0 0 1px rgba(var(--accent-rgb), 0.05) !important;
+    0 0 0 1px rgba(var(--accent-rgb), 0.025) !important;
   opacity: 1;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -104,8 +110,8 @@
 /* Wallpaper themes publish a palette-matched opaque surface of their own. */
 body.has-bg-image .report-modal {
   --report-modal-surface: rgb(var(--bg-surface-rgb));
-  --report-panel-surface: color-mix(in srgb, rgb(var(--bg-surface-rgb)) 88%, var(--accent) 12%);
-  --report-panel-border: color-mix(in srgb, var(--border) 72%, var(--accent) 28%);
+  --report-panel-surface: color-mix(in srgb, rgb(var(--bg-surface-rgb)) 96%, var(--accent) 4%);
+  --report-panel-border: color-mix(in srgb, var(--border) 88%, var(--accent) 12%);
 }
 
 /* MODAL HEADER */
@@ -134,8 +140,8 @@ body.has-bg-image .report-modal {
   place-items: center;
   flex: 0 0 auto;
   color: var(--accent);
-  background: rgba(var(--accent-rgb), 0.12);
-  border: 1px solid rgba(var(--accent-rgb), 0.24);
+  background: rgba(var(--accent-rgb), 0.07);
+  border: 1px solid rgba(var(--accent-rgb), 0.14);
 }
 
 .report-modal-title-wrap h2 {
@@ -174,7 +180,7 @@ body .report-modal .report-modal-close {
 body .report-modal .report-modal-close:hover {
   color: var(--text) !important;
   background: var(--report-control-surface-hover) !important;
-  border-color: rgba(var(--accent-rgb), 0.34) !important;
+  border-color: rgba(var(--accent-rgb), 0.2) !important;
   box-shadow: none !important;
 }
 
@@ -188,7 +194,7 @@ body .report-modal .report-modal-close:hover {
   flex-direction: column;
   gap: 16px;
   overscroll-behavior-y: contain;
-  scrollbar-color: rgba(var(--accent-rgb), 0.52) transparent;
+  scrollbar-color: rgba(var(--accent-rgb), 0.32) transparent;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
 }
@@ -198,12 +204,12 @@ body .report-modal .report-modal-body::-webkit-scrollbar {
 }
 
 body .report-modal .report-modal-body::-webkit-scrollbar-track {
-  background: color-mix(in srgb, var(--report-modal-surface) 88%, var(--accent) 12%);
+  background: color-mix(in srgb, var(--report-modal-surface) 96%, var(--accent) 4%);
   border-radius: 999px;
 }
 
 body .report-modal .report-modal-body::-webkit-scrollbar-thumb {
-  background: rgba(var(--accent-rgb), 0.48);
+  background: rgba(var(--accent-rgb), 0.32);
   background-clip: padding-box;
   border: 2px solid transparent;
   border-radius: 999px;
@@ -211,7 +217,7 @@ body .report-modal .report-modal-body::-webkit-scrollbar-thumb {
 }
 
 body .report-modal .report-modal-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--accent-rgb), 0.72);
+  background: rgba(var(--accent-rgb), 0.48);
   background-clip: padding-box;
 }
 
@@ -220,9 +226,9 @@ body .report-modal .report-modal-body::-webkit-scrollbar-thumb:hover {
   flex-direction: column;
   gap: 5px;
   padding: 14px 16px;
-  border: 1px solid rgba(var(--accent-rgb), 0.28);
+  border: 1px solid rgba(var(--accent-rgb), 0.16);
   border-radius: 14px;
-  background: rgba(var(--accent-rgb), 0.1);
+  background: rgba(var(--accent-rgb), 0.06);
 }
 
 .report-setup-notice strong {
@@ -271,15 +277,15 @@ body .report-modal .report-modal-body::-webkit-scrollbar-thumb:hover {
 }
 
 .report-progress-val.is-high {
-  color: #10b981 !important;
+  color: var(--report-tone-high-text) !important;
 }
 
 .report-progress-val.is-mid {
-  color: #f59e0b !important;
+  color: var(--report-tone-mid-text) !important;
 }
 
 .report-progress-val.is-low {
-  color: #ef4444 !important;
+  color: var(--report-tone-low-text) !important;
 }
 
 .report-progress-info small {
@@ -303,35 +309,20 @@ body .report-modal .report-modal-body::-webkit-scrollbar-thumb:hover {
   transition: width 0.35s ease;
 }
 
-/* PROGRESS BAR COLOR TONES (High = Green, Mid = Yellow, Low = Red) */
+/* Muted, theme-aware progress tones (high / mid / low). */
 .report-progress-fill.is-high,
 .report-mini-fill.is-high {
-  background: #10b981 !important; /* Green: more completed (>= 70%) */
+  background: var(--report-tone-high) !important;
 }
 
 .report-progress-fill.is-mid,
 .report-mini-fill.is-mid {
-  background: #f59e0b !important; /* Yellow: completed mid (40% - 69%) */
+  background: var(--report-tone-mid) !important;
 }
 
 .report-progress-fill.is-low,
 .report-mini-fill.is-low {
-  background: #ef4444 !important; /* Red: less completed (< 40%) */
-}
-
-body.dark .report-progress-fill.is-high,
-body.dark .report-mini-fill.is-high {
-  background: #10b981 !important;
-}
-
-body.dark .report-progress-fill.is-mid,
-body.dark .report-mini-fill.is-mid {
-  background: #f59e0b !important;
-}
-
-body.dark .report-progress-fill.is-low,
-body.dark .report-mini-fill.is-low {
-  background: #ef4444 !important;
+  background: var(--report-tone-low) !important;
 }
 
 /* 4-METRIC GRID */
@@ -341,7 +332,7 @@ body.dark .report-mini-fill.is-low {
   gap: 10px;
 }
 
-.report-stat-card {
+body .report-modal .report-stat-grid .report-stat-card {
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -349,6 +340,9 @@ body.dark .report-mini-fill.is-low {
   border-radius: 12px;
   background: var(--report-panel-surface);
   border: 1px solid var(--report-panel-border);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .report-stat-label {
@@ -428,27 +422,15 @@ body .report-modal .report-stat-value {
 }
 
 .report-subject-stats.is-high {
-  color: #059669;
+  color: var(--report-tone-high-text);
 }
 
 .report-subject-stats.is-mid {
-  color: #d97706;
+  color: var(--report-tone-mid-text);
 }
 
 .report-subject-stats.is-low {
-  color: #dc2626;
-}
-
-body.dark .report-subject-stats.is-high {
-  color: #34d399;
-}
-
-body.dark .report-subject-stats.is-mid {
-  color: #fbbf24;
-}
-
-body.dark .report-subject-stats.is-low {
-  color: #f87171;
+  color: var(--report-tone-low-text);
 }
 
 .report-mini-track {
@@ -497,7 +479,7 @@ body.dark .report-subject-stats.is-low {
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--accent);
-  background: rgba(var(--accent-rgb), 0.14);
+  background: rgba(var(--accent-rgb), 0.08);
   flex: 0 0 auto;
 }
 

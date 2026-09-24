@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, Circle, X } from "lucide-react";
 import { formatScheduleDayHeading } from "../utils/scheduleDates";
@@ -40,7 +40,7 @@ export function StudyPlanPreviewContent({
           onClick={onClose}
           type="button"
         >
-          <X aria-hidden="true" size={18} />
+          <X aria-hidden="true" size={15} />
         </button>
       </header>
       <div className="study-plan-preview-days">
@@ -48,9 +48,15 @@ export function StudyPlanPreviewContent({
           const dayTasks = Array.isArray(day?.tasks)
             ? day.tasks.filter((task) => typeof task?.task === "string" && task.task.trim())
             : [];
+          const isDayComplete = dayTasks.length > 0 && dayTasks.every((task) => (
+            isPlannerTaskCompleted(task, completedTasks) && !isPlannerTaskRecheckPending(task)
+          ));
 
           return (
-            <section className="study-plan-preview-day" key={`${day?.day ?? dayIndex}-${dayIndex}`}>
+            <section
+              className={`study-plan-preview-day${isDayComplete ? " is-complete" : ""}`}
+              key={`${day?.day ?? dayIndex}-${dayIndex}`}
+            >
               <h3>{formatScheduleDayHeading(day, dayIndex, scheduleStartDate)}</h3>
               {dayTasks.length ? (
                 <ul>
@@ -89,6 +95,20 @@ export default function StudyPlanPreviewDialog({
   scheduleStartDate = "",
 }) {
   const dialogRef = useRef(null);
+  const closeRequestedRef = useRef(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  const requestClose = () => {
+    if (closeRequestedRef.current) return;
+    closeRequestedRef.current = true;
+
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      onClose();
+      return;
+    }
+
+    setIsClosing(true);
+  };
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -103,21 +123,28 @@ export default function StudyPlanPreviewDialog({
     };
   }, []);
 
+  useEffect(() => {
+    if (!isClosing) return undefined;
+
+    const timeout = window.setTimeout(onClose, 220);
+    return () => window.clearTimeout(timeout);
+  }, [isClosing, onClose]);
+
   return createPortal(
     <dialog
       aria-describedby="study-plan-preview-summary"
       aria-labelledby="study-plan-preview-title"
-      className="study-plan-preview-dialog"
+      className={`study-plan-preview-dialog${isClosing ? " is-closing" : ""}`}
       id="study-plan-preview-dialog"
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        requestClose();
       }}
       ref={dialogRef}
     >
       <StudyPlanPreviewContent
         completed={completed}
-        onClose={onClose}
+        onClose={requestClose}
         schedule={schedule}
         scheduleStartDate={scheduleStartDate}
       />

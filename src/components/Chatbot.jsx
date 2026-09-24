@@ -41,7 +41,6 @@ import {
   getAiRequestErrorMessage,
   useAiQuota,
 } from "../utils/aiQuota";
-import { AiCreditCost } from "./AiQuotaProvider";
 import ChatMessageText from "./ChatMessageText";
 import ThoughtLine from "./ThoughtLine";
 import VoicePill from "./VoicePill";
@@ -1636,7 +1635,6 @@ function Chatbot({
               id="chat-history-drawer"
             >
               <div className="sidebar-history-header">
-                <h3>Chat History</h3>
                 <div className="history-header-actions">
                   {showClearHistoryConfirm ? (
                     <div className="chat-clear-confirm-inline inline-destructive-confirm">
@@ -1730,6 +1728,7 @@ function Chatbot({
                     </button>
                   ) : null}
                 </div>
+                <h3>Chat History</h3>
                 {(historySearchError || historySearchQuery) && (
                   <span
                     aria-live="polite"
@@ -2081,12 +2080,11 @@ function Chatbot({
                   </div>
                 ) : null}
 
-                <div className="chat-credit-row">
-                  <AiCreditCost feature={AI_FEATURES.CHAT} />
-                  {hasInsufficientCredits(AI_FEATURES.CHAT) && (
+                {hasInsufficientCredits(AI_FEATURES.CHAT) && (
+                  <div className="chat-credit-row">
                     <span>Local commands still work. Add credits next month for AI answers.</span>
-                  )}
-                </div>
+                  </div>
+                )}
                 <div className={`chat-composer-row${isVoiceRecording ? " is-voice-listening" : ""}`}>
                 <div className="chat-composer-field">
                   <textarea

@@ -13,13 +13,20 @@
   opacity: 1;
 }
 
-body.dark .settings-context-menu-shell,
-body.has-bg-image .settings-context-menu-shell {
+body.dark .settings-context-menu-shell {
   --settings-menu-bg: #111722;
   --settings-menu-border: rgba(216, 224, 239, 0.17);
   --settings-menu-text: #f3f6fb;
   --settings-menu-muted: #a7b1c2;
   --settings-menu-hover: #202838;
+}
+
+body.has-bg-image .settings-context-menu-shell {
+  --settings-menu-bg: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  --settings-menu-border: rgba(var(--accent-rgb, 120, 160, 210), 0.34);
+  --settings-menu-text: #f3f6fb;
+  --settings-menu-muted: rgba(243, 246, 251, 0.68);
+  --settings-menu-hover: rgba(var(--accent-rgb, 120, 160, 210), 0.18);
 }
 
 .settings-context-menu {

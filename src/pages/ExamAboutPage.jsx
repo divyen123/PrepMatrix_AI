@@ -195,7 +195,7 @@ function ExamAboutPage() {
             <span className="exam-guide-icon"><TimerReset size={21} /></span>
             <div><span className="exam-guide-kicker">Component 05</span><h2>Offline Exam Timer</h2></div>
           </div>
-          <p className="exam-guide-lead">Use the timer while solving downloaded papers or studying without starting the secure online exam.</p>
+          <p className="exam-guide-lead">After you generate a paper, the compact timer appears beside Goals in the open sidebar and moves to the lower-left when it is collapsed.</p>
           <div className="exam-guide-timer-modes">
             <span><Play size={15} /><strong>25 / 5</strong> Pomodoro focus</span>
             <span><Pause size={15} /><strong>50 / 10</strong> Extended focus</span>

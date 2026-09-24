@@ -429,7 +429,7 @@ function SettingsWakeControl({
         ariaLabel={label}
         bars={24}
         crestColor="var(--settings-wake-crest)"
-        fillColor="var(--accent)"
+        fillColor="var(--settings-wake-fill)"
         gap={3}
         height={42}
         restHeight={9}
@@ -986,9 +986,6 @@ function SettingsPage({
   const displayedBackgroundPresets = kidsGalleryActive
     ? KIDS_BACKGROUND_PRESETS
     : BACKGROUND_PRESETS;
-  const galleryBackgroundPresets = customBackgroundPreset
-    ? [...displayedBackgroundPresets, customBackgroundPreset]
-    : displayedBackgroundPresets;
 
   // Color Palette state
   const [customColorLight, setCustomColorLight] = useState("#078f78");
@@ -2819,26 +2816,16 @@ function SettingsPage({
                     {kidsGalleryActive ? "Default themes" : "Suggest for kids"}
                   </button>
                 )}
-                <input
-                  accept="image/jpeg,image/png,image/webp"
-                  aria-label="Choose a custom background image"
-                  className="custom-background-input"
-                  onChange={handleCustomBackgroundChange}
-                  ref={customBackgroundInputRef}
-                  type="file"
-                />
-                <button
-                  aria-describedby={customBackgroundStatus ? "custom-background-status" : undefined}
-                  className="background-theme-action-btn"
-                  disabled={customBackgroundBusy}
-                  onClick={() => customBackgroundInputRef.current?.click()}
-                  type="button"
-                >
-                  <Upload aria-hidden="true" size={14} />
-                  {customBackgroundBusy ? "Preparing..." : "Custom"}
-                </button>
               </div>
             </div>
+            <input
+              accept="image/jpeg,image/png,image/webp"
+              aria-label="Choose a custom background image"
+              className="custom-background-input"
+              onChange={handleCustomBackgroundChange}
+              ref={customBackgroundInputRef}
+              type="file"
+            />
             {kidsGalleryActive && (
               <p className="card-subtext" style={{ marginBottom: "12px", fontSize: "0.82rem" }}>
                 Pick a playful background chosen for younger learners, or upload your own image.
@@ -2852,7 +2839,7 @@ function SettingsPage({
             <div
               className={`settings-bg-presets-grid ${kidsGalleryActive ? "is-kids-gallery" : "is-default-gallery"}`}
               key={kidsGalleryActive ? "kids-backgrounds" : "default-backgrounds"}
-              style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: "10px", overflowX: "hidden", padding: "0 2px 6px", minWidth: 0 }}
+              style={{ display: "grid", overflowX: "hidden", padding: "0 2px 6px", minWidth: 0 }}
             >
               {/* None / Color Palette option */}
               {!kidsGalleryActive && <button
@@ -2883,7 +2870,7 @@ function SettingsPage({
               </button>}
 
               {/* Image thumbnails */}
-              {galleryBackgroundPresets.map((preset) => {
+              {displayedBackgroundPresets.map((preset) => {
                 const isActive = bgImageId === preset.id;
                 return (
                   <button
@@ -2926,6 +2913,58 @@ function SettingsPage({
                   </button>
                 );
               })}
+
+              <button
+                aria-describedby={customBackgroundStatus ? "custom-background-status" : undefined}
+                aria-label={customBackgroundPreset ? "Change custom background image" : "Choose a custom background image"}
+                aria-pressed={bgImageId === CUSTOM_BACKGROUND_ID}
+                className={`${customBackgroundPreset ? "bg-preset-thumbnail-btn" : "bg-palette-thumbnail-btn is-empty"} bg-custom-background-card`}
+                disabled={customBackgroundBusy}
+                onClick={() => customBackgroundInputRef.current?.click()}
+                style={{
+                  ...(customBackgroundPreset ? {
+                    "--background-thumbnail-image": `url("${customBackgroundPreset.file}")`,
+                    ...getBackgroundThumbnailPresentationVariables(customBackgroundPreset),
+                  } : {}),
+                  aspectRatio: "16 / 10",
+                  border: bgImageId === CUSTOM_BACKGROUND_ID
+                    ? `2.5px solid rgb(${customBackgroundPreset?.accentRgb || accentRgbDark})`
+                    : "1.5px solid var(--border)",
+                  borderRadius: "12px",
+                  cursor: customBackgroundBusy ? "wait" : "pointer",
+                  position: "relative",
+                  overflow: "hidden",
+                  padding: 0,
+                  transition: "all 0.2s ease",
+                  boxShadow: bgImageId === CUSTOM_BACKGROUND_ID
+                    ? `0 0 0 1px rgb(${customBackgroundPreset?.accentRgb || accentRgbDark}), 0 4px 12px rgba(${customBackgroundPreset?.accentRgb || accentRgbDark}, 0.25)`
+                    : "none",
+                }}
+                title={customBackgroundPreset ? "Choose a different custom background" : "Upload a custom background"}
+                type="button"
+              >
+                {!customBackgroundPreset && <Upload aria-hidden="true" size={15} />}
+                <span>
+                  {customBackgroundBusy
+                    ? "Preparing..."
+                    : customBackgroundPreset
+                      ? "My Background"
+                      : "Custom"}
+                </span>
+                {bgImageId === CUSTOM_BACKGROUND_ID && (
+                  <Check
+                    aria-hidden="true"
+                    size={13}
+                    style={{
+                      position: "absolute",
+                      top: "5px",
+                      right: "5px",
+                      color: "#fff",
+                      filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.6))",
+                    }}
+                  />
+                )}
+              </button>
             </div>
 
           </div>

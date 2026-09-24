@@ -32,6 +32,36 @@ test("keeps the three Appearance wake sliders equal on one desktop row", () => {
   );
 });
 
+test("keeps Custom in the background gallery and strengthens wake-slider contrast", () => {
+  assert.match(
+    componentSource,
+    /displayedBackgroundPresets\.map\(\(preset\)[\s\S]*?bg-custom-background-card/u,
+  );
+  assert.doesNotMatch(componentSource, /galleryBackgroundPresets/u);
+  assert.match(
+    componentSource,
+    /aria-label=\{customBackgroundPreset \? "Change custom background image" : "Choose a custom background image"\}/u,
+  );
+  assert.match(componentSource, /fillColor="var\(--settings-wake-fill\)"/u);
+  assert.match(
+    stylesheet,
+    /\.settings-page \.settings-bg-presets-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(7, minmax\(0, 1fr\)\);/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.settings-page \.settings-bg-presets-grid\.is-kids-gallery\s*\{[\s\S]*?grid-template-columns:\s*repeat\(6, minmax\(0, 1fr\)\);/u,
+  );
+  assert.match(
+    stylesheet,
+    /button\.bg-custom-background-card:not\(\.is-empty\) > span\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?bottom:\s*0;[\s\S]*?color:\s*#fff;[\s\S]*?text-align:\s*left;/u,
+  );
+  assert.match(stylesheet, /--settings-wake-track:\s*rgba\(255, 255, 255, 0\.17\);/u);
+  assert.match(
+    stylesheet,
+    /--settings-wake-fill:\s*color-mix\(in srgb, var\(--accent\) 70%, white 30%\);/u,
+  );
+});
+
 test("renders Settings for one profile without deletion guidance", async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
   const originalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
@@ -146,6 +176,10 @@ test("renders Settings for one profile without deletion guidance", async () => {
     assert.doesNotMatch(markup, /settings-profile-parent-guidance/u);
     assert.doesNotMatch(markup, /Study Goals &amp; To-Do/u);
     assert.match(markup, /dashboard-full-span settings-card settings-system-card/u);
+    assert.match(
+      markup,
+      /aria-label="Choose a custom background image" aria-pressed="false" class="bg-palette-thumbnail-btn is-empty bg-custom-background-card"/u,
+    );
     for (const label of ["Speed", "Pitch", "Volume", "Glass Panel Opacity", "Background Image Blur"]) {
       assert.match(
         markup,
@@ -160,6 +194,17 @@ test("renders Settings for one profile without deletion guidance", async () => {
       /class="settings-background-image-controls"[\s\S]*?aria-label="Background Image Blur"[\s\S]*?aria-label="Background Brightness"/u,
     );
     values.delete("prepmatrix_bg_image_id");
+    values.set("prepmatrix_bg_image_id", "custom-background");
+    values.set("prepmatrix_custom_bg_data", "data:image/png;base64,AAAA");
+    values.set("prepmatrix_custom_bg_accent_rgb", "120, 160, 210");
+    values.set("prepmatrix_custom_bg_surface_rgb", "12, 18, 32");
+    const customBackgroundMarkup = renderSettings();
+    assert.match(customBackgroundMarkup, /aria-label="Change custom background image"/u);
+    assert.match(customBackgroundMarkup, />My Background<\/span>/u);
+    values.delete("prepmatrix_bg_image_id");
+    values.delete("prepmatrix_custom_bg_data");
+    values.delete("prepmatrix_custom_bg_accent_rgb");
+    values.delete("prepmatrix_custom_bg_surface_rgb");
     assert.match(markup, /aria-label="Auto-lock app"/u);
     assert.match(
       markup,

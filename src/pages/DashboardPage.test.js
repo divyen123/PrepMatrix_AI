@@ -57,8 +57,22 @@ test("uses a centered add-subject empty state for the dashboard Subjects panel",
 });
 
 test("keeps dashboard action button hovers free of an outside glow", () => {
+  const pageSource = readFileSync(new URL("./DashboardPage.jsx", import.meta.url), "utf8");
   const stylesheet = readFileSync(new URL("../App.css", import.meta.url), "utf8");
 
+  assert.match(pageSource, /className="db-search-action-btn db-mic-btn"/u);
+  assert.match(
+    stylesheet,
+    /body \.db-search-form \.db-search-action-btn\s*\{[\s\S]*?border:\s*none !important;[\s\S]*?background:\s*transparent !important;[\s\S]*?box-shadow:\s*none !important;/u,
+  );
+  assert.match(
+    stylesheet,
+    /body \.db-search-form \.db-search-action-btn:hover,[\s\S]*?background:\s*var\(--accent-soft\) !important;[\s\S]*?box-shadow:\s*none !important;/u,
+  );
+  assert.match(
+    stylesheet,
+    /body \.db-search-form \.db-mic-btn\[data-state="idle"\] \.voice-pill__capsule\s*\{[\s\S]*?background:\s*transparent !important;[\s\S]*?border-color:\s*transparent !important;/u,
+  );
   assert.match(
     stylesheet,
     /\.db-page \.db-panel-btn:hover\s*\{[\s\S]*?box-shadow: none !important;/u,

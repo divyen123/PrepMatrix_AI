@@ -8,7 +8,7 @@ const dashboardSource = readFileSync(new URL("../pages/DashboardPage.jsx", impor
 
 test("keeps chat and dashboard microphone hover states free of an outside glow", () => {
   assert.match(chatSource, /className="chat-voice-pill"/u);
-  assert.match(dashboardSource, /className="db-mic-btn"/u);
+  assert.match(dashboardSource, /className="db-search-action-btn db-mic-btn"/u);
   assert.match(
     styles,
     /\.voice-pill\.chat-voice-pill:hover,\s*\.voice-pill\.db-mic-btn:hover\s*\{\s*box-shadow: none !important;\s*\}/u,

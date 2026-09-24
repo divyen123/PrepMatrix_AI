@@ -48,6 +48,7 @@ test("anchors every selected-background layer to one clipped viewport host", () 
   assert.match(backdropRule, /background-position:\s*var\(--bg-image-position,\s*center\);/u);
   assert.match(foregroundRule, /background-image:\s*var\(--bg-image-foreground,\s*none\);/u);
   assert.match(foregroundRule, /background-size:\s*var\(--bg-image-foreground-size,\s*cover\);/u);
+  assert.match(foregroundRule, /blur\(var\(--bg-image-blur,\s*0px\)\)/u);
   assert.match(overlayRule, /var\(--bg-overlay-opacity,\s*0\.55\)/u);
   assert.doesNotMatch(layerRules, /background-attachment:\s*fixed/u);
 

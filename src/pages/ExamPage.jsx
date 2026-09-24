@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { AnimatePresence, motion as Motion, useReducedMotion } from "motion/react";
 import { toast } from "../utils/toast";
 import {
   AlertTriangle,
@@ -657,7 +658,55 @@ function readTimerState(academicProfileDataId = "", migrateLegacy = false) {
   };
 }
 
+function AnimatedTimerClock({ value }) {
+  const reducedMotion = useReducedMotion();
+  return (
+    <strong aria-hidden="true" className="exam-compact-timer-clock">
+      {value.split("").map((character, index) => (
+        <span className={`exam-compact-timer-digit${character === ":" ? " is-separator" : ""}`} key={index}>
+          <AnimatePresence initial={false} mode="popLayout">
+            <Motion.span
+              key={character}
+              initial={reducedMotion ? false : { opacity: 0, y: 7, filter: "blur(2px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              exit={reducedMotion ? undefined : { opacity: 0, y: -7, filter: "blur(2px)" }}
+              transition={{ duration: reducedMotion ? 0 : 0.18, ease: "easeOut" }}
+            >
+              {character}
+            </Motion.span>
+          </AnimatePresence>
+        </span>
+      ))}
+    </strong>
+  );
+}
+
+function getCompactTimerPosition() {
+  const shell = document.querySelector(".app-shell-layout");
+  const sidebar = document.querySelector(".app-sidebar");
+  const goal = document.querySelector(".goal-reminder-launcher");
+  const sidebarVisible = window.innerWidth >= 992 || sidebar?.classList.contains("open");
+  const collapsed = shell?.classList.contains("is-sidebar-collapsed");
+  const floating = {
+    left: collapsed && sidebarVisible ? Math.min(92, Math.max(16, window.innerWidth - 126)) : 16,
+    top: Math.max(16, window.innerHeight - 80),
+    docked: false,
+  };
+  if (!shell || collapsed || !sidebarVisible || !goal || !sidebar) {
+    return floating;
+  }
+
+  const goalBounds = goal.getBoundingClientRect();
+  if (!goalBounds.width) return floating;
+  return {
+    left: Math.round(Math.max(16, Math.min(goalBounds.right + 6, window.innerWidth - 126))),
+    top: Math.round(goalBounds.top + (goalBounds.height - 64) / 2),
+    docked: true,
+  };
+}
+
 function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, paperMinutes = 60 }) {
+  const reducedMotion = useReducedMotion();
   const timerStorageKey = academicProfileStorageKey(academicProfileDataId, "exam-timer")
     || TIMER_STORAGE_KEY;
   const [timer, setTimer] = useState(() => readTimerState(
@@ -670,6 +719,53 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
     paper: { label: "Paper time (" + paperMinutes + " min)", focus: paperMinutes * 60, break: 0 },
   }), [paperMinutes]);
   const preset = presets[timer.preset] || presets.pomodoro;
+  const [modeOpen, setModeOpen] = useState(false);
+  const [position, setPosition] = useState(() => (
+    typeof window === "undefined" ? { left: 16, top: 16, docked: false } : getCompactTimerPosition()
+  ));
+  const dockRef = useRef(null);
+
+  useEffect(() => {
+    const updatePosition = () => {
+      const next = getCompactTimerPosition();
+      setPosition((current) => current.left === next.left && current.top === next.top && current.docked === next.docked
+        ? current
+        : next);
+    };
+    const shell = document.querySelector(".app-shell-layout");
+    const sidebar = document.querySelector(".app-sidebar");
+    const goal = document.querySelector(".goal-reminder-launcher");
+    const mutationObserver = new MutationObserver(updatePosition);
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updatePosition);
+    if (shell) mutationObserver.observe(shell, { attributes: true, attributeFilter: ["class"] });
+    if (sidebar) mutationObserver.observe(sidebar, { attributes: true, attributeFilter: ["class"] });
+    if (sidebar) resizeObserver?.observe(sidebar);
+    if (goal) resizeObserver?.observe(goal);
+    window.addEventListener("resize", updatePosition);
+    const frame = window.requestAnimationFrame(updatePosition);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updatePosition);
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!modeOpen) return undefined;
+    const closeOnOutsidePress = (event) => {
+      if (!dockRef.current?.contains(event.target)) setModeOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setModeOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePress);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePress);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [modeOpen]);
 
   useEffect(() => {
     localStorage.setItem(timerStorageKey, JSON.stringify(timer));
@@ -713,7 +809,7 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
   }, [paperMinutes, timer.preset, timer.running]);
 
   const choosePreset = (event) => {
-    const nextPreset = event.target.value;
+    const nextPreset = event;
     const next = presets[nextPreset];
     setTimer((current) => ({
       ...current,
@@ -724,6 +820,7 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
       endsAt: null,
       paperMinutes,
     }));
+    setModeOpen(false);
   };
 
   const start = () => {
@@ -759,38 +856,61 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
     }));
   };
 
-  return (
-    <section className="card exam-timer-card">
-      <div className="exam-card-heading">
-        <div className="exam-heading-icon"><Clock3 size={19} /></div>
-        <div><span className="section-tag">Offline exam timer</span><h3>Focus without the browser exam</h3></div>
+  const phaseLabel = timer.phase === "break" ? "Recovery break" : timer.preset === "paper" ? "Paper time" : "Focus session";
+  const timeLabel = formatClock(timer.remainingSeconds);
+  const dock = (
+    <section
+      aria-label={`${phaseLabel} timer, ${timeLabel} remaining`}
+      className={`exam-compact-timer${position.docked ? " is-sidebar-docked" : " is-floating"}${timer.phase === "break" ? " is-break" : ""}`}
+      ref={dockRef}
+      role="group"
+      style={{ left: position.left, top: position.top }}
+    >
+      <AnimatedTimerClock value={timeLabel} />
+      <div className="exam-compact-timer-actions">
+        <button
+          aria-expanded={modeOpen}
+          aria-label={`Timer mode: ${preset.label}`}
+          className="exam-compact-timer-action"
+          onClick={() => setModeOpen((open) => !open)}
+          title={preset.label}
+          type="button"
+        ><Clock3 aria-hidden="true" size={14} /></button>
+        <button
+          aria-label={timer.running ? "Pause timer" : "Start timer"}
+          className="exam-compact-timer-action is-play"
+          onClick={timer.running ? pause : start}
+          title={timer.running ? "Pause" : "Start"}
+          type="button"
+        >
+          <AnimatePresence initial={false} mode="wait">
+            <Motion.span
+              key={timer.running ? "pause" : "play"}
+              initial={reducedMotion ? false : { opacity: 0, scale: 0.6, filter: "blur(3px)" }}
+              animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+              exit={reducedMotion ? undefined : { opacity: 0, scale: 0.6, filter: "blur(3px)" }}
+              transition={{ duration: reducedMotion ? 0 : 0.12 }}
+            >{timer.running ? <Pause aria-hidden="true" size={14} /> : <Play aria-hidden="true" size={14} />}</Motion.span>
+          </AnimatePresence>
+        </button>
+        <button aria-label="Skip timer phase" className="exam-compact-timer-action" onClick={skip} title="Skip phase" type="button"><ArrowRight aria-hidden="true" size={14} /></button>
+        <button aria-label="Reset timer" className="exam-compact-timer-action" onClick={reset} title="Reset timer" type="button"><RotateCcw aria-hidden="true" size={13} /></button>
       </div>
-      <div className="exam-timer-layout">
-        <div className="exam-timer-face">
-          <span>{timer.phase === "break" ? "Recovery break" : timer.preset === "paper" ? "Offline paper" : "Focus session"}</span>
-          <strong>{formatClock(timer.remainingSeconds)}</strong>
-          <small>{timer.cycles} focus cycle{timer.cycles === 1 ? "" : "s"} completed</small>
+      {modeOpen && (
+        <div aria-label="Timer mode" className="exam-compact-timer-modes" role="group">
+          {Object.entries(presets).map(([id, item]) => (
+            <button
+              aria-pressed={timer.preset === id}
+              key={id}
+              onClick={() => choosePreset(id)}
+              type="button"
+            >{item.label}</button>
+          ))}
         </div>
-        <div className="exam-timer-controls">
-          <label className="field-stack">
-            Timer mode
-            <select onChange={choosePreset} value={timer.preset}>
-              {Object.entries(presets).map(([id, item]) => <option key={id} value={id}>{item.label}</option>)}
-            </select>
-          </label>
-          <div className="exam-timer-buttons">
-            {timer.running ? (
-              <button className="exam-compact-btn is-primary" onClick={pause} type="button"><Pause size={15} /> Pause</button>
-            ) : (
-              <button className="exam-compact-btn is-primary" onClick={start} type="button"><Play size={15} /> Start</button>
-            )}
-            <button className="exam-compact-btn" onClick={skip} type="button"><ArrowRight size={15} /> Skip</button>
-            <button className="exam-icon-btn" aria-label="Reset timer" onClick={reset} title="Reset timer" type="button"><RotateCcw size={15} /></button>
-          </div>
-        </div>
-      </div>
+      )}
     </section>
   );
+  return typeof document === "undefined" ? dock : createPortal(dock, document.body);
 }
 
 function PaperBuilder({
@@ -1329,6 +1449,10 @@ function PaperHistory({ papers, onRefresh, onPaperLoaded }) {
   const filtered = papers.filter((paper) =>
     [paper.title, paper.paperTitle, ...(paper.subjectNames || [])].join(" ").toLowerCase().includes(search.trim().toLowerCase()),
   );
+
+  if (papers.length === 0) {
+    return <p className="exam-paper-history-empty">your generated question paper appears here.</p>;
+  }
 
   const loadPaper = async (paper, mode) => {
     const id = getId(paper);
@@ -1951,7 +2075,11 @@ function ExamPage({
             academicProfileDataId={academicProfileDataId}
             academicLevel={academicLevel}
             academicTrack={academicTrack}
-            onGenerated={(paper) => { handlePaperLoaded(paper); loadPapers(); }}
+            onGenerated={(paper) => {
+              handlePaperLoaded(paper);
+              setPapers((current) => [paper, ...current.filter((saved) => getId(saved) !== getId(paper))]);
+              loadPapers();
+            }}
             subjects={subjects}
             userProfile={userProfile}
           />
@@ -1961,7 +2089,7 @@ function ExamPage({
 
       {section === "results" && <ResultsPanel onRefresh={loadResults} results={results} userProfile={userProfile} />}
 
-      {section === "paper" && (
+      {section === "paper" && papers.length > 0 && (
         <OfflineExamTimer
           academicProfileDataId={academicProfileDataId}
           migrateLegacy={mayMigrateLegacyState}

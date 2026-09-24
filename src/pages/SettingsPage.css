@@ -784,6 +784,11 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 
 .settings-page .settings-bg-presets-grid {
   animation: settingsBackgroundGalleryIn 0.38s ease both;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.settings-page .settings-bg-presets-grid.is-kids-gallery {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 @keyframes settingsBackgroundGalleryIn {
@@ -814,6 +819,36 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 .settings-page button.bg-preset-thumbnail-btn > span {
   padding: 12px 6px 4px !important;
   font-size: 0.64rem !important;
+}
+
+.settings-page button.bg-custom-background-card:not(.is-empty) > span {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: left;
+}
+
+.settings-page button.bg-custom-background-card.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.settings-page button.bg-custom-background-card.is-empty > span {
+  color: inherit;
+  font-size: 0.68rem;
+}
+
+.settings-page button.bg-custom-background-card:disabled {
+  cursor: wait !important;
+  opacity: 0.7;
 }
 
 .settings-page .settings-appearance-grid {
@@ -1140,8 +1175,9 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 
 /* Wake sliders share the palette of the active light, dark, or image theme. */
 .settings-page {
-  --settings-wake-track: color-mix(in srgb, var(--text) 24%, transparent);
-  --settings-wake-crest: color-mix(in srgb, var(--accent) 72%, var(--text) 28%);
+  --settings-wake-track: color-mix(in srgb, var(--text) 17%, transparent);
+  --settings-wake-fill: color-mix(in srgb, var(--accent) 82%, var(--text) 18%);
+  --settings-wake-crest: color-mix(in srgb, var(--accent) 68%, var(--text) 32%);
 }
 
 .settings-page .settings-wake-control {
@@ -1220,8 +1256,9 @@ body .settings-page button.wake-slider__handle:focus-visible {
 }
 
 body.has-bg-image .settings-page {
-  --settings-wake-track: rgba(255, 255, 255, 0.27);
-  --settings-wake-crest: color-mix(in srgb, var(--accent) 65%, white 35%);
+  --settings-wake-track: rgba(255, 255, 255, 0.17);
+  --settings-wake-fill: color-mix(in srgb, var(--accent) 70%, white 30%);
+  --settings-wake-crest: color-mix(in srgb, var(--accent) 56%, white 44%);
 }
 
 body.has-bg-image .settings-page .assistant-voice-range {
@@ -1234,6 +1271,10 @@ body.has-bg-image.no-glass-cards .settings-page .assistant-voice-range {
 }
 
 @media (max-width: 480px) {
+  .settings-page .settings-bg-presets-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
   .settings-page .settings-background-image-controls {
     grid-template-columns: minmax(0, 1fr);
   }

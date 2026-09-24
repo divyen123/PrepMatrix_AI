@@ -32,7 +32,7 @@ test("places Track goals button in SubjectList near Open materials when subjects
   );
   assert.match(
     subjectListSource,
-    /className="secondary-btn track-goals-btn"/u
+    /className="primary-btn track-goals-btn"/u
   );
   assert.match(
     subjectListSource,
@@ -74,6 +74,10 @@ test("GoalTracker popup follows palette and image themes and stays viewport-scro
   assert.match(stylesheet, /body\.has-bg-image\.no-glass-cards \.goal-tracker-popup\s*\{[\s\S]*?0\.92/u);
   assert.match(goalTrackerSource, /createPortal\(content, document\.body\)/u);
   assert.match(goalTrackerSource, /resolvePopupPosition\(anchorRef\?\.current\)/u);
+  assert.doesNotMatch(
+    stylesheet,
+    /\.goal-tracker-popup \.goal-tracker-header\s*\{[^}]*position:\s*sticky;/u,
+  );
 });
 
 test("GoalTracker applies its local theme tokens to nested surfaces and scrollbars", () => {
@@ -91,12 +95,11 @@ test("GoalTracker applies its local theme tokens to nested surfaces and scrollba
   assert.match(stylesheet, /body \.goal-tracker-popup::-webkit-scrollbar-button,[\s\S]*?display:\s*none !important;[\s\S]*?height:\s*0 !important;/u);
 });
 
-test("GoalTracker controls stay neutral instead of inheriting global green button containers", () => {
+test("GoalTracker popup controls stay neutral instead of inheriting global green button containers", () => {
   assert.match(stylesheet, /body \.goal-tracker-popup \.goal-subject-dropdown-toggle[\s\S]*?background:\s*transparent !important;/u);
   assert.match(stylesheet, /body \.goal-tracker-popup \.goal-subject-dropdown-toggle[\s\S]*?box-shadow:\s*none !important;/u);
   assert.match(stylesheet, /body \.goal-tracker-popup \.goal-subject-suggestion-btn[\s\S]*?background:\s*transparent !important;/u);
   assert.match(stylesheet, /body \.goal-tracker-popup \.goal-subject-suggestion-btn:hover[\s\S]*?background:\s*transparent !important;/u);
-  assert.match(stylesheet, /body \.subject-library-card \.track-goals-btn:hover[\s\S]*?box-shadow:\s*none !important;/u);
   assert.match(stylesheet, /\.goal-tracker-close-btn\s*\{[\s\S]*?background:\s*transparent !important;/u);
   assert.match(stylesheet, /\.goal-tracker-close-btn\s*\{[\s\S]*?justify-content:\s*center !important;/u);
 });

@@ -6,6 +6,19 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { createServer } from "vite";
 
+test("study schedule preview fades in and out and keeps its completion accents scoped", () => {
+  const source = readFileSync(new URL("./StudyPlanPreviewDialog.jsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("./StudyPlanPreviewDialog.css", import.meta.url), "utf8");
+
+  assert.match(source, /const \[isClosing, setIsClosing\] = useState\(false\);/u);
+  assert.match(source, /window\.setTimeout\(onClose, 220\)/u);
+  assert.match(css, /\.study-plan-preview-dialog\[open\]\.is-closing\s*\{\s*animation:\s*study-plan-preview-exit/u);
+  assert.match(css, /\.study-plan-preview-dialog\[open\]\.is-closing::backdrop\s*\{\s*animation:\s*study-plan-preview-backdrop-exit/u);
+  assert.match(css, /\.study-plan-preview-day\.is-complete\s*\{/u);
+  assert.match(css, /\.study-plan-preview-day li\.is-complete \.study-plan-preview-status\s*\{/u);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/u);
+});
+
 test("uses subject-first guidance for empty analytics prediction and goal tracking", async () => {
   const vite = await createServer({
     appType: "custom",
@@ -97,6 +110,17 @@ test("prediction recommends finishable subjects and opens the right planner stat
     assert.match(previewMarkup, /RestAPI - 2/u);
     assert.match(previewMarkup, /aria-label="Completed"/u);
     assert.match(previewMarkup, /aria-label="Pending"/u);
+
+    const mixedDaysMarkup = renderToStaticMarkup(React.createElement(StudyPlanPreviewContent, {
+      completed: ["Finished", "Needs recheck"],
+      schedule: [
+        { day: 1, tasks: [{ task: "Finished" }] },
+        { day: 2, tasks: [{ task: "Needs recheck", recheckPending: true }] },
+        { day: 3, tasks: [] },
+      ],
+    }));
+    assert.equal((mixedDaysMarkup.match(/class="study-plan-preview-day is-complete"/gu) || []).length, 1);
+    assert.equal((mixedDaysMarkup.match(/class="study-plan-preview-day"/gu) || []).length, 2);
 
     const unplannedMarkup = renderPrediction([]);
     assert.match(unplannedMarkup, /Create a plan to see which subjects to study first\./u);

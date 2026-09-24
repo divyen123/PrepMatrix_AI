@@ -188,7 +188,7 @@ function SubjectList({
               aria-controls="subject-goal-tracker"
               aria-expanded={goalPopupOpen && !goalPopupClosing}
               aria-haspopup="dialog"
-              className="secondary-btn track-goals-btn"
+              className="primary-btn track-goals-btn"
               onClick={toggleGoalPopup}
               ref={trackGoalsButtonRef}
               type="button"
