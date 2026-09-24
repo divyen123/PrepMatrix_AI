@@ -45,6 +45,72 @@ test("uses subject-first guidance for empty analytics prediction and goal tracki
   }
 });
 
+test("prediction recommends finishable subjects and opens the right planner state", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { default: Prediction } = await vite.ssrLoadModule("/src/components/Prediction.jsx");
+    const { StudyPlanPreviewContent } = await vite.ssrLoadModule(
+      "/src/components/StudyPlanPreviewDialog.jsx",
+    );
+    const subjects = [
+      { name: "RestAPI" },
+      { name: "Data analytics" },
+      { name: "Machine Learning" },
+    ];
+    const renderPrediction = (schedule, completed = []) => renderToStaticMarkup(React.createElement(
+      MemoryRouter,
+      null,
+      React.createElement(Prediction, { completed, schedule, subjects }),
+    ));
+    const schedule = [{
+      day: 1,
+      tasks: [
+        { task: "RestAPI - 1", subjectName: "RestAPI" },
+        { task: "RestAPI - 2", subjectName: "RestAPI" },
+        { task: "Data analytics - 1", subjectName: "Data analytics" },
+        { task: "Data analytics - 2", subjectName: "Data analytics" },
+        { task: "Data analytics - 3", subjectName: "Data analytics" },
+        { task: "Machine Learning - 1", subjectName: "Machine Learning" },
+      ],
+    }];
+    const completed = ["RestAPI - 1", "Data analytics - 1", "Machine Learning - 1"];
+
+    const activeMarkup = renderPrediction(schedule, completed);
+    assert.match(activeMarkup, /Finish RestAPI \(1 left\), then Data analytics \(2 left\)\./u);
+    assert.match(activeMarkup, /<button[^>]*aria-haspopup="dialog"[^>]*>\s*<span>View plan<\/span>/u);
+    assert.doesNotMatch(activeMarkup, /href="\/planner\/schedule"/u);
+    assert.doesNotMatch(activeMarkup, /A little more consistency will move you into a safer range\./u);
+
+    const previewMarkup = renderToStaticMarkup(React.createElement(StudyPlanPreviewContent, {
+      completed,
+      schedule,
+      scheduleStartDate: "2026-09-24",
+    }));
+    assert.match(previewMarkup, /Study schedule/u);
+    assert.match(previewMarkup, /3 of 6 tasks complete/u);
+    assert.match(previewMarkup, /Day 1 - 24\/09\/2026/u);
+    assert.match(previewMarkup, /RestAPI - 2/u);
+    assert.match(previewMarkup, /aria-label="Completed"/u);
+    assert.match(previewMarkup, /aria-label="Pending"/u);
+
+    const unplannedMarkup = renderPrediction([]);
+    assert.match(unplannedMarkup, /Create a plan to see which subjects to study first\./u);
+    assert.match(unplannedMarkup, /href="\/planner\/schedule"[^>]*>\s*<span>Create plan<\/span>/u);
+    assert.match(renderPrediction([{ day: 1, tasks: [] }]), /<span>Create plan<\/span>/u);
+
+    const completeMarkup = renderPrediction(schedule, schedule[0].tasks.map((task) => task.task));
+    assert.match(completeMarkup, /Your plan is complete\./u);
+    assert.doesNotMatch(completeMarkup, /Finish RestAPI/u);
+  } finally {
+    await vite.close();
+  }
+});
+
 test("keeps the Prediction add-subject arrow background-free", () => {
   const styles = readFileSync(new URL("../App.css", import.meta.url), "utf8");
 
@@ -53,6 +119,7 @@ test("keeps the Prediction add-subject arrow background-free", () => {
     /\.prediction-subjects-action-link\s*\{[\s\S]*?background: transparent;[\s\S]*?border: 0;[\s\S]*?box-shadow: none;/u,
   );
   assert.match(styles, /\.prediction-subjects-action-link:focus-visible\s*\{[\s\S]*?outline: 2px solid var\(--accent\);/u);
+  assert.match(styles, /body \.prediction-plan-link\s*\{[\s\S]*?background: transparent !important;[\s\S]*?border: 0 !important;[\s\S]*?box-shadow: none !important;/u);
 });
 
 test("styles the empty Goal tracker notice as a compact yellow-toned card", () => {

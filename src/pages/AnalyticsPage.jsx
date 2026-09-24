@@ -54,7 +54,7 @@ function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, co
 
       <div className="analytics-row primary-analytics-row">
         <Analytics completed={completed} schedule={schedule} />
-        <Prediction completed={completed} schedule={schedule} subjects={subjects} />
+        <Prediction completed={completed} schedule={schedule} scheduleStartDate={scheduleStartDate} subjects={subjects} />
         <Readiness completed={completed} schedule={schedule} />
       </div>
 

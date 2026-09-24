@@ -845,6 +845,51 @@ body.dark .task-chip {
   outline-offset: 3px;
 }
 
+body .prediction-plan-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 7px;
+  padding: 0;
+  min-height: 0;
+  color: var(--accent) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transform: none !important;
+}
+
+body .prediction-plan-link:hover {
+  color: var(--accent-strong) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .prediction-plan-link::before,
+body .prediction-plan-link::after {
+  content: none !important;
+}
+
+.prediction-plan-link svg {
+  transition: transform 160ms ease;
+}
+
+.prediction-plan-link:hover svg {
+  transform: translateX(3px);
+}
+
+.prediction-plan-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 .analytics-overview-card {
   min-height: 360px;
   gap: 16px;
