@@ -71,6 +71,11 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
   const completionPercentage = totalChapters === 0
     ? 0
     : Math.floor((completedCount / totalChapters) * 100);
+  const completionTone = completionPercentage >= 70
+    ? "high"
+    : completionPercentage >= 40
+      ? "moderate"
+      : "low";
   const isSubjectComplete = completionPercentage === 100;
   const nextTask = subjectTasks.find((task) => !task.isComplete);
   const quizEligibility = getSubjectQuizEligibility(subject, safeSchedule, safeCompleted);
@@ -291,7 +296,10 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
           </div>
         </header>
 
-        <div className="subject-modal-progress" aria-label={`${completedCount} of ${totalChapters} chapters completed`}>
+        <div
+          className={`subject-modal-progress is-${completionTone}`}
+          aria-label={`${completedCount} of ${totalChapters} chapters completed`}
+        >
           <span style={{ width: `${completionPercentage}%` }} />
         </div>
 

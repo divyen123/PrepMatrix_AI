@@ -17419,19 +17419,32 @@ body.has-bg-image .subject-modal-summary.is-complete strong {
 
 }
 .subject-modal-progress {
+  --subject-progress-tone: #ef4444;
   height: 4px;
   margin: 0 30px;
   overflow: hidden;
-  background: var(--surface-muted);
+  background: color-mix(in srgb, var(--subject-progress-tone) 16%, var(--surface-muted));
   border-radius: 999px;
+}
+
+.subject-modal-progress.is-moderate {
+  --subject-progress-tone: #f59e0b;
+}
+
+.subject-modal-progress.is-high {
+  --subject-progress-tone: #22c55e;
 }
 
 .subject-modal-progress span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), rgba(var(--accent-rgb), 0.62));
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--subject-progress-tone) 76%, white),
+    var(--subject-progress-tone)
+  );
   border-radius: inherit;
-  box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.34);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--subject-progress-tone) 42%, transparent);
   transform-origin: left;
   animation: subjectProgressGrow 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
