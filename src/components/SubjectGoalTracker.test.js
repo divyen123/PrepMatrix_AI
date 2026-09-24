@@ -82,7 +82,11 @@ test("GoalTracker applies its local theme tokens to nested surfaces and scrollba
   assert.match(stylesheet, /\.goal-tracker-popup \.goal-progress-panel\s*\{[\s\S]*?background:\s*var\(--goal-popup-muted\);[\s\S]*?var\(--goal-popup-border\)/u);
   assert.match(stylesheet, /\.goal-tracker-popup \.goal-metric-card\s*\{[\s\S]*?background:\s*var\(--goal-popup-raised\);[\s\S]*?var\(--goal-popup-border\)/u);
   assert.match(stylesheet, /\.goal-tracker-popup,[\s\S]*?scrollbar-color:\s*var\(--goal-popup-scroll-thumb\) var\(--goal-popup-scroll-track\);/u);
-  assert.match(stylesheet, /body \.goal-tracker-popup::-webkit-scrollbar-thumb,[\s\S]*?background:\s*var\(--goal-popup-scroll-thumb\);/u);
+  assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?--goal-popup-scroll-thumb:\s*var\(--accent\);/u);
+  assert.match(stylesheet, /body\.has-bg-image \.goal-tracker-popup\s*\{[\s\S]*?--goal-popup-scroll-thumb:\s*rgb\(var\(--accent-rgb\)\);/u);
+  assert.match(stylesheet, /body \.goal-tracker-popup::-webkit-scrollbar-thumb,[\s\S]*?background:\s*var\(--goal-popup-scroll-thumb\) !important;/u);
+  assert.match(stylesheet, /body \.goal-tracker-popup::-webkit-scrollbar-track,[\s\S]*?background:\s*var\(--goal-popup-scroll-track\) !important;/u);
+  assert.match(stylesheet, /body \.goal-tracker-popup::-webkit-scrollbar-button,[\s\S]*?display:\s*none !important;[\s\S]*?height:\s*0 !important;/u);
 });
 
 test("GoalTracker controls stay neutral instead of inheriting global green button containers", () => {

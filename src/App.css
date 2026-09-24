@@ -25298,8 +25298,8 @@ body .subject-library-card .track-goals-btn:focus-visible {
   --goal-popup-text-muted: var(--text-muted);
   --goal-popup-track: color-mix(in srgb, var(--goal-popup-text) 11%, transparent);
   --goal-popup-scroll-track: color-mix(in srgb, var(--goal-popup-surface) 88%, var(--accent) 12%);
-  --goal-popup-scroll-thumb: rgba(var(--accent-rgb), 0.52);
-  --goal-popup-scroll-thumb-hover: rgba(var(--accent-rgb), 0.76);
+  --goal-popup-scroll-thumb: var(--accent);
+  --goal-popup-scroll-thumb-hover: color-mix(in srgb, var(--accent) 82%, var(--goal-popup-text) 18%);
   position: fixed;
   right: auto;
   width: min(480px, calc(100vw - 32px));
@@ -25413,8 +25413,8 @@ body.has-bg-image .goal-tracker-popup {
   --goal-popup-text-muted: rgba(230, 232, 240, 0.64);
   --goal-popup-track: rgba(255, 255, 255, 0.12);
   --goal-popup-scroll-track: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.34);
-  --goal-popup-scroll-thumb: rgba(var(--accent-rgb), 0.56);
-  --goal-popup-scroll-thumb-hover: rgba(var(--accent-rgb), 0.82);
+  --goal-popup-scroll-thumb: rgb(var(--accent-rgb));
+  --goal-popup-scroll-thumb-hover: color-mix(in srgb, rgb(var(--accent-rgb)) 82%, #ffffff 18%);
   background: var(--goal-popup-surface) !important;
   color: var(--goal-popup-text) !important;
   border-color: var(--goal-popup-border) !important;
@@ -25894,29 +25894,45 @@ body.dark .goal-days-input {
 
 body .goal-tracker-popup::-webkit-scrollbar,
 body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar {
-  width: 9px;
+  width: 10px !important;
+  background: var(--goal-popup-scroll-track) !important;
 }
 
 body .goal-tracker-popup::-webkit-scrollbar-track,
-body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-track {
-  background: var(--goal-popup-scroll-track);
+body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-track,
+body .goal-tracker-popup::-webkit-scrollbar-track-piece,
+body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-track-piece {
+  background: var(--goal-popup-scroll-track) !important;
   border-radius: 999px;
   box-shadow: none;
 }
 
 body .goal-tracker-popup::-webkit-scrollbar-thumb,
 body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-thumb {
-  background: var(--goal-popup-scroll-thumb);
+  background: var(--goal-popup-scroll-thumb) !important;
   background-clip: padding-box;
   border: 2px solid transparent;
   border-radius: 999px;
-  box-shadow: none;
+  min-height: 36px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 body .goal-tracker-popup::-webkit-scrollbar-thumb:hover,
 body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-thumb:hover {
-  background: var(--goal-popup-scroll-thumb-hover);
+  background: var(--goal-popup-scroll-thumb-hover) !important;
   background-clip: padding-box;
+}
+
+body .goal-tracker-popup::-webkit-scrollbar-button,
+body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+body .goal-tracker-popup::-webkit-scrollbar-corner,
+body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-corner {
+  background: var(--goal-popup-scroll-track) !important;
 }
 
 .goal-tracker-popup .goal-metric-card span {
