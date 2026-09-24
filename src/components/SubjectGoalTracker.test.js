@@ -62,13 +62,27 @@ test("GoalTracker supports searchable typing input with interactive list suggest
 
 test("GoalTracker popup follows palette and image themes and stays viewport-scrollable", () => {
   assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?--goal-popup-surface:\s*color-mix\(in srgb, var\(--bg\)/u);
+  assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?--goal-popup-text:\s*var\(--text\);/u);
+  assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?--goal-popup-border:\s*color-mix\(in srgb, var\(--border\)/u);
   assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?position:\s*fixed;/u);
   assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?max-height:\s*calc\(100dvh - 32px\);/u);
   assert.match(stylesheet, /\.goal-tracker-popup\s*\{[\s\S]*?overflow-y:\s*auto !important;/u);
-  assert.match(stylesheet, /body\.dark \.goal-tracker-popup\s*\{[\s\S]*?var\(--bg\)/u);
-  assert.match(stylesheet, /body\.has-bg-image \.goal-tracker-popup\s*\{[\s\S]*?var\(--bg-surface-rgb/u);
+  assert.match(stylesheet, /body\.dark \.goal-tracker-popup\s*\{[\s\S]*?var\(--bg\)[\s\S]*?var\(--accent\)/u);
+  assert.match(stylesheet, /body\.no-glass-cards:not\(\.has-bg-image\) \.goal-tracker-popup\s*\{[\s\S]*?--goal-popup-surface:\s*var\(--surface\);/u);
+  assert.match(stylesheet, /body\.has-bg-image \.goal-tracker-popup\s*\{[\s\S]*?--goal-popup-surface:\s*rgba\(var\(--bg-surface-rgb[^;]*var\(--glass-opacity, 0\.6\)\);/u);
+  assert.match(stylesheet, /body\.has-bg-image \.goal-tracker-popup\s*\{[\s\S]*?--goal-popup-text:\s*#f0f0f5;/u);
+  assert.match(stylesheet, /body\.has-bg-image\.no-glass-cards \.goal-tracker-popup\s*\{[\s\S]*?0\.92/u);
   assert.match(goalTrackerSource, /createPortal\(content, document\.body\)/u);
   assert.match(goalTrackerSource, /resolvePopupPosition\(anchorRef\?\.current\)/u);
+});
+
+test("GoalTracker applies its local theme tokens to nested surfaces and scrollbars", () => {
+  assert.match(stylesheet, /\.goal-tracker-popup \.goal-tracker-header\s*\{[\s\S]*?background:\s*var\(--goal-popup-surface\);[\s\S]*?var\(--goal-popup-border\)/u);
+  assert.match(stylesheet, /body \.goal-tracker-popup \.goal-subject-text-input,[\s\S]*?color:\s*var\(--goal-popup-text\) !important;/u);
+  assert.match(stylesheet, /\.goal-tracker-popup \.goal-progress-panel\s*\{[\s\S]*?background:\s*var\(--goal-popup-muted\);[\s\S]*?var\(--goal-popup-border\)/u);
+  assert.match(stylesheet, /\.goal-tracker-popup \.goal-metric-card\s*\{[\s\S]*?background:\s*var\(--goal-popup-raised\);[\s\S]*?var\(--goal-popup-border\)/u);
+  assert.match(stylesheet, /\.goal-tracker-popup,[\s\S]*?scrollbar-color:\s*var\(--goal-popup-scroll-thumb\) var\(--goal-popup-scroll-track\);/u);
+  assert.match(stylesheet, /body \.goal-tracker-popup::-webkit-scrollbar-thumb,[\s\S]*?background:\s*var\(--goal-popup-scroll-thumb\);/u);
 });
 
 test("GoalTracker controls stay neutral instead of inheriting global green button containers", () => {

@@ -25290,9 +25290,16 @@ body .subject-library-card .track-goals-btn:focus-visible {
 }
 
 .goal-tracker-popup {
-  --goal-popup-surface: color-mix(in srgb, var(--bg) 94%, #ffffff 6%);
-  --goal-popup-raised: color-mix(in srgb, var(--goal-popup-surface) 94%, var(--text) 6%);
-  --goal-popup-muted: color-mix(in srgb, var(--goal-popup-surface) 97%, var(--text) 3%);
+  --goal-popup-surface: color-mix(in srgb, var(--bg) 94%, var(--surface-strong) 6%);
+  --goal-popup-raised: color-mix(in srgb, var(--goal-popup-surface) 90%, var(--accent) 10%);
+  --goal-popup-muted: color-mix(in srgb, var(--goal-popup-surface) 96%, var(--accent) 4%);
+  --goal-popup-border: color-mix(in srgb, var(--border) 82%, var(--accent) 18%);
+  --goal-popup-text: var(--text);
+  --goal-popup-text-muted: var(--text-muted);
+  --goal-popup-track: color-mix(in srgb, var(--goal-popup-text) 11%, transparent);
+  --goal-popup-scroll-track: color-mix(in srgb, var(--goal-popup-surface) 88%, var(--accent) 12%);
+  --goal-popup-scroll-thumb: rgba(var(--accent-rgb), 0.52);
+  --goal-popup-scroll-thumb-hover: rgba(var(--accent-rgb), 0.76);
   position: fixed;
   right: auto;
   width: min(480px, calc(100vw - 32px));
@@ -25305,17 +25312,17 @@ body .subject-library-card .track-goals-btn:focus-visible {
   scrollbar-gutter: stable;
   isolation: isolate;
   background: var(--goal-popup-surface) !important;
-  color: var(--text) !important;
-  border: 1px solid var(--border);
+  color: var(--goal-popup-text) !important;
+  border: 1px solid var(--goal-popup-border) !important;
   border-radius: 20px;
-  box-shadow: 0 20px 54px rgba(15, 23, 42, 0.22), 0 4px 14px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow), 0 0 0 1px rgba(var(--accent-rgb), 0.04);
   padding: 18px 20px;
   display: flex;
   flex-direction: column;
   gap: 14px;
   opacity: 1;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  backdrop-filter: blur(20px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
   transform-origin: right top;
   will-change: opacity, transform;
   animation: goalTrackerPopupIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -25339,8 +25346,8 @@ body .subject-library-card .track-goals-btn:focus-visible {
 }
 
 body .goal-tracker-popup:hover {
-  border-color: var(--border) !important;
-  box-shadow: 0 20px 54px rgba(15, 23, 42, 0.22), 0 4px 14px rgba(15, 23, 42, 0.08) !important;
+  border-color: var(--goal-popup-border) !important;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(var(--accent-rgb), 0.04) !important;
   transform: none !important;
 }
 
@@ -25378,33 +25385,46 @@ body .goal-tracker-popup:hover {
 }
 
 body.dark .goal-tracker-popup {
-  --goal-popup-surface: color-mix(in srgb, var(--bg) 88%, #ffffff 12%);
-  --goal-popup-raised: color-mix(in srgb, var(--goal-popup-surface) 92%, var(--text) 8%);
-  --goal-popup-muted: color-mix(in srgb, var(--goal-popup-surface) 96%, var(--text) 4%);
+  --goal-popup-surface: color-mix(in srgb, var(--bg) 94%, var(--accent) 6%);
+  --goal-popup-raised: color-mix(in srgb, var(--goal-popup-surface) 88%, var(--accent) 12%);
+  --goal-popup-muted: color-mix(in srgb, var(--goal-popup-surface) 95%, var(--accent) 5%);
+  --goal-popup-border: color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
   background: var(--goal-popup-surface) !important;
-  color: #f3f5f6 !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65), 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+  color: var(--goal-popup-text) !important;
+  border-color: var(--goal-popup-border) !important;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(var(--accent-rgb), 0.05) !important;
 }
 
-body.has-bg-image:not(.dark) .goal-tracker-popup {
-  color: #f0f0f5 !important;
+body.no-glass-cards:not(.has-bg-image) .goal-tracker-popup {
+  --goal-popup-surface: var(--surface);
+  --goal-popup-raised: color-mix(in srgb, var(--surface-strong) 91%, var(--accent) 9%);
+  --goal-popup-muted: color-mix(in srgb, var(--surface) 96%, var(--accent) 4%);
+  background: var(--goal-popup-surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 body.has-bg-image .goal-tracker-popup {
-  --goal-popup-surface: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.94);
-  --goal-popup-raised: rgba(255, 255, 255, 0.065);
-  --goal-popup-muted: rgba(255, 255, 255, 0.035);
+  --goal-popup-surface: rgba(var(--bg-surface-rgb, 18, 27, 45), var(--glass-opacity, 0.6));
+  --goal-popup-raised: rgba(255, 255, 255, 0.09);
+  --goal-popup-muted: rgba(255, 255, 255, 0.055);
+  --goal-popup-border: rgba(255, 255, 255, 0.12);
+  --goal-popup-text: #f0f0f5;
+  --goal-popup-text-muted: rgba(230, 232, 240, 0.64);
+  --goal-popup-track: rgba(255, 255, 255, 0.12);
+  --goal-popup-scroll-track: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.34);
+  --goal-popup-scroll-thumb: rgba(var(--accent-rgb), 0.56);
+  --goal-popup-scroll-thumb-hover: rgba(var(--accent-rgb), 0.82);
   background: var(--goal-popup-surface) !important;
-  color: #f3f5f6 !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: var(--goal-popup-text) !important;
+  border-color: var(--goal-popup-border) !important;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7) !important;
-  backdrop-filter: blur(24px) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
 }
 
 body.has-bg-image.no-glass-cards .goal-tracker-popup {
-  --goal-popup-surface: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.98);
+  --goal-popup-surface: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.92);
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -25420,7 +25440,7 @@ body.has-bg-image.no-glass-cards .goal-tracker-popup {
   margin: -18px -20px 0;
   padding: 18px 20px 12px;
   background: var(--goal-popup-surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--goal-popup-border);
 }
 
 .goal-tracker-title-group {
@@ -25452,7 +25472,7 @@ body.has-bg-image.no-glass-cards .goal-tracker-popup {
   margin: 2px 0 0;
   font-size: 0.78rem;
   line-height: 1.45;
-  color: var(--text-muted);
+  color: var(--goal-popup-text-muted);
 }
 
 .goal-tracker-header-actions {
@@ -25480,10 +25500,10 @@ body.has-bg-image.no-glass-cards .goal-tracker-popup {
   max-height: 30px !important;
   padding: 0 !important;
   margin: 0 !important;
-  border: 1px solid var(--border) !important;
+  border: 1px solid var(--goal-popup-border) !important;
   border-radius: 9px !important;
   background: transparent !important;
-  color: var(--text-muted) !important;
+  color: var(--goal-popup-text-muted) !important;
   cursor: pointer !important;
   line-height: 1 !important;
   box-sizing: border-box !important;
@@ -25528,8 +25548,8 @@ body.has-bg-image.no-glass-cards .goal-tracker-popup {
 
 body.dark .goal-tracker-close-btn {
   background: transparent !important;
-  border-color: var(--border) !important;
-  color: var(--text-muted) !important;
+  border-color: var(--goal-popup-border) !important;
+  color: var(--goal-popup-text-muted) !important;
   box-shadow: none !important;
 }
 
@@ -25542,14 +25562,14 @@ body.dark .goal-tracker-close-btn:hover {
 
 body.has-bg-image:not(.dark) .goal-tracker-close-btn {
   background: transparent !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
-  color: var(--text-muted) !important;
+  border-color: var(--goal-popup-border) !important;
+  color: var(--goal-popup-text-muted) !important;
 }
 
 body.has-bg-image.dark .goal-tracker-close-btn {
   background: transparent !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
-  color: var(--text-muted) !important;
+  border-color: var(--goal-popup-border) !important;
+  color: var(--goal-popup-text-muted) !important;
 }
 
 body.has-bg-image.dark .goal-tracker-close-btn:hover {
@@ -25578,7 +25598,7 @@ body.has-bg-image.dark .goal-tracker-close-btn:hover {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-muted);
+  color: var(--goal-popup-text-muted);
 }
 
 .goal-subject-input-wrapper {
@@ -25590,10 +25610,10 @@ body.has-bg-image.dark .goal-tracker-close-btn:hover {
 .goal-subject-text-input {
   width: 100%;
   padding: 9px 36px 9px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--goal-popup-border);
   border-radius: 12px;
   background: var(--goal-popup-muted);
-  color: var(--text);
+  color: var(--goal-popup-text);
   font-family: inherit;
   font-size: 0.88rem;
   box-sizing: border-box;
@@ -25601,14 +25621,15 @@ body.has-bg-image.dark .goal-tracker-close-btn:hover {
 
 body.dark .goal-subject-text-input {
   background: var(--goal-popup-muted);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #f3f5f6;
+  border-color: var(--goal-popup-border);
+  color: var(--goal-popup-text);
 }
 
 body .goal-tracker-popup .goal-subject-text-input,
 body .goal-tracker-popup .goal-days-input {
   background: var(--goal-popup-muted) !important;
-  border-color: var(--border) !important;
+  border-color: var(--goal-popup-border) !important;
+  color: var(--goal-popup-text) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -25630,7 +25651,7 @@ body .goal-tracker-popup .goal-days-input:focus {
   height: 28px;
   border: 0;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--goal-popup-text-muted);
   cursor: pointer;
   border-radius: 6px;
 }
@@ -25643,7 +25664,7 @@ body.has-bg-image .goal-tracker-popup .goal-subject-dropdown-toggle {
   height: 28px !important;
   min-height: 28px !important;
   padding: 0 !important;
-  color: var(--text-muted) !important;
+  color: var(--goal-popup-text-muted) !important;
   background: transparent !important;
   background-image: none !important;
   border: 0 !important;
@@ -25663,7 +25684,7 @@ body .goal-tracker-popup .goal-subject-dropdown-toggle::after {
 body .goal-tracker-popup .goal-subject-dropdown-toggle:hover,
 body.dark .goal-tracker-popup .goal-subject-dropdown-toggle:hover,
 body.has-bg-image .goal-tracker-popup .goal-subject-dropdown-toggle:hover {
-  color: var(--text) !important;
+  color: var(--goal-popup-text) !important;
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
@@ -25686,8 +25707,8 @@ body.has-bg-image .goal-tracker-popup .goal-subject-dropdown-toggle:hover {
   right: 0;
   z-index: 1300;
   background: var(--goal-popup-surface) !important;
-  color: var(--text) !important;
-  border: 1px solid var(--border);
+  color: var(--goal-popup-text) !important;
+  border: 1px solid var(--goal-popup-border);
   border-radius: 14px;
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.22);
   max-height: 180px;
@@ -25701,21 +25722,21 @@ body.has-bg-image .goal-tracker-popup .goal-subject-dropdown-toggle:hover {
 
 body.dark .goal-subject-suggestions-dropdown {
   background: var(--goal-popup-surface) !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
-  color: #f3f5f6 !important;
+  border-color: var(--goal-popup-border) !important;
+  color: var(--goal-popup-text) !important;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.7) !important;
 }
 
 body.has-bg-image:not(.dark) .goal-subject-suggestions-dropdown {
-  background: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.98) !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
-  color: #f3f5f6 !important;
+  background: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.96) !important;
+  border-color: var(--goal-popup-border) !important;
+  color: var(--goal-popup-text) !important;
 }
 
 body.has-bg-image.dark .goal-subject-suggestions-dropdown {
-  background: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.98) !important;
-  border-color: rgba(255, 255, 255, 0.16) !important;
-  color: #f3f5f6 !important;
+  background: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.96) !important;
+  border-color: var(--goal-popup-border) !important;
+  color: var(--goal-popup-text) !important;
 }
 
 .goal-subject-suggestion-btn {
@@ -25728,7 +25749,7 @@ body.has-bg-image.dark .goal-subject-suggestions-dropdown {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--text);
+  color: var(--goal-popup-text);
   font-family: inherit;
   font-size: 0.85rem;
   font-weight: 550;
@@ -25742,7 +25763,7 @@ body.dark .goal-tracker-popup .goal-subject-suggestion-btn,
 body.has-bg-image .goal-tracker-popup .goal-subject-suggestion-btn {
   min-height: 36px !important;
   padding: 8px 10px !important;
-  color: var(--text) !important;
+  color: var(--goal-popup-text) !important;
   background: transparent !important;
   background-image: none !important;
   border: 0 !important;
@@ -25786,7 +25807,7 @@ body .goal-tracker-popup .goal-subject-suggestion-btn.is-selected {
   flex: 0 0 auto;
   margin-left: 12px;
   font-size: 0.76rem;
-  color: var(--text-muted);
+  color: var(--goal-popup-text-muted);
   font-weight: 500;
 }
 
@@ -25801,7 +25822,7 @@ body .goal-tracker-popup .goal-subject-suggestion-btn.is-selected {
   padding: 10px 12px;
   text-align: center;
   font-size: 0.82rem;
-  color: var(--text-muted);
+  color: var(--goal-popup-text-muted);
 }
 
 .goal-days-field {
@@ -25810,18 +25831,18 @@ body .goal-tracker-popup .goal-subject-suggestion-btn.is-selected {
 
 .goal-days-input {
   padding: 8px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--goal-popup-border);
   border-radius: 12px;
   background: var(--goal-popup-muted);
-  color: var(--text);
+  color: var(--goal-popup-text);
   font-family: inherit;
   font-size: 0.88rem;
 }
 
 body.dark .goal-days-input {
   background: var(--goal-popup-muted);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #f3f5f6;
+  border-color: var(--goal-popup-border);
+  color: var(--goal-popup-text);
 }
 
 .goal-tracker-popup .goal-progress-panel {
@@ -25829,22 +25850,22 @@ body.dark .goal-days-input {
   border-radius: 16px;
   gap: 12px;
   background: var(--goal-popup-muted);
-  border-color: var(--border);
+  border-color: var(--goal-popup-border);
 }
 
 .goal-tracker-popup .goal-match-summary {
   background: var(--goal-popup-muted);
-  border-color: var(--border);
+  border-color: var(--goal-popup-border);
 }
 
 .goal-tracker-popup .goal-match-summary span,
 .goal-tracker-popup .goal-metric-card span,
 .goal-tracker-popup .status-neutral {
-  color: var(--text-muted);
+  color: var(--goal-popup-text-muted);
 }
 
 .goal-tracker-popup .goal-progress-bar {
-  background: color-mix(in srgb, var(--text) 11%, transparent);
+  background: var(--goal-popup-track);
 }
 
 .goal-tracker-popup .goal-metric-grid {
@@ -25857,7 +25878,45 @@ body.dark .goal-days-input {
   border-radius: 12px;
   gap: 2px;
   background: var(--goal-popup-raised);
-  border-color: var(--border);
+  border-color: var(--goal-popup-border);
+}
+
+.goal-tracker-popup .goal-match-summary strong,
+.goal-tracker-popup .goal-metric-card strong {
+  color: var(--goal-popup-text);
+}
+
+.goal-tracker-popup,
+.goal-tracker-popup .goal-subject-suggestions-dropdown {
+  scrollbar-color: var(--goal-popup-scroll-thumb) var(--goal-popup-scroll-track);
+  scrollbar-width: thin;
+}
+
+body .goal-tracker-popup::-webkit-scrollbar,
+body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar {
+  width: 9px;
+}
+
+body .goal-tracker-popup::-webkit-scrollbar-track,
+body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-track {
+  background: var(--goal-popup-scroll-track);
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+body .goal-tracker-popup::-webkit-scrollbar-thumb,
+body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-thumb {
+  background: var(--goal-popup-scroll-thumb);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+body .goal-tracker-popup::-webkit-scrollbar-thumb:hover,
+body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-thumb:hover {
+  background: var(--goal-popup-scroll-thumb-hover);
+  background-clip: padding-box;
 }
 
 .goal-tracker-popup .goal-metric-card span {
