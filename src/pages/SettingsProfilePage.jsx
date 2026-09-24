@@ -537,7 +537,6 @@ export default function SettingsProfilePage({
         <figure className="settings-profile-chart-card settings-profile-surface">
           <figcaption>
             <div>
-              <span className="settings-profile-section-label">Active time</span>
               <h2>Daily app usage</h2>
               <p>{chartSummary}</p>
             </div>
@@ -616,9 +615,7 @@ export default function SettingsProfilePage({
 
         <aside className="settings-profile-limit-card settings-profile-surface">
           <div>
-            <span className="settings-profile-section-label">Today</span>
-            <h2>Limit progress</h2>
-            <p>See how today compares with your personal reminder.</p>
+            <h2>Today's limit progress</h2>
           </div>
           <div
             aria-label={usageSummary.dailyLimitSeconds
@@ -718,7 +715,6 @@ export default function SettingsProfilePage({
         <header className="settings-profile-dialog-heading">
           <div className="settings-profile-expandable-icon"><Sparkles aria-hidden="true" size={21} /></div>
           <div>
-            <span className="settings-profile-section-label">Pattern review</span>
             <h2 id="active-insights-heading">Active insights</h2>
             <p id="active-insights-description">
               Understand your selected {rangeDays}-day activity range in plain language—not as a productivity score.
@@ -761,18 +757,18 @@ export default function SettingsProfilePage({
 
       <section className="settings-profile-details-grid" aria-label="Detailed user information">
         <article className="settings-profile-detail-card settings-profile-surface">
-          <header><UserRound aria-hidden="true" size={19} /><div><span>Account</span><h2>Personal details</h2></div></header>
+          <header><UserRound aria-hidden="true" size={19} /><div><h2>Personal details</h2></div></header>
           <DetailList rows={accountRows} />
           <button className="settings-profile-inline-action" onClick={() => navigate("/settings")} type="button">
             <Pencil aria-hidden="true" size={15} /> Edit in Settings
           </button>
         </article>
         <article className="settings-profile-detail-card settings-profile-surface">
-          <header><GraduationCap aria-hidden="true" size={19} /><div><span>Academic</span><h2>Profile information</h2></div></header>
+          <header><GraduationCap aria-hidden="true" size={19} /><div><h2>Profile information</h2></div></header>
           <DetailList rows={academicRows} />
         </article>
         <article className="settings-profile-detail-card settings-profile-surface">
-          <header><BookOpenCheck aria-hidden="true" size={19} /><div><span>Learning</span><h2>Study snapshot</h2></div></header>
+          <header><BookOpenCheck aria-hidden="true" size={19} /><div><h2>Study snapshot</h2></div></header>
           <DetailList rows={studyRows} />
         </article>
       </section>

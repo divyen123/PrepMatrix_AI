@@ -100,6 +100,10 @@ test("renders detailed user information, usage actions, and accessible activity 
     assert.match(markup, /Active insights/u);
     assert.match(markup, /Create Profile B/u);
     assert.match(markup, /Daily app usage/u);
+    assert.match(markup, /Today&#x27;s limit progress/u);
+    assert.doesNotMatch(markup, /settings-profile-section-label">(?:Active time|Today|Pattern review)</u);
+    assert.doesNotMatch(markup, /<span>(?:Account|Academic|Learning)<\/span><h2>/u);
+    assert.doesNotMatch(markup, /See how today compares with your personal reminder\./u);
     assert.match(markup, /Daily average/u);
     assert.match(markup, /Engineering/u);
     assert.match(markup, /PrepMatrix University/u);
@@ -192,6 +196,10 @@ test("registers the guarded route, global tracker, responsive charts, and backgr
   assert.match(pageSource, /setActiveUsageDialog\(\{ kind: "limit", open: true \}\)/u);
   assert.match(pageSource, /setActiveUsageDialog\(\{ kind: "insights", open: true \}\)/u);
   assert.match(pageSource, /<h2 id="usage-limit-heading">Active time<\/h2>/u);
+  assert.match(pageSource, /<h2>Today's limit progress<\/h2>/u);
+  assert.doesNotMatch(pageSource, /<span className="settings-profile-section-label">(?:Active time|Today|Pattern review)<\/span>/u);
+  assert.doesNotMatch(pageSource, /<div><span>(?:Account|Academic|Learning)<\/span><h2>/u);
+  assert.doesNotMatch(pageSource, /See how today compares with your personal reminder\./u);
   assert.match(pageSource, /Open Active limit to set a personal reminder\./u);
   assert.doesNotMatch(pageSource, /Show limit used/u);
   assert.match(pageSource, /onClose=\{\(\) => setActiveUsageDialog\(\(current\) => \(\{ \.\.\.current, open: false \}\)\)\}/u);

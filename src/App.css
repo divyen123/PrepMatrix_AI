@@ -25297,7 +25297,7 @@ body .subject-library-card .track-goals-btn:focus-visible {
   --goal-popup-text: var(--text);
   --goal-popup-text-muted: var(--text-muted);
   --goal-popup-track: color-mix(in srgb, var(--goal-popup-text) 11%, transparent);
-  --goal-popup-scroll-track: color-mix(in srgb, var(--goal-popup-surface) 88%, var(--accent) 12%);
+  --goal-popup-scroll-track: transparent;
   --goal-popup-scroll-thumb: var(--accent);
   --goal-popup-scroll-thumb-hover: color-mix(in srgb, var(--accent) 82%, var(--goal-popup-text) 18%);
   position: fixed;
@@ -25412,7 +25412,7 @@ body.has-bg-image .goal-tracker-popup {
   --goal-popup-text: #f0f0f5;
   --goal-popup-text-muted: rgba(230, 232, 240, 0.64);
   --goal-popup-track: rgba(255, 255, 255, 0.12);
-  --goal-popup-scroll-track: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.34);
+  --goal-popup-scroll-track: transparent;
   --goal-popup-scroll-thumb: rgb(var(--accent-rgb));
   --goal-popup-scroll-thumb-hover: color-mix(in srgb, rgb(var(--accent-rgb)) 82%, #ffffff 18%);
   background: var(--goal-popup-surface) !important;
@@ -25894,15 +25894,15 @@ body.dark .goal-days-input {
 
 body .goal-tracker-popup::-webkit-scrollbar,
 body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar {
-  width: 10px !important;
-  background: var(--goal-popup-scroll-track) !important;
+  width: 6px !important;
+  background: transparent !important;
 }
 
 body .goal-tracker-popup::-webkit-scrollbar-track,
 body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-track,
 body .goal-tracker-popup::-webkit-scrollbar-track-piece,
 body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-track-piece {
-  background: var(--goal-popup-scroll-track) !important;
+  background: transparent !important;
   border-radius: 999px;
   box-shadow: none;
 }
@@ -25911,7 +25911,7 @@ body .goal-tracker-popup::-webkit-scrollbar-thumb,
 body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-thumb {
   background: var(--goal-popup-scroll-thumb) !important;
   background-clip: padding-box;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   border-radius: 999px;
   min-height: 36px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
@@ -25932,7 +25932,7 @@ body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-b
 
 body .goal-tracker-popup::-webkit-scrollbar-corner,
 body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-corner {
-  background: var(--goal-popup-scroll-track) !important;
+  background: transparent !important;
 }
 
 .goal-tracker-popup .goal-metric-card span {
