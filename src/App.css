@@ -25357,6 +25357,10 @@ body .prepmatrix-swipe-toast-host .swipe-toast__close:hover {
   white-space: nowrap;
 }
 
+body .subject-library-card .subject-library-actions > button:hover {
+  box-shadow: none !important;
+}
+
 .goal-tracker-popup {
   --goal-popup-surface: color-mix(in srgb, var(--bg) 94%, var(--surface-strong) 6%);
   --goal-popup-raised: color-mix(in srgb, var(--goal-popup-surface) 90%, var(--accent) 10%);
@@ -25539,6 +25543,7 @@ body.has-bg-image.no-glass-cards .goal-tracker-popup {
   font-size: 0.78rem;
   line-height: 1.45;
   color: var(--goal-popup-text-muted);
+  white-space: nowrap;
 }
 
 .goal-tracker-header-actions {
@@ -25650,6 +25655,26 @@ body.has-bg-image.dark .goal-tracker-close-btn:hover {
   gap: 14px;
   margin-top: 4px;
   min-width: 0;
+}
+
+.goal-tracker-popup .goal-inputs-horizontal {
+  grid-template-columns: 130px minmax(0, 1fr);
+  align-items: end;
+  gap: 14px 12px;
+}
+
+.goal-tracker-popup .goal-inputs-horizontal > .goal-input-field:first-child {
+  grid-column: 1 / -1;
+}
+
+.goal-tracker-popup .goal-days-field,
+.goal-tracker-popup .goal-match-summary {
+  min-width: 0;
+}
+
+.goal-tracker-popup .goal-match-summary {
+  margin-top: 0;
+  overflow-wrap: anywhere;
 }
 
 .goal-input-field {
@@ -26038,6 +26063,10 @@ body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-c
 
   .goal-days-field {
     max-width: none;
+  }
+
+  .goal-tracker-popup .goal-inputs-horizontal {
+    grid-template-columns: minmax(90px, 0.7fr) minmax(0, 1.3fr);
   }
 }
 

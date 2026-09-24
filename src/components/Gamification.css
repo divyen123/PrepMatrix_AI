@@ -7,16 +7,10 @@
   overflow: hidden;
 }
 
-/*
- * App.css raises every direct card child into the foreground. The decorative
- * orb must stay out of the grid flow; otherwise it consumes the first row and
- * pushes the real header into the flexible row, where it can overlap the XP
- * summary on tall analytics cards.
- */
-.gamification-card > .gamification-orb {
-  position: absolute;
-  z-index: 0;
-  pointer-events: none;
+body .gamification-card.study-momentum-card {
+  background:
+    linear-gradient(145deg, rgba(11, 143, 116, 0.08), transparent 52%),
+    var(--surface) !important;
 }
 
 .gamification-card .gamification-header {
@@ -36,31 +30,43 @@
   margin-left: auto;
 }
 
-.gamification-header-actions > .battle-insights {
-  position: static;
-}
-
 .badge-emblem-wrap {
   position: relative;
   z-index: 9;
 }
 
-body button.badge-emblem {
-  padding: 0;
+body .study-momentum-card button.badge-emblem,
+body .study-momentum-card button.badge-emblem:hover,
+body .study-momentum-card button.badge-emblem:focus-visible {
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  min-height: 54px;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
   color: inherit;
+  background: transparent !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  filter: none;
+  animation: none;
+  transform: none !important;
   cursor: help;
 }
 
-body button.badge-emblem:hover,
-body button.badge-emblem:focus-visible {
-  border-color: rgba(245, 184, 71, 0.5);
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1)),
-    rgba(245, 184, 71, 0.24);
-  transform: none;
+body .study-momentum-card button.badge-emblem::before,
+body .study-momentum-card button.badge-emblem::after {
+  display: none !important;
+  content: none !important;
 }
 
-body button.badge-emblem:focus-visible {
+.study-momentum-card .badge-emblem span {
+  animation: none;
+}
+
+body .study-momentum-card button.badge-emblem:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
@@ -118,10 +124,62 @@ body button.badge-emblem:focus-visible {
   min-width: 0;
 }
 
+.study-momentum-card .xp-ring-wrap {
+  align-items: center;
+  justify-content: center;
+}
+
 .battle-insights {
   position: relative;
   z-index: 8;
   width: fit-content;
+}
+
+.study-momentum-card .battle-insights {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.battle-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.battle-summary-grid > article,
+body .study-momentum-card .battle-summary-grid > button {
+  display: grid;
+  place-items: initial;
+  align-content: space-between;
+  gap: 4px;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 70px;
+  padding: 9px 11px;
+  border: 1px solid rgba(112, 128, 153, 0.14);
+  border-radius: 14px;
+  color: var(--text);
+  background: rgba(112, 128, 153, 0.1);
+  box-shadow: none;
+  text-align: left;
+}
+
+.battle-summary-grid span {
+  color: var(--text-muted);
+  font-size: 0.67rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.battle-summary-grid strong {
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 body .battle-insights-trigger {
@@ -154,6 +212,40 @@ body .battle-insights-trigger.is-error {
   border-color: rgba(239, 68, 68, 0.42);
 }
 
+body .study-momentum-card .battle-insights-trigger {
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+body .study-momentum-card .battle-insights-trigger:hover,
+body .study-momentum-card .battle-insights-trigger:focus-visible,
+body .study-momentum-card .battle-insights-trigger[aria-expanded="true"] {
+  border-color: rgba(var(--accent-rgb), 0.5) !important;
+  color: var(--text);
+  background: rgba(var(--accent-rgb), 0.12) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .study-momentum-card .battle-insights-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+body .study-momentum-card .battle-insights-trigger.is-error {
+  border-color: rgba(239, 68, 68, 0.42);
+}
+
+body .study-momentum-card .battle-insights-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+body .study-momentum-card .battle-insights-trigger::after {
+  display: none !important;
+  content: none !important;
+}
+
 .battle-insights-popover {
   --battle-insights-solid-surface: #ffffff;
   position: absolute;
@@ -173,6 +265,11 @@ body .battle-insights-trigger.is-error {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   animation: battle-insights-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.study-momentum-card .battle-insights-popover {
+  position: static;
+  width: 100%;
 }
 
 body.dark .battle-insights-popover {
@@ -589,6 +686,15 @@ body.has-bg-image .badge-guidance-tooltip {
 
   .momentum-action-grid {
     grid-template-columns: 1fr;
+  }
+
+  .battle-summary-grid {
+    gap: 6px;
+  }
+
+  .battle-summary-grid > article,
+  body .study-momentum-card .battle-summary-grid > button {
+    padding: 8px;
   }
 
   .battle-insights-popover {

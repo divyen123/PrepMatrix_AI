@@ -35,6 +35,14 @@ test('GlobalMomentumCard does not render gamification-orb and overrides yellow g
     assert.doesNotMatch(markup, /gamification-orb/u);
     assert.match(markup, /class="battle-insights-trigger"/u);
     assert.match(markup, /View CodeMatrix rewards/u);
+    assert.match(
+      markup,
+      /<article><span>CodeMatrix<\/span><div class="codematrix-source-actions">[\s\S]*?View CodeMatrix rewards/u,
+    );
+    assert.doesNotMatch(
+      markup.split('class="global-momentum-sources"')[0],
+      /View CodeMatrix rewards/u,
+    );
 
     // Stylesheet overrides yellow background glow and hides orb
     assert.match(

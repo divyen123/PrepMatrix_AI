@@ -195,6 +195,17 @@ test("renders page shortcuts as an accessible keyboard-selectable list", async (
   }
 });
 
+test("keeps dashboard page shortcuts hidden until the search has text", () => {
+  const pageSource = readFileSync(new URL("./DashboardPage.jsx", import.meta.url), "utf8");
+
+  assert.match(
+    pageSource,
+    /const showNavigationSuggestions = suggestionsOpen\s*&& Boolean\(trimmedSearchInput\)\s*&& attachments\.length === 0\s*&& !isDragging;/u,
+  );
+  assert.match(pageSource, /setSearchInput\(event\.target\.value\);[\s\S]*?setSuggestionsOpen\(true\);/u);
+  assert.match(pageSource, /\{showNavigationSuggestions && \(\s*<DashboardNavigationSuggestions/u);
+});
+
 test("renders a background-free dashboard voice example for the inline helper row", async () => {
   const vite = await createServer({
     appType: "custom",

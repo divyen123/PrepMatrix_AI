@@ -38,26 +38,39 @@ test("only enabled Momentum actions receive the subtle reduced-motion-safe shake
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.momentum-action-grid \.momentum-action-card\.is-enabled[\s\S]*?animation: none/u);
 });
 
-test("moves Quiz Battle stats from exposed badges into an accessible popover", () => {
+test("shows compact battle metrics below the dial and opens accessible battle details", () => {
+  const dialIndex = source.indexOf('className="xp-ring-wrap"');
+  const summaryIndex = source.indexOf('className="battle-summary-grid"');
+  const actionsIndex = source.indexOf('className="momentum-action-grid"');
+
+  assert.ok(dialIndex >= 0 && dialIndex < summaryIndex && summaryIndex < actionsIndex);
+  assert.match(source, /className="battle-summary-grid"[\s\S]*?<span>Planner XP<\/span>[\s\S]*?<span>Battle XP<\/span>[\s\S]*?<span>Battles played<\/span>/u);
+  assert.match(styles, /\.battle-summary-grid\s*\{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/u);
   assert.match(source, /aria-expanded=\{battleDetailsOpen\}/u);
   assert.match(source, /aria-haspopup="dialog"/u);
-  assert.match(source, /aria-label="View Quiz Battle momentum"/u);
   assert.match(source, /aria-labelledby=\{battleDetailsTitleId\}[\s\S]*?role="dialog"/u);
-  assert.match(source, /battleStatsLoading \? "Loading…" : momentumXp\.battleXp/u);
+  assert.match(source, /battleStatsEnabled && battleStatsLoading \? "Loading…" : momentumXp\.battleXp/u);
+  assert.match(source, /className="battle-insights-record"[\s\S]*?battleStats\?\.wins/u);
+  assert.match(source, /battleStats\?\.badges\?\.length > 0/u);
+  assert.match(source, /No achievements yet\./u);
+  assert.match(source, /disabled=\{!battleStatsEnabled\}/u);
+  assert.match(source, /Open Quiz Battles/u);
   assert.match(source, /battleStatsError && \([\s\S]*?onRetryBattleStats/u);
+  assert.doesNotMatch(source, /View Quiz Battle momentum/u);
   assert.doesNotMatch(source, /momentum-xp-breakdown|battle-record-strip|battle-badge-strip/u);
 });
 
-test("keeps the Quiz Battle shortcut and details compact in the Momentum header", () => {
+test("keeps battle details inline below the three metrics", () => {
   const headerIndex = source.indexOf('className="gamification-header"');
-  const battleTriggerIndex = source.indexOf('className="battle-insights"');
   const scrollRegionIndex = source.indexOf('gamification-scroll-region');
+  const battleTriggerIndex = source.indexOf('className="battle-insights"');
 
-  assert.ok(headerIndex >= 0 && headerIndex < battleTriggerIndex);
-  assert.ok(battleTriggerIndex < scrollRegionIndex);
-  assert.match(source, /className="gamification-header-actions"[\s\S]*?className="battle-insights"[\s\S]*?className="badge-emblem"/u);
+  assert.ok(headerIndex >= 0 && headerIndex < scrollRegionIndex);
+  assert.ok(scrollRegionIndex < battleTriggerIndex);
+  assert.match(source, /className="battle-insights"[\s\S]*?className="battle-summary-grid"[\s\S]*?className="battle-insights-popover"/u);
   assert.match(source, /className="battle-record-win-count"[\s\S]*?className="battle-record-loss-count"/u);
-  assert.match(styles, /\.battle-insights-popover\s*\{[\s\S]*?right: 0;[\s\S]*?left: auto/u);
+  assert.match(styles, /\.study-momentum-card \.battle-insights-popover\s*\{[\s\S]*?position: static;[\s\S]*?width: 100%/u);
+  assert.match(styles, /body \.battle-insights-trigger\s*\{[\s\S]*?width: 40px/u);
   assert.match(styles, /\.battle-record-win-count\s*\{[\s\S]*?#16a34a/u);
   assert.match(styles, /\.battle-record-loss-count\s*\{[\s\S]*?var\(--danger\)/u);
   assert.match(styles, /body \.battle-insights-popover \.battle-insights-link\s*\{[\s\S]*?min-height: 30px;[\s\S]*?font-size: 0\.72rem/u);
@@ -101,6 +114,14 @@ test("moves the level guidance into an accessible badge tooltip", () => {
   assert.match(styles, /\.badge-emblem-wrap:hover \.badge-guidance-tooltip,[\s\S]*?\.badge-emblem-wrap:focus-within \.badge-guidance-tooltip/u);
 });
 
+test("keeps the badge icon visible without its container or yellow glow", () => {
+  assert.doesNotMatch(source, /gamification-orb/u);
+  assert.match(source, /gamification-card study-momentum-card/u);
+  assert.match(styles, /body \.gamification-card\.study-momentum-card\s*\{[\s\S]*?background:[\s\S]*?var\(--surface\) !important;/u);
+  assert.match(styles, /body \.study-momentum-card button\.badge-emblem,[\s\S]*?background: transparent !important;[\s\S]*?box-shadow: none !important;/u);
+  assert.match(styles, /body \.study-momentum-card button\.badge-emblem::before,[\s\S]*?content: none !important;/u);
+});
+
 test("closes battle details on outside interaction or Escape and restores keyboard focus", () => {
   assert.match(source, /document\.addEventListener\("pointerdown", closeOnOutsidePointer\)/u);
   assert.match(source, /document\.addEventListener\("keydown", closeOnEscape\)/u);
@@ -122,15 +143,14 @@ test("shows all Study Momentum content without an internal scrollbar", () => {
 
 test("keeps the Study Momentum header pinned to the top grid row", () => {
   assert.match(styles, /\.gamification-card\s*\{[\s\S]*?grid-template-rows: auto auto[\s\S]*?align-items: stretch/u);
-  assert.match(styles, /\.gamification-card > \.gamification-orb\s*\{[\s\S]*?position: absolute[\s\S]*?z-index: 0/u);
   assert.match(styles, /\.gamification-card \.gamification-header\s*\{[\s\S]*?align-self: start/u);
   assert.match(styles, /\.gamification-card > \.gamification-scroll-region\s*\{[\s\S]*?align-self: start[\s\S]*?overflow: visible/u);
   assert.match(styles, /@media \(max-width: 1180px\)\s*\{[\s\S]*?\.gamification-card > \.gamification-scroll-region\s*\{[\s\S]*?overflow: visible/u);
 });
 
-test("uses compact Momentum stat and next-level cards", () => {
-  assert.match(styles, /\.gamification-card \.momentum-stats-grid article\s*\{[\s\S]*?padding: 9px 11px;[\s\S]*?border-radius: 14px/u);
-  assert.match(styles, /\.gamification-card \.momentum-stats-grid strong\s*\{[\s\S]*?font-size: 1\.35rem/u);
+test("uses compact battle metric and next-level cards", () => {
+  assert.match(styles, /\.battle-summary-grid > article,[\s\S]*?padding: 9px 11px;[\s\S]*?border-radius: 14px/u);
+  assert.match(styles, /\.battle-summary-grid strong\s*\{[\s\S]*?font-size: 1\.35rem/u);
   assert.match(styles, /\.gamification-card \.next-reward-strip\s*\{[\s\S]*?min-height: 42px;[\s\S]*?padding: 8px 12px/u);
   assert.match(styles, /\.gamification-card \.next-reward-strip strong\s*\{[\s\S]*?font-size: 1rem/u);
 });

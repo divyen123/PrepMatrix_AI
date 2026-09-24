@@ -59,7 +59,6 @@ function Gamification({
   schedule,
   subjects = [],
   momentum,
-  momentumLoading = false,
   momentumError = '',
   onRetryMomentum,
 }) {
@@ -83,15 +82,6 @@ function Gamification({
   const level = momentumXp.level;
   const levelProgress = momentumXp.levelProgress;
 
-  const todayTasks = schedule[0]?.tasks || [];
-  const todayCompleted = todayTasks.filter((task) =>
-    completed.includes(task.task)
-  ).length;
-  const todayProgress =
-    todayTasks.length === 0
-      ? 0
-      : Math.round((todayCompleted / todayTasks.length) * 100);
-  const streak = todayCompleted > 0 ? 1 : 0;
   const badge = getBadge(xp);
   const badgeMeta = BADGE_META[badge];
   const nextLevelXp = level * 100;
@@ -133,113 +123,13 @@ function Gamification({
   };
 
   return (
-    <section className={`card gamification-card ${badgeMeta.tone}`}>
-      <div className="gamification-orb" aria-hidden="true" />
+    <section className={`card gamification-card study-momentum-card ${badgeMeta.tone}`}>
       <div className="gamification-header">
         <div>
           <div className="momentum-title-row"><h3>Study momentum</h3>
           </div><p className="momentum-view-label">Current schedule · tasks, exams and quizzes</p>
         </div>
         <div className="gamification-header-actions">
-          {battleStatsEnabled && (
-            <div className="battle-insights" ref={battleDetailsRef}>
-              <button
-                aria-controls={battleDetailsId}
-                aria-expanded={battleDetailsOpen}
-                aria-haspopup="dialog"
-                aria-label="View Quiz Battle momentum"
-                className={`battle-insights-trigger${battleStatsError ? " is-error" : ""}`}
-                onClick={() => setBattleDetailsOpen((current) => !current)}
-                ref={battleDetailsTriggerRef}
-                title="View Quiz Battle momentum"
-                type="button"
-              >
-                <Swords aria-hidden="true" size={19} />
-              </button>
-
-              {battleDetailsOpen && (
-                <section
-                  aria-labelledby={battleDetailsTitleId}
-                  className="battle-insights-popover"
-                  id={battleDetailsId}
-                  role="dialog"
-                >
-                  <header>
-                    <div>
-                      <span>Quiz Battles</span>
-                      <strong id={battleDetailsTitleId}>Battle momentum</strong>
-                    </div>
-                    <button
-                      aria-label="Close Quiz Battle momentum"
-                      onClick={closeBattleDetails}
-                      ref={battleDetailsCloseRef}
-                      type="button"
-                    >
-                      <X aria-hidden="true" size={16} />
-                    </button>
-                  </header>
-
-                  <dl className="battle-insights-list">
-                    <div>
-                      <dt>Planner XP</dt>
-                      <dd>{momentumXp.plannerXp}</dd>
-                    </div>
-                    <div>
-                      <dt>Battle XP</dt>
-                      <dd>{battleStatsLoading ? "Loading…" : momentumXp.battleXp}</dd>
-                    </div>
-                    <div>
-                      <dt>Battles played</dt>
-                      <dd>{battleStats?.played || 0}</dd>
-                    </div>
-                    <div className="battle-insights-record">
-                      <dt>Record</dt>
-                      <dd>
-                        <span><span className="battle-record-win-count">{battleStats?.wins || 0}</span> wins</span>
-                        <span>{battleStats?.draws || 0} draws</span>
-                        <span><span className="battle-record-loss-count">{battleStats?.losses || 0}</span> losses</span>
-                      </dd>
-                    </div>
-                    {Number(battleStats?.uncontested) > 0 && (
-                      <div>
-                        <dt>Uncontested</dt>
-                        <dd>{battleStats.uncontested}</dd>
-                      </div>
-                    )}
-                    {Number(battleStats?.perfectScores) > 0 && (
-                      <div>
-                        <dt>Perfect scores</dt>
-                        <dd>{battleStats.perfectScores}</dd>
-                      </div>
-                    )}
-                  </dl>
-
-                  {battleStats?.badges?.length > 0 && (
-                    <div className="battle-insights-achievements">
-                      <span>Achievements</span>
-                      {battleStats.badges.map((battleBadge) => (
-                        <strong key={battleBadge}>
-                          <Swords aria-hidden="true" size={14} />
-                          {battleBadge}
-                        </strong>
-                      ))}
-                    </div>
-                  )}
-
-                  {battleStatsError && (
-                    <div className="battle-insights-warning" role="status">
-                      <span>Battle data could not be refreshed. Planner XP is still available.</span>
-                      <button onClick={onRetryBattleStats} type="button">Retry</button>
-                    </div>
-                  )}
-
-                  <button className="battle-insights-link" onClick={openQuizBattles} type="button">
-                    Open Quiz Battles
-                  </button>
-                </section>
-              )}
-            </div>
-          )}
           <div className="badge-emblem-wrap">
             <button
               aria-describedby={badgeGuidanceId}
@@ -276,20 +166,102 @@ function Gamification({
             unit=""
             value={xp}
           />
-          <div className="momentum-stats-grid">
+        </div>
+
+        <div className="battle-insights" ref={battleDetailsRef}>
+          <div className="battle-summary-grid">
             <article>
-              <span>Level</span>
-              <strong>{level}</strong>
+              <span>Planner XP</span>
+              <strong>{momentumXp.plannerXp}</strong>
             </article>
             <article>
-              <span>Streak</span>
-              <strong>{streak}d</strong>
+              <span>Battle XP</span>
+              <strong>{battleStatsEnabled && battleStatsLoading ? "Loading…" : momentumXp.battleXp}</strong>
             </article>
-            <article>
-              <span>Today</span>
-              <strong>{todayProgress}%</strong>
-            </article>
+            <button
+              aria-controls={battleDetailsId}
+              aria-expanded={battleDetailsOpen}
+              aria-haspopup="dialog"
+              className={`battle-insights-trigger${battleStatsError ? " is-error" : ""}`}
+              disabled={!battleStatsEnabled}
+              onClick={() => setBattleDetailsOpen((current) => !current)}
+              ref={battleDetailsTriggerRef}
+              type="button"
+            >
+              <span>Battles played</span>
+              <strong>{battleStatsEnabled ? battleStats?.played || 0 : 0}</strong>
+            </button>
           </div>
+
+          {battleDetailsOpen && (
+            <section
+              aria-labelledby={battleDetailsTitleId}
+              className="battle-insights-popover"
+              id={battleDetailsId}
+              role="dialog"
+            >
+              <header>
+                <div>
+                  <span>Quiz Battles</span>
+                  <strong id={battleDetailsTitleId}>Battle momentum</strong>
+                </div>
+                <button
+                  aria-label="Close Quiz Battle momentum"
+                  onClick={closeBattleDetails}
+                  ref={battleDetailsCloseRef}
+                  type="button"
+                >
+                  <X aria-hidden="true" size={16} />
+                </button>
+              </header>
+
+              <dl className="battle-insights-list">
+                <div className="battle-insights-record">
+                  <dt>Record</dt>
+                  <dd>
+                    <span><span className="battle-record-win-count">{battleStats?.wins || 0}</span> wins</span>
+                    <span>{battleStats?.draws || 0} draws</span>
+                    <span><span className="battle-record-loss-count">{battleStats?.losses || 0}</span> losses</span>
+                  </dd>
+                </div>
+                {Number(battleStats?.uncontested) > 0 && (
+                  <div>
+                    <dt>Uncontested</dt>
+                    <dd>{battleStats.uncontested}</dd>
+                  </div>
+                )}
+                {Number(battleStats?.perfectScores) > 0 && (
+                  <div>
+                    <dt>Perfect scores</dt>
+                    <dd>{battleStats.perfectScores}</dd>
+                  </div>
+                )}
+              </dl>
+
+              <div className="battle-insights-achievements">
+                <span>Achievements</span>
+                {battleStats?.badges?.length > 0
+                  ? battleStats.badges.map((battleBadge) => (
+                    <strong key={battleBadge}>
+                      <Swords aria-hidden="true" size={14} />
+                      {battleBadge}
+                    </strong>
+                  ))
+                  : <p>{battleStatsLoading ? "Loading achievements…" : "No achievements yet."}</p>}
+              </div>
+
+              {battleStatsError && (
+                <div className="battle-insights-warning" role="status">
+                  <span>Battle data could not be refreshed. Planner XP is still available.</span>
+                  <button onClick={onRetryBattleStats} type="button">Retry</button>
+                </div>
+              )}
+
+              <button className="battle-insights-link" onClick={openQuizBattles} type="button">
+                Open Quiz Battles
+              </button>
+            </section>
+          )}
         </div>
 
         <div className="momentum-action-grid">

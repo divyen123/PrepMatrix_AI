@@ -34,6 +34,15 @@ test("keeps the compact header controls together on responsive layouts", () => {
   assert.match(styles, /@media \(max-width: 520px\)[\s\S]*?\.notes-list-utilities\s*\{[\s\S]*?width: 100%/u);
 });
 
+test("shows three full note rows without an outer Saved notes panel", () => {
+  assert.match(
+    styles,
+    /body \.notes-page \.card\.notes-list-card,[\s\S]*?background: transparent !important;[\s\S]*?border-color: transparent !important;[\s\S]*?box-shadow: none !important;/u,
+  );
+  assert.match(styles, /body \.notes-page \.card\.notes-list-card::before\s*\{\s*display: none !important;/u);
+  assert.match(styles, /body \.notes-page \.notes-list-grid\s*\{[\s\S]*?max-height: calc\(240px \* 3 \+ 12px \* 2\) !important;/u);
+});
+
 test("keeps opened note details fully opaque while the page backdrop stays dimmed and blurred", () => {
   assert.match(source, /import \{ acquireDocumentScrollLock \} from "\.\.\/utils\/documentScrollLock"/u);
   assert.match(source, /const releaseScrollLock = acquireDocumentScrollLock\(\);[\s\S]*?releaseScrollLock\(\);/u);

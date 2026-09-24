@@ -38,14 +38,31 @@
   cursor: pointer;
 }
 
-/* Keep this compact action calm on hover; the global button layer otherwise
-   adds both a shimmer and an accent-coloured halo. */
+/* Keep this compact action free of the global button shimmer. */
 body .view-report-btn::after {
   content: none !important;
   display: none !important;
 }
 
+/* Analytics uses border and colour changes for hover feedback, without the
+   app-wide outer halo. The dialogs render in a portal outside .page-stack. */
 body .view-report-btn:hover {
+  box-shadow: none !important;
+}
+
+body .page-stack:has(> .analytics-page-intro) button:hover,
+body:has(.analytics-page-intro) :is(
+  .report-modal,
+  .study-plan-preview-dialog,
+  .subject-progress-modal,
+  .subject-ai-dialog,
+  .planner-history-dialog,
+  .momentum-history-dialog
+) button:hover {
+  box-shadow: none !important;
+}
+
+body:has(.analytics-page-intro) .subject-progress-modal .subject-action-btn:hover:not(:disabled) {
   box-shadow: none !important;
 }
 

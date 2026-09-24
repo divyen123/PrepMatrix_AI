@@ -329,7 +329,7 @@ function GoalTracker({
           <div>
             <h3 id="goal-tracker-title">Goal tracker</h3>
             <p className="card-desc">
-              Track one subject, topic, or chapter keyword against your generated plan.
+              Track a subject against your generated plan
             </p>
           </div>
         </div>

@@ -391,6 +391,7 @@ function DashboardPage({
   const navigationCommandIsCurrent = navigationCommand
     && buildHomeNavigationRoute(navigationCommand) === currentRoute;
   const showNavigationSuggestions = suggestionsOpen
+    && Boolean(trimmedSearchInput)
     && attachments.length === 0
     && !isDragging;
 

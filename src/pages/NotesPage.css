@@ -223,13 +223,27 @@ body .notes-page .notes-add-btn {
   outline-offset: 3px;
 }
 
+body .notes-page .card.notes-list-card,
+body .notes-page .card.notes-list-card:hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+}
+
+body .notes-page .card.notes-list-card::before {
+  display: none !important;
+}
+
 body .notes-page .notes-list-grid {
   display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   gap: 12px !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  max-height: calc(188px * 3 + 12px * 2) !important; /* Approx 3 rows max */
+  max-height: calc(240px * 3 + 12px * 2) !important; /* Show three complete note-card rows. */
   padding-bottom: 4px;
 }
 

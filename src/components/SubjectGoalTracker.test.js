@@ -41,6 +41,15 @@ test("places Track goals button in SubjectList near Open materials when subjects
   assert.match(subjectListSource, /<GoalTracker/u);
 });
 
+test("GoalTracker keeps its shorter subtitle on one line and matches beside Target days", () => {
+  assert.match(goalTrackerSource, /Track a subject against your generated plan/u);
+  assert.doesNotMatch(goalTrackerSource, /Track one subject, topic, or chapter keyword/u);
+  assert.match(stylesheet, /\.goal-tracker-title-group \.card-desc\s*\{[^}]*white-space:\s*nowrap;/u);
+  assert.match(stylesheet, /\.goal-tracker-popup \.goal-inputs-horizontal\s*\{[^}]*grid-template-columns:\s*130px minmax\(0, 1fr\);/u);
+  assert.match(stylesheet, /\.goal-tracker-popup \.goal-inputs-horizontal > \.goal-input-field:first-child\s*\{\s*grid-column:\s*1 \/ -1;/u);
+  assert.match(stylesheet, /body \.subject-library-card \.subject-library-actions > button:hover\s*\{\s*box-shadow:\s*none !important;/u);
+});
+
 test("forwards the active plan and completion data into the Subjects goal tracker", () => {
   assert.match(
     appSource,

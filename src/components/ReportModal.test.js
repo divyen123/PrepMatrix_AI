@@ -47,6 +47,22 @@ test("renders View report button opposite to the section title on AnalyticsPage"
   assert.match(analyticsPageSource, /<ReportModal/u);
 });
 
+test("Analytics buttons and its popup buttons do not gain an outer hover glow", () => {
+  assert.match(analyticsPageCss, /body \.page-stack:has\(> \.analytics-page-intro\) button:hover/u);
+  for (const popupClass of [
+    "report-modal",
+    "study-plan-preview-dialog",
+    "subject-progress-modal",
+    "subject-ai-dialog",
+    "planner-history-dialog",
+    "momentum-history-dialog",
+  ]) {
+    assert.match(analyticsPageCss, new RegExp(`\\.${popupClass}`));
+  }
+  assert.match(analyticsPageCss, /\) button:hover\s*\{\s*box-shadow:\s*none !important;/u);
+  assert.match(analyticsPageCss, /body:has\(\.analytics-page-intro\) \.subject-progress-modal \.subject-action-btn:hover:not\(:disabled\)\s*\{\s*box-shadow:\s*none !important;/u);
+});
+
 test("ReportModal popup follows the selected canvas, accent, and wallpaper theme", () => {
   assert.match(reportModalCss, /--report-modal-surface:\s*var\(--bg\);/u);
   assert.match(reportModalCss, /--report-panel-surface:[^;]*var\(--accent\)/u);

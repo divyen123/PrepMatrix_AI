@@ -30,7 +30,7 @@ export function StudyPlanPreviewContent({
   return (
     <>
       <header className="study-plan-preview-header">
-        <div>
+        <div className="study-plan-preview-heading">
           <h2 id="study-plan-preview-title">Study schedule</h2>
           <p id="study-plan-preview-summary">{doneCount} of {tasks.length} tasks complete</p>
         </div>
@@ -139,6 +139,16 @@ export default function StudyPlanPreviewDialog({
       onCancel={(event) => {
         event.preventDefault();
         requestClose();
+      }}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        if (
+          event.clientX < bounds.left || event.clientX > bounds.right
+          || event.clientY < bounds.top || event.clientY > bounds.bottom
+        ) {
+          requestClose();
+        }
       }}
       ref={dialogRef}
     >
