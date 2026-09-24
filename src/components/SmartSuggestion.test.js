@@ -46,3 +46,18 @@ test("keeps the no-subjects prompt text-only and the schedule CTA yellow-toned",
   assert.match(stylesheet, /\.smart-suggestion-cta\.is-yellow:hover\s*\{/u);
   assert.match(stylesheet, /\.smart-suggestion-cta:hover svg\s*\{[\s\S]*?transform:\s*translateX\(4px\)/u);
 });
+
+test("removes suggestion badges and reveals populated cards one by one", () => {
+  assert.doesNotMatch(componentSource, /<span className="panel-label">/u);
+  assert.match(componentSource, /suggestions\.map\(\(suggestion, index\) =>/u);
+  assert.match(componentSource, /"--suggestion-delay": `\$\{index \* 110\}ms`/u);
+  assert.match(stylesheet, /@keyframes db-suggestion-card-enter/u);
+  assert.match(
+    stylesheet,
+    /\.db-panel-content--visible \.db-panel-inner--suggestions \.suggestion-mini-card\s*\{[\s\S]*?animation:\s*db-suggestion-card-enter[\s\S]*?var\(--suggestion-delay, 0ms\) backwards;/u,
+  );
+  assert.match(
+    stylesheet,
+    /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.db-panel-content--visible \.db-panel-inner--suggestions \.suggestion-mini-card\s*\{[\s\S]*?animation:\s*none;/u,
+  );
+});

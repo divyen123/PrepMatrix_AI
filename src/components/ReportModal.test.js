@@ -105,6 +105,24 @@ test("Report footer actions inherit the shared theme-aware button system", () =>
   assert.doesNotMatch(reportModalCss, /\.report-export-pdf-btn:hover\s*\{/u);
 });
 
+test("ReportModal guides incomplete setup with the correct gated footer action", () => {
+  assert.match(reportModalSource, /const needsSubjects = subjectCount === 0;/u);
+  assert.match(reportModalSource, /const needsPlan = !metrics\.hasScheduledPlanner;/u);
+  assert.match(reportModalSource, /Add subjects first, then generate a plan/u);
+  assert.match(reportModalSource, /Your subjects are ready — generate a plan/u);
+  assert.match(reportModalSource, /role="status"/u);
+  assert.match(reportModalSource, /navigate\("\/subjects#add-subject"\)/u);
+  assert.match(
+    reportModalSource,
+    /navigate\("\/planner\/schedule",\s*\{[\s\S]*?plannerShortcutAction:\s*"new"/u,
+  );
+  assert.match(
+    reportModalSource,
+    /\{needsSubjects \? \([\s\S]*?Add subjects[\s\S]*?: needsPlan \? \([\s\S]*?Generate plan/u,
+  );
+  assert.match(reportModalCss, /\.report-setup-notice\s*\{/u);
+});
+
 test("ReportModal body uses an accent-aware scoped scrollbar", () => {
   assert.match(
     reportModalCss,

@@ -17,7 +17,7 @@ test('removes badges Goal focus, Timeline map, and Focus Map from analytics comp
   assert.match(focusLandscapeSource, /<h2>Subject landscape<\/h2>/u);
 });
 
-test('subject landscape displays text labels instead of badges and replaces difficulty balance with subject suggestion', async () => {
+test('subject landscape uses real planner data in an accessible pie chart and keeps the suggestion panels', async () => {
   const vite = await createServer({ appType: 'custom', logLevel: 'silent', server: { middlewareMode: true } });
   try {
     const { default: FocusLandscape } = await vite.ssrLoadModule('/src/components/FocusLandscape.jsx');
@@ -27,6 +27,10 @@ test('subject landscape displays text labels instead of badges and replaces diff
     assert.match(focusLandscapeSource, /landscape-panel-label/u);
     assert.match(focusLandscapeSource, /Subject suggestion/u);
     assert.match(focusLandscapeSource, /landscape-panel--suggestion/u);
+    assert.match(focusLandscapeSource, /className="subject-pie-svg"/u);
+    assert.match(focusLandscapeSource, /className="subject-pie-legend"/u);
+    assert.match(focusLandscapeSource, /item\.pieValue \/ totalValue/u);
+    assert.doesNotMatch(focusLandscapeSource, /custom-bar-chart|custom-bar-row|custom-bar-fill/u);
 
     // Render with mock data
     const schedule = [{
@@ -45,18 +49,36 @@ test('subject landscape displays text labels instead of badges and replaces diff
       React.createElement(FocusLandscape, {
         subjects,
         schedule,
-        completed: [],
+        completed: ['t1'],
       })
     );
 
+    assert.match(markup, /class="subject-pie-chart/u);
+    assert.match(markup, /class="subject-pie-svg" role="img"/u);
+    assert.match(markup, /Subject workload distribution/u);
+    assert.match(markup, /Subject completion legend/u);
+    assert.match(markup, /1\/2 tasks/u);
+    assert.match(markup, />50%<\/span>/u);
     assert.match(markup, /Top priority/u);
     assert.match(markup, /Subject suggestion/u);
     assert.doesNotMatch(markup, /Difficulty balance/u);
     assert.doesNotMatch(markup, /legend-dot/u);
+    assert.doesNotMatch(markup, /custom-bar-chart|custom-bar-row/u);
     assert.match(markup, /Deep focus on Quantum computing/u);
   } finally {
     await vite.close();
   }
+});
+
+test('subject pie chart animates its SVG segments and remains responsive', () => {
+  assert.match(appStyles, /\.subject-pie-chart\s*\{[\s\S]*?grid-template-columns:/u);
+  assert.match(appStyles, /\.subject-pie-segment\s*\{[\s\S]*?stroke-dasharray 900ms/u);
+  assert.match(appStyles, /\.subject-pie-center\s*\{[\s\S]*?border-radius:\s*50%;/u);
+  assert.match(appStyles, /\.subject-pie-legend li:focus-visible\s*\{[\s\S]*?background:/u);
+  assert.match(
+    appStyles,
+    /@media \(max-width: 640px\)[\s\S]*?\.subject-pie-chart\s*\{[\s\S]*?grid-template-columns:\s*1fr;/u,
+  );
 });
 
 test('custom-bar-tooltip is fully opaque and matches all themes', () => {

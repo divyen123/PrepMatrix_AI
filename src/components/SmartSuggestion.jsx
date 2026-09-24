@@ -82,9 +82,12 @@ function SmartSuggestion({
   return (
     <section aria-label="Smart suggestions" className="smart-suggestion-card">
       <div className="smart-suggestion-strip">
-        {suggestions.map((suggestion) => (
-          <article className="suggestion-mini-card" key={suggestion.label}>
-            <span className="panel-label">{suggestion.label}</span>
+        {suggestions.map((suggestion, index) => (
+          <article
+            className="suggestion-mini-card"
+            key={suggestion.label}
+            style={{ "--suggestion-delay": `${index * 110}ms` }}
+          >
             <strong>{suggestion.title}</strong>
             <p>{suggestion.detail}</p>
           </article>

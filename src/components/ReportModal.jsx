@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { Download, FileText, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import api from "../utils/apiClient";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import "./ReportModal.css";
@@ -32,12 +33,12 @@ function getPdfToneColor(rate) {
 
 function ReportModal({
   completed = [],
-  materialBookmarks = [],
   onClose,
   schedule = [],
   subjects = [],
   userProfile = {},
 }) {
+  const navigate = useNavigate();
   const closeButtonRef = useRef(null);
   const dialogRef = useRef(null);
   const previousFocusRef = useRef(null);
@@ -78,6 +79,36 @@ function ReportModal({
     () => getPlannerMetrics(schedule, completed),
     [schedule, completed],
   );
+  const subjectCount = Array.isArray(subjects) ? subjects.length : 0;
+  const needsSubjects = subjectCount === 0;
+  const needsPlan = !metrics.hasScheduledPlanner;
+
+  let setupNotice = null;
+  if (needsSubjects && needsPlan) {
+    setupNotice = {
+      title: "Add subjects first, then generate a plan",
+      description:
+        "Your report will start tracking tasks, completion, and study patterns after both steps are ready.",
+      steps: [
+        "Add subjects to define your active study areas.",
+        "Generate a study plan after your subjects are ready.",
+      ],
+    };
+  } else if (needsSubjects) {
+    setupNotice = {
+      title: "Add subjects before continuing",
+      description:
+        "Add subjects to define your active study areas, then generate a fresh plan if your schedule needs one.",
+      steps: ["Add subjects before reviewing subject-level performance."],
+    };
+  } else if (needsPlan) {
+    setupNotice = {
+      title: "Your subjects are ready — generate a plan",
+      description:
+        "Generate a study plan to begin tracking scheduled tasks, completion, and recovery insights.",
+      steps: ["Generate a study plan to turn your subjects into scheduled study tasks."],
+    };
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -161,7 +192,7 @@ function ReportModal({
     .sort(([, left], [, right]) => right.pending - left.pending || left.done - right.done)
     .slice(0, 4);
 
-  const reportActions = [
+  const reportActions = setupNotice?.steps || [
     metrics.firstPendingTask
       ? `Priority next: ${metrics.firstPendingTask}.`
       : "Study plan is up to date.",
@@ -251,7 +282,7 @@ function ReportModal({
       const gap = 5;
       const cardWidth = (contentWidth - gap * 3) / 4;
       const statItems = [
-        { label: "SUBJECTS", val: String(subjects.length), sub: "active lanes" },
+        { label: "SUBJECTS", val: String(subjectCount), sub: "active lanes" },
         { label: "TASKS", val: String(metrics.totalTasks), sub: `${metrics.completedTasks} done` },
         { label: "REMAINING", val: String(metrics.remainingTasks), sub: "pending tasks" },
         { label: "QUIZ AVG", val: attempts.length ? `${averageQuiz}%` : "N/A", sub: `${attempts.length} tests` },
@@ -394,6 +425,13 @@ function ReportModal({
         </header>
 
         <div className="report-modal-body">
+          {setupNotice && (
+            <div className="report-setup-notice" role="status">
+              <strong>{setupNotice.title}</strong>
+              <p>{setupNotice.description}</p>
+            </div>
+          )}
+
           {/* Completion summary banner with color-toned bar */}
           <div className="report-progress-banner">
             <div className="report-progress-info">
@@ -424,7 +462,7 @@ function ReportModal({
           <div className="report-stat-grid">
             <div className="report-stat-card">
               <span className="report-stat-label">Active Subjects</span>
-              <strong className="report-stat-value">{subjects.length}</strong>
+              <strong className="report-stat-value">{subjectCount}</strong>
               <small>{metrics.remainingTasks} tasks pending</small>
             </div>
             <div className="report-stat-card">
@@ -479,7 +517,9 @@ function ReportModal({
 
           {/* Action recommendations */}
           <div className="report-section-block">
-            <h3 className="report-section-heading">Recommended Recovery</h3>
+            <h3 className="report-section-heading">
+              {setupNotice ? "Next steps" : "Recommended Recovery"}
+            </h3>
             <ul className="report-action-list">
               {reportActions.map((action, idx) => (
                 <li key={action}>
@@ -500,15 +540,37 @@ function ReportModal({
           >
             Close
           </button>
-          <button
-            className="action-btn report-export-pdf-btn"
-            disabled={isExporting || isClosing}
-            onClick={exportReportPDF}
-            type="button"
-          >
-            <Download aria-hidden="true" size={15} />
-            <span>{isExporting ? "Exporting..." : "Export report PDF"}</span>
-          </button>
+          {needsSubjects ? (
+            <button
+              className="action-btn report-setup-action-btn"
+              disabled={isClosing}
+              onClick={() => navigate("/subjects#add-subject")}
+              type="button"
+            >
+              Add subjects
+            </button>
+          ) : needsPlan ? (
+            <button
+              className="action-btn report-setup-action-btn"
+              disabled={isClosing}
+              onClick={() => navigate("/planner/schedule", {
+                state: { plannerShortcutAction: "new" },
+              })}
+              type="button"
+            >
+              Generate plan
+            </button>
+          ) : (
+            <button
+              className="action-btn report-export-pdf-btn"
+              disabled={isExporting || isClosing}
+              onClick={exportReportPDF}
+              type="button"
+            >
+              <Download aria-hidden="true" size={15} />
+              <span>{isExporting ? "Exporting..." : "Export report PDF"}</span>
+            </button>
+          )}
         </footer>
       </section>
     </div>,
