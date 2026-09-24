@@ -38,6 +38,7 @@ export default function CustomCursor({ mode = "app-cursor" }) {
     let ringY  = mouseY;
     let rafId  = null;
     let isHovering = false;
+    let pointerReady = false;
     let activeTopLayerOwner = null;
 
     const raiseCursorLayer = () => {
@@ -60,6 +61,13 @@ export default function CustomCursor({ mode = "app-cursor" }) {
     const onPointerMove = (e) => {
       mouseX = e.clientX;
       mouseY = e.clientY;
+      if (!pointerReady) {
+        pointerReady = true;
+        ringX = mouseX;
+        ringY = mouseY;
+        ring.style.transform = `translate(${ringX}px, ${ringY}px)`;
+        if (layer) layer.dataset.pointerReady = "true";
+      }
       // Dot (small center indicator) snaps instantly
       dot.style.transform = `translate(${mouseX}px, ${mouseY}px)`;
 
@@ -101,7 +109,8 @@ export default function CustomCursor({ mode = "app-cursor" }) {
     };
 
     /* ── Click pulse ── */
-    const onClick = () => {
+    const onClick = (event) => {
+      onPointerMove(event);
       dot.classList.add("cursor-dot--click");
       ring.classList.add("cursor-ring--click");
       setTimeout(() => {
@@ -150,6 +159,7 @@ export default function CustomCursor({ mode = "app-cursor" }) {
 
     return () => {
       cancelAnimationFrame(rafId);
+      if (layer) delete layer.dataset.pointerReady;
       observer?.disconnect();
       window.removeEventListener("pointermove", onPointerMove, true);
       window.removeEventListener("pointerover", onMouseOver, true);

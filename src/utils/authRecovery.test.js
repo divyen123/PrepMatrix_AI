@@ -45,6 +45,42 @@ test("does not retry a definitive unauthenticated response", async () => {
   assert.equal(waits, 0);
 });
 
+test("retries one unauthorized response when restoring a saved sign-in", async () => {
+  const calls = [];
+  const savedUser = { id: "user-1" };
+  const result = await recoverAuthSession(async (options) => {
+    calls.push(options);
+    if (calls.length === 1) {
+      throw Object.assign(new Error("Session lookup failed."), {
+        status: 401,
+        code: "AUTH_SESSION_INVALID",
+      });
+    }
+    return { user: savedUser };
+  }, {
+    retryUnauthorized: true,
+    wait: async () => undefined,
+  });
+
+  assert.equal(result.user, savedUser);
+  assert.deepEqual(calls, [undefined, { timeoutMs: AUTH_RECOVERY_RETRY_TIMEOUT_MS }]);
+});
+
+test("does not retry a revoked session after a password change", async () => {
+  let calls = 0;
+  await assert.rejects(recoverAuthSession(async () => {
+    calls += 1;
+    throw Object.assign(new Error("Password changed."), {
+      status: 401,
+      code: "PASSWORD_CHANGED",
+    });
+  }, {
+    retryUnauthorized: true,
+    wait: async () => undefined,
+  }), { code: "PASSWORD_CHANGED" });
+  assert.equal(calls, 1);
+});
+
 test("surfaces a second transient failure instead of retrying indefinitely", async () => {
   let calls = 0;
   const unavailable = Object.assign(new Error("Service unavailable."), { status: 503 });

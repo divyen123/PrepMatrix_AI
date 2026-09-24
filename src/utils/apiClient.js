@@ -1,4 +1,4 @@
-import { clearExplicitLogout } from "./authPersistence.js";
+import { clearExplicitLogout, wasExplicitlyLoggedOut } from "./authPersistence.js";
 
 export const API_BASE = (import.meta.env?.VITE_API_URL || "").trim().replace(/\/+$/, "");
 export const HAS_CONFIGURED_API = Boolean(API_BASE);
@@ -86,8 +86,7 @@ export function responseEndsAuthSession(path, response, payload = {}) {
   if (response?.status !== 401) return false;
   if (path === "/api/auth/login" || path === "/api/auth/register") return false;
 
-  return path === "/api/auth/me"
-    || payload?.code === "AUTH_SESSION_INVALID"
+  return payload?.code === "AUTH_SESSION_INVALID"
     || payload?.code === "PASSWORD_CHANGED"
     // Keep compatibility with an older backend while the frontend and API
     // are rolling out independently. Validation failures use different copy.
@@ -99,11 +98,13 @@ function dispatchWindowEvent(name, detail) {
   window.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
-function notifySessionEnded(message) {
+function notifySessionEnded(message, reason = "invalid") {
   if (typeof window === "undefined") return;
-  const notice = message || "Please log in again to continue.";
+  const notice = message || "Your saved sign-in could not be confirmed.";
   window.sessionStorage.setItem(AUTH_NOTICE_KEY, notice);
-  window.dispatchEvent(new CustomEvent("prepmatrixAuthSessionEnded", { detail: { message: notice } }));
+  window.dispatchEvent(new CustomEvent("prepmatrixAuthSessionEnded", {
+    detail: { message: notice, reason },
+  }));
 }
 
 function numberHeader(response, name) {
@@ -155,6 +156,7 @@ async function request(path, options = {}) {
   const {
     timeoutMs: _timeoutMs,
     academicProfileId: _academicProfileId,
+    suppressAuthNotice = false,
     headers: optionHeaders,
     ...fetchOptions
   } = options;
@@ -195,7 +197,10 @@ async function request(path, options = {}) {
     clearTimeout(timeoutId);
 
     const payload = await response.json().catch(() => ({}));
-    if (path === "/api/auth/me" && token !== localStorage.getItem("prepmatrix_auth_token")) {
+    if (
+      path === "/api/auth/me"
+      && (wasExplicitlyLoggedOut() || token !== localStorage.getItem("prepmatrix_auth_token"))
+    ) {
       const error = new Error("Sign-in changed while the session was loading.");
       error.code = "STALE_AUTH_REQUEST";
       throw error;
@@ -207,9 +212,14 @@ async function request(path, options = {}) {
 
     const currentToken = localStorage.getItem("prepmatrix_auth_token");
     if (responseEndsAuthSession(path, response, payload) && token === currentToken) {
-      clearStoredAuthState();
-      if (token || payload.code === "PASSWORD_CHANGED") {
-        notifySessionEnded(payload.error || "Please log in again to continue.");
+      // Keep a saved credential available for recovery after a failed session
+      // lookup. Only a password change or an explicit logout revokes it here.
+      if (payload.code === "PASSWORD_CHANGED") clearStoredAuthState();
+      if (!suppressAuthNotice && (token || payload.code === "PASSWORD_CHANGED")) {
+        notifySessionEnded(
+          payload.error || "Your saved sign-in could not be confirmed.",
+          payload.code === "PASSWORD_CHANGED" ? "password_changed" : "invalid",
+        );
       }
     }
 
@@ -220,7 +230,15 @@ async function request(path, options = {}) {
       clearStoredAuthState();
     }
 
-    if (response.ok && payload.token) {
+    if (
+      response.ok
+      && payload.token
+      && (
+        path === "/api/auth/login"
+        || path === "/api/auth/register"
+        || !wasExplicitlyLoggedOut()
+      )
+    ) {
       localStorage.setItem("prepmatrix_auth_token", payload.token);
       clearExplicitLogout();
     }

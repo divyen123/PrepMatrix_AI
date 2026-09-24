@@ -34,7 +34,7 @@ test("an explicitly logged-out launch skips recovery and retries server logout",
   const explicitLogoutCheckAt = startup.indexOf("if (wasExplicitlyLoggedOut())");
   const retryLogoutAt = startup.indexOf("api.logout().catch(() => undefined)");
   const branchReturnAt = startup.indexOf("return () =>", explicitLogoutCheckAt);
-  const recoveryAt = startup.indexOf("api.me()");
+  const recoveryAt = startup.indexOf("api.me({ ...options, suppressAuthNotice: true })");
 
   assert.ok(explicitLogoutCheckAt >= 0);
   assert.ok(retryLogoutAt > explicitLogoutCheckAt);
@@ -62,7 +62,8 @@ test("keeps temporary session recovery failures on a retry screen", () => {
     "useEffect(() => {\n    let isMounted = true;",
     "  useEffect(() => {\n    const handleSessionEnded",
   );
-  assert.match(startup, /if \(error\?\.status === 401\) \{[\s\S]*?setAuthRecoveryUnavailable\(false\)/u);
+  assert.match(startup, /if \(error\?\.status === 401 && !hadSavedToken && error\?\.code === "AUTH_SESSION_INVALID"\) \{[\s\S]*?setAuthRecoveryUnavailable\(false\)/u);
+  assert.match(startup, /retryUnauthorized: hadSavedToken/u);
   assert.match(startup, /setAuthRecoveryUnavailable\(true\)/u);
   assert.match(appSource, /\{authRecoveryUnavailable \? \(\s*<AuthRecoveryNotice/u);
   assert.match(appSource, /window\.setTimeout\(retrySavedSession, AUTH_RECOVERY_AUTO_RETRY_MS\)/u);

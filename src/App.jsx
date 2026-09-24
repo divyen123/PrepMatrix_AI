@@ -530,6 +530,7 @@ function App() {
   const academicProfileEventRevisionRef = useRef(0);
   const currentUserProfileRef = useRef(null);
   const applyWorkspaceRef = useRef(null);
+  const clearAuthenticatedUiRef = useRef(null);
   const academicProfileSaveRef = useRef(null);
   const academicProfileRevisionRef = useRef(0);
   const rewardTimeoutRef = useRef(null);
@@ -2109,6 +2110,7 @@ function App() {
 
     logoutInFlightRef.current = true;
     rememberExplicitLogout();
+    setAuthRecoveryUnavailable(false);
     setLogoutConfirmOpen(false);
     setLogoutReturnsToLock(false);
     setLogoutTransitionPhase("active");
@@ -2196,10 +2198,12 @@ function App() {
     setNotification("Account deleted successfully.");
   };
 
-  const clearAuthenticatedUi = (message = "Please log in again to continue.") => {
+  const clearAuthenticatedUi = (message = "Please log in again to continue.", options = {}) => {
     resetAcademicProfileIntro();
-    localStorage.removeItem(APP_LOCK_STORAGE_KEY);
-    setAppLocked(false);
+    if (!options.recoverable) {
+      localStorage.removeItem(APP_LOCK_STORAGE_KEY);
+      setAppLocked(false);
+    }
     setAppLockError("");
     voiceAssistant.pauseWakeMode?.();
     window.studyVoiceAssistant?.pauseWakeListening?.();
@@ -2215,8 +2219,10 @@ function App() {
     setUserProfile(null);
     setWorkspaceLoaded(false);
     applyWorkspace({}, null);
+    setAuthRecoveryUnavailable(Boolean(options.recoverable));
     setNotification(message);
   };
+  clearAuthenticatedUiRef.current = clearAuthenticatedUi;
 
   const saveMaterialBookmark = (bookmark) => {
     const normalizedBookmark = normalizeMaterialBookmark(bookmark);
@@ -2415,8 +2421,14 @@ function App() {
       }
       toast.success("PrepMatrix unlocked.");
     } catch (error) {
-      if (error?.status === 401) {
-        clearAuthenticatedUi(error?.message || "Please log in again to continue.");
+      if (error?.code === "PASSWORD_CHANGED") {
+        clearAuthenticatedUi(error?.message || "Your password was changed. Please log in again.");
+        return;
+      }
+      if (error?.code === "AUTH_SESSION_INVALID") {
+        clearAuthenticatedUi(error?.message || "Your saved sign-in could not be confirmed.", {
+          recoverable: true,
+        });
         return;
       }
       setAppLockError(error instanceof Error
@@ -2482,12 +2494,15 @@ function App() {
       };
     }
 
-    recoverAuthSession((options) => (options ? api.me(options) : api.me()))
+    const hadSavedToken = Boolean(localStorage.getItem("prepmatrix_auth_token"));
+    recoverAuthSession((options) => api.me({ ...options, suppressAuthNotice: true }), {
+      retryUnauthorized: hadSavedToken,
+    })
       .then((payload) => {
-        if (!isMounted) return;
+        if (!isMounted || wasExplicitlyLoggedOut()) return;
         setAuthRecoveryUnavailable(false);
         setUserProfile(payload.user);
-        applyWorkspace(payload.workspace, payload.user, payload.profileContext);
+        applyWorkspaceRef.current(payload.workspace, payload.user, payload.profileContext);
         setWorkspaceLoaded(true);
         setDashboardVoiceHintPending(true);
         setDashboardWelcomePending(true);
@@ -2502,7 +2517,7 @@ function App() {
         }, getEntrySplashDuration());
       })
       .catch((error) => {
-        if (!isMounted) return;
+        if (!isMounted || wasExplicitlyLoggedOut() || error?.code === "STALE_AUTH_REQUEST") return;
         setUserProfile(null);
         setWorkspaceLoaded(false);
         setEntrySplash(false);
@@ -2517,7 +2532,7 @@ function App() {
           return;
         }
 
-        if (error?.status === 401) {
+        if (error?.status === 401 && !hadSavedToken && error?.code === "AUTH_SESSION_INVALID") {
           setAuthRecoveryUnavailable(false);
           localStorage.removeItem(APP_LOCK_STORAGE_KEY);
           setAppLocked(false);
@@ -2538,7 +2553,12 @@ function App() {
 
   useEffect(() => {
     const handleSessionEnded = (event) => {
-      clearAuthenticatedUi(event.detail?.message || "Please log in again to continue.");
+      if (wasExplicitlyLoggedOut()) return;
+      const passwordChanged = event.detail?.reason === "password_changed";
+      clearAuthenticatedUiRef.current?.(
+        event.detail?.message || "Your saved sign-in could not be confirmed.",
+        { recoverable: !passwordChanged },
+      );
     };
 
     window.addEventListener("prepmatrixAuthSessionEnded", handleSessionEnded);
@@ -3605,6 +3625,8 @@ function App() {
               onSignIn={() => {
                 rememberExplicitLogout();
                 clearStoredAuthState();
+                localStorage.removeItem(APP_LOCK_STORAGE_KEY);
+                setAppLocked(false);
                 setAuthRecoveryUnavailable(false);
                 navigate("/login", { replace: true });
               }}

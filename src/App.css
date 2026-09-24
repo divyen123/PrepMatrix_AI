@@ -15843,6 +15843,11 @@ body.dark .auth-submit-btn:active,
   display: block;
 }
 
+.custom-cursor-layer:not([data-pointer-ready="true"]) .custom-cursor-dot,
+.custom-cursor-layer:not([data-pointer-ready="true"]) .custom-cursor-ring {
+  visibility: hidden;
+}
+
 /* Hide OS cursor only when custom cursor mode is active */
 html[data-cursor-mode="app-cursor"] *,
 html[data-cursor-mode="app-cursor"] *::before,

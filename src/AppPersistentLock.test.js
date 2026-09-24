@@ -53,7 +53,7 @@ test("finishes the restored intro before revealing the persisted lock scene", ()
   const lockRender = appSource.indexOf("{appLocked && !entrySplash", renderStart);
   assert.ok(introRender >= renderStart && lockRender > introRender);
 
-  const recovery = sourceBetween("api.me()", ".catch((error) => {");
+  const recovery = sourceBetween("api.me({ ...options, suppressAuthNotice: true })", ".catch((error) => {");
   const startIntro = recovery.indexOf("setEntrySplash(true)");
   const finishIntro = recovery.indexOf("setEntrySplash(false)", startIntro);
   assert.ok(startIntro >= 0 && finishIntro > startIntro);
@@ -81,35 +81,40 @@ test("clears the persistent lock as soon as confirmed logout starts", () => {
   assert.ok(clearLockUi > clearLock && clearLockUi < firstAwait);
 });
 
-test("terminal auth failures and an unlock 401 cannot leave a stale lock", () => {
+test("a first-time visit or password change clears a stale lock", () => {
   const recoveryCatch = sourceBetween(
     ".catch((error) => {",
     ".finally(() => {",
-    appSource.slice(appSource.indexOf("api.me()")),
+    appSource.slice(appSource.indexOf("api.me({ ...options, suppressAuthNotice: true })")),
   );
   const passwordChanged = sourceBetween(
     'if (error?.code === "PASSWORD_CHANGED")',
-    "if (error?.status === 401)",
+    "if (error?.status === 401 && !hadSavedToken",
     recoveryCatch,
   );
-  const unauthorized = sourceBetween(
-    "if (error?.status === 401)",
+  const firstVisit = sourceBetween(
+    "if (error?.status === 401 && !hadSavedToken",
     "setAuthRecoveryUnavailable(true)",
     recoveryCatch,
   );
 
-  for (const branch of [passwordChanged, unauthorized]) {
+  for (const branch of [passwordChanged, firstVisit]) {
     assert.match(branch, /localStorage\.removeItem\(APP_LOCK_STORAGE_KEY\)/u);
     assert.match(branch, /setAppLocked\(false\)/u);
     assert.match(branch, /setAppLockError\(""\)/u);
   }
+});
 
+test("a saved sign-in failure preserves the lock while retrying", () => {
+  const clearUi = sourceBetween("const clearAuthenticatedUi =", "const saveMaterialBookmark");
+  assert.match(clearUi, /if \(!options\.recoverable\) \{[\s\S]*?localStorage\.removeItem\(APP_LOCK_STORAGE_KEY\)/u);
+  assert.match(clearUi, /setAuthRecoveryUnavailable\(Boolean\(options\.recoverable\)\)/u);
   const unlockHandler = sourceBetween(
     "const handleUnlockApp = async",
     "const handleLockedLogout",
   );
   assert.match(
     unlockHandler,
-    /catch \(error\) \{[\s\S]*?if \(error\?\.status === 401\) \{[\s\S]*?clearAuthenticatedUi\(/u,
+    /if \(error\?\.code === "AUTH_SESSION_INVALID"\) \{[\s\S]*?clearAuthenticatedUi\([\s\S]*?recoverable: true/u,
   );
 });
