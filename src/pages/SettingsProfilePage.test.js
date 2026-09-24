@@ -10,6 +10,7 @@ import {
   getLocalUsageDayKey,
   resolveAppUsageIdentity,
 } from "../utils/appUsage.js";
+import { getUsageLimitTone } from "../utils/usageLimitTone.js";
 
 test("renders detailed user information, usage actions, and accessible activity summaries", async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -76,6 +77,12 @@ test("renders detailed user information, usage actions, and accessible activity 
     const { default: SettingsProfilePage } = await vite.ssrLoadModule(
       "/src/pages/SettingsProfilePage.jsx",
     );
+    assert.equal(getUsageLimitTone(79, true), "active");
+    assert.equal(getUsageLimitTone(80, true), "warning");
+    assert.equal(getUsageLimitTone(99, true), "warning");
+    assert.equal(getUsageLimitTone(100, true), "danger");
+    assert.equal(getUsageLimitTone(140, true), "danger");
+    assert.equal(getUsageLimitTone(140, false), "neutral");
     const markup = renderToStaticMarkup(React.createElement(
       MemoryRouter,
       { initialEntries: ["/settings/profile"] },
@@ -101,7 +108,9 @@ test("renders detailed user information, usage actions, and accessible activity 
     assert.match(markup, /Create Profile B/u);
     assert.match(markup, /Daily app usage/u);
     assert.match(markup, /Today&#x27;s limit progress/u);
-    assert.doesNotMatch(markup, /settings-profile-section-label">(?:Active time|Today|Pattern review)</u);
+    assert.match(markup, /class="settings-profile-limit-card is-active"/u);
+    assert.match(markup, /class="comet-dial settings-profile-limit-dial"/u);
+    assert.doesNotMatch(markup, /settings-profile-section-label">(?:Active time|Today|Pattern review|Usage controls)</u);
     assert.doesNotMatch(markup, /<span>(?:Account|Academic|Learning)<\/span><h2>/u);
     assert.doesNotMatch(markup, /See how today compares with your personal reminder\./u);
     assert.match(markup, /Daily average/u);
@@ -183,6 +192,13 @@ test("registers the guarded route, global tracker, responsive charts, and backgr
   );
   assert.match(appSource, /<SettingsProfilePage[\s\S]*?path="\/settings\/profile"/u);
   assert.match(pageSource, /<ComposedChart[\s\S]*?<Bar[\s\S]*?<Line/u);
+  assert.match(pageSource, /import CometDial from "\.\.\/components\/CometDial"/u);
+  assert.match(pageSource, /id="settings-profile-usage-bar-gradient"/u);
+  assert.match(pageSource, /fill="url\(#settings-profile-usage-bar-gradient\)"/u);
+  assert.match(pageSource, /<CometDial[\s\S]*?className="settings-profile-limit-dial"[\s\S]*?readOnly/u);
+  assert.match(pageSource, /settings-profile-limit-card is-\$\{usageLimitTone\}/u);
+  assert.doesNotMatch(pageSource, /settings-profile-limit-card settings-profile-surface/u);
+  assert.doesNotMatch(pageSource, /settings-profile-usage-ring/u);
   assert.match(pageSource, /saveAppUsageLimit\(usageIdentity, minutes\)/u);
   assert.match(pageSource, /await onVisitAcademicProfile\(otherProfile\)/u);
   assert.match(pageSource, /const activeProfileLabel = getAcademicProfileDisplayName\(profileSlots\.activeProfile\)/u);
@@ -197,7 +213,7 @@ test("registers the guarded route, global tracker, responsive charts, and backgr
   assert.match(pageSource, /setActiveUsageDialog\(\{ kind: "insights", open: true \}\)/u);
   assert.match(pageSource, /<h2 id="usage-limit-heading">Active time<\/h2>/u);
   assert.match(pageSource, /<h2>Today's limit progress<\/h2>/u);
-  assert.doesNotMatch(pageSource, /<span className="settings-profile-section-label">(?:Active time|Today|Pattern review)<\/span>/u);
+  assert.doesNotMatch(pageSource, /<span className="settings-profile-section-label">(?:Active time|Today|Pattern review|Usage controls)<\/span>/u);
   assert.doesNotMatch(pageSource, /<div><span>(?:Account|Academic|Learning)<\/span><h2>/u);
   assert.doesNotMatch(pageSource, /See how today compares with your personal reminder\./u);
   assert.match(pageSource, /Open Active limit to set a personal reminder\./u);
@@ -227,6 +243,10 @@ test("registers the guarded route, global tracker, responsive charts, and backgr
   assert.doesNotMatch(stylesheet, /rgba\(var\(--bg-surface-rgb, 18, 27, 45\), 0\.88\)/u);
   assert.match(stylesheet, /\.settings-profile-avatar[\s\S]*?border: 0;[\s\S]*?background: transparent;[\s\S]*?box-shadow: none;/u);
   assert.match(stylesheet, /\.settings-profile-action\.is-profile-switch[\s\S]*?background: rgba\(var\(--accent-rgb\), 0\.09\) !important/u);
+  assert.match(stylesheet, /\.settings-profile-limit-card\.is-warning\s*\{[\s\S]*?--profile-limit-tone:\s*var\(--warning\);/u);
+  assert.match(stylesheet, /\.settings-profile-limit-card\.is-danger\s*\{[\s\S]*?--profile-limit-tone:\s*var\(--danger\);/u);
+  assert.match(stylesheet, /\.settings-profile-limit-copy\s*\{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;/u);
+  assert.match(stylesheet, /\.settings-profile-usage-bars path,[\s\S]*?fill:\s*url\(#settings-profile-usage-bar-gradient\) !important;/u);
   assert.match(stylesheet, /\.settings-profile-dialog-layer[\s\S]*?pointer-events: none;[\s\S]*?transition: opacity 220ms ease/u);
   assert.match(stylesheet, /\.settings-profile-dialog-layer\.is-visible[\s\S]*?pointer-events: auto/u);
   assert.match(stylesheet, /body\.has-bg-image \.settings-profile-dialog[\s\S]*?rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\)/u);

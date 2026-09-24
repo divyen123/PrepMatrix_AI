@@ -63,3 +63,26 @@ test("styles the empty Goal tracker notice as a compact yellow-toned card", () =
     /\.goal-subjects-empty-notice\s*\{[\s\S]*?padding: 10px 12px;[\s\S]*?color: var\(--warning\);[\s\S]*?background: color-mix\(in srgb, var\(--warning\) 9%, var\(--surface-muted\)\);[\s\S]*?border: 1px solid color-mix\(in srgb, var\(--warning\) 28%, var\(--border\)\);/u,
   );
 });
+
+test("uses the active accent gradient and equal sizing for the Analytics overview cards", () => {
+  const analyticsSource = readFileSync(new URL("./Analytics.jsx", import.meta.url), "utf8");
+  const analyticsStyles = readFileSync(new URL("../pages/AnalyticsPage.css", import.meta.url), "utf8");
+  const appStyles = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+
+  assert.match(analyticsSource, /id="analytics-task-bar-gradient"/u);
+  assert.match(analyticsSource, /stopColor="rgb\(var\(--accent-rgb\)\)"/u);
+  assert.match(analyticsSource, /fill="url\(#analytics-task-bar-gradient\)"/u);
+  assert.match(analyticsSource, /maxBarSize=\{92\}/u);
+  assert.match(
+    analyticsStyles,
+    /\.analytics-task-gradient-bars path,[\s\S]*?fill:\s*url\(#analytics-task-bar-gradient\) !important;/u,
+  );
+  assert.match(
+    appStyles,
+    /\.primary-analytics-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);[\s\S]*?align-items:\s*stretch;/u,
+  );
+  assert.match(
+    appStyles,
+    /\.primary-analytics-row > \.card\s*\{[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100%;/u,
+  );
+});

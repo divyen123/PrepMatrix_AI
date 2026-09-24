@@ -48,3 +48,8 @@ body .view-report-btn::after {
 body .view-report-btn:hover {
   box-shadow: none !important;
 }
+
+.analytics-task-gradient-bars path,
+.analytics-task-gradient-bars .recharts-rectangle {
+  fill: url(#analytics-task-bar-gradient) !important;
+}

@@ -53,7 +53,9 @@ import {
 } from "../utils/appUsage";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { getScheduleDateKey, toLocalDateKey } from "../utils/scheduleDates";
+import { getUsageLimitTone } from "../utils/usageLimitTone";
 import AcademicProfileCreateDialog from "../components/AcademicProfileCreateDialog";
+import CometDial from "../components/CometDial";
 import "./SettingsProfilePage.css";
 
 function displayValue(value, fallback = "Not set") {
@@ -356,6 +358,10 @@ export default function SettingsProfilePage({
   const limitLabel = usageSummary.dailyLimitSeconds
     ? `${usageSummary.limitUsedPercent}% of ${formatDuration(usageSummary.dailyLimitSeconds)}`
     : "No daily limit set";
+  const usageLimitTone = getUsageLimitTone(
+    usageSummary.limitUsedPercent,
+    Boolean(usageSummary.dailyLimitSeconds),
+  );
   const chartSummary = usageSummary.hasRecordedUsage
     ? `${formatDuration(usageSummary.totalSeconds)} total with a ${formatDuration(usageSummary.averageSeconds)} daily average over ${rangeDays} days.`
     : `No active time has been recorded in the last ${rangeDays} days.`;
@@ -565,6 +571,13 @@ export default function SettingsProfilePage({
               width="100%"
             >
               <ComposedChart data={usageSummary.daily} margin={{ top: 18, right: 10, left: -12, bottom: 4 }}>
+                <defs>
+                  <linearGradient id="settings-profile-usage-bar-gradient" x1="0" x2="0" y1="1" y2="0">
+                    <stop offset="0%" stopColor="rgb(var(--accent-rgb))" stopOpacity="0.56" />
+                    <stop offset="58%" stopColor="rgb(var(--accent-rgb))" stopOpacity="0.86" />
+                    <stop offset="100%" stopColor="rgb(var(--accent-rgb))" stopOpacity="1" />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="4 7" vertical={false} />
                 <XAxis
                   axisLine={false}
@@ -589,7 +602,13 @@ export default function SettingsProfilePage({
                     y={usageSummary.dailyLimitMinutes}
                   />
                 ) : null}
-                <Bar dataKey="minutes" fill="var(--accent)" maxBarSize={46} radius={[9, 9, 3, 3]} />
+                <Bar
+                  className="settings-profile-usage-bars"
+                  dataKey="minutes"
+                  fill="url(#settings-profile-usage-bar-gradient)"
+                  maxBarSize={46}
+                  radius={[9, 9, 3, 3]}
+                />
                 <Line
                   dataKey="averageMinutes"
                   dot={false}
@@ -613,25 +632,33 @@ export default function SettingsProfilePage({
           </ul>
         </figure>
 
-        <aside className="settings-profile-limit-card settings-profile-surface">
+        <aside className={`settings-profile-limit-card is-${usageLimitTone}`}>
           <div>
             <h2>Today's limit progress</h2>
           </div>
-          <div
-            aria-label={usageSummary.dailyLimitSeconds
-              ? `${usageSummary.limitUsedPercent}% of today's usage limit used`
-              : "No daily usage limit is set"}
-            className={`settings-profile-usage-ring${usageSummary.dailyLimitSeconds ? " has-limit" : ""}`}
-            role="img"
-            style={{ "--usage-ring-progress": `${usageSummary.limitProgressPercent * 3.6}deg` }}
+          <CometDial
+            accent="var(--profile-limit-tone)"
+            className="settings-profile-limit-dial"
+            ink="var(--text)"
+            label={usageSummary.dailyLimitSeconds
+              ? `Today's usage: ${usageSummary.limitUsedPercent}% of the daily limit`
+              : "Today's usage with no daily limit set"}
+            max={100}
+            min={0}
+            readOnly
+            size={190}
+            sweep={320}
+            thickness={8}
+            unit=""
+            value={usageSummary.limitProgressPercent}
           >
-            <div>
+            <div className="settings-profile-limit-dial-readout">
               <strong>{formatDuration(usageSummary.today.seconds)}</strong>
               <span>{usageSummary.dailyLimitSeconds
                 ? `of ${formatDuration(usageSummary.dailyLimitSeconds)}`
                 : "today"}</span>
             </div>
-          </div>
+          </CometDial>
           <div className="settings-profile-limit-copy">
             <strong>{usageSummary.dailyLimitSeconds
               ? usageSummary.limitUsedPercent >= 100 ? "Daily reminder reached" : `${100 - usageSummary.limitUsedPercent}% remaining`
@@ -660,7 +687,6 @@ export default function SettingsProfilePage({
         <header className="settings-profile-dialog-heading">
           <div className="settings-profile-expandable-icon"><Gauge aria-hidden="true" size={21} /></div>
           <div>
-            <span className="settings-profile-section-label">Usage controls</span>
             <h2 id="usage-limit-heading">Active time</h2>
             <p id="usage-limit-description">
               Review today’s active time and set an optional reminder without blocking study sessions or exams.

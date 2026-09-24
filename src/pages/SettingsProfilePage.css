@@ -569,6 +569,11 @@ body .settings-profile-page .settings-profile-range button[aria-pressed="true"] 
   margin-top: 12px;
 }
 
+.settings-profile-usage-bars path,
+.settings-profile-usage-bars .recharts-rectangle {
+  fill: url(#settings-profile-usage-bar-gradient) !important;
+}
+
 .settings-profile-chart-tooltip {
   display: grid;
   padding: 9px 11px;
@@ -649,55 +654,57 @@ body .settings-profile-page .settings-profile-range button[aria-pressed="true"] 
 }
 
 .settings-profile-limit-card {
+  --profile-limit-tone: var(--accent);
   display: flex;
   flex-direction: column;
   align-items: center;
+  color: var(--text);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.settings-profile-limit-card.is-neutral {
+  --profile-limit-tone: var(--text-muted);
+}
+
+.settings-profile-limit-card.is-warning {
+  --profile-limit-tone: var(--warning);
+}
+
+.settings-profile-limit-card.is-danger {
+  --profile-limit-tone: var(--danger);
+}
+
+.settings-profile-limit-card:is(.is-warning, .is-danger) h2,
+.settings-profile-limit-card:is(.is-warning, .is-danger) .settings-profile-limit-copy strong {
+  color: var(--profile-limit-tone);
 }
 
 .settings-profile-limit-card > div:first-child {
   align-self: stretch;
 }
 
-.settings-profile-usage-ring {
-  display: grid;
-  width: min(190px, 76%);
-  aspect-ratio: 1;
+.settings-profile-limit-dial {
   margin: 24px auto 18px;
-  place-items: center;
-  border-radius: 50%;
-  background: conic-gradient(var(--border) 0deg 360deg);
-  position: relative;
 }
 
-.settings-profile-usage-ring.has-limit {
-  background: conic-gradient(
-    var(--accent) 0deg var(--usage-ring-progress),
-    var(--border) var(--usage-ring-progress) 360deg
-  );
-}
-
-.settings-profile-usage-ring::before {
-  content: "";
-  position: absolute;
-  inset: 11px;
-  border: 1px solid var(--border);
-  border-radius: inherit;
-  background: var(--surface-strong);
-}
-
-.settings-profile-usage-ring > div {
-  z-index: 1;
+.settings-profile-limit-dial-readout {
   display: grid;
   text-align: center;
 }
 
-.settings-profile-usage-ring strong {
+.settings-profile-limit-dial-readout strong {
+  color: var(--profile-limit-tone);
   font-family: var(--font-family-display, inherit);
   font-size: clamp(1.45rem, 3vw, 2rem);
   letter-spacing: -0.04em;
 }
 
-.settings-profile-usage-ring span {
+.settings-profile-limit-dial-readout span {
   margin-top: 2px;
   color: var(--text-muted);
   font-size: 0.7rem;
@@ -706,12 +713,12 @@ body .settings-profile-page .settings-profile-range button[aria-pressed="true"] 
 .settings-profile-limit-copy {
   display: grid;
   align-self: stretch;
-  padding: 13px;
+  padding: 0 8px;
   gap: 4px;
   text-align: center;
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  background: var(--surface-muted);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .settings-profile-limit-copy strong {
@@ -933,7 +940,6 @@ body.has-bg-image.no-glass-cards .settings-profile-chart-tooltip {
   -webkit-backdrop-filter: none;
 }
 
-body.has-bg-image .settings-profile-usage-ring::before,
 body.has-bg-image .settings-profile-limit-form select,
 body.has-bg-image .settings-profile-range button[aria-pressed="true"] {
   background: rgba(var(--bg-surface-rgb, 18, 27, 45), 0.96) !important;
@@ -988,8 +994,8 @@ body.has-bg-image .settings-profile-range button[aria-pressed="true"] {
     gap: 18px;
   }
 
-  .settings-profile-usage-ring {
-    width: 160px;
+  .settings-profile-limit-dial {
+    --cd-size: 160px !important;
     margin: 0;
   }
 

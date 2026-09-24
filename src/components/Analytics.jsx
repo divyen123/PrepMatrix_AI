@@ -29,6 +29,13 @@ function Analytics({ schedule, completed }) {
       <div className="analytics-chart-shell">
         <ResponsiveContainer height="100%" width="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+            <defs>
+              <linearGradient id="analytics-task-bar-gradient" x1="0" x2="0" y1="1" y2="0">
+                <stop offset="0%" stopColor="rgb(var(--accent-rgb))" stopOpacity="0.56" />
+                <stop offset="58%" stopColor="rgb(var(--accent-rgb))" stopOpacity="0.86" />
+                <stop offset="100%" stopColor="rgb(var(--accent-rgb))" stopOpacity="1" />
+              </linearGradient>
+            </defs>
             <CartesianGrid className="chart-grid" vertical={false} />
             <XAxis
               axisLine={false}
@@ -43,7 +50,13 @@ function Analytics({ schedule, completed }) {
               cursor={{ className: "chart-cursor" }}
               wrapperClassName="chart-tooltip"
             />
-            <Bar dataKey="value" className="chart-bar-fill" maxBarSize={168} radius={[12, 12, 4, 4]} />
+            <Bar
+              className="analytics-task-gradient-bars"
+              dataKey="value"
+              fill="url(#analytics-task-bar-gradient)"
+              maxBarSize={92}
+              radius={[12, 12, 4, 4]}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
