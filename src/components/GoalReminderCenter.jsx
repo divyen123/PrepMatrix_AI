@@ -4,7 +4,6 @@ import {
   CalendarClock,
   Check,
   Flag,
-  ListTodo,
   EllipsisVertical,
   Plus,
   RotateCcw,
@@ -414,8 +413,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
       >
         <header className="goal-reminder-dialog-header">
           <div className="goal-reminder-dialog-title">
-            <span className="goal-reminder-dialog-mark" aria-hidden="true"><Target size={19} /><ListTodo size={11} /></span>
-            <div><h2 id="goal-reminder-center-title">Goal & To-Do Center</h2></div>
+            <h2 id="goal-reminder-center-title">Goal & To-Do Center</h2>
           </div>
           <div className="goal-reminder-header-actions">
             <div className="goal-reminder-bulk-menu-wrap">

@@ -62,10 +62,6 @@ body .study-momentum-card button.badge-emblem::after {
   content: none !important;
 }
 
-.study-momentum-card .badge-emblem span {
-  animation: none;
-}
-
 body .study-momentum-card button.badge-emblem:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
@@ -126,7 +122,7 @@ body .study-momentum-card button.badge-emblem:focus-visible {
 
 .study-momentum-card .xp-ring-wrap {
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
 }
 
 .battle-insights {
@@ -267,9 +263,45 @@ body .study-momentum-card .battle-insights-trigger::after {
   animation: battle-insights-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.study-momentum-card .battle-insights-popover {
-  position: static;
-  width: 100%;
+.battle-insights-modal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+body .battle-insights-modal-layer > .battle-insights-backdrop,
+body .battle-insights-modal-layer > .battle-insights-backdrop:hover {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: rgba(4, 8, 16, 0.68) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .battle-insights-modal-layer > .battle-insights-backdrop::before,
+body .battle-insights-modal-layer > .battle-insights-backdrop::after {
+  display: none !important;
+  content: none !important;
+}
+
+.battle-insights-modal-layer > .battle-insights-dialog {
+  position: relative;
+  top: auto;
+  right: auto;
+  left: auto;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
 }
 
 body.dark .battle-insights-popover {
@@ -671,6 +703,33 @@ body.has-bg-image .badge-guidance-tooltip {
   .gamification-card > .gamification-scroll-region {
     padding-right: 0;
     overflow: visible;
+  }
+}
+
+@media (max-width: 720px) {
+  .study-momentum-card .xp-ring-wrap {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .study-momentum-card .xp-ring-wrap > .momentum-stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 540px) {
+  .study-momentum-card .xp-ring-wrap {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .study-momentum-card .momentum-comet-dial {
+    align-self: center;
+  }
+
+  .study-momentum-card .xp-ring-wrap > .momentum-stats-grid {
+    width: 100%;
   }
 }
 

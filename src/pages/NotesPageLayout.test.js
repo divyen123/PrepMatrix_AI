@@ -34,13 +34,26 @@ test("keeps the compact header controls together on responsive layouts", () => {
   assert.match(styles, /@media \(max-width: 520px\)[\s\S]*?\.notes-list-utilities\s*\{[\s\S]*?width: 100%/u);
 });
 
-test("shows three full note rows without an outer Saved notes panel", () => {
+test("uses the page scrollbar while the Saved notes controls stay visible", () => {
   assert.match(
     styles,
     /body \.notes-page \.card\.notes-list-card,[\s\S]*?background: transparent !important;[\s\S]*?border-color: transparent !important;[\s\S]*?box-shadow: none !important;/u,
   );
   assert.match(styles, /body \.notes-page \.card\.notes-list-card::before\s*\{\s*display: none !important;/u);
-  assert.match(styles, /body \.notes-page \.notes-list-grid\s*\{[\s\S]*?max-height: calc\(240px \* 3 \+ 12px \* 2\) !important;/u);
+  assert.match(styles, /\.app-container:has\(\.notes-page\)\s*\{\s*overflow-x: clip;\s*overflow-y: visible;/u);
+  assert.match(styles, /body \.notes-page \.card\.notes-list-card,[\s\S]*?overflow: visible !important;/u);
+  assert.match(styles, /body \.notes-page \.notes-list-header\s*\{[\s\S]*?position: sticky;[\s\S]*?z-index: 20;/u);
+  assert.match(styles, /body \.notes-page \.notes-list-grid\s*\{[\s\S]*?overflow: visible !important;[\s\S]*?max-height: none !important;/u);
+  assert.match(source, /className="notes-list-header"[\s\S]*?className="stored-search-field notes-mobile-search"/u);
+  assert.doesNotMatch(source, /onScroll=\{handleNotesScroll\}/u);
+  assert.match(source, /new IntersectionObserver\([\s\S]*?rootMargin: "240px 0px"/u);
+});
+
+test("keeps the Notes search input transparent inside its outer search pill", () => {
+  assert.match(
+    styles,
+    /body\.has-bg-image \.notes-page \.stored-search-field input\[type="search"\]:focus\s*\{[\s\S]*?background: transparent !important;[\s\S]*?box-shadow: none !important;/u,
+  );
 });
 
 test("keeps opened note details fully opaque while the page backdrop stays dimmed and blurred", () => {

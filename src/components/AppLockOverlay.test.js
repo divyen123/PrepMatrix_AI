@@ -5,7 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 
-test("renders an accessible password-gated app lock dialog", async () => {
+test("renders the compact password-gated lock scene with contextual suggestions", async () => {
   const vite = await createServer({
     appType: "custom",
     logLevel: "silent",
@@ -17,16 +17,23 @@ test("renders an accessible password-gated app lock dialog", async () => {
       "/src/components/AppLockOverlay.jsx",
     );
     const markup = renderToStaticMarkup(React.createElement(AppLockOverlay, {
+      background: React.createElement("span", { className: "selected-background-sentinel" }),
       errorMessage: "That password is incorrect. Try again.",
       onLogout() {},
       onUnlock() {},
+      schedule: [],
+      subjects: [{ name: "Physics", chapters: 8 }],
     }));
 
     assert.match(markup, /role="dialog"/u);
     assert.match(markup, /aria-modal="true"/u);
-    assert.match(markup, />PrepMatrix</u);
-    assert.match(markup, /aria-label="PrepMatrix is locked"/u);
-    assert.match(markup, /Session locked/u);
+    assert.match(markup, /class="selected-background-sentinel"/u);
+    assert.match(markup, /class="[^"]*workspace-logo-mark[^"]*"[^>]*>P<\/span>/u);
+    assert.match(markup, /class="[^"]*workspace-logo-title[^"]*"[^>]*>PrepMatrix<\//u);
+    assert.match(markup, /<h2[^>]*id="app-lock-title"[^>]*>[\s\S]*?Session locked<\/h2>/u);
+    assert.doesNotMatch(markup, /class="app-lock-brand-mark"/u);
+    assert.doesNotMatch(markup, /class="app-lock-rings"/u);
+    assert.match(markup, /Physics/u);
     assert.match(markup, /autoComplete="current-password"/u);
     assert.match(markup, /type="password"/u);
     assert.match(markup, /That password is incorrect\. Try again\./u);
@@ -63,18 +70,9 @@ test("persists lock state across app restarts and verifies the account password"
   assert.match(appSource, /const handleCancelLogout = \(\) => \{[\s\S]*?setAppLocked\(true\)/u);
   assert.match(appSource, /inert=\{appLocked \|\| logoutConfirmOpen \|\| logoutTransitionPhase !== "idle" \? true : undefined\}/u);
   assert.match(appSource, /appLocked && !entrySplash && userProfile && !\(logoutConfirmOpen && logoutReturnsToLock\)/u);
-  assert.match(stylesheet, /backdrop-filter: none;/u);
-  assert.match(stylesheet, /-webkit-backdrop-filter: none;/u);
-  assert.match(
-    stylesheet,
-    /\.app-lock-backdrop\s*\{[\s\S]*?--app-lock-bg:\s*#050a10;[\s\S]*?background:\s*var\(--app-lock-bg\);/u,
-  );
-  assert.match(stylesheet, /\.app-lock-rings/u);
   assert.match(stylesheet, /\.app-lock-panel[\s\S]*?background: transparent/u);
-  assert.match(stylesheet, /\.app-lock-brand-mark[\s\S]*?border-radius: 50%/u);
+  assert.match(stylesheet, /\.app-lock-backdrop\.has-selected-background/u);
+  assert.doesNotMatch(stylesheet, /\.app-lock-rings/u);
   assert.match(stylesheet, /\.app-lock-actions[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/u);
   assert.match(stylesheet, /html:has\(\.app-lock-backdrop\)[\s\S]*?overflow: hidden !important/u);
-  assert.match(stylesheet, /\.app-lock-backdrop \{[\s\S]*?overflow-y: auto/u);
-  assert.match(stylesheet, /\.app-lock-backdrop::before[\s\S]*?inset: 0/u);
-  assert.match(stylesheet, /\.app-lock-backdrop::-webkit-scrollbar[\s\S]*?display: none/u);
 });

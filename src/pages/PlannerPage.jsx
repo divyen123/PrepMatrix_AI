@@ -324,16 +324,16 @@ function PlannerPage({
       ) : (
         <>
           <header className="planner-subpage-header">
-            <Link
-              aria-label="Back to Planner workspaces"
-              className="planner-subpage-back page-back-control"
-              title="Back to Planner workspaces"
-              to="/planner"
-            >
-              <ArrowLeft aria-hidden="true" size={19} />
-            </Link>
             <div className="section-intro">
               <div className="planner-subpage-title-row">
+                <Link
+                  aria-label="Back to Planner workspaces"
+                  className="planner-subpage-back page-back-control"
+                  title="Back to Planner workspaces"
+                  to="/planner"
+                >
+                  <ArrowLeft aria-hidden="true" size={19} />
+                </Link>
                 <h2>{kidsMode && plannerView === "schedule"
                 ? "See today's learning path and mark each win"
                 : subpageCopy.title}</h2>

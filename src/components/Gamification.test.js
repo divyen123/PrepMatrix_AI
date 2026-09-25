@@ -6,6 +6,7 @@ const source = readFileSync(new URL("./Gamification.jsx", import.meta.url), "utf
 const styles = readFileSync(new URL("./Gamification.css", import.meta.url), "utf8");
 const appStyles = readFileSync(new URL("../App.css", import.meta.url), "utf8");
 const analyticsPageSource = readFileSync(new URL("../pages/AnalyticsPage.jsx", import.meta.url), "utf8");
+const globalMomentumSource = readFileSync(new URL("./GlobalMomentum.jsx", import.meta.url), "utf8");
 
 test("routes the Study Momentum battle action directly to Quiz Battles", () => {
   assert.match(source, /const openQuizBattles = \(\) => navigate\("\/quiz\?tab=battles"\)/u);
@@ -38,17 +39,19 @@ test("only enabled Momentum actions receive the subtle reduced-motion-safe shake
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.momentum-action-grid \.momentum-action-card\.is-enabled[\s\S]*?animation: none/u);
 });
 
-test("shows compact battle metrics below the dial and opens accessible battle details", () => {
+test("keeps both sets of Study metrics and opens accessible battle details", () => {
   const dialIndex = source.indexOf('className="xp-ring-wrap"');
   const summaryIndex = source.indexOf('className="battle-summary-grid"');
   const actionsIndex = source.indexOf('className="momentum-action-grid"');
 
   assert.ok(dialIndex >= 0 && dialIndex < summaryIndex && summaryIndex < actionsIndex);
+  assert.match(source, /className="xp-ring-wrap"[\s\S]*?className="momentum-stats-grid"[\s\S]*?<span>Level<\/span>[\s\S]*?<span>Streak<\/span>[\s\S]*?<span>Today<\/span>/u);
   assert.match(source, /className="battle-summary-grid"[\s\S]*?<span>Planner XP<\/span>[\s\S]*?<span>Battle XP<\/span>[\s\S]*?<span>Battles played<\/span>/u);
   assert.match(styles, /\.battle-summary-grid\s*\{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/u);
+  assert.match(styles, /\.gamification-card \.xp-ring-wrap > \.momentum-stats-grid\s*\{[\s\S]*?flex: 1/u);
   assert.match(source, /aria-expanded=\{battleDetailsOpen\}/u);
   assert.match(source, /aria-haspopup="dialog"/u);
-  assert.match(source, /aria-labelledby=\{battleDetailsTitleId\}[\s\S]*?role="dialog"/u);
+  assert.match(source, /aria-labelledby=\{battleDetailsTitleId\}[\s\S]*?aria-modal="true"[\s\S]*?role="dialog"/u);
   assert.match(source, /battleStatsEnabled && battleStatsLoading \? "Loading…" : momentumXp\.battleXp/u);
   assert.match(source, /className="battle-insights-record"[\s\S]*?battleStats\?\.wins/u);
   assert.match(source, /battleStats\?\.badges\?\.length > 0/u);
@@ -60,16 +63,17 @@ test("shows compact battle metrics below the dial and opens accessible battle de
   assert.doesNotMatch(source, /momentum-xp-breakdown|battle-record-strip|battle-badge-strip/u);
 });
 
-test("keeps battle details inline below the three metrics", () => {
+test("shows battle details in a dialog without expanding the Study card", () => {
   const headerIndex = source.indexOf('className="gamification-header"');
   const scrollRegionIndex = source.indexOf('gamification-scroll-region');
   const battleTriggerIndex = source.indexOf('className="battle-insights"');
 
   assert.ok(headerIndex >= 0 && headerIndex < scrollRegionIndex);
   assert.ok(scrollRegionIndex < battleTriggerIndex);
-  assert.match(source, /className="battle-insights"[\s\S]*?className="battle-summary-grid"[\s\S]*?className="battle-insights-popover"/u);
+  assert.match(source, /createPortal\([\s\S]*?className="battle-insights-popover battle-insights-dialog"[\s\S]*?document\.body/u);
   assert.match(source, /className="battle-record-win-count"[\s\S]*?className="battle-record-loss-count"/u);
-  assert.match(styles, /\.study-momentum-card \.battle-insights-popover\s*\{[\s\S]*?position: static;[\s\S]*?width: 100%/u);
+  assert.match(styles, /\.battle-insights-modal-layer\s*\{[\s\S]*?position: fixed;[\s\S]*?z-index: 1200/u);
+  assert.match(styles, /\.battle-insights-modal-layer > \.battle-insights-dialog\s*\{[\s\S]*?position: relative;/u);
   assert.match(styles, /body \.battle-insights-trigger\s*\{[\s\S]*?width: 40px/u);
   assert.match(styles, /\.battle-record-win-count\s*\{[\s\S]*?#16a34a/u);
   assert.match(styles, /\.battle-record-loss-count\s*\{[\s\S]*?var\(--danger\)/u);
@@ -114,27 +118,36 @@ test("moves the level guidance into an accessible badge tooltip", () => {
   assert.match(styles, /\.badge-emblem-wrap:hover \.badge-guidance-tooltip,[\s\S]*?\.badge-emblem-wrap:focus-within \.badge-guidance-tooltip/u);
 });
 
-test("keeps the badge icon visible without its container or yellow glow", () => {
+test("uses a bare information icon without the old badge emoji or yellow glow", () => {
   assert.doesNotMatch(source, /gamification-orb/u);
+  assert.match(source, /<Info aria-hidden="true" size=\{19\} \/>/u);
+  assert.doesNotMatch(source, /icon: "[🌱⚡🎯🏅🚀]"/u);
   assert.match(source, /gamification-card study-momentum-card/u);
   assert.match(styles, /body \.gamification-card\.study-momentum-card\s*\{[\s\S]*?background:[\s\S]*?var\(--surface\) !important;/u);
   assert.match(styles, /body \.study-momentum-card button\.badge-emblem,[\s\S]*?background: transparent !important;[\s\S]*?box-shadow: none !important;/u);
   assert.match(styles, /body \.study-momentum-card button\.badge-emblem::before,[\s\S]*?content: none !important;/u);
 });
 
-test("closes battle details on outside interaction or Escape and restores keyboard focus", () => {
-  assert.match(source, /document\.addEventListener\("pointerdown", closeOnOutsidePointer\)/u);
+test("closes battle details by backdrop or Escape and restores keyboard focus", () => {
+  assert.match(source, /className="battle-insights-backdrop"[\s\S]*?onClick=\{closeBattleDetails\}/u);
   assert.match(source, /document\.addEventListener\("keydown", closeOnEscape\)/u);
-  assert.match(source, /event\.key !== "Escape"/u);
+  assert.match(source, /event\.key === "Escape"/u);
   assert.match(source, /battleDetailsTriggerRef\.current\?\.focus\(\)/u);
   assert.match(source, /battleDetailsCloseRef\.current\?\.focus\(\)/u);
-  assert.match(source, /document\.removeEventListener\("pointerdown", closeOnOutsidePointer\)/u);
+  assert.match(source, /event\.key !== "Tab"[\s\S]*?last\.focus\(\)[\s\S]*?first\.focus\(\)/u);
   assert.match(source, /document\.removeEventListener\("keydown", closeOnEscape\)/u);
+});
+
+test("removes the horizontal level bars while keeping next-level guidance", () => {
+  assert.doesNotMatch(source, /className="level-progress/u);
+  assert.doesNotMatch(globalMomentumSource, /className="level-progress/u);
+  assert.match(source, /className="next-reward-strip"/u);
+  assert.match(globalMomentumSource, /className="next-reward-strip"/u);
 });
 
 test("shows all Study Momentum content without an internal scrollbar", () => {
   assert.match(styles, /\.gamification-card > \.gamification-scroll-region\s*\{[\s\S]*?overflow: visible/u);
-  assert.doesNotMatch(styles, /gamification-scroll-region::-webkit-scrollbar|overflow-y: auto|scrollbar-width: thin/u);
+  assert.doesNotMatch(styles, /gamification-scroll-region::-webkit-scrollbar|scrollbar-width: thin/u);
   assert.match(styles, /\.analytics-support-grid > \.gamification-card\s*\{[\s\S]*?height: auto/u);
   assert.match(styles, /body\.has-bg-image \.battle-insights-popover\s*\{[\s\S]*?background: var\(--battle-insights-solid-surface\)/u);
   assert.doesNotMatch(appStyles, /\.gamification-card > \*\s*\{[\s\S]*?translateY\(-96px\)/u);

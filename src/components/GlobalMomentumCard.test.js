@@ -57,6 +57,10 @@ test('GlobalMomentumCard does not render gamification-orb and overrides yellow g
       momentumViewsStyles,
       /\.global-momentum-card > \.gamification-orb\s*\{[\s\S]*?display:\s*none\s*!important;/u,
     );
+    assert.match(
+      momentumViewsStyles,
+      /body \.global-momentum-card::before\s*\{[\s\S]*?opacity: 0 !important;[\s\S]*?\}/u,
+    );
   } finally {
     await vite.close();
   }

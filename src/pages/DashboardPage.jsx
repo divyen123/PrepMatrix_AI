@@ -1,6 +1,6 @@
 import { createElement, useState, useRef, useCallback, useEffect, useId, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowRight, Search, Lightbulb, BarChart2, CalendarCheck, Mic, Paperclip, UploadCloud, X } from "lucide-react";
+import { ArrowRight, Search, Lightbulb, BarChart2, CalendarCheck, Mic, Paperclip, Send, UploadCloud, X } from "lucide-react";
 import SmartSuggestion from "../components/SmartSuggestion";
 import ProgressBar1 from "../components/Progressbar1";
 import WeeklyReview from "../components/WeeklyReview";
@@ -760,17 +760,17 @@ function DashboardPage({
             />
           </span>
 
-          {/* Ask button — only when text is typed or files are attached */}
+          {/* Submit action — only when text is typed or files are attached */}
           {(searchInput || attachments.length > 0) && (
             <button
               type="submit"
-              className="db-search-send"
+              className="db-search-action-btn db-search-send"
               disabled={dashboardVoiceListening || dashboardVoiceSending || voiceAssistant?.isProcessing}
               aria-label={navigationCommand
                 ? `${navigationCommandIsCurrent ? "View" : "Open"} ${navigationCommand.label}`
                 : "Ask AI"}
             >
-              {navigationCommand ? (navigationCommandIsCurrent ? "View" : "Open") : "Ask"}
+              <Send size={16} aria-hidden="true" />
             </button>
           )}
           </form>

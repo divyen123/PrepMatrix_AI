@@ -12,6 +12,8 @@ test("the center opens as an accessible right-side drawer with a unified first-e
   const appSource = readSource("../App.jsx");
 
   assert.match(source, /Goal & To-Do Center/u);
+  assert.doesNotMatch(source, /goal-reminder-dialog-mark/u);
+  assert.doesNotMatch(styles, /goal-reminder-dialog-mark/u);
   assert.doesNotMatch(source, /Plan dated outcomes and clear compact daily tasks\./u);
   assert.doesNotMatch(source, /Changes save automatically to your workspace\./u);
   assert.doesNotMatch(source, /goal-reminder-center-description/u);
@@ -84,7 +86,6 @@ test("the center opens as an accessible right-side drawer with a unified first-e
   assert.match(introStyles, /\.goal-todo-intro-start:hover\s*\{[\s\S]*?box-shadow:\s*none !important;/u);
   assert.doesNotMatch(introStyles, /goal-todo-intro-(story|card|steps|play|caption)|goalTodoIntroStartNudge/u);
   assert.match(introStyles, /@media \(prefers-reduced-motion: reduce\)/u);
-  assert.match(styles, /\.goal-reminder-dialog-mark\s*\{[\s\S]*?box-shadow:\s*none;/u);
   const introPanel = styles.match(/\.planner-unified-intro-panel\s*\{([^}]*)\}/u)?.[1] || "";
   assert.doesNotMatch(introPanel, /background|border|border-radius/u);
   assert.doesNotMatch(appSource, /syncStudyTargetReminders/u);

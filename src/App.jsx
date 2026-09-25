@@ -3378,14 +3378,6 @@ function App() {
               setDarkMode={setDarkMode}
               subjects={subjects}
             />
-            <Link
-              to="/about"
-              className="about-info-btn"
-              title="About application"
-              aria-label="About application"
-            >
-              <Info size={16} />
-            </Link>
           </div>
 
           <div className="sidebar-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
@@ -3460,6 +3452,15 @@ function App() {
                   )}
                 </div>
               )}
+              <Link
+                aria-label="About application"
+                className="about-info-btn"
+                onClick={() => setSidebarOpen(false)}
+                title="About application"
+                to="/about"
+              >
+                <Info aria-hidden="true" size={16} />
+              </Link>
               {(!isKidsLearner || kidsParentAccess.unlocked) && (
                 <SettingsContextMenu
                   academicProfiles={quickActionProfileSlots.profiles}
@@ -4149,10 +4150,13 @@ function App() {
 
       {appLocked && !entrySplash && userProfile && !(logoutConfirmOpen && logoutReturnsToLock) && (
         <AppLockOverlay
+          background={hasActiveBackgroundImage ? <AppBackground /> : null}
           busy={appLockBusy}
           errorMessage={appLockError}
           onLogout={handleLockedLogout}
           onUnlock={handleUnlockApp}
+          schedule={schedule}
+          subjects={subjects}
         />
       )}
 

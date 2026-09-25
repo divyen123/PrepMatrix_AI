@@ -1,27 +1,35 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LockKeyhole, LogOut, UnlockKeyhole } from "lucide-react";
+import { buildLockSuggestions } from "../utils/lockSuggestions.js";
 import "./AppLockOverlay.css";
 
-function LockRingsFallback() {
-  return (
-    <div className="magic-rings">
-      <span className="entry-splash-rings-fallback" />
-    </div>
-  );
-}
-
-const MagicRings = lazy(() => import("./MagicRings")
-  .catch(() => ({ default: LockRingsFallback })));
+const EMPTY_STUDY_DATA = [];
 
 export default function AppLockOverlay({
+  background = null,
   busy = false,
   errorMessage = "",
   onLogout,
   onUnlock,
+  schedule = EMPTY_STUDY_DATA,
+  subjects = EMPTY_STUDY_DATA,
 }) {
   const [password, setPassword] = useState("");
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
   const panelRef = useRef(null);
   const passwordRef = useRef(null);
+  const suggestions = useMemo(
+    () => buildLockSuggestions({ subjects, schedule }),
+    [subjects, schedule],
+  );
+
+  useEffect(() => {
+    if (suggestions.length < 2) return undefined;
+    const interval = window.setInterval(() => {
+      setSuggestionIndex((current) => (current + 1) % suggestions.length);
+    }, 6000);
+    return () => window.clearInterval(interval);
+  }, [suggestions]);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement;
@@ -70,34 +78,8 @@ export default function AppLockOverlay({
   };
 
   return (
-    <div className="app-lock-backdrop">
-      <div aria-hidden="true" className="app-lock-rings">
-        <Suspense fallback={<LockRingsFallback />}>
-          <MagicRings
-            alphaMode="luminance"
-            attenuation={24}
-            baseRadius={0.24}
-            blur={0.35}
-            clickBurst={false}
-            color="#16889a"
-            colorTwo="#315a9d"
-            fadeIn={0.75}
-            fadeOut={0.65}
-            followMouse={false}
-            hoverScale={1}
-            lineThickness={0.9}
-            noiseAmount={0}
-            opacity={0.3}
-            parallax={0.015}
-            radiusStep={0.055}
-            ringCount={8}
-            ringGap={1.1}
-            rotation={20}
-            scaleRate={0.045}
-            speed={0.38}
-          />
-        </Suspense>
-      </div>
+    <div className={`app-lock-backdrop${background ? " has-selected-background" : ""}`}>
+      {background}
       <section
         aria-labelledby="app-lock-title"
         aria-modal="true"
@@ -105,12 +87,14 @@ export default function AppLockOverlay({
         ref={panelRef}
         role="dialog"
       >
-        <span aria-hidden="true" className="app-lock-brand-mark">P</span>
-        <h2 aria-label="PrepMatrix is locked" id="app-lock-title">PrepMatrix</h2>
-        <span className="app-lock-kicker">
-          <LockKeyhole aria-hidden="true" size={14} strokeWidth={2.3} />
+        <div aria-label="PrepMatrix" className="workspace-logo-wrap app-lock-logo" role="img">
+          <span aria-hidden="true" className="workspace-logo-mark">P</span>
+          <span aria-hidden="true" className="workspace-logo-title">PrepMatrix</span>
+        </div>
+        <h2 id="app-lock-title">
+          <LockKeyhole aria-hidden="true" size={20} strokeWidth={2.1} />
           Session locked
-        </span>
+        </h2>
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="app-lock-password">Account password</label>
@@ -135,6 +119,9 @@ export default function AppLockOverlay({
             </button>
           </div>
         </form>
+        <p className="app-lock-suggestion" key={suggestions[suggestionIndex % suggestions.length]}>
+          {suggestions[suggestionIndex % suggestions.length]}
+        </p>
       </section>
     </div>
   );

@@ -80,6 +80,7 @@ function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, co
           completed={completed}
           onRetryBattleStats={battles.reload}
           schedule={schedule}
+          scheduleStartDate={scheduleStartDate}
           subjects={subjects}
         />
         <GlobalMomentumCard

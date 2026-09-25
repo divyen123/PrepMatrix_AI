@@ -1,8 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Swords, X } from "lucide-react";
+import { Info, Swords, X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
+import { getStudyMomentumDailyMetrics } from "../utils/studyMomentumMetrics";
 import { combinedMomentumXp } from "../utils/quizBattleUi";
+import { subscribeToLocalDateChanges } from "../utils/localDateRefresh";
 import CometDial from "./CometDial";
 import "./Gamification.css";
 import './MomentumViews.css';
@@ -15,27 +18,22 @@ const MOMENTUM_REWARDS =
 
 const BADGE_META = {
   "Getting started": {
-    icon: "🌱",
     title: "Getting started",
     tone: "starter",
   },
   "Momentum builder": {
-    icon: "⚡",
     title: "Momentum builder",
     tone: "momentum",
   },
   "Focused learner": {
-    icon: "🎯",
     title: "Focused learner",
     tone: "focused",
   },
   "Consistent finisher": {
-    icon: "🏅",
     title: "Consistent finisher",
     tone: "consistent",
   },
   "Pro learner": {
-    icon: "🚀",
     title: "Pro learner",
     tone: "pro",
   },
@@ -57,6 +55,7 @@ function Gamification({
   completed,
   onRetryBattleStats,
   schedule,
+  scheduleStartDate = "",
   subjects = [],
   momentum,
   momentumError = '',
@@ -70,6 +69,7 @@ function Gamification({
   const battleDetailsRef = useRef(null);
   const battleDetailsTriggerRef = useRef(null);
   const [battleDetailsOpen, setBattleDetailsOpen] = useState(false);
+  const [today, setToday] = useState(() => new Date());
   const metrics = getPlannerMetrics(schedule, completed);
   const momentumXp = combinedMomentumXp(
     metrics.completedTasks,
@@ -77,11 +77,14 @@ function Gamification({
   );
   momentumXp.totalXp += (momentum?.schedule?.breakdown?.exam || 0) + (momentum?.schedule?.breakdown?.quiz || 0);
   momentumXp.level = Math.floor(momentumXp.totalXp / 100) + 1;
-  momentumXp.levelProgress = momentumXp.totalXp % 100;
   const xp = momentumXp.totalXp;
   const level = momentumXp.level;
-  const levelProgress = momentumXp.levelProgress;
-
+  const { todayCompleted, todayTotal, todayProgress, streak } = getStudyMomentumDailyMetrics({
+    schedule,
+    completed,
+    scheduleStartDate,
+    today,
+  });
   const badge = getBadge(xp);
   const badgeMeta = BADGE_META[badge];
   const nextLevelXp = level * 100;
@@ -91,27 +94,34 @@ function Gamification({
   ));
   const isQuizEligible = battleStatsEnabled && hasQuizSubjects;
 
+  useEffect(() => subscribeToLocalDateChanges(setToday), []);
+
   useEffect(() => {
     if (!battleDetailsOpen) return undefined;
 
     const focusFrame = window.requestAnimationFrame(() => battleDetailsCloseRef.current?.focus());
-
-    const closeOnOutsidePointer = (event) => {
-      if (!battleDetailsRef.current?.contains(event.target)) {
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
         setBattleDetailsOpen(false);
+        window.requestAnimationFrame(() => battleDetailsTriggerRef.current?.focus());
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [...(battleDetailsRef.current?.querySelectorAll('button:not([disabled]), a[href]') || [])];
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
-    const closeOnEscape = (event) => {
-      if (event.key !== "Escape") return;
-      setBattleDetailsOpen(false);
-      window.requestAnimationFrame(() => battleDetailsTriggerRef.current?.focus());
-    };
 
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
     document.addEventListener("keydown", closeOnEscape);
     return () => {
       window.cancelAnimationFrame(focusFrame);
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [battleDetailsOpen]);
@@ -133,11 +143,11 @@ function Gamification({
           <div className="badge-emblem-wrap">
             <button
               aria-describedby={badgeGuidanceId}
-              aria-label={`${badgeMeta.title} badge guidance`}
+              aria-label={`About Study momentum and the ${badgeMeta.title} badge`}
               className="badge-emblem"
               type="button"
             >
-              <span>{badgeMeta.icon}</span>
+              <Info aria-hidden="true" size={19} />
             </button>
             <span className="badge-guidance-tooltip" id={badgeGuidanceId} role="tooltip">
               {MOMENTUM_GUIDANCE}
@@ -166,9 +176,26 @@ function Gamification({
             unit=""
             value={xp}
           />
+          <div className="momentum-stats-grid">
+            <article>
+              <span>Level</span>
+              <strong>{level}</strong>
+            </article>
+            <article
+              aria-label={`Scheduled-task streak: ${streak} ${streak === 1 ? "day" : "days"}. Based on scheduled dates, not completion timestamps.`}
+              title="Consecutive scheduled days with a completed task, ending today or yesterday"
+            >
+              <span>Streak</span>
+              <strong>{streak}d</strong>
+            </article>
+            <article aria-label={`Today's scheduled tasks: ${todayCompleted} of ${todayTotal} completed (${todayProgress}%).`}>
+              <span>Today</span>
+              <strong>{todayProgress}%</strong>
+            </article>
+          </div>
         </div>
 
-        <div className="battle-insights" ref={battleDetailsRef}>
+        <div className="battle-insights">
           <div className="battle-summary-grid">
             <article>
               <span>Planner XP</span>
@@ -192,14 +219,77 @@ function Gamification({
               <strong>{battleStatsEnabled ? battleStats?.played || 0 : 0}</strong>
             </button>
           </div>
+        </div>
 
-          {battleDetailsOpen && (
-            <section
-              aria-labelledby={battleDetailsTitleId}
-              className="battle-insights-popover"
-              id={battleDetailsId}
-              role="dialog"
+        <div className="momentum-action-grid">
+          <article
+            aria-disabled={!metrics.isExamEligible}
+            className={`momentum-action-card exam-eligibility-achievement ${metrics.isExamEligible ? "is-enabled" : "is-disabled"}`}
+          >
+            <strong>🏆 Exam-ready achievement</strong>
+            <p>
+              {metrics.isExamEligible
+                ? "You are now eligible to attend the exam."
+                : metrics.hasScheduledPlanner
+                  ? `${metrics.completionRate}% complete. Reach 80% to unlock the exam.`
+                  : "Create a schedule and complete 80% to unlock the exam."}
+            </p>
+            <button
+              className="secondary-btn exam-eligibility-cta"
+              disabled={!metrics.isExamEligible}
+              onClick={() => navigate("/exam?section=attend")}
+              type="button"
             >
+              Attend Exam
+            </button>
+          </article>
+
+          <article
+            aria-disabled={!isQuizEligible}
+            className={`momentum-action-card quiz-battle-achievement ${isQuizEligible ? "is-enabled" : "is-disabled"}`}
+          >
+            <strong><Swords aria-hidden="true" size={16} /> Quiz Battle arena</strong>
+            <p>
+              {hasQuizSubjects
+                ? battleStatsEnabled
+                  ? "Challenge a friend and build verified battle XP."
+                  : "Quiz Battles are unavailable for this profile."
+                : "Add at least one subject to unlock Quiz Battles."}
+            </p>
+            <button
+              className="secondary-btn quiz-battle-cta"
+              disabled={!isQuizEligible}
+              onClick={openQuizBattles}
+              type="button"
+            >
+              Attend quiz
+            </button>
+          </article>
+        </div>
+
+        <div className="next-reward-strip">
+          <span>Next level</span>
+          <strong>{xpToNext} XP needed</strong>
+        </div>
+      </div>
+
+      {battleDetailsOpen && createPortal(
+        <div className="battle-insights-modal-layer">
+          <button
+            aria-label="Close Battle momentum details"
+            className="battle-insights-backdrop"
+            onClick={closeBattleDetails}
+            tabIndex={-1}
+            type="button"
+          />
+          <section
+            aria-labelledby={battleDetailsTitleId}
+            aria-modal="true"
+            className="battle-insights-popover battle-insights-dialog"
+            id={battleDetailsId}
+            ref={battleDetailsRef}
+            role="dialog"
+          >
               <header>
                 <div>
                   <span>Quiz Battles</span>
@@ -260,65 +350,10 @@ function Gamification({
               <button className="battle-insights-link" onClick={openQuizBattles} type="button">
                 Open Quiz Battles
               </button>
-            </section>
-          )}
-        </div>
-
-        <div className="momentum-action-grid">
-          <article
-            aria-disabled={!metrics.isExamEligible}
-            className={`momentum-action-card exam-eligibility-achievement ${metrics.isExamEligible ? "is-enabled" : "is-disabled"}`}
-          >
-            <strong>🏆 Exam-ready achievement</strong>
-            <p>
-              {metrics.isExamEligible
-                ? "You are now eligible to attend the exam."
-                : metrics.hasScheduledPlanner
-                  ? `${metrics.completionRate}% complete. Reach 80% to unlock the exam.`
-                  : "Create a schedule and complete 80% to unlock the exam."}
-            </p>
-            <button
-              className="secondary-btn exam-eligibility-cta"
-              disabled={!metrics.isExamEligible}
-              onClick={() => navigate("/exam?section=attend")}
-              type="button"
-            >
-              Attend Exam
-            </button>
-          </article>
-
-          <article
-            aria-disabled={!isQuizEligible}
-            className={`momentum-action-card quiz-battle-achievement ${isQuizEligible ? "is-enabled" : "is-disabled"}`}
-          >
-            <strong><Swords aria-hidden="true" size={16} /> Quiz Battle arena</strong>
-            <p>
-              {hasQuizSubjects
-                ? battleStatsEnabled
-                  ? "Challenge a friend and build verified battle XP."
-                  : "Quiz Battles are unavailable for this profile."
-                : "Add at least one subject to unlock Quiz Battles."}
-            </p>
-            <button
-              className="secondary-btn quiz-battle-cta"
-              disabled={!isQuizEligible}
-              onClick={openQuizBattles}
-              type="button"
-            >
-              Attend quiz
-            </button>
-          </article>
-        </div>
-
-        <div className="level-progress level-progress-animated">
-          <div className="level-progress-fill" style={{ width: `${levelProgress}%` }} />
-        </div>
-
-        <div className="next-reward-strip">
-          <span>Next level</span>
-          <strong>{xpToNext} XP needed</strong>
-        </div>
-      </div>
+          </section>
+        </div>,
+        document.body,
+      )}
     </section>
   );
 }

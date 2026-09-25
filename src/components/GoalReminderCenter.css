@@ -177,11 +177,6 @@ body .goal-reminder-launcher-button:focus-visible {
   display: flex;
   flex: 1;
   align-items: center;
-  gap: 9px;
-  min-width: 0;
-}
-
-.goal-reminder-dialog-title > div {
   min-width: 0;
 }
 
@@ -206,25 +201,6 @@ body .goal-reminder-launcher-button:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.goal-reminder-dialog-mark {
-  position: relative;
-  display: grid;
-  flex: 0 0 36px;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  color: #fff;
-  background: var(--gradient-primary);
-  border-radius: 11px;
-  box-shadow: none;
-}
-
-.goal-reminder-dialog-mark svg:last-child {
-  position: absolute;
-  right: 5px;
-  top: 5px;
 }
 
 .goal-reminder-header-actions {
@@ -1143,13 +1119,6 @@ body.has-bg-image .planner-goal-composer-popover {
     flex-wrap: nowrap;
     gap: 6px;
     padding: 8px 10px;
-  }
-
-  .goal-reminder-dialog-mark {
-    flex-basis: 32px;
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
   }
 
   .goal-reminder-dialog-title h2 {

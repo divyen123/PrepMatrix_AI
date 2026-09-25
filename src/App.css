@@ -18807,11 +18807,6 @@ body .sidebar-pet-menu > button:hover {
   min-width: 0;
 }
 
-.sidebar-widgets > .about-info-btn {
-  flex: 0 0 42px;
-}
-
-
 body .sidebar-pet-button {
   width: 60px;
   height: 62px;
@@ -22989,26 +22984,6 @@ body.dark .db-search-input:focus,
   opacity: 0.75;
 }
 
-.db-search-send {
-  flex-shrink: 0;
-  border: none;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.8rem;
-  font-weight: 700;
-  padding: 0.3rem 1rem;
-  border-radius: 999px;
-  cursor: pointer;
-  min-height: unset;
-  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
-}
-
-.db-search-send:hover {
-  background: var(--accent-strong);
-  transform: scale(1.05);
-  box-shadow: 0 2px 12px var(--accent-soft);
-}
-
 .db-search-send:focus-visible,
 .db-command-option:focus-visible {
   outline: 2px solid var(--accent);
@@ -23912,6 +23887,22 @@ body .sidebar-game-town-link:focus-visible {
   flex-direction: column;
   align-items: center;
   gap: 8px;
+}
+
+body .sidebar-footer-actions :is(.about-info-btn, .settings-icon-btn),
+body .sidebar-footer-actions :is(.about-info-btn, .settings-icon-btn):is(:hover, :focus-visible, .active) {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+}
+
+body .sidebar-footer-actions :is(.about-info-btn, .settings-icon-btn):is(:hover, :focus-visible, .active) {
+  color: var(--text) !important;
 }
 
 .parent-corner-lock-control {

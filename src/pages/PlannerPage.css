@@ -271,9 +271,12 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
 .planner-subpage-title-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   width: 100%;
+}
+
+.planner-subpage-title-row h2 {
+  margin: 0;
 }
 
 #planner-recall-badge-target {
@@ -283,14 +286,21 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
 }
 
 .planner-subpage-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
+  display: block;
 }
 
 .planner-subpage-header .section-intro {
   min-width: 0;
-  flex: 1;
+  width: 100%;
+}
+
+body .planner-route-page .planner-subpage-title-row .planner-subpage-back.page-back-control {
+  margin-top: 0 !important;
+  transform: none !important;
+}
+
+body .planner-route-page .planner-subpage-title-row .planner-subpage-back.page-back-control:hover {
+  transform: translateX(-3px) !important;
 }
 
 .planner-subpage-back {
@@ -433,7 +443,7 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
     border-radius: 20px;
   }
 
-  .planner-subpage-header {
+  .planner-subpage-title-row {
     gap: 10px;
   }
 

@@ -60,6 +60,15 @@ body .momentum-history-dialog .momentum-history-close:focus-visible { outline: 2
   overflow: visible;
 }
 
+/* The generic card shine starts outside an unclipped card and can cross into Study momentum. */
+body .global-momentum-card::before {
+  opacity: 0 !important;
+}
+
+body .global-momentum-card:hover::before {
+  opacity: 0.38 !important;
+}
+
 .global-momentum-card > .gamification-orb {
   display: none !important;
 }

@@ -12,7 +12,7 @@ function sourceBetween(startMarker, endMarker) {
   return appSource.slice(start, end);
 }
 
-test("keeps the workspace background out of both the restored intro and lock scene", () => {
+test("keeps the workspace background out of the restored intro and nests it in the lock scene", () => {
   assert.match(
     appSource,
     /\{hasActiveBackgroundImage\s*&&\s*!appLocked\s*&&\s*<AppBackground\s*\/>\}/u,
@@ -24,6 +24,10 @@ test("keeps the workspace background out of both the restored intro and lock sce
   assert.match(
     appSource,
     /\{appLocked\s*&&\s*!entrySplash\s*&&\s*userProfile\s*&&[\s\S]*?<AppLockOverlay/u,
+  );
+  assert.match(
+    appSource,
+    /<AppLockOverlay\s+[\s\S]*?background=\{hasActiveBackgroundImage\s*\?\s*<AppBackground\s*\/>\s*:\s*null\}/u,
   );
 
   const lockHandler = sourceBetween(

@@ -47,7 +47,6 @@ export default function GlobalMomentum({ codeRewardsControl, data, error, onRetr
         );
       })}
     </div>
-    <div className="level-progress level-progress-animated" aria-label={`Global level progress: ${progress}%`}><div className="level-progress-fill" style={{ width: `${progress}%` }} /></div>
     <div className="next-reward-strip"><span>Next level</span><strong>{100 - progress} XP needed</strong></div>
   </>;
 }

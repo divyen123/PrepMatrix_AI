@@ -98,6 +98,7 @@ function NotesPage({
   const [editNotePriority, setEditNotePriority] = useState("Medium");
   const noteDetailsModalRef = useRef(null);
   const noteDetailsCloseRef = useRef(null);
+  const notesLoadMoreRef = useRef(null);
   const noteEditTopicRef = useRef(null);
   const noteEditTriggerRef = useRef(null);
   const noteDialogEditingRef = useRef(false);
@@ -677,12 +678,19 @@ function NotesPage({
   const notesTotalPages = Math.max(1, Math.ceil(filteredNotes.length / NOTES_PER_PAGE));
   const paginatedNotes = filteredNotes.slice(0, notesPage * NOTES_PER_PAGE);
 
-  const handleNotesScroll = (event) => {
-    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
-    if (scrollHeight - scrollTop <= clientHeight + 100) {
-      setNotesPage((current) => Math.min(current + 1, notesTotalPages));
-    }
-  };
+  useEffect(() => {
+    const loadMore = notesLoadMoreRef.current;
+    if (!loadMore || notesPage >= notesTotalPages || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) {
+        setNotesPage((current) => Math.min(current + 1, notesTotalPages));
+      }
+    }, { rootMargin: "240px 0px" });
+
+    observer.observe(loadMore);
+    return () => observer.disconnect();
+  }, [notesPage, notesTotalPages]);
 
   useEffect(() => {
     setNotesPage(1);
@@ -798,21 +806,20 @@ function NotesPage({
               </div>
             </div>
           </div>
+          {notes.length > 0 && (
+            <label className="stored-search-field notes-mobile-search">
+              <Search size={16} />
+              <input
+                aria-label="Search stored notes"
+                onChange={(event) => setNotesSearchQuery(event.target.value)}
+                placeholder="Search by topic, details, or saved topic"
+                type="search"
+                value={notesSearchQuery}
+                ref={notesMobileSearchRef}
+              />
+            </label>
+          )}
         </div>
-
-        {notes.length > 0 && (
-          <label className="stored-search-field notes-mobile-search">
-            <Search size={16} />
-            <input
-              aria-label="Search stored notes"
-              onChange={(event) => setNotesSearchQuery(event.target.value)}
-              placeholder="Search by topic, details, or saved topic"
-              type="search"
-              value={notesSearchQuery}
-              ref={notesMobileSearchRef}
-            />
-          </label>
-        )}
 
 
         {isNotesLoading ? (
@@ -820,7 +827,7 @@ function NotesPage({
         ) : filteredNotes.length === 0 ? (
           <p className="empty-state">No stored notes match your search.</p>
         ) : (
-          <div className="notes-list-grid" onScroll={handleNotesScroll}>
+          <div className="notes-list-grid">
             {paginatedNotes.map((note) => {
               const plannerState = plannerStates.get(note.id) || { state: "unscheduled" };
               const noteStatus = getNoteWorkflowStatus(note, plannerState);
@@ -1028,14 +1035,10 @@ function NotesPage({
           </div>
         )}
 
-        {filteredNotes.length > NOTES_PER_PAGE && (
-          <div className="pagination-bar">
-            <button disabled={notesPage === 1} onClick={() => setNotesPage((current) => current - 1)} type="button">
-              Previous
-            </button>
-            <span>Page {notesPage} of {notesTotalPages}</span>
-            <button disabled={notesPage === notesTotalPages} onClick={() => setNotesPage((current) => current + 1)} type="button">
-              Next
+        {notesPage < notesTotalPages && (
+          <div className="notes-load-more" ref={notesLoadMoreRef}>
+            <button onClick={() => setNotesPage((current) => Math.min(current + 1, notesTotalPages))} type="button">
+              Show more notes
             </button>
           </div>
         )}

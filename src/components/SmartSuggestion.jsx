@@ -70,13 +70,6 @@ function SmartSuggestion({
         ? "Use recover backlog after missed sessions to keep the plan realistic."
         : "Your planner has no pending workload right now.",
     },
-    {
-      label: "Rhythm",
-      title: `${metrics.completionRate}% complete`,
-      detail: metrics.completionRate >= 50
-        ? "Keep the current rhythm and protect revision time."
-        : "Complete one planned task to restart momentum today.",
-    },
   ];
 
   return (

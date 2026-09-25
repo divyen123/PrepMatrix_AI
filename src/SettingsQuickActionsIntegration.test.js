@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const appSource = readFileSync(new URL("./App.jsx", import.meta.url), "utf8");
+const appStyles = readFileSync(new URL("./App.css", import.meta.url), "utf8");
 const settingsSource = readFileSync(new URL("./pages/SettingsPage.jsx", import.meta.url), "utf8");
 const clearDataDialogSource = readFileSync(new URL("./components/SettingsClearDataDialog.jsx", import.meta.url), "utf8");
 
@@ -17,6 +18,21 @@ test("wires settings quick actions to real app workflows", () => {
   assert.match(appSource, /const handleCheckForUpdates = async \(\) => \{[\s\S]*?registration\.update\(\)/u);
   assert.match(appSource, /const handleRestartVoiceAssistant = \(\) => \{[\s\S]*?pauseWakeMode[\s\S]*?setWakeMode/u);
   assert.match(appSource, /onLogout=\{\(\) => \{[\s\S]*?setLogoutReturnsToLock\(false\)[\s\S]*?setLogoutConfirmOpen\(true\)/u);
+});
+
+test("stacks bare About and Settings icons in the profile footer", () => {
+  const widgetsStart = appSource.indexOf('<div className="sidebar-widgets">');
+  const footerStart = appSource.indexOf('<div className="sidebar-footer"', widgetsStart);
+  const footerActionsStart = appSource.indexOf('<div className="sidebar-footer-actions">', footerStart);
+
+  assert.ok(widgetsStart >= 0 && widgetsStart < footerStart && footerStart < footerActionsStart);
+  assert.doesNotMatch(appSource.slice(widgetsStart, footerStart), /className="about-info-btn"/u);
+  assert.match(appSource.slice(footerActionsStart), /className="about-info-btn"[\s\S]*?<SettingsContextMenu/u);
+  assert.match(appStyles, /\.sidebar-footer-actions\s*\{[^}]*flex-direction:\s*column;/u);
+  assert.match(
+    appStyles,
+    /body \.sidebar-footer-actions :is\(\.about-info-btn, \.settings-icon-btn\)[\s\S]*?background: transparent !important;[\s\S]*?border: 0 !important;[\s\S]*?box-shadow: none !important;/u,
+  );
 });
 
 test("supports persistent Light, Dark, and System appearance choices", () => {
