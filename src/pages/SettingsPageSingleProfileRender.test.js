@@ -31,6 +31,7 @@ test("keeps the three horizontal Appearance gauges equal on one desktop row", ()
     stylesheet,
     /\.settings-page \.settings-slosh-control \.settings-appearance-gauge\s*\{\s*width:\s*min\(84%, 360px\);/u,
   );
+  assert.match(stylesheet, /\.settings-page \.settings-slosh-control \.settings-appearance-gauge\s*\{[^}]*height:\s*28px;/u);
   assert.match(
     stylesheet,
     /@media \(max-width: 700px\)[\s\S]*?\.settings-page \.settings-glass-controls\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);[\s\S]*?\.settings-page \.settings-background-image-controls\s*\{[\s\S]*?display:\s*grid;/u,
@@ -47,7 +48,7 @@ test("keeps Custom in the background gallery and strengthens wake-slider contras
     componentSource,
     /aria-label=\{customBackgroundPreset \? "Change custom background image" : "Choose a custom background image"\}/u,
   );
-  assert.match(componentSource, /function SettingsSloshControl\([\s\S]*?<SloshGauge[\s\S]*?height=\{42\}[\s\S]*?interactive[\s\S]*?showValue=\{false\}/u);
+  assert.match(componentSource, /function SettingsSloshControl\([\s\S]*?<SloshGauge[\s\S]*?height=\{28\}[\s\S]*?interactive[\s\S]*?radius=\{14\}[\s\S]*?showValue=\{false\}/u);
   assert.match(
     stylesheet,
     /\.settings-page \.settings-bg-presets-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(7, minmax\(0, 1fr\)\);/u,

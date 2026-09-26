@@ -899,7 +899,7 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 
 .settings-page .settings-slosh-control .settings-appearance-gauge {
   width: min(84%, 360px);
-  height: 42px;
+  height: 28px;
   border: 1px solid var(--settings-slosh-edge);
   box-shadow: inset 0 1px 2px color-mix(in srgb, var(--text) 12%, transparent);
 }

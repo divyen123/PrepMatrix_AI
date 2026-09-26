@@ -482,10 +482,11 @@ function SettingsSloshControl({
         className="settings-appearance-gauge"
         disabled={disabled}
         glassColor="var(--settings-slosh-glass)"
-        height={42}
+        height={28}
         interactive
         liquidColor="var(--settings-slosh-liquid)"
         onChange={handleChange}
+        radius={14}
         showValue={false}
         step={range > 0 ? (step / range) * 100 : 1}
         ticks={0}
