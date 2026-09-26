@@ -1,6 +1,6 @@
 .settings-profile-delete-backdrop {
   z-index: 2450;
-  background: rgba(3, 8, 18, 0.76) !important;
+  background: rgba(0, 0, 0, 0.76) !important;
   backdrop-filter: blur(18px) saturate(72%) brightness(72%) !important;
   -webkit-backdrop-filter: blur(18px) saturate(72%) brightness(72%) !important;
   opacity: 0;
@@ -50,7 +50,7 @@
 body.has-bg-image .confirm-modal.settings-profile-delete-dialog {
   border-color: transparent !important;
   background:
-    linear-gradient(rgb(var(--bg-surface-rgb)), rgb(var(--bg-surface-rgb))) padding-box,
+    linear-gradient(color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%, #101010 80%), color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%, #101010 80%)) padding-box,
     linear-gradient(135deg, rgba(var(--accent-rgb), 0.5), rgba(var(--accent-rgb), 0.18)) border-box !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;

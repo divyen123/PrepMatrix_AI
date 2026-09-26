@@ -47,5 +47,6 @@ test("supports modal dismissal, focus containment, and an opaque theme-aware sur
   assert.match(stylesheet, /\.settings-clear-data-backdrop\s*\{[\s\S]*?backdrop-filter:\s*blur\(14px\)/u);
   assert.match(stylesheet, /body \.confirm-modal\.settings-clear-data-dialog[\s\S]*?width:\s*min\(470px, 100%\)/u);
   assert.match(stylesheet, /body:not\(\.dark\) \.confirm-modal\.settings-clear-data-dialog[\s\S]*?background:\s*#ffffff/u);
-  assert.match(stylesheet, /body\.dark \.confirm-modal\.settings-clear-data-dialog[\s\S]*?background:\s*#111722/u);
+  assert.match(stylesheet, /body\.dark \.confirm-modal\.settings-clear-data-dialog[\s\S]*?background:\s*var\(--bg\)/u);
+  assert.match(stylesheet, /body\.has-bg-image \.confirm-modal\.settings-clear-data-dialog[\s\S]*?background:\s*color-mix\(in srgb, rgb\(var\(--bg-surface-rgb/u);
 });

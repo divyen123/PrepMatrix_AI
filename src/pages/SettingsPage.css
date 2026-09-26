@@ -198,9 +198,9 @@ body.dark .settings-page .delete-confirm-popover .secondary-btn:disabled {
 
 .settings-clear-data-backdrop {
   z-index: 2520;
-  background: rgba(3, 8, 18, 0.68) !important;
-  backdrop-filter: blur(14px) saturate(72%) brightness(70%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(72%) brightness(70%) !important;
+  background: rgba(0, 0, 0, 0.48) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
 }
 
 body .confirm-modal.settings-clear-data-dialog {
@@ -219,8 +219,17 @@ body:not(.dark) .confirm-modal.settings-clear-data-dialog {
 }
 
 body.dark .confirm-modal.settings-clear-data-dialog {
-  background: #111722 !important;
+  background: var(--bg) !important;
   box-shadow: 0 32px 100px rgba(0, 0, 0, 0.66) !important;
+}
+
+body.has-bg-image .confirm-modal.settings-clear-data-dialog {
+  background: color-mix(in srgb, rgb(var(--bg-surface-rgb, 10, 10, 10)) 20%, #101010) !important;
+}
+
+body.dark .settings-clear-data-backdrop,
+body.has-bg-image .settings-clear-data-backdrop {
+  background: rgba(0, 0, 0, 0.58) !important;
 }
 
 .settings-clear-data-dialog__icon {
@@ -889,7 +898,7 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 }
 
 .settings-page .settings-slosh-control .settings-appearance-gauge {
-  width: 100%;
+  width: min(84%, 360px);
   height: 42px;
   border: 1px solid var(--settings-slosh-edge);
   box-shadow: inset 0 1px 2px color-mix(in srgb, var(--text) 12%, transparent);
@@ -1547,9 +1556,9 @@ body .settings-page button.settings-profile-name-action.is-edit:disabled {
 
 .settings-academic-confirm-backdrop {
   z-index: 2450;
-  background: rgba(3, 8, 18, 0.76) !important;
-  backdrop-filter: blur(18px) saturate(72%) brightness(72%) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(72%) brightness(72%) !important;
+  background: rgba(0, 0, 0, 0.48) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -1557,6 +1566,11 @@ body .settings-page button.settings-profile-name-action.is-edit:disabled {
   transition:
     opacity 180ms ease,
     visibility 0s linear 180ms;
+}
+
+body.dark .settings-academic-confirm-backdrop,
+body.has-bg-image .settings-academic-confirm-backdrop {
+  background: rgba(0, 0, 0, 0.58) !important;
 }
 
 .settings-academic-confirm-backdrop.is-open {
@@ -1597,7 +1611,7 @@ body .settings-page button.settings-profile-name-action.is-edit:disabled {
 body.has-bg-image:not(.no-glass-cards) .confirm-modal.settings-academic-confirm,
 body.has-bg-image.no-glass-cards .confirm-modal.settings-academic-confirm {
   background:
-    linear-gradient(rgb(var(--bg-surface-rgb)), rgb(var(--bg-surface-rgb))) padding-box,
+    linear-gradient(color-mix(in srgb, rgb(var(--bg-surface-rgb, 10, 10, 10)) 20%, #101010), color-mix(in srgb, rgb(var(--bg-surface-rgb, 10, 10, 10)) 20%, #101010)) padding-box,
     linear-gradient(135deg, rgba(var(--accent-rgb), 0.5), rgba(var(--accent-rgb), 0.18)) border-box !important;
   border-color: transparent !important;
   backdrop-filter: none !important;

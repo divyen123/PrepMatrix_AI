@@ -675,7 +675,7 @@ body.has-bg-image.no-glass-cards .exam-page .exam-feature-card:not(:disabled) {
 }
 
 .exam-generation-layer.is-centered {
-  background: rgba(3, 7, 18, 0.5);
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(2px);
 }
 
@@ -699,10 +699,10 @@ body.has-bg-image.no-glass-cards .exam-page .exam-feature-card:not(:disabled) {
   padding: 20px;
   grid-template-columns: 46px minmax(0, 1fr);
   gap: 13px;
-  color: #edf3fb;
+  color: var(--text);
   border: 1px solid rgba(var(--accent-rgb), 0.34);
   border-radius: 18px;
-  background: rgba(12, 19, 33, 0.97);
+  background: var(--surface-strong);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.44), 0 0 35px rgba(var(--accent-rgb), 0.1);
   transform: translate(-50%, -50%);
   transition:
@@ -750,14 +750,14 @@ body.has-bg-image.no-glass-cards .exam-page .exam-feature-card:not(:disabled) {
 }
 
 .exam-generation-notice__copy strong {
-  color: #f8fafc;
+  color: var(--text);
   font-size: 0.92rem;
 }
 
 .exam-generation-notice__copy p,
 .exam-generation-notice small {
   margin: 0;
-  color: #9cacc2;
+  color: var(--text-muted);
   font-size: 0.68rem;
   line-height: 1.5;
 }
@@ -797,7 +797,7 @@ body.has-bg-image.no-glass-cards .exam-page .exam-feature-card:not(:disabled) {
 }
 
 .exam-generation-notice__timing b {
-  color: #dbeafe;
+  color: var(--text);
   font-weight: 720;
 }
 
@@ -1584,7 +1584,7 @@ body .exam-compact-timer .exam-compact-timer-modes button::after {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(5, 9, 18, 0.72);
+  background: rgba(0, 0, 0, 0.48);
   backdrop-filter: blur(10px);
 }
 
@@ -1771,7 +1771,7 @@ body .exam-compact-timer .exam-compact-timer-modes button::after {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(5, 9, 18, 0.82);
+  background: rgba(0, 0, 0, 0.58);
   backdrop-filter: blur(12px);
 }
 
@@ -2573,7 +2573,7 @@ body .exam-compact-timer .exam-compact-timer-modes button::after {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(5, 9, 18, 0.82);
+  background: rgba(0, 0, 0, 0.58);
   backdrop-filter: blur(12px);
 }
 
@@ -2582,10 +2582,10 @@ body .exam-compact-timer .exam-compact-timer-modes button::after {
   justify-items: center;
   width: min(430px, 100%);
   padding: 28px;
-  color: #edf3fb;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 18px;
-  background: #111a2b;
+  background: var(--surface-strong);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
   text-align: center;
 }
@@ -2596,7 +2596,7 @@ body .exam-compact-timer .exam-compact-timer-modes button::after {
 
 .exam-fullscreen-gate__card p {
   margin: 0 0 18px;
-  color: #9cacc2;
+  color: var(--text-muted);
   font-size: 0.74rem;
   line-height: 1.55;
 }
@@ -2607,17 +2607,17 @@ body .exam-compact-timer .exam-compact-timer-modes button::after {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(3, 7, 16, 0.7);
+  background: rgba(0, 0, 0, 0.48);
   backdrop-filter: blur(8px);
 }
 
 .exam-confirm-dialog {
   width: min(420px, 100%);
   padding: 24px;
-  color: #edf3fb;
-  border: 1px solid rgba(255, 255, 255, 0.13);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 17px;
-  background: #111a2b;
+  background: var(--surface-strong);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
 }
 
@@ -2627,7 +2627,7 @@ body .exam-compact-timer .exam-compact-timer-modes button::after {
 
 .exam-confirm-dialog p {
   margin: 0;
-  color: #9cacc2;
+  color: var(--text-muted);
   font-size: 0.75rem;
   line-height: 1.5;
 }
@@ -2642,10 +2642,10 @@ body .exam-compact-timer .exam-compact-timer-modes button::after {
 .exam-confirm-dialog button {
   min-height: 34px;
   padding: 0 11px;
-  color: #dce5f1;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-muted);
   font-size: 0.68rem;
 }
 
@@ -2655,7 +2655,22 @@ body .exam-compact-timer .exam-compact-timer-modes button::after {
 }
 
 body.has-bg-image .exam-result-modal > section {
-  background: rgba(var(--bg-surface-rgb), 0.96);
+  background: color-mix(in srgb, rgb(var(--bg-surface-rgb, 10, 10, 10)) 20%, #101010);
+}
+
+body.dark .exam-result-modal,
+body.dark .exam-confirm-layer,
+body.has-bg-image .exam-result-modal,
+body.has-bg-image .exam-confirm-layer {
+  background: rgba(0, 0, 0, 0.58);
+}
+
+body.has-bg-image :is(.exam-certificate-dialog, .exam-fullscreen-gate__card, .exam-confirm-dialog) {
+  background: color-mix(in srgb, rgb(var(--bg-surface-rgb, 10, 10, 10)) 20%, #101010);
+}
+
+body.has-bg-image .exam-generation-notice {
+  background: color-mix(in srgb, rgb(var(--bg-surface-rgb, 10, 10, 10)) 20%, #101010);
 }
 
 @media (max-width: 1100px) {

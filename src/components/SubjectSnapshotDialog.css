@@ -5,7 +5,7 @@
   display: grid;
   place-items: center;
   padding: 18px;
-  background: rgba(5, 9, 18, 0.52);
+  background: rgba(0, 0, 0, 0.52);
   backdrop-filter: blur(10px) saturate(120%);
   -webkit-backdrop-filter: blur(10px) saturate(120%);
   animation: subjectSnapshotBackdropIn 170ms ease-out both;
@@ -410,9 +410,10 @@ body .subject-snapshot-dialog button:focus-visible {
 }
 
 body.has-bg-image .subject-snapshot-dialog {
+  --subject-snapshot-theme-surface: color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%, #101010 80%);
   background:
     radial-gradient(circle at 8% 0%, rgba(var(--accent-rgb), 0.14), transparent 34%),
-    rgba(var(--bg-surface-rgb), 0.94) !important;
+    color-mix(in srgb, var(--subject-snapshot-theme-surface) 94%, transparent) !important;
   border-color: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(24px) saturate(118%);
   -webkit-backdrop-filter: blur(24px) saturate(118%);
@@ -429,7 +430,7 @@ body.no-glass-cards .subject-snapshot-backdrop {
 }
 
 body.has-bg-image.no-glass-cards .subject-snapshot-dialog {
-  background: rgba(var(--bg-surface-rgb), 0.985) !important;
+  background: var(--subject-snapshot-theme-surface) !important;
 }
 
 body.has-bg-image.no-glass-cards .subject-snapshot-footer {

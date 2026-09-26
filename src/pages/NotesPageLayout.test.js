@@ -84,7 +84,7 @@ test("keeps opened note details fully opaque while the page backdrop stays dimme
   );
   assert.match(
     styles,
-    /body\.dark \.note-details-dialog\s*\{\s*--note-details-solid-surface: #121b2d;\s*\}/u,
+    /body\.dark \.note-details-dialog\s*\{\s*--note-details-solid-surface: var\(--bg, #0f151a\);\s*\}/u,
   );
   assert.match(
     styles,
@@ -94,4 +94,14 @@ test("keeps opened note details fully opaque while the page backdrop stays dimme
     styles,
     /body\.no-glass-cards \.note-details-dialog\s*\{[\s\S]*?background: var\(--note-details-solid-surface\);/u,
   );
+});
+
+test("opened note surfaces follow the active palette or image background", () => {
+  assert.match(source, /className="note-details-overlay note-opened-overlay"/u);
+  assert.match(source, /className="note-details-dialog note-opened-dialog"/u);
+  assert.match(styles, /\.note-details-overlay\.note-opened-overlay\s*\{[^}]*background: rgba\(0, 0, 0, 0\.38\);/u);
+  assert.match(styles, /body\.has-bg-image \.note-details-overlay\.note-opened-overlay\s*\{[^}]*background: rgba\(0, 0, 0, 0\.58\);/u);
+  assert.match(styles, /body\.dark \.note-details-dialog\.note-opened-dialog\s*\{[^}]*--note-details-solid-surface: var\(--bg, #ffffff\);/u);
+  assert.match(styles, /body\.has-bg-image \.note-details-dialog\.note-opened-dialog\s*\{[^}]*--bg-surface-rgb[^}]*backdrop-filter: blur\(18px\);/u);
+  assert.match(styles, /body\.has-bg-image\.no-glass-cards \.note-details-dialog\.note-opened-dialog\s*\{[^}]*--bg-surface-rgb[^}]*backdrop-filter: none;/u);
 });

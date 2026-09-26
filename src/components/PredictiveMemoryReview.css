@@ -505,7 +505,7 @@ body.has-bg-image.no-glass-cards .memory-review-panel.is-standalone .memory-revi
   padding: clamp(12px, 3vw, 28px);
   overflow: hidden;
   overscroll-behavior: contain;
-  background: rgba(15, 23, 42, 0.58);
+  background: rgba(0, 0, 0, 0.58);
   -webkit-backdrop-filter: blur(14px) saturate(0.72) brightness(0.76);
   backdrop-filter: blur(14px) saturate(0.72) brightness(0.76);
   opacity: 0;
@@ -548,7 +548,7 @@ body.dark .memory-review-dialog {
 }
 
 body.has-bg-image .memory-review-dialog {
-  background: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  background: color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%, #101010 80%);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }

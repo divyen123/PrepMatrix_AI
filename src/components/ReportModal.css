@@ -5,7 +5,7 @@
   display: grid;
   place-items: center;
   padding: 18px;
-  background: rgba(5, 9, 18, 0.55);
+  background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   animation: reportModalFadeIn 0.22s ease-out both;
@@ -107,10 +107,10 @@
   }
 }
 
-/* Wallpaper themes publish a palette-matched opaque surface of their own. */
+/* Keep the wallpaper visible around a low-tint, theme-derived report surface. */
 body.has-bg-image .report-modal {
-  --report-modal-surface: rgb(var(--bg-surface-rgb));
-  --report-panel-surface: color-mix(in srgb, rgb(var(--bg-surface-rgb)) 96%, var(--accent) 4%);
+  --report-modal-surface: color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%, #101010 80%);
+  --report-panel-surface: color-mix(in srgb, var(--report-modal-surface) 96%, var(--accent) 4%);
   --report-panel-border: color-mix(in srgb, var(--border) 88%, var(--accent) 12%);
 }
 

@@ -1062,7 +1062,7 @@ function NotesPage({
 
       {selectedNote && typeof document !== "undefined" && createPortal(
         <div
-          className="note-details-overlay"
+          className="note-details-overlay note-opened-overlay"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeNoteDetails();
           }}
@@ -1072,7 +1072,7 @@ function NotesPage({
             aria-describedby={isNoteDialogEditing ? "note-edit-help" : "note-details-description"}
             aria-labelledby="note-details-title"
             aria-modal="true"
-            className="note-details-dialog"
+            className="note-details-dialog note-opened-dialog"
             dialogRef={noteDetailsModalRef}
             disabled={isNoteDialogEditing || noteDialogDeletePending}
             id="note-details-dialog"

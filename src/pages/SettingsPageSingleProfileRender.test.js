@@ -29,6 +29,10 @@ test("keeps the three horizontal Appearance gauges equal on one desktop row", ()
   );
   assert.match(
     stylesheet,
+    /\.settings-page \.settings-slosh-control \.settings-appearance-gauge\s*\{\s*width:\s*min\(84%, 360px\);/u,
+  );
+  assert.match(
+    stylesheet,
     /@media \(max-width: 700px\)[\s\S]*?\.settings-page \.settings-glass-controls\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);[\s\S]*?\.settings-page \.settings-background-image-controls\s*\{[\s\S]*?display:\s*grid;/u,
   );
 });

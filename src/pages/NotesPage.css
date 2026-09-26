@@ -935,7 +935,7 @@ body.has-bg-image .notes-page .planner-date-menu {
 }
 
 body.dark .note-details-dialog {
-  --note-details-solid-surface: #121b2d;
+  --note-details-solid-surface: var(--bg, #0f151a);
 }
 
 body.has-bg-image .note-details-dialog {
@@ -946,6 +946,40 @@ body.has-bg-image .note-details-dialog {
 
 body.no-glass-cards .note-details-dialog {
   background: var(--note-details-solid-surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* The opened note follows the selected canvas instead of a fixed navy sheet. */
+.note-details-overlay.note-opened-overlay {
+  background: rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+body.dark .note-details-overlay.note-opened-overlay,
+body.has-bg-image .note-details-overlay.note-opened-overlay {
+  background: rgba(0, 0, 0, 0.58);
+}
+
+.note-details-dialog.note-opened-dialog,
+body.dark .note-details-dialog.note-opened-dialog {
+  --note-details-solid-surface: var(--bg, #ffffff);
+  background: var(--note-details-solid-surface);
+}
+
+body.has-bg-image .note-details-dialog.note-opened-dialog {
+  background: color-mix(
+    in srgb,
+    rgba(var(--bg-surface-rgb, 10, 10, 10), 0.76) 25%,
+    rgba(0, 0, 0, 0.76)
+  );
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+body.has-bg-image.no-glass-cards .note-details-dialog.note-opened-dialog {
+  background: color-mix(in srgb, rgb(var(--bg-surface-rgb, 10, 10, 10)) 25%, #080808);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }

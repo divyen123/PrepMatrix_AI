@@ -17,12 +17,16 @@
   animation: study-plan-preview-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+body.has-bg-image .study-plan-preview-dialog {
+  background: color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%, #101010 80%);
+}
+
 .study-plan-preview-dialog[open].is-closing {
   animation: study-plan-preview-exit 200ms ease-in both;
 }
 
 .study-plan-preview-dialog::backdrop {
-  background: rgb(3 8 15 / 65%);
+  background: rgb(0 0 0 / 65%);
   backdrop-filter: blur(8px);
 }
 

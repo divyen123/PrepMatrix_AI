@@ -74,7 +74,7 @@ test("ReportModal popup follows the selected canvas, accent, and wallpaper theme
   assert.match(reportModalCss, /\.report-modal\s*\{[\s\S]*?backdrop-filter:\s*none !important;/u);
   assert.match(
     reportModalCss,
-    /body\.has-bg-image \.report-modal\s*\{[\s\S]*?--report-modal-surface:\s*rgb\(var\(--bg-surface-rgb\)\);/u,
+    /body\.has-bg-image \.report-modal\s*\{[\s\S]*?--report-modal-surface:\s*color-mix\(in srgb, rgb\(var\(--bg-surface-rgb, 16, 21, 26\)\) 20%, #101010 80%\);/u,
   );
   assert.doesNotMatch(reportModalCss, /background:\s*#(?:ffffff|121c26|111a24) !important;/u);
 });

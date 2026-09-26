@@ -7,7 +7,7 @@
   padding: 20px;
   overflow: hidden;
   overscroll-behavior: contain;
-  background: rgba(3, 7, 14, 0.68);
+  background: rgba(0, 0, 0, 0.68);
   backdrop-filter: blur(14px) brightness(0.68) saturate(0.82);
   -webkit-backdrop-filter: blur(14px) brightness(0.68) saturate(0.82);
   animation: learningSubjectMasteryBackdropIn 170ms ease-out both;
@@ -499,9 +499,10 @@ body .learning-subject-mastery-dialog .learning-subject-mastery-footer button:fo
 }
 
 body.has-bg-image:not(.no-glass-cards) .learning-subject-mastery-dialog {
+  --learning-mastery-theme-surface: color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%, #101010 80%);
   background:
     radial-gradient(circle at 8% 0%, rgba(var(--accent-rgb), 0.14), transparent 34%),
-    rgba(var(--bg-surface-rgb), 0.94) !important;
+    color-mix(in srgb, var(--learning-mastery-theme-surface) 94%, transparent) !important;
   border-color: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(24px) saturate(118%);
   -webkit-backdrop-filter: blur(24px) saturate(118%);
@@ -526,7 +527,7 @@ body.has-bg-image .learning-subject-mastery-footer {
 
 body.has-bg-image.no-glass-cards .learning-subject-mastery-dialog,
 body.has-bg-image.no-glass-cards .learning-subject-mastery-footer {
-  background: rgba(var(--bg-surface-rgb), 0.985) !important;
+  background: color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%, #101010 80%) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }

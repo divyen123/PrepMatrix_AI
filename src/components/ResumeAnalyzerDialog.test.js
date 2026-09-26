@@ -67,6 +67,16 @@ test("analyzer stays mounted during its fade-out before closing", () => {
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/u);
 });
 
+test("analyzer backdrop and cards use the active background theme", () => {
+  const css = readFileSync(new URL("./ResumeAnalyzerDialog.css", import.meta.url), "utf8");
+  assert.match(css, /\.resume-analyzer-dialog-backdrop\s*\{[^}]*background: rgba\(0, 0, 0, 0\.38\);/u);
+  assert.match(css, /body\.has-bg-image \.resume-analyzer-dialog-backdrop\s*\{[^}]*background: rgba\(0, 0, 0, 0\.58\);/u);
+  assert.match(css, /\.resume-analyzer-page\s*\{[^}]*--ra-panel: color-mix\(in srgb, var\(--bg, #ffffff\)[^}]*background: var\(--bg, #ffffff\);/u);
+  assert.match(css, /body\.has-bg-image:not\(\.no-glass-cards\) \.resume-analyzer-page\s*\{[^}]*--ra-panel: rgba\(var\(--bg-surface-rgb[^}]*background: color-mix\([^}]*backdrop-filter: blur\(20px\);/u);
+  assert.match(css, /body\.has-bg-image\.no-glass-cards \.resume-analyzer-page\s*\{[^}]*--bg-surface-rgb[^}]*backdrop-filter: none;/u);
+  assert.doesNotMatch(css, /\.resume-analyzer-dialog-backdrop\s*\{[^}]*background: rgba\(3, 8, 17,/u);
+});
+
 test("formatResumeReviewNote and getResumeReviewPriority format notes accurately", async () => {
   const vite = await createServer({ appType: "custom", logLevel: "silent", server: { middlewareMode: true } });
   try {
@@ -150,4 +160,3 @@ test("analyzer dialog has save to notes handler and styling contracts", () => {
   assert.match(css, /\.resume-analyzer-save-button/u);
   assert.match(css, /\.resume-analyzer-save-button\.is-saved/u);
 });
-

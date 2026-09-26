@@ -5,7 +5,7 @@
   display: grid;
   place-items: center;
   padding: clamp(14px, 3vw, 34px);
-  background: rgba(3, 7, 18, 0.68);
+  background: rgba(0, 0, 0, 0.62);
   backdrop-filter: blur(13px) saturate(0.76);
   -webkit-backdrop-filter: blur(13px) saturate(0.76);
   animation: keyboard-shortcut-backdrop-in 170ms ease both;
@@ -35,10 +35,10 @@
 
 body.has-bg-image:not(.no-glass-cards) .keyboard-shortcut-dialog,
 body.has-bg-image.no-glass-cards .keyboard-shortcut-dialog {
-  --keyboard-dialog-bg: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  --keyboard-dialog-bg: color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%, #101010 80%);
   --keyboard-dialog-group-bg: color-mix(
     in srgb,
-    rgb(var(--bg-surface-rgb, 18, 27, 45)) 92%,
+    var(--keyboard-dialog-bg) 92%,
     var(--text)
   );
   backdrop-filter: none;

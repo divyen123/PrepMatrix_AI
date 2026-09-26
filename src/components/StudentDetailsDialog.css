@@ -5,7 +5,7 @@
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(3, 8, 16, .68);
+  background: rgba(0, 0, 0, .68);
   backdrop-filter: blur(8px);
 }
 .student-details-dialog {
@@ -21,6 +21,7 @@
   color: var(--text);
   box-shadow: 0 24px 80px #0006;
 }
+body.has-bg-image .student-details-dialog { background: color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%, #101010 80%); }
 .student-details-dialog .student-details-close { position: absolute; top: 14px; right: 14px; padding: 7px; border-radius: 10px; }
 .student-details-icon { display: inline-flex; padding: 12px; border-radius: 14px; background: #14b8a61a; color: #14b8a6; }
 .student-details-dialog h2 { margin: 18px 0 8px; font-size: 24px; }

@@ -6,9 +6,14 @@
   place-items: center;
   box-sizing: border-box;
   padding: 18px;
-  background: rgba(3, 8, 17, 0.72);
+  background: rgba(0, 0, 0, 0.38);
   backdrop-filter: blur(10px);
   animation: resume-analyzer-backdrop-in 220ms ease both;
+}
+
+body.dark .resume-analyzer-dialog-backdrop,
+body.has-bg-image .resume-analyzer-dialog-backdrop {
+  background: rgba(0, 0, 0, 0.58);
 }
 
 .resume-analyzer-dialog-backdrop.is-closing {
@@ -18,8 +23,8 @@
 
 .resume-analyzer-page {
   --ra-border: color-mix(in srgb, var(--border, #8491a8) 72%, transparent);
-  --ra-panel: color-mix(in srgb, var(--surface, #182234) 95%, transparent);
-  --ra-soft: color-mix(in srgb, var(--surface-muted, #233047) 82%, transparent);
+  --ra-panel: color-mix(in srgb, var(--bg, #ffffff) 90%, var(--text, #152033));
+  --ra-soft: color-mix(in srgb, var(--bg, #ffffff) 94%, var(--text, #152033));
   --ra-accent: var(--accent, #22c7b7);
   color: var(--text, #eef3fb);
   display: grid;
@@ -30,9 +35,29 @@
   width: min(720px, 100%);
   border: 1px solid var(--ra-border);
   border-radius: 22px;
-  background: var(--surface-strong, #121b2b);
+  background: var(--bg, #ffffff);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
   animation: resume-analyzer-dialog-in 220ms ease both;
+}
+
+body.has-bg-image:not(.no-glass-cards) .resume-analyzer-page {
+  --ra-panel: rgba(var(--bg-surface-rgb, 10, 10, 10), 0.54);
+  --ra-soft: rgba(var(--bg-surface-rgb, 10, 10, 10), 0.4);
+  background: color-mix(
+    in srgb,
+    rgba(var(--bg-surface-rgb, 10, 10, 10), 0.8) 25%,
+    rgba(0, 0, 0, 0.8)
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+body.has-bg-image.no-glass-cards .resume-analyzer-page {
+  --ra-panel: color-mix(in srgb, rgb(var(--bg-surface-rgb, 10, 10, 10)) 25%, #151515);
+  --ra-soft: color-mix(in srgb, rgb(var(--bg-surface-rgb, 10, 10, 10)) 25%, #1a1a1a);
+  background: color-mix(in srgb, rgb(var(--bg-surface-rgb, 10, 10, 10)) 25%, #080808);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .resume-analyzer-dialog-backdrop.is-closing .resume-analyzer-page {

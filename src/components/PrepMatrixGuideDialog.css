@@ -5,7 +5,7 @@
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(5, 9, 18, 0.72);
+  background: rgba(0, 0, 0, 0.62);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   animation: prepGuideFadeIn 200ms ease both;
@@ -35,8 +35,14 @@
 }
 
 body.has-bg-image .prep-guide-dialog {
-  background: rgba(var(--bg-surface-rgb), 0.95);
+  --prep-guide-theme-surface: color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%, #101010 80%);
+  background: color-mix(in srgb, var(--prep-guide-theme-surface) 88%, transparent);
   backdrop-filter: blur(24px);
+}
+
+body.has-bg-image.no-glass-cards .prep-guide-dialog {
+  background: var(--prep-guide-theme-surface);
+  backdrop-filter: none;
 }
 
 .prep-guide-header {

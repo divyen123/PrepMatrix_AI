@@ -8,7 +8,7 @@
   overflow-y: auto;
   background:
     radial-gradient(circle at 68% 18%, rgba(var(--accent-rgb), 0.16), transparent 34%),
-    rgba(3, 8, 20, 0.76);
+    rgba(0, 0, 0, 0.68);
   backdrop-filter: blur(13px);
   opacity: 0;
   pointer-events: none;
@@ -28,7 +28,7 @@
   overflow: visible;
   border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent) 24%);
   border-radius: 22px;
-  background: color-mix(in srgb, rgb(var(--bg-surface-rgb, 18, 27, 45)) 94%, var(--accent) 6%);
+  background: color-mix(in srgb, var(--surface-strong) 94%, var(--accent) 6%);
   box-shadow: 0 34px 90px rgba(0, 0, 0, 0.42);
   color: var(--text);
   opacity: 0;
@@ -232,15 +232,18 @@
 .academic-profile-create-actions .is-spinning { animation: academicProfileCreateSpin 900ms linear infinite; }
 
 body.has-bg-image:not(.no-glass-cards) .academic-profile-create-dialog {
-  background: rgba(
-    var(--bg-surface-rgb, 18, 27, 45),
-    calc(0.36 + (var(--glass-opacity, 0.6) * 0.58))
+  --academic-profile-theme-opacity: calc(0.36 + var(--glass-opacity, 0.6) * 0.58);
+  background: color-mix(
+    in srgb,
+    rgba(var(--bg-surface-rgb, 16, 21, 26), var(--academic-profile-theme-opacity)) 20%,
+    rgba(16, 16, 16, var(--academic-profile-theme-opacity)) 80%
   );
   backdrop-filter: blur(calc(var(--glass-blur, 12px) + 10px)) saturate(1.12);
 }
 
 body.has-bg-image.no-glass-cards .academic-profile-create-dialog {
-  background: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  --academic-profile-theme-surface: color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%, #101010 80%);
+  background: var(--academic-profile-theme-surface);
   backdrop-filter: none;
 }
 

@@ -65,8 +65,15 @@ test('subject landscape uses real planner data and suggests a compact subject re
     assert.doesNotMatch(markup, /legend-dot/u);
     assert.doesNotMatch(markup, /custom-bar-chart|custom-bar-row/u);
     assert.match(markup, /Concept lesson · Quantum computing/u);
-    assert.match(markup, /Refer/u);
+    assert.match(markup, /Resources for Quantum computing/u);
+    assert.match(markup, /Find Quantum computing videos on YouTube/u);
+    assert.match(markup, /Find Quantum computing web notes/u);
+    assert.match(markup, /Search Quantum computing practice and revision resources/u);
+    assert.match(markup, />YouTube <svg/u);
+    assert.match(markup, />Web notes <svg/u);
+    assert.match(markup, />Search <svg/u);
     assert.match(markup, /youtube\.com\/results/u);
+    assert.match(markup, /google\.com\/search/u);
     assert.doesNotMatch(markup, /Close out|Deep focus|full coverage/u);
   } finally {
     await vite.close();
@@ -91,7 +98,10 @@ test('subject landscape prefers a saved material link for the suggested subject'
     assert.match(markup, /Regression walkthrough/u);
     assert.match(markup, /Data analytics · Course site/u);
     assert.match(markup, /href="https:\/\/example\.edu\/analytics\/regression"/u);
-    assert.doesNotMatch(markup, /youtube\.com\/results/u);
+    assert.match(markup, /Open saved material for Data analytics/u);
+    assert.match(markup, /youtube\.com\/results/u);
+    assert.match(markup, /Find Data analytics web notes/u);
+    assert.match(markup, /Search Data analytics practice and revision resources/u);
   } finally {
     await vite.close();
   }
@@ -143,4 +153,5 @@ test('landscape-panel and suggestion container are translucent with reduced opac
   assert.match(appStyles, /\.landscape-panel\s*\{[\s\S]*?opacity:\s*0\.82;/u);
   assert.match(appStyles, /\.landscape-panel\s*\{[\s\S]*?backdrop-filter:\s*blur/u);
   assert.match(appStyles, /\.landscape-panel--suggestion\s*\{[\s\S]*?opacity:\s*0\.76;/u);
+  assert.match(appStyles, /\.landscape-resource-actions\s*\{[\s\S]*?max-width:\s*100%;[\s\S]*?overflow-x:\s*auto;/u);
 });

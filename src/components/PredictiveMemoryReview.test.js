@@ -184,7 +184,7 @@ test("centers an opaque responsive dialog over a dimmed blurred backdrop", () =>
   assert.match(stylesheet, /backdrop-filter: blur\(14px\) saturate\(0\.72\) brightness\(0\.76\)/u);
   assert.match(stylesheet, /\.memory-review-dialog-backdrop\.is-open \{[\s\S]*?opacity: 1;[\s\S]*?pointer-events: auto;/u);
   assert.match(stylesheet, /\.memory-review-dialog \{[\s\S]*?grid-template-rows: auto auto minmax\(0, 1fr\) auto auto;[\s\S]*?background: var\(--bg, #f3f0e8\);[\s\S]*?overflow: hidden;/u);
-  assert.match(stylesheet, /body\.has-bg-image \.memory-review-dialog \{[\s\S]*?rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\)/u);
+  assert.match(stylesheet, /body\.has-bg-image \.memory-review-dialog \{[\s\S]*?color-mix\(in srgb, rgb\(var\(--bg-surface-rgb, 16, 21, 26\)\) 20%, #101010 80%\)/u);
   assert.match(stylesheet, /\.memory-review-questions \{[\s\S]*?overflow-y: auto;[\s\S]*?overscroll-behavior: contain;/u);
   assert.match(stylesheet, /@media \(max-width: 640px\)[\s\S]*?max-height: calc\(100dvh - 16px\)/u);
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?memory-review-dialog-backdrop[\s\S]*?transition-duration: 0\.01ms !important/u);

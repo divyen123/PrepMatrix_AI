@@ -91,7 +91,7 @@ test("supports focus-safe dismissal and locks background scrolling", () => {
 test("uses a blurred backdrop and an opaque surface for every theme", () => {
   assert.match(
     dialogStyles,
-    /\.keyboard-shortcut-dialog-backdrop\s*\{[^}]*position: fixed;[^}]*inset: 0;[^}]*background: rgba\(3, 7, 18, 0\.68\);[^}]*backdrop-filter: blur\(13px\)/u,
+    /\.keyboard-shortcut-dialog-backdrop\s*\{[^}]*position: fixed;[^}]*inset: 0;[^}]*background: rgba\(0, 0, 0, 0\.62\);[^}]*backdrop-filter: blur\(13px\)/u,
   );
   assert.match(
     dialogStyles,
@@ -99,7 +99,7 @@ test("uses a blurred backdrop and an opaque surface for every theme", () => {
   );
   assert.match(
     dialogStyles,
-    /body\.has-bg-image:not\(\.no-glass-cards\) \.keyboard-shortcut-dialog,\s*body\.has-bg-image\.no-glass-cards \.keyboard-shortcut-dialog\s*\{[^}]*--keyboard-dialog-bg: rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\);[^}]*backdrop-filter: none;/u,
+    /body\.has-bg-image:not\(\.no-glass-cards\) \.keyboard-shortcut-dialog,\s*body\.has-bg-image\.no-glass-cards \.keyboard-shortcut-dialog\s*\{[^}]*--keyboard-dialog-bg: color-mix\(in srgb, rgb\(var\(--bg-surface-rgb, 16, 21, 26\)\) 20%, #101010 80%\);[^}]*backdrop-filter: none;/u,
   );
   assert.match(
     dialogStyles,

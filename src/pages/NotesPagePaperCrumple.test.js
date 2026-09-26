@@ -6,7 +6,7 @@ const source = readFileSync(new URL("./NotesPage.jsx", import.meta.url), "utf8")
 const styles = readFileSync(new URL("./NotesPage.css", import.meta.url), "utf8");
 
 test("keeps the full note view free of the Study note badge and status/planner cards", () => {
-  const start = source.indexOf('className="note-details-overlay"');
+  const start = source.indexOf('className="note-details-overlay note-opened-overlay"');
   const end = source.indexOf("</PaperCrumple>", start);
   assert.ok(start >= 0 && end > start, "the full-view modal should contain PaperCrumple");
   const fullView = source.slice(start, end);

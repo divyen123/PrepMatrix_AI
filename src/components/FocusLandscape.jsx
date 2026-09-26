@@ -122,17 +122,6 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
 
     const subject = subjects.find((item) => item.name?.toLocaleLowerCase() === target.subject.toLocaleLowerCase())
       || { name: target.subject, chapters: 1 };
-    const bookmark = normalizeMaterialBookmarks(materialBookmarks).find(
-      (item) => item.subject.toLocaleLowerCase() === target.subject.toLocaleLowerCase()
-    );
-    if (bookmark) {
-      return {
-        title: bookmark.title,
-        details: `${target.subject} · ${bookmark.provider || 'Saved material'}`,
-        href: bookmark.href,
-      };
-    }
-
     const materials = buildSubjectMaterials(subject, {
       done: Math.min(target.done, Math.max(0, Number(subject.chapters) - 1)),
       pending: target.pending,
@@ -146,10 +135,27 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
           ? 'Notes and references'
           : 'Practice set';
     const lane = materials.lanes.find((item) => item.title === laneTitle);
+    const bookmark = normalizeMaterialBookmarks(materialBookmarks).find(
+      (item) => item.subject.toLocaleLowerCase() === target.subject.toLocaleLowerCase()
+    );
+    const videoLane = materials.lanes.find((item) => item.provider === 'YouTube');
+    const notesLane = materials.lanes.find((item) => item.provider === 'Web notes');
+    const searchLane = lane.provider === 'Search'
+      ? lane
+      : materials.lanes.find((item) => item.title === 'Practice set');
+    const links = [
+      ...(bookmark ? [{ label: 'Saved', description: `Open saved material for ${target.subject}`, href: bookmark.href }] : []),
+      { label: 'YouTube', description: `Find ${target.subject} videos on YouTube`, href: videoLane.href },
+      { label: 'Web notes', description: `Find ${target.subject} web notes`, href: notesLane.href },
+      { label: 'Search', description: `Search ${target.subject} practice and revision resources`, href: searchLane.href },
+    ];
     return {
-      title: `${lane.title} · ${target.subject}`,
-      details: `Find ${lane.provider === 'YouTube' ? 'a video walkthrough' : laneTitle.toLocaleLowerCase()} for this subject.`,
-      href: lane.href,
+      subject: target.subject,
+      title: bookmark?.title || `${lane.title} · ${target.subject}`,
+      details: bookmark
+        ? `${target.subject} · ${bookmark.provider || 'Saved material'}`
+        : `${target.subject} · ${lane.provider}`,
+      links,
     };
   }, [sortedData, focusLeader, subjects, materialBookmarks, userProfile]);
 
@@ -255,9 +261,20 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
               <span className="landscape-panel-label">Suggested material</span>
               <strong>{materialSuggestion.title}</strong>
               <p>{materialSuggestion.details}</p>
-              <a className="landscape-resource-link" href={materialSuggestion.href} target="_blank" rel="noopener noreferrer">
-                Refer <ArrowUpRight size={14} aria-hidden="true" />
-              </a>
+              <nav aria-label={`Resources for ${materialSuggestion.subject}`} className="landscape-resource-actions">
+                {materialSuggestion.links.map((link) => (
+                  <a
+                    aria-label={link.description}
+                    className="landscape-resource-link"
+                    href={link.href}
+                    key={link.label}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    {link.label} <ArrowUpRight size={13} aria-hidden="true" />
+                  </a>
+                ))}
+              </nav>
             </div>
           </div>
         </div>
