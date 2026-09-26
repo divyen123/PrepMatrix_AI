@@ -1,0 +1,27 @@
+.sidebar-widgets .nearby-entry-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 12px);
+  background: var(--surface);
+  color: var(--text);
+  font-size: .78rem;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background .18s, border-color .18s;
+}
+.sidebar-widgets .nearby-entry-button:hover,
+.sidebar-widgets .nearby-entry-button.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.sidebar-widgets .nearby-entry-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}

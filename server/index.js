@@ -13,6 +13,7 @@ import { getStudentOnboardingState, validateStudentDetails } from "../src/utils/
 import { normalizeMemoryReviewData, separatePlannerRecall } from "../src/utils/plannerLifecycle.js";
 import { mergePlannerHistory, normalizePlannerHistory } from "../src/utils/plannerHistory.js";
 import registerMomentumRoutes from './momentumRoutes.js';
+import { registerNearbyRoutes, cleanupNearbyProfileData } from './nearbyRoutes.js';
 import { MOMENTUM_EVENTS_COLLECTION, syncWorkspaceMomentum, awardAssessmentMomentum } from './momentumService.js';
 import { normalizeGeneratedQuestions } from "./generatedQuizQuestions.js";
 import {
@@ -155,7 +156,10 @@ import {
 } from "./authSessionPolicy.js";
 
 dotenv.config();
-setQuizBattleAcademicProfileCleanup(cleanupQuizBattleAcademicProfileData);
+setQuizBattleAcademicProfileCleanup(async (db, context) => {
+  await cleanupQuizBattleAcademicProfileData(db, context);
+  await cleanupNearbyProfileData(db, context);
+});
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const environmentVapidSubject = process.env.VAPID_SUBJECT?.trim() || "";
@@ -1263,6 +1267,7 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
 
     try {
       await cleanupQuizBattleUserData(db, userId);
+      await cleanupNearbyProfileData(db, { userId });
 
       await Promise.all([
         db.collection("workspaces").deleteMany({ userId }),
@@ -1910,6 +1915,7 @@ registerLearningMemoryRoutes(app, {
 registerCodeMatrixRoutes(app, { getDb, requireAuth, withProfileWriteFence: withAcademicProfileWriteFence });
 registerCodeMatrixReviewRoutes(app, { getDb, requireAuth, aiQuota, mutationSecurity: requireNotificationMutationSecurity });
 registerMomentumRoutes(app, { getDb, requireAuth, mutationSecurity: requireNotificationMutationSecurity });
+registerNearbyRoutes(app, { getDb, requireAuth, mutationSecurity: requireNotificationMutationSecurity });
 
 registerQuizBattleRoutes(app, {
   aiQuota,

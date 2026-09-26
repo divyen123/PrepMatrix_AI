@@ -192,7 +192,8 @@ const lazyRetry = (componentImport) =>
     }
   });
 
-const FloatingAnalytics = lazyRetry(() => import("./components/FloatingAnalytics"));
+const NearbyButton = lazyRetry(() => import("./components/NearbyButton"));
+const NearbyPage = lazyRetry(() => import("./pages/NearbyPage"));
 const AnalyticsPage = lazyRetry(() => import("./pages/AnalyticsPage"));
 const AuthPage = lazyRetry(() => import("./pages/AuthPage"));
 const DashboardPage = lazyRetry(() => import("./pages/DashboardPage"));
@@ -1275,6 +1276,7 @@ function App() {
   };
   const activeRoute = visibleNavItems.find((item) => location.pathname.startsWith(item.to));
   const titleLabel = location.pathname === "/learn/code-matrix" ? "CodeMatrix" : activeRoute?.label || (
+    location.pathname.startsWith("/nearby") ? "Nearby" :
     location.pathname.startsWith("/exam/about") ? "Exam Guide" :
     location.pathname.startsWith("/exam") ? "Exam" :
     location.pathname.startsWith("/settings") ? "Settings" :
@@ -3326,7 +3328,7 @@ function App() {
               </div>
               <Suspense fallback={null}>
               <div className="sidebar-widget-cell">
-                <FloatingAnalytics completed={completed} schedule={schedule} subjects={subjects} />
+                <NearbyButton onNavigate={() => setSidebarOpen(false)} />
               </div>
               </Suspense>
             </>)}
@@ -3665,6 +3667,21 @@ function App() {
                   <Routes>
                     {userProfile ? (
                       <>
+                        <Route
+                          path="/nearby"
+                          element={
+                            <NearbyPage
+                              key={activeAcademicProfileDataId}
+                              academicProfile={learnerRoutePolicy.academicProfile}
+                              academicProfileDataId={activeAcademicProfileDataId}
+                              homeRoute={learnerRoutePolicy.homeRoute}
+                              userProfile={userProfile}
+                              subjects={subjects}
+                              schedule={schedule}
+                              onPlannerDataChange={setGoalReminderData}
+                            />
+                          }
+                        />
                         <Route
                           element={
                             <DashboardPage

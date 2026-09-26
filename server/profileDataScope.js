@@ -20,6 +20,8 @@ export const PROFILE_SCOPED_OWNED_COLLECTIONS = Object.freeze([
   "resumeHistory",
   "kidsAttempts",
   "kidsProfileSettings",
+  "nearbyCircles",
+  "nearbyReports",
 ]);
 
 export const PROFILE_SCOPED_UNIQUE_COLLECTIONS = Object.freeze([
