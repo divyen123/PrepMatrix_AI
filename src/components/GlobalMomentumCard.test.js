@@ -9,6 +9,14 @@ const momentumViewsStyles = readFileSync(
   new URL('./MomentumViews.css', import.meta.url),
   'utf8',
 );
+const globalMomentumCardStyles = readFileSync(
+  new URL('./GlobalMomentumCard.css', import.meta.url),
+  'utf8',
+);
+const globalMomentumCardSource = readFileSync(
+  new URL('./GlobalMomentumCard.jsx', import.meta.url),
+  'utf8',
+);
 
 test('GlobalMomentumCard does not render gamification-orb and overrides yellow glow in styles', async () => {
   const vite = await createServer({
@@ -43,6 +51,10 @@ test('GlobalMomentumCard does not render gamification-orb and overrides yellow g
       markup.split('class="global-momentum-sources"')[0],
       /View CodeMatrix rewards/u,
     );
+    assert.match(globalMomentumCardSource, /<strong id=\{codeDetailsTitleId\}>Coding rewards<\/strong>/u);
+    assert.doesNotMatch(globalMomentumCardSource, /<span>CodeMatrix<\/span>/u);
+    assert.match(globalMomentumCardStyles, /\.global-momentum-card \.next-reward-strip\s*\{\s*margin-top:\s*auto;/u);
+    assert.match(globalMomentumCardStyles, /\.global-momentum-card > \.gamification-scroll-region\s*\{[\s\S]*?align-self:\s*stretch;/u);
 
     // Stylesheet overrides yellow background glow and hides orb
     assert.match(

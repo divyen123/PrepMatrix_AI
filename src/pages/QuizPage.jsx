@@ -800,7 +800,6 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   return (
     <section className="page-stack quiz-page">
       <div className="section-intro">
-        <span className="section-tag">Quiz lab</span>
         <h2>Practice solo or challenge a friend</h2>
       </div>
 

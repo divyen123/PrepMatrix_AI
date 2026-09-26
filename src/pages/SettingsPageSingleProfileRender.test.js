@@ -9,7 +9,7 @@ import { createServer } from "vite";
 const stylesheet = readFileSync(new URL("./SettingsPage.css", import.meta.url), "utf8");
 const componentSource = readFileSync(new URL("./SettingsPage.jsx", import.meta.url), "utf8");
 
-test("keeps the three Appearance wake sliders equal on one desktop row", () => {
+test("keeps the three horizontal Appearance gauges equal on one desktop row", () => {
   assert.match(
     stylesheet,
     /\.settings-page \.settings-glass-controls\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);/u,
@@ -22,6 +22,7 @@ test("keeps the three Appearance wake sliders equal on one desktop row", () => {
     componentSource,
     /Preset Accent Color Palette[\s\S]*?className="settings-glass-controls settings-glass-controls--full"[\s\S]*?label="Glass Panel Opacity"[\s\S]*?label="Background Image Blur"[\s\S]*?label="Background Brightness"/u,
   );
+  assert.match(componentSource, /ariaValueText=\{\(nextLevel\) => formatValue\?\.\(levelToValue\(nextLevel\)\) \|\| displayValue\}/u);
   assert.match(
     stylesheet,
     /\.settings-page \.settings-glass-controls--full\s*\{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?width:\s*100%;/u,
@@ -42,7 +43,7 @@ test("keeps Custom in the background gallery and strengthens wake-slider contras
     componentSource,
     /aria-label=\{customBackgroundPreset \? "Change custom background image" : "Choose a custom background image"\}/u,
   );
-  assert.match(componentSource, /fillColor="var\(--settings-wake-fill\)"/u);
+  assert.match(componentSource, /function SettingsSloshControl\([\s\S]*?<SloshGauge[\s\S]*?height=\{42\}[\s\S]*?interactive[\s\S]*?showValue=\{false\}/u);
   assert.match(
     stylesheet,
     /\.settings-page \.settings-bg-presets-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(7, minmax\(0, 1fr\)\);/u,
@@ -60,6 +61,8 @@ test("keeps Custom in the background gallery and strengthens wake-slider contras
     stylesheet,
     /--settings-wake-fill:\s*color-mix\(in srgb, var\(--accent\) 70%, white 30%\);/u,
   );
+  assert.match(stylesheet, /--settings-slosh-glass:\s*rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\);/u);
+  assert.match(stylesheet, /--settings-slosh-liquid:\s*color-mix\(in srgb, var\(--accent\) 76%, white 24%\);/u);
 });
 
 test("renders Settings for one profile without deletion guidance", async () => {
@@ -180,12 +183,19 @@ test("renders Settings for one profile without deletion guidance", async () => {
       markup,
       /aria-label="Choose a custom background image" aria-pressed="false" class="bg-palette-thumbnail-btn is-empty bg-custom-background-card"/u,
     );
-    for (const label of ["Speed", "Pitch", "Volume", "Glass Panel Opacity", "Background Image Blur"]) {
+    for (const label of ["Speed", "Pitch", "Volume"]) {
       assert.match(
         markup,
         new RegExp(`<button(?=[^>]*aria-label="${label}")(?=[^>]*role="slider")[^>]*>`, "u"),
       );
     }
+    for (const label of ["Glass Panel Opacity", "Background Image Blur"]) {
+      assert.match(
+        markup,
+        new RegExp(`<div(?=[^>]*aria-label="${label}")(?=[^>]*aria-orientation="horizontal")(?=[^>]*role="slider")[^>]*>`, "u"),
+      );
+    }
+    assert.doesNotMatch(markup, /<span>Transparent<\/span>|<span>Opaque<\/span>|<span>Sharp<\/span>|<span>Blurred<\/span>|<span>Dim<\/span>|<span>Bright<\/span>/u);
     assert.doesNotMatch(markup, /aria-label="Background Brightness"/u);
     values.set("prepmatrix_bg_image_id", "crescent-moon");
     const imageBackgroundMarkup = renderSettings();
@@ -193,6 +203,8 @@ test("renders Settings for one profile without deletion guidance", async () => {
       imageBackgroundMarkup,
       /class="settings-background-image-controls"[\s\S]*?aria-label="Background Image Blur"[\s\S]*?aria-label="Background Brightness"/u,
     );
+    assert.match(imageBackgroundMarkup, /<div(?=[^>]*aria-label="Background Brightness")(?=[^>]*aria-orientation="horizontal")(?=[^>]*role="slider")[^>]*>/u);
+    assert.doesNotMatch(imageBackgroundMarkup, /<span>Transparent<\/span>|<span>Opaque<\/span>|<span>Sharp<\/span>|<span>Blurred<\/span>|<span>Dim<\/span>|<span>Bright<\/span>/u);
     values.delete("prepmatrix_bg_image_id");
     values.set("prepmatrix_bg_image_id", "custom-background");
     values.set("prepmatrix_custom_bg_data", "data:image/png;base64,AAAA");
@@ -233,10 +245,7 @@ test("renders Settings for one profile without deletion guidance", async () => {
       autoLockDisabledMarkup,
       /<button(?=[^>]*aria-checked="false")(?=[^>]*aria-label="Auto-lock app")(?=[^>]*role="switch")[^>]*>/u,
     );
-    assert.match(
-      autoLockDisabledMarkup,
-      /<input(?=[^>]*id="settings-auto-lock-minutes")(?=[^>]*disabled="")[^>]*>/u,
-    );
+    assert.doesNotMatch(autoLockDisabledMarkup, /id="settings-auto-lock-minutes"/u);
 
     const kidsMarkup = renderSettings({ youngKidsMode: true });
     assert.doesNotMatch(kidsMarkup, /Study Goals &amp; To-Do/u);
@@ -248,6 +257,18 @@ test("renders Settings for one profile without deletion guidance", async () => {
     if (originalStorage) Object.defineProperty(globalThis, "localStorage", originalStorage);
     else delete globalThis.localStorage;
   }
+});
+
+test("keeps the notification test action beside its switch", () => {
+  assert.match(
+    componentSource,
+    /label="Action Alerts \(Push Notifications\)"[\s\S]*?trailingControl=\{notificationsEnabled && notificationStatus === "connected" \? \([\s\S]*?className="secondary-btn notification-test-btn"/u,
+  );
+  assert.match(
+    componentSource,
+    /<div className="toggle-row-actions">\s*\{trailingControl\}\s*<SquishSwitch/u,
+  );
+  assert.doesNotMatch(componentSource, /notification-test-row/u);
 });
 
 test("wires the inline profile-name editor to an exact, scoped rename request", () => {

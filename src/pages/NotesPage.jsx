@@ -3,10 +3,13 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { CalendarDays, Check, Copy, Pencil, Search, Trash2, X } from "lucide-react";
 import PaperCrumple from "../components/PaperCrumple";
+import NoteRichTextEditor, { NoteFormattedText } from "../components/NoteRichTextEditor";
+import NoteFormattingToolbar from "../components/NoteFormattingToolbar";
 import api from "../utils/apiClient";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 import { isEditableShortcutTarget } from "../utils/appKeyboardShortcuts";
+import { trimNoteRichText } from "../utils/noteRichText";
 import {
   getNotePlannerState,
   getScheduleDateOptions,
@@ -79,6 +82,7 @@ function NotesPage({
   const [notes, setNotes] = useState([]);
   const [topic, setTopic] = useState("");
   const [details, setDetails] = useState("");
+  const [detailsRich, setDetailsRich] = useState([]);
   const [priority, setPriority] = useState("Medium");
   const [filter, setFilter] = useState("All");
   const [notesPage, setNotesPage] = useState(1);
@@ -109,6 +113,7 @@ function NotesPage({
   const notesDesktopSearchRef = useRef(null);
   const notesMobileSearchRef = useRef(null);
   const noteCaptureTopicRef = useRef(null);
+  const noteCaptureDetailsRef = useRef(null);
   const noteUtilityDialogRef = useRef(null);
   const curriculumExamples = useMemo(
     () => getAcademicProfileExamples(userProfile),
@@ -172,7 +177,7 @@ function NotesPage({
       }
       if (event.key !== "Tab") return;
       const controls = [...(noteUtilityDialogRef.current?.querySelectorAll(
-        'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled)',
+        'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [contenteditable="true"]',
       ) || [])];
       const first = controls[0];
       const last = controls.at(-1);
@@ -228,6 +233,7 @@ function NotesPage({
       topic: cleanTopic || "Untitled doubt",
       leftTopics: [],
       details: cleanDetails,
+      detailsRich: trimNoteRichText(detailsRich),
       priority,
       status: "Open",
       createdAt: new Date().toISOString(),
@@ -235,6 +241,7 @@ function NotesPage({
 
     setTopic("");
     setDetails("");
+    setDetailsRich([]);
     setPriority("Medium");
     setIsCaptureOpen(false);
   };
@@ -298,6 +305,7 @@ function NotesPage({
             ...item,
             topic: cleanTopic || "Untitled doubt",
             details: cleanDetails,
+            detailsRich: cleanDetails === (item.details || "").trim() ? item.detailsRich : [],
             priority: ["Low", "Medium", "High"].includes(editNotePriority)
               ? editNotePriority
               : "Medium",
@@ -649,9 +657,12 @@ function NotesPage({
     : [];
   const selectedCreatedAt = formatNoteDate(selectedNote?.createdAt);
   const filteredNotes = useMemo(() => {
+    const isPriorityFilter = ["Low", "Medium", "High"].includes(filter);
     const statusFiltered = filter === "All"
       ? notes
-      : notes.filter((note) => getNoteWorkflowStatus(note, plannerStates.get(note.id)) === filter);
+      : notes.filter((note) => isPriorityFilter
+        ? (["Low", "Medium", "High"].includes(note.priority) ? note.priority : "Medium") === filter
+        : getNoteWorkflowStatus(note, plannerStates.get(note.id)) === filter);
     if (!notesSearchQuery.trim()) return statusFiltered;
 
     return statusFiltered
@@ -662,7 +673,7 @@ function NotesPage({
           [
             note.topic,
             note.details,
-            note.priority,
+            ["Low", "Medium", "High"].includes(note.priority) ? note.priority : "Medium",
             getNoteWorkflowStatus(note, plannerStates.get(note.id)),
             plannerStates.get(note.id)?.state,
             ...(Array.isArray(note.leftTopics) ? note.leftTopics : []),
@@ -743,6 +754,7 @@ function NotesPage({
                 </label>
               )}
               <select
+                aria-label="Filter notes"
                 className="notes-filter-select"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
@@ -750,6 +762,9 @@ function NotesPage({
                 <option value="All">All Notes</option>
                 <option value="Open">Open</option>
                 <option value="Resolved">Resolved</option>
+                <option value="High">High priority</option>
+                <option value="Medium">Medium priority</option>
+                <option value="Low">Low priority</option>
               </select>
               <div className="notes-list-utilities">
                 <button
@@ -1156,7 +1171,10 @@ function NotesPage({
                 </form>
               ) : (
                 <p className={selectedNote.details ? "" : "is-empty"} id="note-details-description">
-                  {selectedNote.details || "No extra details added."}
+                  <NoteFormattedText
+                    richText={selectedNote.detailsRich}
+                    text={selectedNote.details || "No extra details added."}
+                  />
                 </p>
               )}
             </section>
@@ -1252,7 +1270,6 @@ function NotesPage({
         >
           <form
             aria-labelledby="note-capture-title"
-            aria-describedby="note-capture-description"
             aria-modal="true"
             className="note-details-dialog notes-form-card notes-modal-card"
             onSubmit={addNote}
@@ -1261,11 +1278,7 @@ function NotesPage({
           >
             <div className="notes-dialog-header">
               <div>
-                <span className="section-tag">Capture</span>
                 <h3 id="note-capture-title">Add a study note</h3>
-                <p className="card-desc" id="note-capture-description">
-                  Save doubts, questions, and revision reminders before they disappear.
-                </p>
               </div>
               <button aria-label="Close" className="note-details-close" onClick={() => setIsCaptureOpen(false)} type="button">
                 <X size={17} />
@@ -1283,18 +1296,24 @@ function NotesPage({
               />
             </label>
 
-            <label className="field-stack">
-              Details
-              <textarea
-                onChange={(event) => setDetails(event.target.value)}
+            <div className="field-stack">
+              <label htmlFor="note-capture-details">Details</label>
+              <NoteRichTextEditor
+                aria-label="Details"
+                id="note-capture-details"
+                initialText={details}
+                initialRichText={detailsRich}
+                onChange={({ text, richText }) => {
+                  setDetails(text);
+                  setDetailsRich(richText);
+                }}
                 placeholder="Write what confused you, where to revise, or what to ask later"
-                rows="5"
-                value={details}
+                ref={noteCaptureDetailsRef}
               />
-            </label>
+            </div>
 
             <div className="notes-form-row">
-              <label className="field-stack">
+              <label className="field-stack notes-priority-field">
                 Priority
                 <select
                   onChange={(event) => setPriority(event.target.value)}
@@ -1305,7 +1324,8 @@ function NotesPage({
                   <option>High</option>
                 </select>
               </label>
-              <button className="primary-btn" type="submit">Save note</button>
+              <NoteFormattingToolbar editorRef={noteCaptureDetailsRef} />
+              <button className="primary-btn notes-capture-save" type="submit">Save</button>
             </div>
           </form>
         </div>,

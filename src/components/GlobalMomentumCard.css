@@ -1,0 +1,14 @@
+.gamification-card.global-momentum-card {
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+}
+
+.global-momentum-card > .gamification-scroll-region {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+}
+
+.global-momentum-card .next-reward-strip {
+  margin-top: auto;
+}

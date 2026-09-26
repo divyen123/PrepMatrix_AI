@@ -163,24 +163,26 @@ body.has-bg-image .report-modal {
 }
 
 body .report-modal .report-modal-close {
-  width: 34px !important;
-  height: 34px !important;
-  min-width: 34px !important;
-  min-height: 34px !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
   display: grid !important;
   place-items: center !important;
   padding: 0 !important;
-  border-radius: 10px !important;
-  color: var(--text-muted) !important;
-  background: var(--report-control-surface) !important;
-  border: 1px solid var(--report-panel-border) !important;
+  border-radius: 999px !important;
+  color: color-mix(in srgb, #d85d66 76%, var(--text) 24%) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  border: 1px solid rgba(239, 68, 68, 0.2) !important;
   box-shadow: none !important;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
-body .report-modal .report-modal-close:hover {
-  color: var(--text) !important;
-  background: var(--report-control-surface-hover) !important;
-  border-color: rgba(var(--accent-rgb), 0.2) !important;
+body .report-modal .report-modal-close:hover,
+body .report-modal .report-modal-close:focus-visible {
+  color: color-mix(in srgb, #dc4a55 84%, var(--text) 16%) !important;
+  background: rgba(239, 68, 68, 0.14) !important;
+  border-color: rgba(239, 68, 68, 0.34) !important;
   box-shadow: none !important;
 }
 

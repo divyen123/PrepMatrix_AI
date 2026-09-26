@@ -61,3 +61,17 @@ test("removes suggestion badges and reveals populated cards one by one", () => {
     /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.db-panel-content--visible \.db-panel-inner--suggestions \.suggestion-mini-card\s*\{[\s\S]*?animation:\s*none;/u,
   );
 });
+
+test("centers the three populated suggestion cards in the dashboard panel", () => {
+  assert.match(componentSource, /label: "Priority"/u);
+  assert.match(componentSource, /label: "Next move"/u);
+  assert.match(componentSource, /label: "Recovery"/u);
+  assert.match(
+    stylesheet,
+    /\.db-panel-inner \.smart-suggestion-card\s*\{[^}]*margin-inline:\s*auto;[^}]*max-width:\s*1000px;/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.db-panel-inner \.smart-suggestion-strip\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);/u,
+  );
+});

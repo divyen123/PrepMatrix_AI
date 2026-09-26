@@ -420,7 +420,7 @@ function ReportModal({
             ref={closeButtonRef}
             type="button"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </header>
 

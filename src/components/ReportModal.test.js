@@ -79,6 +79,17 @@ test("ReportModal popup follows the selected canvas, accent, and wallpaper theme
   assert.doesNotMatch(reportModalCss, /background:\s*#(?:ffffff|121c26|111a24) !important;/u);
 });
 
+test("ReportModal has a compact, softly red circular close action", () => {
+  const closeRule = reportModalCss.match(/body \.report-modal \.report-modal-close\s*\{([^}]+)\}/u)?.[1];
+  assert.ok(closeRule);
+  assert.match(closeRule, /width:\s*32px !important;/u);
+  assert.match(closeRule, /height:\s*32px !important;/u);
+  assert.match(closeRule, /border-radius:\s*999px !important;/u);
+  assert.match(closeRule, /background:\s*rgba\(239, 68, 68, 0\.08\) !important;/u);
+  assert.match(closeRule, /border:\s*1px solid rgba\(239, 68, 68, 0\.2\) !important;/u);
+  assert.match(reportModalSource, /className="report-modal-close"[\s\S]*?<X size=\{16\} \/>/u);
+});
+
 test("ReportModal includes minimal report content and PDF export capabilities", () => {
   assert.match(reportModalSource, /exportReportPDF/u);
   assert.match(reportModalSource, /jsPDF/u);

@@ -4,6 +4,7 @@ import GlobalMomentum from './GlobalMomentum';
 import MomentumHistoryDialog from './MomentumHistoryDialog';
 import './MomentumViews.css';
 import './Gamification.css';
+import './GlobalMomentumCard.css';
 
 export default function GlobalMomentumCard({ momentum, momentumError = '', onRetryMomentum }) {
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -75,7 +76,6 @@ export default function GlobalMomentumCard({ momentum, momentumError = '', onRet
         >
           <header>
             <div>
-              <span>CodeMatrix</span>
               <strong id={codeDetailsTitleId}>Coding rewards</strong>
             </div>
             <button

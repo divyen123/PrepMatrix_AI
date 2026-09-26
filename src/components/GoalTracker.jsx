@@ -442,14 +442,11 @@ function GoalTracker({
           </div>
 
           {goal ? (
-            <div className="goal-match-summary" aria-live="polite">
-              <span>Matched subject</span>
-              <strong>
-                {matchedSubjectNames.length
-                  ? matchedSubjectNames.join(", ")
-                  : "No subject found"}
-              </strong>
-            </div>
+            <p className="goal-match-name" aria-live="polite">
+              {matchedSubjectNames.length
+                ? matchedSubjectNames.join(", ")
+                : "No subject found"}
+            </p>
           ) : null}
         </div>
 

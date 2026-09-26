@@ -1,0 +1,92 @@
+.slosh-gauge {
+  --sg-w: 100%;
+  --sg-h: 42px;
+  --sg-r: 21px;
+  --sg-glass: color-mix(in srgb, var(--surface-strong, transparent) 82%, var(--text, currentColor) 18%);
+  --sg-liquid: color-mix(in srgb, var(--accent, currentColor) 86%, var(--text, currentColor) 14%);
+  --sg-ticks: 4;
+
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: var(--sg-w);
+  height: var(--sg-h);
+  max-width: 100%;
+  border: 1px solid var(--border, currentColor);
+  border-radius: var(--sg-r);
+  overflow: clip;
+  isolation: isolate;
+  background: var(--sg-glass);
+  color: var(--text, currentColor);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.slosh-gauge[data-interactive='true'] {
+  cursor: ew-resize;
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+
+.slosh-gauge[data-interactive='true']:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 3px;
+}
+
+.slosh-gauge[data-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.slosh-gauge__value {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--sg-value-color, var(--text, currentColor));
+  pointer-events: none;
+}
+
+.slosh-gauge__liquid {
+  position: absolute;
+  inset: 0;
+  background: var(--sg-liquid);
+  clip-path: polygon(0 0, 0 0, 0 100%, 0 100%);
+}
+
+.slosh-gauge__liquid .slosh-gauge__value {
+  color: var(--sg-liquid-value-color, var(--text, currentColor));
+}
+
+.slosh-gauge__ticks {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, color-mix(in srgb, currentColor 24%, transparent) 0 1px, transparent 1px);
+  background-size: calc(100% / var(--sg-ticks)) 100%;
+  background-repeat: repeat-x;
+  pointer-events: none;
+}
+
+.slosh-gauge__marker {
+  position: absolute;
+  top: 15%;
+  left: 0;
+  width: 2px;
+  height: 70%;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+
+.slosh-gauge[data-held='true'] .slosh-gauge__marker {
+  opacity: 1;
+}

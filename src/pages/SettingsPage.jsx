@@ -9,6 +9,7 @@ import SettingsActionAlertsInfo from "../components/SettingsActionAlertsInfo";
 import SettingsAcademicChangeDialog from "../components/SettingsAcademicChangeDialog";
 import SettingsClearDataDialog from "../components/SettingsClearDataDialog";
 import SquishSwitch from "../components/SquishSwitch";
+import SloshGauge from "../components/SloshGauge";
 import WakeSlider from "../components/WakeSlider";
 import {
   DEFAULT_GOAL_REMINDER_DATA,
@@ -442,6 +443,55 @@ function SettingsWakeControl({
           <span>{endLabel}</span>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function SettingsSloshControl({
+  label,
+  displayValue,
+  disabled = false,
+  formatValue,
+  min,
+  max,
+  step,
+  value,
+  onChange,
+}) {
+  const range = max - min;
+  const level = range > 0 ? Math.max(0, Math.min(100, ((value - min) / range) * 100)) : 0;
+  const levelToValue = (nextLevel) => {
+    const nextValue = min + (range * nextLevel) / 100;
+    const snapped = step > 0 ? min + Math.round((nextValue - min) / step) * step : nextValue;
+    return Number(Math.max(min, Math.min(max, snapped)).toFixed(4));
+  };
+  const handleChange = (nextLevel) => {
+    if (disabled || range <= 0) return;
+    onChange(levelToValue(nextLevel));
+  };
+
+  return (
+    <div className="settings-slosh-control">
+      <div className="settings-wake-control__heading">
+        <strong>{label}</strong>
+        <output>{displayValue}</output>
+      </div>
+      <SloshGauge
+        ariaLabel={label}
+        ariaValueText={(nextLevel) => formatValue?.(levelToValue(nextLevel)) || displayValue}
+        className="settings-appearance-gauge"
+        disabled={disabled}
+        glassColor="var(--settings-slosh-glass)"
+        height={42}
+        interactive
+        liquidColor="var(--settings-slosh-liquid)"
+        onChange={handleChange}
+        showValue={false}
+        step={range > 0 ? (step / range) * 100 : 1}
+        ticks={0}
+        value={level}
+        width="100%"
+      />
     </div>
   );
 }
@@ -2641,13 +2691,10 @@ function SettingsPage({
               onChange={(next) => onAutoLockEnabledChange?.(next)}
               label="Auto-lock app"
               subtitle="Lock PrepMatrix after the selected period of inactivity. Keyboard, mouse, or touch activity restarts the countdown."
-              trailingControl={(
-                <label
-                  className={`settings-auto-lock-minute-control${autoLockEnabled ? "" : " is-disabled"}`}
-                >
+              trailingControl={autoLockEnabled ? (
+                <label className="settings-auto-lock-minute-control">
                   <input
                     aria-label="Auto-lock duration in minutes"
-                    disabled={!autoLockEnabled}
                     id="settings-auto-lock-minutes"
                     inputMode="numeric"
                     max={AUTO_LOCK_MAX_MINUTES}
@@ -2661,7 +2708,7 @@ function SettingsPage({
                   />
                   <span aria-hidden="true">mins</span>
                 </label>
-              )}
+              ) : null}
             />
           </div>
 
@@ -2771,9 +2818,7 @@ function SettingsPage({
               label="Action Alerts (Push Notifications)"
               labelAccessory={notificationsEnabled && notificationStatus === "connected" ? <SettingsActionAlertsInfo /> : null}
               subtitle={notificationSubtitle}
-            />
-            {notificationsEnabled && notificationStatus === "connected" && (
-              <div className="notification-test-row">
+              trailingControl={notificationsEnabled && notificationStatus === "connected" ? (
                 <button
                   aria-label={notificationTestBusy ? "Sending test notification" : "Send test notification"}
                   aria-busy={notificationTestBusy}
@@ -2786,8 +2831,8 @@ function SettingsPage({
                   <BellRing aria-hidden="true" size={12} />
                   {notificationTestBusy ? "Sending..." : "Test notification"}
                 </button>
-              </div>
-            )}
+              ) : null}
+            />
           </div>
         </div>
 
@@ -3150,48 +3195,42 @@ function SettingsPage({
               </div>
             </div>
 
-            {/* The sliders use both appearance columns below the accent palette. */}
+            {/* The gauges use both appearance columns below the accent palette. */}
             <div className="settings-glass-controls settings-glass-controls--full">
-              <SettingsWakeControl
+              <SettingsSloshControl
                 displayValue={`${Math.round(glassOpacity * 100)}%`}
                 disabled={!glassyCards}
-                endLabel="Opaque"
                 formatValue={(value) => `${Math.round(value * 100)} percent opacity`}
                 label="Glass Panel Opacity"
                 max={0.9}
                 min={0.1}
                 onChange={setGlassOpacity}
-                startLabel="Transparent"
                 step={0.05}
                 value={glassOpacity}
               />
 
               <div className="settings-background-image-controls">
                 <div title={!hasSelectedBackgroundImage ? "Select an image background to adjust blur." : undefined}>
-                  <SettingsWakeControl
+                  <SettingsSloshControl
                     displayValue={`${Math.round(backgroundImageBlur)}px`}
                     disabled={!hasSelectedBackgroundImage}
-                    endLabel="Blurred"
                     formatValue={(value) => `${Math.round(value)} pixels of blur`}
                     label="Background Image Blur"
                     max={BACKGROUND_IMAGE_BLUR_MAX_PX}
                     min={0}
                     onChange={(value) => setBackgroundImageBlur(normalizeBackgroundImageBlurPx(value))}
-                    startLabel="Sharp"
                     step={1}
                     value={backgroundImageBlur}
                   />
                 </div>
                 {hasSelectedBackgroundImage && (
-                  <SettingsWakeControl
+                  <SettingsSloshControl
                     displayValue={`${Math.round((1 - bgOverlayOpacity) * 100)}%`}
-                    endLabel="Bright"
                     formatValue={(value) => `${Math.round(value * 100)} percent brightness`}
                     label="Background Brightness"
                     max={1}
                     min={0.02}
                     onChange={(value) => setBgOverlayOpacity(1 - value)}
-                    startLabel="Dim"
                     step={0.02}
                     value={1 - bgOverlayOpacity}
                   />

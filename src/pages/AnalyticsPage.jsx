@@ -96,7 +96,7 @@ function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, co
           <div id="topic-progress">
             <TopicTimeline completed={completed} schedule={schedule} subjects={subjects} userProfile={userProfile} />
           </div>
-          <FocusLandscape key={academicProfileDataId} academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} subjects={subjects} history={plannerHistory} scheduleStartDate={scheduleStartDate} notebooks={learning.notebooks} notebooksLoading={learning.loading} notebooksError={learning.error} onRetryNotebooks={learning.reload} />
+          <FocusLandscape key={academicProfileDataId} academicProfileDataId={academicProfileDataId} completed={completed} schedule={schedule} subjects={subjects} history={plannerHistory} scheduleStartDate={scheduleStartDate} materialBookmarks={materialBookmarks} userProfile={userProfile} notebooks={learning.notebooks} notebooksLoading={learning.loading} notebooksError={learning.error} onRetryNotebooks={learning.reload} />
         </>
       ) : (
         <p className="analytics-subject-empty" id="topic-progress">

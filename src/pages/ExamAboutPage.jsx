@@ -12,7 +12,6 @@ import {
   FileCheck2,
   FilePlus2,
   Flag,
-  GraduationCap,
   ListChecks,
   Maximize2,
   Pause,
@@ -44,7 +43,6 @@ function ExamAboutPage() {
           >
             <ArrowLeft aria-hidden="true" size={16} />
           </button>
-          <span className="exam-guide-kicker"><GraduationCap size={15} /> Exam workspace guide</span>
         </div>
         <div className="exam-guide-hero__content">
           <div>
@@ -75,7 +73,6 @@ function ExamAboutPage() {
 
       <section className="card exam-guide-limits" id="exam-guide-limits">
         <div className="exam-guide-section-heading">
-          <span className="exam-guide-kicker"><ShieldAlert size={15} /> Online exam limits</span>
           <h2>Everything enforced during an attempt</h2>
           <p>These limits apply to Attend Exam. Printable question-paper limits are listed separately below.</p>
         </div>
@@ -92,7 +89,6 @@ function ExamAboutPage() {
 
       <section className="card exam-guide-workflow" id="exam-guide-workflow">
         <div className="exam-guide-section-heading">
-          <span className="exam-guide-kicker"><Target size={15} /> Recommended workflow</span>
           <h2>Set up, attempt, and review</h2>
           <p>Use this order for accurate exams and question papers.</p>
         </div>
@@ -108,7 +104,7 @@ function ExamAboutPage() {
         <article className="card exam-guide-component is-wide" id="exam-guide-attend">
           <div className="exam-guide-component__heading">
             <span className="exam-guide-icon"><ListChecks size={21} /></span>
-            <div><span className="exam-guide-kicker">Component 01</span><h2>Attend Exam</h2></div>
+            <div><h2>Attend Exam</h2></div>
           </div>
           <p className="exam-guide-lead">A fullscreen, server-timed assessment with autosave, flags, and secure grading.</p>
           <div className="exam-guide-detail-columns">
@@ -134,7 +130,7 @@ function ExamAboutPage() {
         <article className="card exam-guide-component exam-guide-focus is-wide" id="exam-guide-focus">
           <div className="exam-guide-component__heading">
             <span className="exam-guide-icon"><Eye size={21} /></span>
-            <div><span className="exam-guide-kicker">Component 02</span><h2>Distraction-Aware Focus Room</h2></div>
+            <div><h2>Distraction-Aware Focus Room</h2></div>
           </div>
           <p className="exam-guide-lead">An optional, advisory focus monitor that runs entirely in your browser while you take the exam.</p>
           <div className="exam-guide-detail-columns">
@@ -146,7 +142,6 @@ function ExamAboutPage() {
             </div>
             <aside className="exam-guide-focus-panel">
               <ShieldCheck size={22} />
-              <span className="exam-guide-kicker">Privacy + exam behavior</span>
               <h3>Advisory only, never recorded</h3>
               <ul>
                 <li>Camera frames and detections are not recorded, uploaded, or saved.</li>
@@ -162,7 +157,7 @@ function ExamAboutPage() {
         <article className="card exam-guide-component" id="exam-guide-paper">
           <div className="exam-guide-component__heading">
             <span className="exam-guide-icon"><FilePlus2 size={21} /></span>
-            <div><span className="exam-guide-kicker">Component 03</span><h2>Generate Question Paper</h2></div>
+            <div><h2>Generate Question Paper</h2></div>
           </div>
           <p className="exam-guide-lead">Build a printable paper with an exact mark allocation and optional answer key.</p>
           <ul className="exam-guide-checklist">
@@ -178,7 +173,7 @@ function ExamAboutPage() {
         <article className="card exam-guide-component" id="exam-guide-results">
           <div className="exam-guide-component__heading">
             <span className="exam-guide-icon"><Trophy size={21} /></span>
-            <div><span className="exam-guide-kicker">Component 04</span><h2>View Results</h2></div>
+            <div><h2>View Results</h2></div>
           </div>
           <p className="exam-guide-lead">Results unlock 72 hours after submission or automatic time expiry.</p>
           <ul className="exam-guide-checklist">
@@ -193,7 +188,7 @@ function ExamAboutPage() {
         <article className="card exam-guide-component" id="exam-guide-timer">
           <div className="exam-guide-component__heading">
             <span className="exam-guide-icon"><TimerReset size={21} /></span>
-            <div><span className="exam-guide-kicker">Component 05</span><h2>Offline Exam Timer</h2></div>
+            <div><h2>Offline Exam Timer</h2></div>
           </div>
           <p className="exam-guide-lead">After you generate a paper, the compact timer appears beside Goals in the open sidebar and moves to the lower-left when it is collapsed.</p>
           <div className="exam-guide-timer-modes">
@@ -207,7 +202,7 @@ function ExamAboutPage() {
         <article className="card exam-guide-component">
           <div className="exam-guide-component__heading">
             <span className="exam-guide-icon"><Download size={21} /></span>
-            <div><span className="exam-guide-kicker">Component 06</span><h2>Saved Papers & Exports</h2></div>
+            <div><h2>Saved Papers & Exports</h2></div>
           </div>
           <p className="exam-guide-lead">Every generated question paper is saved to your account for quick reuse.</p>
           <ul className="exam-guide-checklist">

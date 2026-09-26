@@ -41,12 +41,17 @@ test("places Track goals button in SubjectList near Open materials when subjects
   assert.match(subjectListSource, /<GoalTracker/u);
 });
 
-test("GoalTracker keeps its shorter subtitle on one line and matches beside Target days", () => {
+test("GoalTracker keeps Goal keyword and Target days together with an unboxed subject name", () => {
   assert.match(goalTrackerSource, /Track a subject against your generated plan/u);
   assert.doesNotMatch(goalTrackerSource, /Track one subject, topic, or chapter keyword/u);
   assert.match(stylesheet, /\.goal-tracker-title-group \.card-desc\s*\{[^}]*white-space:\s*nowrap;/u);
-  assert.match(stylesheet, /\.goal-tracker-popup \.goal-inputs-horizontal\s*\{[^}]*grid-template-columns:\s*130px minmax\(0, 1fr\);/u);
-  assert.match(stylesheet, /\.goal-tracker-popup \.goal-inputs-horizontal > \.goal-input-field:first-child\s*\{\s*grid-column:\s*1 \/ -1;/u);
+  assert.match(stylesheet, /\.goal-tracker-popup \.goal-inputs-horizontal\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) 118px;/u);
+  assert.doesNotMatch(stylesheet, /\.goal-tracker-popup \.goal-inputs-horizontal > \.goal-input-field:first-child\s*\{\s*grid-column:\s*1 \/ -1;/u);
+  assert.match(goalTrackerSource, /<p className="goal-match-name" aria-live="polite">/u);
+  assert.doesNotMatch(goalTrackerSource, /Matched subject/u);
+  const subjectNameStyle = stylesheet.match(/\.goal-tracker-popup \.goal-match-name\s*\{([^}]*)\}/u)?.[1];
+  assert.ok(subjectNameStyle);
+  assert.doesNotMatch(subjectNameStyle, /background|border/u);
   assert.match(stylesheet, /body \.subject-library-card \.subject-library-actions > button:hover\s*\{\s*box-shadow:\s*none !important;/u);
 });
 
@@ -156,6 +161,8 @@ test("renders GoalTracker with mock subjects and calculates metrics", async () =
     assert.match(markup, /Goal tracker/u);
     assert.match(markup, /50%/u);
     assert.match(markup, /RestAPI/u);
+    assert.match(markup, /<p class="goal-match-name" aria-live="polite">RestAPI<\/p>/u);
+    assert.doesNotMatch(markup, /Matched subject/u);
     assert.match(markup, /role="dialog"/u);
     assert.match(markup, /role="combobox"/u);
   } finally {

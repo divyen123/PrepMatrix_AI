@@ -5,6 +5,12 @@ import test from "node:test";
 const appSource = readFileSync(new URL("./App.jsx", import.meta.url), "utf8");
 const appStyles = readFileSync(new URL("./App.css", import.meta.url), "utf8");
 
+test("logout confirmation uses a neutral backdrop without changing other confirmation dialogs", () => {
+  assert.match(appSource, /className="confirm-modal-backdrop logout-confirm-backdrop"/u);
+  assert.match(appStyles, /body \.logout-confirm-backdrop\s*\{\s*background: rgba\(0, 0, 0, 0\.42\) !important;/u);
+  assert.match(appStyles, /body\.dark \.logout-confirm-backdrop,\s*body\.has-bg-image \.logout-confirm-backdrop\s*\{\s*background: rgba\(0, 0, 0, 0\.58\) !important;/u);
+});
+
 test("shows the logout animation over a translucent, theme-aware workspace", () => {
   assert.match(appSource, /className="logout-transition-icon"/u);
   assert.match(appSource, /className="logout-transition-copy"/u);

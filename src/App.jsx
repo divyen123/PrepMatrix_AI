@@ -4119,7 +4119,7 @@ function App() {
       )}
 
       {logoutConfirmOpen && (
-        <div className="confirm-modal-backdrop" role="presentation">
+        <div className="confirm-modal-backdrop logout-confirm-backdrop" role="presentation">
           <section
             aria-labelledby="logout-confirm-title"
             aria-modal="true"

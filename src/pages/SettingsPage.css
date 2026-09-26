@@ -170,6 +170,21 @@ body .settings-page .settings-data-action-btn {
   font-size: 0.78rem;
 }
 
+/* Keep the destructive account actions legible over dark surfaces and image themes. */
+body.dark .settings-page .delete-account-trigger-btn,
+body.dark .settings-page .delete-confirm-popover .confirm-danger-btn {
+  color: #ffe3e8 !important;
+}
+
+body.dark .settings-page .delete-confirm-popover .secondary-btn {
+  color: #f3f6fb !important;
+}
+
+body.dark .settings-page .delete-confirm-popover .confirm-danger-btn:disabled,
+body.dark .settings-page .delete-confirm-popover .secondary-btn:disabled {
+  opacity: 0.78;
+}
+
 @media (max-width: 680px) {
   .settings-data-action-row {
     align-items: stretch;
@@ -569,20 +584,12 @@ body .settings-page .settings-profile-info-trigger:focus-visible {
   box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.14);
 }
 
-.settings-page .settings-auto-lock-minute-control input:disabled {
-  cursor: not-allowed;
-}
-
 .settings-page .settings-auto-lock-minute-control > span {
   flex: 0 0 auto;
   padding-right: 9px;
   color: var(--text-muted);
   font-size: 0.7rem;
   pointer-events: none;
-}
-
-.settings-page .settings-auto-lock-minute-control.is-disabled {
-  opacity: 0.58;
 }
 
 .settings-page .settings-action-alerts-info {
@@ -685,13 +692,6 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 .settings-page .notification-setting .toggle-row {
   border-bottom: 0 !important;
   padding-bottom: 6px !important;
-}
-
-.settings-page .notification-test-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: 1px;
 }
 
 .settings-page .notification-test-btn {
@@ -877,6 +877,33 @@ body.has-bg-image .settings-page .settings-action-alerts-tooltip {
 .settings-page .settings-glass-controls > div {
   min-width: 0;
   margin-top: 0 !important;
+}
+
+.settings-page .settings-slosh-control {
+  --settings-slosh-glass: color-mix(in srgb, var(--surface-strong) 88%, var(--text) 12%);
+  --settings-slosh-liquid: color-mix(in srgb, var(--accent) 86%, white 14%);
+  --settings-slosh-edge: color-mix(in srgb, var(--text) 22%, transparent);
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.settings-page .settings-slosh-control .settings-appearance-gauge {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--settings-slosh-edge);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+body.dark .settings-page .settings-slosh-control {
+  --settings-slosh-glass: color-mix(in srgb, var(--surface-strong) 84%, #030712 16%);
+  --settings-slosh-liquid: color-mix(in srgb, var(--accent) 80%, white 20%);
+}
+
+body.has-bg-image .settings-page .settings-slosh-control {
+  --settings-slosh-glass: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  --settings-slosh-liquid: color-mix(in srgb, var(--accent) 76%, white 24%);
+  --settings-slosh-edge: rgba(255, 255, 255, 0.24);
 }
 
 .settings-page .settings-glass-controls--full {

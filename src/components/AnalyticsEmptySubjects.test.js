@@ -158,6 +158,13 @@ test("styles the empty Goal tracker notice as a compact yellow-toned card", () =
   );
 });
 
+test("keeps Task distribution gridlines subdued in both themes", () => {
+  const styles = readFileSync(new URL("../App.css", import.meta.url), "utf8");
+
+  assert.match(styles, /\.analytics-overview-card \.chart-grid line\s*\{\s*stroke: rgba\(102, 121, 147, 0\.12\);/u);
+  assert.match(styles, /body\.dark \.analytics-overview-card \.chart-grid line\s*\{\s*stroke: rgba\(143, 165, 180, 0\.075\);/u);
+});
+
 test("uses the active accent gradient and equal sizing for the Analytics overview cards", () => {
   const analyticsSource = readFileSync(new URL("./Analytics.jsx", import.meta.url), "utf8");
   const analyticsStyles = readFileSync(new URL("../pages/AnalyticsPage.css", import.meta.url), "utf8");

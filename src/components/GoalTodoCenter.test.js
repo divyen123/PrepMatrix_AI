@@ -46,9 +46,11 @@ test("the center opens as an accessible right-side drawer with a unified first-e
   assert.match(styles, /\.goal-reminder-bulk-menu\s*\{[\s\S]*?background:\s*var\(--bg\);[\s\S]*?backdrop-filter:\s*none;/u);
   assert.match(styles, /body\.has-bg-image \.goal-reminder-bulk-menu\s*\{[\s\S]*?background:\s*rgb\(var\(--bg-surface-rgb, 18, 27, 45\)\);/u);
   assert.match(styles, /\.goal-reminder-stats\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,/u);
-  assert.match(styles, /\.goal-reminder-backdrop\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?inset:\s*0;[\s\S]*?justify-content:\s*flex-end;[\s\S]*?background-color:\s*rgba\(2, 6, 16, 0\.48\);/u);
-  assert.match(styles, /backdrop-filter:\s*blur\(10px\) brightness\(0\.78\) saturate\(0\.82\);/u);
-  assert.match(styles, /-webkit-backdrop-filter:\s*blur\(10px\) brightness\(0\.78\) saturate\(0\.82\);/u);
+  assert.match(styles, /\.goal-reminder-backdrop\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?inset:\s*0;[\s\S]*?justify-content:\s*flex-end;[\s\S]*?background-color:\s*rgba\(0, 0, 0, 0\.38\);/u);
+  assert.match(styles, /backdrop-filter:\s*blur\(10px\);/u);
+  assert.match(styles, /-webkit-backdrop-filter:\s*blur\(10px\);/u);
+  assert.match(styles, /body\.has-bg-image \.goal-reminder-backdrop\s*\{\s*background-color:\s*rgba\(0, 0, 0, 0\.18\);/u);
+  assert.doesNotMatch(styles, /\.goal-reminder-backdrop\s*\{[^}]*rgba\(2, 6, 16/u);
   assert.match(source, /createPortal\(dialog, document\.body\)/u);
   assert.match(source, /className=\{`goal-reminder-backdrop\$\{closing \? " is-closing" : ""\}`\}/u);
   assert.match(source, /className=\{`goal-reminder-dialog\$\{closing \? " is-closing" : ""\}`\}/u);

@@ -34,6 +34,20 @@ test("keeps the compact header controls together on responsive layouts", () => {
   assert.match(styles, /@media \(max-width: 520px\)[\s\S]*?\.notes-list-utilities\s*\{[\s\S]*?width: 100%/u);
 });
 
+test("filters notes by status or priority while treating legacy priorities as Medium", () => {
+  assert.match(source, /<option value="Open">Open<\/option>[\s\S]*?<option value="Resolved">Resolved<\/option>[\s\S]*?<option value="High">High priority<\/option>[\s\S]*?<option value="Medium">Medium priority<\/option>[\s\S]*?<option value="Low">Low priority<\/option>/u);
+  assert.match(source, /const isPriorityFilter = \["Low", "Medium", "High"\]\.includes\(filter\)/u);
+  assert.match(source, /isPriorityFilter[\s\S]*?\["Low", "Medium", "High"\]\.includes\(note\.priority\) \? note\.priority : "Medium"\) === filter[\s\S]*?: getNoteWorkflowStatus\(note, plannerStates\.get\(note\.id\)\) === filter/u);
+  assert.match(source, /return statusFiltered[\s\S]*?rank: rankSearchMatch\([\s\S]*?\["Low", "Medium", "High"\]\.includes\(note\.priority\) \? note\.priority : "Medium"/u);
+  assert.match(source, /setNotesPage\(1\);\s*\}, \[filter, notesSearchQuery\]\);/u);
+});
+
+test("places the Notes header near its sticky position at first render", () => {
+  assert.match(styles, /@media \(min-width: 992px\) \{[\s\S]*?\.app-container:has\(\.notes-page\) \.workspace-main\s*\{\s*padding-top: 66px !important;/u);
+  assert.match(styles, /\.app-container\.has-sidebar:has\(\.notes-page\) \.app-main-content\.topbar-auto-hide-enabled:not\(\.topbar-visible\) > \.workspace-main\s*\{\s*padding-top: 12px !important;/u);
+  assert.match(styles, /\.topbar-auto-hide-enabled:not\(\.topbar-visible\) \.notes-page \.notes-list-header\s*\{\s*top: 30px;/u);
+});
+
 test("uses the page scrollbar while the Saved notes controls stay visible", () => {
   assert.match(
     styles,

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, History } from 'lucide-react';
+import { ArrowUpRight, CheckCircle2, History } from 'lucide-react';
 import { createPlannerHistoryEntry, getLandscapeData, normalizePlannerHistory } from '../utils/plannerHistory';
+import { normalizeMaterialBookmarks } from '../utils/materialBookmarks';
+import { buildSubjectMaterials } from '../utils/materialRecommendations';
 import PlannerHistoryDialog from './PlannerHistoryDialog';
 
 const SUBJECT_PIE_COLORS = [
@@ -18,7 +20,7 @@ const SUBJECT_PIE_CENTER = 160;
 const SUBJECT_PIE_RADIUS = 112;
 const SUBJECT_PIE_CIRCUMFERENCE = 2 * Math.PI * SUBJECT_PIE_RADIUS;
 
-function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = [], completed = [], history = [], scheduleStartDate = '', notebooks = [], notebooksLoading, notebooksError, onRetryNotebooks }) {
+function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = [], completed = [], history = [], scheduleStartDate = '', materialBookmarks = [], userProfile = {}, notebooks = [], notebooksLoading, notebooksError, onRetryNotebooks }) {
   const [isVisible, setIsVisible] = useState(false);
   const [tooltipInfo, setTooltipInfo] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -111,49 +113,45 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
     });
   }, []);
 
-  const subjectSuggestion = useMemo(() => {
-    if (!sortedData.length) {
+  const materialSuggestion = useMemo(() => {
+    const target = sortedData.find((item) => item.difficulty === 'hard' && item.pending > 0)
+      || sortedData.find((item) => item.completionRate >= 50 && item.pending > 0)
+      || focusLeader
+      || sortedData[0];
+    if (!target) return null;
+
+    const subject = subjects.find((item) => item.name?.toLocaleLowerCase() === target.subject.toLocaleLowerCase())
+      || { name: target.subject, chapters: 1 };
+    const bookmark = normalizeMaterialBookmarks(materialBookmarks).find(
+      (item) => item.subject.toLocaleLowerCase() === target.subject.toLocaleLowerCase()
+    );
+    if (bookmark) {
       return {
-        title: "Build your study plan",
-        details: "Add subjects and generate a planner schedule to receive targeted learning recommendations."
+        title: bookmark.title,
+        details: `${target.subject} · ${bookmark.provider || 'Saved material'}`,
+        href: bookmark.href,
       };
     }
 
-    const hardWithPending = sortedData.find((item) => item.difficulty === "hard" && item.pending > 0);
-    if (hardWithPending) {
-      return {
-        title: `Deep focus on ${hardWithPending.subject}`,
-        details: `This is a high-difficulty subject with ${hardWithPending.pending} pending ${hardWithPending.pending === 1 ? "task" : "tasks"}. Prioritize it during your peak concentration hours.`
-      };
-    }
-
-    const almostDone = sortedData.find((item) => item.completionRate >= 50 && item.pending > 0);
-    if (almostDone) {
-      return {
-        title: `Close out ${almostDone.subject}`,
-        details: `You are already ${almostDone.completionRate}% through. Completing the remaining ${almostDone.pending} ${almostDone.pending === 1 ? "task" : "tasks"} will achieve full coverage.`
-      };
-    }
-
-    if (focusLeader && focusLeader.pending > 0) {
-      return {
-        title: `Paced review for ${focusLeader.subject}`,
-        details: `Distribute the ${focusLeader.pending} pending ${focusLeader.pending === 1 ? "task" : "tasks"} across manageable focus intervals to maintain steady recall without fatigue.`
-      };
-    }
-
-    if (hasActiveSchedule) {
-      return {
-        title: "Reinforce mastered concepts",
-        details: "All scheduled tasks are completed. Use Quiz battles or Notebook review to keep these topics fresh."
-      };
-    }
-
+    const materials = buildSubjectMaterials(subject, {
+      done: Math.min(target.done, Math.max(0, Number(subject.chapters) - 1)),
+      pending: target.pending,
+      total: target.total,
+    }, userProfile.academicLevel, userProfile.academicTrack, userProfile);
+    const laneTitle = target.difficulty === 'hard' && target.pending > 0
+      ? 'Concept lesson'
+      : target.completionRate >= 50 && target.pending > 0
+        ? 'Revision recap'
+        : target.pending > 0
+          ? 'Notes and references'
+          : 'Practice set';
+    const lane = materials.lanes.find((item) => item.title === laneTitle);
     return {
-      title: "Keep your momentum going",
-      details: "Revisit your notes and chapter summaries to keep your core concepts active in memory."
+      title: `${lane.title} · ${target.subject}`,
+      details: `Find ${lane.provider === 'YouTube' ? 'a video walkthrough' : laneTitle.toLocaleLowerCase()} for this subject.`,
+      href: lane.href,
     };
-  }, [sortedData, focusLeader, hasActiveSchedule]);
+  }, [sortedData, focusLeader, subjects, materialBookmarks, userProfile]);
 
   return (
     <section className="card landscape-card">
@@ -254,9 +252,12 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
             </div>
 
             <div className="landscape-panel landscape-panel--suggestion">
-              <span className="landscape-panel-label">Subject suggestion</span>
-              <strong>{subjectSuggestion.title}</strong>
-              <p>{subjectSuggestion.details}</p>
+              <span className="landscape-panel-label">Suggested material</span>
+              <strong>{materialSuggestion.title}</strong>
+              <p>{materialSuggestion.details}</p>
+              <a className="landscape-resource-link" href={materialSuggestion.href} target="_blank" rel="noopener noreferrer">
+                Refer <ArrowUpRight size={14} aria-hidden="true" />
+              </a>
             </div>
           </div>
         </div>

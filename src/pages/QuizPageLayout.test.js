@@ -12,6 +12,11 @@ const battlePanelSource = readFileSync(
   "utf8",
 );
 
+test("omits the Quiz lab badge while retaining the page heading", () => {
+  assert.doesNotMatch(pageSource, /<span className="section-tag">Quiz lab<\/span>/u);
+  assert.match(pageSource, /<h2>Practice solo or challenge a friend<\/h2>/u);
+});
+
 test("keeps one accessible quiz mode tablist available across both panels", () => {
   assert.equal((pageSource.match(/role="tablist"/gu) || []).length, 1);
   assert.equal((pageSource.match(/id="quiz-tab-solo"/gu) || []).length, 1);

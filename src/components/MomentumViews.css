@@ -74,10 +74,40 @@ body .global-momentum-card:hover::before {
 }
 
 .momentum-comet-dial {
+  --momentum-dial-tone: color-mix(in srgb, var(--text-muted) 78%, #8c9aab 22%);
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.momentum-comet-dial[data-progress-tone="starting"] {
+  --momentum-dial-tone: color-mix(in srgb, var(--text-muted) 68%, #879cb0 32%);
+}
+
+.momentum-comet-dial[data-progress-tone="building"] {
+  --momentum-dial-tone: color-mix(in srgb, var(--text-muted) 58%, #7b9fa5 42%);
+}
+
+.momentum-comet-dial[data-progress-tone="nearly"] {
+  --momentum-dial-tone: color-mix(in srgb, var(--text-muted) 52%, #75a899 48%);
+}
+
+.momentum-comet-dial[data-progress-tone="complete"] {
+  --momentum-dial-tone: color-mix(in srgb, var(--text-muted) 45%, #78a98b 55%);
+}
+
+.momentum-comet-dial .comet-dial__lit,
+.momentum-comet-dial .comet-dial__comet path {
+  stroke: var(--momentum-dial-tone);
+}
+
+.momentum-comet-dial .comet-dial__lit {
+  opacity: 0.78;
+}
+
+.momentum-comet-dial .comet-dial__head {
+  fill: var(--momentum-dial-tone);
 }
 
 .momentum-comet-dial .comet-dial__figure {

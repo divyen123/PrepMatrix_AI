@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { animate, useMotionValue, useReducedMotion } from 'motion/react';
+import { getCometDialProgressTone } from '../utils/cometDialTone';
 
 import './CometDial.css';
 
@@ -341,6 +342,7 @@ export default function CometDial({
   return (
     <div
       className={`comet-dial${className ? ` ${className}` : ''}`}
+      data-progress-tone={getCometDialProgressTone(value ?? target.current, min, max)}
       data-dragging={dragging ? '' : undefined}
       data-disabled={disabled ? '' : undefined}
       data-read-only={readOnly ? '' : undefined}

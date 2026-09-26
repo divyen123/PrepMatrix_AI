@@ -1887,9 +1887,6 @@ function ExamPage({
       <header className="exam-page__header">
         <div>
           <h2>Exam workspace</h2>
-          {section === "overview" ? (
-            <p className="exam-page__header-desc">Attend secure online exams, create exact question papers, and review results after release.</p>
-          ) : null}
         </div>
         <div className="exam-page__header-actions">
           {section !== "overview" && overviewBackControl}

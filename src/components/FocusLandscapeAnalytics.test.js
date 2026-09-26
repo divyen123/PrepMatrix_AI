@@ -17,7 +17,7 @@ test('removes badges Goal focus, Timeline map, and Focus Map from analytics comp
   assert.match(focusLandscapeSource, /<h2>Subject landscape<\/h2>/u);
 });
 
-test('subject landscape uses real planner data in an accessible pie chart and keeps the suggestion panels', async () => {
+test('subject landscape uses real planner data and suggests a compact subject resource', async () => {
   const vite = await createServer({ appType: 'custom', logLevel: 'silent', server: { middlewareMode: true } });
   try {
     const { default: FocusLandscape } = await vite.ssrLoadModule('/src/components/FocusLandscape.jsx');
@@ -25,7 +25,7 @@ test('subject landscape uses real planner data in an accessible pie chart and ke
     // Check source contracts
     assert.doesNotMatch(focusLandscapeSource, /Difficulty balance/u);
     assert.match(focusLandscapeSource, /landscape-panel-label/u);
-    assert.match(focusLandscapeSource, /Subject suggestion/u);
+    assert.match(focusLandscapeSource, /Suggested material/u);
     assert.match(focusLandscapeSource, /landscape-panel--suggestion/u);
     assert.match(focusLandscapeSource, /className="subject-pie-svg"/u);
     assert.match(focusLandscapeSource, /className="subject-pie-legend"/u);
@@ -60,11 +60,38 @@ test('subject landscape uses real planner data in an accessible pie chart and ke
     assert.match(markup, /1\/2 tasks/u);
     assert.match(markup, />50%<\/span>/u);
     assert.match(markup, /Top priority/u);
-    assert.match(markup, /Subject suggestion/u);
+    assert.match(markup, /Suggested material/u);
     assert.doesNotMatch(markup, /Difficulty balance/u);
     assert.doesNotMatch(markup, /legend-dot/u);
     assert.doesNotMatch(markup, /custom-bar-chart|custom-bar-row/u);
-    assert.match(markup, /Deep focus on Quantum computing/u);
+    assert.match(markup, /Concept lesson · Quantum computing/u);
+    assert.match(markup, /Refer/u);
+    assert.match(markup, /youtube\.com\/results/u);
+    assert.doesNotMatch(markup, /Close out|Deep focus|full coverage/u);
+  } finally {
+    await vite.close();
+  }
+});
+
+test('subject landscape prefers a saved material link for the suggested subject', async () => {
+  const vite = await createServer({ appType: 'custom', logLevel: 'silent', server: { middlewareMode: true } });
+  try {
+    const { default: FocusLandscape } = await vite.ssrLoadModule('/src/components/FocusLandscape.jsx');
+    const markup = renderToStaticMarkup(React.createElement(FocusLandscape, {
+      subjects: [{ name: 'Data analytics', chapters: 3, difficulty: 'medium' }],
+      schedule: [{ date: '2026-09-23', tasks: [{ id: 't1', subjectName: 'Data analytics', task: 'Regression' }] }],
+      materialBookmarks: [{
+        title: 'Regression walkthrough',
+        provider: 'Course site',
+        subject: 'Data analytics',
+        href: 'https://example.edu/analytics/regression',
+      }],
+    }));
+
+    assert.match(markup, /Regression walkthrough/u);
+    assert.match(markup, /Data analytics · Course site/u);
+    assert.match(markup, /href="https:\/\/example\.edu\/analytics\/regression"/u);
+    assert.doesNotMatch(markup, /youtube\.com\/results/u);
   } finally {
     await vite.close();
   }

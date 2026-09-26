@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Info, Swords, X } from "lucide-react";
-import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { getStudyMomentumDailyMetrics } from "../utils/studyMomentumMetrics";
@@ -66,9 +65,10 @@ function Gamification({
   const battleDetailsTitleId = useId();
   const badgeGuidanceId = useId();
   const battleDetailsCloseRef = useRef(null);
-  const battleDetailsRef = useRef(null);
   const battleDetailsTriggerRef = useRef(null);
+  const battleInsightsRef = useRef(null);
   const [battleDetailsOpen, setBattleDetailsOpen] = useState(false);
+  const [battleDetailsMounted, setBattleDetailsMounted] = useState(false);
   const [today, setToday] = useState(() => new Date());
   const metrics = getPlannerMetrics(schedule, completed);
   const momentumXp = combinedMomentumXp(
@@ -100,40 +100,49 @@ function Gamification({
     if (!battleDetailsOpen) return undefined;
 
     const focusFrame = window.requestAnimationFrame(() => battleDetailsCloseRef.current?.focus());
+    const closeOnOutsidePointer = (event) => {
+      if (!battleInsightsRef.current?.contains(event.target)) {
+        setBattleDetailsOpen(false);
+      }
+    };
     const closeOnEscape = (event) => {
       if (event.key === "Escape") {
         setBattleDetailsOpen(false);
         window.requestAnimationFrame(() => battleDetailsTriggerRef.current?.focus());
       }
-      if (event.key !== "Tab") return;
-      const focusable = [...(battleDetailsRef.current?.querySelectorAll('button:not([disabled]), a[href]') || [])];
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
     };
 
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
     document.addEventListener("keydown", closeOnEscape);
     return () => {
       window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [battleDetailsOpen]);
 
+  useEffect(() => {
+    if (battleDetailsOpen || !battleDetailsMounted) return undefined;
+    const timeout = window.setTimeout(() => setBattleDetailsMounted(false), 220);
+    return () => window.clearTimeout(timeout);
+  }, [battleDetailsMounted, battleDetailsOpen]);
+
   const openQuizBattles = () => navigate("/quiz?tab=battles");
+  const toggleBattleDetails = () => {
+    if (battleDetailsOpen) {
+      setBattleDetailsOpen(false);
+    } else {
+      setBattleDetailsMounted(true);
+      setBattleDetailsOpen(true);
+    }
+  };
   const closeBattleDetails = () => {
     setBattleDetailsOpen(false);
     window.requestAnimationFrame(() => battleDetailsTriggerRef.current?.focus());
   };
 
   return (
-    <section className={`card gamification-card study-momentum-card ${badgeMeta.tone}`}>
+    <section className={`card gamification-card study-momentum-card ${badgeMeta.tone}${battleDetailsMounted ? " has-battle-details" : ""}`}>
       <div className="gamification-header">
         <div>
           <div className="momentum-title-row"><h3>Study momentum</h3>
@@ -195,7 +204,7 @@ function Gamification({
           </div>
         </div>
 
-        <div className="battle-insights">
+        <div className="battle-insights" ref={battleInsightsRef}>
           <div className="battle-summary-grid">
             <article>
               <span>Planner XP</span>
@@ -211,7 +220,7 @@ function Gamification({
               aria-haspopup="dialog"
               className={`battle-insights-trigger${battleStatsError ? " is-error" : ""}`}
               disabled={!battleStatsEnabled}
-              onClick={() => setBattleDetailsOpen((current) => !current)}
+              onClick={toggleBattleDetails}
               ref={battleDetailsTriggerRef}
               type="button"
             >
@@ -219,6 +228,73 @@ function Gamification({
               <strong>{battleStatsEnabled ? battleStats?.played || 0 : 0}</strong>
             </button>
           </div>
+          {battleDetailsMounted && (
+            <section
+              aria-labelledby={battleDetailsTitleId}
+              className={`battle-insights-popover study-battle-popover ${battleDetailsOpen ? "is-open" : "is-closing"}`}
+              id={battleDetailsId}
+              inert={battleDetailsOpen ? undefined : true}
+              role="dialog"
+            >
+              <header>
+                <strong id={battleDetailsTitleId}>Quiz Battles</strong>
+                <button
+                  aria-label="Close Quiz Battles details"
+                  onClick={closeBattleDetails}
+                  ref={battleDetailsCloseRef}
+                  type="button"
+                >
+                  <X aria-hidden="true" size={16} />
+                </button>
+              </header>
+
+              <dl className="battle-insights-list">
+                <div className="battle-insights-record">
+                  <dt>Record</dt>
+                  <dd>
+                    <span><span className="battle-record-win-count">{battleStats?.wins || 0}</span> wins</span>
+                    <span>{battleStats?.draws || 0} draws</span>
+                    <span><span className="battle-record-loss-count">{battleStats?.losses || 0}</span> losses</span>
+                  </dd>
+                </div>
+                {Number(battleStats?.uncontested) > 0 && (
+                  <div>
+                    <dt>Uncontested</dt>
+                    <dd>{battleStats.uncontested}</dd>
+                  </div>
+                )}
+                {Number(battleStats?.perfectScores) > 0 && (
+                  <div>
+                    <dt>Perfect scores</dt>
+                    <dd>{battleStats.perfectScores}</dd>
+                  </div>
+                )}
+              </dl>
+
+              <div className="battle-insights-achievements">
+                <span>Achievements</span>
+                {battleStats?.badges?.length > 0
+                  ? battleStats.badges.map((battleBadge) => (
+                    <strong key={battleBadge}>
+                      <Swords aria-hidden="true" size={14} />
+                      {battleBadge}
+                    </strong>
+                  ))
+                  : <p>{battleStatsLoading ? "Loading achievements…" : "No achievements yet."}</p>}
+              </div>
+
+              {battleStatsError && (
+                <div className="battle-insights-warning" role="status">
+                  <span>Battle data could not be refreshed. Planner XP is still available.</span>
+                  <button onClick={onRetryBattleStats} type="button">Retry</button>
+                </div>
+              )}
+
+              <button className="battle-insights-link" onClick={openQuizBattles} type="button">
+                Open Quiz Battles
+              </button>
+            </section>
+          )}
         </div>
 
         <div className="momentum-action-grid">
@@ -273,87 +349,6 @@ function Gamification({
         </div>
       </div>
 
-      {battleDetailsOpen && createPortal(
-        <div className="battle-insights-modal-layer">
-          <button
-            aria-label="Close Battle momentum details"
-            className="battle-insights-backdrop"
-            onClick={closeBattleDetails}
-            tabIndex={-1}
-            type="button"
-          />
-          <section
-            aria-labelledby={battleDetailsTitleId}
-            aria-modal="true"
-            className="battle-insights-popover battle-insights-dialog"
-            id={battleDetailsId}
-            ref={battleDetailsRef}
-            role="dialog"
-          >
-              <header>
-                <div>
-                  <span>Quiz Battles</span>
-                  <strong id={battleDetailsTitleId}>Battle momentum</strong>
-                </div>
-                <button
-                  aria-label="Close Quiz Battle momentum"
-                  onClick={closeBattleDetails}
-                  ref={battleDetailsCloseRef}
-                  type="button"
-                >
-                  <X aria-hidden="true" size={16} />
-                </button>
-              </header>
-
-              <dl className="battle-insights-list">
-                <div className="battle-insights-record">
-                  <dt>Record</dt>
-                  <dd>
-                    <span><span className="battle-record-win-count">{battleStats?.wins || 0}</span> wins</span>
-                    <span>{battleStats?.draws || 0} draws</span>
-                    <span><span className="battle-record-loss-count">{battleStats?.losses || 0}</span> losses</span>
-                  </dd>
-                </div>
-                {Number(battleStats?.uncontested) > 0 && (
-                  <div>
-                    <dt>Uncontested</dt>
-                    <dd>{battleStats.uncontested}</dd>
-                  </div>
-                )}
-                {Number(battleStats?.perfectScores) > 0 && (
-                  <div>
-                    <dt>Perfect scores</dt>
-                    <dd>{battleStats.perfectScores}</dd>
-                  </div>
-                )}
-              </dl>
-
-              <div className="battle-insights-achievements">
-                <span>Achievements</span>
-                {battleStats?.badges?.length > 0
-                  ? battleStats.badges.map((battleBadge) => (
-                    <strong key={battleBadge}>
-                      <Swords aria-hidden="true" size={14} />
-                      {battleBadge}
-                    </strong>
-                  ))
-                  : <p>{battleStatsLoading ? "Loading achievements…" : "No achievements yet."}</p>}
-              </div>
-
-              {battleStatsError && (
-                <div className="battle-insights-warning" role="status">
-                  <span>Battle data could not be refreshed. Planner XP is still available.</span>
-                  <button onClick={onRetryBattleStats} type="button">Retry</button>
-                </div>
-              )}
-
-              <button className="battle-insights-link" onClick={openQuizBattles} type="button">
-                Open Quiz Battles
-              </button>
-          </section>
-        </div>,
-        document.body,
-      )}
     </section>
   );
 }

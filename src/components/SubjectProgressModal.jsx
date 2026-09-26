@@ -18,6 +18,7 @@ import {
 import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
+import CometDial from "./CometDial";
 
 function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule = [], completed = [] }) {
   const navigate = useNavigate();
@@ -358,18 +359,24 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
             )}
           </section>
 
-          <aside className="subject-readiness-section">
+          <aside className={`subject-readiness-section is-${completionTone}`}>
             <div className="subject-panel-heading">
               <h3>Exam outlook</h3>
             </div>
 
-            <div className="readiness-gauge" style={{ "--progress": `${completionPercentage * 3.6}deg` }}>
-              <div className="gauge-inner">
-                <Target aria-hidden="true" size={22} />
-                <strong>{completionPercentage}%</strong>
-                <span>ready</span>
-              </div>
-            </div>
+            <CometDial
+              accent="var(--subject-readiness-tone)"
+              className="subject-readiness-dial"
+              figureSize={29}
+              ink="var(--text)"
+              label={`${subject} exam readiness`}
+              readOnly
+              size={142}
+              sublabel="Ready"
+              sweep={310}
+              thickness={6}
+              value={completionPercentage}
+            />
 
             <div className="subject-readiness-copy">
               <strong>{readinessLabel}</strong>

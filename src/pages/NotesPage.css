@@ -91,6 +91,22 @@ body.has-bg-image .notes-page .notes-list-header {
   }
 }
 
+/* Match the first-render position to the sticky offset on desktop. The card's
+   30px padding and the header's -12px top margin contribute another 18px. */
+@media (min-width: 992px) {
+  .app-container:has(.notes-page) .workspace-main {
+    padding-top: 66px !important;
+  }
+
+  .app-container.has-sidebar:has(.notes-page) .app-main-content.topbar-auto-hide-enabled:not(.topbar-visible) > .workspace-main {
+    padding-top: 12px !important;
+  }
+
+  .topbar-auto-hide-enabled:not(.topbar-visible) .notes-page .notes-list-header {
+    top: 30px;
+  }
+}
+
 .notes-page .notes-list-header > .notes-mobile-search {
   margin: 0;
   max-width: 100%;
@@ -266,11 +282,26 @@ body .notes-page .notes-add-btn {
 }
 
 .notes-modal-card .notes-form-row {
-  grid-template-columns: minmax(0, .45fr) minmax(0, .55fr);
-  gap: 10px;
+  grid-template-columns: minmax(104px, 124px) minmax(0, 1fr) 70px;
+  gap: 8px;
 }
 
-.notes-modal-card :is(button, input, textarea, select):focus-visible {
+.notes-modal-card .notes-priority-field {
+  width: 100%;
+  max-width: 124px;
+}
+
+body .notes-modal-card button.notes-capture-save {
+  width: 70px !important;
+  min-width: 70px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 9px !important;
+  border-radius: 10px !important;
+  font-size: 0.8rem !important;
+}
+
+.notes-modal-card :is(button, input, textarea, select, [contenteditable="true"]):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
@@ -536,7 +567,22 @@ body .notes-page .notes-list-grid {
   }
 
   .notes-modal-card .notes-form-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .notes-modal-card .notes-priority-field {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .notes-modal-card .notes-form-row .note-format-toolbar-wrap {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .notes-modal-card .notes-capture-save {
+    grid-column: 2;
+    grid-row: 2;
   }
 
   .notes-page .note-card {

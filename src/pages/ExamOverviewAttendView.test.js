@@ -101,16 +101,15 @@ test("removes only the requested Attend Exam subtitle", () => {
   assert.match(pageSource, /<h3>Stay inside the exam<\/h3>/u);
 });
 
-test("removes Practice under pressure header and presents description on a single line", () => {
+test("removes the Exam overview subtitle", () => {
   assert.doesNotMatch(
     pageSource,
     /Practice under pressure\. Prepare with precision\./u,
   );
-  assert.match(
+  assert.doesNotMatch(
     pageSource,
-    /<p className="exam-page__header-desc">Attend secure online exams, create exact question papers, and review results after release\.<\/p>/u,
+    /Attend secure online exams, create exact question papers, and review results after release\./u,
   );
-  assert.match(stylesheet, /\.exam-page__header-desc[\s\S]*?white-space:\s*nowrap/u);
 });
 
 test("removes Paper specification and Saved history badges in question paper generator", () => {
