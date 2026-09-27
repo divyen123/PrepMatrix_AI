@@ -186,7 +186,8 @@ function scoreDoc(doc, sought, academicProfile) {
 }
 
 function retailerSearches(book) {
-  const query = book.isbn || `${book.title} ${book.author}`;
+  const query = cleanText(book?.title, 180);
+  if (!query) return [];
   const amazon = new URL("https://www.amazon.in/s");
   amazon.searchParams.set("k", query);
   const flipkart = new URL("https://www.flipkart.com/search");
@@ -195,6 +196,28 @@ function retailerSearches(book) {
     { name: "Amazon", href: amazon.toString(), mode: "search" },
     { name: "Flipkart", href: flipkart.toString(), mode: "search" },
   ];
+}
+
+function safeRetailer(retailer) {
+  if (!retailer?.name || !["product", "search"].includes(retailer.mode)) return false;
+  try {
+    const url = new URL(retailer.href);
+    return url.protocol === "https:" && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+/** Rebuilds marketplace searches for saved books while retaining direct product links. */
+export function resolveBookRetailers(book) {
+  const searches = retailerSearches(book);
+  if (!searches.length) return [];
+  const existing = Array.isArray(book?.retailers) ? book.retailers.filter(safeRetailer) : [];
+  const searchNames = new Set(searches.map(({ name }) => name));
+  const resolved = searches.map((search) => existing.find(
+    (retailer) => retailer.name === search.name && retailer.mode === "product"
+  ) || search);
+  return [...resolved, ...existing.filter((retailer) => !searchNames.has(retailer.name))];
 }
 
 function toBook(doc, subject) {
@@ -224,7 +247,7 @@ function toBook(doc, subject) {
     provider: "Amazon",
     retailers: [],
   };
-  book.retailers = retailerSearches(book);
+  book.retailers = resolveBookRetailers(book);
   book.href = book.retailers[0].href;
   return book;
 }

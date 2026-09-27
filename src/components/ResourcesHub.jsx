@@ -4,7 +4,7 @@ import { ArrowRight, BookOpen, Check, ChevronDown, ChevronLeft, ExternalLink, Se
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { buildSubjectMaterials } from "../utils/materialRecommendations";
 import { materialBookmarkKey, normalizeMaterialBookmarks } from "../utils/materialBookmarks";
-import { fetchSubjectBooks } from "../utils/bookRecommendations";
+import { fetchSubjectBooks, resolveBookRetailers } from "../utils/bookRecommendations";
 import { resolveMaterialGuideSubjects } from "../utils/materialGuideNavigation";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 
@@ -61,7 +61,7 @@ function BookDetailsDialog({ book, saved, onSave, onClose }) {
   const entryFramesRef = useRef([]);
   const [visible, setVisible] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
-  const retailers = Array.isArray(book.retailers) ? book.retailers : [];
+  const retailers = resolveBookRetailers(book);
 
   useEffect(() => {
     const dialog = dialogRef.current;

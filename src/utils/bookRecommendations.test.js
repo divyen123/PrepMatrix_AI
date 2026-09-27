@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fetchSubjectBooks } from "./bookRecommendations.js";
+import { fetchSubjectBooks, resolveBookRetailers } from "./bookRecommendations.js";
 
 async function withMockFetch(mock, run) {
   const previousFetch = globalThis.fetch;
@@ -62,13 +62,41 @@ test("maps real search metadata into relevant books and honest retailer searches
       { name: "Flipkart", mode: "search" },
     ]);
     assert.equal(books[0].href, books[0].retailers[0].href);
-    assert.equal(new URL(books[0].retailers[0].href).searchParams.get("k"), "9780123456789");
-    assert.equal(new URL(books[0].retailers[1].href).searchParams.get("q"), "9780123456789");
+    assert.equal(new URL(books[0].retailers[0].href).searchParams.get("k"), "Data Structures and Algorithms");
+    assert.equal(new URL(books[0].retailers[1].href).searchParams.get("q"), "Data Structures and Algorithms");
     assert.equal(books[1].description, "Explains data structures through examples.");
     assert.equal(books[1].isbn, "");
     assert.equal(books[1].cover, "");
-    assert.equal(new URL(books[1].href).searchParams.get("k"), "Practical Data Structures B. Author");
+    assert.equal(new URL(books[1].href).searchParams.get("k"), "Practical Data Structures");
   });
+});
+
+test("replaces saved ISBN searches without discarding direct product links", () => {
+  const retailers = resolveBookRetailers({
+    title: "Computer Vision – ECCV 2012",
+    isbn: "9783642337154",
+    retailers: [
+      { name: "Amazon", href: "https://www.amazon.in/s?k=9783642337154", mode: "search" },
+      { name: "Flipkart", href: "https://www.flipkart.com/book/exact-edition/p/abc", mode: "product" },
+      { name: "Other shop", href: "https://books.example.com/item/123", mode: "product" },
+    ],
+  });
+
+  assert.equal(new URL(retailers[0].href).searchParams.get("k"), "Computer Vision – ECCV 2012");
+  assert.equal(retailers[1].href, "https://www.flipkart.com/book/exact-edition/p/abc");
+  assert.equal(retailers[1].mode, "product");
+  assert.equal(retailers[2].href, "https://books.example.com/item/123");
+});
+
+test("rebuilds both searches for saved books with no author or retailer links", () => {
+  const retailers = resolveBookRetailers({ title: "Data Communications & Computer Networks", isbn: "9781118848371" });
+  assert.deepEqual(retailers.map(({ name, mode }) => ({ name, mode })), [
+    { name: "Amazon", mode: "search" },
+    { name: "Flipkart", mode: "search" },
+  ]);
+  assert.equal(new URL(retailers[0].href).searchParams.get("k"), "Data Communications & Computer Networks");
+  assert.equal(new URL(retailers[1].href).searchParams.get("q"), "Data Communications & Computer Networks");
+  assert.deepEqual(resolveBookRetailers({ title: "", isbn: "9781118848371" }), []);
 });
 
 test("prefers the student's class and caps distinct works at six", async () => {
