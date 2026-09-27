@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getExamSubjectPrefill } from "./examSubjectPrefill.js";
+import {
+  getExamPaperScopeBlocks,
+  getExamPaperScopePrefill,
+  getExamSubjectPrefill,
+  mergeExamPaperScope,
+} from "./examSubjectPrefill.js";
 
 test("prefills all named chapters, unnamed chapter positions, and optional topics", () => {
   const subjects = [{
@@ -68,4 +73,75 @@ test("does not select an arbitrary subject for direct entry or an invalid reques
   assert.equal(getExamSubjectPrefill("", [{ name: "Physics" }]), null);
   assert.equal(getExamSubjectPrefill("Biology", [{ name: "Physics" }]), null);
   assert.equal(getExamSubjectPrefill("Physics", null, null), null);
+});
+
+test("question-paper scope includes saved chapter and topic names without unnamed chapter placeholders", () => {
+  const subjects = [{
+    name: "Data Analytics",
+    chapters: 3,
+    chapterNames: ["Foundations", "", "Big data"],
+    topics: ["Sampling"],
+  }];
+  const schedule = [{ tasks: [
+    { subjectName: "Data Analytics", chapterName: "Big data", topic: "Regression" },
+    { subjectName: "Physics", topic: "Waves" },
+  ] }];
+
+  assert.equal(
+    getExamPaperScopePrefill(["Data Analytics"], subjects, schedule),
+    "Foundations\nBig data\nSampling\nRegression",
+  );
+  assert.equal(getExamPaperScopePrefill(["Physics"], subjects, schedule), "Waves");
+});
+
+test("question-paper scope separates multiple selected subjects and only includes available saved content", () => {
+  const subjects = [
+    { name: "Physics", chapters: 2, chapterNames: ["Mechanics", "Optics"] },
+    { name: "Chemistry", chapters: 3 },
+    { name: "Biology", chapters: [{ title: "Cells", topics: ["Organelles"] }] },
+  ];
+
+  assert.equal(
+    getExamPaperScopePrefill(["Physics", "Chemistry", "Biology"], subjects),
+    "Physics:\n- Mechanics\n- Optics\n\nBiology:\n- Cells\n- Organelles",
+  );
+  assert.equal(getExamPaperScopePrefill(["Chemistry"], subjects), "");
+  assert.equal(getExamPaperScopePrefill([], subjects), "");
+});
+
+test("question-paper selection changes update intact suggestions and preserve manual additions", () => {
+  const subjects = [
+    { name: "Physics", chapters: 1, chapterNames: ["Mechanics"] },
+    { name: "Biology", topics: ["Cells"] },
+  ];
+  const physics = getExamPaperScopeBlocks(["Physics"], subjects);
+  const both = getExamPaperScopeBlocks(["Physics", "Biology"], subjects);
+  const biology = getExamPaperScopeBlocks(["Biology"], subjects);
+
+  assert.equal(mergeExamPaperScope("Mechanics", physics, both),
+    "Physics:\n- Mechanics\n\nBiology:\n- Cells");
+  const withManualAddition = mergeExamPaperScope(
+    "Mechanics\n\nInclude derivations",
+    physics,
+    both,
+  );
+  assert.equal(withManualAddition,
+    "Physics:\n- Mechanics\n\nInclude derivations\n\nBiology:\n- Cells");
+  assert.equal(mergeExamPaperScope(withManualAddition, both, biology),
+    "Include derivations\n\nCells");
+});
+
+test("question-paper scope does not delete edited text when removing a subject", () => {
+  const subjects = [
+    { name: "Physics", chapterNames: ["Mechanics"], chapters: 1 },
+    { name: "Biology", topics: ["Cells"] },
+  ];
+  const physics = getExamPaperScopeBlocks(["Physics"], subjects);
+  const both = getExamPaperScopeBlocks(["Physics", "Biology"], subjects);
+  const biology = getExamPaperScopeBlocks(["Biology"], subjects);
+  const manuallyEdited = mergeExamPaperScope("Mechanics and waves", physics, both);
+  assert.equal(manuallyEdited, "Mechanics and waves\n\nBiology:\n- Cells");
+  assert.equal(mergeExamPaperScope(manuallyEdited, both, biology),
+    "Mechanics and waves\n\nCells");
+  assert.equal(mergeExamPaperScope("", physics, both), "Biology:\n- Cells");
 });

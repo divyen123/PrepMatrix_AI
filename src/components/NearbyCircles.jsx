@@ -96,8 +96,8 @@ function CircleForm({ origin, radius, subject, chapter, profile, onClose, onCrea
       <label>Group size, including you<input type="number" name="capacity" min={2} max={20} defaultValue={6} required /></label>
       <label className="nearby-wide">Revision agenda<textarea name="agenda" rows={3} maxLength={1200} placeholder="Topics to cover, exercises to try and what to bring." /></label>
       <label className="nearby-checkbox nearby-wide"><input type="checkbox" name="permission" required />I have confirmed that this venue permits our study group.</label>
-      {venueNotice && <p className="nearby-notice nearby-wide" role="status">{venueNotice}<button type="button" disabled={loading || retrySeconds > 0} onClick={retryVenues}>{retrySeconds > 0 ? `Retry in ${retrySeconds}s` : "Retry live venues"}</button></p>}
-      {venueError && <p className="nearby-notice nearby-wide" data-tone="error" role="alert">{venueError}<button type="button" disabled={loading || retrySeconds > 0} onClick={retryVenues}>{retrySeconds > 0 ? `Retry in ${retrySeconds}s` : "Retry venues"}</button></p>}
+      {venueNotice && <p className="nearby-notice nearby-wide" role="status">{venueNotice}<button className="nearby-retry-action" type="button" disabled={loading || retrySeconds > 0} onClick={retryVenues}>{retrySeconds > 0 ? `Retry in ${retrySeconds}s` : "Retry live venues"}</button></p>}
+      {venueError && <p className="nearby-notice nearby-wide" data-tone="error" role="alert">{venueError}<button className="nearby-retry-action" type="button" disabled={loading || retrySeconds > 0} onClick={retryVenues}>{retrySeconds > 0 ? `Retry in ${retrySeconds}s` : "Retry venues"}</button></p>}
       {error && <p className="nearby-notice nearby-wide" data-tone="error" role="alert">{error}</p>}
       <div className="nearby-dialog-actions nearby-wide"><button type="button" onClick={onClose} disabled={busy}>Cancel</button><button className="nearby-primary" type="submit" disabled={busy || loading || Boolean(venueError) || !availableVenues.length}>{busy ? "Publishing…" : "Publish circle"}</button></div>
     </form>

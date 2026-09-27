@@ -191,6 +191,27 @@ body .nearby-page .nearby-view-toggle button[data-active="true"]:hover {
 .nearby-dialog .nearby-notice[data-tone="success"] { color: var(--accent); background: var(--accent-soft); }
 .nearby-page .nearby-notice > button:not(.nearby-icon-button),
 .nearby-dialog .nearby-notice > button:not(.nearby-icon-button) { border: 0; background: transparent; color: inherit; text-decoration: underline; font-size: 11px; padding: 3px; }
+body :is(.nearby-page, .nearby-dialog) button.nearby-retry-action,
+body :is(.nearby-page, .nearby-dialog) button.nearby-retry-action:hover,
+body :is(.nearby-page, .nearby-dialog) button.nearby-retry-action:focus-visible {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 3px 0 !important;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  transform: none !important;
+  color: inherit !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+body :is(.nearby-page, .nearby-dialog) button.nearby-retry-action::after { content: none !important; }
+body :is(.nearby-page, .nearby-dialog) button.nearby-retry-action:disabled { opacity: .72; cursor: default; }
 .nearby-page .nearby-today { display: flex; align-items: flex-start; gap: 9px; padding: 12px 14px; border-radius: 9px; background: var(--accent-soft); color: var(--text); font-size: 11px; }
 .nearby-page .nearby-today svg { color: var(--accent); margin-top: 1px; }
 .nearby-page .nearby-footer { margin-top: 5px; padding-top: 19px; border-top: 1px solid var(--nearby-line); color: var(--nearby-muted); font-size: 9px; }
@@ -203,7 +224,7 @@ body .nearby-page .nearby-view-toggle button[data-active="true"]:hover {
 .nearby-page .nearby-map-caption a { display: inline-flex; gap: 5px; align-items: center; flex-shrink: 0; }
 
 .nearby-dialog { width: min(700px, calc(100vw - 32px)); max-height: min(88dvh, 900px); margin: auto; padding: 25px; border: 1px solid var(--nearby-line); border-radius: 18px; background: var(--surface-strong, #fff); box-shadow: 0 24px 85px #00000030; overflow-y: auto; overscroll-behavior: contain; }
-.nearby-dialog::backdrop { background: #0c201a80; backdrop-filter: blur(5px); }
+.nearby-dialog::backdrop { background: rgb(0 0 0 / 62%); backdrop-filter: blur(5px); }
 .nearby-dialog .nearby-dialog-header { display: flex; align-items: flex-start; gap: 16px; justify-content: space-between; margin-bottom: 19px; padding-bottom: 15px; border-bottom: 1px solid var(--nearby-line); }
 .nearby-dialog .nearby-dialog-header h2 { font-size: 21px; letter-spacing: -.035em; font-weight: 720; overflow-wrap: anywhere; }
 .nearby-dialog .nearby-dialog-header > button { margin: -3px -5px 0 0; flex-shrink: 0; }

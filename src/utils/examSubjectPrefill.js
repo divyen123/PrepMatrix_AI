@@ -30,7 +30,12 @@ function legacyTaskTopic(task, subjectName) {
 }
 
 /** Resolve a saved subject and its study scope without including another subject's tasks. */
-export function getExamSubjectPrefill(requestedSubject, subjects = [], schedule = []) {
+export function getExamSubjectPrefill(
+  requestedSubject,
+  subjects = [],
+  schedule = [],
+  { includeUnnamedChapters = true } = {},
+) {
   const requestedName = cleanText(requestedSubject);
   if (!requestedName) return null;
 
@@ -72,7 +77,11 @@ export function getExamSubjectPrefill(requestedSubject, subjects = [], schedule 
     } else {
       getSubjectStudyUnitRecords(subject)
         .filter((unit) => unit.unitType === "chapter")
-        .forEach((unit) => addLabel(unit.label));
+        .forEach((unit) => {
+          if (includeUnnamedChapters || labelOf(subject.chapterNames?.[unit.unitIndex])) {
+            addLabel(unit.label);
+          }
+        });
     }
     addCurriculum(subject.topics);
   }
@@ -90,4 +99,76 @@ export function getExamSubjectPrefill(requestedSubject, subjects = [], schedule 
   });
 
   return { subjectName, scopeText: scope.join("\n") };
+}
+
+/** Keep each subject's suggested scope separate so selection changes preserve custom text. */
+export function getExamPaperScopeBlocks(selectedSubjects, subjects = [], schedule = []) {
+  if (!Array.isArray(selectedSubjects) || !selectedSubjects.length) return [];
+  const entries = selectedSubjects
+    .map((name) => getExamSubjectPrefill(name, subjects, schedule, {
+      includeUnnamedChapters: false,
+    }))
+    .filter((entry) => entry?.scopeText);
+  const multipleSubjects = selectedSubjects.length > 1;
+
+  return entries.map(({ subjectName, scopeText }) => ({
+    subjectName,
+    text: multipleSubjects
+      ? `${subjectName}:\n${scopeText.split("\n").map((line) => `- ${line}`).join("\n")}`
+      : scopeText,
+  }));
+}
+
+export function getExamPaperScopePrefill(selectedSubjects, subjects = [], schedule = []) {
+  return getExamPaperScopeBlocks(selectedSubjects, subjects, schedule)
+    .map((block) => block.text).join("\n\n");
+}
+
+function replaceIntactScopeBlock(text, previousBlock, nextBlock) {
+  let searchFrom = 0;
+  while (searchFrom < text.length) {
+    const index = text.indexOf(previousBlock, searchFrom);
+    if (index < 0) return text;
+    const before = text.slice(0, index);
+    const after = text.slice(index + previousBlock.length);
+    if ((index === 0 || before.endsWith("\n\n"))
+      && (!after || after.startsWith("\n\n"))) {
+      if (nextBlock) return before + nextBlock + after;
+      if (!before) return after.slice(2);
+      if (!after) return before.slice(0, -2);
+      return before + after.slice(2);
+    }
+    searchFrom = index + previousBlock.length;
+  }
+  return text;
+}
+
+/** Replace only intact generated blocks; typed additions and edits remain untouched. */
+export function mergeExamPaperScope(currentText, previousBlocks, nextBlocks) {
+  const current = typeof currentText === "string" ? currentText : "";
+  const previous = Array.isArray(previousBlocks) ? previousBlocks : [];
+  const next = Array.isArray(nextBlocks) ? nextBlocks : [];
+  const previousText = previous.map((block) => block.text).join("\n\n");
+  const nextText = next.map((block) => block.text).join("\n\n");
+  if (current === previousText) return nextText;
+
+  let merged = current;
+  const previousNames = new Set(previous.map((block) => comparisonKey(block.subjectName)));
+  previous.forEach((block) => {
+    const replacement = next.find((candidate) => (
+      comparisonKey(candidate.subjectName) === comparisonKey(block.subjectName)
+    ));
+    merged = replaceIntactScopeBlock(merged, block.text, replacement?.text || "");
+  });
+
+  next.forEach((block) => {
+    if (previousNames.has(comparisonKey(block.subjectName))) return;
+    if (merged === block.text || merged.includes(`\n\n${block.text}\n\n`)
+      || merged.endsWith(`\n\n${block.text}`)
+      || merged.startsWith(`${block.text}\n\n`)) return;
+    const separator = merged.endsWith("\n\n") ? "" : merged.endsWith("\n") ? "\n" : merged ? "\n\n" : "";
+    merged += separator + block.text;
+  });
+
+  return merged;
 }

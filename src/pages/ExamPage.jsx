@@ -62,7 +62,11 @@ import {
   getExamCertificateId,
 } from "../utils/examCertificate";
 import { EXAM_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
-import { getExamSubjectPrefill } from "../utils/examSubjectPrefill";
+import {
+  getExamPaperScopeBlocks,
+  getExamSubjectPrefill,
+  mergeExamPaperScope,
+} from "../utils/examSubjectPrefill";
 import { academicProfilePayload } from "../utils/academicProfile";
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import {
@@ -916,6 +920,7 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
 function PaperBuilder({
   academicProfileDataId,
   subjects,
+  schedule,
   academicLevel,
   academicTrack,
   userProfile,
@@ -938,9 +943,17 @@ function PaperBuilder({
     [academicLevel, academicTrack, userProfile],
   );
   const [selectedSubjects, setSelectedSubjects] = useState(() => names.slice(0, 1));
+  const selectionInitializedRef = useRef(names.length > 0);
+  const suggestedScopeBlocks = useMemo(
+    () => getExamPaperScopeBlocks(selectedSubjects, subjects, schedule),
+    [selectedSubjects, subjects, schedule],
+  );
   const [totalMarks, setTotalMarks] = useState(50);
   const [blueprint, setBlueprint] = useState(() => defaultBlueprint(50));
-  const [scopeText, setScopeText] = useState("");
+  const [scopeText, setScopeText] = useState(() => (
+    suggestedScopeBlocks.map((block) => block.text).join("\n\n")
+  ));
+  const previousScopeBlocksRef = useRef(suggestedScopeBlocks);
   const [difficulty, setDifficulty] = useState("balanced");
   const [codingMode, setCodingMode] = useState("auto");
   const [questionStyle, setQuestionStyle] = useState("mixed");
@@ -955,8 +968,22 @@ function PaperBuilder({
   const isGenerating = paperTask?.status === "running";
 
   useEffect(() => {
-    if (!selectedSubjects.length && names.length) setSelectedSubjects(names.slice(0, 1));
-  }, [names, selectedSubjects.length]);
+    const shouldInitialize = !selectionInitializedRef.current && names.length > 0;
+    if (shouldInitialize) selectionInitializedRef.current = true;
+    setSelectedSubjects((current) => {
+      const retained = current.filter((name) => names.includes(name));
+      const next = shouldInitialize && !retained.length ? names.slice(0, 1) : retained;
+      return next.length === current.length && next.every((name, index) => name === current[index])
+        ? current
+        : next;
+    });
+  }, [names]);
+
+  useEffect(() => {
+    const previousBlocks = previousScopeBlocksRef.current;
+    previousScopeBlocksRef.current = suggestedScopeBlocks;
+    setScopeText((current) => mergeExamPaperScope(current, previousBlocks, suggestedScopeBlocks));
+  }, [suggestedScopeBlocks]);
 
   useEffect(() => {
     if (!paperTask || paperTask.status === "running") return;
@@ -2069,6 +2096,7 @@ function ExamPage({
       {section === "paper" && (
         <>
           <PaperBuilder
+            key={academicProfileDataId || userProfile?.id || "default-profile"}
             academicProfileDataId={academicProfileDataId}
             academicLevel={academicLevel}
             academicTrack={academicTrack}
@@ -2078,6 +2106,7 @@ function ExamPage({
               loadPapers();
             }}
             subjects={subjects}
+            schedule={schedule}
             userProfile={userProfile}
           />
           <PaperHistory onPaperLoaded={handlePaperLoaded} onRefresh={loadPapers} papers={papers} />
