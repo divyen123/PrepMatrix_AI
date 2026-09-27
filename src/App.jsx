@@ -89,6 +89,7 @@ import {
   normalizeMaterialBookmarks,
 } from "./utils/materialBookmarks";
 import { reconcileScheduleWithSubjects } from "./utils/scheduleReconciliation";
+import { addAnswerCoachRevisionTask } from "./utils/answerCoachPlanner";
 import {
   academicProfilePayload,
   normalizeAcademicProfile,
@@ -3905,6 +3906,7 @@ function App() {
                               academicTrack={academicTrack}
                               examReadiness={metrics.completionRate}
                               isExamEligible={metrics.isExamEligible}
+                              onAddRevisionTask={(task) => setSchedule((current) => addAnswerCoachRevisionTask(current, task, new Date(), scheduleStartDate))}
                               onActiveAttemptChange={setActiveExamAttemptId}
                               parentAccessGranted={kidsParentAccess.unlocked}
                               schedule={schedule}

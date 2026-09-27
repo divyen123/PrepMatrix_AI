@@ -17,6 +17,7 @@ export const PROFILE_SCOPED_OWNED_COLLECTIONS = Object.freeze([
   "examAttempts",
   "scheduledReminderDeliveries",
   "questionPapers",
+  "answerCoachReports",
   "resumeHistory",
   "kidsAttempts",
   "kidsProfileSettings",

@@ -15,6 +15,7 @@ function normalizeLabel(value) {
 function isExternallyManagedTask(task) {
   return task?.source === "note"
     || task?.source === "learning"
+    || task?.source === "answer-coach"
     || Boolean(cleanText(task?.sourceNoteId))
     || Boolean(cleanText(task?.sourceLearningProjectId));
 }

@@ -12,7 +12,7 @@ const resultsPanelSource = pageSource.slice(
 test("keeps eligibility behavior but hides its banner from View Results", () => {
   assert.match(
     pageSource,
-    /\{section !== "results" && \(\s*<div className="exam-eligibility-row">[\s\S]*?<section className=\{`exam-eligibility-banner/u,
+    /\{section !== "results" && section !== "coach" && \(\s*<div className="exam-eligibility-row">[\s\S]*?<section className=\{`exam-eligibility-banner/u,
   );
   assert.match(pageSource, /const isOnlineExamEligible/u);
   assert.doesNotMatch(pageSource, /isLockedAttendTab/u);
@@ -24,7 +24,7 @@ test("keeps eligibility behavior but hides its banner from View Results", () => 
 });
 
 test("simplifies the View Results heading without changing result behavior", () => {
-  assert.match(pageSource, /<h2>\{section === "results" \? "Released and pending exams" : "Exam workspace"\}<\/h2>/u);
+  assert.match(pageSource, /<h2>\{section === "results" \? "Released and pending exams" : section === "coach" \? "Answer coach" : "Exam workspace"\}<\/h2>/u);
   assert.doesNotMatch(resultsPanelSource, /Released and pending exams/u);
   assert.match(pageSource, /className="exam-page__header-actions"[\s\S]*?aria-label="Refresh results"/u);
   assert.doesNotMatch(resultsPanelSource, /<span className="section-tag">View results<\/span>/u);

@@ -9,6 +9,7 @@ import webpush from "web-push";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import registerExamRoutes, { isGroqJsonGenerationFailure } from "./examRoutes.js";
+import registerAnswerCoachRoutes from "./answerCoachRoutes.js";
 import { getStudentOnboardingState, validateStudentDetails } from "../src/utils/studentOnboarding.js";
 import { normalizeMemoryReviewData, separatePlannerRecall } from "../src/utils/plannerLifecycle.js";
 import { mergePlannerHistory, normalizePlannerHistory } from "../src/utils/plannerHistory.js";
@@ -328,6 +329,7 @@ async function getDb() {
         db.collection("scheduledReminderDeliveries").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         db.collection("scheduledReminderDeliveries").createIndex({ userId: 1, academicProfileId: 1, expiresAt: 1 }),
         db.collection("questionPapers").createIndex({ userId: 1, academicProfileId: 1, createdAt: -1 }),
+        db.collection("answerCoachReports").createIndex({ userId: 1, academicProfileId: 1, createdAt: -1 }),
         db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, updatedAt: -1 }),
         db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, subjectName: 1 }),
         db.collection(LEARNING_NOTEBOOKS_COLLECTION).createIndex(
@@ -1291,6 +1293,7 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
         db.collection("examStartLocks").deleteMany({ userId }),
         db.collection("scheduledReminderDeliveries").deleteMany({ userId }),
         db.collection("questionPapers").deleteMany({ userId }),
+        db.collection("answerCoachReports").deleteMany({ userId }),
         db.collection(RESUME_GENERATIONS_COLLECTION).deleteMany({ userId }),
         db.collection(RESUME_HISTORY_COLLECTION).deleteMany({ userId }),
         db.collection(RESUME_GENERATION_LOCKS_COLLECTION).deleteMany({ _id: `resume-generation:${String(userId)}` }),
@@ -3198,6 +3201,15 @@ registerExamRoutes(app, {
   withProfileWriteFence: withAcademicProfileWriteFence,
   getGroqConfigStatus,
   groqModel: GROQ_CHAT_MODEL,
+});
+registerAnswerCoachRoutes(app, {
+  aiQuota,
+  getDb,
+  requireAuth,
+  getGroqConfigStatus,
+  visionModel: GROQ_VISION_MODEL,
+  textModel: GROQ_CHAT_MODEL,
+  withProfileWriteFence: withAcademicProfileWriteFence,
 });
 
 // Serve static assets from Vite build in production

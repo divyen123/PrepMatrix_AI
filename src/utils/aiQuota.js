@@ -8,6 +8,7 @@ export const AI_FEATURES = Object.freeze({
   LEARNING_NOTEBOOK: "learning_notebook",
   SECURE_EXAM: "secure_exam",
   QUESTION_PAPER: "question_paper",
+  ANSWER_COACH: "answer_coach",
 });
 
 export const AI_DEFAULT_COSTS = Object.freeze({
@@ -18,6 +19,7 @@ export const AI_DEFAULT_COSTS = Object.freeze({
   [AI_FEATURES.LEARNING_NOTEBOOK]: 12,
   [AI_FEATURES.SECURE_EXAM]: 15,
   [AI_FEATURES.QUESTION_PAPER]: 15,
+  [AI_FEATURES.ANSWER_COACH]: 8,
 });
 
 export const AI_FEATURE_LABELS = Object.freeze({
@@ -28,6 +30,7 @@ export const AI_FEATURE_LABELS = Object.freeze({
   [AI_FEATURES.LEARNING_NOTEBOOK]: "Learning notebook",
   [AI_FEATURES.SECURE_EXAM]: "Secure exam preparation",
   [AI_FEATURES.QUESTION_PAPER]: "Question paper",
+  [AI_FEATURES.ANSWER_COACH]: "Answer coach review",
 });
 
 const FEATURE_ALIASES = Object.freeze({
@@ -50,6 +53,8 @@ const FEATURE_ALIASES = Object.freeze({
   question_paper: AI_FEATURES.QUESTION_PAPER,
   questionPaper: AI_FEATURES.QUESTION_PAPER,
   questionPaperGeneration: AI_FEATURES.QUESTION_PAPER,
+  answer_coach: AI_FEATURES.ANSWER_COACH,
+  answerCoach: AI_FEATURES.ANSWER_COACH,
 });
 
 export const AiQuotaContext = createContext(null);

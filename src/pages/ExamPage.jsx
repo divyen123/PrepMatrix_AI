@@ -38,6 +38,7 @@ import {
   X,
 } from "lucide-react";
 import DistractionAwareFocusRoom from "../components/DistractionAwareFocusRoom";
+import AnswerCoachPanel from "../components/AnswerCoachPanel";
 import LatticeLoader from "../components/LatticeLoader";
 import SquishSwitch from "../components/SquishSwitch";
 import { speakFocusNudge } from "../utils/focusRoomNudge";
@@ -1750,6 +1751,7 @@ function ExamPage({
   userProfile = {},
   examReadiness = 0,
   isExamEligible: examEligibilityOverride,
+  onAddRevisionTask,
   onActiveAttemptChange,
   parentAccessGranted = true,
   tasksToExamEligibility = 0,
@@ -2074,10 +2076,16 @@ function ExamPage({
     <section className="page-stack exam-page">
       <header className="exam-page__header">
         <div>
-          <h2>{section === "results" ? "Released and pending exams" : "Exam workspace"}</h2>
+          <h2>{section === "results" ? "Released and pending exams" : section === "coach" ? "Answer coach" : "Exam workspace"}</h2>
         </div>
         <div className="exam-page__header-actions">
           {section !== "overview" && overviewBackControl}
+          {section === "paper" && (
+            <button className="exam-about-btn" onClick={() => setSection("coach")} type="button">Answer coach</button>
+          )}
+          {section === "coach" && (
+            <button className="exam-about-btn" onClick={() => setSection("paper")} type="button">Question papers</button>
+          )}
           {section === "results" && (
             <button
               aria-label="Refresh results"
@@ -2093,7 +2101,7 @@ function ExamPage({
         </div>
       </header>
 
-      {section !== "results" && (
+      {section !== "results" && section !== "coach" && (
         <div className="exam-eligibility-row">
           <section className={`exam-eligibility-banner ${isOnlineExamEligible ? "is-eligible" : "is-locked"}`} aria-live="polite">
             <div className="exam-eligibility-icon" aria-hidden="true">
@@ -2275,6 +2283,8 @@ function ExamPage({
       )}
 
       {section === "results" && <ResultsPanel onRefresh={loadResults} results={results} userProfile={userProfile} />}
+
+      {section === "coach" && <AnswerCoachPanel key={academicProfileDataId || userProfile?.id || "default-profile"} onAddRevisionTask={onAddRevisionTask} papers={papers} />}
 
       {section === "paper" && papers.length > 0 && (
         <OfflineExamTimer

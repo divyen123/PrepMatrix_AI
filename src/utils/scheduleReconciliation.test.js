@@ -158,6 +158,31 @@ test("preserves learning-map tasks while reconciling generated subject units", (
   assert.deepEqual(result.schedule[0].tasks[1], learningTask);
 });
 
+test("preserves answer coach revision tasks when subject chapters change", () => {
+  const coachTask = {
+    id: "answer-coach-paper-1-2",
+    source: "answer-coach",
+    subjectName: "Networks",
+    topic: "Routing",
+    task: "Review Routing after Answer coach question 2",
+    time: "Evening",
+  };
+  const schedule = [{
+    date: "2026-07-25",
+    day: 1,
+    tasks: [subjectTask(1, "Morning"), coachTask],
+  }];
+  const result = reconcileSubjectSchedule(
+    schedule,
+    [],
+    { ...previousSubject, chapters: 1 },
+    { ...previousSubject, chapters: 1, chapterNames: ["Network basics"] },
+  );
+
+  assert.equal(result.schedule[0].tasks[0].task, "Networks - Network basics");
+  assert.deepEqual(result.schedule[0].tasks[1], coachTask);
+});
+
 test("only reconciles subjects whose planning signature changed", () => {
   const schedule = [{
     day: 1,
