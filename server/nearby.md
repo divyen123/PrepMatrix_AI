@@ -5,10 +5,14 @@ Nearby replaces the former Trend entry. Its backend is registered in `index.js`;
 ## Discovery providers
 
 - Geocoding: [Photon](https://github.com/komoot/photon), using OpenStreetMap data. Its public demo permits reasonable project usage, provides no availability guarantee and may throttle heavy traffic. `NEARBY_PHOTON_URL` can point to a private Photon `/api/` endpoint.
-- Places: [Overpass API](https://dev.overpass-api.de/overpass-doc/en/preface/commons.html). `NEARBY_OVERPASS_URL` can point to another compatible interpreter endpoint. The default is `https://overpass-api.de/api/interpreter`.
+- Places: [Overpass API](https://dev.overpass-api.de/overpass-doc/en/preface/commons.html). The default is `https://overpass-api.de/api/interpreter`, with `https://overpass.private.coffee/api/interpreter` as an outage fallback. `NEARBY_OVERPASS_URL` can point to another compatible interpreter endpoint. A custom primary disables the default public backup; explicitly set `NEARBY_OVERPASS_FALLBACK_URL` to opt into a compatible backup, or set it to an empty string to disable fallback.
 - Client attribution must link to [OpenStreetMap copyright and contributors](https://www.openstreetmap.org/copyright). OSM source links and object timestamps are returned with each result.
 
 Provider lookups occur only in response to user searches. Each server process caches geocoding for 24 hours and places for 20 minutes, coalesces identical in-flight requests, and spaces upstream requests by at least 1.1 seconds per provider. The queue, result count, radius and timeout are bounded. Search results are limited extracts, not complete coverage. For multiple server replicas or sustained traffic, configure dedicated providers and a deployment-wide rate limiter; public endpoints are not an SLA-backed production dependency.
+
+Place requests use a bounding-box query to limit the provider scan, followed by an exact circular-distance filter. Bounding boxes account for the poles and the antimeridian. Requests wait at most three seconds for the provider queue and allow up to 15 seconds per endpoint. Transport failures, server errors and incomplete Overpass responses may try the backup once. HTTP client errors, including rate limits and access refusals, do not trigger failover. Failed endpoints cool down for at least 30 seconds; longer `Retry-After` values are respected up to one hour.
+
+If a refresh fails, the service can return nonempty results from the exact same coordinates, radius and provider category, fetched within the last 24 hours. A visible notice includes the original fetch time; it is not presented as a successful live refresh. Empty or unusable cached results do not hide an outage. The page retains results during a retry of the same search and clears them when the location, radius or feature changes. Failed searches offer retry, a smaller radius when applicable, and an external map search.
 
 OSM listings do not establish teaching subjects, board compatibility, batch seats, tutor availability, crowd levels, or consent to telephone doubt support. Absent details remain empty. An OSM phone is a public institution enquiry number. `phoneSupport: true` is reserved for reviewed records with explicit doubt-support consent.
 
@@ -91,4 +95,4 @@ All endpoints require authentication and the app's academic-profile request head
 
 Errors return an explicit HTTP status and `{ error, code }`. Provider outages are not represented as a successful empty search; reviewed listings may still be returned with a notice if available.
 
-Run `node --test server/nearby.test.js` for mocked-provider and database-backed route contract checks.
+Run `node --test server/nearby.test.js server/nearbyService.test.js src/utils/nearby.test.js src/utils/nearbySearchState.test.js` for provider recovery, route contracts, matching and search-state checks.

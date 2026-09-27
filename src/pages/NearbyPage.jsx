@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, ArrowUpRight, Bookmark, CalendarPlus, Check, Clock3, Compass,
@@ -12,6 +12,7 @@ import {
   readNearbyPreferences, writeNearbyPreferences,
 } from "../utils/nearby";
 import { createPlannerId, getLocalDateKey, normalizePlannerData } from "../utils/goalReminderStore";
+import { INITIAL_NEARBY_SEARCH, currentNearbySearch, nearbySearchKey, nearbySearchReducer } from "../utils/nearbySearchState";
 import NearbyCircles from "../components/NearbyCircles";
 import NearbyDialog from "../components/NearbyDialog";
 import "./NearbyPage.css";
@@ -135,10 +136,8 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
   const [locationLabel, setLocationLabel] = useState("");
   const [locations, setLocations] = useState([]);
   const [locating, setLocating] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [places, setPlaces] = useState([]);
-  const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
+  const [searchState, dispatchSearch] = useReducer(nearbySearchReducer, INITIAL_NEARBY_SEARCH);
+  const [locationError, setLocationError] = useState("");
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
   const [chapter, setChapter] = useState("");
@@ -153,25 +152,37 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
   const [planning, setPlanning] = useState(null);
   const [refresh, setRefresh] = useState(0);
   const locationRequest = useRef(0);
+  const placesRequest = useRef(0);
   const active = TABS.find((item) => item.id === tab);
   const subject = prefs.subject || "";
   const radius = Number(prefs.radius) || 5;
+  const searchKey = nearbySearchKey(origin, radius, tab);
+  const { loading: requestLoading, hasResult, places, notice, error: placesError } = currentNearbySearch(searchState, searchKey);
+  const loading = requestLoading || Boolean(searchKey && searchState.key !== searchKey);
   const savedIds = useMemo(() => prefs.savedIds || [], [prefs.savedIds]);
   const resultMapRef = useRef(null);
 
   useEffect(() => { writeNearbyPreferences(browserStorage(), storageKey, { ...prefs, activeTab: tab }); }, [prefs, storageKey, tab]);
   useEffect(() => () => { locationRequest.current += 1; }, []);
   useEffect(() => {
-    if (!origin || tab === "circles") return;
+    if (!origin || tab === "circles") { dispatchSearch({ type: "reset" }); return; }
     let current = true;
-    setLoading(true); setError(""); setNotice(""); setPlaces([]); setMapPlace(null);
+    const requestId = ++placesRequest.current;
+    dispatchSearch({ type: "start", key: searchKey, requestId });
+    setMapPlace(null); setComparison([]);
     const params = new URLSearchParams({ lat: origin.lat, lon: origin.lon, radius, category: tab });
     api.get(`/api/nearby/places?${params}`, { timeoutMs: 45000 }).then((data) => {
       if (!current) return;
-      setPlaces(Array.isArray(data.places) ? data.places : []); setNotice(data.notice || "");
-    }).catch((failure) => { if (current) setError(failure.message || "Could not load nearby places. Please try again."); }).finally(() => { if (current) setLoading(false); });
+      dispatchSearch({ type: "success", key: searchKey, requestId, data });
+    }).catch((failure) => {
+      if (!current) return;
+      const error = failure.name === "AbortError"
+        ? "The nearby search timed out. Please retry or search a smaller area."
+        : failure.message || "Could not load nearby places. Please try again.";
+      dispatchSearch({ type: "failure", key: searchKey, requestId, error });
+    });
     return () => { current = false; };
-  }, [origin, radius, tab, refresh]);
+  }, [origin, radius, tab, refresh, searchKey]);
 
   const visible = useMemo(() => filterNearbyPlaces(places, { query, subject, activity: tab === "spots" ? prefs.activity : "", budget: prefs.budget, savedOnly, savedIds, origin, radius, category: tab, board: profile.board, level: profile.level, chapter, language: tab === "tuitions" ? language : "", timing: tab === "tuitions" ? timing : "" }), [places, query, subject, tab, prefs.activity, prefs.budget, savedOnly, savedIds, origin, radius, profile.board, profile.level, chapter, language, timing]);
   const today = getLocalDateKey(new Date());
@@ -179,34 +190,34 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
   function preference(key, value) { setPrefs((current) => ({ ...current, [key]: value })); }
   function selectLocation(location) {
     const point = normalizeCoordinates(location.lat, location.lon);
-    if (!point) { setError("That location could not be used. Try another area."); return; }
-    setOrigin(point); setLocationLabel(location.label); setLocations([]); setMapPlace(null); setComparison([]); setError("");
+    if (!point) { setLocationError("That location could not be used. Try another area."); return; }
+    setOrigin(point); setLocationLabel(location.label); setLocations([]); setMapPlace(null); setComparison([]); setLocationError("");
   }
   async function searchLocation(event) {
     event.preventDefault();
     if (locality.trim().length < 3) return;
     const request = ++locationRequest.current;
-    setLocating(true); setError(""); setLocations([]);
+    setLocating(true); setLocationError(""); setLocations([]);
     preference("locality", locality.trim());
     try {
       const data = await api.get(`/api/nearby/geocode?q=${encodeURIComponent(locality.trim())}`, { timeoutMs: 20000 });
       if (request !== locationRequest.current) return;
       if (data.locations?.length === 1) selectLocation(data.locations[0]);
       else if (data.locations?.length) setLocations(data.locations);
-      else setError("No matching area found. Include a city or try a nearby pincode.");
-    } catch (failure) { if (request === locationRequest.current) setError(failure.message || "Location search is unavailable. Try again."); }
+      else setLocationError("No matching area found. Include a city or try a nearby pincode.");
+    } catch (failure) { if (request === locationRequest.current) setLocationError(failure.message || "Location search is unavailable. Try again."); }
     finally { if (request === locationRequest.current) setLocating(false); }
   }
   function useLocation() {
-    if (!navigator.geolocation) { setError("Location access is unavailable in this browser. Enter an area instead."); return; }
+    if (!navigator.geolocation) { setLocationError("Location access is unavailable in this browser. Enter an area instead."); return; }
     const request = ++locationRequest.current;
-    setLocating(true); setError(""); setLocations([]);
+    setLocating(true); setLocationError(""); setLocations([]);
     navigator.geolocation.getCurrentPosition((position) => {
       if (request !== locationRequest.current) return;
       selectLocation({ lat: position.coords.latitude, lon: position.coords.longitude, label: "Your current location" }); setLocating(false);
     }, (failure) => {
       if (request !== locationRequest.current) return;
-      setError(failure.code === 1 ? "Location permission was declined. Enter an area or pincode to continue." : "Could not get your location. Try entering an area or pincode."); setLocating(false);
+      setLocationError(failure.code === 1 ? "Location permission was declined. Enter an area or pincode to continue." : "Could not get your location. Try entering an area or pincode."); setLocating(false);
     }, { enableHighAccuracy: false, timeout: 12000, maximumAge: 120000 });
   }
   function toggleSave(id) { setPrefs((current) => ({ ...current, savedIds: current.savedIds?.includes(id) ? current.savedIds.filter((value) => value !== id) : [...(current.savedIds || []), id] })); }
@@ -219,7 +230,8 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
     try { await navigator.clipboard.writeText(phone); setMessage("Phone number copied."); } catch { setMessage("Copy is unavailable. Select the displayed phone number to copy it."); }
   }
   function showMap(place) { setMapPlace(place); setView("map"); setTimeout(() => resultMapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); }
-  function changeTab(id) { if (id === tab) return; setTab(id); setPlaces([]); setError(""); setNotice(""); setQuery(""); setComparison([]); setMapPlace(null); setMessage(""); }
+  function changeTab(id) { if (id === tab) return; setTab(id); setQuery(""); setComparison([]); setMapPlace(null); setMessage(""); }
+  function retryPlaces() { if (!loading) setRefresh((value) => value + 1); }
 
   return <section className="nearby-page page-stack">
     <header className="nearby-header">
@@ -233,10 +245,11 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
         <div className="nearby-location-bottom"><button type="button" className="nearby-text-button" disabled={locating} onClick={useLocation}><LocateFixed size={15} />Use my location</button><span>Location is used only when you choose.</span></div>
         {locations.length > 0 && <div className="nearby-location-options" aria-label="Choose your location">{locations.map((location, index) => <button type="button" key={`${location.lat}-${location.lon}-${index}`} onClick={() => selectLocation(location)}><MapPin size={15} />{location.label}<ArrowUpRight size={14} /></button>)}</div>}
         {origin && <div className="nearby-location-current"><MapPin size={14} /><span>{locationLabel}</span></div>}
+        {locationError && <p className="nearby-notice" data-tone="error" role="alert">{locationError}</p>}
       </div><MapArtwork />
     </div>
     <nav className="nearby-tabs" aria-label="Nearby features">{TABS.map(({ id, label, short, icon }) => <button type="button" key={id} className="nearby-tab" data-active={tab === id} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)}><span className="nearby-tab-icon">{(() => { const TabIcon = icon; return <TabIcon size={21} />; })()}</span><span><strong>{label}</strong><small>{short}</small></span></button>)}</nav>
-    {error && <div className="nearby-notice" data-tone="error" role="alert">{error}{origin && !locating && <button type="button" onClick={() => setRefresh((value) => value + 1)}>Retry places</button>}</div>}
+    {placesError && visible.length > 0 && <div className="nearby-notice" data-tone="error" role="alert"><span>{placesError} Showing results from your previous successful search.</span><button type="button" disabled={loading} onClick={retryPlaces}>Retry search</button></div>}
     {message && <div className="nearby-notice" data-tone="success" role="status">{message}<button className="nearby-icon-button" aria-label="Dismiss notification" type="button" onClick={() => setMessage("")}><X size={16} /></button></div>}
     <div className="nearby-workspace">
       <div className="nearby-toolbar"><div><h2>{active.title}</h2><p>{active.description}</p></div>{tab !== "circles" && <div className="nearby-view-toggle" aria-label="Result view"><button type="button" aria-pressed={view === "list"} data-active={view === "list"} onClick={() => setView("list")}><List size={16} />List</button><button type="button" aria-pressed={view === "map"} data-active={view === "map"} onClick={() => setView("map")}><Map size={16} />Map</button></div>}</div>
@@ -250,11 +263,12 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
       {tab === "spots" && todayTasks.length > 0 && <div className="nearby-today"><CalendarPlus size={16} /><span>On your plan today: {todayTasks.slice(0, 2).map((task) => task.task || task.title || task.subject || "Study session").join(" · ")}</span></div>}
       {tab === "rescue" && chapter && <div className="nearby-today"><Phone size={16} /><span>Before you call: “I’m studying {subject || "this subject"} and need help with {chapter}. Do you offer phone support, and is there a fee?”</span></div>}
       {tab === "circles" ? <NearbyCircles origin={origin} radius={radius} subject={subject} chapter={chapter} profile={profile} onPlan={setPlanning} /> : !origin ? <div className="nearby-empty"><span className="nearby-empty-icon"><active.icon size={30} /></span><h3>Your neighbourhood has possibilities.</h3><p>Enter an area above to discover {tab === "spots" ? "places to study" : tab === "rescue" ? "teaching contacts" : "tuitions and institutions"} near you.</p><span className="nearby-empty-hint"><MapPin size={14} />You choose the location. We find the starting points.</span></div> : <div className="nearby-results" aria-busy={loading}>
-        {notice && <p className="nearby-notice">{notice}</p>}
-        {loading ? <div className="nearby-loading" role="status"><span className="nearby-spinner" />Finding places around you…<small>Local map searches can take a few moments.</small></div> : <>
-          <div className="nearby-result-meta"><span>{visible.length} {visible.length === 1 ? "place" : "places"} in this search{savedOnly ? " · saved only" : ""}</span>{comparison.length > 0 && <button type="button" disabled={comparison.length < 2} onClick={() => setCompareOpen(true)}>Compare selected ({comparison.length}/2)</button>}</div>
+        {notice && <div className="nearby-notice" role="status"><span>{notice}</span><button type="button" disabled={loading} onClick={retryPlaces}>Retry live search</button></div>}
+        {loading && <div className="nearby-loading" role="status"><span className="nearby-spinner" />{hasResult ? "Refreshing nearby places…" : "Finding places around you…"}<small>{hasResult ? "Your previous results stay available while the search refreshes." : "Local map searches can take a few moments."}</small></div>}
+        {(!loading || (hasResult && visible.length > 0)) && <>
+          {(!placesError || visible.length > 0) && <div className="nearby-result-meta"><span>{visible.length} {visible.length === 1 ? "place" : "places"}{placesError || loading ? " from your previous search" : " in this search"}{savedOnly ? " · saved only" : ""}</span>{comparison.length > 0 && <button type="button" disabled={comparison.length < 2} onClick={() => setCompareOpen(true)}>Compare selected ({comparison.length}/2)</button>}</div>}
           {view === "map" && <div ref={resultMapRef}><LocalMap origin={origin} places={visible} selected={visible.find((place) => place.id === mapPlace?.id)} onSelect={setMapPlace} radius={radius} /></div>}
-          {visible.length === 0 ? <div className="nearby-empty"><span className="nearby-empty-icon"><Search size={28} /></span><h3>{error ? "The search couldn’t finish." : savedOnly ? "No saved places in this search." : "No matching places found here."}</h3><p>{savedOnly ? "Save a result using its bookmark button, or show all places." : "Try a wider radius or fewer filters. Local listing coverage varies by area."}</p><div className="nearby-actions"><button type="button" onClick={() => { setQuery(""); setChapter(""); setLanguage(""); setTiming(""); setPrefs((current) => ({ ...current, subject: "", activity: "", budget: "all" })); setSavedOnly(false); }}>Clear filters</button><a href={buildMapSearchUrl(tab === "spots" ? "libraries study rooms" : `${subject} tuition centres`, origin)} target="_blank" rel="noopener noreferrer">Search on Google Maps<ArrowUpRight size={14} /></a></div></div> : <div className="nearby-card-grid">{visible.map((place) => <PlaceCard key={place.id} place={place} tab={tab} saved={savedIds.includes(place.id)} compared={comparison.some((entry) => entry.id === place.id)} onSave={toggleSave} onDetails={setDetails} onCompare={toggleCompare} onMap={showMap} onPlan={setPlanning} onCopy={copyNumber} />)}</div>}
+          {visible.length === 0 ? placesError ? <div className="nearby-empty" role="alert"><span className="nearby-empty-icon"><Search size={28} /></span><h3>The nearby search is temporarily unavailable.</h3><p>{placesError}</p><p>{radius > 5 ? "Retry the search or try a smaller area. You can also explore this location on Google Maps." : "Retry the search or explore this location on Google Maps while the service recovers."}</p><div className="nearby-actions"><button className="nearby-primary" type="button" disabled={loading} onClick={retryPlaces}>Retry search</button>{radius > 5 && <button type="button" disabled={loading} onClick={() => preference("radius", 5)}>Search within 5 km</button>}<a href={buildMapSearchUrl(tab === "spots" ? "libraries study rooms" : `${subject} tuition centres`, origin)} target="_blank" rel="noopener noreferrer">Search on Google Maps<ArrowUpRight size={14} /></a></div></div> : <div className="nearby-empty"><span className="nearby-empty-icon"><Search size={28} /></span><h3>{savedOnly ? "No saved places in this search." : "No matching places found here."}</h3><p>{savedOnly ? "Save a result using its bookmark button, or show all places." : "Try a wider radius or fewer filters. Local listing coverage varies by area."}</p><div className="nearby-actions"><button type="button" onClick={() => { setQuery(""); setChapter(""); setLanguage(""); setTiming(""); setPrefs((current) => ({ ...current, subject: "", activity: "", budget: "all" })); setSavedOnly(false); }}>Clear filters</button><a href={buildMapSearchUrl(tab === "spots" ? "libraries study rooms" : `${subject} tuition centres`, origin)} target="_blank" rel="noopener noreferrer">Search on Google Maps<ArrowUpRight size={14} /></a></div></div> : <div className="nearby-card-grid">{visible.map((place) => <PlaceCard key={place.id} place={place} tab={tab} saved={savedIds.includes(place.id)} compared={comparison.some((entry) => entry.id === place.id)} onSave={toggleSave} onDetails={setDetails} onCompare={toggleCompare} onMap={showMap} onPlan={setPlanning} onCopy={copyNumber} />)}</div>}
         </>}
       </div>}
     </div>

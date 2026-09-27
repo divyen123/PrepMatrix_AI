@@ -136,7 +136,13 @@ export function registerNearbyRoutes(app, {
       .filter((place) => place.name && Number.isFinite(place.distanceKm) && place.distanceKm <= area.radius && (category !== 'rescue' || place.phone));
     let osm = [];
     let notice = '';
-    try { osm = await service.places({ ...area, category }); }
+    try {
+      if (service.searchPlaces) {
+        const result = await service.searchPlaces({ ...area, category });
+        osm = result.places;
+        notice = result.notice || '';
+      } else osm = await service.places({ ...area, category });
+    }
     catch (error) { if (!curated.length) throw error; notice = 'Map search is temporarily unavailable. Showing reviewed listings only.'; }
     return { places: [...curated, ...osm].sort((a, b) => Number(b.phoneSupport) - Number(a.phoneSupport) || a.distanceKm - b.distanceKm), source: 'OpenStreetMap contributors and reviewed listings', ...(notice ? { notice } : {}) };
   }

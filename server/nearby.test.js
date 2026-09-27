@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ObjectId } from 'mongodb';
-import { createNearbyService, distanceKm, osmPlace, parseNearbyArea } from './nearbyService.js';
+import { createNearbyService, distanceKm, nearbySearchBounds, osmPlace, parseNearbyArea } from './nearbyService.js';
 import { cleanupNearbyProfileData, normalizeCircleInput, publicCircle, publicNearbyListing, registerNearbyRoutes } from './nearbyRoutes.js';
 
 test('nearby rejects malformed or excessive location searches before any provider request', async () => {
@@ -45,7 +45,9 @@ test('Overpass discovery reuses tuition lookup for phone enquiries and filters b
   let calls = 0;
   const service = createNearbyService({ gapMs: 0, fetchImpl: async (_url, options) => {
     calls += 1;
-    assert.match(new URLSearchParams(options.body).get('data'), /around:5000,13,80/);
+    const query = new URLSearchParams(options.body).get('data');
+    assert.ok(query.includes(`(${nearbySearchBounds({ lat: 13, lon: 80, radius: 5 }).join(',')})`));
+    assert.doesNotMatch(query, /around:/);
     return { ok: true, json: async () => ({ elements: [
       { type: 'node', id: 1, lat: 13.001, lon: 80, tags: { name: 'With phone', phone: '1234567890' } },
       { type: 'node', id: 2, lat: 13.002, lon: 80, tags: { name: 'No phone' } },
@@ -136,12 +138,12 @@ function memoryDb() {
   } };
 }
 
-function routeHarness() {
+function routeHarness(serviceOverrides = {}) {
   const db = memoryDb();
   const routes = new Map();
   const app = { get: (path, ...handlers) => routes.set(`GET ${path}`, handlers.at(-1)), post: (path, ...handlers) => routes.set(`POST ${path}`, handlers.at(-1)) };
   const venue = { id: 'osm:node:123', name: 'Public library', lat: 13, lon: 80, address: 'Main Street', category: 'spots' };
-  registerNearbyRoutes(app, { getDb: async () => db, requireAuth: (handler) => handler, withProfileWriteFence: (_db, _req, action) => action(), service: { places: async () => [venue], geocode: async () => ({ locations: [] }) } });
+  registerNearbyRoutes(app, { getDb: async () => db, requireAuth: (handler) => handler, withProfileWriteFence: (_db, _req, action) => action(), service: { places: async () => [venue], geocode: async () => ({ locations: [] }), ...serviceOverrides } });
   async function request(method, path, options = {}) {
     const userId = options.userId || 'host';
     let status = 200;
@@ -153,6 +155,22 @@ function routeHarness() {
   const body = { title: 'Calculus revision', subject: 'Mathematics', chapter: 'Integration', startsAt: new Date(Date.now() + 86400000).toISOString(), durationMinutes: 60, capacity: 2, publicVenueConfirmed: true, venue };
   return { db, request, body };
 }
+
+test('place responses preserve the stale-result notice and expose an outage without cached results', async () => {
+  const notice = 'Live map search is unavailable. Showing saved map results fetched at 2026-09-26T10:00:00.000Z.';
+  const { request } = routeHarness({ searchPlaces: async () => ({ places: [], notice }) });
+  const query = { lat: 13, lon: 80, category: 'spots' };
+  const result = await request('GET', '/api/nearby/places', { query });
+  assert.equal(result.status, 200);
+  assert.equal(result.notice, notice);
+  const outage = routeHarness({ searchPlaces: async () => { throw Object.assign(new Error('Provider unavailable'), { status: 503 }); } });
+  assert.equal((await outage.request('GET', '/api/nearby/places', { query })).status, 503);
+  await outage.db.collection('nearbyListings').insertOne({ _id: 'reviewed', status: 'approved', category: 'spots', name: 'Reviewed library', lat: 13, lon: 80 });
+  const reviewed = await outage.request('GET', '/api/nearby/places', { query });
+  assert.equal(reviewed.status, 200);
+  assert.equal(reviewed.places[0].name, 'Reviewed library');
+  assert.match(reviewed.notice, /reviewed listings only/);
+});
 
 test('circle create validates time, capacity and a real public study venue', async () => {
   const { request, body } = routeHarness();

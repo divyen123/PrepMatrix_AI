@@ -1,6 +1,9 @@
 const CACHE_LIMIT = 300;
 const GEOCODE_TTL = 24 * 60 * 60 * 1000;
 const PLACES_TTL = 20 * 60 * 1000;
+const STALE_PLACES_TTL = 24 * 60 * 60 * 1000;
+const DEFAULT_OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const BACKUP_OVERPASS_URL = 'https://overpass.private.coffee/api/interpreter';
 
 export function nearbyError(status, message, code = 'NEARBY_REQUEST_FAILED') {
   return Object.assign(new Error(message), { status, code });
@@ -34,6 +37,19 @@ export function distanceKm(a, b) {
   const dLon = radians(b.lon - a.lon);
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(radians(a.lat)) * Math.cos(radians(b.lat)) * Math.sin(dLon / 2) ** 2;
   return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+}
+
+export function nearbySearchBounds({ lat, lon, radius }) {
+  const radians = Math.PI / 180;
+  // A small margin keeps floating-point rounding from excluding boundary points.
+  const angle = (radius + 0.001) / 6371;
+  const latitude = lat * radians;
+  const south = Math.max(-Math.PI / 2, latitude - angle);
+  const north = Math.min(Math.PI / 2, latitude + angle);
+  if (south === -Math.PI / 2 || north === Math.PI / 2) return [south / radians, -180, north / radians, 180];
+  const longitudeDelta = Math.asin(Math.sin(angle) / Math.cos(latitude)) / radians;
+  const wrap = (value) => ((value + 540) % 360) - 180;
+  return [south / radians, wrap(lon - longitudeDelta), north / radians, wrap(lon + longitudeDelta)];
 }
 
 export function safeWebsite(value) {
@@ -81,21 +97,33 @@ function makeCache(now) {
 
 // One bounded queue per provider: user-triggered lookups only, cached and at most
 // one request per second per process. Configure private endpoints for scale.
-function providerQueue({ now, wait, gapMs }) {
+function providerQueue({ now, wait, gapMs, maxWaitMs = 3000 }) {
   let tail = Promise.resolve();
   let queued = 0;
   let nextAt = 0;
   return (operation) => {
     if (queued >= 6) return Promise.reject(nearbyError(503, 'Nearby search is busy. Please try again shortly.', 'NEARBY_PROVIDER_BUSY'));
     queued += 1;
-    const result = tail.then(async () => {
+    let expired = false;
+    let timer;
+    const started = now();
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        expired = true;
+        reject(nearbyError(503, 'Nearby search is busy. Please try again shortly.', 'NEARBY_PROVIDER_BUSY'));
+      }, maxWaitMs);
+    });
+    const work = tail.then(async () => {
+      if (expired || now() - started >= maxWaitMs) throw nearbyError(503, 'Nearby search is busy. Please try again shortly.', 'NEARBY_PROVIDER_BUSY');
       const pause = Math.max(0, nextAt - now());
       if (pause) await wait(pause);
+      if (expired || now() - started >= maxWaitMs) throw nearbyError(503, 'Nearby search is busy. Please try again shortly.', 'NEARBY_PROVIDER_BUSY');
+      clearTimeout(timer);
       nextAt = now() + gapMs;
       return operation();
     });
-    tail = result.catch(() => undefined).finally(() => { queued -= 1; });
-    return result;
+    tail = work.catch(() => undefined).finally(() => { clearTimeout(timer); queued -= 1; });
+    return Promise.race([work, timeout]);
   };
 }
 
@@ -104,19 +132,34 @@ export function createNearbyService({
   now = Date.now,
   wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   gapMs = 1100,
+  queueWaitMs = 3000,
+  placeTimeoutMs = 15000,
   photonUrl = process.env.NEARBY_PHOTON_URL || 'https://photon.komoot.io/api/',
-  overpassUrl = process.env.NEARBY_OVERPASS_URL || 'https://overpass-api.de/api/interpreter',
+  overpassUrl = process.env.NEARBY_OVERPASS_URL || DEFAULT_OVERPASS_URL,
+  // Private endpoints never silently send their searches to a public backup.
+  overpassFallbackUrl = process.env.NEARBY_OVERPASS_FALLBACK_URL
+    ?? (overpassUrl === DEFAULT_OVERPASS_URL ? BACKUP_OVERPASS_URL : ''),
 } = {}) {
   const cache = makeCache(now);
+  const lastGoodPlaces = makeCache(now);
   const pending = new Map();
-  const geocodeQueue = providerQueue({ now, wait, gapMs });
-  const placesQueue = providerQueue({ now, wait, gapMs });
-  async function upstream(url, options = {}) {
+  const cooldowns = new Map();
+  const endpoints = [...new Set([overpassUrl, overpassFallbackUrl].filter(Boolean))];
+  const geocodeQueue = providerQueue({ now, wait, gapMs, maxWaitMs: queueWaitMs });
+  const placesQueue = providerQueue({ now, wait, gapMs, maxWaitMs: queueWaitMs });
+  async function upstream(url, options = {}, timeoutMs = 16000) {
     try {
-      const response = await fetchImpl(url, { ...options, signal: AbortSignal.timeout(25_000), headers: {
+      const response = await fetchImpl(url, { ...options, signal: AbortSignal.timeout(timeoutMs), headers: {
         'User-Agent': 'PrepMatrixAI-Nearby/1.0', Accept: 'application/json', ...options.headers,
       } });
-      if (!response.ok) throw nearbyError(503, 'The map provider is temporarily unavailable. Try again shortly.', 'NEARBY_PROVIDER_UNAVAILABLE');
+      if (!response.ok) {
+        const error = nearbyError(503, 'The map provider is temporarily unavailable. Try again shortly.', 'NEARBY_PROVIDER_UNAVAILABLE');
+        error.upstreamStatus = response.status;
+        const retryAfter = response.headers?.get?.('retry-after');
+        error.retryAfterMs = retryAfter && /^\d+$/.test(retryAfter)
+          ? Number(retryAfter) * 1000 : Math.max(0, Date.parse(retryAfter) - now()) || 0;
+        throw error;
+      }
       return await response.json();
     } catch (error) {
       if (error.code === 'NEARBY_PROVIDER_UNAVAILABLE') throw error;
@@ -131,7 +174,31 @@ export function createNearbyService({
     pending.set(key, promise);
     return promise;
   }
-  return {
+  async function queryPlaces(query) {
+    let failure;
+    for (const endpoint of endpoints) {
+      const cooldown = cooldowns.get(endpoint);
+      if (cooldown?.until > now()) {
+        failure = cooldown.error;
+        if (cooldown.stopFailover) break;
+        continue;
+      }
+      try {
+        const data = await upstream(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ data: query }).toString() }, placeTimeoutMs);
+        if (!Array.isArray(data?.elements) || data.remark || data.elements.some((element) => !element || typeof element !== 'object')) throw nearbyError(503, 'The map provider could not complete this search. Try again or choose a smaller radius.', 'NEARBY_PROVIDER_UNAVAILABLE');
+        cooldowns.delete(endpoint);
+        return data;
+      } catch (error) {
+        failure = error;
+        // Respect throttling/access refusals. Failover is for outages, not quotas.
+        const stopFailover = Number.isFinite(error.upstreamStatus) && error.upstreamStatus >= 400 && error.upstreamStatus < 500;
+        cooldowns.set(endpoint, { until: now() + Math.max(30000, Math.min(3600000, error.retryAfterMs || 0)), error, stopFailover });
+        if (stopFailover) break;
+      }
+    }
+    throw failure || nearbyError(503, 'Live place search is temporarily unavailable. Please retry shortly.', 'NEARBY_PROVIDER_UNAVAILABLE');
+  }
+  const service = {
     async geocode(value) {
       const query = shortText(value, 180);
       if (query.length < 3) throw nearbyError(400, 'Enter at least three characters of an area, city or pincode.');
@@ -140,7 +207,7 @@ export function createNearbyService({
         url.searchParams.set('q', query);
         url.searchParams.set('limit', '5');
         const data = await upstream(url);
-        if (!Array.isArray(data.features)) throw nearbyError(503, 'The location provider returned an invalid response.');
+        if (!Array.isArray(data?.features)) throw nearbyError(503, 'The location provider returned an invalid response.');
         const locations = data.features.map((feature) => {
           const p = feature.properties || {};
           const [lon, lat] = feature.geometry?.coordinates || [];
@@ -149,25 +216,44 @@ export function createNearbyService({
         return { locations, source: 'OpenStreetMap / Photon' };
       }));
     },
-    async places(input) {
+    async searchPlaces(input) {
       const area = parseNearbyArea(input);
       const category = input.category || 'tuitions';
       if (!['tuitions', 'spots', 'rescue'].includes(category)) throw nearbyError(400, 'Choose a valid nearby category.');
       const providerCategory = category === 'rescue' ? 'tuitions' : category;
-      const key = `places:${area.lat.toFixed(4)}:${area.lon.toFixed(4)}:${area.radius}:${providerCategory}`;
-      const result = await cached(key, PLACES_TTL, () => placesQueue(async () => {
-        const around = `(around:${Math.ceil(area.radius * 1000)},${area.lat},${area.lon})`;
-        const filters = providerCategory === 'spots'
-          ? ['["amenity"="library"]', '["office"="coworking"]']
-          : ['["amenity"~"^(school|college|university|language_school|music_school|training)$"]', '["education"="tutoring"]', '["amenity"="cram_school"]'];
-        const query = `[out:json][timeout:20];(${filters.map((filter) => `nwr${filter}${around};`).join('')});out meta center 250;`;
-        const data = await upstream(overpassUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ data: query }).toString() });
-        if (!Array.isArray(data.elements) || data.remark) throw nearbyError(503, 'The map provider could not complete this search. Try a smaller radius.');
-        return data.elements.map((element) => osmPlace(element, providerCategory)).filter(Boolean);
-      }));
-      return result.map((place) => ({ ...place, category, distanceKm: distanceKm(area, place) }))
+      const key = `places:${area.lat}:${area.lon}:${area.radius}:${providerCategory}`;
+      let snapshot;
+      let stale = false;
+      let refreshError;
+      try {
+        snapshot = await cached(key, PLACES_TTL, () => placesQueue(async () => {
+          // Bound the provider's scan; the exact circular radius is applied below.
+          const bounds = `(${nearbySearchBounds(area).join(',')})`;
+          const filters = providerCategory === 'spots'
+            ? ['["amenity"="library"]["name"]', '["office"="coworking"]["name"]']
+            : ['["amenity"~"^(school|college|university|language_school|music_school|training|cram_school)$"]["name"]', '["education"="tutoring"]["name"]'];
+          const query = `[out:json][timeout:12][maxsize:33554432];(${filters.map((filter) => `nwr${filter}${bounds};`).join('')});out meta center 250;`;
+          const data = await queryPlaces(query);
+          const next = { places: data.elements.map((element) => osmPlace(element, providerCategory)).filter(Boolean), fetchedAt: new Date(now()).toISOString() };
+          lastGoodPlaces.set(key, next, STALE_PLACES_TTL);
+          return next;
+        }));
+      } catch (error) {
+        snapshot = error.status === 503 ? lastGoodPlaces.get(key) : null;
+        // An old empty snapshot is not evidence that this search succeeded.
+        if (!snapshot?.places.length) throw error;
+        stale = true;
+        refreshError = error;
+      }
+      const places = snapshot.places.map((place) => ({ ...place, category, distanceKm: distanceKm(area, place) }))
         .filter((place) => place.distanceKm <= area.radius && (category !== 'rescue' || place.phone))
         .sort((a, b) => a.distanceKm - b.distanceKm);
+      if (stale && !places.length) throw refreshError;
+      return { places, fetchedAt: snapshot.fetchedAt, stale, ...(stale ? { notice: `Live map search is temporarily unavailable. Showing saved map results fetched at ${snapshot.fetchedAt}. Confirm details before visiting.` } : {}) };
+    },
+    async places(input) {
+      return (await service.searchPlaces(input)).places;
     },
   };
+  return service;
 }
