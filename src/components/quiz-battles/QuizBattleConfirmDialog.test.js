@@ -96,7 +96,7 @@ test("replaces browser confirms and keeps live answer selection neutral", () => 
   assert.match(stylesheet, /\.battle-review-option\.is-incorrect/u);
 });
 
-test("uses outcome-aware result tones and keeps XP beside the result action", () => {
+test("uses outcome-aware result tones and keeps the result heading unboxed", () => {
   const panelSource = readFileSync(new URL("./QuizBattlesPanel.jsx", import.meta.url), "utf8");
   const stylesheet = readFileSync(new URL("./QuizBattles.css", import.meta.url), "utf8");
 
@@ -108,7 +108,10 @@ test("uses outcome-aware result tones and keeps XP beside the result action", ()
   assert.match(stylesheet, /\.battle-status-pill\.is-completed\.is-outcome-loss/u);
   assert.match(stylesheet, /\.battle-scoreboard article\.is-winner/u);
   assert.match(stylesheet, /\.battle-scoreboard article\.is-loser/u);
-  assert.match(stylesheet, /body\.has-bg-image \.battle-result-hero\.is-outcome-loss/u);
+  assert.match(panelSource, /Your friend won this battle/u);
+  assert.doesNotMatch(panelSource, /Results released/u);
+  assert.match(stylesheet, /\.battle-result-hero\s*\{[^}]*text-align:\s*center/u);
+  assert.doesNotMatch(stylesheet, /body\.has-bg-image \.battle-result-hero\.is-outcome-loss/u);
   assert.match(stylesheet, /\.battle-summary-card\.is-terminal\s*\{[\s\S]*?padding:\s*14px/u);
   assert.match(stylesheet, /\.battle-card-actions\s*\{[\s\S]*?display:\s*flex/u);
 });

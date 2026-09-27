@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -60,7 +60,7 @@ function formatTimer(totalSeconds) {
 
 function outcomeTitle(battle) {
   if (battle.result?.outcome === "win") return "You won the battle";
-  if (battle.result?.outcome === "loss") return "Your friend won this one";
+  if (battle.result?.outcome === "loss") return "Your friend won this battle";
   if (battle.result?.outcome === "draw") return "The battle is a draw";
   if (battle.result?.kind === "forfeit") return "Uncontested result";
   return battle.status === "expired" ? "Battle expired" : "Battle complete";
@@ -151,6 +151,7 @@ export default function QuizBattlesPanel({
   onAttemptStateChange,
   onBattleRouteChange,
   onInviteConsumed,
+  onViewChange,
   schedule = [],
   subjects = [],
 }) {
@@ -186,6 +187,9 @@ export default function QuizBattlesPanel({
     },
     createQuizBattleIntroState,
   );
+  useLayoutEffect(() => {
+    onViewChange?.(battleView === "hub" && !selectedBattle && !initialBattleId && introState.phase === "done");
+  }, [battleView, initialBattleId, introState.phase, onViewChange, selectedBattle]);
   const introDurations = getQuizBattleIntroDurations(prefersReducedMotion);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
@@ -756,7 +760,6 @@ export default function QuizBattlesPanel({
         <div className={`battle-result-hero ${resultTone}`}>
           <Trophy aria-hidden="true" size={30} />
           <div>
-            <span className="section-tag">Results released</span>
             <h3>{outcomeTitle(selectedBattle)}</h3>
             {result?.kind === "forfeit" && (
               <p>No win bonus is awarded when only one learner submits.</p>

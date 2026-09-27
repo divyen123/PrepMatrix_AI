@@ -846,39 +846,23 @@ body .quiz-page .battle-option-list input[type="radio"] {
 }
 
 .battle-result-hero {
-  background: color-mix(in srgb, #94a3b8 9%, var(--surface));
-  border: 1px solid color-mix(in srgb, #94a3b8 30%, var(--border));
-  border-radius: 16px;
-  gap: 13px;
-  justify-content: flex-start;
-  padding: 14px 15px;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px 0 4px;
+  text-align: center;
 }
 
 .battle-result-stack {
   gap: 14px;
 }
 
-.battle-result-hero.is-outcome-win {
-  background: color-mix(in srgb, #22c55e 9%, var(--surface));
-  border-color: color-mix(in srgb, #22c55e 34%, var(--border));
-}
-
 .battle-result-hero.is-outcome-win > svg {
   color: #16a34a;
 }
 
-.battle-result-hero.is-outcome-loss {
-  background: color-mix(in srgb, #64748b 12%, var(--surface-strong));
-  border-color: color-mix(in srgb, #94a3b8 42%, var(--border));
-}
-
 .battle-result-hero.is-outcome-loss > svg {
   color: color-mix(in srgb, var(--text) 72%, #64748b);
-}
-
-.battle-result-hero.is-outcome-draw {
-  background: color-mix(in srgb, #6366f1 9%, var(--surface));
-  border-color: color-mix(in srgb, #6366f1 28%, var(--border));
 }
 
 .battle-scoreboard {
@@ -1064,13 +1048,11 @@ body.has-bg-image .battle-scoreboard article.is-loser {
   border-color: rgba(148, 163, 184, 0.38);
 }
 
-body.has-bg-image .battle-result-hero.is-outcome-win,
 body.has-bg-image .battle-reward-card.is-outcome-win {
   background: rgba(20, 83, 45, 0.42);
   border-color: rgba(74, 222, 128, 0.4);
 }
 
-body.has-bg-image .battle-result-hero.is-outcome-loss,
 body.has-bg-image .battle-reward-card.is-outcome-loss {
   background: rgba(30, 41, 59, 0.82);
   border-color: rgba(148, 163, 184, 0.42);

@@ -54,7 +54,13 @@ test("subject exam links render prefilled setup while preserving readiness and p
     assert.doesNotMatch(direct, /Prepare a secure online exam/u);
     const directAttend = renderExam("/exam?section=attend");
     assert.match(directAttend, /<option value="Physics" selected="">Physics<\/option>/u);
-    assert.match(directAttend, /<textarea[^>]*><\/textarea>/u);
+    assert.match(directAttend, /<textarea[^>]*>Mechanics<\/textarea>/u);
+    const noSavedCurriculum = renderExam("/exam?section=attend&subject=Quantum%20computing", {
+      subjects: [{ name: "Quantum computing", chapters: 4 }],
+      schedule: [{ tasks: [{ subjectName: "Quantum computing", chapterName: "Chapter 1", topic: "Review exercise" }] }],
+    });
+    assert.match(noSavedCurriculum, /<option value="Quantum computing" selected="">Quantum computing<\/option>/u);
+    assert.match(noSavedCurriculum, /<textarea[^>]*><\/textarea>/u);
     const unknown = renderExam("/exam?section=attend&subject=Unknown", { isExamEligible: false });
     assert.match(unknown, /aria-label="Exam destinations"/u);
     assert.doesNotMatch(unknown, /Prepare a secure online exam/u);

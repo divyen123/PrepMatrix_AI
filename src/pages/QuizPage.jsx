@@ -113,6 +113,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   });
   const battleTabActive = quizView === "battles";
   const quizHubActive = quizView === "hub";
+  const [battleHomeActive, setBattleHomeActive] = useState(false);
   const updateQuizRoute = (mode, battleId = "") => {
     const next = new URLSearchParams(searchParams);
     if (mode === "battles") next.set("tab", "battles");
@@ -761,7 +762,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
 
   return (
     <section className="page-stack quiz-page">
-      <div className="section-intro quiz-section-intro">
+      {(!battleTabActive || battleHomeActive) && <div className="section-intro quiz-section-intro">
         {!quizHubActive && !isYoungKidsLearner ? (
           <button
             aria-label="Back to Quiz choices"
@@ -771,7 +772,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
           ><ChevronLeft aria-hidden="true" size={19} /></button>
         ) : null}
         <h2>{quizHubActive ? "Practice solo or challenge a friend" : battleTabActive ? "Quiz Battles" : "Solo quiz"}</h2>
-      </div>
+      </div>}
 
       {quizHubActive ? (
         <nav aria-label="Quiz destinations" className="quiz-hub">
@@ -811,6 +812,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
             initialInviteCode={pendingInviteCode}
             onAttemptStateChange={handleMultiplayerAttemptChange}
             onBattleRouteChange={(battleId) => updateQuizRoute("battles", battleId)}
+            onViewChange={setBattleHomeActive}
             onInviteConsumed={(battleId) => {
               setPendingInviteCode("");
               const next = new URLSearchParams(searchParams);

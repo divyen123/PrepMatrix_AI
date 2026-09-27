@@ -64,6 +64,7 @@ import {
 import { EXAM_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 import {
   getExamPaperScopeBlocks,
+  getExamPaperScopePrefill,
   getExamSubjectPrefill,
   mergeExamPaperScope,
 } from "../utils/examSubjectPrefill";
@@ -1762,7 +1763,10 @@ function ExamPage({
   const requestedSection = searchParams.get("section");
   const requestedSubject = requestedSection === "attend" ? searchParams.get("subject") : "";
   const subjectPrefill = useMemo(
-    () => getExamSubjectPrefill(requestedSubject, subjects, schedule),
+    () => getExamSubjectPrefill(requestedSubject, subjects, schedule, {
+      includeGeneratedChapters: false,
+      requireSavedCurriculum: true,
+    }),
     [requestedSubject, subjects, schedule],
   );
   const names = useMemo(() => [...new Set([
@@ -1791,7 +1795,14 @@ function ExamPage({
         : "overview"
   ));
   const [subjectName, setSubjectName] = useState(() => subjectPrefill?.subjectName || names[0] || "");
-  const [scopeText, setScopeText] = useState(() => subjectPrefill?.scopeText || "");
+  const [scopeText, setScopeText] = useState(() => (
+    subjectPrefill?.scopeText ?? getExamPaperScopePrefill(names.slice(0, 1), subjects, schedule)
+  ));
+  const suggestedScope = useMemo(
+    () => getExamPaperScopePrefill(subjectName ? [subjectName] : [], subjects, schedule),
+    [subjectName, subjects, schedule],
+  );
+  const previousSuggestedScopeRef = useRef(suggestedScope);
   const [difficulty, setDifficulty] = useState("medium");
   const [preparedExam, setPreparedExam] = useState(null);
   const [activeAttempt, setActiveAttempt] = useState(null);
@@ -1814,8 +1825,17 @@ function ExamPage({
       === academicProfileDataId;
 
   useEffect(() => {
-    if (!subjectName && names.length) setSubjectName(names[0]);
-  }, [names, subjectName]);
+    if (!subjectName && names.length) {
+      setSubjectName(names[0]);
+      setScopeText(getExamPaperScopePrefill([names[0]], subjects, schedule));
+    }
+  }, [names, schedule, subjectName, subjects]);
+
+  useEffect(() => {
+    const previousSuggestion = previousSuggestedScopeRef.current;
+    previousSuggestedScopeRef.current = suggestedScope;
+    setScopeText((current) => current === previousSuggestion ? suggestedScope : current);
+  }, [suggestedScope]);
 
   useEffect(() => {
     if (!requestedSubject) {
@@ -2154,7 +2174,11 @@ function ExamPage({
             <div className="exam-form-grid">
               <label className="field-stack">
                 Subject
-                <select disabled={isPreparing} onChange={(event) => { setSubjectName(event.target.value); setScopeText(""); }} value={subjectName}>
+                <select disabled={isPreparing} onChange={(event) => {
+                  const nextSubject = event.target.value;
+                  setSubjectName(nextSubject);
+                  setScopeText(getExamPaperScopePrefill(nextSubject ? [nextSubject] : [], subjects, schedule));
+                }} value={subjectName}>
                   <option value="">Choose subject</option>
                   {names.map((name) => <option key={name} value={name}>{name}</option>)}
                 </select>
