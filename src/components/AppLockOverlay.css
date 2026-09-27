@@ -204,6 +204,23 @@ body .app-lock-backdrop .app-lock-unlock-btn:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent, #16889a) 84%, #fff) !important;
 }
 
+body.dark .app-lock-backdrop .app-lock-unlock-btn {
+  background: rgba(var(--accent-rgb, 36, 199, 177), 0.13) !important;
+  border-color: rgba(var(--accent-rgb, 36, 199, 177), 0.32) !important;
+  color: var(--text, #f5f8f8) !important;
+}
+
+body.dark .app-lock-backdrop .app-lock-unlock-btn:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb, 36, 199, 177), 0.21) !important;
+}
+
+body.dark .app-lock-backdrop .app-lock-unlock-btn:disabled {
+  background: var(--surface, rgba(255, 255, 255, 0.05)) !important;
+  border-color: var(--border, rgba(255, 255, 255, 0.12)) !important;
+  color: var(--text-muted, #9aaeb8) !important;
+  opacity: 1;
+}
+
 body .app-lock-backdrop .app-lock-logout-btn {
   background: var(--surface, rgba(15, 24, 32, 0.78)) !important;
   border: 1px solid var(--border, rgba(255, 255, 255, 0.16)) !important;

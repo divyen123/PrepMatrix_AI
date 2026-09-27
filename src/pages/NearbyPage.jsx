@@ -192,6 +192,7 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
   function selectLocation(location) {
     const point = normalizeCoordinates(location.lat, location.lon);
     if (!point) { setLocationError("That location could not be used. Try another area."); return; }
+    setLocality(location.label === "Your current location" ? "" : location.label);
     setOrigin(point); setLocationLabel(location.label); setLocations([]); setMapPlace(null); setLocationError("");
   }
   async function searchLocation(event) {
@@ -232,17 +233,29 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
       {nearbyView === "hub" && <button className="page-back-control nearby-back" type="button" aria-label="Back to home" onClick={() => navigate(homeRoute)}><ArrowLeft size={18} /></button>}
       <div><h1>PrepMatrix <span>Nearby</span></h1></div>
     </header>
-    <div className="nearby-hero">
-      <div className="nearby-location-content"><h2>Choose your location</h2>
-        <form className="nearby-location-form" onSubmit={searchLocation}><label htmlFor="nearby-locality">Area, city or pincode</label><div className="nearby-location-row"><div className="nearby-search-input"><Search size={18} /><input id="nearby-locality" value={locality} onChange={(event) => setLocality(event.target.value)} placeholder="e.g. Anna Nagar, Chennai" minLength={3} maxLength={160} required autoComplete="off" /></div><button className="nearby-primary" disabled={locating} type="submit">{locating ? "Finding…" : "Explore"}<ArrowUpRight size={16} /></button></div></form>
-        <div className="nearby-location-bottom"><button type="button" className="nearby-text-button" disabled={locating} onClick={useCurrentLocation}><LocateFixed size={16} />Use my location</button></div>
-        {locations.length > 0 && <div className="nearby-location-options" aria-label="Choose your location">{locations.map((location, index) => <button type="button" key={`${location.lat}-${location.lon}-${index}`} onClick={() => selectLocation(location)}><MapPin size={15} />{location.label}<ArrowUpRight size={14} /></button>)}</div>}
-        {origin && <div className="nearby-location-current"><MapPin size={14} /><span>{locationLabel}</span></div>}
-        {locationError && <p className="nearby-notice" data-tone="error" role="alert">{locationError}</p>}
+    {nearbyView === "hub" ? <nav className="nearby-hub" aria-label="Nearby workspaces">{NEARBY_DESTINATIONS.map(({ id, label, icon, path }) => <Link key={id} className={`nearby-hub-card nearby-hub-card--${id}`} to={path} aria-label={`Open ${label}`}><span className="nearby-hub-card-icon" aria-hidden="true">{createElement(icon, { size: 24 })}</span><strong className="nearby-hub-card-title">{label}</strong><ArrowUpRight className="nearby-hub-card-arrow" size={20} aria-hidden="true" /></Link>)}</nav> : <>
+    <div className="nearby-subpage-header">
+      <div className="nearby-subpage-title-row"><Link className="nearby-subpage-back page-back-control" to="/nearby" aria-label="Back to Nearby workspaces"><ArrowLeft size={19} /></Link><h2 className="nearby-subpage-title">{active.label}</h2></div>
+      <div className="nearby-subpage-tools">
+        <div className="nearby-location-controls">
+          <form className="nearby-location-form" onSubmit={searchLocation} role="search" aria-busy={locating}>
+            <label className="nearby-visually-hidden" htmlFor="nearby-locality">Area, city or pincode</label>
+            <div className="nearby-search-input">
+              <MapPin size={17} aria-hidden="true" />
+              <input id="nearby-locality" value={locality} onChange={(event) => setLocality(event.target.value)} placeholder={locationLabel || "Area, city or pincode"} minLength={3} maxLength={160} required autoComplete="off" />
+              <button type="submit" disabled={locating} aria-label="Explore this location" title="Explore this location"><Search size={17} aria-hidden="true" /></button>
+            </div>
+          </form>
+          <button type="button" className="nearby-current-location-button" disabled={locating} onClick={useCurrentLocation} aria-label="Use my location" title="Use my location"><LocateFixed size={18} aria-hidden="true" /></button>
+          {(locations.length > 0 || locationError) && <div className="nearby-location-feedback">
+            {locations.length > 0 && <div className="nearby-location-options" aria-label="Choose your location">{locations.map((location, index) => <button type="button" key={`${location.lat}-${location.lon}-${index}`} onClick={() => selectLocation(location)}><MapPin size={15} />{location.label}<ArrowUpRight size={14} /></button>)}</div>}
+            {locationError && <p className="nearby-location-error" role="alert">{locationError}</p>}
+          </div>}
+          {origin && <span className="nearby-visually-hidden" role="status">Searching near {locationLabel}</span>}
+        </div>
+        {tab === "spots" && <div className="nearby-view-toggle" aria-label="Result view"><button type="button" aria-pressed={view === "list"} data-active={view === "list"} onClick={() => setView("list")}><List size={16} />List</button><button type="button" aria-pressed={view === "map"} data-active={view === "map"} onClick={() => setView("map")}><Map size={16} />Map</button></div>}
       </div>
     </div>
-    {nearbyView === "hub" ? <nav className="nearby-hub" aria-label="Nearby workspaces">{NEARBY_DESTINATIONS.map(({ id, label, icon, path }) => <Link key={id} className={`nearby-hub-card nearby-hub-card--${id}`} to={path} aria-label={`Open ${label}`}><span className="nearby-hub-card-icon" aria-hidden="true">{createElement(icon, { size: 24 })}</span><strong className="nearby-hub-card-title">{label}</strong><ArrowUpRight className="nearby-hub-card-arrow" size={20} aria-hidden="true" /></Link>)}</nav> : <>
-    <div className="nearby-subpage-header"><div className="nearby-subpage-title-row"><Link className="nearby-subpage-back page-back-control" to="/nearby" aria-label="Back to Nearby workspaces"><ArrowLeft size={19} /></Link><h2 className="nearby-subpage-title">{active.label}</h2></div>{tab === "spots" && <div className="nearby-view-toggle" aria-label="Result view"><button type="button" aria-pressed={view === "list"} data-active={view === "list"} onClick={() => setView("list")}><List size={16} />List</button><button type="button" aria-pressed={view === "map"} data-active={view === "map"} onClick={() => setView("map")}><Map size={16} />Map</button></div>}</div>
     {placesError && visible.length > 0 && <div className="nearby-notice" data-tone="error" role="alert"><span>{placesError} Showing results from your previous successful search.</span><button type="button" disabled={retryDisabled} onClick={retryPlaces}>{retrySeconds > 0 ? `Retry in ${retrySeconds}s` : "Retry search"}</button></div>}
     {message && <div className="nearby-notice" data-tone="success" role="status">{message}<button className="nearby-icon-button" aria-label="Dismiss notification" type="button" onClick={() => setMessage("")}><X size={16} /></button></div>}
     <div className="nearby-workspace">

@@ -286,6 +286,21 @@
   color: #fff !important;
 }
 
+body.dark .resources-page .material-book-card__button--buy {
+  border-color: rgba(204, 219, 255, 0.25) !important;
+  background: rgba(225, 235, 255, 0.1) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+
+body.dark .resources-page .material-book-card__button--buy:hover,
+body.dark .resources-page .material-book-card__button--buy[aria-expanded="true"] {
+  border-color: rgba(204, 219, 255, 0.4) !important;
+  background: rgba(225, 235, 255, 0.16) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+
 .resources-page .material-book-card__button:disabled {
   cursor: default;
   opacity: 0.7;
