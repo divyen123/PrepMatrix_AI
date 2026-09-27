@@ -4514,6 +4514,23 @@ body.dark .bookmark-btn {
   font-size: 1.1rem;
 }
 
+.topic-timeline-card .timeline-header > strong.is-complete {
+  padding: 4px 9px;
+  border: 1px solid rgba(55, 145, 92, 0.2);
+  border-radius: 9px;
+  background: rgba(55, 145, 92, 0.1);
+  color: #397b56;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+body.dark .topic-timeline-card .timeline-header > strong.is-complete,
+body.has-bg-image .topic-timeline-card .timeline-header > strong.is-complete {
+  border-color: rgba(85, 173, 118, 0.24);
+  background: rgba(85, 173, 118, 0.12);
+  color: #8ecba5;
+}
+
 .topic-lane-card {
   --topic-lane-rgb: 74, 137, 225;
 
@@ -21928,6 +21945,21 @@ body .ai-credit-trigger.is-empty {
   background: rgba(239, 68, 68, 0.1) !important;
 }
 
+body .ai-credit-trigger.is-low:not(.is-empty) {
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--border)) !important;
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface-strong)) !important;
+}
+
+body .ai-credit-trigger.is-low:not(.is-empty):hover,
+body .ai-credit-trigger.is-low:not(.is-empty):focus-visible {
+  border-color: color-mix(in srgb, var(--danger) 44%, var(--border)) !important;
+}
+
+.ai-credit-trigger.is-low > svg,
+.ai-credit-trigger.is-low strong {
+  color: color-mix(in srgb, var(--danger) 78%, var(--text));
+}
+
 .ai-credit-trigger strong {
   min-width: 1.5ch;
   font-size: 0.86rem;
@@ -25188,6 +25220,11 @@ body .Toastify__toast-container .prepmatrix-swipe-toast-host .Toastify__progress
   --swipe-toast-tone: var(--accent-cyan, var(--accent));
 }
 
+.prepmatrix-swipe-toast-host .swipe-toast--low-credit {
+  --swipe-toast-tone: color-mix(in srgb, var(--danger) 78%, var(--text));
+  --swipe-toast-surface: color-mix(in srgb, var(--surface-strong) 94%, var(--danger) 6%);
+}
+
 body.dark .prepmatrix-swipe-toast-host .swipe-toast__card {
   box-shadow:
     0 22px 54px rgba(0, 0, 0, 0.44),
@@ -25208,6 +25245,14 @@ body.has-bg-image .prepmatrix-swipe-toast-host .swipe-toast__card {
     inset 0 1px 0 rgba(255, 255, 255, 0.07);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+body.has-bg-image .prepmatrix-swipe-toast-host .swipe-toast--low-credit {
+  --swipe-toast-surface: color-mix(in srgb, rgb(var(--bg-surface-rgb, 18, 27, 45)) 94%, var(--danger) 6%);
+}
+
+body.has-bg-image .prepmatrix-swipe-toast-host .swipe-toast--low-credit .swipe-toast__card {
+  background: var(--swipe-toast-surface);
 }
 
 body.no-glass-cards .prepmatrix-swipe-toast-host .swipe-toast__card {

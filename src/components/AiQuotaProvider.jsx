@@ -15,6 +15,9 @@ import api, {
   AI_QUOTA_UPDATED_EVENT,
 } from "../utils/apiClient";
 import { AiQuotaContext } from "../utils/aiQuota";
+import { toast } from "../utils/toast";
+
+const LOW_CREDIT_THRESHOLD = 15;
 
 const AI_FEATURES = Object.freeze({
   CHAT: "chat",
@@ -157,9 +160,11 @@ export function AiQuotaProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const requestSequenceRef = useRef(0);
+  const lowCreditNotifiedRef = useRef(false);
 
   const clear = useCallback(() => {
     requestSequenceRef.current += 1;
+    lowCreditNotifiedRef.current = false;
     setQuota(null);
     setLoading(false);
     setError("");
@@ -244,6 +249,21 @@ export function AiQuotaProvider({ children }) {
     };
   }, [quota?.resetAt, refresh]);
 
+  useEffect(() => {
+    const remaining = quota?.remaining;
+    if (!Number.isFinite(remaining) || remaining >= LOW_CREDIT_THRESHOLD) {
+      lowCreditNotifiedRef.current = false;
+      return;
+    }
+    if (lowCreditNotifiedRef.current) return;
+    lowCreditNotifiedRef.current = true;
+    toast.warn(`${remaining} AI credit${remaining === 1 ? "" : "s"} left.`, {
+      toastId: "ai-credits-low",
+      autoClose: 4200,
+      swipeClassName: "swipe-toast--low-credit",
+    });
+  }, [quota?.remaining]);
+
 
   const value = useMemo(() => {
     const getCost = (feature) => quota?.costs?.[canonicalFeature(feature)]
@@ -315,7 +335,7 @@ export function AiCreditIndicator() {
         aria-controls={detailsId}
         aria-haspopup="dialog"
         aria-label={isKnown ? `AI Credits ${quota.remaining}` : "AI Credits balance unavailable"}
-        className={`ai-credit-trigger${isKnown && quota.remaining === 0 ? " is-empty" : ""}`}
+        className={`ai-credit-trigger${isKnown && quota.remaining < LOW_CREDIT_THRESHOLD ? " is-low" : ""}${isKnown && quota.remaining === 0 ? " is-empty" : ""}`}
         onClick={() => {
           setOpen((current) => !current);
           if (!open) refresh();

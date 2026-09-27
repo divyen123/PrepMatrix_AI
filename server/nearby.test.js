@@ -181,6 +181,17 @@ test('place responses preserve the stale-result notice and expose an outage with
   }
 });
 
+test('place responses identify Photon fallback results and retain their OSM source links', async () => {
+  const place = { id: 'osm:node:2', name: 'Perambur public library', lat: 13, lon: 80, category: 'spots', distanceKm: 0,
+    source: 'Photon / OpenStreetMap', sourceUrl: 'https://www.openstreetmap.org/node/2' };
+  const { request } = routeHarness({ searchPlaces: async () => ({ places: [place], source: 'Photon / OpenStreetMap', notice: 'Showing nearby places from online location search.', retryAfterSeconds: 60 }) });
+  const result = await request('GET', '/api/nearby/places', { query: { lat: 13, lon: 80, category: 'spots' } });
+  assert.equal(result.status, 200);
+  assert.equal(result.places[0].sourceUrl, place.sourceUrl);
+  assert.equal(result.source, 'Photon search of OpenStreetMap and reviewed listings');
+  assert.equal(result.retryAfterSeconds, 60);
+});
+
 test('circle create validates time, capacity and a real public study venue', async () => {
   const { request, body } = routeHarness();
   assert.throws(() => normalizeCircleInput({ ...body, startsAt: 'yesterday' }), { status: 400 });

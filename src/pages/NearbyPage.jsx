@@ -30,7 +30,7 @@ function words(value) { return Array.isArray(value) ? value.join(", ") : String(
 function browserStorage() { try { return window.localStorage; } catch { return null; } }
 function updatedLabel(value) {
   const date = new Date(value);
-  return value && Number.isFinite(date.getTime()) ? date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "Not provided";
+  return value && Number.isFinite(date.getTime()) ? date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "";
 }
 
 function PlaceFacts({ place }) {
@@ -44,6 +44,7 @@ function PlaceFacts({ place }) {
 }
 
 function PlaceCard({ place, saved, onSave, onDetails, onMap, onPlan }) {
+  const updated = updatedLabel(place.updatedAt);
   return <article className="nearby-card">
     <div className="nearby-card-heading">
       <span className="nearby-place-icon"><Library size={21} /></span>
@@ -60,7 +61,7 @@ function PlaceCard({ place, saved, onSave, onDetails, onMap, onPlan }) {
       <button type="button" onClick={() => onMap(place)}><Map size={15} />Map</button>
       <button type="button" onClick={() => onPlan(place)}><CalendarPlus size={15} />Plan session</button>
     </div>
-    <p className="nearby-source">{safeUrl(place.sourceUrl) ? <a href={safeUrl(place.sourceUrl)} target="_blank" rel="noopener noreferrer">{place.source || "Listing source"}<ArrowUpRight size={11} /></a> : place.source || "Provider listing"} · Updated {updatedLabel(place.updatedAt)}</p>
+    <p className="nearby-source">{safeUrl(place.sourceUrl) ? <a href={safeUrl(place.sourceUrl)} target="_blank" rel="noopener noreferrer">{place.source || "Listing source"}<ArrowUpRight size={11} /></a> : place.source || "Provider listing"}{updated && ` · Updated ${updated}`}</p>
   </article>;
 }
 
@@ -168,7 +169,7 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
     dispatchSearch({ type: "start", key: searchKey, requestId });
     setMapPlace(null);
     const params = new URLSearchParams({ lat: origin.lat, lon: origin.lon, radius, category: tab });
-    api.get(`/api/nearby/places?${params}`, { timeoutMs: 45000 }).then((data) => {
+    api.get(`/api/nearby/places?${params}`, { timeoutMs: 55000 }).then((data) => {
       if (!current) return;
       const receivedAt = Date.now();
       setRetryNow(receivedAt);

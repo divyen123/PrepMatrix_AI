@@ -133,18 +133,23 @@ export function registerNearbyRoutes(app, {
       .map((place) => ({ ...place, distanceKm: distanceKm(area, place) }))
       .filter((place) => place.name && Number.isFinite(place.distanceKm) && place.distanceKm <= area.radius);
     let osm = [];
+    let osmSource = 'OpenStreetMap';
     let notice = '';
     let retryAfterSeconds = 0;
     try {
       if (service.searchPlaces) {
         const result = await service.searchPlaces({ ...area, category });
         osm = result.places;
+        osmSource = result.source || osmSource;
         notice = result.notice || '';
         retryAfterSeconds = result.retryAfterSeconds || 0;
       } else osm = await service.places({ ...area, category });
     }
     catch (error) { if (!curated.length) throw error; notice = 'Map search is temporarily unavailable. Showing reviewed listings only.'; retryAfterSeconds = error.retryAfterSeconds || 0; }
-    return { places: [...curated, ...osm].sort((a, b) => a.distanceKm - b.distanceKm), source: 'OpenStreetMap contributors and reviewed listings', ...(notice ? { notice } : {}), ...(retryAfterSeconds ? { retryAfterSeconds } : {}) };
+    const source = osmSource === 'Photon / OpenStreetMap'
+      ? 'Photon search of OpenStreetMap and reviewed listings'
+      : 'OpenStreetMap contributors and reviewed listings';
+    return { places: [...curated, ...osm].sort((a, b) => a.distanceKm - b.distanceKm), source, ...(notice ? { notice } : {}), ...(retryAfterSeconds ? { retryAfterSeconds } : {}) };
   }
   async function circleById(db, id) {
     const circle = await db.collection(CIRCLES).findOne({ _id: shortText(id, 100) });

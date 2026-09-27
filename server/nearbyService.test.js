@@ -1,11 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createNearbyService, nearbySearchBounds } from './nearbyService.js';
+import { createNearbyService, nearbySearchBounds, photonPlace } from './nearbyService.js';
 
 const area = { lat: 13.1157422, lon: 80.2249267, radius: 20, category: 'spots' };
 const primary = 'https://primary.example/api/interpreter';
 const backup = 'https://backup.example/api/interpreter';
+const photon = 'https://photon.example/api/';
 const library = { type: 'node', id: 1, lat: area.lat, lon: area.lon, tags: { name: 'Public library' } };
+const photonLibrary = (lon = area.lon, lat = area.lat, properties = {}) => ({
+  type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] },
+  properties: { osm_id: 2, osm_type: 'N', osm_key: 'amenity', osm_value: 'library', name: 'Perambur public library', street: 'Paper Mills Road', city: 'Chennai', ...properties },
+});
 const response = (elements = [library]) => ({ ok: true, json: async () => ({ elements }) });
 const serviceWith = (options) => createNearbyService({ gapMs: 0, overpassUrl: primary, overpassFallbackUrl: backup, onProviderFailure: () => {}, ...options });
 
@@ -71,6 +76,118 @@ test('transport, timeout, server and incomplete-response failures try the backup
     await service.searchPlaces(area);
     assert.equal(calls.length, 2, 'the successful backup result must be cached');
   }
+});
+
+test('Photon normalizes only real named study venues with safe OSM source links', () => {
+  assert.deepEqual(photonPlace(photonLibrary(), 'spots'), {
+    id: 'osm:node:2', name: 'Perambur public library', category: 'spots', lat: area.lat, lon: area.lon,
+    address: 'Paper Mills Road, Chennai', phone: '', website: '', hours: '',
+    source: 'Photon / OpenStreetMap', sourceUrl: 'https://www.openstreetmap.org/node/2',
+    updatedAt: null, fees: '', facilities: [], type: 'library', access: '',
+  });
+  assert.equal(photonPlace(photonLibrary(area.lon, area.lat, { osm_key: 'place', osm_value: 'suburb' }), 'spots'), null);
+  assert.equal(photonPlace(photonLibrary(area.lon, area.lat, { name: '' }), 'spots'), null);
+  assert.equal(photonPlace(photonLibrary(area.lon, area.lat, { osm_id: '../bad' }), 'spots'), null);
+});
+
+test('Overpass timeouts fall back to geographically bounded Photon place search', async () => {
+  const calls = [];
+  const service = serviceWith({ placeSearchUrl: photon, fetchImpl: async (url) => {
+    calls.push(url);
+    if (String(url).startsWith(photon)) return { ok: true, json: async () => ({ features: [
+      photonLibrary(), photonLibrary(),
+      photonLibrary(area.lon + 1, area.lat, { osm_id: 3, name: 'Distant library' }),
+      photonLibrary(area.lon + 0.002, area.lat, { osm_id: 4, osm_key: 'office', osm_value: 'coworking', name: 'Study coworking' }),
+    ] }) };
+    throw new DOMException('Timed out', 'TimeoutError');
+  } });
+  const result = await service.searchPlaces({ ...area, radius: 5 });
+  assert.deepEqual(calls.slice(0, 2), [primary, backup]);
+  const photonUrl = new URL(calls[2]);
+  assert.equal(photonUrl.origin, new URL(photon).origin);
+  assert.equal(photonUrl.searchParams.get('include'), 'osm.amenity.library,osm.office.coworking');
+  assert.equal(photonUrl.searchParams.get('lat'), String(area.lat));
+  assert.equal(photonUrl.searchParams.get('lon'), String(area.lon));
+  assert.ok(photonUrl.searchParams.get('bbox'));
+  assert.equal(photonUrl.searchParams.get('q'), null);
+  assert.deepEqual(result.places.map((place) => place.name), ['Perambur public library', 'Study coworking']);
+  assert.equal(result.places[0].sourceUrl, 'https://www.openstreetmap.org/node/2');
+  assert.equal(result.source, 'Photon / OpenStreetMap');
+  assert.match(result.notice, /Live map search is unavailable.*online location search/u);
+  assert.equal(result.stale, false);
+  assert.equal(result.retryAfterSeconds, 60);
+});
+
+test('a successful empty map result can use Photon without claiming a map outage', async () => {
+  const calls = [];
+  const service = serviceWith({ placeSearchUrl: photon, fetchImpl: async (url) => {
+    calls.push(url);
+    return String(url).startsWith(photon)
+      ? { ok: true, json: async () => ({ features: [photonLibrary()] }) }
+      : response([]);
+  } });
+  const result = await service.searchPlaces(area);
+  assert.equal(result.places.length, 1);
+  assert.match(result.notice, /^Showing nearby places from online location search/u);
+  assert.equal(calls.length, 2);
+});
+
+test('an empty or failed Photon lookup never turns an Overpass outage into empty success', async () => {
+  for (const photonResult of [
+    { ok: true, json: async () => ({ features: [] }) },
+    { ok: false, status: 503 },
+  ]) {
+    const service = serviceWith({ placeSearchUrl: photon, fetchImpl: async (url) => {
+      if (String(url).startsWith(photon)) return photonResult;
+      throw new TypeError('Overpass offline');
+    } });
+    await assert.rejects(service.searchPlaces(area), { status: 503 });
+  }
+});
+
+test('Overpass throttling does not trigger Photon fallback and custom providers remain private', async () => {
+  const calls = [];
+  const service = serviceWith({ placeSearchUrl: photon, fetchImpl: async (url) => {
+    calls.push(url);
+    return { ok: false, status: 429, headers: { get: () => '120' } };
+  } });
+  await assert.rejects(service.searchPlaces(area), { status: 503 });
+  assert.deepEqual(calls, [primary]);
+});
+
+test('Photon fallback is cached briefly and retries Overpass after its cache expires', async () => {
+  let time = 1000000;
+  let primaryReady = false;
+  const calls = [];
+  const service = serviceWith({ now: () => time, placeSearchUrl: photon, fetchImpl: async (url) => {
+    calls.push(url);
+    if (String(url).startsWith(photon)) return { ok: true, json: async () => ({ features: [photonLibrary()] }) };
+    if (primaryReady) return response();
+    throw new TypeError('Offline');
+  } });
+  assert.equal((await service.searchPlaces(area)).source, 'Photon / OpenStreetMap');
+  assert.equal(calls.length, 3);
+  time += 59000;
+  assert.equal((await service.searchPlaces(area)).source, 'Photon / OpenStreetMap');
+  assert.equal(calls.length, 3);
+  time += 2000;
+  primaryReady = true;
+  assert.equal((await service.searchPlaces(area)).source, 'OpenStreetMap');
+  assert.equal(calls.length, 4);
+});
+
+test('Photon Retry-After is respected across searches after a fallback rate limit', async () => {
+  let time = 1000000;
+  const calls = [];
+  const service = serviceWith({ now: () => time, placeSearchUrl: photon, fetchImpl: async (url) => {
+    calls.push(url);
+    if (String(url).startsWith(photon)) return { ok: false, status: 429, headers: { get: () => '120' } };
+    throw new TypeError('Overpass offline');
+  } });
+  await assert.rejects(service.searchPlaces(area), (error) => error.status === 503 && error.retryAfterSeconds === 120);
+  time += 31000;
+  await assert.rejects(service.searchPlaces({ ...area, lat: area.lat + 0.001 }), (error) => error.status === 503 && error.retryAfterSeconds >= 89);
+  assert.equal(calls.filter((url) => String(url).startsWith(photon)).length, 1);
 });
 
 test('a timed-out fetch is aborted before trying the backup', async () => {

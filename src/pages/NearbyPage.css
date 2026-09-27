@@ -88,9 +88,34 @@ body .nearby-page .nearby-subpage-title-row .nearby-subpage-back.page-back-contr
 .nearby-page .nearby-subpage-header .nearby-view-toggle { align-self: center; }
 
 .nearby-page .nearby-workspace { display: flex; flex-direction: column; gap: 19px; }
-.nearby-page .nearby-view-toggle { display: flex; flex-shrink: 0; align-self: flex-start; gap: 3px; padding: 4px; border: 1px solid var(--nearby-line); border-radius: 10px; background: var(--surface); }
-.nearby-page .nearby-view-toggle button { display: flex; align-items: center; gap: 6px; border: 0; border-radius: 6px; padding: 6px 10px; color: var(--nearby-muted); background: transparent; font-size: 11px; }
-.nearby-page .nearby-view-toggle button[data-active="true"] { background: var(--surface-strong); color: var(--accent); box-shadow: 0 1px 4px #0000000a; }
+.nearby-page .nearby-view-toggle { display: flex; flex-shrink: 0; align-self: flex-start; gap: 3px; background: transparent; }
+body .nearby-page .nearby-view-toggle button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 7px 12px;
+  border: 1px solid transparent !important;
+  border-radius: 9px;
+  background: transparent !important;
+  background-image: none !important;
+  color: var(--nearby-muted) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  transform: none !important;
+  font-size: 11px;
+}
+body .nearby-page .nearby-view-toggle button::after { content: none !important; }
+body .nearby-page .nearby-view-toggle button:hover { color: var(--text) !important; }
+body .nearby-page .nearby-view-toggle button[data-active="true"],
+body .nearby-page .nearby-view-toggle button[data-active="true"]:hover {
+  border-color: var(--nearby-line) !important;
+  background: var(--surface-strong) !important;
+  color: var(--text) !important;
+}
 .nearby-page .nearby-filters { display: grid; grid-template-columns: minmax(120px, .7fr) minmax(160px, 1fr) minmax(190px, 1.35fr) auto; gap: 13px; align-items: end; padding: 17px 19px; border: 1px solid var(--nearby-line); border-radius: 13px; background: var(--surface); }
 .nearby-page .nearby-filters > label,
 .nearby-dialog .nearby-form-grid > label,

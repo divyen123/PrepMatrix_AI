@@ -104,7 +104,9 @@ function TopicTimeline({ subjects = [], schedule = [], completed = [], userProfi
         <div>
           <h3>Topic progress lanes</h3>
         </div>
-        <strong>{metrics.completedTasks}/{metrics.totalTasks} done</strong>
+        <strong className={metrics.totalTasks > 0 && metrics.completedTasks === metrics.totalTasks ? "is-complete" : undefined}>
+          {metrics.completedTasks}/{metrics.totalTasks} done
+        </strong>
       </div>
 
       {progress.length === 0 ? (

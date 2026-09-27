@@ -2,6 +2,7 @@ const CACHE_LIMIT = 300;
 const GEOCODE_TTL = 24 * 60 * 60 * 1000;
 const PLACES_TTL = 20 * 60 * 1000;
 const STALE_PLACES_TTL = 24 * 60 * 60 * 1000;
+const FALLBACK_PLACES_TTL = 60 * 1000;
 const DEFAULT_OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 const BACKUP_OVERPASS_URL = 'https://overpass.private.coffee/api/interpreter';
 export const NEARBY_SERVICE_VERSION = 'study-spots-1';
@@ -112,6 +113,26 @@ export function osmPlace(element, category) {
   };
 }
 
+export function photonPlace(feature, category) {
+  const properties = feature?.properties || {};
+  const [lon, lat] = feature?.geometry?.coordinates || [];
+  const osmType = { N: 'node', W: 'way', R: 'relation' }[properties.osm_type] || properties.osm_type;
+  const osmId = String(properties.osm_id || '');
+  const isLibrary = properties.osm_key === 'amenity' && properties.osm_value === 'library';
+  const isCoworking = properties.osm_key === 'office' && properties.osm_value === 'coworking';
+  if (!shortText(properties.name) || !['node', 'way', 'relation'].includes(osmType) || !/^[1-9]\d*$/u.test(osmId)
+    || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180
+    || (!isLibrary && !isCoworking)) return null;
+  const address = [properties.housenumber, properties.street, properties.district, properties.city, properties.state, properties.postcode, properties.country]
+    .map((part) => shortText(part)).filter((part, index, parts) => part && parts.indexOf(part) === index).join(', ');
+  return {
+    id: `osm:${osmType}:${osmId}`, name: shortText(properties.name), category,
+    lat, lon, address: shortText(address, 400), phone: '', website: '', hours: '',
+    source: 'Photon / OpenStreetMap', sourceUrl: `https://www.openstreetmap.org/${osmType}/${osmId}`,
+    updatedAt: null, fees: '', facilities: [], type: isLibrary ? 'library' : 'coworking', access: '',
+  };
+}
+
 function makeCache(now) {
   const values = new Map();
   return {
@@ -159,17 +180,22 @@ export function createNearbyService({
   gapMs = 1100,
   queueWaitMs = 3000,
   placeTimeoutMs = 15000,
+  placeSearchTimeoutMs = 7000,
   onProviderFailure = (event) => console.warn('[Nearby]', JSON.stringify(event)),
   photonUrl = process.env.NEARBY_PHOTON_URL || 'https://photon.komoot.io/api/',
   overpassUrl = process.env.NEARBY_OVERPASS_URL || DEFAULT_OVERPASS_URL,
   // Private endpoints never silently send their searches to a public backup.
   overpassFallbackUrl = process.env.NEARBY_OVERPASS_FALLBACK_URL
     ?? (overpassUrl === DEFAULT_OVERPASS_URL ? BACKUP_OVERPASS_URL : ''),
+  // A custom Overpass endpoint does not silently send place searches to a public provider.
+  placeSearchUrl = process.env.NEARBY_PLACE_SEARCH_URL
+    ?? (overpassUrl === DEFAULT_OVERPASS_URL ? photonUrl : ''),
 } = {}) {
   const cache = makeCache(now);
   const lastGoodPlaces = makeCache(now);
   const pending = new Map();
   const cooldowns = new Map();
+  let placeSearchCooldown = 0;
   const endpoints = [...new Set([overpassUrl, overpassFallbackUrl].filter(Boolean))];
   const geocodeQueue = providerQueue({ now, wait, gapMs, maxWaitMs: queueWaitMs });
   const placesQueue = providerQueue({ now, wait, gapMs, maxWaitMs: queueWaitMs });
@@ -205,7 +231,7 @@ export function createNearbyService({
     const hit = cache.get(key);
     if (hit) return hit;
     if (pending.has(key)) return pending.get(key);
-    const promise = operation().then((data) => { cache.set(key, data, ttl); return data; }).finally(() => pending.delete(key));
+    const promise = operation().then((data) => { cache.set(key, data, data.cacheTtlMs ?? ttl); return data; }).finally(() => pending.delete(key));
     pending.set(key, promise);
     return promise;
   }
@@ -245,6 +271,45 @@ export function createNearbyService({
     // Clone so the cached provider failure keeps its original Retry-After value.
     throw Object.assign(nearbyError(unavailable.status, unavailable.message, unavailable.code), {
       providerFailure: unavailable.providerFailure, retryAfterSeconds,
+      disablePlaceSearchFallback: Number.isFinite(unavailable.upstreamStatus) && unavailable.upstreamStatus >= 400 && unavailable.upstreamStatus < 500,
+    });
+  }
+  async function queryPhotonPlaces(area, category) {
+    if (!placeSearchUrl) return [];
+    if (placeSearchCooldown > now()) {
+      throw Object.assign(nearbyError(503, 'Online location search is temporarily unavailable.', 'NEARBY_PROVIDER_UNAVAILABLE'), {
+        retryAfterSeconds: Math.ceil((placeSearchCooldown - now()) / 1000),
+      });
+    }
+    return geocodeQueue(async () => {
+      if (placeSearchCooldown > now()) {
+        throw Object.assign(nearbyError(503, 'Online location search is temporarily unavailable.', 'NEARBY_PROVIDER_UNAVAILABLE'), {
+          retryAfterSeconds: Math.ceil((placeSearchCooldown - now()) / 1000),
+        });
+      }
+      const url = new URL(placeSearchUrl);
+      const [south, west, north, east] = nearbySearchBounds(area);
+      url.searchParams.set('include', 'osm.amenity.library,osm.office.coworking');
+      url.searchParams.set('lat', String(area.lat));
+      url.searchParams.set('lon', String(area.lon));
+      url.searchParams.set('limit', '50');
+      // Photon expects a non-wrapping box. At the date line, its location bias
+      // still guides the search and the exact circle filter below ensures relevance.
+      if (west <= east) url.searchParams.set('bbox', [west, south, east, north].join(','));
+      const started = now();
+      try {
+        const data = await upstream(url, {}, placeSearchTimeoutMs);
+        if (!Array.isArray(data?.features)) throw Object.assign(nearbyError(503, 'The location search provider returned an invalid response.'), { providerFailure: 'invalid_response' });
+        placeSearchCooldown = 0;
+        return [...new Map(data.features.map((feature) => photonPlace(feature, category)).filter(Boolean)
+          .map((place) => [place.id, place])).values()];
+      } catch (error) {
+        const cooldownMs = Math.max(30000, Math.min(3600000, error.retryAfterMs || 0));
+        placeSearchCooldown = now() + cooldownMs;
+        error.retryAfterSeconds = Math.ceil(cooldownMs / 1000);
+        try { onProviderFailure(providerFailureLog(placeSearchUrl, error, Math.max(0, now() - started))); } catch { /* Logging must not break discovery. */ }
+        throw error;
+      }
     });
   }
   const service = {
@@ -286,8 +351,35 @@ export function createNearbyService({
           const bounds = `(${nearbySearchBounds(area).join(',')})`;
           const filters = ['["amenity"="library"]["name"]', '["office"="coworking"]["name"]'];
           const query = `[out:json][timeout:12][maxsize:33554432];(${filters.map((filter) => `nwr${filter}${bounds};`).join('')});out meta center 250;`;
-          const data = await queryPlaces(query);
-          const next = { places: data.elements.map((element) => osmPlace(element, category)).filter(Boolean), fetchedAt: new Date(now()).toISOString() };
+          let primaryPlaces = [];
+          let primaryError;
+          try {
+            const data = await queryPlaces(query);
+            primaryPlaces = data.elements.map((element) => osmPlace(element, category)).filter(Boolean)
+              .filter((place) => distanceKm(area, place) <= area.radius);
+          } catch (error) { primaryError = error; }
+          let fallbackPlaces = [];
+          if (!primaryPlaces.length && placeSearchUrl && !primaryError?.disablePlaceSearchFallback) {
+            try {
+              fallbackPlaces = (await queryPhotonPlaces(area, category))
+                .filter((place) => distanceKm(area, place) <= area.radius);
+            } catch (error) {
+              if (primaryError) primaryError.retryAfterSeconds = Math.max(primaryError.retryAfterSeconds || 0, error.retryAfterSeconds || 0);
+            }
+          }
+          if (!fallbackPlaces.length && primaryError) throw primaryError;
+          const usingFallback = fallbackPlaces.length > 0;
+          const next = {
+            places: usingFallback ? fallbackPlaces : primaryPlaces, fetchedAt: new Date(now()).toISOString(),
+            source: usingFallback ? 'Photon / OpenStreetMap' : 'OpenStreetMap',
+            ...(usingFallback ? {
+              cacheTtlMs: FALLBACK_PLACES_TTL,
+              notice: primaryError
+                ? 'Live map search is unavailable. Showing nearby places from online location search. Confirm details before visiting.'
+                : 'Showing nearby places from online location search. Confirm details before visiting.',
+              retryAfterSeconds: Math.max(60, primaryError?.retryAfterSeconds || 0),
+            } : {}),
+          };
           lastGoodPlaces.set(key, next, STALE_PLACES_TTL);
           return next;
         }));
@@ -302,7 +394,13 @@ export function createNearbyService({
         .filter((place) => place.distanceKm <= area.radius)
         .sort((a, b) => a.distanceKm - b.distanceKm);
       if (stale && !places.length) throw refreshError;
-      return { places, fetchedAt: snapshot.fetchedAt, stale, ...(stale ? { notice: `Live map search is temporarily unavailable. Showing saved map results fetched at ${snapshot.fetchedAt}. Confirm details before visiting.`, retryAfterSeconds: refreshError.retryAfterSeconds || 0 } : {}) };
+      return {
+        places, fetchedAt: snapshot.fetchedAt, stale, source: snapshot.source || 'OpenStreetMap',
+        ...(stale ? {
+          notice: `Live place search is temporarily unavailable. Showing saved results fetched at ${snapshot.fetchedAt}. Confirm details before visiting.`,
+          retryAfterSeconds: refreshError.retryAfterSeconds || 0,
+        } : snapshot.notice ? { notice: snapshot.notice, retryAfterSeconds: snapshot.retryAfterSeconds || 0 } : {}),
+      };
     },
     async places(input) {
       return (await service.searchPlaces(input)).places;
