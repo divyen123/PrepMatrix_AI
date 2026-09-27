@@ -689,23 +689,27 @@ function getCompactTimerPosition() {
   const shell = document.querySelector(".app-shell-layout");
   const sidebar = document.querySelector(".app-sidebar");
   const goal = document.querySelector(".goal-reminder-launcher");
+  const companionRow = goal?.closest(".sidebar-companion-row");
   const sidebarVisible = window.innerWidth >= 992 || sidebar?.classList.contains("open");
   const collapsed = shell?.classList.contains("is-sidebar-collapsed");
   const floating = {
     left: collapsed && sidebarVisible ? Math.min(92, Math.max(16, window.innerWidth - 126)) : 16,
-    top: Math.max(16, window.innerHeight - 80),
     docked: false,
+    target: document.body,
   };
-  if (!shell || collapsed || !sidebarVisible || !goal || !sidebar) {
+  if (!shell || collapsed || !sidebarVisible || !goal || !sidebar || !companionRow) {
     return floating;
   }
 
   const goalBounds = goal.getBoundingClientRect();
-  if (!goalBounds.width) return floating;
+  const rowBounds = companionRow.getBoundingClientRect();
+  const mobileActions = companionRow.querySelector(".sidebar-mobile-actions");
+  const actionsWidth = mobileActions?.getBoundingClientRect().width || 0;
+  if (!goalBounds.width || rowBounds.width < 60 + 60 + 110 + 16 + actionsWidth) return floating;
   return {
-    left: Math.round(Math.max(16, Math.min(goalBounds.right + 6, window.innerWidth - 126))),
-    top: Math.round(goalBounds.top + (goalBounds.height - 64) / 2),
+    left: 0,
     docked: true,
+    target: companionRow,
   };
 }
 
@@ -725,26 +729,28 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
   const preset = presets[timer.preset] || presets.pomodoro;
   const [modeOpen, setModeOpen] = useState(false);
   const [position, setPosition] = useState(() => (
-    typeof window === "undefined" ? { left: 16, top: 16, docked: false } : getCompactTimerPosition()
+    typeof window === "undefined" ? { left: 16, docked: false, target: null } : getCompactTimerPosition()
   ));
   const dockRef = useRef(null);
 
   useEffect(() => {
     const updatePosition = () => {
       const next = getCompactTimerPosition();
-      setPosition((current) => current.left === next.left && current.top === next.top && current.docked === next.docked
+      setPosition((current) => current.left === next.left && current.docked === next.docked && current.target === next.target
         ? current
         : next);
     };
     const shell = document.querySelector(".app-shell-layout");
     const sidebar = document.querySelector(".app-sidebar");
     const goal = document.querySelector(".goal-reminder-launcher");
+    const companionRow = goal?.closest(".sidebar-companion-row");
     const mutationObserver = new MutationObserver(updatePosition);
     const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updatePosition);
     if (shell) mutationObserver.observe(shell, { attributes: true, attributeFilter: ["class"] });
     if (sidebar) mutationObserver.observe(sidebar, { attributes: true, attributeFilter: ["class"] });
     if (sidebar) resizeObserver?.observe(sidebar);
     if (goal) resizeObserver?.observe(goal);
+    if (companionRow) resizeObserver?.observe(companionRow);
     window.addEventListener("resize", updatePosition);
     const frame = window.requestAnimationFrame(updatePosition);
     return () => {
@@ -868,7 +874,7 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
       className={`exam-compact-timer${position.docked ? " is-sidebar-docked" : " is-floating"}${timer.phase === "break" ? " is-break" : ""}`}
       ref={dockRef}
       role="group"
-      style={{ left: position.left, top: position.top }}
+      style={position.docked ? undefined : { left: position.left }}
     >
       <AnimatedTimerClock value={timeLabel} />
       <div className="exam-compact-timer-actions">
@@ -914,7 +920,10 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
       )}
     </section>
   );
-  return typeof document === "undefined" ? dock : createPortal(dock, document.body);
+  return typeof document === "undefined" ? dock : createPortal(
+    dock,
+    position.target?.isConnected ? position.target : document.body,
+  );
 }
 
 function PaperBuilder({

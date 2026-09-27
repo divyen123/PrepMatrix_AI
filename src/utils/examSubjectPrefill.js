@@ -34,7 +34,7 @@ export function getExamSubjectPrefill(
   requestedSubject,
   subjects = [],
   schedule = [],
-  { includeUnnamedChapters = true } = {},
+  { includeGeneratedChapters = true, requireSavedCurriculum = false } = {},
 ) {
   const requestedName = cleanText(requestedSubject);
   if (!requestedName) return null;
@@ -58,7 +58,8 @@ export function getExamSubjectPrefill(
   const addLabel = (value) => {
     const label = labelOf(value);
     const key = comparisonKey(label);
-    if (!key || key === comparisonKey(subjectName) || seen.has(key)) return;
+    if (!key || key === comparisonKey(subjectName) || seen.has(key)
+      || (!includeGeneratedChapters && /^chapter\s+\d+$/iu.test(label))) return;
     seen.add(key);
     scope.push(label);
   };
@@ -78,12 +79,17 @@ export function getExamSubjectPrefill(
       getSubjectStudyUnitRecords(subject)
         .filter((unit) => unit.unitType === "chapter")
         .forEach((unit) => {
-          if (includeUnnamedChapters || labelOf(subject.chapterNames?.[unit.unitIndex])) {
+          if (includeGeneratedChapters || labelOf(subject.chapterNames?.[unit.unitIndex])) {
             addLabel(unit.label);
           }
         });
     }
     addCurriculum(subject.topics);
+  }
+
+  // A generated planner task is not evidence that a syllabus was saved on the subject.
+  if (requireSavedCurriculum && scope.length === 0) {
+    return { subjectName, scopeText: "" };
   }
 
   tasks.forEach((task) => {
@@ -106,7 +112,8 @@ export function getExamPaperScopeBlocks(selectedSubjects, subjects = [], schedul
   if (!Array.isArray(selectedSubjects) || !selectedSubjects.length) return [];
   const entries = selectedSubjects
     .map((name) => getExamSubjectPrefill(name, subjects, schedule, {
-      includeUnnamedChapters: false,
+      includeGeneratedChapters: false,
+      requireSavedCurriculum: true,
     }))
     .filter((entry) => entry?.scopeText);
   const multipleSubjects = selectedSubjects.length > 1;

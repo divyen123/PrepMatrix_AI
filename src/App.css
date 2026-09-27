@@ -13446,8 +13446,17 @@ body.dark .sidebar-widgets .exam-widget-btn.is-task-failed {
   right: 4px;
 }
 
-.collapsed-exam-task-link.is-task-running {
-  animation: exam-background-generating 2.8s ease-in-out infinite;
+.app-shell-layout.is-sidebar-collapsed .collapsed-exam-task-link.is-task-running,
+.app-shell-layout.is-sidebar-collapsed .collapsed-exam-task-link.is-task-running:is(:hover, :focus-visible) {
+  color: #2f80ed;
+  border: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  animation: none;
+}
+
+.collapsed-exam-task-link.is-task-running .exam-widget-status {
+  display: none;
 }
 
 .collapsed-exam-task-link.is-task-completed {

@@ -91,7 +91,36 @@ test("question-paper scope includes saved chapter and topic names without unname
     getExamPaperScopePrefill(["Data Analytics"], subjects, schedule),
     "Foundations\nBig data\nSampling\nRegression",
   );
-  assert.equal(getExamPaperScopePrefill(["Physics"], subjects, schedule), "Waves");
+  assert.equal(getExamPaperScopePrefill(["Physics"], subjects, schedule), "");
+});
+
+test("question-paper scope stays empty when only chapter counts and planner tasks exist", () => {
+  const subjects = [
+    { name: "Quantum computing", chapters: 4, chapterNames: ["", "", "", ""] },
+    { name: "Machine Learning", chapters: [{ title: "Chapter 1" }, { title: "Chapter 2" }] },
+  ];
+  const schedule = [{ tasks: [
+    { task: "Quantum computing - Chapter 1", subjectName: "Quantum computing", chapterName: "Chapter 1", topic: "Chapter 1" },
+    { task: "Quantum computing - Chapter 2 · Practice", subjectName: "Quantum computing", topic: "Chapter 2" },
+    { task: "Quantum computing - Review exercise", subjectName: "Quantum computing", topic: "Review exercise" },
+    { task: "Machine Learning - Chapter 1", subjectName: "Machine Learning", chapterName: "Chapter 1", topic: "Chapter 1" },
+  ] }];
+
+  assert.equal(getExamPaperScopePrefill(["Quantum computing"], subjects, schedule), "");
+  assert.equal(getExamPaperScopePrefill(["Machine Learning"], subjects, schedule), "");
+  assert.deepEqual(getExamPaperScopeBlocks(["Quantum computing", "Machine Learning"], subjects, schedule), []);
+});
+
+test("question-paper scope keeps named saved chapters but omits generated task labels", () => {
+  const subjects = [{ name: "Networks", chapters: 3, chapterNames: ["Routing", "", ""] }];
+  const schedule = [{ tasks: [
+    { task: "Networks - Chapter 2", subjectName: "Networks", chapterName: "Chapter 2", topic: "Chapter 2" },
+    { task: "Networks - Chapter 3", subjectName: "Networks", chapterName: "Chapter 3", topic: "Chapter 3" },
+  ] }];
+
+  assert.equal(getExamPaperScopePrefill(["Networks"], subjects, schedule), "Routing");
+  assert.equal(getExamSubjectPrefill("Networks", subjects, schedule)?.scopeText,
+    "Routing\nChapter 2\nChapter 3");
 });
 
 test("question-paper scope separates multiple selected subjects and only includes available saved content", () => {
