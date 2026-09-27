@@ -5,6 +5,14 @@ import { buildDirectionsUrl } from "../utils/nearby";
 import { nearbyRetrySeconds } from "../utils/nearbySearchState";
 import NearbyDialog from "./NearbyDialog";
 
+function circleMeta(circle) {
+  const details = [circle.subject, circle.chapter, circle.board];
+  if (circle.status === "cancelled") details.push("Cancelled");
+  else if (new Date(circle.startsAt) <= new Date()) details.push("Session started / past");
+  if (circle.myStatus) details.push(circle.myStatus === "pending" ? "Awaiting host approval" : circle.myStatus === "approved" ? "You’re confirmed" : "Request declined");
+  return details.filter(Boolean).join(" · ");
+}
+
 function CircleForm({ origin, radius, subject, chapter, profile, onClose, onCreated }) {
   const [venues, setVenues] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -149,7 +157,7 @@ export default function NearbyCircles({ origin, radius, subject, chapter, profil
     {message && <p className="nearby-notice" data-tone="success" role="status">{message}</p>}
     {loading ? <div className="nearby-loading" role="status"><span className="nearby-spinner" />Finding revision circles…</div> : !visible.length ? <div className="nearby-empty"><span className="nearby-empty-icon"><UsersRound size={30} /></span><h3>{mine ? "No matching sessions or requests." : "The next circle could start with you."}</h3><p>{mine ? "Your hosted sessions and join requests appear here across all locations." : "No sessions match this area and topic yet. Try a wider radius, or host a session at a listed study venue."}</p></div> : <div className="nearby-card-grid">{visible.map((circle) => <article className="nearby-card" key={circle.id}>
       <div className="nearby-card-heading"><span className="nearby-place-icon"><UsersRound size={21} /></span><div><h3>{circle.title}</h3><p className="nearby-subtitle">Hosted by {circle.isHost ? "you" : circle.hostName} · {circle.joinedCount}/{circle.capacity} participants</p></div></div>
-      <div className="nearby-badges"><span>{circle.subject}</span><span>{circle.chapter}</span>{circle.board && <span>{circle.board}</span>}{circle.status === "cancelled" ? <span>Cancelled</span> : new Date(circle.startsAt) <= new Date() ? <span>Session started / past</span> : null}{circle.myStatus && <span>{circle.myStatus === "pending" ? "Awaiting host approval" : circle.myStatus === "approved" ? "You’re confirmed" : "Request declined"}</span>}</div>
+      <p className="nearby-circle-meta">{circleMeta(circle)}</p>
       <p className="nearby-card-description"><MapPin size={15} />{circle.venue.name}</p><p className="nearby-card-description"><Clock3 size={15} />{new Date(circle.startsAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} · {circle.durationMinutes} min</p>
       {circle.agenda && <p className="nearby-circle-agenda">{circle.agenda}</p>}
       <div className="nearby-card-actions">

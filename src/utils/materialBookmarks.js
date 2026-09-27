@@ -1,11 +1,16 @@
 const DEFAULT_MAX_ITEMS = 200;
+const MAX_RETAILERS = 8;
 
 const FIELD_LIMITS = Object.freeze({
   academicLevel: 80,
   academicTrack: 120,
+  author: 160,
   description: 500,
+  edition: 100,
   href: 2048,
+  isbn: 32,
   provider: 80,
+  retailerName: 80,
   subject: 120,
   title: 160,
   id: 128,
@@ -47,6 +52,55 @@ function normalizeHttpsUrl(value) {
   }
 }
 
+function normalizeBookId(value) {
+  const rawId = cleanBoundedString(value, FIELD_LIMITS.id);
+  const match = rawId.match(/^(?:\/works\/)?(OL\d+W)\/?$/iu);
+  if (match) return match[1].toUpperCase();
+
+  try {
+    const url = new URL(rawId);
+    if (url.protocol !== "https:" || url.hostname !== "openlibrary.org" || url.username || url.password) return "";
+    const urlMatch = url.pathname.match(/^\/works\/(OL\d+W)\/?$/iu);
+    return urlMatch ? urlMatch[1].toUpperCase() : "";
+  } catch {
+    return "";
+  }
+}
+
+function normalizeRetailers(value) {
+  if (!Array.isArray(value)) return [];
+
+  const seenUrls = new Set();
+  const retailers = [];
+  for (const candidate of value) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+
+    const name = cleanBoundedString(candidate.name, FIELD_LIMITS.retailerName);
+    const href = normalizeHttpsUrl(candidate.href);
+    const mode = candidate.mode === "product" || candidate.mode === "search"
+      ? candidate.mode
+      : "";
+    if (!name || !href || !mode || seenUrls.has(href)) continue;
+
+    retailers.push({ name, href, mode });
+    seenUrls.add(href);
+    if (retailers.length >= MAX_RETAILERS) break;
+  }
+
+  return retailers;
+}
+
+export function materialBookmarkKey(bookmark) {
+  if (!bookmark || typeof bookmark !== "object" || Array.isArray(bookmark)) return "";
+  if (bookmark.kind === "book") {
+    const bookId = normalizeBookId(bookmark.bookId);
+    return bookId ? `book:${bookId}` : "";
+  }
+
+  const href = normalizeHttpsUrl(bookmark.href);
+  return href ? `href:${href}` : "";
+}
+
 function normalizeItemLimit(value) {
   if (value === undefined) return DEFAULT_MAX_ITEMS;
 
@@ -71,6 +125,18 @@ export function normalizeMaterialBookmark(raw) {
     subject: cleanBoundedString(raw.subject, FIELD_LIMITS.subject),
     title,
   };
+  if (raw.kind === "book") {
+    const bookId = normalizeBookId(raw.bookId);
+    if (!bookId) return null;
+
+    bookmark.kind = "book";
+    bookmark.bookId = bookId;
+    bookmark.author = cleanBoundedString(raw.author, FIELD_LIMITS.author);
+    bookmark.cover = normalizeHttpsUrl(raw.cover);
+    bookmark.isbn = cleanBoundedString(raw.isbn, FIELD_LIMITS.isbn);
+    bookmark.edition = cleanBoundedString(raw.edition, FIELD_LIMITS.edition);
+    bookmark.retailers = normalizeRetailers(raw.retailers);
+  }
   const id = cleanBoundedString(raw.id, FIELD_LIMITS.id);
   const savedAt = cleanBoundedString(raw.savedAt, FIELD_LIMITS.savedAt);
 
@@ -86,14 +152,15 @@ export function normalizeMaterialBookmarks(raw, { maxItems = DEFAULT_MAX_ITEMS }
   const itemLimit = normalizeItemLimit(maxItems);
   if (itemLimit === 0) return [];
 
-  const seenUrls = new Set();
+  const seenKeys = new Set();
   const normalized = [];
 
   for (const candidate of raw) {
     const bookmark = normalizeMaterialBookmark(candidate);
-    if (!bookmark || seenUrls.has(bookmark.href)) continue;
+    const key = materialBookmarkKey(bookmark);
+    if (!key || seenKeys.has(key)) continue;
 
-    seenUrls.add(bookmark.href);
+    seenKeys.add(key);
     normalized.push(bookmark);
     if (normalized.length >= itemLimit) break;
   }

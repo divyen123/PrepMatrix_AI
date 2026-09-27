@@ -12,3 +12,322 @@
   line-height: 1.7;
   text-align: center;
 }
+
+.resources-page .resource-book-entry {
+  display: flex;
+  align-items: center;
+}
+
+.resources-page .resource-book-entry__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 9px 15px;
+  border: 1px solid rgba(var(--accent-rgb), 0.3) !important;
+  border-radius: 12px;
+  background: rgba(var(--accent-rgb), 0.12) !important;
+  color: var(--accent-strong) !important;
+  box-shadow: none !important;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.resources-page .resource-book-entry__button:hover,
+.resources-page .resource-book-entry__button[aria-expanded="true"] {
+  border-color: rgba(var(--accent-rgb), 0.5) !important;
+  background: rgba(var(--accent-rgb), 0.2) !important;
+  box-shadow: 0 6px 16px rgba(var(--accent-rgb), 0.1) !important;
+  transform: translateY(-1px) !important;
+}
+
+.resources-page .resource-book-entry__button:focus-visible,
+.resources-page .material-book-card__toggle:focus-visible,
+.resources-page .material-book-card__button:focus-visible,
+.resources-page .material-book-card__retailers a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.resource-book-entry__chevron,
+.material-book-card__chevron {
+  transition: transform 180ms ease;
+}
+
+.resource-book-entry__button[aria-expanded="true"] .resource-book-entry__chevron,
+.material-book-card.is-expanded .material-book-card__chevron {
+  transform: rotate(180deg);
+}
+
+.resources-page .material-book-shelf {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-muted);
+}
+
+.resources-page .material-book-shelf__message {
+  margin: 0;
+  padding: 7px 3px;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.resources-page .material-book-shelf__error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.resources-page .material-book-shelf__error button {
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid rgba(var(--accent-rgb), 0.3) !important;
+  border-radius: 9px;
+  background: rgba(var(--accent-rgb), 0.12) !important;
+  color: var(--accent-strong) !important;
+  box-shadow: none !important;
+  font-size: 0.77rem;
+  font-weight: 800;
+}
+
+.resources-page .material-book-shelf__error button:hover {
+  border-color: rgba(var(--accent-rgb), 0.5) !important;
+  background: rgba(var(--accent-rgb), 0.2) !important;
+  box-shadow: none !important;
+}
+
+.resources-page .saved-material-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.resources-page .material-book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 235px), 1fr));
+  align-items: start;
+  gap: 11px;
+  min-width: 0;
+}
+
+.resources-page .material-book-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--surface-strong);
+  box-shadow: 0 2px 7px rgba(17, 24, 39, 0.035);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.resources-page .material-book-card:hover,
+.resources-page .material-book-card.is-expanded {
+  border-color: rgba(var(--accent-rgb), 0.36);
+  box-shadow: 0 9px 24px rgba(17, 24, 39, 0.08);
+}
+
+.resources-page .material-book-card:hover {
+  transform: translateY(-2px);
+}
+
+.resources-page .material-book-card.is-expanded {
+  grid-column: 1 / -1;
+  transform: none;
+}
+
+.resources-page .material-book-card__toggle {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 112px;
+  padding: 10px 12px;
+  border: 0 !important;
+  border-radius: 15px;
+  background: transparent !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  text-align: left;
+  transform: none !important;
+}
+
+.resources-page .material-book-card__toggle:hover {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.resources-page .material-book-card__cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 90px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: rgba(var(--accent-rgb), 0.09);
+  color: var(--accent);
+  box-shadow: 0 3px 8px rgba(17, 24, 39, 0.13);
+}
+
+.resources-page .material-book-card__cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.resources-page .material-book-card__summary {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.resources-page .material-book-card__summary strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.91rem;
+  line-height: 1.34;
+}
+
+.resources-page .material-book-card__summary > span {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resources-page .material-book-card__chevron {
+  color: var(--text-muted);
+}
+
+.resources-page .material-book-card__details {
+  display: grid;
+  gap: 12px;
+  margin: 0 14px 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--border);
+}
+
+.resources-page .material-book-card__details > p {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--text);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.resources-page .material-book-card__details > .material-book-card__edition {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.resources-page .material-book-card__actions,
+.resources-page .material-book-card__retailers {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.resources-page .material-book-card__button,
+.resources-page .material-book-card__remove-confirm button,
+.resources-page .material-book-card__retailers a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 8px 13px;
+  border: 1px solid var(--border) !important;
+  border-radius: 10px;
+  background: var(--surface-muted) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.resources-page .material-book-card__button:hover,
+.resources-page .material-book-card__remove-confirm button:hover,
+.resources-page .material-book-card__retailers a:hover {
+  border-color: rgba(var(--accent-rgb), 0.4) !important;
+  background: rgba(var(--accent-rgb), 0.11) !important;
+  box-shadow: none !important;
+  transform: translateY(-1px) !important;
+}
+
+.resources-page .material-book-card__button--buy {
+  border-color: rgba(var(--accent-rgb), 0.65) !important;
+  background: var(--accent-strong) !important;
+  color: #fff !important;
+}
+
+.resources-page .material-book-card__button--buy:hover {
+  border-color: rgba(var(--accent-rgb), 0.75) !important;
+  background: color-mix(in srgb, var(--accent-strong) 88%, #000) !important;
+  color: #fff !important;
+}
+
+.resources-page .material-book-card__button:disabled {
+  cursor: default;
+  opacity: 0.7;
+  transform: none !important;
+}
+
+.resources-page .material-book-card__retailers {
+  padding-top: 3px;
+}
+
+.resources-page .material-book-card__retailers a {
+  background: transparent !important;
+}
+
+.resources-page .material-book-card__remove-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 0.77rem;
+  font-weight: 700;
+}
+
+.resources-page .material-book-card__remove-confirm button {
+  min-width: 36px;
+  padding: 8px;
+}
+
+@media (max-width: 620px) {
+  .resources-page .material-book-shelf {
+    padding: 10px;
+  }
+
+  .resources-page .material-book-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resources-page .material-book-card,
+  .resources-page .material-book-card__chevron,
+  .resources-page .resource-book-entry__chevron {
+    transition-duration: 0.01ms;
+  }
+}

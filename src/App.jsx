@@ -84,6 +84,7 @@ import {
 } from "./utils/plannerAttention";
 import { readStoredActiveExamAttemptId } from "./utils/examTiming";
 import {
+  materialBookmarkKey,
   normalizeMaterialBookmark,
   normalizeMaterialBookmarks,
 } from "./utils/materialBookmarks";
@@ -924,7 +925,9 @@ function App() {
   const routeStagePathname = location.pathname === "/planner"
     || location.pathname.startsWith("/planner/")
     ? "/planner"
-    : location.pathname;
+    : location.pathname === "/nearby" || location.pathname.startsWith("/nearby/")
+      ? "/nearby"
+      : location.pathname;
   const resumeEligibility = useMemo(
     () => getResumeEligibility({
       ...(userProfile || {}),
@@ -2248,7 +2251,8 @@ function App() {
       return;
     }
 
-    const exists = materialBookmarks.some((item) => item.href === normalizedBookmark.href);
+    const bookmarkKey = materialBookmarkKey(normalizedBookmark);
+    const exists = materialBookmarks.some((item) => materialBookmarkKey(item) === bookmarkKey);
 
     if (exists) {
       setNotification("Material already saved.");
@@ -2256,7 +2260,7 @@ function App() {
     }
 
     setMaterialBookmarks((current) => {
-      if (current.some((item) => item.href === normalizedBookmark.href)) {
+      if (current.some((item) => materialBookmarkKey(item) === bookmarkKey)) {
         return current;
       }
 
@@ -3668,7 +3672,7 @@ function App() {
                     {userProfile ? (
                       <>
                         <Route
-                          path="/nearby"
+                          path="/nearby/*"
                           element={
                             <NearbyPage
                               key={activeAcademicProfileDataId}
