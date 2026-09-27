@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ObjectId } from 'mongodb';
-import { createNearbyService, distanceKm, nearbySearchBounds, osmPlace, parseNearbyArea } from './nearbyService.js';
+import { createNearbyService, distanceKm, NEARBY_SERVICE_VERSION, nearbySearchBounds, osmPlace, parseNearbyArea } from './nearbyService.js';
 import { cleanupNearbyProfileData, normalizeCircleInput, publicCircle, publicNearbyListing, registerNearbyRoutes } from './nearbyRoutes.js';
 
 test('nearby rejects malformed or excessive location searches before any provider request', async () => {
@@ -28,20 +28,19 @@ test('Photon searches deduplicate concurrent lookups and cache real location res
   assert.equal(calls, 1);
 });
 
-test('OSM records never fabricate tutor consent, batch details, quiet areas or seats', () => {
+test('OSM study spots expose only supplied venue details and safe links', () => {
   const place = osmPlace({ type: 'node', id: 123, lat: 13, lon: 80, tags: {
-    name: 'Test institution', amenity: 'school', phone: '+91 1234567890', internet_access: 'wlan', website: 'javascript:alert(1)',
-  } }, 'tuitions');
-  assert.equal(place.phoneSupport, false);
+    name: 'Public library', amenity: 'library', phone: '+91 1234567890', internet_access: 'wlan', website: 'javascript:alert(1)',
+  } }, 'spots');
   assert.equal(place.website, '');
   assert.equal(place.updatedAt, null);
-  assert.deepEqual(place.batches, []);
+  assert.equal(place.batches, undefined);
   assert.deepEqual(place.facilities, ['Wi-Fi']);
-  assert.deepEqual(place.subjects, []);
+  assert.equal(place.subjects, undefined);
   assert.equal(place.sourceUrl, 'https://www.openstreetmap.org/node/123');
 });
 
-test('Overpass discovery reuses tuition lookup for phone enquiries and filters by radius', async () => {
+test('Study Spots discovery filters provider results by the selected radius', async () => {
   let calls = 0;
   const service = createNearbyService({ gapMs: 0, fetchImpl: async (_url, options) => {
     calls += 1;
@@ -49,15 +48,15 @@ test('Overpass discovery reuses tuition lookup for phone enquiries and filters b
     assert.ok(query.includes(`(${nearbySearchBounds({ lat: 13, lon: 80, radius: 5 }).join(',')})`));
     assert.doesNotMatch(query, /around:/);
     return { ok: true, json: async () => ({ elements: [
-      { type: 'node', id: 1, lat: 13.001, lon: 80, tags: { name: 'With phone', phone: '1234567890' } },
-      { type: 'node', id: 2, lat: 13.002, lon: 80, tags: { name: 'No phone' } },
-      { type: 'node', id: 3, lat: 16, lon: 80, tags: { name: 'Far away', phone: '1234567890' } },
+      { type: 'node', id: 1, lat: 13.001, lon: 80, tags: { name: 'Public library', amenity: 'library' } },
+      { type: 'node', id: 2, lat: 13.002, lon: 80, tags: { name: 'Coworking place', office: 'coworking' } },
+      { type: 'node', id: 3, lat: 16, lon: 80, tags: { name: 'Far away', amenity: 'library' } },
     ] }) };
   } });
-  assert.equal((await service.places({ lat: 13, lon: 80, radius: 5, category: 'tuitions' })).length, 2);
-  const rescue = await service.places({ lat: 13, lon: 80, radius: 5, category: 'rescue' });
-  assert.equal(rescue.length, 1);
-  assert.equal(rescue[0].phoneSupport, false);
+  assert.equal((await service.places({ lat: 13, lon: 80, radius: 5, category: 'spots' })).length, 2);
+  assert.equal(calls, 1);
+  await assert.rejects(service.places({ lat: 13, lon: 80, radius: 5, category: 'tuitions' }), { status: 400 });
+  await assert.rejects(service.places({ lat: 13, lon: 80, radius: 5, category: 'rescue' }), { status: 400 });
   assert.equal(calls, 1);
 });
 
@@ -67,13 +66,11 @@ test('provider outages are explicit, never converted to an empty success', async
   await assert.rejects(service.places({ lat: 13, lon: 80 }), { status: 503 });
 });
 
-test('reviewed listing only exposes a phone with publication consent and marks support separately', () => {
+test('reviewed study spot only exposes a phone with publication consent', () => {
   const input = { _id: 'provider', name: 'Tutor', lat: 13, lon: 80, phone: '1234567890', phoneSupport: true };
-  assert.equal(publicNearbyListing(input, 'rescue').phone, '');
-  assert.equal(publicNearbyListing(input, 'rescue').phoneSupport, false);
-  const approved = publicNearbyListing({ ...input, phonePublishedConsent: true, phoneSupportConsent: true }, 'rescue');
+  assert.equal(publicNearbyListing(input, 'spots').phone, '');
+  const approved = publicNearbyListing({ ...input, phonePublishedConsent: true }, 'spots');
   assert.equal(approved.phone, '1234567890');
-  assert.equal(approved.phoneSupport, true);
 });
 
 test('circle responses hide account IDs and participant details from other learners', () => {
@@ -148,9 +145,10 @@ function routeHarness(serviceOverrides = {}) {
     const userId = options.userId || 'host';
     let status = 200;
     let payload;
+    const headers = {};
     const req = { user: { _id: userId, name: userId }, academicProfileId: options.profileId || `${userId}-profile`, academicProfileContext: { profile: options.school ? { academicLevel: 'Primary School', grade: 'Class 3' } : { academicLevel: "Undergraduate / Bachelor's" } }, params: options.params || {}, query: options.query || {}, body: options.body || {} };
-    await routes.get(`${method} ${path}`)(req, { set: () => {}, status: (value) => { status = value; return { json: (data) => { payload = data; } }; }, json: (data) => { payload = data; } });
-    return { status, ...payload };
+    await routes.get(`${method} ${path}`)(req, { set: (key, value) => { headers[key] = value; }, status: (value) => { status = value; return { json: (data) => { payload = data; } }; }, json: (data) => { payload = data; } });
+    return { status, headers, ...payload };
   }
   const body = { title: 'Calculus revision', subject: 'Mathematics', chapter: 'Integration', startsAt: new Date(Date.now() + 86400000).toISOString(), durationMinutes: 60, capacity: 2, publicVenueConfirmed: true, venue };
   return { db, request, body };
@@ -158,18 +156,29 @@ function routeHarness(serviceOverrides = {}) {
 
 test('place responses preserve the stale-result notice and expose an outage without cached results', async () => {
   const notice = 'Live map search is unavailable. Showing saved map results fetched at 2026-09-26T10:00:00.000Z.';
-  const { request } = routeHarness({ searchPlaces: async () => ({ places: [], notice }) });
+  const { request } = routeHarness({ searchPlaces: async () => ({ places: [], notice, retryAfterSeconds: 29 }) });
   const query = { lat: 13, lon: 80, category: 'spots' };
   const result = await request('GET', '/api/nearby/places', { query });
   assert.equal(result.status, 200);
   assert.equal(result.notice, notice);
-  const outage = routeHarness({ searchPlaces: async () => { throw Object.assign(new Error('Provider unavailable'), { status: 503 }); } });
-  assert.equal((await outage.request('GET', '/api/nearby/places', { query })).status, 503);
+  assert.equal(result.retryAfterSeconds, 29);
+  assert.equal(result.headers['X-Nearby-Version'], NEARBY_SERVICE_VERSION);
+  const outage = routeHarness({ searchPlaces: async () => { throw Object.assign(new Error('Provider unavailable'), { status: 503, retryAfterSeconds: 29 }); } });
+  const failure = await outage.request('GET', '/api/nearby/places', { query });
+  assert.equal(failure.status, 503);
+  assert.equal(failure.retryAfterSeconds, 29);
+  assert.equal(failure.headers['Retry-After'], '29');
+  assert.equal(failure.headers['X-Nearby-Version'], NEARBY_SERVICE_VERSION);
   await outage.db.collection('nearbyListings').insertOne({ _id: 'reviewed', status: 'approved', category: 'spots', name: 'Reviewed library', lat: 13, lon: 80 });
   const reviewed = await outage.request('GET', '/api/nearby/places', { query });
   assert.equal(reviewed.status, 200);
   assert.equal(reviewed.places[0].name, 'Reviewed library');
   assert.match(reviewed.notice, /reviewed listings only/);
+  assert.equal(reviewed.retryAfterSeconds, 29);
+  for (const category of ['tuitions', 'rescue']) {
+    const removed = await request('GET', '/api/nearby/places', { query: { ...query, category } });
+    assert.equal(removed.status, 400);
+  }
 });
 
 test('circle create validates time, capacity and a real public study venue', async () => {

@@ -1,27 +1,25 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, ArrowUpRight, Bookmark, CalendarPlus, Check, Clock3, Compass,
-  Copy, GraduationCap, Library, List, LocateFixed, Map, MapPin, Phone,
+  ArrowLeft, ArrowUpRight, Bookmark, CalendarPlus, Clock3, Compass,
+  GraduationCap, Library, List, LocateFixed, Map, MapPin,
   Search, SlidersHorizontal, UsersRound, X,
 } from "lucide-react";
 import api from "../utils/apiClient";
 import {
-  buildDirectionsUrl, buildMapSearchUrl, buildPhoneHref, filterNearbyPlaces,
+  buildDirectionsUrl, buildMapSearchUrl, filterNearbyPlaces,
   getNearbyProfileContext, getNearbyStorageKey, normalizeCoordinates,
   readNearbyPreferences, writeNearbyPreferences,
 } from "../utils/nearby";
 import { createPlannerId, getLocalDateKey, normalizePlannerData } from "../utils/goalReminderStore";
-import { INITIAL_NEARBY_SEARCH, currentNearbySearch, nearbySearchKey, nearbySearchReducer } from "../utils/nearbySearchState";
+import { INITIAL_NEARBY_SEARCH, currentNearbySearch, nearbyRetrySeconds, nearbySearchKey, nearbySearchReducer } from "../utils/nearbySearchState";
 import NearbyCircles from "../components/NearbyCircles";
 import NearbyDialog from "../components/NearbyDialog";
 import "./NearbyPage.css";
 
 const TABS = [
-  { id: "tuitions", label: "Tuitions & Institutions", short: "Learn with the right people", icon: GraduationCap, title: "A better fit for your next chapter", description: "Explore local teaching centres and compare the batch details they provide." },
   { id: "spots", label: "Study Spots", short: "Find your place to focus", icon: Library, title: "Make room for a little focus", description: "Discover libraries and study spaces. Check facilities and entry rules before you go." },
   { id: "circles", label: "Revision Circles", short: "Make progress together", icon: UsersRound, title: "Same topic. Shared momentum.", description: "Join a hosted revision session at a public study venue near you." },
-  { id: "rescue", label: "Chapter Rescue", short: "A little help, a phone call away", icon: Phone, title: "Get unstuck, one call at a time", description: "Find published teaching contacts and tutors offering phone support for your chapter." },
 ];
 const ACTIVITIES = [ ["", "Any study activity"], ["quiet", "Quiet reading & revision"], ["coding", "Coding & laptop work"], ["online", "Online classes"], ["group", "Group discussion"] ];
 
@@ -38,38 +36,30 @@ function updatedLabel(value) {
 function PlaceFacts({ place }) {
   return <dl className="nearby-facts">
     <div><dt>Address</dt><dd>{place.address || "See location on map"}</dd></div>
-    <div><dt>Opening / call hours</dt><dd>{place.callHours || place.hours || "Contact to confirm"}</dd></div>
+    <div><dt>Opening hours</dt><dd>{place.hours || "Contact to confirm"}</dd></div>
     <div><dt>Fees</dt><dd>{place.fees || "Not provided"}</dd></div>
-    {place.board && <div><dt>Syllabus</dt><dd>{place.board}</dd></div>}
-    {place.language && <div><dt>Language</dt><dd>{words(place.language)}</dd></div>}
-    {place.subjects?.length > 0 && <div><dt>Subjects</dt><dd>{words(place.subjects)}</dd></div>}
     {place.facilities?.length > 0 && <div><dt>Facilities</dt><dd>{words(place.facilities)}</dd></div>}
     {place.access && <div><dt>Access</dt><dd>{place.access}</dd></div>}
   </dl>;
 }
 
-function PlaceCard({ place, tab, saved, compared, onSave, onDetails, onCompare, onMap, onPlan, onCopy }) {
-  const Icon = tab === "spots" ? Library : tab === "rescue" ? Phone : GraduationCap;
-  const phoneHref = buildPhoneHref(place.phone);
+function PlaceCard({ place, saved, onSave, onDetails, onMap, onPlan }) {
   return <article className="nearby-card">
     <div className="nearby-card-heading">
-      <span className="nearby-place-icon"><Icon size={21} /></span>
+      <span className="nearby-place-icon"><Library size={21} /></span>
       <div><h3>{place.name}</h3><p className="nearby-subtitle">{Number.isFinite(place.distanceKm) ? `${place.distanceKm.toFixed(1)} km away` : "Nearby listing"}{place.type ? ` · ${place.type.replaceAll("_", " ")}` : ""}</p></div>
       <button className="nearby-icon-button" type="button" aria-label={`${saved ? "Unsave" : "Save"} ${place.name}`} aria-pressed={saved} data-active={saved} onClick={() => onSave(place.id)}><Bookmark size={18} fill={saved ? "currentColor" : "none"} /></button>
     </div>
     <p className="nearby-card-description"><MapPin size={14} />{place.address || "Address details not provided; view the map location."}</p>
-    <div className="nearby-badges">{place.matchReasons?.slice(0, 3).map((reason) => <span key={reason}>{reason}</span>)}{tab === "rescue" && <span>{place.phoneSupport ? "Phone doubt support" : "General teaching enquiry"}</span>}</div>
+    <div className="nearby-badges">{place.matchReasons?.slice(0, 3).map((reason) => <span key={reason}>{reason}</span>)}</div>
     <div className="nearby-card-summary">
-      <span><Clock3 size={14} />{place.callHours || place.hours || "Hours: contact to confirm"}</span>
-      <span>{tab === "tuitions" ? place.batches?.length ? `${place.batches.length} listed batch${place.batches.length === 1 ? "" : "es"}` : "Batch details: contact to confirm" : tab === "spots" ? words(place.facilities) || "Facilities: contact to confirm" : place.phoneSupport ? `Support fee: ${place.fees || "ask before your call"}` : "Ask whether chapter help is available"}</span>
+      <span><Clock3 size={14} />{place.hours || "Hours: contact to confirm"}</span>
+      <span>{words(place.facilities) || "Facilities: contact to confirm"}</span>
     </div>
-    {tab === "rescue" && phoneHref && <div className="nearby-phone"><a href={phoneHref}>{place.phone}</a><button className="nearby-icon-button" aria-label={`Copy phone number for ${place.name}`} type="button" onClick={() => onCopy(place.phone)}><Copy size={15} /></button></div>}
     <div className="nearby-card-actions">
-      {tab === "rescue" && phoneHref ? <a className="nearby-primary" href={phoneHref}><Phone size={15} />{place.phoneSupport ? "Call tutor" : "Call to enquire"}</a> : <button className="nearby-primary" type="button" onClick={() => onDetails(place)}>View details<ArrowUpRight size={15} /></button>}
-      {tab !== "rescue" && <button type="button" onClick={() => onMap(place)}><Map size={15} />Map</button>}
-      {tab === "tuitions" && <button type="button" aria-pressed={compared} onClick={() => onCompare(place)}>{compared ? <Check size={14} /> : null}Compare</button>}
-      {tab === "spots" && <button type="button" onClick={() => onPlan(place)}><CalendarPlus size={15} />Plan session</button>}
-      {tab === "rescue" && <button type="button" onClick={() => onDetails(place)}>Details</button>}
+      <button className="nearby-primary" type="button" onClick={() => onDetails(place)}>View details<ArrowUpRight size={15} /></button>
+      <button type="button" onClick={() => onMap(place)}><Map size={15} />Map</button>
+      <button type="button" onClick={() => onPlan(place)}><CalendarPlus size={15} />Plan session</button>
     </div>
     <p className="nearby-source">{safeUrl(place.sourceUrl) ? <a href={safeUrl(place.sourceUrl)} target="_blank" rel="noopener noreferrer">{place.source || "Listing source"}<ArrowUpRight size={11} /></a> : place.source || "Provider listing"} · Updated {updatedLabel(place.updatedAt)}</p>
   </article>;
@@ -130,7 +120,7 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
   const profile = useMemo(() => getNearbyProfileContext(academicProfile, subjects), [academicProfile, subjects]);
   const storageKey = getNearbyStorageKey(userProfile.id || userProfile._id || userProfile.email, academicProfileDataId);
   const [prefs, setPrefs] = useState(() => readNearbyPreferences(browserStorage(), storageKey));
-  const [tab, setTab] = useState(() => TABS.some((item) => item.id === prefs.activeTab) ? prefs.activeTab : "tuitions");
+  const [tab, setTab] = useState(() => TABS.some((item) => item.id === prefs.activeTab) ? prefs.activeTab : "spots");
   const [locality, setLocality] = useState(prefs.locality || "");
   const [origin, setOrigin] = useState(null);
   const [locationLabel, setLocationLabel] = useState("");
@@ -141,57 +131,69 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
   const [chapter, setChapter] = useState("");
-  const [language, setLanguage] = useState("");
-  const [timing, setTiming] = useState("");
   const [savedOnly, setSavedOnly] = useState(false);
   const [view, setView] = useState("list");
   const [mapPlace, setMapPlace] = useState(null);
   const [details, setDetails] = useState(null);
-  const [comparison, setComparison] = useState([]);
-  const [compareOpen, setCompareOpen] = useState(false);
   const [planning, setPlanning] = useState(null);
   const [refresh, setRefresh] = useState(0);
+  const [retryNow, setRetryNow] = useState(0);
   const locationRequest = useRef(0);
   const placesRequest = useRef(0);
   const active = TABS.find((item) => item.id === tab);
   const subject = prefs.subject || "";
   const radius = Number(prefs.radius) || 5;
   const searchKey = nearbySearchKey(origin, radius, tab);
-  const { loading: requestLoading, hasResult, places, notice, error: placesError } = currentNearbySearch(searchState, searchKey);
+  const { loading: requestLoading, hasResult, places, notice, error: placesError, retryAt } = currentNearbySearch(searchState, searchKey);
   const loading = requestLoading || Boolean(searchKey && searchState.key !== searchKey);
+  const retrySeconds = nearbyRetrySeconds(retryAt, retryNow);
+  const retryDisabled = loading || retrySeconds > 0;
   const savedIds = useMemo(() => prefs.savedIds || [], [prefs.savedIds]);
   const resultMapRef = useRef(null);
 
   useEffect(() => { writeNearbyPreferences(browserStorage(), storageKey, { ...prefs, activeTab: tab }); }, [prefs, storageKey, tab]);
   useEffect(() => () => { locationRequest.current += 1; }, []);
   useEffect(() => {
+    if (!retryAt) return;
+    const interval = window.setInterval(() => {
+      const now = Date.now();
+      setRetryNow(now);
+      if (now >= retryAt) window.clearInterval(interval);
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [retryAt]);
+  useEffect(() => {
     if (!origin || tab === "circles") { dispatchSearch({ type: "reset" }); return; }
     let current = true;
     const requestId = ++placesRequest.current;
     dispatchSearch({ type: "start", key: searchKey, requestId });
-    setMapPlace(null); setComparison([]);
+    setMapPlace(null);
     const params = new URLSearchParams({ lat: origin.lat, lon: origin.lon, radius, category: tab });
     api.get(`/api/nearby/places?${params}`, { timeoutMs: 45000 }).then((data) => {
       if (!current) return;
-      dispatchSearch({ type: "success", key: searchKey, requestId, data });
+      const receivedAt = Date.now();
+      setRetryNow(receivedAt);
+      dispatchSearch({ type: "success", key: searchKey, requestId, data, receivedAt });
     }).catch((failure) => {
       if (!current) return;
       const error = failure.name === "AbortError"
         ? "The nearby search timed out. Please retry or search a smaller area."
         : failure.message || "Could not load nearby places. Please try again.";
-      dispatchSearch({ type: "failure", key: searchKey, requestId, error });
+      const receivedAt = Date.now();
+      setRetryNow(receivedAt);
+      dispatchSearch({ type: "failure", key: searchKey, requestId, error, receivedAt, retryAfterSeconds: failure.details?.retryAfterSeconds });
     });
     return () => { current = false; };
   }, [origin, radius, tab, refresh, searchKey]);
 
-  const visible = useMemo(() => filterNearbyPlaces(places, { query, subject, activity: tab === "spots" ? prefs.activity : "", budget: prefs.budget, savedOnly, savedIds, origin, radius, category: tab, board: profile.board, level: profile.level, chapter, language: tab === "tuitions" ? language : "", timing: tab === "tuitions" ? timing : "" }), [places, query, subject, tab, prefs.activity, prefs.budget, savedOnly, savedIds, origin, radius, profile.board, profile.level, chapter, language, timing]);
+  const visible = useMemo(() => filterNearbyPlaces(places, { query, activity: prefs.activity, savedOnly, savedIds, origin, radius, category: "spots" }), [places, query, prefs.activity, savedOnly, savedIds, origin, radius]);
   const today = getLocalDateKey(new Date());
   const todayTasks = schedule.find((day) => day.date === today)?.tasks || [];
   function preference(key, value) { setPrefs((current) => ({ ...current, [key]: value })); }
   function selectLocation(location) {
     const point = normalizeCoordinates(location.lat, location.lon);
     if (!point) { setLocationError("That location could not be used. Try another area."); return; }
-    setOrigin(point); setLocationLabel(location.label); setLocations([]); setMapPlace(null); setComparison([]); setLocationError("");
+    setOrigin(point); setLocationLabel(location.label); setLocations([]); setMapPlace(null); setLocationError("");
   }
   async function searchLocation(event) {
     event.preventDefault();
@@ -221,17 +223,9 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
     }, { enableHighAccuracy: false, timeout: 12000, maximumAge: 120000 });
   }
   function toggleSave(id) { setPrefs((current) => ({ ...current, savedIds: current.savedIds?.includes(id) ? current.savedIds.filter((value) => value !== id) : [...(current.savedIds || []), id] })); }
-  function toggleCompare(place) {
-    if (comparison.some((entry) => entry.id === place.id)) setComparison((current) => current.filter((entry) => entry.id !== place.id));
-    else if (comparison.length < 2) setComparison((current) => [...current, place]);
-    else setMessage("Choose up to two institutions to compare. Deselect one to change your selection.");
-  }
-  async function copyNumber(phone) {
-    try { await navigator.clipboard.writeText(phone); setMessage("Phone number copied."); } catch { setMessage("Copy is unavailable. Select the displayed phone number to copy it."); }
-  }
   function showMap(place) { setMapPlace(place); setView("map"); setTimeout(() => resultMapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); }
-  function changeTab(id) { if (id === tab) return; setTab(id); setQuery(""); setComparison([]); setMapPlace(null); setMessage(""); }
-  function retryPlaces() { if (!loading) setRefresh((value) => value + 1); }
+  function changeTab(id) { if (id === tab) return; setTab(id); setQuery(""); setMapPlace(null); setMessage(""); }
+  function retryPlaces() { if (!loading && nearbyRetrySeconds(retryAt, Date.now()) === 0) setRefresh((value) => value + 1); }
 
   return <section className="nearby-page page-stack">
     <header className="nearby-header">
@@ -249,35 +243,31 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
       </div><MapArtwork />
     </div>
     <nav className="nearby-tabs" aria-label="Nearby features">{TABS.map(({ id, label, short, icon }) => <button type="button" key={id} className="nearby-tab" data-active={tab === id} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)}><span className="nearby-tab-icon">{(() => { const TabIcon = icon; return <TabIcon size={21} />; })()}</span><span><strong>{label}</strong><small>{short}</small></span></button>)}</nav>
-    {placesError && visible.length > 0 && <div className="nearby-notice" data-tone="error" role="alert"><span>{placesError} Showing results from your previous successful search.</span><button type="button" disabled={loading} onClick={retryPlaces}>Retry search</button></div>}
+    {placesError && visible.length > 0 && <div className="nearby-notice" data-tone="error" role="alert"><span>{placesError} Showing results from your previous successful search.</span><button type="button" disabled={retryDisabled} onClick={retryPlaces}>{retrySeconds > 0 ? `Retry in ${retrySeconds}s` : "Retry search"}</button></div>}
     {message && <div className="nearby-notice" data-tone="success" role="status">{message}<button className="nearby-icon-button" aria-label="Dismiss notification" type="button" onClick={() => setMessage("")}><X size={16} /></button></div>}
     <div className="nearby-workspace">
       <div className="nearby-toolbar"><div><h2>{active.title}</h2><p>{active.description}</p></div>{tab !== "circles" && <div className="nearby-view-toggle" aria-label="Result view"><button type="button" aria-pressed={view === "list"} data-active={view === "list"} onClick={() => setView("list")}><List size={16} />List</button><button type="button" aria-pressed={view === "map"} data-active={view === "map"} onClick={() => setView("map")}><Map size={16} />Map</button></div>}</div>
       <div className="nearby-filters">
         <label>Search radius<select value={radius} onChange={(event) => preference("radius", Number(event.target.value))}>{[2, 5, 10, 20].map((value) => <option key={value} value={value}>Within {value} km</option>)}</select></label>
         {tab !== "spots" ? <label>Subject<input list="nearby-subjects" value={subject} onChange={(event) => preference("subject", event.target.value)} placeholder="Any subject" maxLength={100} /><datalist id="nearby-subjects">{profile.subjectOptions.map((value) => <option key={value} value={value} />)}</datalist></label> : <label>Today’s activity<select value={prefs.activity || ""} onChange={(event) => preference("activity", event.target.value)}>{ACTIVITIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
-        {tab === "rescue" || tab === "circles" ? <label>Chapter / topic<input value={chapter} onChange={(event) => setChapter(event.target.value)} placeholder="e.g. Integration" maxLength={120} /></label> : <label>Search results<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tab === "spots" ? "Place name or facility" : "Institution or batch"} maxLength={100} /></label>}
+        {tab === "circles" ? <label>Chapter / topic<input value={chapter} onChange={(event) => setChapter(event.target.value)} placeholder="e.g. Integration" maxLength={120} /></label> : <label>Search results<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Place name or facility" maxLength={100} /></label>}
         {tab !== "circles" && <button type="button" className="nearby-saved-filter" aria-pressed={savedOnly} data-active={savedOnly} onClick={() => setSavedOnly((value) => !value)}><Bookmark size={16} />Saved places</button>}
       </div>
-      {tab === "tuitions" && <details className="nearby-match-options"><summary><SlidersHorizontal size={14} />Match to your progress & preferences</summary><div className="nearby-filters"><label>Current chapter<input value={chapter} onChange={(event) => setChapter(event.target.value)} placeholder="e.g. Integration" maxLength={120} /></label><label>Teaching language<input value={language} onChange={(event) => setLanguage(event.target.value)} placeholder="Any language" maxLength={60} /></label><label>Preferred timing<input value={timing} onChange={(event) => setTiming(event.target.value)} placeholder="e.g. Saturday or evening" maxLength={80} /></label></div><p>Uses your {profile.label || "academic profile"}. Matching details are based on listed batches; confirm fees, timings and seats with the provider.</p></details>}
       {tab === "spots" && todayTasks.length > 0 && <div className="nearby-today"><CalendarPlus size={16} /><span>On your plan today: {todayTasks.slice(0, 2).map((task) => task.task || task.title || task.subject || "Study session").join(" · ")}</span></div>}
-      {tab === "rescue" && chapter && <div className="nearby-today"><Phone size={16} /><span>Before you call: “I’m studying {subject || "this subject"} and need help with {chapter}. Do you offer phone support, and is there a fee?”</span></div>}
-      {tab === "circles" ? <NearbyCircles origin={origin} radius={radius} subject={subject} chapter={chapter} profile={profile} onPlan={setPlanning} /> : !origin ? <div className="nearby-empty"><span className="nearby-empty-icon"><active.icon size={30} /></span><h3>Your neighbourhood has possibilities.</h3><p>Enter an area above to discover {tab === "spots" ? "places to study" : tab === "rescue" ? "teaching contacts" : "tuitions and institutions"} near you.</p><span className="nearby-empty-hint"><MapPin size={14} />You choose the location. We find the starting points.</span></div> : <div className="nearby-results" aria-busy={loading}>
-        {notice && <div className="nearby-notice" role="status"><span>{notice}</span><button type="button" disabled={loading} onClick={retryPlaces}>Retry live search</button></div>}
+      {tab === "circles" ? <NearbyCircles origin={origin} radius={radius} subject={subject} chapter={chapter} profile={profile} onPlan={setPlanning} /> : !origin ? <div className="nearby-empty"><span className="nearby-empty-icon"><active.icon size={30} /></span><h3>Your neighbourhood has possibilities.</h3><p>Enter an area above to discover places to study near you.</p><span className="nearby-empty-hint"><MapPin size={14} />You choose the location. We find the starting points.</span></div> : <div className="nearby-results" aria-busy={loading}>
+        {notice && <div className="nearby-notice" role="status"><span>{notice}</span><button type="button" disabled={retryDisabled} onClick={retryPlaces}>{retrySeconds > 0 ? `Retry in ${retrySeconds}s` : "Retry live search"}</button></div>}
         {loading && <div className="nearby-loading" role="status"><span className="nearby-spinner" />{hasResult ? "Refreshing nearby places…" : "Finding places around you…"}<small>{hasResult ? "Your previous results stay available while the search refreshes." : "Local map searches can take a few moments."}</small></div>}
         {(!loading || (hasResult && visible.length > 0)) && <>
-          {(!placesError || visible.length > 0) && <div className="nearby-result-meta"><span>{visible.length} {visible.length === 1 ? "place" : "places"}{placesError || loading ? " from your previous search" : " in this search"}{savedOnly ? " · saved only" : ""}</span>{comparison.length > 0 && <button type="button" disabled={comparison.length < 2} onClick={() => setCompareOpen(true)}>Compare selected ({comparison.length}/2)</button>}</div>}
+          {(!placesError || visible.length > 0) && <div className="nearby-result-meta"><span>{visible.length} {visible.length === 1 ? "place" : "places"}{placesError || loading ? " from your previous search" : " in this search"}{savedOnly ? " · saved only" : ""}</span></div>}
           {view === "map" && <div ref={resultMapRef}><LocalMap origin={origin} places={visible} selected={visible.find((place) => place.id === mapPlace?.id)} onSelect={setMapPlace} radius={radius} /></div>}
-          {visible.length === 0 ? placesError ? <div className="nearby-empty" role="alert"><span className="nearby-empty-icon"><Search size={28} /></span><h3>The nearby search is temporarily unavailable.</h3><p>{placesError}</p><p>{radius > 5 ? "Retry the search or try a smaller area. You can also explore this location on Google Maps." : "Retry the search or explore this location on Google Maps while the service recovers."}</p><div className="nearby-actions"><button className="nearby-primary" type="button" disabled={loading} onClick={retryPlaces}>Retry search</button>{radius > 5 && <button type="button" disabled={loading} onClick={() => preference("radius", 5)}>Search within 5 km</button>}<a href={buildMapSearchUrl(tab === "spots" ? "libraries study rooms" : `${subject} tuition centres`, origin)} target="_blank" rel="noopener noreferrer">Search on Google Maps<ArrowUpRight size={14} /></a></div></div> : <div className="nearby-empty"><span className="nearby-empty-icon"><Search size={28} /></span><h3>{savedOnly ? "No saved places in this search." : "No matching places found here."}</h3><p>{savedOnly ? "Save a result using its bookmark button, or show all places." : "Try a wider radius or fewer filters. Local listing coverage varies by area."}</p><div className="nearby-actions"><button type="button" onClick={() => { setQuery(""); setChapter(""); setLanguage(""); setTiming(""); setPrefs((current) => ({ ...current, subject: "", activity: "", budget: "all" })); setSavedOnly(false); }}>Clear filters</button><a href={buildMapSearchUrl(tab === "spots" ? "libraries study rooms" : `${subject} tuition centres`, origin)} target="_blank" rel="noopener noreferrer">Search on Google Maps<ArrowUpRight size={14} /></a></div></div> : <div className="nearby-card-grid">{visible.map((place) => <PlaceCard key={place.id} place={place} tab={tab} saved={savedIds.includes(place.id)} compared={comparison.some((entry) => entry.id === place.id)} onSave={toggleSave} onDetails={setDetails} onCompare={toggleCompare} onMap={showMap} onPlan={setPlanning} onCopy={copyNumber} />)}</div>}
+          {visible.length === 0 ? placesError ? <div className="nearby-empty" role="alert"><span className="nearby-empty-icon"><Search size={28} /></span><h3>The nearby search is temporarily unavailable.</h3><p>{placesError}</p><p>{radius > 5 ? "Retry the search or try a smaller area. You can also explore this location on Google Maps." : "Retry the search or explore this location on Google Maps while the service recovers."}</p><div className="nearby-actions"><button className="nearby-primary" type="button" disabled={retryDisabled} onClick={retryPlaces}>{retrySeconds > 0 ? `Retry in ${retrySeconds}s` : "Retry search"}</button>{radius > 5 && <button type="button" disabled={loading} onClick={() => preference("radius", 5)}>Search within 5 km</button>}<a href={buildMapSearchUrl("libraries study rooms", origin)} target="_blank" rel="noopener noreferrer">Search on Google Maps<ArrowUpRight size={14} /></a></div></div> : <div className="nearby-empty"><span className="nearby-empty-icon"><Search size={28} /></span><h3>{savedOnly ? "No saved places in this search." : "No matching places found here."}</h3><p>{savedOnly ? "Save a result using its bookmark button, or show all places." : "Try a wider radius or fewer filters. Local listing coverage varies by area."}</p><div className="nearby-actions"><button type="button" onClick={() => { setQuery(""); preference("activity", ""); setSavedOnly(false); }}>Clear filters</button><a href={buildMapSearchUrl("libraries study rooms", origin)} target="_blank" rel="noopener noreferrer">Search on Google Maps<ArrowUpRight size={14} /></a></div></div> : <div className="nearby-card-grid">{visible.map((place) => <PlaceCard key={place.id} place={place} saved={savedIds.includes(place.id)} onSave={toggleSave} onDetails={setDetails} onMap={showMap} onPlan={setPlanning} />)}</div>}
         </>}
       </div>}
     </div>
     <footer className="nearby-footer"><span><SlidersHorizontal size={14} />Built around your learning, explored at your pace.</span><span>Place data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>. Confirm changing details with the venue.</span></footer>
     {details && <NearbyDialog title={details.name} onClose={() => setDetails(null)}><PlaceFacts place={details} />
-      {details.batches?.length ? <div><h3>Listed batches</h3>{details.batches.map((batch, index) => <div className="nearby-batch" key={batch.id || index}><h4>{batch.name || batch.subject || `Batch ${index + 1}`}</h4><p>{[batch.board, batch.grade, batch.language].filter(Boolean).join(" · ")}</p><dl className="nearby-facts"><div><dt>Current chapter</dt><dd>{batch.currentChapter || batch.chapter || "Not provided"}</dd></div><div><dt>Timings</dt><dd>{words(batch.schedule || batch.timings) || "Contact to confirm"}</dd></div><div><dt>Fees / seats</dt><dd>{batch.fees || "Fees not provided"} · {batch.availableSeats ?? "Seats not provided"}</dd></div></dl></div>)}</div> : tab === "tuitions" && <p className="nearby-muted">Batch schedules, syllabus and seat availability have not been provided. Contact the institution to check your requirements.</p>}
-      <div className="nearby-dialog-actions">{buildPhoneHref(details.phone) && <a className="nearby-primary" href={buildPhoneHref(details.phone)}><Phone size={15} />{details.phoneSupport ? "Call tutor" : "Call to enquire"}</a>}{tab !== "rescue" && <a href={buildDirectionsUrl(details)} target="_blank" rel="noopener noreferrer">Directions<ArrowUpRight size={14} /></a>}{safeUrl(details.website) && <a href={safeUrl(details.website)} target="_blank" rel="noopener noreferrer">Website<ArrowUpRight size={14} /></a>}{tab !== "rescue" && <button type="button" onClick={() => { setPlanning(details); setDetails(null); }}><CalendarPlus size={15} />Plan session</button>}</div>
+      <div className="nearby-dialog-actions"><a href={buildDirectionsUrl(details)} target="_blank" rel="noopener noreferrer">Directions<ArrowUpRight size={14} /></a>{safeUrl(details.website) && <a href={safeUrl(details.website)} target="_blank" rel="noopener noreferrer">Website<ArrowUpRight size={14} /></a>}<button type="button" onClick={() => { setPlanning(details); setDetails(null); }}><CalendarPlus size={15} />Plan session</button></div>
     </NearbyDialog>}
-    {compareOpen && <NearbyDialog title="Compare your options" onClose={() => setCompareOpen(false)}><div className="nearby-compare">{comparison.map((place) => <div key={place.id}><h3>{place.name}</h3><p>{place.distanceKm?.toFixed(1)} km away</p><PlaceFacts place={place} /><p>{place.batches?.length || 0} listed batches</p>{place.batches?.map((batch, index) => <div className="nearby-batch" key={batch.id || index}><h4>{batch.name || batch.subject || "Batch"}</h4><p>{[batch.board, batch.grade, batch.language].filter(Boolean).join(" · ")}</p><p>Chapter: {batch.chapter || "Not provided"}</p><p>Timings: {batch.schedule || "Not provided"}</p><p>Fees: {batch.fees || "Not provided"}</p></div>)}{buildPhoneHref(place.phone) && <a href={buildPhoneHref(place.phone)}>Call to enquire</a>}</div>)}</div></NearbyDialog>}
     {planning && <PlanSession place={planning} onClose={() => setPlanning(null)} onPlannerDataChange={onPlannerDataChange} onSuccess={setMessage} />}
   </section>;
 }

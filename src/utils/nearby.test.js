@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   NEARBY_TABS, normalizeCoordinates, distanceKm, getNearbyProfileContext, filterNearbyPlaces,
-  buildMapSearchUrl, buildDirectionsUrl, buildPhoneHref, getNearbyStorageKey,
+  buildMapSearchUrl, buildDirectionsUrl, getNearbyStorageKey,
   readNearbyPreferences, writeNearbyPreferences, buildNearbyCalendarEvent,
 } from "./nearby.js";
 
@@ -23,82 +23,22 @@ test("profile context keeps class and board and derives only existing subjects",
     label: "Class 12 · CBSE", level: "Class 12", board: "CBSE", isSchoolLearner: true,
     subjectOptions: ["Physics", "Chemistry"],
   });
-  assert.deepEqual(NEARBY_TABS.map(({ id }) => id), ["tuitions", "spots", "circles", "rescue"]);
+  assert.deepEqual(NEARBY_TABS.map(({ id }) => id), ["spots", "circles"]);
 });
 
-test("subject match ranks known offerings first and keeps unknown institutions for enquiries", () => {
+test("study spots stay within the requested radius and preserve their source data", () => {
   const places = [
-    { id: "unknown", name: "Institution", category: "institution", lat: 0, lon: 0.005 },
-    { id: "physics", name: "Physics tuition", category: "tuition", subjects: ["Physics"], lat: 0, lon: 0.003 },
-    { id: "batch", name: "Batch centre", category: "tuition", batches: [{ subject: "Mathematics" }], lat: 0, lon: 0.01 },
-    { id: "too-far", name: "Distant tuition", category: "tuition", subjects: ["Maths"], lat: 0, lon: 1 },
+    { id: "near", name: "Near library", category: "library", lat: 0, lon: 0.003 },
+    { id: "far", name: "Far library", category: "library", lat: 0, lon: 1 },
+    { id: "unrelated", name: "Study centre", category: "tuitions", lat: 0, lon: 0.001 },
   ];
   const snapshot = JSON.stringify(places);
-  const filtered = filterNearbyPlaces(places, { category: "tuitions", subject: "Maths", origin: { lat: 0, lon: 0 }, radius: 5 });
-  assert.deepEqual(filtered.map(({ id }) => id), ["batch", "unknown"]);
-  assert.match(filtered[0].matchReasons[0], /Maths is listed/u);
-  assert.match(filtered[1].matchReasons[0], /not provided/u);
+  const filtered = filterNearbyPlaces(places, { category: "spots", origin: { lat: 0, lon: 0 }, radius: 5 });
+  assert.deepEqual(filtered.map(({ id }) => id), ["near"]);
+  assert.ok(filtered[0].matchReasons.includes("0.3 km away"));
   assert.equal(JSON.stringify(places), snapshot);
-});
-
-test("rescue ranks opted-in support ahead of clearly labelled general enquiry numbers", () => {
-  const places = [
-    { id: "opted-in", name: "Tutor", phoneSupport: true, phone: "+91 98765 43210", subjects: ["Physics"] },
-    { id: "enquiry", name: "Centre", phone: "9876543210", subjects: ["Physics"] },
-    { id: "no-number", name: "Tutor", phoneSupport: true },
-  ];
-  const results = filterNearbyPlaces(places, { category: "rescue", subject: "Physics" });
-  assert.deepEqual(results.map(({ id }) => id), ["opted-in", "enquiry"]);
-  assert.ok(results[0].matchReasons.includes("Phone doubt support offered"));
-  assert.ok(!results[1].matchReasons.includes("Phone doubt support offered"));
-  assert.ok(results[1].matchReasons.includes("General enquiry; ask about phone support"));
-});
-
-test("batch compatibility cannot combine a subject from one batch and a board from another", () => {
-  const places = [{ id: "wrong", name: "Mixed centre", category: "tuitions", batches: [{ subject: "Maths", board: "ICSE", chapter: "Integration" }, { subject: "Physics", board: "CBSE" }] }, { id: "right", name: "Suitable centre", category: "tuitions", batches: [{ subject: "Maths", board: "CBSE", grade: "Class 12", chapter: "Integration" }] }, { id: "unknown", name: "Unknown centre", category: "tuitions" }];
-  const results = filterNearbyPlaces(places, { category: "tuitions", subject: "Maths", board: "CBSE", level: "Class 12", chapter: "Integration" });
-  assert.deepEqual(results.map((entry) => entry.id), ["right", "unknown"]);
-  assert.ok(results[0].matchReasons.includes("Your chapter is listed"));
-  assert.ok(!results[1].matchReasons.includes("Your chapter is listed"));
-});
-
-test("a multi-subject tutor remains eligible for any of their listed subjects", () => {
-  const results = filterNearbyPlaces([{ name: "Tutor", category: "tuitions", subjects: ["Physics", "Chemistry"] }], { category: "tuitions", subject: "Chemistry" });
-  assert.equal(results.length, 1);
-  assert.ok(results[0].matchReasons.includes("Chemistry is listed"));
-});
-
-test("school-level matching distinguishes Class 1 from Class 12 and accepts equivalent grade labels", () => {
-  const places = ["Class 1", "Class 12", "Grade 1", "1"].map((grade) => ({ name: grade, category: "tuitions", batches: [{ grade }] }));
-  assert.deepEqual(filterNearbyPlaces(places, { category: "tuitions", level: "Class 1" }).map(({ name }) => name), ["Class 1", "Grade 1", "1"]);
-  assert.deepEqual(filterNearbyPlaces(places, { category: "tuitions", level: "Class 12" }).map(({ name }) => name), ["Class 12"]);
-});
-
-test("rescue excludes known incompatible chapters while keeping unknown contacts for enquiry", () => {
-  const places = [
-    { name: "Suitable tutor", phone: "9876543210", chapters: ["Integration"] },
-    { name: "Other chapter", phone: "9876543210", chapters: ["Differentiation"] },
-    { name: "Different subject topic", phone: "9876543210", chapters: ["Disintegration"] },
-    { name: "Unknown contact", phone: "9876543210" },
-  ];
-  const results = filterNearbyPlaces(places, { category: "rescue", chapter: "Integration" });
-  assert.deepEqual(results.map(({ name }) => name), ["Suitable tutor", "Unknown contact"]);
-  assert.ok(results[0].matchReasons.includes("Your chapter is listed"));
-  assert.ok(results[1].matchReasons.includes("Confirm support for your chapter"));
-});
-
-test("matching reasons and score come from one batch instead of merging partial matches", () => {
-  const places = [{ name: "Partial choices", category: "tuitions", batches: [
-    { subject: "Maths", board: "CBSE", chapter: "Differentiation", schedule: "Saturday" },
-    { subject: "Maths", chapter: "Integration" },
-  ] }];
-  const [result] = filterNearbyPlaces(places, { category: "tuitions", subject: "Maths", board: "CBSE", chapter: "Integration", timing: "Saturday" });
-  assert.ok(result.matchReasons.includes("Your chapter is listed"));
-  assert.ok(!result.matchReasons.includes("Syllabus matches your profile"));
-  assert.ok(!result.matchReasons.includes("Listed timing matches"));
-  const [unknownSubject] = filterNearbyPlaces([{ name: "Unknown subject batch", category: "tuitions", batches: [{ subject: "Maths", board: "ICSE" }, { board: "CBSE" }] }], { category: "tuitions", subject: "Maths", board: "CBSE" });
-  assert.ok(!unknownSubject.matchReasons.includes("Maths is listed"));
-  assert.ok(unknownSubject.matchReasons.includes("Subject details not provided; contact to confirm"));
+  assert.deepEqual(filterNearbyPlaces(places, { category: "tuitions" }), []);
+  assert.deepEqual(filterNearbyPlaces(places, { category: "rescue" }), []);
 });
 
 test("study activities rank supplied facilities and do not infer them from a venue name", () => {
@@ -107,38 +47,29 @@ test("study activities rank supplied facilities and do not infer them from a ven
     { id: "known", name: "Study room", category: "study_space", facilities: ["Wi-Fi", "Charging points"] },
     { id: "unavailable", name: "Reading room", category: "library", facilities: ["No Wi-Fi", "Charging points"] },
   ];
-  const matches = filterNearbyPlaces(places, { category: "spots", activity: "coding", subject: "Physics" });
+  const matches = filterNearbyPlaces(places, { category: "spots", activity: "coding" });
   assert.deepEqual(matches.map(({ id }) => id), ["known", "unknown"]);
   assert.match(matches[1].matchReasons[0], /Confirm facilities/u);
 });
 
-test("query, saved and fee filters avoid treating missing prices as free", () => {
+test("query and saved filters only select matching study spots", () => {
   const places = [
-    { id: "free", name: "Town Library", category: "library", fees: "Free" },
-    { id: "unknown", name: "Town Library", category: "library" },
-    { id: "paid", name: "Town Study Space", category: "study_space", fees: 50 },
+    { id: "library", name: "Town Library", category: "library" },
+    { id: "space", name: "Town Study Space", category: "study_space" },
+    { id: "missing-category", name: "Town Study Hall" },
   ];
-  assert.deepEqual(filterNearbyPlaces(places, { budget: "free" }).map(({ id }) => id), ["free"]);
-  assert.deepEqual(filterNearbyPlaces(places, { budget: 50 }).map(({ id }) => id), ["free", "paid"]);
-  assert.deepEqual(filterNearbyPlaces(places, { query: "town study", savedOnly: true, savedIds: ["paid"] }).map(({ id }) => id), ["paid"]);
+  assert.deepEqual(filterNearbyPlaces(places, { category: "spots", query: "town study", savedOnly: true, savedIds: ["space"] }).map(({ id }) => id), ["space"]);
   assert.deepEqual(filterNearbyPlaces(places, { savedOnly: true }), []);
 });
 
 test("map queries encode untrusted text without changing the URL destination", () => {
-  const query = 'Tuition & x=<script> #?';
+  const query = 'Library & x=<script> #?';
   const url = new URL(buildMapSearchUrl(query, "Chennai"));
   assert.equal(url.origin, "https://www.google.com");
   assert.equal(url.searchParams.get("query"), `${query} Chennai`);
   assert.equal(new URL(buildDirectionsUrl({ lat: 0, lon: 1, name: "Other" })).searchParams.get("destination"), "0,1");
   assert.equal(buildMapSearchUrl("", ""), "");
   assert.equal(buildDirectionsUrl({}), "");
-});
-
-test("phone links allow bounded phone numbers and reject scheme/control injection", () => {
-  assert.equal(buildPhoneHref("+91 (98765) 43210"), "tel:+919876543210");
-  for (const value of ["tel:+123456789", "javascript:alert(1)", "1234567;ext=42", "1234567\r\nX: y", "+123", "+" + "1".repeat(16), 123456789]) {
-    assert.equal(buildPhoneHref(value), "");
-  }
 });
 
 test("preferences isolate owners and profiles and never persist exact GPS", () => {
@@ -157,6 +88,14 @@ test("preferences isolate owners and profiles and never persist exact GPS", () =
   assert.deepEqual(readNearbyPreferences(storage, otherOwner).savedIds, []);
   assert.equal(entries.get(first).includes('"lat"'), false);
   assert.equal(entries.get(first).includes('"origin"'), false);
+  storage.setItem(first, JSON.stringify({ activeTab: "tuitions", locality: "Chennai" }));
+  assert.equal(readNearbyPreferences(storage, first).activeTab, "spots");
+  storage.setItem(first, JSON.stringify({ activeTab: "rescue" }));
+  assert.equal(readNearbyPreferences(storage, first).activeTab, "spots");
+  storage.setItem(first, JSON.stringify({ activeTab: "circles" }));
+  assert.equal(readNearbyPreferences(storage, first).activeTab, "circles");
+  storage.setItem(first, JSON.stringify({ radius: 50 }));
+  assert.equal(readNearbyPreferences(storage, first).radius, 5);
   storage.setItem(first, "bad json");
   assert.equal(readNearbyPreferences(storage, first).radius, 5);
   assert.equal(writeNearbyPreferences({ setItem() { throw new Error("Full"); } }, first, {}), false);

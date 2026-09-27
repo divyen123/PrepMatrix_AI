@@ -4,6 +4,31 @@ const PLACES_TTL = 20 * 60 * 1000;
 const STALE_PLACES_TTL = 24 * 60 * 60 * 1000;
 const DEFAULT_OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 const BACKUP_OVERPASS_URL = 'https://overpass.private.coffee/api/interpreter';
+export const NEARBY_SERVICE_VERSION = 'study-spots-1';
+
+function providerFailureType(error) {
+  if (error?.providerFailure) return error.providerFailure;
+  if (['TimeoutError', 'AbortError'].includes(error?.name)) return 'timeout';
+  if (error instanceof SyntaxError) return 'invalid_response';
+  return 'network';
+}
+
+function safeErrorCode(value) {
+  return typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(value) ? value : undefined;
+}
+
+function providerFailureLog(endpoint, error, elapsedMs) {
+  let provider = 'invalid-endpoint';
+  try { provider = new URL(endpoint).hostname; } catch { /* Configuration errors have no safe host. */ }
+  const revision = process.env.RENDER_GIT_COMMIT || process.env.COMMIT_SHA || '';
+  return {
+    event: 'nearby_provider_failure', version: NEARBY_SERVICE_VERSION,
+    ...(/^[a-f0-9]{7,40}$/i.test(revision) ? { revision: revision.slice(0, 12) } : {}),
+    provider, failure: providerFailureType(error), elapsedMs,
+    ...(error.upstreamStatus ? { status: error.upstreamStatus } : {}),
+    ...(error.transportCode ? { transportCode: error.transportCode } : {}),
+  };
+}
 
 export function nearbyError(status, message, code = 'NEARBY_REQUEST_FAILED') {
   return Object.assign(new Error(message), { status, code });
@@ -80,9 +105,9 @@ export function osmPlace(element, category) {
     phone: safePhone(tags['contact:phone'] || tags.phone), website: safeWebsite(tags['contact:website'] || tags.website),
     hours: shortText(tags.opening_hours, 300), source: 'OpenStreetMap',
     sourceUrl: `https://www.openstreetmap.org/${element.type}/${element.id}`,
-    updatedAt: element.timestamp || null, subjects: [], board: '', language: '',
-    fees: tags.fee === 'no' ? 'Free entry (listed)' : '', batches: [], facilities, phoneSupport: false,
-    type: shortText(tags.amenity || tags.office || tags.education || 'institution'),
+    updatedAt: element.timestamp || null,
+    fees: tags.fee === 'no' ? 'Free entry (listed)' : '', facilities,
+    type: shortText(tags.amenity || tags.office || 'study space'),
     access: shortText(tags.access),
   };
 }
@@ -134,6 +159,7 @@ export function createNearbyService({
   gapMs = 1100,
   queueWaitMs = 3000,
   placeTimeoutMs = 15000,
+  onProviderFailure = (event) => console.warn('[Nearby]', JSON.stringify(event)),
   photonUrl = process.env.NEARBY_PHOTON_URL || 'https://photon.komoot.io/api/',
   overpassUrl = process.env.NEARBY_OVERPASS_URL || DEFAULT_OVERPASS_URL,
   // Private endpoints never silently send their searches to a public backup.
@@ -154,6 +180,7 @@ export function createNearbyService({
       } });
       if (!response.ok) {
         const error = nearbyError(503, 'The map provider is temporarily unavailable. Try again shortly.', 'NEARBY_PROVIDER_UNAVAILABLE');
+        error.providerFailure = 'http';
         error.upstreamStatus = response.status;
         const retryAfter = response.headers?.get?.('retry-after');
         error.retryAfterMs = retryAfter && /^\d+$/.test(retryAfter)
@@ -162,8 +189,16 @@ export function createNearbyService({
       }
       return await response.json();
     } catch (error) {
-      if (error.code === 'NEARBY_PROVIDER_UNAVAILABLE') throw error;
-      throw nearbyError(503, 'Nearby search could not reach the map provider. Try again shortly.', 'NEARBY_PROVIDER_UNAVAILABLE');
+      if (error?.code === 'NEARBY_PROVIDER_UNAVAILABLE') throw error;
+      const type = providerFailureType(error);
+      const message = type === 'timeout'
+        ? 'The nearby map service took too long to respond. Please try again shortly.'
+        : type === 'invalid_response'
+          ? 'The nearby map service returned an incomplete response. Please try again shortly.'
+          : 'The server could not connect to the nearby map service. Please try again shortly.';
+      throw Object.assign(nearbyError(503, message, 'NEARBY_PROVIDER_UNAVAILABLE'), {
+        providerFailure: type, transportCode: safeErrorCode(error?.cause?.code || error?.code),
+      });
     }
   }
   async function cached(key, ttl, operation) {
@@ -183,20 +218,34 @@ export function createNearbyService({
         if (cooldown.stopFailover) break;
         continue;
       }
+      const started = now();
       try {
         const data = await upstream(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ data: query }).toString() }, placeTimeoutMs);
-        if (!Array.isArray(data?.elements) || data.remark || data.elements.some((element) => !element || typeof element !== 'object')) throw nearbyError(503, 'The map provider could not complete this search. Try again or choose a smaller radius.', 'NEARBY_PROVIDER_UNAVAILABLE');
+        if (!Array.isArray(data?.elements) || data.remark || data.elements.some((element) => !element || typeof element !== 'object')) throw Object.assign(nearbyError(503, 'The map provider could not complete this search. Try again or choose a smaller radius.', 'NEARBY_PROVIDER_UNAVAILABLE'), { providerFailure: 'invalid_response' });
         cooldowns.delete(endpoint);
         return data;
       } catch (error) {
         failure = error;
+        // Never include the query, response body, coordinates, or raw error message.
+        try { onProviderFailure(providerFailureLog(endpoint, error, Math.max(0, now() - started))); } catch { /* Logging must not break discovery. */ }
         // Respect throttling/access refusals. Failover is for outages, not quotas.
         const stopFailover = Number.isFinite(error.upstreamStatus) && error.upstreamStatus >= 400 && error.upstreamStatus < 500;
         cooldowns.set(endpoint, { until: now() + Math.max(30000, Math.min(3600000, error.retryAfterMs || 0)), error, stopFailover });
         if (stopFailover) break;
       }
     }
-    throw failure || nearbyError(503, 'Live place search is temporarily unavailable. Please retry shortly.', 'NEARBY_PROVIDER_UNAVAILABLE');
+    const retryTimes = [];
+    for (const endpoint of endpoints) {
+      const cooldown = cooldowns.get(endpoint);
+      retryTimes.push(cooldown?.until || now());
+      if (cooldown?.stopFailover && cooldown.until > now()) break;
+    }
+    const retryAfterSeconds = retryTimes.length ? Math.max(1, Math.ceil((Math.min(...retryTimes) - now()) / 1000)) : 30;
+    const unavailable = failure || nearbyError(503, 'Live place search is temporarily unavailable. Please retry shortly.', 'NEARBY_PROVIDER_UNAVAILABLE');
+    // Clone so the cached provider failure keeps its original Retry-After value.
+    throw Object.assign(nearbyError(unavailable.status, unavailable.message, unavailable.code), {
+      providerFailure: unavailable.providerFailure, retryAfterSeconds,
+    });
   }
   const service = {
     async geocode(value) {
@@ -206,8 +255,15 @@ export function createNearbyService({
         const url = new URL(photonUrl);
         url.searchParams.set('q', query);
         url.searchParams.set('limit', '5');
-        const data = await upstream(url);
-        if (!Array.isArray(data?.features)) throw nearbyError(503, 'The location provider returned an invalid response.');
+        const started = now();
+        let data;
+        try {
+          data = await upstream(url);
+          if (!Array.isArray(data?.features)) throw Object.assign(nearbyError(503, 'The location provider returned an invalid response.'), { providerFailure: 'invalid_response' });
+        } catch (error) {
+          try { onProviderFailure(providerFailureLog(photonUrl, error, Math.max(0, now() - started))); } catch { /* Logging must not break location search. */ }
+          throw error;
+        }
         const locations = data.features.map((feature) => {
           const p = feature.properties || {};
           const [lon, lat] = feature.geometry?.coordinates || [];
@@ -218,10 +274,9 @@ export function createNearbyService({
     },
     async searchPlaces(input) {
       const area = parseNearbyArea(input);
-      const category = input.category || 'tuitions';
-      if (!['tuitions', 'spots', 'rescue'].includes(category)) throw nearbyError(400, 'Choose a valid nearby category.');
-      const providerCategory = category === 'rescue' ? 'tuitions' : category;
-      const key = `places:${area.lat}:${area.lon}:${area.radius}:${providerCategory}`;
+      const category = input.category || 'spots';
+      if (category !== 'spots') throw nearbyError(400, 'Study Spots is the only nearby place category.');
+      const key = `places:${area.lat}:${area.lon}:${area.radius}:spots`;
       let snapshot;
       let stale = false;
       let refreshError;
@@ -229,12 +284,10 @@ export function createNearbyService({
         snapshot = await cached(key, PLACES_TTL, () => placesQueue(async () => {
           // Bound the provider's scan; the exact circular radius is applied below.
           const bounds = `(${nearbySearchBounds(area).join(',')})`;
-          const filters = providerCategory === 'spots'
-            ? ['["amenity"="library"]["name"]', '["office"="coworking"]["name"]']
-            : ['["amenity"~"^(school|college|university|language_school|music_school|training|cram_school)$"]["name"]', '["education"="tutoring"]["name"]'];
+          const filters = ['["amenity"="library"]["name"]', '["office"="coworking"]["name"]'];
           const query = `[out:json][timeout:12][maxsize:33554432];(${filters.map((filter) => `nwr${filter}${bounds};`).join('')});out meta center 250;`;
           const data = await queryPlaces(query);
-          const next = { places: data.elements.map((element) => osmPlace(element, providerCategory)).filter(Boolean), fetchedAt: new Date(now()).toISOString() };
+          const next = { places: data.elements.map((element) => osmPlace(element, category)).filter(Boolean), fetchedAt: new Date(now()).toISOString() };
           lastGoodPlaces.set(key, next, STALE_PLACES_TTL);
           return next;
         }));
@@ -246,10 +299,10 @@ export function createNearbyService({
         refreshError = error;
       }
       const places = snapshot.places.map((place) => ({ ...place, category, distanceKm: distanceKm(area, place) }))
-        .filter((place) => place.distanceKm <= area.radius && (category !== 'rescue' || place.phone))
+        .filter((place) => place.distanceKm <= area.radius)
         .sort((a, b) => a.distanceKm - b.distanceKm);
       if (stale && !places.length) throw refreshError;
-      return { places, fetchedAt: snapshot.fetchedAt, stale, ...(stale ? { notice: `Live map search is temporarily unavailable. Showing saved map results fetched at ${snapshot.fetchedAt}. Confirm details before visiting.` } : {}) };
+      return { places, fetchedAt: snapshot.fetchedAt, stale, ...(stale ? { notice: `Live map search is temporarily unavailable. Showing saved map results fetched at ${snapshot.fetchedAt}. Confirm details before visiting.`, retryAfterSeconds: refreshError.retryAfterSeconds || 0 } : {}) };
     },
     async places(input) {
       return (await service.searchPlaces(input)).places;

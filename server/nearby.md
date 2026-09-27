@@ -12,57 +12,37 @@ Provider lookups occur only in response to user searches. Each server process ca
 
 Place requests use a bounding-box query to limit the provider scan, followed by an exact circular-distance filter. Bounding boxes account for the poles and the antimeridian. Requests wait at most three seconds for the provider queue and allow up to 15 seconds per endpoint. Transport failures, server errors and incomplete Overpass responses may try the backup once. HTTP client errors, including rate limits and access refusals, do not trigger failover. Failed endpoints cool down for at least 30 seconds; longer `Retry-After` values are respected up to one hour.
 
-If a refresh fails, the service can return nonempty results from the exact same coordinates, radius and provider category, fetched within the last 24 hours. A visible notice includes the original fetch time; it is not presented as a successful live refresh. Empty or unusable cached results do not hide an outage. The page retains results during a retry of the same search and clears them when the location, radius or feature changes. Failed searches offer retry, a smaller radius when applicable, and an external map search.
+If a refresh fails, the service can return nonempty results from the exact same coordinates and radius, fetched within the last 24 hours. A visible notice includes the original fetch time; it is not presented as a successful live refresh. Empty or unusable cached results do not hide an outage. The page retains results during a retry of the same search and clears them when the location or radius changes. Failed searches offer retry, a smaller radius when applicable, and an external map search. Provider failures emit sanitized server diagnostics containing provider host, failure type, elapsed time and an optional HTTP or transport code; searches and coordinates are not logged. The `X-Nearby-Version` response header identifies the deployed Nearby backend.
 
-OSM listings do not establish teaching subjects, board compatibility, batch seats, tutor availability, crowd levels, or consent to telephone doubt support. Absent details remain empty. An OSM phone is a public institution enquiry number. `phoneSupport: true` is reserved for reviewed records with explicit doubt-support consent.
+OSM listings do not establish live availability, crowd levels, entry rules or confirmed facilities. Absent details remain empty. A listed phone, if present, is a public venue contact; users should confirm access before visiting.
 
 ## Reviewed listings
 
-Operators may maintain approved records in the `nearbyListings` MongoDB collection. There is no automatic publication endpoint. Review provider identity, source details and permission before approving. Records without `status: 'approved'` are excluded. Store only public business/venue contact details, never a student's home or personal contact information.
+Operators may maintain approved Study Spot records in the `nearbyListings` MongoDB collection. There is no automatic publication endpoint. Review venue identity, source details and permission before approving. Only records with `status: 'approved'` and `category: 'spots'` are returned. Store only public venue details, never a student's home or personal contact information.
 
 ```js
 {
-  _id: 'stable-provider-id',
+  _id: 'stable-venue-id',
   status: 'approved',
-  category: 'tuitions', // tuitions, spots, or rescue
-  name: 'Provider-supplied public name',
-  type: 'tutor',
+  category: 'spots',
+  name: 'Venue-supplied public name',
+  type: 'library',
   lat: 13.08,
   lon: 80.27,
-  address: 'Public business or study venue address',
-  website: 'https://provider.example',
-  sourceUrl: 'https://provider.example/contact',
+  address: 'Public study venue address',
+  website: 'https://venue.example',
+  sourceUrl: 'https://venue.example/contact',
   phone: '+91 1234567890',
   phonePublishedConsent: true,
-  phoneSupport: true,
-  phoneSupportConsent: true,
-  callHours: 'Provider-confirmed calling hours',
-  hours: 'Provider-confirmed opening hours',
-  subjects: ['Mathematics'],
-  chapters: ['Integration'],
-  board: 'CBSE',
-  language: 'English',
-  fees: 'Provider-confirmed fee description',
+  hours: 'Venue-confirmed opening hours',
+  fees: 'Venue-confirmed entry fee',
   facilities: ['Wi-Fi', 'Charging points'],
   access: 'yes', // private/no venues cannot host revision circles
-  batches: [{
-    id: 'stable-batch-id',
-    name: 'Provider-supplied batch name',
-    subject: 'Mathematics',
-    board: 'CBSE',
-    grade: 'Class 12',
-    chapter: 'Integration',
-    schedule: 'Provider-confirmed days and times',
-    language: 'English',
-    fees: 'Provider-confirmed fee description',
-    availableSeats: null, // nonnegative integer only when confirmed
-    trial: 'Provider-confirmed trial details'
-  }],
   updatedAt: new Date()
 }
 ```
 
-The example is a schema illustration and is not seeded into the application. Category `tuitions` records with published phones can also appear in Chapter Rescue; the client distinguishes general enquiries from opted-in doubt support.
+The example is a schema illustration and is not seeded into the application. Older tuition or rescue records are ignored by the Study Spots endpoint.
 
 ## Revision circles
 
@@ -78,14 +58,14 @@ Reporting hides that circle from the reporting profile’s discovery results. Ca
 
 `/nearby` is authenticated and opens from the existing sidebar position formerly used by Trend. The other page components and global appearance stylesheet are unchanged. The page owns its scoped styles and uses the existing academic profile, subjects and planner reminders.
 
-Saved place IDs and search preferences are local to the account/profile in that browser. Exact device coordinates are not persisted. Matching uses supplied subject, syllabus, class, chapter, language and timing text. It does not infer batch availability or automatically detect timetable conflicts from free-text schedules. Adding a session creates a user-confirmed study reminder, optionally weekly for four or eight weeks; it does not book a provider or a venue. Chapter Rescue opens a normal telephone link and does not place or record calls automatically.
+Saved place IDs and search preferences are local to the account/profile in that browser. Exact device coordinates are not persisted. Older saved tabs for removed features reopen at Study Spots. Study Spot suggestions use listed facilities for the selected activity, and unknown facilities remain unconfirmed. Revision Circles use the selected subject and chapter. Adding a session creates a user-confirmed study reminder, optionally weekly for four or eight weeks; it does not book a venue.
 
 ## Endpoints
 
 All endpoints require authentication and the app's academic-profile request header when available. Mutations use the existing same-origin request guard and academic-profile write fence.
 
 - `GET /api/nearby/geocode?q=...` → `{ locations: [{ label, lat, lon }], source }`
-- `GET /api/nearby/places?lat=...&lon=...&radius=5&category=tuitions|spots|rescue` → `{ places, source, notice? }`
+- `GET /api/nearby/places?lat=...&lon=...&radius=5&category=spots` → `{ places, source, notice?, retryAfterSeconds? }`; omitted category defaults to `spots`, removed categories return HTTP 400.
 - `GET /api/nearby/circles?lat=...&lon=...&radius=5` → `{ circles, canParticipate, requiresParentAccess }`
 - `GET /api/nearby/circles?mine=true` → personal hosted/joined sessions across locations (coordinates optional)
 - `POST /api/nearby/circles` with title, subject, chapter, board, language, agenda, ISO startsAt, durationMinutes, capacity, selected venue, and `publicVenueConfirmed: true` → `{ circle }`

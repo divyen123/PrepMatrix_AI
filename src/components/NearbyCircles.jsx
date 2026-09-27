@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, CalendarPlus, Check, Clock3, Flag, MapPin, Plus, RefreshCw, UsersRound } from "lucide-react";
 import api from "../utils/apiClient";
 import { buildDirectionsUrl } from "../utils/nearby";
+import { nearbyRetrySeconds } from "../utils/nearbySearchState";
 import NearbyDialog from "./NearbyDialog";
 
 function CircleForm({ origin, radius, subject, chapter, profile, onClose, onCreated }) {
@@ -9,18 +10,55 @@ function CircleForm({ origin, radius, subject, chapter, profile, onClose, onCrea
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [venueError, setVenueError] = useState("");
+  const [venueNotice, setVenueNotice] = useState("");
+  const [retryAt, setRetryAt] = useState(0);
+  const [retryNow, setRetryNow] = useState(0);
   const [retry, setRetry] = useState(0);
+  const areaKey = `${origin?.lat}:${origin?.lon}:${radius}`;
+  const previousAreaKey = useRef(areaKey);
+  const availableVenues = previousAreaKey.current === areaKey ? venues : [];
+  const retrySeconds = nearbyRetrySeconds(retryAt, retryNow);
+  useEffect(() => {
+    if (!retryAt) return;
+    const interval = window.setInterval(() => {
+      const now = Date.now();
+      setRetryNow(now);
+      if (now >= retryAt) window.clearInterval(interval);
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [retryAt]);
   useEffect(() => {
     let live = true;
-    setLoading(true); setError("");
+    if (previousAreaKey.current !== areaKey) {
+      setVenues([]);
+      setRetryAt(0);
+      previousAreaKey.current = areaKey;
+    }
+    setLoading(true); setVenueError(""); setVenueNotice("");
     const params = new URLSearchParams({ ...origin, radius, category: "spots" });
-    api.get(`/api/nearby/places?${params}`, { timeoutMs: 45000 }).then((data) => { if (live) setVenues(data.places || []); }).catch((failure) => { if (live) setError(failure.message); }).finally(() => { if (live) setLoading(false); });
+    api.get(`/api/nearby/places?${params}`, { timeoutMs: 45000 }).then((data) => {
+      if (!live) return;
+      if (!Array.isArray(data?.places)) { setVenueError("The venue search returned an incomplete response. Please retry."); return; }
+      const receivedAt = Date.now();
+      setVenues(data.places);
+      setVenueNotice(data.notice || "");
+      setRetryAt(Number.isFinite(data.retryAfterSeconds) && data.retryAfterSeconds > 0 ? receivedAt + Math.ceil(data.retryAfterSeconds * 1000) : 0);
+      setRetryNow(receivedAt);
+    }).catch((failure) => {
+      if (!live) return;
+      const receivedAt = Date.now();
+      setVenueError(failure.message || "Could not find public study venues.");
+      setRetryAt(Number.isFinite(failure.details?.retryAfterSeconds) && failure.details.retryAfterSeconds > 0 ? receivedAt + Math.ceil(failure.details.retryAfterSeconds * 1000) : 0);
+      setRetryNow(receivedAt);
+    }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [origin, radius, retry]);
+  }, [origin, radius, areaKey, retry]);
+  function retryVenues() { if (!loading && nearbyRetrySeconds(retryAt, Date.now()) === 0) setRetry((value) => value + 1); }
   async function submit(event) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const venue = venues.find((entry) => entry.id === form.get("venue"));
+    const venue = availableVenues.find((entry) => entry.id === form.get("venue"));
     const startsAt = new Date(form.get("startsAt"));
     if (!venue || !Number.isFinite(startsAt.getTime()) || startsAt <= new Date()) { setError("Choose a listed public venue and a future session time."); return; }
     setBusy(true); setError("");
@@ -43,15 +81,17 @@ function CircleForm({ origin, radius, subject, chapter, profile, onClose, onCrea
       <label>Chapter / topic<input name="chapter" required minLength={2} maxLength={140} defaultValue={chapter} placeholder="Integration" /></label>
       <label>Syllabus / course<input name="board" maxLength={120} defaultValue={profile.board} placeholder="e.g. CBSE Class 12" /></label>
       <label>Language<input name="language" maxLength={80} placeholder="e.g. English, Tamil" /></label>
-      <label className="nearby-wide">Public study venue<select name="venue" required disabled={loading || !venues.length}><option value="">{loading ? "Finding study venues…" : "Choose a venue"}</option>{venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}{venue.address ? ` — ${venue.address}` : ""}</option>)}</select></label>
-      {!loading && !venues.length && <p className="nearby-muted nearby-wide">No venues found. Try a wider search radius before hosting.</p>}
+      <label className="nearby-wide">Public study venue<select name="venue" required disabled={loading || Boolean(venueError) || !availableVenues.length}><option value="">{loading ? "Finding study venues…" : "Choose a venue"}</option>{availableVenues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}{venue.address ? ` — ${venue.address}` : ""}</option>)}</select></label>
+      {!loading && !availableVenues.length && !venueError && <p className="nearby-muted nearby-wide">No venues found. Try a wider search radius before hosting.</p>}
       <label>Date & time<input type="datetime-local" name="startsAt" required /></label>
       <label>Duration<select name="duration" defaultValue="90">{[30, 60, 90, 120, 180, 240].map((value) => <option value={value} key={value}>{value} minutes</option>)}</select></label>
       <label>Group size, including you<input type="number" name="capacity" min={2} max={20} defaultValue={6} required /></label>
       <label className="nearby-wide">Revision agenda<textarea name="agenda" rows={3} maxLength={1200} placeholder="Topics to cover, exercises to try and what to bring." /></label>
       <label className="nearby-checkbox nearby-wide"><input type="checkbox" name="permission" required />I have confirmed that this venue permits our study group.</label>
-      {error && <p className="nearby-notice nearby-wide" data-tone="error" role="alert">{error}{!venues.length && <button type="button" onClick={() => setRetry((value) => value + 1)}>Retry venues</button>}</p>}
-      <div className="nearby-dialog-actions nearby-wide"><button type="button" onClick={onClose} disabled={busy}>Cancel</button><button className="nearby-primary" type="submit" disabled={busy || loading || !venues.length}>{busy ? "Publishing…" : "Publish circle"}</button></div>
+      {venueNotice && <p className="nearby-notice nearby-wide" role="status">{venueNotice}<button type="button" disabled={loading || retrySeconds > 0} onClick={retryVenues}>{retrySeconds > 0 ? `Retry in ${retrySeconds}s` : "Retry live venues"}</button></p>}
+      {venueError && <p className="nearby-notice nearby-wide" data-tone="error" role="alert">{venueError}<button type="button" disabled={loading || retrySeconds > 0} onClick={retryVenues}>{retrySeconds > 0 ? `Retry in ${retrySeconds}s` : "Retry venues"}</button></p>}
+      {error && <p className="nearby-notice nearby-wide" data-tone="error" role="alert">{error}</p>}
+      <div className="nearby-dialog-actions nearby-wide"><button type="button" onClick={onClose} disabled={busy}>Cancel</button><button className="nearby-primary" type="submit" disabled={busy || loading || Boolean(venueError) || !availableVenues.length}>{busy ? "Publishing…" : "Publish circle"}</button></div>
     </form>
   </NearbyDialog>;
 }

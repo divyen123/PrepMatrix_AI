@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { normalizeAcademicProfile } from '../src/utils/academicProfile.js';
 import { academicProfileFilter, withAcademicProfileWriteFence } from './profileDataScope.js';
 import { readParentAccess } from './kidsParentAccess.js';
-import { createNearbyService, distanceKm, nearbyError, parseNearbyArea, safePhone, safeWebsite, shortText } from './nearbyService.js';
+import { createNearbyService, distanceKm, NEARBY_SERVICE_VERSION, nearbyError, parseNearbyArea, safePhone, safeWebsite, shortText } from './nearbyService.js';
 
 const CIRCLES = 'nearbyCircles';
 const REPORTS = 'nearbyReports';
@@ -39,24 +39,13 @@ export function nearbyBounds(area) {
 }
 
 export function publicNearbyListing(record, category) {
-  const phoneSupport = record.phoneSupport === true && record.phoneSupportConsent === true;
   return {
     id: `listing:${record._id}`, name: shortText(record.name), category,
     lat: Number(record.lat), lon: Number(record.lon), address: shortText(record.address, 400),
     phone: record.phonePublishedConsent === true ? safePhone(record.phone) : '', website: safeWebsite(record.website),
     hours: shortText(record.hours, 300), source: 'Reviewed listing', sourceUrl: safeWebsite(record.sourceUrl),
-    updatedAt: record.updatedAt || null, subjects: textArray(record.subjects), board: shortText(record.board),
-    language: shortText(record.language), fees: shortText(record.fees), facilities: textArray(record.facilities),
-    type: shortText(record.type), access: shortText(record.access), phoneSupport,
-    callHours: phoneSupport ? shortText(record.callHours, 300) : '',
-    chapters: textArray(record.chapters),
-    batches: Array.isArray(record.batches) ? record.batches.slice(0, 20).map((batch) => ({
-      id: shortText(batch.id), name: shortText(batch.name), subject: shortText(batch.subject),
-      board: shortText(batch.board), grade: shortText(batch.grade), chapter: shortText(batch.chapter),
-      schedule: shortText(batch.schedule, 300), language: shortText(batch.language), fees: shortText(batch.fees),
-      availableSeats: Number.isInteger(batch.availableSeats) && batch.availableSeats >= 0 ? batch.availableSeats : null,
-      trial: shortText(batch.trial),
-    })) : [],
+    updatedAt: record.updatedAt || null, fees: shortText(record.fees), facilities: textArray(record.facilities),
+    type: shortText(record.type), access: shortText(record.access),
   };
 }
 
@@ -115,8 +104,17 @@ export function registerNearbyRoutes(app, {
   }
   const handle = (handler) => requireAuth(async (req, res) => {
     res.set('Cache-Control', 'no-store');
+    res.set('X-Nearby-Version', NEARBY_SERVICE_VERSION);
     try { consumeLimit(req); return await handler(req, res); }
-    catch (error) { return res.status(error.status || 500).json({ error: error.status ? error.message : 'Nearby could not complete this request. Please try again.', code: error.code || 'NEARBY_REQUEST_FAILED' }); }
+    catch (error) {
+      const retryAfterSeconds = Number.isFinite(error.retryAfterSeconds) ? Math.max(0, Math.ceil(error.retryAfterSeconds)) : 0;
+      if (retryAfterSeconds) res.set('Retry-After', String(retryAfterSeconds));
+      return res.status(error.status || 500).json({
+        error: error.status ? error.message : 'Nearby could not complete this request. Please try again.',
+        code: error.code || 'NEARBY_REQUEST_FAILED',
+        ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
+      });
+    }
   });
   const post = (path, handler) => app.post(path, ...(mutationSecurity ? [mutationSecurity] : []), handle(handler));
   async function database() { const db = await getDb(); await ensureIndexes(db); return db; }
@@ -130,21 +128,23 @@ export function registerNearbyRoutes(app, {
     if (!(await eligibility(db, req)).canParticipate) throw nearbyError(403, 'A parent must unlock Parent Corner before this school profile can create or join a revision circle.', 'NEARBY_PARENT_ACCESS_REQUIRED');
   }
   async function places(db, area, category) {
-    const records = await db.collection(LISTINGS).find({ status: 'approved', category: category === 'rescue' ? { $in: ['tuitions', 'rescue'] } : category, ...nearbyBounds(area) }).limit(150).toArray();
+    const records = await db.collection(LISTINGS).find({ status: 'approved', category: 'spots', ...nearbyBounds(area) }).limit(150).toArray();
     const curated = records.map((record) => publicNearbyListing(record, category))
       .map((place) => ({ ...place, distanceKm: distanceKm(area, place) }))
-      .filter((place) => place.name && Number.isFinite(place.distanceKm) && place.distanceKm <= area.radius && (category !== 'rescue' || place.phone));
+      .filter((place) => place.name && Number.isFinite(place.distanceKm) && place.distanceKm <= area.radius);
     let osm = [];
     let notice = '';
+    let retryAfterSeconds = 0;
     try {
       if (service.searchPlaces) {
         const result = await service.searchPlaces({ ...area, category });
         osm = result.places;
         notice = result.notice || '';
+        retryAfterSeconds = result.retryAfterSeconds || 0;
       } else osm = await service.places({ ...area, category });
     }
-    catch (error) { if (!curated.length) throw error; notice = 'Map search is temporarily unavailable. Showing reviewed listings only.'; }
-    return { places: [...curated, ...osm].sort((a, b) => Number(b.phoneSupport) - Number(a.phoneSupport) || a.distanceKm - b.distanceKm), source: 'OpenStreetMap contributors and reviewed listings', ...(notice ? { notice } : {}) };
+    catch (error) { if (!curated.length) throw error; notice = 'Map search is temporarily unavailable. Showing reviewed listings only.'; retryAfterSeconds = error.retryAfterSeconds || 0; }
+    return { places: [...curated, ...osm].sort((a, b) => a.distanceKm - b.distanceKm), source: 'OpenStreetMap contributors and reviewed listings', ...(notice ? { notice } : {}), ...(retryAfterSeconds ? { retryAfterSeconds } : {}) };
   }
   async function circleById(db, id) {
     const circle = await db.collection(CIRCLES).findOne({ _id: shortText(id, 100) });
@@ -172,8 +172,8 @@ export function registerNearbyRoutes(app, {
   app.get('/api/nearby/geocode', handle(async (req, res) => res.json(await service.geocode(req.query.q))));
   app.get('/api/nearby/places', handle(async (req, res) => {
     const area = parseNearbyArea(req.query);
-    const category = req.query.category || 'tuitions';
-    if (!['tuitions', 'spots', 'rescue'].includes(category)) throw nearbyError(400, 'Choose a valid nearby category.');
+    const category = req.query.category || 'spots';
+    if (category !== 'spots') throw nearbyError(400, 'Study Spots is the only nearby place category.');
     return res.json(await places(await database(), area, category));
   }));
   app.get('/api/nearby/circles', handle(async (req, res) => {

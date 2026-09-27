@@ -7,7 +7,26 @@ const primary = 'https://primary.example/api/interpreter';
 const backup = 'https://backup.example/api/interpreter';
 const library = { type: 'node', id: 1, lat: area.lat, lon: area.lon, tags: { name: 'Public library' } };
 const response = (elements = [library]) => ({ ok: true, json: async () => ({ elements }) });
-const serviceWith = (options) => createNearbyService({ gapMs: 0, overpassUrl: primary, overpassFallbackUrl: backup, ...options });
+const serviceWith = (options) => createNearbyService({ gapMs: 0, overpassUrl: primary, overpassFallbackUrl: backup, onProviderFailure: () => {}, ...options });
+
+test('provider diagnostics identify failures without disclosing searched coordinates or query text', async () => {
+  const events = [];
+  const service = serviceWith({ onProviderFailure: (event) => events.push(event), fetchImpl: async (url) => {
+    if (url === primary) throw Object.assign(new TypeError('private query body'), { cause: { code: 'ETIMEDOUT' } });
+    return response();
+  } });
+  assert.equal((await service.searchPlaces(area)).places.length, 1);
+  assert.deepEqual(events.map(({ provider, failure, transportCode }) => ({ provider, failure, transportCode })), [
+    { provider: 'primary.example', failure: 'network', transportCode: 'ETIMEDOUT' },
+  ]);
+  assert.doesNotMatch(JSON.stringify(events), /13\.1157422|80\.2249267|private query body|amenity/u);
+  const locationEvents = [];
+  const unavailableLocation = serviceWith({ onProviderFailure: (event) => locationEvents.push(event), fetchImpl: async () => { throw new DOMException('timeout', 'TimeoutError'); } });
+  await assert.rejects(unavailableLocation.geocode('Periyar Nagar'), { status: 503 });
+  assert.equal(locationEvents[0].provider, 'photon.komoot.io');
+  assert.equal(locationEvents[0].failure, 'timeout');
+  assert.doesNotMatch(JSON.stringify(locationEvents), /Periyar Nagar/u);
+});
 
 test('bounding-box discovery contains the whole search circle, including polar and date-line areas', () => {
   for (const center of [area, { lat: 0, lon: 0, radius: 25 }, { lat: 0, lon: 179.99, radius: 25 }, { lat: 80, lon: -179.99, radius: 25 }, { lat: 89.99, lon: 15, radius: 25 }, { lat: -90, lon: 0, radius: 25 }]) {
@@ -114,28 +133,23 @@ test('last successful results survive a provider outage with their original time
   assert.ok(cached.notice.includes(first.fetchedAt));
   await assert.rejects(service.searchPlaces({ ...area, lat: area.lat + 0.000001 }), { status: 503 });
   await assert.rejects(service.searchPlaces({ ...area, radius: 5 }), { status: 503 });
-  await assert.rejects(service.searchPlaces({ ...area, category: 'tuitions' }), { status: 503 });
+  await assert.rejects(service.searchPlaces({ ...area, category: 'tuitions' }), { status: 400 });
   time += 24 * 60 * 60000;
   await assert.rejects(service.searchPlaces(area), { status: 503 });
 });
 
-test('empty, out-of-radius and no-phone stale results cannot hide a failed search', async () => {
-  for (const [elements, category] of [
-    [[], 'spots'],
-    [[{ ...library, lat: 0 }], 'spots'],
-    [[library], 'rescue'],
-  ]) {
+test('empty and out-of-radius stale results cannot hide a failed search', async () => {
+  for (const elements of [[], [{ ...library, lat: 0 }]]) {
     let time = 1000000;
     let offline = false;
     const service = serviceWith({ now: () => time, fetchImpl: async () => {
       if (offline) throw new Error('Offline');
       return response(elements);
     } });
-    const query = { ...area, category };
-    assert.equal((await service.searchPlaces(query)).places.length, 0);
+    assert.equal((await service.searchPlaces(area)).places.length, 0);
     time += 21 * 60000;
     offline = true;
-    await assert.rejects(service.searchPlaces(query), { status: 503 });
+    await assert.rejects(service.searchPlaces(area), { status: 503 });
   }
 });
 

@@ -1,10 +1,10 @@
 export const INITIAL_NEARBY_SEARCH = {
   key: "", requestId: 0, loading: false, hasResult: false,
-  places: [], notice: "", error: "",
+  places: [], notice: "", error: "", retryAt: 0,
 };
 
 export function nearbySearchKey(origin, radius, category) {
-  if (!origin || category === "circles") return "";
+  if (!origin || category !== "spots") return "";
   return `${origin.lat}:${origin.lon}:${radius}:${category}`;
 }
 
@@ -13,12 +13,22 @@ export function currentNearbySearch(state, key) {
   return state.key === key ? state : INITIAL_NEARBY_SEARCH;
 }
 
+export function nearbyRetrySeconds(retryAt, now) {
+  return Number.isFinite(retryAt) && Number.isFinite(now)
+    ? Math.max(0, Math.ceil((retryAt - now) / 1000)) : 0;
+}
+
+function retryDeadline(seconds, receivedAt) {
+  return Number.isFinite(seconds) && seconds > 0 && Number.isFinite(receivedAt)
+    ? receivedAt + Math.ceil(seconds * 1000) : 0;
+}
+
 export function nearbySearchReducer(state, action) {
   if (action.type === "reset") return INITIAL_NEARBY_SEARCH;
   if (action.type === "start") {
     return {
       ...currentNearbySearch(state, action.key),
-      key: action.key, requestId: action.requestId, loading: true, error: "",
+      key: action.key, requestId: action.requestId, loading: true, error: "", retryAt: 0,
     };
   }
   // A slow response must not replace results for a newer request, even when
@@ -32,10 +42,14 @@ export function nearbySearchReducer(state, action) {
       ...state, loading: false, hasResult: true, error: "",
       places: action.data.places,
       notice: action.data?.notice || "",
+      retryAt: retryDeadline(action.data.retryAfterSeconds, action.receivedAt),
     };
   }
   if (action.type === "failure") {
-    return { ...state, loading: false, error: action.error || "Could not load nearby places. Please try again." };
+    return {
+      ...state, loading: false, error: action.error || "Could not load nearby places. Please try again.",
+      retryAt: retryDeadline(action.retryAfterSeconds, action.receivedAt),
+    };
   }
   return state;
 }

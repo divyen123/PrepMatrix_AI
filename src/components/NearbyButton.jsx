@@ -8,7 +8,7 @@ export default function NearbyButton({ onNavigate }) {
       to="/nearby"
       onClick={onNavigate}
       className={({ isActive }) => `nearby-entry-button${isActive ? " active" : ""}`}
-      title="Find nearby tuitions, study spaces and chapter help"
+      title="Find nearby study spots and revision circles"
     >
       <MapPin size={15} aria-hidden="true" />
       <span>Nearby</span>
