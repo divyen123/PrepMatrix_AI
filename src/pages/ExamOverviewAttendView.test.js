@@ -25,7 +25,6 @@ test("shows the compact timer only when a generated paper exists", () => {
   assert.doesNotMatch(overviewSource, /OfflineExamTimer/u);
   assert.doesNotMatch(pageSource, /section === "overview" \|\| section === "paper"/u);
   assert.match(pageSource, /\{section === "paper" && papers\.length > 0 && \(\s*<OfflineExamTimer/u);
-  assert.match(pageSource, /your generated question paper appears here\./u);
   assert.doesNotMatch(pageSource, /className="card exam-timer-card"/u);
 });
 

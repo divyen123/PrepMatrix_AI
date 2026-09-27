@@ -1474,12 +1474,31 @@ body .exam-compact-timer .exam-compact-timer-modes button::after {
   text-align: center;
 }
 
-.exam-paper-history-empty {
+.exam-paper-history-state {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+
+.exam-paper-history-state h2 {
   margin: 0;
-  padding: 20px 0;
+}
+
+.exam-paper-history-state p {
+  margin: 0;
   color: var(--text-secondary);
   font-size: 0.78rem;
-  text-align: center;
+}
+
+.exam-paper-history-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
 }
 
 .exam-results-section {

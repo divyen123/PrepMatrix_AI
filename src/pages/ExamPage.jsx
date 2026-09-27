@@ -1072,6 +1072,7 @@ function PaperBuilder({
   academicTrack,
   userProfile,
   onGenerated,
+  recentPaper,
 }) {
   const { hasInsufficientCredits } = useAiQuota();
   const { acknowledgeTask, runTask, tasks } = useBackgroundTasks();
@@ -1111,8 +1112,12 @@ function PaperBuilder({
   const [internalChoice, setInternalChoice] = useState(false);
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [includeAnswerKey, setIncludeAnswerKey] = useState(true);
-  const [generatedPaper, setGeneratedPaper] = useState(null);
+  const [generatedPaper, setGeneratedPaper] = useState(() => recentPaper);
   const isGenerating = paperTask?.status === "running";
+
+  useEffect(() => {
+    setGeneratedPaper(recentPaper);
+  }, [recentPaper]);
 
   useEffect(() => {
     const shouldInitialize = !selectionInitializedRef.current && names.length > 0;
@@ -1210,6 +1215,7 @@ function PaperBuilder({
     runTask({
       academicProfileId: backgroundProfileId,
       execute: () => api.post("/api/question-papers/generate", requestBody, {
+        academicProfileId: academicProfileDataId,
         timeoutMs: 240000,
         headers: { "Idempotency-Key": createAiIdempotencyKey() },
       }),
@@ -1611,7 +1617,7 @@ function ResultsPanel({ results, onRefresh, userProfile }) {
   );
 }
 
-function PaperHistory({ papers, onRefresh, onPaperLoaded }) {
+function PaperHistory({ academicProfileDataId, papers, status, onRefresh, onPaperLoaded, onPaperDeleted }) {
   const [search, setSearch] = useState("");
   const [loadingId, setLoadingId] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState("");
@@ -1621,14 +1627,25 @@ function PaperHistory({ papers, onRefresh, onPaperLoaded }) {
   );
 
   if (papers.length === 0) {
-    return <p className="exam-paper-history-empty">your generated question paper appears here.</p>;
+    const message = status === "loading"
+      ? "Loading your saved question papers…"
+      : status === "error"
+        ? "Could not load your saved question papers. Please try again."
+        : "No saved question papers were found for this academic profile.";
+    return (
+      <section className="card exam-paper-history exam-paper-history-state" role={status === "error" ? "alert" : "status"}>
+        <h2>Generated question papers</h2>
+        <p>{message}</p>
+        {status !== "loading" && <button className="exam-about-btn" onClick={onRefresh} type="button">{status === "error" ? "Try again" : "Refresh papers"}</button>}
+      </section>
+    );
   }
 
   const loadPaper = async (paper, mode) => {
     const id = getId(paper);
     setLoadingId(id);
     try {
-      const payload = await api.get("/api/question-papers/" + id);
+      const payload = await api.get("/api/question-papers/" + id, { academicProfileId: academicProfileDataId });
       const fullPaper = unwrapOne(payload, ["paper"]);
       onPaperLoaded?.(fullPaper);
       if (mode === "paper") exportQuestionPaperPdf(fullPaper);
@@ -1644,9 +1661,10 @@ function PaperHistory({ papers, onRefresh, onPaperLoaded }) {
     const id = getId(paper);
     setDeletingId(id);
     try {
-      await api.delete("/api/question-papers/" + id);
+      await api.delete("/api/question-papers/" + id, { academicProfileId: academicProfileDataId });
       setConfirmDeleteId("");
       toast.success("Question paper deleted.");
+      onPaperDeleted?.(id);
       onRefresh?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not delete the paper.");
@@ -1661,6 +1679,12 @@ function PaperHistory({ papers, onRefresh, onPaperLoaded }) {
         <div><h2>Generated question papers</h2></div>
         <label className="exam-search"><Search size={15} /><input onChange={(event) => setSearch(event.target.value)} placeholder="Search papers" type="search" value={search} /></label>
       </div>
+      {status === "error" && (
+        <div className="exam-paper-history-alert" role="alert">
+          <span>Could not refresh saved question papers. Your current papers are still shown.</span>
+          <button className="exam-about-btn" onClick={onRefresh} type="button">Try again</button>
+        </div>
+      )}
       <div className="exam-paper-history-grid">
         {filtered.length ? filtered.map((paper) => {
           const paperId = getId(paper);
@@ -1819,6 +1843,9 @@ function ExamPage({
   const [isStarting, setIsStarting] = useState(false);
   const [results, setResults] = useState([]);
   const [papers, setPapers] = useState([]);
+  const [paperHistoryStatus, setPaperHistoryStatus] = useState("loading");
+  const [recentPaper, setRecentPaper] = useState(null);
+  const paperHistoryRequestRef = useRef(0);
   const [examStartLimit, setExamStartLimit] = useState(null);
   const [paperMinutes, setPaperMinutes] = useState(60);
   const continuationOnly = youngKidsMode && !parentAccessGranted;
@@ -1875,13 +1902,21 @@ function ExamPage({
   }, []);
 
   const loadPapers = useCallback(async () => {
+    const requestId = ++paperHistoryRequestRef.current;
+    setPaperHistoryStatus("loading");
     try {
-      const payload = await api.get("/api/question-papers");
-      setPapers(unwrapList(payload, ["papers"]));
+      const payload = await api.get("/api/question-papers", {
+        academicProfileId: academicProfileDataId,
+        timeoutMs: 45000,
+      });
+      if (!Array.isArray(payload?.papers)) throw new Error("Invalid question paper history response.");
+      if (requestId !== paperHistoryRequestRef.current) return;
+      setPapers(payload.papers);
+      setPaperHistoryStatus("ready");
     } catch {
-      setPapers([]);
+      if (requestId === paperHistoryRequestRef.current) setPaperHistoryStatus("error");
     }
-  }, []);
+  }, [academicProfileDataId]);
 
   const loadExamStartLimit = useCallback(async () => {
     try {
@@ -2271,14 +2306,26 @@ function ExamPage({
             academicTrack={academicTrack}
             onGenerated={(paper) => {
               handlePaperLoaded(paper);
+              setRecentPaper(paper);
               setPapers((current) => [paper, ...current.filter((saved) => getId(saved) !== getId(paper))]);
               loadPapers();
             }}
+            recentPaper={recentPaper}
             subjects={subjects}
             schedule={schedule}
             userProfile={userProfile}
           />
-          <PaperHistory onPaperLoaded={handlePaperLoaded} onRefresh={loadPapers} papers={papers} />
+          <PaperHistory
+            academicProfileDataId={academicProfileDataId}
+            onPaperDeleted={(id) => {
+              setPapers((current) => current.filter((paper) => getId(paper) !== id));
+              setRecentPaper((current) => getId(current) === id ? null : current);
+            }}
+            onPaperLoaded={handlePaperLoaded}
+            onRefresh={loadPapers}
+            papers={papers}
+            status={paperHistoryStatus}
+          />
         </>
       )}
 
