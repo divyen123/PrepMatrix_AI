@@ -28,7 +28,6 @@ const PLANNER_DESTINATIONS = [
   {
     id: "schedule",
     path: "/planner/schedule",
-    eyebrow: "Plan and recover",
     title: "Planner",
     description: "Build, rebalance, export, and recover your focused study schedule.",
     helper: "Schedule workspace",
@@ -37,7 +36,6 @@ const PLANNER_DESTINATIONS = [
   {
     id: "worktree",
     path: "/planner/worktree",
-    eyebrow: "Map your thinking",
     title: "Worktree",
     description: "Arrange concepts as a visual map and keep complex topics connected.",
     helper: "Visual workspace",
@@ -46,7 +44,6 @@ const PLANNER_DESTINATIONS = [
   {
     id: "recall",
     path: "/planner/recall",
-    eyebrow: "Strengthen memory",
     title: "Recall session",
     description: "Run short active-recall checks before a concept reaches its forgetting point.",
     helper: "Three-minute checks",
@@ -292,7 +289,6 @@ function PlannerPage({
                       <DestinationIcon size={23} strokeWidth={1.9} />
                     </span>
                     <span className="planner-hub-card-copy">
-                      <span className="planner-hub-card-eyebrow">{destination.eyebrow}</span>
                       <strong>{destination.title}</strong>
                       <span>{destination.description}</span>
                     </span>

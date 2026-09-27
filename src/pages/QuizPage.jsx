@@ -113,8 +113,6 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   });
   const battleTabActive = quizView === "battles";
   const quizHubActive = quizView === "hub";
-  const [battleActionsHost, setBattleActionsHost] = useState(null);
-
   const updateQuizRoute = (mode, battleId = "") => {
     const next = new URLSearchParams(searchParams);
     if (mode === "battles") next.set("tab", "battles");
@@ -141,50 +139,6 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       hash: "",
     }, { replace: true });
   }, [location.hash, location.pathname, navigate, searchParams]);
-
-  const handleQuizTabKeyDown = (event) => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-    event.preventDefault();
-    const nextMode = event.key === "ArrowRight" || event.key === "End" ? "battles" : "solo";
-    updateQuizRoute(nextMode);
-    window.requestAnimationFrame(() => {
-      document.getElementById(`quiz-tab-${nextMode}`)?.focus();
-    });
-  };
-
-  const quizModeTabs = !isYoungKidsLearner && (
-    <div
-      aria-label="Quiz mode"
-      className="quiz-mode-tabs"
-      onKeyDown={handleQuizTabKeyDown}
-      role="tablist"
-    >
-      <button
-        aria-controls="quiz-panel-solo"
-        aria-selected={!battleTabActive}
-        id="quiz-tab-solo"
-        onClick={() => updateQuizRoute("solo")}
-        role="tab"
-        tabIndex={battleTabActive ? -1 : 0}
-        type="button"
-      >
-        <Check aria-hidden="true" size={15} />
-        Solo quiz
-      </button>
-      <button
-        aria-controls="quiz-panel-battles"
-        aria-selected={battleTabActive}
-        id="quiz-tab-battles"
-        onClick={() => updateQuizRoute("battles")}
-        role="tab"
-        tabIndex={battleTabActive ? 0 : -1}
-        type="button"
-      >
-        <Swords aria-hidden="true" size={15} />
-        Quiz Battles
-      </button>
-    </div>
-  );
 
   useEffect(() => {
     hasInitializedSubject.current = false;
@@ -843,26 +797,15 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
         className={[
           "quiz-mode-shell",
           battleTabActive ? "is-battles" : "is-solo",
-          !isYoungKidsLearner ? "has-mode-tabs" : "",
         ].filter(Boolean).join(" ")}
       >
       {battleTabActive ? (
-        <div className="quiz-battles-header">
-          <div className="quiz-battle-dashboard-slot" ref={setBattleActionsHost} />
-          {quizModeTabs}
-        </div>
-      ) : quizModeTabs}
-
-      {battleTabActive ? (
         <div
-          aria-labelledby="quiz-tab-battles"
           id="quiz-panel-battles"
-          role="tabpanel"
         >
           <QuizBattlesPanel
             academicProfile={learnerContext}
             academicProfileDataId={academicProfileDataId}
-            dashboardActionsHost={battleActionsHost}
             completed={completed}
             initialBattleId={searchParams.get("battle") || ""}
             initialInviteCode={pendingInviteCode}
@@ -883,9 +826,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       ) : (
         <div
           className="quiz-solo-panel"
-          aria-labelledby={isYoungKidsLearner ? undefined : "quiz-tab-solo"}
           id="quiz-panel-solo"
-          role={isYoungKidsLearner ? undefined : "tabpanel"}
         >
       <section className="card quiz-builder-card">
         <div className="quiz-builder-header">

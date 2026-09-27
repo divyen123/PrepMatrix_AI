@@ -2080,7 +2080,6 @@ function ExamPage({
               {isOnlineExamEligible ? <CheckCircle2 size={20} /> : <ShieldAlert size={20} />}
             </div>
             <div className="exam-eligibility-copy">
-              <span>Online exam eligibility</span>
               <strong>{isOnlineExamEligible ? "Attend Exam is unlocked" : `${readinessPercent}% planner completion`}</strong>
               <p>
                 {isOnlineExamEligible
@@ -2111,7 +2110,6 @@ function ExamPage({
           >
             <span aria-hidden="true" className="exam-feature-card__icon"><ListChecks size={23} strokeWidth={1.9} /></span>
             <span className="exam-feature-card__copy">
-              <span className="exam-feature-card__eyebrow">Secure assessment</span>
               <strong>Attend Exam</strong>
               <span>{isOnlineExamEligible ? "Fullscreen MCQ exam with autosave, warnings, and server-side grading." : `Locked until your planner reaches ${EXAM_ELIGIBILITY_THRESHOLD}% completion. You are currently at ${readinessPercent}%.`}</span>
             </span>
@@ -2128,7 +2126,6 @@ function ExamPage({
           >
             <span aria-hidden="true" className="exam-feature-card__icon"><FilePlus2 size={23} strokeWidth={1.9} /></span>
             <span className="exam-feature-card__copy">
-              <span className="exam-feature-card__eyebrow">Build an assessment</span>
               <strong>Generate Question Paper</strong>
               <span>Build a precise mark split, coding emphasis, answer key, and exportable PDF.</span>
             </span>
@@ -2142,7 +2139,6 @@ function ExamPage({
           >
             <span aria-hidden="true" className="exam-feature-card__icon"><Trophy size={23} strokeWidth={1.9} /></span>
             <span className="exam-feature-card__copy">
-              <span className="exam-feature-card__eyebrow">Track your progress</span>
               <strong>View Results</strong>
               <span>{pendingResults} pending and {releasedResults} released result{releasedResults === 1 ? "" : "s"}.</span>
             </span>

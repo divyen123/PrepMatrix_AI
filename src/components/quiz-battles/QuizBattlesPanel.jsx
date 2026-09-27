@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   Clock3,
   Copy,
   LoaderCircle,
   Plus,
-  RefreshCw,
   ShieldCheck,
   Swords,
   Trophy,
@@ -147,7 +146,6 @@ export default function QuizBattlesPanel({
   academicProfile = {},
   academicProfileDataId = "",
   completed = [],
-  dashboardActionsHost = null,
   initialBattleId = "",
   initialInviteCode = "",
   onAttemptStateChange,
@@ -164,8 +162,10 @@ export default function QuizBattlesPanel({
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState("");
   const [error, setError] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [showJoin, setShowJoin] = useState(Boolean(initialInviteCode));
+  const [battleView, setBattleView] = useState(initialInviteCode ? "join" : "hub");
+  const showCreate = battleView === "create";
+  const showJoin = battleView === "join";
+  const showHistory = battleView === "history";
   const [createSubject, setCreateSubject] = useState(subjects[0]?.name || "");
   const [createTopic, setCreateTopic] = useState("");
   const [createDifficulty, setCreateDifficulty] = useState("standard");
@@ -334,6 +334,7 @@ export default function QuizBattlesPanel({
       });
       setSelectedBattle(nextBattle);
       selectedBattleRef.current = nextBattle;
+      if (!silent) returnBattleIdRef.current = nextBattle?.id || battleId;
       if (!preserveLocalAnswers) hydrateAnswers(nextBattle);
       setError("");
       if (!silent) routeChangeRef.current?.(payload.battle?.id || battleId);
@@ -412,7 +413,7 @@ export default function QuizBattlesPanel({
     const code = normalizeQuizBattleInviteCode(initialInviteCode);
     const requestToken = ++previewRequestRef.current;
     setJoinCode(code);
-    setShowJoin(true);
+    setBattleView("join");
     setInvitePreview(null);
     if (code.length !== 10) {
       dispatchIntro({ type: "invite_settled" });
@@ -526,8 +527,9 @@ export default function QuizBattlesPanel({
       if (!mountedRef.current) return;
       setSelectedBattle(payload.battle);
       selectedBattleRef.current = payload.battle;
+      returnBattleIdRef.current = payload.battle?.id || "";
       hydrateAnswers(payload.battle);
-      setShowCreate(false);
+      setBattleView("history");
       setCreateTopic("");
       routeChangeRef.current?.(payload.battle?.id);
       await refreshList({ silent: true });
@@ -574,10 +576,11 @@ export default function QuizBattlesPanel({
       if (!mountedRef.current) return;
       setSelectedBattle(payload.battle);
       selectedBattleRef.current = payload.battle;
+      returnBattleIdRef.current = payload.battle?.id || "";
       hydrateAnswers(payload.battle);
       setInvitePreview(null);
       setJoinCode("");
-      setShowJoin(false);
+      setBattleView("history");
       onInviteConsumed?.(payload.battle?.id);
       await refreshList({ silent: true });
       toast.success("Battle joined. Start whenever you are ready.");
@@ -716,12 +719,30 @@ export default function QuizBattlesPanel({
     setSelectedBattle(null);
     selectedBattleRef.current = null;
     hydrateAnswers(null);
+    setBattleView("history");
     routeChangeRef.current?.("");
     window.requestAnimationFrame(() => {
       const selector = returnBattleId
         ? `[data-battle-id="${returnBattleId}"]`
-        : ".battle-dashboard-actions button";
-      document.querySelector(selector)?.focus();
+        : ".battle-subpage-back";
+      (document.querySelector(selector) || document.querySelector(".battle-subpage-back"))?.focus();
+    });
+  };
+
+  const openBattleView = (view) => {
+    setBattleView(view);
+    setError("");
+    if (view === "history") void refreshList();
+  };
+
+  const returnToBattleChoices = () => {
+    const previousView = battleView;
+    if (showJoin && initialInviteCode) onInviteConsumed?.("");
+    setBattleView("hub");
+    setInvitePreview(null);
+    setError("");
+    window.requestAnimationFrame(() => {
+      document.querySelector(`.battle-choice-card--${previousView}`)?.focus();
     });
   };
 
@@ -1055,47 +1076,6 @@ export default function QuizBattlesPanel({
     );
   };
 
-  const dashboardActions = (
-    <div className="battle-dashboard-actions">
-      <button
-        aria-controls="quiz-battle-create-panel"
-        aria-expanded={showCreate}
-        className="primary-btn"
-        onClick={() => {
-          setShowCreate((value) => !value);
-          setShowJoin(false);
-        }}
-        type="button"
-      >
-        <Plus aria-hidden="true" size={17} />
-        Create battle
-      </button>
-      <button
-        aria-controls="quiz-battle-join-panel"
-        aria-expanded={showJoin}
-        className="secondary-btn"
-        onClick={() => {
-          setShowJoin((value) => !value);
-          setShowCreate(false);
-        }}
-        type="button"
-      >
-        <UserPlus aria-hidden="true" size={17} />
-        Join with code
-      </button>
-      <button
-        aria-label="Refresh battles"
-        className="battle-refresh-btn"
-        disabled={loading}
-        onClick={() => void refreshList()}
-        title="Refresh battles"
-        type="button"
-      >
-        <RefreshCw aria-hidden="true" size={17} />
-      </button>
-    </div>
-  );
-
   const confirmationAction = confirmationCopy(pendingConfirmation);
 
   if (introState.phase !== "done") {
@@ -1122,11 +1102,56 @@ export default function QuizBattlesPanel({
 
   return (
     <div className="battle-panel battle-panel-entry">
-      {dashboardActionsHost
-        ? createPortal(dashboardActions, dashboardActionsHost)
-        : dashboardActions}
-
       {error && <div className="battle-alert" role="alert">{error}</div>}
+
+      {battleView === "hub" ? (
+        <div className="battle-choice-hub" aria-label="Quiz Battle choices" role="group">
+          <button
+            className="battle-choice-card battle-choice-card--create"
+            onClick={() => openBattleView("create")}
+            type="button"
+          >
+            <span className="battle-choice-card__icon"><Plus aria-hidden="true" size={28} /></span>
+            <span className="battle-choice-card__title">Create battle</span>
+            <span className="battle-choice-card__description">Make a private quiz for a friend.</span>
+            <ArrowRight aria-hidden="true" className="battle-choice-card__arrow" size={19} />
+          </button>
+          <button
+            className="battle-choice-card battle-choice-card--join"
+            onClick={() => openBattleView("join")}
+            type="button"
+          >
+            <span className="battle-choice-card__icon"><UserPlus aria-hidden="true" size={28} /></span>
+            <span className="battle-choice-card__title">Join with code</span>
+            <span className="battle-choice-card__description">Enter a friend’s invite code.</span>
+            <ArrowRight aria-hidden="true" className="battle-choice-card__arrow" size={19} />
+          </button>
+          <button
+            className="battle-choice-card battle-choice-card--history"
+            onClick={() => openBattleView("history")}
+            type="button"
+          >
+            <span className="battle-choice-card__icon"><Trophy aria-hidden="true" size={28} /></span>
+            <span className="battle-choice-card__title">History</span>
+            <span className="battle-choice-card__description">See battles and results.</span>
+            <ArrowRight aria-hidden="true" className="battle-choice-card__arrow" size={19} />
+          </button>
+        </div>
+      ) : (
+        <div className="battle-subpage-header">
+          <button
+            aria-label="Back to Quiz Battle choices"
+            className="battle-subpage-back"
+            onClick={returnToBattleChoices}
+            type="button"
+          >
+            <ArrowLeft aria-hidden="true" size={20} />
+          </button>
+          <h2 className="battle-subpage-title">
+            {showCreate ? "Create battle" : showJoin ? "Join with code" : "History"}
+          </h2>
+        </div>
+      )}
 
       {showCreate && (
         <form className="battle-form battle-create-form card" id="quiz-battle-create-panel" onSubmit={createBattle}>
@@ -1277,7 +1302,7 @@ export default function QuizBattlesPanel({
         </section>
       )}
 
-      {!showCreate && !showJoin && (loading ? (
+      {showHistory && (loading ? (
         <div className="battle-loading" role="status">Loading your battles…</div>
       ) : error ? null : battles.length === 0 ? (
         <div className="battle-empty">

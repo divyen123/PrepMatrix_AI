@@ -259,14 +259,6 @@
   min-width: 0;
 }
 
-.exam-feature-card__eyebrow {
-  color: var(--exam-feature-tone);
-  font-size: 0.68rem;
-  font-weight: 900;
-  letter-spacing: 0.085em;
-  text-transform: uppercase;
-}
-
 .exam-feature-card__copy strong {
   color: var(--text);
   font-family: "Space Grotesk", "Inter", sans-serif;
@@ -2981,16 +2973,6 @@ body.has-bg-image .exam-generation-notice {
 
 .exam-eligibility-copy {
   min-width: 0;
-}
-
-.exam-eligibility-copy > span {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--text-secondary);
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.055em;
-  text-transform: uppercase;
 }
 
 .exam-eligibility-copy strong {
