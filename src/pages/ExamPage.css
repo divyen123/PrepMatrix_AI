@@ -1256,13 +1256,23 @@ body .exam-compact-timer .exam-compact-timer-action::after {
   bottom: calc(100% + 7px);
   left: 0;
   display: grid;
-  width: 172px;
+  width: min(172px, calc(100vw - 8px));
   gap: 3px;
   padding: 5px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface-strong);
   box-shadow: 0 12px 28px rgba(4, 9, 20, 0.24);
+}
+
+.exam-compact-timer-modes.is-below {
+  top: calc(100% + 7px);
+  bottom: auto;
+}
+
+.exam-compact-timer-modes.is-right-aligned {
+  right: 0;
+  left: auto;
 }
 
 body .exam-compact-timer .exam-compact-timer-modes button {
@@ -1483,14 +1493,6 @@ body .exam-compact-timer .exam-compact-timer-modes button::after {
 .exam-results-section {
   display: grid;
   gap: 0;
-}
-
-.exam-results-section .exam-section-title {
-  margin-bottom: 24px;
-}
-
-.exam-results-section .exam-section-title h2 {
-  margin: 0;
 }
 
 .exam-results-grid {
@@ -2806,11 +2808,6 @@ body.has-bg-image .exam-generation-notice {
   .exam-page__header p,
   .exam-page__header-desc {
     white-space: normal;
-  }
-
-  .exam-results-section .exam-section-title {
-    align-items: center;
-    flex-direction: row;
   }
 
   .exam-about-btn,

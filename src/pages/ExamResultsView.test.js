@@ -24,7 +24,8 @@ test("keeps eligibility behavior but hides its banner from View Results", () => 
 });
 
 test("simplifies the View Results heading without changing result behavior", () => {
-  assert.match(resultsPanelSource, /<h2>Released and pending exams<\/h2>/u);
+  assert.match(pageSource, /<h2>\{section === "results" \? "Released and pending exams" : "Exam workspace"\}<\/h2>/u);
+  assert.doesNotMatch(resultsPanelSource, /Released and pending exams/u);
   assert.match(pageSource, /className="exam-page__header-actions"[\s\S]*?aria-label="Refresh results"/u);
   assert.doesNotMatch(resultsPanelSource, /<span className="section-tag">View results<\/span>/u);
   assert.doesNotMatch(
@@ -44,11 +45,7 @@ test("shows the empty results message without a card container", () => {
   assert.doesNotMatch(resultsPanelSource, /className="card exam-empty-state"/u);
 });
 
-test("compacts only the results heading, grid, and result cards", () => {
-  assert.match(
-    stylesheet,
-    /\.exam-results-section \.exam-section-title\s*\{[\s\S]*?margin-bottom:\s*24px/u,
-  );
+test("compacts only the results grid and result cards", () => {
   assert.match(
     stylesheet,
     /\.exam-results-grid\s*\{[\s\S]*?max-width:\s*1080px/u,

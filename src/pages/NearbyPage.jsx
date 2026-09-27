@@ -230,10 +230,10 @@ export default function NearbyPage({ academicProfile = {}, academicProfileDataId
   if (!nearbyView) return <Navigate replace to="/nearby" />;
 
   return <section className="nearby-page page-stack">
-    <header className="nearby-header">
-      {nearbyView === "hub" && <button className="page-back-control nearby-back" type="button" aria-label="Back to home" onClick={() => navigate(homeRoute)}><ArrowLeft size={18} /></button>}
+    {nearbyView === "hub" && <header className="nearby-header">
+      <button className="page-back-control nearby-back" type="button" aria-label="Back to home" onClick={() => navigate(homeRoute)}><ArrowLeft size={18} /></button>
       <div><h1>PrepMatrix <span>Nearby</span></h1></div>
-    </header>
+    </header>}
     {nearbyView === "hub" ? <nav className="nearby-hub" aria-label="Nearby workspaces">{NEARBY_DESTINATIONS.map(({ id, label, description, icon, path }) => <Link key={id} className={`nearby-hub-card nearby-hub-card--${id}`} to={path}><span className="nearby-hub-card-icon" aria-hidden="true">{createElement(icon, { size: 24 })}</span><span className="nearby-hub-card-copy"><strong className="nearby-hub-card-title">{label}</strong><span className="nearby-hub-card-description">{description}</span></span><ArrowUpRight className="nearby-hub-card-arrow" size={20} aria-hidden="true" /></Link>)}</nav> : <>
     <div className="nearby-subpage-header">
       <div className="nearby-subpage-title-row"><Link className="nearby-subpage-back page-back-control" to="/nearby" aria-label="Back to Nearby workspaces"><ArrowLeft size={19} /></Link><h2 className="nearby-subpage-title">{active.label}</h2></div>

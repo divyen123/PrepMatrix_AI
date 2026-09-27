@@ -6,6 +6,7 @@ import { buildSubjectMaterials } from "../utils/materialRecommendations";
 import { materialBookmarkKey, normalizeMaterialBookmarks } from "../utils/materialBookmarks";
 import { fetchSubjectBooks } from "../utils/bookRecommendations";
 import { resolveMaterialGuideSubjects } from "../utils/materialGuideNavigation";
+import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 
 const SUBJECT_CARD_TONES = ["teal", "indigo", "amber", "violet", "rose"];
 
@@ -22,31 +23,15 @@ function rankSearchMatch(fields, query) {
   }, 0);
 }
 
-function BookCard({
-  book,
-  expanded,
-  onToggle,
-  saved,
-  onSave,
-  onRemove,
-  removePending,
-  onConfirmRemove,
-  onCancelRemove,
-}) {
-  const [showRetailers, setShowRetailers] = useState(false);
+function BookCard({ book, onOpen }) {
   const [coverFailed, setCoverFailed] = useState(false);
-  const retailers = Array.isArray(book.retailers) ? book.retailers : [];
 
   return (
-    <article className={expanded ? "material-book-card is-expanded" : "material-book-card"}>
+    <article className="material-book-card">
       <button
-        aria-expanded={expanded}
-        aria-label={`${expanded ? "Collapse" : "Show details for"} ${book.title}`}
+        aria-label={`Open details for ${book.title}`}
         className="material-book-card__toggle"
-        onClick={() => {
-          setShowRetailers(false);
-          onToggle();
-        }}
+        onClick={() => onOpen(book)}
         type="button"
       >
         <span className="material-book-card__cover">
@@ -63,64 +48,93 @@ function BookCard({
           <strong>{book.title}</strong>
           {book.author ? <span>{book.author}</span> : null}
         </span>
-        <ChevronDown aria-hidden="true" className="material-book-card__chevron" size={18} />
+        <ArrowRight aria-hidden="true" className="material-book-card__chevron" size={18} />
       </button>
-
-      {expanded ? (
-        <div className="material-book-card__details">
-          <p>{book.description || "Description unavailable for this book."}</p>
-          {book.edition || book.isbn ? (
-            <p className="material-book-card__edition">
-              {[book.edition, book.isbn ? `ISBN ${book.isbn}` : ""].filter(Boolean).join(" · ")}
-            </p>
-          ) : null}
-          <div className="material-book-card__actions">
-            {saved ? (
-              onRemove ? (
-                removePending ? (
-                  <div className="material-book-card__remove-confirm" role="group" aria-label={`Confirm removing ${book.title}`}>
-                    <span>Remove?</span>
-                    <button aria-label={`Confirm removing ${book.title}`} onClick={onConfirmRemove} type="button"><Check aria-hidden="true" size={15} /></button>
-                    <button aria-label={`Cancel removing ${book.title}`} onClick={onCancelRemove} type="button"><X aria-hidden="true" size={15} /></button>
-                  </div>
-                ) : (
-                  <button className="material-book-card__button material-book-card__button--quiet" onClick={onRemove} type="button">Remove</button>
-                )
-              ) : (
-                <button className="material-book-card__button material-book-card__button--quiet" disabled type="button"><Check aria-hidden="true" size={16} /> Saved</button>
-              )
-            ) : (
-              <button className="material-book-card__button material-book-card__button--quiet" onClick={() => onSave?.(book)} type="button">Save</button>
-            )}
-            <button
-              aria-expanded={showRetailers}
-              className="material-book-card__button material-book-card__button--buy"
-              disabled={retailers.length === 0}
-              onClick={() => setShowRetailers((current) => !current)}
-              type="button"
-            >
-              <ShoppingBag aria-hidden="true" size={16} /> Buy <ChevronDown aria-hidden="true" size={15} />
-            </button>
-          </div>
-          {showRetailers ? (
-            <div className="material-book-card__retailers">
-              {retailers.map((retailer) => (
-                <a href={retailer.href} key={`${retailer.name}-${retailer.href}`} rel="noopener noreferrer" target="_blank">
-                  {retailer.mode === "search" ? `Search ${retailer.name}` : `Buy on ${retailer.name}`}
-                  <ExternalLink aria-hidden="true" size={14} />
-                </a>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
     </article>
   );
 }
 
-function SubjectBookShelf({ subject, academicProfile, academicLevel, academicTrack, savedBookKeys, onSaveBookmark }) {
+function BookDetailsDialog({ book, saved, onSave, onClose }) {
+  const dialogRef = useRef(null);
+  const closeTimerRef = useRef(null);
+  const returnFocusRef = useRef(null);
+  const entryFramesRef = useRef([]);
+  const [visible, setVisible] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
+  const retailers = Array.isArray(book.retailers) ? book.retailers : [];
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    returnFocusRef.current = document.activeElement;
+    dialog.showModal();
+    const releaseScrollLock = acquireDocumentScrollLock();
+    const entryFrames = [];
+    entryFramesRef.current = entryFrames;
+    entryFrames[0] = window.requestAnimationFrame(() => {
+      entryFrames[1] = window.requestAnimationFrame(() => setVisible(true));
+    });
+    return () => {
+      entryFrames.forEach((frame) => window.cancelAnimationFrame(frame));
+      window.clearTimeout(closeTimerRef.current);
+      dialog.close();
+      releaseScrollLock();
+      if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus({ preventScroll: true });
+    };
+  }, []);
+
+  function closeDialog() {
+    if (closeTimerRef.current !== null) return;
+    entryFramesRef.current.forEach((frame) => window.cancelAnimationFrame(frame));
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      onClose();
+      return;
+    }
+    setVisible(false);
+    closeTimerRef.current = window.setTimeout(onClose, 220);
+  }
+
+  return (
+    <dialog
+      aria-labelledby="material-book-dialog-title"
+      aria-modal="true"
+      className={`material-book-dialog${visible ? " is-visible" : ""}`}
+      onCancel={(event) => { event.preventDefault(); closeDialog(); }}
+      onClick={(event) => { if (event.target === event.currentTarget) closeDialog(); }}
+      ref={dialogRef}
+    >
+      <div className="material-book-dialog__content">
+        <button aria-label="Close book details" className="material-book-dialog__close" onClick={closeDialog} type="button"><X aria-hidden="true" size={17} /></button>
+        <div className="material-book-dialog__hero">
+          <span className="material-book-dialog__cover">
+            {book.cover && !coverFailed ? <img alt="" onError={() => setCoverFailed(true)} src={book.cover} /> : <BookOpen aria-hidden="true" size={32} />}
+          </span>
+          <div>
+            <h2 id="material-book-dialog-title">{book.title}</h2>
+            {book.author ? <p>{book.author}</p> : null}
+          </div>
+        </div>
+        {book.description ? <p className="material-book-dialog__description">{book.description}</p> : null}
+        {book.edition || book.isbn ? <p className="material-book-dialog__edition">{[book.edition, book.isbn ? `ISBN ${book.isbn}` : ""].filter(Boolean).join(" · ")}</p> : null}
+        <div className="material-book-dialog__actions">
+          <button className="material-book-card__button" disabled={saved} onClick={() => onSave?.(book)} type="button">{saved ? <><Check aria-hidden="true" size={16} /> Saved</> : "Save"}</button>
+          {retailers.map((retailer) => (
+            <a className="material-book-card__button material-book-card__button--buy" href={retailer.href} key={`${retailer.name}-${retailer.href}`} rel="noopener noreferrer" target="_blank">
+              <ShoppingBag aria-hidden="true" size={15} /> {retailer.mode === "search" ? `Search ${retailer.name}` : `Buy on ${retailer.name}`} <ExternalLink aria-hidden="true" size={13} />
+            </a>
+          ))}
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+function SavedBookCover({ src }) {
+  const [failed, setFailed] = useState(false);
+  return src && !failed ? <img alt="" className="bookmark-card__book-image" onError={() => setFailed(true)} src={src} /> : null;
+}
+
+function SubjectBookShelf({ subject, academicProfile, academicLevel, academicTrack, onOpenBook }) {
   const [result, setResult] = useState({ status: "loading", books: [] });
-  const [expandedBookId, setExpandedBookId] = useState("");
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
@@ -158,14 +172,7 @@ function SubjectBookShelf({ subject, academicProfile, academicLevel, academicTra
       {result.books.length > 0 ? (
         <div className="material-book-grid">
           {result.books.map((book) => (
-            <BookCard
-              book={book}
-              expanded={expandedBookId === book.bookId}
-              key={book.bookId}
-              onSave={onSaveBookmark}
-              onToggle={() => setExpandedBookId((current) => current === book.bookId ? "" : book.bookId)}
-              saved={savedBookKeys.has(materialBookmarkKey(book))}
-            />
+            <BookCard book={book} key={book.bookId} onOpen={onOpenBook} />
           ))}
         </div>
       ) : null}
@@ -188,7 +195,7 @@ function ResourcesHub({
   const [bookmarkSearchQuery, setBookmarkSearchQuery] = useState("");
   const [confirmClearAllBookmarks, setConfirmClearAllBookmarks] = useState(false);
   const [pendingBookmarkRemovalId, setPendingBookmarkRemovalId] = useState(null);
-  const [expandedSavedBookId, setExpandedSavedBookId] = useState("");
+  const [openBook, setOpenBook] = useState(null);
   const [booksOpen, setBooksOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const pendingViewFocusRef = useRef("");
@@ -229,8 +236,6 @@ function ResourcesHub({
       .sort((a, b) => b.rank - a.rank || a.index - b.index)
       .map((item) => item.bookmark);
   }, [bookmarkSearchQuery, safeMaterialBookmarks]);
-  const filteredSavedBooks = filteredMaterialBookmarks.filter((bookmark) => bookmark.kind === "book");
-  const filteredSavedLinks = filteredMaterialBookmarks.filter((bookmark) => bookmark.kind !== "book");
 
   useEffect(() => {
     const nextView = activeResource ? "detail" : "overview";
@@ -341,84 +346,58 @@ function ResourcesHub({
           {filteredMaterialBookmarks.length === 0 ? (
             <p className="empty-state">No saved materials match your search.</p>
           ) : (
-            <div className="saved-material-groups">
-              {filteredSavedBooks.length > 0 ? (
-                <div className="material-book-grid material-book-grid--saved">
-                  {filteredSavedBooks.map((book) => {
-                    const removalId = book.id || book.href;
-                    return (
-                      <BookCard
-                        book={book}
-                        expanded={expandedSavedBookId === book.bookId}
-                        key={book.bookId || removalId}
-                        onCancelRemove={() => setPendingBookmarkRemovalId(null)}
-                        onConfirmRemove={() => {
-                          onRemoveBookmark?.(removalId);
-                          setPendingBookmarkRemovalId(null);
-                          setExpandedSavedBookId("");
-                        }}
-                        onRemove={() => {
-                          setConfirmClearAllBookmarks(false);
-                          setPendingBookmarkRemovalId(removalId);
-                        }}
-                        onToggle={() => setExpandedSavedBookId((current) => current === book.bookId ? "" : book.bookId)}
-                        removePending={pendingBookmarkRemovalId === removalId}
-                        saved
-                      />
-                    );
-                  })}
-                </div>
-              ) : null}
-              {filteredSavedLinks.length > 0 ? (
-                <div className="bookmark-grid">
-                  {filteredSavedLinks.map((bookmark) => (
-                    <article className="bookmark-card" key={bookmark.id || bookmark.href}>
-                      <span>{bookmark.subject}</span>
-                      <strong>{bookmark.title}</strong>
-                      <p>{bookmark.provider}</p>
-                      <div className="bookmark-actions">
-                        <a href={bookmark.href} rel="noreferrer" target="_blank">Open</a>
-                        {pendingBookmarkRemovalId === (bookmark.id || bookmark.href) ? (
-                          <div className="bookmark-remove-confirm" role="group" aria-label={`Confirm removing ${bookmark.title}`}>
-                            <button
-                              aria-label={`Confirm removing ${bookmark.title}`}
-                              className="compact-confirm-btn is-confirm"
-                              onClick={() => {
-                                onRemoveBookmark?.(bookmark.id || bookmark.href);
-                                setPendingBookmarkRemovalId(null);
-                              }}
-                              title="Confirm remove"
-                              type="button"
-                            >
-                              <Check aria-hidden="true" size={13} />
-                            </button>
-                            <button
-                              aria-label={`Cancel removing ${bookmark.title}`}
-                              className="compact-confirm-btn is-cancel"
-                              onClick={() => setPendingBookmarkRemovalId(null)}
-                              title="Cancel"
-                              type="button"
-                            >
-                              <X aria-hidden="true" size={13} />
-                            </button>
-                          </div>
-                        ) : (
+            <div className="bookmark-grid">
+              {filteredMaterialBookmarks.map((bookmark) => {
+                const removalId = bookmark.id || bookmark.href;
+                const isBook = bookmark.kind === "book";
+                return (
+                  <article className={isBook ? "bookmark-card bookmark-card--book" : "bookmark-card"} key={removalId}>
+                    {isBook ? <SavedBookCover src={bookmark.cover} /> : null}
+                    <span>{bookmark.subject}</span>
+                    <strong>{bookmark.title}</strong>
+                    <p>{isBook ? bookmark.author : bookmark.provider}</p>
+                    <div className="bookmark-actions">
+                      {isBook ? <button onClick={() => setOpenBook(bookmark)} type="button">Open</button> : <a href={bookmark.href} rel="noreferrer" target="_blank">Open</a>}
+                      {pendingBookmarkRemovalId === removalId ? (
+                        <div className="bookmark-remove-confirm" role="group" aria-label={`Confirm removing ${bookmark.title}`}>
                           <button
-                            aria-label={`Remove ${bookmark.title} from saved library`}
+                            aria-label={`Confirm removing ${bookmark.title}`}
+                            className="compact-confirm-btn is-confirm"
                             onClick={() => {
-                              setConfirmClearAllBookmarks(false);
-                              setPendingBookmarkRemovalId(bookmark.id || bookmark.href);
+                              onRemoveBookmark?.(removalId);
+                              setPendingBookmarkRemovalId(null);
                             }}
+                            title="Confirm remove"
                             type="button"
                           >
-                            Remove
+                            <Check aria-hidden="true" size={13} />
                           </button>
-                        )}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : null}
+                          <button
+                            aria-label={`Cancel removing ${bookmark.title}`}
+                            className="compact-confirm-btn is-cancel"
+                            onClick={() => setPendingBookmarkRemovalId(null)}
+                            title="Cancel"
+                            type="button"
+                          >
+                            <X aria-hidden="true" size={13} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          aria-label={`Remove ${bookmark.title} from saved library`}
+                          onClick={() => {
+                            setConfirmClearAllBookmarks(false);
+                            setPendingBookmarkRemovalId(removalId);
+                          }}
+                          type="button"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
@@ -472,8 +451,7 @@ function ResourcesHub({
                 academicProfile={academicProfile}
                 academicTrack={academicTrack}
                 key={activeResource.subject}
-                onSaveBookmark={onSaveBookmark}
-                savedBookKeys={savedBookKeys}
+                onOpenBook={setOpenBook}
                 subject={activeResource.subject}
               />
             ) : null}
@@ -553,6 +531,14 @@ function ResourcesHub({
             ))}
           </div>
         </section>
+      ) : null}
+      {openBook ? (
+        <BookDetailsDialog
+          book={openBook}
+          onClose={() => setOpenBook(null)}
+          onSave={onSaveBookmark}
+          saved={savedBookKeys.has(materialBookmarkKey(openBook))}
+        />
       ) : null}
     </section>
   );

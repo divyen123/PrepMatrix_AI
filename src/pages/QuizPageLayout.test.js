@@ -12,9 +12,11 @@ const battlePanelSource = readFileSync(
   "utf8",
 );
 
-test("omits the Quiz lab badge while retaining the page heading", () => {
+test("omits the Quiz lab badge and keeps the landing heading", () => {
   assert.doesNotMatch(pageSource, /<span className="section-tag">Quiz lab<\/span>/u);
-  assert.match(pageSource, /<h2>Practice solo or challenge a friend<\/h2>/u);
+  assert.match(pageSource, /quizHubActive \? "Practice solo or challenge a friend"/u);
+  assert.match(pageSource, /className="quiz-hub-card quiz-hub-card--solo"[\s\S]*?Practice any topic and review your answers\./u);
+  assert.match(pageSource, /className="quiz-hub-card quiz-hub-card--battle"[\s\S]*?Challenge friends and compare scores\./u);
 });
 
 test("keeps one accessible quiz mode tablist available across both panels", () => {

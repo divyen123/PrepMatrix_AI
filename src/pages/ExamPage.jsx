@@ -702,18 +702,38 @@ function readCompactTimerPosition(storageKey) {
   return null;
 }
 
-function getCompactTimerPosition() {
+function getCompactTimerViewport() {
+  return {
+    width: document.documentElement.clientWidth || window.innerWidth,
+    height: document.documentElement.clientHeight || window.innerHeight,
+  };
+}
+
+function getCompactTimerSize(element) {
+  if (!element) return undefined;
+  const { width, height } = element.getBoundingClientRect();
+  return { width, height };
+}
+
+function clampCompactTimerPosition(position, timerSize) {
+  const { width, height } = getCompactTimerViewport();
+  return clampExamTimerPosition(position, width, height, timerSize);
+}
+
+function getCompactTimerPosition(timerElement) {
   const shell = document.querySelector(".app-shell-layout");
   const sidebar = document.querySelector(".app-sidebar");
   const goal = document.querySelector(".goal-reminder-launcher");
   const sidebarVisible = window.innerWidth >= 992 || sidebar?.classList.contains("open");
   const collapsed = shell?.classList.contains("is-sidebar-collapsed");
+  const { width, height } = getCompactTimerViewport();
   return getExamTimerDefaultPosition({
-    viewportWidth: window.innerWidth,
-    viewportHeight: window.innerHeight,
+    viewportWidth: width,
+    viewportHeight: height,
     sidebarCollapsed: collapsed,
     sidebarVisible: Boolean(shell && sidebar && sidebarVisible),
     goalBounds: goal?.getBoundingClientRect(),
+    timerSize: getCompactTimerSize(timerElement),
   });
 }
 
@@ -740,17 +760,29 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
   const [customPosition, setCustomPosition] = useState(() => (
     typeof window === "undefined" ? null : readCompactTimerPosition(positionStorageKey)
   ));
+  const [viewportSize, setViewportSize] = useState(() => (
+    typeof window === "undefined" ? { width: 0, height: 0 } : getCompactTimerViewport()
+  ));
+  const [timerSize, setTimerSize] = useState(undefined);
   const [isDragging, setIsDragging] = useState(false);
   const dockRef = useRef(null);
   const dragRef = useRef(null);
   const positionStorageKeyRef = useRef(positionStorageKey);
   const position = customPosition
-    ? { ...clampExamTimerPosition(customPosition, window.innerWidth, window.innerHeight), docked: false }
+    ? { ...clampExamTimerPosition(customPosition, viewportSize.width, viewportSize.height, timerSize), docked: false }
     : defaultPosition;
 
   useEffect(() => {
     const updatePosition = () => {
-      const next = getCompactTimerPosition();
+      const nextViewport = getCompactTimerViewport();
+      setViewportSize((current) => current.width === nextViewport.width && current.height === nextViewport.height
+        ? current
+        : nextViewport);
+      const nextSize = getCompactTimerSize(dockRef.current);
+      setTimerSize((current) => current?.width === nextSize?.width && current?.height === nextSize?.height
+        ? current
+        : nextSize);
+      const next = getCompactTimerPosition(dockRef.current);
       setDefaultPosition((current) => current.left === next.left && current.top === next.top && current.docked === next.docked
         ? current
         : next);
@@ -764,6 +796,7 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
     if (sidebar) mutationObserver.observe(sidebar, { attributes: true, attributeFilter: ["class"] });
     if (sidebar) resizeObserver?.observe(sidebar);
     if (goal) resizeObserver?.observe(goal);
+    if (dockRef.current) resizeObserver?.observe(dockRef.current);
     window.addEventListener("resize", updatePosition);
     const frame = window.requestAnimationFrame(updatePosition);
     return () => {
@@ -903,6 +936,7 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
       startY: event.clientY,
       offsetX: event.clientX - bounds.left,
       offsetY: event.clientY - bounds.top,
+      size: { width: bounds.width, height: bounds.height },
       latest: { left: bounds.left, top: bounds.top },
       moved: false,
     };
@@ -916,10 +950,10 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 3) return;
     drag.moved = true;
-    drag.latest = clampExamTimerPosition({
+    drag.latest = clampCompactTimerPosition({
       left: event.clientX - drag.offsetX,
       top: event.clientY - drag.offsetY,
-    }, window.innerWidth, window.innerHeight);
+    }, drag.size);
     setCustomPosition(drag.latest);
     event.preventDefault();
   };
@@ -952,10 +986,10 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
     }[event.key];
     if (!offset) return;
     event.preventDefault();
-    saveCustomPosition(clampExamTimerPosition({
+    saveCustomPosition(clampCompactTimerPosition({
       left: position.left + offset.left,
       top: position.top + offset.top,
-    }, window.innerWidth, window.innerHeight));
+    }, getCompactTimerSize(dockRef.current)));
   };
 
   const phaseLabel = timer.phase === "break" ? "Recovery break" : timer.preset === "paper" ? "Paper time" : "Focus session";
@@ -1008,7 +1042,11 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
         <button aria-label="Reset timer" className="exam-compact-timer-action" onClick={reset} title="Reset timer" type="button"><RotateCcw aria-hidden="true" size={13} /></button>
       </div>
       {modeOpen && (
-        <div aria-label="Timer mode" className="exam-compact-timer-modes" role="group">
+        <div
+          aria-label="Timer mode"
+          className={`exam-compact-timer-modes${position.top < 120 ? " is-below" : ""}${position.left + 172 > viewportSize.width ? " is-right-aligned" : ""}`}
+          role="group"
+        >
           {Object.entries(presets).map(([id, item]) => (
             <button
               aria-pressed={timer.preset === id}
@@ -1494,10 +1532,6 @@ function ResultsPanel({ results, onRefresh, userProfile }) {
 
   return (
     <section className="exam-results-section">
-      <div className="exam-section-title">
-        <div><h2>Released and pending exams</h2></div>
-      </div>
-
       <div className="exam-results-grid">
         {results.length ? results.map((result) => {
           const locked = isResultLocked(result);
@@ -2020,7 +2054,7 @@ function ExamPage({
     <section className="page-stack exam-page">
       <header className="exam-page__header">
         <div>
-          <h2>Exam workspace</h2>
+          <h2>{section === "results" ? "Released and pending exams" : "Exam workspace"}</h2>
         </div>
         <div className="exam-page__header-actions">
           {section !== "overview" && overviewBackControl}

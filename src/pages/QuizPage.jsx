@@ -9,7 +9,7 @@ import {
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "../utils/toast";
-import { Download, Search, Trash2, Check, X, Swords, Flag } from "lucide-react";
+import { ArrowRight, ChevronLeft, Download, Search, Trash2, Check, X, Swords, Flag, ListChecks } from "lucide-react";
 import api from "../utils/apiClient";
 import QuizBattlesPanel from "../components/quiz-battles/QuizBattlesPanel";
 import QuizExitDialog from "../components/QuizExitDialog";
@@ -30,7 +30,9 @@ import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/
 import { getRankedQuizSubjects } from "../utils/quizSubjectOptions";
 import { getLearnerRoutePolicy } from "../utils/learnerRouting";
 import { quizBattleInviteCodeFromHash } from "../utils/quizBattleUi";
+import { resolveQuizPageView } from "../utils/quizPageView";
 import { isEditableShortcutTarget } from "../utils/appKeyboardShortcuts";
+import "./QuizPage.css";
 import {
   QUIZ_SESSION_STATUSES,
   clearQuizSession,
@@ -76,7 +78,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   const [deletingAttemptId, setDeletingAttemptId] = useState(null);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
-  const [quizSession, setQuizSession] = useState(null);
+  const [quizSession, setQuizSession] = useState(() => readQuizSession(window.localStorage, academicProfileDataId));
   const [deferredQuizSession, setDeferredQuizSession] = useState(null);
   const [focusedQuestionIndex, setFocusedQuestionIndex] = useState(0);
   const [flaggedQuestionIds, setFlaggedQuestionIds] = useState({});
@@ -99,18 +101,24 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     academicLevel,
     academicTrack,
   }).isYoungKidsLearner;
-  const battleTabActive = !isYoungKidsLearner && (
-    searchParams.get("tab") === "battles"
-    || Boolean(searchParams.get("join"))
-    || Boolean(searchParams.get("battle"))
-    || Boolean(quizBattleInviteCodeFromHash(location.hash))
-  );
+  const quizView = resolveQuizPageView({
+    isYoungKidsLearner,
+    tab: searchParams.get("tab"),
+    hasBattleInvite: Boolean(searchParams.get("join") || quizBattleInviteCodeFromHash(location.hash)),
+    hasBattleId: Boolean(searchParams.get("battle")),
+    hasSubject: Boolean(requestedSubject),
+    hasQuizSession: Boolean(quizSession),
+    hasDeferredQuizSession: Boolean(deferredQuizSession),
+    hasQuestions: questions.length > 0 && !result,
+  });
+  const battleTabActive = quizView === "battles";
+  const quizHubActive = quizView === "hub";
   const [battleActionsHost, setBattleActionsHost] = useState(null);
 
   const updateQuizRoute = (mode, battleId = "") => {
     const next = new URLSearchParams(searchParams);
     if (mode === "battles") next.set("tab", "battles");
-    else next.delete("tab");
+    else next.set("tab", mode === "hub" ? "hub" : "solo");
     if (battleId) next.set("battle", battleId);
     else next.delete("battle");
     if (mode !== "battles") {
@@ -799,10 +807,38 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
 
   return (
     <section className="page-stack quiz-page">
-      <div className="section-intro">
-        <h2>Practice solo or challenge a friend</h2>
+      <div className="section-intro quiz-section-intro">
+        {!quizHubActive && !isYoungKidsLearner ? (
+          <button
+            aria-label="Back to Quiz choices"
+            className="page-back-control quiz-subpage-back"
+            onClick={() => updateQuizRoute("hub")}
+            type="button"
+          ><ChevronLeft aria-hidden="true" size={19} /></button>
+        ) : null}
+        <h2>{quizHubActive ? "Practice solo or challenge a friend" : battleTabActive ? "Quiz Battles" : "Solo quiz"}</h2>
       </div>
 
+      {quizHubActive ? (
+        <nav aria-label="Quiz destinations" className="quiz-hub">
+          <button className="quiz-hub-card quiz-hub-card--solo" onClick={() => updateQuizRoute("solo")} type="button">
+            <span aria-hidden="true" className="quiz-hub-card__icon"><ListChecks size={24} strokeWidth={1.9} /></span>
+            <span className="quiz-hub-card__copy">
+              <strong className="quiz-hub-card__title">Solo quiz</strong>
+              <span className="quiz-hub-card__description">Practice any topic and review your answers.</span>
+            </span>
+            <ArrowRight aria-hidden="true" className="quiz-hub-card__arrow" size={20} />
+          </button>
+          <button className="quiz-hub-card quiz-hub-card--battle" onClick={() => updateQuizRoute("battles")} type="button">
+            <span aria-hidden="true" className="quiz-hub-card__icon"><Swords size={24} strokeWidth={1.9} /></span>
+            <span className="quiz-hub-card__copy">
+              <strong className="quiz-hub-card__title">Quiz Battles</strong>
+              <span className="quiz-hub-card__description">Challenge friends and compare scores.</span>
+            </span>
+            <ArrowRight aria-hidden="true" className="quiz-hub-card__arrow" size={20} />
+          </button>
+        </nav>
+      ) : (
       <div
         className={[
           "quiz-mode-shell",
@@ -1299,6 +1335,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
         </div>
       )}
       </div>
+      )}
       <QuizExitDialog
         busy={exitActionBusy}
         error={exitActionError}
