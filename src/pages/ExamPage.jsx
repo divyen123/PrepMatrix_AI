@@ -80,6 +80,10 @@ import {
   academicProfileStorageKey,
   legacyAcademicProfileOwnerStorageKey,
 } from "../utils/academicProfileScope";
+import {
+  clampExamTimerPosition,
+  getExamTimerDefaultPosition,
+} from "../utils/examTimerPosition";
 import "./ExamPage.css";
 
 const TOTAL_MARK_OPTIONS = [30, 40, 50, 60, 70, 80, 90, 100];
@@ -96,6 +100,7 @@ const DEFAULT_MARK_BLUEPRINTS = {
 };
 const VISITED_QUESTIONS_KEY_PREFIX = "prepmatrix_exam_visited_";
 const TIMER_STORAGE_KEY = "prepmatrix_exam_timer_v1";
+const TIMER_POSITION_STORAGE_KEY = "prepmatrix_exam_timer_position_v1";
 const PREPARATION_CENTER_SECONDS = 8;
 const PREPARATION_ESTIMATE_MIN_SECONDS = 2 * 60;
 const PREPARATION_ESTIMATE_MAX_SECONDS = 3 * 60;
@@ -685,38 +690,39 @@ function AnimatedTimerClock({ value }) {
   );
 }
 
+function readCompactTimerPosition(storageKey) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+    if (Number.isFinite(saved?.left) && Number.isFinite(saved?.top)) {
+      return { left: saved.left, top: saved.top };
+    }
+  } catch {
+    // Ignore unavailable storage or invalid saved coordinates.
+  }
+  return null;
+}
+
 function getCompactTimerPosition() {
   const shell = document.querySelector(".app-shell-layout");
   const sidebar = document.querySelector(".app-sidebar");
   const goal = document.querySelector(".goal-reminder-launcher");
-  const companionRow = goal?.closest(".sidebar-companion-row");
   const sidebarVisible = window.innerWidth >= 992 || sidebar?.classList.contains("open");
   const collapsed = shell?.classList.contains("is-sidebar-collapsed");
-  const floating = {
-    left: collapsed && sidebarVisible ? Math.min(92, Math.max(16, window.innerWidth - 126)) : 16,
-    docked: false,
-    target: document.body,
-  };
-  if (!shell || collapsed || !sidebarVisible || !goal || !sidebar || !companionRow) {
-    return floating;
-  }
-
-  const goalBounds = goal.getBoundingClientRect();
-  const rowBounds = companionRow.getBoundingClientRect();
-  const mobileActions = companionRow.querySelector(".sidebar-mobile-actions");
-  const actionsWidth = mobileActions?.getBoundingClientRect().width || 0;
-  if (!goalBounds.width || rowBounds.width < 60 + 60 + 110 + 16 + actionsWidth) return floating;
-  return {
-    left: 0,
-    docked: true,
-    target: companionRow,
-  };
+  return getExamTimerDefaultPosition({
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    sidebarCollapsed: collapsed,
+    sidebarVisible: Boolean(shell && sidebar && sidebarVisible),
+    goalBounds: goal?.getBoundingClientRect(),
+  });
 }
 
 function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, paperMinutes = 60 }) {
   const reducedMotion = useReducedMotion();
   const timerStorageKey = academicProfileStorageKey(academicProfileDataId, "exam-timer")
     || TIMER_STORAGE_KEY;
+  const positionStorageKey = academicProfileStorageKey(academicProfileDataId, "exam-timer-position")
+    || TIMER_POSITION_STORAGE_KEY;
   const [timer, setTimer] = useState(() => readTimerState(
     academicProfileDataId,
     migrateLegacy,
@@ -728,29 +734,36 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
   }), [paperMinutes]);
   const preset = presets[timer.preset] || presets.pomodoro;
   const [modeOpen, setModeOpen] = useState(false);
-  const [position, setPosition] = useState(() => (
-    typeof window === "undefined" ? { left: 16, docked: false, target: null } : getCompactTimerPosition()
+  const [defaultPosition, setDefaultPosition] = useState(() => (
+    typeof window === "undefined" ? { left: 16, top: 16, docked: false } : getCompactTimerPosition()
   ));
+  const [customPosition, setCustomPosition] = useState(() => (
+    typeof window === "undefined" ? null : readCompactTimerPosition(positionStorageKey)
+  ));
+  const [isDragging, setIsDragging] = useState(false);
   const dockRef = useRef(null);
+  const dragRef = useRef(null);
+  const positionStorageKeyRef = useRef(positionStorageKey);
+  const position = customPosition
+    ? { ...clampExamTimerPosition(customPosition, window.innerWidth, window.innerHeight), docked: false }
+    : defaultPosition;
 
   useEffect(() => {
     const updatePosition = () => {
       const next = getCompactTimerPosition();
-      setPosition((current) => current.left === next.left && current.docked === next.docked && current.target === next.target
+      setDefaultPosition((current) => current.left === next.left && current.top === next.top && current.docked === next.docked
         ? current
         : next);
     };
     const shell = document.querySelector(".app-shell-layout");
     const sidebar = document.querySelector(".app-sidebar");
     const goal = document.querySelector(".goal-reminder-launcher");
-    const companionRow = goal?.closest(".sidebar-companion-row");
     const mutationObserver = new MutationObserver(updatePosition);
     const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updatePosition);
     if (shell) mutationObserver.observe(shell, { attributes: true, attributeFilter: ["class"] });
     if (sidebar) mutationObserver.observe(sidebar, { attributes: true, attributeFilter: ["class"] });
     if (sidebar) resizeObserver?.observe(sidebar);
     if (goal) resizeObserver?.observe(goal);
-    if (companionRow) resizeObserver?.observe(companionRow);
     window.addEventListener("resize", updatePosition);
     const frame = window.requestAnimationFrame(updatePosition);
     return () => {
@@ -760,6 +773,12 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
       resizeObserver?.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    if (positionStorageKeyRef.current === positionStorageKey) return;
+    positionStorageKeyRef.current = positionStorageKey;
+    setCustomPosition(readCompactTimerPosition(positionStorageKey));
+  }, [positionStorageKey]);
 
   useEffect(() => {
     if (!modeOpen) return undefined;
@@ -866,15 +885,97 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
     }));
   };
 
+  const saveCustomPosition = (next) => {
+    setCustomPosition(next);
+    try {
+      localStorage.setItem(positionStorageKey, JSON.stringify(next));
+    } catch {
+      // The timer remains movable when browser storage is unavailable.
+    }
+  };
+
+  const startDrag = (event) => {
+    if (event.button !== 0 || event.target.closest("button, a, input, select, textarea, .exam-compact-timer-modes")) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: event.clientX - bounds.left,
+      offsetY: event.clientY - bounds.top,
+      latest: { left: bounds.left, top: bounds.top },
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    setIsDragging(true);
+  };
+
+  const moveDrag = (event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 3) return;
+    drag.moved = true;
+    drag.latest = clampExamTimerPosition({
+      left: event.clientX - drag.offsetX,
+      top: event.clientY - drag.offsetY,
+    }, window.innerWidth, window.innerHeight);
+    setCustomPosition(drag.latest);
+    event.preventDefault();
+  };
+
+  const finishDrag = (event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    if (drag.moved) saveCustomPosition(drag.latest);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setIsDragging(false);
+  };
+
+  const moveWithKeyboard = (event) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Home") {
+      event.preventDefault();
+      setCustomPosition(null);
+      try { localStorage.removeItem(positionStorageKey); } catch { /* Storage is optional. */ }
+      return;
+    }
+    const step = event.shiftKey ? 20 : 10;
+    const offset = {
+      ArrowLeft: { left: -step, top: 0 },
+      ArrowRight: { left: step, top: 0 },
+      ArrowUp: { left: 0, top: -step },
+      ArrowDown: { left: 0, top: step },
+    }[event.key];
+    if (!offset) return;
+    event.preventDefault();
+    saveCustomPosition(clampExamTimerPosition({
+      left: position.left + offset.left,
+      top: position.top + offset.top,
+    }, window.innerWidth, window.innerHeight));
+  };
+
   const phaseLabel = timer.phase === "break" ? "Recovery break" : timer.preset === "paper" ? "Paper time" : "Focus session";
   const timeLabel = formatClock(timer.remainingSeconds);
   const dock = (
     <section
       aria-label={`${phaseLabel} timer, ${timeLabel} remaining`}
-      className={`exam-compact-timer${position.docked ? " is-sidebar-docked" : " is-floating"}${timer.phase === "break" ? " is-break" : ""}`}
+      aria-description="Drag to move the timer. Use arrow keys when focused; press Home to reset its position."
+      className={`exam-compact-timer${position.docked ? " is-sidebar-docked" : " is-floating"}${isDragging ? " is-dragging" : ""}${timer.phase === "break" ? " is-break" : ""}`}
+      onKeyDown={moveWithKeyboard}
+      onLostPointerCapture={finishDrag}
+      onPointerCancel={finishDrag}
+      onPointerDown={startDrag}
+      onPointerMove={moveDrag}
+      onPointerUp={finishDrag}
       ref={dockRef}
       role="group"
-      style={position.docked ? undefined : { left: position.left }}
+      style={{ left: position.left, top: position.top }}
+      tabIndex={0}
+      title="Drag to move timer; press Home to reset its position"
     >
       <AnimatedTimerClock value={timeLabel} />
       <div className="exam-compact-timer-actions">
@@ -920,10 +1021,7 @@ function OfflineExamTimer({ academicProfileDataId = "", migrateLegacy = false, p
       )}
     </section>
   );
-  return typeof document === "undefined" ? dock : createPortal(
-    dock,
-    position.target?.isConnected ? position.target : document.body,
-  );
+  return typeof document === "undefined" ? dock : createPortal(dock, document.body);
 }
 
 function PaperBuilder({

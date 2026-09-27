@@ -20,6 +20,28 @@ function asText(value, fallback = "") {
   return String(value);
 }
 
+// Built-in Helvetica cannot render jsPDF's two-byte encoding for characters above Latin-1.
+const PDF_TEXT_REPLACEMENTS = new Map([
+  ["\u2010", "-"], ["\u2011", "-"], ["\u2012", "-"], ["\u2013", "-"], ["\u2014", "-"], ["\u2212", "-"],
+  ["\u2018", "'"], ["\u2019", "'"], ["\u201c", '"'], ["\u201d", '"'], ["\u2026", "..."],
+  ["\u2264", "<="], ["\u2265", ">="], ["\u2260", "!="], ["\u2248", "~"],
+  ["\u2190", "<-"], ["\u2192", "->"], ["\u221e", "infinity"], ["\u221a", "sqrt"],
+  ["\u03b1", "alpha"], ["\u03b2", "beta"], ["\u03b3", "gamma"], ["\u03b4", "delta"],
+  ["\u03b8", "theta"], ["\u03bb", "lambda"], ["\u03bc", "mu"], ["\u03c0", "pi"],
+  ["\u03c3", "sigma"], ["\u0394", "Delta"], ["\u03a3", "Sigma"], ["\u03a9", "Omega"],
+]);
+
+function pdfSafeText(value) {
+  return Array.from(asText(value).replace(/\r\n?/gu, "\n"), (character) => {
+    if (character === "\n") return character;
+    if (/\s/u.test(character)) return " ";
+    if (PDF_TEXT_REPLACEMENTS.has(character)) return PDF_TEXT_REPLACEMENTS.get(character);
+    if (character.codePointAt(0) <= 255) return character;
+    const decomposed = character.normalize("NFKD").replace(/\p{M}/gu, "");
+    return [...decomposed].every((part) => part.codePointAt(0) <= 255) ? decomposed : "?";
+  }).join("");
+}
+
 function questionText(question) {
   return asText(question?.question || question?.text || question?.prompt, "Untitled question");
 }
@@ -78,7 +100,7 @@ function createWriter(pdf) {
       pdf.setTextColor(...color);
     };
     applyTextStyle();
-    const lines = [...pdf.splitTextToSize(asText(value), usableWidth - indent)];
+    const lines = [...pdf.splitTextToSize(pdfSafeText(value), usableWidth - indent)];
     const lineHeightMm = Math.max(size * 0.3528 * lineHeight, 3.2);
     while (lines.length) {
       let available = PAGE.height - PAGE.bottom - y - gap;
@@ -134,7 +156,7 @@ function addPaperHeading(writer, paper, answerKey) {
   writer.rule();
 }
 
-export function exportQuestionPaperPdf(paper, { answerKey = false } = {}) {
+export function createQuestionPaperPdf(paper, { answerKey = false } = {}) {
   const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
   const writer = createWriter(pdf);
   const questions = paperQuestions(paper);
@@ -185,6 +207,11 @@ export function exportQuestionPaperPdf(paper, { answerKey = false } = {}) {
   }
 
   writer.finish();
+  return pdf;
+}
+
+export function exportQuestionPaperPdf(paper, { answerKey = false } = {}) {
+  const pdf = createQuestionPaperPdf(paper, { answerKey });
   const suffix = answerKey ? "Answer_Key" : "Question_Paper";
   pdf.save(`${cleanFilename(paper?.paperTitle || paper?.title, "PrepMatrix")}_${suffix}.pdf`);
 }
