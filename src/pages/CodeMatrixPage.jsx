@@ -442,7 +442,14 @@ export default function CodeMatrixPage({
             </section>
             <div className="cmx-resize-handle" role="separator" aria-label="Resize code and output panels" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="70" aria-valuenow={Math.round(sourceSplit * 100)} tabIndex="0" onPointerDown={startResize} onKeyDown={handleResizeKeyDown}><span aria-hidden="true" /></div>
             <section className="cmx-results" aria-label="Execution results">
-              {result && <div className={`cmx-result-status is-${result.status}`} role="status"><span>{STATUS_LABELS[result.status] || result.status}{!unchanged && !isWeb && result.code && " · code changed since this run"}</span>{Number.isFinite(result.durationMs) && <span>{(result.durationMs / 1000).toFixed(2)} s</span>}</div>}
+              {result && <div className={`cmx-result-status is-${result.status}${isWeb && resultTab === "preview" && result.stderr ? " has-preview-error" : ""}`} role="status">
+                <span>{STATUS_LABELS[result.status] || result.status}{!unchanged && !isWeb && result.code && " · code changed since this run"}</span>
+                {isWeb && resultTab === "preview" && result.stderr && <>
+                  <button type="button" className="cmx-preview-error-details" onClick={() => setResultTab("debug")}>View details<ArrowRight size={13} aria-hidden="true" /></button>
+                  <span className="cmx-preview-error-summary">{result.stderr.trim().split("\n")[0]}</span>
+                </>}
+                {Number.isFinite(result.durationMs) && <span>{(result.durationMs / 1000).toFixed(2)} s</span>}
+              </div>}
               <div className={`cmx-result-content${reviewSnapshot ? ' has-assistant' : ''}`} role="region" aria-label={resultTab === "preview" ? "Web preview" : resultTab === "debug" ? "Debug results" : "Program output"}>
                 {preview && <iframe ref={previewRef} title="CodeMatrix webpage preview" hidden={resultTab !== "preview"} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={preview.srcDoc} />}
                 {busy && !waiting && <div className="cmx-running-message" role="status"><LoaderCircle className="cmx-spin" size={14} />{runtimeMessage}</div>}
@@ -450,7 +457,8 @@ export default function CodeMatrixPage({
                   preview ? null : <div className="cmx-empty"><Code2 size={30} /><strong>Your page will appear here</strong><span>Edit the three files and select Run preview.</span></div>
                 ) : resultTab === "debug" ? (
                   <div className="cmx-debug-content">
-                    <p className="cmx-debug-caption">{workspaceLanguage === "python" ? "Debug records the lines and variables from your Python run. Step through the captured trace below." : "Run with Debug to inspect compiler and runtime errors. Line-by-line traces are available for Python."}</p>
+                    <p className="cmx-debug-caption">{isWeb ? "Errors and messages from your latest web preview appear below." : workspaceLanguage === "python" ? "Debug records the lines and variables from your Python run. Step through the captured trace below." : "Run with Debug to inspect compiler and runtime errors. Line-by-line traces are available for Python."}</p>
+                    {isWeb && preview && <button type="button" className="cmx-button cmx-preview-return" onClick={() => setResultTab("preview")}>Back to preview</button>}
                     {trace.length > 0 && <div className="cmx-trace"><div className="cmx-trace-controls"><button type="button" aria-label="Previous trace step" disabled={traceIndex === 0} onClick={() => jumpTrace(traceIndex - 1)}><ChevronLeft size={17} /></button><span>Step {traceIndex + 1} / {trace.length} · Line {trace[traceIndex]?.line}</span><button type="button" aria-label="Next trace step" disabled={traceIndex >= trace.length - 1} onClick={() => jumpTrace(traceIndex + 1)}><ChevronRight size={17} /></button></div><h3>Variables before this line</h3><dl>{Object.entries(trace[traceIndex]?.locals || {}).map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{String(value)}</dd></div>)}</dl>{Object.keys(trace[traceIndex]?.locals || {}).length === 0 && <p>No variables yet.</p>}</div>}
                     {result?.stderr ? <><strong className="cmx-error-heading">Execution details</strong><pre className="cmx-stderr">{result.stderr}</pre>{errorDiagnostics[0]?.line && <button type="button" className="cmx-button" onClick={() => { if (isWeb) setWebTab("javascript"); setActiveLine(errorDiagnostics[0].line); }}>Go to {isWeb ? "script.js · " : ""}line {errorDiagnostics[0].line}<ArrowRight size={14} /></button>}</> : result ? <p className="cmx-debug-success"><Check size={16} />{result.status === "stopped" ? "Execution was stopped." : "No runtime errors were reported."}</p> : <div className="cmx-empty"><Bug size={28} /><strong>Find what needs fixing</strong><span>Select Debug to run and inspect your code.</span></div>}
                   </div>

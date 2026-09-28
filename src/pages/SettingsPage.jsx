@@ -2541,9 +2541,9 @@ function SettingsPage({
             <div className="settings-credit-copy">
               <span className="settings-credit-kicker">AI CREDITS</span>
               <h3>Monthly allowance</h3>
-              <p>{creditsKnown
-                ? "AI study actions use this balance. It resets each month."
-                : creditsLoading ? "Checking your AI credit balance…" : "Your AI credit balance is unavailable."}</p>
+              {!creditsKnown && <p>{creditsLoading
+                ? "Checking your AI credit balance…"
+                : "Your AI credit balance is unavailable."}</p>}
               <div className="settings-credit-totals" aria-label="AI credit usage">
                 <span><strong>{creditsKnown ? creditsUsed : "—"}</strong> used</span>
                 <span><strong>{creditsKnown ? creditsProcessing : "—"}</strong> processing</span>

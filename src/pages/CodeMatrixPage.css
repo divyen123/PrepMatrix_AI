@@ -248,6 +248,11 @@ body .cmx-page .cmx-file-tabs button:focus-visible { outline: 2px solid var(--cm
 .cmx-result-status { flex-shrink: 0; display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--cmx-divider); padding: 9px 15px; color: var(--cmx-label); font-size: 11px; }
 .cmx-result-status.is-success { color: var(--cmx-success); background: var(--cmx-success-surface); }
 .cmx-result-status.is-error, .cmx-result-status.is-timeout { color: var(--cmx-error); background: var(--cmx-error-surface); }
+.cmx-result-status.has-preview-error { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; row-gap: 4px; }
+.cmx-preview-error-summary { grid-column: 1 / -1; overflow-wrap: anywhere; font: 11px/1.5 'Cascadia Code', Consolas, monospace; }
+body .cmx-page .cmx-preview-error-details { display: inline-flex; align-items: center; gap: 4px; min-height: 0; margin: 0; padding: 0; border: 0; background: transparent; color: inherit; box-shadow: none; font-size: 11px; text-decoration: underline; text-underline-offset: 2px; }
+body .cmx-page .cmx-preview-error-details:focus-visible { outline: 2px solid var(--cmx-focus); outline-offset: 2px; }
+.cmx-preview-return { margin-bottom: 8px; }
 .cmx-output { padding: 18px; }
 .cmx-running-message { display: flex; align-items: center; gap: 8px; padding: 12px 18px 0; color: var(--cmx-muted); font-size: 11px; }
 .cmx-terminal { min-height: 80px; cursor: text; }

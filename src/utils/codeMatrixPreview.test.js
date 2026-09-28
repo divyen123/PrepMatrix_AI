@@ -79,3 +79,31 @@ test('HTML example can invoke speech synthesis from a guarded inline button hand
   assert.deepEqual(spoken, ['Divyen']);
   assert.equal(listeners.has('DOMContentLoaded'), true);
 });
+
+test('HTML speech constructor typo produces a useful runtime error', async () => {
+  const html = `<input id="text"><button onclick="speak()">Speak</button>
+<script>function speak() { speechSynthesis.speak(new speechSynthesisUtterance(text.value)); }</script>`;
+  const preview = await buildCodeMatrixPreview({ html, javascript: '', channel: 'speech-typo' });
+  const document = parseHtml(preview);
+  const handler = attribute(descendants(document, 'button')[0], 'onclick');
+  const [bootstrap, inline] = descendants(document, 'script').map(scriptText);
+  const listeners = new Map();
+  const messages = [];
+  const context = {
+    parent: { postMessage: (message) => messages.push(message) },
+    console: {}, performance: { now: () => 0 }, setTimeout: () => 1,
+    text: { value: 'hello welcome' },
+    speechSynthesis: { speak() { throw Error('Should not speak with an invalid constructor.'); } },
+    SpeechSynthesisUtterance: class {},
+    window: { addEventListener: (type, listener) => listeners.set(type, listener) },
+  };
+  assert.throws(() => vm.runInNewContext(`${bootstrap}\n${inline}\n${handler}`, context), /speechSynthesisUtterance is not defined/);
+  listeners.get('error')({
+    preventDefault() {},
+    message: 'speechSynthesisUtterance is not defined',
+    lineno: 2,
+    colno: 1,
+  });
+  assert.equal(messages.at(-1).type, 'error');
+  assert.match(messages.at(-1).message, /speechSynthesisUtterance is not defined/);
+});
