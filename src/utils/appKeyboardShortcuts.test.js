@@ -39,14 +39,30 @@ test("resolves global workspace shortcuts", () => {
   );
 });
 
-test("keeps all ten numbered navigation routes mapped", () => {
-  assert.equal(APP_NAVIGATION_SHORTCUTS.length, 10);
+test("maps numbered navigation shortcuts to the current sidebar pages", () => {
+  assert.deepEqual(
+    APP_NAVIGATION_SHORTCUTS.map(({ key, label, route }) => ({ key, label, route })),
+    [
+      { key: "1", label: "Dashboard", route: "/dashboard" },
+      { key: "2", label: "Subjects", route: "/subjects" },
+      { key: "3", label: "Start Learning", route: "/learn" },
+      { key: "4", label: "Planner", route: "/planner" },
+      { key: "5", label: "Analytics", route: "/analytics" },
+      { key: "6", label: "Notes", route: "/notes" },
+      { key: "7", label: "Quiz", route: "/quiz" },
+      { key: "8", label: "Materials", route: "/resources" },
+      { key: "9", label: "Resume Builder", route: "/resume-builder" },
+    ],
+  );
   APP_NAVIGATION_SHORTCUTS.forEach((shortcut) => {
     assert.deepEqual(
       resolveAppKeyboardShortcut(keyboardEvent({ altKey: true, key: shortcut.key })),
       shortcut,
     );
   });
+  assert.equal(resolveAppKeyboardShortcut(keyboardEvent({ altKey: true, key: "0" })), null);
+  assert.ok(APP_SHORTCUT_GUIDE_GROUPS.find((group) => group.id === "navigation")
+    .items.every((item) => item.label !== "Open Report"));
 });
 
 test("guide presents workspace, navigation, and page-specific actions", () => {

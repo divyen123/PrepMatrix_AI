@@ -6,9 +6,8 @@ export const APP_NAVIGATION_SHORTCUTS = Object.freeze([
   { action: "navigate", key: "5", keys: ["Alt", "5"], label: "Analytics", route: "/analytics" },
   { action: "navigate", key: "6", keys: ["Alt", "6"], label: "Notes", route: "/notes" },
   { action: "navigate", key: "7", keys: ["Alt", "7"], label: "Quiz", route: "/quiz" },
-  { action: "navigate", key: "8", keys: ["Alt", "8"], label: "Report", route: "/report" },
-  { action: "navigate", key: "9", keys: ["Alt", "9"], label: "Materials", route: "/resources" },
-  { action: "navigate", key: "0", keys: ["Alt", "0"], label: "Resume Builder", route: "/resume-builder" },
+  { action: "navigate", key: "8", keys: ["Alt", "8"], label: "Materials", route: "/resources" },
+  { action: "navigate", key: "9", keys: ["Alt", "9"], label: "Resume Builder", route: "/resume-builder" },
 ]);
 
 export const APP_SHORTCUT_GUIDE_GROUPS = Object.freeze([
