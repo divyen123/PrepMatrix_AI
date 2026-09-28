@@ -2261,7 +2261,6 @@ function SettingsPage({
     <section className="settings-page route-stage">
       <div className="compact-intro">
         <h2>Settings</h2>
-        <p className="card-subtext">Manage profile, update password, and customize application appearance.</p>
       </div>
 
       <div className="dashboard-feature-grid settings-grid" style={{ marginTop: "24px" }}>
