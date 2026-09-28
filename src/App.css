@@ -19980,6 +19980,16 @@ body.dark .about-page-route .card.card-spotlight:focus-within::before {
   background: rgba(var(--accent-rgb), 0.09);
 }
 
+.about-credit-balance.is-low {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface-strong));
+}
+
+.about-credit-balance.is-low strong {
+  color: color-mix(in srgb, var(--danger) 72%, var(--text));
+}
+
 .about-credit-balance > div {
   display: grid;
   gap: 2px;

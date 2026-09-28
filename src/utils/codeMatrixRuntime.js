@@ -1,4 +1,5 @@
 import { parse } from 'acorn';
+import { parse as parseHtml, serialize as serializeHtml } from 'parse5';
 import {
   CODE_MATRIX_LIMITS,
   CODE_MATRIX_RUNTIMES,
@@ -11,8 +12,8 @@ export { CODE_MATRIX_LIMITS, CODE_MATRIX_RUNTIMES };
 
 // Insert budget checks using JavaScript syntax positions, never regex rewriting.
 // Checks remain on the original line so errors point to the student's file.
-export function instrumentCodeMatrixPreview(source, guardName) {
-  const ast = parse(source, { ecmaVersion: 'latest', sourceType: 'script' });
+export function instrumentCodeMatrixPreview(source, guardName, { allowReturnOutsideFunction = false } = {}) {
+  const ast = parse(source, { ecmaVersion: 'latest', sourceType: 'script', allowReturnOutsideFunction });
   const inserts = [];
   const check = `${guardName}();`;
   function visit(node) {
@@ -50,38 +51,96 @@ function codeMatrixPreviewBootstrap(config) {
   for (const level of ['log', 'info', 'warn', 'error', 'debug']) console[level] = (...args) => send('console', args.slice(0, 20).map(format).join(' '), level);
   window.addEventListener('error', (event) => {
     event.preventDefault();
-    // Skip the injected budget helper's first line and point to its caller.
-    const frame = [...String(event.error?.stack || '').matchAll(/script\.js:(\d+):(\d+)/g)].find((match) => Number(match[1]) > 1);
+    // Instrumentation stays on the student's source line.
+    const frame = [...String(event.error?.stack || '').matchAll(/script\.js:(\d+):(\d+)/g)][0];
     const line = frame ? Number(frame[1]) : event.lineno;
     const column = frame ? Number(frame[2]) : event.colno;
-    send('error', `${event.message}${line ? `\nscript.js:${Math.max(1, line - 1)}:${column || 1}` : ''}`);
+    send('error', `${event.message}${line ? `\nscript.js:${line}:${column || 1}` : ''}`);
   });
   window.addEventListener('unhandledrejection', (event) => { event.preventDefault(); send('error', event.reason?.message || event.reason); });
   window.addEventListener('DOMContentLoaded', () => {
     const style = document.createElement('style');
     style.textContent = config.css;
     document.head.appendChild(style);
+    for (const error of config.htmlErrors) send('error', error);
     if (config.error) { send('error', config.error); return; }
     const script = document.createElement('script');
-    script.nonce = config.nonce;
     script.textContent = config.javascript;
     document.body.appendChild(script);
   }, { once: true });
 }
 
-export function buildCodeMatrixPreview({ html = '', css = '', javascript = '', channel }) {
-  const nonce = crypto.randomUUID().replaceAll('-', '');
-  const guard = `cmGuard_${nonce}`;
+async function codeMatrixCspHash(source) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
+  return `'sha256-${btoa(String.fromCharCode(...new Uint8Array(digest)))}'`;
+}
+
+function codeMatrixHtmlNodes(node, visit) {
+  visit(node);
+  for (const child of node.childNodes || []) codeMatrixHtmlNodes(child, visit);
+  // Template contents stay inert. If later cloned into the page, their scripts
+  // and handlers have no CSP hash and cannot run without instrumentation.
+}
+
+function codeMatrixHeadElement(head, tagName, attrs = [], value = null) {
+  const element = { nodeName: tagName, tagName, attrs, namespaceURI: 'http://www.w3.org/1999/xhtml', childNodes: [], parentNode: head };
+  if (value !== null) element.childNodes.push({ nodeName: '#text', value, parentNode: element });
+  return element;
+}
+
+export async function buildCodeMatrixPreview({ html = '', css = '', javascript = '', channel }) {
+  const guard = `cmGuard_${crypto.randomUUID().replaceAll('-', '')}`;
+  const htmlDocument = parseHtml(html);
+  const inlineScripts = [];
+  const inlineHandlers = [];
+  const htmlErrors = [];
+  codeMatrixHtmlNodes(htmlDocument, (node) => {
+    if (!node.attrs) return;
+    for (const attr of node.attrs) {
+      if (!/^on[a-z]+$/i.test(attr.name)) continue;
+      try {
+        attr.value = `${guard}();${instrumentCodeMatrixPreview(attr.value, guard, { allowReturnOutsideFunction: true })}`;
+        inlineHandlers.push(attr.value);
+      } catch (failure) {
+        htmlErrors.push(`HTML ${attr.name} syntax error: ${failure.message}`);
+        attr.value = '';
+      }
+    }
+    if (node.nodeName !== 'script' || node.attrs.some((attr) => attr.name === 'src')) return;
+    const type = node.attrs.find((attr) => attr.name === 'type')?.value.trim().toLowerCase();
+    if (type && !['text/javascript', 'application/javascript'].includes(type)) return;
+    const source = (node.childNodes || []).map((child) => child.value || '').join('');
+    try {
+      const guarded = instrumentCodeMatrixPreview(source, guard);
+      node.childNodes = [{ nodeName: '#text', value: guarded, parentNode: node }];
+      inlineScripts.push(guarded);
+    } catch (failure) {
+      htmlErrors.push(`HTML inline script syntax error: ${failure.message}`);
+      node.childNodes = [];
+    }
+  });
   let script = '';
   let error = '';
   try {
-    const guarded = instrumentCodeMatrixPreview(javascript, guard);
-    // A lexical const prevents student declarations from replacing the guard.
-    script = `{const ${guard}=(()=>{let count=0,start=0,pending=false;const clock=performance.now.bind(performance),defer=setTimeout.bind(window);return()=>{if(!pending){pending=true;count=0;start=clock();defer(()=>{pending=false;},0);}if(++count>100000||clock()-start>2000)throw Error('Preview execution limit reached. Check loops or recursion.');};})();\n${guarded}\n}\n//# sourceURL=script.js`;
+    script = `${instrumentCodeMatrixPreview(javascript, guard)}\n//# sourceURL=script.js`;
   } catch (failure) { error = `JavaScript syntax error: ${failure.message}${failure.loc ? `\nscript.js:${failure.loc.line}:${failure.loc.column + 1}` : ''}`; }
-  const config = { css, javascript: script, channel, nonce, error };
-  const csp = `default-src 'none'; base-uri 'none'; object-src 'none'; frame-src 'none'; connect-src 'none'; form-action 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;`;
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${csp}"><script nonce="${nonce}">(${codeMatrixPreviewBootstrap.toString()})(${serializeCodeMatrixScriptData(config)});</script></head><body>${html}</body></html>`;
+  const config = { css, javascript: script, channel, error, htmlErrors };
+  // This global lexical binding is visible to HTML handlers and classic script
+  // elements, but student declarations cannot replace it.
+  const bootstrap = `const ${guard}=(()=>{let count=0,start=0,pending=false;const clock=performance.now.bind(performance),defer=setTimeout.bind(window);return()=>{if(!pending){pending=true;count=0;start=clock();defer(()=>{pending=false;},0);}if(++count>100000||clock()-start>2000)throw Error('Preview execution limit reached. Check loops or recursion.');};})();\n(${codeMatrixPreviewBootstrap.toString()})(${serializeCodeMatrixScriptData(config)});`;
+  const scriptHashes = await Promise.all([bootstrap, script, ...inlineScripts].map(codeMatrixCspHash));
+  const handlerHashes = await Promise.all([...new Set(inlineHandlers)].map(codeMatrixCspHash));
+  const csp = `default-src 'none'; base-uri 'none'; object-src 'none'; frame-src 'none'; connect-src 'none'; form-action 'none'; script-src ${scriptHashes.join(' ')}; script-src-attr ${handlerHashes.length ? `'unsafe-hashes' ${handlerHashes.join(' ')}` : "'none'"}; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;`;
+  const htmlElement = htmlDocument.childNodes.find((node) => node.nodeName === 'html');
+  const head = htmlElement.childNodes.find((node) => node.nodeName === 'head');
+  head.childNodes.unshift(
+    codeMatrixHeadElement(head, 'meta', [{ name: 'charset', value: 'utf-8' }]),
+    codeMatrixHeadElement(head, 'meta', [{ name: 'name', value: 'viewport' }, { name: 'content', value: 'width=device-width, initial-scale=1' }]),
+    codeMatrixHeadElement(head, 'meta', [{ name: 'http-equiv', value: 'Content-Security-Policy' }, { name: 'content', value: csp }]),
+    codeMatrixHeadElement(head, 'script', [], bootstrap),
+  );
+  const documentHtml = serializeHtml(htmlDocument);
+  return (htmlDocument.childNodes || []).some((node) => node.nodeName === '#documentType') ? documentHtml : `<!doctype html>${documentHtml}`;
 }
 
 // Escapes data inside the one trusted bootstrap script, including HTML parser

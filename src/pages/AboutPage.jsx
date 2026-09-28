@@ -50,6 +50,7 @@ const FEATURES = [
 ];
 
 const CREDIT_ACTIONS = Object.values(AI_FEATURES);
+const LOW_CREDIT_THRESHOLD = 15;
 
 function formatCreditReset(value) {
   const date = new Date(value || "");
@@ -125,10 +126,10 @@ function AboutPage({ academicProfile = {} }) {
             Credits are used only when you request an AI action. If an AI request cannot be completed, its credits are returned automatically.
           </p>
 
-          <div className="about-credit-balance">
+          <div className={`about-credit-balance${isKnown && remainingCredits < LOW_CREDIT_THRESHOLD ? " is-low" : ""}`}>
             <Coins aria-hidden="true" size={22} />
             <div>
-              <strong>{isKnown ? `${remainingCredits} credits left` : "Your current balance"}</strong>
+              <strong>{isKnown ? `${remainingCredits} credit${remainingCredits === 1 ? "" : "s"} left` : "Your current balance"}</strong>
               <span>
                 {isKnown
                   ? `${usedCredits} used · ${quota.reserved || 0} processing · ${quota.limit} total`

@@ -10,7 +10,9 @@ import SettingsAcademicChangeDialog from "../components/SettingsAcademicChangeDi
 import SettingsClearDataDialog from "../components/SettingsClearDataDialog";
 import SquishSwitch from "../components/SquishSwitch";
 import SloshGauge from "../components/SloshGauge";
+import CometDial from "../components/CometDial";
 import WakeSlider from "../components/WakeSlider";
+import { useAiQuota } from "../utils/aiQuota";
 import {
   DEFAULT_GOAL_REMINDER_DATA,
   DEFAULT_GOAL_REMINDER_SETTINGS,
@@ -526,6 +528,14 @@ function SettingsPage({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isKnown: creditsKnown, loading: creditsLoading, quota: creditsQuota } = useAiQuota();
+  const creditsRemaining = creditsKnown ? Math.max(0, creditsQuota.remaining) : 0;
+  const creditsLimit = creditsKnown ? Math.max(1, creditsQuota.limit || 100) : 100;
+  const creditsProcessing = creditsKnown ? Math.max(0, creditsQuota.reserved || 0) : 0;
+  const creditsUsed = creditsKnown
+    ? Math.max(0, creditsQuota.used ?? creditsLimit - creditsRemaining - creditsProcessing)
+    : 0;
+  const creditsLow = creditsKnown && creditsRemaining < 15;
   const assistantVoicePreferences = normalizeVoicePreferences(voicePreferences);
   const updateVoicePreference = (key, value) => {
     setVoicePreferences?.((currentPreferences) => {
@@ -2499,6 +2509,49 @@ function SettingsPage({
           </div>
         </div>
 
+        {/* Credit balance and security share the height beside the profile card. */}
+        <div className="settings-security-stack">
+          <section
+            aria-label="Monthly AI credits"
+            className={`settings-credit-summary${creditsLow ? " is-low" : ""}`}
+          >
+            <CometDial
+              accent="var(--settings-credit-tone)"
+              className="settings-credit-dial"
+              ink="var(--text)"
+              label={creditsKnown
+                ? `${creditsRemaining} of ${creditsLimit} AI credits remaining`
+                : "AI credit balance unavailable"}
+              max={creditsLimit}
+              min={0}
+              readOnly
+              size={156}
+              sweep={320}
+              thickness={8}
+              unit=""
+              value={creditsRemaining}
+            >
+              <div className="settings-credit-dial-readout">
+                <strong>{creditsKnown ? creditsRemaining : "—"}</strong>
+                <span>{creditsKnown
+                  ? `credit${creditsRemaining === 1 ? "" : "s"} left`
+                  : "credits"}</span>
+              </div>
+            </CometDial>
+            <div className="settings-credit-copy">
+              <span className="settings-credit-kicker">AI CREDITS</span>
+              <h3>Monthly allowance</h3>
+              <p>{creditsKnown
+                ? "AI study actions use this balance. It resets each month."
+                : creditsLoading ? "Checking your AI credit balance…" : "Your AI credit balance is unavailable."}</p>
+              <div className="settings-credit-totals" aria-label="AI credit usage">
+                <span><strong>{creditsKnown ? creditsUsed : "—"}</strong> used</span>
+                <span><strong>{creditsKnown ? creditsProcessing : "—"}</strong> processing</span>
+                <span><strong>{creditsKnown ? creditsLimit : "—"}</strong> total</span>
+              </div>
+            </div>
+          </section>
+
         {/* Security Credentials */}
         <div className="card settings-card settings-security-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
@@ -2664,6 +2717,7 @@ function SettingsPage({
               <Save size={14} /> Update Credentials
             </button>
           </div>
+        </div>
         </div>
 
         {/* System Preferences & Toggles */}

@@ -216,7 +216,8 @@ export default function CodeMatrixPage({
     const sequence = ++runSequenceRef.current;
     if (isWeb) {
       const channel = crypto.randomUUID();
-      const srcDoc = buildCodeMatrixPreview({ html: drafts.html, css: drafts.css, javascript: drafts.javascript, channel });
+      const srcDoc = await buildCodeMatrixPreview({ html: drafts.html, css: drafts.css, javascript: drafts.javascript, channel });
+      if (!mountedRef.current || sequence !== runSequenceRef.current) return;
       setResult({ status: "success", stdout: "", stderr: "", code: drafts.javascript, language: "javascript", previewChannel: channel, files: { html: drafts.html, css: drafts.css } });
       setPreview({ srcDoc, channel });
       setResultTab("preview");

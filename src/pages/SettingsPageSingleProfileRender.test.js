@@ -114,6 +114,12 @@ test("renders Settings for one profile without deletion guidance", async () => {
     const { default: SettingsPage } = await vite.ssrLoadModule(
       "/src/pages/SettingsPage.jsx",
     );
+    const { AiQuotaContext } = await vite.ssrLoadModule("/src/utils/aiQuota.js");
+    let quotaValue = {
+      isKnown: true,
+      loading: false,
+      quota: { remaining: 1, used: 99, reserved: 0, limit: 100 },
+    };
     const noop = () => {};
     const userProfile = {
       academicLevel: "Undergraduate / Bachelor''s",
@@ -172,11 +178,21 @@ test("renders Settings for one profile without deletion guidance", async () => {
     const renderSettings = (overrides = {}) => renderToStaticMarkup(React.createElement(
       MemoryRouter,
       { initialEntries: ["/settings"] },
-      React.createElement(SettingsPage, { ...settingsProps, ...overrides }),
+      React.createElement(
+        AiQuotaContext.Provider,
+        { value: quotaValue },
+        React.createElement(SettingsPage, { ...settingsProps, ...overrides }),
+      ),
     ));
     const markup = renderSettings();
 
     assert.match(markup, /Profile &amp; Information/u);
+    assert.match(markup, /class="settings-credit-summary is-low"/u);
+    assert.match(markup, /<strong>1<\/strong><span>credit left<\/span>/u);
+    assert.match(markup, /99<\/strong> used/u);
+    quotaValue = { ...quotaValue, quota: { remaining: 15, used: 85, reserved: 0, limit: 100 } };
+    assert.match(renderSettings(), /class="settings-credit-summary"/u);
+    quotaValue = { ...quotaValue, quota: { remaining: 1, used: 99, reserved: 0, limit: 100 } };
     assert.match(markup, /Current:<\/span><span class="settings-profile-current-name"><strong>Engineering<\/strong>/u);
     assert.match(markup, /aria-label="Rename Engineering"/u);
     assert.match(markup, /href="\/settings\/profiles"/u);

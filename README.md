@@ -80,7 +80,7 @@ The workspace offers writing, running, and debugging without a lessons submodule
 | Python | Pyodide 0.27.7, with live terminal input, exceptions and up to 200 recorded line/variable steps. Variables are captured before each line. |
 | JavaScript | QuickJS 0.32.0 adapter with console output, runtime errors, synchronous `readLine()` / `prompt()` input, and awaited code/timers. |
 | SQL | sql.js 1.13.0 (SQLite dialect). Each run gets a fresh `students(id, name, age, grade, marks)` practice database; results are bounded tables. |
-| HTML / CSS / JavaScript | Combined isolated webpage preview. Put JavaScript in the `script.js` tab; inline scripts in HTML and external resources are blocked. Common loops and recursion have cooperative execution guards. |
+| HTML / CSS / JavaScript | Combined isolated webpage preview. JavaScript in `script.js`, inline HTML scripts, and inline event handlers run with cooperative loop and recursion guards. External resources remain blocked. |
 | C / C++ | Bundled WebAssembly Clang, C11 / C++17, standard console input/output and compiler errors. C++ includes the standard library. |
 | Java | Bundled Doppio JVM 0.5.0 and OpenJDK 8 class library/compiler. Use Java 8 syntax and a `Main` class in `Main.java`; `Scanner` and buffered console input are supported. |
 
