@@ -142,31 +142,6 @@ body .cmx-page .cmx-quiet { background: transparent; border-color: transparent; 
 .cmx-placement-handoff strong { overflow: hidden; color: var(--cmx-text); font-size: 12px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .cmx-placement-handoff p { margin: 0; overflow: hidden; color: var(--cmx-label); font-size: 11px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 body .cmx-page.is-embedded {
-  --text: #edf4fa;
-  --text-muted: #9aabba;
-  --border: #2a3946;
-  --surface-strong: #111a23;
-  --surface-muted: #17232d;
-  --accent: #70e2c4;
-  --accent-soft: rgb(112 226 196 / 11%);
-  --bg: #0b1118;
-  --cmx-surface: #10171e;
-  --cmx-panel-surface: #141e27;
-  --cmx-control-surface: #1b2833;
-  --cmx-control-hover: #233744;
-  --cmx-tab-hover: #294039;
-  --cmx-selected-surface: #183a33;
-  --cmx-selected-border: #428675;
-  --cmx-border: #2a3946;
-  --cmx-divider: #283540;
-  --cmx-control-border: #344451;
-  --cmx-text: #dee7ee;
-  --cmx-label: #a8b8c7;
-  --cmx-control-text: #a9bccd;
-  --cmx-control-text-hover: #f4fbff;
-  --cmx-muted: #829bae;
-  --cmx-subtle: #728799;
-  --cmx-focus: #82ecd0;
   display: flex;
   height: 100%;
   min-height: 0;
@@ -175,7 +150,7 @@ body .cmx-page.is-embedded {
   padding: 10px;
   padding-bottom: 10px;
   overflow: hidden;
-  background: #0b1118;
+  background: var(--cmx-surface);
 }
 .cmx-page.is-embedded > :not(.cmx-workbench) { flex-shrink: 0; }
 .cmx-page.is-embedded .cmx-placement-handoff { padding: 7px 10px; border-radius: 9px; }

@@ -14,6 +14,11 @@
 }
 
 .code-matrix-window {
+  --cmx-window-surface: #0b1118;
+  --cmx-window-header-surface: #141d26;
+  --cmx-window-border: #344250;
+  --cmx-window-header-border: #2c3945;
+  --cmx-window-shadow: 0 28px 90px rgb(0 0 0 / 58%);
   position: fixed;
   display: grid;
   grid-template-rows: 38px minmax(0, 1fr);
@@ -22,11 +27,11 @@
   min-width: min(620px, calc(100vw - 24px));
   min-height: min(520px, calc(100dvh - 24px));
   overflow: hidden;
-  color: #f5f8fb;
-  background: #0b1118;
-  border: 1px solid #344250;
+  color: var(--text);
+  background: var(--cmx-window-surface);
+  border: 1px solid var(--cmx-window-border);
   border-radius: 14px;
-  box-shadow: 0 28px 90px rgb(0 0 0 / 58%);
+  box-shadow: var(--cmx-window-shadow);
   isolation: isolate;
   transform: translateZ(0);
   transition:
@@ -36,6 +41,19 @@
     border-radius 280ms ease,
     box-shadow 280ms ease;
   will-change: transform, opacity, clip-path;
+}
+
+body:not(.dark) .code-matrix-window {
+  --cmx-window-surface: #ffffff;
+  --cmx-window-header-surface: #f1f5f9;
+  --cmx-window-border: #cbd5e1;
+  --cmx-window-header-border: #dce4ed;
+  --cmx-window-shadow: 0 28px 90px rgb(15 23 42 / 24%);
+}
+
+body.has-bg-image .code-matrix-window {
+  --cmx-window-surface: color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 24%, #0b1118 76%);
+  --cmx-window-header-surface: color-mix(in srgb, rgb(var(--bg-surface-rgb, 16, 21, 26)) 30%, #141d26 70%);
 }
 
 .code-matrix-window.is-maximized {
@@ -59,9 +77,9 @@
   justify-content: space-between;
   gap: 12px;
   padding: 0 11px 0 14px;
-  color: #edf4fa;
-  background: #141d26;
-  border-bottom: 1px solid #2c3945;
+  color: inherit;
+  background: var(--cmx-window-header-surface);
+  border-bottom: 1px solid var(--cmx-window-header-border);
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -118,7 +136,7 @@ body .code-matrix-window-control:is(:hover, :focus-visible) svg,
 }
 
 body .code-matrix-window-control:focus-visible {
-  outline: 2px solid #d8e8f4 !important;
+  outline: 2px solid var(--accent) !important;
   outline-offset: 2px;
 }
 
@@ -131,7 +149,7 @@ body .code-matrix-window-control::after {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: #0b1118;
+  background: var(--cmx-window-surface);
 }
 
 .code-matrix-window-is-dragging,
