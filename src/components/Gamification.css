@@ -12,6 +12,10 @@
   z-index: 3;
 }
 
+.study-momentum-card.has-battle-details > .gamification-scroll-region {
+  z-index: 11;
+}
+
 body .gamification-card.study-momentum-card {
   background:
     linear-gradient(145deg, rgba(11, 143, 116, 0.08), transparent 52%),
