@@ -404,27 +404,13 @@ test("places Subject Mastery beside Back in Notebook preparation", () => {
   assert.doesNotMatch(stylesheet, /\.learning-hero(?:[\s:{])/u);
 });
 
-test("expands important questions in place with an animated answer panel", () => {
-  assert.match(
-    pageSource,
-    /aria-controls=\{`learning-question-answer-\$\{question\.id\}`\}[\s\S]*?aria-expanded=\{expanded\}[\s\S]*?<ChevronDown aria-hidden="true" className="learning-question-chevron" size=\{17\} \/>[\s\S]*?aria-hidden=\{!expanded\}[\s\S]*?className="learning-question-answer"[\s\S]*?className="learning-question-answer__content"/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-question-card\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-rows:\s*auto 0fr;[\s\S]*?transition:[\s\S]*?grid-template-rows 300ms/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-question-card\.is-open\s*\{[\s\S]*?grid-template-rows:\s*auto 1fr;[\s\S]*?border-color:/u,
-  );
-  assert.doesNotMatch(
-    stylesheet,
-    /\.learning-question-card\.is-open\s*\{[^}]*grid-column:/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-question-answer\s*\{[\s\S]*?min-height:\s*0;[\s\S]*?overflow:\s*hidden;/u,
-  );
+test("shows the simplified notebook views and section actions", () => {
+  assert.doesNotMatch(pageSource, /Study studio|LearningStudyStudio|Misconception radar|AI Coach/u);
+  assert.match(pageSource, /\["notes", "Revised notes"/u);
+  assert.match(pageSource, /\["outline", "Topic outline"/u);
+  assert.match(pageSource, /\["map", "Mastery map"/u);
+  assert.match(pageSource, /\["recall", "Recall session"/u);
+  assert.match(pageSource, /className="learning-note-actions"[\s\S]*?Add to planner[\s\S]*?Mark completed[\s\S]*?Ask AI[\s\S]*?Save to Notes/u);
 });
 
 test("keeps the Start Learning return control inside opened notebook and placement workspaces", () => {
@@ -451,7 +437,7 @@ test("keeps notebook tab panels mounted and transitions only the active view", (
   const panelsSource = pageSource.slice(panelsStart, panelsEnd);
 
   assert.ok(panelsStart >= 0 && panelsEnd > panelsStart, "expected a persistent tab-panel region");
-  ["studio", "notes", "outline", "map"].forEach((tabId) => {
+  ["notes", "outline", "map", "recall"].forEach((tabId) => {
     assert.ok(
       panelsSource.includes(`learningTabPanelProps(activeTab, "${tabId}",`),
       `expected the ${tabId} panel to remain mounted`,

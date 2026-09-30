@@ -7,7 +7,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  CircleHelp,
   Code2,
   Download,
   FileText,
@@ -20,7 +19,6 @@ import {
   Plus,
   Save,
   ShieldCheck,
-  Sparkles,
   Stethoscope,
   Target,
   Trash2,
@@ -37,7 +35,7 @@ import { toast } from "../utils/toast";
 import LearningMasteryMap from "../components/LearningMasteryMap";
 import PlacementPrepTopicCard from "../components/PlacementPrepTopicCard";
 import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDialog";
-import LearningStudyStudio from "../components/LearningStudyStudio";
+import LearningRecallSession from "../components/LearningRecallSession";
 import LatticeLoader from "../components/LatticeLoader";
 import MedicalTrainingLab from "../components/MedicalTrainingLab";
 import MedicalTrainingLabIntake from "../components/MedicalTrainingLabIntake";
@@ -81,7 +79,7 @@ import {
   updateLearningSession,
 } from "../utils/learningMastery";
 import { buildLearningTopicNote } from "../utils/learningNoteIntegration";
-import { buildMaterialGuidePath } from "../utils/materialGuideNavigation";
+import { buildRevisedNoteActionNode } from "../utils/learningRevisedNoteActions";
 import {
   buildPlacementActionTarget,
   buildPlacementChatPrompt,
@@ -118,7 +116,6 @@ import {
   isPlacementPrepHash,
   sortStartLearningNotebooks,
 } from "../utils/startLearningWorkspace";
-import { getPlannerMetrics } from "../utils/plannerMetrics";
 import {
   getLearningCareerEligibility,
   getLearningMedicalTrainingEligibility,
@@ -705,8 +702,7 @@ function StartLearningPage({
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
   const [analysisError, setAnalysisError] = useState("");
-  const [activeTab, setActiveTab] = useState("studio");
-  const [expandedQuestions, setExpandedQuestions] = useState(() => new Set());
+  const [activeTab, setActiveTab] = useState("notes");
   const [expandedChapters, setExpandedChapters] = useState(() => new Set());
   const [selectedNodeId, setSelectedNodeId] = useState("");
 
@@ -729,7 +725,6 @@ function StartLearningPage({
   const [privacyConsentOpen, setPrivacyConsentOpen] = useState(false);
   const [masterySaving, setMasterySaving] = useState(false);
   const [masteryDialogOpen, setMasteryDialogOpen] = useState(false);
-  const [coachState, setCoachState] = useState({ loading: false, error: "", response: "", label: "" });
   const [latestReceipt, setLatestReceipt] = useState(null);
   const [noteSavingKeys, setNoteSavingKeys] = useState(() => new Set());
   const noteSavingKeysRef = useRef(new Set());
@@ -982,10 +977,6 @@ function StartLearningPage({
     nodes,
     schedule,
   ]);
-  const plannerMetrics = useMemo(
-    () => getPlannerMetrics(schedule, completed),
-    [completed, schedule],
-  );
   const normalizedMasteryState = useMemo(
     () => normalizeLearningState(activeNotebook?.learningState, {
       notebook: activeNotebook || {},
@@ -1103,7 +1094,7 @@ function StartLearningPage({
     setWorkspaceView("notebook");
     setCareerError("");
     setDirty(false);
-    setActiveTab("studio");
+    setActiveTab("notes");
     setExpandedChapters(new Set(normalized.chapters.slice(0, 1).map((chapter) => chapter.id)));
     const firstTopic = normalized.chapters.find((chapter) => chapter.topics.length)?.topics[0];
     setSelectedNodeId(firstTopic?.id || "");
@@ -1522,7 +1513,7 @@ function StartLearningPage({
       && !hasManualScope
     ) {
       setAnalysisError(
-        "Upload a source, choose a subject and chapter, or describe what you want to learn.",
+        "Describe your notebook requirements, upload a source, or enter a subject and chapter.",
       );
       return null;
     }
@@ -2343,7 +2334,7 @@ function StartLearningPage({
     const node = nodes.find((item) => item.id === nodeId && item.type === "topic");
     if (!node || !activeNotebook) return;
     setSelectedNodeId(node.id);
-    setActiveTab("studio");
+    setActiveTab("recall");
     const nextState = applyLearningState((state, now) => {
       let working = state;
       const active = state.sessions.find((session) => session.id === state.activeSessionId);
@@ -2395,8 +2386,8 @@ function StartLearningPage({
           working = startLearningSession(working, {
             notebookId: activeNotebook.id,
             subjectName: activeNotebook.subjectName,
-            objective: `Understand and prove ${node.title}`,
-            mode: "guided",
+            objective: `Recall and explain ${node.title}`,
+            mode: "recall",
             nodeIds: [node.id],
             stageIndex: 0,
           }, { notebook: activeNotebook, now });
@@ -2417,82 +2408,12 @@ function StartLearningPage({
       sessionId: session.id,
       pausedAt: true,
     }, { notebook: activeNotebook, now }));
-    setNotification?.("Study session paused and saved. Continue whenever you are ready.");
-  };
-
-  const advanceStudySession = ({ sessionId, stageIndex }) => {
-    applyLearningState((state, now) => updateLearningSession(state, {
-      sessionId,
-      stageIndex,
-      pausedAt: "",
-    }, { notebook: activeNotebook, now }));
+    setNotification?.("Recall session paused and saved. Continue whenever you are ready.");
   };
 
   const ratingScore = (rating, fallback) => {
     if (Number.isFinite(Number(fallback))) return Number(fallback);
     return { again: 25, hard: 55, good: 82, easy: 100 }[rating] ?? 60;
-  };
-
-  const recordStudyAttempt = (attempt) => {
-    if (!attempt?.nodeId) return;
-    applyLearningState((state, now) => {
-      const score = ratingScore(attempt.rating, attempt.score);
-      const attempted = recordLearningAttempt(state, {
-        ...attempt,
-        score,
-        correct: score >= 70,
-        responseSummary: attempt.response,
-        sessionId: state.activeSessionId,
-      }, { notebook: activeNotebook, now });
-      return Number.isFinite(Number(attempt.nextStageIndex))
-        ? updateLearningSession(attempted, {
-            sessionId: attempted.activeSessionId,
-            stageIndex: Number(attempt.nextStageIndex),
-            pausedAt: "",
-          }, { notebook: activeNotebook, now })
-        : attempted;
-    });
-  };
-
-  const syncLearnedNodeToPlanner = (node) => {
-    if (!node || !activeNotebook) return false;
-    let nextSchedule = schedule;
-    let plannerState = getLearningPlannerCompletionState(
-      nextSchedule,
-      completed,
-      activeLearningProject,
-      node,
-    );
-    if (!plannerState.isScheduled && dateOptions[0]) {
-      const scheduled = upsertLearningPlannerTask(
-        nextSchedule,
-        activeLearningProject,
-        node,
-        dateOptions[0].dateKey,
-        scheduleStartDate,
-      );
-      if (scheduled?.schedule) {
-        nextSchedule = scheduled.schedule;
-        setSchedule?.(nextSchedule);
-        plannerState = getLearningPlannerCompletionState(
-          nextSchedule,
-          completed,
-          activeLearningProject,
-          node,
-        );
-      }
-    }
-    if (!plannerState.isScheduled) return false;
-    const completion = setLearningPlannerNodeCompletion(
-      nextSchedule,
-      completed,
-      activeLearningProject,
-      node,
-      true,
-    );
-    if (!completion) return false;
-    setCompleted?.(completion.completed);
-    return true;
   };
 
   const finishStudySession = ({ nodeId, sessionId, rating, response }) => {
@@ -2518,39 +2439,19 @@ function StartLearningPage({
       }, { notebook: activeNotebook, now });
     });
     const progress = nextState?.nodes?.[nodeId];
-    const plannerSynced = score >= 70 ? syncLearnedNodeToPlanner(node) : false;
     setLatestReceipt({
       nodeId,
       title: node.title,
       masteryScore: progress?.masteryScore || score,
       summary: score >= 70
-        ? `Learning evidence saved${plannerSynced ? ", planner checked" : ""}, and the next review was scheduled.`
+        ? "Recall saved and the next review was scheduled."
         : "This attempt was saved and a shorter review interval was scheduled.",
     });
     setNotification?.(
       score >= 70
-        ? `${node.title} learned${plannerSynced ? " and completed in the planner" : ""}.`
+        ? `${node.title} recalled. The next review is scheduled.`
         : `${node.title} added to your review queue.`,
     );
-  };
-
-  const addLearningMisconception = (nodeId, label) => {
-    applyLearningState((state, now) => recordLearningAttempt(state, {
-      nodeId,
-      kind: "reflection",
-      responseSummary: label,
-      misconceptions: [{ label }],
-      sessionId: state.activeSessionId,
-    }, { notebook: activeNotebook, now }));
-  };
-
-  const resolveLearningMisconception = (nodeId, misconceptionId) => {
-    applyLearningState((state, now) => recordLearningAttempt(state, {
-      nodeId,
-      kind: "reflection",
-      resolvedMisconceptionIds: [misconceptionId],
-      sessionId: state.activeSessionId,
-    }, { notebook: activeNotebook, now }));
   };
 
   const buildLearningNoteCandidate = (node, override = {}) => buildLearningTopicNote({
@@ -2606,80 +2507,6 @@ function StartLearningPage({
     }
   };
 
-  const referLearningMaterial = (node) => {
-    const subject = node?.subjectName || activeNotebook?.subjectName || subjectName;
-    navigate(buildMaterialGuidePath(subject));
-  };
-
-  const runLearningCoachAction = async (action, node) => {
-    if (!node || coachState.loading) return;
-    if (hasInsufficientCredits(AI_FEATURES.CHAT)) {
-      setCoachState({
-        loading: false,
-        error: getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }),
-        response: "",
-        label: "",
-      });
-      return;
-    }
-    const instruction = {
-      simpler: "Explain this in simpler language and no more than five short steps.",
-      analogy: "Give one memorable everyday analogy, then map each part back to the concept.",
-      hint: "Give one Socratic hint only. Do not reveal the full answer.",
-      example: "Give one fresh worked example appropriate to my academic level.",
-      challenge: "Ask one challenging application question. Do not answer it yet.",
-    }[action] || "Give focused guidance for this concept.";
-    const label = {
-      simpler: "Simpler explanation",
-      analogy: "Concept analogy",
-      hint: "Socratic hint",
-      example: "Worked example",
-      challenge: "Challenge question",
-    }[action] || "Coach guidance";
-    setCoachState({ loading: true, error: "", response: "", label });
-    try {
-      const payload = await api.post("/api/study-assistant/chat", {
-        source: "learning_coach",
-        message: [
-          `You are the contextual coach inside the Start Learning mastery workspace.`,
-          `Subject: ${activeNotebook.subjectName}.`,
-          `Chapter: ${node.chapterName || "Independent study"}.`,
-          `Concept: ${node.title}.`,
-          node.explanation || node.summary ? `Notebook context: ${cleanText(node.explanation || node.summary, 3200)}` : "",
-          instruction,
-          "Be concise, accurate, and keep the learner doing the thinking.",
-        ].filter(Boolean).join("\n"),
-        plannerContext: {
-          academicLevel,
-          academicTrack,
-          totalTasks: plannerMetrics.totalTasks,
-          completedTasks: plannerMetrics.completedTasks,
-          remainingTasks: plannerMetrics.remainingTasks,
-          completionRate: plannerMetrics.completionRate,
-          weakSubject: plannerMetrics.weakSubject,
-          firstPendingTask: plannerMetrics.firstPendingTask,
-          todayTasks: plannerMetrics.todayTasks,
-          subjectBreakdown: Object.entries(plannerMetrics.subjectStats || {}).map(
-            ([name, stats]) => `${name}: ${stats.completed}/${stats.total} complete`,
-          ),
-        },
-      }, {
-        academicProfileId: academicProfileDataId,
-        timeoutMs: 30000,
-        headers: { "Idempotency-Key": createAiIdempotencyKey() },
-      });
-      if (!mountedRef.current) return;
-      setCoachState({ loading: false, error: "", response: payload.reply || "No guidance was returned.", label });
-    } catch (error) {
-      if (!mountedRef.current) return;
-      setCoachState({
-        loading: false,
-        error: getAiRequestErrorMessage(error, "The AI Coach could not respond."),
-        response: "",
-        label,
-      });
-    }
-  };
   const updateChapter = (chapterId, updater) => {
     updateNotebook((current) => ({
       ...current,
@@ -3154,19 +2981,54 @@ function StartLearningPage({
     }
   };
 
-  const askAI = () => {
-    if (!activeNotebook) return;
-    const focus = selectedNode ? ` Focus on ${selectedNode.type} "${selectedNode.title}".` : "";
-    const questions = activeNotebook.importantQuestions
-      .slice(0, 3)
-      .map((question) => question.question)
-      .join("; ");
+  const askRevisedNoteAI = (section) => {
+    if (!activeNotebook || !section) return;
     window.dispatchEvent(new CustomEvent("openPrepMatrixAIChat", {
       detail: {
+        autoSend: true,
         createNewChat: true,
-        message: `Use my learning notebook "${activeNotebook.title}" for ${activeNotebook.subjectName}.${focus} Teach it step by step, then test me. Important questions: ${questions || "Create a short recall check."}`,
+        message: [
+          `Help me understand the revised note "${section.title}" from my ${activeNotebook.subjectName} notebook "${activeNotebook.title}".`,
+          section.content ? `Note: ${cleanText(section.content, 2200)}` : "",
+          section.keyPoints?.length ? `Key ideas: ${section.keyPoints.join("; ")}` : "",
+          "Explain the ideas clearly with examples, then ask me one short recall question.",
+        ].filter(Boolean).join("\n"),
       },
     }));
+  };
+
+  const toggleRevisedNoteCompletion = (section) => {
+    if (!activeNotebook || !section) return;
+    const actionNode = buildRevisedNoteActionNode(section, activeNotebook);
+    if (!actionNode) return;
+    const nextCompleted = !section.completed;
+    updateNotebook((current) => ({
+      ...current,
+      revisedNotes: current.revisedNotes.map((item) => (
+        item.id === section.id ? { ...item, completed: nextCompleted } : item
+      )),
+    }));
+
+    const plannerState = getLearningPlannerCompletionState(
+      schedule, completed, activeLearningProject, actionNode,
+    );
+    if (plannerState.isScheduled) {
+      const plannerCompletion = setLearningPlannerNodeCompletion(
+        schedule, completed, activeLearningProject, actionNode, nextCompleted,
+      );
+      if (plannerCompletion) setCompleted?.(plannerCompletion.completed);
+    }
+
+    const matchingTopic = nodes.find((node) => (
+      node.type === "topic"
+      && node.title.trim().toLocaleLowerCase() === section.title.trim().toLocaleLowerCase()
+    ));
+    if (nextCompleted && matchingTopic) {
+      applyLearningState((state, now) => markLearningNodeLearned(
+        state, matchingTopic.id, { notebook: activeNotebook, now },
+      ));
+    }
+    setNotification?.(`${section.title} marked ${nextCompleted ? "complete" : "incomplete"}.`);
   };
 
   const closePlannerDialog = () => {
@@ -3451,15 +3313,6 @@ function StartLearningPage({
     setNotification?.(`${name} chapter names synced with Subjects.`);
   };
 
-  const toggleQuestion = (questionId) => {
-    setExpandedQuestions((current) => {
-      const next = new Set(current);
-      if (next.has(questionId)) next.delete(questionId);
-      else next.add(questionId);
-      return next;
-    });
-  };
-
   const toggleChapter = (chapterId) => {
     setExpandedChapters((current) => {
       const next = new Set(current);
@@ -3610,7 +3463,8 @@ function StartLearningPage({
           <>
           <div className="learning-panel-heading">
             <div>
-              <h3>Build a notebook</h3>
+              <h3>Notebook requirements</h3>
+              <p>Describe what you need covered. Add a subject, outline, or source files for more context.</p>
             </div>
           </div>
 
@@ -3643,7 +3497,7 @@ function StartLearningPage({
             <span aria-hidden="true" className="learning-notebook-source-divider" />
             <div className="learning-notebook-prompt-column">
               <label className="learning-field learning-prompt-field">
-                <span>What do you want to learn?</span>
+                <span>Requirements</span>
                 <textarea
                   disabled={analyzing}
                   maxLength={MAX_LEARNING_PROMPT_CHARS}
@@ -3842,7 +3696,7 @@ function StartLearningPage({
               type="button"
             >
               <BrainCircuit size={17} />
-              Analyze & start learning
+              Generate notebook
               <AiCreditCost feature={AI_FEATURES.LEARNING_NOTEBOOK} />
             </button>
           )}
@@ -4243,16 +4097,16 @@ function StartLearningPage({
                 <span><BrainCircuit size={30} /></span>
                 <span><BookOpenCheck size={26} /></span>
               </div>
-              <span className="section-tag">Notebook canvas</span>
-              <h3>Bring a chapter to life</h3>
+              <span className="section-tag">Notebook preparation</span>
+              <h3>Build a focused revision notebook</h3>
               <p>
-                Upload course material or type a subject and chapter list. Your notebook will open
-                with exam-relevant questions first, then revised notes and a concept map.
+                Enter your requirements or add a source. PrepMatrix will create revised notes,
+                a topic outline, and a mastery map you can use for recall practice.
               </p>
               <div className="learning-empty-features">
-                <span><CircleHelp size={15} /> Important questions first</span>
-                <span><BrainCircuit size={15} /> Connected topic map</span>
-                <span><CalendarPlus size={15} /> Planner-ready units</span>
+                <span><FileText size={15} /> Revised notes</span>
+                <span><BookOpenCheck size={15} /> Topic outline</span>
+                <span><BrainCircuit size={15} /> Mastery map</span>
               </div>
             </div>
           ) : (
@@ -4260,7 +4114,7 @@ function StartLearningPage({
               <section className="card learning-notebook-header">
                 <div className="learning-notebook-header-copy">
                   <h2>{activeNotebook.title}</h2>
-                  <p>{activeNotebook.summary || `${activeNotebook.subjectName} organized into a focused revision workspace.`}</p>
+                  <p>{activeNotebook.summary || `${activeNotebook.subjectName} organized into a focused revision notebook.`}</p>
                   <div className="learning-notebook-meta">
                     <span>{activeNotebook.subjectName}</span>
                     <span>{activeNotebook.chapters.length} chapters</span>
@@ -4293,93 +4147,22 @@ function StartLearningPage({
                       : <Pin fill={activeNotebook.pinned ? "currentColor" : "none"} size={16} />}
                     {historyMutationKey === `notebook-pin:${activeNotebook.id}`
                       ? "Updating…"
-                      : activeNotebook.pinned ? "Unpin" : "Pin"}
+                      : activeNotebook.pinned ? "Unpin notebook" : "Pin notebook"}
                   </button>
                   <button aria-label="Export notebook PDF" disabled={exporting} onClick={exportNotebook} title="Export PDF" type="button">
                     {exporting ? <LoaderCircle className="spinner" size={16} /> : <Download size={16} />}
                     {exporting ? "Exporting…" : "Export PDF"}
                   </button>
-                  <button aria-label="Ask AI about this notebook" onClick={askAI} title="Ask AI" type="button">
-                    <MessageSquareText size={16} /> Ask AI
-                  </button>                  <button aria-label="Refer subject learning materials" onClick={() => referLearningMaterial(selectedNode)} title="Refer material" type="button">
-                    <BookOpenCheck size={16} /> Refer material
-                  </button>
-                  <button aria-label="Add a learning unit to planner" onClick={() => openPlannerForNode(selectedNode)} title="Add to planner" type="button">
-                    <CalendarPlus size={16} /> Add to planner
-                  </button>
                 </div>
               </section>
-
-              {activeTab === "notes" && (
-              <section className="card learning-question-priority">
-                <div className="learning-panel-heading">
-                  <div>
-                    <span className="section-tag"><CircleHelp size={13} /> Revise first</span>
-                    <h3>Important questions</h3>
-                    <p>Start here before reading the full notebook.</p>
-                  </div>
-                  <span className="learning-count">{activeNotebook.importantQuestions.length}</span>
-                </div>
-                {activeNotebook.importantQuestions.length ? (
-                  <div className="learning-question-grid">
-                    {activeNotebook.importantQuestions.map((question, index) => {
-                      const expanded = expandedQuestions.has(question.id);
-                      return (
-                        <article
-                          className={`learning-question-card${expanded ? " is-open" : ""}`}
-                          key={question.id}
-                          style={{ "--reveal-index": index }}
-                        >
-                          <button
-                            aria-controls={`learning-question-answer-${question.id}`}
-                            aria-expanded={expanded}
-                            onClick={() => toggleQuestion(question.id)}
-                            type="button"
-                          >
-                            <span className="learning-question-number">{String(index + 1).padStart(2, "0")}</span>
-                            <span>
-                              <small>{question.priority}</small>
-                              <strong>{question.question}</strong>
-                            </span>
-                            <ChevronDown aria-hidden="true" className="learning-question-chevron" size={17} />
-                          </button>
-                          <div
-                            aria-hidden={!expanded}
-                            className="learning-question-answer"
-                            id={`learning-question-answer-${question.id}`}
-                          >
-                            <div className="learning-question-answer__content">
-                              {(question.answer || "Use Ask AI to work through this question step by step.")
-                                .split(/\n{2,}/)
-                                .filter(Boolean)
-                                .map((paragraph, paragraphIndex) => (
-                                  <p key={`${question.id}-answer-${paragraphIndex}`}>{paragraph}</p>
-                                ))}
-                              {question.whyItMatters && (
-                                <aside>
-                                  <strong>Why this matters</strong>
-                                  <span>{question.whyItMatters}</span>
-                                </aside>
-                              )}
-                            </div>
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="learning-section-empty">No important questions were returned for this source.</div>
-                )}
-              </section>
-              )}
 
               <section className="card learning-content-card">
                 <div className="learning-tablist" role="tablist" aria-label="Notebook views">
                   {[
-                    ["studio", "Study studio", <Sparkles aria-hidden="true" key="studio-icon" size={15} />],
                     ["notes", "Revised notes", <FileText aria-hidden="true" key="notes-icon" size={15} />],
                     ["outline", "Topic outline", <BookOpenCheck aria-hidden="true" key="outline-icon" size={15} />],
                     ["map", "Mastery map", <BrainCircuit aria-hidden="true" key="map-icon" size={15} />],
+                    ["recall", "Recall session", <Target aria-hidden="true" key="recall-icon" size={15} />],
                   ].map(([tabId, label, icon]) => (
                     <button
                       aria-controls={`learning-${tabId}-panel`}
@@ -4397,34 +4180,30 @@ function StartLearningPage({
                 </div>
 
                 <div className="learning-tab-panels">
-                  <div {...learningTabPanelProps(activeTab, "studio", "learning-studio-view")}>
-                    <LearningStudyStudio
+                  <div {...learningTabPanelProps(activeTab, "recall", "learning-recall-view")}>
+                    <LearningRecallSession
                       activeSession={activeLearningSession}
-                      coachState={coachState}
-                      isSavingNote={isLearningNoteSaving}
                       latestReceipt={latestReceipt}
                       nodes={nodes}
                       notebook={activeNotebook}
-                      onAddMisconception={addLearningMisconception}
-                      onAdvanceSession={advanceStudySession}
-                      onCoachAction={runLearningCoachAction}
                       onFinishSession={finishStudySession}
-                      onOpenMap={() => setActiveTab("map")}
+                      onOpenNotes={() => setActiveTab("notes")}
                       onPauseSession={pauseStudySession}
-                      onRecordAttempt={recordStudyAttempt}
-                      onReferMaterial={referLearningMaterial}
-                      onResolveMisconception={resolveLearningMisconception}
-                      onSaveToNotes={saveLearningTopicToNotes}
                       onSelectNode={setSelectedNodeId}
                       onStartSession={startStudySession}
                       progressByNodeId={progressByNodeId}
-                      renderPlannerAction={(node) => renderCompletionAction(node)}
                       reviewQueue={reviewQueue}
                       selectedNode={selectedNode}
                     />
                   </div>
                   <div {...learningTabPanelProps(activeTab, "notes", "learning-notes-view")}>
-                    {activeNotebook.revisedNotes.length ? activeNotebook.revisedNotes.map((section, index) => (
+                    {activeNotebook.revisedNotes.length ? activeNotebook.revisedNotes.map((section, index) => {
+                      const noteNode = buildRevisedNoteActionNode(section, activeNotebook);
+                      const plannerState = getLearningPlannerCompletionState(
+                        schedule, completed, activeLearningProject, noteNode,
+                      );
+                      const noteOptions = { title: section.title };
+                      return (
                       <article className="learning-note-section" key={section.id} style={{ "--reveal-index": index }}>
                         <span>{String(index + 1).padStart(2, "0")}</span>
                         <div>
@@ -4452,9 +4231,35 @@ function StartLearningPage({
                               )}
                             </div>
                           )}
+                          <div className="learning-note-actions" aria-label={`Actions for ${section.title}`}>
+                            <button onClick={() => openPlannerForNode(noteNode)} type="button">
+                              <CalendarPlus aria-hidden="true" size={15} />
+                              {plannerState.isScheduled ? "Change planner date" : "Add to planner"}
+                            </button>
+                            <button
+                              aria-pressed={section.completed === true}
+                              className={section.completed ? "is-complete" : ""}
+                              onClick={() => toggleRevisedNoteCompletion(section)}
+                              type="button"
+                            >
+                              <Check aria-hidden="true" size={15} />
+                              {section.completed ? "Completed" : "Mark completed"}
+                            </button>
+                            <button onClick={() => askRevisedNoteAI(section)} type="button">
+                              <MessageSquareText aria-hidden="true" size={15} /> Ask AI
+                            </button>
+                            <button
+                              disabled={isLearningNoteSaving(noteNode, noteOptions)}
+                              onClick={() => saveLearningTopicToNotes(noteNode, noteOptions)}
+                              type="button"
+                            >
+                              <Save aria-hidden="true" size={15} />
+                              {isLearningNoteSaving(noteNode, noteOptions) ? "Saving…" : "Save to Notes"}
+                            </button>
+                          </div>
                         </div>
                       </article>
-                    )) : (
+                    );}) : (
                       <div className="learning-section-empty">No revised note sections were returned.</div>
                     )}
                   </div>
@@ -4727,7 +4532,7 @@ function StartLearningPage({
                       onSelectNode={setSelectedNodeId}
                       onStartNode={(nodeId) => {
                         setSelectedNodeId(nodeId);
-                        setActiveTab("studio");
+                        setActiveTab("recall");
                         startStudySession(nodeId);
                       }}
                       plannerByNodeId={completionStateByNodeId}
@@ -4742,7 +4547,7 @@ function StartLearningPage({
                           <small>{selectedNode.chapterName}</small>
                         </div>
                         <button onClick={() => startStudySession(selectedNode.id)} type="button">
-                          <Sparkles size={14} /> Study this concept
+                          <Target size={14} /> Recall this concept
                         </button>
                         <button disabled={isLearningNoteSaving(selectedNode)} onClick={() => saveLearningTopicToNotes(selectedNode)} type="button">
                           <Save size={14} /> {isLearningNoteSaving(selectedNode) ? "Saving..." : "Save to notes"}

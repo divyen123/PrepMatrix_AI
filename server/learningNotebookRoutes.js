@@ -124,8 +124,8 @@ export function buildLearningNotebookDepthTargets(chapterNames = [], { compact =
         : 2;
   const subtopicsPerTopic = Math.max(1, Math.min(preferredSubtopics, mapSafeSubtopics));
   const minimumImportantQuestions = compact
-    ? Math.min(8, Math.max(5, planningChapterCount))
-    : Math.min(16, Math.max(10, planningChapterCount * 2));
+    ? Math.min(8, Math.max(6, planningChapterCount))
+    : Math.min(18, Math.max(12, planningChapterCount * 2));
   const minimumNoteSections = compact
     ? Math.min(6, Math.max(4, Math.ceil(totalTopics / 2)))
     : Math.min(12, Math.max(6, totalTopics));
@@ -1165,8 +1165,8 @@ function buildGenerationPrompts({
   const notesAndQuestionsRule = youngKidsLesson
     ? "Create at least " + depthTargets.minimumNoteSections + " short revised-note cards and exactly " + depthTargets.minimumImportantQuestions + " different friendly practice questions with clear answers. Mix simple recall, an everyday example, and one small apply-or-explain question without repeating the same idea."
     : compactOutput
-    ? "Create at least " + depthTargets.minimumNoteSections + " focused revised-note sections with examples, and at least " + depthTargets.minimumImportantQuestions + " important questions with concise model answers and why each matters."
-    : "Create at least " + depthTargets.minimumNoteSections + " revised-note sections with multi-paragraph explanations and examples, and at least " + depthTargets.minimumImportantQuestions + " important questions with complete model answers and why each matters.";
+    ? "Create at least " + depthTargets.minimumNoteSections + " focused revised-note sections. Each section needs a direct explanation, a worked or concrete example, the result, and a takeaway. Include at least " + depthTargets.minimumImportantQuestions + " distinct important questions with model answers that show the reasoning and why each answer matters."
+    : "Create at least " + depthTargets.minimumNoteSections + " revised-note sections with multi-paragraph explanations, worked or concrete examples, and takeaways. Include at least " + depthTargets.minimumImportantQuestions + " distinct important questions with complete model answers that explain each reasoning step, the final answer, and why it matters. Cover conceptual recall and application without repeating the same answer.";
   const chapterPlanningRule = depthTargets.expectedChapterCount
     ? `Preserve all ${depthTargets.expectedChapterCount} named chapters in the supplied order.`
     : youngKidsLesson

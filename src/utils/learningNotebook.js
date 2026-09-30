@@ -565,6 +565,7 @@ function normalizeRevisedNotes(value, topics) {
       content,
       keyPoints,
       revisionTips,
+      completed: source.completed === true,
     }];
   });
 

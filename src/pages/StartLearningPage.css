@@ -1365,8 +1365,8 @@ body .learning-mini-composer button {
 }
 
 .learning-outline-chapter:hover {
-  border-color: rgba(var(--accent-rgb), 0.5);
-  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.1);
+  border-color: var(--border);
+  box-shadow: none;
 }
 
 
@@ -3751,8 +3751,8 @@ body .learning-career-code-action svg {
   }
 }
 
-/* Adaptive Learning Studio integration */
-.learning-studio-view {
+/* Recall session and notebook results */
+.learning-recall-view {
   margin-top: 14px;
 }
 
@@ -3868,21 +3868,69 @@ body .learning-page .learning-content-card:hover {
   transform: none;
 }
 
-/* Keep the Topic outline workspace free of the generic card glow. */
-body .learning-page .learning-content-card:has(> .learning-tab-panels > .learning-outline-view.is-active),
-body .learning-page .learning-content-card:has(> .learning-tab-panels > .learning-outline-view.is-active):hover {
+/* Revised notes and the topic outline stay still on hover. */
+body .learning-page .learning-content-card:has(> .learning-tab-panels > :is(.learning-notes-view, .learning-outline-view).is-active),
+body .learning-page .learning-content-card:has(> .learning-tab-panels > :is(.learning-notes-view, .learning-outline-view).is-active):hover {
   box-shadow: none !important;
   transform: none !important;
 }
 
-body .learning-page .learning-content-card:has(> .learning-tab-panels > .learning-outline-view.is-active)::before,
-body .learning-page .learning-content-card:has(> .learning-tab-panels > .learning-outline-view.is-active):hover::before {
+body .learning-page .learning-content-card:has(> .learning-tab-panels > :is(.learning-notes-view, .learning-outline-view).is-active)::before,
+body .learning-page .learning-content-card:has(> .learning-tab-panels > :is(.learning-notes-view, .learning-outline-view).is-active):hover::before {
   opacity: 0 !important;
   transform: translateX(-100%) !important;
 }
 
 .learning-note-section {
   background: var(--surface-muted);
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.learning-note-section:hover,
+.learning-outline-chapter:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.learning-note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 13px;
+  border-top: 1px solid var(--border);
+}
+
+body .learning-page .learning-note-actions button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 11px;
+  color: var(--text);
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: none !important;
+  font-size: 0.72rem;
+  font-weight: 720;
+  transform: none !important;
+}
+
+body .learning-page .learning-note-actions button:hover,
+body .learning-page .learning-note-actions button:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .learning-page .learning-note-actions button.is-complete {
+  color: color-mix(in srgb, #22c55e 68%, var(--text));
+  background: color-mix(in srgb, #22c55e 10%, var(--surface-strong));
+  border-color: color-mix(in srgb, #22c55e 35%, var(--border));
 }
 
 .learning-note-section h3 {

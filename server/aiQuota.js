@@ -9,7 +9,7 @@ export const AI_QUOTA_FEATURES = Object.freeze({
   code_review: 1,
   quiz: 3,
   career_analysis: 5,
-  learning_notebook: 12,
+  learning_notebook: 10,
   secure_exam: 15,
   question_paper: 15,
   answer_coach: 8,

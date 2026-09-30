@@ -210,6 +210,7 @@ test("loads documented defaults and accepts server-side environment overrides", 
   const defaults = getAiQuotaConfig({});
   assert.equal(defaults.limit, 100);
   assert.deepEqual(defaults.costs, AI_QUOTA_FEATURES);
+  assert.equal(defaults.costs.learning_notebook, 10);
 
   const configured = getAiQuotaConfig({
     AI_MONTHLY_CREDIT_LIMIT: "250",
@@ -417,7 +418,7 @@ test("does not count expired reservations and recovers an expired per-user lock"
     feature: "learning_notebook",
     requestId: IDS.chat1,
   });
-  assert.equal(reservation.quota.remaining, 88);
+  assert.equal(reservation.quota.remaining, 90);
 
   harness.advance(30 * 60 * 1000);
   const atExpiry = await harness.service.getStatus("student-a");

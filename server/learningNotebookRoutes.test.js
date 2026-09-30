@@ -145,12 +145,12 @@ const DEFAULT_GROQ_LEARNING_MODEL_CHAIN = [...new Set([
 const TEST_QUOTA = Object.freeze({
   limit: 100,
   used: 0,
-  reserved: 12,
-  remaining: 88,
+  reserved: 10,
+  remaining: 90,
   periodStart: "2026-07-01T00:00:00.000Z",
   resetAt: "2026-08-01T00:00:00.000Z",
   costs: {
-    learning_notebook: 12,
+    learning_notebook: 10,
     career_analysis: 5,
   },
 });
@@ -256,7 +256,7 @@ function validGeneratedNotebook() {
   return {
     title: "Data Structures",
     overview: "A detailed, example-led guide to balanced trees and their performance guarantees.",
-    importantQuestions: Array.from({ length: 10 }, (_, index) => ({
+    importantQuestions: Array.from({ length: 12 }, (_, index) => ({
       id: `question-${index + 1}`,
       question: `How does balanced-tree invariant ${index + 1} affect an update?`,
       answer: "The invariant bounds height and determines when a local repair is required after an update.",
@@ -1294,6 +1294,8 @@ test("keeps optional generation sizes on the existing standard notebook contract
   const standardHighPrompt = await requestedGroqPrompt("High");
   assert.match(standardLowPrompt, /70-110 words/u);
   assert.match(standardHighPrompt, /180-320 words/u);
+  assert.match(standardLowPrompt, /model answers that show the reasoning and why each answer matters/u);
+  assert.match(standardHighPrompt, /complete model answers that explain each reasoning step, the final answer, and why it matters/u);
   assert.match(
     standardHighPrompt,
     /Put important exam, placement, or conceptual questions first/u,
@@ -1634,17 +1636,17 @@ test("defaults authenticated K-3 requests without a generation size to the safe 
   assert.match(requestBody.contents[0].parts.at(-1).text, /Server-verified young learner class: "Class 3"/u);
 });
 
-test("keeps the standard generation-size depth contract unchanged for non-K-3 profiles", () => {
+test("provides fuller standard notebook answers at both generation sizes", () => {
   const standardLow = buildLearningNotebookDepthTargets(["Photosynthesis"], { compact: true });
   const standardHigh = buildLearningNotebookDepthTargets(["Photosynthesis"], { compact: false });
 
   assert.deepEqual(
     [standardLow.topicsPerChapter, standardLow.subtopicsPerTopic, standardLow.minimumImportantQuestions],
-    [4, 2, 5],
+    [4, 2, 6],
   );
   assert.deepEqual(
     [standardHigh.topicsPerChapter, standardHigh.subtopicsPerTopic, standardHigh.minimumImportantQuestions],
-    [8, 4, 10],
+    [8, 4, 12],
   );
 });
 
@@ -2076,7 +2078,7 @@ test("crosses directly to Groq after one Gemini transport failure and lazily ext
   assert.equal(harness.aiQuota.calls.reserve[0].feature, "learning_notebook");
   assert.equal(harness.aiQuota.calls.commit.length, 1);
   assert.equal(harness.aiQuota.calls.refund.length, 0);
-  assert.equal(res.headers["X-AI-Credit-Cost"], "12");
+  assert.equal(res.headers["X-AI-Credit-Cost"], "10");
 });
 
 test("crosses directly to Groq after one invalid Gemini API-key response", async () => {
@@ -2425,7 +2427,7 @@ test("rejects an exhausted learning-notebook quota before any provider request",
       const error = new Error("You have used all AI credits for this month.");
       error.status = 429;
       error.code = "AI_USER_QUOTA_EXHAUSTED";
-      error.details = { quota: exhaustedQuota, cost: 12 };
+      error.details = { quota: exhaustedQuota, cost: 10 };
       throw error;
     },
   });
@@ -2446,7 +2448,7 @@ test("rejects an exhausted learning-notebook quota before any provider request",
   assert.equal(aiQuota.calls.commit.length, 0);
   assert.equal(aiQuota.calls.refund.length, 0);
   assert.equal(res.headers["X-AI-Credit-Remaining"], "0");
-  assert.equal(res.headers["X-AI-Credit-Cost"], "12");
+  assert.equal(res.headers["X-AI-Credit-Cost"], "10");
 });
 
 test("replays a completed learning-notebook request without another provider call", async () => {
@@ -2461,8 +2463,8 @@ test("replays a completed learning-notebook request without another provider cal
     lookup: async () => ({
       state: "replay",
       eventId: "completed-event",
-      cost: 12,
-      quota: { ...TEST_QUOTA, used: 12, reserved: 0 },
+      cost: 10,
+      quota: { ...TEST_QUOTA, used: 10, reserved: 0 },
       replayPayload,
     }),
   });
@@ -2485,7 +2487,7 @@ test("replays a completed learning-notebook request without another provider cal
   assert.equal(aiQuota.calls.reserve.length, 0);
   assert.equal(aiQuota.calls.commit.length, 0);
   assert.equal(aiQuota.calls.refund.length, 0);
-  assert.equal(res.headers["X-AI-Credit-Cost"], "12");
+  assert.equal(res.headers["X-AI-Credit-Cost"], "10");
 });
 
 test("refunds one learning-notebook reservation when the provider is unavailable", async () => {
