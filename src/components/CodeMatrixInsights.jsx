@@ -158,7 +158,7 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
         <div className="cmxi-section-heading"><div><h2 id="cmxi-language-title">Your languages</h2><p>See where your practice goes</p></div><MetricSwitch label="Language comparison metric" value={languageMetric} options={[['runs', 'Attempts'], ['time', 'Active time']]} onChange={setLanguageMetric} /></div>
         <div className="cmxi-language-grid">
           <div className="cmxi-language-chart" aria-label={languageMetric === 'time' ? 'Active coding time by language' : 'Meaningful attempts by language'}>
-            {hasLanguageChart ? <div className="cmxi-language-chart-inner" style={{ minWidth: Math.max(320, languageData.length * 76) }}>
+            {hasLanguageChart ? <div className="cmxi-language-chart-inner">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={languageData} margin={{ top: 10, right: 14, left: 0, bottom: 0 }} accessibilityLayer>
                   <CartesianGrid vertical={false} stroke="var(--cmxi-border)" strokeDasharray="3 5" />

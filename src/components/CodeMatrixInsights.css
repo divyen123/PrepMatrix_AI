@@ -78,8 +78,8 @@ body .cmxi .cmxi-refresh { display: grid; place-items: center; min-width: 39px; 
 .cmxi-tooltip { display: grid; gap: 6px; min-width: 116px; padding: 11px 14px; border: 1px solid var(--cmxi-border); border-radius: 11px; background: var(--cmxi-surface); color: var(--cmxi-text); box-shadow: 0 8px 25px rgb(0 0 0 / 12%); font-size: 0.6875rem; }
 .cmxi-tooltip > span { color: var(--cmxi-accent); font-weight: 650; }
 .cmxi-language-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 35px; align-items: center; }
-.cmxi-language-chart { width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; }
-.cmxi-language-chart-inner { height: max(270px, 17rem); }
+.cmxi-language-chart { width: 100%; min-width: 0; }
+.cmxi-language-chart-inner { width: 100%; min-width: 0; height: max(270px, 17rem); }
 .cmxi-language-details { min-width: 0; }
 .cmxi-language-selector { margin-top: 18px; }
 .cmxi-language-buttons { display: flex; flex-wrap: wrap; gap: 7px; }

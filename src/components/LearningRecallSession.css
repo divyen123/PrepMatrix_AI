@@ -65,21 +65,38 @@
   padding-right: 0.15rem;
 }
 
-.notebook-recall-topics__list button {
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
+body .learning-page .notebook-recall-topics__list button,
+body .learning-page .notebook-recall-topics__list button:hover,
+body .learning-page .notebook-recall-topics__list button:focus-visible {
+  background: var(--surface-muted) !important;
+  border: 1px solid var(--border) !important;
   border-radius: 0.7rem;
-  color: var(--text);
+  box-shadow: none !important;
+  color: var(--text) !important;
   cursor: pointer;
   display: grid;
   gap: 0.25rem;
   padding: 0.7rem 0.8rem;
   text-align: left;
+  transform: none !important;
 }
 
-.notebook-recall-topics__list button.is-active {
-  background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+body .learning-page .notebook-recall-topics__list button.is-active,
+body .learning-page .notebook-recall-topics__list button.is-active:hover,
+body .learning-page .notebook-recall-topics__list button.is-active:focus-visible {
+  background: var(--accent-soft) !important;
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border)) !important;
+}
+
+body .learning-page .notebook-recall-topics__list button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+body .learning-page .notebook-recall-topics__list button::before,
+body .learning-page .notebook-recall-topics__list button::after {
+  content: none !important;
+  display: none !important;
 }
 
 .notebook-recall-topics__list strong { font-size: 0.84rem; }

@@ -338,7 +338,7 @@ test("places the centered Practice more topic panels at the end of Placement Pre
   assert.ok(codingTopicsIndex > practiceTitleIndex);
 });
 
-test("keeps the placement guide header focused on its pin action and hides its idle glow", () => {
+test("keeps the placement guide header focused on its pin action and content cards static", () => {
   const placementHeaderStart = pageSource.indexOf('className="learning-career-intro"');
   const placementHeaderEnd = pageSource.indexOf("</header>", placementHeaderStart);
   const placementHeaderSource = pageSource.slice(placementHeaderStart, placementHeaderEnd);
@@ -357,14 +357,13 @@ test("keeps the placement guide header focused on its pin action and hides its i
   assert.ok(resultsActionsSource.includes("Back to Start Learning"));
   assert.equal(resultsActionsSource.includes("learning-career-draft-status"), false);
   assert.equal(resultsActionsSource.includes("learning-count"), false);
-  assert.match(
-    stylesheet,
-    /\.learning-career-results\.card::before\s*\{[\s\S]*?opacity:\s*0\s*!important;[\s\S]*?translateX\(-100%\)/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-career-results\.card:hover::before\s*\{[\s\S]*?opacity:\s*0\.38\s*!important;[\s\S]*?translateX\(0\)/u,
-  );
+  const cardStylesStart = stylesheet.indexOf("body .learning-page .learning-career-workspace :is(.learning-career-results.card");
+  const cardStylesEnd = stylesheet.indexOf(".learning-panel-heading > .learning-career-results-actions", cardStylesStart);
+  const cardStyles = stylesheet.slice(cardStylesStart, cardStylesEnd);
+  assert.ok(cardStylesStart >= 0 && cardStylesEnd > cardStylesStart);
+  assert.match(cardStyles, /box-shadow:\s*none\s*!important;/u);
+  assert.match(cardStyles, /transform:\s*none\s*!important;/u);
+  assert.match(cardStyles, /:hover::before\s*\{\s*display:\s*none\s*!important;/u);
 });
 
 test("automatically adds generated guides to history and supports pinning and global clearing", () => {
