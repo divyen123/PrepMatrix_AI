@@ -3,7 +3,11 @@ export const CODE_REVIEW_LANGUAGES = ['python', 'javascript', 'java', 'c', 'cpp'
 export const CODE_REVIEW_LIMITS = Object.freeze({ code: 50 * 1024, error: 8000, request: 180 * 1024 });
 
 // These are environment failures, not exercises for the student to debug.
-const RUNTIME_FAILURE = /failed to fetch|networkerror|network request failed|load failed|could not load|failed to load|loading or compilation exceeded|no terminal input was received|runtime worker failed|runtime message could not be decoded|browser blocked|isolated (?:browser )?(?:runtime|worker)|importscripts|dynamically imported module|runtime limit|webassembly\.compile|out of memory while loading|requires? (?:webassembly|JSPI)|not supported in this browser/i;
+const RUNTIME_FAILURE = /failed to fetch|networkerror|network request failed|load failed|could not load|failed to load|loading or compilation exceeded|no terminal input was received|runtime (?:worker|connection) failed|runtime (?:message|result) could not be decoded|browser blocked|isolated (?:browser )?(?:runtime|worker)|importscripts|dynamically imported module|runtime limit|webassembly\.compile|out of memory while loading|requires? (?:webassembly|JSPI)|not supported in this browser/i;
+
+export function isCodeMatrixEnvironmentFailure(result) {
+  return result?.errorOrigin === 'environment' || RUNTIME_FAILURE.test(String(result?.stderr || result?.message || ''));
+}
 
 export function normalizeCodeReviewError(stderr) {
   // A worker gets a fresh blob URL each run. It must not change the identity of
@@ -17,8 +21,7 @@ export function normalizeCodeReviewError(stderr) {
 export function isCodeReviewable(result) {
   return Boolean(result && CODE_REVIEW_LANGUAGES.includes(result.language)
     && ['error', 'timeout'].includes(result.status) && result.code?.trim()
-    && result.stderr?.trim() && result.errorOrigin !== 'environment'
-    && !RUNTIME_FAILURE.test(result.stderr));
+    && result.stderr?.trim() && !isCodeMatrixEnvironmentFailure(result));
 }
 
 export function codeReviewSnapshot(result) {

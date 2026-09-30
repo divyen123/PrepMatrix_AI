@@ -82,6 +82,8 @@ import { registerLearningNoteRoutes } from "./learningNoteRoutes.js";
 import { registerLearningMemoryRoutes } from "./learningMemoryRoutes.js";
 import { registerCodeMatrixRoutes, ensureCodeMatrixIndexes, CODE_MATRIX_WORKSPACES_COLLECTION, CODE_MATRIX_SUBMISSIONS_COLLECTION, CODE_MATRIX_RATE_LIMITS_COLLECTION } from "./codeMatrixRoutes.js";
 import { registerCodeMatrixReviewRoutes } from './codeMatrixReviewRoutes.js';
+import { registerCodeMatrixInsightsRoutes } from './codeMatrixInsightsRoutes.js';
+import { ensureCodeMatrixInsightsIndexes, CODE_MATRIX_INSIGHTS_ATTEMPTS, CODE_MATRIX_INSIGHTS_ACTIVITY } from './codeMatrixInsights.js';
 import registerAppUsageRoutes, {
   APP_USAGE_COUNTERS_COLLECTION,
   APP_USAGE_PREFERENCES_COLLECTION,
@@ -303,6 +305,7 @@ async function getDb() {
       await migrateProfileScopedUniqueIndexes(db);
       await Promise.all([
         ensureCodeMatrixIndexes(db),
+        ensureCodeMatrixInsightsIndexes(db),
         db.collection(MOMENTUM_EVENTS_COLLECTION).createIndex({ userId: 1, academicProfileId: 1, recordedAt: -1 }),
         db.collection("users").createIndex({ usernameKey: 1 }, { unique: true }),
         db.collection("users").createIndex({ emailKey: 1 }, { unique: true, partialFilterExpression: { emailKey: { $type: "string" } } }),
@@ -1288,6 +1291,8 @@ app.delete("/api/auth/account", requireAuth(async (req, res) => {
         db.collection(LEARNING_NOTEBOOKS_COLLECTION).deleteMany({ userId }),
         db.collection(CODE_MATRIX_WORKSPACES_COLLECTION).deleteMany({ userId }),
         db.collection(CODE_MATRIX_SUBMISSIONS_COLLECTION).deleteMany({ userId }),
+        db.collection(CODE_MATRIX_INSIGHTS_ATTEMPTS).deleteMany({ userId }),
+        db.collection(CODE_MATRIX_INSIGHTS_ACTIVITY).deleteMany({ userId }),
         db.collection(CODE_MATRIX_RATE_LIMITS_COLLECTION).deleteMany({ userId }),
         db.collection("examAttempts").deleteMany({ userId }),
         db.collection("examStartLocks").deleteMany({ userId }),
@@ -1917,6 +1922,7 @@ registerLearningMemoryRoutes(app, {
 
 registerCodeMatrixRoutes(app, { getDb, requireAuth, withProfileWriteFence: withAcademicProfileWriteFence });
 registerCodeMatrixReviewRoutes(app, { getDb, requireAuth, aiQuota, mutationSecurity: requireNotificationMutationSecurity });
+registerCodeMatrixInsightsRoutes(app, { getDb, requireAuth, mutationSecurity: requireNotificationMutationSecurity });
 registerMomentumRoutes(app, { getDb, requireAuth, mutationSecurity: requireNotificationMutationSecurity });
 registerNearbyRoutes(app, { getDb, requireAuth, mutationSecurity: requireNotificationMutationSecurity });
 

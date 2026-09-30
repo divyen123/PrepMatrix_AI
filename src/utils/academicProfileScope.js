@@ -1,6 +1,12 @@
 import { getAcademicProfileDisplayName } from "./academicProfileNames.js";
 
 const PROFILE_STORAGE_PREFIX = "prepmatrix-profile";
+const profileDataClearedListeners = new Set();
+
+export function onAcademicProfileBrowserDataCleared(listener) {
+  profileDataClearedListeners.add(listener);
+  return () => profileDataClearedListeners.delete(listener);
+}
 
 function clean(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -127,7 +133,9 @@ export function clearAcademicProfileBrowserData(dataId, runtime = {}) {
     ?? (typeof window !== "undefined" ? window.localStorage : null);
   const session = runtime.sessionStorageRef
     ?? (typeof window !== "undefined" ? window.sessionStorage : null);
-  return clearStoragePrefix(local, prefix) + clearStoragePrefix(session, prefix);
+  const removed = clearStoragePrefix(local, prefix) + clearStoragePrefix(session, prefix);
+  for (const listener of profileDataClearedListeners) listener(clean(dataId));
+  return removed;
 }
 
 export function clearOwnedLegacyAcademicProfileBrowserData(user, dataId, runtime = {}) {
