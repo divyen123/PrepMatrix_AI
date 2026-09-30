@@ -98,7 +98,7 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
     <header className="cmxi-header">
       <div className="cmxi-header-main">
         <div className="cmxi-title-row">
-          <button className="cmxi-back" type="button" onClick={onBack} aria-label="Back to CodeMatrix" title="Back to CodeMatrix"><ArrowLeft size={22} aria-hidden="true" /></button>
+          <button className="cmxi-back page-back-control" type="button" onClick={onBack} aria-label="Back to CodeMatrix" title="Back to CodeMatrix"><ArrowLeft size={22} aria-hidden="true" /></button>
           <h1 ref={headingRef} tabIndex={-1}>CodeMatrix <span>Insights</span></h1>
         </div>
         <p>Your practice, progress, and next steps · This academic profile</p>
