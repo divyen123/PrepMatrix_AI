@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BookOpen, Bug, CalendarDays, Check, ChevronLeft, ChevronRight, CircleAlert, Code2, Download, FileCode2, Info, LoaderCircle, Maximize2, Minimize2, Play, Plus, RotateCcw, Settings2, Square, Terminal, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Bug, CalendarDays, Check, ChevronLeft, ChevronRight, CircleAlert, Code2, Download, FileCode2, LoaderCircle, Maximize2, Minimize2, Play, Plus, RotateCcw, Settings2, Square, Terminal, X } from "lucide-react";
 import CodeMatrixEditor from "../components/CodeMatrixEditor";
 import CodeMatrixTerminal from "../components/CodeMatrixTerminal";
 import CodeMatrixAssistant from '../components/CodeMatrixAssistant';
@@ -14,6 +14,7 @@ import { normalizeCodeMatrixLaunch } from "../utils/codeMatrixLaunch.js";
 import { CODE_MATRIX_LANGUAGES, CODE_MATRIX_MAX_CODE, CODE_MATRIX_STARTERS, codeMatrixSetupNavigation, getCodeMatrixDiagnostics } from "../utils/codeMatrixWorkspace.js";
 import { buildCodeMatrixPreview, createCodeMatrixBrowserRun } from "../utils/codeMatrixRuntime.js";
 import { normalizePlacementCodeMatrixHandoff } from "../utils/placementCodeMatrix.js";
+import { resolveCodeMatrixShortcut } from "../utils/codeMatrixShortcuts.js";
 import "./CodeMatrixPage.css";
 
 const SETUP_COPY = {
@@ -88,6 +89,7 @@ export default function CodeMatrixPage({
   const runRef = useRef(null);
   const runAttemptRef = useRef(null);
   const insightsButtonRef = useRef(null);
+  const pageRef = useRef(null);
   const runSequenceRef = useRef(0);
   const previewRef = useRef(null);
   const workbenchRef = useRef(null);
@@ -375,12 +377,38 @@ export default function CodeMatrixPage({
     setResultTab(["html", "css"].includes(value) ? "preview" : "output");
   }
 
-  function downloadCode() {
+  const downloadCode = useCallback(() => {
     const url = URL.createObjectURL(new Blob([code], { type: "text/plain;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url; link.download = editorFile; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
+  }, [code, editorFile]);
+
+  useEffect(() => {
+    const handleShortcut = (event) => {
+      const shortcut = resolveCodeMatrixShortcut(event);
+      if (!shortcut || !ready || !workspaceLoaded || !compilerAvailable || setupVisible || insightsOpen || (shortcut === 'run' && resetOpen)) return;
+
+      const target = event.target;
+      if (embedded) {
+        if (!document.querySelector('.code-matrix-window')?.contains(target)) return;
+      } else if (document.querySelector('.code-matrix-window')
+        || (!pageRef.current?.contains(target) && target !== document.body && target !== document)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (shortcut === 'run') void run();
+      else {
+        void flush();
+        downloadCode();
+      }
+    };
+
+    document.addEventListener('keydown', handleShortcut, true);
+    return () => document.removeEventListener('keydown', handleShortcut, true);
+  }, [compilerAvailable, downloadCode, embedded, flush, insightsOpen, ready, resetOpen, run, setupVisible, workspaceLoaded]);
 
   const leaveSetup = () => { update({ setupDismissed: true }); setShowSetup(false); };
   const jumpTrace = (index) => { setTraceIndex(index); setActiveLine(trace[index]?.line || 0); };
@@ -401,7 +429,7 @@ export default function CodeMatrixPage({
   return (
     <>
     {!embedded && insightsOpen && <section className="cmx-page is-insights"><Suspense fallback={<div className="cmx-loading" role="status"><LoaderCircle className="cmx-spin" /> Opening CodeMatrix Insights…</div>}><CodeMatrixInsights academicProfileDataId={academicProfileDataId} onBack={closeInsights} /></Suspense></section>}
-    <section hidden={!embedded && insightsOpen} className={`cmx-page${compilerAvailable && !setupVisible && !insightsOpen ? " is-compiler" : ""}${embedded ? " is-embedded" : ""}`}>
+    <section ref={pageRef} hidden={!embedded && insightsOpen} className={`cmx-page${compilerAvailable && !setupVisible && !insightsOpen ? " is-compiler" : ""}${embedded ? " is-embedded" : ""}`}>
       {!embedded && (
         <header className="cmx-header">
           <div className="cmx-heading">
@@ -413,7 +441,6 @@ export default function CodeMatrixPage({
               <ArrowLeft size={20} />
             </Link>
             <div><h1><Code2 size={29} aria-hidden="true" />CodeMatrix<span className="cmx-beta">Compiler</span></h1></div>
-            <button ref={insightsButtonRef} type="button" className="cmx-insights-trigger" aria-label="Open CodeMatrix Insights" title="CodeMatrix Insights" onClick={openInsights}><Info size={20} aria-hidden="true" /></button>
           </div>
           <div className="cmx-header-actions">
             {!setupVisible && remaining.length > 0 && <button type="button" className="cmx-button cmx-quiet" onClick={() => { if (busy || preview) stop(); setShowSetup(true); }}><Settings2 size={15} />Finish setup <span>{3 - remaining.length}/3</span></button>}
@@ -466,7 +493,8 @@ export default function CodeMatrixPage({
             <div className="cmx-actions">
               {(busy || preview) && <button type="button" className="cmx-button" onClick={stop}><Square size={15} />Stop</button>}
               <button type="button" className="cmx-button" disabled={busy} onClick={() => void run(true)} title={workspaceLanguage === "python" ? "Run with a recorded line and variable trace" : "Run code and inspect errors"}><Bug size={16} />Debug</button>
-              <button type="button" className="cmx-button cmx-primary" disabled={busy} onClick={() => void run()}>{busy ? <LoaderCircle className="cmx-spin" size={16} /> : <Play size={16} fill="currentColor" />} {busy ? "Running…" : isWeb ? "Run preview" : "Run code"}</button>
+              <button type="button" className="cmx-button cmx-primary" disabled={busy} onClick={() => void run()} title="Ctrl / ⌘ + Enter">{busy ? <LoaderCircle className="cmx-spin" size={16} /> : <Play size={16} fill="currentColor" />} {busy ? "Running…" : isWeb ? "Run preview" : "Run code"}</button>
+              {!embedded && <button ref={insightsButtonRef} type="button" className="cmx-button cmx-insights-trigger" aria-label="Open CodeMatrix Insights" onClick={openInsights}>Insights</button>}
             </div>
           </div>
           {notice && <div className="cmx-notice" role="alert"><CircleAlert size={18} />{notice}<button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}><X size={16} /></button></div>}
@@ -474,7 +502,7 @@ export default function CodeMatrixPage({
             <section className={`cmx-source${sourceFullscreen ? " is-source-fullscreen" : ""}`} ref={sourceRef} aria-label="Source code" onKeyDownCapture={editorActivity} onPointerDownCapture={editorActivity} onWheelCapture={editorActivity} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) pauseActivity(); }}>
               <div className="cmx-panel-bar">
                 {isWeb ? <div className="cmx-file-tabs" role="tablist" aria-label="Web files">{["html", "css", "javascript"].map((id) => <button type="button" role="tab" aria-selected={editorLanguage === id} key={id} onClick={() => { setWebTab(id); setActiveLine(0); setLineRequest(null); }}>{CODE_MATRIX_LANGUAGES.find((item) => item.id === id).file}</button>)}</div> : <span><FileCode2 size={15} />{editorFile}</span>}
-                <div className="cmx-file-actions"><button type="button" aria-label="Download code" title="Download code" onClick={downloadCode}><Download size={16} /></button><button type="button" aria-label={sourceFullscreen ? "Exit code fullscreen" : "Open code fullscreen"} title={sourceFullscreen ? "Exit code fullscreen" : "Open code fullscreen"} onClick={() => void toggleSourceFullscreen()}>{sourceFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button><button type="button" aria-label="Reset code to starter" title="Reset code to starter" onClick={() => setResetOpen(true)}><RotateCcw size={15} /></button></div>
+                <div className="cmx-file-actions"><button type="button" aria-label="Download code" title="Download current code file · Ctrl / ⌘ + S" onClick={downloadCode}><Download size={16} /></button><button type="button" aria-label={sourceFullscreen ? "Exit code fullscreen" : "Open code fullscreen"} title={sourceFullscreen ? "Exit code fullscreen" : "Open code fullscreen"} onClick={() => void toggleSourceFullscreen()}>{sourceFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button><button type="button" aria-label="Reset code to starter" title="Reset code to starter" onClick={() => setResetOpen(true)}><RotateCcw size={15} /></button></div>
               </div>
               {resetOpen && <div className="cmx-reset-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setResetOpen(false); }}>
                 <section className="cmx-reset-dialog" role="dialog" aria-modal="true" aria-labelledby="cmx-reset-title" aria-describedby="cmx-reset-description" onMouseDown={(event) => event.stopPropagation()}>
@@ -522,7 +550,7 @@ export default function CodeMatrixPage({
               </div>
             </section>
           </div>
-          {!embedded && <footer className="cmx-footnote"><span id="code-matrix-editor-help">Ctrl / ⌘ + Enter to run · Tab to indent · Esc, then Tab to leave the editor</span>{(workspaceLanguage === "sql" || isWeb) && <span>{workspaceLanguage === "sql" ? "Each run starts with a fresh SQLite database." : "Preview is isolated from your account."}</span>}</footer>}
+          {!embedded && <footer className="cmx-footnote"><span id="code-matrix-editor-help">Ctrl / ⌘ + Enter to run · Ctrl / ⌘ + S to download this file · Tab to indent · Esc, then Tab to leave the editor</span>{(workspaceLanguage === "sql" || isWeb) && <span>{workspaceLanguage === "sql" ? "Each run starts with a fresh SQLite database." : "Preview is isolated from your account."}</span>}</footer>}
         </>
       )}
     </section>

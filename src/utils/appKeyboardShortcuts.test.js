@@ -85,6 +85,10 @@ test("guide presents workspace, navigation, and page-specific actions", () => {
       ?.keys,
     ["Ctrl", "Shift", "L"],
   );
+  const codeMatrixShortcuts = APP_SHORTCUT_GUIDE_GROUPS
+    .find((group) => group.id === "page-actions")
+    ?.items.filter((item) => item.context === "CodeMatrix");
+  assert.deepEqual(codeMatrixShortcuts?.map(({ keys }) => keys), [["Ctrl", "Enter"], ["Ctrl", "S"]]);
 });
 
 test("ignores repeats and shortcuts with conflicting modifiers", () => {

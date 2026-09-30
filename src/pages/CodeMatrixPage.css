@@ -90,24 +90,6 @@ body.has-bg-image .cmx-page {
 }
 .cmx-page h1, .cmx-page h2, .cmx-page h3 { font-family: "Space Grotesk", "Manrope", sans-serif; color: var(--text); }
 .cmx-page[hidden] { display: none !important; }
-body .cmx-page .cmx-insights-trigger {
-  display: grid;
-  place-items: center;
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
-  padding: 0 !important;
-  color: var(--text-muted) !important;
-  background: var(--surface) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 50%;
-  box-shadow: none !important;
-}
-body .cmx-page .cmx-insights-trigger:hover {
-  color: var(--accent) !important;
-  background: var(--accent-soft) !important;
-}
-body .cmx-page .cmx-insights-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .cmx-header, .cmx-heading, .cmx-header-actions, .cmx-actions, .cmx-toolbar { display: flex; align-items: center; gap: 14px; }
 .cmx-header { justify-content: space-between; flex-wrap: wrap; }
 .cmx-heading { align-items: center; }

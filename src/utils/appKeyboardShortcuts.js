@@ -38,11 +38,13 @@ export const APP_SHORTCUT_GUIDE_GROUPS = Object.freeze([
   {
     id: "page-actions",
     label: "Page actions",
-    description: "These keys work only on the named page and stay inactive while you type.",
+    description: "These keys work only on the named page.",
     items: [
       { context: "AI Chat", keys: ["Alt", "N"], label: "Start a new chat" },
       { context: "AI Chat", keys: ["Ctrl", "Enter"], label: "Send the message" },
       { context: "AI Chat", keys: ["Shift", "Enter"], label: "Insert a new line" },
+      { context: "CodeMatrix", keys: ["Ctrl", "Enter"], label: "Run the current code" },
+      { context: "CodeMatrix", keys: ["Ctrl", "S"], label: "Save the current code file" },
       { context: "Planner schedule", keys: ["N"], label: "Open the new-schedule controls" },
       { context: "Planner schedule", keys: ["T"], label: "Jump to today's schedule card" },
       { context: "Planner schedule", keys: ["C"], label: "Complete the focused task" },

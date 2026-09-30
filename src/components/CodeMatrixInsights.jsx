@@ -97,7 +97,6 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
     <header className="cmxi-header">
       <div>
         <button className="cmxi-back" type="button" onClick={onBack}><ArrowLeft size={16} aria-hidden="true" />Back to CodeMatrix</button>
-        <span className="cmxi-eyebrow">YOUR CODING JOURNEY</span>
         <h1 ref={headingRef} tabIndex={-1}>CodeMatrix <span>Insights</span></h1>
         <p>Your practice, progress, and next steps · This academic profile</p>
       </div>
@@ -141,9 +140,9 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
 
       <section className="cmxi-charts-grid" aria-label="Coding activity charts">
         <article className="cmxi-card">
-          <div className="cmxi-section-heading"><div><h2>Daily practice</h2><p>{range === 'all' ? `Last ${data.trendWindowDays || 90} days` : RANGES.find(([id]) => id === range)[1]} · {data.timeZone || 'Your local time'}</p></div><MetricSwitch label="Daily practice chart metric" value={dailyMetric} options={[['time', 'Time'], ['runs', 'Runs'], ['xp', 'XP']]} onChange={setDailyMetric} /></div>
+          <div className="cmxi-section-heading"><div><h2>Daily practice</h2><p>{range === 'all' ? `Last ${data.trendWindowDays || 90} days` : RANGES.find(([id]) => id === range)[1]} · {data.timeZone || 'Your local time'}</p></div><MetricSwitch label="Daily practice chart metric" value={dailyMetric} options={[['time', 'Time'], ['runs', 'Runs']]} onChange={setDailyMetric} /></div>
           <DailyChart trend={trend} mode={dailyMetric} id={`${chartId}-practice`} />
-          <p className="cmxi-chart-note">{dailyMetric === 'time' ? 'Time pauses when the editor is hidden or you stop interacting.' : dailyMetric === 'xp' ? 'Coding XP awarded each day, from your saved reward history.' : 'Includes full-page runs and popup runs, with web previews tracked separately below.'}</p>
+          <p className="cmxi-chart-note">{dailyMetric === 'time' ? 'Time pauses when the editor is hidden or you stop interacting.' : 'Includes full-page runs and popup runs, with web previews tracked separately below.'}</p>
         </article>
         <article className="cmxi-card">
           <div className="cmxi-section-heading"><div><h2>XP earned</h2><p>Rewards earned each day</p></div><span className="cmxi-chart-total">{formatNumber(trend.reduce((sum, day) => sum + Number(day.xp || 0), 0))} <small>XP</small></span></div>

@@ -14,9 +14,9 @@
 body .cmxi button { font-family: inherit; box-shadow: none; transform: none; }
 body .cmxi button::after { display: none; }
 body .cmxi button:focus-visible, .cmxi summary:focus-visible { outline: 2px solid var(--cmxi-accent); outline-offset: 4px; }
-body .cmxi .cmxi-back { display: inline-flex; align-items: center; gap: 7px; margin: 0 0 22px; padding: 0; min-height: 28px; border: 0; border-radius: 0; background: transparent; color: var(--cmxi-muted); font-size: 12px; }
-body .cmxi .cmxi-back:hover { color: var(--cmxi-accent); background: transparent; }
-.cmxi-eyebrow { display: block; color: var(--cmxi-accent); font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+body .cmxi .cmxi-back { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 14px; padding: 9px 14px; min-height: 38px; border: 1px solid var(--cmxi-border); border-radius: 10px; background: var(--cmxi-surface); color: var(--cmxi-text); font-size: 12px; font-weight: 600; line-height: 1.3; white-space: nowrap; }
+body .cmxi .cmxi-back svg { flex-shrink: 0; }
+body .cmxi .cmxi-back:hover { color: var(--cmxi-accent); border-color: var(--cmxi-accent); background: var(--cmxi-soft); }
 .cmxi-header h1 { margin: 8px 0; font-size: clamp(25px, 3vw, 36px); letter-spacing: -1.2px; }
 .cmxi-header h1 span { font-weight: 400; }
 .cmxi-header p { margin: 0; color: var(--cmxi-muted); font-size: 12px; line-height: 1.6; }
