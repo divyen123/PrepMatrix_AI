@@ -52,8 +52,8 @@ function DailyChart({ trend, mode, id }) {
       <AreaChart data={trend} margin={{ top: 12, right: 14, left: 0, bottom: 0 }} accessibilityLayer>
         <defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--cmxi-accent)" stopOpacity={0.25} /><stop offset="100%" stopColor="var(--cmxi-accent)" stopOpacity={0.015} /></linearGradient></defs>
         <CartesianGrid vertical={false} stroke="var(--cmxi-border)" strokeDasharray="3 5" />
-        <XAxis dataKey="date" tickFormatter={formatDate} minTickGap={36} tick={{ fill: 'var(--cmxi-muted)', fontSize: 10 }} axisLine={false} tickLine={false} dy={7} />
-        <YAxis width={46} tickFormatter={mode === 'time' ? (value) => formatTime(value) : formatNumber} allowDecimals={false} tick={{ fill: 'var(--cmxi-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
+        <XAxis dataKey="date" tickFormatter={formatDate} minTickGap={36} tick={{ fill: 'var(--cmxi-muted)' }} axisLine={false} tickLine={false} dy={7} />
+        <YAxis width={46} tickFormatter={mode === 'time' ? (value) => formatTime(value) : formatNumber} allowDecimals={false} tick={{ fill: 'var(--cmxi-muted)' }} axisLine={false} tickLine={false} />
         <Tooltip content={<ChartTooltip mode={mode} daily />} cursor={{ stroke: 'var(--cmxi-accent)', strokeDasharray: '3 3' }} />
         <Area type="monotone" dataKey={dataKey} stroke="var(--cmxi-accent)" strokeWidth={2.5} fill={`url(#${id})`} activeDot={{ r: 5, stroke: 'var(--cmxi-surface)', strokeWidth: 3 }} isAnimationActive={false} />
       </AreaChart>
@@ -83,7 +83,7 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
   const highlights = data?.highlights || {};
   const languages = data?.languages || [];
   const trend = data?.trend || [];
-  const recent = (data?.recent || []).slice(0, 8);
+  const recent = data?.recent || [];
   const history = data?.historicalLanguages || [];
   const suggestions = data?.suggestions || [];
   const rewardRuns = xp.runsPerReward || 4;
@@ -154,18 +154,20 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
       <section className="cmxi-card cmxi-languages" aria-labelledby="cmxi-language-title">
         <div className="cmxi-section-heading"><div><h2 id="cmxi-language-title">Your languages</h2><p>See where your practice goes</p></div><MetricSwitch label="Language comparison metric" value={languageMetric} options={[['runs', 'Attempts'], ['time', 'Active time']]} onChange={setLanguageMetric} /></div>
         <div className="cmxi-language-grid">
-          <div className="cmxi-language-chart" style={{ height: Math.max(220, languages.length * 46) }} aria-label={languageMetric === 'time' ? 'Active coding time by language' : 'Meaningful attempts by language'}>
-            {hasLanguageChart ? <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <BarChart data={languageData} layout="vertical" margin={{ top: 10, right: 22, left: 2, bottom: 0 }} accessibilityLayer>
-                <CartesianGrid horizontal={false} stroke="var(--cmxi-border)" strokeDasharray="3 5" />
-                <XAxis type="number" allowDecimals={false} tickFormatter={languageMetric === 'time' ? formatTime : formatNumber} tick={{ fill: 'var(--cmxi-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="label" width={86} tick={{ fill: 'var(--cmxi-text)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<ChartTooltip mode={languageMetric} />} cursor={{ fill: 'var(--cmxi-soft)' }} />
-                <Bar dataKey={languageMetric === 'time' ? 'activeSeconds' : 'meaningfulAttempts'} fill="var(--cmxi-accent)" radius={[0, 5, 5, 0]} maxBarSize={18} isAnimationActive={false} onClick={(entry) => setSelectedLanguage(entry.id || entry.payload?.id || '')} cursor="pointer">
-                  {languageData.map((item) => <Cell key={item.id} opacity={!selected || selected.id === item.id ? 1 : 0.3} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer> : <ChartEmpty>{languageMetric === 'time' ? 'Spend some time in the editor to compare your languages.' : 'Run code in a language to build your comparison.'}</ChartEmpty>}
+          <div className="cmxi-language-chart" aria-label={languageMetric === 'time' ? 'Active coding time by language' : 'Meaningful attempts by language'}>
+            {hasLanguageChart ? <div className="cmxi-language-chart-inner" style={{ minWidth: Math.max(320, languageData.length * 76) }}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <BarChart data={languageData} margin={{ top: 10, right: 14, left: 0, bottom: 0 }} accessibilityLayer>
+                  <CartesianGrid vertical={false} stroke="var(--cmxi-border)" strokeDasharray="3 5" />
+                  <XAxis type="category" dataKey="label" interval={0} height={62} angle={-30} textAnchor="end" tick={{ fill: 'var(--cmxi-text)' }} axisLine={false} tickLine={false} />
+                  <YAxis type="number" width={48} allowDecimals={false} tickFormatter={languageMetric === 'time' ? formatTime : formatNumber} tick={{ fill: 'var(--cmxi-muted)' }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<ChartTooltip mode={languageMetric} />} cursor={{ fill: 'var(--cmxi-soft)' }} />
+                  <Bar dataKey={languageMetric === 'time' ? 'activeSeconds' : 'meaningfulAttempts'} fill="var(--cmxi-accent)" radius={[5, 5, 0, 0]} maxBarSize={38} isAnimationActive={false} onClick={(entry) => setSelectedLanguage(entry.id || entry.payload?.id || '')} cursor="pointer">
+                    {languageData.map((item) => <Cell key={item.id} opacity={!selected || selected.id === item.id ? 1 : 0.3} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div> : <ChartEmpty>{languageMetric === 'time' ? 'Spend some time in the editor to compare your languages.' : 'Run code in a language to build your comparison.'}</ChartEmpty>}
           </div>
           <div className="cmxi-language-details">
             {languages.length ? <div className="cmxi-table-scroll"><table><caption className="cmxi-sr-only">Execution patterns by language. Rates exclude web previews.</caption><thead><tr><th scope="col">Language</th><th scope="col">No-error rate</th><th scope="col">Follow-up runs</th></tr></thead><tbody>{languageData.map((item) => <tr key={item.id}><th scope="row">{item.label}<small>{item.topError ? `${ERRORS[item.topError.category] || 'Execution'} errors · ${item.topError.count}` : item.id === 'web' ? 'HTML, CSS & browser scripts' : `${item.practiceDays || 0} practice days`}</small></th><td>{item.id === 'web' ? 'Preview only' : rate(item.successRate)}</td><td>{formatNumber(item.errorsResolved)}</td></tr>)}</tbody></table></div> : <p className="cmxi-muted">Your language details will appear as you practise.</p>}
@@ -185,7 +187,7 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
       <div className="cmxi-bottom-grid">
         <section className="cmxi-card" aria-labelledby="cmxi-recent-title">
           <div className="cmxi-section-heading"><div><h2 id="cmxi-recent-title">Recent activity</h2><p>Both places you code, in one view</p></div><Activity size={19} aria-hidden="true" /></div>
-          {recent.length ? <ul className="cmxi-recent">{recent.map((attempt) => {
+          {recent.length ? <ul className={`cmxi-recent${recent.length > 6 ? ' is-scrollable' : ''}`} tabIndex={recent.length > 6 ? 0 : undefined} aria-label="Recent coding activity">{recent.map((attempt) => {
             const [label, tone] = STATUS[attempt.status] || ['Recorded', 'neutral'];
             return <li key={attempt.attemptId}><span className={`cmxi-status-dot is-${tone}`} aria-hidden="true" /><div><strong>{LANGUAGES[attempt.language] || attempt.language}<span>{attempt.surface === 'popup' ? 'Popup' : 'Full page'}</span></strong><p>{label}{ERRORS[attempt.errorCategory] && attempt.status !== 'success' ? ` · ${ERRORS[attempt.errorCategory]}` : ''}</p></div><time dateTime={attempt.startedAt} title={new Date(attempt.startedAt).toLocaleString()}>{formatDate(attempt.startedAt)}</time></li>;
           })}</ul> : <p className="cmxi-muted cmxi-empty-copy">Your next run or preview will appear here after syncing.</p>}
@@ -196,7 +198,7 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
         </section>
       </div>
 
-      {history.length > 0 && <details className="cmxi-history"><summary>Lifetime successful runs <span>{formatNumber(history.reduce((sum, item) => sum + Number(item.successfulRuns || 0), 0))} recorded</span></summary><p>Historical XP records preserve successful runs. They cannot tell us about past errors or active coding time.</p><div>{history.map((item) => <span key={item.id}>{item.label}<strong>{formatNumber(item.successfulRuns)}</strong></span>)}</div></details>}
+      {history.length > 0 && <section className="cmxi-history" aria-labelledby="cmxi-history-title"><h2 id="cmxi-history-title">Lifetime successful runs <span>{formatNumber(history.reduce((sum, item) => sum + Number(item.successfulRuns || 0), 0))} recorded</span></h2><p>Historical XP records preserve successful runs. They cannot tell us about past errors or active coding time.</p><div>{history.map((item) => <span key={item.id}>{item.label}<strong>{formatNumber(item.successfulRuns)}</strong></span>)}</div></section>}
       <footer className="cmxi-footer"><span>{trackingDate ? `Detailed activity tracked since ${trackingDate}.` : 'Detailed activity starts with your next coding session.'} Offline activity appears after syncing.</span><span>Automatic insights · No AI credits used</span></footer>
     </>}
   </div>;

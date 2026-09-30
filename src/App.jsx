@@ -76,7 +76,8 @@ import {
   writeStoredAppPreferences,
 } from "./utils/appPreferences";
 import { getPlannerMetrics } from "./utils/plannerMetrics";
-import { normalizeMemoryReviewData, separatePlannerRecall } from "./utils/plannerLifecycle.js";
+import { getScheduleCompletion, normalizeMemoryReviewData, separatePlannerRecall } from "./utils/plannerLifecycle.js";
+import { claimPlannerScheduleSuggestion } from "./utils/plannerScheduleSuggestion.js";
 import { buildClearedPlannerWorkspace, mergePlannerHistory, normalizePlannerHistory } from "./utils/plannerHistory.js";
 import {
   getPlannerScheduleAttention,
@@ -786,6 +787,36 @@ function App() {
   useAppUsageTracker(userProfile, Boolean(userIdentity));
   const kidsGamepadIcon = resolveKidsGamepadIcon(activeBackgroundImageId);
   const activeAcademicProfileDataId = profileContext?.dataId || "";
+  const plannerCompletion = useMemo(() => getScheduleCompletion(schedule, completed), [schedule, completed]);
+  useEffect(() => {
+    if (!workspaceLoaded || workspaceTransitioning || authLoading || !userProfile || !activeAcademicProfileDataId
+      || appLocked || entrySplash || logoutTransitionPhase !== "idle" || !plannerCompletion.complete
+      || location.pathname.startsWith('/exam')) return undefined;
+
+    // Let the existing completion invitation finish before suggesting another plan.
+    if (location.pathname.replace(/\/+$/u, '') === '/planner/schedule'
+      && !learnerRoutePolicy.isYoungKidsLearner && plannerCompletion.shouldInvite) return undefined;
+
+    const showSuggestion = () => {
+      if (document.querySelector('[aria-modal="true"]')) return;
+      observer.disconnect();
+      if (!claimPlannerScheduleSuggestion(localStorage, activeAcademicProfileDataId, schedule, plannerCompletion)) return;
+      toast.info('Your planner schedule is complete.', {
+        description: learnerRoutePolicy.isYoungKidsLearner
+          ? 'Ask a parent to create your next study schedule.'
+          : 'Create a new schedule to plan your next study goals.',
+        actionLabel: 'New schedule',
+        autoClose: 8000,
+        onAction: () => navigate('/planner/schedule', { state: { plannerShortcutAction: 'new' } }),
+      });
+    };
+    const observer = new MutationObserver(showSuggestion);
+    observer.observe(document.body, { childList: true, subtree: true });
+    const timer = window.setTimeout(showSuggestion, 0);
+    return () => { window.clearTimeout(timer); observer.disconnect(); };
+  }, [activeAcademicProfileDataId, appLocked, authLoading, entrySplash, learnerRoutePolicy.isYoungKidsLearner,
+    location.pathname, logoutTransitionPhase, navigate, plannerCompletion, schedule, userProfile,
+    workspaceLoaded, workspaceTransitioning]);
   const { tasks: backgroundTasks } = useBackgroundTasks();
   const learningTaskActivity = useMemo(
     () => deriveRouteTaskActivity(backgroundTasks, "/learn", activeAcademicProfileDataId),
