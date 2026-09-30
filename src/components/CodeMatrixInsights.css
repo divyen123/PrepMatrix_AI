@@ -27,9 +27,10 @@ body .cmxi .cmxi-back:hover { color: var(--cmxi-accent); }
 .cmxi-header p { margin: 0 0 0 45px; color: var(--cmxi-muted); font-size: 0.75rem; line-height: 1.6; }
 .cmxi-header-controls { display: flex; align-items: center; gap: 9px; padding-bottom: 2px; }
 .cmxi-switch { display: inline-flex; align-items: center; flex-shrink: 0; gap: 5px; }
-body .cmxi .cmxi-switch button { padding: 6px 11px; min-height: 29px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--cmxi-muted); font-size: 0.6875rem; font-weight: 650; white-space: nowrap; }
-body .cmxi .cmxi-switch button:hover { color: var(--cmxi-text); }
-body .cmxi .cmxi-switch button[aria-pressed=true] { color: var(--cmxi-text); background: var(--cmxi-soft); border-color: color-mix(in srgb, var(--cmxi-accent) 30%, var(--cmxi-border)); }
+body .cmxi .cmxi-switch button { padding: 6px 11px; min-height: 29px; border: 1px solid transparent !important; border-radius: 7px; background: transparent !important; box-shadow: none !important; color: var(--cmxi-muted); font-size: 0.6875rem; font-weight: 650; white-space: nowrap; transform: none !important; }
+body .cmxi .cmxi-switch button:not([aria-pressed="true"]):hover { color: var(--cmxi-text); background: color-mix(in srgb, var(--cmxi-accent) 9%, var(--cmxi-surface)) !important; border-color: color-mix(in srgb, var(--cmxi-accent) 18%, var(--cmxi-border)) !important; }
+body .cmxi .cmxi-switch button[aria-pressed="true"],
+body .cmxi .cmxi-switch button[aria-pressed="true"]:hover { color: var(--cmxi-text); background: color-mix(in srgb, var(--cmxi-accent) 20%, var(--cmxi-surface)) !important; border-color: color-mix(in srgb, var(--cmxi-accent) 55%, var(--cmxi-border)) !important; }
 body .cmxi .cmxi-refresh { display: grid; place-items: center; min-width: 39px; min-height: 39px; padding: 8px; border: 1px solid var(--cmxi-border); border-radius: 10px; background: var(--cmxi-surface); color: var(--cmxi-muted); }
 .cmxi-refresh:disabled { opacity: .5; cursor: default; }
 .cmxi-overview { display: grid; grid-template-columns: minmax(250px, .78fr) minmax(0, 1.6fr); gap: 18px; }
@@ -84,7 +85,10 @@ body .cmxi .cmxi-refresh { display: grid; place-items: center; min-width: 39px; 
 .cmxi-language-buttons { display: flex; flex-wrap: wrap; gap: 7px; }
 body .cmxi .cmxi-language-buttons button { min-height: 29px; padding: 5px 10px; border: 1px solid var(--cmxi-border); border-radius: 7px; background: transparent; color: var(--cmxi-muted); font-size: 0.625rem; }
 body .cmxi .cmxi-language-buttons button[aria-pressed=true] { background: var(--cmxi-soft); color: var(--cmxi-text); border-color: var(--cmxi-accent); }
-body .cmxi .cmxi-language-buttons .cmxi-clear-selection { border-color: transparent; text-decoration: underline; text-underline-offset: 3px; }
+body .cmxi .cmxi-language-buttons .cmxi-clear-selection,
+body .cmxi .cmxi-language-buttons .cmxi-clear-selection:hover,
+body .cmxi .cmxi-language-buttons .cmxi-clear-selection:focus-visible { border: 0 !important; background: transparent !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; color: var(--cmxi-muted); text-decoration: underline; text-underline-offset: 3px; transform: none !important; }
+body .cmxi .cmxi-language-buttons .cmxi-clear-selection:hover { color: var(--cmxi-accent); }
 .cmxi-selected-language { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 17px; margin-top: 12px; padding: 15px; border: 1px solid var(--cmxi-border); border-radius: 10px; background: var(--cmxi-soft); font-size: 0.6875rem; }
 .cmxi-selected-language > span { color: var(--cmxi-muted); font-size: 0.625rem; }
 .cmxi-selected-language p { width: 100%; margin: 0; color: var(--cmxi-muted); font-size: 0.625rem; line-height: 1.8; }
