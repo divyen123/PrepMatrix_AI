@@ -11,15 +11,17 @@
   color: var(--cmxi-text);
 }
 .cmxi-header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 24px; }
+.cmxi-title-row { display: flex; align-items: center; gap: 11px; min-width: 0; }
 body .cmxi button { font-family: inherit; box-shadow: none; transform: none; }
 body .cmxi button::after { display: none; }
 body .cmxi button:focus-visible { outline: 2px solid var(--cmxi-accent); outline-offset: 4px; }
-body .cmxi .cmxi-back { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 14px; padding: 9px 14px; min-height: 38px; border: 1px solid var(--cmxi-border); border-radius: 10px; background: var(--cmxi-surface); color: var(--cmxi-text); font-size: 0.75rem; font-weight: 600; line-height: 1.3; white-space: nowrap; }
+body .cmxi .cmxi-back,
+body .cmxi .cmxi-back:hover { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 32px; width: 32px; height: 36px; min-width: 32px; min-height: 36px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; color: var(--cmxi-text); transform: none; }
 body .cmxi .cmxi-back svg { flex-shrink: 0; }
-body .cmxi .cmxi-back:hover { color: var(--cmxi-accent); border-color: var(--cmxi-accent); background: var(--cmxi-soft); }
+body .cmxi .cmxi-back:hover { color: var(--cmxi-accent); }
 .cmxi-header h1 { margin: 8px 0; font-size: clamp(1.5625rem, calc(1.15rem + 1.2vw), 2.25rem); letter-spacing: -1.2px; }
 .cmxi-header h1 span { font-weight: 400; }
-.cmxi-header p { margin: 0; color: var(--cmxi-muted); font-size: 0.75rem; line-height: 1.6; }
+.cmxi-header p { margin: 0 0 0 43px; color: var(--cmxi-muted); font-size: 0.75rem; line-height: 1.6; }
 .cmxi-header-controls { display: flex; align-items: center; gap: 9px; padding-bottom: 2px; }
 .cmxi-switch { display: inline-flex; align-items: center; flex-shrink: 0; gap: 5px; }
 body .cmxi .cmxi-switch button { padding: 6px 11px; min-height: 29px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--cmxi-muted); font-size: 0.6875rem; font-weight: 650; white-space: nowrap; }
@@ -64,7 +66,7 @@ body .cmxi .cmxi-refresh { display: grid; place-items: center; min-width: 39px; 
 .cmxi-chart-total small { font-size: 0.6875rem; color: var(--cmxi-muted); }
 .cmxi-chart { width: 100%; height: 216px; min-width: 0; }
 .cmxi .recharts-cartesian-axis-tick-value { font-size: 0.625rem; }
-.cmxi-language-chart .recharts-xAxis .recharts-cartesian-axis-tick-value { font-size: 0.6875rem; }
+.cmxi-language-axis-icon { color: var(--cmxi-text); }
 .cmxi-chart-empty { display: flex; height: 216px; align-items: center; justify-content: center; flex-direction: column; gap: 10px; padding: 24px; border-radius: 12px; border: 1px dashed var(--cmxi-border); background: var(--cmxi-soft); color: var(--cmxi-muted); text-align: center; }
 .cmxi-chart-empty > svg { opacity: .75; }
 .cmxi-chart-empty p { max-width: 240px; margin: 0; font-size: 0.6875rem; line-height: 1.8; }
@@ -93,8 +95,12 @@ body .cmxi .cmxi-language-buttons .cmxi-clear-selection { border-color: transpar
 .cmxi tbody tr:last-child th, .cmxi tbody tr:last-child td { border-bottom: 0; }
 .cmxi-source-summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 13px 20px; border-top: 1px solid var(--cmxi-border); padding-top: 17px; margin-top: 21px; font-size: 0.6875rem; color: var(--cmxi-muted); }
 .cmxi-source-summary strong { color: var(--cmxi-text); font-weight: 650; margin-right: 4px; }
+.cmxi-bottom-grid > section:first-child { align-self: start; }
 .cmxi-recent { list-style: none; padding: 0; margin: 0; }
-.cmxi-recent.is-scrollable { max-height: 30rem; padding-right: 8px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.cmxi-recent.is-scrollable { max-height: 24rem; padding-right: 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: color-mix(in srgb, var(--cmxi-muted) 55%, transparent) transparent; scrollbar-width: thin; }
+.cmxi-recent.is-scrollable::-webkit-scrollbar { width: 6px; }
+.cmxi-recent.is-scrollable::-webkit-scrollbar-track { background: transparent; box-shadow: none; }
+.cmxi-recent.is-scrollable::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--cmxi-muted) 55%, transparent); border: 0; border-radius: 999px; box-shadow: none; }
 .cmxi-recent.is-scrollable:focus-visible { outline: 2px solid var(--cmxi-accent); outline-offset: 2px; border-radius: 6px; }
 .cmxi-recent li { display: flex; align-items: center; gap: 10px; padding: 13px 0; border-bottom: 1px solid var(--cmxi-border); }
 .cmxi-recent li:first-child { padding-top: 0; }

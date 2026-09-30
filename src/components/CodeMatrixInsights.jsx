@@ -2,6 +2,7 @@ import { createElement, useEffect, useId, useRef, useState } from 'react';
 import { Activity, ArrowLeft, ArrowUpRight, CalendarDays, CheckCheck, Clock3, Code2, Info, Lightbulb, LoaderCircle, RefreshCw, Target, Trophy, TrendingUp } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import useCodeMatrixInsights from '../hooks/useCodeMatrixInsights';
+import CodeMatrixLanguageTick from './CodeMatrixLanguageTick';
 import './CodeMatrixInsights.css';
 
 const LANGUAGES = { python: 'Python', c: 'C', cpp: 'C++', java: 'Java', javascript: 'JavaScript', sql: 'SQL', web: 'Web preview', html: 'HTML', css: 'CSS' };
@@ -95,9 +96,11 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
 
   return <div className="cmxi" aria-busy={loading}>
     <header className="cmxi-header">
-      <div>
-        <button className="cmxi-back" type="button" onClick={onBack}><ArrowLeft size={16} aria-hidden="true" />Back to CodeMatrix</button>
-        <h1 ref={headingRef} tabIndex={-1}>CodeMatrix <span>Insights</span></h1>
+      <div className="cmxi-header-main">
+        <div className="cmxi-title-row">
+          <button className="cmxi-back" type="button" onClick={onBack} aria-label="Back to CodeMatrix" title="Back to CodeMatrix"><ArrowLeft size={22} aria-hidden="true" /></button>
+          <h1 ref={headingRef} tabIndex={-1}>CodeMatrix <span>Insights</span></h1>
+        </div>
         <p>Your practice, progress, and next steps · This academic profile</p>
       </div>
       <div className="cmxi-header-controls">
@@ -159,7 +162,7 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={languageData} margin={{ top: 10, right: 14, left: 0, bottom: 0 }} accessibilityLayer>
                   <CartesianGrid vertical={false} stroke="var(--cmxi-border)" strokeDasharray="3 5" />
-                  <XAxis type="category" dataKey="label" interval={0} height={62} angle={-30} textAnchor="end" tick={{ fill: 'var(--cmxi-text)' }} axisLine={false} tickLine={false} />
+                  <XAxis type="category" dataKey="label" interval={0} height={38} tick={<CodeMatrixLanguageTick languages={languageData} />} axisLine={false} tickLine={false} />
                   <YAxis type="number" width={48} allowDecimals={false} tickFormatter={languageMetric === 'time' ? formatTime : formatNumber} tick={{ fill: 'var(--cmxi-muted)' }} axisLine={false} tickLine={false} />
                   <Tooltip content={<ChartTooltip mode={languageMetric} />} cursor={{ fill: 'var(--cmxi-soft)' }} />
                   <Bar dataKey={languageMetric === 'time' ? 'activeSeconds' : 'meaningfulAttempts'} fill="var(--cmxi-accent)" radius={[5, 5, 0, 0]} maxBarSize={38} isAnimationActive={false} onClick={(entry) => setSelectedLanguage(entry.id || entry.payload?.id || '')} cursor="pointer">

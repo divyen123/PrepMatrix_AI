@@ -231,17 +231,34 @@
 .notebook-recall-receipt p { color: var(--text-muted); font-size: 0.76rem; margin: 0.2rem 0 0; }
 .notebook-recall-receipt b { font-size: 0.85rem; }
 
-.notebook-recall-notes-link {
-  background: none;
-  border: 0;
+body .learning-page .notebook-recall-notes-link,
+body .learning-page .notebook-recall-notes-link:hover,
+body .learning-page .notebook-recall-notes-link:focus-visible {
+  display: inline;
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   color: var(--accent);
   cursor: pointer;
   font: inherit;
   font-size: 0.8rem;
   justify-self: start;
-  padding: 0;
+  padding: 0 !important;
   text-decoration: underline;
   text-underline-offset: 0.2rem;
+  transform: none !important;
+}
+
+body .learning-page .notebook-recall-notes-link::before,
+body .learning-page .notebook-recall-notes-link::after {
+  display: none !important;
 }
 
 .notebook-recall-empty { text-align: center; }
