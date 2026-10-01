@@ -25,7 +25,7 @@ body .cmx-page .cmx-practice-button::before, body .cmx-page .cmx-practice-button
 body .cmx-page .cmx-practice-button:disabled { opacity: .45; cursor: not-allowed; }
 body .cmx-page .cmx-practice-button.cmx-practice-try { background: var(--cmx-selected-surface) !important; border-color: var(--cmx-selected-border) !important; color: var(--cmx-focus) !important; }
 .cmx-practice-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--cmx-divider); }
-body .cmx-page .cmx-practice-button.cmx-practice-return { border-color: transparent !important; background: transparent !important; padding-left: 0; }
+.cmx-practice-navigation { justify-content: flex-end; }
 .cmx-tests-summary { display: flex; align-items: flex-start; gap: 11px; padding: 15px; border: 1px solid var(--cmx-divider); border-radius: 11px; color: var(--cmx-label); background: var(--cmx-panel-surface); }
 .cmx-tests-summary > svg { flex-shrink: 0; margin-top: 1px; }
 .cmx-tests-summary strong { display: block; font-size: 13px; font-weight: 650; line-height: 1.5; }

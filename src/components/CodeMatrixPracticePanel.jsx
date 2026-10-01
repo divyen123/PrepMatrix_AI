@@ -1,9 +1,9 @@
-import { ArrowLeft, ArrowRight, Check, Shuffle } from 'lucide-react';
+import { ArrowRight, Check, Shuffle } from 'lucide-react';
 import './CodeMatrixPracticePanel.css';
 
 const isSolved = (ids, id) => ids instanceof Set ? ids.has(id) : ids.includes(id);
 
-export default function CodeMatrixPracticePanel({ questions = [], question, language, solvedIds = [], onSelect, onBack, onNext, onRefresh, disabled = false }) {
+export default function CodeMatrixPracticePanel({ questions = [], question, language, solvedIds = [], onSelect, onNext, onRefresh, disabled = false }) {
   const examples = question?.examples || question?.testCases?.slice(0, 2) || [];
   const suggested = questions.filter((item) => !language || item.supportedLanguages?.includes(language))
     .sort((a, b) => Number(isSolved(solvedIds, a.id)) - Number(isSolved(solvedIds, b.id))).slice(0, 3);
@@ -29,8 +29,7 @@ export default function CodeMatrixPracticePanel({ questions = [], question, lang
       <button type="button" className="cmx-practice-button cmx-practice-try" onClick={() => onSelect(item.id)} disabled={disabled || (Boolean(language) && !item.supportedLanguages?.includes(language))}>Try it<ArrowRight size={14} aria-hidden="true" /></button>
     </article>)}</div>}
 
-    <footer className="cmx-practice-actions">
-      <button type="button" className="cmx-practice-button cmx-practice-return" onClick={onBack} disabled={disabled}><ArrowLeft size={14} aria-hidden="true" />Return to compiler</button>
+    <footer className="cmx-practice-actions cmx-practice-navigation">
       {question && onNext && <button type="button" className="cmx-practice-button" onClick={onNext} disabled={disabled}><Shuffle size={14} aria-hidden="true" />Try another</button>}
       {!question && onRefresh && <button type="button" className="cmx-practice-button" onClick={onRefresh} disabled={disabled}><Shuffle size={14} aria-hidden="true" />More questions</button>}
     </footer>

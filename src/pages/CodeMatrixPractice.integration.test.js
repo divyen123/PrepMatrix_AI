@@ -26,9 +26,9 @@ before(async () => {
         `;
         if (path.endsWith('/src/hooks/useCodeMatrixPractice.js')) return `
           import { CODE_MATRIX_PRACTICE_QUESTIONS } from '../utils/codeMatrixPractice.js';
-          export const fixture = { active: false };
+          export const fixture = { active: false, selected: false };
           export default function useCodeMatrixPractice() {
-            return { panelOpen: fixture.active, question: fixture.active ? CODE_MATRIX_PRACTICE_QUESTIONS[0] : null,
+            return { panelOpen: fixture.active, question: fixture.active && fixture.selected ? CODE_MATRIX_PRACTICE_QUESTIONS[0] : null,
               draft: 'print("My practice draft")', solvedIds: [], storageAvailable: true,
               openPanel() {}, closePanel() {}, showQuestions() {}, selectQuestion() {}, exitPractice() {},
               updateDraft() {}, resetDraft() {}, markSolved() {}, setLanguage() {} };
@@ -54,29 +54,36 @@ const render = (embedded) => renderToStaticMarkup(React.createElement(MemoryRout
     academicProfileDataId: 'academic-profile:practice-integration', embedded, subjects: [{ name: 'Python' }],
   })));
 
+const practiceToolbarAction = (markup) => markup.match(/<button[^>]*class="[^"]*cmx-practice-trigger[^"]*"[^>]*>([\s\S]*?)<\/button>/u)?.[1].replace(/<[^>]+>/gu, '').trim();
+
 test('practice and compiler share the toolbar in the full page and popup', () => {
-  practiceFixture.active = false;
-  for (const embedded of [false, true]) {
-    const markup = render(embedded);
-    assert.match(markup, /class="cmx-toolbar"[\s\S]*?Programming language[\s\S]*?Try to solve\?[\s\S]*?class="cmx-actions"/u);
-    assert.match(markup, /My compiler draft/u);
-    assert.doesNotMatch(markup, /My practice draft/u);
-    assert.match(markup, /Run code/u);
-    assert.match(markup, /<option value="sql"/u);
-    assert.doesNotMatch(markup, /class="cmx-beta"/u);
-    assert.equal(markup.includes('Open CodeMatrix Insights'), !embedded);
+  practiceFixture.selected = false;
+  for (const pickerOpen of [false, true]) {
+    practiceFixture.active = pickerOpen;
+    for (const embedded of [false, true]) {
+      const markup = render(embedded);
+      assert.match(markup, /class="cmx-toolbar"[\s\S]*?Programming language[\s\S]*?class="cmx-practice-trigger"[\s\S]*?class="cmx-actions"/u);
+      assert.equal(practiceToolbarAction(markup), pickerOpen ? 'Return to compiler' : 'Try to solve?');
+      assert.match(markup, /My compiler draft/u);
+      assert.doesNotMatch(markup, /My practice draft/u);
+      assert.match(markup, /Run code/u);
+      assert.equal(markup.includes('<option value="sql"'), !pickerOpen);
+      assert.doesNotMatch(markup, /class="cmx-beta"/u);
+      assert.equal(markup.includes('Open CodeMatrix Insights'), !embedded);
+    }
   }
 });
 
 test('selected practice uses its own draft and supported languages on both surfaces', () => {
   practiceFixture.active = true;
+  practiceFixture.selected = true;
   for (const embedded of [false, true]) {
     const markup = render(embedded);
     assert.match(markup, /My practice draft/u);
     assert.doesNotMatch(markup, /My compiler draft/u);
+    assert.equal(practiceToolbarAction(markup), 'Return to compiler');
     assert.match(markup, /role="tablist" aria-label="Practice views"/u);
-    assert.match(markup, />Problem<\/button>/u);
-    assert.match(markup, />Test results<\/button>/u);
+    assert.match(markup, />Problem<\/button>\s*<button[^>]*>Test results<\/button>/u);
     assert.match(markup, /\sRun<\/button>/u);
     for (const id of ['python', 'javascript', 'c', 'cpp', 'java']) assert.match(markup, new RegExp(`<option value="${id}"`, 'u'));
     for (const id of ['sql', 'html', 'css']) assert.doesNotMatch(markup, new RegExp(`<option value="${id}"`, 'u'));

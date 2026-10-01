@@ -621,7 +621,7 @@ export default function CodeMatrixPage({
         <>
           <div className="cmx-toolbar">
             <label className="cmx-language"><span>Language</span><select aria-label="Programming language" value={workspaceLanguage} onChange={(event) => changeLanguage(event.target.value)}>{CODE_MATRIX_LANGUAGES.filter((item) => !(practice.panelOpen || practiceActive) || CODE_MATRIX_PRACTICE_LANGUAGES.includes(item.id)).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-            <button type="button" className="cmx-button cmx-practice-trigger" aria-pressed={practice.panelOpen || practiceActive} onClick={openPractice}>Try to solve?</button>
+            <button type="button" className="cmx-practice-trigger" onClick={practice.panelOpen || practiceActive ? returnToCompiler : openPractice}>{practice.panelOpen || practiceActive ? <><ArrowLeft size={14} aria-hidden="true" />Return to compiler</> : 'Try to solve?'}</button>
             <div className="cmx-actions">
               {(busy || preview) && <button type="button" className="cmx-button" onClick={stop}><Square size={15} />Stop</button>}
               <button type="button" className="cmx-button" disabled={busy} onClick={() => void run(true)} title={workspaceLanguage === "python" ? "Run with a recorded line and variable trace" : "Run code and inspect errors"}><Bug size={16} />Debug</button>
@@ -666,7 +666,7 @@ export default function CodeMatrixPage({
                 {preview && <iframe ref={previewRef} title="CodeMatrix webpage preview" hidden={resultTab !== "preview"} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={preview.srcDoc} />}
                 {busy && !waiting && resultTab !== 'problem' && resultTab !== 'tests' && <div className="cmx-running-message" role="status"><LoaderCircle className="cmx-spin" size={14} />{runtimeMessage}</div>}
                 {resultTab === 'problem' ? (
-                  <CodeMatrixPracticePanel questions={suggestedQuestions} question={practice.question} language={workspaceLanguage} solvedIds={practice.solvedIds} onSelect={selectPracticeQuestion} onBack={returnToCompiler} onNext={tryAnotherQuestion} onRefresh={() => setQuestionOffset((offset) => (offset + 3) % CODE_MATRIX_PRACTICE_QUESTIONS.length)} />
+                  <CodeMatrixPracticePanel questions={suggestedQuestions} question={practice.question} language={workspaceLanguage} solvedIds={practice.solvedIds} onSelect={selectPracticeQuestion} onNext={tryAnotherQuestion} onRefresh={() => setQuestionOffset((offset) => (offset + 3) % CODE_MATRIX_PRACTICE_QUESTIONS.length)} />
                 ) : resultTab === 'tests' ? (
                   <CodeMatrixTestResults result={result?.kind === 'practice' ? result : null} stale={Boolean(result?.kind === 'practice' && !unchanged)} busy={busy} onShowProblem={() => setResultTab('problem')} />
                 ) : resultTab === "preview" ? (

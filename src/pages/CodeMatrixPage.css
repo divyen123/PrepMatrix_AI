@@ -190,13 +190,17 @@ body .cmx-page.is-embedded {
 .cmx-language select { width: 150px; min-height: 38px; padding: 8px 12px; color: var(--text); background: var(--surface-muted); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
 .cmx-runtime-label { color: var(--text-muted); font-size: 11px; }
 .cmx-toolbar > .cmx-actions { margin-left: auto; gap: 8px; }
-.cmx-practice-tabs { justify-content: flex-start; gap: 6px; padding: 0 12px; overflow-x: auto; }
+.cmx-panel-bar.cmx-practice-tabs { justify-content: flex-end; gap: 6px; padding: 0 12px; overflow-x: auto; }
 body .cmx-page .cmx-practice-tabs button { flex: 0 0 auto; min-height: 30px; margin: 0; padding: 5px 11px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--cmx-control-text); font-size: 11px; font-weight: 600; line-height: 1.5; box-shadow: none; transform: none; white-space: nowrap; }
 body .cmx-page .cmx-practice-tabs button[aria-selected=true] { border-color: var(--cmx-selected-border); background: var(--cmx-selected-surface); color: var(--cmx-focus); }
 body .cmx-page .cmx-practice-tabs button:hover { background: var(--cmx-control-hover); }
 body .cmx-page .cmx-practice-tabs button:focus-visible { outline: 2px solid var(--cmx-focus); outline-offset: 2px; }
 body .cmx-page .cmx-practice-tabs button::before, body .cmx-page .cmx-practice-tabs button::after { display: none; }
-body .cmx-page .cmx-practice-trigger[aria-pressed=true] { border-color: var(--cmx-selected-border) !important; color: var(--cmx-focus) !important; }
+body .cmx-page .cmx-practice-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; margin: 0; padding: 8px 4px; border: 0 !important; border-radius: 6px; background: transparent !important; color: var(--cmx-focus) !important; font-family: inherit; font-size: 12px; font-weight: 650; line-height: 1.5; box-shadow: none !important; transform: none !important; white-space: nowrap; }
+body .cmx-page .cmx-practice-trigger:hover { background: transparent !important; text-decoration: underline; text-underline-offset: 4px; }
+body .cmx-page .cmx-practice-trigger:focus-visible { outline: 2px solid var(--cmx-focus); outline-offset: 3px; }
+body .cmx-page .cmx-practice-trigger::before, body .cmx-page .cmx-practice-trigger::after { display: none; }
+.cmx-page.is-embedded .cmx-practice-trigger { min-height: 31px; padding: 6px 4px; }
 .cmx-workbench { display: grid; grid-template-columns: var(--cmx-workbench-columns, 1.2fr 10px 1fr); min-height: 520px; height: clamp(520px, 65vh, 780px); overflow: hidden; border: 1px solid var(--cmx-border); border-radius: 16px; background: var(--cmx-surface); color: var(--cmx-text); }
 .cmx-source, .cmx-results { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .cmx-source { position: relative; }

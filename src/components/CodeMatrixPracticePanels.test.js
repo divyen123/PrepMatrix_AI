@@ -77,7 +77,7 @@ test('chooser offers three unsolved questions in the selected language with comp
   }));
   questions.splice(2, 0, { id: 'sql-only', title: 'SQL only question', supportedLanguages: ['sql'] });
   const markup = renderToStaticMarkup(React.createElement(PracticePanel, {
-    questions, language: 'python', solvedIds: ['question-0', 'question-1'], onSelect() {}, onBack() {}, onRefresh() {},
+    questions, language: 'python', solvedIds: ['question-0', 'question-1'], onSelect() {}, onRefresh() {},
   }));
   assert.equal((markup.match(/class="cmx-practice-question"/gu) || []).length, 3);
   assert.match(markup, /Question 2/u);
@@ -87,6 +87,12 @@ test('chooser offers three unsolved questions in the selected language with comp
   assert.doesNotMatch(markup, /SQL only question/u);
   assert.equal((markup.match(/>Try it</gu) || []).length, 3);
   assert.match(markup, /More questions/u);
-  assert.match(markup, /Return to compiler/u);
+  assert.doesNotMatch(markup, /Return to compiler/u);
   assert.doesNotMatch(markup, /<dialog|<h3>Easy|badge/u);
+  const selected = renderToStaticMarkup(React.createElement(PracticePanel, {
+    question: { ...questions[2], statement: 'Print the result.', inputFormat: 'One integer.', outputFormat: 'One integer.' },
+    language: 'python', onNext() {},
+  }));
+  assert.match(selected, /Try another/u);
+  assert.doesNotMatch(selected, /Return to compiler/u);
 });
