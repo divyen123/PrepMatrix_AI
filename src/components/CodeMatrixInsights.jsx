@@ -156,11 +156,6 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
         </article>
       </section>
 
-      {practiceRewards.length > 0 && <section className="cmxi-card" aria-labelledby="cmxi-solved-title">
-        <div className="cmxi-section-heading"><h2 id="cmxi-solved-title">Solved questions</h2></div>
-        <ul className="cmxi-solved-list">{practiceRewards.map((reward) => <li key={reward.id}><CheckCheck size={17} aria-hidden="true" /><div><strong>{reward.title}</strong><span>{LANGUAGES[reward.language] || reward.language} · {formatDate(reward.occurredAt)}</span></div><b>+{formatNumber(reward.xp)} XP</b></li>)}</ul>
-      </section>}
-
       <section className="cmxi-card cmxi-languages" aria-labelledby="cmxi-language-title">
         <div className="cmxi-section-heading"><div><h2 id="cmxi-language-title">Your languages</h2><p>See where your practice goes</p></div><MetricSwitch label="Language comparison metric" value={languageMetric} options={[['runs', 'Attempts'], ['time', 'Active time']]} onChange={setLanguageMetric} /></div>
         <div className="cmxi-language-grid">
@@ -208,7 +203,13 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
         </section>
       </div>
 
-      {history.length > 0 && <section className="cmxi-history" aria-labelledby="cmxi-history-title"><h2 id="cmxi-history-title">Lifetime successful runs <span>{formatNumber(history.reduce((sum, item) => sum + Number(item.successfulRuns || 0), 0))} recorded</span></h2><p>Historical XP records preserve successful runs. They cannot tell us about past errors or active coding time.</p><div>{history.map((item) => <span key={item.id}>{item.label}<strong>{formatNumber(item.successfulRuns)}</strong></span>)}</div></section>}
+      {(history.length > 0 || practiceRewards.length > 0) && <div className="cmxi-history-grid">
+        {history.length > 0 && <section className="cmxi-history" aria-labelledby="cmxi-history-title"><h2 id="cmxi-history-title">Lifetime successful runs <span>{formatNumber(history.reduce((sum, item) => sum + Number(item.successfulRuns || 0), 0))} recorded</span></h2><p>Historical XP records preserve successful runs. They cannot tell us about past errors or active coding time.</p><div>{history.map((item) => <span key={item.id}>{item.label}<strong>{formatNumber(item.successfulRuns)}</strong></span>)}</div></section>}
+        {practiceRewards.length > 0 && <section className="cmxi-card" aria-labelledby="cmxi-solved-title">
+          <div className="cmxi-section-heading"><h2 id="cmxi-solved-title">Solved questions</h2></div>
+          <ul className="cmxi-solved-list">{practiceRewards.map((reward) => <li key={reward.id}><CheckCheck size={17} aria-hidden="true" /><div><strong>{reward.title}</strong><span>{LANGUAGES[reward.language] || reward.language} · {formatDate(reward.occurredAt)}</span></div><b>+{formatNumber(reward.xp)} XP</b></li>)}</ul>
+        </section>}
+      </div>}
       <footer className="cmxi-footer"><span>{trackingDate ? `Detailed activity tracked since ${trackingDate}.` : 'Detailed activity starts with your next coding session.'} Offline activity appears after syncing.</span><span>Automatic insights · No AI credits used</span></footer>
     </>}
   </div>;

@@ -12,3 +12,13 @@
 .global-momentum-card .next-reward-strip {
   margin-top: auto;
 }
+
+.gamification-card.global-momentum-card.has-code-details {
+  overflow: visible;
+  z-index: 3;
+}
+
+/* The popover must escape the content's lower stacking layer beneath the header. */
+.global-momentum-card.has-code-details > .gamification-scroll-region {
+  z-index: 11;
+}

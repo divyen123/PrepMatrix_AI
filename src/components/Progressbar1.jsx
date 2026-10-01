@@ -1,9 +1,8 @@
 import { useEffect, useMemo } from "react";
 import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import confetti from "canvas-confetti";
 import { toast } from "../utils/toast";
-import successSound from "../assets/success.mp3";
+import { celebrateCompletion } from "../utils/completionCelebration";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { academicProfileStorageKey } from "../utils/academicProfileScope";
 import CometDial from "./CometDial";
@@ -64,17 +63,11 @@ function ProgressBar1({ academicProfileDataId = "", schedule, completed, variant
 
       window.localStorage.setItem(completionCelebrationKey, "shown");
 
-      confetti({
-        particleCount: 150,
-        spread: 100,
-      });
+      celebrateCompletion();
 
       toast.success("Study plan completed.", {
         toastId: completionCelebrationKey,
       });
-
-      const audio = new Audio(successSound);
-      audio.play().catch(() => {});
     }
   }, [completionCelebrationKey, progress, metrics.totalTasks]);
 

@@ -18,8 +18,9 @@ import { CODE_MATRIX_LANGUAGES, CODE_MATRIX_MAX_CODE, CODE_MATRIX_STARTERS, code
 import { buildCodeMatrixPreview, createCodeMatrixBrowserRun } from "../utils/codeMatrixRuntime.js";
 import { normalizePlacementCodeMatrixHandoff } from "../utils/placementCodeMatrix.js";
 import { resolveCodeMatrixShortcut } from "../utils/codeMatrixShortcuts.js";
-import { CODE_MATRIX_PRACTICE_LANGUAGES, CODE_MATRIX_PRACTICE_QUESTIONS, practiceResultMatchesDraft, readCodeMatrixPracticeState } from '../utils/codeMatrixPractice.js';
+import { CODE_MATRIX_PRACTICE_LANGUAGES, CODE_MATRIX_PRACTICE_QUESTIONS, isSuccessfulPracticeResult, practiceResultMatchesDraft, readCodeMatrixPracticeState } from '../utils/codeMatrixPractice.js';
 import { createCodeMatrixPracticeRun } from '../utils/codeMatrixPracticeRunner.js';
+import { celebrateCompletion } from '../utils/completionCelebration.js';
 import "./CodeMatrixPage.css";
 
 const SETUP_COPY = {
@@ -348,12 +349,14 @@ export default function CodeMatrixPage({
       if (!mountedRef.current || sequence !== runSequenceRef.current) return;
       setResult({ ...outcome, ...snapshot, ...(isPracticeRun ? { kind: 'practice', rewardRunId } : {}) });
       if (outcome.status === 'success' && code.trim()) {
-        if (isPracticeRun) {
+        if (isPracticeRun && isSuccessfulPracticeResult(outcome, question)) {
           markPracticeSolved(outcome);
           recordSuccessfulRun(rewardRunId, editorLanguage, {
             questionId: question.id, version: question.version,
             results: outcome.cases.map(({ id, status, stdout }) => ({ id, status, stdout })),
           });
+          // Keep the celebration above the embedded CodeMatrix window.
+          celebrateCompletion({ zIndex: 14700 });
         } else if (!question) recordSuccessfulRun(rewardRunId, editorLanguage);
       }
       if (debug) setResultTab('debug');

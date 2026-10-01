@@ -138,7 +138,7 @@ export default function GlobalMomentumCard({ momentum, momentumError = '', onRet
   );
 
   return (
-    <section className="card gamification-card global-momentum-card">
+    <section className={`card gamification-card global-momentum-card${codeDetailsOpen ? ' has-code-details' : ''}`}>
       <div className="gamification-header">
         <div>
           <div className="momentum-title-row">

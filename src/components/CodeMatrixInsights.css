@@ -73,7 +73,9 @@ body .cmxi .cmxi-refresh { display: grid; place-items: center; min-width: 39px; 
 .cmxi-context-note { display: flex; align-items: flex-start; gap: 8px; margin-top: -8px; color: var(--cmxi-muted); }
 .cmxi-context-note svg { flex-shrink: 0; margin-top: 2px; }
 .cmxi-context-note p { margin: 0; font-size: 0.6875rem; line-height: 1.7; }
-.cmxi-charts-grid, .cmxi-bottom-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.cmxi-charts-grid, .cmxi-bottom-grid, .cmxi-history-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.cmxi-history-grid > * { min-width: 0; }
+.cmxi-history-grid > :only-child { grid-column: 1 / -1; }
 .cmxi-card { min-width: 0; padding: 24px; border: 1px solid var(--cmxi-border); border-radius: 19px; background: var(--cmxi-surface); }
 .cmxi-section-heading { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
 .cmxi-section-heading h2 { margin: 0; font-size: 1.0625rem; letter-spacing: -.4px; }
@@ -166,7 +168,7 @@ body .cmxi .cmxi-error button { min-height: 28px; padding: 4px 8px; border: 1px 
 }
 @media (max-width: 760px) {
   .cmxi { gap: 17px; }
-  .cmxi-overview, .cmxi-bottom-grid { grid-template-columns: 1fr; }
+  .cmxi-overview, .cmxi-bottom-grid, .cmxi-history-grid { grid-template-columns: 1fr; }
   .cmxi-highlights { grid-template-columns: 1fr; gap: 12px; }
   .cmxi-highlight { padding: 17px 20px; }
   .cmxi-highlight h3 { margin-top: 9px; }
