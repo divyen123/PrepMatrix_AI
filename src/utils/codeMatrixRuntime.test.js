@@ -3,6 +3,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 import {
   createCodeMatrixBrowserRun,
+  createCodeMatrixCompiledPracticeRun,
   buildCodeMatrixRuntimeCsp,
   serializeCodeMatrixScriptData,
   CODE_MATRIX_LIMITS as limits,
@@ -400,5 +401,184 @@ test('iframe rejects unrelated handshakes and terminates its worker on every ter
   assert.equal(handlers.size, 0);
   run.cancel();
   await run.promise;
+  browser.assertClean();
+});
+
+test('compiled practice separates slow preparation from five fresh execution budgets even beyond three minutes', async (t) => {
+  const browser = mockBrowser(t);
+  const events = [];
+  const inputs = ['1\n', '2\n', '3\n', '4\n', '5\n'];
+  const code = 'student source stays in the private job';
+  const run = createCodeMatrixCompiledPracticeRun({ language: 'java', code, inputs, onEvent: (event) => events.push(event) });
+  browser.frames[0].onload();
+  assert.deepEqual(browser.frames[0].contentWindow.sent[0][0].job.inputs, inputs);
+  assert.ok(!browser.frames[0].srcdoc.includes(code));
+  assert.equal(browser.frames[0].attrs.sandbox, 'allow-scripts');
+  for (let index = 0; index < 5; index += 1) {
+    browser.message({ type: 'case-start', index });
+    assert.equal(browser.timers.values().next().value.ms, limits.bootMs);
+    browser.advance(index === 0 ? 119_000 : 30_000);
+    browser.message({ type: 'case-running', index });
+    assert.equal(browser.timers.values().next().value.ms, limits.runMs);
+    browser.advance(9000);
+    browser.message({ type: 'case-result', index, result: { status: 'success', stdout: `${index + 1}\n`, durationMs: 999999 } });
+  }
+  browser.message({ type: 'result', result: { status: 'success' } });
+  const result = await run.promise;
+  assert.equal(result.status, 'success');
+  assert.equal(result.durationMs, 45_000, 'all 284s of wall time account for only 45s of actual execution');
+  assert.deepEqual(result.cases.map((item) => item.durationMs), Array(5).fill(9000));
+  assert.deepEqual(result.cases.map((item) => item.stdout), inputs);
+  assert.deepEqual(events.filter((event) => event.type === 'case-start').map((event) => event.index), [0, 1, 2, 3, 4]);
+  assert.deepEqual(events.filter((event) => event.type === 'case-result').map((event) => event.index), [0, 1, 2, 3, 4]);
+  browser.assertClean();
+});
+
+test('a compiled case timeout preserves prior outputs, captures the current failure and cleans the suite', async (t) => {
+  const browser = mockBrowser(t);
+  const run = createCodeMatrixCompiledPracticeRun({ language: 'cpp', code: 'source', inputs: ['a', 'b', 'c'] });
+  browser.message({ type: 'case-start', index: 0 });
+  browser.message({ type: 'case-running', index: 0 });
+  browser.advance(2000);
+  browser.message({ type: 'case-result', index: 0, result: { status: 'success', stdout: 'first\n' } });
+  browser.message({ type: 'case-start', index: 1 });
+  browser.advance(119_000);
+  browser.message({ type: 'case-running', index: 1 });
+  const deadline = browser.timers.keys().next().value;
+  browser.advance(9000);
+  browser.message({ type: 'case-running', index: 1 });
+  browser.message({ type: 'case-start', index: 1 });
+  assert.equal(browser.timers.keys().next().value, deadline, 'repeated messages cannot extend the running case');
+  browser.message({ type: 'snapshot', index: 1, result: { stdout: 'second partial\n' } });
+  browser.message({ type: 'snapshot', index: 0, result: { stdout: 'stale first case\n' } });
+  browser.advance(1000);
+  browser.fireTimer();
+  const result = await run.promise;
+  assert.equal(result.status, 'timeout');
+  assert.equal(result.durationMs, 12_000);
+  assert.equal(result.cases.length, 2, 'remaining inputs were never started');
+  assert.equal(result.cases[0].stdout, 'first\n');
+  assert.equal(result.cases[0].status, 'success');
+  assert.equal(result.cases[1].stdout, 'second partial\n');
+  assert.equal(result.cases[1].status, 'timeout');
+  assert.equal(result.cases[1].durationMs, 10_000);
+  browser.assertClean();
+});
+
+test('compiled preparation timeout, explicit cancellation and pagehide settle once and clean resources', async (t) => {
+  const browser = mockBrowser(t);
+  for (const [index, action] of ['preparation-timeout', 'cancel', 'pagehide'].entries()) {
+    const run = createCodeMatrixCompiledPracticeRun({ language: 'c', code: 'source', inputs: ['a', 'b'] });
+    browser.message({ type: 'case-start', index: 0 }, index);
+    if (action === 'preparation-timeout') {
+      browser.advance(120_000);
+      browser.fireTimer();
+    } else {
+      browser.message({ type: 'case-running', index: 0 }, index);
+      browser.advance(100);
+      browser.message({ type: 'snapshot', index: 0, result: { stdout: 'partial\n' } }, index);
+      if (action === 'cancel') run.cancel();
+      else browser.listeners.get('pagehide')();
+    }
+    run.cancel();
+    const result = await run.promise;
+    assert.equal(result.status, action === 'preparation-timeout' ? 'timeout' : 'stopped');
+    assert.equal(result.cases.length, 1);
+    assert.equal(result.cases[0].status, result.status);
+    assert.equal(result.durationMs, action === 'preparation-timeout' ? 0 : 100);
+    if (action !== 'preparation-timeout') assert.equal(result.cases[0].stdout, 'partial\n');
+    browser.assertClean();
+  }
+});
+
+test('invalid compiled batches fail before creating an iframe or evaluating source', async (t) => {
+  const browser = mockBrowser(t);
+  for (const options of [
+    { language: 'java', code: 'source' }, { language: 'java', code: 'source', inputs: null },
+    { language: 'java', code: 'source', inputs: [] }, { language: 'javascript', code: 'source', inputs: ['1'] },
+    { language: 'java', code: 'source', inputs: ['1', null] },
+    { language: 'c', code: 'source', inputs: Array(21).fill('1') },
+    { language: 'cpp', code: 'source', inputs: ['x'.repeat(limits.inputChars + 1)] },
+    { language: 'java', code: 'x'.repeat(limits.sourceChars + 1), inputs: ['1'] },
+  ]) {
+    const result = await createCodeMatrixCompiledPracticeRun(options).promise;
+    assert.equal(result.status, 'error');
+    assert.deepEqual(result.cases, []);
+  }
+  assert.equal(browser.frames.length, 0);
+  browser.assertClean();
+});
+
+test('missing or out-of-order compiled results cannot report a complete successful suite', async (t) => {
+  const browser = mockBrowser(t);
+  for (const [index, unfinishedCase] of [false, true].entries()) {
+    const events = [];
+    const run = createCodeMatrixCompiledPracticeRun({ language: 'java', code: 'source', inputs: ['a', 'b'], onEvent: (event) => events.push(event) });
+    browser.message({ type: 'case-start', index: 1 }, index);
+    browser.message({ type: 'case-result', index: 0, result: { status: 'success' } }, index);
+    browser.message({ type: 'case-start', index: 0 }, index);
+    browser.message({ type: 'case-start', index: 0 }, index);
+    browser.message({ type: 'case-running', index: 0 }, index);
+    browser.message({ type: 'case-result', index: 1, result: { status: 'success', stdout: 'forged' } }, index);
+    browser.message({ type: 'case-result', index: 0, result: { status: 'success', stdout: 'first' } }, index);
+    browser.message({ type: 'case-result', index: 0, result: { status: 'success', stdout: 'duplicate' } }, index);
+    if (unfinishedCase) browser.message({ type: 'case-start', index: 1 }, index);
+    browser.message({ type: 'result', result: { status: 'success' } }, index);
+    const result = await run.promise;
+    assert.equal(result.status, 'error');
+    assert.equal(result.cases[0].stdout, 'first');
+    assert.equal(result.cases.length, unfinishedCase ? 2 : 1);
+    if (unfinishedCase) assert.equal(result.cases[1].status, 'error');
+    assert.equal(events.filter((event) => event.type === 'case-start').length, unfinishedCase ? 2 : 1);
+    browser.assertClean();
+  }
+});
+
+test('compiled iframe relays each prepared case to the worker and parent, then terminates all resources', async (t) => {
+  const browser = mockBrowser(t);
+  const run = createCodeMatrixCompiledPracticeRun({ language: 'java', code: 'source', inputs: ['a', 'b'] });
+  const frame = browser.frames[0];
+  frame.onload();
+  const handshake = frame.contentWindow.sent[0][0];
+  const source = frame.srcdoc.match(/<script>([\s\S]*)<\/script>/)[1];
+  const handlers = new Map();
+  const parent = {};
+  const channels = [];
+  const workers = [];
+  const urls = new Set();
+  class Channel {
+    constructor() {
+      const port = () => ({ sent: [], closed: false, start() {}, close() { this.closed = true; }, postMessage(value) { this.sent.push(value); } });
+      this.port1 = port(); this.port2 = port(); channels.push(this);
+    }
+  }
+  class Worker {
+    constructor() { this.terminated = false; workers.push(this); }
+    postMessage() {}
+    terminate() { this.terminated = true; }
+  }
+  const parentChannel = browser.channels[0];
+  parentChannel.port2.postMessage = (data) => { parentChannel.port2.sent.push(data); browser.message(data); };
+  parentChannel.port1.postMessage = (data) => { parentChannel.port1.sent.push(data); parentChannel.port2.onmessage?.({ data }); };
+  vm.runInNewContext(source, {
+    parent, window: { addEventListener: (type, callback) => handlers.set(type, callback), removeEventListener: (type) => handlers.delete(type) },
+    MessageChannel: Channel, Worker, Blob, setTimeout, clearTimeout,
+    URL: { createObjectURL() { urls.add('blob:compiled'); return 'blob:compiled'; }, revokeObjectURL: (url) => urls.delete(url) },
+  });
+  handlers.get('message')({ source: parent, data: handshake, ports: [parentChannel.port2] });
+  for (let index = 0; index < 2; index += 1) {
+    channels[0].port1.onmessage({ data: { type: 'case-start', index } });
+    channels[0].port1.onmessage({ data: { type: 'case-ready', index } });
+    assert.deepEqual(structuredClone(channels[0].port1.sent.at(-1)), { type: 'run', index });
+    channels[0].port1.onmessage({ data: { type: 'case-result', index, result: { status: 'success', stdout: `${index}` } } });
+  }
+  channels[0].port1.onmessage({ data: { type: 'result', result: { status: 'success' } } });
+  const result = await run.promise;
+  assert.equal(result.status, 'success');
+  assert.equal(result.cases.length, 2);
+  assert.ok(workers[0].terminated);
+  assert.ok(channels.every((channel) => channel.port1.closed), 'iframe-owned ports are closed; transferred worker ports end with the worker');
+  assert.equal(urls.size, 0);
+  assert.equal(handlers.size, 0);
   browser.assertClean();
 });

@@ -1,5 +1,6 @@
 import { parse } from 'acorn';
 import { parse as parseHtml, serialize as serializeHtml } from 'parse5';
+import { buildCodeMatrixCompiledPracticeWorkerSource } from './codeMatrixCompiledPracticeWorker.js';
 import {
   CODE_MATRIX_LIMITS,
   CODE_MATRIX_RUNTIMES,
@@ -225,6 +226,17 @@ function codeMatrixFrameMain(token, workerSource, limits) {
           // waiting for terminal input. Its clock survives a blocked worker.
           parentPort.postMessage({ type: 'running' });
           workerPort.postMessage({ type: 'run' });
+        } else if (data?.type === 'case-start') {
+          snapshot = { stdout: '', stderr: '' };
+          clearTimeout(timer);
+          timer = setTimeout(() => fail('Compiler loading or test preparation exceeded two minutes.', 'timeout'), limits.bootMs);
+          parentPort.postMessage(data);
+        } else if (data?.type === 'case-ready') {
+          clearTimeout(timer);
+          parentPort.postMessage({ type: 'case-running', index: data.index });
+          workerPort.postMessage({ type: 'run', index: data.index });
+        } else if (data?.type === 'case-result') {
+          parentPort.postMessage(data);
         } else if (['input-request', 'input-resumed', 'compiling'].includes(data?.type)) {
           parentPort.postMessage(data);
         } else if (data?.type === 'snapshot' && data.result) {
@@ -243,9 +255,10 @@ function codeMatrixFrameMain(token, workerSource, limits) {
   window.addEventListener('pagehide', cleanup);
 }
 
-function buildFrameSource(language, token, assets) {
+function buildFrameSource(language, token, assets, compiledPractice = false) {
   const csp = buildCodeMatrixRuntimeCsp(language, assets);
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"></head><body><script>(${codeMatrixFrameMain.toString()})(${serializeCodeMatrixScriptData(token)},${serializeCodeMatrixScriptData(buildCodeMatrixWorkerSource())},${JSON.stringify(CODE_MATRIX_LIMITS)});</script></body></html>`;
+  const workerSource = compiledPractice ? buildCodeMatrixCompiledPracticeWorkerSource() : buildCodeMatrixWorkerSource();
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"></head><body><script>(${codeMatrixFrameMain.toString()})(${serializeCodeMatrixScriptData(token)},${serializeCodeMatrixScriptData(workerSource)},${JSON.stringify(CODE_MATRIX_LIMITS)});</script></body></html>`;
 }
 
 /**
@@ -278,6 +291,17 @@ function buildFrameSource(language, token, assets) {
  * its workers), closes ports and clears timers. CSP/Worker failures fail closed.
  */
 export function createCodeMatrixBrowserRun({ language, code, input = '', interactive = false, debug = false, onEvent } = {}) {
+  return createCodeMatrixBrowserTask({ language, code, input, interactive, debug, onEvent });
+}
+
+// Compile once, then prepare a fresh VM/instance and independent execution
+// deadline for every input. The owning practice runner grades these outputs.
+export function createCodeMatrixCompiledPracticeRun({ language, code, inputs, onEvent } = {}) {
+  return createCodeMatrixBrowserTask({ language, code, inputs, onEvent, compiledPractice: true });
+}
+
+function createCodeMatrixBrowserTask({ language, code, input = '', inputs = null, interactive = false, debug = false, onEvent, compiledPractice = false }) {
+  if (compiledPractice && Array.isArray(inputs)) inputs = [...inputs];
   const aliases = { js: 'javascript', javascript: 'javascript', py: 'python', python: 'python', sql: 'sql', sqlite: 'sql', c: 'c', cpp: 'cpp', java: 'java' };
   const normalizedLanguage = typeof language === 'string' && Object.hasOwn(aliases, language.toLowerCase())
     ? aliases[language.toLowerCase()] : null;
@@ -293,6 +317,10 @@ export function createCodeMatrixBrowserRun({ language, code, input = '', interac
   let activeSince = null;
   let executionMs = 0;
   let inputBytes = 0;
+  const cases = [];
+  let currentCase = null;
+  let casePhase = '';
+  let caseExecutionStart = 0;
   const clock = () => globalThis.performance?.now() ?? Date.now();
   const emit = (status, message) => {
     if (typeof onEvent === 'function') {
@@ -311,7 +339,7 @@ export function createCodeMatrixBrowserRun({ language, code, input = '', interac
   const resumeClock = () => {
     clearTimeout(timer);
     activeSince = clock();
-    timer = setTimeout(() => stopWith('timeout', 'Execution exceeded 10 seconds.'), Math.max(0, CODE_MATRIX_LIMITS.runMs - executionMs));
+    timer = setTimeout(() => stopWith('timeout', 'Execution exceeded 10 seconds.'), Math.max(0, CODE_MATRIX_LIMITS.runMs - (executionMs - caseExecutionStart)));
   };
   const finish = (raw) => {
     if (done) return;
@@ -331,7 +359,18 @@ export function createCodeMatrixBrowserRun({ language, code, input = '', interac
       iframe.onerror = null;
       iframe.remove();
     }
-    resolve(normalizeCodeMatrixResult({ ...raw, durationMs: started === null ? 0 : executionMs }));
+    const normalized = normalizeCodeMatrixResult({ ...raw, durationMs: started === null ? 0 : executionMs });
+    if (compiledPractice) {
+      if (currentCase !== null) {
+        const outcome = normalizeCodeMatrixResult({ ...raw, status: normalized.status === 'success' ? 'error' : normalized.status,
+          durationMs: executionMs - caseExecutionStart });
+        cases.push(outcome);
+        emitEvent({ type: 'case-result', index: currentCase, result: outcome });
+      }
+      if (normalized.status === 'success' && (cases.length !== inputs?.length || cases.some((item) => item.status !== 'success'))) normalized.status = 'error';
+      normalized.cases = cases;
+    }
+    resolve(normalized);
   };
   const stopWith = (status, message) => finish({
     ...latest, status,
@@ -350,7 +389,10 @@ export function createCodeMatrixBrowserRun({ language, code, input = '', interac
     return true;
   };
   const handle = { promise, cancel, submitInput };
-  if (!normalizedLanguage || typeof code !== 'string' || typeof input !== 'string') {
+  if (!normalizedLanguage || typeof code !== 'string' || typeof input !== 'string'
+    || (compiledPractice && (!['c', 'cpp', 'java'].includes(normalizedLanguage)
+      || !Array.isArray(inputs) || !inputs.length || inputs.length > 20
+      || inputs.some((value) => typeof value !== 'string' || value.length > CODE_MATRIX_LIMITS.inputChars)))) {
     stopWith('error', 'Provide a supported language and string code/input.');
     return handle;
   }
@@ -373,8 +415,9 @@ export function createCodeMatrixBrowserRun({ language, code, input = '', interac
     iframe.hidden = true;
     iframe.referrerPolicy = 'no-referrer';
     const assets = new URL('/code-matrix/runtime/', globalThis.location?.href || 'http://localhost/').href;
-    iframe.srcdoc = buildFrameSource(normalizedLanguage, token, assets);
-    const job = { language: normalizedLanguage, code, input, interactive: interactive === true, debug: debug === true, assets };
+    iframe.srcdoc = buildFrameSource(normalizedLanguage, token, assets, compiledPractice);
+    const job = { language: normalizedLanguage, code, input, interactive: interactive === true, debug: debug === true, assets,
+      ...(compiledPractice ? { inputs: [...inputs] } : {}) };
     let connected = false;
     iframe.onload = () => {
       if (done || connected) return;
@@ -390,7 +433,28 @@ export function createCodeMatrixBrowserRun({ language, code, input = '', interac
     channel.port1.onmessage = (event) => {
       if (done) return;
       const data = event.data;
-      if (data?.type === 'running' && started === null) {
+      if (compiledPractice && data?.type === 'case-start' && currentCase === null && data.index === cases.length && data.index < inputs.length) {
+        pauseClock();
+        currentCase = data.index;
+        casePhase = 'loading';
+        caseExecutionStart = executionMs;
+        latest = { stdout: '', stderr: '' };
+        timer = setTimeout(() => stopWith('timeout', 'Compiler loading or test preparation exceeded two minutes.'), CODE_MATRIX_LIMITS.bootMs);
+        emitEvent({ type: 'case-start', index: data.index });
+      } else if (compiledPractice && data?.type === 'case-running' && data.index === currentCase && casePhase === 'loading') {
+        casePhase = 'running';
+        started ??= clock();
+        resumeClock();
+        emit('running', `Checking test ${currentCase + 1} of ${inputs.length}…`);
+      } else if (compiledPractice && data?.type === 'case-result' && data.index === currentCase && casePhase === 'running') {
+        pauseClock();
+        const outcome = normalizeCodeMatrixResult({ ...data.result, durationMs: executionMs - caseExecutionStart });
+        cases.push(outcome);
+        currentCase = null;
+        casePhase = '';
+        timer = setTimeout(() => stopWith('timeout', 'The practice runtime stopped responding.'), CODE_MATRIX_LIMITS.bootMs);
+        emitEvent({ type: 'case-result', index: data.index, result: outcome });
+      } else if (!compiledPractice && data?.type === 'running' && started === null) {
         started = clock();
         resumeClock();
         emit('running', 'Running code…');
@@ -402,7 +466,7 @@ export function createCodeMatrixBrowserRun({ language, code, input = '', interac
         emit('waiting', 'Waiting for input');
       } else if (data?.type === 'compiling') {
         emit('loading', 'Loading compiler and compiling your code…');
-      } else if (data?.type === 'snapshot' && data.result) {
+      } else if (data?.type === 'snapshot' && data.result && (!compiledPractice || (currentCase !== null && data.index === currentCase))) {
         latest = normalizeCodeMatrixResult(data.result);
         emitEvent({ type: 'output', result: latest });
       } else if (data?.type === 'result' && data.result) {

@@ -336,6 +336,7 @@ export default function CodeMatrixPage({
           ...current, passed: event.passed,
           cases: current.cases.map((testCase) => testCase.id === event.caseId ? event.case : testCase),
         }));
+        if (event.type === 'status') setRuntimeMessage(event.message || 'Checking your solution…');
       } }) : createCodeMatrixBrowserRun({ language: workspaceLanguage, code,
         input: question?.testCases[0]?.input || '', interactive: !question, debug, onEvent: (event) => {
         if (!mountedRef.current || sequence !== runSequenceRef.current) return;
