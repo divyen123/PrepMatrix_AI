@@ -14,7 +14,7 @@ test('Insights keeps recent activity scrollable and lifetime runs visible', asyn
   }));
   const data = {
     summary: { attempts: 12, activeSeconds: 0 },
-    xp: { total: 20, successfulRuns: 8 },
+    xp: { total: 30, successfulRuns: 8, practiceXp: 10, solvedQuestions: 1, practiceRewardXp: 10, recentPracticeRewards: [{ id: 'solve-1', title: 'Sum of two numbers', language: 'python', xp: 10, occurredAt: '2026-09-30T12:00:00Z' }] },
     languages: [],
     trend: [],
     recent,
@@ -43,6 +43,11 @@ test('Insights keeps recent activity scrollable and lifetime runs visible', asyn
     assert.equal((recentList[1].match(/<li>/gu) || []).length, 12);
     assert.match(markup, /<section class="cmxi-history"[^>]*><h2[^>]*>Lifetime successful runs/u);
     assert.match(markup, /Historical XP records preserve successful runs/u);
+    assert.match(markup, /class="cmxi-xp-total">30 <span>XP/u);
+    assert.match(markup, /<dt>Solved questions<\/dt><dd>1<\/dd>/u);
+    assert.match(markup, /<dt>Practice XP<\/dt><dd>10 XP<\/dd>/u);
+    assert.match(markup, /class="cmxi-solved-list"[\s\S]*?Sum of two numbers[\s\S]*?\+10 XP/u);
+    assert.match(markup, /\+10 XP for each newly solved question\./u);
     assert.doesNotMatch(markup, /<details/u);
   } finally {
     await vite.close();

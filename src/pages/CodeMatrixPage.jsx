@@ -4,17 +4,22 @@ import { ArrowLeft, ArrowRight, BookOpen, Bug, CalendarDays, Check, ChevronLeft,
 import CodeMatrixEditor from "../components/CodeMatrixEditor";
 import CodeMatrixTerminal from "../components/CodeMatrixTerminal";
 import CodeMatrixAssistant from '../components/CodeMatrixAssistant';
+import CodeMatrixPracticePanel from '../components/CodeMatrixPracticePanel';
+import CodeMatrixTestResults from '../components/CodeMatrixTestResults';
 import api from '../utils/apiClient';
 import { codeReviewSnapshot, codeReviewMatchesDraft, createCodeReviewSession } from '../utils/codeMatrixReview';
 import useCodeMatrixWorkspace from "../hooks/useCodeMatrixWorkspace.js";
 import useCodeRunRewards from '../hooks/useCodeRunRewards';
 import useCodeMatrixTracking from '../hooks/useCodeMatrixTracking';
+import useCodeMatrixPractice from '../hooks/useCodeMatrixPractice';
 import { getCodeMatrixEligibility, getCodeMatrixSetupSteps } from "../utils/codeMatrixProfile.js";
 import { normalizeCodeMatrixLaunch } from "../utils/codeMatrixLaunch.js";
 import { CODE_MATRIX_LANGUAGES, CODE_MATRIX_MAX_CODE, CODE_MATRIX_STARTERS, codeMatrixSetupNavigation, getCodeMatrixDiagnostics } from "../utils/codeMatrixWorkspace.js";
 import { buildCodeMatrixPreview, createCodeMatrixBrowserRun } from "../utils/codeMatrixRuntime.js";
 import { normalizePlacementCodeMatrixHandoff } from "../utils/placementCodeMatrix.js";
 import { resolveCodeMatrixShortcut } from "../utils/codeMatrixShortcuts.js";
+import { CODE_MATRIX_PRACTICE_LANGUAGES, CODE_MATRIX_PRACTICE_QUESTIONS, practiceResultMatchesDraft, readCodeMatrixPracticeState } from '../utils/codeMatrixPractice.js';
+import { createCodeMatrixPracticeRun } from '../utils/codeMatrixPracticeRunner.js';
 import "./CodeMatrixPage.css";
 
 const SETUP_COPY = {
@@ -82,10 +87,15 @@ export default function CodeMatrixPage({
   const [assistantConnectionAttempt, setAssistantConnectionAttempt] = useState(0);
   const [sessionLanguage, setSessionLanguage] = useState("");
   const [sessionDrafts, setSessionDrafts] = useState(null);
+  const [practiceLanguage, setPracticeLanguage] = useState(() => {
+    const saved = readCodeMatrixPracticeState(academicProfileDataId);
+    return saved.selectedQuestionId ? saved.selectedLanguage || '' : '';
+  });
+  const [questionOffset, setQuestionOffset] = useState(0);
   const reviewSession = useMemo(() => createCodeReviewSession((snapshot, requestId) => api.post('/api/code-matrix/review', snapshot, {
     academicProfileId: academicProfileDataId, headers: { 'Idempotency-Key': requestId }, timeoutMs: 55_000,
   })), [academicProfileDataId]);
-  const reviewSnapshot = useMemo(() => !busy ? codeReviewSnapshot(result) : null, [busy, result]);
+  const reviewSnapshot = useMemo(() => !busy && result?.kind !== 'practice' ? codeReviewSnapshot(result) : null, [busy, result]);
   const runRef = useRef(null);
   const runAttemptRef = useRef(null);
   const insightsButtonRef = useRef(null);
@@ -98,10 +108,21 @@ export default function CodeMatrixPage({
   const appliedLaunchRef = useRef("");
   const mountedRef = useRef(true);
   const sessionMode = Boolean(embedded && activeLaunch?.source === "chat" && activeLaunch.code);
-  const workspaceLanguage = sessionMode
+  const compilerLanguage = sessionMode
     ? sessionLanguage || activeLaunch.language
     : workspace.language;
-  const drafts = sessionMode && sessionDrafts ? sessionDrafts : workspace.drafts;
+  const workspaceLanguage = practiceLanguage || compilerLanguage;
+  const practice = useCodeMatrixPractice(academicProfileDataId, workspaceLanguage);
+  const { question: practiceQuestion, updateDraft: updatePracticeDraft, markSolved: markPracticeSolved, exitPractice } = practice;
+  const practiceActive = Boolean(practice.question);
+  const suggestedQuestions = useMemo(() => {
+    const ordered = [...CODE_MATRIX_PRACTICE_QUESTIONS].sort((left, right) =>
+      Number(practice.solvedIds.includes(left.id)) - Number(practice.solvedIds.includes(right.id)));
+    return Array.from({ length: 3 }, (_, index) => ordered[(questionOffset + index) % ordered.length]);
+  }, [practice.solvedIds, questionOffset]);
+  const compilerDrafts = sessionMode && sessionDrafts ? sessionDrafts : workspace.drafts;
+  const drafts = useMemo(() => practiceActive ? { ...compilerDrafts, [workspaceLanguage]: practice.draft ?? '' } : compilerDrafts,
+    [compilerDrafts, practiceActive, practice.draft, workspaceLanguage]);
   const language = CODE_MATRIX_LANGUAGES.find(({ id }) => id === workspaceLanguage) || CODE_MATRIX_LANGUAGES[0];
   const isWeb = language.runtime === "preview";
   const editorLanguage = isWeb ? webTab || workspaceLanguage : workspaceLanguage;
@@ -120,7 +141,9 @@ export default function CodeMatrixPage({
     language: isWeb ? 'web' : workspaceLanguage,
     enabled: ready && workspaceLoaded && compilerAvailable && !setupVisible && !insightsOpen,
   });
-  const unchanged = result?.code === code && result?.language === editorLanguage;
+  const unchanged = result?.kind === 'practice'
+    ? practiceResultMatchesDraft(result, practice.question, editorLanguage, code)
+    : result?.code === code && result?.language === editorLanguage;
   const diagnosticLanguage = isWeb ? "javascript" : editorLanguage;
   const diagnosticCode = drafts[diagnosticLanguage];
   const errorDiagnostics = useMemo(() => result?.code === diagnosticCode && result?.language === diagnosticLanguage
@@ -128,7 +151,22 @@ export default function CodeMatrixPage({
   const diagnostics = editorLanguage === diagnosticLanguage ? errorDiagnostics : EMPTY_DIAGNOSTICS;
   const trace = unchanged ? result?.trace || [] : [];
 
-  useEffect(() => { setResultTab(isWeb ? "preview" : "output"); }, [isWeb]);
+  useEffect(() => { setResultTab(practice.panelOpen || practiceActive ? 'problem' : isWeb ? "preview" : "output"); }, [isWeb, practice.panelOpen, practiceActive]);
+  useEffect(() => {
+    if (practiceActive && !CODE_MATRIX_PRACTICE_LANGUAGES.includes(workspaceLanguage)) setPracticeLanguage('python');
+  }, [practiceActive, workspaceLanguage]);
+
+  useEffect(() => {
+    const onReward = (event) => {
+      const reward = event.detail;
+      if (reward?.academicProfileId !== academicProfileDataId) return;
+      setResult((current) => current?.rewardRunId === reward.runId ? {
+        ...current, reward: { xp: reward.awardedXp, awarded: reward.awardedXp > 0 && !reward.duplicate },
+      } : current);
+    };
+    window.addEventListener('prepmatrix:code-reward-recorded', onReward);
+    return () => window.removeEventListener('prepmatrix:code-reward-recorded', onReward);
+  }, [academicProfileDataId]);
 
   useEffect(() => {
     if (!compilerAvailable) return undefined;
@@ -195,15 +233,29 @@ export default function CodeMatrixPage({
     setWaiting(false);
     setPreview(null);
     setRuntimeMessage("");
-    setResult((current) => current ? ({ ...current, status: "stopped" }) : current);
+    setResult((current) => current && (['loading', 'running', 'waiting'].includes(current.status) || current.previewChannel) ? ({ ...current, status: "stopped", ...(current.kind === 'practice' ? {
+      cases: current.cases.map((testCase) => testCase.status === 'pending' ? { ...testCase, status: 'skipped' } : testCase),
+    } : {}) }) : current);
   }, []);
+
+  useEffect(() => {
+    stop();
+    const saved = readCodeMatrixPracticeState(academicProfileDataId);
+    setPracticeLanguage(saved.selectedQuestionId ? saved.selectedLanguage || '' : '');
+    setResult(null);
+    setResetOpen(false);
+    setActiveLine(0);
+    setLineRequest(null);
+  }, [academicProfileDataId, stop]);
 
   useEffect(() => {
     if (!ready || !activeLaunch) return;
     const handoffKey = `${embedded ? "embedded" : location.key}:${activeLaunch.id}:${activeLaunch.language}`;
     if (appliedLaunchRef.current === handoffKey) return;
     appliedLaunchRef.current = handoffKey;
-    if (busy) stop();
+    stop();
+    exitPractice();
+    setPracticeLanguage('');
     if (sessionMode) {
       setSessionLanguage(activeLaunch.language);
       setSessionDrafts({
@@ -222,10 +274,10 @@ export default function CodeMatrixPage({
     setActiveLine(0);
     setLineRequest(null);
     setNotice("");
-  }, [activeLaunch, busy, embedded, location.key, ready, sessionMode, stop, update, workspace.drafts, workspace.language]);
+  }, [activeLaunch, busy, embedded, exitPractice, location.key, ready, sessionMode, stop, update, workspace.drafts, workspace.language]);
 
   const run = useCallback(async (debug = false) => {
-    if (busy || !compilerAvailable || !ready) return;
+    if (busy || runRef.current || !compilerAvailable || !ready) return;
     if (new TextEncoder().encode(code).length > CODE_MATRIX_MAX_CODE) { setNotice("Keep this file under 50 KB before running."); return; }
     pauseActivity();
     setNotice("");
@@ -234,6 +286,7 @@ export default function CodeMatrixPage({
     setLineRequest(null);
     const sequence = ++runSequenceRef.current;
     if (isWeb) {
+      setBusy(true);
       const channel = crypto.randomUUID();
       try {
         const srcDoc = await buildCodeMatrixPreview({ html: drafts.html, css: drafts.css, javascript: drafts.javascript, channel });
@@ -245,6 +298,8 @@ export default function CodeMatrixPage({
         setResultTab("preview");
       } catch {
         if (mountedRef.current && sequence === runSequenceRef.current) setNotice('The web preview could not be prepared. Please try again.');
+      } finally {
+        if (mountedRef.current && sequence === runSequenceRef.current) setBusy(false);
       }
       return;
     }
@@ -257,9 +312,27 @@ export default function CodeMatrixPage({
     const rewardRunId = crypto.randomUUID();
     const trackingAttempt = beginAttempt(snapshot);
     runAttemptRef.current = trackingAttempt;
-    setResult({ ...snapshot, stdout: '', stderr: '', status: 'loading' });
+    const question = practiceQuestion;
+    const isPracticeRun = Boolean(question && !debug);
+    setResult({ ...snapshot, stdout: '', stderr: '', status: 'loading', ...(isPracticeRun ? {
+      kind: 'practice', questionId: question.id, version: question.version,
+      total: question.testCases.length, passed: 0,
+      cases: question.testCases.map((testCase) => ({ ...testCase, status: 'pending', passed: false, stdout: '', stderr: '' })), rewardRunId,
+    } : {}) });
+    if (isPracticeRun) setResultTab('tests');
     try {
-      const task = createCodeMatrixBrowserRun({ language: workspaceLanguage, code, interactive: true, debug, onEvent: (event) => {
+      const task = isPracticeRun ? createCodeMatrixPracticeRun({ question, language: workspaceLanguage, code, onEvent: (event) => {
+        if (!mountedRef.current || sequence !== runSequenceRef.current) return;
+        if (event.type === 'case-start') {
+          setRuntimeMessage(`Checking test ${event.index + 1} of ${event.total}…`);
+          setResult((current) => ({ ...current, status: 'running' }));
+        }
+        if (event.type === 'case-result') setResult((current) => ({
+          ...current, passed: event.passed,
+          cases: current.cases.map((testCase) => testCase.id === event.caseId ? event.case : testCase),
+        }));
+      } }) : createCodeMatrixBrowserRun({ language: workspaceLanguage, code,
+        input: question?.testCases[0]?.input || '', interactive: !question, debug, onEvent: (event) => {
         if (!mountedRef.current || sequence !== runSequenceRef.current) return;
         if (event.type === 'output') setResult((current) => ({ ...current, ...event.result, ...snapshot, status: current?.status || 'running' }));
         if (event.type === 'input-request') { setWaiting(true); setResultTab('output'); }
@@ -273,18 +346,26 @@ export default function CodeMatrixPage({
       // Persist the outcome even when closing the popup cancels its runtime.
       finishAttempt(trackingAttempt, outcome);
       if (!mountedRef.current || sequence !== runSequenceRef.current) return;
-      setResult({ ...outcome, ...snapshot });
-      if (outcome.status === 'success' && code.trim()) recordSuccessfulRun(rewardRunId, editorLanguage);
+      setResult({ ...outcome, ...snapshot, ...(isPracticeRun ? { kind: 'practice', rewardRunId } : {}) });
+      if (outcome.status === 'success' && code.trim()) {
+        if (isPracticeRun) {
+          markPracticeSolved(outcome);
+          recordSuccessfulRun(rewardRunId, editorLanguage, {
+            questionId: question.id, version: question.version,
+            results: outcome.cases.map(({ id, status, stdout }) => ({ id, status, stdout })),
+          });
+        } else if (!question) recordSuccessfulRun(rewardRunId, editorLanguage);
+      }
       if (debug) setResultTab('debug');
       if (debug && outcome.trace?.length) setActiveLine(outcome.trace[0].line);
       else if (outcome.stderr) setActiveLine(getCodeMatrixDiagnostics(outcome.stderr, editorLanguage)[0]?.line || 0);
     } catch (error) {
       finishAttempt(trackingAttempt, { status: 'error', errorOrigin: 'environment', stderr: error.message });
-      if (mountedRef.current && sequence === runSequenceRef.current) setResult({ ...snapshot, status: "error", errorOrigin: 'environment', stdout: "", stderr: error.message || "The code could not be executed. Please try again." });
+      if (mountedRef.current && sequence === runSequenceRef.current) setResult((current) => ({ ...current, ...snapshot, status: "error", errorOrigin: 'environment', stdout: "", stderr: error.message || "The code could not be executed. Please try again." }));
     } finally {
       if (mountedRef.current && sequence === runSequenceRef.current) { setBusy(false); setWaiting(false); setRuntimeMessage(""); runRef.current = null; runAttemptRef.current = null; }
     }
-  }, [beginAttempt, busy, code, compilerAvailable, drafts, editorLanguage, finishAttempt, isWeb, pauseActivity, ready, recordSuccessfulRun, workspaceLanguage]);
+  }, [beginAttempt, busy, code, compilerAvailable, drafts, editorLanguage, finishAttempt, isWeb, markPracticeSolved, pauseActivity, practiceQuestion, ready, recordSuccessfulRun, workspaceLanguage]);
 
   const submitInput = (value) => {
     if (!runRef.current?.submitInput(value)) { setNotice('Input could not be sent. Keep terminal input under 64 KB per run.'); return false; }
@@ -297,7 +378,8 @@ export default function CodeMatrixPage({
 
   const editCode = useCallback((value) => {
     markActivity();
-    if (sessionMode) {
+    if (practiceActive) updatePracticeDraft(value);
+    else if (sessionMode) {
       setSessionDrafts((current) => ({
         ...workspace.drafts,
         ...(current || {}),
@@ -307,7 +389,7 @@ export default function CodeMatrixPage({
       update((current) => ({ drafts: { ...current.drafts, [editorLanguage]: value } }));
     }
     setActiveLine(0);
-  }, [editorLanguage, markActivity, sessionMode, update, workspace.drafts]);
+  }, [editorLanguage, markActivity, practiceActive, sessionMode, update, updatePracticeDraft, workspace.drafts]);
 
   const updateSourceSplit = useCallback((clientX) => {
     const workbench = workbenchRef.current;
@@ -364,8 +446,9 @@ export default function CodeMatrixPage({
   }, [sourceFullscreen]);
 
   function changeLanguage(value) {
-    if (busy) stop();
-    if (sessionMode) setSessionLanguage(value);
+    stop();
+    if (practice.panelOpen || practiceActive) { setPracticeLanguage(value); practice.setLanguage(value); }
+    else if (sessionMode) setSessionLanguage(value);
     else update({ language: value });
     setWebTab("");
     setResult(null);
@@ -374,8 +457,57 @@ export default function CodeMatrixPage({
     setLineRequest(null);
     setNotice("");
     setResetOpen(false);
-    setResultTab(["html", "css"].includes(value) ? "preview" : "output");
+    setResultTab(practice.panelOpen || practiceActive ? 'problem' : ["html", "css"].includes(value) ? "preview" : "output");
   }
+
+  const openPractice = () => {
+    stop();
+    if (!CODE_MATRIX_PRACTICE_LANGUAGES.includes(workspaceLanguage)) setPracticeLanguage('python');
+    practice.openPanel();
+    setResultTab('problem');
+    setResetOpen(false);
+  };
+  const selectPracticeQuestion = (id) => {
+    stop();
+    practice.selectQuestion(id);
+    setResult(null);
+    setResultTab('problem');
+    setActiveLine(0);
+    setLineRequest(null);
+    setResetOpen(false);
+    setNotice('');
+  };
+  const returnToCompiler = () => {
+    stop();
+    practice.exitPractice();
+    setPracticeLanguage('');
+    setResult(null);
+    setResultTab(['html', 'css'].includes(compilerLanguage) ? 'preview' : 'output');
+    setActiveLine(0);
+    setLineRequest(null);
+    setResetOpen(false);
+    setNotice('');
+  };
+  const tryAnotherQuestion = () => {
+    stop();
+    practice.showQuestions();
+    setResult(null);
+    setResultTab('problem');
+    setActiveLine(0);
+    setLineRequest(null);
+    setResetOpen(false);
+  };
+  const navigatePracticeTabs = (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const tabs = [...event.currentTarget.querySelectorAll('[role="tab"]')];
+    const current = tabs.indexOf(event.target);
+    if (current < 0) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+      : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    tabs[next].focus();
+    tabs[next].click();
+  };
 
   const downloadCode = useCallback(() => {
     const url = URL.createObjectURL(new Blob([code], { type: "text/plain;charset=utf-8" }));
@@ -440,11 +572,11 @@ export default function CodeMatrixPage({
             >
               <ArrowLeft size={20} />
             </Link>
-            <div><h1><Code2 size={29} aria-hidden="true" />CodeMatrix<span className="cmx-beta">Compiler</span></h1></div>
+            <div><h1><Code2 size={29} aria-hidden="true" />CodeMatrix</h1></div>
           </div>
           <div className="cmx-header-actions">
-            {!setupVisible && remaining.length > 0 && <button type="button" className="cmx-button cmx-quiet" onClick={() => { if (busy || preview) stop(); setShowSetup(true); }}><Settings2 size={15} />Finish setup <span>{3 - remaining.length}/3</span></button>}
-            <span className={`cmx-sync is-${syncState}`} role="status"><span />{SYNC_LABELS[syncState]}</span>
+            {!setupVisible && remaining.length > 0 && <button type="button" className="cmx-button cmx-quiet" onClick={() => { stop(); setShowSetup(true); }}><Settings2 size={15} />Finish setup <span>{3 - remaining.length}/3</span></button>}
+            <span className={`cmx-sync is-${syncState}`} role="status"><span />{practiceActive ? practice.storageAvailable ? 'Saved on this device' : 'Draft not saved' : SYNC_LABELS[syncState]}</span>
             {["local", "unsaved"].includes(syncState) && <button type="button" className="cmx-button cmx-quiet" onClick={() => void retry()}>Retry sync</button>}
           </div>
         </header>
@@ -488,12 +620,12 @@ export default function CodeMatrixPage({
       ) : (
         <>
           <div className="cmx-toolbar">
-            <label className="cmx-language"><span>Language</span><select aria-label="Programming language" value={workspaceLanguage} onChange={(event) => changeLanguage(event.target.value)}>{CODE_MATRIX_LANGUAGES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-            <span className="cmx-runtime-label">{isWeb ? "Web preview" : workspaceLanguage === "sql" ? "SQLite · practice database" : "Runs in your browser"}</span>
+            <label className="cmx-language"><span>Language</span><select aria-label="Programming language" value={workspaceLanguage} onChange={(event) => changeLanguage(event.target.value)}>{CODE_MATRIX_LANGUAGES.filter((item) => !(practice.panelOpen || practiceActive) || CODE_MATRIX_PRACTICE_LANGUAGES.includes(item.id)).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+            <button type="button" className="cmx-button cmx-practice-trigger" aria-pressed={practice.panelOpen || practiceActive} onClick={openPractice}>Try to solve?</button>
             <div className="cmx-actions">
               {(busy || preview) && <button type="button" className="cmx-button" onClick={stop}><Square size={15} />Stop</button>}
               <button type="button" className="cmx-button" disabled={busy} onClick={() => void run(true)} title={workspaceLanguage === "python" ? "Run with a recorded line and variable trace" : "Run code and inspect errors"}><Bug size={16} />Debug</button>
-              <button type="button" className="cmx-button cmx-primary" disabled={busy} onClick={() => void run()} title="Ctrl / ⌘ + Enter">{busy ? <LoaderCircle className="cmx-spin" size={16} /> : <Play size={16} fill="currentColor" />} {busy ? "Running…" : isWeb ? "Run preview" : "Run code"}</button>
+              <button type="button" className="cmx-button cmx-primary" disabled={busy} onClick={() => void run()} title="Ctrl / ⌘ + Enter">{busy ? <LoaderCircle className="cmx-spin" size={16} /> : <Play size={16} fill="currentColor" />} {busy ? "Running…" : practiceActive ? 'Run' : isWeb ? "Run preview" : "Run code"}</button>
               {!embedded && <button ref={insightsButtonRef} type="button" className="cmx-button cmx-insights-trigger" aria-label="Open CodeMatrix Insights" onClick={openInsights}>Insights</button>}
             </div>
           </div>
@@ -509,15 +641,20 @@ export default function CodeMatrixPage({
                   <div className="cmx-reset-dialog-heading"><span className="cmx-reset-dialog-icon"><RotateCcw size={17} /></span><button type="button" className="cmx-reset-close" aria-label="Close reset confirmation" onClick={() => setResetOpen(false)}><X size={16} /></button></div>
                   <h2 id="cmx-reset-title">Reset {editorFile}?</h2>
                   <p id="cmx-reset-description">Your current code in this file will be replaced with the starter code.</p>
-                  <div className="cmx-reset-actions"><button type="button" className="cmx-button cmx-primary" onClick={() => { editCode(CODE_MATRIX_STARTERS[editorLanguage]); setResetOpen(false); }}>Reset file</button><button type="button" className="cmx-button" onClick={() => setResetOpen(false)}>Cancel</button></div>
+                  <div className="cmx-reset-actions"><button type="button" className="cmx-button cmx-primary" onClick={() => { if (practiceActive) practice.resetDraft(); else editCode(CODE_MATRIX_STARTERS[editorLanguage]); setResetOpen(false); }}>Reset file</button><button type="button" className="cmx-button" onClick={() => setResetOpen(false)}>Cancel</button></div>
                 </section>
               </div>}
-              <CodeMatrixEditor key={editorLanguage} value={code} language={editorLanguage} onChange={editCode} onRun={() => void run()} onLimit={() => setNotice("Each code file can contain up to 50 KB. The edit exceeded that limit.")} diagnostics={diagnostics} activeLine={activeLine} lineRequest={lineRequest} />
+              <CodeMatrixEditor key={`${editorLanguage}:${practice.question?.id || 'compiler'}`} value={code} language={editorLanguage} onChange={editCode} onRun={() => void run()} onLimit={() => setNotice("Each code file can contain up to 50 KB. The edit exceeded that limit.")} diagnostics={diagnostics} activeLine={activeLine} lineRequest={lineRequest} />
               <div className="cmx-editor-footer"><span>{code.split("\n").length} lines · {code.length.toLocaleString()} characters</span><span>UTF-8</span></div>
             </section>
             <div className="cmx-resize-handle" role="separator" aria-label="Resize code and output panels" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="70" aria-valuenow={Math.round(sourceSplit * 100)} tabIndex="0" onPointerDown={startResize} onKeyDown={handleResizeKeyDown}><span aria-hidden="true" /></div>
             <section className="cmx-results" aria-label="Execution results" onKeyDownCapture={editorActivity} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) pauseActivity(); }}>
-              {result && <div className={`cmx-result-status is-${result.status}${isWeb && resultTab === "preview" && result.stderr ? " has-preview-error" : ""}`} role="status">
+              {(practice.panelOpen || practiceActive) && <div className="cmx-panel-bar cmx-practice-tabs" role="tablist" aria-label="Practice views" onKeyDown={navigatePracticeTabs}>
+                <button type="button" role="tab" tabIndex={resultTab === 'problem' ? 0 : -1} aria-selected={resultTab === 'problem'} onClick={() => setResultTab('problem')}>{practiceActive ? 'Problem' : 'Questions'}</button>
+                {practiceActive && <button type="button" role="tab" tabIndex={resultTab === 'tests' ? 0 : -1} aria-selected={resultTab === 'tests'} onClick={() => setResultTab('tests')}>Test results</button>}
+                {practiceActive && resultTab === 'debug' && <button type="button" role="tab" tabIndex={0} aria-selected onClick={() => setResultTab('debug')}>Debug</button>}
+              </div>}
+              {result && result.kind !== 'practice' && <div className={`cmx-result-status is-${result.status}${isWeb && resultTab === "preview" && result.stderr ? " has-preview-error" : ""}`} role="status">
                 <span>{STATUS_LABELS[result.status] || result.status}{!unchanged && !isWeb && result.code && " · code changed since this run"}</span>
                 {isWeb && resultTab === "preview" && result.stderr && <>
                   <button type="button" className="cmx-preview-error-details" onClick={() => setResultTab("debug")}>View details<ArrowRight size={13} aria-hidden="true" /></button>
@@ -525,10 +662,14 @@ export default function CodeMatrixPage({
                 </>}
                 {Number.isFinite(result.durationMs) && <span>{(result.durationMs / 1000).toFixed(2)} s</span>}
               </div>}
-              <div className={`cmx-result-content${reviewSnapshot ? ' has-assistant' : ''}`} role="region" aria-label={resultTab === "preview" ? "Web preview" : resultTab === "debug" ? "Debug results" : "Program output"}>
+              <div className={`cmx-result-content${reviewSnapshot && resultTab !== 'problem' && resultTab !== 'tests' ? ' has-assistant' : ''}`} role="region" aria-label={resultTab === 'problem' ? 'Coding practice' : resultTab === 'tests' ? 'Test results' : resultTab === "preview" ? "Web preview" : resultTab === "debug" ? "Debug results" : "Program output"}>
                 {preview && <iframe ref={previewRef} title="CodeMatrix webpage preview" hidden={resultTab !== "preview"} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={preview.srcDoc} />}
-                {busy && !waiting && <div className="cmx-running-message" role="status"><LoaderCircle className="cmx-spin" size={14} />{runtimeMessage}</div>}
-                {resultTab === "preview" ? (
+                {busy && !waiting && resultTab !== 'problem' && resultTab !== 'tests' && <div className="cmx-running-message" role="status"><LoaderCircle className="cmx-spin" size={14} />{runtimeMessage}</div>}
+                {resultTab === 'problem' ? (
+                  <CodeMatrixPracticePanel questions={suggestedQuestions} question={practice.question} language={workspaceLanguage} solvedIds={practice.solvedIds} onSelect={selectPracticeQuestion} onBack={returnToCompiler} onNext={tryAnotherQuestion} onRefresh={() => setQuestionOffset((offset) => (offset + 3) % CODE_MATRIX_PRACTICE_QUESTIONS.length)} />
+                ) : resultTab === 'tests' ? (
+                  <CodeMatrixTestResults result={result?.kind === 'practice' ? result : null} stale={Boolean(result?.kind === 'practice' && !unchanged)} busy={busy} onShowProblem={() => setResultTab('problem')} />
+                ) : resultTab === "preview" ? (
                   preview ? null : <div className="cmx-empty"><Code2 size={30} /><strong>Your page will appear here</strong><span>Edit the three files and select Run preview.</span></div>
                 ) : resultTab === "debug" ? (
                   <div className="cmx-debug-content">
@@ -540,7 +681,7 @@ export default function CodeMatrixPage({
                 ) : result ? (
                   <div className="cmx-output"><ResultTables tables={result.tables || []} /><CodeMatrixTerminal output={result.stdout} error={result.stderr} waiting={waiting} busy={busy || !!result.tables?.length} onInput={submitInput} /></div>
                 ) : <div className="cmx-empty"><Terminal size={30} /><strong>Your output starts here</strong><span>Run your code. Type here when your program asks for input.</span><kbd>Ctrl / ⌘ + Enter</kbd></div>}
-                {reviewSnapshot && <CodeMatrixAssistant
+                {reviewSnapshot && resultTab !== 'problem' && resultTab !== 'tests' && <CodeMatrixAssistant
                   key={academicProfileDataId + JSON.stringify(reviewSnapshot)} snapshot={reviewSnapshot} session={reviewSession}
                   stale={!codeReviewMatchesDraft(reviewSnapshot, drafts)} availability={assistantAvailability}
                   onRetryAvailability={() => setAssistantConnectionAttempt((value) => value + 1)}

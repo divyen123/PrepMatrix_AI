@@ -208,16 +208,35 @@ export async function readCodeMatrixInsights(db, scope, { range = '30d', timeZon
   ], { ...options, allowDiskUse: true });
   for await (const record of unique) accumulator.meaningful(record);
   for await (const record of activity.find(filter, { ...options, projection: { _id: 0, language: 1, activeSeconds: 1, startedAt: 1 } })) accumulator.activity(record);
-  let totalXp = 0; let successfulRuns = 0;
+  let totalXp = 0; let successfulRuns = 0; let practiceXp = 0; let solvedQuestions = 0;
+  const recentPracticeRewards = [];
   const historical = new Map();
   // Historical successes remain separate from the new error-rate denominators.
-  for await (const record of db.collection(MOMENTUM_EVENTS_COLLECTION).find({ ...scope, kind: 'coding' }, { ...options, projection: { _id: 0, language: 1, xp: 1, occurredAt: 1, recordedAt: 1 } })) {
-    totalXp += Math.max(0, Number(record.xp) || 0); successfulRuns++;
-    if (Object.hasOwn(INSIGHT_LANGUAGES, record.language)) historical.set(record.language, (historical.get(record.language) || 0) + 1);
+  for await (const record of db.collection(MOMENTUM_EVENTS_COLLECTION).find({ ...scope, kind: 'coding' }, { ...options, projection: { _id: 1, key: 1, source: 1, questionId: 1, version: 1, title: 1, language: 1, xp: 1, occurredAt: 1, recordedAt: 1 } })) {
+    const earnedXp = Math.max(0, Number(record.xp) || 0);
+    totalXp += earnedXp;
+    if (record.source === 'practice') {
+      practiceXp += earnedXp;
+      if (earnedXp > 0) {
+        solvedQuestions++;
+        const occurredAt = record.occurredAt || record.recordedAt;
+        if (occurredAt && Number.isFinite(new Date(occurredAt).getTime())) {
+          const day = window.dayKey(occurredAt);
+          if (day <= window.today && (!window.startDay || day >= window.startDay)) {
+            recentPracticeRewards.push({ id: String(record._id || record.key || `${record.questionId}:${record.version}`), questionId: record.questionId, title: record.title || 'Practice question', language: record.language, xp: earnedXp, occurredAt: new Date(occurredAt).toISOString() });
+            recentPracticeRewards.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+            if (recentPracticeRewards.length > 8) recentPracticeRewards.pop();
+          }
+        }
+      }
+    } else {
+      successfulRuns++;
+      if (Object.hasOwn(INSIGHT_LANGUAGES, record.language)) historical.set(record.language, (historical.get(record.language) || 0) + 1);
+    }
     if (record.occurredAt || record.recordedAt) accumulator.xp(record);
   }
   const firstRecords = await Promise.all([attempts.findOne(scope, { sort: { startedAt: 1 }, projection: { startedAt: 1 } }), activity.findOne(scope, { sort: { startedAt: 1 }, projection: { startedAt: 1 } })]);
   const earliest = firstRecords.filter(Boolean).map((record) => new Date(record.startedAt).toISOString()).sort()[0] || null;
   const runsIntoReward = successfulRuns % MOMENTUM_RULES.codeRunsPerReward;
-  return { range, timeZone: window.timeZone, trendWindowDays: window.days, trackingSince: earliest, ...accumulator.finish(), xp: { total: totalXp, successfulRuns, runsIntoReward, runsToNextReward: MOMENTUM_RULES.codeRunsPerReward - runsIntoReward, rewardXp: MOMENTUM_RULES.coding, runsPerReward: MOMENTUM_RULES.codeRunsPerReward }, historicalLanguages: [...historical].map(([id, count]) => ({ id, label: INSIGHT_LANGUAGES[id], successfulRuns: count })).sort((a, b) => b.successfulRuns - a.successfulRuns) };
+  return { range, timeZone: window.timeZone, trendWindowDays: window.days, trackingSince: earliest, ...accumulator.finish(), xp: { total: totalXp, successfulRuns, runsIntoReward, runsToNextReward: MOMENTUM_RULES.codeRunsPerReward - runsIntoReward, rewardXp: MOMENTUM_RULES.coding, runsPerReward: MOMENTUM_RULES.codeRunsPerReward, practiceXp, solvedQuestions, practiceRewardXp: MOMENTUM_RULES.practiceCoding, recentPracticeRewards }, historicalLanguages: [...historical].map(([id, count]) => ({ id, label: INSIGHT_LANGUAGES[id], successfulRuns: count })).sort((a, b) => b.successfulRuns - a.successfulRuns) };
 }

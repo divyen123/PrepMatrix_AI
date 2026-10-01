@@ -17,9 +17,13 @@ export default function GlobalMomentumCard({ momentum, momentumError = '', onRet
 
   const runs = momentum?.successfulCodeRuns || 0;
   const codingXp = momentum?.global?.breakdown?.coding || 0;
-  const codeRewardsEarned = Math.floor(runs / 4);
-  const currentRunStep = runs % 4;
-  const runsNeeded = 4 - currentRunStep;
+  const practiceXp = (momentum?.history || []).filter((entry) => entry.kind === 'coding' && entry.source === 'practice').reduce((sum, entry) => sum + Number(entry.xp || 0), 0);
+  const solvedQuestions = momentum?.solvedCodeQuestions || 0;
+  const runsPerReward = momentum?.rules?.codeRunsPerReward || 4;
+  const rewardXp = momentum?.rules?.coding || 10;
+  const practiceRewardXp = momentum?.rules?.practiceCoding || 10;
+  const currentRunStep = runs % runsPerReward;
+  const runsNeeded = runsPerReward - currentRunStep;
 
   useEffect(() => {
     if (!codeDetailsOpen) return undefined;
@@ -90,38 +94,42 @@ export default function GlobalMomentumCard({ momentum, momentumError = '', onRet
 
           <dl className="battle-insights-list">
             <div>
-              <dt>Total code runs</dt>
-              <dd>{runs}</dd>
-            </div>
-            <div>
               <dt>Coding XP</dt>
               <dd>{codingXp} XP</dd>
             </div>
             <div>
-              <dt>Rewards earned</dt>
-              <dd>{codeRewardsEarned} × 10 XP</dd>
+              <dt>Solved questions</dt>
+              <dd>{solvedQuestions}</dd>
+            </div>
+            <div>
+              <dt>Practice XP</dt>
+              <dd>{practiceXp} XP</dd>
+            </div>
+            <div>
+              <dt>Compiler XP</dt>
+              <dd>{Math.max(0, codingXp - practiceXp)} XP</dd>
             </div>
           </dl>
 
+          <p className="codematrix-practice-reward-copy">+{practiceRewardXp} XP for each newly solved question.</p>
+
           <div className="codematrix-reward-box">
             <div className="codematrix-reward-status">
-              <span>Next reward progress</span>
-              <strong>{currentRunStep}/4 runs</strong>
+              <span>Compiler runs</span>
+              <strong>{currentRunStep}/{runsPerReward}</strong>
             </div>
             <div
               className="codematrix-reward-bar"
               role="progressbar"
               aria-label="CodeMatrix reward progress"
               aria-valuemin={0}
-              aria-valuemax={4}
+              aria-valuemax={runsPerReward}
               aria-valuenow={currentRunStep}
             >
-              <i style={{ width: `${currentRunStep * 25}%` }} />
+              <i style={{ width: `${100 * currentRunStep / runsPerReward}%` }} />
             </div>
             <p>
-              {runsNeeded === 4 && runs > 0
-                ? '10 XP awarded! Complete next 4 runs for +10 XP.'
-                : `${runsNeeded} more successful ${runsNeeded === 1 ? 'run' : 'runs'} to earn 10 XP.`}
+              {`${runsNeeded} more successful ${runsNeeded === 1 ? 'run' : 'runs'} for +${rewardXp} XP.`}
             </p>
           </div>
         </section>

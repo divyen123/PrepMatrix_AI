@@ -12,7 +12,7 @@ export function MomentumHistoryRows({ entries = [] }) {
     <div><span className="momentum-history-kind">{MOMENTUM_LABELS[entry.kind]} · {entry.subject}</span><strong>{entry.title}</strong><p>{entry.detail}</p>
       <small>{entry.occurredAt ? new Date(entry.occurredAt).toLocaleString() : `Recovered from saved progress · recorded ${new Date(entry.recordedAt).toLocaleDateString()}`}{entry.scheduledDate ? ` · Scheduled ${entry.scheduledDate}` : ''}</small>
     </div><b>+{entry.xp} XP</b>
-  </li>)}</ol> : <p className="study-history-empty">Complete a study task, exam, quiz, or four successful code runs to earn XP.</p>;
+  </li>)}</ol> : <p className="study-history-empty">Complete a study task, exam, quiz, or CodeMatrix question to earn XP.</p>;
 }
 
 export default function MomentumHistoryDialog({ data, onClose }) {

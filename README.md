@@ -75,6 +75,8 @@ Open **Start Learning → CodeMatrix** (`/learn/code-matrix`). Computing degrees
 
 The workspace offers writing, running, and debugging without a lessons submodule. On first entry, it suggests **Add subject**, **Start learning** (notebook preparation), and **Create plan**, in that order. Completed steps disappear, the next missing step is recommended, and **Continue to compiler** dismisses setup. Drafts and setup progress belong to the active academic profile and sync to MongoDB, with a browser checkpoint for interrupted saves.
 
+**Try to solve?** suggests three beginner questions from a curated bank of ten. Python, JavaScript, C, C++, and Java solutions run against five input/output cases; the results show each case and any output mismatch or execution error. Practice drafts, the selected language, and solved history save separately on the device for each academic profile. The first fully correct solution to each question version earns **10 XP**, shown in CodeMatrix Insights and Analytics → Global momentum → Coding rewards, with a bottom-right award toast. Repeated solves do not award XP again; ordinary compiler runs retain their separate four-success reward rule.
+
 | Language | Execution and debugging |
 | --- | --- |
 | Python | Pyodide 0.27.7, with live terminal input, exceptions and up to 200 recorded line/variable steps. Variables are captured before each line. |

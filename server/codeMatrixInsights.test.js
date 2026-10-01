@@ -168,6 +168,29 @@ test('returning to an earlier working revision counts recovery without inflating
   assert.equal(data.summary.errorsResolved, 1);
 });
 
+test('practice rewards appear in XP and solved history without advancing compiler rewards', async () => {
+  const db = fakeDb();
+  db.collection('momentumEvents').rows.push(
+    ...Array.from({ length: 3 }, (_, index) => ({ ...scope, _id: `run-${index}`, kind: 'coding', source: 'run', language: 'python', xp: 0, occurredAt: '2026-09-28T10:00:00Z' })),
+    { ...scope, _id: 'solve-1', kind: 'coding', source: 'practice', questionId: 'add-two', version: 1, title: 'Add two numbers', language: 'javascript', xp: 10, occurredAt: '2026-09-29T10:00:00Z' },
+    { ...scope, _id: 'solve-2', kind: 'coding', source: 'practice', questionId: 'even-odd', version: 1, title: 'Even or odd', language: 'python', xp: 10, occurredAt: '2026-08-01T10:00:00Z' },
+    { ...scope, academicProfileId: 'another', kind: 'coding', source: 'practice', xp: 10, occurredAt: '2026-09-29T10:00:00Z' },
+  );
+  const data = await readCodeMatrixInsights(db, scope, { now });
+  assert.equal(data.xp.total, 20);
+  assert.equal(data.xp.practiceXp, 20);
+  assert.equal(data.xp.solvedQuestions, 2);
+  assert.equal(data.xp.practiceRewardXp, 10);
+  assert.equal(data.xp.successfulRuns, 3);
+  assert.equal(data.xp.runsIntoReward, 3);
+  assert.equal(data.xp.runsToNextReward, 1);
+  assert.deepEqual(data.historicalLanguages, [{ id: 'python', label: 'Python', successfulRuns: 3 }]);
+  assert.equal(data.trend.find((item) => item.date === '2026-09-29').xp, 10);
+  assert.deepEqual(data.xp.recentPracticeRewards, [{ id: 'solve-1', questionId: 'add-two', title: 'Add two numbers', language: 'javascript', xp: 10, occurredAt: '2026-09-29T10:00:00.000Z' }]);
+  const all = await readCodeMatrixInsights(db, scope, { range: 'all', now });
+  assert.equal(all.xp.recentPracticeRewards.length, 2);
+});
+
 test('timezone range boundaries and daily XP/time use calendar days; all-time keeps older totals', async () => {
   const db = fakeDb();
   // India September 23 starts at September 22 18:30 UTC, the first of seven local dates.

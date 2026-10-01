@@ -4,13 +4,18 @@ import { randomUUID } from 'node:crypto';
 import { assessmentMomentumEvent, insertMomentumEvent, readMomentum, reconcileMomentum, recordSuccessfulCodeRun, resolveMomentumSchedule, syncWorkspaceMomentum, MOMENTUM_EVENTS_COLLECTION } from './momentumService.js';
 import registerMomentumRoutes from './momentumRoutes.js';
 import { buildClearedPlannerWorkspace } from '../src/utils/plannerHistory.js';
+import { CODE_MATRIX_PRACTICE_QUESTIONS } from '../src/utils/codeMatrixPractice.js';
 
 export function fakeMomentumDb() {
   const collections = new Map();
   return { collection(name) {
     if (!collections.has(name)) collections.set(name, []);
     const rows = collections.get(name);
-    const matches = (row, filter) => Object.entries(filter).every(([key, value]) => value && typeof value === 'object' && '$in' in value ? value.$in.includes(row[key]) : row[key] === value);
+    const matches = (row, filter) => Object.entries(filter).every(([key, value]) => {
+      if (value && typeof value === 'object' && '$in' in value) return value.$in.includes(row[key]);
+      if (value && typeof value === 'object' && '$ne' in value) return row[key] !== value.$ne;
+      return row[key] === value;
+    });
     return { rows, find: (filter) => ({ toArray: async () => structuredClone(rows.filter((row) => matches(row, filter))) }), findOne: async (filter) => structuredClone(rows.find((row) => matches(row, filter)) || null), countDocuments: async (filter) => rows.filter((row) => matches(row, filter)).length,
       async updateOne(filter, update, options) {
         let row = rows.find((row) => matches(row, filter));
@@ -25,6 +30,14 @@ export function fakeMomentumDb() {
 const scope = { userId: 'student', academicProfileId: 'profile-a' };
 const now = new Date('2026-09-13T10:00:00Z');
 const plan = { subjects: [{ name: 'Networks' }], schedule: [{ date: '2026-09-13', momentumToken: 'plan-one', tasks: [{ task: 'Networks - TCP/IP', id: 'tcp', topic: 'TCP/IP', subjectName: 'Networks', chapterName: 'Network models' }] }], completed: [] };
+const practiceQuestion = () => CODE_MATRIX_PRACTICE_QUESTIONS[0];
+const practiceRequest = () => {
+  const question = practiceQuestion();
+  return { runId: randomUUID(), language: 'python', practice: {
+    questionId: question.id, version: question.version,
+    results: question.testCases.map(({ id, expectedOutput }) => ({ id, status: 'success', stdout: expectedOutput })),
+  } };
+};
 
 test('global task XP survives clearing and reload without duplicate awards from retries or archives', async () => {
   const db = fakeMomentumDb();
@@ -81,7 +94,9 @@ test('code rewards start at the fourth success, repeat at eight, and deduplicate
   for (const [index, runId] of ids.entries()) {
     const result = await recordSuccessfulCodeRun(db, scope, { runId, language: 'java' }, now);
     assert.equal(result.awardedXp, (index + 1) % 4 === 0 ? 10 : 0);
-    await recordSuccessfulCodeRun(db, scope, { runId, language: 'java' }, now);
+    const duplicate = await recordSuccessfulCodeRun(db, scope, { runId, language: 'java' }, now);
+    assert.equal(duplicate.awardedXp, 0);
+    assert.equal(duplicate.duplicate, true);
   }
   const data = await readMomentum(db, scope, { id: 'plan' });
   assert.equal(data.successfulCodeRuns, 8);
@@ -90,6 +105,73 @@ test('code rewards start at the fourth success, repeat at eight, and deduplicate
   assert.equal(data.history.length, 2);
   await assert.rejects(recordSuccessfulCodeRun(db, scope, { runId: 'bad', language: 'java' }), /valid successful/);
   await assert.rejects(recordSuccessfulCodeRun(db, scope, { runId: randomUUID(), language: 'unsupported' }), /valid successful/);
+});
+
+test('practice solutions earn once per question version and profile, independently of ordinary run rewards', async () => {
+  const db = fakeMomentumDb();
+  const request = practiceRequest();
+  // Client XP and flags do not choose the reward amount.
+  const result = await recordSuccessfulCodeRun(db, scope, { ...request, xp: 900, passed: true }, now);
+  assert.equal(result.awardedXp, 10);
+  assert.equal(result.source, 'practice');
+  assert.equal(result.title, practiceQuestion().title);
+  assert.equal(result.duplicate, false);
+  const repeated = await recordSuccessfulCodeRun(db, scope, { ...request, runId: randomUUID(), language: 'java' }, now);
+  assert.equal(repeated.awardedXp, 0);
+  assert.equal(repeated.duplicate, true);
+  assert.equal((await recordSuccessfulCodeRun(db, { ...scope, academicProfileId: 'profile-b' }, request, now)).awardedXp, 10);
+  for (let index = 1; index <= 4; index += 1) {
+    const run = await recordSuccessfulCodeRun(db, scope, { runId: randomUUID(), language: 'python' }, now);
+    assert.equal(run.awardedXp, index === 4 ? 10 : 0);
+  }
+  const momentum = await readMomentum(db, scope, { id: 'plan' });
+  assert.equal(momentum.global.totalXp, 20);
+  assert.equal(momentum.global.breakdown.coding, 20);
+  assert.equal(momentum.successfulCodeRuns, 4);
+  assert.equal(momentum.solvedCodeQuestions, 1);
+  assert.equal(momentum.schedule.totalXp, 0);
+  const reward = momentum.history.find((event) => event.source === 'practice');
+  assert.equal(reward.questionId, request.practice.questionId);
+  assert.equal(reward.version, request.practice.version);
+  assert.equal(reward.language, 'python');
+  assert.equal(reward.detail, `All ${request.practice.results.length} test cases passed`);
+  assert.equal(reward.results, undefined);
+});
+
+test('practice rewards validate complete canonical outputs rather than client success flags', async () => {
+  const db = fakeMomentumDb();
+  const invalid = [
+    (request) => { request.practice = null; },
+    (request) => { request.practice.questionId = 'unknown-question'; },
+    (request) => { request.practice.version += 1; },
+    (request) => { request.language = 'sql'; },
+    (request) => { request.practice.results = []; },
+    (request) => { request.practice.results.pop(); },
+    (request) => { request.practice.results[0].status = 'error'; },
+    (request) => { request.practice.results[0].status = 'passed'; },
+    (request) => { request.practice.results[0].stdout = 'wrong output'; request.practice.results[0].passed = true; },
+    (request) => { request.practice.results[0].stdout = 'x'.repeat(8193); },
+    (request) => { request.practice.results[0].id = 'unknown-case'; },
+    (request) => { request.practice.results[1].id = request.practice.results[0].id; },
+  ];
+  for (const mutate of invalid) {
+    const request = practiceRequest();
+    mutate(request);
+    await assert.rejects(recordSuccessfulCodeRun(db, scope, request, now), (error) => error.status === 400);
+  }
+  assert.equal((await readMomentum(db, scope)).global.totalXp, 0);
+  const valid = practiceRequest();
+  valid.practice.results.reverse();
+  valid.practice.results = valid.practice.results.map((result) => ({ ...result, stdout: `${result.stdout.replace(/\n/gu, '\r\n')}  \r\n\r\n` }));
+  assert.equal((await recordSuccessfulCodeRun(db, scope, valid, now)).awardedXp, 10);
+});
+
+test('concurrent submissions of one solved practice question insert one reward', async () => {
+  const db = fakeMomentumDb();
+  const outcomes = await Promise.all(Array.from({ length: 4 }, () => recordSuccessfulCodeRun(db, scope, practiceRequest(), now)));
+  assert.equal(outcomes.reduce((total, result) => total + result.awardedXp, 0), 10);
+  assert.equal(outcomes.filter((result) => result.duplicate).length, 3);
+  assert.equal((await readMomentum(db, scope)).solvedCodeQuestions, 1);
 });
 
 test('identical event IDs and runs stay isolated between accounts and academic profiles', async () => {
@@ -159,4 +241,8 @@ test('momentum routes require authentication, enforce profile eligibility and se
   assert.equal(result.headers['Cache-Control'], 'no-store');
   assert.equal(result.body.momentum.global.totalXp, 10);
   assert.equal(result.body.momentum.successfulCodeRuns, 4);
+  const practiceOutcomes = await Promise.all(Array.from({ length: 2 }, () => request('post', { body: practiceRequest() })));
+  assert.deepEqual(practiceOutcomes.map((outcome) => outcome.body.awardedXp), [10, 0]);
+  assert.equal((await request('get')).body.momentum.solvedCodeQuestions, 1);
+  assert.equal((await request('post', { body: { ...practiceRequest(), unwanted: 'x'.repeat(48 * 1024) } })).statusCode, 400);
 });

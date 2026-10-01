@@ -17,6 +17,9 @@ export default function registerMomentumRoutes(app, { getDb, requireAuth, mutati
   app.post('/api/momentum/code-runs', mutationSecurity, requireAuth(async (req, res) => {
     const db = await getDb();
     try {
+      if (JSON.stringify(req.body || {}).length > 48 * 1024) {
+        return res.status(400).json({ error: 'The coding reward request is too large.' });
+      }
       const result = await withProfileWriteFence(db, req, async () => {
         const scope = academicProfileFilter(req);
         const workspace = await db.collection('workspaces').findOne(scope);

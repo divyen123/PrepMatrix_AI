@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { createPlannerHistoryEntry, normalizePlannerHistory } from '../src/utils/plannerHistory.js';
+import { getCodeMatrixPracticeQuestion, normalizePracticeOutput } from '../src/utils/codeMatrixPractice.js';
 
 export const MOMENTUM_EVENTS_COLLECTION = 'momentumEvents';
-export const MOMENTUM_RULES = Object.freeze({ study: 10, exam: 40, quiz: 10, coding: 10, codeRunsPerReward: 4 });
+export const MOMENTUM_RULES = Object.freeze({ study: 10, exam: 40, quiz: 10, coding: 10, practiceCoding: 10, codeRunsPerReward: 4 });
 const list = (value) => Array.isArray(value) ? value : [];
 const text = (value) => String(value ?? '').trim().slice(0, 500);
 const digest = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -114,9 +115,10 @@ export function summarizeMomentum(events = [], scheduleId = '') {
       breakdown: Object.fromEntries(['study', 'exam', 'quiz', 'battle', 'coding'].map((kind) => [kind, rows.filter((event) => event.kind === kind).reduce((sum, event) => sum + event.xp, 0)])) };
   };
   return { global: summarize(rewards), schedule: summarize(rewards.filter((event) => scheduleId && event.scheduleId === scheduleId && event.kind !== 'coding')),
-    successfulCodeRuns: events.filter((event) => event.kind === 'coding').length,
+    successfulCodeRuns: events.filter((event) => event.kind === 'coding' && event.source !== 'practice').length,
+    solvedCodeQuestions: events.filter((event) => event.kind === 'coding' && event.source === 'practice' && event.xp > 0).length,
     history: rewards.sort((a, b) => (b.occurredAt || b.recordedAt).localeCompare(a.occurredAt || a.recordedAt)).map((event) => Object.fromEntries([
-      ['id', String(event._id)], ...['kind', 'xp', 'subject', 'title', 'detail', 'scheduledDate', 'scheduleId', 'occurredAt', 'recordedAt'].map((key) => [key, event[key]]),
+      ['id', String(event._id)], ...['kind', 'source', 'questionId', 'version', 'language', 'xp', 'subject', 'title', 'detail', 'scheduledDate', 'scheduleId', 'occurredAt', 'recordedAt'].map((key) => [key, event[key]]),
     ])) };
 }
 
@@ -125,16 +127,51 @@ export async function readMomentum(db, scope, momentumSchedule) {
   return { ...summarizeMomentum(events, momentumSchedule?.id), scheduleId: momentumSchedule?.id || '', rules: MOMENTUM_RULES };
 }
 
-export async function recordSuccessfulCodeRun(db, scope, { runId, language }, now = new Date()) {
+function invalidPracticeReward() {
+  return Object.assign(new Error('Pass every test case to earn this coding reward.'), { status: 400 });
+}
+
+export function validatePracticeReward(practice, language) {
+  if (!practice || typeof practice !== 'object' || Array.isArray(practice)
+    || typeof practice.questionId !== 'string' || practice.questionId.length > 80
+    || !Number.isSafeInteger(practice.version)) throw invalidPracticeReward();
+  const question = getCodeMatrixPracticeQuestion(practice.questionId);
+  if (!question || question.version !== practice.version || !question.supportedLanguages.includes(language)
+    || !Array.isArray(practice.results) || practice.results.length !== question.testCases.length) throw invalidPracticeReward();
+  const results = new Map();
+  for (const result of practice.results) {
+    if (!result || typeof result !== 'object' || typeof result.id !== 'string' || result.id.length > 80
+      || results.has(result.id) || result.status !== 'success' || typeof result.stdout !== 'string' || result.stdout.length > 8192) throw invalidPracticeReward();
+    results.set(result.id, result);
+  }
+  if (!question.testCases.every((testCase) => {
+    const result = results.get(testCase.id);
+    return result && normalizePracticeOutput(result.stdout) === normalizePracticeOutput(testCase.expectedOutput);
+  })) throw invalidPracticeReward();
+  return question;
+}
+
+export async function recordSuccessfulCodeRun(db, scope, { runId, language, practice }, now = new Date()) {
   if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(runId || '') || !['python', 'c', 'cpp', 'java', 'javascript', 'sql'].includes(language)) {
     const error = new Error('A valid successful execution is required.'); error.status = 400; throw error;
   }
+  if (practice !== undefined) {
+    const question = validatePracticeReward(practice, language);
+    const key = `coding:practice:${question.id}:${question.version}`;
+    const event = { key, kind: 'coding', source: 'practice', xp: MOMENTUM_RULES.practiceCoding,
+      questionId: question.id, version: question.version, scheduleId: '', subject: 'CodeMatrix',
+      title: question.title, detail: `All ${question.testCases.length} test cases passed`, language,
+      occurredAt: now.toISOString(), recordedAt: now.toISOString() };
+    const { inserted } = await insertMomentumEvent(db, scope, event);
+    return { awardedXp: inserted ? event.xp : 0, duplicate: !inserted, runId,
+      source: 'practice', questionId: question.id, version: question.version, title: question.title };
+  }
   const key = `coding:${runId}`;
   const existing = await db.collection(MOMENTUM_EVENTS_COLLECTION).findOne({ ...scope, key });
-  if (existing) return { awardedXp: existing.xp, runId, duplicate: true };
-  const count = await db.collection(MOMENTUM_EVENTS_COLLECTION).countDocuments({ ...scope, kind: 'coding' }) + 1;
+  if (existing) return { awardedXp: 0, runId, duplicate: true };
+  const count = await db.collection(MOMENTUM_EVENTS_COLLECTION).countDocuments({ ...scope, kind: 'coding', source: { $ne: 'practice' } }) + 1;
   const xp = count % MOMENTUM_RULES.codeRunsPerReward === 0 ? MOMENTUM_RULES.coding : 0;
-  await insertMomentumEvent(db, scope, { key, kind: 'coding', xp, scheduleId: '', subject: 'CodeMatrix', title: `${language.toUpperCase()} · successful run ${count}`,
+  const { inserted } = await insertMomentumEvent(db, scope, { key, kind: 'coding', source: 'run', xp, scheduleId: '', subject: 'CodeMatrix', title: `${language.toUpperCase()} · successful run ${count}`,
     detail: `Runs ${count - 3}–${count}: four successful executions`, language, occurredAt: now.toISOString(), recordedAt: now.toISOString() });
-  return { awardedXp: xp, runId, successfulRuns: count, nextRewardIn: 4 - count % 4 };
+  return { awardedXp: inserted ? xp : 0, duplicate: !inserted, runId, successfulRuns: count, nextRewardIn: 4 - count % 4 };
 }

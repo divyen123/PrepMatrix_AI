@@ -88,6 +88,7 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
   const history = data?.historicalLanguages || [];
   const suggestions = data?.suggestions || [];
   const rewardRuns = xp.runsPerReward || 4;
+  const practiceRewards = xp.recentPracticeRewards || [];
   const rewardProgress = Math.max(0, Math.min(rewardRuns, xp.runsIntoReward || 0));
   const languageData = [...languages].sort((a, b) => Number(b[languageMetric === 'time' ? 'activeSeconds' : 'meaningfulAttempts'] || 0) - Number(a[languageMetric === 'time' ? 'activeSeconds' : 'meaningfulAttempts'] || 0));
   const hasLanguageChart = languageData.some((item) => item[languageMetric === 'time' ? 'activeSeconds' : 'meaningfulAttempts'] > 0);
@@ -117,7 +118,8 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
         <article className="cmxi-xp-card">
           <div className="cmxi-xp-heading"><span className="cmxi-icon"><Trophy size={20} aria-hidden="true" /></span><span>CodeMatrix XP<span className="cmxi-lifetime">All time</span></span></div>
           <div className="cmxi-xp-total">{formatNumber(xp.total)} <span>XP</span></div>
-          <div className="cmxi-reward-copy"><span>Next reward</span><strong>+{xp.rewardXp || 10} XP</strong></div>
+          <dl className="cmxi-practice-rewards"><div><dt>Solved questions</dt><dd>{formatNumber(xp.solvedQuestions)}</dd></div><div><dt>Practice XP</dt><dd>{formatNumber(xp.practiceXp)} XP</dd></div></dl>
+          <div className="cmxi-reward-copy"><span>Compiler reward</span><strong>+{xp.rewardXp || 10} XP</strong></div>
           <div className="cmxi-reward-progress" role="progressbar" aria-label="Successful runs toward the next XP reward" aria-valuenow={rewardProgress} aria-valuemin={0} aria-valuemax={rewardRuns}>
             {Array.from({ length: rewardRuns }, (_, index) => <span key={index} className={index < rewardProgress ? 'is-complete' : ''} />)}
           </div>
@@ -139,7 +141,7 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
         <Highlight icon={Target} title="Needs practice" insight={highlights.needsPractice} empty="More practice history is needed before identifying recurring difficulty." tone="is-practice" />
       </section>
 
-      <div className="cmxi-context-note"><Info size={16} aria-hidden="true" /><p>These patterns describe execution and practice. Running without errors does not verify that a solution is correct.</p></div>
+      <div className="cmxi-context-note"><Info size={16} aria-hidden="true" /><p>Compiler insights describe execution. Practice solutions are checked against test cases.</p></div>
 
       <section className="cmxi-charts-grid" aria-label="Coding activity charts">
         <article className="cmxi-card">
@@ -150,9 +152,14 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
         <article className="cmxi-card">
           <div className="cmxi-section-heading"><div><h2>XP earned</h2><p>Rewards earned each day</p></div><span className="cmxi-chart-total">{formatNumber(trend.reduce((sum, day) => sum + Number(day.xp || 0), 0))} <small>XP</small></span></div>
           <DailyChart trend={trend} mode="xp" id={`${chartId}-xp`} />
-          <p className="cmxi-chart-note">+{xp.rewardXp || 10} XP every {rewardRuns} successful runs. Web previews do not earn coding XP.{range === 'all' ? ` Chart shows the last ${data.trendWindowDays || 90} days.` : ''}</p>
+          <p className="cmxi-chart-note">+{xp.practiceRewardXp || 10} XP for each newly solved question. +{xp.rewardXp || 10} XP every {rewardRuns} successful compiler runs.{range === 'all' ? ` Chart shows the last ${data.trendWindowDays || 90} days.` : ''}</p>
         </article>
       </section>
+
+      {practiceRewards.length > 0 && <section className="cmxi-card" aria-labelledby="cmxi-solved-title">
+        <div className="cmxi-section-heading"><h2 id="cmxi-solved-title">Solved questions</h2></div>
+        <ul className="cmxi-solved-list">{practiceRewards.map((reward) => <li key={reward.id}><CheckCheck size={17} aria-hidden="true" /><div><strong>{reward.title}</strong><span>{LANGUAGES[reward.language] || reward.language} · {formatDate(reward.occurredAt)}</span></div><b>+{formatNumber(reward.xp)} XP</b></li>)}</ul>
+      </section>}
 
       <section className="cmxi-card cmxi-languages" aria-labelledby="cmxi-language-title">
         <div className="cmxi-section-heading"><div><h2 id="cmxi-language-title">Your languages</h2><p>See where your practice goes</p></div><MetricSwitch label="Language comparison metric" value={languageMetric} options={[['runs', 'Attempts'], ['time', 'Active time']]} onChange={setLanguageMetric} /></div>

@@ -1,0 +1,56 @@
+.cmx-practice { min-width: 0; padding: 22px; color: var(--cmx-text); font-size: 12px; line-height: 1.7; }
+.cmx-practice-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 17px; }
+.cmx-practice-heading h2 { margin: 0; font-size: 18px; font-weight: 650; line-height: 1.4; letter-spacing: -.35px; }
+.cmx-practice-solved { flex-shrink: 0; color: var(--cmx-success); }
+.cmx-practice-statement { margin: 0 0 22px; color: var(--cmx-label); white-space: pre-line; }
+.cmx-practice h3 { margin: 0 0 7px; font-size: 12px; font-weight: 650; line-height: 1.5; }
+.cmx-practice-formats { display: grid; gap: 18px; }
+.cmx-practice-formats p { margin: 0; color: var(--cmx-label); }
+.cmx-practice-constraints, .cmx-practice-examples { margin-top: 22px; }
+.cmx-practice-constraints ul { margin: 0; padding-left: 17px; color: var(--cmx-label); }
+.cmx-practice-constraints li + li { margin-top: 4px; }
+.cmx-practice-example { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; padding: 13px 14px; border: 1px solid var(--cmx-divider); border-radius: 10px; background: var(--cmx-panel-surface); }
+.cmx-practice-example + .cmx-practice-example { margin-top: 10px; }
+.cmx-practice-example span, .cmx-test-case-body > div > span { display: block; margin-bottom: 5px; color: var(--cmx-muted); font-size: 10px; }
+.cmx-practice pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.7 'Cascadia Code', Consolas, monospace; color: var(--cmx-output-text); }
+.cmx-practice-questions { display: grid; gap: 12px; }
+.cmx-practice-question { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 17px 16px; border: 1px solid var(--cmx-divider); border-radius: 11px; background: var(--cmx-panel-surface); }
+.cmx-practice-question > div { min-width: 0; }
+.cmx-practice-question h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; }
+.cmx-practice-question p { margin: 5px 0 0; color: var(--cmx-muted); font-size: 11px; }
+body .cmx-page .cmx-practice-button { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 7px; min-height: 32px; margin: 0; padding: 6px 10px; border: 1px solid var(--cmx-control-border) !important; border-radius: 7px; background: var(--cmx-control-surface) !important; color: var(--cmx-control-text) !important; font-family: inherit; font-size: 11px; font-weight: 550; line-height: 1.5; box-shadow: none !important; transform: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; white-space: nowrap; }
+body .cmx-page .cmx-practice-button:hover:not(:disabled) { background: var(--cmx-control-hover) !important; border-color: var(--cmx-selected-border) !important; color: var(--cmx-control-text-hover) !important; }
+body .cmx-page .cmx-practice-button:focus-visible { outline: 2px solid var(--cmx-focus); outline-offset: 3px; }
+body .cmx-page .cmx-practice-button::before, body .cmx-page .cmx-practice-button::after { display: none; }
+body .cmx-page .cmx-practice-button:disabled { opacity: .45; cursor: not-allowed; }
+body .cmx-page .cmx-practice-button.cmx-practice-try { background: var(--cmx-selected-surface) !important; border-color: var(--cmx-selected-border) !important; color: var(--cmx-focus) !important; }
+.cmx-practice-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--cmx-divider); }
+body .cmx-page .cmx-practice-button.cmx-practice-return { border-color: transparent !important; background: transparent !important; padding-left: 0; }
+.cmx-tests-summary { display: flex; align-items: flex-start; gap: 11px; padding: 15px; border: 1px solid var(--cmx-divider); border-radius: 11px; color: var(--cmx-label); background: var(--cmx-panel-surface); }
+.cmx-tests-summary > svg { flex-shrink: 0; margin-top: 1px; }
+.cmx-tests-summary strong { display: block; font-size: 13px; font-weight: 650; line-height: 1.5; }
+.cmx-tests-summary span { display: block; font-size: 11px; margin-top: 4px; color: var(--cmx-muted); }
+.cmx-tests-summary.is-success { background: var(--cmx-success-surface); border-color: color-mix(in srgb, var(--cmx-success) 30%, var(--cmx-divider)); color: var(--cmx-success); }
+.cmx-tests-summary.is-error { background: var(--cmx-error-surface); border-color: color-mix(in srgb, var(--cmx-error) 25%, var(--cmx-divider)); color: var(--cmx-error); }
+.cmx-tests-summary .cmx-tests-xp { color: var(--cmx-success); font-weight: 600; }
+.cmx-tests-list { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 9px; }
+.cmx-test-case { border: 1px solid var(--cmx-divider); border-radius: 9px; overflow: hidden; }
+.cmx-test-case summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; color: var(--cmx-label); font-size: 11px; cursor: pointer; list-style: none; }
+.cmx-test-case summary::-webkit-details-marker { display: none; }
+.cmx-test-case summary:focus-visible { outline: 2px solid var(--cmx-focus); outline-offset: -3px; border-radius: 8px; }
+.cmx-test-case summary > span:last-child { font-size: 10px; color: var(--cmx-error); }
+.cmx-test-case.is-passed summary > span:last-child, .cmx-test-case.is-passed summary svg { color: var(--cmx-success); }
+.cmx-test-case-title { display: inline-flex; align-items: center; gap: 8px; }
+.cmx-test-case-result { display: inline-flex; align-items: center; gap: 8px; }
+.cmx-test-case-result svg { color: var(--cmx-muted); transition: transform .15s ease; }
+.cmx-test-case[open] .cmx-test-case-result svg { transform: rotate(180deg); }
+.cmx-test-case-title svg { flex-shrink: 0; color: var(--cmx-error); }
+.cmx-test-case.is-stopped summary > span:last-child, .cmx-test-case.is-stopped summary svg, .cmx-test-case.is-skipped summary > span:last-child, .cmx-test-case.is-skipped summary svg { color: var(--cmx-muted); }
+.cmx-test-case[open] summary { background: var(--cmx-panel-surface); }
+.cmx-test-case-body { display: grid; gap: 13px; padding: 14px; border-top: 1px solid var(--cmx-divider); }
+.cmx-test-case-body > div { min-width: 0; }
+.cmx-practice .cmx-test-error { color: var(--cmx-error); font-size: 11px; }
+.cmx-tests-run-error { margin-top: 18px !important; }
+.cmx-tests-empty { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; padding: 36px 12px; min-height: 230px; color: var(--cmx-muted); text-align: center; }
+.cmx-tests-empty p { max-width: 235px; margin: 0; }
+@media (max-width: 420px) { .cmx-practice { padding: 18px 15px; } .cmx-practice-question { gap: 12px; padding: 15px 12px; } .cmx-practice-example { gap: 10px; padding: 11px; } .cmx-practice-actions { gap: 8px; } }
