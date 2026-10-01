@@ -11,6 +11,11 @@ const dentalProfile = {
   institutionName: "Private Dental College",
 };
 
+const searchQueries = (links) => links.map(({ href }) => {
+  const url = new URL(href);
+  return url.searchParams.get("q") || url.searchParams.get("search_query");
+});
+
 test("medical subject names containing short computing substrings stay in their health domain", () => {
   const dental = getSubjectProfile("Brain anatomy", dentalProfile);
   const nursing = getSubjectProfile("Fluid balance", {
@@ -33,7 +38,7 @@ test("compact computing acronyms keep their intended subject profiles", () => {
   assert.match(algorithms.trackLabel, /Problem-solving/iu);
 });
 
-test("material searches include the active qualification and field without leaking institution name", () => {
+test("material searches retain field and specialty while qualification stays in the audience label", () => {
   const materials = buildSubjectMaterials(
     { chapters: 3, name: "Oral Pathology" },
     { done: 0, pending: 3, total: 3 },
@@ -46,10 +51,17 @@ test("material searches include the active qualification and field without leaki
   assert.match(materials.trackLabel, /BDS/iu);
   assert.match(materials.trackLabel, /Dentistry/iu);
   assert.match(materials.trackLabel, /Dental sciences track/iu);
-  assert.ok(decodedLinks.every((link) => /BDS/iu.test(link)));
+  assert.ok(decodedLinks.every((link) => !/BDS|Medical \/ Health Sciences|chapter\s*\d/iu.test(link)));
+  assert.ok(decodedLinks.every((link) => /Medical & Health Sciences/iu.test(link)));
   assert.ok(decodedLinks.every((link) => /Dentistry/iu.test(link)));
   assert.ok(decodedLinks.every((link) => !/Private Dental College/iu.test(link)));
   assert.ok(decodedLinks.every((link) => !/machine learning|react|software engineering/iu.test(link)));
+  assert.deepEqual(searchQueries(materials.lanes), [
+    "Medical & Health Sciences Dentistry Oral Pathology university tutorial",
+    "Medical & Health Sciences Dentistry Oral Pathology university notes pdf",
+    "Medical & Health Sciences Dentistry Oral Pathology practice questions",
+    "Medical & Health Sciences Dentistry Oral Pathology revision notes",
+  ]);
 });
 
 test("chat material suggestions preserve the full active academic profile", () => {
@@ -70,9 +82,15 @@ test("chat material suggestions preserve the full active academic profile", () =
   const decodedLinks = suggestions.map((item) => decodeURIComponent(item.href));
 
   assert.equal(suggestions.length, 4);
-  assert.ok(decodedLinks.every((link) => /B\.Sc Nursing/iu.test(link)));
+  assert.ok(decodedLinks.every((link) => !/B\.Sc Nursing|Medical \/ Health Sciences|chapter\s*\d/iu.test(link)));
   assert.ok(decodedLinks.every((link) => /Nursing/iu.test(link)));
   assert.ok(decodedLinks.every((link) => !/frontend|react|machine learning/iu.test(link)));
+  assert.deepEqual(searchQueries(suggestions), [
+    "Medical & Health Sciences Nursing Fluid balance university tutorial",
+    "Medical & Health Sciences Nursing Fluid balance university notes pdf",
+    "Medical & Health Sciences Nursing Fluid balance practice questions",
+    "Medical & Health Sciences Nursing Fluid balance revision notes",
+  ]);
 });
 
 test("school material searches follow the active class and board", () => {
@@ -95,4 +113,23 @@ test("school material searches follow the active class and board", () => {
   assert.match(materials.trackLabel, /CBSE/iu);
   assert.ok(decodedLinks.every((link) => /class 2/iu.test(link)));
   assert.ok(decodedLinks.every((link) => /CBSE/iu.test(link)));
+  assert.deepEqual(searchQueries(materials.lanes), [
+    "Class 2 CBSE Environmental Studies tutorial",
+    "Class 2 CBSE Environmental Studies notes pdf",
+    "Class 2 CBSE Environmental Studies practice questions",
+    "Class 2 CBSE Environmental Studies revision notes",
+  ]);
+});
+
+test("matching specialty and subject appear once without losing the academic field", () => {
+  const profile = { ...dentalProfile, degree: "B.Sc Nursing", department: "Nursing" };
+  const materials = buildSubjectMaterials({ chapters: 4, name: "Nursing" }, { done: 3 },
+    profile.academicLevel, profile.academicTrack, profile);
+  assert.deepEqual(searchQueries(materials.lanes), [
+    "Medical & Health Sciences Nursing university tutorial",
+    "Medical & Health Sciences Nursing university notes pdf",
+    "Medical & Health Sciences Nursing practice questions",
+    "Medical & Health Sciences Nursing revision notes",
+  ]);
+  assert.match(materials.trackLabel, /B\.Sc Nursing/iu);
 });

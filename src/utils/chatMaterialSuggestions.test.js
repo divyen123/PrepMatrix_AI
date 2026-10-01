@@ -101,8 +101,16 @@ test("weak subject is selected when no configured subject is named", () => {
 
   assert.equal(suggestions.length, 4);
   assert.ok(suggestions.every((item) => item.subject === "Data Analytics"));
-  const decodedUrls = suggestions.map((item) => decodeURIComponent(item.href));
-  assert.ok(decodedUrls.every((href) => href.includes("chapter+2") || href.includes("chapter 2")));
+  const queries = suggestions.map(({ href }) => {
+    const url = new URL(href);
+    return url.searchParams.get("q") || url.searchParams.get("search_query");
+  });
+  assert.deepEqual(queries, [
+    "Data Analytics university tutorial",
+    "Data Analytics university notes pdf",
+    "Data Analytics practice questions",
+    "Data Analytics revision notes",
+  ]);
 });
 
 test("first configured subject is selected when there is no explicit or weak subject", () => {
@@ -278,4 +286,36 @@ test("explicit ad-hoc topic takes priority over planner subject fallbacks", () =
   });
 
   assert.ok(suggestions.every((item) => item.subject === "operating systems"));
+});
+
+test("chat RestAPI materials use four short searches retaining the engineering field and IT branch", () => {
+  const academicProfile = {
+    academicLevel: "Undergraduate / Bachelor's",
+    academicTrack: "Engineering & Technology",
+    degree: "Bachelor of Technology (B.Tech)",
+    department: "Information Technology",
+    institutionName: "Example Engineering University",
+  };
+  const suggestions = buildChatMaterialSuggestions({
+    academicProfile,
+    academicLevel: academicProfile.academicLevel,
+    academicTrack: academicProfile.academicTrack,
+    message: "Recommend RestAPI materials",
+    subjects: [{ name: "RestAPI", chapters: 6 }],
+    metrics: { subjectStats: { RestAPI: { done: 3, pending: 3, total: 6 } } },
+  });
+  assert.equal(suggestions.length, 4);
+  assert.deepEqual(suggestions.map(({ href }) => {
+    const url = new URL(href);
+    return url.searchParams.get("q") || url.searchParams.get("search_query");
+  }), [
+    "Engineering & Technology Information Technology RestAPI university tutorial",
+    "Engineering & Technology Information Technology RestAPI university notes pdf",
+    "Engineering & Technology Information Technology RestAPI practice questions",
+    "Engineering & Technology Information Technology RestAPI revision notes",
+  ]);
+  assert.equal(new URL(suggestions[0].href).hostname, "www.youtube.com");
+  assert.ok(suggestions.slice(1).every(({ href }) => new URL(href).hostname === "www.google.com"));
+  assert.ok(suggestions.every((item) => item.academicLevel === academicProfile.academicLevel));
+  assert.ok(suggestions.every((item) => item.academicTrack === academicProfile.academicTrack));
 });

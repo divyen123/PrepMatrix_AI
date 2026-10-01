@@ -50,5 +50,48 @@ test("uses playful early-years resources instead of college-depth fallbacks", ()
   assert.match(materials.trackLabel, /Kindergarten play & learn/iu);
   assert.doesNotMatch(materials.trackLabel, /college|depth/iu);
   assert.ok(decodedLinks.every((href) => /kindergarten/iu.test(href)));
-  assert.ok(decodedLinks.some((href) => /matching counting learning game/iu.test(href)));
+  assert.ok(decodedLinks.some((href) => /Counting learning game/iu.test(href)));
+});
+
+test("all material providers use compact field, branch and subject queries with one resource intent", () => {
+  const profile = {
+    academicLevel: "Undergraduate / Bachelor's",
+    academicTrack: "Engineering & Technology",
+    degree: "B.Tech",
+    department: "Information Technology",
+    institutionName: "Private University",
+  };
+  const materials = buildSubjectMaterials({ chapters: 4, name: "RestAPI" }, { done: 4 },
+    profile.academicLevel, profile.academicTrack, profile);
+  const queries = materials.lanes.map((lane) => {
+    const url = new URL(lane.href);
+    return url.searchParams.get(lane.provider === "YouTube" ? "search_query" : "q");
+  });
+  const context = "Engineering & Technology Information Technology RestAPI";
+  assert.deepEqual(queries, [
+    `${context} university tutorial`, `${context} university notes pdf`,
+    `${context} practice questions`, `${context} revision notes`,
+  ]);
+  assert.ok(queries.every((query) => !/undergraduate|bachelor|B\.Tech|chapter 4|technical|standards|Private University/iu.test(query)));
+  assert.equal(new URL(materials.lanes[0].href).hostname, "www.youtube.com");
+  assert.ok(materials.lanes.slice(1).every((lane) => new URL(lane.href).hostname === "www.google.com"));
+  assert.equal(materials.completionLabel, "4/4 Completed");
+  assert.ok(materials.chapterPath.every((chapter) => chapter.status === "Completed"));
+});
+
+test("generic profiles omit empty placeholders and duplicate context without damaging subject punctuation", () => {
+  const generic = buildSubjectMaterials({ name: "C++ & REST APIs", chapters: 1 });
+  assert.equal(new URL(generic.lanes[1].href).searchParams.get("q"), "C++ & REST APIs university notes pdf");
+  const sameField = buildSubjectMaterials({ name: "Nursing", chapters: 1 }, {}, "College", "General", {
+    academicTrack: "Nursing", department: "NURSING", degree: "B.Sc Nursing",
+  });
+  assert.equal(new URL(sameField.lanes[1].href).searchParams.get("q"), "Nursing university notes pdf");
+});
+
+test("school searches retain class, board and stream while using concise resource phrases", () => {
+  const profile = { academicLevel: "Senior / Higher Secondary School", grade: "Class 12", academicTrack: "CBSE", schoolStream: "Commerce" };
+  const materials = buildSubjectMaterials({ name: "Accountancy", chapters: 5 }, { done: 2 }, profile.academicLevel, profile.academicTrack, profile);
+  assert.equal(new URL(materials.lanes[1].href).searchParams.get("q"), "Class 12 CBSE Commerce Accountancy notes pdf");
+  assert.ok(materials.lanes.every((lane) => !decodeURIComponent(lane.href).includes("chapter 3")));
+  assert.match(materials.spotlight, /Move into Chapter 3/u);
 });

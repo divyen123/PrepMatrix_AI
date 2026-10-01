@@ -204,6 +204,42 @@ const LEVEL_PROFILES = {
   },
 };
 
+const MATERIAL_SEARCH_INTENTS = Object.freeze({
+  concept: "tutorial",
+  notes: "notes pdf",
+  practice: "practice questions",
+  recap: "revision notes",
+});
+const EARLY_SEARCH_INTENTS = Object.freeze({
+  concept: "learning song",
+  notes: "picture worksheet",
+  practice: "learning game",
+  recap: "quick revision",
+});
+
+function compactSearchParts(parts) {
+  const seen = new Set();
+  return parts.map((value) => String(value || "").replace(/\s+/gu, " ").trim())
+    .filter((value) => {
+      const key = value.toLocaleLowerCase("en");
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).join(" ");
+}
+
+function materialSearchQuery(subjectName, learner, kind) {
+  const field = learner.academicTrack !== "General" ? learner.academicTrack : "";
+  const branch = learner.department !== "General / Undeclared" ? learner.department : "";
+  const context = learner.schoolType === "school"
+    ? [learner.grade || learner.academicLevel, field, learner.schoolStream]
+    : [field, branch];
+  const intents = learner.band === "early" ? EARLY_SEARCH_INTENTS : MATERIAL_SEARCH_INTENTS;
+  const intent = learner.schoolType === "college" && ["concept", "notes"].includes(kind)
+    ? `university ${intents[kind]}` : intents[kind];
+  return compactSearchParts([...context, subjectName, intent]);
+}
+
 function toSearchUrl(query, provider = "google") {
   const encoded = encodeURIComponent(query);
 
@@ -279,8 +315,6 @@ export function buildSubjectMaterials(
     .filter((value, index, values) => values.indexOf(value) === index);
   const audienceLabel = audienceParts.join(" · ");
   const pathwayLabel = pathwayParts.join(" · ");
-  const queryContext = pathwayParts.join(" ");
-  const baseQuery = `${levelProfile.queryPrefix}${queryContext ? ` ${queryContext}` : ""} ${subject.name} chapter ${nextChapter}`;
 
   return {
     subject: subject.name,
@@ -294,25 +328,25 @@ export function buildSubjectMaterials(
       {
         title: "Concept lesson",
         provider: "YouTube",
-        href: toSearchUrl(`${baseQuery} ${levelProfile.conceptQuery} ${profile.conceptQuery}`, "youtube"),
+        href: toSearchUrl(materialSearchQuery(subject.name, learner, "concept"), "youtube"),
         description: `Start with a ${audienceLabel} walkthrough before doing chapter tasks.`,
       },
       {
         title: "Notes and references",
         provider: "Web notes",
-        href: toSearchUrl(`${baseQuery} ${levelProfile.notesQuery} ${profile.notesQuery}`),
+        href: toSearchUrl(materialSearchQuery(subject.name, learner, "notes")),
         description: "Keep one concise source open while revising key terms, diagrams, evidence, or worked methods.",
       },
       {
         title: "Practice set",
         provider: "Search",
-        href: toSearchUrl(`${baseQuery} ${levelProfile.practiceQuery} ${profile.practiceQuery}`),
+        href: toSearchUrl(materialSearchQuery(subject.name, learner, "practice")),
         description: "Follow up with profile-matched questions or applied practice immediately after the concept block.",
       },
       {
         title: "Revision recap",
         provider: "Search",
-        href: toSearchUrl(`${baseQuery} ${levelProfile.recapQuery} ${profile.recapQuery}`),
+        href: toSearchUrl(materialSearchQuery(subject.name, learner, "recap")),
         description: "Use a compact recap before your next spaced revision session.",
       },
     ],
