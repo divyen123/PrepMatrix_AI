@@ -209,11 +209,12 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
           <h2 id="cmxi-history-title">Lifetime successful runs <span>{formatNumber(history.reduce((sum, item) => sum + Number(item.successfulRuns || 0), 0))} recorded</span></h2>
           <p>Historical XP records preserve successful runs. They cannot tell us about past errors or active coding time.</p>
           <div className="cmxi-history-languages" role="list" aria-label="Successful runs by language">{history.map((item) => <span key={item.id} role="listitem" title={item.label} aria-label={`${item.label}: ${formatNumber(item.successfulRuns)} successful runs`}>
-            <CodeMatrixLanguageIcon language={item.id} size={22} aria-hidden="true" focusable="false" />
+            <CodeMatrixLanguageIcon language={item.id} size={30} aria-hidden="true" focusable="false" />
+            <span className="cmxi-history-language-name">{item.label}</span>
             <strong>{formatNumber(item.successfulRuns)}</strong>
           </span>)}</div>
         </section>}
-        {practiceRewards.length > 0 && <section className="cmxi-card" aria-labelledby="cmxi-solved-title">
+        {practiceRewards.length > 0 && <section className="cmxi-card cmxi-solved-card" aria-labelledby="cmxi-solved-title">
           <div className="cmxi-section-heading"><h2 id="cmxi-solved-title">Solved questions</h2></div>
           <ul className="cmxi-solved-list" tabIndex={0} aria-labelledby="cmxi-solved-title">{practiceRewards.map((reward) => <li key={reward.id}><CheckCheck size={17} aria-hidden="true" /><div><strong>{reward.title}</strong><span>{LANGUAGES[reward.language] || reward.language} · {formatDate(reward.occurredAt)}</span></div><b>+{formatNumber(reward.xp)} XP</b></li>)}</ul>
         </section>}
