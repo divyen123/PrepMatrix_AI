@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import api, { getApiAcademicProfileScope } from '../utils/apiClient';
 import { onAcademicProfileBrowserDataCleared } from '../utils/academicProfileScope.js';
 import {
   CODE_MATRIX_PRACTICE_QUESTIONS,
   CODE_MATRIX_PRACTICE_LANGUAGES,
   getCodeMatrixPracticeQuestion,
   isSuccessfulPracticeResult,
+  mergeCodeMatrixPracticeCompletions,
   normalizeCodeMatrixPracticeState,
   practiceResultMatchesDraft,
   readCodeMatrixPracticeState,
@@ -42,6 +44,34 @@ export default function useCodeMatrixPractice(profileId, language) {
     if (clearedId !== profileId) return;
     mutate((value) => ({ ...value, state: readCodeMatrixPracticeState(''), panelOpen: false }), false);
   }), [mutate, profileId]);
+
+  useEffect(() => {
+    if (!profileId || !current.panelOpen) return undefined;
+    let active = true;
+    const restoreCompletions = async () => {
+      try {
+        const payload = await api.get('/api/momentum', { academicProfileId: profileId });
+        if (!active || profileId !== getApiAcademicProfileScope()
+          || latestRef.current.profileId !== profileId || !latestRef.current.panelOpen) return;
+        mutate((value) => ({ ...value,
+          state: mergeCodeMatrixPracticeCompletions(value.state, payload?.momentum?.history),
+        }));
+      } catch {
+        // Locally recorded completions stay available while offline.
+      }
+    };
+    const onReward = (event) => {
+      if (event.detail?.academicProfileId === profileId) void restoreCompletions();
+    };
+    void restoreCompletions();
+    window.addEventListener('online', restoreCompletions);
+    window.addEventListener('prepmatrix:code-reward-recorded', onReward);
+    return () => {
+      active = false;
+      window.removeEventListener('online', restoreCompletions);
+      window.removeEventListener('prepmatrix:code-reward-recorded', onReward);
+    };
+  }, [current.panelOpen, mutate, profileId]);
 
   const openPanel = useCallback(() => mutate((value) => ({ ...value, panelOpen: true }), false), [mutate]);
   const closePanel = useCallback(() => mutate((value) => ({ ...value, panelOpen: false }), false), [mutate]);
@@ -93,6 +123,9 @@ export default function useCodeMatrixPractice(profileId, language) {
       || !isSuccessfulPracticeResult(result, selected)) return false;
     mutate((existing) => ({ ...existing, state: {
       ...existing.state, solved: { ...existing.state.solved, [key]: true },
+      solvedLanguages: { ...existing.state.solvedLanguages,
+        [key]: { ...existing.state.solvedLanguages[key], [language]: true },
+      },
     } }));
     return true;
   }, [language, mutate, profileId]);
@@ -106,7 +139,8 @@ export default function useCodeMatrixPractice(profileId, language) {
     selectedQuestionId: selected?.id || '', question: selected, selectQuestion, exitPractice,
     selectedLanguage: current.state.selectedLanguage, setLanguage,
     draft, updateDraft, resetDraft, markSolved,
-    solvedIds: CODE_MATRIX_PRACTICE_QUESTIONS.filter((item) => current.state.solved[`${item.id}:v${item.version}`]).map((item) => item.id),
+    solvedIds: CODE_MATRIX_PRACTICE_QUESTIONS.filter((item) =>
+      current.state.solvedLanguages[`${item.id}:v${item.version}`]?.[language] === true).map((item) => item.id),
     storageAvailable: current.storageAvailable,
   };
 }

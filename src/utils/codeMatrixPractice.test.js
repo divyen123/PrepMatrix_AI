@@ -6,6 +6,7 @@ import {
   CODE_MATRIX_PRACTICE_QUESTIONS,
   getCodeMatrixPracticeQuestion,
   isSuccessfulPracticeResult,
+  mergeCodeMatrixPracticeCompletions,
   normalizeCodeMatrixPracticeState,
   normalizePracticeOutput,
   practiceResultMatchesDraft,
@@ -117,11 +118,11 @@ test('practice drafts and local solved history persist independently of normal d
   const storage = memoryStorage();
   const question = CODE_MATRIX_PRACTICE_QUESTIONS[0];
   const key = `${question.id}:v${question.version}`;
-  const value = { selectedQuestionId: question.id, selectedLanguage: 'cpp', drafts: { [key]: { python: 'attempt A', javascript: 'attempt JS', cpp: 'attempt C++' } }, solved: { [key]: true } };
+  const value = { selectedQuestionId: question.id, selectedLanguage: 'cpp', drafts: { [key]: { python: 'attempt A', javascript: 'attempt JS', cpp: 'attempt C++' } }, solved: { [key]: true }, solvedLanguages: {} };
   storage.setItem(academicProfileStorageKey('profile-A', 'code-matrix-v1'), 'normal compiler draft');
   assert.equal(writeCodeMatrixPracticeState('profile-A', value, storage), true);
   assert.deepEqual(readCodeMatrixPracticeState('profile-A', storage), value);
-  assert.deepEqual(readCodeMatrixPracticeState('profile-B', storage), { selectedQuestionId: '', selectedLanguage: '', drafts: {}, solved: {} });
+  assert.deepEqual(readCodeMatrixPracticeState('profile-B', storage), { selectedQuestionId: '', selectedLanguage: '', drafts: {}, solved: {}, solvedLanguages: {} });
   assert.equal(storage.getItem(academicProfileStorageKey('profile-A', 'code-matrix-v1')), 'normal compiler draft');
   assert.equal(writeCodeMatrixPracticeState('', value, storage), false);
   assert.equal(storage.values.size, 2);
@@ -143,10 +144,10 @@ test('corrupt, obsolete, oversized or unavailable storage is bounded and cannot 
   assert.deepEqual(normalized.solved, { [key]: true });
   const storage = memoryStorage();
   storage.setItem(academicProfileStorageKey('profile-A', 'code-matrix-practice-v1'), '{invalid');
-  assert.deepEqual(readCodeMatrixPracticeState('profile-A', storage), { selectedQuestionId: '', selectedLanguage: '', drafts: {}, solved: {} });
+  assert.deepEqual(readCodeMatrixPracticeState('profile-A', storage), { selectedQuestionId: '', selectedLanguage: '', drafts: {}, solved: {}, solvedLanguages: {} });
   const blocked = { getItem() { throw Error('Blocked'); }, setItem() { throw Error('Full'); } };
   assert.equal(writeCodeMatrixPracticeState('profile-A', {}, blocked), false);
-  assert.deepEqual(readCodeMatrixPracticeState('profile-A', blocked), { selectedQuestionId: '', selectedLanguage: '', drafts: {}, solved: {} });
+  assert.deepEqual(readCodeMatrixPracticeState('profile-A', blocked), { selectedQuestionId: '', selectedLanguage: '', drafts: {}, solved: {}, solvedLanguages: {} });
 });
 
 test('resume restores the selected question and language while retaining drafts in other languages', () => {
@@ -163,5 +164,95 @@ test('resume restores the selected question and language while retaining drafts 
   assert.equal(resumed.drafts[key].python, 'Python attempt');
   for (const selectedLanguage of ['sql', 'html', 'css', '__proto__', undefined]) {
     assert.equal(normalizeCodeMatrixPracticeState({ ...state, selectedLanguage }).selectedLanguage, '');
+  }
+});
+
+test('language completions persist independently across languages and academic profiles', () => {
+  const storage = memoryStorage();
+  const question = CODE_MATRIX_PRACTICE_QUESTIONS[0];
+  const key = `${question.id}:v${question.version}`;
+  writeCodeMatrixPracticeState('profile-A', { selectedQuestionId: question.id, selectedLanguage: 'python',
+    drafts: { [key]: { python: 'Python solution', javascript: 'Unfinished JS' } },
+    solvedLanguages: { [key]: { python: true } },
+  }, storage);
+  const python = readCodeMatrixPracticeState('profile-A', storage);
+  assert.deepEqual(python.solvedLanguages, { [key]: { python: true } });
+  assert.deepEqual(python.solved, { [key]: true });
+  assert.equal(python.solvedLanguages[key].javascript, undefined);
+  writeCodeMatrixPracticeState('profile-A', { ...python, selectedLanguage: 'javascript',
+    solvedLanguages: { [key]: { ...python.solvedLanguages[key], javascript: true } },
+  }, storage);
+  writeCodeMatrixPracticeState('profile-B', { solvedLanguages: { [key]: { java: true } } }, storage);
+  const both = readCodeMatrixPracticeState('profile-A', storage);
+  assert.deepEqual(both.solvedLanguages, { [key]: { python: true, javascript: true } });
+  assert.equal(both.drafts[key].javascript, 'Unfinished JS');
+  assert.deepEqual(readCodeMatrixPracticeState('profile-B', storage).solvedLanguages, { [key]: { java: true } });
+  assert.equal(storage.values.size, 2);
+});
+
+test('legacy completion flags retain compatibility without guessing a solved language', () => {
+  const storage = memoryStorage();
+  const question = CODE_MATRIX_PRACTICE_QUESTIONS[0];
+  const key = `${question.id}:v${question.version}`;
+  const legacy = { selectedQuestionId: question.id, selectedLanguage: 'java',
+    drafts: { [key]: { java: 'Java draft', python: 'Python draft' } }, solved: { [key]: true },
+  };
+  const storageKey = academicProfileStorageKey('profile-A', 'code-matrix-practice-v1');
+  storage.setItem(storageKey, JSON.stringify(legacy));
+  const restored = readCodeMatrixPracticeState('profile-A', storage);
+  assert.deepEqual(restored.solved, { [key]: true });
+  assert.deepEqual(restored.solvedLanguages, {});
+  assert.deepEqual(restored.drafts, legacy.drafts);
+  assert.equal(restored.selectedLanguage, 'java');
+  writeCodeMatrixPracticeState('profile-A', restored, storage);
+  assert.deepEqual(JSON.parse(storage.getItem(storageKey)).solvedLanguages, {});
+  assert.equal(storage.values.size, 1);
+});
+
+test('completion normalization rejects malformed language maps, unknown versions and truthy values', () => {
+  const question = CODE_MATRIX_PRACTICE_QUESTIONS[0];
+  const other = CODE_MATRIX_PRACTICE_QUESTIONS[1];
+  const key = `${question.id}:v${question.version}`;
+  const otherKey = `${other.id}:v${other.version}`;
+  const normalized = normalizeCodeMatrixPracticeState({ solvedLanguages: {
+    [key]: { python: true, javascript: 'true', cpp: 1, java: false, sql: true },
+    [otherKey]: { javascript: true }, [`${question.id}:v0`]: { cpp: true }, unknown: { python: true },
+  } });
+  assert.deepEqual(normalized.solvedLanguages, { [key]: { python: true }, [otherKey]: { javascript: true } });
+  assert.deepEqual(normalized.solved, { [key]: true, [otherKey]: true });
+  for (const solvedLanguages of [null, true, [], 'python', { [key]: true }, { [key]: 'python' }, { [key]: ['python'] }, { [key]: Object.create({ python: true }) }]) {
+    assert.deepEqual(normalizeCodeMatrixPracticeState({ solvedLanguages }).solvedLanguages, {});
+  }
+  assert.deepEqual(normalizeCodeMatrixPracticeState({ solvedLanguages: Object.create({ [key]: { python: true } }) }).solvedLanguages, {});
+});
+
+test('verified reward history restores only canonical language completions and preserves local drafts', () => {
+  const question = CODE_MATRIX_PRACTICE_QUESTIONS[0];
+  const other = CODE_MATRIX_PRACTICE_QUESTIONS[1];
+  const key = `${question.id}:v${question.version}`;
+  const otherKey = `${other.id}:v${other.version}`;
+  const state = { selectedQuestionId: question.id, selectedLanguage: 'cpp',
+    drafts: { [key]: { cpp: 'Local C++ draft' } },
+    solved: { [otherKey]: true }, solvedLanguages: { [key]: { java: true } },
+  };
+  const reward = { kind: 'coding', source: 'practice', xp: 10, questionId: question.id, version: question.version, language: 'python' };
+  const history = [reward, { ...reward }, { ...reward, questionId: other.id, language: 'javascript' },
+    ...[{ kind: 'exam' }, { source: 'run' }, { xp: 0 }, { xp: -1 }, { xp: '10' }, { xp: Infinity }, { xp: NaN },
+      { questionId: 'unknown' }, { version: 0 }, { version: '1' }, { version: undefined }, { language: 'sql' },
+    ].map((invalid) => ({ ...reward, ...invalid })), null,
+  ];
+  const stateBefore = structuredClone(state);
+  const historyBefore = structuredClone(history);
+  const merged = mergeCodeMatrixPracticeCompletions(state, history);
+  assert.equal(merged.selectedQuestionId, question.id);
+  assert.equal(merged.selectedLanguage, 'cpp');
+  assert.deepEqual(merged.drafts, state.drafts);
+  assert.deepEqual(merged.solvedLanguages, { [key]: { java: true, python: true }, [otherKey]: { javascript: true } });
+  assert.deepEqual(merged.solved, { [key]: true, [otherKey]: true });
+  assert.deepEqual(state, stateBefore);
+  assert.deepEqual(history, historyBefore);
+  assert.deepEqual(mergeCodeMatrixPracticeCompletions(merged, history), merged);
+  for (const invalidHistory of [null, undefined, {}, 'history']) {
+    assert.deepEqual(mergeCodeMatrixPracticeCompletions(state, invalidHistory), normalizeCodeMatrixPracticeState(state));
   }
 });

@@ -15,6 +15,14 @@ before(async () => {
 after(async () => { await vite?.close(); });
 
 const renderResults = (props) => renderToStaticMarkup(React.createElement(TestResults, props));
+const renderPractice = (props) => renderToStaticMarkup(React.createElement(PracticePanel, props));
+function elements(tree, predicate) {
+  if (!tree || typeof tree !== 'object') return [];
+  return [...(predicate(tree) ? [tree] : []),
+    ...[tree.props?.children].flat(Infinity).flatMap((child) => elements(child, predicate))];
+}
+const textContent = (tree) => typeof tree === 'string' || typeof tree === 'number' ? String(tree)
+  : tree && typeof tree === 'object' ? [tree.props?.children].flat(Infinity).map(textContent).join('') : '';
 const cases = (status = 'success', passed = true) => Array.from({ length: 5 }, (_, index) => ({
   id: `test-${index + 1}`, input: '2 3\n', expectedOutput: '5\n', stdout: passed ? '5\n' : '4\n', status, passed,
 }));
@@ -95,4 +103,59 @@ test('chooser offers three unsolved questions in the selected language with comp
   }));
   assert.match(selected, /Try another/u);
   assert.doesNotMatch(selected, /Return to compiler/u);
+});
+
+test('the picker header Solved button toggles completed questions without replacing its title', () => {
+  let showSolved = false;
+  let toggles = 0;
+  const props = { onToggleSolved() { showSolved = !showSolved; toggles += 1; } };
+  const picker = () => PracticePanel({ ...props, showSolved });
+  const toggle = (tree) => elements(tree, (element) => element.type === 'button' && textContent(element) === 'Solved')[0];
+  assert.equal(toggle(picker()).props.type, 'button');
+  assert.equal(toggle(picker()).props['aria-pressed'], false);
+  assert.doesNotMatch(renderToStaticMarkup(toggle(picker())), /<svg/u, 'Solved remains a plain text action');
+  toggle(picker()).props.onClick();
+  assert.equal(toggles, 1);
+  assert.equal(toggle(picker()).props['aria-pressed'], true);
+  assert.ok(renderPractice({ ...props, showSolved }).includes('<h2>Try to solve?</h2>'));
+  toggle(picker()).props.onClick();
+  assert.equal(toggles, 2);
+  assert.equal(toggle(picker()).props['aria-pressed'], false);
+  const selected = PracticePanel({ ...props, question: { id: 'selected', title: 'Selected problem' }, solvedIds: ['selected'] });
+  assert.equal(elements(selected, (element) => element.type === 'button' && textContent(element) === 'Solved').length, 0);
+});
+
+test('completed mode lists every compatible solved question beyond three cards and reopens the selected ID', () => {
+  const solvedQuestions = Array.from({ length: 6 }, (_, index) => ({
+    id: `completed-${index}`, title: `Completed question ${index}`, supportedLanguages: ['python'],
+  }));
+  solvedQuestions.push({ id: 'sql-only', title: 'SQL only completed problem', supportedLanguages: ['sql'] });
+  const selectedIds = [];
+  const props = { showSolved: true, solvedQuestions, questions: [solvedQuestions[5]], language: 'python',
+    solvedIds: new Set([...solvedQuestions.slice(0, 5).map((question) => question.id), 'sql-only']),
+    onSelect: (id) => selectedIds.push(id), onRefresh() {}, onToggleSolved() {},
+  };
+  const markup = renderPractice(props);
+  assert.equal((markup.match(/<article\b/gu) || []).length, 5);
+  for (let index = 0; index < 5; index += 1) assert.ok(markup.includes(`Completed question ${index}`));
+  assert.doesNotMatch(markup, /Completed question 5|SQL only completed problem/u);
+  assert.equal((markup.match(/>Try again</gu) || []).length, 5);
+  assert.doesNotMatch(markup, /More questions|<footer/u);
+  for (const action of elements(PracticePanel(props), (element) => element.type === 'button' && textContent(element) === 'Try again')) {
+    action.props.onClick();
+  }
+  assert.deepEqual(selectedIds, solvedQuestions.slice(0, 5).map((question) => question.id));
+});
+
+test('completed mode shows an empty state when no solved questions match instead of suggestions', () => {
+  const questions = [{ id: 'unsolved', title: 'Suggested unsolved question', supportedLanguages: ['python'] }];
+  for (const props of [
+    { solvedQuestions: questions, solvedIds: [] },
+    { solvedQuestions: [{ id: 'sql-only', title: 'Incompatible completed question', supportedLanguages: ['sql'] }], solvedIds: ['sql-only'] },
+  ]) {
+    const markup = renderPractice({ ...props, questions, showSolved: true, language: 'python', onRefresh() {} });
+    assert.match(markup, /No solved questions yet/u);
+    assert.doesNotMatch(markup, /<article|Suggested unsolved question|Incompatible completed question|More questions|<footer/u);
+    assert.match(markup, /aria-pressed="true"/u);
+  }
 });

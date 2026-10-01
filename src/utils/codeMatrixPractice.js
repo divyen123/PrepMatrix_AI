@@ -178,12 +178,17 @@ export function isSuccessfulPracticeResult(result, activeQuestion) {
     }));
 }
 
-function emptyPracticeState() { return { selectedQuestionId: '', selectedLanguage: '', drafts: {}, solved: {} }; }
+function emptyPracticeState() { return { selectedQuestionId: '', selectedLanguage: '', drafts: {}, solved: {}, solvedLanguages: {} }; }
+
+const practiceStateObject = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
 export function normalizeCodeMatrixPracticeState(value) {
-  const source = value && typeof value === 'object' ? value : {};
+  const source = practiceStateObject(value);
   const drafts = {};
   const solved = {};
+  const solvedLanguages = {};
+  const savedSolved = practiceStateObject(source.solved);
+  const savedLanguages = practiceStateObject(source.solvedLanguages);
   for (const item of CODE_MATRIX_PRACTICE_QUESTIONS) {
     const key = `${item.id}:v${item.version}`;
     const savedDrafts = source.drafts?.[key];
@@ -192,14 +197,38 @@ export function normalizeCodeMatrixPracticeState(value) {
       drafts[key] ??= {};
       drafts[key][language] = savedDrafts[language].slice(0, CODE_MATRIX_MAX_CODE);
     }
-    if (source.solved?.[key] === true) solved[key] = true;
+    if (Object.hasOwn(savedSolved, key) && savedSolved[key] === true) solved[key] = true;
+    const completed = Object.hasOwn(savedLanguages, key) ? practiceStateObject(savedLanguages[key]) : {};
+    for (const language of item.supportedLanguages) {
+      if (!Object.hasOwn(completed, language) || completed[language] !== true) continue;
+      solvedLanguages[key] ??= {};
+      solvedLanguages[key][language] = true;
+      solved[key] = true;
+    }
   }
   return {
     selectedQuestionId: getCodeMatrixPracticeQuestion(source.selectedQuestionId)?.id || '',
     selectedLanguage: CODE_MATRIX_PRACTICE_LANGUAGES.includes(source.selectedLanguage) ? source.selectedLanguage : '',
     drafts,
     solved,
+    solvedLanguages,
   };
+}
+
+export function mergeCodeMatrixPracticeCompletions(state, history) {
+  const merged = normalizeCodeMatrixPracticeState(state);
+  if (!Array.isArray(history)) return merged;
+  for (const record of history) {
+    if (!record || record.kind !== 'coding' || record.source !== 'practice'
+      || !Number.isFinite(record.xp) || record.xp <= 0) continue;
+    const question = getCodeMatrixPracticeQuestion(record.questionId);
+    if (!question || record.version !== question.version || !question.supportedLanguages.includes(record.language)) continue;
+    const key = `${question.id}:v${question.version}`;
+    merged.solved[key] = true;
+    merged.solvedLanguages[key] ??= {};
+    merged.solvedLanguages[key][record.language] = true;
+  }
+  return merged;
 }
 
 export function readCodeMatrixPracticeState(profileId, storage) {

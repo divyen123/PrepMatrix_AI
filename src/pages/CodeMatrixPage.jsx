@@ -93,6 +93,7 @@ export default function CodeMatrixPage({
     return saved.selectedQuestionId ? saved.selectedLanguage || '' : '';
   });
   const [questionOffset, setQuestionOffset] = useState(0);
+  const [showSolvedQuestions, setShowSolvedQuestions] = useState(false);
   const reviewSession = useMemo(() => createCodeReviewSession((snapshot, requestId) => api.post('/api/code-matrix/review', snapshot, {
     academicProfileId: academicProfileDataId, headers: { 'Idempotency-Key': requestId }, timeoutMs: 55_000,
   })), [academicProfileDataId]);
@@ -121,6 +122,7 @@ export default function CodeMatrixPage({
       Number(practice.solvedIds.includes(left.id)) - Number(practice.solvedIds.includes(right.id)));
     return Array.from({ length: 3 }, (_, index) => ordered[(questionOffset + index) % ordered.length]);
   }, [practice.solvedIds, questionOffset]);
+  const solvedQuestions = CODE_MATRIX_PRACTICE_QUESTIONS.filter((question) => practice.solvedIds.includes(question.id));
   const compilerDrafts = sessionMode && sessionDrafts ? sessionDrafts : workspace.drafts;
   const drafts = useMemo(() => practiceActive ? { ...compilerDrafts, [workspaceLanguage]: practice.draft ?? '' } : compilerDrafts,
     [compilerDrafts, practiceActive, practice.draft, workspaceLanguage]);
@@ -243,6 +245,7 @@ export default function CodeMatrixPage({
     stop();
     const saved = readCodeMatrixPracticeState(academicProfileDataId);
     setPracticeLanguage(saved.selectedQuestionId ? saved.selectedLanguage || '' : '');
+    setShowSolvedQuestions(false);
     setResult(null);
     setResetOpen(false);
     setActiveLine(0);
@@ -257,6 +260,7 @@ export default function CodeMatrixPage({
     stop();
     exitPractice();
     setPracticeLanguage('');
+    setShowSolvedQuestions(false);
     if (sessionMode) {
       setSessionLanguage(activeLaunch.language);
       setSessionDrafts({
@@ -465,6 +469,7 @@ export default function CodeMatrixPage({
 
   const openPractice = () => {
     stop();
+    setShowSolvedQuestions(false);
     if (!CODE_MATRIX_PRACTICE_LANGUAGES.includes(workspaceLanguage)) setPracticeLanguage('python');
     practice.openPanel();
     setResultTab('problem');
@@ -472,6 +477,7 @@ export default function CodeMatrixPage({
   };
   const selectPracticeQuestion = (id) => {
     stop();
+    setShowSolvedQuestions(false);
     practice.selectQuestion(id);
     setResult(null);
     setResultTab('problem');
@@ -482,6 +488,7 @@ export default function CodeMatrixPage({
   };
   const returnToCompiler = () => {
     stop();
+    setShowSolvedQuestions(false);
     practice.exitPractice();
     setPracticeLanguage('');
     setResult(null);
@@ -493,6 +500,7 @@ export default function CodeMatrixPage({
   };
   const tryAnotherQuestion = () => {
     stop();
+    setShowSolvedQuestions(false);
     practice.showQuestions();
     setResult(null);
     setResultTab('problem');
@@ -669,7 +677,7 @@ export default function CodeMatrixPage({
                 {preview && <iframe ref={previewRef} title="CodeMatrix webpage preview" hidden={resultTab !== "preview"} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={preview.srcDoc} />}
                 {busy && !waiting && resultTab !== 'problem' && resultTab !== 'tests' && <div className="cmx-running-message" role="status"><LoaderCircle className="cmx-spin" size={14} />{runtimeMessage}</div>}
                 {resultTab === 'problem' ? (
-                  <CodeMatrixPracticePanel questions={suggestedQuestions} question={practice.question} language={workspaceLanguage} solvedIds={practice.solvedIds} onSelect={selectPracticeQuestion} onNext={tryAnotherQuestion} onRefresh={() => setQuestionOffset((offset) => (offset + 3) % CODE_MATRIX_PRACTICE_QUESTIONS.length)} />
+                  <CodeMatrixPracticePanel questions={suggestedQuestions} solvedQuestions={solvedQuestions} showSolved={showSolvedQuestions} onToggleSolved={() => setShowSolvedQuestions((shown) => !shown)} question={practice.question} language={workspaceLanguage} solvedIds={practice.solvedIds} onSelect={selectPracticeQuestion} onNext={tryAnotherQuestion} onRefresh={() => setQuestionOffset((offset) => (offset + 3) % CODE_MATRIX_PRACTICE_QUESTIONS.length)} />
                 ) : resultTab === 'tests' ? (
                   <CodeMatrixTestResults result={result?.kind === 'practice' ? result : null} stale={Boolean(result?.kind === 'practice' && !unchanged)} busy={busy} onShowProblem={() => setResultTab('problem')} />
                 ) : resultTab === "preview" ? (
