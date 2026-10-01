@@ -3,6 +3,7 @@ import { Activity, ArrowLeft, ArrowUpRight, CalendarDays, CheckCheck, Clock3, Co
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import useCodeMatrixInsights from '../hooks/useCodeMatrixInsights';
 import CodeMatrixLanguageTick from './CodeMatrixLanguageTick';
+import CodeMatrixLanguageIcon from './CodeMatrixLanguageIcon';
 import './CodeMatrixInsights.css';
 
 const LANGUAGES = { python: 'Python', c: 'C', cpp: 'C++', java: 'Java', javascript: 'JavaScript', sql: 'SQL', web: 'Web preview', html: 'HTML', css: 'CSS' };
@@ -204,10 +205,17 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
       </div>
 
       {(history.length > 0 || practiceRewards.length > 0) && <div className="cmxi-history-grid">
-        {history.length > 0 && <section className="cmxi-history" aria-labelledby="cmxi-history-title"><h2 id="cmxi-history-title">Lifetime successful runs <span>{formatNumber(history.reduce((sum, item) => sum + Number(item.successfulRuns || 0), 0))} recorded</span></h2><p>Historical XP records preserve successful runs. They cannot tell us about past errors or active coding time.</p><div>{history.map((item) => <span key={item.id}>{item.label}<strong>{formatNumber(item.successfulRuns)}</strong></span>)}</div></section>}
+        {history.length > 0 && <section className="cmxi-history" aria-labelledby="cmxi-history-title">
+          <h2 id="cmxi-history-title">Lifetime successful runs <span>{formatNumber(history.reduce((sum, item) => sum + Number(item.successfulRuns || 0), 0))} recorded</span></h2>
+          <p>Historical XP records preserve successful runs. They cannot tell us about past errors or active coding time.</p>
+          <div className="cmxi-history-languages" role="list" aria-label="Successful runs by language">{history.map((item) => <span key={item.id} role="listitem" title={item.label} aria-label={`${item.label}: ${formatNumber(item.successfulRuns)} successful runs`}>
+            <CodeMatrixLanguageIcon language={item.id} size={22} aria-hidden="true" focusable="false" />
+            <strong>{formatNumber(item.successfulRuns)}</strong>
+          </span>)}</div>
+        </section>}
         {practiceRewards.length > 0 && <section className="cmxi-card" aria-labelledby="cmxi-solved-title">
           <div className="cmxi-section-heading"><h2 id="cmxi-solved-title">Solved questions</h2></div>
-          <ul className="cmxi-solved-list">{practiceRewards.map((reward) => <li key={reward.id}><CheckCheck size={17} aria-hidden="true" /><div><strong>{reward.title}</strong><span>{LANGUAGES[reward.language] || reward.language} · {formatDate(reward.occurredAt)}</span></div><b>+{formatNumber(reward.xp)} XP</b></li>)}</ul>
+          <ul className="cmxi-solved-list" tabIndex={0} aria-labelledby="cmxi-solved-title">{practiceRewards.map((reward) => <li key={reward.id}><CheckCheck size={17} aria-hidden="true" /><div><strong>{reward.title}</strong><span>{LANGUAGES[reward.language] || reward.language} · {formatDate(reward.occurredAt)}</span></div><b>+{formatNumber(reward.xp)} XP</b></li>)}</ul>
         </section>}
       </div>}
       <footer className="cmxi-footer"><span>{trackingDate ? `Detailed activity tracked since ${trackingDate}.` : 'Detailed activity starts with your next coding session.'} Offline activity appears after syncing.</span><span>Automatic insights · No AI credits used</span></footer>
