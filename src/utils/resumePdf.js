@@ -992,9 +992,12 @@ async function waitForResumePreview(element) {
     throw new Error("The resume preview is not ready yet. Please try again.");
   }
 
-  const fonts = typeof document === "undefined" ? null : document.fonts;
-  const selectedFontFamily = typeof getComputedStyle === "function"
-    ? getComputedStyle(element).fontFamily
+  const ownerDocument = element.ownerDocument || (typeof document === "undefined" ? null : document);
+  const fonts = ownerDocument?.fonts;
+  const readStyle = ownerDocument?.defaultView?.getComputedStyle?.bind(ownerDocument.defaultView)
+    || (typeof getComputedStyle === "function" ? getComputedStyle : null);
+  const selectedFontFamily = readStyle
+    ? readStyle(element).fontFamily
     : element.style?.getPropertyValue?.("--resume-font-family");
   if (fonts?.load && selectedFontFamily) {
     await Promise.all([
@@ -1002,6 +1005,13 @@ async function waitForResumePreview(element) {
       fonts.load(`600 16px ${selectedFontFamily}`),
       fonts.load(`700 16px ${selectedFontFamily}`),
     ]).catch(() => {});
+  }
+  if (fonts?.load && readStyle) {
+    const usedFonts = new Set(Array.from(element.querySelectorAll?.("*") || [], (node) => {
+      const style = readStyle(node);
+      return `${style.fontStyle || "normal"} ${style.fontWeight || "400"} ${style.fontSize || "16px"} ${style.fontFamily}`;
+    }));
+    await Promise.all(Array.from(usedFonts, (font) => fonts.load(font))).catch(() => {});
   }
   if (fonts?.ready) await fonts.ready.catch(() => {});
 
@@ -1011,6 +1021,60 @@ async function waitForResumePreview(element) {
   });
   await nextFrame();
   await nextFrame();
+}
+
+function resumePaperDimensions(element, bounds) {
+  const readStyle = element.ownerDocument?.defaultView?.getComputedStyle?.bind(element.ownerDocument.defaultView)
+    || (typeof getComputedStyle === "function" ? getComputedStyle : null);
+  const style = readStyle?.(element);
+  // DOM rectangles include app zoom; computed border-box sizes retain the
+  // preview's CSS layout. scrollWidth also omits the modern template's border.
+  const borderBox = (axis) => {
+    const size = Number.parseFloat(style?.[axis]);
+    if (!(size > 0)) return 0;
+    if (style.boxSizing === "border-box") return size;
+    const edges = axis === "width" ? ["Left", "Right"] : ["Top", "Bottom"];
+    return size + edges.reduce((total, edge) => (
+      total + (Number.parseFloat(style[`padding${edge}`]) || 0)
+        + (Number.parseFloat(style[`border${edge}Width`]) || 0)
+    ), 0);
+  };
+  return {
+    width: borderBox("width") || element.offsetWidth || element.scrollWidth || bounds.width,
+    height: borderBox("height") || element.offsetHeight || element.scrollHeight || bounds.height,
+  };
+}
+
+function prepareResumeCaptureClone(clonedPaper, sourceWidth, sourceHeight) {
+  // html2canvas measures text in DOM coordinates but paints in CSS pixels.
+  // Outer zoom/route transforms must not affect those measurements. Preserve
+  // the inner fit transform, which html2canvas measures and reapplies itself.
+  for (let node = clonedPaper; node; node = node.parentElement) {
+    node.style.setProperty("zoom", "1", "important");
+    node.style.setProperty("transform", "none", "important");
+    node.style.setProperty("animation", "none", "important");
+    node.style.setProperty("transition", "none", "important");
+  }
+  const exportSurface = clonedPaper.closest(".resume-pdf-export-surface");
+  if (exportSurface) {
+    exportSurface.style.setProperty("position", "absolute", "important");
+    exportSurface.style.setProperty("left", "0", "important");
+    exportSurface.style.setProperty("top", "0", "important");
+  }
+  const frozenStyles = {
+    "box-sizing": "border-box",
+    width: `${sourceWidth}px`,
+    "min-width": `${sourceWidth}px`,
+    "max-width": `${sourceWidth}px`,
+    height: `${sourceHeight}px`,
+    "min-height": `${sourceHeight}px`,
+    "max-height": `${sourceHeight}px`,
+    flex: "none",
+    "box-shadow": "none",
+  };
+  Object.entries(frozenStyles).forEach(([property, value]) => {
+    clonedPaper.style.setProperty(property, value, "important");
+  });
 }
 
 function collectResumeLinks(element, paperBounds) {
@@ -1047,9 +1111,8 @@ export async function createResumePdfFromElement(element, draftValue, layoutValu
   const draft = normalizeResumeDraft(draftValue);
   const layout = normalizeResumeLayout(layoutValue);
   const bounds = element.getBoundingClientRect();
-  const sourceWidth = Math.round(element.scrollWidth || bounds.width || PREVIEW_WIDTH_PX);
-  const sourceHeight = Math.round(element.scrollHeight || bounds.height || sourceWidth * PAGE.height / PAGE.width);
-  if (sourceWidth <= 0 || sourceHeight <= 0) {
+  const { width: sourceWidth, height: sourceHeight } = resumePaperDimensions(element, bounds);
+  if (!(sourceWidth > 0) || !(sourceHeight > 0)) {
     throw new Error("The resume preview is still sizing. Please try again.");
   }
   const links = collectResumeLinks(element, bounds);
@@ -1067,6 +1130,8 @@ export async function createResumePdfFromElement(element, draftValue, layoutValu
     canvas = await renderElement(element, {
       backgroundColor: "#ffffff",
       scale: captureScale,
+      width: sourceWidth,
+      height: sourceHeight,
       useCORS: true,
       allowTaint: false,
       logging: false,
@@ -1076,16 +1141,8 @@ export async function createResumePdfFromElement(element, draftValue, layoutValu
       windowHeight: Math.max(typeof document === "undefined" ? sourceHeight : document.documentElement.clientHeight, sourceHeight + 32),
       onclone: (clonedDocument) => {
         const clonedPaper = clonedDocument.querySelector(`[data-resume-pdf-capture="${captureId}"]`);
-        const exportSurface = clonedPaper?.closest(".resume-pdf-export-surface");
-        if (exportSurface) {
-          exportSurface.style.position = "absolute";
-          exportSurface.style.left = "0";
-          exportSurface.style.top = "0";
-        }
-        if (clonedPaper) {
-          clonedPaper.style.width = `${sourceWidth}px`;
-          clonedPaper.style.boxShadow = "none";
-        }
+        if (!clonedPaper) throw new Error("The resume preview could not be prepared for export.");
+        prepareResumeCaptureClone(clonedPaper, sourceWidth, sourceHeight);
       },
     });
   } finally {

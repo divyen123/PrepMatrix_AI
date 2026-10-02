@@ -646,8 +646,12 @@ export default function ResumeBuilderPage({
   const previewFullscreenTriggerRef = useRef(null);
   const analyzerTriggerRef = useRef(null);
   const previewPaperRef = useRef(null);
+  const exportPaperRef = useRef(null);
   const setPreviewPaper = useCallback((node) => {
     previewPaperRef.current = node;
+  }, []);
+  const setExportPaper = useCallback((node) => {
+    exportPaperRef.current = node;
   }, []);
   const resumeAcademicProfile = useMemo(
     () => ({ ...userProfile, ...academicProfile }),
@@ -1087,7 +1091,10 @@ export default function ResumeBuilderPage({
 
     setGenerating(true);
     try {
-      const pdf = await createResumePdfFromElement(previewPaperRef.current, validation.draft, layout);
+      const capturePaper = previewPaperRef.current?.getBoundingClientRect().width > 0
+        ? previewPaperRef.current
+        : exportPaperRef.current;
+      const pdf = await createResumePdfFromElement(capturePaper, validation.draft, layout);
       generationRequestRef.current ||= createResumeItemId("generation");
       const requestId = generationRequestRef.current;
       const wasRegeneration = Boolean(selectedHistoryId);
@@ -1732,7 +1739,7 @@ export default function ResumeBuilderPage({
             </div>
           </header>
           <div className="resume-preview-stage">
-            <ResumePreview draft={previewDraft} layout={layout} />
+            <ResumePreview draft={previewDraft} layout={layout} onPaperReady={setPreviewPaper} />
           </div>
           <div className="resume-preview-actions">
             <div>
@@ -1764,7 +1771,7 @@ export default function ResumeBuilderPage({
       </div>
 
       <div aria-hidden="true" className="resume-pdf-export-surface">
-        <ResumePreview draft={previewDraft} layout={layout} onPaperReady={setPreviewPaper} />
+        <ResumePreview draft={previewDraft} layout={layout} onPaperReady={setExportPaper} />
       </div>
 
       <div className="resume-builder-privacy-note">

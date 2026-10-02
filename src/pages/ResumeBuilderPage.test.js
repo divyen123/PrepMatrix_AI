@@ -90,7 +90,8 @@ test("offers accessible two-column font choices and shares the chosen font with 
   assert.match(paperStyles, /\.resume-paper:not\(\.resume-paper--font-template\)\s*\{[\s\S]*?--font-family-base:\s*var\(--resume-font-family\)[\s\S]*?--font-family-display:\s*var\(--resume-font-family\)/u);
   assert.match(paperStyles, /\.resume-paper:not\(\.resume-paper--font-template\)[\s\S]*?font-family:\s*inherit/u);
   assert.doesNotMatch(paperStyles, /color-mix\(in srgb, var\(--resume-accent\)/u);
-  assert.match(pageSource, /createResumePdfFromElement\(previewPaperRef\.current/u);
+  assert.match(pageSource, /createResumePdfFromElement\(capturePaper/u);
+  assert.match(pageSource, /const capturePaper = previewPaperRef\.current\?\.getBoundingClientRect\(\)\.width > 0[\s\S]*?\? previewPaperRef\.current[\s\S]*?: exportPaperRef\.current/u);
   assert.match(pageSource, /className="resume-pdf-export-surface"/u);
   assert.match(pageSource, /target=\{href\.startsWith\("http"\) \? "_blank"/u);
   assert.match(pageSource, /rel="noopener noreferrer" target="_blank"/u);
