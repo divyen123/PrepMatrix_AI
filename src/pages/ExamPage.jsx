@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import DistractionAwareFocusRoom from "../components/DistractionAwareFocusRoom";
 import AnswerCoachPanel from "../components/AnswerCoachPanel";
+import AnswerCoachInfo from "../components/AnswerCoachInfo";
 import LatticeLoader from "../components/LatticeLoader";
 import SquishSwitch from "../components/SquishSwitch";
 import { speakFocusNudge } from "../utils/focusRoomNudge";
@@ -2110,8 +2111,9 @@ function ExamPage({
   return (
     <section className="page-stack exam-page">
       <header className="exam-page__header">
-        <div>
+        <div className="exam-page__title">
           <h2>{section === "results" ? "Released and pending exams" : section === "coach" ? "Answer coach" : "Exam workspace"}</h2>
+          {section === "coach" && <AnswerCoachInfo />}
         </div>
         <div className="exam-page__header-actions">
           {section !== "overview" && overviewBackControl}

@@ -285,12 +285,6 @@ export default function AnswerCoachPanel({ papers = [], onAddRevisionTask }) {
 
   return (
     <div className="answer-coach-layout">
-      <section className="card answer-coach-intro">
-        <div>
-          <h2>Review written answers</h2>
-          <p>Choose one of your generated papers, upload clearly numbered answers, and get provisional step feedback. Only readable answers are scored.</p>
-        </div>
-      </section>
       <div className="answer-coach-columns">
         <section className="card answer-coach-input">
           <h3>Review a solved paper</h3>

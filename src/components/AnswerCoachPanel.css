@@ -4,10 +4,7 @@
 /* Reading and editing containers stay still without a sweeping shine. */
 body .answer-coach-layout .card::before { display: none !important; }
 body .answer-coach-layout .card:hover { transform: none !important; }
-.answer-coach-intro { padding: 24px 28px; }
-.answer-coach-intro h2,
 .answer-coach-results__summary h2 { margin: 0 0 8px; color: var(--text); }
-.answer-coach-intro p,
 .answer-coach-results__summary p { margin: 0; color: var(--text-secondary); line-height: 1.55; }
 .answer-coach-columns { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(250px, .8fr); gap: 18px; align-items: start; }
 .answer-coach-input,
@@ -86,7 +83,6 @@ body .answer-coach-layout .card:hover { transform: none !important; }
 @media (max-width: 800px) { .answer-coach-columns { grid-template-columns: 1fr; } }
 @media (max-width: 540px) { .answer-coach-results__summary,
   .answer-coach-question__head { flex-direction: column; }
-  .answer-coach-intro,
   .answer-coach-input,
   .answer-coach-history,
   .answer-coach-question { padding: 18px; }
