@@ -1151,7 +1151,7 @@ export default function QuizBattlesPanel({
             <ArrowLeft aria-hidden="true" size={20} />
           </button>
           <h2 className="battle-subpage-title">
-            {showCreate ? "Create battle" : showJoin ? "Join with code" : "History"}
+            {showCreate ? "Create battle" : showJoin ? "Join with code" : "Quiz battles history"}
           </h2>
         </div>
       )}

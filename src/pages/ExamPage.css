@@ -7,11 +7,11 @@
 }
 
 /* Keep the exam forms and results free of the shared card shine. */
-body .exam-page .card:is(.exam-attend-form, .exam-paper-form, .exam-result-card)::before {
+body .exam-page .card:is(.exam-attend-form, .exam-paper-form, .exam-paper-history, .exam-result-card)::before {
   display: none !important;
 }
 
-body .exam-page .card.exam-paper-form:hover {
+body .exam-page .card:is(.exam-paper-form, .exam-paper-history):hover {
   transform: none !important;
 }
 

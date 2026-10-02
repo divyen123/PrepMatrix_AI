@@ -1,12 +1,22 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { BookOpen, Check, ExternalLink, ShoppingBag, X } from "lucide-react";
 import { resolveBookRetailers } from "../utils/bookRecommendations";
 import useMaterialDialogLifecycle from "../hooks/useMaterialDialogLifecycle";
 
+function renderMaterialDialog(children) {
+  if (typeof document === "undefined") return children;
+  // Keep backdrop sampling outside the route's persistent entrance animation.
+  return createPortal(
+    <div className="resources-page material-dialog-portal">{children}</div>,
+    document.body,
+  );
+}
+
 export function BuyMaterialsDialog({ subject, children, onClose }) {
   const { dialogRef, isVisible, requestClose, onCancel, onBackdropClick } = useMaterialDialogLifecycle(onClose);
 
-  return (
+  return renderMaterialDialog(
     <dialog
       aria-labelledby="material-buy-dialog-title"
       aria-modal="true"
@@ -30,7 +40,7 @@ export function BuyMaterialsDialog({ subject, children, onClose }) {
         ><X aria-hidden="true" size={16} /></button>
         {children}
       </div>
-    </dialog>
+    </dialog>,
   );
 }
 
@@ -39,7 +49,7 @@ export function BookDetailsDialog({ book, saved, onSave, onClose }) {
   const [coverFailed, setCoverFailed] = useState(false);
   const retailers = resolveBookRetailers(book);
 
-  return (
+  return renderMaterialDialog(
     <dialog
       aria-labelledby="material-book-dialog-title"
       aria-modal="true"
@@ -70,6 +80,6 @@ export function BookDetailsDialog({ book, saved, onSave, onClose }) {
           ))}
         </div>
       </div>
-    </dialog>
+    </dialog>,
   );
 }
