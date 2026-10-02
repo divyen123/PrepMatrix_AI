@@ -2602,12 +2602,13 @@ body .learning-page .learning-saved-panel.card:hover::before {
   text-align: center;
 }
 
-.learning-notebook-history-empty {
-  display: grid;
-  align-self: stretch;
+.learning-workspace.is-intake .learning-source-rail > :is(.learning-notebook-history-empty, .learning-medical-history-empty) {
+  display: flex;
+  place-self: stretch;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
   min-height: 160px;
-  place-items: center;
   margin: 0;
   padding: 24px;
   color: var(--text-muted);

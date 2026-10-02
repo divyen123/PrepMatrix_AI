@@ -3886,8 +3886,14 @@ function StartLearningPage({
           ) : null}
           </section>
           {activeArtifactKind && (
-          activeArtifactKind === "notebook" && savedPanelEmpty ? (
-            <p className="learning-notebook-history-empty">Your notebook history appears here.</p>
+          (activeArtifactKind === "notebook" || activeArtifactKind === "medical") && savedPanelEmpty ? (
+            <p className={activeArtifactKind === "medical"
+              ? "learning-medical-history-empty"
+              : "learning-notebook-history-empty"}>
+              {activeArtifactKind === "medical"
+                ? "Your training histories appears here."
+                : "Your notebook history appears here."}
+            </p>
           ) : (
           <section className="card learning-saved-panel">
             <div className="learning-saved-heading">
@@ -3942,11 +3948,8 @@ function StartLearningPage({
                 <button onClick={loadNotebooks} type="button">Retry</button>
               </div>
             )}
-            {activeArtifactKind !== "notebook" && savedPanelEmpty && (
-              <p className="learning-notebooks-empty-message">
-                {activeArtifactKind === "placement" ? "No placement history yet"
-                  : "No Medical training history yet"}
-              </p>
+            {activeArtifactKind === "placement" && savedPanelEmpty && (
+              <p className="learning-notebooks-empty-message">No placement history yet</p>
             )}
             {activeArtifactKind === "notebook" && (
               <div className="learning-notebook-list">
