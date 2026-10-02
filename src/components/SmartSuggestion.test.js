@@ -37,13 +37,17 @@ test("shows prompt to generate a schedule when subjects exist but schedule does 
   );
 });
 
-test("keeps the no-subjects prompt text-only and the schedule CTA yellow-toned", () => {
+test("keeps empty prompts text-only without a schedule card or arrow", () => {
   assert.match(
     stylesheet,
     /\.smart-suggestion-cta\.is-empty\s*\{[\s\S]*?width:\s*fit-content;[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;[\s\S]*?box-shadow:\s*none;/u,
   );
-  assert.match(stylesheet, /\.smart-suggestion-cta\.is-yellow\s*\{[\s\S]*?background:\s*rgba\(234,\s*179,\s*8/u);
-  assert.match(stylesheet, /\.smart-suggestion-cta\.is-yellow:hover\s*\{/u);
+  const schedulePrompt = componentSource.slice(
+    componentSource.indexOf("if (!metrics.hasScheduledPlanner)"),
+    componentSource.indexOf("const weakest"),
+  );
+  assert.match(schedulePrompt, /className="smart-suggestion-cta is-empty"/u);
+  assert.doesNotMatch(schedulePrompt, /is-yellow|<ArrowRight/u);
   assert.match(stylesheet, /\.smart-suggestion-cta:hover svg\s*\{[\s\S]*?transform:\s*translateX\(4px\)/u);
 });
 

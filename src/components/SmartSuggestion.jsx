@@ -32,11 +32,10 @@ function SmartSuggestion({
       <section aria-label="Smart suggestions" className="smart-suggestion-card">
         <Link
           aria-label="Generate a schedule"
-          className="smart-suggestion-cta is-yellow"
+          className="smart-suggestion-cta is-empty"
           to="/planner/schedule"
         >
           <span>Generate a schedule</span>
-          <ArrowRight aria-hidden="true" size={16} />
         </Link>
       </section>
     );

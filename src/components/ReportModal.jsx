@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/apiClient";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
+import { filterHistoricalQuizAttempts } from "../utils/analyticsHistoryReport.js";
 import "./ReportModal.css";
 
 const REPORT_MODAL_EXIT_DURATION_MS = 200;
@@ -37,6 +38,9 @@ function ReportModal({
   schedule = [],
   subjects = [],
   userProfile = {},
+  historical = false,
+  historySnapshot = null,
+  historicalAttempts = null,
 }) {
   const navigate = useNavigate();
   const closeButtonRef = useRef(null);
@@ -80,8 +84,8 @@ function ReportModal({
     [schedule, completed],
   );
   const subjectCount = Array.isArray(subjects) ? subjects.length : 0;
-  const needsSubjects = subjectCount === 0;
-  const needsPlan = !metrics.hasScheduledPlanner;
+  const needsSubjects = !historical && subjectCount === 0;
+  const needsPlan = !historical && !metrics.hasScheduledPlanner;
 
   let setupNotice = null;
   if (needsSubjects && needsPlan) {
@@ -112,9 +116,15 @@ function ReportModal({
 
   useEffect(() => {
     let isMounted = true;
+    if (historical && Array.isArray(historicalAttempts)) {
+      setAttempts(historicalAttempts);
+      return undefined;
+    }
     api.getQuizzes()
       .then((payload) => {
-        if (isMounted) setAttempts(payload.attempts || []);
+        if (isMounted) setAttempts(historical
+          ? filterHistoricalQuizAttempts(payload.attempts, historySnapshot || {})
+          : payload.attempts || []);
       })
       .catch(() => {
         if (isMounted) setAttempts([]);
@@ -122,7 +132,7 @@ function ReportModal({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [historical, historySnapshot, historicalAttempts]);
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement;
@@ -192,7 +202,11 @@ function ReportModal({
     .sort(([, left], [, right]) => right.pending - left.pending || left.done - right.done)
     .slice(0, 4);
 
-  const reportActions = setupNotice?.steps || [
+  const reportActions = historical ? [
+    `${metrics.completedTasks} of ${metrics.totalTasks} saved tasks were completed in this schedule.`,
+    attempts.length ? `Archived quiz performance: ${averageQuiz}% average.` : "No matching quiz results were saved for this schedule.",
+    "This previous schedule is available for review only.",
+  ] : setupNotice?.steps || [
     metrics.firstPendingTask
       ? `Priority next: ${metrics.firstPendingTask}.`
       : "Study plan is up to date.",
@@ -239,7 +253,7 @@ function ReportModal({
       pdf.text("PrepMatrix AI", margin + 8, y + 13);
       pdf.setFontSize(9.5);
       pdf.setFont("helvetica", "normal");
-      pdf.text("Study Performance & Planner Report", margin + 8, y + 22);
+      pdf.text(historical ? "Previous Study & Planner Report" : "Study Performance & Planner Report", margin + 8, y + 22);
 
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(8.5);
@@ -405,7 +419,7 @@ function ReportModal({
               <FileText size={20} />
             </span>
             <div>
-              <h2 id="report-modal-title">Study &amp; Performance Report</h2>
+              <h2 id="report-modal-title">{historical ? "Previous Study & Performance Report" : "Study & Performance Report"}</h2>
               <p id="report-modal-subtitle">
                 {userProfile?.username ? `${userProfile.username} · ` : ""}
                 {learnerSubtitle}
@@ -518,7 +532,7 @@ function ReportModal({
           {/* Action recommendations */}
           <div className="report-section-block">
             <h3 className="report-section-heading">
-              {setupNotice ? "Next steps" : "Recommended Recovery"}
+              {historical ? "Archived summary" : setupNotice ? "Next steps" : "Recommended Recovery"}
             </h3>
             <ul className="report-action-list">
               {reportActions.map((action, idx) => (

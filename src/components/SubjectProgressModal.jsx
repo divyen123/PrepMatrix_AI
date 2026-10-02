@@ -20,7 +20,7 @@ import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 import CometDial from "./CometDial";
 
-function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule = [], completed = [] }) {
+function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule = [], completed = [], historical = false }) {
   const navigate = useNavigate();
   const closeButtonRef = useRef(null);
   const closeTimerRef = useRef(null);
@@ -56,14 +56,16 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
         })
         .map((task, taskIndex) => ({
           id: task.task,
-          topic: task.task.slice(`${subject} -`.length).trimStart(),
+          topic: task.topic || (task.task.trim().toLocaleLowerCase().startsWith(`${String(subject).trim().toLocaleLowerCase()} -`)
+            ? task.task.slice(`${subject} -`.length).trimStart()
+            : task.task),
           date: day.date || null,
           day: day.day || dayIndex + 1,
           order: dayIndex * 100 + taskIndex,
-          isComplete: safeCompleted.includes(task.task),
+          isComplete: safeCompleted.includes(task.task) && (!historical || !task.recheckPending),
         }));
     }).sort((left, right) => left.order - right.order),
-    [safeCompleted, safeSchedule, subject]
+    [safeCompleted, safeSchedule, subject, historical]
   );
 
   const completedCount = subjectTasks.filter((task) => task.isComplete).length;
@@ -91,7 +93,7 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
       ? "Strong exam readiness"
       : completionPercentage >= 40
         ? "Momentum is building"
-        : "Build the foundation";
+        : null;
 
   const closeWithAction = useCallback((action) => {
     setIsVisible(false);
@@ -155,6 +157,10 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
   const handleAttendExam = () => {
     if (!isSubjectComplete) return;
     closeWithAction(() => navigate(`/exam?section=attend&subject=${encodeURIComponent(subject)}`));
+  };
+
+  const handleCreateSchedule = () => {
+    closeWithAction(() => navigate("/planner/schedule"));
   };
 
   const handleOpenAskAI = () => {
@@ -283,15 +289,15 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
             <h2 id="subject-progress-title">{subject}</h2>
           </div>
           <div
-            aria-label={isSubjectComplete ? `${subject} completed` : `${completionPercentage}% complete`}
+            aria-label={isSubjectComplete ? `${subject} ${historical ? "previously completed" : "completed"}` : `${completionPercentage}% complete`}
             className={`subject-modal-summary${isSubjectComplete ? " is-complete" : ""}`}
           >
             {isSubjectComplete ? (
-              <strong>Completed</strong>
+              <strong>{historical ? "Previously completed" : "Completed"}</strong>
             ) : (
               <>
                 <strong>{completionPercentage}%</strong>
-                <span>complete</span>
+                <span>{historical ? "previously completed" : "complete"}</span>
               </>
             )}
           </div>
@@ -306,11 +312,11 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
 
         <div className="subject-modal-stat-grid">
           <article>
-            <span><CheckCircle2 size={15} /> Completed</span>
+            <span><CheckCircle2 size={15} /> {historical ? "Previously completed" : "Completed"}</span>
             <strong>{completedCount}</strong>
           </article>
           <article>
-            <span><CircleDashed size={15} /> Remaining</span>
+            <span><CircleDashed size={15} /> {historical ? "Not completed" : "Remaining"}</span>
             <strong>{remainingCount}</strong>
           </article>
           <article>
@@ -342,7 +348,7 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
                       <div>
                         <strong>{task.topic}</strong>
                         <span className={`subject-task-status ${task.isComplete ? "done" : "pending"}`}>
-                          {task.isComplete ? "Completed" : "Upcoming"}
+                          {task.isComplete ? historical ? "Previously completed" : "Completed" : historical ? "Not completed" : "Upcoming"}
                         </span>
                       </div>
                       <p><Clock3 size={13} /> Day {task.day} <span aria-hidden="true">·</span> {formatDate(task.date)}</p>
@@ -378,11 +384,13 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
               value={completionPercentage}
             />
 
-            <div className="subject-readiness-copy">
-              <strong>{readinessLabel}</strong>
-            </div>
+            {!historical && readinessLabel && (
+              <div className="subject-readiness-copy">
+                <strong>{readinessLabel}</strong>
+              </div>
+            )}
 
-            {isSubjectComplete ? (
+            {!historical && (isSubjectComplete ? (
               <button
                 className="subject-next-step"
                 onClick={handleQuiz}
@@ -392,17 +400,27 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
                 <strong>Run a revision quiz</strong>
                 <ArrowRight aria-hidden="true" size={16} />
               </button>
-            ) : (
+            ) : nextTask ? (
               <div className="subject-next-step">
                 <span>Recommended next step</span>
-                <strong>{nextTask?.topic || "Create a study plan"}</strong>
+                <strong>{nextTask.topic}</strong>
                 <ArrowRight aria-hidden="true" size={16} />
               </div>
-            )}
+            ) : (
+              <button
+                className="subject-next-step"
+                onClick={handleCreateSchedule}
+                type="button"
+              >
+                <span>Recommended next step</span>
+                <strong>Create a study plan</strong>
+                <ArrowRight aria-hidden="true" size={16} />
+              </button>
+            ))}
           </aside>
         </div>
 
-        <footer className="subject-modal-actions">
+        {!historical && <footer className="subject-modal-actions">
           <button
             className="subject-action-btn is-study"
             onClick={isSubjectComplete ? handleAttendExam : handleReferMaterial}
@@ -438,10 +456,10 @@ function SubjectProgressModal({ academicProfile = {}, subject, onClose, schedule
             <span><strong>Ask AI</strong><small>Build a revision plan</small></span>
             <ArrowRight size={15} />
           </button>
-        </footer>
+        </footer>}
       </section>
 
-        {askAIOpen && (
+        {!historical && askAIOpen && (
           <div
             className="subject-ai-dialog-backdrop"
             onClick={(event) => {

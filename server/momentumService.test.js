@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
-import { assessmentMomentumEvent, insertMomentumEvent, readMomentum, reconcileMomentum, recordSuccessfulCodeRun, resolveMomentumSchedule, syncWorkspaceMomentum, MOMENTUM_EVENTS_COLLECTION } from './momentumService.js';
+import { assessmentMomentumEvent, enrichPlannerHistoryForArchive, insertMomentumEvent, readMomentum, readPreviousMomentum, reconcileMomentum, recordSuccessfulCodeRun, resolveMomentumSchedule, studyMomentumEvents, syncWorkspaceMomentum, MOMENTUM_EVENTS_COLLECTION } from './momentumService.js';
 import registerMomentumRoutes from './momentumRoutes.js';
-import { buildClearedPlannerWorkspace } from '../src/utils/plannerHistory.js';
+import { buildClearedPlannerWorkspace, createPlannerHistoryEntry } from '../src/utils/plannerHistory.js';
 import { CODE_MATRIX_PRACTICE_QUESTIONS } from '../src/utils/codeMatrixPractice.js';
 
 export function fakeMomentumDb() {
@@ -56,6 +56,118 @@ test('global task XP survives clearing and reload without duplicate awards from 
   assert.equal(after.history[0].title, 'TCP/IP');
   assert.match(after.history[0].detail, /Network models/);
   assert.equal(after.history[0].userId, undefined);
+});
+
+test('new archives receive the trusted prior plan and XP scope while saved records stay immutable', () => {
+  const prior = { ...plan, completed: ['tcp'], momentumSchedule: { id: 'trusted-plan', token: 'plan-one', startedAt: '2026-09-13T00:00:00.000Z' } };
+  const incoming = createPlannerHistoryEntry(prior, { id: 'new', now });
+  const forged = { ...incoming, momentumSchedule: { id: 'forged', startedAt: '2000-01-01' }, subjects: [{ name: 'Changed' }], schedule: undefined };
+  const enriched = enrichPlannerHistoryForArchive(prior, [forged], now);
+  assert.equal(enriched[0].momentumSchedule.id, 'trusted-plan');
+  assert.equal(enriched[0].schedule[0].tasks[0].task, plan.schedule[0].tasks[0].task);
+  assert.equal(enriched[0].subjects[0].name, 'Networks');
+  const saved = { ...prior, plannerHistory: enriched };
+  assert.deepEqual(enrichPlannerHistoryForArchive(saved, [{ ...forged, archivedAt: '2026-10-01' }], now), enriched);
+  const unrelated = { ...forged, id: 'unrelated', tasks: [{ ...incoming.tasks[0], label: 'Different task' }] };
+  assert.equal(enrichPlannerHistoryForArchive(prior, [unrelated], now)[0].momentumSchedule, undefined);
+});
+
+test('replacing or clearing a schedule automatically archives prior work once without archiving ordinary edits', () => {
+  const prior = { ...plan, completed: ['tcp'], momentumSchedule: { id: 'prior-plan', token: 'plan-one', startedAt: '2026-09-13T00:00:00.000Z' } };
+  const replacement = { ...prior, schedule: [{ ...plan.schedule[0], momentumToken: 'plan-two' }], completed: [] };
+  const automatic = enrichPlannerHistoryForArchive(prior, [], now, replacement);
+  assert.equal(automatic.length, 1);
+  assert.equal(automatic[0].momentumSchedule.id, 'prior-plan');
+  assert.equal(automatic[0].schedule[0].momentumToken, 'plan-one');
+  assert.equal(automatic[0].fullyCompleted, true);
+  const explicit = createPlannerHistoryEntry(prior, { id: 'explicit', now });
+  assert.equal(enrichPlannerHistoryForArchive(prior, [explicit], now, replacement).length, 1);
+  const cleared = { ...prior, schedule: [], completed: [] };
+  assert.equal(enrichPlannerHistoryForArchive(prior, [], now, cleared).length, 1);
+  assert.equal(enrichPlannerHistoryForArchive(prior, [explicit], now, cleared).length, 1);
+  assert.equal(enrichPlannerHistoryForArchive(prior, [], now, { ...prior, schedule: [...prior.schedule, { tasks: [] }] }).length, 0);
+  assert.equal(enrichPlannerHistoryForArchive({ ...prior, completed: [] }, [], now, replacement).length, 0, 'no completed work is manufactured');
+});
+
+test('previous momentum scopes schedule and global XP to the archived plan and cutoff', async () => {
+  const db = fakeMomentumDb();
+  const started = new Date('2026-09-13T08:00:00Z');
+  const beforeArchive = new Date('2026-09-13T09:30:00Z');
+  const afterArchive = new Date('2026-09-13T11:00:00Z');
+  const momentumSchedule = await syncWorkspaceMomentum(db, scope, {}, plan, started);
+  const finished = { ...plan, completed: ['tcp'], momentumSchedule };
+  await syncWorkspaceMomentum(db, scope, { ...plan, momentumSchedule }, finished, beforeArchive);
+  await insertMomentumEvent(db, scope, assessmentMomentumEvent('exam', { _id: 'old-exam', status: 'submitted', answers: { q1: 1 }, submittedAt: beforeArchive, momentumScheduleId: momentumSchedule.id }, {}, beforeArchive));
+  await insertMomentumEvent(db, scope, assessmentMomentumEvent('quiz', { _id: 'old-quiz', status: 'completed', total: 10, answeredCount: 10, completedAt: beforeArchive, momentumScheduleId: momentumSchedule.id }, {}, beforeArchive));
+  await insertMomentumEvent(db, scope, { key: 'old-coding', kind: 'coding', source: 'run', xp: 10, scheduleId: '', occurredAt: beforeArchive.toISOString(), recordedAt: beforeArchive.toISOString() });
+  const cleared = buildClearedPlannerWorkspace(finished, { id: 'archive-one', now });
+  await syncWorkspaceMomentum(db, scope, finished, cleared, now);
+  const current = { ...cleared, schedule: [{ date: '2026-09-14', momentumToken: 'plan-two', tasks: [{ task: 'Networks - Routing', subjectName: 'Networks', topic: 'Routing', id: 'routing' }] }], completed: ['routing'] };
+  const currentScope = await syncWorkspaceMomentum(db, scope, cleared, current, afterArchive);
+  await insertMomentumEvent(db, scope, assessmentMomentumEvent('quiz', { _id: 'new-quiz', status: 'completed', total: 10, answeredCount: 10, completedAt: afterArchive, momentumScheduleId: currentScope.id }, {}, afterArchive));
+  db.collection('workspaces').rows.push({ ...scope, ...current, momentumSchedule: currentScope });
+  const originalWorkspace = structuredClone(db.collection('workspaces').rows[0]);
+  const previous = await readPreviousMomentum(db, scope, 'archive-one');
+  assert.equal(previous.global.totalXp, 70);
+  assert.equal(previous.schedule.totalXp, 60);
+  assert.deepEqual(previous.schedule.breakdown, { study: 10, exam: 40, quiz: 10, battle: 0, coding: 0 });
+  assert.equal(previous.scheduleId, momentumSchedule.id);
+  assert.equal(previous.incomplete, false);
+  assert.equal(previous.history.some((event) => event.title === 'Routing' || event.id.includes('new-quiz')), false);
+  assert.equal((await readMomentum(db, scope, currentScope)).global.totalXp, 90);
+  assert.deepEqual(db.collection('workspaces').rows[0], originalWorkspace, 'loading old analytics must never replace the active plan');
+  await assert.rejects(readPreviousMomentum(db, { ...scope, academicProfileId: 'another-profile' }, 'archive-one'), { status: 404 });
+  await assert.rejects(readPreviousMomentum(db, scope, 'missing'), { status: 404 });
+});
+
+test('legacy previous momentum includes only proven archived study XP when its original scope is unknown', async () => {
+  const db = fakeMomentumDb();
+  const modern = createPlannerHistoryEntry({ ...plan, completed: ['tcp'] }, { id: 'legacy', now });
+  const legacy = { id: modern.id, archivedAt: modern.archivedAt, startDate: modern.startDate, endDate: modern.endDate, totalTasks: 3, tasks: modern.tasks };
+  const workspace = { ...scope, plannerHistory: [legacy], schedule: [], completed: [] };
+  db.collection('workspaces').rows.push(workspace);
+  // Migration happened after clearing; this does not move a proven historical reward into the present.
+  const later = new Date('2026-10-01');
+  for (const event of studyMomentumEvents(workspace, '', later, true)) await insertMomentumEvent(db, scope, event);
+  await insertMomentumEvent(db, scope, assessmentMomentumEvent('quiz', { _id: 'later', status: 'completed', total: 10, answeredCount: 10, completedAt: later }, {}, later));
+  const previous = await readPreviousMomentum(db, scope, 'legacy');
+  assert.equal(previous.global.totalXp, 10);
+  assert.equal(previous.schedule.totalXp, 10);
+  assert.equal(previous.schedule.breakdown.quiz, 0);
+  assert.equal(previous.history.length, 1);
+  assert.equal(previous.incomplete, true);
+  assert.equal(previous.scheduleId, '');
+});
+
+test('historical assessments and battle counts recover from saved sources without current rewards or workspace mutation', async () => {
+  const db = fakeMomentumDb();
+  const priorScope = { id: 'prior', token: 'plan-one', startedAt: '2026-09-13T08:00:00.000Z' };
+  const before = '2026-09-13T09:00:00.000Z';
+  const later = '2026-09-13T11:00:00.000Z';
+  const archived = createPlannerHistoryEntry({ ...plan, completed: ['tcp'], momentumSchedule: priorScope }, { id: 'prior-archive', now });
+  db.collection('workspaces').rows.push({ ...scope, ...plan, momentumSchedule: { id: 'current', startedAt: later }, plannerHistory: [archived] });
+  db.collection('quizAttempts').rows.push(
+    { ...scope, _id: 'prior-quiz', status: 'completed', total: 10, answeredCount: 10, completedAt: before, momentumScheduleId: 'prior' },
+    { ...scope, _id: 'earlier-quiz', status: 'completed', total: 10, answeredCount: 10, completedAt: '2026-09-12T09:00:00.000Z' },
+    { ...scope, _id: 'current-quiz', status: 'completed', total: 10, answeredCount: 10, completedAt: later, momentumScheduleId: 'current' },
+  );
+  db.collection('examAttempts').rows.push({ ...scope, _id: 'prior-exam', status: 'submitted', answers: { q1: 1 }, submittedAt: before, momentumScheduleId: 'prior', score: 98 });
+  db.collection('quizBattleRewards').rows.push(
+    { ...scope, _id: 'prior-win', awardedAt: before, totalXp: 25, completionXp: 10, winXp: 10, perfectXp: 5, completed: true, outcome: 'win', score: 10 },
+    { ...scope, _id: 'prior-capped', awardedAt: before, totalXp: 0, completed: true, outcome: 'draw', score: 8 },
+    { ...scope, _id: 'current-win', awardedAt: later, totalXp: 25, completed: true, outcome: 'win', score: 10 },
+    { ...scope, academicProfileId: 'other-profile', _id: 'unrelated-win', awardedAt: before, totalXp: 25, completed: true, outcome: 'win', score: 10 },
+  );
+  const originalWorkspace = structuredClone(db.collection('workspaces').rows);
+  const previous = await readPreviousMomentum(db, scope, 'prior-archive');
+  assert.equal(previous.schedule.totalXp, 85);
+  assert.equal(previous.global.totalXp, 95);
+  assert.deepEqual(previous.battleStats, { battleXp: 25, played: 2, wins: 1, draws: 1, losses: 0, uncontested: 0, perfectScores: 1, badges: ['First Duel', 'Perfect Ten'] });
+  assert.equal(previous.history.some((event) => event.id === 'quiz:current-quiz' || event.id === 'battle:current-win'), false);
+  assert.equal(previous.history.find((event) => event.id === 'exam:prior-exam').score, undefined);
+  assert.deepEqual(previous.quizAttempts.map((attempt) => attempt.id), ['prior-quiz'], 'reports receive only the archived schedule quiz results, without the live list limit');
+  assert.deepEqual(db.collection('workspaces').rows, originalWorkspace);
+  assert.equal(db.collection(MOMENTUM_EVENTS_COLLECTION).rows.length, 0, 'reconstruction must not mutate the reward ledger');
 });
 
 test('new schedule resets its scope, ordinary edits retain it, and task toggles cannot farm XP', async () => {
@@ -284,8 +396,8 @@ test('momentum routes require authentication, enforce profile eligibility and se
       const next = queue.then(work); queue = next.catch(() => {}); return next;
     },
   });
-  const request = async (method, { user = 'student', profile = 'profile-a', body } = {}) => {
-    const req = { user: user && { _id: user }, academicProfileId: profile, academicProfileContext: { profile: { academicLevel: 'College' } }, body };
+  const request = async (method, { user = 'student', profile = 'profile-a', body, query } = {}) => {
+    const req = { user: user && { _id: user }, academicProfileId: profile, academicProfileContext: { profile: { academicLevel: 'College' } }, body, query };
     const res = { statusCode: 200, headers: {}, set(key, value) { this.headers[key] = value; }, status(value) { this.statusCode = value; return this; }, json(value) { this.body = value; return this; } };
     const handlers = routes.get(`${method} /api/momentum${method === 'post' ? '/code-runs' : ''}`);
     await handlers.at(-1)(req, res);
@@ -308,4 +420,8 @@ test('momentum routes require authentication, enforce profile eligibility and se
   assert.deepEqual(practiceOutcomes.map((outcome) => outcome.body.awardedXp), [10, 0]);
   assert.equal((await request('get')).body.momentum.solvedCodeQuestions, 1);
   assert.equal((await request('post', { body: { ...practiceRequest(), unwanted: 'x'.repeat(48 * 1024) } })).statusCode, 400);
+  assert.equal((await request('get', { query: { historyId: 'missing' } })).statusCode, 404);
+  assert.equal((await request('get', { query: { historyId: ['invalid'] } })).statusCode, 400);
+  assert.equal((await request('get', { query: { historyId: '' } })).statusCode, 400);
+  assert.equal((await request('get', { profile: 'deleted', query: { historyId: 'missing' } })).statusCode, 409);
 });

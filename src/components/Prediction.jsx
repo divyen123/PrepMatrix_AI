@@ -27,7 +27,7 @@ function getFinishSoonSuggestion(subjectStats) {
   return "Your plan is complete. Review what you studied.";
 }
 
-function Prediction({ schedule, completed, subjects = [], scheduleStartDate = "" }) {
+function Prediction({ schedule, completed, subjects = [], scheduleStartDate = "", historical = false }) {
   const [showPlanPreview, setShowPlanPreview] = useState(false);
   const metrics = getPlannerMetrics(schedule, completed);
   const hasSubjects = Array.isArray(subjects) && subjects.length > 0;
@@ -48,6 +48,11 @@ function Prediction({ schedule, completed, subjects = [], scheduleStartDate = ""
     headline = "Your progress is steady.";
   }
 
+  if (historical) {
+    headline = metrics.remainingTasks === 0 ? "Your previous plan is complete." : "Progress saved from your previous plan.";
+    supportingText = `${metrics.completedTasks} of ${metrics.totalTasks} saved tasks were completed.`;
+  }
+
   return (
     <section className="card">
       <h2>Study prediction</h2>
@@ -56,14 +61,14 @@ function Prediction({ schedule, completed, subjects = [], scheduleStartDate = ""
       {!hasSubjects ? (
         <div className="prediction-subjects-action">
           <p className="card-subtext">{supportingText}</p>
-          <Link
+          {!historical && <Link
             aria-label="Add a subject"
             className="prediction-subjects-action-link"
             title="Add a subject"
             to="/subjects#add-subject"
           >
             <ArrowRight aria-hidden="true" size={17} />
-          </Link>
+          </Link>}
         </div>
       ) : (
         <>
@@ -80,7 +85,7 @@ function Prediction({ schedule, completed, subjects = [], scheduleStartDate = ""
               <span>View plan</span>
               <ArrowRight aria-hidden="true" size={17} />
             </button>
-          ) : (
+          ) : !historical ? (
             <Link
               className="prediction-plan-link"
               state={{ plannerShortcutAction: "new" }}
@@ -89,11 +94,12 @@ function Prediction({ schedule, completed, subjects = [], scheduleStartDate = ""
               <span>Create plan</span>
               <ArrowRight aria-hidden="true" size={17} />
             </Link>
-          )}
+          ) : null}
         </>
       )}
       {showPlanPreview && metrics.hasScheduledPlanner && (
         <StudyPlanPreviewDialog
+          historical={historical}
           completed={completed}
           onClose={() => setShowPlanPreview(false)}
           schedule={schedule}

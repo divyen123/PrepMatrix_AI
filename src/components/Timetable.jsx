@@ -906,7 +906,7 @@ function Timetable({
   }
 
   return (
-    <section className="card schedule-card">
+    <section className={`card schedule-card${schedule.length === 0 ? " is-unplanned" : ""}`}>
       <div className="schedule-card-header">
         <div className="schedule-card-copy">
           <h2>Study schedule</h2>

@@ -9,7 +9,7 @@ export default function useMomentum(academicProfileDataId, refreshKey = '') {
     let active = true;
     setState((current) => ({ data: current.profileId === academicProfileDataId ? current.data : null, profileId: academicProfileDataId, loading: true, error: '' }));
     api.get('/api/momentum', { academicProfileId: academicProfileDataId }).then((payload) => {
-      if (active) setState({ data: payload.momentum, profileId: academicProfileDataId, loading: false, error: '' });
+      if (active) setState({ data: payload.momentum, profileId: academicProfileDataId, loading: false, error: '', loadedAt: Date.now() });
     }).catch(() => { if (active) setState((current) => ({ ...current, loading: false, error: 'Global momentum could not be refreshed.' })); });
     return () => { active = false; };
   }, [academicProfileDataId, refreshKey, revision]);

@@ -11,6 +11,7 @@ import {
 import "./StudyPlanPreviewDialog.css";
 
 export function StudyPlanPreviewContent({
+  historical = false,
   completed = [],
   onClose = () => {},
   schedule = [],
@@ -31,8 +32,8 @@ export function StudyPlanPreviewContent({
     <>
       <header className="study-plan-preview-header">
         <div className="study-plan-preview-heading">
-          <h2 id="study-plan-preview-title">Study schedule</h2>
-          <p id="study-plan-preview-summary">{doneCount} of {tasks.length} tasks complete</p>
+          <h2 id="study-plan-preview-title">{historical ? "Previous study schedule" : "Study schedule"}</h2>
+          <p id="study-plan-preview-summary">{doneCount} of {tasks.length} tasks {historical ? "previously completed" : "complete"}</p>
         </div>
         <button
           aria-label="Close study schedule"
@@ -66,7 +67,7 @@ export function StudyPlanPreviewContent({
                     const session = getPlannerSessionLabel(task.time);
                     return (
                       <li className={isDone ? "is-complete" : ""} key={`${task.task}-${taskIndex}`}>
-                        <span aria-label={isDone ? "Completed" : "Pending"} className="study-plan-preview-status">
+                        <span aria-label={isDone ? historical ? "Previously completed" : "Completed" : historical ? "Not completed" : "Pending"} className="study-plan-preview-status">
                           {isDone
                             ? <CheckCircle2 aria-hidden="true" size={17} />
                             : <Circle aria-hidden="true" size={17} />}
@@ -89,6 +90,7 @@ export function StudyPlanPreviewContent({
 }
 
 export default function StudyPlanPreviewDialog({
+  historical = false,
   completed = [],
   onClose,
   schedule = [],
@@ -153,6 +155,7 @@ export default function StudyPlanPreviewDialog({
       ref={dialogRef}
     >
       <StudyPlanPreviewContent
+        historical={historical}
         completed={completed}
         onClose={requestClose}
         schedule={schedule}

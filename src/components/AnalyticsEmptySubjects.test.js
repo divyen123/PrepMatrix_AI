@@ -10,7 +10,7 @@ test("study schedule preview fades in and out and keeps its completion accents s
   const source = readFileSync(new URL("./StudyPlanPreviewDialog.jsx", import.meta.url), "utf8");
   const css = readFileSync(new URL("./StudyPlanPreviewDialog.css", import.meta.url), "utf8");
 
-  assert.match(source, /className="study-plan-preview-heading"[\s\S]*?<h2 id="study-plan-preview-title">Study schedule<\/h2>[\s\S]*?<p id="study-plan-preview-summary">/u);
+  assert.match(source, /className="study-plan-preview-heading"[\s\S]*?<h2 id="study-plan-preview-title">\{historical \? "Previous study schedule" : "Study schedule"\}<\/h2>[\s\S]*?<p id="study-plan-preview-summary">/u);
   assert.match(css, /\.study-plan-preview-heading\s*\{[\s\S]*?display:\s*flex;[\s\S]*?align-items:\s*baseline;/u);
   assert.match(source, /const \[isClosing, setIsClosing\] = useState\(false\);/u);
   assert.match(source, /window\.setTimeout\(onClose, 220\)/u);

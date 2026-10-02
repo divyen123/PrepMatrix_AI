@@ -46,17 +46,17 @@ function LearningState({ error, loading, onRetry }) {
   );
 }
 
-function EmptyLearningState() {
+function EmptyLearningState({ historical = false }) {
   return (
     <div className="learning-insights-state">
       <span className="learning-insights-state-icon"><Sparkles size={24} /></span>
-      <h4>Your learning evidence will appear here</h4>
+      <h4>{historical ? "No learning evidence was saved" : "Your learning evidence will appear here"}</h4>
       <p>
-        Create a notebook, complete a guided topic, or pass a mastery check to build this view.
+        {historical ? "There were no saved notebooks at the time of this schedule." : "Create a notebook, complete a guided topic, or pass a mastery check to build this view."}
       </p>
-      <Link className="learning-insights-link" to="/learn">
+      {!historical && <Link className="learning-insights-link" to="/learn">
         Start learning <ArrowUpRight size={16} />
-      </Link>
+      </Link>}
     </div>
   );
 }
@@ -77,6 +77,7 @@ function LearningProgressSummary({
   loading = false,
   onRetry,
   title = "Learning progress",
+  historical = false,
 }) {
   const hasNotebooks = Number(insights?.notebookCount || 0) > 0;
 
@@ -87,15 +88,15 @@ function LearningProgressSummary({
           <span className="section-tag">Learning evidence</span>
           <h3>{title}</h3>
         </div>
-        <Link className="learning-insights-link" to="/learn">
+        {!historical && <Link className="learning-insights-link" to="/learn">
           Open learning studio <ArrowUpRight size={16} />
-        </Link>
+        </Link>}
       </div>
 
       {loading || error ? (
         <LearningState error={error} loading={loading} onRetry={onRetry} />
       ) : !hasNotebooks ? (
-        <EmptyLearningState />
+        <EmptyLearningState historical={historical} />
       ) : (
         <div className="learning-insights-metric-grid">
           <Metric

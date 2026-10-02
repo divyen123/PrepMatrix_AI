@@ -5,7 +5,7 @@ import './MomentumViews.css';
 import './Gamification.css';
 import './GlobalMomentumCard.css';
 
-export default function GlobalMomentumCard({ momentum, momentumError = '', onRetryMomentum }) {
+export default function GlobalMomentumCard({ momentum, momentumError = '', onRetryMomentum, historical = false }) {
   const [codeDetailsOpen, setCodeDetailsOpen] = useState(false);
   const codeDetailsId = useId();
   const codeDetailsTitleId = useId();
@@ -142,7 +142,7 @@ export default function GlobalMomentumCard({ momentum, momentumError = '', onRet
           <div className="momentum-title-row">
             <h3>Global momentum</h3>
           </div>
-          <p className="momentum-view-label">Lifetime progress · this academic profile</p>
+          <p className="momentum-view-label">{historical ? "Lifetime progress when the schedule was archived" : "Lifetime progress · this academic profile"}</p>
         </div>
       </div>
 

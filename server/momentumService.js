@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { createPlannerHistoryEntry, normalizePlannerHistory } from '../src/utils/plannerHistory.js';
+import { createPlannerHistoryEntry, getPreviousPlannerAnalytics, mergePlannerHistory, normalizePlannerHistory } from '../src/utils/plannerHistory.js';
 import { getCodeMatrixPracticeQuestion, normalizePracticeOutput } from '../src/utils/codeMatrixPractice.js';
+import { summarizeBattleRewards } from './quizBattleCore.js';
 
 export const MOMENTUM_EVENTS_COLLECTION = 'momentumEvents';
 export const MOMENTUM_RULES = Object.freeze({ study: 10, exam: 40, quiz: 10, coding: 10, practiceCoding: 10, codeRunsPerReward: 4 });
@@ -17,6 +18,36 @@ export function resolveMomentumSchedule(previous = {}, next = {}, now = new Date
   return { id: randomUUID(), token, startedAt: now.toISOString() };
 }
 
+/** Only a newly archived copy of the server's active plan receives its trusted XP scope. */
+export function enrichPlannerHistoryForArchive(previous = {}, incomingHistory = [], now = new Date(), nextWorkspace) {
+  const saved = normalizePlannerHistory(previous.plannerHistory);
+  const savedIds = new Set(saved.map((entry) => entry.id));
+  const previousTasks = list(previous.schedule).flatMap((day) => list(day?.tasks)).filter((task) => task?.task && !['memory_review', 'memory-decay'].includes(task.source));
+  const labels = new Set(previousTasks.map((task) => text(task.task)));
+  let archivedCurrent = false;
+  const incoming = normalizePlannerHistory(incomingHistory).map((entry) => {
+    if (savedIds.has(entry.id)) return entry;
+    const cleanEntry = { ...entry };
+    delete cleanEntry.momentumSchedule;
+    delete cleanEntry.learningInsights;
+    if (!previousTasks.length || !entry.tasks.every((task) => labels.has(task.label))) return cleanEntry;
+    const completed = [...list(previous.completed), ...entry.tasks.map((task) => task.label)];
+    const enriched = createPlannerHistoryEntry({ ...previous, completed }, { id: entry.id, now });
+    if (enriched) archivedCurrent = true;
+    return enriched || cleanEntry;
+  });
+  if (nextWorkspace && previousTasks.length && !archivedCurrent) {
+    const oldToken = text(previous.schedule?.[0]?.momentumToken || previous.momentumSchedule?.token);
+    const nextToken = text(nextWorkspace.schedule?.[0]?.momentumToken);
+    const replaced = !hasPlan(nextWorkspace) || (nextToken && nextToken !== oldToken);
+    if (replaced) {
+      const entry = createPlannerHistoryEntry(previous, { now });
+      if (entry) incoming.push(entry);
+    }
+  }
+  return mergePlannerHistory(saved, incoming);
+}
+
 export function studyMomentumEvents(workspace, scheduleId = '', now = new Date(), historical = false) {
   const current = createPlannerHistoryEntry(workspace, { id: 'current', now });
   const records = [...normalizePlannerHistory(workspace?.plannerHistory), ...(current ? [current] : [])];
@@ -25,7 +56,7 @@ export function studyMomentumEvents(workspace, scheduleId = '', now = new Date()
     key: `study:${digest([task.subjectName, task.label, task.date, task.time])}`,
     kind: 'study', xp: MOMENTUM_RULES.study, subject: task.subjectName,
     title: task.topic || task.label, detail: task.chapterTitle ? `Chapter: ${task.chapterTitle}` : 'Completed study task',
-    scheduledDate: task.date, scheduleId: record.id === 'current' ? scheduleId : '',
+    scheduledDate: task.date, scheduleId: record.id === 'current' ? scheduleId : record.momentumSchedule?.id || '',
     occurredAt: !historical && record.id === 'current' ? now.toISOString() : null,
     recordedAt: now.toISOString(),
   })));
@@ -125,6 +156,83 @@ export function summarizeMomentum(events = [], scheduleId = '') {
 export async function readMomentum(db, scope, momentumSchedule) {
   const events = await db.collection(MOMENTUM_EVENTS_COLLECTION).find(scope).toArray();
   return { ...summarizeMomentum(events, momentumSchedule?.id), scheduleId: momentumSchedule?.id || '', rules: MOMENTUM_RULES };
+}
+
+/** Reconstructs rewards as of the archive; later current-plan rewards never leak into this view. */
+export async function readPreviousMomentum(db, scope, historyId) {
+  const workspace = await db.collection('workspaces').findOne(scope) || {};
+  const snapshot = getPreviousPlannerAnalytics(workspace.plannerHistory, historyId);
+  if (!snapshot) throw Object.assign(new Error('The previous schedule is no longer available.'), { status: 404 });
+  const cutoff = snapshot.archivedAt;
+  const archivesAtCutoff = normalizePlannerHistory(workspace.plannerHistory).filter((entry) => entry.archivedAt <= cutoff);
+  const knownPastStudy = studyMomentumEvents({ plannerHistory: archivesAtCutoff }, '', new Date(cutoff), true);
+  const selectedStudy = studyMomentumEvents({ plannerHistory: [snapshot] }, '', new Date(cutoff), true);
+  const selectedKeys = new Set(selectedStudy.map((event) => event.key));
+  const knownKeys = new Set(knownPastStudy.map((event) => event.key));
+  const [events, quizzes, exams, battleRewards] = await Promise.all([
+    db.collection(MOMENTUM_EVENTS_COLLECTION).find(scope).toArray(),
+    db.collection('quizAttempts').find({ ...scope, status: 'completed' }).toArray(),
+    db.collection('examAttempts').find({ ...scope, status: { $in: ['submitted', 'auto_submitted'] } }).toArray(),
+    db.collection('quizBattleRewards').find(scope).toArray(),
+  ]);
+  const pastEvents = events.filter((event) => {
+    const timestamp = iso(event.occurredAt || event.recordedAt);
+    return Boolean(timestamp && timestamp <= cutoff) || (event.kind === 'study' && knownKeys.has(event.key));
+  });
+  // Legacy completion archives prove these rewards existed, even if migration recorded them later.
+  const globalEvents = new Map(pastEvents.map((event) => [event.key, event]));
+  for (const event of knownPastStudy) if (!globalEvents.has(event.key)) globalEvents.set(event.key, { ...event, _id: event.key });
+  // Recover saved assessment facts without writing rewards or changing the active workspace.
+  const historicalContext = { momentumSchedule: snapshot.momentumSchedule };
+  const assessmentEvents = [
+    ...quizzes.map((attempt) => assessmentMomentumEvent('quiz', attempt, historicalContext, new Date(cutoff))),
+    ...exams.map((attempt) => assessmentMomentumEvent('exam', attempt, historicalContext, new Date(cutoff))),
+    ...battleRewards.map((reward) => assessmentMomentumEvent('battle', reward, historicalContext, new Date(cutoff))),
+  ].filter((event) => event?.occurredAt && event.occurredAt <= cutoff);
+  for (const event of assessmentEvents) {
+    const saved = globalEvents.get(event.key);
+    if (!saved) globalEvents.set(event.key, { ...event, _id: event.key });
+    else if (!saved.scheduleId && event.scheduleId) globalEvents.set(event.key, { ...saved, scheduleId: event.scheduleId });
+  }
+  const rows = [...globalEvents.values()];
+  const inferredIds = [...new Set(rows.filter((event) => event.kind === 'study' && selectedKeys.has(event.key)).map((event) => event.scheduleId).filter(Boolean))];
+  const scheduleId = snapshot.momentumSchedule?.id || (inferredIds.length === 1 ? inferredIds[0] : '');
+  const scheduleEvents = rows.filter((event) => event.kind === 'study'
+    ? selectedKeys.has(event.key)
+    : event.kind !== 'coding' && scheduleId && event.scheduleId === scheduleId);
+  const globalSummary = summarizeMomentum(rows);
+  const scheduleSummary = summarizeMomentum(scheduleEvents).global;
+  const quizKeys = new Set(scheduleEvents.filter((event) => event.kind === 'quiz').map((event) => event.key));
+  const quizAttempts = quizzes.filter((attempt) => quizKeys.has(`quiz:${String(attempt._id)}`)).map((attempt) => ({
+    id: String(attempt._id), status: 'completed', total: attempt.total, score: attempt.score,
+    subjectName: text(attempt.subjectName), createdAt: iso(attempt.createdAt), completedAt: iso(attempt.completedAt),
+    momentumScheduleId: attempt.momentumScheduleId || scheduleId,
+  }));
+  const battleEvents = scheduleEvents.filter((event) => event.kind === 'battle');
+  const battleKeys = new Set(battleEvents.map((event) => event.key));
+  const start = iso(snapshot.momentumSchedule?.startedAt);
+  const matchedBattleRewards = battleRewards.filter((reward) => {
+    const awardedAt = iso(reward.awardedAt || reward.createdAt);
+    if (!awardedAt || awardedAt > cutoff) return false;
+    if (battleKeys.has(`battle:${String(reward._id)}`)) return true;
+    // Capped completed battles have no XP event, but still belong to the archived period.
+    return Boolean(start && snapshot.momentumSchedule?.id && awardedAt >= start
+      && (!reward.momentumScheduleId || reward.momentumScheduleId === scheduleId));
+  });
+  const rewardKeys = new Set(matchedBattleRewards.map((reward) => `battle:${String(reward._id)}`));
+  const ledgerOnlyRewards = battleEvents.filter((event) => !rewardKeys.has(event.key)).map((event) => {
+    const winXp = Number(/\bwin (\d+)/u.exec(event.detail || '')?.[1] || 0);
+    const drawXp = Number(/\bdraw (\d+)/u.exec(event.detail || '')?.[1] || 0);
+    const perfectXp = Number(/\bperfect score (\d+)/u.exec(event.detail || '')?.[1] || 0);
+    return { completed: true, totalXp: event.xp, outcome: winXp ? 'win' : drawXp ? 'draw' : '', score: perfectXp ? 10 : undefined };
+  });
+  const summarizedBattles = summarizeBattleRewards([...matchedBattleRewards, ...ledgerOnlyRewards]);
+  const battleStats = { ...summarizedBattles, battleXp: scheduleSummary.breakdown.battle,
+    badges: [...(summarizedBattles.played ? ['First Duel'] : []), ...(summarizedBattles.perfectScores ? ['Perfect Ten'] : []), ...(summarizedBattles.wins >= 3 ? ['Three Wins'] : [])] };
+  return { ...globalSummary, schedule: scheduleSummary, scheduleId, rules: MOMENTUM_RULES,
+    historyId: snapshot.id, asOf: cutoff, historical: true, battleStats, quizAttempts,
+    incomplete: snapshot.isPartialSnapshot || !scheduleId,
+    history: globalSummary.history };
 }
 
 function invalidPracticeReward() {

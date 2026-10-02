@@ -5,15 +5,17 @@ import SubjectProgressModal from "./SubjectProgressModal";
 
 const TOPIC_LANE_TONES = ["azure", "teal", "violet", "amber", "rose"];
 
-function getSubjectProgress(subjects, schedule, completed) {
+function getSubjectProgress(subjects, schedule, completed, historical) {
   const completedSet = new Set(completed || []);
 
   return (subjects || []).map((subject) => {
     const subjectTasks = (schedule || []).flatMap((day) =>
-      (day.tasks || []).filter((task) => task.task && task.task.startsWith(`${subject?.name || ''} -`))
+      (day.tasks || []).filter((task) => task.task && (task.subjectName
+        ? String(task.subjectName).trim().toLocaleLowerCase() === String(subject?.name || '').trim().toLocaleLowerCase()
+        : task.task.startsWith(`${subject?.name || ''} -`)))
     );
-    const done = subjectTasks.filter((task) => completedSet.has(task.task)).length;
-    const total = subjectTasks.length || subject?.chapters || 0;
+    const done = subjectTasks.filter((task) => completedSet.has(task.task) && (!historical || !task.recheckPending)).length;
+    const total = subjectTasks.length || (historical ? 0 : subject?.chapters || 0);
     const percent = total ? Math.floor((done / total) * 100) : 0;
 
     return {
@@ -25,13 +27,13 @@ function getSubjectProgress(subjects, schedule, completed) {
   });
 }
 
-function TopicTimeline({ subjects = [], schedule = [], completed = [], userProfile = {} }) {
+function TopicTimeline({ subjects = [], schedule = [], completed = [], userProfile = {}, historical = false }) {
   const laneRef = useRef(null);
   const dragStateRef = useRef({ dragging: false, pointerId: null, startX: 0, scrollLeft: 0 });
   const preventClickRef = useRef(false);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const metrics = getPlannerMetrics(schedule, completed);
-  const progress = getSubjectProgress(subjects, schedule, completed);
+  const progress = getSubjectProgress(subjects, schedule, completed, historical);
 
   const scrollLane = (direction) => {
     const lane = laneRef.current;
@@ -134,7 +136,7 @@ function TopicTimeline({ subjects = [], schedule = [], completed = [], userProfi
             {progress.map((subject, index) => (
               <article
                 className={`topic-lane-card clickable-lane-card topic-lane-card--${TOPIC_LANE_TONES[index % TOPIC_LANE_TONES.length]}`}
-                key={subject.id}
+                key={subject.id || subject.name}
                 style={{ animationDelay: `${index * 70}ms` }}
                 aria-label={`Open ${subject.name} progress details`}
                 onClick={() => {
@@ -166,7 +168,7 @@ function TopicTimeline({ subjects = [], schedule = [], completed = [], userProfi
                     />
                   ))}
                 </div>
-                <p>{subject.done}/{subject.total} chapters complete</p>
+                <p>{subject.done}/{subject.total} chapters {historical ? "previously completed" : "complete"}</p>
               </article>
             ))}
           </div>
@@ -184,6 +186,7 @@ function TopicTimeline({ subjects = [], schedule = [], completed = [], userProfi
       
       {selectedSubject && (
         <SubjectProgressModal
+          historical={historical}
           academicProfile={userProfile}
           subject={selectedSubject}
           onClose={() => setSelectedSubject(null)}

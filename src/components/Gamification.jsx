@@ -3,6 +3,8 @@ import { Info, Swords, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { getStudyMomentumDailyMetrics } from "../utils/studyMomentumMetrics";
+import { getScheduleDateKey } from "../utils/scheduleDates";
+import { isPlannerMemoryReviewTask, isPlannerTaskCompleted } from "../utils/plannerScheduleProgress";
 import { combinedMomentumXp } from "../utils/quizBattleUi";
 import { subscribeToLocalDateChanges } from "../utils/localDateRefresh";
 import CometDial from "./CometDial";
@@ -47,12 +49,14 @@ function getBadge(xp) {
 }
 
 function Gamification({
-  battleStats,
-  battleStatsError = "",
+  battleStats: currentBattleStats,
+  battleStatsError: currentBattleStatsError = "",
   battleStatsEnabled = true,
-  battleStatsLoading = false,
+  battleStatsLoading: currentBattleStatsLoading = false,
   completed,
+  historical = false,
   onRetryBattleStats,
+  referenceDate = "",
   schedule,
   scheduleStartDate = "",
   subjects = [],
@@ -70,20 +74,41 @@ function Gamification({
   const [battleDetailsOpen, setBattleDetailsOpen] = useState(false);
   const [battleDetailsMounted, setBattleDetailsMounted] = useState(false);
   const [today, setToday] = useState(() => new Date());
+  const battleStats = historical
+    ? momentum?.battleStats || momentum?.schedule?.battleStats
+    : currentBattleStats;
+  const battleStatsError = historical ? "" : currentBattleStatsError;
+  const battleStatsLoading = !historical && currentBattleStatsLoading;
   const metrics = getPlannerMetrics(schedule, completed);
+  const completedTaskCount = historical
+    ? (Array.isArray(schedule) ? schedule : []).flatMap((day) => Array.isArray(day?.tasks) ? day.tasks : [])
+      .filter((task) => typeof task?.task === 'string' && task.task.trim() && !isPlannerMemoryReviewTask(task) && isPlannerTaskCompleted(task, completed)).length
+    : metrics.completedTasks;
   const momentumXp = combinedMomentumXp(
-    metrics.completedTasks,
-    battleStatsEnabled ? momentum?.schedule?.breakdown?.battle : 0,
+    completedTaskCount,
+    historical || battleStatsEnabled ? momentum?.schedule?.breakdown?.battle : 0,
   );
+  if (historical && Number.isFinite(momentum?.schedule?.breakdown?.study)) {
+    momentumXp.plannerXp = Math.max(0, Number(momentum.schedule.breakdown.study));
+    momentumXp.totalXp = momentumXp.plannerXp + momentumXp.battleXp;
+  }
   momentumXp.totalXp += (momentum?.schedule?.breakdown?.exam || 0) + (momentum?.schedule?.breakdown?.quiz || 0);
+  if (historical && Number.isFinite(momentum?.schedule?.totalXp)) {
+    momentumXp.totalXp = Math.max(0, Number(momentum.schedule.totalXp));
+  }
   momentumXp.level = Math.floor(momentumXp.totalXp / 100) + 1;
   const xp = momentumXp.totalXp;
   const level = momentumXp.level;
+  const archivedReferenceDate = referenceDate || (Array.isArray(schedule) ? schedule : [])
+    .map((day, index) => getScheduleDateKey(day, index, scheduleStartDate))
+    .filter(Boolean)
+    .sort()
+    .at(-1) || "";
   const { todayCompleted, todayTotal, todayProgress, streak } = getStudyMomentumDailyMetrics({
     schedule,
     completed,
     scheduleStartDate,
-    today,
+    today: historical ? archivedReferenceDate : today,
   });
   const badge = getBadge(xp);
   const badgeMeta = BADGE_META[badge];
@@ -94,7 +119,7 @@ function Gamification({
   ));
   const isQuizEligible = battleStatsEnabled && hasQuizSubjects;
 
-  useEffect(() => subscribeToLocalDateChanges(setToday), []);
+  useEffect(() => historical ? undefined : subscribeToLocalDateChanges(setToday), [historical]);
 
   useEffect(() => {
     if (!battleDetailsOpen) return undefined;
@@ -146,7 +171,7 @@ function Gamification({
       <div className="gamification-header">
         <div>
           <div className="momentum-title-row"><h3>Study momentum</h3>
-          </div><p className="momentum-view-label">Current schedule · tasks, exams and quizzes</p>
+          </div><p className="momentum-view-label">{historical ? 'Previous schedule · saved XP and progress' : 'Current schedule · tasks, exams and quizzes'}</p>
         </div>
         <div className="gamification-header-actions">
           <div className="badge-emblem-wrap">
@@ -159,7 +184,7 @@ function Gamification({
               <Info aria-hidden="true" size={19} />
             </button>
             <span className="badge-guidance-tooltip" id={badgeGuidanceId} role="tooltip">
-              {MOMENTUM_GUIDANCE}
+              {historical ? 'XP and progress earned in this previous schedule. This view is a saved record.' : MOMENTUM_GUIDANCE}
               <span className="badge-reward-guidance">{MOMENTUM_REWARDS}</span>
             </span>
           </div>
@@ -167,7 +192,7 @@ function Gamification({
       </div>
 
       <div className="gamification-scroll-region">
-        {momentumError && <p className="momentum-refresh-error" role="status">Assessment XP could not be refreshed. <button type="button" onClick={onRetryMomentum}>Retry</button></p>}
+        {!historical && momentumError && <p className="momentum-refresh-error" role="status">Assessment XP could not be refreshed. <button type="button" onClick={onRetryMomentum}>Retry</button></p>}
         <div className="xp-ring-wrap">
           <CometDial
             accent="var(--accent)"
@@ -192,13 +217,13 @@ function Gamification({
             </article>
             <article
               aria-label={`Scheduled-task streak: ${streak} ${streak === 1 ? "day" : "days"}. Based on scheduled dates, not completion timestamps.`}
-              title="Consecutive scheduled days with a completed task, ending today or yesterday"
+              title={historical ? 'Consecutive scheduled days with a completed task at the end of this previous schedule' : 'Consecutive scheduled days with a completed task, ending today or yesterday'}
             >
               <span>Streak</span>
               <strong>{streak}d</strong>
             </article>
-            <article aria-label={`Today's scheduled tasks: ${todayCompleted} of ${todayTotal} completed (${todayProgress}%).`}>
-              <span>Today</span>
+            <article aria-label={`${historical ? 'Previous schedule reference day' : "Today's scheduled tasks"}: ${todayCompleted} of ${todayTotal} completed (${todayProgress}%).`}>
+              <span>{historical ? 'Final day' : 'Today'}</span>
               <strong>{todayProgress}%</strong>
             </article>
           </div>
@@ -219,13 +244,13 @@ function Gamification({
               aria-expanded={battleDetailsOpen}
               aria-haspopup="dialog"
               className={`battle-insights-trigger${battleStatsError ? " is-error" : ""}`}
-              disabled={!battleStatsEnabled}
+              disabled={historical ? !battleStats : !battleStatsEnabled}
               onClick={toggleBattleDetails}
               ref={battleDetailsTriggerRef}
               type="button"
             >
               <span>Battles played</span>
-              <strong>{battleStatsEnabled ? battleStats?.played || 0 : 0}</strong>
+              <strong>{historical || battleStatsEnabled ? battleStats?.played || 0 : 0}</strong>
             </button>
           </div>
           {battleDetailsMounted && (
@@ -290,14 +315,14 @@ function Gamification({
                 </div>
               )}
 
-              <button className="battle-insights-link" onClick={openQuizBattles} type="button">
+              {!historical && <button className="battle-insights-link" onClick={openQuizBattles} type="button">
                 Open Quiz Battles
-              </button>
+              </button>}
             </section>
           )}
         </div>
 
-        <div className="momentum-action-grid">
+        {!historical && <div className="momentum-action-grid">
           <article
             aria-disabled={!metrics.isExamEligible}
             className={`momentum-action-card exam-eligibility-achievement ${metrics.isExamEligible ? "is-enabled" : "is-disabled"}`}
@@ -341,7 +366,7 @@ function Gamification({
               Attend quiz
             </button>
           </article>
-        </div>
+        </div>}
 
         <div className="next-reward-strip">
           <span>Next level</span>

@@ -336,6 +336,10 @@ body .planner-route-page .planner-subpage-title-row .planner-subpage-back.page-b
   align-content: start;
 }
 
+.planner-subpage-content.is-schedule .schedule-card.is-unplanned {
+  margin-top: 16px;
+}
+
 .planner-route-page.has-no-subjects {
   min-height: calc(100dvh - 116px);
 }

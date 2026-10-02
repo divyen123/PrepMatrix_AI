@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildClearedPlannerWorkspace, createPlannerHistoryEntry, getLandscapeData, mergePlannerHistory, normalizePlannerHistory } from './plannerHistory.js';
+import { buildClearedPlannerWorkspace, createPlannerHistoryEntry, getLandscapeData, getPreviousPlannerAnalytics, mergePlannerHistory, normalizePlannerHistory } from './plannerHistory.js';
 
 const options = { id: 'archive-1', now: '2026-09-13T10:00:00Z' };
 const tasks = [
@@ -95,4 +95,73 @@ test('legacy subject names containing hyphens preserve the complete subject and 
   const noteRows = getLandscapeData([], [{ tasks: [tasks[2]] }], [tasks[2].task]);
   assert.equal(noteRows[0].subject, 'General study');
   assert.equal(noteRows[0].done, 1);
+});
+
+test('full archive round trips the previous schedule, pending tasks, subjects and XP scope independently', () => {
+  const prior = { ...workspace,
+    schedule: [{ ...workspace.schedule[0], momentumToken: 'old-plan', tasks: [...tasks, { id: 'pending', task: 'Data analytics - Regression', subjectName: 'Data analytics', topic: 'Regression', time: 'Evening', durationMinutes: 45 }] }, { day: 2, date: '2026-09-11', tasks: [] }],
+    completed: ['chapter-1'],
+    momentumSchedule: { id: 'prior-xp', token: 'old-plan', startedAt: '2026-09-09T09:00:00Z' },
+    learningInsights: { notebookCount: 2, learnedTopicCount: 3, accuracy: 80, notebooks: ['private-internals'], arbitrary: 999 },
+  };
+  const original = structuredClone(prior);
+  const archived = createPlannerHistoryEntry(prior, options);
+  const historical = getPreviousPlannerAnalytics(JSON.parse(JSON.stringify([archived])));
+  assert.deepEqual(prior, original);
+  assert.equal(historical.schedule.length, 2, 'revision days remain in the previous plan');
+  assert.equal(historical.schedule[0].tasks.length, 4, 'unfinished tasks remain visible in the snapshot');
+  assert.deepEqual(historical.completed, [tasks[0].task]);
+  assert.equal(historical.tasks.length, 1, 'landscape history still contains only completions');
+  assert.equal(historical.totalTasks, 4);
+  assert.equal(historical.fullyCompleted, false);
+  assert.equal(historical.hasFullSnapshot, true);
+  assert.equal(historical.isPartialSnapshot, false);
+  assert.equal(historical.scheduleStartDate, '2026-09-10');
+  assert.equal(historical.endDate, '2026-09-11');
+  assert.equal(historical.subjects[0].chapters, 9);
+  assert.equal(historical.momentumSchedule.id, 'prior-xp');
+  assert.deepEqual(historical.learningInsights, { notebookCount: 2, learnedTopicCount: 3, accuracy: 80 });
+  historical.schedule[0].tasks[0].task = 'Modified display';
+  historical.subjects[0].name = 'Modified subject';
+  assert.equal(archived.schedule[0].tasks[0].task, tasks[0].task);
+  assert.equal(archived.subjects[0].name, 'Data analytics');
+});
+
+test('historical analytics selects the latest archive, or the exact requested owned record', () => {
+  const first = createPlannerHistoryEntry(workspace, options);
+  const latest = createPlannerHistoryEntry(workspace, { id: 'latest', now: '2026-10-01' });
+  assert.equal(getPreviousPlannerAnalytics([first, latest]).id, 'latest');
+  assert.equal(getPreviousPlannerAnalytics([latest, first], 'archive-1').id, 'archive-1');
+  assert.equal(getPreviousPlannerAnalytics([latest], 'missing'), null);
+  assert.equal(getPreviousPlannerAnalytics([]), null);
+});
+
+test('legacy archives reconstruct only known completed work and report unknown pending tasks honestly', () => {
+  const entry = createPlannerHistoryEntry({ ...workspace, completed: ['chapter-1'] }, options);
+  const legacy = { id: entry.id, archivedAt: entry.archivedAt, startDate: entry.startDate, endDate: entry.endDate,
+    tasks: entry.tasks, totalTasks: 3, fullyCompleted: false };
+  const original = structuredClone(legacy);
+  const historical = getPreviousPlannerAnalytics([legacy]);
+  assert.equal(historical.schedule.length, 1);
+  assert.equal(historical.schedule[0].tasks.length, 1);
+  assert.deepEqual(historical.completed, [tasks[0].task]);
+  assert.equal(historical.totalTasks, 3);
+  assert.equal(historical.knownTaskCount, 1);
+  assert.equal(historical.missingTaskCount, 2);
+  assert.equal(historical.isPartialSnapshot, true);
+  assert.equal(historical.hasFullSnapshot, false);
+  assert.equal(historical.fullyCompleted, false);
+  assert.equal(historical.learningInsights, undefined);
+  assert.deepEqual(legacy, original);
+});
+
+test('snapshot normalization keeps recall independent and cannot mark reopened tasks fully completed', () => {
+  const prior = { ...workspace, schedule: [{ ...workspace.schedule[0], tasks: [...tasks.map((task, index) => index ? task : { ...task, recheckPending: true }),
+    { task: 'Recall data', source: 'memory_review', subjectName: 'Data analytics' }] }], completed: [...workspace.completed, 'Recall data'] };
+  const historical = getPreviousPlannerAnalytics([createPlannerHistoryEntry(prior, options)]);
+  assert.equal(historical.schedule[0].tasks.length, 3);
+  assert.equal(historical.schedule[0].tasks[0].recheckPending, true);
+  assert.equal(historical.fullyCompleted, false);
+  assert.equal(historical.completed.includes('Recall data'), false);
+  assert.equal(historical.completed.includes(tasks[0].task), false, 'reopened tasks are pending in historical analytics while their earned XP stays archived');
 });

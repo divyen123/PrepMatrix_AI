@@ -932,9 +932,16 @@ body .prediction-plan-link::after {
 
 .landscape-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 18px;
   align-items: start;
+}
+
+.landscape-create-schedule {
+  flex-shrink: 0;
+  align-self: center;
+  text-decoration: none;
 }
 
 .landscape-grid {

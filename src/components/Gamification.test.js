@@ -20,7 +20,7 @@ test("keeps the Momentum action CTAs aligned at the bottom of equal-height cards
   assert.match(styles, /\.momentum-action-grid \.momentum-action-card \.exam-eligibility-cta,[\s\S]*?\.quiz-battle-cta\s*\{[\s\S]*?grid-row: 3;[\s\S]*?align-self: end;[\s\S]*?margin-top: auto/u);
 });
 
-test("always presents both Momentum actions and disables them until eligible", () => {
+test("presents both current Momentum actions and disables them until eligible", () => {
   assert.doesNotMatch(source, /\(metrics\.isExamEligible \|\| battleStatsEnabled\) &&/u);
   assert.match(source, /aria-disabled=\{!metrics\.isExamEligible\}[\s\S]*?disabled=\{!metrics\.isExamEligible\}/u);
   assert.match(source, /const hasQuizSubjects = Array\.isArray\(subjects\)/u);
@@ -45,7 +45,7 @@ test("keeps both sets of Study metrics and opens accessible battle details", () 
   const actionsIndex = source.indexOf('className="momentum-action-grid"');
 
   assert.ok(dialIndex >= 0 && dialIndex < summaryIndex && summaryIndex < actionsIndex);
-  assert.match(source, /className="xp-ring-wrap"[\s\S]*?className="momentum-stats-grid"[\s\S]*?<span>Level<\/span>[\s\S]*?<span>Streak<\/span>[\s\S]*?<span>Today<\/span>/u);
+  assert.match(source, /className="xp-ring-wrap"[\s\S]*?className="momentum-stats-grid"[\s\S]*?<span>Level<\/span>[\s\S]*?<span>Streak<\/span>[\s\S]*?'Final day' : 'Today'/u);
   assert.match(source, /className="battle-summary-grid"[\s\S]*?<span>Planner XP<\/span>[\s\S]*?<span>Battle XP<\/span>[\s\S]*?<span>Battles played<\/span>/u);
   assert.match(styles, /\.battle-summary-grid\s*\{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/u);
   assert.match(styles, /\.gamification-card \.xp-ring-wrap > \.momentum-stats-grid\s*\{[\s\S]*?flex: 1/u);
@@ -57,7 +57,7 @@ test("keeps both sets of Study metrics and opens accessible battle details", () 
   assert.match(source, /className="battle-insights-record"[\s\S]*?battleStats\?\.wins/u);
   assert.match(source, /battleStats\?\.badges\?\.length > 0/u);
   assert.match(source, /No achievements yet\./u);
-  assert.match(source, /disabled=\{!battleStatsEnabled\}/u);
+  assert.match(source, /disabled=\{historical \? !battleStats : !battleStatsEnabled\}/u);
   assert.match(source, /Open Quiz Battles/u);
   assert.match(source, /battleStatsError && \([\s\S]*?onRetryBattleStats/u);
   assert.doesNotMatch(source, /View Quiz Battle momentum/u);
@@ -117,7 +117,7 @@ test("keeps the battle refresh Retry action compact and comfortably padded", () 
 test("moves the level guidance into an accessible badge tooltip", () => {
   assert.match(source, /aria-describedby=\{badgeGuidanceId\}/u);
   assert.match(source, /className="badge-guidance-tooltip"[\s\S]*?role="tooltip"/u);
-  assert.match(source, /\{MOMENTUM_GUIDANCE\}/u);
+  assert.match(source, /historical \? 'XP and progress earned[\s\S]*? : MOMENTUM_GUIDANCE/u);
   assert.doesNotMatch(source, /<p className="card-desc">[\s\S]*?Complete planner tasks/u);
   assert.match(styles, /\.badge-emblem-wrap:hover \.badge-guidance-tooltip,[\s\S]*?\.badge-emblem-wrap:focus-within \.badge-guidance-tooltip/u);
 });

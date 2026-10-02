@@ -12,10 +12,10 @@ import registerExamRoutes, { isGroqJsonGenerationFailure } from "./examRoutes.js
 import registerAnswerCoachRoutes from "./answerCoachRoutes.js";
 import { getStudentOnboardingState, validateStudentDetails } from "../src/utils/studentOnboarding.js";
 import { normalizeMemoryReviewData, separatePlannerRecall } from "../src/utils/plannerLifecycle.js";
-import { mergePlannerHistory, normalizePlannerHistory } from "../src/utils/plannerHistory.js";
+import { normalizePlannerHistory } from "../src/utils/plannerHistory.js";
 import registerMomentumRoutes from './momentumRoutes.js';
 import { registerNearbyRoutes, cleanupNearbyProfileData } from './nearbyRoutes.js';
-import { MOMENTUM_EVENTS_COLLECTION, syncWorkspaceMomentum, awardAssessmentMomentum } from './momentumService.js';
+import { MOMENTUM_EVENTS_COLLECTION, syncWorkspaceMomentum, awardAssessmentMomentum, enrichPlannerHistoryForArchive } from './momentumService.js';
 import { normalizeGeneratedQuestions } from "./generatedQuizQuestions.js";
 import {
   buildChatAttachmentUserContent,
@@ -48,6 +48,7 @@ import {
 } from "../src/utils/chatMaterialSuggestions.js";
 import { normalizeMaterialBookmarks } from "../src/utils/materialBookmarks.js";
 import { getLearningMedicalTrainingEligibility } from "../src/utils/learningNotebook.js";
+import { getLearningInsights } from "../src/utils/learningMastery.js";
 import {
   normalizeChatAssistantContext,
   sameChatAssistantContext,
@@ -1789,9 +1790,28 @@ app.put("/api/workspace", requireAuth(async (req, res) => {
     if ("resumeBuilder" in update) update.resumeBuilder = normalizeResumeBuilderState(update.resumeBuilder, activeUser);
     if (!(await requireYoungKidsScheduleAccess(req, res, db, update, activeUser))) return;
     const momentumWorkspace = await db.collection('workspaces').findOne(academicProfileFilter(req)) || {};
-    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, 'plannerHistory')) {
-      const saved = await db.collection('workspaces').findOne(academicProfileFilter(req));
-      update.plannerHistory = mergePlannerHistory(saved?.plannerHistory, req.body.plannerHistory);
+    {
+      const savedIds = new Set(normalizePlannerHistory(momentumWorkspace.plannerHistory).map((entry) => entry.id));
+      const hasNewArchive = normalizePlannerHistory(req.body.plannerHistory).some((entry) => !savedIds.has(entry.id));
+      const hasStudyTasks = (days) => Array.isArray(days) && days.some((day) => Array.isArray(day?.tasks)
+        && day.tasks.some((task) => task?.task && !['memory_review', 'memory-decay'].includes(task.source)));
+      const replacingSchedule = Array.isArray(update.schedule) && hasStudyTasks(momentumWorkspace.schedule)
+        && (!hasStudyTasks(update.schedule) || (update.schedule[0]?.momentumToken
+          && update.schedule[0].momentumToken !== momentumWorkspace.schedule?.[0]?.momentumToken));
+      if (hasNewArchive || replacingSchedule) {
+        momentumWorkspace.momentumSchedule = await syncWorkspaceMomentum(db, academicProfileFilter(req), momentumWorkspace);
+      }
+      update.plannerHistory = enrichPlannerHistoryForArchive(momentumWorkspace, req.body.plannerHistory || [], new Date(), { ...momentumWorkspace, ...update });
+      const newArchiveIds = new Set(update.plannerHistory.filter((entry) => !savedIds.has(entry.id)
+        && entry.momentumSchedule?.id && entry.momentumSchedule.id === momentumWorkspace.momentumSchedule?.id).map((entry) => entry.id));
+      if (newArchiveIds.size) {
+        const notebooks = await db.collection(LEARNING_NOTEBOOKS_COLLECTION).find(academicProfileFilter(req, {
+          artifactKind: { $nin: [PLACEMENT_WORKSPACE_ARTIFACT_KIND, MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND] },
+        })).toArray();
+        update.plannerHistory = normalizePlannerHistory(update.plannerHistory.map((entry) => newArchiveIds.has(entry.id)
+          ? { ...entry, learningInsights: getLearningInsights(notebooks, { now: entry.archivedAt }) }
+          : entry));
+      }
     }
     update.momentumSchedule = await syncWorkspaceMomentum(db, academicProfileFilter(req), momentumWorkspace, { ...momentumWorkspace, ...update });
     if (typeof requestedDarkMode === "boolean") {

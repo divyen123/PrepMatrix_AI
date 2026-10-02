@@ -79,6 +79,7 @@ import { getPlannerMetrics } from "./utils/plannerMetrics";
 import { getScheduleCompletion, normalizeMemoryReviewData, separatePlannerRecall } from "./utils/plannerLifecycle.js";
 import { claimPlannerScheduleSuggestion } from "./utils/plannerScheduleSuggestion.js";
 import { buildClearedPlannerWorkspace, mergePlannerHistory, normalizePlannerHistory } from "./utils/plannerHistory.js";
+import { savePlannerArchiveAttempt } from "./utils/plannerArchiveSave.js";
 import {
   getPlannerScheduleAttention,
   subscribeToPlannerAttentionClock,
@@ -1737,22 +1738,26 @@ function App() {
     const scope = activeAcademicProfileDataId;
     const epoch = workspaceScopeEpochRef.current;
     const snapshot = workspaceSnapshot();
-    const attemptKey = JSON.stringify([scope, snapshot]);
+    const attemptKey = JSON.stringify([scope, snapshot.schedule, snapshot.completed, snapshot.scheduleStartDate]);
     if (plannerClearAttemptRef.current?.key !== attemptKey) {
-      plannerClearAttemptRef.current = { key: attemptKey, cleared: buildClearedPlannerWorkspace(snapshot) };
+      plannerClearAttemptRef.current = { key: attemptKey, cleared: buildClearedPlannerWorkspace(snapshot), snapshotPersisted: false };
     }
-    const cleared = plannerClearAttemptRef.current.cleared;
+    const clearAttempt = plannerClearAttemptRef.current;
+    const cleared = clearAttempt.cleared;
     workspaceMutationInFlightRef.current = true;
     if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = null;
     try {
       await workspaceSavePromiseRef.current;
       if (scope !== getApiAcademicProfileScope() || epoch !== workspaceScopeEpochRef.current) throw new Error('Your academic profile changed. Open Planner again.');
-      const request = api.saveWorkspace(cleared, { academicProfileId: scope });
-      workspaceSavePromiseRef.current = request.catch(() => undefined);
-      const response = await request;
-      if (scope !== getApiAcademicProfileScope() || epoch !== workspaceScopeEpochRef.current) throw new Error('Your academic profile changed. Open Planner again.');
-      setPlannerHistory(mergePlannerHistory(cleared.plannerHistory, response?.workspace?.plannerHistory));
+      const response = await savePlannerArchiveAttempt({
+        attempt: clearAttempt,
+        snapshot,
+        saveWorkspace: (workspace) => api.saveWorkspace(workspace, { academicProfileId: scope }),
+        isScopeCurrent: () => scope === getApiAcademicProfileScope() && epoch === workspaceScopeEpochRef.current,
+        onRequest: (request) => { workspaceSavePromiseRef.current = request.catch(() => undefined); },
+      });
+      setPlannerHistory(mergePlannerHistory(response?.workspace?.plannerHistory, cleared.plannerHistory));
       setSchedule([]);
       setCompleted([]);
       setScheduleStartDate(null);
@@ -2764,7 +2769,7 @@ function App() {
         window.dispatchEvent(new CustomEvent('prepmatrix:momentum-updated', { detail: { academicProfileId: requestedAcademicProfileId } }));
         if (requestedEpoch === workspaceScopeEpochRef.current && requestedAcademicProfileId === getApiAcademicProfileScope()) {
           setPlannerHistory((current) => {
-            const merged = mergePlannerHistory(current, response?.workspace?.plannerHistory);
+            const merged = mergePlannerHistory(response?.workspace?.plannerHistory, current);
             return JSON.stringify(current) === JSON.stringify(merged) ? current : merged;
           });
         }

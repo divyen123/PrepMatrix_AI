@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { Link } from 'react-router-dom';
 import { ArrowUpRight, CheckCircle2 } from 'lucide-react';
 import { getLandscapeData, normalizePlannerHistory } from '../utils/plannerHistory';
 import { normalizeMaterialBookmarks } from '../utils/materialBookmarks';
@@ -19,7 +20,7 @@ const SUBJECT_PIE_CENTER = 160;
 const SUBJECT_PIE_RADIUS = 112;
 const SUBJECT_PIE_CIRCUMFERENCE = 2 * Math.PI * SUBJECT_PIE_RADIUS;
 
-function FocusLandscape({ subjects = [], schedule = [], completed = [], history = [], materialBookmarks = [], userProfile = {} }) {
+function FocusLandscape({ subjects = [], schedule = [], completed = [], history = [], historical = false, materialBookmarks = [], userProfile = {} }) {
   const [isVisible, setIsVisible] = useState(false);
   const [tooltipInfo, setTooltipInfo] = useState(null);
   const observer = useRef(null);
@@ -40,7 +41,7 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [], history 
   }, []);
   useEffect(() => () => observer.current?.disconnect(), []);
 
-  const savedHistory = useMemo(() => normalizePlannerHistory(history), [history]);
+  const savedHistory = useMemo(() => historical ? [] : normalizePlannerHistory(history), [history, historical]);
   const sortedData = useMemo(() => getLandscapeData(subjects, schedule, completed, savedHistory), [subjects, schedule, completed, savedHistory]);
   const focusLeader = sortedData.find((item) => item.pending > 0);
   const hasActiveSchedule = sortedData.some((item) => item.total > 0);
@@ -88,12 +89,12 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [], history 
     ? Math.round((activeTaskDone / activeTaskTotal) * 100)
     : 0;
   const pieSummary = pieData.mode === 'active'
-    ? { value: `${overallCompletionRate}%`, label: 'overall complete' }
+    ? { value: `${overallCompletionRate}%`, label: historical ? 'previously completed' : 'overall complete' }
     : pieData.mode === 'history'
       ? { value: historicalTaskTotal, label: 'saved tasks' }
       : { value: sortedData.length, label: sortedData.length === 1 ? 'subject' : 'subjects' };
   const pieDescription = pieData.mode === 'active'
-    ? `Subject workload distribution. ${activeTaskDone} of ${activeTaskTotal} scheduled tasks are complete.`
+    ? `${historical ? 'Previous schedule subject workload distribution' : 'Subject workload distribution'}. ${activeTaskDone} of ${activeTaskTotal} scheduled tasks are complete.`
     : pieData.mode === 'history'
       ? `Completed subject history containing ${historicalTaskTotal} saved tasks.`
       : `Subject landscape containing ${sortedData.length} subjects without an active schedule.`;
@@ -108,6 +109,7 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [], history 
   }, []);
 
   const materialSuggestion = useMemo(() => {
+    if (historical) return null;
     const target = sortedData.find((item) => item.difficulty === 'hard' && item.pending > 0)
       || sortedData.find((item) => item.completionRate >= 50 && item.pending > 0)
       || focusLeader
@@ -151,7 +153,7 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [], history 
         : `${target.subject} · ${lane.provider}`,
       links,
     };
-  }, [sortedData, focusLeader, subjects, materialBookmarks, userProfile]);
+  }, [sortedData, focusLeader, subjects, materialBookmarks, userProfile, historical]);
 
   return (
     <section className="card landscape-card">
@@ -159,6 +161,11 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [], history 
         <div>
           <h2>Subject landscape</h2>
         </div>
+        {!historical && subjects.length > 0 && !hasActiveSchedule && (
+          <Link className="secondary-btn action-btn landscape-create-schedule" to="/planner/schedule">
+            Create schedule
+          </Link>
+        )}
       </div>
 
       {!hasActiveSchedule && hasHistory && <div className="landscape-history-message" role="status">
@@ -168,7 +175,7 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [], history 
 
       {sortedData.length === 0 ? (
         <p className="empty-state">
-          Add subjects and generate a timetable to unlock the study landscape.
+          {historical ? 'No subject progress was saved with this previous schedule.' : 'Add subjects and generate a timetable to unlock the study landscape.'}
         </p>
       ) : (
         <div className="landscape-grid">
@@ -214,7 +221,7 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [], history 
               <ul aria-label="Subject completion legend" className="subject-pie-legend">
                 {pieData.segments.map((item, index) => {
                   const detail = pieData.mode === 'active'
-                    ? `${item.done}/${item.total} tasks${item.historicalCount ? ` · ${item.historicalCount} saved` : ''}`
+                    ? `${item.done}/${item.total} tasks${historical ? ' · previously completed' : item.historicalCount ? ` · ${item.historicalCount} saved` : ''}`
                     : pieData.mode === 'history'
                       ? `${item.historicalCount} completed previously`
                       : 'No active schedule';
@@ -241,16 +248,20 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [], history 
 
           <div className="landscape-side">
             <div className="landscape-panel">
-              <span className="landscape-panel-label">{focusLeader ? 'Top priority' : 'Study progress'}</span>
-              <strong>{focusLeader?.subject || (hasActiveSchedule ? 'Schedule completed' : hasHistory ? 'Completed previously' : 'Ready for a new plan')}</strong>
+              <span className="landscape-panel-label">{historical ? 'Previous schedule progress' : focusLeader ? 'Top priority' : 'Study progress'}</span>
+              <strong>{historical ? 'Previously completed' : focusLeader?.subject || (hasActiveSchedule ? 'Schedule completed' : hasHistory ? 'Completed previously' : 'Ready for a new plan')}</strong>
               <p>
-                {focusLeader && focusLeader.pending > 0
+                {historical ? `${activeTaskDone} of ${activeTaskTotal} tasks were completed in this previous schedule.` : focusLeader && focusLeader.pending > 0
                   ? `${focusLeader.pending} ${focusLeader.pending === 1 ? 'task remains' : 'tasks remain'} in your current schedule for this subject.`
                   : hasActiveSchedule ? 'Every scheduled task has been completed.' : hasHistory ? 'Your previously completed tasks are included in this landscape.' : 'Create a schedule to see current study priorities.'}
               </p>
             </div>
 
-            <div className="landscape-panel landscape-panel--suggestion">
+            {historical ? <div className="landscape-panel">
+              <span className="landscape-panel-label">Schedule summary</span>
+              <strong>{overallCompletionRate}% completed</strong>
+              <p>{activeTaskTotal - activeTaskDone} {activeTaskTotal - activeTaskDone === 1 ? 'task was' : 'tasks were'} remaining when this schedule was saved.</p>
+            </div> : materialSuggestion && <div className="landscape-panel landscape-panel--suggestion">
               <span className="landscape-panel-label">Suggested material</span>
               <strong>{materialSuggestion.title}</strong>
               <p>{materialSuggestion.details}</p>
@@ -268,7 +279,7 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [], history 
                   </a>
                 ))}
               </nav>
-            </div>
+            </div>}
           </div>
         </div>
       )}
@@ -281,7 +292,7 @@ function FocusLandscape({ subjects = [], schedule = [], completed = [], history 
           <strong>{tooltipInfo.item.subject}</strong>
           <div className="tooltip-metrics">
             <span><i className={`dot ${tooltipInfo.item.difficulty}`}></i> Difficulty: {tooltipInfo.item.difficulty}</span>
-            <span>Completed: {tooltipInfo.item.total ? tooltipInfo.item.done : tooltipInfo.item.historicalCount}</span>
+            <span>{historical ? 'Previously completed' : 'Completed'}: {tooltipInfo.item.total ? tooltipInfo.item.done : tooltipInfo.item.historicalCount}</span>
             <span>{tooltipInfo.item.total ? `Pending: ${tooltipInfo.item.pending}` : tooltipInfo.item.historicalCount ? 'Saved history · no active schedule' : 'No active schedule'}</span>
             {tooltipInfo.item.total > 0 && <span>Schedule completion: {tooltipInfo.item.completionRate}%</span>}
           </div>

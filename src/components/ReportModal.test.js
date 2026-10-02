@@ -132,8 +132,8 @@ test("Report footer actions inherit the shared theme-aware button system", () =>
 });
 
 test("ReportModal guides incomplete setup with the correct gated footer action", () => {
-  assert.match(reportModalSource, /const needsSubjects = subjectCount === 0;/u);
-  assert.match(reportModalSource, /const needsPlan = !metrics\.hasScheduledPlanner;/u);
+  assert.match(reportModalSource, /const needsSubjects = !historical && subjectCount === 0;/u);
+  assert.match(reportModalSource, /const needsPlan = !historical && !metrics\.hasScheduledPlanner;/u);
   assert.match(reportModalSource, /Add subjects first, then generate a plan/u);
   assert.match(reportModalSource, /Your subjects are ready — generate a plan/u);
   assert.match(reportModalSource, /role="status"/u);
