@@ -60,8 +60,7 @@ body:has(.analytics-page-intro) :is(
   .study-plan-preview-dialog,
   .subject-progress-modal,
   .subject-ai-dialog,
-  .planner-history-dialog,
-  .momentum-history-dialog
+  .planner-history-dialog
 ) button:hover {
   box-shadow: none !important;
 }

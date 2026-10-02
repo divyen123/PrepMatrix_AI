@@ -1123,6 +1123,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
 
       {soloHistoryActive && (
         <section aria-label="Recent quiz attempts" className="quiz-history-card">
+          {attempts.length > 0 && (
           <div className="quiz-history-header">
             <div>
               <h3>Recent attempts</h3>
@@ -1178,6 +1179,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
               )}
             </div>
           </div>
+          )}
           {saveError && <p className="auth-message" role="alert">{saveError}</p>}
           {historyError ? (
             <div className="quiz-history-load-error" role="alert">
@@ -1185,7 +1187,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
               <button onClick={reloadHistory} type="button">Try again</button>
             </div>
           ) : null}
-          <label className="stored-search-field quiz-history-mobile-search">
+          {attempts.length > 0 && <label className="stored-search-field quiz-history-mobile-search">
             <Search size={16} />
             <input
               aria-label="Search quiz history"
@@ -1194,12 +1196,12 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
               type="search"
               value={historySearchQuery}
             />
-          </label>
+          </label>}
           <div className="quiz-history-grid">
             {isHistoryLoading ? (
               <p className="quiz-history-empty-note" role="status">Loading quiz history...</p>
             ) : attempts.length === 0 ? (
-              historyError ? null : <p className="quiz-history-empty-note">Your recent quiz attempts appear here.</p>
+              historyError ? null : <p className="quiz-history-empty-note quiz-history-empty-note--no-attempts">Your recent quiz attempts appear here.</p>
             ) : filteredAttempts.length === 0 ? (
             <p className="card-subtext">No quiz attempts match your search.</p>
           ) : (

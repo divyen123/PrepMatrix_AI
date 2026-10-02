@@ -18,7 +18,7 @@ const globalMomentumCardSource = readFileSync(
   'utf8',
 );
 
-test('GlobalMomentumCard does not render gamification-orb and overrides yellow glow in styles', async () => {
+test('GlobalMomentumCard keeps XP progress and coding rewards without an XP history action', async () => {
   const vite = await createServer({
     appType: 'custom',
     logLevel: 'silent',
@@ -34,13 +34,25 @@ test('GlobalMomentumCard does not render gamification-orb and overrides yellow g
       React.createElement(GlobalMomentumCard, {
         momentum: {
           successfulCodeRuns: 8,
-          global: { breakdown: { coding: 50 } },
+          global: { totalXp: 180, level: 2, levelProgress: 80, breakdown: { coding: 50, study: 130 } },
+          history: [
+            { id: 'practice-award', kind: 'coding', source: 'practice', xp: 10 },
+            { id: 'compiler-award', kind: 'coding', source: 'compiler', xp: 40 },
+            { id: 'study-award', kind: 'study', xp: 130 },
+          ],
         },
       }),
     );
 
     // Does not render gamification-orb
     assert.doesNotMatch(markup, /gamification-orb/u);
+    assert.doesNotMatch(markup, /XP history|momentum-history|momentum-icon-button/u);
+    assert.match(markup, /<span>Global level<\/span><strong>2<\/strong>/u);
+    assert.match(markup, /<span>Rewards earned<\/span><strong>3<\/strong>/u);
+    assert.match(markup, /<span>Code runs<\/span><strong>8<\/strong>/u);
+    assert.match(markup, /<span>Next level<\/span><strong>20 XP needed<\/strong>/u);
+    assert.match(markup, /<span>Subjects<\/span><strong>130<small> XP<\/small><\/strong>/u);
+    assert.match(markup, /class="codematrix-source-actions"><strong>50<small> XP<\/small><\/strong>/u);
     assert.match(markup, /class="battle-insights-trigger"/u);
     assert.match(markup, /View CodeMatrix rewards/u);
     assert.match(

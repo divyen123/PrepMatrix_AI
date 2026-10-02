@@ -44,6 +44,7 @@ body .answer-coach-layout .card:hover { transform: none !important; }
 .answer-coach-history li span,
 .answer-coach-history-empty { color: var(--text-secondary); font-size: .8rem; }
 .answer-coach-history-empty { align-self: center; margin: 0; padding: 24px; text-align: center; line-height: 1.5; }
+.answer-coach-no-papers { display: grid; place-items: center; min-height: 55dvh; margin: 0; padding: 24px; color: var(--text-secondary); font-size: 1rem; line-height: 1.6; text-align: center; }
 .answer-coach-results__summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 23px 27px; }
 .answer-coach-results__summary > strong { color: var(--accent); font-size: 1.15rem; white-space: nowrap; }
 .answer-coach-unreadable { margin: 0; padding: 15px 18px; border: 1px solid var(--border); border-radius: 12px; color: var(--text-secondary); background: var(--surface-muted); }

@@ -55,7 +55,6 @@ test("Analytics buttons and its popup buttons do not gain an outer hover glow", 
     "subject-progress-modal",
     "subject-ai-dialog",
     "planner-history-dialog",
-    "momentum-history-dialog",
   ]) {
     assert.match(analyticsPageCss, new RegExp(`\\.${popupClass}`));
   }

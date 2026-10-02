@@ -46,7 +46,7 @@ test("displays background-free empty note when there are 0 quiz attempts", () =>
   );
   assert.match(
     pageSource,
-    /attempts\.length === 0 \? \(\s*historyError \? null : <p className="quiz-history-empty-note">Your recent quiz attempts appear here\.<\/p>/u,
+    /attempts\.length === 0 \? \(\s*historyError \? null : <p className="quiz-history-empty-note quiz-history-empty-note--no-attempts">Your recent quiz attempts appear here\.<\/p>/u,
   );
   assert.match(
     appCss,

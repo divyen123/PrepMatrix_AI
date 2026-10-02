@@ -1,13 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Code2, History, X } from 'lucide-react';
+import { Code2, X } from 'lucide-react';
 import GlobalMomentum from './GlobalMomentum';
-import MomentumHistoryDialog from './MomentumHistoryDialog';
 import './MomentumViews.css';
 import './Gamification.css';
 import './GlobalMomentumCard.css';
 
 export default function GlobalMomentumCard({ momentum, momentumError = '', onRetryMomentum }) {
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [codeDetailsOpen, setCodeDetailsOpen] = useState(false);
   const codeDetailsId = useId();
   const codeDetailsTitleId = useId();
@@ -143,15 +141,6 @@ export default function GlobalMomentumCard({ momentum, momentumError = '', onRet
         <div>
           <div className="momentum-title-row">
             <h3>Global momentum</h3>
-            <button
-              type="button"
-              className="momentum-icon-button"
-              aria-label="View global XP history"
-              title="View XP history"
-              onClick={() => setHistoryOpen(true)}
-            >
-              <History size={17} />
-            </button>
           </div>
           <p className="momentum-view-label">Lifetime progress · this academic profile</p>
         </div>
@@ -166,7 +155,6 @@ export default function GlobalMomentumCard({ momentum, momentumError = '', onRet
         />
       </div>
 
-      {historyOpen && <MomentumHistoryDialog data={momentum} onClose={() => setHistoryOpen(false)} />}
     </section>
   );
 }

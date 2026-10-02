@@ -26212,3 +26212,73 @@ body .goal-tracker-popup .goal-subject-suggestions-dropdown::-webkit-scrollbar-c
     transition-duration: 1ms !important;
   }
 }
+
+/* Layered important declarations keep button halos off across theme, page,
+   portal, and animated status styles without changing their fills or motion. */
+@layer button-glow-policy {
+  body :is(
+    button,
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"],
+    [role="button"],
+    a[class*="btn"],
+    a[class*="button"],
+    a.page-back-control,
+    a.sidebar-link,
+    a.sidebar-game-town-link
+  ),
+  body :is(
+    button,
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"],
+    [role="button"],
+    a[class*="btn"],
+    a[class*="button"],
+    a.page-back-control,
+    a.sidebar-link,
+    a.sidebar-game-town-link
+  )::before,
+  body :is(
+    button,
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"],
+    [role="button"],
+    a[class*="btn"],
+    a[class*="button"],
+    a.page-back-control,
+    a.sidebar-link,
+    a.sidebar-game-town-link
+  )::after {
+    box-shadow: none !important;
+  }
+
+  /* Replace shadow-based focus rings with a sharp keyboard focus outline. */
+  body :is(
+    button,
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"],
+    [role="button"],
+    a[class*="btn"],
+    a[class*="button"],
+    a.page-back-control,
+    a.sidebar-link,
+    a.sidebar-game-town-link
+  ):focus-visible {
+    outline: 2px solid var(--accent, currentColor) !important;
+    outline-offset: 3px !important;
+  }
+
+  /* This inset stripe indicates the selected resume section, not a halo. */
+  body .resume-builder-nav__items > button.is-active {
+    box-shadow: inset 3px 0 0 var(--resume-accent-ui) !important;
+  }
+
+  body .sidebar-game-town-link.active,
+  body .sidebar-game-town-link img {
+    filter: none !important;
+  }
+}

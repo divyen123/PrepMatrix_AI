@@ -285,11 +285,10 @@ export default function AnswerCoachPanel({ papers = [], onAddRevisionTask }) {
 
   return (
     <div className="answer-coach-layout">
+      {paperOptions.length ? (
       <div className="answer-coach-columns">
         <section className="card answer-coach-input">
           <h3>Review a solved paper</h3>
-          {paperOptions.length ? (
-            <>
               <label className="answer-coach-field">
                 <span>Generated question paper</span>
                 <select onChange={(event) => { setPaperId(event.target.value); setAnalysis(null); setReportId(""); }} value={paperId}>
@@ -316,8 +315,6 @@ export default function AnswerCoachPanel({ papers = [], onAddRevisionTask }) {
                 {analyzing ? <><LoaderCircle className="spin" size={17} /> Reviewing answers...</> : `Review answers · ${getCost(AI_FEATURES.ANSWER_COACH)} credits`}
               </button>
               <p className="answer-coach-input__note">Your answer pages are sent to the configured AI provider for review. Photos and PDFs are not saved; the text review is saved to your academic profile. Marks are provisional study guidance.</p>
-            </>
-          ) : <p>Generate a question paper first, then return here with your solved answers.</p>}
         </section>
         {reports.length ? (
           <section className="card answer-coach-history">
@@ -333,6 +330,9 @@ export default function AnswerCoachPanel({ papers = [], onAddRevisionTask }) {
           </section>
         ) : <p className="answer-coach-history-empty">Your answer reviews will appear here.</p>}
       </div>
+      ) : (
+        <p className="answer-coach-no-papers">Generate a question paper first, then return here with your solved answers.</p>
+      )}
 
       {analysis && (
         <section className="answer-coach-results" aria-live="polite">

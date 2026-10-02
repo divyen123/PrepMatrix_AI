@@ -10,7 +10,7 @@ export default function useMomentum(academicProfileDataId, refreshKey = '') {
     setState((current) => ({ data: current.profileId === academicProfileDataId ? current.data : null, profileId: academicProfileDataId, loading: true, error: '' }));
     api.get('/api/momentum', { academicProfileId: academicProfileDataId }).then((payload) => {
       if (active) setState({ data: payload.momentum, profileId: academicProfileDataId, loading: false, error: '' });
-    }).catch(() => { if (active) setState((current) => ({ ...current, loading: false, error: 'XP history could not be refreshed.' })); });
+    }).catch(() => { if (active) setState((current) => ({ ...current, loading: false, error: 'Global momentum could not be refreshed.' })); });
     return () => { active = false; };
   }, [academicProfileDataId, refreshKey, revision]);
   useEffect(() => {
