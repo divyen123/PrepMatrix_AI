@@ -2362,7 +2362,7 @@ body .resume-preview-fullscreen-close:focus-visible {
 }
 
 .resume-preview-fullscreen-stage .resume-paper {
-  width: min(720px, calc(100vw - 72px), 60dvh);
+  width: min(720px, calc(100vw - 72px), 62dvh);
   flex: 0 0 auto;
 }
 
