@@ -156,15 +156,15 @@ test("registers deep Planner routes and retains accessible themed card behavior"
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/u);
 });
 
-test("shows the Study Schedule card sheen only during fine-pointer hover", () => {
+test("keeps the schedule and worktree surfaces still without a hover sheen", () => {
   const stylesheet = readFileSync(new URL("./PlannerPage.css", import.meta.url), "utf8");
 
   assert.match(
     stylesheet,
-    /\.planner-subpage-content\.is-schedule \.schedule-card\.card::before\s*\{[\s\S]*?opacity:\s*0 !important;[\s\S]*?transform:\s*translateX\(-100%\)/u,
+    /body \.planner-route-page \.planner-subpage-content :is\(\.schedule-card\.card, \.worktree-container\.card\):hover\s*\{[\s\S]*?box-shadow:\s*none !important;[\s\S]*?transform:\s*none !important;/u,
   );
   assert.match(
     stylesheet,
-    /@media \(hover: hover\) and \(pointer: fine\)\s*\{[\s\S]*?\.planner-subpage-content\.is-schedule \.schedule-card\.card:hover::before\s*\{[\s\S]*?opacity:\s*0\.38 !important;[\s\S]*?transform:\s*translateX\(0\)/u,
+    /body \.planner-route-page \.planner-subpage-content :is\(\.schedule-card\.card, \.worktree-container\.card\):hover::before\s*\{[\s\S]*?display:\s*none !important;[\s\S]*?content:\s*none !important;/u,
   );
 });

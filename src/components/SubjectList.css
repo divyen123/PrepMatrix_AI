@@ -2,6 +2,14 @@
   overflow: visible !important;
 }
 
+body .subject-library-card::before {
+  display: none !important;
+}
+
+body .subject-library-card:hover {
+  transform: none !important;
+}
+
 .subject-library-card .subject-library-header {
   position: relative;
   z-index: 1300;

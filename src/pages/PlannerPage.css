@@ -388,19 +388,17 @@ body .planner-route-page .planner-subpage-title-row .planner-subpage-back.page-b
   overflow: visible;
 }
 
-/* Keep the global card sheen completely hidden until a real pointer hovers
-   the Study Schedule card. Moving it fully off-canvas also prevents the
-   resting top-left edge from showing through translucent themes. */
-.planner-subpage-content.is-schedule .schedule-card.card::before {
-  opacity: 0 !important;
-  transform: translateX(-100%);
+/* Schedule and worktree surfaces stay still while their controls remain interactive. */
+body .planner-route-page .planner-subpage-content :is(.schedule-card.card, .worktree-container.card),
+body .planner-route-page .planner-subpage-content :is(.schedule-card.card, .worktree-container.card):hover {
+  box-shadow: none !important;
+  transform: none !important;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .planner-subpage-content.is-schedule .schedule-card.card:hover::before {
-    opacity: 0.38 !important;
-    transform: translateX(0);
-  }
+body .planner-route-page .planner-subpage-content :is(.schedule-card.card, .worktree-container.card)::before,
+body .planner-route-page .planner-subpage-content :is(.schedule-card.card, .worktree-container.card):hover::before {
+  display: none !important;
+  content: none !important;
 }
 
 @keyframes planner-subpage-enter {

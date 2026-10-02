@@ -96,6 +96,8 @@ body .cmxi .cmxi-refresh { display: grid; place-items: center; min-width: 39px; 
 .cmxi-language-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 35px; align-items: center; }
 .cmxi-language-chart { width: 100%; min-width: 0; }
 .cmxi-language-chart-inner { width: 100%; min-width: 0; height: max(270px, 17rem); }
+/* Override the shared chart-bar fill so theme changes reach the SVG paths. */
+.cmxi-language-chart .recharts-bar-rectangle path { fill: var(--cmxi-accent); }
 .cmxi-language-details { min-width: 0; }
 .cmxi-language-selector { margin-top: 18px; }
 .cmxi-language-buttons { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -148,9 +150,21 @@ body .cmxi .cmxi-language-buttons .cmxi-clear-selection:hover { color: var(--cmx
 .cmxi-history h2 > span { font-size: 0.625rem; color: var(--cmxi-muted); font-weight: 400; }
 .cmxi-history p { margin: 16px 0 12px; color: var(--cmxi-muted); line-height: 1.7; }
 .cmxi-history-languages { display: grid; flex: 1; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.cmxi-history-languages > span { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-width: 0; padding: 12px; background: var(--cmxi-soft); border-radius: 11px; color: var(--cmxi-text); }
+.cmxi-history-languages > span { --cmxi-language-tone: var(--cmxi-accent); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-width: 0; padding: 12px; background: color-mix(in srgb, var(--cmxi-language-tone) 8%, var(--cmxi-surface)); border: 1px solid color-mix(in srgb, var(--cmxi-language-tone) 20%, var(--cmxi-border)); border-radius: 11px; color: var(--cmxi-text); transition: background-color 180ms ease, border-color 180ms ease; }
+.cmxi-history-languages > [data-language="python"] { --cmxi-language-tone: color-mix(in srgb, var(--cmxi-accent) 30%, #e9b949); }
+.cmxi-history-languages > [data-language="c"] { --cmxi-language-tone: color-mix(in srgb, var(--cmxi-accent) 30%, #659ad2); }
+.cmxi-history-languages > [data-language="cpp"] { --cmxi-language-tone: color-mix(in srgb, var(--cmxi-accent) 30%, #818cf8); }
+.cmxi-history-languages > [data-language="java"] { --cmxi-language-tone: color-mix(in srgb, var(--cmxi-accent) 30%, #e98265); }
+.cmxi-history-languages > [data-language="javascript"] { --cmxi-language-tone: color-mix(in srgb, var(--cmxi-accent) 30%, #e8ca57); }
+.cmxi-history-languages > [data-language="sql"] { --cmxi-language-tone: color-mix(in srgb, var(--cmxi-accent) 30%, #57bac9); }
+.cmxi-history-languages > [data-language="web"] { --cmxi-language-tone: color-mix(in srgb, var(--cmxi-accent) 30%, #b08adb); }
+.cmxi-history-languages > [data-language="html"] { --cmxi-language-tone: color-mix(in srgb, var(--cmxi-accent) 30%, #e99255); }
+.cmxi-history-languages > [data-language="css"] { --cmxi-language-tone: color-mix(in srgb, var(--cmxi-accent) 30%, #6ca5e5); }
+@media (hover: hover) {
+  .cmxi-history-languages > span:hover { background: color-mix(in srgb, var(--cmxi-language-tone) 14%, var(--cmxi-surface)); border-color: color-mix(in srgb, var(--cmxi-language-tone) 38%, var(--cmxi-border)); }
+}
 .cmxi-history-language-name { color: var(--cmxi-muted); font-size: .75rem; font-weight: 550; line-height: 1.4; overflow-wrap: anywhere; text-align: center; }
-.cmxi-history-languages svg { flex-shrink: 0; }
+.cmxi-history-languages svg { flex-shrink: 0; color: var(--cmxi-language-tone); }
 .cmxi-history-languages strong { font-size: 1.125rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cmxi-history strong { color: var(--cmxi-text); }
 .cmxi-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px 24px; color: var(--cmxi-muted); font-size: 0.625rem; line-height: 1.8; }
@@ -165,7 +179,7 @@ body .cmxi .cmxi-error button { min-height: 28px; padding: 4px 8px; border: 1px 
 .cmxi-spinner { animation: cmxi-spin 1s linear infinite; }
 .cmxi-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @keyframes cmxi-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .cmxi-spinner { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .cmxi-spinner { animation: none; } .cmxi-history-languages > span { transition: none; } }
 @media (max-width: 1050px) {
   .cmxi-language-grid { grid-template-columns: 1fr; gap: 15px; }
   .cmxi-charts-grid { grid-template-columns: 1fr; }

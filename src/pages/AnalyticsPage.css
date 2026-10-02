@@ -1,3 +1,7 @@
+.analytics-page :is(.card, .overview-card, .utility-card)::before {
+  display: none !important;
+}
+
 .analytics-subject-empty {
   margin: 0;
   padding: 24px 0;

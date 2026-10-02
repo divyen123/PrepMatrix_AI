@@ -5,6 +5,11 @@
   --settings-grid-gap: var(--card-grid-gap, 18px);
 }
 
+/* Keep container hover lift without the shared sweeping highlight. */
+body .settings-page :is(.card, .overview-card, .utility-card)::before {
+  display: none !important;
+}
+
 .settings-page .settings-grid {
   gap: var(--settings-grid-gap) !important;
   margin-top: 16px !important;
@@ -148,14 +153,6 @@
   max-height: none !important;
   overflow: hidden !important;
   scrollbar-gutter: auto;
-}
-
-.settings-page .settings-system-card::before {
-  opacity: 0 !important;
-}
-
-.settings-page .settings-system-card:hover::before {
-  opacity: 0.38 !important;
 }
 
 .settings-page .settings-card .section-tag {

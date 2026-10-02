@@ -208,7 +208,7 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
         {history.length > 0 && <section className="cmxi-history" aria-labelledby="cmxi-history-title">
           <h2 id="cmxi-history-title">Lifetime successful runs <span>{formatNumber(history.reduce((sum, item) => sum + Number(item.successfulRuns || 0), 0))} recorded</span></h2>
           <p>Historical XP records preserve successful runs. They cannot tell us about past errors or active coding time.</p>
-          <div className="cmxi-history-languages" role="list" aria-label="Successful runs by language">{history.map((item) => <span key={item.id} role="listitem" title={item.label} aria-label={`${item.label}: ${formatNumber(item.successfulRuns)} successful runs`}>
+          <div className="cmxi-history-languages" role="list" aria-label="Successful runs by language">{history.map((item) => <span key={item.id} data-language={item.id} role="listitem" title={item.label} aria-label={`${item.label}: ${formatNumber(item.successfulRuns)} successful runs`}>
             <CodeMatrixLanguageIcon language={item.id} size={30} aria-hidden="true" focusable="false" />
             <span className="cmxi-history-language-name">{item.label}</span>
             <strong>{formatNumber(item.successfulRuns)}</strong>

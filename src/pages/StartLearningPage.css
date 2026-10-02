@@ -3861,31 +3861,17 @@ body .learning-map-smart-actions .learning-completion-action.is-complete[aria-pr
   }
 }
 /* Readability and theme polish for notebook and placement workspaces */
-body .learning-page .learning-content-card::before {
-  opacity: 0 !important;
-  transform: translateX(-100%) !important;
-}
-
-body .learning-page .learning-content-card:hover::before {
-  opacity: 0.32 !important;
-  transform: translateX(0) !important;
-}
-
-body .learning-page .learning-content-card:hover {
-  transform: none;
-}
-
-/* Notebook content stays still without a hover glow. */
-body .learning-page .learning-content-card:has(> .learning-tab-panels > :is(.learning-notes-view, .learning-outline-view, .learning-recall-view).is-active),
-body .learning-page .learning-content-card:has(> .learning-tab-panels > :is(.learning-notes-view, .learning-outline-view, .learning-recall-view).is-active):hover {
+/* Preparation, medical training, and every notebook view stay still on hover. */
+body .learning-page :is(.learning-intake-source-panel.card, .learning-content-card, .learning-medical-workspace .medical-lab > .card),
+body .learning-page :is(.learning-intake-source-panel.card, .learning-content-card, .learning-medical-workspace .medical-lab > .card):hover {
   box-shadow: none !important;
   transform: none !important;
 }
 
-body .learning-page .learning-content-card:has(> .learning-tab-panels > :is(.learning-notes-view, .learning-outline-view, .learning-recall-view).is-active)::before,
-body .learning-page .learning-content-card:has(> .learning-tab-panels > :is(.learning-notes-view, .learning-outline-view, .learning-recall-view).is-active):hover::before {
-  opacity: 0 !important;
-  transform: translateX(-100%) !important;
+body .learning-page :is(.learning-intake-source-panel.card, .learning-content-card, .learning-medical-workspace .medical-lab > .card)::before,
+body .learning-page :is(.learning-intake-source-panel.card, .learning-content-card, .learning-medical-workspace .medical-lab > .card):hover::before {
+  display: none !important;
+  content: none !important;
 }
 
 .learning-note-section {

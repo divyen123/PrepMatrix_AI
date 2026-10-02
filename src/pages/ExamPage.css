@@ -6,6 +6,15 @@
   animation: fadeIn 0.28s ease;
 }
 
+/* Keep the exam forms and results free of the shared card shine. */
+body .exam-page .card:is(.exam-attend-form, .exam-paper-form, .exam-result-card)::before {
+  display: none !important;
+}
+
+body .exam-page .card.exam-paper-form:hover {
+  transform: none !important;
+}
+
 .exam-page__header,
 .exam-section-title,
 .exam-card-heading {

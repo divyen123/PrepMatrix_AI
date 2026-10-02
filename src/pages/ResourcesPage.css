@@ -24,6 +24,21 @@ body .resources-page.resources-page :is(button, a):not(.resource-subject-card):f
   outline-offset: 3px;
 }
 
+/* These containers stay still and keep a plain surface when hovered. */
+body .resources-page.resources-page :is(.resource-detail-card, .bookmark-library-card),
+body .resources-page.resources-page :is(.resource-detail-card, .bookmark-library-card):hover {
+  border-color: var(--border) !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+body .resources-page.resources-page :is(.resource-detail-card, .bookmark-library-card)::before,
+body .resources-page.resources-page :is(.resource-detail-card, .bookmark-library-card)::after {
+  display: none !important;
+}
+
 .resources-page .resource-detail-card {
   display: flex;
   flex-direction: column;
@@ -37,7 +52,7 @@ body .resources-page .resource-link-card:hover {
   border-radius: 14px;
   background: var(--surface-muted) !important;
   box-shadow: none !important;
-  transform: none;
+  transform: none !important;
 }
 
 body .resources-page .resource-link-card:has(a:hover) {
@@ -110,8 +125,6 @@ body .resources-page .resource-link-card:has(a:hover) {
 }
 
 .resources-page .resource-material-search {
-  display: grid;
-  gap: 12px;
   min-width: 0;
 }
 
@@ -163,15 +176,85 @@ body .resources-page .resource-material-search .resource-search-submit:hover:not
   transform: rotate(180deg);
 }
 
-.resources-page .resource-search-panel {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
+.resources-page .resource-search-popover {
+  position: fixed;
+  inset: auto;
+  width: min(304px, calc(100vw - 24px));
+  max-height: min(350px, calc(100dvh - 24px));
   margin: 0;
-  padding: 14px;
+  padding: 12px;
+  overflow: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface-muted);
+  background: var(--bg-secondary);
+  color: var(--text);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    display 180ms allow-discrete,
+    overlay 180ms allow-discrete;
+}
+
+.resources-page .resource-search-popover:popover-open {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.resources-page .resource-search-popover::backdrop {
+  background: transparent;
+  pointer-events: none;
+}
+
+@starting-style {
+  .resources-page .resource-search-popover:popover-open {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.resources-page .resource-search-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.resources-page .resource-search-popover__header strong {
+  font-size: 0.84rem;
+}
+
+body .resources-page .resource-search-popover .resource-search-popover__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 26px;
+  width: 26px;
+  min-height: 26px;
+  padding: 0;
+  border: 1px solid var(--border) !important;
+  border-radius: 7px;
+  background: var(--surface-muted) !important;
+  color: var(--text-muted) !important;
+}
+
+body .resources-page .resource-search-popover .resource-search-popover__close:hover {
+  color: var(--text) !important;
+  border-color: var(--text-muted) !important;
+}
+
+.resources-page .resource-search-panel {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .resources-page .resource-search-panel[hidden] {
@@ -240,7 +323,7 @@ body .resources-page .resource-material-search .resource-search-submit:hover:not
 .resources-page .resource-search-options {
   display: grid;
   gap: 4px;
-  max-height: 180px;
+  max-height: 144px;
   padding: 4px;
   overflow: auto;
   overscroll-behavior: contain;
@@ -778,7 +861,7 @@ body.dark .resources-page .material-book-dialog__close {
     margin-left: auto;
   }
 
-  .resources-page .resource-search-panel {
+  .resources-page .resource-search-popover {
     padding: 11px;
   }
 
@@ -806,6 +889,17 @@ body.dark .resources-page .material-book-dialog__close {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .resources-page .resource-search-popover {
+    transition-duration: 0s;
+    transform: none;
+  }
+
+  @starting-style {
+    .resources-page .resource-search-popover:popover-open {
+      transform: none;
+    }
+  }
+
   body .resources-page.resources-page button:not(.resource-subject-card),
   .resources-page .resource-search-trigger__chevron,
   .resources-page .resource-institution-toggle__track,

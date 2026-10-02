@@ -10,6 +10,15 @@
   background: color-mix(in srgb, var(--surface-strong) 86%, transparent);
 }
 
+/* Guide containers stay still and omit the shared hover shine. */
+body .exam-guide-page .card::before {
+  display: none !important;
+}
+
+body .exam-guide-page .card:hover {
+  transform: none !important;
+}
+
 .exam-guide-hero {
   position: relative;
   overflow: hidden;

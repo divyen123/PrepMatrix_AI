@@ -37,7 +37,7 @@ function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, co
   }, [location.hash]);
 
   return (
-    <section className="page-stack">
+    <section className="page-stack analytics-page">
       <div className="section-intro analytics-page-intro">
         <div>
           <h2>Performance signals and study patterns</h2>
