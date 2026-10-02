@@ -1804,15 +1804,16 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
 }
 
 .resume-paper__skills-tools-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
   align-items: start;
   gap: 14px;
   margin-bottom: 14px;
 }
 
 .resume-paper__skills-tools-row > .resume-paper__section {
-  min-width: 0;
+  /* Allocate width by each full badge row, while keeping headings readable. */
+  flex: 1 1 max-content;
+  min-width: min-content;
   margin-bottom: 0;
 }
 
@@ -1941,6 +1942,7 @@ body.dark .resume-choice-list label.is-selected .resume-choice-list__copy strong
 }
 
 .resume-paper__skills span {
+  flex: 0 0 auto;
   max-width: 100%;
   padding: 3px 6px;
   border-radius: 3px;

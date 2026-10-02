@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, Circle, X } from "lucide-react";
+import { CheckCircle2, Circle, Download, LoaderCircle, X } from "lucide-react";
 import { formatScheduleDayHeading } from "../utils/scheduleDates";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
+import { toast } from "../utils/toast";
 import {
   getPlannerSessionLabel,
   isPlannerTaskCompleted,
@@ -17,6 +18,8 @@ export function StudyPlanPreviewContent({
   schedule = [],
   scheduleStartDate = "",
 }) {
+  const exportingRef = useRef(false);
+  const [isExporting, setIsExporting] = useState(false);
   const days = Array.isArray(schedule) ? schedule : [];
   const completedTasks = Array.isArray(completed) ? completed : [];
   const tasks = days.flatMap((day) => (
@@ -28,6 +31,29 @@ export function StudyPlanPreviewContent({
     isPlannerTaskCompleted(task, completedTasks) && !isPlannerTaskRecheckPending(task)
   )).length;
 
+  const downloadPDF = async () => {
+    if (exportingRef.current || !days.length) return;
+    exportingRef.current = true;
+    setIsExporting(true);
+
+    try {
+      const { createStudyPlanPdf } = await import("../utils/studyPlanPdf.js");
+      const pdf = createStudyPlanPdf({
+        completed: completedTasks,
+        historical,
+        schedule: days,
+        scheduleStartDate,
+      });
+      await pdf.save(historical ? "PreviousStudyPlan.pdf" : "StudyPlan.pdf", { returnPromise: true });
+      toast.success("Study schedule PDF exported.");
+    } catch {
+      toast.error("Could not export the study schedule. Please try again.");
+    } finally {
+      exportingRef.current = false;
+      setIsExporting(false);
+    }
+  };
+
   return (
     <>
       <header className="study-plan-preview-header">
@@ -35,14 +61,30 @@ export function StudyPlanPreviewContent({
           <h2 id="study-plan-preview-title">{historical ? "Previous study schedule" : "Study schedule"}</h2>
           <p id="study-plan-preview-summary">{doneCount} of {tasks.length} tasks {historical ? "previously completed" : "complete"}</p>
         </div>
-        <button
-          aria-label="Close study schedule"
-          className="study-plan-preview-close"
-          onClick={onClose}
-          type="button"
-        >
-          <X aria-hidden="true" size={15} />
-        </button>
+        <div className="study-plan-preview-actions">
+          <button
+            aria-busy={isExporting}
+            aria-label={isExporting ? "Exporting study schedule as PDF" : "Download study schedule as PDF"}
+            className="study-plan-preview-icon-button study-plan-preview-download"
+            disabled={isExporting || !days.length}
+            onClick={downloadPDF}
+            title={isExporting ? "Exporting PDF..." : "Download as PDF"}
+            type="button"
+          >
+            {isExporting
+              ? <LoaderCircle aria-hidden="true" className="study-plan-preview-export-spinner" size={15} />
+              : <Download aria-hidden="true" size={15} />}
+          </button>
+          <button
+            aria-label="Close study schedule"
+            autoFocus
+            className="study-plan-preview-icon-button study-plan-preview-close"
+            onClick={onClose}
+            type="button"
+          >
+            <X aria-hidden="true" size={15} />
+          </button>
+        </div>
       </header>
       <div className="study-plan-preview-days">
         {days.map((day, dayIndex) => {

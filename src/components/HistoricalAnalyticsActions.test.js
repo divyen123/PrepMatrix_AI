@@ -23,7 +23,8 @@ async function fixture({ openPlan = false } = {}) {
       transform(source, id) {
         const path = id.replaceAll('\\', '/');
         if (path.endsWith('/src/components/SubjectProgressModal.jsx') || path.endsWith('/src/components/StudyPlanPreviewDialog.jsx')) {
-          return source.replace('import { createPortal } from "react-dom";', 'const createPortal = (content) => content;');
+          return source.replace('import { createPortal } from "react-dom";', 'const createPortal = (content) => content;')
+            .replace('import { toast } from "../utils/toast";', 'const toast = { success() {}, error() {} };');
         }
         if (openPlan && path.endsWith('/src/components/Prediction.jsx')) {
           return source.replace('import { useState } from "react";', 'const useState = () => [true, () => {}];');
@@ -87,11 +88,14 @@ test('previous plan preview labels archived statuses and keeps all saved plan ta
     assert.match(historical, /Networks - UDP/u);
     assert.match(historical, /Morning/u);
     assert.match(historical, /Evening/u);
+    assert.match(historical, /aria-label="Download study schedule as PDF"/u);
+    assert.match(historical, /aria-label="Close study schedule"/u);
     assert.doesNotMatch(historical, /href=|Attend exam|Take a quiz|Create schedule/u);
     const current = render(StudyPlanPreviewContent, { schedule, completed: ['tcp'] });
     assert.match(current, />Study schedule<\/h2>/u);
     assert.match(current, /aria-label="Completed"/u);
     assert.match(current, /aria-label="Pending"/u);
+    assert.match(current, /aria-label="Download study schedule as PDF"/u);
   } finally { await context.close(); }
 });
 

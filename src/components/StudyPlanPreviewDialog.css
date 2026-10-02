@@ -86,7 +86,14 @@ body.has-bg-image .study-plan-preview-dialog {
   font-size: 0.86rem;
 }
 
-body .study-plan-preview-close {
+.study-plan-preview-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+body .study-plan-preview-icon-button {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
@@ -102,18 +109,35 @@ body .study-plan-preview-close {
   transform: none !important;
 }
 
-body .study-plan-preview-close:hover {
+body .study-plan-preview-icon-button:hover:not(:disabled) {
   background: color-mix(in srgb, #e77878 17%, var(--surface-muted)) !important;
 }
 
-body .study-plan-preview-close::before,
-body .study-plan-preview-close::after {
+body .study-plan-preview-icon-button::before,
+body .study-plan-preview-icon-button::after {
   content: none !important;
 }
 
-.study-plan-preview-close:focus-visible {
+.study-plan-preview-icon-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+
+.study-plan-preview-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.study-plan-preview-icon-button[aria-busy="true"] {
+  cursor: progress;
+}
+
+.study-plan-preview-export-spinner {
+  animation: study-plan-preview-export-spin 900ms linear infinite;
+}
+
+@keyframes study-plan-preview-export-spin {
+  to { transform: rotate(360deg); }
 }
 
 .study-plan-preview-days {
@@ -206,6 +230,10 @@ body .study-plan-preview-close::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .study-plan-preview-export-spinner {
+    animation: none;
+  }
+
   .study-plan-preview-dialog[open],
   .study-plan-preview-dialog[open]::backdrop,
   .study-plan-preview-dialog[open].is-closing,

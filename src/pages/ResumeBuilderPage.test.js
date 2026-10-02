@@ -96,7 +96,7 @@ test("offers accessible two-column font choices and shares the chosen font with 
   assert.match(pageSource, /rel="noopener noreferrer" target="_blank"/u);
 });
 
-test("renders Skills and Tools as wrapping columns in the same row", async () => {
+test("renders Skills and Tools with content-sized columns and wrapping badges in the same row", async () => {
   const vite = await createServer({
     appType: "custom",
     logLevel: "silent",
@@ -123,7 +123,8 @@ test("renders Skills and Tools as wrapping columns in the same row", async () =>
     assert.match(markup, /class="resume-paper__skills-tools-row"[\s\S]*?<h2>Skills<\/h2>[\s\S]*?<h2>Tools<\/h2>/u);
     assert.match(markup, />VS Code<\/span>/u);
     assert.match(markup, />GitHub<\/span>/u);
-    assert.match(stylesheet, /\.resume-paper__skills-tools-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/u);
+    assert.match(stylesheet, /\.resume-paper__skills-tools-row\s*\{[^}]*?display:\s*flex/u);
+    assert.match(stylesheet, /\.resume-paper__skills-tools-row > \.resume-paper__section\s*\{[^}]*?flex:\s*1\s+1\s+max-content/u);
     assert.match(stylesheet, /\.resume-paper__skills\s*\{[\s\S]*?flex-wrap:\s*wrap/u);
     assert.match(stylesheet, /\.resume-paper__skills span\s*\{[\s\S]*?overflow-wrap:\s*anywhere/u);
     assert.match(pageSource, /label="Tools"[\s\S]*?optional[\s\S]*?tools:\s*parseSkillsInput/u);
