@@ -11,6 +11,29 @@
   text-align: center;
 }
 
+.landscape-history-message {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 16px;
+  color: var(--text);
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--bg);
+}
+
+.landscape-history-message > svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.landscape-history-message p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
 .analytics-completion-dial {
   display: grid;
   min-width: 0;
@@ -59,8 +82,7 @@ body:has(.analytics-page-intro) :is(
   .report-modal,
   .study-plan-preview-dialog,
   .subject-progress-modal,
-  .subject-ai-dialog,
-  .planner-history-dialog
+  .subject-ai-dialog
 ) button:hover {
   box-shadow: none !important;
 }

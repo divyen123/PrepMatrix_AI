@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUpRight, CheckCircle2, History } from 'lucide-react';
-import { createPlannerHistoryEntry, getLandscapeData, normalizePlannerHistory } from '../utils/plannerHistory';
+import { ArrowUpRight, CheckCircle2 } from 'lucide-react';
+import { getLandscapeData, normalizePlannerHistory } from '../utils/plannerHistory';
 import { normalizeMaterialBookmarks } from '../utils/materialBookmarks';
 import { buildSubjectMaterials } from '../utils/materialRecommendations';
-import PlannerHistoryDialog from './PlannerHistoryDialog';
 
 const SUBJECT_PIE_COLORS = [
   '#14b8a6',
@@ -20,10 +19,9 @@ const SUBJECT_PIE_CENTER = 160;
 const SUBJECT_PIE_RADIUS = 112;
 const SUBJECT_PIE_CIRCUMFERENCE = 2 * Math.PI * SUBJECT_PIE_RADIUS;
 
-function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = [], completed = [], history = [], scheduleStartDate = '', materialBookmarks = [], userProfile = {}, notebooks = [], notebooksLoading, notebooksError, onRetryNotebooks }) {
+function FocusLandscape({ subjects = [], schedule = [], completed = [], history = [], materialBookmarks = [], userProfile = {} }) {
   const [isVisible, setIsVisible] = useState(false);
   const [tooltipInfo, setTooltipInfo] = useState(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
   const observer = useRef(null);
 
   const setObserverTarget = useCallback((node) => {
@@ -43,10 +41,6 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
   useEffect(() => () => observer.current?.disconnect(), []);
 
   const savedHistory = useMemo(() => normalizePlannerHistory(history), [history]);
-  const currentRecord = useMemo(() => {
-    const entry = createPlannerHistoryEntry({ subjects, schedule, completed, scheduleStartDate }, { id: 'current-schedule', now: '2000-01-01T00:00:00Z' });
-    return entry ? { ...entry, archivedAt: '', isCurrent: true } : null;
-  }, [subjects, schedule, completed, scheduleStartDate]);
   const sortedData = useMemo(() => getLandscapeData(subjects, schedule, completed, savedHistory), [subjects, schedule, completed, savedHistory]);
   const focusLeader = sortedData.find((item) => item.pending > 0);
   const hasActiveSchedule = sortedData.some((item) => item.total > 0);
@@ -165,12 +159,11 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
         <div>
           <h2>Subject landscape</h2>
         </div>
-        <button type="button" className="landscape-history-button" onClick={() => { setTooltipInfo(null); setHistoryOpen(true); }}><History size={16} />View history</button>
       </div>
 
       {!hasActiveSchedule && hasHistory && <div className="landscape-history-message" role="status">
         <CheckCircle2 size={23} /><div><strong>{latestFullyCompleted ? 'Already completed — your progress is saved' : 'Your completed work is saved'}</strong>
-          <p>The active schedule was cleared. View history for completed chapters, topics, and prepared notes.</p></div>
+          <p>The active schedule was cleared. Your completed work remains included in this landscape.</p></div>
       </div>}
 
       {sortedData.length === 0 ? (
@@ -253,7 +246,7 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
               <p>
                 {focusLeader && focusLeader.pending > 0
                   ? `${focusLeader.pending} ${focusLeader.pending === 1 ? 'task remains' : 'tasks remain'} in your current schedule for this subject.`
-                  : hasHistory ? 'Your previous completed tasks are available in View history.' : hasActiveSchedule ? 'Every scheduled task has been completed.' : 'Create a schedule to see current study priorities.'}
+                  : hasActiveSchedule ? 'Every scheduled task has been completed.' : hasHistory ? 'Your previously completed tasks are included in this landscape.' : 'Create a schedule to see current study priorities.'}
               </p>
             </div>
 
@@ -279,8 +272,6 @@ function FocusLandscape({ academicProfileDataId = '', subjects = [], schedule = 
           </div>
         </div>
       )}
-
-      {historyOpen && <PlannerHistoryDialog academicProfileDataId={academicProfileDataId} entries={currentRecord ? [currentRecord, ...savedHistory] : savedHistory} notebooks={notebooks} notebooksLoading={notebooksLoading} notebooksError={notebooksError} onRetryNotebooks={onRetryNotebooks} onClose={() => setHistoryOpen(false)} />}
 
       {tooltipInfo && createPortal(
         <div 

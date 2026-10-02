@@ -138,6 +138,69 @@ test('practice solutions earn once per question version and profile, independent
   assert.equal(reward.results, undefined);
 });
 
+test('restoring deleted reward records preserves totals, compiler cadence and scoped duplicate protection', async () => {
+  const db = fakeMomentumDb();
+  const otherProfile = { ...scope, academicProfileId: 'profile-b' };
+  const otherAccount = { ...scope, userId: 'another-student' };
+  const momentumSchedule = { id: 'active', startedAt: '2026-09-13T00:00:00.000Z', token: 'plan-one' };
+  db.collection('workspaces').rows.push({ ...scope, ...plan, completed: ['tcp'], momentumSchedule });
+  db.collection('quizAttempts').rows.push({ ...scope, _id: 'saved-quiz', status: 'completed', total: 5, answeredCount: 5, completedAt: now });
+  await reconcileMomentum(db, scope);
+  const runIds = Array.from({ length: 7 }, () => randomUUID());
+  for (const runId of runIds) await recordSuccessfulCodeRun(db, scope, { runId, language: 'java' }, now);
+  const solved = practiceRequest();
+  for (const profile of [scope, otherProfile, otherAccount]) await recordSuccessfulCodeRun(db, profile, solved, now);
+  const before = await readMomentum(db, scope, momentumSchedule);
+  const originalRecords = structuredClone(db.collection(MOMENTUM_EVENTS_COLLECTION).rows);
+  assert.equal(before.global.totalXp, 40);
+  assert.equal(before.global.breakdown.coding, 20);
+  assert.equal(before.successfulCodeRuns, 7);
+  assert.equal(before.solvedCodeQuestions, 1);
+
+  db.collection(MOMENTUM_EVENTS_COLLECTION).rows.splice(0);
+  // Saved study/assessment sources recover first; restoration must not count them twice.
+  await reconcileMomentum(db, scope);
+  assert.equal((await readMomentum(db, scope, momentumSchedule)).global.breakdown.coding, 0);
+  const restore = async () => {
+    for (const { userId, academicProfileId, ...event } of originalRecords) {
+      await insertMomentumEvent(db, { userId, academicProfileId }, event);
+    }
+  };
+  await restore();
+  await restore();
+  const restored = await readMomentum(db, scope, momentumSchedule);
+  assert.deepEqual(restored.global, before.global);
+  assert.deepEqual(restored.schedule, before.schedule);
+  assert.equal(restored.successfulCodeRuns, before.successfulCodeRuns);
+  assert.equal(restored.solvedCodeQuestions, before.solvedCodeQuestions);
+  assert.equal(restored.history.length, before.history.length);
+  assert.equal(db.collection(MOMENTUM_EVENTS_COLLECTION).rows.length, originalRecords.length);
+  for (const profile of [otherProfile, otherAccount]) {
+    const isolated = await readMomentum(db, profile);
+    assert.equal(isolated.global.totalXp, 10);
+    assert.equal(isolated.successfulCodeRuns, 0);
+    assert.equal(isolated.solvedCodeQuestions, 1);
+  }
+
+  const replay = await recordSuccessfulCodeRun(db, scope, { runId: runIds[3], language: 'java' }, now);
+  assert.equal(replay.duplicate, true);
+  assert.equal(replay.awardedXp, 0);
+  const practiceReplay = await recordSuccessfulCodeRun(db, scope, { ...solved, runId: randomUUID() }, now);
+  assert.equal(practiceReplay.duplicate, true);
+  assert.equal(practiceReplay.awardedXp, 0);
+  const nextRunId = randomUUID();
+  const nextRun = await recordSuccessfulCodeRun(db, scope, { runId: nextRunId, language: 'python' }, now);
+  assert.equal(nextRun.successfulRuns, 8);
+  assert.equal(nextRun.awardedXp, 10);
+  assert.equal(nextRun.nextRewardIn, 4);
+  assert.equal((await recordSuccessfulCodeRun(db, scope, { runId: nextRunId, language: 'python' }, now)).awardedXp, 0);
+  const after = await readMomentum(db, scope, momentumSchedule);
+  assert.equal(after.global.totalXp, before.global.totalXp + 10);
+  assert.deepEqual(after.schedule, before.schedule);
+  assert.equal(after.successfulCodeRuns, 8);
+  assert.equal(after.solvedCodeQuestions, 1);
+});
+
 test('practice rewards validate complete canonical outputs rather than client success flags', async () => {
   const db = fakeMomentumDb();
   const invalid = [
