@@ -2353,6 +2353,7 @@ body .resume-preview-fullscreen-close:focus-visible {
   justify-content: center;
   overflow: auto;
   overscroll-behavior: contain;
+  scrollbar-width: none;
   padding: clamp(18px, 3vw, 36px);
   background:
     linear-gradient(45deg, rgba(255, 255, 255, 0.018) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.018) 75%),
@@ -2361,9 +2362,14 @@ body .resume-preview-fullscreen-close:focus-visible {
   background-size: 16px 16px;
 }
 
+.resume-preview-fullscreen-stage::-webkit-scrollbar {
+  display: none;
+}
+
 .resume-preview-fullscreen-stage .resume-paper {
-  width: min(720px, calc(100vw - 72px), 65dvh);
+  width: min(720px, calc(100vw - 72px), 63dvh);
   flex: 0 0 auto;
+  margin-block: auto;
 }
 
 @keyframes resume-preview-backdrop-in {
