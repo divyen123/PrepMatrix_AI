@@ -91,6 +91,12 @@ test("offers accessible two-column font choices and shares the chosen font with 
   assert.match(paperStyles, /\.resume-paper:not\(\.resume-paper--font-template\)[\s\S]*?font-family:\s*inherit/u);
   assert.doesNotMatch(paperStyles, /color-mix\(in srgb, var\(--resume-accent\)/u);
   assert.match(pageSource, /prepareResumeDownload\(capturePaper/u);
+  assert.match(pageSource, /aria-controls=\{exportMenuOpen \? "resume-export-format-options"[\s\S]*?aria-expanded=\{exportMenuOpen\}[\s\S]*?aria-label="Export resume"/u);
+  assert.match(pageSource, /aria-label="Choose an export format"[\s\S]*?>PDF<\/strong>[\s\S]*?>PNG<\/strong>/u);
+  assert.match(pageSource, /onClick=\{\(\) => selectExportFormat\("pdf"\)\}[\s\S]*?selectExportFormat\("png"\)/u);
+  assert.match(pageSource, /aria-label="Export resume"[\s\S]*?setExportMenuOpen\(\(open\) => !open\)/u);
+  assert.match(pageSource, /event\.key !== "Escape"[\s\S]*?setExportMenuOpen\(false\)/u);
+  assert.doesNotMatch(pageSource, /Generate PDF|Re-generate PDF/u);
   assert.ok(pageSource.indexOf("await prepareResumeDownload(") < pageSource.indexOf("await api.generateResume("),
     "Prepare the downloadable bytes before consuming a generation");
   assert.match(pageSource, /const capturePaper = previewPaperRef\.current\?\.getBoundingClientRect\(\)\.width > 0[\s\S]*?\? previewPaperRef\.current[\s\S]*?: exportPaperRef\.current/u);
@@ -129,7 +135,7 @@ test("renders Skills and Tools with content-sized columns and wrapping badges in
     assert.match(stylesheet, /\.resume-paper__skills-tools-row\s*\{[^}]*?display:\s*flex/u);
     assert.match(stylesheet, /\.resume-paper__skills-tools-row > \.resume-paper__section\s*\{[^}]*?flex:\s*1\s+1\s+max-content/u);
     assert.match(stylesheet, /\.resume-paper__skills\s*\{[\s\S]*?flex-wrap:\s*wrap/u);
-    assert.match(stylesheet, /\.resume-paper__skills span\s*\{[\s\S]*?overflow-wrap:\s*anywhere/u);
+    assert.match(stylesheet, /\.resume-paper__skills span\s*\{[\s\S]*?white-space:\s*nowrap[\s\S]*?overflow-wrap:\s*normal/u);
     assert.match(pageSource, /label="Tools"[\s\S]*?optional[\s\S]*?tools:\s*parseSkillsInput/u);
     assert.match(pageSource, /placeholder=\{curriculumExamples\.resumeToolsPlaceholder\}/u);
   } finally {

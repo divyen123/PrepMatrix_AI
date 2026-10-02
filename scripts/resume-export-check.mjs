@@ -17,6 +17,7 @@ import { ResumePreview } from '/src/pages/ResumeBuilderPage.jsx';
 import { normalizeResumeDraft, normalizeResumeLayout } from '/src/utils/resumeBuilder.js';
 import { createResumePdfFromElement } from '/src/utils/resumePdf.js';
 import { captureResumeCanvas,createResumeSvg } from '/src/utils/resumeCapture.js';
+import { prepareResumeDownload } from '/src/utils/resumeDownload.js';
 import '/src/App.css';
 const draft=normalizeResumeDraft({
  personal:{fullName:'Avery Sharma',headline:'Information technology',location:'Chennai, Tamil Nadu',email:'avery24@example.com',phone:'9840801856',linkedin:'https://www.linkedin.com/in/avery-r-m-66b34934a',github:'https://github.com/avery123',portfolio:'https://avery-portfolio-website.vercel.app/'},
@@ -45,6 +46,8 @@ window.exportResume=async()=>{
  let png;
  const pdf=await createResumePdfFromElement(document.querySelector('.resume-paper'),draft,layout,{scale:4,
  renderElement:async(element,options)=>{const canvas=await captureResumeCanvas(element,options);png=canvas.toDataURL();return canvas;}});
+ const pngExport=await prepareResumeDownload(paper,draft,layout,{format:'png'});
+ const pngData=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(pngExport.blob);});
  const svg=await createResumeSvg(paper,{width:parseFloat(getComputedStyle(paper).width),height:parseFloat(getComputedStyle(paper).height)});
  const repeated=await captureResumeCanvas(paper,{width:parseFloat(getComputedStyle(paper).width),height:parseFloat(getComputedStyle(paper).height),scale:4});
  const frame=document.createElement('iframe');frame.style.cssText='position:fixed;left:-20000px;width:1000px;height:2000px';frame.style.zoom=String(1/(parseFloat(getComputedStyle(document.body).zoom)||1));document.body.append(frame);
@@ -57,9 +60,19 @@ window.exportResume=async()=>{
  const drift=nodes.flatMap(node=>{const other=frame.contentDocument.querySelector('[data-verify-index="'+node.getAttribute('data-verify-index')+'"]');if(!other)return [];const a=relative(node,paper),b=relative(other,copied);return a.some((v,i)=>Math.abs(v-b[i])>.5)?[{tag:node.tagName,txt:node.textContent.slice(0,35),a,b,font:getComputedStyle(node).font,cloneFont:frame.contentWindow.getComputedStyle(other).font}]:[]});
  const wordDrift=[];
  for(const node of nodes){const other=frame.contentDocument.querySelector('[data-verify-index="'+node.getAttribute('data-verify-index')+'"]');if(!other)continue;const t1=[...node.childNodes].filter(n=>n.nodeType===3),t2=[...other.childNodes].filter(n=>n.nodeType===3);for(let i=0;i<t1.length;i++){const text=t1[i].textContent;for(const match of text.matchAll(/\\S+/g)){const wordBox=(textNode,base)=>{const r=textNode.ownerDocument.createRange();r.setStart(textNode,match.index);r.setEnd(textNode,match.index+match[0].length);return relative(r,base)};const a=wordBox(t1[i],paper),b=wordBox(t2[i],copied);if(a.some((v,i)=>Math.abs(v-b[i])>.5))wordDrift.push({text:match[0],a,b});}}}
+ const wrappedBadges=nodes.filter(node=>node.matches('.resume-paper__skills span')).flatMap(node=>{
+  const range=document.createRange();range.selectNodeContents(node);
+  return range.getClientRects().length>1?[node.textContent]:[];
+ });
+ const capturedBadges=nodes.filter(node=>node.matches('.resume-paper__skills span')).flatMap(node=>{
+  const copy=frame.contentDocument?.querySelector('[data-verify-index="'+node.getAttribute('data-verify-index')+'"]');
+  if(!copy)return [];
+  const range=copy.ownerDocument.createRange();range.selectNodeContents(copy);
+  return range.getClientRects().length>1?[node.textContent]:[];
+ });
  frame.remove();
  document.getElementById('fixture').style.position='';document.getElementById('fixture').style.left='';
- return {png,drift,wordDrift,stable:png===repeated.toDataURL(),pages:pdf.getNumberOfPages(),pdf:pdf.output('datauristring'),fit:document.querySelector('.resume-paper').style.getPropertyValue('--resume-fit-scale')};
+ return {png,pngData,pngType:pngExport.blob.type,pngFilename:pngExport.filename,drift,wordDrift,wrappedBadges,capturedBadges,stable:png===repeated.toDataURL(),pages:pdf.getNumberOfPages(),pdf:pdf.output('datauristring'),fit:document.querySelector('.resume-paper').style.getPropertyValue('--resume-fit-scale')};
 };
 window.ready=true;
 `;
@@ -92,7 +105,12 @@ try {
     const result=await page.evaluate(()=>window.exportResume());
     assert.deepEqual(result.drift,[], 'Element bounds must match the preview');
     assert.deepEqual(result.wordDrift,[], 'Every word must retain its preview position and width');
+    assert.deepEqual(result.wrappedBadges,[], 'Skill and tool labels must stay on one line inside their badges');
+    assert.deepEqual(result.capturedBadges,[], 'Exported skill and tool labels must stay on one line inside their badges');
     assert.equal(result.stable,true,'Repeated captures must use the same fonts and pixels');
+    assert.equal(result.pngData,result.png,'PDF and PNG export must use identical Live preview pixels');
+    assert.equal(result.pngType,'image/png');
+    assert.match(result.pngFilename,/-resume\.png$/u);
     assert.equal(result.pages,1);
     assert.ok(Buffer.from(result.pdf.split(',')[1],'base64').subarray(0,5).toString()==='%PDF-');
     const expected=PNG.sync.read(await page.locator('.resume-paper').screenshot());

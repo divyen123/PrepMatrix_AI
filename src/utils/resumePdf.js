@@ -1073,18 +1073,13 @@ function collectResumeLinks(element, paperBounds) {
   });
 }
 
-export async function createResumePdfFromElement(element, draftValue, layoutValue = {}, options = {}) {
+export async function captureResumeCanvasFromElement(element, options = {}) {
   await waitForResumePreview(element);
-
-  const draft = normalizeResumeDraft(draftValue);
-  const layout = normalizeResumeLayout(layoutValue);
   const bounds = element.getBoundingClientRect();
   const { width: sourceWidth, height: sourceHeight } = resumePaperDimensions(element, bounds);
   if (!(sourceWidth > 0) || !(sourceHeight > 0)) {
     throw new Error("The resume preview is still sizing. Please try again.");
   }
-  const links = collectResumeLinks(element, bounds);
-
   const captureScale = Number.isFinite(Number(options.scale))
     ? Math.min(5, Math.max(1, Number(options.scale)))
     : Math.min(4, Math.max(2, 2000 / sourceWidth));
@@ -1099,6 +1094,20 @@ export async function createResumePdfFromElement(element, draftValue, layoutValu
   if (!canvas || typeof canvas.toDataURL !== "function") {
     throw new Error("The resume preview could not be captured. Please try again.");
   }
+  return { canvas, bounds, sourceWidth, sourceHeight, captureScale };
+}
+
+export async function createResumePdfFromElement(element, draftValue, layoutValue = {}, options = {}) {
+  const draft = normalizeResumeDraft(draftValue);
+  const layout = normalizeResumeLayout(layoutValue);
+  const {
+    canvas,
+    bounds,
+    sourceWidth,
+    sourceHeight,
+    captureScale,
+  } = await captureResumeCanvasFromElement(element, options);
+  const links = collectResumeLinks(element, bounds);
 
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true, precision: 12 });
   pdf.setProperties({

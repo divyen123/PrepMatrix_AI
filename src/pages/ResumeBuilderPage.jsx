@@ -614,6 +614,8 @@ export default function ResumeBuilderPage({
   const [quota, setQuota] = useState(() => getResumeQuota(resumeBuilder?.generationTimestamps));
   const [quotaLoading, setQuotaLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState("pdf");
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [notice, setNotice] = useState(null);
   const [resumeHistory, setResumeHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -641,6 +643,8 @@ export default function ResumeBuilderPage({
   const resetDialogRef = useRef(null);
   const resetCancelRef = useRef(null);
   const resetTriggerRef = useRef(null);
+  const exportMenuRef = useRef(null);
+  const exportTriggerRef = useRef(null);
   const previewFullscreenDialogRef = useRef(null);
   const previewFullscreenCloseRef = useRef(null);
   const previewFullscreenTriggerRef = useRef(null);
@@ -731,6 +735,24 @@ export default function ResumeBuilderPage({
       historyOpenSequenceRef.current += 1;
     };
   }, [loadResumeHistory]);
+
+  useEffect(() => {
+    if (!exportMenuOpen) return undefined;
+    const handlePointerDown = (event) => {
+      if (!exportMenuRef.current?.contains(event.target)) setExportMenuOpen(false);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+      setExportMenuOpen(false);
+      exportTriggerRef.current?.focus({ preventScroll: true });
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [exportMenuOpen]);
 
   useEffect(() => {
     const timer = window.setTimeout(
@@ -994,7 +1016,7 @@ export default function ResumeBuilderPage({
       setValidationErrors({});
       setActiveSection("profile");
       setMobileView("edit");
-      announce("success", `${savedResume.name} loaded. Edit it and choose Re-generate PDF when ready.`);
+      announce("success", `${savedResume.name} loaded. Edit it and choose Export when ready.`);
       window.requestAnimationFrame(() => {
         const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
         document.querySelector(".resume-builder-workspace")?.scrollIntoView({
@@ -1069,7 +1091,7 @@ export default function ResumeBuilderPage({
     startFreshResume("Resume draft reset.");
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (format = "pdf") => {
     const validation = validateResumeDraft(draft);
     if (!validation.valid) {
       setValidationErrors(validation.errors);
@@ -1090,11 +1112,12 @@ export default function ResumeBuilderPage({
     }
 
     setGenerating(true);
+    setExportingFormat(format);
     try {
       const capturePaper = previewPaperRef.current?.getBoundingClientRect().width > 0
         ? previewPaperRef.current
         : exportPaperRef.current;
-      const download = await prepareResumeDownload(capturePaper, validation.draft, layout);
+      const download = await prepareResumeDownload(capturePaper, validation.draft, layout, { format });
       generationRequestRef.current ||= createResumeItemId("generation");
       const requestId = generationRequestRef.current;
       const wasRegeneration = Boolean(selectedHistoryId);
@@ -1138,13 +1161,13 @@ export default function ResumeBuilderPage({
       if (historySaveError) {
         announce(
           "error",
-          `${download.format.toUpperCase()} generated, but its history card could not be saved. Choose Generate again to retry without using another weekly slot.`,
+          `${download.format.toUpperCase()} exported, but its history card could not be saved. Choose Export again to retry without using another weekly slot.`,
         );
       } else {
-        const action = wasRegeneration ? "re-generated" : "generated";
+        const action = wasRegeneration ? "re-exported" : "exported";
         announce(
           "success",
-          `${download.format === "png" ? "PDF encoding was unavailable, so the matching preview was saved as PNG. " : ""}Resume ${action} and saved to history. ${nextQuota?.remaining ?? Math.max(0, (quota?.remaining || 1) - 1)} weekly slots remaining.`,
+          `${format === "pdf" && download.format === "png" ? "PDF encoding was unavailable, so the matching preview was saved as PNG. " : ""}Resume ${action} as ${download.format.toUpperCase()} and saved to history. ${nextQuota?.remaining ?? Math.max(0, (quota?.remaining || 1) - 1)} weekly slots remaining.`,
         );
       }
     } catch (error) {
@@ -1154,6 +1177,12 @@ export default function ResumeBuilderPage({
     } finally {
       setGenerating(false);
     }
+  };
+
+  const selectExportFormat = (format) => {
+    setExportMenuOpen(false);
+    exportTriggerRef.current?.focus({ preventScroll: true });
+    void handleGenerate(format);
   };
 
   const quotaUsed = Number.isFinite(Number(quota?.used)) ? Number(quota.used) : 0;
@@ -1744,7 +1773,7 @@ export default function ResumeBuilderPage({
           <div className="resume-preview-actions">
             <div>
               <span><CheckCircle2 size={15} /> Autosaved</span>
-              <small>Each PDF generation uses one weekly slot.</small>
+              <small>Each export uses one weekly slot.</small>
             </div>
             <button
               aria-controls={resetConfirmOpen ? "resume-reset-confirm-dialog" : undefined}
@@ -1758,14 +1787,32 @@ export default function ResumeBuilderPage({
             >
               <RefreshCcw size={16} /> Reset
             </button>
-            <button type="button" className="resume-generate-button" onClick={handleGenerate} disabled={generating || quotaLoading || quotaRemaining <= 0}>
-              {generating ? <span className="resume-button-spinner" /> : <Download size={18} />}
-              {generating
-                ? selectedHistoryId ? "Re-generating…" : "Generating…"
-                : quotaRemaining > 0
-                  ? selectedHistoryId ? "Re-generate PDF" : "Generate PDF"
-                  : "Weekly limit reached"}
-            </button>
+            <div className="resume-export-menu" ref={exportMenuRef}>
+              <button
+                aria-controls={exportMenuOpen ? "resume-export-format-options" : undefined}
+                aria-expanded={exportMenuOpen}
+                aria-label="Export resume"
+                className="resume-export-trigger"
+                disabled={generating || quotaLoading || quotaRemaining <= 0}
+                onClick={() => setExportMenuOpen((open) => !open)}
+                ref={exportTriggerRef}
+                type="button"
+              >
+                {generating ? <span className="resume-button-spinner" /> : <Download aria-hidden="true" size={17} />}
+                {generating ? `Exporting ${exportingFormat.toUpperCase()}…` : quotaRemaining > 0 ? "Export" : "Weekly limit reached"}
+                {!generating && quotaRemaining > 0 && <ChevronDown aria-hidden="true" size={15} />}
+              </button>
+              {exportMenuOpen && (
+                <div aria-label="Choose an export format" className="resume-export-options" id="resume-export-format-options" role="group">
+                  <button className="resume-export-option" onClick={() => selectExportFormat("pdf")} type="button">
+                    <strong>PDF</strong><small>Document</small>
+                  </button>
+                  <button className="resume-export-option" onClick={() => selectExportFormat("png")} type="button">
+                    <strong>PNG</strong><small>Image</small>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </aside>
       </div>

@@ -40,6 +40,31 @@ test("reuses the same capture as PNG if PDF encoding fails", async () => {
   assert.equal(result.filename, "Avery-Sharma-resume.png");
 });
 
+test("exports the selected PNG format directly from the live preview capture", async () => {
+  const png = new Blob(["preview pixels"], { type: "image/png" });
+  const renderer = async () => assert.fail("The supplied capture must be reused");
+  let pdfCalled = false;
+  const result = await prepareResumeDownload({}, draft, {}, {
+    format: "png",
+    renderElement: renderer,
+    captureElement: async (_element, options) => {
+      assert.equal(options.renderElement, renderer);
+      return { canvas: { toBlob: (callback, type) => {
+        assert.equal(type, "image/png");
+        callback(png);
+      } } };
+    },
+    createPdf: async () => {
+      pdfCalled = true;
+      throw new Error("PNG export should not build a PDF");
+    },
+  });
+  assert.equal(pdfCalled, false);
+  assert.equal(result.blob, png);
+  assert.equal(result.format, "png");
+  assert.equal(result.filename, "Avery-Sharma-resume.png");
+});
+
 test("stops when capture fails instead of offering an invalid download", async () => {
   await assert.rejects(prepareResumeDownload({}, draft, {}, {
     renderElement: async () => { throw new Error("Fonts unavailable"); },
