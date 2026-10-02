@@ -3334,8 +3334,9 @@ function StartLearningPage({
     : activeArtifactKind === "medical"
       ? noSavedMedicalTraining
       : noSavedNotebooks;
+  const medicalIntakeOpen = workspaceView === "intake" && intakeMode === "medical";
   return (
-    <div className="learning-page">
+    <div className={`learning-page${medicalIntakeOpen ? " is-medical-intake" : ""}`}>
       <CodeMatrixSetupReturn step="notebook" complete={getCodeMatrixSetupSteps({ notebooks: notebookHistory })[1].complete} subjectName={subjectName} />
       {workspaceView === "medical" && (
         <nav className="learning-workspace-compact-controls" aria-label="Opened learning workspace controls">

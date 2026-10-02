@@ -75,6 +75,7 @@ body .notes-page .notes-list-header {
   padding: 12px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-md, 18px);
 }
 
 body.has-bg-image .notes-page .notes-list-header {

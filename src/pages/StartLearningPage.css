@@ -4349,3 +4349,78 @@ body .learning-career-item-actions button svg {
     flex: 0 1 auto;
   }
 }
+
+/* Keep Medical training history in view while the intake form scrolls. */
+.learning-page.is-medical-intake {
+  /* Workspace padding (88 + 28) and route-stage padding (18). */
+  --learning-medical-shell-space: 134px;
+  display: flex;
+  height: calc(var(--app-scaled-dynamic-viewport-height, 100dvh) - var(--learning-medical-shell-space));
+  min-height: 0;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
+.learning-page.is-medical-intake > .learning-workspace {
+  min-height: 0;
+  flex: 1;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.learning-page.is-medical-intake .learning-source-rail {
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.learning-page.is-medical-intake .learning-intake-source-panel {
+  height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.learning-page.is-medical-intake .learning-intake-source-panel > *,
+.learning-page.is-medical-intake .learning-saved-heading {
+  flex-shrink: 0;
+}
+
+.learning-page.is-medical-intake .learning-source-rail > :is(.learning-saved-panel, .learning-medical-history-empty) {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.learning-page.is-medical-intake .learning-saved-panel .learning-notebook-list {
+  min-height: 0;
+  flex: 1;
+  align-content: start;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 991.98px) {
+  .learning-page.is-medical-intake { --learning-medical-shell-space: 114px; }
+}
+
+@media (max-width: 900px) {
+  .learning-page.is-medical-intake .learning-source-rail {
+    grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .learning-page.is-medical-intake { --learning-medical-shell-space: 100px; }
+}
+
+@media (min-width: 992px) and (hover: hover) and (pointer: fine) {
+  .app-main-content.topbar-auto-hide-enabled:not(.topbar-visible) .learning-page.is-medical-intake {
+    --learning-medical-shell-space: 94px;
+  }
+}
