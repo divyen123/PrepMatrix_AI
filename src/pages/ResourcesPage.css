@@ -1,39 +1,27 @@
-/* Keep materials controls flat across the global glass and theme overrides. */
-body .resources-page.resources-page :is(button, a),
-body .resources-page.resources-page :is(button, a):is(:hover, :active, :focus-visible) {
+/* Keep action controls flat while preserving the subject cards' original styling. */
+body .resources-page.resources-page :is(button, a):not(.resource-subject-card),
+body .resources-page.resources-page :is(button, a):not(.resource-subject-card):is(:hover, :active, :focus-visible) {
   box-shadow: none !important;
   text-shadow: none !important;
   filter: none !important;
   transform: none !important;
 }
 
-body .resources-page.resources-page button {
+body .resources-page.resources-page button:not(.resource-subject-card) {
   background-image: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease !important;
 }
 
-body .resources-page.resources-page button::before,
-body .resources-page.resources-page button::after {
+body .resources-page.resources-page button:not(.resource-subject-card)::before,
+body .resources-page.resources-page button:not(.resource-subject-card)::after {
   display: none !important;
 }
 
-body .resources-page.resources-page :is(button, a):focus-visible {
+body .resources-page.resources-page :is(button, a):not(.resource-subject-card):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
-}
-
-body .resources-page.resources-page .resource-subject-card {
-  border-color: var(--border) !important;
-  border-radius: 16px;
-  background: var(--surface-strong) !important;
-  color: var(--text) !important;
-}
-
-body .resources-page.resources-page .resource-subject-card:hover {
-  border-color: rgba(var(--resource-tone-rgb), 0.6) !important;
-  background: var(--surface-muted) !important;
 }
 
 .resources-page .resource-detail-card {
@@ -818,7 +806,7 @@ body.dark .resources-page .material-book-dialog__close {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body .resources-page.resources-page button,
+  body .resources-page.resources-page button:not(.resource-subject-card),
   .resources-page .resource-search-trigger__chevron,
   .resources-page .resource-institution-toggle__track,
   .resources-page .resource-institution-toggle__track::after {
