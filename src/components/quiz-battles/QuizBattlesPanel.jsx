@@ -1010,7 +1010,7 @@ export default function QuizBattlesPanel({
         <div className="battle-group-heading">
           <div>
             <h3>{title}</h3>
-            <p>{description}</p>
+            {description && <p>{description}</p>}
           </div>
           <span>{items.length}</span>
         </div>
@@ -1316,7 +1316,7 @@ export default function QuizBattlesPanel({
         <div className="battle-groups">
           {renderGroup("Your turn", "Start or continue your attempt.", grouped.yourTurn)}
           {renderGroup("Waiting", "Invites and locked attempts waiting on your friend.", grouped.waiting)}
-          {renderGroup("Completed", "Released scores, XP, and answer reviews.", grouped.completed)}
+          {renderGroup("Released scores, XP, and answer reviews.", "", grouped.completed)}
           {grouped.inactive.length > 0 && (
             <details className="battle-inactive">
               <summary>Expired or cancelled ({grouped.inactive.length})</summary>

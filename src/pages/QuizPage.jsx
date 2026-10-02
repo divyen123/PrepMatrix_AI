@@ -32,6 +32,7 @@ import { getLearnerRoutePolicy } from "../utils/learnerRouting";
 import { quizBattleInviteCodeFromHash } from "../utils/quizBattleUi";
 import { resolveQuizPageView } from "../utils/quizPageView";
 import { isEditableShortcutTarget } from "../utils/appKeyboardShortcuts";
+import useSoloQuizHistory from "../hooks/useSoloQuizHistory";
 import "./QuizPage.css";
 import {
   QUIZ_SESSION_STATUSES,
@@ -68,16 +69,16 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
-  const [attempts, setAttempts] = useState([]);
   const [saveError, setSaveError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [quizMeta, setQuizMeta] = useState(null);
   const [historyPage, setHistoryPage] = useState(1);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [pendingDeleteAttemptId, setPendingDeleteAttemptId] = useState(null);
   const [deletingAttemptId, setDeletingAttemptId] = useState(null);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
-  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const [soloView, setSoloView] = useState("create");
   const [quizSession, setQuizSession] = useState(() => readQuizSession(window.localStorage, academicProfileDataId));
   const [deferredQuizSession, setDeferredQuizSession] = useState(null);
   const [focusedQuestionIndex, setFocusedQuestionIndex] = useState(0);
@@ -113,8 +114,14 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   });
   const battleTabActive = quizView === "battles";
   const quizHubActive = quizView === "hub";
+  const soloHistoryActive = quizView === "solo" && soloView === "history";
+  const { attempts, setAttempts, isHistoryLoading, historyError, reloadHistory } = useSoloQuizHistory({
+    academicProfileDataId,
+    enabled: soloHistoryActive,
+  });
   const [battleHomeActive, setBattleHomeActive] = useState(false);
   const updateQuizRoute = (mode, battleId = "") => {
+    setSoloView("create");
     const next = new URLSearchParams(searchParams);
     if (mode === "battles") next.set("tab", "battles");
     else next.set("tab", mode === "hub" ? "hub" : "solo");
@@ -143,6 +150,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
 
   useEffect(() => {
     hasInitializedSubject.current = false;
+    setSoloView("create");
     const stored = readQuizSession(window.localStorage, academicProfileDataId);
     const pausedSession = stored
       ? writeQuizSession(window.localStorage, academicProfileDataId, {
@@ -194,27 +202,6 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   }, [academicProfileDataId, searchParams, subjects]);
 
   const filteredSubjects = getRankedQuizSubjects(subjects, searchQuery);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    setIsHistoryLoading(true);
-
-    api.getQuizzes({ academicProfileId: academicProfileDataId })
-      .then((payload) => {
-        if (isMounted) setAttempts(payload.attempts || []);
-      })
-      .catch((error) => {
-        setSaveError(error instanceof Error ? error.message : "Could not load quiz history.");
-      })
-      .finally(() => {
-        if (isMounted) setIsHistoryLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [academicProfileDataId]);
 
 
 
@@ -544,6 +531,8 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   };
 
   const submitQuiz = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     const score = questions.reduce(
       (total, question) => total + (answers[question.id] === question.answerIndex ? 1 : 0),
       0
@@ -571,6 +560,8 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       setAttempts((current) => [payload.attempt, ...current]);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not save quiz attempt.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -585,7 +576,8 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
         || event.shiftKey
         || isEditableShortcutTarget(event.target)
         || event.target?.closest?.("button, a")
-        || battleTabActive
+        || quizView !== "solo"
+        || soloHistoryActive
         || soloQuizPaused
         || questions.length === 0
         || document.querySelector('[aria-modal="true"]')
@@ -634,7 +626,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
 
     document.addEventListener("keydown", handleQuizKeyboardShortcut);
     return () => document.removeEventListener("keydown", handleQuizKeyboardShortcut);
-  }, [answers, battleTabActive, focusedQuestionIndex, questions, result, soloQuizPaused]);
+  }, [answers, focusedQuestionIndex, questions, quizView, result, soloHistoryActive, soloQuizPaused]);
 
   const resumeQuiz = () => {
     setSaveError("");
@@ -760,8 +752,24 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     }
   };
 
+  const toggleSoloView = () => {
+    if (isGenerating || isSubmitting) return;
+    if (!soloHistoryActive && soloQuizActive) {
+      const paused = persistCurrentQuizSession(QUIZ_SESSION_STATUSES.PAUSED);
+      if (!paused) {
+        setSaveError("The quiz draft could not be saved. Stay here and try again.");
+        return;
+      }
+    }
+    setSaveError("");
+    setShowDropdown(false);
+    setShowClearConfirm(false);
+    setPendingDeleteAttemptId(null);
+    setSoloView(soloHistoryActive ? "create" : "history");
+  };
+
   return (
-    <section className="page-stack quiz-page">
+    <section className={`page-stack quiz-page${quizView === "solo" ? " quiz-page--solo" : ""}`}>
       {(!battleTabActive || battleHomeActive) && <div className="section-intro quiz-section-intro">
         {!quizHubActive && !isYoungKidsLearner ? (
           <button
@@ -772,6 +780,15 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
           ><ChevronLeft aria-hidden="true" size={19} /></button>
         ) : null}
         <h2>{quizHubActive ? "Practice solo or challenge a friend" : battleTabActive ? "Quiz Battles" : "Solo quiz"}</h2>
+        {quizView === "solo" ? (
+          <button
+            aria-controls="quiz-panel-solo"
+            className="quiz-solo-view-toggle"
+            disabled={isGenerating || isSubmitting}
+            onClick={toggleSoloView}
+            type="button"
+          >{soloHistoryActive ? "Create quiz" : "Recent attempts"}</button>
+        ) : null}
       </div>}
 
       {quizHubActive ? (
@@ -830,6 +847,8 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
           className="quiz-solo-panel"
           id="quiz-panel-solo"
         >
+      {!soloHistoryActive && (
+        <>
       <section className="card quiz-builder-card">
         <div className="quiz-builder-header">
           <h3>Build a quiz from your exact topic</h3>
@@ -1089,22 +1108,21 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
           {!result && (
             <button
               data-quiz-submit="true"
-              disabled={soloQuizPaused || Object.keys(answers).length !== questions.length}
+              disabled={isSubmitting || soloQuizPaused || Object.keys(answers).length !== questions.length}
               onClick={submitQuiz}
               type="button"
             >
-              Submit quiz
+              {isSubmitting ? "Saving..." : "Submit quiz"}
             </button>
           )}
         </section>
       )}
 
-      {attempts.length === 0 ? (
-        <p className="quiz-history-empty-note">
-          {isHistoryLoading ? "Loading quiz history..." : "Your recent quiz attempts appear here."}
-        </p>
-      ) : (
-        <section className="card quiz-history-card">
+        </>
+      )}
+
+      {soloHistoryActive && (
+        <section aria-label="Recent quiz attempts" className="quiz-history-card">
           <div className="quiz-history-header">
             <div>
               <h3>Recent attempts</h3>
@@ -1146,6 +1164,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
               ) : (
                 <button 
                   className="clear-history-btn" 
+                  disabled={isHistoryLoading || attempts.length === 0}
                   onClick={() => {
                     setPendingDeleteAttemptId(null);
                     setShowClearConfirm(true);
@@ -1159,6 +1178,13 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
               )}
             </div>
           </div>
+          {saveError && <p className="auth-message" role="alert">{saveError}</p>}
+          {historyError ? (
+            <div className="quiz-history-load-error" role="alert">
+              <p>{historyError}</p>
+              <button onClick={reloadHistory} type="button">Try again</button>
+            </div>
+          ) : null}
           <label className="stored-search-field quiz-history-mobile-search">
             <Search size={16} />
             <input
@@ -1171,7 +1197,9 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
           </label>
           <div className="quiz-history-grid">
             {isHistoryLoading ? (
-              <p className="card-subtext">Loading quiz history...</p>
+              <p className="quiz-history-empty-note" role="status">Loading quiz history...</p>
+            ) : attempts.length === 0 ? (
+              historyError ? null : <p className="quiz-history-empty-note">Your recent quiz attempts appear here.</p>
             ) : filteredAttempts.length === 0 ? (
             <p className="card-subtext">No quiz attempts match your search.</p>
           ) : (
@@ -1262,7 +1290,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
             })
           )}
         </div>
-        {filteredAttempts.length > QUIZ_HISTORY_PER_PAGE && (
+        {!isHistoryLoading && filteredAttempts.length > QUIZ_HISTORY_PER_PAGE && (
           <div className="pagination-bar">
             <button disabled={historyPage === 1} onClick={() => setHistoryPage((current) => current - 1)} type="button">
               Previous

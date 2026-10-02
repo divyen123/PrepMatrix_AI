@@ -163,7 +163,7 @@ body .pwa-status-dock .pwa-status-dock__secondary:focus-visible {
   transform: translateY(-1px);
 }
 
-body .pwa-status-dock.pwa-status-dock--update .pwa-status-dock__later {
+body .pwa-status-dock.pwa-status-dock--update :is(.pwa-status-dock__primary, .pwa-status-dock__later) {
   padding: 6px 2px;
   color: var(--text-muted) !important;
   background: transparent !important;
@@ -177,16 +177,20 @@ body .pwa-status-dock.pwa-status-dock--update .pwa-status-dock__later {
   text-underline-offset: 3px;
 }
 
-body .pwa-status-dock.pwa-status-dock--update .pwa-status-dock__later::after {
+body .pwa-status-dock.pwa-status-dock--update .pwa-status-dock__primary {
+  color: var(--text) !important;
+  font-size: 0.8rem;
+}
+
+body .pwa-status-dock.pwa-status-dock--update :is(.pwa-status-dock__primary, .pwa-status-dock__later)::after {
   display: none;
 }
 
-body .pwa-status-dock.pwa-status-dock--update .pwa-status-dock__later:hover,
-body .pwa-status-dock.pwa-status-dock--update .pwa-status-dock__later:focus-visible {
+body .pwa-status-dock.pwa-status-dock--update :is(.pwa-status-dock__primary, .pwa-status-dock__later):is(:hover, :focus-visible) {
   color: var(--accent) !important;
 }
 
-body .pwa-status-dock.pwa-status-dock--update .pwa-status-dock__later:focus-visible {
+body .pwa-status-dock.pwa-status-dock--update :is(.pwa-status-dock__primary, .pwa-status-dock__later):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

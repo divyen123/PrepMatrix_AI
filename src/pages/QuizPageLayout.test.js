@@ -42,7 +42,11 @@ test("displays background-free empty note when there are 0 quiz attempts", () =>
   const appCss = readFileSync(new URL("../App.css", import.meta.url), "utf8");
   assert.match(
     pageSource,
-    /\{attempts\.length === 0 \? \(\s*<p className="quiz-history-empty-note">\s*\{isHistoryLoading \? "Loading quiz history\.\.\." : "Your recent quiz attempts appear here\."\}\s*<\/p>\s*\) : \(\s*<section className="card quiz-history-card">/u,
+    /\{soloHistoryActive && \(\s*<section aria-label="Recent quiz attempts" className="quiz-history-card">/u,
+  );
+  assert.match(
+    pageSource,
+    /attempts\.length === 0 \? \(\s*historyError \? null : <p className="quiz-history-empty-note">Your recent quiz attempts appear here\.<\/p>/u,
   );
   assert.match(
     appCss,

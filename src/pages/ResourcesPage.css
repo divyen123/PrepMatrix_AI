@@ -719,15 +719,15 @@ body.dark .resources-page .material-book-card__button--buy:hover {
 
 .resources-page .material-buy-dialog::backdrop {
   background: rgba(4, 10, 22, 0);
-  backdrop-filter: blur(0);
-  -webkit-backdrop-filter: blur(0);
+  backdrop-filter: blur(0) brightness(1);
+  -webkit-backdrop-filter: blur(0) brightness(1);
   transition: background-color 220ms ease, backdrop-filter 220ms ease;
 }
 
 .resources-page .material-buy-dialog.is-visible::backdrop {
-  background: rgba(4, 10, 22, 0.5);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  background: rgba(4, 10, 22, 0.66);
+  backdrop-filter: blur(5px) brightness(0.72);
+  -webkit-backdrop-filter: blur(5px) brightness(0.72);
 }
 
 .resources-page .material-buy-dialog__content {

@@ -18,7 +18,7 @@ test("opens create, join, and history as separate Quiz Battle views", () => {
   assert.match(panelSource, /\{showHistory && \(loading \?/u);
   assert.match(panelSource, /className="battle-subpage-back"/u);
   assert.doesNotMatch(panelSource, /battle-dashboard-actions|dashboardActionsHost|createPortal/u);
-  assert.match(panelSource, /renderGroup\("Completed",[^\n]*grouped\.completed\)/u);
+  assert.match(panelSource, /renderGroup\("Released scores, XP, and answer reviews\.", "", grouped\.completed\)/u);
   assert.match(panelSource, /className="battle-form battle-create-form card"/u);
   assert.match(panelSource, /className="battle-form battle-join-form card"/u);
   const createSection = panelSource.slice(panelSource.indexOf("{showCreate && ("), panelSource.indexOf("{showJoin && ("));

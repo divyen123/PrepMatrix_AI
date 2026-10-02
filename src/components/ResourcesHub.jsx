@@ -11,6 +11,7 @@ import SubjectMaterialSearch from "./SubjectMaterialSearch";
 import { BookDetailsDialog, BuyMaterialsDialog } from "./MaterialBookDialogs";
 
 const SUBJECT_CARD_TONES = ["teal", "indigo", "amber", "violet", "rose"];
+const MATERIAL_BOOKS_PER_PAGE = 4;
 
 function rankSearchMatch(fields, query) {
   const cleanQuery = query.trim().toLowerCase();
@@ -65,7 +66,7 @@ export function SubjectBookShelf({ subject, academicProfile, academicLevel, acad
   const [result, setResult] = useState({ status: "loading", books: [] });
   const [retryCount, setRetryCount] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
-  const totalPages = Math.max(1, Math.ceil(result.books.length / 2));
+  const totalPages = Math.max(1, Math.ceil(result.books.length / MATERIAL_BOOKS_PER_PAGE));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -104,7 +105,7 @@ export function SubjectBookShelf({ subject, academicProfile, academicLevel, acad
       {result.status === "ready" && result.books.length === 0 ? <p className="material-book-shelf__message">No matching books found for this subject.</p> : null}
       {result.books.length > 0 ? (
         <div className="material-book-grid">
-          {result.books.slice(pageIndex * 2, pageIndex * 2 + 2).map((book) => (
+          {result.books.slice(pageIndex * MATERIAL_BOOKS_PER_PAGE, (pageIndex + 1) * MATERIAL_BOOKS_PER_PAGE).map((book) => (
             <BookCard book={book} key={book.bookId} onOpen={onOpenBook} />
           ))}
         </div>

@@ -292,7 +292,7 @@ const elements = (tree, predicate) => !tree || typeof tree !== "object" ? [] : [
   ...[tree.props?.children].flat(Infinity).flatMap((child) => elements(child, predicate)),
 ];
 
-test("the buy shelf pages through two cards at a time and opens the selected existing book detail", async () => {
+test("the buy shelf pages through four cards at a time and opens the selected existing book detail", async () => {
   const harness = createHarness();
   const props = { subject: "Linear algebra", academicProfile: {}, academicLevel: "College", academicTrack: "Engineering", onOpenBook: (book) => opened.push(book) };
   const opened = [];
@@ -305,12 +305,12 @@ test("the buy shelf pages through two cards at a time and opens the selected exi
     assert.deepEqual(bookRequests.at(-1).args.slice(0, 2), [props.subject, { academicLevel: "College", academicTrack: "Engineering" }]);
     bookRequests.at(-1).resolve(books);
     await Promise.resolve();
-    assert.deepEqual(cards().map((node) => node.props.book.bookId), ["book-0", "book-1"]);
+    assert.deepEqual(cards().map((node) => node.props.book.bookId), ["book-0", "book-1", "book-2", "book-3"]);
     assert.equal(button("Previous materials").props.disabled, true);
     assert.equal(button("Next materials").props.disabled, false);
-    button("Next materials").props.onClick();
-    assert.deepEqual(cards().map((node) => node.props.book.bookId), ["book-2", "book-3"]);
-    const card = cards()[1];
+    button("Previous materials").props.onClick();
+    assert.deepEqual(cards().map((node) => node.props.book.bookId), ["book-0", "book-1", "book-2", "book-3"], "the first page is bounded");
+    const card = cards()[3];
     const cardHarness = createHarness();
     const cardTree = cardHarness.render(() => card.type(card.props));
     elements(cardTree, (node) => node.type === "button")[0].props.onClick();
@@ -321,13 +321,14 @@ test("the buy shelf pages through two cards at a time and opens the selected exi
     button("Next materials").props.onClick();
     assert.deepEqual(cards().map((node) => node.props.book.bookId), ["book-4"], "the last page is bounded");
     button("Previous materials").props.onClick();
-    assert.deepEqual(cards().map((node) => node.props.book.bookId), ["book-2", "book-3"]);
+    assert.deepEqual(cards().map((node) => node.props.book.bookId), ["book-0", "book-1", "book-2", "book-3"]);
+    button("Next materials").props.onClick();
     props.subject = "Networks";
     draw(); harness.flushEffects();
-    bookRequests.at(-1).resolve(books.slice(0, 2));
+    bookRequests.at(-1).resolve(books.slice(0, 4));
     await Promise.resolve();
-    assert.deepEqual(cards().map((node) => node.props.book.bookId), ["book-0", "book-1"], "new recommendations reset pagination");
-    assert.equal(button("Next materials"), undefined, "two books need no extra paging controls");
+    assert.deepEqual(cards().map((node) => node.props.book.bookId), ["book-0", "book-1", "book-2", "book-3"], "new recommendations reset pagination");
+    assert.equal(button("Next materials"), undefined, "four books need no extra paging controls");
   } finally {
     harness.unmount();
   }
