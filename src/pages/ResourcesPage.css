@@ -74,54 +74,40 @@ body .resources-page .resource-link-card:has(a:hover) {
   text-align: center;
 }
 
-.resources-page .resource-book-entry {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.resources-page .resource-book-entry__button {
+body .resources-page .resource-material-search .resource-book-entry__button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  min-height: 42px;
-  padding: 9px 15px;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 12px;
   border: 1px solid rgba(var(--accent-rgb), 0.3) !important;
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgba(var(--accent-rgb), 0.12) !important;
   color: var(--accent-strong) !important;
   box-shadow: none !important;
   font: inherit;
-  font-size: 0.85rem;
-  font-weight: 800;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.4;
+  cursor: pointer;
 }
 
-.resources-page .resource-book-entry__button:hover,
-.resources-page .resource-book-entry__button[aria-expanded="true"] {
+body .resources-page .resource-material-search .resource-book-entry__button:hover,
+body .resources-page .resource-material-search .resource-book-entry__button[aria-expanded="true"] {
   border-color: rgba(var(--accent-rgb), 0.5) !important;
   background: rgba(var(--accent-rgb), 0.2) !important;
   box-shadow: none !important;
   transform: none !important;
 }
 
-.resources-page .resource-book-entry__button:focus-visible,
+body .resources-page .resource-material-search .resource-book-entry__button:focus-visible,
 .resources-page .material-book-card__toggle:focus-visible,
 .resources-page .material-book-card__button:focus-visible,
+body .resources-page .material-buy-dialog .material-buy-dialog__close:focus-visible,
 .resources-page .material-book-dialog__close:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
-}
-
-.resource-book-entry__chevron {
-  transition: transform 180ms ease;
-}
-
-.resource-book-entry__button[aria-expanded="true"] .resource-book-entry__chevron {
-  transform: rotate(180deg);
 }
 
 .resources-page .resource-material-search {
@@ -283,15 +269,15 @@ body .resources-page .resource-search-popover .resource-search-popover__close:ho
   line-height: 1.5;
 }
 
-.resources-page .resource-search-panel__entry {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+.resources-page .resource-search-panel__field {
   min-width: 0;
 }
 
-.resources-page .resource-search-panel__field {
-  flex: 1 1 0;
+.resources-page .resource-search-panel__footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -391,6 +377,7 @@ body .resources-page .resource-material-search :is(.resource-search-trigger, .re
   justify-self: start;
   gap: 9px;
   max-width: 100%;
+  min-width: 0;
   min-height: 32px;
   color: var(--text);
   font-size: 0.79rem;
@@ -456,6 +443,11 @@ body .resources-page .resource-material-search :is(.resource-search-trigger, .re
   display: block;
   color: var(--text-muted);
   font-size: 0.73rem;
+  overflow-wrap: anywhere;
+}
+
+.resources-page .resource-institution-toggle > span:last-child {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
@@ -702,6 +694,206 @@ body.dark .resources-page .material-book-card__button--buy:hover {
   color: #f8fafc !important;
 }
 
+.resources-page .material-buy-dialog {
+  width: min(560px, calc(100vw - 24px));
+  max-width: none;
+  max-height: min(85dvh, 520px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-secondary);
+  color: var(--text);
+  box-shadow: none;
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.resources-page .material-buy-dialog.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.resources-page .material-buy-dialog::backdrop {
+  background: rgba(4, 10, 22, 0);
+  backdrop-filter: blur(0);
+  -webkit-backdrop-filter: blur(0);
+  transition: background-color 220ms ease, backdrop-filter 220ms ease;
+}
+
+.resources-page .material-buy-dialog.is-visible::backdrop {
+  background: rgba(4, 10, 22, 0.5);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.resources-page .material-buy-dialog__content {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.resources-page .material-buy-dialog__header {
+  display: grid;
+  gap: 4px;
+  padding-right: 34px;
+}
+
+.resources-page .material-buy-dialog__header h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.resources-page .material-buy-dialog__header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.79rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+body .resources-page .material-buy-dialog .material-buy-dialog__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(225, 53, 80, 0.25) !important;
+  border-radius: 50% !important;
+  background: rgba(225, 53, 80, 0.09) !important;
+  color: #c8334c !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .resources-page .material-buy-dialog .material-buy-dialog__close:hover {
+  border-color: rgba(225, 53, 80, 0.4) !important;
+  background: rgba(225, 53, 80, 0.15) !important;
+}
+
+body.dark .resources-page .material-buy-dialog .material-buy-dialog__close,
+body.has-bg-image .resources-page .material-buy-dialog .material-buy-dialog__close {
+  color: #fb9aa8 !important;
+}
+
+.resources-page .material-buy-dialog .material-book-shelf {
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.resources-page .material-buy-dialog .material-book-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 10px;
+}
+
+.resources-page .material-buy-dialog .material-book-shelf__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+body .resources-page .material-buy-dialog .material-book-shelf__pagination button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  background: var(--surface-muted) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .resources-page .material-buy-dialog .material-book-shelf__pagination button:hover:not(:disabled) {
+  border-color: rgba(var(--accent-rgb), 0.4) !important;
+  background: rgba(var(--accent-rgb), 0.08) !important;
+}
+
+.resources-page .material-buy-dialog .material-book-shelf__pagination > span {
+  min-width: 40px;
+  text-align: center;
+}
+
+.resources-page .material-buy-dialog .material-book-card,
+.resources-page .material-buy-dialog .material-book-card:hover {
+  border-radius: 12px;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+  transition: border-color 160ms ease;
+}
+
+.resources-page .material-buy-dialog::before,
+.resources-page .material-buy-dialog::after,
+.resources-page .material-buy-dialog .material-book-card::before,
+.resources-page .material-buy-dialog .material-book-card::after {
+  display: none !important;
+}
+
+.resources-page .material-buy-dialog .material-book-card__toggle {
+  grid-template-columns: minmax(0, 1fr) 16px;
+  grid-template-rows: 84px minmax(0, 1fr);
+  gap: 10px;
+  height: 100%;
+  min-height: 170px;
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.resources-page .material-buy-dialog .material-book-card__cover {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: 58px;
+  height: 84px;
+  box-shadow: none;
+}
+
+.resources-page .material-buy-dialog .material-book-card__summary {
+  align-self: center;
+  gap: 4px;
+}
+
+.resources-page .material-buy-dialog .material-book-card__summary strong {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.resources-page .material-buy-dialog .material-book-card__summary > span {
+  font-size: 0.73rem;
+}
+
+.resources-page .material-buy-dialog .material-book-card__chevron {
+  align-self: center;
+  width: 16px;
+  height: 16px;
+}
+
 .resources-page .material-book-dialog {
   width: min(560px, calc(100vw - 32px));
   max-width: none;
@@ -851,7 +1043,8 @@ body.dark .resources-page .material-book-dialog__close {
     grid-column: 1 / -1;
   }
 
-  body .resources-page .resource-material-search .resource-search-trigger {
+  body .resources-page .resource-material-search .resource-search-trigger,
+  body .resources-page .resource-material-search .resource-book-entry__button {
     gap: 6px;
     padding-inline: 9px;
     font-size: 0.78rem;
@@ -865,16 +1058,26 @@ body.dark .resources-page .material-book-dialog__close {
     padding: 11px;
   }
 
-  .resources-page .resource-book-entry {
-    padding-top: 14px;
-  }
-
   .resources-page .material-book-shelf {
     padding: 10px;
   }
 
   .resources-page .material-book-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .resources-page .material-buy-dialog__content {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .resources-page .material-buy-dialog .material-book-card__toggle {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .resources-page .material-buy-dialog .material-book-card__summary strong {
+    font-size: 0.8rem;
   }
 
   .resources-page .material-book-dialog__content {
@@ -908,10 +1111,16 @@ body.dark .resources-page .material-book-dialog__close {
   }
 
   .resources-page .material-book-card,
-  .resources-page .resource-book-entry__chevron,
+  .resources-page .material-buy-dialog .material-book-card,
+  .resources-page .material-buy-dialog,
+  .resources-page .material-buy-dialog::backdrop,
   .resources-page .material-book-dialog,
   .resources-page .material-book-dialog::backdrop,
   .resources-page .material-book-dialog__close {
     transition-duration: 0.01ms;
+  }
+
+  .resources-page .material-buy-dialog {
+    transform: none;
   }
 }

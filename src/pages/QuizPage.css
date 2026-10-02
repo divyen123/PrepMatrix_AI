@@ -1,3 +1,18 @@
+/* Solo quiz surfaces stay still while their controls remain interactive. */
+body .quiz-page .quiz-solo-panel :is(.card, .quiz-history-item),
+body .quiz-page .quiz-solo-panel :is(.card, .quiz-history-item):hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .quiz-page .quiz-solo-panel :is(.card, .quiz-history-item)::before {
+  display: none !important;
+}
+
+body .quiz-page .quiz-solo-panel :is(.card, .quiz-history-item):hover {
+  border-color: var(--border) !important;
+}
+
 /* Quiz destinations use the same calm, color-coded language as Exam. */
 .quiz-page .quiz-section-intro {
   display: flex;

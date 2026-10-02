@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ArrowRight, BookOpen, Check, ChevronDown, ChevronLeft, ExternalLink, Search, ShoppingBag, Trash2, X } from "lucide-react";
+import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Search, ShoppingBag, Trash2, X } from "lucide-react";
 import { getPlannerMetrics } from "../utils/plannerMetrics";
 import { buildSubjectMaterials } from "../utils/materialRecommendations";
 import { materialBookmarkKey, normalizeMaterialBookmarks } from "../utils/materialBookmarks";
-import { fetchSubjectBooks, resolveBookRetailers } from "../utils/bookRecommendations";
+import { fetchSubjectBooks } from "../utils/bookRecommendations";
 import { resolveMaterialGuideSubjects } from "../utils/materialGuideNavigation";
-import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 import { normalizeAcademicProfile } from "../utils/academicProfile";
 import SubjectMaterialSearch from "./SubjectMaterialSearch";
+import { BookDetailsDialog, BuyMaterialsDialog } from "./MaterialBookDialogs";
 
 const SUBJECT_CARD_TONES = ["teal", "indigo", "amber", "violet", "rose"];
 
@@ -56,88 +56,16 @@ function BookCard({ book, onOpen }) {
   );
 }
 
-function BookDetailsDialog({ book, saved, onSave, onClose }) {
-  const dialogRef = useRef(null);
-  const closeTimerRef = useRef(null);
-  const returnFocusRef = useRef(null);
-  const entryFramesRef = useRef([]);
-  const [visible, setVisible] = useState(false);
-  const [coverFailed, setCoverFailed] = useState(false);
-  const retailers = resolveBookRetailers(book);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    returnFocusRef.current = document.activeElement;
-    dialog.showModal();
-    const releaseScrollLock = acquireDocumentScrollLock();
-    const entryFrames = [];
-    entryFramesRef.current = entryFrames;
-    entryFrames[0] = window.requestAnimationFrame(() => {
-      entryFrames[1] = window.requestAnimationFrame(() => setVisible(true));
-    });
-    return () => {
-      entryFrames.forEach((frame) => window.cancelAnimationFrame(frame));
-      window.clearTimeout(closeTimerRef.current);
-      dialog.close();
-      releaseScrollLock();
-      if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus({ preventScroll: true });
-    };
-  }, []);
-
-  function closeDialog() {
-    if (closeTimerRef.current !== null) return;
-    entryFramesRef.current.forEach((frame) => window.cancelAnimationFrame(frame));
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      onClose();
-      return;
-    }
-    setVisible(false);
-    closeTimerRef.current = window.setTimeout(onClose, 220);
-  }
-
-  return (
-    <dialog
-      aria-labelledby="material-book-dialog-title"
-      aria-modal="true"
-      className={`material-book-dialog${visible ? " is-visible" : ""}`}
-      onCancel={(event) => { event.preventDefault(); closeDialog(); }}
-      onClick={(event) => { if (event.target === event.currentTarget) closeDialog(); }}
-      ref={dialogRef}
-    >
-      <div className="material-book-dialog__content">
-        <button aria-label="Close book details" className="material-book-dialog__close" onClick={closeDialog} type="button"><X aria-hidden="true" size={17} /></button>
-        <div className="material-book-dialog__hero">
-          <span className="material-book-dialog__cover">
-            {book.cover && !coverFailed ? <img alt="" onError={() => setCoverFailed(true)} src={book.cover} /> : <BookOpen aria-hidden="true" size={32} />}
-          </span>
-          <div>
-            <h2 id="material-book-dialog-title">{book.title}</h2>
-            {book.author ? <p>{book.author}</p> : null}
-          </div>
-        </div>
-        {book.description ? <p className="material-book-dialog__description">{book.description}</p> : null}
-        {book.edition || book.isbn ? <p className="material-book-dialog__edition">{[book.edition, book.isbn ? `ISBN ${book.isbn}` : ""].filter(Boolean).join(" · ")}</p> : null}
-        <div className="material-book-dialog__actions">
-          <button className="material-book-card__button" disabled={saved} onClick={() => onSave?.(book)} type="button">{saved ? <><Check aria-hidden="true" size={16} /> Saved</> : "Save"}</button>
-          {retailers.map((retailer) => (
-            <a className="material-book-card__button material-book-card__button--buy" href={retailer.href} key={`${retailer.name}-${retailer.href}`} rel="noopener noreferrer" target="_blank">
-              <ShoppingBag aria-hidden="true" size={15} /> {retailer.mode === "search" ? `Search ${retailer.name}` : `Buy on ${retailer.name}`} <ExternalLink aria-hidden="true" size={13} />
-            </a>
-          ))}
-        </div>
-      </div>
-    </dialog>
-  );
-}
-
 function SavedBookCover({ src }) {
   const [failed, setFailed] = useState(false);
   return src && !failed ? <img alt="" className="bookmark-card__book-image" onError={() => setFailed(true)} src={src} /> : null;
 }
 
-function SubjectBookShelf({ subject, academicProfile, academicLevel, academicTrack, onOpenBook }) {
+export function SubjectBookShelf({ subject, academicProfile, academicLevel, academicTrack, onOpenBook }) {
   const [result, setResult] = useState({ status: "loading", books: [] });
   const [retryCount, setRetryCount] = useState(0);
+  const [pageIndex, setPageIndex] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(result.books.length / 2));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -147,7 +75,10 @@ function SubjectBookShelf({ subject, academicProfile, academicLevel, academicTra
       academicTrack,
     }, { signal: controller.signal })
       .then((books) => {
-        if (!controller.signal.aborted) setResult({ status: "ready", books });
+        if (!controller.signal.aborted) {
+          setResult({ status: "ready", books });
+          setPageIndex(0);
+        }
       })
       .catch((error) => {
         if (!controller.signal.aborted && error?.name !== "AbortError") {
@@ -173,9 +104,20 @@ function SubjectBookShelf({ subject, academicProfile, academicLevel, academicTra
       {result.status === "ready" && result.books.length === 0 ? <p className="material-book-shelf__message">No matching books found for this subject.</p> : null}
       {result.books.length > 0 ? (
         <div className="material-book-grid">
-          {result.books.map((book) => (
+          {result.books.slice(pageIndex * 2, pageIndex * 2 + 2).map((book) => (
             <BookCard book={book} key={book.bookId} onOpen={onOpenBook} />
           ))}
+        </div>
+      ) : null}
+      {totalPages > 1 ? (
+        <div aria-label="Browse materials" className="material-book-shelf__pagination">
+          <button aria-label="Previous materials" disabled={pageIndex === 0} onClick={() => setPageIndex((page) => Math.max(0, page - 1))} type="button">
+            <ChevronLeft aria-hidden="true" size={16} />
+          </button>
+          <span aria-live="polite">{pageIndex + 1} / {totalPages}</span>
+          <button aria-label="Next materials" disabled={pageIndex === totalPages - 1} onClick={() => setPageIndex((page) => Math.min(totalPages - 1, page + 1))} type="button">
+            <ChevronRight aria-hidden="true" size={16} />
+          </button>
         </div>
       ) : null}
     </section>
@@ -475,32 +417,20 @@ function ResourcesHub({
               institutionName={institutionName}
               key={`${activeResource.subject}-${institutionName}`}
               subject={activeSubject}
+              trailingAction={(
+                <button
+                  aria-controls={booksOpen ? "material-buy-dialog" : undefined}
+                  aria-expanded={booksOpen}
+                  aria-haspopup="dialog"
+                  className="resource-book-entry__button"
+                  onClick={() => setBooksOpen(true)}
+                  type="button"
+                >
+                  <ShoppingBag aria-hidden="true" size={16} />
+                  Buy materials
+                </button>
+              )}
             />
-
-            {booksOpen ? (
-              <SubjectBookShelf
-                academicLevel={academicLevel}
-                academicProfile={academicProfile}
-                academicTrack={academicTrack}
-                key={activeResource.subject}
-                onOpenBook={setOpenBook}
-                subject={activeResource.subject}
-              />
-            ) : null}
-
-            <div className="resource-book-entry">
-              <button
-                aria-controls={booksOpen ? "subject-books" : undefined}
-                aria-expanded={booksOpen}
-                className="resource-book-entry__button"
-                onClick={() => setBooksOpen((current) => !current)}
-                type="button"
-              >
-                <ShoppingBag aria-hidden="true" size={17} />
-                Buy materials
-                <ChevronDown aria-hidden="true" className="resource-book-entry__chevron" size={16} />
-              </button>
-            </div>
           </article>
         </div>
       ) : materials.length > 0 ? (
@@ -535,9 +465,21 @@ function ResourcesHub({
           </div>
         </section>
       ) : null}
+      {booksOpen && activeResource ? (
+        <BuyMaterialsDialog key={activeResource.subject} onClose={() => setBooksOpen(false)} subject={activeResource.subject}>
+          <SubjectBookShelf
+            academicLevel={academicLevel}
+            academicProfile={academicProfile}
+            academicTrack={academicTrack}
+            onOpenBook={setOpenBook}
+            subject={activeResource.subject}
+          />
+        </BuyMaterialsDialog>
+      ) : null}
       {openBook ? (
         <BookDetailsDialog
           book={openBook}
+          key={materialBookmarkKey(openBook)}
           onClose={() => setOpenBook(null)}
           onSave={onSaveBookmark}
           saved={savedBookKeys.has(materialBookmarkKey(openBook))}

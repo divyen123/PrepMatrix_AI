@@ -10,6 +10,20 @@
   gap: 18px;
 }
 
+body .quiz-page :is(.battle-create-form.card, .battle-detail.card:has(> .battle-result-stack)),
+body .quiz-page :is(.battle-create-form.card, .battle-detail.card:has(> .battle-result-stack)):hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .quiz-page :is(.battle-create-form.card, .battle-detail.card:has(> .battle-result-stack))::before {
+  display: none !important;
+}
+
+body .quiz-page :is(.battle-create-form.card, .battle-detail.card:has(> .battle-result-stack)):hover {
+  border-color: var(--border) !important;
+}
+
 .battle-panel,
 .battle-groups,
 .battle-group,

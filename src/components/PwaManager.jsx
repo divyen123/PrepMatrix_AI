@@ -58,7 +58,6 @@ export function PwaStatusDock({
     update: {
       eyebrow: "",
       title: "A new PrepMatrix version is ready",
-      detail: "Reload when you’re ready to use the latest version.",
     },
   }[surface];
 
@@ -78,7 +77,7 @@ export function PwaStatusDock({
           <span className="pwa-status-dock__eyebrow">{content.eyebrow}</span>
         )}
         <strong>{content.title}</strong>
-        <p>{content.detail}</p>
+        {content.detail && <p>{content.detail}</p>}
         {snapshot.error && <p className="pwa-status-dock__error">{snapshot.error}</p>}
 
         {surface === "update" && (
@@ -94,7 +93,7 @@ export function PwaStatusDock({
               {snapshot.updateBusy ? "Updating…" : "Update & reload"}
             </button>
             <button
-              className="pwa-status-dock__secondary"
+              className="pwa-status-dock__later"
               disabled={snapshot.updateBusy}
               onClick={onDismissUpdate}
               type="button"

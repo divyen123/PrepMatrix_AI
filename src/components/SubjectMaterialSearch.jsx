@@ -43,39 +43,53 @@ export function MaterialSearchPanel({ kind, options, subjectName, institutionNam
         </span>
         {options.length > 0 ? <span className="resource-search-panel__hint">{options.length} saved</span> : null}
       </div>
-      <div className="resource-search-panel__entry">
-        <div className="resource-search-panel__field">
-          {options.length > 1 ? (
-            <div aria-labelledby={`${id}-label`} className="resource-search-options" role="radiogroup">
-              {options.map((option, index) => (
-                <label className="resource-search-option" key={option}>
-                  <input
-                    checked={selectedOption === option}
-                    name={`${id}-choice`}
-                    onChange={() => setSelectedOption(option)}
-                    ref={index === 0 ? fieldRef : undefined}
-                    type="radio"
-                    value={option}
-                  />
-                  <span>{option}</span>
-                </label>
-              ))}
-            </div>
-          ) : (
-            <input
-              aria-labelledby={`${id}-label`}
-              autoComplete="off"
-              className="resource-search-input"
-              maxLength={160}
-              onChange={(event) => setCustomTerm(event.target.value)}
-              placeholder={`Enter a ${kind} name`}
-              readOnly={options.length === 1}
-              ref={fieldRef}
-              type="text"
-              value={options.length === 1 ? options[0] : customTerm}
-            />
-          )}
-        </div>
+      <div className="resource-search-panel__field">
+        {options.length > 1 ? (
+          <div aria-labelledby={`${id}-label`} className="resource-search-options" role="radiogroup">
+            {options.map((option, index) => (
+              <label className="resource-search-option" key={option}>
+                <input
+                  checked={selectedOption === option}
+                  name={`${id}-choice`}
+                  onChange={() => setSelectedOption(option)}
+                  ref={index === 0 ? fieldRef : undefined}
+                  type="radio"
+                  value={option}
+                />
+                <span>{option}</span>
+              </label>
+            ))}
+          </div>
+        ) : (
+          <input
+            aria-labelledby={`${id}-label`}
+            autoComplete="off"
+            className="resource-search-input"
+            maxLength={160}
+            onChange={(event) => setCustomTerm(event.target.value)}
+            placeholder={`Enter a ${kind} name`}
+            readOnly={options.length === 1}
+            ref={fieldRef}
+            type="text"
+            value={options.length === 1 ? options[0] : customTerm}
+          />
+        )}
+      </div>
+      {!hasInstitution ? (
+        <p className="resource-search-panel__note">Add your institution in your academic profile to include it in searches.</p>
+      ) : null}
+      <div className="resource-search-panel__footer">
+        <label className="resource-institution-toggle">
+          <input
+            checked={hasInstitution && includeInstitution}
+            disabled={!hasInstitution}
+            onChange={(event) => setIncludeInstitution(event.target.checked)}
+            role="switch"
+            type="checkbox"
+          />
+          <span aria-hidden="true" className="resource-institution-toggle__track" />
+          <span>Include institution{hasInstitution ? <small>{institutionName}</small> : null}</span>
+        </label>
         <button
           aria-label={`Search ${kind} materials in a new tab`}
           className="resource-search-submit"
@@ -86,25 +100,11 @@ export function MaterialSearchPanel({ kind, options, subjectName, institutionNam
           <Search aria-hidden="true" size={18} />
         </button>
       </div>
-      <label className="resource-institution-toggle">
-        <input
-          checked={hasInstitution && includeInstitution}
-          disabled={!hasInstitution}
-          onChange={(event) => setIncludeInstitution(event.target.checked)}
-          role="switch"
-          type="checkbox"
-        />
-        <span aria-hidden="true" className="resource-institution-toggle__track" />
-        <span>Include institution{hasInstitution ? <small>{institutionName}</small> : null}</span>
-      </label>
-      {!hasInstitution ? (
-        <p className="resource-search-panel__note">Add your institution in your academic profile to include it in searches.</p>
-      ) : null}
     </form>
   );
 }
 
-export default function SubjectMaterialSearch({ subject, institutionName = "" }) {
+export default function SubjectMaterialSearch({ subject, institutionName = "", trailingAction = null }) {
   const [activeMode, setActiveMode] = useState("");
   const [popupOpen, setPopupOpen] = useState(false);
   const popupRef = useRef(null);
@@ -221,6 +221,7 @@ export default function SubjectMaterialSearch({ subject, institutionName = "" })
             <ChevronDown aria-hidden="true" className="resource-search-trigger__chevron" size={14} />
           </button>
         ))}
+        {trailingAction}
       </div>
       <div
         aria-hidden={!popupOpen}

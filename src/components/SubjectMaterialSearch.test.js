@@ -132,7 +132,7 @@ test("missing institution disables its direct link and per-search toggles with s
   assert.match(contents(tree), /Add your institution in your academic profile/u);
 });
 
-test("subject detail keeps the Buy materials control last, removes chapter cards and wires real search context", () => {
+test("subject detail puts Buy materials beside Search topic and wires real search context without a footer", () => {
   const subject = { name: "Data communication and computer networks", chapters: 4 };
   const markup = renderToStaticMarkup(React.createElement(MemoryRouter, {
     initialEntries: [`/materials?subject=${encodeURIComponent(subject.name)}`],
@@ -148,11 +148,15 @@ test("subject detail keeps the Buy materials control last, removes chapter cards
   assert.equal(new URL(attr(directLink, "href")).searchParams.get("q"), `${subject.name} Sathyabama materials`);
   const webNotes = byTag(detail, "a").find((node) => contents(node).includes("Web notes"));
   assert.equal(new URL(attr(webNotes, "href")).searchParams.get("q"), `Engineering & Technology Information Technology ${subject.name} materials pdf`);
-  const lastElement = detail.childNodes.filter((node) => node.tagName).at(-1);
-  assert.equal(attr(lastElement, "class"), "resource-book-entry");
-  assert.equal(contents(lastElement).trim(), "Buy materials");
+  const actions = nodes(detail, (node) => attr(node, "class")?.split(" ").includes("resource-material-search__actions"))[0];
+  assert.ok(actions);
+  const controls = byTag(actions, "button");
+  assert.deepEqual(controls.map(contents), ["Search chapter", "Search topic", "Buy materials"]);
+  const buyButton = controls.at(-1);
+  assert.equal(attr(buyButton, "aria-haspopup"), "dialog");
+  assert.equal(nodes(detail, (node) => attr(node, "class")?.split(" ").includes("resource-book-entry")).length, 0);
+  assert.equal(nodes(tree, (node) => attr(node, "class")?.split(" ").includes("material-book-shelf")).length, 0);
   assert.ok(markup.indexOf("resource-lane-grid") < markup.indexOf("resource-material-search"));
-  assert.ok(markup.indexOf("resource-material-search") < markup.indexOf("resource-book-entry"));
 });
 
 // A small hook fixture exercises actual callbacks without a browser or DOM renderer.
