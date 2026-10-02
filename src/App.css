@@ -10629,6 +10629,12 @@ body.chat-open {
   overscroll-behavior: none;
 }
 
+/* The dialog receives focus on open; only its controls need a visible focus ring. */
+body .sidebar-chatbot-portal:focus,
+body .sidebar-chatbot-portal:focus-visible {
+  outline: none !important;
+}
+
 .sidebar-chatbot-portal .chat-messages,
 .sidebar-chatbot-portal .history-sessions-list,
 .sidebar-chatbot-portal .chat-attachment-tray,

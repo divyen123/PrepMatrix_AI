@@ -319,17 +319,19 @@ export default function AnswerCoachPanel({ papers = [], onAddRevisionTask }) {
             </>
           ) : <p>Generate a question paper first, then return here with your solved answers.</p>}
         </section>
-        <section className="card answer-coach-history">
-          <h3>Saved reviews</h3>
-          {reports.length ? <ul>{reports.map((item) => (
-            <li key={idOf(item)}>
-              <button disabled={loadingReportId === idOf(item)} onClick={() => loadReport(idOf(item))} type="button">
-                <strong>{item.paperTitle || "Question paper"}</strong>
-                <span>{dateLabel(item.createdAt)}</span>
-              </button>
-            </li>
-          ))}</ul> : <p>Your answer reviews will appear here.</p>}
-        </section>
+        {reports.length ? (
+          <section className="card answer-coach-history">
+            <h3>Saved reviews</h3>
+            <ul>{reports.map((item) => (
+              <li key={idOf(item)}>
+                <button disabled={loadingReportId === idOf(item)} onClick={() => loadReport(idOf(item))} type="button">
+                  <strong>{item.paperTitle || "Question paper"}</strong>
+                  <span>{dateLabel(item.createdAt)}</span>
+                </button>
+              </li>
+            ))}</ul>
+          </section>
+        ) : <p className="answer-coach-history-empty">Your answer reviews will appear here.</p>}
       </div>
 
       {analysis && (

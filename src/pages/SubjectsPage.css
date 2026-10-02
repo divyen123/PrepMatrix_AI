@@ -1,3 +1,8 @@
+body .subjects-page .subjects-add-subject > .card::before,
+body .subjects-page .subject-overview-card::before {
+  display: none !important;
+}
+
 .subjects-page .subjects-page-intro {
   display: flex;
   flex-wrap: wrap;
