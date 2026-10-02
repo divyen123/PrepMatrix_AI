@@ -206,7 +206,7 @@ const LEVEL_PROFILES = {
 
 const MATERIAL_SEARCH_INTENTS = Object.freeze({
   concept: "tutorial",
-  notes: "notes pdf",
+  notes: "materials pdf",
   practice: "practice questions",
   recap: "revision notes",
 });
@@ -235,7 +235,7 @@ function materialSearchQuery(subjectName, learner, kind) {
     ? [learner.grade || learner.academicLevel, field, learner.schoolStream]
     : [field, branch];
   const intents = learner.band === "early" ? EARLY_SEARCH_INTENTS : MATERIAL_SEARCH_INTENTS;
-  const intent = learner.schoolType === "college" && ["concept", "notes"].includes(kind)
+  const intent = learner.schoolType === "college" && kind === "concept"
     ? `university ${intents[kind]}` : intents[kind];
   return compactSearchParts([...context, subjectName, intent]);
 }

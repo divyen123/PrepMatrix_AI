@@ -44,7 +44,7 @@ test("keeps bookmark and save behavior while separating overview from subject de
   assert.match(source, /!activeResource && safeMaterialBookmarks\.length > 0/u);
   assert.match(source, /onSaveBookmark\?\.\(\{[\s\S]*?subject: activeResource\.subject/u);
   assert.match(source, /\{saved \? "Saved" : "Save"\}/u);
-  assert.match(source, /activeResource\.chapterPath\.map/u);
+  assert.doesNotMatch(source, /activeResource\.chapterPath\.map|resource-chapter-strip/u);
 });
 
 test("subject navigation is responsive and respects reduced motion", () => {

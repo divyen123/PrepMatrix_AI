@@ -58,7 +58,7 @@ test("material searches retain field and specialty while qualification stays in 
   assert.ok(decodedLinks.every((link) => !/machine learning|react|software engineering/iu.test(link)));
   assert.deepEqual(searchQueries(materials.lanes), [
     "Medical & Health Sciences Dentistry Oral Pathology university tutorial",
-    "Medical & Health Sciences Dentistry Oral Pathology university notes pdf",
+    "Medical & Health Sciences Dentistry Oral Pathology materials pdf",
     "Medical & Health Sciences Dentistry Oral Pathology practice questions",
     "Medical & Health Sciences Dentistry Oral Pathology revision notes",
   ]);
@@ -87,7 +87,7 @@ test("chat material suggestions preserve the full active academic profile", () =
   assert.ok(decodedLinks.every((link) => !/frontend|react|machine learning/iu.test(link)));
   assert.deepEqual(searchQueries(suggestions), [
     "Medical & Health Sciences Nursing Fluid balance university tutorial",
-    "Medical & Health Sciences Nursing Fluid balance university notes pdf",
+    "Medical & Health Sciences Nursing Fluid balance materials pdf",
     "Medical & Health Sciences Nursing Fluid balance practice questions",
     "Medical & Health Sciences Nursing Fluid balance revision notes",
   ]);
@@ -115,7 +115,7 @@ test("school material searches follow the active class and board", () => {
   assert.ok(decodedLinks.every((link) => /CBSE/iu.test(link)));
   assert.deepEqual(searchQueries(materials.lanes), [
     "Class 2 CBSE Environmental Studies tutorial",
-    "Class 2 CBSE Environmental Studies notes pdf",
+    "Class 2 CBSE Environmental Studies materials pdf",
     "Class 2 CBSE Environmental Studies practice questions",
     "Class 2 CBSE Environmental Studies revision notes",
   ]);
@@ -127,7 +127,7 @@ test("matching specialty and subject appear once without losing the academic fie
     profile.academicLevel, profile.academicTrack, profile);
   assert.deepEqual(searchQueries(materials.lanes), [
     "Medical & Health Sciences Nursing university tutorial",
-    "Medical & Health Sciences Nursing university notes pdf",
+    "Medical & Health Sciences Nursing materials pdf",
     "Medical & Health Sciences Nursing practice questions",
     "Medical & Health Sciences Nursing revision notes",
   ]);

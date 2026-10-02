@@ -69,7 +69,7 @@ test("all material providers use compact field, branch and subject queries with 
   });
   const context = "Engineering & Technology Information Technology RestAPI";
   assert.deepEqual(queries, [
-    `${context} university tutorial`, `${context} university notes pdf`,
+    `${context} university tutorial`, `${context} materials pdf`,
     `${context} practice questions`, `${context} revision notes`,
   ]);
   assert.ok(queries.every((query) => !/undergraduate|bachelor|B\.Tech|chapter 4|technical|standards|Private University/iu.test(query)));
@@ -81,17 +81,17 @@ test("all material providers use compact field, branch and subject queries with 
 
 test("generic profiles omit empty placeholders and duplicate context without damaging subject punctuation", () => {
   const generic = buildSubjectMaterials({ name: "C++ & REST APIs", chapters: 1 });
-  assert.equal(new URL(generic.lanes[1].href).searchParams.get("q"), "C++ & REST APIs university notes pdf");
+  assert.equal(new URL(generic.lanes[1].href).searchParams.get("q"), "C++ & REST APIs materials pdf");
   const sameField = buildSubjectMaterials({ name: "Nursing", chapters: 1 }, {}, "College", "General", {
     academicTrack: "Nursing", department: "NURSING", degree: "B.Sc Nursing",
   });
-  assert.equal(new URL(sameField.lanes[1].href).searchParams.get("q"), "Nursing university notes pdf");
+  assert.equal(new URL(sameField.lanes[1].href).searchParams.get("q"), "Nursing materials pdf");
 });
 
 test("school searches retain class, board and stream while using concise resource phrases", () => {
   const profile = { academicLevel: "Senior / Higher Secondary School", grade: "Class 12", academicTrack: "CBSE", schoolStream: "Commerce" };
   const materials = buildSubjectMaterials({ name: "Accountancy", chapters: 5 }, { done: 2 }, profile.academicLevel, profile.academicTrack, profile);
-  assert.equal(new URL(materials.lanes[1].href).searchParams.get("q"), "Class 12 CBSE Commerce Accountancy notes pdf");
+  assert.equal(new URL(materials.lanes[1].href).searchParams.get("q"), "Class 12 CBSE Commerce Accountancy materials pdf");
   assert.ok(materials.lanes.every((lane) => !decodeURIComponent(lane.href).includes("chapter 3")));
   assert.match(materials.spotlight, /Move into Chapter 3/u);
 });

@@ -107,7 +107,7 @@ test("weak subject is selected when no configured subject is named", () => {
   });
   assert.deepEqual(queries, [
     "Data Analytics university tutorial",
-    "Data Analytics university notes pdf",
+    "Data Analytics materials pdf",
     "Data Analytics practice questions",
     "Data Analytics revision notes",
   ]);
@@ -310,7 +310,7 @@ test("chat RestAPI materials use four short searches retaining the engineering f
     return url.searchParams.get("q") || url.searchParams.get("search_query");
   }), [
     "Engineering & Technology Information Technology RestAPI university tutorial",
-    "Engineering & Technology Information Technology RestAPI university notes pdf",
+    "Engineering & Technology Information Technology RestAPI materials pdf",
     "Engineering & Technology Information Technology RestAPI practice questions",
     "Engineering & Technology Information Technology RestAPI revision notes",
   ]);

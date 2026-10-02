@@ -7,6 +7,8 @@ import { materialBookmarkKey, normalizeMaterialBookmarks } from "../utils/materi
 import { fetchSubjectBooks, resolveBookRetailers } from "../utils/bookRecommendations";
 import { resolveMaterialGuideSubjects } from "../utils/materialGuideNavigation";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
+import { normalizeAcademicProfile } from "../utils/academicProfile";
+import SubjectMaterialSearch from "./SubjectMaterialSearch";
 
 const SUBJECT_CARD_TONES = ["teal", "indigo", "amber", "violet", "rose"];
 
@@ -213,6 +215,10 @@ function ResourcesHub({
   const activeResource = guide.focusedSubject
     ? materials.find((resource) => resource.subject === guide.focusedSubject) || null
     : null;
+  const activeSubject = activeResource
+    ? guide.subjects.find((subject) => subject.name === activeResource.subject)
+    : null;
+  const institutionName = normalizeAcademicProfile(academicProfile).institutionName;
 
   const safeMaterialBookmarks = useMemo(
     () => normalizeMaterialBookmarks(materialBookmarks),
@@ -431,31 +437,6 @@ function ResourcesHub({
 
             <p className="card-desc">{activeResource.spotlight}</p>
 
-            <div className="resource-book-entry">
-              <button
-                aria-controls={booksOpen ? "subject-books" : undefined}
-                aria-expanded={booksOpen}
-                className="resource-book-entry__button"
-                onClick={() => setBooksOpen((current) => !current)}
-                type="button"
-              >
-                <ShoppingBag aria-hidden="true" size={17} />
-                Buy materials
-                <ChevronDown aria-hidden="true" className="resource-book-entry__chevron" size={16} />
-              </button>
-            </div>
-
-            {booksOpen ? (
-              <SubjectBookShelf
-                academicLevel={academicLevel}
-                academicProfile={academicProfile}
-                academicTrack={academicTrack}
-                key={activeResource.subject}
-                onOpenBook={setOpenBook}
-                subject={activeResource.subject}
-              />
-            ) : null}
-
             <div className="resource-lane-grid">
               {activeResource.lanes.map((lane) => {
                 const saved = savedLinks.has(lane.href);
@@ -490,13 +471,35 @@ function ResourcesHub({
               })}
             </div>
 
-            <div className="resource-chapter-strip">
-              {activeResource.chapterPath.map((chapter) => (
-                <div className="resource-chapter-pill" key={`${activeResource.subject}-chapter-${chapter.chapterNumber}`}>
-                  <strong>Chapter {chapter.chapterNumber}</strong>
-                  <span>{chapter.status}</span>
-                </div>
-              ))}
+            <SubjectMaterialSearch
+              institutionName={institutionName}
+              key={`${activeResource.subject}-${institutionName}`}
+              subject={activeSubject}
+            />
+
+            {booksOpen ? (
+              <SubjectBookShelf
+                academicLevel={academicLevel}
+                academicProfile={academicProfile}
+                academicTrack={academicTrack}
+                key={activeResource.subject}
+                onOpenBook={setOpenBook}
+                subject={activeResource.subject}
+              />
+            ) : null}
+
+            <div className="resource-book-entry">
+              <button
+                aria-controls={booksOpen ? "subject-books" : undefined}
+                aria-expanded={booksOpen}
+                className="resource-book-entry__button"
+                onClick={() => setBooksOpen((current) => !current)}
+                type="button"
+              >
+                <ShoppingBag aria-hidden="true" size={17} />
+                Buy materials
+                <ChevronDown aria-hidden="true" className="resource-book-entry__chevron" size={16} />
+              </button>
             </div>
           </article>
         </div>
