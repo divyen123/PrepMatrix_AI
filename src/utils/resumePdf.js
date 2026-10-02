@@ -1,4 +1,4 @@
-import html2canvas from "html2canvas";
+import { captureResumeCanvas } from "./resumeCapture.js";
 import { jsPDF } from "jspdf";
 import { normalizeResumeDraft, normalizeResumeLayout } from "./resumeBuilder.js";
 
@@ -1045,38 +1045,6 @@ function resumePaperDimensions(element, bounds) {
   };
 }
 
-function prepareResumeCaptureClone(clonedPaper, sourceWidth, sourceHeight) {
-  // html2canvas measures text in DOM coordinates but paints in CSS pixels.
-  // Outer zoom/route transforms must not affect those measurements. Preserve
-  // the inner fit transform, which html2canvas measures and reapplies itself.
-  for (let node = clonedPaper; node; node = node.parentElement) {
-    node.style.setProperty("zoom", "1", "important");
-    node.style.setProperty("transform", "none", "important");
-    node.style.setProperty("animation", "none", "important");
-    node.style.setProperty("transition", "none", "important");
-  }
-  const exportSurface = clonedPaper.closest(".resume-pdf-export-surface");
-  if (exportSurface) {
-    exportSurface.style.setProperty("position", "absolute", "important");
-    exportSurface.style.setProperty("left", "0", "important");
-    exportSurface.style.setProperty("top", "0", "important");
-  }
-  const frozenStyles = {
-    "box-sizing": "border-box",
-    width: `${sourceWidth}px`,
-    "min-width": `${sourceWidth}px`,
-    "max-width": `${sourceWidth}px`,
-    height: `${sourceHeight}px`,
-    "min-height": `${sourceHeight}px`,
-    "max-height": `${sourceHeight}px`,
-    flex: "none",
-    "box-shadow": "none",
-  };
-  Object.entries(frozenStyles).forEach(([property, value]) => {
-    clonedPaper.style.setProperty(property, value, "important");
-  });
-}
-
 function collectResumeLinks(element, paperBounds) {
   if (typeof element?.querySelectorAll !== "function") return [];
 
@@ -1120,35 +1088,13 @@ export async function createResumePdfFromElement(element, draftValue, layoutValu
   const captureScale = Number.isFinite(Number(options.scale))
     ? Math.min(5, Math.max(1, Number(options.scale)))
     : Math.min(4, Math.max(2, 2000 / sourceWidth));
-  const renderElement = options.renderElement || html2canvas;
-  const captureId = `resume-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const previousCaptureId = element.getAttribute("data-resume-pdf-capture");
-  element.setAttribute("data-resume-pdf-capture", captureId);
-
-  let canvas;
-  try {
-    canvas = await renderElement(element, {
-      backgroundColor: "#ffffff",
-      scale: captureScale,
-      width: sourceWidth,
-      height: sourceHeight,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      imageTimeout: 15000,
-      removeContainer: true,
-      windowWidth: Math.max(typeof document === "undefined" ? sourceWidth : document.documentElement.clientWidth, sourceWidth + 32),
-      windowHeight: Math.max(typeof document === "undefined" ? sourceHeight : document.documentElement.clientHeight, sourceHeight + 32),
-      onclone: (clonedDocument) => {
-        const clonedPaper = clonedDocument.querySelector(`[data-resume-pdf-capture="${captureId}"]`);
-        if (!clonedPaper) throw new Error("The resume preview could not be prepared for export.");
-        prepareResumeCaptureClone(clonedPaper, sourceWidth, sourceHeight);
-      },
-    });
-  } finally {
-    if (previousCaptureId == null) element.removeAttribute("data-resume-pdf-capture");
-    else element.setAttribute("data-resume-pdf-capture", previousCaptureId);
-  }
+  const renderElement = options.renderElement || captureResumeCanvas;
+  const canvas = await renderElement(element, {
+    width: sourceWidth,
+    height: sourceHeight,
+    scale: captureScale,
+    backgroundColor: "#ffffff",
+  });
 
   if (!canvas || typeof canvas.toDataURL !== "function") {
     throw new Error("The resume preview could not be captured. Please try again.");

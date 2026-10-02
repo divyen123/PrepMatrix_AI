@@ -58,7 +58,7 @@ import {
   normalizeResumeHistory,
   normalizeResumeHistoryEntry,
 } from "../utils/resumeHistory";
-import { createResumePdfFromElement, getResumePdfFilename } from "../utils/resumePdf";
+import { prepareResumeDownload } from "../utils/resumeDownload";
 import {
   createResumeBuilderIntroState,
   getResumeBuilderIntroDurations,
@@ -1094,7 +1094,7 @@ export default function ResumeBuilderPage({
       const capturePaper = previewPaperRef.current?.getBoundingClientRect().width > 0
         ? previewPaperRef.current
         : exportPaperRef.current;
-      const pdf = await createResumePdfFromElement(capturePaper, validation.draft, layout);
+      const download = await prepareResumeDownload(capturePaper, validation.draft, layout);
       generationRequestRef.current ||= createResumeItemId("generation");
       const requestId = generationRequestRef.current;
       const wasRegeneration = Boolean(selectedHistoryId);
@@ -1133,18 +1133,18 @@ export default function ResumeBuilderPage({
         historySaveError = error;
       }
 
-      pdf.save(getResumePdfFilename(validation.draft));
+      download.save();
       if (!historySaveError) generationRequestRef.current = null;
       if (historySaveError) {
         announce(
           "error",
-          "PDF generated, but its history card could not be saved. Choose Generate again to retry without using another weekly slot.",
+          `${download.format.toUpperCase()} generated, but its history card could not be saved. Choose Generate again to retry without using another weekly slot.`,
         );
       } else {
         const action = wasRegeneration ? "re-generated" : "generated";
         announce(
           "success",
-          `Resume ${action} and saved to history. ${nextQuota?.remaining ?? Math.max(0, (quota?.remaining || 1) - 1)} weekly slots remaining.`,
+          `${download.format === "png" ? "PDF encoding was unavailable, so the matching preview was saved as PNG. " : ""}Resume ${action} and saved to history. ${nextQuota?.remaining ?? Math.max(0, (quota?.remaining || 1) - 1)} weekly slots remaining.`,
         );
       }
     } catch (error) {

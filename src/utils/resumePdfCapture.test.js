@@ -32,7 +32,7 @@ function styleDeclaration(initial = {}) {
   });
 }
 
-function makePaperTree({ cloned = false } = {}) {
+function makePaperTree() {
   const html = { style: styleDeclaration({ zoom: "1", transform: "none" }), parentElement: null };
   const body = { style: styleDeclaration({ zoom: "0.9", transform: "none" }), parentElement: html };
   const root = { style: styleDeclaration({ transform: "translateY(8px)" }), parentElement: body };
@@ -82,13 +82,13 @@ function makePaperTree({ cloned = false } = {}) {
     setAttribute: (name, value) => attributes.set(name, value),
     removeAttribute: (name) => attributes.delete(name),
     closest: (selector) => selector === ".resume-pdf-export-surface" ? surface : null,
-    querySelectorAll: (selector) => selector === "*" ? [fit, anchor] : cloned ? [] : [anchor],
+    querySelectorAll: (selector) => selector === "*" ? [fit, anchor] : [anchor],
   };
   fit.parentElement = paper;
   return { paper, fit, surface, ancestors: [surface, root, body, html], body };
 }
 
-function installDocument(t, source, clone) {
+function installDocument(t, source) {
   const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
   const previousComputedStyle = Object.getOwnPropertyDescriptor(globalThis, "getComputedStyle");
   const getStyle = (node) => node.computedStyle || node.style;
@@ -98,16 +98,6 @@ function installDocument(t, source, clone) {
     defaultView: { getComputedStyle: getStyle },
   };
   source.paper.ownerDocument = document;
-  const clonedDocument = {
-    documentElement: clone.ancestors.at(-1),
-    body: clone.body,
-    defaultView: { getComputedStyle: getStyle },
-    querySelector: (selector) => {
-      assert.match(selector, /^\[data-resume-pdf-capture="resume-/u);
-      return clone.paper;
-    },
-  };
-  clone.paper.ownerDocument = clonedDocument;
   Object.defineProperty(globalThis, "document", { configurable: true, value: document });
   Object.defineProperty(globalThis, "getComputedStyle", { configurable: true, value: getStyle });
   t.after(() => {
@@ -116,21 +106,18 @@ function installDocument(t, source, clone) {
     if (previousComputedStyle) Object.defineProperty(globalThis, "getComputedStyle", previousComputedStyle);
     else delete globalThis.getComputedStyle;
   });
-  return clonedDocument;
 }
 
 const closeTo = (actual, expected) => assert.ok(Math.abs(actual - expected) < 0.00001, `${actual} should equal ${expected}`);
 
 test("captures the unzoomed border-box paper and preserves the preview's inner fit", async (t) => {
   const source = makePaperTree();
-  const clone = makePaperTree({ cloned: true });
-  const clonedDocument = installDocument(t, source, clone);
+  installDocument(t, source);
   let captureOptions;
   const pdf = await createResumePdfFromElement(source.paper, DRAFT, { template: "modern" }, {
     renderElement: async (element, options) => {
       assert.equal(element, source.paper);
       captureOptions = options;
-      await options.onclone(clonedDocument);
       return { toDataURL: () => ONE_PIXEL_PNG };
     },
   });
@@ -140,19 +127,6 @@ test("captures the unzoomed border-box paper and preserves the preview's inner f
   assert.equal(captureOptions.scale, 4);
   assert.equal(pdf.__resumeLayout.sourceWidth, PAPER_WIDTH);
   closeTo(pdf.__resumeLayout.sourceHeight, PAPER_HEIGHT);
-  closeTo(parseFloat(clone.paper.style.width), PAPER_WIDTH);
-  closeTo(parseFloat(clone.paper.style.height), PAPER_HEIGHT);
-  assert.equal(clone.paper.style.boxSizing, "border-box");
-  for (const ancestor of clone.ancestors) {
-    assert.equal(ancestor.style.getPropertyValue("zoom"), "1");
-    assert.equal(ancestor.style.getPropertyPriority("zoom"), "important");
-    assert.equal(ancestor.style.getPropertyValue("transform"), "none");
-    assert.equal(ancestor.style.getPropertyPriority("transform"), "important");
-  }
-  assert.equal(clone.fit.style.transform, "scale(0.8)");
-  assert.equal(clone.fit.style.width, "125%");
-  assert.equal(clone.paper.style.getPropertyValue("--resume-fit-scale"), "0.8");
-  assert.equal(clone.paper.style.getPropertyValue("--resume-fit-width"), "125%");
   assert.equal(source.body.style.zoom, "0.9");
   assert.equal(source.ancestors[1].style.transform, "translateY(8px)");
   assert.equal(source.surface.style.left, "-12000px");
@@ -170,14 +144,12 @@ test("captures the unzoomed border-box paper and preserves the preview's inner f
   closeTo(Number(annotation.finalBounds.h), Number(pdf.internal.getVerticalCoordinateString(25.2)));
 });
 
-test("restores an existing capture attribute when rendering fails", async (t) => {
+test("preserves the source preview when rendering fails", async (t) => {
   const source = makePaperTree();
-  const clone = makePaperTree({ cloned: true });
-  const clonedDocument = installDocument(t, source, clone);
+  installDocument(t, source);
   source.paper.setAttribute("data-resume-pdf-capture", "existing-capture");
   await assert.rejects(createResumePdfFromElement(source.paper, DRAFT, {}, {
-    renderElement: async (_element, options) => {
-      await options.onclone(clonedDocument);
+    renderElement: async () => {
       throw new Error("capture failed");
     },
   }), /capture failed/u);
@@ -186,10 +158,9 @@ test("restores an existing capture attribute when rendering fails", async (t) =>
   assert.equal(source.surface.style.left, "-12000px");
 });
 
-test("removes a temporary capture attribute when rendering fails", async (t) => {
+test("propagates a capture failure without modifying the preview", async (t) => {
   const source = makePaperTree();
-  const clone = makePaperTree({ cloned: true });
-  installDocument(t, source, clone);
+  installDocument(t, source);
   await assert.rejects(createResumePdfFromElement(source.paper, DRAFT, {}, {
     renderElement: async () => { throw new Error("capture failed"); },
   }), /capture failed/u);
@@ -199,8 +170,7 @@ test("removes a temporary capture attribute when rendering fails", async (t) => 
 
 test("waits for the header's distinct font before capturing the preview", async (t) => {
   const source = makePaperTree();
-  const clone = makePaperTree({ cloned: true });
-  const clonedDocument = installDocument(t, source, clone);
+  installDocument(t, source);
   const requestedFonts = [];
   let headerFontReady = false;
   source.paper.ownerDocument.fonts.load = async (font) => {
@@ -212,9 +182,8 @@ test("waits for the header's distinct font before capturing the preview", async 
     return [];
   };
   await createResumePdfFromElement(source.paper, DRAFT, {}, {
-    renderElement: async (_element, options) => {
+    renderElement: async () => {
       assert.equal(headerFontReady, true);
-      await options.onclone(clonedDocument);
       return { toDataURL: () => ONE_PIXEL_PNG };
     },
   });
