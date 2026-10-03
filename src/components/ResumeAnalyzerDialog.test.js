@@ -38,6 +38,8 @@ test("analyzer dialog offers comparison inputs and uses a populated current draf
     assert.match(markup, /aria-label="Job role or description"[^>]*>Frontend Engineer<\/textarea>/u);
     assert.doesNotMatch(markup, /Resume Builder \/ Resume Analyzer/u);
     assert.match(markup, />\s*Review\s*<\/button>/u);
+    assert.doesNotMatch(markup, /aria-label="New resume analysis"/u);
+    assert.doesNotMatch(markup, /Back to results/u);
   } finally {
     await vite.close();
   }
@@ -67,6 +69,7 @@ test("analyzer starts reviewing the current draft against its headline without r
     assert.doesNotMatch(markup, /aria-label="Job role or description"/u);
     assert.doesNotMatch(markup, /aria-label="Resume review results"/u);
     assert.match(markup, /aria-label="New resume analysis"/u);
+    assert.doesNotMatch(markup, /Back to results/u);
   } finally {
     await vite.close();
   }
@@ -91,6 +94,8 @@ test("analyzer requests a target role when a populated draft has no usable headl
       assert.match(markup, /headline|job (?:title|role)/iu);
       assert.doesNotMatch(markup, /role="status"/u);
       assert.doesNotMatch(markup, /aria-label="Resume review results"/u);
+      assert.doesNotMatch(markup, /aria-label="New resume analysis"/u);
+      assert.doesNotMatch(markup, /Back to results/u);
     }
   } finally {
     await vite.close();
@@ -110,6 +115,8 @@ test("analyzer dialog prompts for an upload when the builder has no content", as
     assert.match(markup, /aria-label="Job role or description"/u);
     assert.doesNotMatch(markup, /role="status"/u);
     assert.doesNotMatch(markup, /Alex Example/u);
+    assert.doesNotMatch(markup, /aria-label="New resume analysis"/u);
+    assert.doesNotMatch(markup, /Back to results/u);
   } finally {
     await vite.close();
   }
@@ -200,7 +207,9 @@ test("analyzer dialog renders Save button alongside review results", async () =>
     assert.match(markup, /aria-label="Save review to notes"/u);
     assert.match(markup, /<span>Save<\/span><\/button>/u);
     assert.match(markup, /Where your resume can improve/u);
-    assert.match(markup, /aria-label="New resume analysis"/u);
+    const header = markup.match(/<header\b[^]*?<\/header>/u)?.[0] || "";
+    assert.match(header, /aria-label="New resume analysis"/u);
+    assert.doesNotMatch(markup, /Back to results/u);
     assert.doesNotMatch(markup, /Choose what you want reviewed/u);
     assert.doesNotMatch(markup, /aria-label="Job role or description"/u);
     assert.doesNotMatch(markup, /role="status"/u);

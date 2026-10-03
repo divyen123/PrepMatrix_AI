@@ -239,9 +239,10 @@ body .resume-analyzer-page .resume-analyzer-field textarea::placeholder { color:
 body .resume-analyzer-page .resume-analyzer-field textarea:focus { border-color: var(--ra-accent); outline: 2px solid color-mix(in srgb, var(--ra-accent) 28%, transparent); outline-offset: 1px; }
 .resume-analyzer-job-field textarea { flex: none; }
 .resume-analyzer-actions { align-items: center; display: flex; justify-content: flex-end; }
-body .resume-analyzer-page .resume-analyzer-back-button { align-items: center; background: var(--ra-soft) !important; border: 1px solid var(--ra-border) !important; border-radius: 10px; color: var(--text, #eef3fb) !important; cursor: pointer; display: inline-flex; font: inherit; font-size: .84rem; font-weight: 700; gap: 7px; justify-self: start; min-height: 36px; padding: 0 12px; }
+body .resume-analyzer-page .resume-analyzer-back-button { align-items: center; background: var(--ra-soft) !important; border: 1px solid var(--ra-border) !important; border-radius: 10px; color: var(--text, #eef3fb) !important; cursor: pointer; display: inline-flex; flex: none; font: inherit; font-size: .84rem; font-weight: 700; gap: 7px; min-height: 36px; padding: 0 12px; white-space: nowrap; }
 body .resume-analyzer-page .resume-analyzer-back-button:hover,
 body .resume-analyzer-page .resume-analyzer-back-button:focus-visible { border-color: var(--ra-accent) !important; color: var(--ra-accent) !important; }
+body .resume-analyzer-page .resume-analyzer-back-button:disabled { cursor: wait; opacity: .55; }
 body .resume-analyzer-page .resume-analyzer-actions button { align-items: center; background: var(--ra-accent); border: 1px solid var(--ra-accent); border-radius: 10px; color: #071b1a; cursor: pointer; display: inline-flex; flex: none; font-size: .84rem; font-weight: 800; gap: 7px; justify-content: center; min-height: 38px; padding: 0 14px; }
 body .resume-analyzer-page .resume-analyzer-actions button:hover:not(:disabled),
 body .resume-analyzer-page .resume-analyzer-actions button:focus-visible { filter: brightness(1.1); transform: translateY(-1px); }

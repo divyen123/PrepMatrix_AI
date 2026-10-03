@@ -4,7 +4,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 
-test('Insights keeps result panels scrollable and lifetime runs visible with sparse or long activity', async () => {
+test('Insights keeps result panels scrollable and both history panels visible with populated or empty data', async () => {
   const recent = Array.from({ length: 12 }, (_, index) => ({
     attemptId: `attempt-${index}`,
     language: 'java',
@@ -55,6 +55,32 @@ test('Insights keeps result panels scrollable and lifetime runs visible with spa
     setTestData({ ...data, recent: recent.slice(0, 1) });
     const sparse = renderToStaticMarkup(React.createElement(CodeMatrixInsights, { academicProfileDataId: 'test', onBack() {} }));
     assert.match(sparse, /class="cmxi-recent cmxi-panel-scroll" tabindex="0"/u, 'a short list uses the same panel body as a long one');
+    for (const [hasRuns, hasQuestions] of [[false, false], [true, false], [false, true]]) {
+      setTestData({
+        ...data,
+        historicalLanguages: hasRuns ? data.historicalLanguages : [],
+        xp: { ...data.xp, recentPracticeRewards: hasQuestions ? data.xp.recentPracticeRewards : [] },
+      });
+      const state = renderToStaticMarkup(React.createElement(CodeMatrixInsights, { academicProfileDataId: 'test', onBack() {} }));
+      const historyGrid = state.match(/<div class="cmxi-history-grid">([\s\S]*?)<footer/u)?.[1];
+      assert.ok(historyGrid, 'history panels remain present when either or both datasets are empty');
+      assert.equal((historyGrid.match(/<section /gu) || []).length, 2, 'both panels stay side by side');
+      assert.match(historyGrid, /Lifetime successful runs/u);
+      assert.match(historyGrid, /Solved questions/u);
+      if (hasRuns) {
+        assert.match(historyGrid, /aria-label="Java: 8 successful runs"/u);
+        assert.doesNotMatch(historyGrid, /Your successful compiler runs will appear here/u);
+      } else {
+        assert.match(historyGrid, /0 recorded/u);
+        assert.match(historyGrid, /class="cmxi-panel-scroll cmxi-panel-empty"><p class="cmxi-muted">Your successful compiler runs will appear here\./u);
+      }
+      if (hasQuestions) {
+        assert.match(historyGrid, /Sum of two numbers/u);
+        assert.doesNotMatch(historyGrid, /Solve a practice question to see it here/u);
+      } else {
+        assert.match(historyGrid, /class="cmxi-panel-scroll cmxi-panel-empty"><p class="cmxi-muted">Solve a practice question to see it here\./u);
+      }
+    }
   } finally {
     await vite.close();
   }

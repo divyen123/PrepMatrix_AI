@@ -321,16 +321,19 @@ export default function ResumeAnalyzerDialog({
             <h2 id="resume-analyzer-dialog-title">Review your resume for a role</h2>
           </div>
           <div className="resume-analyzer-dialog-controls">
-            <button
+            {view === "inputs" ? results && <button
+              className="resume-analyzer-back-button"
+              disabled={isClosing}
+              onClick={returnToResults}
+              type="button"
+            >Back to results</button> : <button
               aria-label="New resume analysis"
-              aria-controls={view === "inputs" ? "resume-analyzer-specifications" : undefined}
-              aria-expanded={view === "inputs"}
               className="resume-analyzer-new-button"
               disabled={isClosing || saveStatus === "saving"}
               onClick={openSpecifications}
               title="Choose a resume and target role"
               type="button"
-            ><Plus size={18} aria-hidden="true" /></button>
+            ><Plus size={18} aria-hidden="true" /></button>}
             <button aria-label="Close resume analyzer" className="resume-analyzer-dialog-close" onClick={() => requestClose()} ref={closeRef} type="button"><X size={18} aria-hidden="true" /></button>
           </div>
         </header>
@@ -346,7 +349,6 @@ export default function ResumeAnalyzerDialog({
 
       {view === "inputs" && (
       <div className="resume-analyzer-layout resume-analyzer-layout--stacked" id="resume-analyzer-specifications">
-        {results && <button className="resume-analyzer-back-button" onClick={returnToResults} type="button">Back to results</button>}
         <section className="resume-analyzer-card resume-analyzer-input-card" aria-labelledby="resume-analyzer-resume-title">
           <div className="resume-analyzer-card__heading">
             <span className="resume-analyzer-step">01</span>

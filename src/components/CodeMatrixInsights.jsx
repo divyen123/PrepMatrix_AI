@@ -206,21 +206,21 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
         </section>
       </div>
 
-      {(history.length > 0 || practiceRewards.length > 0) && <div className="cmxi-history-grid">
-        {history.length > 0 && <section className="cmxi-history" aria-labelledby="cmxi-history-title">
+      <div className="cmxi-history-grid">
+        <section className="cmxi-history" aria-labelledby="cmxi-history-title">
           <h2 id="cmxi-history-title">Lifetime successful runs <span>{formatNumber(history.reduce((sum, item) => sum + Number(item.successfulRuns || 0), 0))} recorded</span></h2>
           <p>Historical XP records preserve successful runs. They cannot tell us about past errors or active coding time.</p>
-          <div className="cmxi-history-languages cmxi-panel-scroll" tabIndex={0} role="list" aria-label="Successful runs by language">{history.map((item) => <span key={item.id} data-language={item.id} role="listitem" title={item.label} aria-label={`${item.label}: ${formatNumber(item.successfulRuns)} successful runs`}>
+          {history.length ? <div className="cmxi-history-languages cmxi-panel-scroll" tabIndex={0} role="list" aria-label="Successful runs by language">{history.map((item) => <span key={item.id} data-language={item.id} role="listitem" title={item.label} aria-label={`${item.label}: ${formatNumber(item.successfulRuns)} successful runs`}>
             <CodeMatrixLanguageIcon language={item.id} size={30} aria-hidden="true" focusable="false" />
             <span className="cmxi-history-language-name">{item.label}</span>
             <strong>{formatNumber(item.successfulRuns)}</strong>
-          </span>)}</div>
-        </section>}
-        {practiceRewards.length > 0 && <section className="cmxi-card cmxi-solved-card" aria-labelledby="cmxi-solved-title">
+          </span>)}</div> : <div className="cmxi-panel-scroll cmxi-panel-empty"><p className="cmxi-muted">Your successful compiler runs will appear here.</p></div>}
+        </section>
+        <section className="cmxi-card cmxi-solved-card" aria-labelledby="cmxi-solved-title">
           <div className="cmxi-section-heading"><h2 id="cmxi-solved-title">Solved questions</h2></div>
-          <ul className="cmxi-solved-list cmxi-panel-scroll" tabIndex={0} aria-labelledby="cmxi-solved-title">{practiceRewards.map((reward) => <li key={reward.id}><CheckCheck size={17} aria-hidden="true" /><div><strong>{reward.title}</strong><span>{LANGUAGES[reward.language] || reward.language} · {formatDate(reward.occurredAt)}</span></div><b>+{formatNumber(reward.xp)} XP</b></li>)}</ul>
-        </section>}
-      </div>}
+          {practiceRewards.length ? <ul className="cmxi-solved-list cmxi-panel-scroll" tabIndex={0} aria-labelledby="cmxi-solved-title">{practiceRewards.map((reward) => <li key={reward.id}><CheckCheck size={17} aria-hidden="true" /><div><strong>{reward.title}</strong><span>{LANGUAGES[reward.language] || reward.language} · {formatDate(reward.occurredAt)}</span></div><b>+{formatNumber(reward.xp)} XP</b></li>)}</ul> : <div className="cmxi-panel-scroll cmxi-panel-empty"><p className="cmxi-muted">Solve a practice question to see it here.</p></div>}
+        </section>
+      </div>
       <footer className="cmxi-footer"><span>{trackingDate ? `Detailed activity tracked since ${trackingDate}.` : 'Detailed activity starts with your next coding session.'} Offline activity appears after syncing.</span><span>Automatic insights · No AI credits used</span></footer>
     </>}
   </div>;
