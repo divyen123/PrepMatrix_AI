@@ -30,10 +30,11 @@ test('analytics renders one isolated previous schedule with plan and subject det
       load(id) {
         const path = id.replaceAll('\\', '/');
         if (path.endsWith('/src/hooks/useAnalyticsHistory.js')) return `
+          import { getPreviousPlannerAnalytics } from '../utils/plannerHistory.js';
           let view = { historical: false, phase: 'idle', snapshot: null, momentum: null, error: '' };
           export const setView = (value) => { view = value; };
-          export default function useAnalyticsHistory() {
-            return { previous: { id: 'past-plan' }, switchView() {}, busy: view.phase !== 'idle', ...view };
+          export default function useAnalyticsHistory(profileId, plannerHistory) {
+            return { previous: getPreviousPlannerAnalytics(plannerHistory), switchView() {}, busy: view.phase !== 'idle', ...view };
           }
         `;
         if (path.endsWith('/src/hooks/useLearningInsights.js')) return `
@@ -96,6 +97,17 @@ test('analytics renders one isolated previous schedule with plan and subject det
     assert.match(restored, /From study time to verified mastery/u);
     assert.match(restored, /<strong>999<\/strong><span>Topics learned<\/span>/u);
     assert.doesNotMatch(restored, /Open Networks progress details|Previous schedule · saved XP/u);
+
+    for (const plannerHistory of [[], [{ id: 'invalid-history', archivedAt: '2026-10-01', tasks: [] }]]) {
+      current.plannerHistory = plannerHistory;
+      const withoutArchive = render();
+      assert.match(withoutArchive, />View report<\/span>/u);
+      assert.doesNotMatch(withoutArchive, /Load previous analytics|analytics-history-toggle|No previous schedule has been saved yet/u);
+      assert.match(withoutArchive, /aria-label="Open Physics progress details"/u);
+    }
+
+    history.setView({ historical: true, phase: 'idle', snapshot, momentum: savedMomentum, error: '' });
+    assert.match(render(), />View current analytics<\/span>/u, 'historical view always retains its return-to-current action');
   } finally { await vite.close(); }
 });
 

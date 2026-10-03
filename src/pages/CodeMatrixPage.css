@@ -184,6 +184,25 @@ body .cmx-page.is-embedded {
 .cmx-setup-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 18px; border-top: 1px solid var(--border); padding-top: 24px; }
 .cmx-setup-footer > span { font-size: 11px; color: var(--text-muted); }
 .cmx-setup-complete { display: flex; gap: 8px; align-items: center; padding-bottom: 24px; }
+body:is(.dark, .has-bg-image) .cmx-page .cmx-setup .cmx-button {
+  background: var(--surface-muted) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none;
+}
+body:is(.dark, .has-bg-image) .cmx-page .cmx-setup .cmx-button.cmx-primary {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-strong)) !important;
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border)) !important;
+}
+body:is(.dark, .has-bg-image) .cmx-page .cmx-setup .cmx-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface-strong)) !important;
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border)) !important;
+}
+body:is(.dark, .has-bg-image) .cmx-page .cmx-setup .cmx-button::after {
+  display: none !important;
+}
 .cmx-eligibility .cmx-actions { margin-top: 24px; }
 .cmx-toolbar { flex-wrap: wrap; padding: 13px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-strong); gap: 16px; }
 .cmx-language { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted); }

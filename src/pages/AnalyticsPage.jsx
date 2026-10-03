@@ -143,20 +143,21 @@ function AnalyticsPage({ academicProfileDataId = "", subjects = [], schedule, co
             <FileText aria-hidden="true" size={16} />
             <span>View report</span>
           </button>
-          <button
-            aria-pressed={historical}
-            className="secondary-btn view-report-btn analytics-history-toggle"
-            disabled={busy || (!historical && !historyView.previous)}
-            onClick={() => {
-              setShowReportModal(false);
-              historyView.switchView(!historical);
-            }}
-            title={!historical && !historyView.previous ? "No previous schedule has been saved yet" : undefined}
-            type="button"
-          >
-            <History aria-hidden="true" size={16} />
-            <span>{historical ? "View current analytics" : "Load previous analytics"}</span>
-          </button>
+          {(historical || historyView.previous) && (
+            <button
+              aria-pressed={historical}
+              className="secondary-btn view-report-btn analytics-history-toggle"
+              disabled={busy}
+              onClick={() => {
+                setShowReportModal(false);
+                historyView.switchView(!historical);
+              }}
+              type="button"
+            >
+              <History aria-hidden="true" size={16} />
+              <span>{historical ? "View current analytics" : "Load previous analytics"}</span>
+            </button>
+          )}
         </div>
       </div>
 

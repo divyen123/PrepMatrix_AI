@@ -159,6 +159,7 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
 
       <section className="cmxi-card cmxi-languages" aria-labelledby="cmxi-language-title">
         <div className="cmxi-section-heading"><div><h2 id="cmxi-language-title">Your languages</h2><p>See where your practice goes</p></div><MetricSwitch label="Language comparison metric" value={languageMetric} options={[['runs', 'Attempts'], ['time', 'Active time']]} onChange={setLanguageMetric} /></div>
+        <div className="cmxi-panel-scroll cmxi-language-body" tabIndex={0} aria-label="Language practice details">
         <div className="cmxi-language-grid">
           <div className="cmxi-language-chart" aria-label={languageMetric === 'time' ? 'Active coding time by language' : 'Meaningful attempts by language'}>
             {hasLanguageChart ? <div className="cmxi-language-chart-inner">
@@ -187,20 +188,21 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
           </div>
           {selected ? <div className="cmxi-selected-language" aria-live="polite"><strong>{selected.label}</strong><span>{formatNumber(selected.meaningfulAttempts)} meaningful attempts</span><span>{formatTime(selected.activeSeconds)} active time</span><span>{formatNumber(selected.errorsResolved)} follow-up runs</span><p>{selected.id === 'web' ? 'Preview activity shows browser practice. Opening a preview does not verify that the page works correctly.' : selected.topError ? `${ERRORS[selected.topError.category] || 'Execution'} errors occurred ${selected.topError.count} times. Try a small revision, then test it with a different input.` : 'Keep trying different inputs and checking the results against your expected output.'}</p></div> : <p className="cmxi-chart-note">Select a language above or click a bar to explore its practice details.</p>}
         </div>}
+        </div>
         <div className="cmxi-source-summary"><span><strong>{formatNumber(summary.pageAttempts)}</strong> full page</span><span><strong>{formatNumber(summary.popupAttempts)}</strong> popup</span><span><strong>{formatNumber(summary.webPreviews)}</strong> web previews</span><span><strong>{rate(summary.successRate)}</strong> no-error rate</span></div>
       </section>
 
       <div className="cmxi-bottom-grid">
         <section className="cmxi-card" aria-labelledby="cmxi-recent-title">
           <div className="cmxi-section-heading"><div><h2 id="cmxi-recent-title">Recent activity</h2><p>Both places you code, in one view</p></div><Activity size={19} aria-hidden="true" /></div>
-          {recent.length ? <ul className={`cmxi-recent${recent.length > 6 ? ' is-scrollable' : ''}`} tabIndex={recent.length > 6 ? 0 : undefined} aria-label="Recent coding activity">{recent.map((attempt) => {
+          {recent.length ? <ul className="cmxi-recent cmxi-panel-scroll" tabIndex={0} aria-label="Recent coding activity">{recent.map((attempt) => {
             const [label, tone] = STATUS[attempt.status] || ['Recorded', 'neutral'];
             return <li key={attempt.attemptId}><span className={`cmxi-status-dot is-${tone}`} aria-hidden="true" /><div><strong>{LANGUAGES[attempt.language] || attempt.language}<span>{attempt.surface === 'popup' ? 'Popup' : 'Full page'}</span></strong><p>{label}{ERRORS[attempt.errorCategory] && attempt.status !== 'success' ? ` · ${ERRORS[attempt.errorCategory]}` : ''}</p></div><time dateTime={attempt.startedAt} title={new Date(attempt.startedAt).toLocaleString()}>{formatDate(attempt.startedAt)}</time></li>;
-          })}</ul> : <p className="cmxi-muted cmxi-empty-copy">Your next run or preview will appear here after syncing.</p>}
+          })}</ul> : <p className="cmxi-muted cmxi-empty-copy cmxi-panel-scroll">Your next run or preview will appear here after syncing.</p>}
         </section>
         <section className="cmxi-card cmxi-next-steps" aria-labelledby="cmxi-next-title">
           <div className="cmxi-section-heading"><div><h2 id="cmxi-next-title">What to practise next</h2><p>Small steps, based on your activity</p></div><Lightbulb size={20} aria-hidden="true" /></div>
-          <ul>{(suggestions.length ? suggestions.slice(0, 3) : [{ title: 'Start with a small challenge', detail: 'Choose one language, write a short program, and try it with different inputs.' }]).map((suggestion, index) => <li key={`${index}-${suggestion.title}`}><span>{String(index + 1).padStart(2, '0')}</span><div><h3>{suggestion.title}</h3><p>{suggestion.detail}</p></div></li>)}</ul>
+          <ul className="cmxi-panel-scroll" tabIndex={0} aria-labelledby="cmxi-next-title">{(suggestions.length ? suggestions : [{ title: 'Start with a small challenge', detail: 'Choose one language, write a short program, and try it with different inputs.' }]).map((suggestion, index) => <li key={`${index}-${suggestion.title}`}><span>{String(index + 1).padStart(2, '0')}</span><div><h3>{suggestion.title}</h3><p>{suggestion.detail}</p></div></li>)}</ul>
         </section>
       </div>
 
@@ -208,7 +210,7 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
         {history.length > 0 && <section className="cmxi-history" aria-labelledby="cmxi-history-title">
           <h2 id="cmxi-history-title">Lifetime successful runs <span>{formatNumber(history.reduce((sum, item) => sum + Number(item.successfulRuns || 0), 0))} recorded</span></h2>
           <p>Historical XP records preserve successful runs. They cannot tell us about past errors or active coding time.</p>
-          <div className="cmxi-history-languages" role="list" aria-label="Successful runs by language">{history.map((item) => <span key={item.id} data-language={item.id} role="listitem" title={item.label} aria-label={`${item.label}: ${formatNumber(item.successfulRuns)} successful runs`}>
+          <div className="cmxi-history-languages cmxi-panel-scroll" tabIndex={0} role="list" aria-label="Successful runs by language">{history.map((item) => <span key={item.id} data-language={item.id} role="listitem" title={item.label} aria-label={`${item.label}: ${formatNumber(item.successfulRuns)} successful runs`}>
             <CodeMatrixLanguageIcon language={item.id} size={30} aria-hidden="true" focusable="false" />
             <span className="cmxi-history-language-name">{item.label}</span>
             <strong>{formatNumber(item.successfulRuns)}</strong>
@@ -216,7 +218,7 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
         </section>}
         {practiceRewards.length > 0 && <section className="cmxi-card cmxi-solved-card" aria-labelledby="cmxi-solved-title">
           <div className="cmxi-section-heading"><h2 id="cmxi-solved-title">Solved questions</h2></div>
-          <ul className="cmxi-solved-list" tabIndex={0} aria-labelledby="cmxi-solved-title">{practiceRewards.map((reward) => <li key={reward.id}><CheckCheck size={17} aria-hidden="true" /><div><strong>{reward.title}</strong><span>{LANGUAGES[reward.language] || reward.language} · {formatDate(reward.occurredAt)}</span></div><b>+{formatNumber(reward.xp)} XP</b></li>)}</ul>
+          <ul className="cmxi-solved-list cmxi-panel-scroll" tabIndex={0} aria-labelledby="cmxi-solved-title">{practiceRewards.map((reward) => <li key={reward.id}><CheckCheck size={17} aria-hidden="true" /><div><strong>{reward.title}</strong><span>{LANGUAGES[reward.language] || reward.language} · {formatDate(reward.occurredAt)}</span></div><b>+{formatNumber(reward.xp)} XP</b></li>)}</ul>
         </section>}
       </div>}
       <footer className="cmxi-footer"><span>{trackingDate ? `Detailed activity tracked since ${trackingDate}.` : 'Detailed activity starts with your next coding session.'} Offline activity appears after syncing.</span><span>Automatic insights · No AI credits used</span></footer>

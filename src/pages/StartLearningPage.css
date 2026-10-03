@@ -2589,20 +2589,7 @@ body .learning-page .learning-saved-panel.card:hover::before {
   transform: none !important;
 }
 
-.learning-notebooks-empty-message {
-  display: grid;
-  min-height: 160px;
-  flex: 1;
-  place-items: center;
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.76rem;
-  font-weight: 650;
-  line-height: 1.45;
-  text-align: center;
-}
-
-.learning-workspace.is-intake .learning-source-rail > :is(.learning-notebook-history-empty, .learning-medical-history-empty) {
+.learning-workspace.is-intake .learning-source-rail > :is(.learning-notebook-history-empty, .learning-placement-history-empty, .learning-medical-history-empty) {
   display: flex;
   place-self: stretch;
   align-items: center;

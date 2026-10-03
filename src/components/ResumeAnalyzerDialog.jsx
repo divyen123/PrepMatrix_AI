@@ -6,6 +6,8 @@ import {
   ClipboardPaste,
   FileSearch,
   FileText,
+  LoaderCircle,
+  Plus,
   Save,
   UploadCloud,
   X,
@@ -14,6 +16,7 @@ import api from "../utils/apiClient";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 import { normalizeResumeDraft } from "../utils/resumeBuilder";
 import { analyzeSkillGap } from "../utils/skillGapAnalysis";
+import { formatResumeReviewNote, getResumeReviewPriority } from "../utils/resumeReviewNotes";
 import "./ResumeAnalyzerDialog.css";
 
 const MAX_RESUME_FILE_BYTES = 5 * 1024 * 1024;
@@ -40,54 +43,9 @@ const SOURCE_OPTIONS = [
   { id: "paste", label: "Paste text", icon: ClipboardPaste },
 ];
 
-export function getResumeReviewPriority(findings = []) {
-  if (findings.some((item) => String(item?.priority).toLowerCase() === "high")) return "High";
-  if (findings.some((item) => String(item?.priority).toLowerCase() === "medium")) return "Medium";
-  return "Low";
-}
-
-export function formatResumeReviewNote(results, findings = []) {
-  const targetRole = results?.targetRole || results?.roleNames?.[0] || "Target role";
-  const sections = [`Target Role: ${targetRole}`];
-
-  if (findings.length > 0) {
-    const findingsText = findings.map((finding, index) => {
-      const priorityTag = String(finding.priority || "medium").toUpperCase();
-      const lines = [`${index + 1}. [${priorityTag}] ${finding.title}`];
-      if (finding.suggestion) lines.push(`   Suggestion: ${finding.suggestion}`);
-      if (finding.evidence) lines.push(`   Found: ${finding.evidence}`);
-      if (finding.example) lines.push(`   Example: ${finding.example}`);
-      return lines.join("\n");
-    }).join("\n\n");
-    sections.push(`Areas to improve:\n${findingsText}`);
-  } else {
-    sections.push("Areas to improve:\nNo clear issues were found in the text provided.");
-  }
-
-  const notShown = results?.notShown || [];
-  if (notShown.length > 0) {
-    const list = notShown.map((item) => `• ${item.skill}${item.action ? ` - ${item.action}` : ""}`).join("\n");
-    sections.push(`Skills to add / develop:\n${list}`);
-  }
-
-  const needsEvidence = results?.needsEvidence || [];
-  if (needsEvidence.length > 0) {
-    const list = needsEvidence.map((item) => `• ${item.skill}${item.action ? ` - ${item.action}` : ""}`).join("\n");
-    sections.push(`Skills needing evidence:\n${list}`);
-  }
-
-  const matched = results?.matched || [];
-  if (matched.length > 0) {
-    const list = matched.map((item) => `• ${item.skill}`).join("\n");
-    sections.push(`Matched skills:\n${list}`);
-  }
-
-  sections.push("Saved from Resume Analyzer.");
-  return sections.join("\n\n");
-}
-
 export default function ResumeAnalyzerDialog({
   academicProfileId = "",
+  autoAnalyze = true,
   initialResults = null,
   onClose,
   onEditResume,
@@ -103,14 +61,27 @@ export default function ResumeAnalyzerDialog({
     [resumeBuilder?.draft, userProfile],
   );
   const builderHasContent = hasResumeContent(builderDraft);
+  const builderHeadline = builderDraft.personal.headline.trim();
+  const canAnalyzeDraft = autoAnalyze && builderHasContent && Boolean(builderHeadline);
   const [source, setSource] = useState(() => builderHasContent ? "builder" : "upload");
   const [resumeText, setResumeText] = useState("");
   const [uploadedText, setUploadedText] = useState("");
   const [uploadedName, setUploadedName] = useState("");
-  const [jobDescription, setJobDescription] = useState("");
+  const [jobDescription, setJobDescription] = useState(builderHeadline);
   const [fileLoading, setFileLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() => !initialResults && autoAnalyze && builderHasContent && !builderHeadline
+    ? "Add a professional headline to your draft or enter a job role below."
+    : "");
   const [results, setResults] = useState(initialResults);
+  const [resultSource, setResultSource] = useState(source);
+  const [view, setView] = useState(() => initialResults ? "results" : canAnalyzeDraft ? "loading" : "inputs");
+  const [analysisRequest, setAnalysisRequest] = useState(() => !initialResults && canAnalyzeDraft ? {
+    draft: builderDraft,
+    resumeText: "",
+    jobDescription: builderHeadline,
+    source: "builder",
+    automatic: true,
+  } : null);
   const [saveStatus, setSaveStatus] = useState("idle");
   const findings = results?.findings?.slice().sort((a, b) => (FINDING_PRIORITY[a.priority] ?? 3) - (FINDING_PRIORITY[b.priority] ?? 3)) || [];
   const [isClosing, setIsClosing] = useState(false);
@@ -128,12 +99,32 @@ export default function ResumeAnalyzerDialog({
   }, [onClose]);
 
   useEffect(() => {
-    if (!results) return;
+    if (!analysisRequest || isClosing) return;
+    const timer = window.setTimeout(() => {
+      try {
+        const nextResults = analyzeSkillGap(analysisRequest);
+        setResults(analysisRequest.automatic
+          ? { ...nextResults, targetRole: analysisRequest.jobDescription }
+          : nextResults);
+        setResultSource(analysisRequest.source);
+        setSaveStatus("idle");
+        setView("results");
+      } catch (analysisError) {
+        setError(analysisError instanceof Error ? analysisError.message : "The resume could not be analyzed. Please try again.");
+        setView("inputs");
+      }
+      setAnalysisRequest(null);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [analysisRequest, isClosing]);
+
+  useEffect(() => {
+    if (!results || view !== "results") return;
     resultsRef.current?.scrollIntoView({
       behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
       block: "start",
     });
-  }, [results]);
+  }, [results, view]);
 
   useEffect(() => {
     const releaseScrollLock = acquireDocumentScrollLock();
@@ -178,15 +169,26 @@ export default function ResumeAnalyzerDialog({
     setSource(nextSource);
     setFileLoading(false);
     setError("");
-    setResults(null);
-    setSaveStatus("idle");
+  };
+
+  const openSpecifications = () => {
+    uploadSequence.current += 1;
+    setAnalysisRequest(null);
+    setFileLoading(false);
+    setError("");
+    setView("inputs");
+  };
+
+  const returnToResults = () => {
+    uploadSequence.current += 1;
+    setFileLoading(false);
+    setError("");
+    setView("results");
   };
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
     const sequence = ++uploadSequence.current;
-    setResults(null);
-    setSaveStatus("idle");
     setUploadedText("");
     setUploadedName("");
     setError("");
@@ -218,8 +220,6 @@ export default function ResumeAnalyzerDialog({
 
   const handleAnalyze = () => {
     setError("");
-    setResults(null);
-    setSaveStatus("idle");
     if (!jobDescription.trim()) {
       setError("Enter a job role or paste a job description.");
       return;
@@ -233,12 +233,13 @@ export default function ResumeAnalyzerDialog({
       setError(source === "upload" ? "Upload a readable resume first." : "Paste your resume text first.");
       return;
     }
-    const nextResults = analyzeSkillGap({
+    setAnalysisRequest({
       draft: source === "builder" ? builderDraft : null,
       resumeText: source === "builder" ? "" : selectedResumeText,
-      jobDescription,
+      jobDescription: jobDescription.trim(),
+      source,
     });
-    setResults(nextResults);
+    setView("loading");
   };
 
   const handleSaveToNotes = async () => {
@@ -319,13 +320,33 @@ export default function ResumeAnalyzerDialog({
           <div>
             <h2 id="resume-analyzer-dialog-title">Review your resume for a role</h2>
           </div>
-          <button aria-label="Close resume analyzer" className="resume-analyzer-dialog-close" onClick={() => requestClose()} ref={closeRef} type="button"><X size={18} aria-hidden="true" /></button>
+          <div className="resume-analyzer-dialog-controls">
+            <button
+              aria-label="New resume analysis"
+              aria-controls={view === "inputs" ? "resume-analyzer-specifications" : undefined}
+              aria-expanded={view === "inputs"}
+              className="resume-analyzer-new-button"
+              disabled={isClosing || saveStatus === "saving"}
+              onClick={openSpecifications}
+              title="Choose a resume and target role"
+              type="button"
+            ><Plus size={18} aria-hidden="true" /></button>
+            <button aria-label="Close resume analyzer" className="resume-analyzer-dialog-close" onClick={() => requestClose()} ref={closeRef} type="button"><X size={18} aria-hidden="true" /></button>
+          </div>
         </header>
 
         <div className="resume-analyzer-dialog-body">
 
-      {!results && (
-      <div className="resume-analyzer-layout resume-analyzer-layout--stacked">
+      {view === "loading" && (
+        <div className="resume-analyzer-loading" aria-live="polite" role="status">
+          <LoaderCircle className="spinner" aria-hidden="true" size={26} />
+          <p>{analysisRequest?.automatic ? `Analyzing your draft for ${analysisRequest.jobDescription}…` : "Analyzing your resume…"}</p>
+        </div>
+      )}
+
+      {view === "inputs" && (
+      <div className="resume-analyzer-layout resume-analyzer-layout--stacked" id="resume-analyzer-specifications">
+        {results && <button className="resume-analyzer-back-button" onClick={returnToResults} type="button">Back to results</button>}
         <section className="resume-analyzer-card resume-analyzer-input-card" aria-labelledby="resume-analyzer-resume-title">
           <div className="resume-analyzer-card__heading">
             <span className="resume-analyzer-step">01</span>
@@ -368,7 +389,7 @@ export default function ResumeAnalyzerDialog({
               <span>Resume text</span>
               <textarea
                 maxLength={MAX_RESUME_TEXT_LENGTH}
-                onChange={(event) => { setResumeText(event.target.value); setResults(null); setError(""); }}
+                onChange={(event) => { setResumeText(event.target.value); setError(""); }}
                 placeholder="Paste your resume content here…"
                 rows={4}
                 value={resumeText}
@@ -386,7 +407,7 @@ export default function ResumeAnalyzerDialog({
             <textarea
               aria-label="Job role or description"
               maxLength={MAX_JOB_DESCRIPTION_LENGTH}
-              onChange={(event) => { setJobDescription(event.target.value); setResults(null); setError(""); }}
+              onChange={(event) => { setJobDescription(event.target.value); setError(""); }}
               placeholder="e.g. Software developer, or paste a job description…"
               rows={1}
               value={jobDescription}
@@ -401,7 +422,7 @@ export default function ResumeAnalyzerDialog({
 
       {error && <div className="resume-analyzer-message" role="alert">{error}</div>}
 
-      {results && (
+      {view === "results" && results && (
         <section className="resume-analyzer-results" aria-label="Resume review results" aria-live="polite" ref={resultsRef}>
           <div className="resume-analyzer-results-heading">
             <div>
@@ -430,7 +451,7 @@ export default function ResumeAnalyzerDialog({
                   </>
                 )}
               </button>
-              {source === "builder" && onEditResume && (
+              {resultSource === "builder" && onEditResume && (
                 <button className="resume-analyzer-edit-button" onClick={() => requestClose(onEditResume)} type="button">
                   Edit resume
                 </button>

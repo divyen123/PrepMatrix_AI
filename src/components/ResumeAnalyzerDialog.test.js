@@ -20,6 +20,7 @@ test("analyzer dialog offers comparison inputs and uses a populated current draf
     const { default: ResumeAnalyzerDialog } = await vite.ssrLoadModule("/src/components/ResumeAnalyzerDialog.jsx");
     const markup = renderToStaticMarkup(
       React.createElement(ResumeAnalyzerDialog, {
+        autoAnalyze: false,
         resumeBuilder: { draft: { personal: { fullName: "Alex Example", headline: "Frontend Engineer" }, skills: ["React"], projects: [{ name: "Dashboard", highlights: ["Built a React dashboard."] }] } },
         userProfile: {},
       }),
@@ -34,8 +35,63 @@ test("analyzer dialog offers comparison inputs and uses a populated current draf
     assert.doesNotMatch(markup, /The comparison uses its skills/u);
     assert.match(markup, /id="resume-analyzer-job-title">Enter a job title or paste its requirements\./u);
     assert.match(markup, /aria-label="Job role or description"/u);
+    assert.match(markup, /aria-label="Job role or description"[^>]*>Frontend Engineer<\/textarea>/u);
     assert.doesNotMatch(markup, /Resume Builder \/ Resume Analyzer/u);
     assert.match(markup, />\s*Review\s*<\/button>/u);
+  } finally {
+    await vite.close();
+  }
+});
+
+test("analyzer starts reviewing the current draft against its headline without requesting inputs", async () => {
+  const vite = await createServer({ appType: "custom", logLevel: "silent", server: { middlewareMode: true } });
+  try {
+    const { default: ResumeAnalyzerDialog } = await vite.ssrLoadModule("/src/components/ResumeAnalyzerDialog.jsx");
+    const markup = renderToStaticMarkup(
+      React.createElement(ResumeAnalyzerDialog, {
+        resumeBuilder: {
+          draft: {
+            personal: { fullName: "Alex Example", headline: "FRONTEND DEVELOPER, UI DESIGNER" },
+            skills: ["React", "Figma"],
+            projects: [{ name: "Dashboard", highlights: ["Built a React dashboard."] }],
+          },
+        },
+        userProfile: {},
+      }),
+    );
+
+    assert.match(markup, /role="status"/u);
+    assert.match(markup, /Analyzing/u);
+    assert.match(markup, /FRONTEND DEVELOPER, UI DESIGNER/u);
+    assert.doesNotMatch(markup, /Choose what you want reviewed/u);
+    assert.doesNotMatch(markup, /aria-label="Job role or description"/u);
+    assert.doesNotMatch(markup, /aria-label="Resume review results"/u);
+    assert.match(markup, /aria-label="New resume analysis"/u);
+  } finally {
+    await vite.close();
+  }
+});
+
+test("analyzer requests a target role when a populated draft has no usable headline", async () => {
+  const vite = await createServer({ appType: "custom", logLevel: "silent", server: { middlewareMode: true } });
+  try {
+    const { default: ResumeAnalyzerDialog } = await vite.ssrLoadModule("/src/components/ResumeAnalyzerDialog.jsx");
+    for (const headline of ["", "   "]) {
+      const markup = renderToStaticMarkup(
+        React.createElement(ResumeAnalyzerDialog, {
+          resumeBuilder: { draft: { personal: { fullName: "Alex Example", headline }, skills: ["React"] } },
+          userProfile: {},
+        }),
+      );
+
+      assert.match(markup, /Choose what you want reviewed/u);
+      assert.match(markup, /aria-pressed="true"[^>]*>[^]*?Current draft/u);
+      assert.match(markup, /aria-label="Job role or description"/u);
+      assert.match(markup, /role="alert"/u);
+      assert.match(markup, /headline|job (?:title|role)/iu);
+      assert.doesNotMatch(markup, /role="status"/u);
+      assert.doesNotMatch(markup, /aria-label="Resume review results"/u);
+    }
   } finally {
     await vite.close();
   }
@@ -51,6 +107,8 @@ test("analyzer dialog prompts for an upload when the builder has no content", as
 
     assert.match(markup, /Upload resume/u);
     assert.match(markup, /aria-label="Upload resume"/u);
+    assert.match(markup, /aria-label="Job role or description"/u);
+    assert.doesNotMatch(markup, /role="status"/u);
     assert.doesNotMatch(markup, /Alex Example/u);
   } finally {
     await vite.close();
@@ -80,7 +138,7 @@ test("analyzer backdrop and cards use the active background theme", () => {
 test("formatResumeReviewNote and getResumeReviewPriority format notes accurately", async () => {
   const vite = await createServer({ appType: "custom", logLevel: "silent", server: { middlewareMode: true } });
   try {
-    const { formatResumeReviewNote, getResumeReviewPriority } = await vite.ssrLoadModule("/src/components/ResumeAnalyzerDialog.jsx");
+    const { formatResumeReviewNote, getResumeReviewPriority } = await vite.ssrLoadModule("/src/utils/resumeReviewNotes.js");
     const mockFindings = [
       { id: "1", priority: "high", title: "Add measurable impact", suggestion: "Include metrics", evidence: "No metrics found", example: "Increased sales by 20%" },
       { id: "2", priority: "low", title: "Check formatting", suggestion: "Keep fonts consistent" },
@@ -142,6 +200,10 @@ test("analyzer dialog renders Save button alongside review results", async () =>
     assert.match(markup, /aria-label="Save review to notes"/u);
     assert.match(markup, /<span>Save<\/span><\/button>/u);
     assert.match(markup, /Where your resume can improve/u);
+    assert.match(markup, /aria-label="New resume analysis"/u);
+    assert.doesNotMatch(markup, /Choose what you want reviewed/u);
+    assert.doesNotMatch(markup, /aria-label="Job role or description"/u);
+    assert.doesNotMatch(markup, /role="status"/u);
   } finally {
     await vite.close();
   }
