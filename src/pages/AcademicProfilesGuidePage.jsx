@@ -42,14 +42,11 @@ const PROFILE_DELETE_EXIT_MS = 180;
 
 const PROFILE_COPY = Object.freeze({
   a: {
-    eyebrow: "Your starting space",
     title: "Profile A",
-    summary: "The first academic workspace created with your account. Keep your original subjects and study history here.",
     useFor: "Your main class, degree, examination, or current syllabus.",
     tone: "blue",
   },
   b: {
-    eyebrow: "Your second space",
     title: "Profile B",
     summary: "An optional second workspace for a different academic context, with its own learning data and progress.",
     useFor: "A new class, degree, stream, course, certification, or separate exam goal.",
@@ -72,7 +69,6 @@ function personalizeGuideSteps(profileNames) {
     ...step,
     label: personalizeProfileCopy(step.label, profileNames),
     title: personalizeProfileCopy(step.title, profileNames),
-    summary: personalizeProfileCopy(step.summary, profileNames),
     points: step.points.map((point) => personalizeProfileCopy(point, profileNames)),
     tip: personalizeProfileCopy(step.tip, profileNames),
   }));
@@ -117,7 +113,6 @@ export default function AcademicProfilesGuidePage({
   const selectedCopy = PROFILE_COPY[selectedKind];
   const selectedProfile = slots.profiles.find((profile) => profileKind(profile) === selectedKind);
   const selectedProfileName = profileNames[selectedKind];
-  const activeKind = profileKind(slots.activeProfile);
   const step = personalizedGuideSteps[activeStep];
   const StepIcon = STEP_ICONS[step.id] || Sparkles;
   const pendingDeletionProfile = slots.profiles.find((profile) => profile.deletionPending)
@@ -400,14 +395,10 @@ export default function AcademicProfilesGuidePage({
         <div>
           <h1>How Profile A and Profile B work</h1>
         </div>
-        <span className="academic-profiles-current-badge">
-          <CheckCircle2 aria-hidden="true" size={15} /> Current: {getAcademicProfileDisplayName(slots.activeProfile)}
-        </span>
       </header>
 
       <section className="academic-profiles-hero academic-profile-guide-surface">
         <div className="academic-profiles-hero-copy">
-          <span className="academic-profile-guide-kicker"><Sparkles aria-hidden="true" size={14} /> Two profiles, one account</span>
           <h2>Keep different study journeys organized—not mixed together.</h2>
           <p>
             {profileNames.a} and {profileNames.b} let you use one PrepMatrix account for two academic contexts.
@@ -432,11 +423,8 @@ export default function AcademicProfilesGuidePage({
       <section className="academic-profiles-explorer academic-profile-guide-surface" id="profile-explorer">
         <header className="academic-profile-guide-section-heading">
           <div>
-            <span className="academic-profile-guide-kicker">Interactive profile catalogue</span>
             <h2>Choose a profile to understand its role</h2>
-            <p>These tabs explain the workspace without changing your active profile.</p>
           </div>
-          <span>{slots.profiles.length} of 2 profiles configured</span>
         </header>
 
         <div aria-label="Academic profile catalogue" className="academic-profiles-tabs" role="tablist">
@@ -457,7 +445,6 @@ export default function AcademicProfilesGuidePage({
               >
                 <span>{kind.toUpperCase()}</span>
                 <div><strong>{profileNames[kind]}</strong><small>{exists ? "Configured" : "Available to create"}</small></div>
-                {activeKind === kind ? <em><Check aria-hidden="true" size={12} /> Current</em> : null}
               </button>
             );
           })}
@@ -472,9 +459,8 @@ export default function AcademicProfilesGuidePage({
         >
           <div className="academic-profile-catalogue-letter">{selectedKind.toUpperCase()}</div>
           <div>
-            <span>{selectedCopy.eyebrow}</span>
             <h3>{selectedProfileName}</h3>
-            <p>{selectedCopy.summary}</p>
+            {selectedCopy.summary && <p>{selectedCopy.summary}</p>}
             <dl>
               <div><dt>Best used for</dt><dd>{selectedCopy.useFor}</dd></div>
               <div><dt>Status</dt><dd>{selectedProfile ? "Configured on this account" : "Not created yet"}</dd></div>
@@ -497,13 +483,11 @@ export default function AcademicProfilesGuidePage({
 
       <section className="academic-profiles-boundaries" aria-label="Shared and separate profile information">
         <article className="academic-profile-guide-surface is-separate">
-          <header><Layers3 aria-hidden="true" size={21} /><div><span>Profile-specific</span><h2>What stays separate</h2></div></header>
-          <p>The active profile owns its academic context and learning workspace.</p>
+          <header><Layers3 aria-hidden="true" size={21} /><div><h2>What stays separate</h2></div></header>
           <ul>{ACADEMIC_PROFILE_SEPARATE_ITEMS.map((item) => <li key={item}><CheckCircle2 aria-hidden="true" size={15} />{item}</li>)}</ul>
         </article>
         <article className="academic-profile-guide-surface is-shared">
-          <header><LockKeyhole aria-hidden="true" size={21} /><div><span>Account-wide</span><h2>What stays shared</h2></div></header>
-          <p>You still sign in once and manage one secure PrepMatrix account.</p>
+          <header><LockKeyhole aria-hidden="true" size={21} /><div><h2>What stays shared</h2></div></header>
           <ul>{ACADEMIC_PROFILE_SHARED_ITEMS.map((item) => <li key={item}><CheckCircle2 aria-hidden="true" size={15} />{item}</li>)}</ul>
         </article>
       </section>
@@ -511,11 +495,8 @@ export default function AcademicProfilesGuidePage({
       <section className="academic-profiles-walkthrough academic-profile-guide-surface">
         <header className="academic-profile-guide-section-heading">
           <div>
-            <span className="academic-profile-guide-kicker">Guided walkthrough</span>
             <h2>Learn the workflow one step at a time</h2>
-            <p>Nothing changes automatically while you review this guide.</p>
           </div>
-          <span>{activeStep + 1} / {personalizedGuideSteps.length}</span>
         </header>
 
         <nav aria-label="Academic profile guide steps" className="academic-profiles-walkthrough-nav">
@@ -536,7 +517,6 @@ export default function AcademicProfilesGuidePage({
         {guideFinished ? (
           <article aria-live="polite" className="academic-profiles-finished">
             <div><CheckCircle2 aria-hidden="true" size={30} /></div>
-            <span>Guide complete</span>
             <h3>You’re ready to use both profiles.</h3>
             <p>Check the Current label before studying, and switch from Settings whenever your learning context changes.</p>
             <div>
@@ -550,9 +530,7 @@ export default function AcademicProfilesGuidePage({
               {createElement(StepIcon, { "aria-hidden": true, size: 27 })}
             </div>
             <div>
-              <span>Step {activeStep + 1}</span>
               <h3>{step.title}</h3>
-              <p>{step.summary}</p>
               <ul>{step.points.map((point) => <li key={point}><CheckCircle2 aria-hidden="true" size={15} />{point}</li>)}</ul>
               <aside><Lightbulb aria-hidden="true" size={16} /><span>{step.tip}</span></aside>
             </div>
@@ -584,7 +562,7 @@ export default function AcademicProfilesGuidePage({
 
       <section className="academic-profiles-faq academic-profile-guide-surface">
         <header className="academic-profile-guide-section-heading">
-          <div><span className="academic-profile-guide-kicker">Common questions</span><h2>Before you switch or delete</h2></div>
+          <div><h2>Before you switch or delete</h2></div>
         </header>
         <div>
           <details>

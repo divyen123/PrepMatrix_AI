@@ -59,9 +59,9 @@ test("renders an understandable two-profile catalogue with shared and separate b
     assert.doesNotMatch(markup, /Settings \/ Academic profiles/u);
     assert.doesNotMatch(markup, /A clear guide to switching between two independent learning workspaces\./u);
     assert.doesNotMatch(markup, /<h1>How Engineering and Medical Studies work<\/h1>/u);
-    assert.match(markup, /Current: Medical Studies/u);
-    assert.match(markup, /Two profiles, one account/u);
-    assert.match(markup, /Interactive profile catalogue/u);
+    assert.doesNotMatch(markup, /Current: Medical Studies/u);
+    assert.doesNotMatch(markup, /Two profiles, one account/u);
+    assert.doesNotMatch(markup, /Interactive profile catalogue/u);
     assert.match(markup, /role="tablist"/u);
     assert.match(markup, /aria-selected="true"/u);
     assert.match(markup, /What stays separate/u);
@@ -136,7 +136,6 @@ test("registers the permanent guide and the once-only animated Profile B intro",
   assert.match(appSource, /<SettingsProfilePage[\s\S]*?onCreateAcademicProfile=\{createAcademicProfile\}/u);
   assert.match(appSource, /<AcademicProfileIntroDialog[\s\S]*?open=\{academicProfileIntroOpen\}/u);
   assert.match(settingsSource, /aria-label="Learn how academic profiles work"[\s\S]*?to=\{ACADEMIC_PROFILE_GUIDE_ROUTE\}/u);
-  assert.match(pageSource, /getAcademicProfileDisplayName\(slots\.activeProfile\)/u);
   assert.match(pageSource, /getAcademicProfileDisplayName\(slots\.inactiveProfile\)/u);
   assert.match(appSource, /activeProfileLabel: getAcademicProfileDisplayName\(activeProfile, 1\)/u);
   assert.match(appSource, /otherProfileLabel: getAcademicProfileDisplayName\(otherProfile/u);

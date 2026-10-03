@@ -24,7 +24,7 @@
 
 .academic-profiles-page-header {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
   gap: 14px;
   padding: 2px 2px 5px;
@@ -327,7 +327,7 @@ body .academic-profiles-page .academic-profile-guide-button.is-primary:focus-vis
 }
 
 .academic-profile-guide-section-heading h2 {
-  margin: 4px 0 4px;
+  margin: 0;
   color: var(--text);
   font-size: clamp(1.15rem, 2vw, 1.5rem);
 }
@@ -351,7 +351,7 @@ body .academic-profiles-page .academic-profile-guide-button.is-primary:focus-vis
 
 body .academic-profiles-tabs button {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
   gap: 11px;
   min-height: 66px;
@@ -472,7 +472,7 @@ body .academic-profiles-tabs button:focus-visible {
 }
 
 .academic-profile-catalogue-panel h3 {
-  margin: 4px 0 5px;
+  margin: 0 0 5px;
   color: var(--text);
   font-size: 1.25rem;
 }
@@ -556,7 +556,7 @@ body .academic-profiles-tabs button:focus-visible {
 }
 
 .academic-profiles-boundaries h2 {
-  margin: 2px 0 0;
+  margin: 0;
   color: var(--text);
   font-size: 1rem;
 }
@@ -576,6 +576,10 @@ body .academic-profiles-tabs button:focus-visible {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.academic-profiles-boundaries ul {
+  margin-top: 13px;
 }
 
 .academic-profiles-boundaries li,
@@ -696,7 +700,7 @@ body .academic-profile-intro-step-nav button:focus-visible {
 
 .academic-profiles-walkthrough-step h3,
 .academic-profiles-finished h3 {
-  margin: 5px 0 7px;
+  margin: 0 0 7px;
   color: var(--text);
   font-size: clamp(1.2rem, 2vw, 1.55rem);
 }

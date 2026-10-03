@@ -1483,6 +1483,20 @@ body .exam-compact-timer .exam-compact-timer-modes button::after {
   text-align: center;
 }
 
+.exam-paper-history-empty {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  padding: 24px;
+  text-align: center;
+}
+
+.exam-paper-history-empty p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
 .exam-paper-history-state {
   display: grid;
   justify-items: start;

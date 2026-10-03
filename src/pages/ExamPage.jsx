@@ -1628,16 +1628,22 @@ function PaperHistory({ academicProfileDataId, papers, status, onRefresh, onPape
   );
 
   if (papers.length === 0) {
+    if (status === "ready") {
+      return (
+        <section className="exam-paper-history-empty" role="status">
+          <p>Your generated question paper appears here.</p>
+        </section>
+      );
+    }
+
     const message = status === "loading"
       ? "Loading your saved question papers…"
-      : status === "error"
-        ? "Could not load your saved question papers. Please try again."
-        : "No saved question papers were found for this academic profile.";
+      : "Could not load your saved question papers. Please try again.";
     return (
       <section className="card exam-paper-history exam-paper-history-state" role={status === "error" ? "alert" : "status"}>
         <h2>Generated question papers</h2>
         <p>{message}</p>
-        {status !== "loading" && <button className="exam-about-btn" onClick={onRefresh} type="button">{status === "error" ? "Try again" : "Refresh papers"}</button>}
+        {status === "error" && <button className="exam-about-btn" onClick={onRefresh} type="button">Try again</button>}
       </section>
     );
   }
