@@ -1,0 +1,400 @@
+.academic-profile-intro-backdrop:has(> .academic-profile-intro-dialog.is-compact) {
+  padding: 1rem;
+  background: rgba(3, 7, 16, 0.66);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.academic-profile-intro-dialog.is-compact {
+  --profile-intro-surface: var(--bg);
+  display: block;
+  width: min(32rem, 100%);
+  height: auto;
+  min-height: 0;
+  max-height: calc(100dvh - 2rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 1.25rem;
+  background: var(--profile-intro-surface);
+  box-shadow: 0 1.5rem 5rem rgba(0, 0, 0, 0.35);
+  scrollbar-width: thin;
+}
+
+body.has-bg-image .academic-profile-intro-dialog.is-compact {
+  --profile-intro-surface: rgb(var(--bg-surface-rgb, 18, 27, 45));
+  background: var(--profile-intro-surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.academic-profile-intro-dialog.is-compact .academic-profile-intro-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem 1rem;
+}
+
+.academic-profile-intro-dialog.is-compact .academic-profile-intro-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.academic-profile-intro-dialog.is-compact .academic-profile-intro-header p {
+  display: block;
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+body .academic-profile-intro-dialog.is-compact .academic-profile-intro-close {
+  width: 1.875rem;
+  min-width: 1.875rem;
+  height: 1.875rem;
+  min-height: 1.875rem;
+  border-radius: 50% !important;
+  color: #e85d75 !important;
+  border-color: rgba(232, 93, 117, 0.3) !important;
+  background: rgba(232, 93, 117, 0.09) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body .academic-profile-intro-dialog.is-compact .academic-profile-intro-close:hover {
+  color: #fff !important;
+  border-color: #c6415c !important;
+  background: #c6415c !important;
+}
+
+body .academic-profile-intro-dialog.is-compact .academic-profile-intro-close:focus-visible {
+  outline: 2px solid #e85d75 !important;
+  outline-offset: 3px;
+}
+
+.academic-profile-intro-dialog.is-compact .rb-stepper-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.academic-profile-intro-dialog.is-compact .rb-stepper-indicators {
+  align-items: flex-start;
+  padding: 1.1rem 1.5rem 0.8rem;
+}
+
+.academic-profile-intro-dialog.is-compact .rb-stepper-indicator-group {
+  align-items: flex-start;
+}
+
+.academic-profile-intro-dialog.is-compact .rb-stepper-connector {
+  margin: 0.95rem 0.35rem 0;
+}
+
+body .academic-profile-intro-dialog.is-compact .profile-intro-indicator {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  min-width: 3.35rem;
+  min-height: 0;
+  padding: 0 !important;
+  color: var(--text-muted) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font: inherit;
+  cursor: pointer;
+  transform: none !important;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-indicator-circle {
+  display: grid;
+  place-items: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--profile-intro-surface) 94%, var(--accent));
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+  line-height: 1;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-indicator small {
+  font-size: 0.7rem;
+  font-weight: 650;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+body .academic-profile-intro-dialog.is-compact .profile-intro-indicator:is(.is-active, .is-complete) {
+  color: var(--text) !important;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-indicator:is(.is-active, .is-complete) .profile-intro-indicator-circle {
+  color: var(--text);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--profile-intro-surface) 72%, var(--accent));
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-indicator.is-active .profile-intro-indicator-circle {
+  box-shadow: 0 0 0 0.2rem rgba(var(--accent-rgb), 0.12);
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-indicator:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-indicator:hover:not(:disabled) .profile-intro-indicator-circle {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+body .academic-profile-intro-dialog.is-compact .profile-intro-indicator:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 4px;
+  border-radius: 0.25rem !important;
+}
+
+.academic-profile-intro-dialog.is-compact .rb-stepper-step {
+  padding: 0.8rem 1.5rem 0.6rem;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-slide {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-step-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.6rem;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-step-heading > span {
+  display: grid;
+  flex: 0 0 2.25rem;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--accent);
+  border-radius: 0.65rem;
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-step-heading h3 {
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-slide > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-slide ul {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-slide li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-slide li > svg {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+  color: var(--accent);
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-boundaries {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.9rem 0 0;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-boundaries > div {
+  display: grid;
+  grid-template-columns: 5.25rem minmax(0, 1fr);
+  gap: 0.6rem;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-boundaries dt {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-boundaries dd {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-preview {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-preview > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-preview > p:first-child {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.academic-profile-intro-dialog.is-compact .profile-intro-preview > div {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.55rem 0;
+}
+
+body .academic-profile-intro-dialog.is-compact .profile-intro-preview button {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.65rem !important;
+  color: var(--text-muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.6rem !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transform: none !important;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+body .academic-profile-intro-dialog.is-compact .profile-intro-preview button[aria-pressed="true"] {
+  color: var(--text) !important;
+  border-color: var(--accent) !important;
+  background: color-mix(in srgb, var(--profile-intro-surface) 88%, var(--accent)) !important;
+}
+
+body .academic-profile-intro-dialog.is-compact .profile-intro-preview button:hover {
+  border-color: var(--accent) !important;
+  color: var(--text) !important;
+}
+
+.academic-profile-intro-dialog.is-compact .rb-stepper-footer {
+  gap: 0.6rem;
+  padding: 0.8rem 1.5rem 1.25rem;
+}
+
+body .academic-profile-intro-dialog.is-compact :is(.rb-stepper-back, .rb-stepper-next) {
+  min-height: 2.25rem;
+  padding: 0.4rem 0.8rem !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.65rem !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 650;
+  line-height: 1.35;
+  transform: none !important;
+}
+
+body .academic-profile-intro-dialog.is-compact .rb-stepper-next {
+  border-color: rgba(var(--accent-rgb), 0.38) !important;
+  background: color-mix(in srgb, var(--profile-intro-surface) 82%, var(--accent)) !important;
+}
+
+body .academic-profile-intro-dialog.is-compact :is(.rb-stepper-back, .rb-stepper-next):hover {
+  border-color: var(--accent) !important;
+  background: color-mix(in srgb, var(--profile-intro-surface) 75%, var(--accent)) !important;
+  filter: none;
+}
+
+body .academic-profile-intro-dialog.is-compact :is(.rb-stepper-back, .rb-stepper-next, .profile-intro-preview button):focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  .academic-profile-intro-backdrop:has(> .academic-profile-intro-dialog.is-compact) {
+    padding: 0.75rem;
+  }
+
+  .academic-profile-intro-dialog.is-compact {
+    height: auto;
+    max-height: calc(100dvh - 1.5rem);
+    border-radius: 1rem;
+  }
+
+  .academic-profile-intro-dialog.is-compact .academic-profile-intro-header {
+    gap: 0.65rem;
+    padding: 1rem 1.1rem 0.85rem;
+  }
+
+  .academic-profile-intro-dialog.is-compact .rb-stepper-indicators {
+    padding: 1rem 1.1rem 0.7rem;
+  }
+
+  .academic-profile-intro-dialog.is-compact .rb-stepper-step {
+    padding: 0.7rem 1.1rem 0.5rem;
+  }
+
+  .academic-profile-intro-dialog.is-compact .rb-stepper-footer {
+    padding: 0.75rem 1.1rem 1rem;
+  }
+
+  body .academic-profile-intro-dialog.is-compact .profile-intro-indicator {
+    min-width: 2.8rem;
+  }
+
+  .academic-profile-intro-dialog.is-compact .profile-intro-indicator small {
+    font-size: 0.65rem;
+  }
+
+  .academic-profile-intro-dialog.is-compact .rb-stepper-connector {
+    margin-right: 0.15rem;
+    margin-left: 0.15rem;
+  }
+
+  .academic-profile-intro-dialog.is-compact .profile-intro-boundaries > div {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .academic-profile-intro-dialog.is-compact :is(.profile-intro-indicator-circle, .profile-intro-preview button, .rb-stepper-back, .rb-stepper-next) {
+    transition: none !important;
+  }
+}

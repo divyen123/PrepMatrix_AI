@@ -1,26 +1,12 @@
-import { createElement, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  ArrowLeft,
-  ArrowRight,
-  CheckCircle2,
-  Layers3,
-  Lightbulb,
-  Repeat2,
-  ShieldCheck,
-  Sparkles,
-  X,
-} from "lucide-react";
-import { ACADEMIC_PROFILE_GUIDE_STEPS } from "../utils/academicProfileGuide";
+import { CheckCircle2, Layers3, Repeat2, ShieldCheck, Sparkles, X } from "lucide-react";
+import Stepper, { Step } from "./Stepper";
 import "./AcademicProfilesGuide.css";
+import "./AcademicProfileIntroDialog.css";
 
 const EXIT_DURATION_MS = 480;
-const STEP_ICONS = Object.freeze({
-  welcome: Sparkles,
-  "profile-a-safe": ShieldCheck,
-  "separate-workspaces": Layers3,
-  switching: Repeat2,
-});
+const STEP_LABELS = ["Welcome", "Keep A", "Separate", "Switch"];
 
 function getFocusableElements(container) {
   if (!container) return [];
@@ -39,7 +25,8 @@ export default function AcademicProfileIntroDialog({
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
   const onCloseRef = useRef(onClose);
-  const [activeStep, setActiveStep] = useState(0);
+  const [guideSession, setGuideSession] = useState(0);
+  const [previewProfile, setPreviewProfile] = useState("b");
   const [entered, setEntered] = useState(false);
   const [rendered, setRendered] = useState(open);
 
@@ -48,12 +35,18 @@ export default function AcademicProfileIntroDialog({
   }, [onClose]);
 
   useEffect(() => {
+    if (open) {
+      setGuideSession((session) => session + 1);
+      setPreviewProfile("b");
+    }
+  }, [open]);
+
+  useEffect(() => {
     let animationFrame;
     let exitTimer;
 
     if (open) {
       setRendered(true);
-      setActiveStep(0);
       animationFrame = window.requestAnimationFrame(() => setEntered(true));
     } else {
       setEntered(false);
@@ -108,13 +101,9 @@ export default function AcademicProfileIntroDialog({
 
   if (!rendered || typeof document === "undefined") return null;
 
-  const step = ACADEMIC_PROFILE_GUIDE_STEPS[activeStep];
-  const StepIcon = STEP_ICONS[step.id] || Sparkles;
   const displayName = String(userName || "").trim();
-  const stepTitle = step.id === "welcome"
-    ? `You are now in ${activeProfileLabel}`
-    : step.title;
   const requestClose = (reason) => onCloseRef.current?.(reason);
+  const previewLabel = previewProfile === "a" ? otherProfileLabel : activeProfileLabel;
 
   return createPortal(
     <div
@@ -127,22 +116,16 @@ export default function AcademicProfileIntroDialog({
         aria-describedby="academic-profile-intro-description"
         aria-labelledby="academic-profile-intro-title"
         aria-modal="true"
-        className="academic-profile-intro-dialog"
+        className="academic-profile-intro-dialog is-compact"
         ref={dialogRef}
         role="dialog"
       >
         <header className="academic-profile-intro-header">
-          <div className="academic-profile-intro-mark">
-            <Sparkles aria-hidden="true" size={22} />
-          </div>
           <div>
-            <span className="academic-profile-guide-kicker">Your two-profile guide</span>
             <h2 id="academic-profile-intro-title">
               Welcome{displayName ? `, ${displayName}` : ""}
             </h2>
-            <p id="academic-profile-intro-description">
-              A quick tour of how {otherProfileLabel} and {activeProfileLabel} work together.
-            </p>
+            <p id="academic-profile-intro-description">Four quick steps to use both profiles.</p>
           </div>
           <button
             aria-label="Close profile guide"
@@ -156,92 +139,88 @@ export default function AcademicProfileIntroDialog({
           </button>
         </header>
 
-        <div className="academic-profile-intro-identity" aria-label="Academic profile relationship">
-          <span className="is-profile-a"><b>A</b>{otherProfileLabel}<small>Your original workspace</small></span>
-          <ArrowRight aria-hidden="true" size={19} />
-          <span className="is-profile-b is-current"><b>B</b>{activeProfileLabel}<small>Current workspace</small></span>
-        </div>
-
-        <div
-          aria-label={`Step ${activeStep + 1} of ${ACADEMIC_PROFILE_GUIDE_STEPS.length}`}
-          aria-valuemax={ACADEMIC_PROFILE_GUIDE_STEPS.length}
-          aria-valuemin={1}
-          aria-valuenow={activeStep + 1}
-          className="academic-profile-intro-progress"
-          role="progressbar"
-        >
-          <span style={{ width: `${((activeStep + 1) / ACADEMIC_PROFILE_GUIDE_STEPS.length) * 100}%` }} />
-        </div>
-
-        <div className="academic-profile-intro-body">
-          <nav aria-label="Profile guide steps" className="academic-profile-intro-step-nav">
-            {ACADEMIC_PROFILE_GUIDE_STEPS.map((guideStep, index) => (
+        <Stepper
+          backButtonText="Previous"
+          className="profile-intro-stepper"
+          completeButtonText="Finish guide"
+          key={guideSession}
+          nextButtonText="Next"
+          onFinalStepCompleted={() => requestClose("finish")}
+          renderStepIndicator={({ step, currentStep, onStepClick }) => {
+            const status = currentStep === step ? "active" : currentStep > step ? "complete" : "inactive";
+            return (
               <button
-                aria-current={activeStep === index ? "step" : undefined}
-                className={activeStep === index ? "is-active" : ""}
-                key={guideStep.id}
-                onClick={() => setActiveStep(index)}
+                aria-current={currentStep === step ? "step" : undefined}
+                aria-label={`Step ${step} of ${STEP_LABELS.length}: ${STEP_LABELS[step - 1]}`}
+                className={`profile-intro-indicator is-${status}`}
+                onClick={() => onStepClick(step)}
                 type="button"
               >
-                <span>{activeStep > index
-                  ? <CheckCircle2 aria-hidden="true" size={15} />
-                  : index + 1}</span>
-                {guideStep.label}
+                <span aria-hidden="true" className="profile-intro-indicator-circle">
+                  {status === "complete" ? <CheckCircle2 size={18} /> : step}
+                </span>
+                <small>{STEP_LABELS[step - 1]}</small>
               </button>
-            ))}
-          </nav>
-
-          <article
-            aria-live="polite"
-            className={`academic-profile-intro-step tone-${step.tone}`}
-            key={step.id}
-          >
-            <div className="academic-profile-intro-step-icon">
-              {createElement(StepIcon, { "aria-hidden": true, size: 25 })}
-            </div>
-            <span>Step {activeStep + 1} of {ACADEMIC_PROFILE_GUIDE_STEPS.length}</span>
-            <h3>{stepTitle}</h3>
-            <p>{step.summary}</p>
-            <ul>
-              {step.points.map((point) => (
-                <li key={point}><CheckCircle2 aria-hidden="true" size={16} /><span>{point}</span></li>
-              ))}
-            </ul>
-            <aside>
-              <Lightbulb aria-hidden="true" size={17} />
-              <div><strong>Helpful tip</strong><p>{step.tip}</p></div>
-            </aside>
-          </article>
-        </div>
-
-        <footer className="academic-profile-intro-actions">
-          <button
-            className="academic-profile-guide-button is-secondary"
-            disabled={activeStep === 0}
-            onClick={() => setActiveStep((current) => Math.max(0, current - 1))}
-            type="button"
-          >
-            <ArrowLeft aria-hidden="true" size={15} /> Previous
-          </button>
-          <span aria-live="polite">{activeStep + 1} / {ACADEMIC_PROFILE_GUIDE_STEPS.length}</span>
-          {activeStep < ACADEMIC_PROFILE_GUIDE_STEPS.length - 1 ? (
-            <button
-              className="academic-profile-guide-button is-primary"
-              onClick={() => setActiveStep((current) => current + 1)}
-              type="button"
-            >
-              Next <ArrowRight aria-hidden="true" size={15} />
-            </button>
-          ) : (
-            <button
-              className="academic-profile-guide-button is-primary"
-              onClick={() => requestClose("finish")}
-              type="button"
-            >
-              Finish guide <CheckCircle2 aria-hidden="true" size={16} />
-            </button>
-          )}
-        </footer>
+            );
+          }}
+        >
+          <Step>
+            <article className="profile-intro-slide">
+              <div className="profile-intro-step-heading">
+                <span><Sparkles aria-hidden="true" size={22} /></span>
+                <h3>{activeProfileLabel} is ready</h3>
+              </div>
+              <p>Use this space for a different class, course, or exam goal.</p>
+              <ul>
+                <li><CheckCircle2 aria-hidden="true" size={16} /><span>Start with fresh subjects and a new study plan.</span></li>
+                <li><CheckCircle2 aria-hidden="true" size={16} /><span>Check the current profile before adding study work.</span></li>
+              </ul>
+            </article>
+          </Step>
+          <Step>
+            <article className="profile-intro-slide">
+              <div className="profile-intro-step-heading">
+                <span><ShieldCheck aria-hidden="true" size={22} /></span>
+                <h3>{otherProfileLabel} stays safe</h3>
+              </div>
+              <p>Your original subjects, notes, planner, and progress stay in {otherProfileLabel}.</p>
+              <ul>
+                <li><CheckCircle2 aria-hidden="true" size={16} /><span>Return to your original workspace whenever you need it.</span></li>
+                <li><CheckCircle2 aria-hidden="true" size={16} /><span>Switching keeps each profile’s study work separate.</span></li>
+              </ul>
+            </article>
+          </Step>
+          <Step>
+            <article className="profile-intro-slide">
+              <div className="profile-intro-step-heading">
+                <span><Layers3 aria-hidden="true" size={22} /></span>
+                <h3>Separate study. Shared account.</h3>
+              </div>
+              <p>Each profile has its own learning workspace.</p>
+              <dl className="profile-intro-boundaries">
+                <div><dt>Per profile</dt><dd>Subjects · Planner · Notes · Progress</dd></div>
+                <div><dt>Shared</dt><dd>Sign-in · Security · AI credits</dd></div>
+              </dl>
+            </article>
+          </Step>
+          <Step>
+            <article className="profile-intro-slide">
+              <div className="profile-intro-step-heading">
+                <span><Repeat2 aria-hidden="true" size={22} /></span>
+                <h3>Switch when you need</h3>
+              </div>
+              <p>In Settings, check the Current label, choose Visit beside a profile, and wait for its workspace to load.</p>
+              <div className="profile-intro-preview">
+                <p>Try a preview</p>
+                <div aria-label="Profile switch preview" role="group">
+                  <button aria-pressed={previewProfile === "a"} onClick={() => setPreviewProfile("a")} type="button">{otherProfileLabel}</button>
+                  <button aria-pressed={previewProfile === "b"} onClick={() => setPreviewProfile("b")} type="button">{activeProfileLabel}</button>
+                </div>
+                <p role="status">Preview: viewing {previewLabel}. Your active profile stays {activeProfileLabel}.</p>
+              </div>
+            </article>
+          </Step>
+        </Stepper>
       </section>
     </div>,
     document.body,

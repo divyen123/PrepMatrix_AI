@@ -165,7 +165,8 @@ test("registers the permanent guide and the once-only animated Profile B intro",
 
   assert.match(dialogSource, /aria-modal="true"/u);
   assert.match(dialogSource, /role="dialog"/u);
-  assert.match(dialogSource, /aria-current=\{activeStep === index \? "step" : undefined\}/u);
+  assert.match(dialogSource, /<Stepper/u);
+  assert.match(dialogSource, /aria-current=\{currentStep === step \? "step" : undefined\}/u);
   assert.match(dialogSource, /event\.key === "Escape"/u);
   assert.match(dialogSource, /getFocusableElements\(dialogRef\.current\)/u);
   assert.match(dialogSource, /Finish guide/u);
