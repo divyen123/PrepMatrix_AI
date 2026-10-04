@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -72,6 +72,33 @@ function personalizeGuideSteps(profileNames) {
     points: step.points.map((point) => personalizeProfileCopy(point, profileNames)),
     tip: personalizeProfileCopy(step.tip, profileNames),
   }));
+}
+
+function ProfileGuideFaqItem({ question, children }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const answerId = useId();
+
+  return (
+    <div className="academic-profile-faq-item">
+      <button
+        aria-controls={answerId}
+        aria-expanded={isOpen}
+        className="academic-profile-faq-question"
+        onClick={() => setIsOpen((open) => !open)}
+        type="button"
+      >
+        {question}<ChevronDown aria-hidden="true" size={17} />
+      </button>
+      <div
+        aria-hidden={!isOpen}
+        className="academic-profile-faq-answer"
+        id={answerId}
+        inert={!isOpen}
+      >
+        <div><p>{children}</p></div>
+      </div>
+    </div>
+  );
 }
 
 export default function AcademicProfilesGuidePage({
@@ -565,18 +592,15 @@ export default function AcademicProfilesGuidePage({
           <div><h2>Before you switch or delete</h2></div>
         </header>
         <div>
-          <details>
-            <summary>Can I create more than two profiles?<ChevronDown aria-hidden="true" size={17} /></summary>
-            <p>No. PrepMatrix supports a maximum of Profile A and Profile B for one account.</p>
-          </details>
-          <details>
-            <summary>Does switching copy or merge my study data?<ChevronDown aria-hidden="true" size={17} /></summary>
-            <p>No. The current workspace is saved, then the selected profile's separate workspace is loaded.</p>
-          </details>
-          <details>
-            <summary>What happens if I delete a profile?<ChevronDown aria-hidden="true" size={17} /></summary>
-            <p>The selected profile and its owned study data are removed after confirmation. The remaining profile becomes active.</p>
-          </details>
+          <ProfileGuideFaqItem question="Can I create more than two profiles?">
+            No. PrepMatrix supports a maximum of Profile A and Profile B for one account.
+          </ProfileGuideFaqItem>
+          <ProfileGuideFaqItem question="Does switching copy or merge my study data?">
+            No. The current workspace is saved, then the selected profile's separate workspace is loaded.
+          </ProfileGuideFaqItem>
+          <ProfileGuideFaqItem question="What happens if I delete a profile?">
+            The selected profile and its owned study data are removed after confirmation. The remaining profile becomes active.
+          </ProfileGuideFaqItem>
         </div>
       </section>
 

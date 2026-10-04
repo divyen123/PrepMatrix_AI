@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
@@ -139,6 +139,7 @@ function usageComparison(todaySeconds, averageSeconds) {
 }
 
 function UsageDetailDialog({
+  anchorRef,
   children,
   describedBy,
   dialogId,
@@ -149,12 +150,62 @@ function UsageDetailDialog({
 }) {
   const [rendered, setRendered] = useState(open);
   const [entered, setEntered] = useState(false);
+  const [position, setPosition] = useState(null);
   const dialogRef = useRef(null);
   const closeTimerRef = useRef(null);
   const animationFrameRef = useRef(null);
   const focusReturnRef = useRef(null);
   const bodyOverflowRef = useRef("");
   const bodyLockedRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!open || !rendered || !anchorRef || typeof window === "undefined") return undefined;
+
+    let frame;
+    const updatePosition = () => {
+      const anchor = anchorRef.current?.getBoundingClientRect();
+      const dialog = dialogRef.current;
+      if (!anchor || !dialog) return;
+
+      const gutter = 12;
+      const gap = 8;
+      // The desktop body is zoomed; fixed CSS coordinates use its unscaled space.
+      const zoom = Number.parseFloat(window.getComputedStyle(document.body).zoom) || 1;
+      const viewportWidth = document.documentElement.clientWidth / zoom;
+      const viewportHeight = window.innerHeight / zoom;
+      const width = dialog.offsetWidth;
+      const height = dialog.offsetHeight;
+      const anchorTop = anchor.top / zoom;
+      const anchorBottom = anchor.bottom / zoom;
+      const belowSpace = viewportHeight - anchorBottom - gap - gutter;
+      const aboveSpace = anchorTop - gap - gutter;
+      const opensAbove = height > belowSpace && aboveSpace > belowSpace;
+      const top = opensAbove ? anchorTop - gap - height : anchorBottom + gap;
+      setPosition({
+        left: Math.max(gutter, Math.min(anchor.left / zoom, viewportWidth - width - gutter)),
+        top: Math.max(gutter, Math.min(top, viewportHeight - height - gutter)),
+        transformOrigin: opensAbove ? "bottom left" : "top left",
+      });
+    };
+    const schedulePosition = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(updatePosition);
+    };
+
+    updatePosition();
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedulePosition);
+    if (anchorRef.current) resizeObserver?.observe(anchorRef.current);
+    if (dialogRef.current) resizeObserver?.observe(dialogRef.current);
+    resizeObserver?.observe(document.documentElement);
+    window.addEventListener("resize", schedulePosition);
+    window.addEventListener("scroll", schedulePosition, true);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", schedulePosition);
+      window.removeEventListener("scroll", schedulePosition, true);
+    };
+  }, [anchorRef, open, rendered]);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -179,7 +230,10 @@ function UsageDetailDialog({
       setRendered(true);
       animationFrameRef.current = window.requestAnimationFrame(() => {
         setEntered(true);
-        dialogRef.current?.focus();
+        const focusTarget = anchorRef
+          ? dialogRef.current?.querySelector("select")
+          : dialogRef.current;
+        focusTarget?.focus({ preventScroll: true });
       });
       return () => window.cancelAnimationFrame(animationFrameRef.current);
     }
@@ -194,7 +248,7 @@ function UsageDetailDialog({
     return () => {
       if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
     };
-  }, [open, rendered, returnFocusRef]);
+  }, [anchorRef, open, rendered, returnFocusRef]);
 
   useEffect(() => {
     if (!open || !rendered || typeof document === "undefined") return undefined;
@@ -243,9 +297,9 @@ function UsageDetailDialog({
   return createPortal(
     <div
       aria-hidden={!open || undefined}
-      className={"settings-profile-dialog-layer" + (entered && open ? " is-visible" : "")}
+      className={"settings-profile-dialog-layer" + (anchorRef ? " settings-profile-limit-popover-layer" : "") + (entered && open ? " is-visible" : "")}
       inert={!open}
-      onMouseDown={(event) => {
+      onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
@@ -253,10 +307,11 @@ function UsageDetailDialog({
         aria-describedby={describedBy}
         aria-labelledby={labelledBy}
         aria-modal="true"
-        className="settings-profile-dialog"
+        className={"settings-profile-dialog" + (anchorRef ? " settings-profile-limit-popover" : "")}
         id={dialogId}
         ref={dialogRef}
         role="dialog"
+        style={anchorRef ? position || { visibility: "hidden" } : undefined}
         tabIndex={-1}
       >
         <button
@@ -372,6 +427,7 @@ export default function SettingsProfilePage({
     const next = saveAppUsageLimit(usageIdentity, minutes);
     setUsageRecord(next);
     setDraftLimit(next.dailyLimitMinutes ?? "");
+    setActiveUsageDialog((current) => ({ ...current, open: false }));
     toast.success(next.dailyLimitMinutes
       ? `Daily usage reminder set to ${formatDuration(next.dailyLimitMinutes * 60)}.`
       : "Daily usage reminder removed.");
@@ -480,7 +536,10 @@ export default function SettingsProfilePage({
             aria-expanded={activeUsageDialog.open && activeUsageDialog.kind === "limit"}
             aria-haspopup="dialog"
             className="settings-profile-action is-secondary"
-            onClick={() => setActiveUsageDialog({ kind: "limit", open: true })}
+            onClick={() => {
+              setDraftLimit(usageRecord.dailyLimitMinutes ?? "");
+              setActiveUsageDialog({ kind: "limit", open: true });
+            }}
             ref={limitTriggerRef}
             type="button"
           >
@@ -671,9 +730,8 @@ export default function SettingsProfilePage({
       </div>
 
       <UsageDetailDialog
-        describedBy={activeUsageDialog.kind === "limit"
-          ? "usage-limit-description"
-          : "active-insights-description"}
+        anchorRef={activeUsageDialog.kind === "limit" ? limitTriggerRef : undefined}
+        describedBy={activeUsageDialog.kind === "insights" ? "active-insights-description" : undefined}
         dialogId="settings-profile-usage-dialog"
         labelledBy={activeUsageDialog.kind === "limit"
           ? "usage-limit-heading"
@@ -684,38 +742,7 @@ export default function SettingsProfilePage({
       >
         {activeUsageDialog.kind === "limit" ? (
           <>
-        <header className="settings-profile-dialog-heading">
-          <div className="settings-profile-expandable-icon"><Gauge aria-hidden="true" size={21} /></div>
-          <div>
-            <h2 id="usage-limit-heading">Active time</h2>
-            <p id="usage-limit-description">
-              Review today’s active time and set an optional reminder without blocking study sessions or exams.
-            </p>
-          </div>
-        </header>
-        <div className="settings-profile-dialog-stat-grid is-limit-summary">
-          <article>
-            <span>Today active</span>
-            <strong>{formatDuration(usageSummary.today.seconds)}</strong>
-            <small>Synced visible and focused time</small>
-          </article>
-          <article>
-            <span>Current reminder</span>
-            <strong>{usageSummary.dailyLimitSeconds
-              ? formatDuration(usageSummary.dailyLimitSeconds)
-              : "Not set"}</strong>
-            <small>{limitLabel}</small>
-          </article>
-          <article>
-            <span>Limit used</span>
-            <strong>{usageSummary.dailyLimitSeconds
-              ? `${usageSummary.limitUsedPercent}%`
-              : "Off"}</strong>
-            <small>{usageSummary.dailyLimitSeconds
-              ? `${Math.max(0, 100 - usageSummary.limitUsedPercent)}% remaining today`
-              : "Choose a reminder below"}</small>
-          </article>
-        </div>
+        <h2 id="usage-limit-heading">Active time</h2>
         <form className="settings-profile-limit-form" onSubmit={handleSaveLimit}>
           <label htmlFor="settings-profile-daily-limit">Daily reminder</label>
           <select
@@ -731,9 +758,6 @@ export default function SettingsProfilePage({
             <Save aria-hidden="true" size={16} /> Save limit
           </button>
         </form>
-        <p className="settings-profile-dialog-note">
-          This reminder setting stays on this device and compares against your synced account activity. Reaching it never locks PrepMatrix.
-        </p>
           </>
         ) : activeUsageDialog.kind === "insights" ? (
           <>

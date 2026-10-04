@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import {
   ArrowRight,
   LoaderCircle,
-  Sparkles,
   UserRoundPlus,
   X,
 } from "lucide-react";
@@ -248,7 +247,6 @@ export default function AcademicProfileCreateDialog({
             <UserRoundPlus aria-hidden="true" size={23} />
           </div>
           <div>
-            <span><Sparkles aria-hidden="true" size={13} /> Second learning workspace</span>
             <h2 id="academic-profile-create-title">Create Profile B</h2>
           </div>
           <button

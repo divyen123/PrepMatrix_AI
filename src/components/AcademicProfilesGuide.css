@@ -10,9 +10,11 @@
 }
 
 .academic-profiles-page {
+  --guide-font-unit: 1.08rem;
   width: min(1180px, 100%);
   margin: 0 auto;
   padding-bottom: 28px;
+  font-size: var(--guide-font-unit);
 }
 
 .academic-profile-guide-surface {
@@ -33,7 +35,7 @@
 .academic-profiles-page-header h1 {
   margin: 4px 0 3px;
   color: var(--text);
-  font-size: clamp(1.45rem, 2.5vw, 2rem);
+  font-size: calc(2 * var(--guide-font-unit));
   line-height: 1.15;
   white-space: nowrap !important;
 }
@@ -42,7 +44,7 @@
 .academic-profile-guide-section-heading p {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: calc(0.78 * var(--guide-font-unit, 1rem));
   line-height: 1.5;
 }
 
@@ -51,7 +53,7 @@
   align-items: center;
   gap: 6px;
   color: var(--accent);
-  font-size: 0.65rem;
+  font-size: calc(0.65 * var(--guide-font-unit, 1rem));
   font-weight: 800;
   letter-spacing: 0.075em;
   text-transform: uppercase;
@@ -92,7 +94,7 @@ body .academic-profile-guide-back:focus-visible {
   border: 1px solid rgba(var(--accent-rgb), 0.25);
   border-radius: 999px;
   background: rgba(var(--accent-rgb), 0.08);
-  font-size: 0.68rem;
+  font-size: calc(0.68 * var(--guide-font-unit, 1rem));
   font-weight: 760;
   white-space: nowrap;
 }
@@ -137,7 +139,7 @@ body .academic-profile-guide-back:focus-visible {
   max-width: 690px;
   margin: 12px 0 13px;
   color: var(--text);
-  font-size: clamp(1.75rem, 3.5vw, 3rem);
+  font-size: calc(3 * var(--guide-font-unit));
   line-height: 1.06;
   letter-spacing: -0.035em;
 }
@@ -146,7 +148,7 @@ body .academic-profile-guide-back:focus-visible {
   max-width: 650px;
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.88rem;
+  font-size: calc(0.88 * var(--guide-font-unit, 1rem));
   line-height: 1.7;
 }
 
@@ -168,7 +170,7 @@ body .academic-profile-guide-button {
   padding: 8px 14px !important;
   border-radius: 11px !important;
   font: inherit;
-  font-size: 0.72rem !important;
+  font-size: calc(0.72 * var(--guide-font-unit, 1rem)) !important;
   font-weight: 780 !important;
   line-height: 1;
   text-decoration: none;
@@ -281,7 +283,7 @@ body .academic-profiles-page .academic-profile-guide-button.is-primary:focus-vis
   margin-bottom: 10px;
   color: #fff;
   border-radius: 18px;
-  font-size: 1.5rem;
+  font-size: calc(1.5 * var(--guide-font-unit, 1rem));
   box-shadow: 0 12px 25px rgba(5, 12, 28, 0.2);
 }
 
@@ -294,7 +296,7 @@ body .academic-profiles-page .academic-profile-guide-button.is-primary:focus-vis
 }
 
 .academic-profiles-orbit > div span {
-  font-size: 0.78rem;
+  font-size: calc(0.78 * var(--guide-font-unit, 1rem));
   font-weight: 800;
 }
 
@@ -302,7 +304,7 @@ body .academic-profiles-page .academic-profile-guide-button.is-primary:focus-vis
 .academic-profiles-orbit > span small {
   margin-top: 3px;
   color: var(--text-muted);
-  font-size: 0.62rem;
+  font-size: calc(0.62 * var(--guide-font-unit, 1rem));
 }
 
 .academic-profiles-orbit > span {
@@ -329,7 +331,7 @@ body .academic-profiles-page .academic-profile-guide-button.is-primary:focus-vis
 .academic-profile-guide-section-heading h2 {
   margin: 0;
   color: var(--text);
-  font-size: clamp(1.15rem, 2vw, 1.5rem);
+  font-size: calc(1.5 * var(--guide-font-unit));
 }
 
 .academic-profile-guide-section-heading > span {
@@ -338,7 +340,7 @@ body .academic-profiles-page .academic-profile-guide-button.is-primary:focus-vis
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface-muted);
-  font-size: 0.64rem;
+  font-size: calc(0.64 * var(--guide-font-unit, 1rem));
   font-weight: 740;
   white-space: nowrap;
 }
@@ -373,7 +375,7 @@ body .academic-profiles-tabs button > span {
   color: #fff;
   border-radius: 12px;
   background: rgb(var(--profile-a-rgb));
-  font-size: 0.9rem;
+  font-size: calc(0.9 * var(--guide-font-unit, 1rem));
   font-weight: 850;
 }
 
@@ -388,12 +390,12 @@ body .academic-profiles-tabs button.tone-violet > span {
 
 .academic-profiles-tabs button strong {
   color: var(--text);
-  font-size: 0.78rem;
+  font-size: calc(0.78 * var(--guide-font-unit, 1rem));
 }
 
 .academic-profiles-tabs button small {
   color: var(--text-muted);
-  font-size: 0.63rem;
+  font-size: calc(0.63 * var(--guide-font-unit, 1rem));
 }
 
 .academic-profiles-tabs button em {
@@ -401,7 +403,7 @@ body .academic-profiles-tabs button.tone-violet > span {
   align-items: center;
   gap: 3px;
   color: var(--accent);
-  font-size: 0.59rem;
+  font-size: calc(0.59 * var(--guide-font-unit, 1rem));
   font-style: normal;
   font-weight: 800;
 }
@@ -454,7 +456,7 @@ body .academic-profiles-tabs button:focus-visible {
   border-radius: 24px;
   background: linear-gradient(135deg, rgb(var(--profile-a-rgb)), #38bdf8);
   box-shadow: 0 16px 32px rgba(var(--profile-a-rgb), 0.2);
-  font-size: 1.8rem;
+  font-size: calc(1.8 * var(--guide-font-unit, 1rem));
   font-weight: 850;
 }
 
@@ -465,7 +467,7 @@ body .academic-profiles-tabs button:focus-visible {
 
 .academic-profile-catalogue-panel > div:nth-child(2) > span {
   color: var(--accent);
-  font-size: 0.62rem;
+  font-size: calc(0.62 * var(--guide-font-unit, 1rem));
   font-weight: 800;
   letter-spacing: 0.055em;
   text-transform: uppercase;
@@ -474,14 +476,14 @@ body .academic-profiles-tabs button:focus-visible {
 .academic-profile-catalogue-panel h3 {
   margin: 0 0 5px;
   color: var(--text);
-  font-size: 1.25rem;
+  font-size: calc(1.25 * var(--guide-font-unit, 1rem));
 }
 
 .academic-profile-catalogue-panel p {
   max-width: 700px;
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: calc(0.75 * var(--guide-font-unit, 1rem));
   line-height: 1.55;
 }
 
@@ -507,14 +509,14 @@ body .academic-profiles-tabs button:focus-visible {
 
 .academic-profile-catalogue-panel dt {
   color: var(--text-muted);
-  font-size: 0.56rem;
+  font-size: calc(0.56 * var(--guide-font-unit, 1rem));
   font-weight: 760;
 }
 
 .academic-profile-catalogue-panel dd {
   margin-top: 2px;
   color: var(--text);
-  font-size: 0.64rem;
+  font-size: calc(0.64 * var(--guide-font-unit, 1rem));
   font-weight: 680;
 }
 
@@ -549,7 +551,7 @@ body .academic-profiles-tabs button:focus-visible {
 
 .academic-profiles-boundaries header span {
   color: var(--text-muted);
-  font-size: 0.58rem;
+  font-size: calc(0.58 * var(--guide-font-unit, 1rem));
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -558,13 +560,13 @@ body .academic-profiles-tabs button:focus-visible {
 .academic-profiles-boundaries h2 {
   margin: 0;
   color: var(--text);
-  font-size: 1rem;
+  font-size: calc(1 * var(--guide-font-unit, 1rem));
 }
 
 .academic-profiles-boundaries article > p {
   margin: 13px 0;
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: calc(0.72 * var(--guide-font-unit, 1rem));
   line-height: 1.5;
 }
 
@@ -589,7 +591,7 @@ body .academic-profiles-tabs button:focus-visible {
   align-items: flex-start;
   gap: 8px;
   color: var(--text);
-  font-size: 0.7rem;
+  font-size: calc(0.7 * var(--guide-font-unit, 1rem));
   line-height: 1.45;
 }
 
@@ -619,7 +621,7 @@ body .academic-profiles-walkthrough-nav button {
   border-radius: 11px !important;
   background: var(--surface-muted) !important;
   box-shadow: none !important;
-  font-size: 0.65rem !important;
+  font-size: calc(0.65 * var(--guide-font-unit, 1rem)) !important;
   font-weight: 720 !important;
   text-align: left;
   transform: none !important;
@@ -634,7 +636,7 @@ body .academic-profiles-walkthrough-nav button {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface-strong);
-  font-size: 0.6rem;
+  font-size: calc(0.6 * var(--guide-font-unit, 1rem));
   flex: 0 0 auto;
 }
 
@@ -692,7 +694,7 @@ body .academic-profile-intro-step-nav button:focus-visible {
 .academic-profiles-walkthrough-step > div:nth-child(2) > span,
 .academic-profiles-finished > span {
   color: rgb(var(--step-tone-rgb));
-  font-size: 0.61rem;
+  font-size: calc(0.61 * var(--guide-font-unit, 1rem));
   font-weight: 820;
   letter-spacing: 0.065em;
   text-transform: uppercase;
@@ -702,7 +704,7 @@ body .academic-profile-intro-step-nav button:focus-visible {
 .academic-profiles-finished h3 {
   margin: 0 0 7px;
   color: var(--text);
-  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  font-size: calc(1.55 * var(--guide-font-unit));
 }
 
 .academic-profiles-walkthrough-step > div:nth-child(2) > p,
@@ -710,19 +712,12 @@ body .academic-profile-intro-step-nav button:focus-visible {
   max-width: 760px;
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.77rem;
+  font-size: calc(0.77 * var(--guide-font-unit, 1rem));
   line-height: 1.6;
 }
 
 .academic-profiles-walkthrough-step ul {
   margin-top: 17px;
-}
-
-.academic-profiles-walkthrough-step li {
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface-strong);
 }
 
 .academic-profiles-walkthrough-step li svg {
@@ -739,7 +734,7 @@ body .academic-profile-intro-step-nav button:focus-visible {
   border: 1px solid rgba(var(--step-tone-rgb), 0.2);
   border-radius: 11px;
   background: rgba(var(--step-tone-rgb), 0.07);
-  font-size: 0.68rem;
+  font-size: calc(0.68 * var(--guide-font-unit, 1rem));
   line-height: 1.45;
 }
 
@@ -788,43 +783,69 @@ body .academic-profile-intro-step-nav button:focus-visible {
   gap: 9px;
 }
 
-.academic-profiles-faq details {
+.academic-profile-faq-item {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 13px;
   background: var(--surface-muted);
 }
 
-.academic-profiles-faq summary {
+body .academic-profiles-faq .academic-profile-faq-question {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  width: 100% !important;
   min-height: 47px;
-  padding: 9px 13px;
-  color: var(--text);
-  font-size: 0.73rem;
+  padding: 9px 13px !important;
+  color: var(--text) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: calc(0.73 * var(--guide-font-unit, 1rem)) !important;
   font-weight: 740;
+  text-align: left;
+  transform: none !important;
   cursor: pointer;
-  list-style: none;
 }
 
-.academic-profiles-faq summary::-webkit-details-marker { display: none; }
+body .academic-profiles-faq .academic-profile-faq-question:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
 
-.academic-profiles-faq summary svg {
+.academic-profile-faq-question svg {
+  flex: 0 0 auto;
   color: var(--text-muted);
-  transition: transform 180ms ease;
+  transition: transform 280ms ease;
 }
 
-.academic-profiles-faq details[open] summary svg { transform: rotate(180deg); }
+.academic-profile-faq-question[aria-expanded="true"] svg { transform: rotate(180deg); }
 
-.academic-profiles-faq details p {
+.academic-profile-faq-answer {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 280ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease;
+}
+
+.academic-profile-faq-answer[aria-hidden="false"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.academic-profile-faq-answer > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.academic-profile-faq-answer p {
   margin: 0;
   padding: 0 13px 13px;
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: calc(0.7 * var(--guide-font-unit, 1rem));
   line-height: 1.55;
-  animation: academicProfileContentIn 180ms ease both;
 }
 
 .academic-profiles-footer {
@@ -840,7 +861,7 @@ body .academic-profile-intro-step-nav button:focus-visible {
   align-items: center;
   gap: 9px;
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: calc(0.7 * var(--guide-font-unit, 1rem));
 }
 
 .academic-profiles-footer > div svg,
@@ -1237,6 +1258,23 @@ body.no-glass-buttons .academic-profile-intro-step-nav button {
 }
 
 @media (max-width: 980px) {
+  .academic-profiles-page-header h1 {
+    font-size: calc(1.65 * var(--guide-font-unit));
+  }
+
+  .academic-profile-guide-section-heading h2 {
+    font-size: calc(1.3 * var(--guide-font-unit));
+  }
+
+  .academic-profiles-walkthrough-step h3,
+  .academic-profiles-finished h3 {
+    font-size: calc(1.3 * var(--guide-font-unit));
+  }
+
+  .academic-profiles-hero h2 {
+    font-size: calc(2.3 * var(--guide-font-unit));
+  }
+
   .academic-profiles-hero {
     grid-template-columns: 1fr;
   }
@@ -1303,7 +1341,23 @@ body.no-glass-buttons .academic-profile-intro-step-nav button {
 @media (max-width: 560px) {
   .academic-profiles-page { padding-bottom: 16px; }
 
-  .academic-profiles-page-header h1 { white-space: normal !important; }
+  .academic-profiles-page-header h1 {
+    font-size: calc(1.45 * var(--guide-font-unit));
+    white-space: normal !important;
+  }
+
+  .academic-profiles-hero h2 {
+    font-size: calc(1.75 * var(--guide-font-unit));
+  }
+
+  .academic-profile-guide-section-heading h2 {
+    font-size: calc(1.15 * var(--guide-font-unit));
+  }
+
+  .academic-profiles-walkthrough-step h3,
+  .academic-profiles-finished h3 {
+    font-size: calc(1.2 * var(--guide-font-unit));
+  }
 
   .academic-profiles-hero,
   .academic-profiles-explorer,
@@ -1405,7 +1459,6 @@ body.no-glass-buttons .academic-profile-intro-step-nav button {
   .academic-profile-catalogue-panel,
   .academic-profiles-walkthrough-step,
   .academic-profiles-finished,
-  .academic-profiles-faq details p,
   .academic-profile-intro-step {
     animation: none !important;
   }
@@ -1414,7 +1467,8 @@ body.no-glass-buttons .academic-profile-intro-step-nav button {
   .academic-profile-intro-dialog,
   .academic-profile-intro-progress span,
   .academic-profile-guide-button,
-  .academic-profiles-faq summary svg {
+  .academic-profile-faq-answer,
+  .academic-profile-faq-question svg {
     transition-duration: 1ms !important;
   }
 }
