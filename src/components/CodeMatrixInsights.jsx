@@ -1,5 +1,5 @@
-import { createElement, useEffect, useId, useRef, useState } from 'react';
-import { Activity, ArrowLeft, ArrowUpRight, CalendarDays, CheckCheck, Clock3, Code2, Info, Lightbulb, LoaderCircle, RefreshCw, Target, Trophy, TrendingUp } from 'lucide-react';
+import { createElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { Activity, ArrowLeft, ArrowUpRight, CalendarDays, CheckCheck, Clock3, Code2, Info, Lightbulb, LoaderCircle, RefreshCw, Target, Trophy, TrendingUp, X } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import useCodeMatrixInsights from '../hooks/useCodeMatrixInsights';
 import CodeMatrixLanguageTick from './CodeMatrixLanguageTick';
@@ -71,6 +71,72 @@ function Highlight({ icon, title, insight, empty, tone = '' }) {
   </article>;
 }
 
+function LanguagePracticePopover({ language, anchor, onClose, id }) {
+  const popupRef = useRef(null);
+  const closeRef = useRef(null);
+  const titleId = useId();
+
+  useLayoutEffect(() => {
+    const popup = popupRef.current;
+    if (!popup || !language || !anchor) return undefined;
+    popup.showPopover();
+    const position = () => {
+      const rect = anchor.element?.isConnected ? anchor.element.getBoundingClientRect() : anchor.rect;
+      const popupRect = popup.getBoundingClientRect();
+      const zoom = popup.offsetWidth ? popupRect.width / popup.offsetWidth : 1;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const gap = 10;
+      let left = rect.right + gap;
+      if (left + popupRect.width > width - gap) left = rect.left - popupRect.width - gap;
+      left = Math.max(gap, Math.min(left, width - popupRect.width - gap));
+      const top = Math.max(gap, Math.min(rect.top, height - popupRect.height - gap));
+      popup.style.left = `${left / zoom}px`;
+      popup.style.top = `${top / zoom}px`;
+    };
+    position();
+    closeRef.current?.focus({ preventScroll: true });
+    const onPointerDown = (event) => {
+      if (popup.contains(event.target) || anchor.element?.contains(event.target)) return;
+      onClose(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onClose(true);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('scroll', position, true);
+    window.addEventListener('resize', position);
+    const resizeObserver = new ResizeObserver(position);
+    resizeObserver.observe(popup);
+    if (anchor.element?.isConnected) resizeObserver.observe(anchor.element);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('scroll', position, true);
+      window.removeEventListener('resize', position);
+      resizeObserver.disconnect();
+      if (popup.matches(':popover-open')) popup.hidePopover();
+    };
+  }, [anchor, language, onClose]);
+
+  if (!language) return null;
+  return <div id={id} ref={popupRef} popover="manual" role="dialog" aria-labelledby={titleId} className="cmxi-language-popover" style={{ inset: 'auto', margin: 0 }}>
+    <div className="cmxi-language-popover-header">
+      <h3 id={titleId}>{language.label}</h3>
+      <button ref={closeRef} type="button" className="cmxi-language-popover-close" onClick={() => onClose(true)} aria-label="Close language details"><X size={17} aria-hidden="true" /></button>
+    </div>
+    <dl className="cmxi-language-popover-metrics">
+      <div><dt>Meaningful attempts</dt><dd>{formatNumber(language.meaningfulAttempts)}</dd></div>
+      <div><dt>Active time</dt><dd>{formatTime(language.activeSeconds)}</dd></div>
+      <div><dt>Follow-up runs</dt><dd>{formatNumber(language.errorsResolved)}</dd></div>
+    </dl>
+    <p>{language.id === 'web' ? 'Preview activity shows browser practice. Opening a preview does not verify that the page works correctly.' : language.topError ? `${ERRORS[language.topError.category] || 'Execution'} errors occurred ${language.topError.count} times. Try a small revision, then test it with a different input.` : 'Keep trying different inputs and checking the results against your expected output.'}</p>
+  </div>;
+}
+
 export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
   const headingRef = useRef(null);
   useEffect(() => { headingRef.current?.focus(); }, []);
@@ -78,8 +144,11 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
   const [dailyMetric, setDailyMetric] = useState('time');
   const [languageMetric, setLanguageMetric] = useState('runs');
   const [selectedLanguage, setSelectedLanguage] = useState('');
+  const [languageAnchor, setLanguageAnchor] = useState(null);
+  const languageButtonsRef = useRef(null);
   const { data, loading, error, reload } = useCodeMatrixInsights(academicProfileDataId, range);
   const chartId = useId().replace(/:/g, '');
+  const languagePopupId = useId();
   const summary = data?.summary || {};
   const xp = data?.xp || {};
   const highlights = data?.highlights || {};
@@ -95,6 +164,28 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
   const hasLanguageChart = languageData.some((item) => item[languageMetric === 'time' ? 'activeSeconds' : 'meaningfulAttempts'] > 0);
   const selected = languages.find((item) => item.id === selectedLanguage);
   const trackingDate = data?.trackingSince ? formatDate(data.trackingSince, { year: 'numeric' }) : '';
+
+  const closeLanguagePopup = useCallback((restoreFocus = false) => {
+    if (restoreFocus) {
+      const button = languageButtonsRef.current?.querySelector(`[data-language="${selectedLanguage}"]`);
+      button?.focus({ preventScroll: true });
+    }
+    setSelectedLanguage('');
+    setLanguageAnchor(null);
+  }, [selectedLanguage]);
+  const openLanguagePopup = (languageId, element) => {
+    if (!languageId || !element) return;
+    if (selectedLanguage === languageId && languageAnchor?.element === element) {
+      closeLanguagePopup(true);
+      return;
+    }
+    setLanguageAnchor({ element, rect: element.getBoundingClientRect() });
+    setSelectedLanguage(languageId);
+  };
+  useEffect(() => {
+    setSelectedLanguage('');
+    setLanguageAnchor(null);
+  }, [academicProfileDataId, range]);
 
   return <div className="cmxi" aria-busy={loading}>
     <header className="cmxi-header">
@@ -146,21 +237,22 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
 
       <section className="cmxi-charts-grid" aria-label="Coding activity charts">
         <article className="cmxi-card">
-          <div className="cmxi-section-heading"><div><h2>Daily practice</h2><p>{range === 'all' ? `Last ${data.trendWindowDays || 90} days` : RANGES.find(([id]) => id === range)[1]} · {data.timeZone || 'Your local time'}</p></div><MetricSwitch label="Daily practice chart metric" value={dailyMetric} options={[['time', 'Time'], ['runs', 'Runs']]} onChange={setDailyMetric} /></div>
+          <div className="cmxi-section-heading"><h2>Daily practice</h2><MetricSwitch label="Daily practice chart metric" value={dailyMetric} options={[['time', 'Time'], ['runs', 'Runs']]} onChange={setDailyMetric} /></div>
           <DailyChart trend={trend} mode={dailyMetric} id={`${chartId}-practice`} />
           <p className="cmxi-chart-note">{dailyMetric === 'time' ? 'Time pauses when the editor is hidden or you stop interacting.' : 'Includes full-page runs and popup runs, with web previews tracked separately below.'}</p>
         </article>
         <article className="cmxi-card">
-          <div className="cmxi-section-heading"><div><h2>XP earned</h2><p>Rewards earned each day</p></div><span className="cmxi-chart-total">{formatNumber(trend.reduce((sum, day) => sum + Number(day.xp || 0), 0))} <small>XP</small></span></div>
+          <div className="cmxi-section-heading"><h2>XP earned</h2><span className="cmxi-chart-total">{formatNumber(trend.reduce((sum, day) => sum + Number(day.xp || 0), 0))} <small>XP</small></span></div>
           <DailyChart trend={trend} mode="xp" id={`${chartId}-xp`} />
           <p className="cmxi-chart-note">+{xp.practiceRewardXp || 10} XP for each newly solved question. +{xp.rewardXp || 10} XP every {rewardRuns} successful compiler runs.{range === 'all' ? ` Chart shows the last ${data.trendWindowDays || 90} days.` : ''}</p>
         </article>
       </section>
 
       <section className="cmxi-card cmxi-languages" aria-labelledby="cmxi-language-title">
-        <div className="cmxi-section-heading"><div><h2 id="cmxi-language-title">Your languages</h2><p>See where your practice goes</p></div><MetricSwitch label="Language comparison metric" value={languageMetric} options={[['runs', 'Attempts'], ['time', 'Active time']]} onChange={setLanguageMetric} /></div>
-        <div className="cmxi-panel-scroll cmxi-language-body" tabIndex={0} aria-label="Language practice details">
+        <div className="cmxi-section-heading"><h2 id="cmxi-language-title">Your languages</h2><MetricSwitch label="Language comparison metric" value={languageMetric} options={[['runs', 'Attempts'], ['time', 'Active time']]} onChange={setLanguageMetric} /></div>
+        <div className="cmxi-language-body">
         <div className="cmxi-language-grid">
+          <div className="cmxi-language-chart-column">
           <div className="cmxi-language-chart" aria-label={languageMetric === 'time' ? 'Active coding time by language' : 'Meaningful attempts by language'}>
             {hasLanguageChart ? <div className="cmxi-language-chart-inner">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
@@ -169,39 +261,37 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
                   <XAxis type="category" dataKey="label" interval={0} height={38} tick={<CodeMatrixLanguageTick languages={languageData} />} axisLine={false} tickLine={false} />
                   <YAxis type="number" width={48} allowDecimals={false} tickFormatter={languageMetric === 'time' ? formatTime : formatNumber} tick={{ fill: 'var(--cmxi-muted)' }} axisLine={false} tickLine={false} />
                   <Tooltip content={<ChartTooltip mode={languageMetric} />} cursor={{ fill: 'var(--cmxi-soft)' }} />
-                  <Bar dataKey={languageMetric === 'time' ? 'activeSeconds' : 'meaningfulAttempts'} fill="var(--cmxi-accent)" radius={[5, 5, 0, 0]} maxBarSize={38} isAnimationActive={false} onClick={(entry) => setSelectedLanguage(entry.id || entry.payload?.id || '')} cursor="pointer">
+                  <Bar dataKey={languageMetric === 'time' ? 'activeSeconds' : 'meaningfulAttempts'} fill="var(--cmxi-accent)" radius={[5, 5, 0, 0]} maxBarSize={38} isAnimationActive={false} onClick={(entry, _index, event) => openLanguagePopup(entry.id || entry.payload?.id || '', event?.currentTarget || event?.target)} cursor="pointer">
                     {languageData.map((item) => <Cell key={item.id} opacity={!selected || selected.id === item.id ? 1 : 0.3} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div> : <ChartEmpty>{languageMetric === 'time' ? 'Spend some time in the editor to compare your languages.' : 'Run code in a language to build your comparison.'}</ChartEmpty>}
           </div>
-          <div className="cmxi-language-details">
+          {languages.length > 0 && <div className="cmxi-language-selector">
+            <div ref={languageButtonsRef} className="cmxi-language-buttons" role="group" aria-label="Explore a language">
+              {languages.map((item) => <button key={item.id} type="button" data-language={item.id} aria-haspopup="dialog" aria-expanded={selected?.id === item.id} aria-controls={selected?.id === item.id ? languagePopupId : undefined} aria-pressed={selected?.id === item.id} onClick={(event) => openLanguagePopup(item.id, event.currentTarget)}>{item.label}</button>)}
+            </div>
+          </div>}
+          </div>
+          <div className="cmxi-language-details cmxi-panel-scroll" tabIndex={0} aria-label="Language practice details">
             {languages.length ? <div className="cmxi-table-scroll"><table><caption className="cmxi-sr-only">Execution patterns by language. Rates exclude web previews.</caption><thead><tr><th scope="col">Language</th><th scope="col">No-error rate</th><th scope="col">Follow-up runs</th></tr></thead><tbody>{languageData.map((item) => <tr key={item.id}><th scope="row">{item.label}<small>{item.topError ? `${ERRORS[item.topError.category] || 'Execution'} errors · ${item.topError.count}` : item.id === 'web' ? 'HTML, CSS & browser scripts' : `${item.practiceDays || 0} practice days`}</small></th><td>{item.id === 'web' ? 'Preview only' : rate(item.successRate)}</td><td>{formatNumber(item.errorsResolved)}</td></tr>)}</tbody></table></div> : <p className="cmxi-muted">Your language details will appear as you practise.</p>}
-            <p className="cmxi-chart-note">Meaningful attempts group repeat runs of unchanged code. No-error rate excludes stopped runs and environment failures.</p>
           </div>
         </div>
-        {languages.length > 0 && <div className="cmxi-language-selector">
-          <div className="cmxi-language-buttons" role="group" aria-label="Explore a language">
-            {languages.map((item) => <button key={item.id} type="button" aria-pressed={selected?.id === item.id} onClick={() => setSelectedLanguage(selected?.id === item.id ? '' : item.id)}>{item.label}</button>)}
-            {selected && <button className="cmxi-clear-selection" type="button" onClick={() => setSelectedLanguage('')}>Clear selection</button>}
-          </div>
-          {selected ? <div className="cmxi-selected-language" aria-live="polite"><strong>{selected.label}</strong><span>{formatNumber(selected.meaningfulAttempts)} meaningful attempts</span><span>{formatTime(selected.activeSeconds)} active time</span><span>{formatNumber(selected.errorsResolved)} follow-up runs</span><p>{selected.id === 'web' ? 'Preview activity shows browser practice. Opening a preview does not verify that the page works correctly.' : selected.topError ? `${ERRORS[selected.topError.category] || 'Execution'} errors occurred ${selected.topError.count} times. Try a small revision, then test it with a different input.` : 'Keep trying different inputs and checking the results against your expected output.'}</p></div> : <p className="cmxi-chart-note">Select a language above or click a bar to explore its practice details.</p>}
-        </div>}
         </div>
         <div className="cmxi-source-summary"><span><strong>{formatNumber(summary.pageAttempts)}</strong> full page</span><span><strong>{formatNumber(summary.popupAttempts)}</strong> popup</span><span><strong>{formatNumber(summary.webPreviews)}</strong> web previews</span><span><strong>{rate(summary.successRate)}</strong> no-error rate</span></div>
       </section>
 
       <div className="cmxi-bottom-grid">
         <section className="cmxi-card" aria-labelledby="cmxi-recent-title">
-          <div className="cmxi-section-heading"><div><h2 id="cmxi-recent-title">Recent activity</h2><p>Both places you code, in one view</p></div><Activity size={19} aria-hidden="true" /></div>
+          <div className="cmxi-section-heading"><h2 id="cmxi-recent-title">Recent activity</h2><Activity size={19} aria-hidden="true" /></div>
           {recent.length ? <ul className="cmxi-recent cmxi-panel-scroll" tabIndex={0} aria-label="Recent coding activity">{recent.map((attempt) => {
             const [label, tone] = STATUS[attempt.status] || ['Recorded', 'neutral'];
             return <li key={attempt.attemptId}><span className={`cmxi-status-dot is-${tone}`} aria-hidden="true" /><div><strong>{LANGUAGES[attempt.language] || attempt.language}<span>{attempt.surface === 'popup' ? 'Popup' : 'Full page'}</span></strong><p>{label}{ERRORS[attempt.errorCategory] && attempt.status !== 'success' ? ` · ${ERRORS[attempt.errorCategory]}` : ''}</p></div><time dateTime={attempt.startedAt} title={new Date(attempt.startedAt).toLocaleString()}>{formatDate(attempt.startedAt)}</time></li>;
           })}</ul> : <p className="cmxi-muted cmxi-empty-copy cmxi-panel-scroll">Your next run or preview will appear here after syncing.</p>}
         </section>
         <section className="cmxi-card cmxi-next-steps" aria-labelledby="cmxi-next-title">
-          <div className="cmxi-section-heading"><div><h2 id="cmxi-next-title">What to practise next</h2><p>Small steps, based on your activity</p></div><Lightbulb size={20} aria-hidden="true" /></div>
+          <div className="cmxi-section-heading"><h2 id="cmxi-next-title">What to practise next</h2><Lightbulb size={20} aria-hidden="true" /></div>
           <ul className="cmxi-panel-scroll" tabIndex={0} aria-labelledby="cmxi-next-title">{(suggestions.length ? suggestions : [{ title: 'Start with a small challenge', detail: 'Choose one language, write a short program, and try it with different inputs.' }]).map((suggestion, index) => <li key={`${index}-${suggestion.title}`}><span>{String(index + 1).padStart(2, '0')}</span><div><h3>{suggestion.title}</h3><p>{suggestion.detail}</p></div></li>)}</ul>
         </section>
       </div>
@@ -209,7 +299,6 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
       <div className="cmxi-history-grid">
         <section className="cmxi-history" aria-labelledby="cmxi-history-title">
           <h2 id="cmxi-history-title">Lifetime successful runs <span>{formatNumber(history.reduce((sum, item) => sum + Number(item.successfulRuns || 0), 0))} recorded</span></h2>
-          <p>Historical XP records preserve successful runs. They cannot tell us about past errors or active coding time.</p>
           {history.length ? <div className="cmxi-history-languages" role="list" aria-label="Successful runs by language">{history.map((item) => <span key={item.id} data-language={item.id} role="listitem" title={item.label} aria-label={`${item.label}: ${formatNumber(item.successfulRuns)} successful runs`}>
             <CodeMatrixLanguageIcon language={item.id} size={22} aria-hidden="true" focusable="false" />
             <span className="cmxi-history-language-name">{item.label}</span>
@@ -223,5 +312,6 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
       </div>
       <footer className="cmxi-footer"><span>{trackingDate ? `Detailed activity tracked since ${trackingDate}.` : 'Detailed activity starts with your next coding session.'} Offline activity appears after syncing.</span><span>Automatic insights · No AI credits used</span></footer>
     </>}
+    <LanguagePracticePopover id={languagePopupId} language={selected} anchor={languageAnchor} onClose={closeLanguagePopup} />
   </div>;
 }

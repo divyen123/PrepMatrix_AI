@@ -1,3 +1,5 @@
+import { getRevisedNoteTopicIds } from "./learningRevisedNoteActions.js";
+
 export const LEARNING_MASTERY_VERSION = 1;
 
 export const LEARNING_NODE_STATES = Object.freeze([
@@ -434,6 +436,87 @@ function applyReadiness(nodes, catalog) {
   return result;
 }
 
+function matchingCatalogNode(id, raw, catalog) {
+  const type = cleanText(raw.nodeType ?? raw.type, 30);
+  const title = cleanText(raw.title, 180).toLocaleLowerCase();
+  const chapter = cleanText(raw.chapterTitle ?? raw.chapterName, 180).toLocaleLowerCase();
+  const compatible = catalog.filter((node) => (!type || node.nodeType === type)
+    && (!chapter || node.chapterTitle.toLocaleLowerCase() === chapter));
+  const titleMatches = title ? compatible.filter((node) => node.title.toLocaleLowerCase() === title) : [];
+  if (titleMatches.length === 1) return titleMatches[0];
+  const idMatches = compatible.filter((node) => node.nodeId.endsWith(`-${id}`));
+  return idMatches.length === 1 ? idMatches[0] : null;
+}
+
+/** Resolve saved companion records with the same conservative aliases as mastery. */
+export function resolveLearningCatalogNodeId(nodeId, record, notebook) {
+  const id = cleanId(nodeId);
+  if (!id) return "";
+  const catalog = buildLearningNodeCatalog(notebook);
+  return catalog.find((node) => node.nodeId === id)?.nodeId
+    || matchingCatalogNode(id, asObject(record), catalog)?.nodeId
+    || "";
+}
+
+function mergeCatalogEvidence(current, incoming) {
+  const evidenceTime = (node) => Math.max(0, ...[
+    node.lastStudiedAt, node.learnedAt, node.masteredAt, ...node.attempts.map((attempt) => attempt.answeredAt),
+  ].map((value) => new Date(value || 0).getTime()));
+  const achievementRank = (node) => node.masteredAt || node.status === "mastered" ? 2 : hasLearningNodeAchievement(node) ? 1 : 0;
+  const incomingIsPrimary = evidenceTime(incoming) > evidenceTime(current)
+    || (evidenceTime(incoming) === evidenceTime(current) && achievementRank(incoming) > achievementRank(current));
+  const [primary, secondary] = incomingIsPrimary
+    ? [incoming, current] : [current, incoming];
+  const assessmentTime = (node) => Math.max(-1, ...[
+    ...(node.masteredAt || node.status === "mastered" ? [node.masteredAt || node.lastStudiedAt || 0] : []),
+    ...node.attempts.filter((attempt) => attempt.score != null).map((attempt) => attempt.answeredAt || 0),
+  ].map((value) => new Date(value).getTime()));
+  // Opening a topic later must not replace an older assessment with a placeholder score.
+  const primaryAssessmentTime = assessmentTime(primary);
+  const secondaryAssessmentTime = assessmentTime(secondary);
+  const assessment = secondaryAssessmentTime > primaryAssessmentTime
+    || (primaryAssessmentTime < 0 && secondaryAssessmentTime < 0
+      && primary.masteryScore === 0 && secondary.masteryScore > 0
+      && hasLearningNodeAchievement(secondary)) ? secondary : primary;
+  const attempts = [...new Map([...secondary.attempts, ...primary.attempts].map((attempt) => [attempt.id, attempt])).values()]
+    .sort((left, right) => left.answeredAt.localeCompare(right.answeredAt)).slice(-MAX_LEARNING_ATTEMPTS_PER_NODE);
+  return {
+    ...secondary,
+    ...primary,
+    learnedAt: primary.learnedAt || secondary.learnedAt,
+    masteredAt: primary.masteredAt || secondary.masteredAt,
+    startedAt: primary.startedAt || secondary.startedAt,
+    masteryScore: assessment.masteryScore,
+    confidence: assessment.confidence,
+    review: assessment.review,
+    attempts,
+    misconceptions: [...new Map([...secondary.misconceptions, ...primary.misconceptions].map((item) => [item.id, item])).values()]
+      .slice(-MAX_LEARNING_MISCONCEPTIONS_PER_NODE),
+  };
+}
+
+function completeLearningNode(node, now) {
+  if (hasLearningNodeAchievement(node)) return node;
+  const hasAssessment = node.attempts.some((attempt) => attempt.score != null);
+  return {
+    ...node,
+    status: hasAssessment ? node.status : "learned",
+    startedAt: node.startedAt || now,
+    lastStudiedAt: node.lastStudiedAt || now,
+    learnedAt: now,
+    masteryScore: hasAssessment ? node.masteryScore : Math.max(node.masteryScore, LEARNED_SCORE),
+    review: node.review.dueAt ? node.review : calculateLearningReview(
+      node.review, { score: LEARNED_SCORE, confidence: node.confidence }, { now },
+    ),
+  };
+}
+
+/** Current outline topics only; retired records remain saved as learning history. */
+export function getLearningTopicNodes(state, notebook) {
+  const ids = new Set(buildLearningNodeCatalog(notebook).filter((node) => node.nodeType === "topic").map((node) => node.nodeId));
+  return Object.values(asObject(state).nodes || {}).filter((node) => ids.has(node.nodeId));
+}
+
 /**
  * Sanitizes persisted mastery state and reconciles it with the current notebook outline.
  * Legacy/empty notebooks receive a versioned empty state, so callers need no migration branch.
@@ -445,6 +528,7 @@ export function normalizeLearningState(value = {}, options = {}) {
   const catalog = buildLearningNodeCatalog(notebook);
   const existingNodes = sourceNodeMap(source);
   const nodes = {};
+  const aliases = new Map();
 
   catalog.forEach((catalogNode) => {
     nodes[catalogNode.nodeId] = normalizeNodeRecord(existingNodes.get(catalogNode.nodeId), {
@@ -453,9 +537,20 @@ export function normalizeLearningState(value = {}, options = {}) {
     }, now);
   });
 
+  for (const [nodeId, valueNode] of existingNodes.entries()) {
+    if (!nodeId || nodes[nodeId]) continue;
+    const raw = asObject(valueNode);
+    const match = matchingCatalogNode(nodeId, raw, catalog);
+    if (!match) continue;
+    nodes[match.nodeId] = mergeCatalogEvidence(nodes[match.nodeId], normalizeNodeRecord(raw, {
+      ...match, defaultStatus: defaultStatusForCatalogNode(match, catalog),
+    }, now));
+    aliases.set(nodeId, match.nodeId);
+  }
+
   if (catalog.length < MAX_LEARNING_MASTERY_NODES) {
     for (const [nodeId, valueNode] of existingNodes.entries()) {
-      if (!nodeId || nodes[nodeId] || Object.keys(nodes).length >= MAX_LEARNING_MASTERY_NODES) continue;
+      if (!nodeId || nodes[nodeId] || aliases.has(nodeId) || Object.keys(nodes).length >= MAX_LEARNING_MASTERY_NODES) continue;
       const raw = asObject(valueNode);
       if (!cleanText(raw.title, 180)) continue;
       nodes[nodeId] = normalizeNodeRecord(raw, {
@@ -471,9 +566,21 @@ export function normalizeLearningState(value = {}, options = {}) {
     }
   }
 
+  outlineList(notebook.revisedNotes).filter((section) => section?.completed === true).forEach((section) => {
+    const completedAt = normalizedIso(section.completedAt, notebook.updatedAt || notebook.createdAt) || now;
+    getRevisedNoteTopicIds(section, notebook).forEach((nodeId) => {
+      if (nodes[nodeId]) nodes[nodeId] = completeLearningNode(nodes[nodeId], completedAt);
+    });
+  });
+
   const sessions = outlineList(source.sessions ?? source.sessionHistory)
     .slice(-MAX_LEARNING_SESSIONS)
-    .map((session, index) => normalizeSession(session, index, now));
+    .map((session, index) => normalizeSession({
+      ...asObject(session),
+      nodeIds: uniqueIds(session?.nodeIds).map((id) => aliases.get(id) || id),
+      learnedNodeIds: uniqueIds(session?.learnedNodeIds).map((id) => aliases.get(id) || id),
+      masteredNodeIds: uniqueIds(session?.masteredNodeIds).map((id) => aliases.get(id) || id),
+    }, index, now));
   const activeSessionId = cleanId(source.activeSessionId);
   const validActiveSessionId = sessions.some((session) => (
     session.id === activeSessionId && session.status === "in_progress"
@@ -573,25 +680,7 @@ export function calculateLearningReview(previousReview = {}, result = {}, option
  * Existing learned, due, or mastered evidence remains authoritative and is never rescheduled.
  */
 export function markLearningNodeLearned(learningState, nodeId, options = {}) {
-  return transitionNode(learningState, nodeId, (node, now) => {
-    const effectiveStatus = getLearningNodeStatus(node, { now });
-    const hasExistingEvidence = Boolean(node.learnedAt || node.masteredAt)
-      || isAchievedStatus(effectiveStatus);
-    if (hasExistingEvidence) return node;
-    return {
-      ...node,
-      status: "learned",
-      startedAt: node.startedAt || now,
-      lastStudiedAt: now,
-      learnedAt: now,
-      masteryScore: Math.max(node.masteryScore, LEARNED_SCORE),
-      review: calculateLearningReview(
-        node.review,
-        { score: LEARNED_SCORE, confidence: node.confidence },
-        { now },
-      ),
-    };
-  }, options);
+  return transitionNode(learningState, nodeId, completeLearningNode, options);
 }
 
 function mergeMisconceptions(current, supplied, resolvedIds, now) {
@@ -915,6 +1004,7 @@ export function getLearningInsights(notebooks = [], options = {}) {
   rows.forEach((notebook) => {
     const safeNotebook = asObject(notebook);
     const state = normalizeLearningState(safeNotebook.learningState, { notebook: safeNotebook, now });
+    const topicIds = new Set(getLearningTopicNodes(state, safeNotebook).map((node) => node.nodeId));
     const fallbackSubject = cleanText(safeNotebook.subjectName ?? safeNotebook.title, 160) || "General study";
     subjectNames.add(fallbackSubject);
     if (!subjectMap.has(fallbackSubject)) subjectMap.set(fallbackSubject, emptySubjectStats(fallbackSubject));
@@ -938,7 +1028,7 @@ export function getLearningInsights(notebooks = [], options = {}) {
       misconceptionCount += node.misconceptions.length;
       unresolvedMisconceptionCount += node.misconceptions.filter((item) => !item.resolvedAt).length;
 
-      if (node.nodeType !== "topic") return;
+      if (node.nodeType !== "topic" || !topicIds.has(node.nodeId)) return;
       topicCount += 1;
       subject.totalTopics += 1;
       const isLearned = Boolean(node.learnedAt || node.masteredAt)

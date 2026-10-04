@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../utils/apiClient";
 import { getLearningInsights } from "../utils/learningMastery";
+import { LEARNING_NOTEBOOK_SAVED_EVENT } from "../utils/learningNotebookEvents.js";
 
 function errorMessage(error) {
   if (error instanceof Error && error.message) return error.message;
@@ -17,6 +18,15 @@ export default function useLearningInsights({ academicProfileDataId = "" } = {})
   const reload = useCallback(() => {
     setReloadVersion((current) => current + 1);
   }, []);
+
+  useEffect(() => {
+    const onSaved = (event) => {
+      if (event.detail?.academicProfileId !== academicProfileDataId) return;
+      reload();
+    };
+    window.addEventListener(LEARNING_NOTEBOOK_SAVED_EVENT, onSaved);
+    return () => window.removeEventListener(LEARNING_NOTEBOOK_SAVED_EVENT, onSaved);
+  }, [academicProfileDataId, reload]);
 
   useEffect(() => {
     let isCurrent = true;

@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import {
+  getLearningNodeStatus,
+  hasLearningNodeAchievement,
+  normalizeLearningState,
+} from "../utils/learningMastery.js";
+import { buildRevisedNoteActionNode } from "../utils/learningRevisedNoteActions.js";
 
 const pageSource = readFileSync(new URL("./StartLearningPage.jsx", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("./StartLearningPage.css", import.meta.url), "utf8");
@@ -410,6 +416,105 @@ test("shows the simplified notebook views and section actions", () => {
   assert.match(pageSource, /\["map", "Mastery map"/u);
   assert.match(pageSource, /\["recall", "Recall session"/u);
   assert.match(pageSource, /className="learning-note-actions"[\s\S]*?Add to planner[\s\S]*?Mark completed[\s\S]*?Ask AI[\s\S]*?Save to Notes/u);
+});
+
+test("mastery-map chapter and notebook coverage follows all actual topics", () => {
+  const helperStart = pageSource.indexOf("function buildNotebookMapProgress(");
+  const helperEnd = pageSource.indexOf("function careerProfileAllows(", helperStart);
+  const buildProgress = new Function(
+    "getLearningNodeStatus",
+    "hasLearningNodeAchievement",
+    `${pageSource.slice(helperStart, helperEnd)}; return buildNotebookMapProgress;`,
+  )(getLearningNodeStatus, hasLearningNodeAchievement);
+  const now = "2026-10-04T12:00:00.000Z";
+  const notebook = {
+    chapters: [
+      { id: "first-chapter", topics: [{ id: "first" }, { id: "second" }, { id: "third" }] },
+      { id: "last-chapter", topics: [{ id: "last" }] },
+    ],
+  };
+  const nodes = {
+    "first-chapter": { status: "mastered", masteredAt: now, learnedAt: now },
+    first: { status: "mastered", masteryScore: 88, masteredAt: now, learnedAt: now },
+    second: { status: "learned", masteryScore: 92, learnedAt: now },
+    third: { status: "learned", masteryScore: 70, learnedAt: now },
+    last: { status: "learning", masteryScore: 0 },
+  };
+  let progress = buildProgress(notebook, { nodes }, now);
+  assert.equal(progress.root.masteryScore, 75);
+  assert.equal(progress.root.status, "learning");
+  assert.equal(progress["first-chapter"].masteryScore, 100);
+  assert.equal(progress["first-chapter"].status, "learned");
+  assert.equal(progress["first-chapter"].masteredAt, "");
+  assert.equal(progress.first.masteryScore, 88, "aggregate coverage must preserve topic evidence");
+
+  nodes.last = { status: "learned", masteryScore: 70, learnedAt: now };
+  progress = buildProgress(notebook, { nodes }, now);
+  assert.equal(progress.root.masteryScore, 100);
+  assert.equal(progress.root.status, "learned");
+  assert.equal(progress["last-chapter"].masteryScore, 100);
+
+  Object.keys(nodes).forEach((id) => {
+    nodes[id] = { ...nodes[id], status: "mastered", masteredAt: now };
+  });
+  progress = buildProgress(notebook, { nodes }, now);
+  assert.equal(progress.root.status, "mastered");
+  assert.equal(progress.root.masteryScore, 100);
+});
+
+test("revised-note completion saves note and topic progress together using the latest notebook", () => {
+  const handlerStart = pageSource.indexOf("const toggleRevisedNoteCompletion =");
+  const handlerEnd = pageSource.indexOf("const closePlannerDialog =", handlerStart);
+  const notebook = {
+    id: "notebook",
+    title: "Data analytics",
+    subjectName: "Data analytics",
+    chapters: [{
+      id: "chapter",
+      title: "Introduction",
+      topics: [{ id: "last-topic", title: "Data Visualization Basics", subtopics: [] }],
+    }],
+    revisedNotes: [{ id: "last-note", title: "Data Visualization Basics", completed: false }],
+  };
+  let current = notebook;
+  let saveCount = 0;
+  const toggleCompletion = new Function(
+    "activeNotebook",
+    "buildRevisedNoteActionNode",
+    "updateNotebook",
+    "normalizeLearningState",
+    "getLearningPlannerCompletionState",
+    "schedule",
+    "completed",
+    "activeLearningProject",
+    "setLearningPlannerNodeCompletion",
+    "setCompleted",
+    "setNotification",
+    `${pageSource.slice(handlerStart, handlerEnd)}; return toggleRevisedNoteCompletion;`,
+  )(
+    notebook,
+    buildRevisedNoteActionNode,
+    (updater) => { current = updater(current); saveCount += 1; },
+    normalizeLearningState,
+    () => ({ isScheduled: false }),
+    [],
+    [],
+    {},
+    () => { throw new Error("an unscheduled revised note must not change planner completion"); },
+    () => {},
+    () => {},
+  );
+  toggleCompletion(notebook.revisedNotes[0]);
+  assert.equal(saveCount, 1);
+  assert.equal(current.revisedNotes[0].completed, true);
+  assert.ok(current.revisedNotes[0].completedAt);
+  assert.ok(hasLearningNodeAchievement(current.learningState.nodes["last-topic"]));
+  assert.ok(current.learningState.nodes["last-topic"].masteryScore > 0);
+
+  toggleCompletion(notebook.revisedNotes[0]);
+  assert.equal(saveCount, 2);
+  assert.equal(current.revisedNotes[0].completed, false, "a rapid repeat click uses the latest notebook");
+  assert.equal(current.revisedNotes[0].completedAt, "");
 });
 
 test("keeps the Start Learning return control inside opened notebook and placement workspaces", () => {

@@ -3,6 +3,17 @@ import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
+import { parseFragment } from 'parse5';
+
+function findElements(node, predicate) {
+  return [
+    ...(node.tagName && predicate(node) ? [node] : []),
+    ...(node.childNodes || []).flatMap((child) => findElements(child, predicate)),
+  ];
+}
+
+const attribute = (node, name) => node.attrs?.find((item) => item.name === name)?.value;
+const hasClass = (node, name) => attribute(node, 'class')?.split(' ').includes(name);
 
 test('Insights keeps activity scrollable and all lifetime run cards visible with populated or empty data', async () => {
   const recent = Array.from({ length: 12 }, (_, index) => ({
@@ -15,7 +26,16 @@ test('Insights keeps activity scrollable and all lifetime run cards visible with
   const data = {
     summary: { attempts: 12, activeSeconds: 0 },
     xp: { total: 30, successfulRuns: 8, practiceXp: 10, solvedQuestions: 1, practiceRewardXp: 10, recentPracticeRewards: [{ id: 'solve-1', title: 'Sum of two numbers', language: 'python', xp: 10, occurredAt: '2026-09-30T12:00:00Z' }] },
-    languages: [],
+    languages: ['python', 'java', 'javascript', 'web', 'cpp', 'c', 'sql', 'html', 'css'].map((id, index) => ({
+      id,
+      label: id === 'python' ? 'Python' : id,
+      meaningfulAttempts: 18 - index,
+      activeSeconds: 303,
+      errorsResolved: 3,
+      practiceDays: 1,
+      successRate: 50,
+    })),
+    timeZone: 'Asia/Calcutta',
     trend: [],
     recent,
     historicalLanguages: [{ id: 'java', label: 'Java', successfulRuns: 8 }],
@@ -42,7 +62,7 @@ test('Insights keeps activity scrollable and all lifetime run cards visible with
     assert.match(markup, /class="cmxi-recent cmxi-panel-scroll" tabindex="0"/u);
     assert.equal((recentList[1].match(/<li>/gu) || []).length, 12);
     assert.match(markup, /<section class="cmxi-history"[^>]*><h2[^>]*>Lifetime successful runs/u);
-    assert.match(markup, /Historical XP records preserve successful runs/u);
+    assert.doesNotMatch(markup, /Historical XP records preserve successful runs/u);
     assert.match(markup, /class="cmxi-xp-total">30 <span>XP/u);
     assert.match(markup, /<dt>Solved questions<\/dt><dd>1<\/dd>/u);
     assert.match(markup, /<dt>Practice XP<\/dt><dd>10 XP<\/dd>/u);
@@ -51,6 +71,42 @@ test('Insights keeps activity scrollable and all lifetime run cards visible with
     assert.match(markup, /class="cmxi-history-languages" role="list"/u);
     assert.match(markup, /\+10 XP for each newly solved question\./u);
     assert.doesNotMatch(markup, /<details/u);
+    assert.match(markup, /Your practice, progress, and next steps · This academic profile/u);
+    for (const text of [
+      'Meaningful attempts group repeat runs of unchanged code.',
+      'No-error rate excludes stopped runs and environment failures.',
+      'Select a language above or click a bar to explore its practice details.',
+      'Both places you code, in one view',
+      'Small steps, based on your activity',
+      'See where your practice goes',
+      'Rewards earned each day',
+      '30 days · Asia/Calcutta',
+    ]) assert.ok(!markup.includes(text), `${text} is removed`);
+
+    const tree = parseFragment(markup);
+    const [body] = findElements(tree, (node) => hasClass(node, 'cmxi-language-body'));
+    assert.ok(body, 'language panel keeps a separate static body');
+    assert.equal(hasClass(body, 'cmxi-panel-scroll'), false, 'scrolling is confined to the detail column');
+    assert.equal(attribute(body, 'tabindex'), undefined);
+    const [chartColumn] = findElements(body, (node) => hasClass(node, 'cmxi-language-chart-column'));
+    assert.equal(findElements(chartColumn, (node) => hasClass(node, 'cmxi-language-chart')).length, 1);
+    const [selector] = findElements(chartColumn, (node) => hasClass(node, 'cmxi-language-buttons'));
+    assert.ok(selector, 'language buttons stay together with the chart');
+    const buttons = findElements(selector, (node) => node.tagName === 'button');
+    assert.equal(buttons.length, data.languages.length);
+    assert.deepEqual(buttons.map((button) => attribute(button, 'data-language')), data.languages.map((item) => item.id));
+    for (const button of buttons) {
+      assert.equal(attribute(button, 'aria-haspopup'), 'dialog');
+      assert.equal(attribute(button, 'aria-expanded'), 'false');
+    }
+    const [details] = findElements(body, (node) => hasClass(node, 'cmxi-language-details'));
+    assert.equal(hasClass(details, 'cmxi-panel-scroll'), true);
+    assert.equal(attribute(details, 'tabindex'), '0');
+    assert.equal(attribute(details, 'aria-label'), 'Language practice details');
+    assert.equal(findElements(details, (node) => node.tagName === 'tbody').length, 1);
+    assert.equal(findElements(details, (node) => node.tagName === 'tr').length, data.languages.length + 1);
+    assert.equal(findElements(body, (node) => hasClass(node, 'cmxi-selected-language')).length, 0);
+    assert.equal(findElements(tree, (node) => node.attrs?.some((item) => item.name === 'popover')).length, 0, 'details open on demand');
     const { setTestData } = await vite.ssrLoadModule('/src/hooks/useCodeMatrixInsights.js');
     setTestData({ ...data, recent: recent.slice(0, 1) });
     const sparse = renderToStaticMarkup(React.createElement(CodeMatrixInsights, { academicProfileDataId: 'test', onBack() {} }));

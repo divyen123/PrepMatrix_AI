@@ -2,7 +2,7 @@ import {
   getScheduleDateKey,
   toLocalDateKey,
 } from "./scheduleDates.js";
-import { normalizeLearningState } from "./learningMastery.js";
+import { normalizeLearningState, resolveLearningCatalogNodeId } from "./learningMastery.js";
 
 export const LEARNING_MEMORY_DECAY_VERSION = 1;
 export const LEARNING_MEMORY_DECAY_MODEL = "exponential-half-life-v1";
@@ -307,6 +307,68 @@ function savedRecordMap(value) {
   }));
 }
 
+function legacyNodeMap(value) {
+  const source = asObject(value);
+  const nodes = source.nodes ?? source.nodeStates ?? source.progress;
+  return new Map((Array.isArray(nodes)
+    ? nodes.map((node) => [node?.nodeId ?? node?.id, node])
+    : Object.entries(asObject(nodes)).map(([id, node]) => [node?.nodeId ?? node?.id ?? id, node]))
+    .map(([id, node]) => [cleanId(id), asObject(node)]));
+}
+
+function reassignSavedMemoryRecords(persistedRecords, notebook, learningStateValue) {
+  const legacyNodes = legacyNodeMap(learningStateValue);
+  const scopedNotebookId = cleanId(notebook.id ?? notebook._id);
+  const fallbackNotebookId = cleanId([...legacyNodes.values()].find((node) => node.notebookId)?.notebookId, "notebook");
+  const reassigned = new Map();
+  persistedRecords.forEach((value, key) => {
+    const saved = asObject(value);
+    const savedNotebookId = cleanId(saved.notebookId);
+    if (scopedNotebookId && savedNotebookId && savedNotebookId !== scopedNotebookId) return;
+    const keyNotebookId = scopedNotebookId || savedNotebookId || fallbackNotebookId;
+    const oldId = cleanId(saved.nodeId ?? saved.id
+      ?? (key.startsWith(`${keyNotebookId}:`) ? key.slice(keyNotebookId.length + 1) : key));
+    if (!oldId) return;
+    const notebookId = scopedNotebookId || savedNotebookId
+      || cleanId(legacyNodes.get(oldId)?.notebookId, fallbackNotebookId);
+    const context = { ...legacyNodes.get(oldId), ...saved };
+    const nodeId = resolveLearningCatalogNodeId(oldId, context, notebook) || oldId;
+    const record = { ...saved, nodeId, notebookId };
+    const nextKey = recordKey(record);
+    const previous = reassigned.get(nextKey);
+    if (!previous || normalizedIso(record.observedAt) > normalizedIso(previous.observedAt)
+      || (normalizedIso(record.observedAt) === normalizedIso(previous.observedAt)
+        && normalizedIso(record.lastQuizCompletedAt) > normalizedIso(previous.lastQuizCompletedAt))) {
+      reassigned.set(nextKey, record);
+    }
+  });
+  return reassigned;
+}
+
+function normalizeRetainedMemoryRecord(value, notebook) {
+  const source = asObject(value);
+  const nodeId = cleanId(source.nodeId ?? source.id);
+  const observedAt = normalizedIso(source.observedAt ?? source.lastQuizCompletedAt);
+  if (!nodeId || !observedAt) return null;
+  return normalizedSavedRecord(source, {
+    nodeId,
+    notebookId: cleanId(source.notebookId ?? notebook.id ?? notebook._id, "notebook"),
+    parentId: cleanId(source.parentId),
+    nodeType: cleanId(source.nodeType ?? source.type, "concept"),
+    title: cleanText(source.title, 180) || "Learning concept",
+    subjectName: cleanText(source.subjectName ?? notebook.subjectName, 160) || "General study",
+    chapterTitle: cleanText(source.chapterTitle ?? source.chapterName, 180),
+    observedAt,
+    halfLifeDays: normalizeHalfLife(source.halfLifeDays),
+    targetRecall: normalizeTargetRecall(source.targetRecall),
+    lastScore: normalizedScore(source.lastScore),
+    confidence: normalizedConfidence(source.confidence),
+    masteryScore: normalizedScore(source.masteryScore),
+    reviewCount: boundedInteger(source.reviewCount, 0, 10_000, 0),
+    source: cleanId(source.source, "memory-history"),
+  });
+}
+
 /**
  * Reconciles persisted decay records with the canonical learning mastery state.
  * A newer mastery attempt always replaces an older derived record.
@@ -324,7 +386,11 @@ export function normalizeLearningMemoryState(value = {}, options = {}) {
     now,
   });
   const source = asObject(value);
-  const persistedRecords = savedRecordMap(source.records ? source : source.memoryDecayState ?? source);
+  const persistedRecords = reassignSavedMemoryRecords(
+    savedRecordMap(source.records ? source : source.memoryDecayState ?? source),
+    notebook,
+    options.legacyLearningState ?? learningStateValue,
+  );
   const records = {};
 
   Object.values(learningState.nodes).slice(0, MAX_MEMORY_DECAY_RECORDS).forEach((node) => {
@@ -342,6 +408,13 @@ export function normalizeLearningMemoryState(value = {}, options = {}) {
       ? normalizedSavedRecord(persisted, migrated)
       : migrated;
     records[record.nodeId] = record;
+  });
+
+  // Keep valid history that cannot yet be matched to an outline node.
+  persistedRecords.forEach((saved) => {
+    if (records[saved.nodeId] || Object.keys(records).length >= MAX_MEMORY_DECAY_RECORDS) return;
+    const retained = normalizeRetainedMemoryRecord(saved, notebook);
+    if (retained) records[retained.nodeId] = retained;
   });
 
   return {

@@ -71,6 +71,7 @@ import {
   completeLearningSession,
   getLearningNodeStatus,
   getLearningReviewQueue,
+  hasLearningNodeAchievement,
   markLearningNodeLearned,
   normalizeLearningState,
   recordLearningAttempt,
@@ -80,6 +81,7 @@ import {
 } from "../utils/learningMastery";
 import { buildLearningTopicNote } from "../utils/learningNoteIntegration";
 import { buildRevisedNoteActionNode } from "../utils/learningRevisedNoteActions";
+import { notifyLearningNotebookSaved } from "../utils/learningNotebookEvents.js";
 import {
   buildPlacementActionTarget,
   buildPlacementChatPrompt,
@@ -535,6 +537,38 @@ function learningNodes(notebook) {
   return nodes;
 }
 
+function buildNotebookMapProgress(notebook, learningState, now) {
+  const next = Object.fromEntries(Object.entries(learningState.nodes || {}).map(([nodeId, node]) => [
+    nodeId,
+    { ...node, status: getLearningNodeStatus(node, { now }) },
+  ]));
+
+  const aggregateTopics = (topics, previous = {}) => {
+    const childStates = topics.map((topic) => next[topic.id] || {});
+    const learnedCount = childStates.filter(hasLearningNodeAchievement).length;
+    const allLearned = childStates.length > 0 && learnedCount === childStates.length;
+    const allMastered = allLearned && childStates.every((node) => (
+      Boolean(node.masteredAt) || node.status === "mastered"
+    ));
+    const hasProgress = learnedCount > 0 || childStates.some((node) => node.status === "learning");
+    return {
+      ...previous,
+      status: allMastered ? "mastered" : allLearned ? "learned" : hasProgress ? "learning" : "ready",
+      masteryScore: childStates.length ? Math.round(learnedCount / childStates.length * 100) : 0,
+      learnedAt: "",
+      masteredAt: "",
+      completedAt: "",
+    };
+  };
+
+  const chapters = notebook?.chapters || [];
+  chapters.forEach((chapter) => {
+    next[chapter.id] = aggregateTopics(chapter.topics || [], next[chapter.id]);
+  });
+  next.root = aggregateTopics(chapters.flatMap((chapter) => chapter.topics || []), next.root);
+  return next;
+}
+
 function careerProfileAllows(careerPreparation) {
   return Boolean(careerPreparation?.enabled);
 }
@@ -986,31 +1020,8 @@ function StartLearningPage({
   );
   const progressByNodeId = useMemo(() => {
     const now = new Date(masteryClock).toISOString();
-    const next = Object.fromEntries(Object.entries(normalizedMasteryState.nodes || {}).map(([nodeId, node]) => [
-      nodeId,
-      { ...node, status: getLearningNodeStatus(node, { now }) },
-    ]));
-
-    (activeNotebook?.chapters || []).forEach((chapter) => {
-      const childStates = (chapter.topics || []).map((topic) => next[topic.id]).filter(Boolean);
-      if (!childStates.length || !next[chapter.id]) return;
-      const statuses = childStates.map((item) => item.status);
-      const masteryScore = Math.round(
-        childStates.reduce((sum, item) => sum + Number(item.masteryScore || 0), 0) / childStates.length,
-      );
-      const status = statuses.every((item) => item === "mastered")
-        ? "mastered"
-        : statuses.some((item) => item === "review_due")
-          ? "review_due"
-          : statuses.some((item) => item === "learning")
-            ? "learning"
-            : statuses.some((item) => item === "learned" || item === "mastered")
-              ? "learned"
-              : next[chapter.id].status;
-      next[chapter.id] = { ...next[chapter.id], status, masteryScore };
-    });
-    return next;
-  }, [activeNotebook, masteryClock, normalizedMasteryState.nodes]);
+    return buildNotebookMapProgress(activeNotebook, normalizedMasteryState, now);
+  }, [activeNotebook, masteryClock, normalizedMasteryState]);
   const reviewQueue = useMemo(
     () => getLearningReviewQueue(activeNotebook ? [activeNotebook] : [], {
       limit: 24,
@@ -2248,7 +2259,11 @@ function StartLearningPage({
         `/api/learning-notebooks/${encodeURIComponent(snapshot.id)}`,
         { notebook: snapshot },
         { academicProfileId: academicProfileDataId, timeoutMs: 30000 },
-      ));
+      ))
+      .then((payload) => {
+        notifyLearningNotebookSaved({ academicProfileId: academicProfileDataId, notebookId: snapshot.id });
+        return payload;
+      });
     notebookSaveChainRef.current = request.catch(() => undefined);
     return request;
   }, [academicProfileDataId]);
@@ -3001,13 +3016,29 @@ function StartLearningPage({
     if (!activeNotebook || !section) return;
     const actionNode = buildRevisedNoteActionNode(section, activeNotebook);
     if (!actionNode) return;
-    const nextCompleted = !section.completed;
-    updateNotebook((current) => ({
-      ...current,
-      revisedNotes: current.revisedNotes.map((item) => (
-        item.id === section.id ? { ...item, completed: nextCompleted } : item
-      )),
-    }));
+    const now = new Date().toISOString();
+    let nextCompleted = !section.completed;
+    updateNotebook((current) => {
+      const currentSection = current.revisedNotes.find((item) => item.id === section.id);
+      nextCompleted = !currentSection?.completed;
+      const nextNotebook = {
+        ...current,
+        revisedNotes: current.revisedNotes.map((item) => (
+          item.id === section.id ? {
+            ...item,
+            completed: nextCompleted,
+            completedAt: nextCompleted ? now : "",
+          } : item
+        )),
+      };
+      return {
+        ...nextNotebook,
+        learningState: normalizeLearningState(nextNotebook.learningState, {
+          notebook: nextNotebook,
+          now,
+        }),
+      };
+    });
 
     const plannerState = getLearningPlannerCompletionState(
       schedule, completed, activeLearningProject, actionNode,
@@ -3019,15 +3050,6 @@ function StartLearningPage({
       if (plannerCompletion) setCompleted?.(plannerCompletion.completed);
     }
 
-    const matchingTopic = nodes.find((node) => (
-      node.type === "topic"
-      && node.title.trim().toLocaleLowerCase() === section.title.trim().toLocaleLowerCase()
-    ));
-    if (nextCompleted && matchingTopic) {
-      applyLearningState((state, now) => markLearningNodeLearned(
-        state, matchingTopic.id, { notebook: activeNotebook, now },
-      ));
-    }
     setNotification?.(`${section.title} marked ${nextCompleted ? "complete" : "incomplete"}.`);
   };
 

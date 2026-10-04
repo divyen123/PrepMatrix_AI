@@ -566,6 +566,12 @@ function normalizeRevisedNotes(value, topics) {
       keyPoints,
       revisionTips,
       completed: source.completed === true,
+      ...(source.completedAt ? { completedAt: normalizeIsoDate(source.completedAt, new Date(0)) } : {}),
+      ...(source.topicIds || source.topicId ? {
+        topicIds: normalizeStringList(source.topicIds || [source.topicId], { maxItems: 36, maxLength: 140 }),
+      } : {}),
+      ...(source.chapterId ? { chapterId: cleanIdentifier(source.chapterId, "") } : {}),
+      ...(source.chapterTitle || source.chapterName ? { chapterTitle: cleanInline(source.chapterTitle || source.chapterName, 180) } : {}),
     }];
   });
 
@@ -1271,10 +1277,12 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
       options.preparationSource,
     )
     : "";
+  const revisedNotes = normalizeRevisedNotes(source?.revisedNotes ?? source?.notes, topics);
   const learningNotebookContext = {
     ...(notebookId ? { id: notebookId } : {}),
     subjectName,
     chapters,
+    revisedNotes,
     createdAt,
     updatedAt,
   };
@@ -1287,6 +1295,7 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
     {
       notebook: { ...learningNotebookContext, learningState },
       learningState,
+      legacyLearningState: source?.learningState ?? source?.masteryState ?? source?.learningProgress,
       now,
     },
   );
@@ -1304,7 +1313,7 @@ export function normalizeLearningNotebook(value = {}, options = {}) {
     chapterNames,
     importantQuestions: normalizeImportantQuestions(source?.importantQuestions ?? source?.questions),
     overview: cleanContent(source?.overview ?? source?.summary, 6000),
-    revisedNotes: normalizeRevisedNotes(source?.revisedNotes ?? source?.notes, topics),
+    revisedNotes,
     chapters,
     topics,
     mindMap: normalizeMindMap(source?.mindMap, subjectName, chapters, topics),

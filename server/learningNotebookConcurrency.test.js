@@ -188,16 +188,21 @@ test("PATCH retries a revision race and merges both writers' progress", async ()
     updateFilters[0].updatedAt.getTime(),
     initial.updatedAt.getTime(),
   );
+  const topics = res.body.notebook.chapters.flatMap((chapter) => chapter.topics);
+  const algebraId = topics.find((topic) => topic.title === "algebra").id;
+  const geometryId = topics.find((topic) => topic.title === "geometry").id;
   assert.equal(
-    res.body.notebook.memoryDecayState.records.algebra.lastQuizId,
+    res.body.notebook.memoryDecayState.records[algebraId].lastQuizId,
     "memory-quiz-server",
   );
+  assert.equal(res.body.notebook.memoryDecayState.records[algebraId].halfLifeDays, 9);
+  assert.equal(res.body.notebook.learningState.nodes[algebraId].masteryScore, 95);
   assert.deepEqual(
-    res.body.notebook.learningState.nodes.algebra.attempts.map((item) => item.id),
+    res.body.notebook.learningState.nodes[algebraId].attempts.map((item) => item.id),
     ["algebra-old", "memory-attempt-server"],
   );
   assert.deepEqual(
-    res.body.notebook.learningState.nodes.geometry.attempts.map((item) => item.id),
+    res.body.notebook.learningState.nodes[geometryId].attempts.map((item) => item.id),
     ["geometry-old", "geometry-client"],
   );
 });

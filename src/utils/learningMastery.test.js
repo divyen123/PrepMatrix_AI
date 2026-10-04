@@ -465,7 +465,10 @@ test("manual completion preserves mastered and due learning evidence", () => {
     { notebook, now: "2026-08-02T10:00:00.000Z" },
   );
 
-  assert.deepEqual(manuallyCompletedDue.nodes["topic-sorting"], failedNode);
+  assert.deepEqual(manuallyCompletedDue.nodes["topic-sorting"], {
+    ...failedNode,
+    learnedAt: "2026-08-02T10:00:00.000Z",
+  });
   assert.equal(getLearningNodeStatus(
     manuallyCompletedDue.nodes["topic-sorting"],
     { now: "2026-08-02T10:00:00.000Z" },

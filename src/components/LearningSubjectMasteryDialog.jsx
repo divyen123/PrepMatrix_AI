@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import {
   getLearningNodeStatus,
+  getLearningTopicNodes,
   hasLearningNodeAchievement,
   normalizeLearningState,
 } from "../utils/learningMastery";
@@ -25,7 +26,7 @@ function masteryRows(notebooks, now) {
   return safeList(notebooks).map((notebook, index) => {
     const source = notebook && typeof notebook === "object" ? notebook : {};
     const state = normalizeLearningState(source.learningState, { notebook: source, now });
-    const topics = Object.values(state.nodes).filter((node) => node.nodeType === "topic");
+    const topics = getLearningTopicNodes(state, source);
     const learnedTopics = topics.filter(hasLearningNodeAchievement);
     const masteredTopics = topics.filter((node) => (
       Boolean(node.masteredAt) || getLearningNodeStatus(node, { now }) === "mastered"
