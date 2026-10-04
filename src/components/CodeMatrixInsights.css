@@ -79,6 +79,7 @@ body .cmxi .cmxi-refresh { display: grid; place-items: center; min-width: 39px; 
 .cmxi-context-note p { margin: 0; font-size: 0.6875rem; line-height: 1.7; }
 .cmxi-charts-grid, .cmxi-bottom-grid, .cmxi-history-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .cmxi-bottom-grid > section, .cmxi-history-grid > section { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: var(--cmxi-list-panel-height); overflow: hidden; }
+.cmxi-history-grid > .cmxi-history { height: auto; min-height: var(--cmxi-list-panel-height); overflow: visible; }
 .cmxi-card { min-width: 0; padding: 24px; border: 1px solid var(--cmxi-border); border-radius: 19px; background: var(--cmxi-surface); }
 .cmxi-section-heading { display: flex; flex-shrink: 0; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
 .cmxi-section-heading h2 { margin: 0; font-size: 1.0625rem; letter-spacing: -.4px; }
@@ -155,8 +156,9 @@ body .cmxi .cmxi-language-buttons .cmxi-clear-selection:hover { color: var(--cmx
 .cmxi-history p { flex-shrink: 0; margin: 16px 0 12px; color: var(--cmxi-muted); line-height: 1.7; }
 .cmxi-panel-empty { display: grid; place-items: center; text-align: center; }
 .cmxi-panel-empty > p { max-width: 28rem; margin: 0; }
-.cmxi-history-languages { display: grid; align-content: start; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: minmax(9rem, max-content); gap: 12px; }
-.cmxi-history-languages > span { --cmxi-language-tone: var(--cmxi-accent); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-width: 0; padding: 12px; background: color-mix(in srgb, var(--cmxi-language-tone) 8%, var(--cmxi-surface)); border: 1px solid color-mix(in srgb, var(--cmxi-language-tone) 20%, var(--cmxi-border)); border-radius: 11px; color: var(--cmxi-text); transition: background-color 180ms ease, border-color 180ms ease; }
+.cmxi-history > .cmxi-panel-empty { flex: 1; }
+.cmxi-history-languages { --cmxi-circle-gap: .75rem; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: var(--cmxi-circle-gap); width: min(100%, 25.5rem); margin: auto; }
+.cmxi-history-languages > span { --cmxi-language-tone: var(--cmxi-accent); display: flex; flex: 0 0 calc((100% - 2 * var(--cmxi-circle-gap)) / 3); flex-direction: column; align-items: center; justify-content: center; gap: .25rem; aspect-ratio: 1; box-sizing: border-box; min-width: 0; padding: .5rem; background: color-mix(in srgb, var(--cmxi-language-tone) 8%, var(--cmxi-surface)); border: 1px solid color-mix(in srgb, var(--cmxi-language-tone) 20%, var(--cmxi-border)); border-radius: 50%; color: var(--cmxi-text); transition: background-color 180ms ease, border-color 180ms ease; }
 .cmxi-history-languages > [data-language="python"] { --cmxi-language-tone: color-mix(in srgb, var(--cmxi-accent) 30%, #e9b949); }
 .cmxi-history-languages > [data-language="c"] { --cmxi-language-tone: color-mix(in srgb, var(--cmxi-accent) 30%, #659ad2); }
 .cmxi-history-languages > [data-language="cpp"] { --cmxi-language-tone: color-mix(in srgb, var(--cmxi-accent) 30%, #818cf8); }
@@ -169,9 +171,9 @@ body .cmxi .cmxi-language-buttons .cmxi-clear-selection:hover { color: var(--cmx
 @media (hover: hover) {
   .cmxi-history-languages > span:hover { background: color-mix(in srgb, var(--cmxi-language-tone) 14%, var(--cmxi-surface)); border-color: color-mix(in srgb, var(--cmxi-language-tone) 38%, var(--cmxi-border)); }
 }
-.cmxi-history-language-name { color: var(--cmxi-muted); font-size: .75rem; font-weight: 550; line-height: 1.4; overflow-wrap: anywhere; text-align: center; }
-.cmxi-history-languages svg { flex-shrink: 0; color: var(--cmxi-language-tone); }
-.cmxi-history-languages strong { font-size: 1.125rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cmxi-history-language-name { max-width: 100%; color: var(--cmxi-muted); font-size: .6875rem; font-weight: 550; line-height: 1.25; overflow-wrap: anywhere; text-align: center; }
+.cmxi-history-languages svg { flex-shrink: 0; width: 1.375rem; height: 1.375rem; color: var(--cmxi-language-tone); }
+.cmxi-history-languages strong { max-width: 100%; font-size: 1rem; line-height: 1.15; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cmxi-history strong { color: var(--cmxi-text); }
 .cmxi-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px 24px; color: var(--cmxi-muted); font-size: 0.625rem; line-height: 1.8; }
 .cmxi-start-note { display: flex; align-items: center; gap: 13px; padding: 18px 21px; border: 1px solid var(--cmxi-border); border-radius: 14px; background: var(--cmxi-soft); }
@@ -235,6 +237,9 @@ body.has-bg-image.no-glass-cards .cmxi .cmxi-xp-card { --cmxi-panel-tint: 0; }
   .cmxi-metrics article > strong { font-size: 1.375rem; }
   .cmxi-metrics article > span { font-size: 0.625rem; }
   .cmxi-history h2 > span { display: block; }
-  .cmxi-history-languages { gap: 8px; }
-  .cmxi-history-languages > span { padding: 10px 8px; }
+  .cmxi-history-languages { --cmxi-circle-gap: .5rem; }
+  .cmxi-history-languages > span { gap: .125rem; padding: .25rem; }
+  .cmxi-history-language-name { font-size: .625rem; line-height: 1.1; }
+  .cmxi-history-languages svg { width: 1rem; height: 1rem; }
+  .cmxi-history-languages strong { font-size: .875rem; line-height: 1.1; }
 }

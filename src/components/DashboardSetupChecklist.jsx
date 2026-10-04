@@ -63,14 +63,13 @@ export default function DashboardSetupChecklist({ academicProfileDataId, subject
         inert={collapsed ? "" : undefined}
       >
         <div className="dashboard-setup-content-inner">
-          <p className="dashboard-setup-intro">Set up your study space, one step at a time.</p>
           <progress aria-label="Study setup progress" max={3} value={completeCount} />
           {status === "loading" ? <p className="dashboard-setup-status" role="status">Checking your progress…</p> : (
             <ol>
               {steps.map((step) => {
                 const { title, button, to } = ACTIONS[step.id];
                 return (
-                  <li className={step.complete ? "is-complete" : step.recommended ? "is-next" : ""} key={step.id}>
+                  <li className={step.complete ? "is-complete" : ""} key={step.id}>
                     <SpringCheck
                       key={`${step.id}-${collapsed ? "closed" : "open"}`}
                       label={title}

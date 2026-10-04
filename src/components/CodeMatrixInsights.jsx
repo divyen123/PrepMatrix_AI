@@ -210,11 +210,11 @@ export default function CodeMatrixInsights({ academicProfileDataId, onBack }) {
         <section className="cmxi-history" aria-labelledby="cmxi-history-title">
           <h2 id="cmxi-history-title">Lifetime successful runs <span>{formatNumber(history.reduce((sum, item) => sum + Number(item.successfulRuns || 0), 0))} recorded</span></h2>
           <p>Historical XP records preserve successful runs. They cannot tell us about past errors or active coding time.</p>
-          {history.length ? <div className="cmxi-history-languages cmxi-panel-scroll" tabIndex={0} role="list" aria-label="Successful runs by language">{history.map((item) => <span key={item.id} data-language={item.id} role="listitem" title={item.label} aria-label={`${item.label}: ${formatNumber(item.successfulRuns)} successful runs`}>
-            <CodeMatrixLanguageIcon language={item.id} size={30} aria-hidden="true" focusable="false" />
+          {history.length ? <div className="cmxi-history-languages" role="list" aria-label="Successful runs by language">{history.map((item) => <span key={item.id} data-language={item.id} role="listitem" title={item.label} aria-label={`${item.label}: ${formatNumber(item.successfulRuns)} successful runs`}>
+            <CodeMatrixLanguageIcon language={item.id} size={22} aria-hidden="true" focusable="false" />
             <span className="cmxi-history-language-name">{item.label}</span>
             <strong>{formatNumber(item.successfulRuns)}</strong>
-          </span>)}</div> : <div className="cmxi-panel-scroll cmxi-panel-empty"><p className="cmxi-muted">Your successful compiler runs will appear here.</p></div>}
+          </span>)}</div> : <div className="cmxi-panel-empty"><p className="cmxi-muted">Your successful compiler runs will appear here.</p></div>}
         </section>
         <section className="cmxi-card cmxi-solved-card" aria-labelledby="cmxi-solved-title">
           <div className="cmxi-section-heading"><h2 id="cmxi-solved-title">Solved questions</h2></div>

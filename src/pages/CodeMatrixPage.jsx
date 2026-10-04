@@ -613,16 +613,18 @@ export default function CodeMatrixPage({
         </section>
       ) : setupVisible ? (
         <section className="cmx-setup" aria-labelledby="cmx-setup-title">
-          <div className="cmx-setup-heading"><span className="cmx-eyebrow">YOUR WORKSPACE, YOUR WAY</span><span className="cmx-setup-progress">{3 - remaining.length} of 3 ready</span></div>
           <h2 id="cmx-setup-title">Get your study workspace ready.</h2>
-          <p>Add your subjects, prepare a notebook, and make a plan.<br />You can also start coding right away.</p>
           <div className="cmx-setup-cards">
-            {remaining.map((step) => {
+            {steps.map((step, index) => {
               const copy = SETUP_COPY[step.id]; const Icon = copy.icon;
-              return <article className={`cmx-setup-card ${step.recommended ? "is-recommended" : ""}`} key={step.id}>
-                <div className="cmx-setup-card-top"><span className="cmx-setup-icon"><Icon size={22} /></span><span>{step.recommended ? "Recommended next" : `0${steps.findIndex(({ id }) => id === step.id) + 1}`}</span></div>
+              return <article className={`cmx-setup-card ${step.complete ? "is-complete" : step.recommended ? "is-recommended" : ""}`} key={step.id}>
+                <div className="cmx-setup-card-top"><span className="cmx-setup-icon"><Icon size={22} /></span><span>{step.recommended ? "Recommended next" : `0${index + 1}`}</span></div>
                 <h3>{copy.title}</h3><p>{copy.description}</p>
-                <Link className={`cmx-button ${step.recommended ? "cmx-primary" : ""}`} onClick={() => void flush()} to={codeMatrixSetupNavigation(step.id, subjects.at(-1)?.name || "")}>{copy.button}<ArrowRight size={16} /></Link>
+                {step.complete ? (
+                  <span className="cmx-button cmx-setup-done" role="status"><Check size={16} aria-hidden="true" />Completed</span>
+                ) : (
+                  <Link className={`cmx-button ${step.recommended ? "cmx-primary" : ""}`} onClick={() => void flush()} to={codeMatrixSetupNavigation(step.id, subjects.at(-1)?.name || "")}>{copy.button}<ArrowRight size={16} /></Link>
+                )}
               </article>;
             })}
           </div>

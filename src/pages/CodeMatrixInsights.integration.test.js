@@ -59,3 +59,56 @@ test('CodeMatrix exposes Insights only on the full page and tracks both editor s
     await vite.close();
   }
 });
+
+test('Finish setup keeps completed cards visible and leaves unfinished actions available', async () => {
+  const vite = await createServer({
+    logLevel: 'silent',
+    server: { middlewareMode: true },
+    plugins: [{
+      name: 'code-matrix-setup-test-fixtures',
+      enforce: 'pre',
+      load(id) {
+        if (id.replaceAll('\\', '/').endsWith('/src/hooks/useCodeMatrixWorkspace.js')) return `
+          import { normalizeCodeMatrixWorkspace } from '../utils/codeMatrixWorkspace.js';
+          let completedSteps = [];
+          export function setCompletedSteps(value) { completedSteps = value; }
+          export default function useCodeMatrixWorkspace() {
+            return {
+              workspace: normalizeCodeMatrixWorkspace({ language: 'python', completedSteps }),
+              ready: true, syncState: 'saved', setup: null,
+              update() {}, flush() {}, retry() {},
+            };
+          }
+        `;
+        return null;
+      },
+    }],
+  });
+  try {
+    const { default: CodeMatrixPage } = await vite.ssrLoadModule('/src/pages/CodeMatrixPage.jsx');
+    const { setCompletedSteps } = await vite.ssrLoadModule('/src/hooks/useCodeMatrixWorkspace.js');
+    for (const completedCount of [0, 1, 2]) {
+      setCompletedSteps(completedCount === 2 ? ['notebook'] : []);
+      const markup = renderToStaticMarkup(React.createElement(MemoryRouter, {
+        initialEntries: ['/learn/code-matrix'],
+      }, React.createElement(CodeMatrixPage, {
+        academicProfileDataId: 'academic-profile:setup-test',
+        userProfile: { academicLevel: "Undergraduate / Bachelor's", department: 'Computer Science' },
+        subjects: completedCount ? [{ name: 'Python' }] : [],
+      })));
+      assert.equal((markup.match(/class="cmx-setup-card /gu) || []).length, 3);
+      assert.equal((markup.match(/class="cmx-button cmx-setup-done" role="status"/gu) || []).length, completedCount);
+      assert.match(markup, /Add your subjects/u);
+      assert.match(markup, /Prepare your first notebook/u);
+      assert.match(markup, /Plan your study schedule/u);
+      assert.match(markup, />Create plan</u);
+      assert.doesNotMatch(markup, /YOUR WORKSPACE, YOUR WAY|of 3 ready|Add your subjects, prepare a notebook|You can also start coding right away/u);
+      if (completedCount) assert.doesNotMatch(markup, />Add subject</u);
+      else assert.match(markup, />Add subject</u);
+      if (completedCount === 2) assert.doesNotMatch(markup, />Start learning</u);
+      else assert.match(markup, />Start learning</u);
+    }
+  } finally {
+    await vite.close();
+  }
+});

@@ -50,13 +50,12 @@ body .dashboard-setup .dashboard-setup-toggle {
   transform: translateY(8px);
   transition: transform 180ms ease, visibility 0s linear 260ms;
 }
-.dashboard-setup-intro { margin: 0; padding: 0 16px; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
 .dashboard-setup progress { display: block; width: calc(100% - 32px); height: 5px; margin: 12px 16px; border: 0; border-radius: 5px; accent-color: var(--accent); overflow: hidden; }
 .dashboard-setup progress::-webkit-progress-bar { background: var(--surface-muted); }
 .dashboard-setup progress::-webkit-progress-value { background: var(--accent); }
 .dashboard-setup ol { list-style: none; padding: 0 10px 10px; margin: 0; }
 .dashboard-setup li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; }
-.dashboard-setup li.is-next { background: var(--accent-soft); }
+.dashboard-setup li:hover { background: var(--accent-soft); }
 .dashboard-setup li .spring-check { flex: 1; min-width: 0; font-weight: 600; }
 .dashboard-setup li .spring-check__label { min-width: 0; }
 body .dashboard-setup a.dashboard-setup-action {
@@ -76,7 +75,7 @@ body .dashboard-setup a.dashboard-setup-action {
   transition: color 160ms ease, transform 160ms ease;
 }
 body .dashboard-setup a.dashboard-setup-action:hover { color: var(--accent); transform: translateX(2px); }
-body .dashboard-setup .is-next a.dashboard-setup-action { color: var(--accent); }
+body .dashboard-setup li:hover a.dashboard-setup-action { color: var(--accent); }
 .dashboard-setup-status { padding: 0 16px 12px; margin: 0; font-size: 12px; color: var(--text-muted); }
 body .dashboard-setup-status button { min-height: 32px; padding: 4px 8px; border-radius: 8px; font-size: 12px; }
 .dashboard-setup :is(button, a):focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

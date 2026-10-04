@@ -4,7 +4,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 
-test('Insights keeps result panels scrollable and both history panels visible with populated or empty data', async () => {
+test('Insights keeps activity scrollable and all lifetime run cards visible with populated or empty data', async () => {
   const recent = Array.from({ length: 12 }, (_, index) => ({
     attemptId: `attempt-${index}`,
     language: 'java',
@@ -48,7 +48,7 @@ test('Insights keeps result panels scrollable and both history panels visible wi
     assert.match(markup, /<dt>Practice XP<\/dt><dd>10 XP<\/dd>/u);
     assert.match(markup, /class="cmxi-solved-list cmxi-panel-scroll"[\s\S]*?Sum of two numbers[\s\S]*?\+10 XP/u);
     assert.match(markup, /class="cmxi-panel-scroll" tabindex="0" aria-labelledby="cmxi-next-title"/u);
-    assert.match(markup, /class="cmxi-history-languages cmxi-panel-scroll" tabindex="0" role="list"/u);
+    assert.match(markup, /class="cmxi-history-languages" role="list"/u);
     assert.match(markup, /\+10 XP for each newly solved question\./u);
     assert.doesNotMatch(markup, /<details/u);
     const { setTestData } = await vite.ssrLoadModule('/src/hooks/useCodeMatrixInsights.js');
@@ -72,7 +72,7 @@ test('Insights keeps result panels scrollable and both history panels visible wi
         assert.doesNotMatch(historyGrid, /Your successful compiler runs will appear here/u);
       } else {
         assert.match(historyGrid, /0 recorded/u);
-        assert.match(historyGrid, /class="cmxi-panel-scroll cmxi-panel-empty"><p class="cmxi-muted">Your successful compiler runs will appear here\./u);
+        assert.match(historyGrid, /class="cmxi-panel-empty"><p class="cmxi-muted">Your successful compiler runs will appear here\./u);
       }
       if (hasQuestions) {
         assert.match(historyGrid, /Sum of two numbers/u);
