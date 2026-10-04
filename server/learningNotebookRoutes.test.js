@@ -671,12 +671,11 @@ test("routes scanned inputs through Qwen OCR and Llama structured generation", a
   const fetchImpl = async (_url, options) => {
     const body = JSON.parse(options.body);
     requests.push(body);
+    if (requests.length > 1) return scopedGroqNotebookResponse(options);
     return {
       ok: true,
       status: 200,
-      json: async () => requests.length === 1
-        ? { choices: [{ message: { content: "UNIT I\nQuantum gates and qubits" } }] }
-        : { choices: [{ message: { content: JSON.stringify(validGeneratedNotebook()) } }] },
+      json: async () => ({ choices: [{ message: { content: "UNIT I\nQuantum gates and qubits" } }] }),
     };
   };
   const stored = [];
@@ -756,7 +755,7 @@ test("routes scanned inputs through Qwen OCR and Llama structured generation", a
   await routes.get("POST /api/learning-notebooks/analyze")(req, res);
 
   assert.equal(res.statusCode, 201);
-  assert.equal(requests.length, 2);
+  assert.equal(requests.length, 3);
   assert.equal(requests[0].model, "qwen/qwen3.6-27b");
   assert.equal(requests[0].reasoning_effort, "none");
   assert.equal(requests[1].model, "llama-3.3-70b-versatile");
@@ -1136,6 +1135,36 @@ function generatedNotebookPart(chapterTitle, {
   return generated;
 }
 
+// Respond to the actual bounded scope. A full notebook fixture would conceal
+// requests that accidentally ask for an entire chapter in one response.
+function scopedGroqNotebookResponse(options) {
+  const request = JSON.parse(options.body);
+  const prompt = request.messages.map(({ content }) => typeof content === "string"
+    ? content
+    : content.filter((part) => part.type === "text").map((part) => part.text).join("\n"))
+    .join("\n");
+  const chapterMatch = prompt.match(/Generate only the chapter ("[^\n]*?");/u);
+  const topicMatch = prompt.match(/Cover topics (\d+) through (\d+) of (\d+) for this chapter/u);
+  const countMatch = prompt.match(/exactly (\d+) subtopic objects per topic, exactly (\d+) important question objects, exactly (\d+) revised note objects/u);
+  assert.ok(chapterMatch && topicMatch && countMatch, "The provider request must declare a bounded chapter part.");
+  const chapterTitle = JSON.parse(chapterMatch[1]);
+  const topicOffset = Number(topicMatch[1]) - 1;
+  const topicCount = Number(topicMatch[2]) - topicOffset;
+  const schema = request.response_format?.json_schema?.schema;
+  if (schema) {
+    assert.deepEqual(schema.properties.chapters.items.properties.title.enum, [chapterTitle]);
+    assert.equal(schema.properties.chapters.items.properties.topics.minItems, topicCount);
+    assert.equal(schema.properties.chapters.items.properties.topics.maxItems, topicCount);
+  }
+  return groqNotebookResponse(generatedNotebookPart(chapterTitle, {
+    topicOffset,
+    topicCount,
+    subtopicCount: Number(countMatch[1]),
+    questionCount: Number(countMatch[2]),
+    noteCount: Number(countMatch[3]),
+  }));
+}
+
 function createLearningRouteHarness({
   fetchImpl,
   generationDeadlineMs,
@@ -1262,10 +1291,10 @@ test("recovers a second distinct lesson after the provider reset without refundi
     geminiConfig: { available: false },
     groqLearningModel: "groq-repeat-test",
     groqLearningModels: ["groq-repeat-test"],
-    fetchImpl: async () => {
+    fetchImpl: async (_url, options) => {
       providerCalls += 1;
       if (providerCalls === 2) return providerRateLimitResponse("0.01");
-      return groqNotebookResponse();
+      return scopedGroqNotebookResponse(options);
     },
   });
 
@@ -1283,7 +1312,7 @@ test("recovers a second distinct lesson after the provider reset without refundi
   assert.equal(first.statusCode, 201);
   assert.equal(second.statusCode, 201);
   assert.notEqual(first.body.notebook.id, second.body.notebook.id);
-  assert.equal(providerCalls, 3);
+  assert.equal(providerCalls, 5);
   assert.equal(harness.stored.length, 2);
   assert.deepEqual(
     harness.aiQuota.calls.reserve.map(({ requestId }) => requestId),
@@ -1316,20 +1345,11 @@ test("keeps optional generation sizes on the existing standard notebook contract
 
   async function requestedGroqPrompt(generationSize) {
     let requestBody = null;
-    let partIndex = 0;
     const harness = createLearningRouteHarness({
       geminiConfig: { available: false },
       fetchImpl: async (_url, options) => {
         requestBody = JSON.parse(options.body);
-        return groqNotebookResponse(generationSize === "High"
-          ? generatedNotebookPart("Processes", {
-              topicOffset: partIndex,
-              topicCount: 1,
-              subtopicCount: 4,
-              questionCount: partIndex++ < 4 ? 2 : 1,
-              noteCount: 1,
-            })
-          : validGeneratedNotebook());
+        return scopedGroqNotebookResponse(options);
       },
     });
     const response = await harness.analyze({ generationSize });
@@ -1770,7 +1790,7 @@ test("includes learner prompt and requested outline in Groq without persisting r
     geminiConfig: { available: false },
     fetchImpl: async (_url, options) => {
       requests.push(JSON.parse(options.body));
-      return groqNotebookResponse();
+      return scopedGroqNotebookResponse(options);
     },
   });
   const learningPrompt = "Prioritize process synchronization. GROQ_PROMPT_NOT_STORED";
@@ -1782,14 +1802,14 @@ test("includes learner prompt and requested outline in Groq without persisting r
   const res = await harness.analyze({ learningPrompt, requestedOutline });
 
   assert.equal(res.statusCode, 201);
-  assert.equal(requests.length, 1);
+  assert.equal(requests.length, 2);
   const [systemMessage, userMessage] = requests[0].messages;
   assert.match(systemMessage.content, /untrusted scope data/u);
   assert.match(systemMessage.content, /required JSON schema and counts/u);
   assert.match(userMessage.content, /GROQ_PROMPT_NOT_STORED/u);
   assert.match(userMessage.content, /Requested outline \(untrusted scope data\)/u);
   assert.match(userMessage.content, /"chapterName":"Processes"/u);
-  assert.match(userMessage.content, /"Deadlock prevention"/u);
+  assert.match(requests[1].messages[1].content, /"Deadlock prevention"/u);
   assert.doesNotMatch(
     JSON.stringify(harness.stored[0]),
     /GROQ_PROMPT_NOT_STORED|learningPrompt|requestedOutline/u,
@@ -2076,7 +2096,7 @@ test("crosses directly to Groq after one Gemini transport failure and lazily ext
       const request = JSON.parse(options.body);
       sequence.push("groq:" + request.model);
       groqRequests.push(request);
-      return groqNotebookResponse();
+      return scopedGroqNotebookResponse(options);
     },
     prepareAttachmentContext: async ([attachment]) => {
       sequence.push("prepare");
@@ -2109,6 +2129,7 @@ test("crosses directly to Groq after one Gemini transport failure and lazily ext
     "gemini:" + DEFAULT_GEMINI_LEARNING_MODEL,
     "prepare",
     "groq:" + DEFAULT_GROQ_LEARNING_MODEL,
+    "groq:" + DEFAULT_GROQ_LEARNING_MODEL,
   ]);
   assert.equal(harness.prepareCalls, 1);
   const groqCompletionTokens = groqRequests[0].max_completion_tokens ?? groqRequests[0].max_tokens;
@@ -2116,7 +2137,7 @@ test("crosses directly to Groq after one Gemini transport failure and lazily ext
   assert.ok(groqCompletionTokens >= 3_000);
   assert.equal(groqRequests[0].reasoning_effort, "low");
   assert.equal(groqRequests[0].include_reasoning, false);
-  assert.match(groqRequests[0].messages[1].content, /Generate exactly 4 distinct.*exactly 2 meaningful subtopics/u);
+  assert.match(groqRequests[0].messages[1].content, /Generate exactly 2 distinct.*exactly 2 meaningful subtopics/u);
   assert.match(groqRequests[0].messages[1].content, /4-5 specific key points/u);
   assert.match(groqRequests[0].messages[1].content, /isolated address spaces/u);
   assert.equal(harness.stored[0].model, DEFAULT_GROQ_LEARNING_MODEL);
@@ -2157,7 +2178,7 @@ test("crosses directly to Groq after one invalid Gemini API-key response", async
 
       const request = JSON.parse(options.body);
       attempts.push({ provider: "groq", model: request.model });
-      return groqNotebookResponse();
+      return scopedGroqNotebookResponse(options);
     },
   });
 
@@ -2173,6 +2194,10 @@ test("crosses directly to Groq after one invalid Gemini API-key response", async
       provider: "groq",
       model: DEFAULT_GROQ_LEARNING_MODEL,
     },
+    {
+      provider: "groq",
+      model: DEFAULT_GROQ_LEARNING_MODEL,
+    },
   ]);
   assert.equal(harness.stored[0].model, DEFAULT_GROQ_LEARNING_MODEL);
   assert.equal(res.body.notebook.model, DEFAULT_GROQ_LEARNING_MODEL);
@@ -2181,7 +2206,7 @@ test("crosses directly to Groq after one invalid Gemini API-key response", async
   assert.equal(harness.aiQuota.calls.refund.length, 0);
 });
 
-test("shares one advertised-wait budget across Gemini candidates before Groq fallback", async () => {
+test("hands off throttled Gemini candidates without spending the shared advertised-wait budget", async () => {
   const geminiModels = ["gemini-rate-primary", "gemini-rate-secondary"];
   const attempts = [];
   const startedAt = Date.now();
@@ -2200,7 +2225,7 @@ test("shares one advertised-wait budget across Gemini candidates before Groq fal
       }
       const request = JSON.parse(options.body);
       attempts.push({ provider: "groq", model: request.model });
-      return groqNotebookResponse();
+      return scopedGroqNotebookResponse(options);
     },
   });
 
@@ -2209,13 +2234,11 @@ test("shares one advertised-wait budget across Gemini candidates before Groq fal
 
   assert.equal(res.statusCode, 201);
   assert.deepEqual(attempts, [
-    ...geminiModels.flatMap((model) => [
-      { provider: "gemini", model },
-      { provider: "gemini", model },
-    ]),
+    ...geminiModels.map((model) => ({ provider: "gemini", model })),
+    { provider: "groq", model: DEFAULT_GROQ_LEARNING_MODEL },
     { provider: "groq", model: DEFAULT_GROQ_LEARNING_MODEL },
   ]);
-  assert.ok(elapsedMs >= 25 && elapsedMs < 500);
+  assert.ok(elapsedMs < 500);
   assert.equal(res.body.notebook.model, DEFAULT_GROQ_LEARNING_MODEL);
   assert.equal(harness.aiQuota.calls.refund.length, 0);
 });
@@ -2252,7 +2275,7 @@ test("tries every Gemini candidate before the second configured Groq model succe
           }),
         };
       }
-      return groqNotebookResponse();
+      return scopedGroqNotebookResponse(options);
     },
     prepareAttachmentContext: async ([attachment]) => {
       assert.equal(attachment.buffer.toString("utf8"), pdfBytes.toString("utf8"));
@@ -2283,6 +2306,7 @@ test("tries every Gemini candidate before the second configured Groq model succe
   assert.deepEqual(attempts, [
     ...geminiModels.map((model) => ({ provider: "gemini", model })),
     ...groqModels.map((model) => ({ provider: "groq", model })),
+    { provider: "groq", model: groqModels[1] },
   ]);
   assert.equal(harness.prepareCalls, 1);
   assert.equal(harness.stored[0].model, groqModels[1]);
@@ -2303,14 +2327,14 @@ test("tries the next Groq model after a transport failure", async () => {
       const request = JSON.parse(options.body);
       attempts.push(request.model);
       if (request.model === models[0]) throw new TypeError("network unavailable");
-      return groqNotebookResponse();
+      return scopedGroqNotebookResponse(options);
     },
   });
 
   const res = await harness.analyze();
 
   assert.equal(res.statusCode, 201);
-  assert.deepEqual(attempts, models);
+  assert.deepEqual(attempts, [models[0], models[1], models[1]]);
   assert.equal(res.body.notebook.model, models[1]);
   assert.equal(harness.aiQuota.calls.reserve.length, 1);
   assert.equal(harness.aiQuota.calls.commit.length, 1);
@@ -2410,7 +2434,7 @@ test("tries the next Groq model after exhausting JSON-mode recovery", async () =
       requests.push(request);
       return request.model === DEFAULT_GROQ_LEARNING_MODEL
         ? groqJsonFailureResponse()
-        : groqNotebookResponse();
+        : scopedGroqNotebookResponse(options);
     },
   });
 
@@ -2421,12 +2445,84 @@ test("tries the next Groq model after exhausting JSON-mode recovery", async () =
     [DEFAULT_GROQ_LEARNING_MODEL, true],
     [DEFAULT_GROQ_LEARNING_MODEL, false],
     [DEFAULT_GROQ_LEARNING_MODEL_CHAIN[1], true],
+    [DEFAULT_GROQ_LEARNING_MODEL_CHAIN[1], true],
   ]);
   assert.equal(res.body.notebook.model, DEFAULT_GROQ_LEARNING_MODEL_CHAIN[1]);
   assert.equal(harness.stored.length, 1);
   assert.equal(harness.aiQuota.calls.reserve.length, 1);
   assert.equal(harness.aiQuota.calls.commit.length, 1);
   assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("recovers a complete provider failed_generation only after validating every required teaching part", async () => {
+  const requests = [];
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      const valid = await scopedGroqNotebookResponse(options).json();
+      const generated = JSON.parse(valid.choices[0].message.content);
+      // The provider may reject an optional presentation field while the
+      // generated teaching hierarchy remains complete and usable.
+      generated.chapters[0].topics.forEach((topic) => { delete topic.summary; });
+      return {
+        ok: false, status: 400,
+        json: async () => ({ error: {
+          code: "json_validate_failed",
+          message: "Generated JSON does not match the provider schema.",
+          failed_generation: JSON.stringify(generated),
+        } }),
+      };
+    },
+  });
+  const response = await harness.analyze();
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(requests.length, 2);
+  assert.ok(requests.every((request) => request.response_format?.json_schema?.strict === true));
+  assert.equal(response.body.notebook.chapters[0].topics.length, 4);
+  assert.equal(harness.stored.length, 1);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("rejects truncated or incomplete failed_generation and uses a validated fallback", async (t) => {
+  for (const invalidKind of ["truncated JSON", "missing questions", "missing explanation"]) {
+    await t.test(invalidKind, async () => {
+      const requests = [];
+      const models = DEFAULT_GROQ_LEARNING_MODEL_CHAIN;
+      const harness = createLearningRouteHarness({
+        geminiConfig: { available: false },
+        fetchImpl: async (_url, options) => {
+          const request = JSON.parse(options.body);
+          requests.push(request);
+          const valid = await scopedGroqNotebookResponse(options).json();
+          if (request.model !== models[0]) return scopedGroqNotebookResponse(options);
+          const generated = JSON.parse(valid.choices[0].message.content);
+          if (invalidKind === "missing questions") generated.importantQuestions = [];
+          if (invalidKind === "missing explanation") generated.chapters[0].topics[0].explanation = "";
+          const serialized = JSON.stringify(generated);
+          return {
+            ok: false, status: 400,
+            json: async () => ({ error: {
+              code: "json_validate_failed", message: "Invalid generated JSON.",
+              failed_generation: invalidKind === "truncated JSON" ? serialized.slice(0, -30) : serialized,
+            } }),
+          };
+        },
+      });
+      const response = await harness.analyze();
+
+      assert.equal(response.statusCode, 201);
+      assert.deepEqual(requests.map((request) => request.model), [models[0], models[0], models[1], models[1]]);
+      assert.equal("response_format" in requests[1], false);
+      assert.equal(response.body.notebook.chapters[0].topics.length, 4);
+      assert.equal(harness.stored.length, 1);
+      assert.equal(harness.aiQuota.calls.commit.length, 1);
+      assert.equal(harness.aiQuota.calls.refund.length, 0);
+    });
+  }
 });
 
 test("discards earlier notebook parts and refunds once when a later chapter fails", async () => {
@@ -2506,6 +2602,254 @@ test("preserves full chapter depth and source metadata across smaller Groq reque
   assert.equal(harness.aiQuota.calls.reserve.length, 1);
   assert.equal(harness.aiQuota.calls.commit.length, 1);
   assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("batches a single compact chapter with array bounds matching the compact teaching prompt", async () => {
+  const requests = [];
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      return scopedGroqNotebookResponse(options);
+    },
+  });
+  const response = await harness.analyze({
+    subjectName: "Physics", chapterNames: ["Coulomb's law"],
+    learningPrompt: "Explain Coulomb's law and its derivation with a worked example.",
+  }, { academicLevel: "Senior / Higher Secondary School", grade: "Class 12" });
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(requests.length, 2);
+  assert.equal(response.body.notebook.chapters.length, 1);
+  assert.equal(response.body.notebook.chapters[0].topics.length, 4);
+  assert.equal(response.body.notebook.chapters[0].topics.flatMap((topic) => topic.subtopics).length, 8);
+  for (const request of requests) {
+    const topic = request.response_format.json_schema.schema.properties.chapters.items.properties.topics.items.properties;
+    assert.deepEqual([topic.learningObjectives.minItems, topic.learningObjectives.maxItems], [2, 3]);
+    assert.deepEqual([topic.keyPoints.minItems, topic.keyPoints.maxItems], [4, 5]);
+    assert.deepEqual([topic.examples.minItems, topic.examples.maxItems], [1, 1]);
+    for (const field of ["applications", "commonMistakes", "revisionTips"]) {
+      assert.deepEqual([topic[field].minItems, topic[field].maxItems], [1, 2]);
+    }
+    const subtopic = topic.subtopics.items.properties;
+    assert.deepEqual([subtopic.keyPoints.minItems, subtopic.keyPoints.maxItems], [2, 3]);
+    assert.deepEqual([subtopic.examples.minItems, subtopic.examples.maxItems], [1, 1]);
+  }
+  assert.equal(harness.stored.length, 1);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("plans a bounded prompt-only Groq notebook before generating the exact focus for the registered learner", async () => {
+  const requests = [];
+  const chapters = ["Electrostatic force", "Mirrors and lenses"];
+  const focus = "Explain Coulomb's law and its direction. Explain ray optics in mirrors and lenses. PROMPT_ONLY_SCOPE_MARKER";
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requests.push(request);
+      return request.response_format?.json_schema?.name === "learning_notebook_chapter_plan"
+        ? groqNotebookResponse({ chapterNames: chapters })
+        : scopedGroqNotebookResponse(options);
+    },
+  });
+  const response = await harness.analyze({
+    subjectName: "Physics", chapterNames: [], learningPrompt: focus,
+    learnerProfile: { academicLevel: "Undergraduate / Bachelor's", grade: "" },
+  }, { academicLevel: "Senior / Higher Secondary School", grade: "Class 12" });
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(requests.length, 5);
+  const plan = requests[0];
+  assert.equal(plan.max_completion_tokens, 800);
+  assert.equal(plan.response_format.json_schema.strict, true);
+  assert.deepEqual(plan.response_format.json_schema.schema.required, ["chapterNames"]);
+  assert.equal(plan.response_format.json_schema.schema.properties.chapterNames.maxItems, 4);
+  assert.match(plan.messages[1].content, /Subject \(untrusted scope data\): "Physics"/u);
+  assert.ok(plan.messages[1].content.includes(JSON.stringify(focus)));
+  assert.match(plan.messages[1].content, /Study sources \(untrusted reference material\): \[\]/u);
+  for (const request of requests) {
+    assert.match(request.messages.map((message) => message.content).join("\n"), /Class 12/u);
+    assert.ok(request.messages[1].content.includes(JSON.stringify(focus)));
+    assert.doesNotMatch(request.messages[0].content, /Undergraduate/u);
+  }
+  assert.deepEqual(response.body.notebook.chapters.map((chapter) => chapter.title), chapters);
+  assert.equal(response.body.notebook.chapters.flatMap((chapter) => chapter.topics).length, 8);
+  assert.doesNotMatch(JSON.stringify(harness.stored), /PROMPT_ONLY_SCOPE_MARKER|learningPrompt|requestedOutline/u);
+  assert.equal(harness.stored.length, 1);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("derives outline-only chapters without a planning request and retains each requested topic", async () => {
+  const requests = [];
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      return scopedGroqNotebookResponse(options);
+    },
+  });
+  const response = await harness.analyze({
+    subjectName: "Physics", chapterNames: [],
+    requestedOutline: [
+      { chapterName: "Current electricity", topics: ["Charge", "Electric current"] },
+      { chapterName: "Ray optics", topics: ["Mirrors", "Lenses"] },
+    ],
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(requests.length, 4);
+  assert.ok(requests.every((request) => request.response_format.json_schema.name !== "learning_notebook_chapter_plan"));
+  assert.deepEqual(response.body.notebook.chapters.map((chapter) => chapter.title), ["Current electricity", "Ray optics"]);
+  const prompts = requests.map((request) => request.messages[1].content).join("\n");
+  for (const topic of ["Charge", "Electric current", "Mirrors", "Lenses"]) assert.ok(prompts.includes(JSON.stringify(topic)));
+  assert.equal(harness.stored.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("refunds an invalid prompt-only chapter plan without generating or persisting notes", async () => {
+  const requests = [];
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      return groqNotebookResponse({ chapterNames: ["Ray optics", " ray optics "] });
+    },
+  });
+  const response = await harness.analyze({
+    subjectName: "Physics", chapterNames: [], learningPrompt: "Explain mirrors and lenses with worked examples.",
+  });
+
+  assert.equal(response.statusCode, 502);
+  assert.equal(response.body.code, "LEARNING_OUTPUT_INVALID");
+  assert.equal(requests.length, DEFAULT_GROQ_LEARNING_MODEL_CHAIN.length);
+  assert.ok(requests.every((request) => request.response_format.json_schema.name === "learning_notebook_chapter_plan"));
+  assert.equal(response.body.creditsRefunded, true);
+  assert.equal(harness.stored.length, 0);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("hands off a busy Groq model before waiting and keeps the successful model for later parts", async () => {
+  const requests = [];
+  const startedAt = Date.now();
+  const models = DEFAULT_GROQ_LEARNING_MODEL_CHAIN;
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    providerAdvertisedWaitBudgetMs: 100,
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requests.push(request);
+      return request.model === models[0]
+        ? providerRateLimitResponse("60")
+        : scopedGroqNotebookResponse(options);
+    },
+  });
+  const response = await harness.analyze();
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(requests.map((request) => request.model), [models[0], models[1], models[1]]);
+  assert.ok(Date.now() - startedAt < 500, "An available fallback should not wait for the busy primary model's reset.");
+  assert.equal(harness.stored.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("returns once to a cooled Groq model when its fallback cannot produce valid notes", async () => {
+  const requests = [];
+  const models = DEFAULT_GROQ_LEARNING_MODEL_CHAIN;
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    providerAdvertisedWaitBudgetMs: 100,
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requests.push(request);
+      if (requests.length === 1) return providerRateLimitResponse("0.05");
+      if (request.model === models[1]) return groqNotebookResponse({ overview: "Incomplete fallback notes" });
+      return scopedGroqNotebookResponse(options);
+    },
+  });
+  const startedAt = Date.now();
+  const response = await harness.analyze();
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(requests.map((request) => request.model), [models[0], models[1], models[0], models[0]]);
+  assert.ok(Date.now() - startedAt >= 45);
+  assert.equal(harness.stored.length, 1);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("does not retry a busy model before its advertised reset when only a partial wait budget remains", async () => {
+  const requests = [];
+  const models = DEFAULT_GROQ_LEARNING_MODEL_CHAIN;
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    providerAdvertisedWaitBudgetMs: 5,
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requests.push(request);
+      return request.model === models[0]
+        ? providerRateLimitResponse("1")
+        : groqNotebookResponse({ overview: "Incomplete fallback notes" });
+    },
+  });
+  const response = await harness.analyze();
+
+  assert.deepEqual(requests.map((request) => request.model), models);
+  assert.equal(response.statusCode, 429);
+  assert.equal(response.body.creditsRefunded, true);
+  assert.equal(harness.stored.length, 0);
+  assert.equal(harness.aiQuota.calls.commit.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("recovers the chapter plan from a cooled model when the planning fallback is incomplete", async () => {
+  const requests = [];
+  const models = DEFAULT_GROQ_LEARNING_MODEL_CHAIN;
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    providerAdvertisedWaitBudgetMs: 100,
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requests.push(request);
+      if (request.response_format?.json_schema?.name === "learning_notebook_chapter_plan") {
+        if (requests.length === 1) return providerRateLimitResponse("0.01");
+        return groqNotebookResponse(request.model === models[1]
+          ? { chapterNames: [] } : { chapterNames: ["Ray optics"] });
+      }
+      return scopedGroqNotebookResponse(options);
+    },
+  });
+  const response = await harness.analyze({
+    subjectName: "Physics", chapterNames: [], learningPrompt: "Explain mirrors and lenses with ray diagrams.",
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(requests.map((request) => request.model), [models[0], models[1], models[0], models[0], models[0]]);
+  assert.deepEqual(response.body.notebook.chapterNames, ["Ray optics"]);
+  assert.equal(harness.stored.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("skips an advertised reset longer than the maximum wait instead of truncating and retrying early", async () => {
+  let requests = 0;
+  await assert.rejects(requestLearningNotebookJson({
+    apiKey: "groq-key", model: DEFAULT_GROQ_LEARNING_MODEL,
+    deadline: Date.now() + 180_000,
+    providerRetryBudget: { remainingAdvertisedWaitMs: 65_000 },
+    systemPrompt: "Return the notebook JSON.", userContent: "Teach mirrors and lenses.",
+    fetchImpl: async () => { requests += 1; return providerRateLimitResponse("120"); },
+  }), (error) => error.code === "LEARNING_PROVIDER_RATE_LIMIT");
+  assert.equal(requests, 1);
 });
 
 test("uses one generation deadline across notebook parts and refunds incomplete work", async () => {
@@ -2594,7 +2938,7 @@ test("rejects a repeated topic in a later part and recovers on the next model", 
   const response = await harness.analyze({ chapterNames: ["Current electricity", "Ray optics"] });
 
   assert.equal(response.statusCode, 201);
-  assert.deepEqual(requests.map((request) => request.model), [models[0], models[0], models[1], models[0], models[0]]);
+  assert.deepEqual(requests.map((request) => request.model), [models[0], models[0], models[1], models[1], models[1]]);
   assert.equal(new Set(response.body.notebook.chapters[0].topics.map((topic) => topic.title)).size, 4);
   assert.equal(harness.stored.length, 1);
   assert.equal(harness.aiQuota.calls.commit.length, 1);
@@ -2636,15 +2980,19 @@ test("keeps ordinary Groq output failures on immediate model fallback", async ()
       requests.push(request);
       return request.model === DEFAULT_GROQ_LEARNING_MODEL
         ? groqNotebookResponse({ overview: "Incomplete" })
-        : groqNotebookResponse();
+        : scopedGroqNotebookResponse(options);
     },
   });
 
   const res = await harness.analyze();
 
   assert.equal(res.statusCode, 201);
-  assert.deepEqual(requests.map((request) => request.model), DEFAULT_GROQ_LEARNING_MODEL_CHAIN);
-  assert.ok(requests.every((request) => request.response_format?.type === "json_object"));
+  assert.deepEqual(requests.map((request) => request.model), [
+    DEFAULT_GROQ_LEARNING_MODEL_CHAIN[0],
+    DEFAULT_GROQ_LEARNING_MODEL_CHAIN[1],
+    DEFAULT_GROQ_LEARNING_MODEL_CHAIN[1],
+  ]);
+  assert.ok(requests.every((request) => request.response_format?.type === "json_schema"));
   assert.equal(harness.aiQuota.calls.commit.length, 1);
   assert.equal(harness.aiQuota.calls.refund.length, 0);
 });
@@ -2676,19 +3024,19 @@ test("keeps JSON-mode recovery within the shared generation deadline", async () 
 test("falls back to Groq when Gemini returns malformed notebook output", async () => {
   let requestCount = 0;
   const harness = createLearningRouteHarness({
-    fetchImpl: async (url) => {
+    fetchImpl: async (url, options) => {
       requestCount += 1;
       if (url.includes("generativelanguage.googleapis.com")) {
         return geminiNotebookResponse({ overview: "Incomplete" });
       }
-      return groqNotebookResponse();
+      return scopedGroqNotebookResponse(options);
     },
   });
 
   const res = await harness.analyze();
 
   assert.equal(res.statusCode, 201);
-  assert.equal(requestCount, DEFAULT_GEMINI_LEARNING_MODEL_CHAIN.length + 1);
+  assert.equal(requestCount, DEFAULT_GEMINI_LEARNING_MODEL_CHAIN.length + 2);
   assert.equal(res.body.notebook.model, DEFAULT_GROQ_LEARNING_MODEL);
 });
 
@@ -2810,7 +3158,7 @@ test("keeps an earlier rate limit when a later model has a transport failure", a
 
   const res = await harness.analyze();
 
-  assert.equal(fetchCalls, 3);
+  assert.equal(fetchCalls, 2);
   assert.equal(res.statusCode, 429);
   assert.equal(res.body.code, "AI_PROVIDER_RATE_LIMITED");
   assert.equal(res.body.creditsRefunded, true);
@@ -2962,17 +3310,19 @@ test("supports Gemini-first, Gemini-only, Groq-only, and unavailable provider co
         groqConfig: row.groq
           ? { available: true, apiKey: "groq-key" }
           : { available: false, message: "Groq unavailable." },
-        fetchImpl: async (url) => {
+        fetchImpl: async (url, options) => {
           const provider = url.includes("generativelanguage.googleapis.com") ? "gemini" : "groq";
           providers.push(provider);
-          return provider === "gemini" ? geminiNotebookResponse() : groqNotebookResponse();
+          return provider === "gemini" ? geminiNotebookResponse() : scopedGroqNotebookResponse(options);
         },
       });
 
       const res = await harness.analyze();
 
       assert.equal(res.statusCode, row.status);
-      assert.deepEqual(providers, row.provider ? [row.provider] : []);
+      assert.deepEqual(providers, row.provider
+        ? Array.from({ length: row.provider === "groq" ? 2 : 1 }, () => row.provider)
+        : []);
       if (row.provider) {
         assert.equal(
           res.body.notebook.model,

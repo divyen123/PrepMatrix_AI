@@ -11,6 +11,10 @@ import {
   validateLearningNotebookBatch,
 } from "./learningNotebookBatches.js";
 import {
+  buildLearningNotebookChapterPlanPrompts,
+  parseLearningNotebookChapterPlan,
+} from "./learningNotebookPlan.js";
+import {
   ChatAttachmentError,
   buildChatAttachmentUserContent,
   decodeChatAttachments,
@@ -555,26 +559,27 @@ function providerPayloadRetryDelayMs(payload = {}) {
   }, Number.NaN);
 }
 
+function advertisedProviderRetryDelayMs(response, payload) {
+  const delays = [
+    parseProviderDelayMs(response?.headers?.get?.("retry-after"), { allowHttpDate: true }),
+    parseProviderDelayMs(response?.headers?.get?.("x-ratelimit-reset-tokens")),
+    providerPayloadRetryDelayMs(payload),
+  ].filter(Number.isFinite);
+  return delays.length ? Math.max(0, ...delays) : Number.NaN;
+}
+
 export function providerRetryDelayMs(
   response,
   payload = {},
   attempt = 0,
   { deadline, providerRetryBudget, useFallback = true } = {},
 ) {
-  const retryAfterValue = cleanInline(response?.headers?.get?.("retry-after"), 120);
-  const tokenResetValue = cleanInline(
-    response?.headers?.get?.("x-ratelimit-reset-tokens"),
-    120,
-  );
-  const retryAfter = parseProviderDelayMs(retryAfterValue, { allowHttpDate: true });
-  const tokenReset = parseProviderDelayMs(tokenResetValue);
-  const payloadDelay = providerPayloadRetryDelayMs(payload);
-  const advertisedDelays = [retryAfter, tokenReset, payloadDelay].filter(Number.isFinite);
-  const hasAdvertisedDelay = advertisedDelays.length > 0;
+  const advertisedDelay = advertisedProviderRetryDelayMs(response, payload);
+  const hasAdvertisedDelay = Number.isFinite(advertisedDelay);
   const fallback = PROVIDER_RETRY_BASE_DELAY_MS * (2 ** Math.max(0, attempt))
     + Math.floor(Math.random() * 151);
   const requestedDelay = hasAdvertisedDelay
-    ? Math.max(0, ...advertisedDelays)
+    ? advertisedDelay
     : useFallback ? fallback : 0;
   let boundedDelay = Math.min(
     PROVIDER_RETRY_MAX_DELAY_MS,
@@ -622,7 +627,7 @@ async function fetchProviderJsonWithRetryRaw(
   fetchImpl,
   url,
   options,
-  { deadline, providerRetryBudget } = {},
+  { deadline, providerRetryBudget, retryRateLimits = true } = {},
 ) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const requestOptions = Number.isFinite(Number(deadline))
@@ -636,7 +641,19 @@ async function fetchProviderJsonWithRetryRaw(
       !response.ok
       && attempt === 0
       && isRetryableTransientProviderResponse(response, payload)
+      && (retryRateLimits || !isProviderRateLimit(response, payload))
     ) {
+      if (isProviderRateLimit(response, payload)) {
+        const resetDelay = advertisedProviderRetryDelayMs(response, payload);
+        const remainingWait = providerRetryBudget
+          ? Number(providerRetryBudget.remainingAdvertisedWaitMs) || 0 : Infinity;
+        const remainingTime = Number.isFinite(Number(deadline))
+          ? Number(deadline) - Date.now() - PROVIDER_RETRY_DEADLINE_BUFFER_MS : Infinity;
+        // A partial reset wait only repeats a request the provider cannot serve.
+        if (resetDelay > PROVIDER_RETRY_MAX_DELAY_MS || resetDelay > remainingWait || resetDelay > remainingTime) {
+          return { response, payload };
+        }
+      }
       await waitForProviderRetry(
         providerRetryDelayMs(response, payload, attempt, {
           deadline,
@@ -660,14 +677,14 @@ async function fetchProviderJsonWithRetry(
   fetchImpl,
   url,
   options,
-  { deadline, providerRetryBudget } = {},
+  { deadline, providerRetryBudget, retryRateLimits = true } = {},
 ) {
   try {
     return await fetchProviderJsonWithRetryRaw(
       fetchImpl,
       url,
       options,
-      { deadline, providerRetryBudget },
+      { deadline, providerRetryBudget, retryRateLimits },
     );
   } catch (error) {
     const resolvedDeadline = Number(deadline);
@@ -685,7 +702,7 @@ function createProviderError(response, payload = {}) {
   const providerCode = cleanInline(payload?.error?.code, 100).toLocaleLowerCase();
   const isModelPermissionError = providerCode.startsWith("model_permission_");
   const isAuthFailure = response.status === 401 || (response.status === 403 && !isModelPermissionError);
-  return new LearningNotebookError(
+  const error = new LearningNotebookError(
     isRateLimit
       ? "The learning assistant is busy. Please retry in a moment."
       : isSizeLimit
@@ -703,6 +720,11 @@ function createProviderError(response, payload = {}) {
       status: isRateLimit ? 429 : isSizeLimit ? 413 : 502,
     },
   );
+  if (isRateLimit) {
+    const resetDelay = advertisedProviderRetryDelayMs(response, payload);
+    if (resetDelay > 0) error.providerRetryAt = Date.now() + resetDelay;
+  }
+  return error;
 }
 
 function estimateLearningTextTokens(value) {
@@ -850,7 +872,7 @@ function learningCompletionTokenBudget(preferredTokens, systemPrompt, userConten
     - GROQ_LEARNING_TOKEN_HEADROOM
     - estimatedPromptTokens,
   );
-  if (availableTokens < MIN_GROQ_LEARNING_COMPLETION_TOKENS) {
+  if (availableTokens < Math.min(MIN_GROQ_LEARNING_COMPLETION_TOKENS, preferredTokens)) {
     throw new LearningNotebookError(
       "The source material and requested notebook exceed the current AI processing limit. Try fewer chapters or one file at a time.",
       { code: "LEARNING_PROVIDER_SIZE_LIMIT", status: 413 },
@@ -883,7 +905,7 @@ function groqCompletionRequestOptions(model, completionTokens) {
   return { max_tokens: completionTokens };
 }
 
-export async function requestLearningNotebookJson({
+async function requestLearningJson({
   apiKey,
   deadline,
   fetchImpl = globalThis.fetch,
@@ -892,9 +914,12 @@ export async function requestLearningNotebookJson({
   model,
   providerRetryBudget,
   responseSchema,
+  schemaName = "learning_notebook_part",
   systemPrompt,
   userContent,
-  validateNotebook = hasLearningNotebookShape,
+  validateResponse,
+  maximumCompletionTokens = MAX_LEARNING_COMPLETION_TOKENS,
+  outputDescription = "notes",
 }) {
   const boundedAttempts = Math.max(1, Math.min(2, Number.parseInt(maxAttempts, 10) || 1));
   let allowedAttempts = boundedAttempts;
@@ -908,7 +933,7 @@ export async function requestLearningNotebookJson({
   for (let attempt = 0; attempt < allowedAttempts; attempt += 1) {
     const hasRetryAttempt = attempt + 1 < boundedAttempts;
     const preferredCompletionTokens = attempt === 0
-      ? MAX_LEARNING_COMPLETION_TOKENS
+      ? maximumCompletionTokens
       : retryForTokenBudget
         ? Math.max(
             MIN_GROQ_LEARNING_COMPLETION_TOKENS,
@@ -917,7 +942,7 @@ export async function requestLearningNotebookJson({
               Number(previousCompletionTokens) - GROQ_LEARNING_RETRY_REDUCTION_TOKENS,
             ),
           )
-        : Number(previousCompletionTokens) || MAX_LEARNING_COMPLETION_TOKENS;
+        : Number(previousCompletionTokens) || maximumCompletionTokens;
     const completionTokens = learningCompletionTokenBudget(
       groqLearningCompletionTokenLimit(model, preferredCompletionTokens),
       strictSchema ? `${systemPrompt}\n${JSON.stringify(strictSchema)}` : systemPrompt,
@@ -937,7 +962,7 @@ export async function requestLearningNotebookJson({
       ],
       ...(attempt === 0 ? {
         response_format: strictSchema
-          ? { type: "json_schema", json_schema: { name: "learning_notebook_part", strict: true, schema: strictSchema } }
+          ? { type: "json_schema", json_schema: { name: schemaName, strict: true, schema: strictSchema } }
           : { type: "json_object" },
       } : {}),
     };
@@ -953,7 +978,8 @@ export async function requestLearningNotebookJson({
         signal,
         body: JSON.stringify(body),
       },
-      { deadline, providerRetryBudget },
+      // Try an available fallback before spending the shared reset-wait budget.
+      { deadline, providerRetryBudget, retryRateLimits: !hasModelFallback },
     );
 
     if (!response.ok) {
@@ -962,9 +988,7 @@ export async function requestLearningNotebookJson({
         isProviderSizeLimit(response, payload)
         || tokenBudgetRateLimited
       ) && hasSmallerRetryBudget;
-      const willRetryAfterRateLimit = (
-        hasRetryAttempt && retryableTokenBudgetFailure
-      ) || hasModelFallback;
+      const willRetryAfterRateLimit = hasRetryAttempt && retryableTokenBudgetFailure && !hasModelFallback;
       if (tokenBudgetRateLimited && willRetryAfterRateLimit) {
         await waitForProviderRetry(
           providerRetryDelayMs(response, payload, attempt, {
@@ -976,6 +1000,13 @@ export async function requestLearningNotebookJson({
         );
       }
       if (attempt === 0 && response.status === 400 && isGroqJsonFailure(payload)) {
+        // JSON-schema rejection may concern an optional display field even
+        // when the provider returned complete teaching content. Recover only
+        // a fully parsed response that passes the same final content checks.
+        try {
+          const recovered = parseLearningJson(payload?.error?.failed_generation || "");
+          if (validateResponse(recovered)) return recovered;
+        } catch { /* Incomplete or malformed output still requires recovery. */ }
         // A provider JSON-mode rejection needs one format-free attempt even
         // when ordinary output retries are deferred to the next model.
         allowedAttempts = 2;
@@ -990,8 +1021,8 @@ export async function requestLearningNotebookJson({
 
     try {
       const parsed = parseLearningJson(payload?.choices?.[0]?.message?.content || "");
-      if (!hasLearningNotebookShape(parsed) || !validateNotebook(parsed)) {
-        throw new Error("AI response was missing required notebook sections.");
+      if (!validateResponse(parsed)) {
+        throw new Error("AI response was missing required sections.");
       }
       return parsed;
     } catch {
@@ -1001,10 +1032,17 @@ export async function requestLearningNotebookJson({
 
   throw new LearningNotebookError(
     allowedAttempts > 1
-      ? "The learning assistant returned incomplete notes after an automatic retry."
-      : "The learning assistant returned incomplete notes.",
+      ? `The learning assistant returned incomplete ${outputDescription} after an automatic retry.`
+      : `The learning assistant returned incomplete ${outputDescription}.`,
     { code: "LEARNING_OUTPUT_INVALID", status: 502 },
   );
+}
+
+export function requestLearningNotebookJson({ validateNotebook = hasLearningNotebookShape, ...options }) {
+  return requestLearningJson({
+    ...options,
+    validateResponse: (value) => hasLearningNotebookShape(value) && validateNotebook(value),
+  });
 }
 
 export async function requestLearningVisionText({
@@ -2077,6 +2115,7 @@ export function registerLearningNotebookRoutes(app, {
               depthTargets: lessonDepthTargets,
               deadline: generationDeadline,
               fetchImpl,
+              hasModelFallback: index + 1 < geminiModels.length || groqAvailable,
               learningPrompt,
               learnerContext,
               medicalTrainingEligibility,
@@ -3307,8 +3346,23 @@ export function buildLearningNotebookResponseSchema(depthTargets = buildLearning
   return schema;
 }
 
-function buildGroqLearningNotebookBatchSchema(batch, careerEligibility) {
+function buildGroqLearningNotebookBatchSchema(batch, careerEligibility, { compact = false } = {}) {
   const schema = buildLearningNotebookResponseSchema(batch.depthTargets);
+  if (compact) {
+    // Match the compact teaching prompt rather than full-detail array defaults.
+    const topic = schema.properties.chapters.items.properties.topics.items.properties;
+    topic.learningObjectives.minItems = 2;
+    topic.learningObjectives.maxItems = 3;
+    topic.keyPoints.maxItems = 5;
+    topic.examples.maxItems = batch.depthTargets.minimumExamplesPerTopic;
+    ["applications", "commonMistakes", "revisionTips"].forEach((key) => {
+      topic[key].minItems = 1;
+      topic[key].maxItems = 2;
+    });
+    const subtopic = topic.subtopics.items.properties;
+    subtopic.keyPoints.maxItems = 3;
+    subtopic.examples.maxItems = batch.depthTargets.minimumExamplesPerSubtopic;
+  }
   schema.properties.revisedNotes.maxItems = batch.noteCount;
   schema.properties.revisedNotes.items.properties.chapterTitle = { type: "string" };
   schema.properties.revisedNotes.items.properties.topicIds = {
@@ -3891,6 +3945,7 @@ export async function requestGeminiLearningNotebookJson({
   attachments = [],
   deadline,
   fetchImpl = globalThis.fetch,
+  hasModelFallback = false,
   model = DEFAULT_GEMINI_LEARNING_MODEL,
   providerRetryBudget,
   responseSchema = LEARNING_NOTEBOOK_RESPONSE_SCHEMA,
@@ -3920,7 +3975,7 @@ export async function requestGeminiLearningNotebookJson({
         generationConfig: geminiStructuredOutputConfig(responseSchema),
       }),
     },
-    { deadline, providerRetryBudget },
+    { deadline, providerRetryBudget, retryRateLimits: !hasModelFallback },
   );
   if (!response.ok) throw createGeminiProviderError(response, payload);
 
@@ -4182,6 +4237,7 @@ async function generateLearningNotebookWithGemini({
   depthTargets,
   deadline,
   fetchImpl,
+  hasModelFallback = false,
   learningPrompt,
   learnerContext,
   medicalTrainingEligibility,
@@ -4213,6 +4269,7 @@ async function generateLearningNotebookWithGemini({
     attachments,
     deadline,
     fetchImpl,
+    hasModelFallback,
     model,
     providerRetryBudget,
     responseSchema: buildLearningNotebookResponseSchema(prompts.depthTargets),
@@ -4332,18 +4389,43 @@ async function generateLearningNotebookWithGroq({
     textSources: compactSources.textSources,
     youngKidsProfile,
   };
-  const prompts = buildGenerationPrompts(promptOptions);
   const textOnlyAttachmentContext = {
     ...attachmentContext,
     pdfDocuments: compactSources.pdfDocuments,
     visionImages: [],
   };
   const models = learningGroqModels(groqLearningModel || groqModel, groqLearningModels);
+  const usedModels = new Set();
+  let preferredModel = models[0];
+  if (!youngKidsProfile && !promptOptions.chapterNames.length) {
+    const outlineChapters = normalizeLearningChapterNames(requestedOutline.map((entry) => entry.chapterName));
+    if (outlineChapters.length) {
+      promptOptions.chapterNames = outlineChapters;
+    } else {
+      const planPrompts = buildLearningNotebookChapterPlanPrompts(promptOptions);
+      const userContent = attachments.length
+        ? buildChatAttachmentUserContent(planPrompts.userPrompt, textOnlyAttachmentContext)
+        : planPrompts.userPrompt;
+      const plan = await requestScope({
+        apiKey, deadline, fetchImpl, providerRetryBudget,
+        ...planPrompts,
+        userContent,
+        schemaName: "learning_notebook_chapter_plan",
+        maximumCompletionTokens: 800,
+        outputDescription: "a chapter plan",
+        validateResponse: (value) => {
+          try { return parseLearningNotebookChapterPlan(value).length > 0; }
+          catch { return false; }
+        },
+      }, requestLearningJson, "planning");
+      promptOptions.chapterNames = parseLearningNotebookChapterPlan(plan);
+    }
+  }
+  const prompts = buildGenerationPrompts(promptOptions);
   let batches = [];
   try {
-    if (!youngKidsProfile && chapterNames.length
-      && (chapterNames.length > 1 || !promptOptions.compactOutput)) {
-      batches = buildLearningNotebookBatches(chapterNames, prompts.depthTargets, {
+    if (!youngKidsProfile && promptOptions.chapterNames.length) {
+      batches = buildLearningNotebookBatches(promptOptions.chapterNames, prompts.depthTargets, {
         compact: promptOptions.compactOutput,
       });
     }
@@ -4354,49 +4436,82 @@ async function generateLearningNotebookWithGroq({
     });
   }
   const batchResults = [];
-  const usedModels = new Set();
 
   async function generateScope(scopePrompts, batch, { coveredTopics = [], coveredQuestions = [] } = {}) {
     const userContent = attachments.length
       ? buildChatAttachmentUserContent(scopePrompts.userPrompt, textOnlyAttachmentContext)
       : scopePrompts.userPrompt;
+    const requestOptions = {
+      apiKey, deadline, fetchImpl, providerRetryBudget,
+      responseSchema: batch ? buildGroqLearningNotebookBatchSchema(batch, careerEligibility, {
+        compact: promptOptions.compactOutput,
+      }) : undefined,
+      systemPrompt: scopePrompts.systemPrompt,
+      userContent,
+      validateNotebook: (value) => {
+        if (!batch) return hasGeneratedLearningNotebookDepth(value, scopePrompts.depthTargets);
+        if (!validateLearningNotebookBatch(value, batch)) return false;
+        const source = value.notebook || value;
+        const key = (text) => text.trim().replace(/\s+/gu, " ").toLocaleLowerCase();
+        const previousTopics = new Set(coveredTopics.map(key));
+        const previousQuestions = new Set(coveredQuestions.map(key));
+        return source.chapters[0].topics.every((topic) => !previousTopics.has(key(topic.title)))
+          && source.importantQuestions.every((question) => !previousQuestions.has(key(question.question)));
+      },
+    };
+    return requestScope(requestOptions);
+  }
+
+  async function requestScope(requestOptions, requestJson = requestLearningNotebookJson, phase = providerPhase) {
     let lastError = null;
-    for (const [index, candidateModel] of models.entries()) {
+    const candidates = [preferredModel, ...models.filter((model) => model !== preferredModel)];
+    const coolingModels = [];
+    for (const [index, candidateModel] of candidates.entries()) {
       try {
-        const generated = await requestLearningNotebookJson({
-          apiKey,
-          deadline,
-          fetchImpl,
+        const generated = await requestJson({
+          ...requestOptions,
           maxAttempts: models.length > 1 ? 1 : 2,
           hasModelFallback: index + 1 < models.length,
           model: candidateModel,
-          providerRetryBudget,
-          responseSchema: batch ? buildGroqLearningNotebookBatchSchema(batch, careerEligibility) : undefined,
-          systemPrompt: scopePrompts.systemPrompt,
-          userContent,
-          validateNotebook: (value) => {
-            if (!batch) return hasGeneratedLearningNotebookDepth(value, scopePrompts.depthTargets);
-            if (!validateLearningNotebookBatch(value, batch)) return false;
-            const source = value.notebook || value;
-            const key = (text) => text.trim().replace(/\s+/gu, " ").toLocaleLowerCase();
-            const previousTopics = new Set(coveredTopics.map(key));
-            const previousQuestions = new Set(coveredQuestions.map(key));
-            return source.chapters[0].topics.every((topic) => !previousTopics.has(key(topic.title)))
-              && source.importantQuestions.every((question) => !previousQuestions.has(key(question.question)));
-          },
         });
         usedModels.add(candidateModel);
+        preferredModel = candidateModel;
         return generated;
       } catch (error) {
         lastError = preferLearningProviderFailure(lastError, error);
+        if (index + 1 < candidates.length && isLearningRateLimitError(error) && error.providerRetryAt) {
+          coolingModels.push({ model: candidateModel, retryAt: error.providerRetryAt });
+        }
         logLearningProviderFailure(logger, {
           model: candidateModel,
-          phase: index === 0 ? providerPhase : "secondary",
+          phase: index === 0 ? phase : "secondary",
           provider: "groq",
         }, error);
         const canTryNextModel = isLearningModelFallbackError(error)
           || (isLearningTransportError(error) && error?.modelFallbackAllowed !== false);
         if (!canTryNextModel) throw error;
+      }
+    }
+    // If the fallback could not produce valid content, return to a busy model
+    // once its advertised reset fits the remaining shared wait and deadline.
+    for (const cooling of coolingModels) {
+      const waitMs = Math.max(0, cooling.retryAt - Date.now());
+      const remainingWait = Number(providerRetryBudget?.remainingAdvertisedWaitMs) || 0;
+      if (waitMs > remainingWait || waitMs + PROVIDER_RETRY_DEADLINE_BUFFER_MS >= deadline - Date.now()) continue;
+      providerRetryBudget.remainingAdvertisedWaitMs = remainingWait - waitMs;
+      await waitForProviderRetry(waitMs, deadline);
+      try {
+        const generated = await requestJson({
+          ...requestOptions, model: cooling.model, maxAttempts: 1,
+        });
+        usedModels.add(cooling.model);
+        preferredModel = cooling.model;
+        return generated;
+      } catch (error) {
+        lastError = preferLearningProviderFailure(lastError, error);
+        logLearningProviderFailure(logger, { model: cooling.model, phase: "reset", provider: "groq" }, error);
+        if (!isLearningModelFallbackError(error)
+          && !(isLearningTransportError(error) && error?.modelFallbackAllowed !== false)) throw error;
       }
     }
     throw lastError || new LearningNotebookError(
@@ -4406,7 +4521,7 @@ async function generateLearningNotebookWithGroq({
   }
 
   let generated = null;
-  if (batches.length > 1) {
+  if (batches.length) {
     for (const batch of batches) {
       assertLearningGenerationDeadline(deadline);
       const coveredTopics = batchResults
