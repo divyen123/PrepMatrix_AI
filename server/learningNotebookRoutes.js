@@ -5,6 +5,12 @@ import {
   nextLearningNotebookRevisionDate,
 } from "./learningNotebookProgressMerge.js";
 import {
+  buildLearningNotebookBatches,
+  LearningNotebookBatchValidationError,
+  mergeLearningNotebookBatches,
+  validateLearningNotebookBatch,
+} from "./learningNotebookBatches.js";
+import {
   ChatAttachmentError,
   buildChatAttachmentUserContent,
   decodeChatAttachments,
@@ -885,16 +891,21 @@ export async function requestLearningNotebookJson({
   hasModelFallback = false,
   model,
   providerRetryBudget,
+  responseSchema,
   systemPrompt,
   userContent,
   validateNotebook = hasLearningNotebookShape,
 }) {
   const boundedAttempts = Math.max(1, Math.min(2, Number.parseInt(maxAttempts, 10) || 1));
+  let allowedAttempts = boundedAttempts;
+  const strictSchema = responseSchema && /^openai\/gpt-oss-(20b|120b)$/iu.test(String(model || ""))
+    ? responseSchema
+    : null;
   const signal = learningRequestSignal(deadline);
   let previousCompletionTokens = null;
 
   let retryForTokenBudget = false;
-  for (let attempt = 0; attempt < boundedAttempts; attempt += 1) {
+  for (let attempt = 0; attempt < allowedAttempts; attempt += 1) {
     const hasRetryAttempt = attempt + 1 < boundedAttempts;
     const preferredCompletionTokens = attempt === 0
       ? MAX_LEARNING_COMPLETION_TOKENS
@@ -909,7 +920,7 @@ export async function requestLearningNotebookJson({
         : Number(previousCompletionTokens) || MAX_LEARNING_COMPLETION_TOKENS;
     const completionTokens = learningCompletionTokenBudget(
       groqLearningCompletionTokenLimit(model, preferredCompletionTokens),
-      systemPrompt,
+      strictSchema ? `${systemPrompt}\n${JSON.stringify(strictSchema)}` : systemPrompt,
       userContent,
     );
     const hasSmallerRetryBudget = completionTokens > MIN_GROQ_LEARNING_COMPLETION_TOKENS;
@@ -919,10 +930,16 @@ export async function requestLearningNotebookJson({
       temperature: attempt === 0 ? 0.2 : 0.1,
       ...groqCompletionRequestOptions(model, completionTokens),
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: attempt > 0 && strictSchema
+          ? `${systemPrompt}\nRequired JSON response schema (trusted server format): ${JSON.stringify(strictSchema)}`
+          : systemPrompt },
         { role: "user", content: userContent },
       ],
-      ...(attempt === 0 ? { response_format: { type: "json_object" } } : {}),
+      ...(attempt === 0 ? {
+        response_format: strictSchema
+          ? { type: "json_schema", json_schema: { name: "learning_notebook_part", strict: true, schema: strictSchema } }
+          : { type: "json_object" },
+      } : {}),
     };
     const { response, payload } = await fetchProviderJsonWithRetry(
       fetchImpl,
@@ -958,7 +975,10 @@ export async function requestLearningNotebookJson({
           deadline,
         );
       }
-      if (hasRetryAttempt && response.status === 400 && isGroqJsonFailure(payload)) {
+      if (attempt === 0 && response.status === 400 && isGroqJsonFailure(payload)) {
+        // A provider JSON-mode rejection needs one format-free attempt even
+        // when ordinary output retries are deferred to the next model.
+        allowedAttempts = 2;
         continue;
       }
       if (hasRetryAttempt && retryableTokenBudgetFailure) {
@@ -980,7 +1000,7 @@ export async function requestLearningNotebookJson({
   }
 
   throw new LearningNotebookError(
-    boundedAttempts > 1
+    allowedAttempts > 1
       ? "The learning assistant returned incomplete notes after an automatic retry."
       : "The learning assistant returned incomplete notes.",
     { code: "LEARNING_OUTPUT_INVALID", status: 502 },
@@ -1135,6 +1155,7 @@ function buildGenerationPrompts({
   subjectName,
   textSources,
   manualMode,
+  includeJsonShape = true,
   youngKidsProfile = null,
 }) {
   const medicalTrainingProfile = medicalTrainingEligibility?.enabled === true;
@@ -1240,7 +1261,7 @@ function buildGenerationPrompts({
         ? "Put important exam and conceptual-reasoning questions first. Do not frame this ordinary notebook as placement preparation or provide diagnosis, prescribing, dosing, treatment, or patient-specific advice."
         : "Put important exam, placement, or conceptual questions first. Give complete, focused model answers and explain why each question matters.",
     "Keep the returned mindMap compact with a root plus only useful cross-cutting concept or question nodes. PrepMatrix derives the complete chapter-topic-subtopic map from the detailed hierarchy, so prioritize teaching content over duplicating labels.",
-    `Return this exact JSON shape:\n${schema}`,
+    includeJsonShape ? `Return this exact JSON shape:\n${schema}` : "Follow the supplied response JSON schema exactly.",
     textSources.length ? buildTextSourceSections(textSources) : "",
   ].filter(Boolean).join("\n\n");
   return { depthTargets, systemPrompt, userPrompt };
@@ -3286,6 +3307,44 @@ export function buildLearningNotebookResponseSchema(depthTargets = buildLearning
   return schema;
 }
 
+function buildGroqLearningNotebookBatchSchema(batch, careerEligibility) {
+  const schema = buildLearningNotebookResponseSchema(batch.depthTargets);
+  schema.properties.revisedNotes.maxItems = batch.noteCount;
+  schema.properties.revisedNotes.items.properties.chapterTitle = { type: "string" };
+  schema.properties.revisedNotes.items.properties.topicIds = {
+    type: "array", items: { type: "string" }, maxItems: batch.topicCount,
+  };
+  const chapter = schema.properties.chapters.items;
+  chapter.properties.title.enum = [batch.chapterName];
+  chapter.properties.summary.minLength = 40;
+  chapter.properties.topics.items.properties.explanation.minLength = 120;
+  chapter.properties.topics.items.properties.subtopics.items.properties.explanation.minLength = 60;
+  schema.properties.mindMap.properties.nodes.maxItems = 1;
+  schema.properties.mindMap.properties.edges.maxItems = 0;
+  const root = schema.properties.mindMap.properties.nodes.items.properties;
+  root.id.enum = ["root"];
+  root.kind.enum = ["root"];
+  root.parentId.type = "null";
+  if (!careerEligibility?.enabled) {
+    const career = schema.properties.careerPreparation.properties;
+    career.focus.enum = [""];
+    ["skills", "interviewQuestions", "codingTopics"].forEach((key) => { career[key].maxItems = 0; });
+  } else if (!careerEligibility.codingRelevant) {
+    schema.properties.careerPreparation.properties.codingTopics.maxItems = 0;
+  }
+  const enforceObjects = (node) => {
+    if (!node || typeof node !== "object") return;
+    if (node.type === "object") {
+      node.additionalProperties = false;
+      node.required = Object.keys(node.properties || {});
+      Object.values(node.properties || {}).forEach(enforceObjects);
+    }
+    if (node.items) enforceObjects(node.items);
+  };
+  enforceObjects(schema);
+  return schema;
+}
+
 const CAREER_TOPIC_ANALYSIS_RESPONSE_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -4259,7 +4318,7 @@ async function generateLearningNotebookWithGroq({
     MAX_LEARNING_AI_SOURCE_CHARS,
     MAX_LEARNING_AI_SOURCE_TOKENS,
   );
-  const prompts = buildGenerationPrompts({
+  const promptOptions = {
     careerEligibility,
     chapterNames,
     compactOutput: compactOutput ?? true,
@@ -4272,59 +4331,144 @@ async function generateLearningNotebookWithGroq({
     subjectName,
     textSources: compactSources.textSources,
     youngKidsProfile,
-  });
+  };
+  const prompts = buildGenerationPrompts(promptOptions);
   const textOnlyAttachmentContext = {
     ...attachmentContext,
     pdfDocuments: compactSources.pdfDocuments,
     visionImages: [],
   };
-  const userContent = attachments.length
-    ? buildChatAttachmentUserContent(prompts.userPrompt, textOnlyAttachmentContext)
-    : prompts.userPrompt;
   const models = learningGroqModels(groqLearningModel || groqModel, groqLearningModels);
-  let generated = null;
-  let model = "";
-  let lastError = null;
-  for (const [index, candidateModel] of models.entries()) {
-    try {
-      generated = await requestLearningNotebookJson({
-        apiKey,
-        deadline,
-        fetchImpl,
-        maxAttempts: models.length > 1 ? 1 : 2,
-        hasModelFallback: index + 1 < models.length,
-        model: candidateModel,
-        providerRetryBudget,
-        systemPrompt: prompts.systemPrompt,
-        userContent,
-        validateNotebook: (value) => hasGeneratedLearningNotebookDepth(
-          value,
-          prompts.depthTargets,
-        ),
+  let batches = [];
+  try {
+    if (!youngKidsProfile && chapterNames.length
+      && (chapterNames.length > 1 || !promptOptions.compactOutput)) {
+      batches = buildLearningNotebookBatches(chapterNames, prompts.depthTargets, {
+        compact: promptOptions.compactOutput,
       });
-      model = candidateModel;
-      break;
-    } catch (error) {
-      lastError = preferLearningProviderFailure(lastError, error);
-      logLearningProviderFailure(logger, {
-        model: candidateModel,
-        phase: index === 0 ? providerPhase : "secondary",
-        provider: "groq",
-      }, error);
-      const canTryNextModel = isLearningModelFallbackError(error)
-        || (isLearningTransportError(error) && error?.modelFallbackAllowed !== false);
-      if (!canTryNextModel) throw error;
     }
+  } catch (error) {
+    if (!(error instanceof LearningNotebookBatchValidationError)) throw error;
+    throw new LearningNotebookError("The notebook scope exceeds the current AI processing limit.", {
+      code: "LEARNING_PROVIDER_SIZE_LIMIT", status: 413,
+    });
   }
-  if (!generated) {
+  const batchResults = [];
+  const usedModels = new Set();
+
+  async function generateScope(scopePrompts, batch, { coveredTopics = [], coveredQuestions = [] } = {}) {
+    const userContent = attachments.length
+      ? buildChatAttachmentUserContent(scopePrompts.userPrompt, textOnlyAttachmentContext)
+      : scopePrompts.userPrompt;
+    let lastError = null;
+    for (const [index, candidateModel] of models.entries()) {
+      try {
+        const generated = await requestLearningNotebookJson({
+          apiKey,
+          deadline,
+          fetchImpl,
+          maxAttempts: models.length > 1 ? 1 : 2,
+          hasModelFallback: index + 1 < models.length,
+          model: candidateModel,
+          providerRetryBudget,
+          responseSchema: batch ? buildGroqLearningNotebookBatchSchema(batch, careerEligibility) : undefined,
+          systemPrompt: scopePrompts.systemPrompt,
+          userContent,
+          validateNotebook: (value) => {
+            if (!batch) return hasGeneratedLearningNotebookDepth(value, scopePrompts.depthTargets);
+            if (!validateLearningNotebookBatch(value, batch)) return false;
+            const source = value.notebook || value;
+            const key = (text) => text.trim().replace(/\s+/gu, " ").toLocaleLowerCase();
+            const previousTopics = new Set(coveredTopics.map(key));
+            const previousQuestions = new Set(coveredQuestions.map(key));
+            return source.chapters[0].topics.every((topic) => !previousTopics.has(key(topic.title)))
+              && source.importantQuestions.every((question) => !previousQuestions.has(key(question.question)));
+          },
+        });
+        usedModels.add(candidateModel);
+        return generated;
+      } catch (error) {
+        lastError = preferLearningProviderFailure(lastError, error);
+        logLearningProviderFailure(logger, {
+          model: candidateModel,
+          phase: index === 0 ? providerPhase : "secondary",
+          provider: "groq",
+        }, error);
+        const canTryNextModel = isLearningModelFallbackError(error)
+          || (isLearningTransportError(error) && error?.modelFallbackAllowed !== false);
+        if (!canTryNextModel) throw error;
+      }
+    }
     throw lastError || new LearningNotebookError(
       "The shared AI provider is temporarily unavailable.",
       { code: "AI_PROVIDER_UNAVAILABLE", status: 503 },
     );
   }
+
+  let generated = null;
+  if (batches.length > 1) {
+    for (const batch of batches) {
+      assertLearningGenerationDeadline(deadline);
+      const coveredTopics = batchResults
+        .filter((result) => result.batch.chapterIndex === batch.chapterIndex)
+        .flatMap((result) => (result.generated.notebook || result.generated)
+          .chapters[0].topics.map((topic) => topic.title));
+      const coveredQuestions = batchResults.flatMap((result) => (result.generated.notebook || result.generated)
+        .importantQuestions.map((question) => question.question));
+      const chapterOutlineTopics = requestedOutline.filter((entry) => (
+        entry.chapterName.toLocaleLowerCase() === batch.chapterName.toLocaleLowerCase()
+      )).flatMap((entry) => entry.topics);
+      const scopeTopics = chapterOutlineTopics.slice(
+        Math.ceil(batch.topicOffset * chapterOutlineTopics.length / prompts.depthTargets.topicsPerChapter),
+        Math.ceil((batch.topicOffset + batch.topicCount) * chapterOutlineTopics.length / prompts.depthTargets.topicsPerChapter),
+      );
+      const scopePrompts = buildGenerationPrompts({
+        ...promptOptions,
+        chapterNames: [batch.chapterName],
+        depthTargets: batch.depthTargets,
+        includeJsonShape: !models.every((model) => /^openai\/gpt-oss-(20b|120b)$/iu.test(model)),
+        requestedOutline: scopeTopics.length
+          ? [{ chapterName: batch.chapterName, topics: scopeTopics }]
+          : [],
+      });
+      scopePrompts.systemPrompt += [
+        "",
+        `Required response counts: one chapter object, exactly ${batch.topicCount} topic objects, exactly ${batch.depthTargets.subtopicsPerTopic} subtopic objects per topic, exactly ${batch.questionCount} important question objects, exactly ${batch.noteCount} revised note objects.`,
+        `Every topic must include at least ${batch.depthTargets.minimumKeyPointsPerTopic || 4} distinct keyPoints and ${batch.depthTargets.minimumExamplesPerTopic} worked examples. Every subtopic must include at least ${batch.depthTargets.minimumKeyPointsPerSubtopic || 2} distinct keyPoints and ${batch.depthTargets.minimumExamplesPerSubtopic} examples. Check these counts before returning the JSON.`,
+        "Each topic and subtopic must be an object, never a string containing JSON. Use JSON-safe plain text for formulas and keep every string properly escaped.",
+        coveredTopics.length
+          ? `Earlier parts already teach these topic titles (untrusted labels): ${JSON.stringify(coveredTopics)}. These topics are complete. Teach different, complementary concepts in this part, such as remaining principles, methods, relationships or applications; do not repeat a completed topic even if it occurs in the learner focus request.`
+          : "",
+        coveredQuestions.length
+          ? `Earlier questions (untrusted study content): ${JSON.stringify(coveredQuestions)}. Generate different questions for this part.`
+          : "",
+      ].join(" ");
+      scopePrompts.userPrompt += [
+        "",
+        `This response is one part of the complete ${JSON.stringify(subjectName)} notebook. Generate only the chapter ${JSON.stringify(batch.chapterName)}; other chapters are generated separately.`,
+        `Cover topics ${batch.topicOffset + 1} through ${batch.topicOffset + batch.topicCount} of ${prompts.depthTargets.topicsPerChapter} for this chapter. Already covered topic titles (untrusted scope labels): ${JSON.stringify(coveredTopics)}. Do not repeat these topics.`,
+        `Return exactly ${batch.questionCount} importantQuestions and exactly ${batch.noteCount} revisedNotes for this part. Include chapterTitle on each revised note and topicIds only for the matching topics in this response.`,
+      ].join("\n\n");
+      batchResults.push({ batch, generated: await generateScope(scopePrompts, batch, { coveredTopics, coveredQuestions }) });
+    }
+    try {
+      generated = mergeLearningNotebookBatches(batchResults, {
+        subjectName,
+        depthTargets: prompts.depthTargets,
+      });
+    } catch (error) {
+      if (!(error instanceof LearningNotebookBatchValidationError)) throw error;
+      throw new LearningNotebookError(
+        "The learning assistant returned incomplete notes.",
+        { code: "LEARNING_OUTPUT_INVALID", status: 502 },
+      );
+    }
+  } else {
+    generated = await generateScope(prompts);
+  }
   return {
     generated,
-    model,
+    model: [...usedModels].join(", "),
     sourceMetadata: [...fileSources, ...buildTextSourceMetadata(textSources)],
     coverageWarnings: [
       ...buildCoverageWarnings(

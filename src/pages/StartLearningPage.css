@@ -1892,6 +1892,12 @@ body.has-bg-image .learning-privacy-dialog.card {
     0 0 0 1px rgba(255, 255, 255, 0.035);
 }
 
+body .learning-privacy-dialog.card::before,
+body .learning-privacy-dialog.card:hover::before {
+  display: none !important;
+  content: none !important;
+}
+
 body.has-bg-image .learning-planner-dialog.card,
 body.has-bg-image .learning-privacy-dialog.card {
   background: color-mix(in srgb, rgb(var(--bg-surface-rgb, 10, 10, 10)) 20%, #101010) !important;
