@@ -78,15 +78,16 @@ test('analytics renders one isolated previous schedule with plan and subject det
     assert.match(markup, /role="button" tabindex="0"/u);
     assert.match(markup, /aria-label="Study momentum XP"[^>]*aria-valuetext="70 XP"/u);
     assert.match(markup, /aria-label="Global momentum XP"[^>]*aria-valuetext="170 GLOBAL XP"/u);
-    assert.match(markup, /Learning evidence at the time of this schedule/u);
+    assert.match(markup, /Notebook progress at the time of this schedule/u);
     assert.match(markup, /<strong>7<\/strong><span>Topics learned<\/span>/u);
-    assert.match(markup, /<strong>1h 30m<\/strong><span>Guided learning<\/span>/u);
-    assert.doesNotMatch(markup, /Physics|999|Attend Exam|Attend quiz|Create schedule|Suggested material|Open learning studio|Start learning|href="\/(?:exam|quiz|planner)/u);
+    assert.match(markup, /<strong>1h 30m<\/strong><span>Study time<\/span>/u);
+    assert.match(markup, /<strong>—<\/strong><span>Learning coverage<\/span>/u);
+    assert.doesNotMatch(markup, /Physics|999|Attend Exam|Attend quiz|Create schedule|Suggested material|Open notebook preparation|Start learning|href="\/(?:exam|quiz|planner)/u);
 
     history.setView({ historical: true, phase: 'idle', snapshot: { ...snapshot, learningInsights: null }, momentum: savedMomentum, error: '' });
     const missingEvidence = render();
     assert.match(missingEvidence, /Learning evidence was not saved with this previous schedule/u);
-    assert.doesNotMatch(missingEvidence, /999|From study time to verified mastery/u);
+    assert.doesNotMatch(missingEvidence, /999|Notebook preparation progress/u);
 
     history.setView({ historical: false, phase: 'idle', snapshot: null, momentum: null, error: '' });
     const restored = render();
@@ -94,7 +95,7 @@ test('analytics renders one isolated previous schedule with plan and subject det
     assert.match(restored, /aria-label="Open Physics progress details"/u);
     assert.match(restored, /Attend Exam/u);
     assert.match(restored, /Attend quiz/u);
-    assert.match(restored, /From study time to verified mastery/u);
+    assert.match(restored, /Notebook preparation progress/u);
     assert.match(restored, /<strong>999<\/strong><span>Topics learned<\/span>/u);
     assert.doesNotMatch(restored, /Open Networks progress details|Previous schedule · saved XP/u);
 

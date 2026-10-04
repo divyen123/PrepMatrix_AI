@@ -2,7 +2,6 @@ import {
   ArrowUpRight,
   BookOpenCheck,
   BrainCircuit,
-  CircleAlert,
   Clock3,
   Layers3,
   LoaderCircle,
@@ -28,8 +27,8 @@ function LearningState({ error, loading, onRetry }) {
         <span className="learning-insights-state-icon">
           <LoaderCircle className="learning-insights-spinner" size={24} />
         </span>
-        <h4>Reading your learning history</h4>
-        <p>Bringing together saved notebooks, mastery checks, and study sessions.</p>
+        <h4>Reading your notebook progress</h4>
+        <p>Bringing together saved notebooks, completed topics, and recall sessions.</p>
       </div>
     );
   }
@@ -37,10 +36,10 @@ function LearningState({ error, loading, onRetry }) {
   return (
     <div className="learning-insights-state" role="alert">
       <span className="learning-insights-state-icon"><RefreshCw size={23} /></span>
-      <h4>Learning progress is temporarily unavailable</h4>
+      <h4>Notebook progress is temporarily unavailable</h4>
       <p>{error || "Your planner analytics are still available. Retry to load notebook progress."}</p>
       <button className="learning-insights-retry" onClick={onRetry} type="button">
-        Retry learning data
+        Retry notebook progress
       </button>
     </div>
   );
@@ -50,12 +49,12 @@ function EmptyLearningState({ historical = false }) {
   return (
     <div className="learning-insights-state">
       <span className="learning-insights-state-icon"><Sparkles size={24} /></span>
-      <h4>{historical ? "No learning evidence was saved" : "Your learning evidence will appear here"}</h4>
+      <h4>{historical ? "No notebook progress was saved" : "Your notebook progress will appear here"}</h4>
       <p>
-        {historical ? "There were no saved notebooks at the time of this schedule." : "Create a notebook, complete a guided topic, or pass a mastery check to build this view."}
+        {historical ? "There were no saved notebooks at the time of this schedule." : "Prepare a notebook, mark topics as completed, or finish a recall session to track your progress."}
       </p>
-      {!historical && <Link className="learning-insights-link" to="/learn">
-        Start learning <ArrowUpRight size={16} />
+      {!historical && <Link className="learning-insights-link" to="/learn#notebook-preparation">
+        Prepare a notebook <ArrowUpRight size={16} />
       </Link>}
     </div>
   );
@@ -76,20 +75,24 @@ function LearningProgressSummary({
   insights,
   loading = false,
   onRetry,
-  title = "Learning progress",
+  title = "Notebook preparation progress",
   historical = false,
 }) {
   const hasNotebooks = Number(insights?.notebookCount || 0) > 0;
+  const learnedTopics = Number(insights?.learnedTopicCount || 0);
+  const totalTopics = Number(insights?.topicCount || 0);
+  const hasTopicTotal = insights?.topicCount != null;
+  const coverage = totalTopics ? Math.min(100, Math.round((learnedTopics / totalTopics) * 100)) : 0;
 
   return (
     <section className="card learning-insights-card">
       <div className="learning-insights-heading">
         <div>
-          <span className="section-tag">Learning evidence</span>
+          <span className="section-tag">Notebook progress</span>
           <h3>{title}</h3>
         </div>
-        {!historical && <Link className="learning-insights-link" to="/learn">
-          Open learning studio <ArrowUpRight size={16} />
+        {!historical && <Link className="learning-insights-link" to="/learn#notebook-preparation">
+          Open notebook preparation <ArrowUpRight size={16} />
         </Link>}
       </div>
 
@@ -100,9 +103,19 @@ function LearningProgressSummary({
       ) : (
         <div className="learning-insights-metric-grid">
           <Metric
+            icon={<Layers3 size={18} />}
+            label="Notebooks"
+            value={Number(insights?.notebookCount || 0)}
+          />
+          <Metric
             icon={<BookOpenCheck size={18} />}
             label="Topics learned"
-            value={Number(insights?.learnedTopicCount || 0)}
+            value={hasTopicTotal ? `${learnedTopics}/${totalTopics}` : learnedTopics}
+          />
+          <Metric
+            icon={<Target size={18} />}
+            label="Learning coverage"
+            value={hasTopicTotal ? `${coverage}%` : "—"}
           />
           <Metric
             icon={<BrainCircuit size={18} />}
@@ -110,24 +123,14 @@ function LearningProgressSummary({
             value={Number(insights?.masteredTopicCount || 0)}
           />
           <Metric
-            icon={<Layers3 size={18} />}
+            icon={<RefreshCw size={18} />}
             label="Review due"
             value={Number(insights?.reviewDueCount || 0)}
           />
           <Metric
             icon={<Clock3 size={18} />}
-            label="Guided learning"
+            label="Study time"
             value={formatLearningTime(insights?.studyMinutes)}
-          />
-          <Metric
-            icon={<Target size={18} />}
-            label="Practice accuracy"
-            value={`${Number(insights?.accuracy || 0)}%`}
-          />
-          <Metric
-            icon={<CircleAlert size={18} />}
-            label="Open misconceptions"
-            value={Number(insights?.unresolvedMisconceptionCount || 0)}
           />
         </div>
       )}

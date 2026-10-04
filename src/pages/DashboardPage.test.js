@@ -48,8 +48,9 @@ test("uses a centered add-subject empty state for the dashboard Subjects panel",
   );
   assert.match(
     pageSource,
-    /\) : \([\s\S]*?className="db-subjects-timeline-header"[\s\S]*?Your Subjects[\s\S]*?Open subjects/u,
+    /\) : \([\s\S]*?className="db-subjects-timeline-header"[\s\S]*?Open subjects/u,
   );
+  assert.doesNotMatch(pageSource, /<h3>Your Subjects<\/h3>/u);
   assert.match(
     stylesheet,
     /\.db-subjects-empty\s*\{[\s\S]*?justify-items: center;[\s\S]*?text-align: center;/u,

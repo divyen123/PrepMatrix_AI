@@ -435,10 +435,9 @@ function ResourcesHub({
           </article>
         </div>
       ) : materials.length > 0 ? (
-        <section className="resource-subject-overview" key="resource-subject-overview">
+        <section aria-label="Subject library" className="resource-subject-overview" key="resource-subject-overview" ref={subjectOverviewHeadingRef} tabIndex={-1}>
           <div className="resource-subject-intro">
             <span className="section-tag">Subject library</span>
-            <h3 ref={subjectOverviewHeadingRef} tabIndex={-1}>Choose a subject</h3>
           </div>
 
           <div className="resource-subject-grid">

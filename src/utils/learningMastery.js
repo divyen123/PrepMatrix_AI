@@ -961,7 +961,7 @@ export function getLearningInsights(notebooks = [], options = {}) {
           lastStudiedAt: node.lastStudiedAt,
         });
       }
-      if (effectiveStatus === "mastered") {
+      if (node.masteredAt || effectiveStatus === "mastered") {
         masteredTopicCount += 1;
         subject.masteredTopics += 1;
       }

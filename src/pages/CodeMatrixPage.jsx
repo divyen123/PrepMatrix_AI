@@ -28,6 +28,7 @@ const SETUP_COPY = {
   notebook: { title: "Prepare your first notebook", description: "Bring your subject notes, chapters, and topics together in a notebook.", button: "Start learning", icon: BookOpen },
   plan: { title: "Plan your study schedule", description: "Make room for your subjects around the time you have available.", button: "Create plan", icon: CalendarDays },
 };
+const SETUP_CARD_ORDER = ["subjects", "plan", "notebook"];
 const SYNC_LABELS = { loading: "Loading your workspace…", saving: "Saving…", saved: "All changes saved", pending: "Saved on this device · syncing…", local: "Saved on this device · sync unavailable", unsaved: "Draft not saved · retry saving" };
 const STATUS_LABELS = { success: "Completed", error: "Execution error", timeout: "Time limit reached", stopped: "Stopped", running: "Running", waiting: "Waiting for input", loading: "Preparing runtime" };
 const EMPTY_DIAGNOSTICS = [];
@@ -615,7 +616,7 @@ export default function CodeMatrixPage({
         <section className="cmx-setup" aria-labelledby="cmx-setup-title">
           <h2 id="cmx-setup-title">Get your study workspace ready.</h2>
           <div className="cmx-setup-cards">
-            {steps.map((step, index) => {
+            {[...steps].sort((left, right) => SETUP_CARD_ORDER.indexOf(left.id) - SETUP_CARD_ORDER.indexOf(right.id)).map((step, index) => {
               const copy = SETUP_COPY[step.id]; const Icon = copy.icon;
               return <article className={`cmx-setup-card ${step.complete ? "is-complete" : step.recommended ? "is-recommended" : ""}`} key={step.id}>
                 <div className="cmx-setup-card-top"><span className="cmx-setup-icon"><Icon size={22} /></span><span>{step.recommended ? "Recommended next" : `0${index + 1}`}</span></div>

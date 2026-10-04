@@ -104,6 +104,30 @@ test("keeps durable topic achievement while a repeat session is in progress", ()
   ).learnedTopicCount, 1);
 });
 
+test("retains mastered topic totals during repeat recall and when a review becomes due", () => {
+  const mastered = recordLearningAttempt({}, {
+    nodeId: "topic-traversal",
+    score: 100,
+    confidence: 5,
+  }, { notebook, now: NOW });
+  const repeatRecall = setLearningNodeStatus(mastered, "topic-traversal", "learning", {
+    notebook,
+    now: "2026-08-01T10:05:00.000Z",
+  });
+
+  for (const [state, now, reviewsDue] of [
+    [repeatRecall, "2026-08-01T10:05:00.000Z", 0],
+    [mastered, "2026-08-02T10:00:00.000Z", 1],
+  ]) {
+    const insights = getLearningInsights([{ ...notebook, learningState: state }], { now });
+    assert.equal(insights.learnedTopicCount, 1);
+    assert.equal(insights.masteredTopicCount, 1);
+    assert.equal(insights.masteryRate, 50);
+    assert.equal(insights.subjects[0].masteredTopics, 1);
+    assert.equal(insights.reviewDueCount, reviewsDue);
+  }
+});
+
 test("schedules deterministic spaced reviews and exposes review-due state", () => {
   const initial = normalizeLearningState({}, { notebook, now: NOW });
   const learned = markLearningNodeLearned(initial, "topic-traversal", {

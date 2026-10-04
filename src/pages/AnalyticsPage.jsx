@@ -48,7 +48,7 @@ export function AnalyticsViewContent({
           insights={historical ? snapshot.learningInsights : learning.insights}
           loading={!historical && learning.loading}
           onRetry={learning.reload}
-          title={historical ? "Learning evidence at the time of this schedule" : "From study time to verified mastery"}
+          title={historical ? "Notebook progress at the time of this schedule" : "Notebook preparation progress"}
         />
       )}
 

@@ -4,11 +4,11 @@
   right: max(24px, env(safe-area-inset-right));
   bottom: var(--dashboard-floating-bottom, max(18px, env(safe-area-inset-bottom)));
   z-index: 2180;
-  width: min(340px, calc(100vw - 32px));
+  width: min(310px, calc(100vw - 32px));
   max-height: calc(100dvh - 48px);
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 16px;
   background: var(--surface-strong);
   color: var(--text);
   box-shadow: var(--shadow);
@@ -23,9 +23,9 @@ body.has-bg-image .dashboard-setup {
   background: rgb(var(--bg-surface-rgb, 18, 27, 45));
 }
 body .dashboard-setup .dashboard-setup-toggle {
-  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 54px;
-  padding: 14px 16px; border: 0; border-radius: 0; color: var(--text); background: transparent;
-  font-size: 14px; text-align: left; transform: none; box-shadow: none;
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px;
+  padding: 10px 14px; border: 0; border-radius: 0; color: var(--text); background: transparent;
+  font-size: 13px; text-align: left; transform: none; box-shadow: none;
 }
 .dashboard-setup-toggle strong { flex: 1; }
 .dashboard-setup-toggle > span { color: var(--text-muted); font-size: 12px; }
@@ -50,11 +50,11 @@ body .dashboard-setup .dashboard-setup-toggle {
   transform: translateY(8px);
   transition: transform 180ms ease, visibility 0s linear 260ms;
 }
-.dashboard-setup progress { display: block; width: calc(100% - 32px); height: 5px; margin: 12px 16px; border: 0; border-radius: 5px; accent-color: var(--accent); overflow: hidden; }
+.dashboard-setup progress { display: block; width: calc(100% - 28px); height: 5px; margin: 10px 14px; border: 0; border-radius: 5px; accent-color: var(--accent); overflow: hidden; }
 .dashboard-setup progress::-webkit-progress-bar { background: var(--surface-muted); }
 .dashboard-setup progress::-webkit-progress-value { background: var(--accent); }
-.dashboard-setup ol { list-style: none; padding: 0 10px 10px; margin: 0; }
-.dashboard-setup li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; }
+.dashboard-setup ol { list-style: none; padding: 0 8px 8px; margin: 0; }
+.dashboard-setup li { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 10px; }
 .dashboard-setup li:hover { background: var(--accent-soft); }
 .dashboard-setup li .spring-check { flex: 1; min-width: 0; font-weight: 600; }
 .dashboard-setup li .spring-check__label { min-width: 0; }

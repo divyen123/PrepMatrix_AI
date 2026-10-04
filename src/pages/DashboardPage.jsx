@@ -929,7 +929,6 @@ function DashboardPage({
         ) : (
           <>
             <div className="db-subjects-timeline-header">
-              <h3>Your Subjects</h3>
               <button
                 className="primary-btn db-subjects-open-btn"
                 onClick={() => navigate("/subjects#subject-library")}

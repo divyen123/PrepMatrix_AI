@@ -23805,14 +23805,8 @@ body .db-progress-planner-link::after {
 
 .db-subjects-timeline-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-}
-
-.db-subjects-timeline-header h3 {
-  margin: 0;
-  font-size: 1.2rem;
-  color: var(--text);
 }
 
 .db-subjects-empty {
