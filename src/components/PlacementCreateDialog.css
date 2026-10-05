@@ -1,0 +1,120 @@
+.placement-create-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: max(5vh, 24px) max(4vw, 20px);
+  background: rgba(0, 0, 0, .28);
+}
+
+body .placement-create-dialog {
+  width: min(100%, 560px);
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--bg) !important;
+  color: var(--text);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, .28);
+}
+body.has-bg-image .placement-create-dialog { background: rgb(var(--bg-surface-rgb, 18, 27, 45)) !important; }
+.placement-create-dialog > header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.15rem; }
+.placement-create-dialog h2 { margin: 0; color: var(--text); font-size: 1.3rem; line-height: 1.3; }
+.placement-create-dialog form { display: grid; gap: 1rem; }
+.placement-create-field { display: grid; gap: .45rem; min-width: 0; }
+.placement-create-field > span, .placement-create-quick > span { font-size: .85rem; font-weight: 600; color: var(--text); }
+body .placement-create-dialog .placement-create-field input,
+body .placement-create-dialog .placement-create-field select,
+body .placement-create-dialog .placement-create-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 2.65rem;
+  padding: .7rem .85rem;
+  font: inherit;
+  font-size: .9rem;
+  line-height: 1.55;
+  border: 1px solid var(--border) !important;
+  border-radius: .8rem;
+  background: var(--surface-muted) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+body .placement-create-dialog .placement-create-field textarea { height: 8rem !important; min-height: 8rem !important; resize: vertical; }
+body .placement-create-dialog .placement-create-field select option,
+body .placement-create-dialog .placement-create-field select optgroup { color: var(--text); background: var(--bg); }
+body.has-bg-image .placement-create-dialog .placement-create-field select option,
+body.has-bg-image .placement-create-dialog .placement-create-field select optgroup { background: rgb(var(--bg-surface-rgb, 18, 27, 45)); }
+body .placement-create-dialog input::placeholder, body .placement-create-dialog textarea::placeholder { color: var(--text-muted); opacity: .9; }
+.placement-create-field small { font-size: .73rem; color: var(--text-muted); line-height: 1.5; }
+.placement-create-quick { display: grid; gap: .6rem; }
+.placement-create-quick > div { display: flex; flex-wrap: wrap; gap: .45rem; }
+body .placement-create-dialog button {
+  font: inherit;
+  cursor: pointer;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+}
+body .placement-create-dialog button::before, body .placement-create-dialog button::after { content: none !important; display: none !important; }
+body .placement-create-dialog .placement-create-close {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  min-height: 2rem;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, #ef4444 22%, var(--border)) !important;
+  background: color-mix(in srgb, #ef4444 8%, transparent) !important;
+  color: color-mix(in srgb, #ef4444 85%, var(--text)) !important;
+}
+body .placement-create-dialog .placement-create-close:hover { background: color-mix(in srgb, #ef4444 15%, transparent) !important; }
+body .placement-create-dialog .placement-create-quick button {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .4rem .6rem;
+  min-height: 2.15rem;
+  border: 1px solid var(--border) !important;
+  border-radius: .65rem;
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  font-size: .74rem;
+  line-height: 1.4;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.placement-create-quick button svg { flex-shrink: 0; }
+body .placement-create-dialog .placement-create-quick button:hover:not(:disabled) { color: var(--accent) !important; background: var(--accent-soft) !important; border-color: color-mix(in srgb, var(--accent) 40%, var(--border)) !important; }
+.placement-create-dialog footer { margin-top: .2rem; }
+body .placement-create-dialog .placement-create-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+  min-height: 2.9rem;
+  gap: .45rem;
+  padding: .7rem .85rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)) !important;
+  border-radius: .8rem;
+  background: var(--accent-soft) !important;
+  color: var(--text) !important;
+  font-size: .88rem;
+  font-weight: 600;
+}
+body .placement-create-dialog .placement-create-submit:hover:not(:disabled) { border-color: var(--accent) !important; background: color-mix(in srgb, var(--accent) 20%, var(--surface-strong)) !important; }
+body .placement-create-dialog button:disabled { cursor: default; opacity: .5; }
+body .placement-create-dialog button:focus-visible,
+body .placement-create-dialog input:focus-visible,
+body .placement-create-dialog select:focus-visible,
+body .placement-create-dialog textarea:focus-visible { outline: 2px solid var(--accent) !important; outline-offset: 3px; }
+.placement-create-error { margin: 0; padding: .65rem .8rem; border: 1px solid color-mix(in srgb, #ef4444 30%, var(--border)); border-radius: .75rem; color: color-mix(in srgb, #ef4444 75%, var(--text)); background: color-mix(in srgb, #ef4444 7%, transparent); font-size: .8rem; line-height: 1.5; overflow-wrap: anywhere; }
+.placement-create-status { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .45rem; margin: 0; min-height: 2.9rem; font-size: .88rem; }
+.placement-create-status > p { width: 100%; margin: 0; text-align: center; font-size: .73rem; color: var(--text-muted); }
+@media (max-width: 600px) { .placement-create-backdrop { padding: 16px; align-items: center; } body .placement-create-dialog { max-height: calc(100dvh - 32px); padding: 20px; } }
+@media (prefers-reduced-motion: reduce) { .placement-create-dialog *, .placement-create-dialog *::before, .placement-create-dialog *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; } }

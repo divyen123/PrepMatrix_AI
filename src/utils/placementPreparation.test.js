@@ -52,6 +52,10 @@ test("suggests a notebook-related role and only completes a related typed prefix
     chapters: [{ topics: [{ title: "Tableau dashboards" }] }],
   }), "Data analyst");
   assert.equal(getNotebookPlacementRoleSuggestion({
+    title: "Database notebook",
+    chapters: [{ topics: [{ title: "SQL joins" }, { title: "Transactions" }] }],
+  }), "Database engineer");
+  assert.equal(getNotebookPlacementRoleSuggestion({
     careerPreparation: { topicAnalysis: { targetRole: "Platform engineering intern" } },
   }), "Platform engineering intern");
 

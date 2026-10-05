@@ -20,6 +20,12 @@ import {
   needsLearningNotebookAccuracyReview,
 } from "./learningNotebookReview.js";
 import {
+  buildPlacementPreparationResponseSchema,
+  canonicalizePlacementPreparationIds,
+  hasPlacementPreparationOutput,
+  placementTopicsRequiringCode,
+} from "./placementPreparationGeneration.js";
+import {
   ChatAttachmentError,
   buildChatAttachmentUserContent,
   decodeChatAttachments,
@@ -370,6 +376,18 @@ export function normalizeLearningCareerContext(value) {
     );
   }
   return context;
+}
+
+function normalizeLearningCareerRequestTopics(value) {
+  // The saved-data normalizer is intentionally tolerant. Validate request
+  // bounds first so it cannot silently discard or truncate a requested topic.
+  try {
+    normalizeLearningTopicNames(value);
+  } catch (error) {
+    error.message = String(error.message).replaceAll("notebook", "preparation");
+    throw error;
+  }
+  return normalizeLearningCareerTopics(value);
 }
 
 export function normalizeLearningMedicalTrainingContext(value) {
@@ -2357,15 +2375,11 @@ export function registerLearningNotebookRoutes(app, {
         });
       }
 
-      const context = normalizeLearningCareerContext(req.body?.context);
-      if (!/[\p{L}\p{N}]/u.test(context)) {
-        return res.status(400).json({
-          code: "LEARNING_CAREER_CONTEXT_REQUIRED",
-          error: "Describe the subject, skill area, or placement context you want to prepare for.",
-        });
-      }
+      // Older clients can still supply context. The compact intake derives its
+      // scope from the role and exact topic list instead of requiring a second box.
+      const legacyContext = normalizeLearningCareerContext(req.body?.context);
 
-      const requestedTopics = normalizeLearningCareerTopics(req.body?.topics);
+      const requestedTopics = normalizeLearningCareerRequestTopics(req.body?.topics);
       if (!requestedTopics.length) {
         return res.status(400).json({
           code: "LEARNING_CAREER_TOPICS_REQUIRED",
@@ -2398,6 +2412,12 @@ export function registerLearningNotebookRoutes(app, {
       const targetRole = cleanInline(req.body?.targetRole, 160)
         || careerEligibility.field
         || "Placement or internship role";
+      const context = /[\p{L}\p{N}]/u.test(legacyContext)
+        ? legacyContext
+        : `Preparation for ${targetRole}.\nTopics: ${requestedTopics.join(", ")}.`;
+      const requiredCodeTopics = placementTopicsRequiringCode({
+        careerEligibility, requestedTopics, targetRole,
+      });
 
       const geminiConfig = getGeminiConfigStatus();
       const groqConfig = getGroqConfigStatus();
@@ -2430,6 +2450,7 @@ export function registerLearningNotebookRoutes(app, {
         return res.json(payload);
       }
       reservation = quotaResult;
+      const generationDeadline = Date.now() + LEARNING_GENERATION_DEADLINE_MS;
 
       const learnerContext = buildLearnerAcademicContext(req.user);
       const prompts = buildCareerAnalysisPrompts({
@@ -2448,6 +2469,8 @@ export function registerLearningNotebookRoutes(app, {
           generated = await requestGeminiCareerTopicAnalysisJson({
             apiKey: geminiConfig.apiKey,
             expectedTopics: requestedTopics,
+            requiredCodeTopics,
+            deadline: generationDeadline,
             fetchImpl,
             model: geminiLearningModel || DEFAULT_GEMINI_LEARNING_MODEL,
             systemPrompt: prompts.systemPrompt,
@@ -2465,6 +2488,8 @@ export function registerLearningNotebookRoutes(app, {
         generated = await requestGroqCareerTopicAnalysisJson({
           apiKey: groqConfig.apiKey,
           expectedTopics: requestedTopics,
+          requiredCodeTopics,
+          deadline: generationDeadline,
           fetchImpl,
           model: providerModel,
           systemPrompt: prompts.systemPrompt,
@@ -2554,7 +2579,7 @@ export function registerLearningNotebookRoutes(app, {
         });
       }
 
-      const requestedTopics = normalizeLearningCareerTopics(req.body?.topics);
+      const requestedTopics = normalizeLearningCareerRequestTopics(req.body?.topics);
       if (!requestedTopics.length) {
         return res.status(400).json({
           code: "LEARNING_CAREER_TOPICS_REQUIRED",
@@ -2588,6 +2613,9 @@ export function registerLearningNotebookRoutes(app, {
       const targetRole = cleanInline(req.body?.targetRole, 160)
         || careerEligibility.field
         || "Placement or internship role";
+      const requiredCodeTopics = placementTopicsRequiringCode({
+        careerEligibility, requestedTopics, targetRole,
+      });
 
       const geminiConfig = getGeminiConfigStatus();
       const groqConfig = getGroqConfigStatus();
@@ -2629,6 +2657,7 @@ export function registerLearningNotebookRoutes(app, {
         return res.json(payload);
       }
       reservation = quotaResult;
+      const generationDeadline = Date.now() + LEARNING_GENERATION_DEADLINE_MS;
 
       const learnerContext = buildLearnerAcademicContext(req.user);
       const prompts = buildCareerAnalysisPrompts({
@@ -2647,6 +2676,8 @@ export function registerLearningNotebookRoutes(app, {
           generated = await requestGeminiCareerTopicAnalysisJson({
             apiKey: geminiConfig.apiKey,
             expectedTopics: requestedTopics,
+            requiredCodeTopics,
+            deadline: generationDeadline,
             fetchImpl,
             model: geminiLearningModel || DEFAULT_GEMINI_LEARNING_MODEL,
             systemPrompt: prompts.systemPrompt,
@@ -2664,6 +2695,8 @@ export function registerLearningNotebookRoutes(app, {
         generated = await requestGroqCareerTopicAnalysisJson({
           apiKey: groqConfig.apiKey,
           expectedTopics: requestedTopics,
+          requiredCodeTopics,
+          deadline: generationDeadline,
           fetchImpl,
           model: providerModel,
           systemPrompt: prompts.systemPrompt,
@@ -3810,25 +3843,8 @@ const MEDICAL_TRAINING_RESPONSE_SCHEMA = {
   },
 };
 
-function hasCareerTopicAnalysisShape(value, expectedTopics = []) {
-  return Boolean(
-    value
-    && typeof value === "object"
-    && typeof value.targetRole === "string"
-    && typeof value.overview === "string"
-    && Array.isArray(value.topics)
-    && value.topics.length === expectedTopics.length
-    && value.topics.every((topic) => (
-      topic
-      && typeof topic === "object"
-      && typeof topic.title === "string"
-      && topic.title.trim()
-      && typeof topic.explanation === "string"
-      && Array.isArray(topic.interviewQuestions)
-      && Array.isArray(topic.practiceSteps)
-    ))
-    && Array.isArray(value.preparationPlan),
-  );
+function hasCareerTopicAnalysisShape(value, expectedTopics = [], requiredCodeTopics = []) {
+  return hasPlacementPreparationOutput(value, expectedTopics, requiredCodeTopics);
 }
 
 function medicalTrainingOutputText(value) {
@@ -4050,9 +4066,14 @@ function buildCareerAnalysisPrompts({
     ])
     .filter(Boolean)
     .slice(0, 36);
-  const codingRule = careerEligibility.codingRelevant
-    ? "For coding tasks, include an implementation outline, time and space complexity, important edge cases, and concise language-appropriate pseudocode or a short code sketch where useful, plus coding-screen practice. Decide relevance for each question: a software role or a computing topic alone does not make a conceptual question a coding task."
-    : "Do not force coding advice into non-coding topics; use domain exercises, cases, or portfolio practice instead.";
+  const requiredCodeTopics = placementTopicsRequiringCode({ careerEligibility, requestedTopics, targetRole });
+  const codingRule = [
+    "For coding tasks, include an implementation outline, time and space complexity, important edge cases, and a concrete runnable solution in a fenced code block with its language label. Decide relevance for each question: a software role or a computing topic alone does not make a conceptual question a coding task.",
+    requiredCodeTopics.length
+      ? `These requested topics require at least one runnable coding example per topic: ${JSON.stringify(requiredCodeTopics)}. Include it in explanation or an interview question's guidance, with example inputs, the expected output, and a step-by-step walkthrough. Coding relevance comes from the requested topics and target role even if the academic field is non-computing.`
+      : "Use domain examples, cases, or portfolio practice for non-coding topics; do not insert unrelated code.",
+    "Use the programming language or technical stack named in the topic, target role, or preparation source. If no language is specified, use Python for algorithms, standard SQL for queries, and an appropriate runnable language for other tasks; state the choice. Avoid pseudocode in place of the required implementation. Check the implementation against the stated output and edge cases before returning.",
+  ].join(" ");
   const responseShape = [
     "{",
     '  "targetRole":"...",',
@@ -4081,10 +4102,10 @@ function buildCareerAnalysisPrompts({
     `Requested career topic data, in required output order: ${JSON.stringify(requestedTopics)}.`,
     codingRule,
     "Return exactly one topics entry for every requested topic, preserving the requested order and title.",
-    "For each topic, write the explanation as 4-7 concise bullet points, each on its own newline within the JSON string. Cover definition, intuition, practical application, prerequisites, common mistakes, and interview relevance. Use one clear idea per bullet instead of a long paragraph. Format whyItMatters as 1-3 similarly concise points.",
+    "For each topic, write the explanation as 5-8 teaching bullet points, each on its own newline within the JSON string, using 180-300 words and at most 3000 characters including any code. Explain the definition, how and why it works, prerequisites, a realistic worked example with inputs or scenario, reasoning and outcome, key takeaways, common mistakes, and interview relevance. Give specific facts and detailed reasoning, not directions to study the topic. Format whyItMatters as 1-3 similarly clear points, at most 1000 characters. Keep code fences outside bullet markers and complete within each field.",
     "For each topic, include 2-4 realistic interview questions and 4-8 ordered practice steps that move from understanding to independent performance.",
     "For every interview question, the guidance field must contain a complete model answer to that exact question, written as the answer itself in concise bullet points. Answer every part using specific facts, reasoning, and an example when useful. Do not give directions such as 'mention', 'discuss', or 'compare' in place of the actual answer. Do not repeat a generic 'Answer framework' or 'Coding guidance' template across questions.",
-    "For a question asking to write or implement code, include a concrete solution or pseudocode in a fenced code block, explain how it works, and state the actual time/space complexity and relevant edge cases. For conceptual questions, provide the actual concepts, distinctions, or ordered names requested; omit unrelated coding instructions. Keep each answer self-contained and under 2200 characters, with complete code fences.",
+    "For a question asking to write or implement code, include a runnable solution in a language-labelled fenced code block, explain how it works with concrete input and output, and state the actual time/space complexity and relevant edge cases. For conceptual questions, provide the actual concepts, distinctions, or ordered names requested; omit unrelated coding instructions. Keep each answer self-contained and under 2200 characters, with complete code fences.",
     "Create a preparationPlan of 3-6 practical phases that combines the requested topics into a coherent placement or internship study sequence.",
     `Return this exact JSON shape:\n${responseShape}`,
   ].join("\n\n");
@@ -4253,7 +4274,9 @@ export function requestGeminiLearningNotebookJson({ validateNotebook = hasLearni
 
 export async function requestGeminiCareerTopicAnalysisJson({
   apiKey,
+  deadline = Date.now() + LEARNING_GENERATION_DEADLINE_MS,
   expectedTopics = [],
+  requiredCodeTopics = [],
   fetchImpl = globalThis.fetch,
   model = DEFAULT_GEMINI_LEARNING_MODEL,
   systemPrompt,
@@ -4269,7 +4292,7 @@ export async function requestGeminiCareerTopicAnalysisJson({
         "Content-Type": "application/json",
         "x-goog-api-key": apiKey,
       },
-      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      signal: learningRequestSignal(deadline),
       body: JSON.stringify({
         systemInstruction: {
           parts: [{ text: systemPrompt }],
@@ -4278,18 +4301,25 @@ export async function requestGeminiCareerTopicAnalysisJson({
           role: "user",
           parts: [{ text: userPrompt }],
         }],
-        generationConfig: geminiStructuredOutputConfig(CAREER_TOPIC_ANALYSIS_RESPONSE_SCHEMA),
+        generationConfig: {
+          ...geminiStructuredOutputConfig(buildPlacementPreparationResponseSchema(
+            CAREER_TOPIC_ANALYSIS_RESPONSE_SCHEMA, expectedTopics,
+          )),
+          maxOutputTokens: MAX_GEMINI_LEARNING_OUTPUT_TOKENS,
+        },
       }),
     },
+    { deadline },
   );
+  assertLearningGenerationDeadline(deadline);
   if (!response.ok) throw createGeminiProviderError(response, payload);
 
   try {
     const parsed = parseLearningJson(geminiResponseText(payload));
-    if (!hasCareerTopicAnalysisShape(parsed, expectedTopics)) {
+    if (!hasCareerTopicAnalysisShape(parsed, expectedTopics, requiredCodeTopics)) {
       throw new Error("AI response was missing required career analysis sections.");
     }
-    return parsed;
+    return canonicalizePlacementPreparationIds(parsed);
   } catch {
     throw new LearningNotebookError(
       "The learning assistant returned an incomplete career analysis.",
@@ -4300,26 +4330,72 @@ export async function requestGeminiCareerTopicAnalysisJson({
 
 export async function requestGroqCareerTopicAnalysisJson({
   apiKey,
+  deadline = Date.now() + LEARNING_GENERATION_DEADLINE_MS,
   expectedTopics = [],
+  requiredCodeTopics = [],
   fetchImpl = globalThis.fetch,
   model,
   systemPrompt,
   userContent,
 }) {
+  assertLearningGenerationDeadline(deadline);
+  if (expectedTopics.length > MAX_LEARNING_REQUESTED_TOPICS) {
+    learningError(`Analyze up to ${MAX_LEARNING_REQUESTED_TOPICS} placement topics at a time.`, {
+      code: "LEARNING_TOPIC_LIMIT", status: 413,
+    });
+  }
+  if (expectedTopics.length > 2) {
+    // Each part retains enough completion capacity for explanations, model
+    // answers and code. Commit only after every requested topic has validated.
+    const parts = [];
+    for (let offset = 0; offset < expectedTopics.length; offset += 2) {
+      const batchTopics = expectedTopics.slice(offset, offset + 2);
+      const part = await requestGroqCareerTopicAnalysisJson({
+        apiKey, deadline, fetchImpl, model,
+        expectedTopics: batchTopics,
+        requiredCodeTopics: requiredCodeTopics.filter((title) => batchTopics.includes(title)),
+        systemPrompt: `${systemPrompt}\nTrusted response scope: this is one bounded part of the preparation. Generate topics only for ${JSON.stringify(batchTopics)}, in that exact order. The overview and preparationPlan must still cover the complete requested scope ${JSON.stringify(expectedTopics)}. Each topic needs exactly two complete interview answers, detailed explanation and the required runnable coding example. Keep non-code guidance concise while preserving the worked reasoning.`,
+        userContent,
+      });
+      parts.push(part);
+    }
+    const generated = canonicalizePlacementPreparationIds({
+      ...parts[0],
+      topics: parts.flatMap((part) => part.topics),
+    });
+    assertLearningGenerationDeadline(deadline);
+    if (!hasCareerTopicAnalysisShape(generated, expectedTopics, requiredCodeTopics)) {
+      throw new LearningNotebookError("The learning assistant returned incomplete preparation topics.", {
+        code: "LEARNING_OUTPUT_INVALID", status: 502,
+      });
+    }
+    return generated;
+  }
+  const responseSchema = buildPlacementPreparationResponseSchema(
+    CAREER_TOPIC_ANALYSIS_RESPONSE_SCHEMA, expectedTopics,
+  );
+  const strictSchema = /^openai\/gpt-oss-(20b|120b)$/iu.test(String(model || ""));
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const completionTokens = groqLearningCompletionTokenLimit(
-      model,
-      attempt === 0 ? MAX_LEARNING_COMPLETION_TOKENS : 3_000,
+    const requestSystemPrompt = attempt > 0
+      ? `${systemPrompt}\nThe prior response was incomplete. Return every requested topic in order with detailed explanations, complete model answers, practice steps, all plan phases and the required runnable code. Required JSON schema: ${JSON.stringify(responseSchema)}`
+      : systemPrompt;
+    const completionTokens = learningCompletionTokenBudget(
+      groqLearningCompletionTokenLimit(model, MAX_LEARNING_COMPLETION_TOKENS),
+      strictSchema && attempt === 0
+        ? `${requestSystemPrompt}\n${JSON.stringify(responseSchema)}` : requestSystemPrompt,
+      userContent,
     );
     const body = {
       model,
       temperature: attempt === 0 ? 0.2 : 0.1,
       ...groqCompletionRequestOptions(model, completionTokens),
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: requestSystemPrompt },
         { role: "user", content: userContent },
       ],
-      ...(attempt === 0 ? { response_format: { type: "json_object" } } : {}),
+      ...(attempt === 0 ? { response_format: strictSchema
+        ? { type: "json_schema", json_schema: { name: "placement_preparation", strict: true, schema: responseSchema } }
+        : { type: "json_object" } } : {}),
     };
     const { response, payload } = await fetchProviderJsonWithRetry(
       fetchImpl,
@@ -4330,10 +4406,12 @@ export async function requestGroqCareerTopicAnalysisJson({
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+        signal: learningRequestSignal(deadline),
         body: JSON.stringify(body),
       },
+      { deadline },
     );
+    assertLearningGenerationDeadline(deadline);
 
     if (!response.ok) {
       if (attempt === 0 && (
@@ -4348,10 +4426,10 @@ export async function requestGroqCareerTopicAnalysisJson({
 
     try {
       const parsed = parseLearningJson(payload?.choices?.[0]?.message?.content || "");
-      if (!hasCareerTopicAnalysisShape(parsed, expectedTopics)) {
+      if (!hasCareerTopicAnalysisShape(parsed, expectedTopics, requiredCodeTopics)) {
         throw new Error("AI response was missing required career analysis sections.");
       }
-      return parsed;
+      return canonicalizePlacementPreparationIds(parsed);
     } catch {
       if (attempt === 0) continue;
     }

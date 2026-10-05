@@ -91,7 +91,7 @@ const NOTEBOOK_ROLE_RULES = [
   },
   {
     role: "Database engineer",
-    signals: [/\bdatabase systems?\b|\bdbms\b|\bdatabase administration\b|\bsql database\b/iu],
+    signals: [/\bdatabases?\b|\bdbms\b|\bsql (?:joins?|queries|transactions)\b/iu],
   },
   {
     role: "Cloud engineer",

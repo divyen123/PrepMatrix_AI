@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const learningSource = readFileSync(new URL("./StartLearningPage.jsx", import.meta.url), "utf8");
+const placementSource = readFileSync(new URL("../components/PlacementCreateDialog.jsx", import.meta.url), "utf8");
 const examSource = readFileSync(new URL("./ExamPage.jsx", import.meta.url), "utf8");
 const quizSource = readFileSync(new URL("./QuizPage.jsx", import.meta.url), "utf8");
 const examStyles = readFileSync(new URL("./ExamPage.css", import.meta.url), "utf8");
@@ -10,12 +11,10 @@ const examStyles = readFileSync(new URL("./ExamPage.css", import.meta.url), "utf
 test("replaces the notebook and placement Generate buttons while requests run", () => {
   assert.match(
     learningSource,
-    /\{analyzing \? \(\s*<LatticeLoader className="generation-lattice-loader" label="Building notebook" \/>\s*\) : \(\s*<button[^>]*className="learning-analyze-btn"/u,
+    /\{analyzing \?\s*<LatticeLoader className="generation-lattice-loader" label="Building notebook"[^>]*\/>\s*:\s*<button[^>]*className="learning-analyze-btn"/u,
   );
-  assert.match(
-    learningSource,
-    /\{careerAnalyzing \? \(\s*<LatticeLoader className="generation-lattice-loader" label="Analyzing preparation topics" \/>\s*\) : \(\s*<button[^>]*className="learning-career-analyze"/u,
-  );
+  assert.match(placementSource, /<LatticeLoader className="generation-lattice-loader" label="Analyzing preparation topics"/u);
+  assert.ok(placementSource.includes('busy ?'));
   assert.doesNotMatch(learningSource, /className="learning-intake-progress"/u);
   assert.doesNotMatch(learningSource, /className="card learning-analysis-state"/u);
 });

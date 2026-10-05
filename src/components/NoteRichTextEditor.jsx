@@ -56,6 +56,7 @@ const NoteRichTextEditor = forwardRef(function NoteRichTextEditor({
 }, ref) {
   const editorRef = useRef(null);
   const savedRangeRef = useRef(null);
+  const savedFormattingRef = useRef({ bold: false, italic: false, underline: false, link: false });
   const initialContentRef = useRef({ initialText, initialRichText });
 
   useEffect(() => {
@@ -93,6 +94,41 @@ const NoteRichTextEditor = forwardRef(function NoteRichTextEditor({
     selection.removeAllRanges();
     selection.addRange(range);
     return range;
+  }
+
+  function getFormattingState() {
+    const root = editorRef.current;
+    const selection = window.getSelection();
+    const liveRange = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const hasLiveRange = isSelectionInside(root, liveRange);
+    const range = hasLiveRange ? liveRange : savedRangeRef.current;
+    const state = { bold: false, italic: false, underline: false, link: false };
+    if (!isSelectionInside(root, range)) return state;
+    // The link URL field and keyboard toolbar focus must not replace the
+    // editor's pending typing format with their own unformatted selection.
+    if (!hasLiveRange || document.activeElement !== root) return { ...savedFormattingRef.current };
+    let element = range.startContainer.nodeType === Node.ELEMENT_NODE
+      ? range.startContainer : range.startContainer.parentElement;
+    while (element && element !== root) {
+      state.bold ||= element.matches("b, strong") || /^(bold|[6-9]00)$/u.test(element.style.fontWeight);
+      state.italic ||= element.matches("i, em") || element.style.fontStyle === "italic";
+      state.underline ||= element.matches("u") || element.style.textDecoration.includes("underline");
+      state.link ||= element.matches("a[href]");
+      element = element.parentElement;
+    }
+    if (hasLiveRange && document.activeElement === root && document.queryCommandState) {
+      for (const command of ["bold", "italic", "underline"]) {
+        try {
+          // This also captures a collapsed caret's pending typing format,
+          // before any formatted text has been inserted into the editor.
+          state[command] = document.queryCommandState(command);
+        } catch {
+          // Retain the selected text's markup when querying is unsupported.
+        }
+      }
+    }
+    savedFormattingRef.current = state;
+    return state;
   }
 
   function emitChange() {
@@ -171,6 +207,7 @@ const NoteRichTextEditor = forwardRef(function NoteRichTextEditor({
   useImperativeHandle(ref, () => ({
     format,
     captureSelection,
+    getFormattingState,
     focus: () => editorRef.current?.focus({ preventScroll: true }),
   }));
 

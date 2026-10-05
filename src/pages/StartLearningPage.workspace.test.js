@@ -9,115 +9,51 @@ import {
 const pageSource = readFileSync(new URL("./StartLearningPage.jsx", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("./StartLearningPage.css", import.meta.url), "utf8");
 const librarySource = readFileSync(new URL("../components/NotebookLibrary.jsx", import.meta.url), "utf8");
+const placementLibrarySource = readFileSync(new URL("../components/PlacementLibrary.jsx", import.meta.url), "utf8");
+const placementDialogSource = readFileSync(new URL("../components/PlacementCreateDialog.jsx", import.meta.url), "utf8");
 const contentSource = readFileSync(new URL("../components/NotebookContent.jsx", import.meta.url), "utf8");
 const dialogSource = readFileSync(new URL("../components/NotebookCreateDialog.jsx", import.meta.url), "utf8");
 
-test("keeps notebook and placement preparation in separate workspace views", () => {
-  assert.ok(pageSource.includes('className="learning-intake-choice-card is-notebook"'));
-  assert.ok(pageSource.includes('className="learning-intake-choice-card is-placement"'));
-  assert.ok(pageSource.includes('intakeMode === "notebook" && workspaceView === "intake" ? ('));
-  assert.ok(pageSource.includes("<NotebookLibrary"));
-  assert.ok(pageSource.includes(') : intakeMode === "placement" ? ('));
-  assert.ok(pageSource.includes('activeArtifactKind === "notebook" && ('));
-  assert.ok(pageSource.includes('activeArtifactKind === "placement" && ('));
-  assert.ok(pageSource.includes("Notebook history"));
-  assert.ok(pageSource.includes("Placement history"));
-  assert.ok(pageSource.includes("savedPlacementNotes.map((note)"));
-  assert.ok(
-    pageSource.includes("onClick={() => openSavedPlacementNote(note)}"),
-    "saved placement cards should open the Placement workspace directly",
-  );
-
-  [
-    "learning-intake-tabs",
-    "learning-subpage-tabs",
-    "Open placement and internship preparation",
-    "Placement prep saved",
-    "Save with notebook",
-    "Saved in notebook",
-    'className="card learning-career-panel"',
-  ].forEach((legacyText) => {
-    assert.equal(pageSource.includes(legacyText), false, `unexpected legacy UI: ${legacyText}`);
-  });
+test("keeps placement intake in a card library and opens saved guides directly", () => {
+  assert.ok(pageSource.includes('intakeMode === "placement" && workspaceView === "intake" ? ('));
+  assert.ok(pageSource.includes('<PlacementLibrary preparations={savedPlacementNotes}'));
+  assert.ok(pageSource.includes('onOpen={openSavedPlacementNote}'));
+  assert.ok(placementLibrarySource.includes('Your preparations'));
+  assert.ok(placementLibrarySource.includes('onOpen?.(preparation)'));
+  assert.ok(pageSource.includes('setWorkspaceView("career")'));
+  assert.ok(pageSource.includes('<PlacementPrepTopicCard'));
+  assert.equal(pageSource.includes('className="learning-placement-intake"'), false);
 });
 
-test("supports either a saved notebook or independent typed placement context", () => {
-  const placementStart = pageSource.indexOf('intakeMode === "placement" ? (');
-  const placementEnd = pageSource.indexOf(') : null}', placementStart);
-  const placementSource = pageSource.slice(placementStart, placementEnd);
-
-  assert.ok(placementStart >= 0, "expected the placement intake");
-  assert.ok(placementSource.includes("Preparation source"));
-  assert.ok(placementSource.includes("Type context"));
-  assert.ok(placementSource.includes("Saved notebook"));
-  assert.ok(placementSource.includes('name="placement-source-mode"'));
-  assert.ok(placementSource.includes('type="radio"'));
-  assert.ok(placementSource.includes("usesCustomPlacementSource ? ("));
-  assert.ok(placementSource.includes("notebookHistory.map((notebook)"));
-  assert.ok(placementSource.includes('className="learning-placement-context"'));
-  assert.ok(placementSource.includes("setCareerContext(event.target.value)"));
-  assert.doesNotMatch(
-    placementSource,
-    /Type any topic, project, job description, or interview context\. A notebook is not required\./u,
-  );
-  assert.ok(pageSource.includes('useState(CUSTOM_PLACEMENT_SOURCE_VALUE)'));
-  assert.ok(pageSource.includes('"/api/learning-notebooks/career-analyze"'));
-  assert.ok(pageSource.includes('`/api/learning-notebooks/${encodeURIComponent(request.notebookId)}/career-analyze`'));
-  assert.ok(pageSource.includes('request.sourceMode === "notebook"'));
-  assert.ok(pageSource.includes('type: "notebook"'));
-  assert.ok(pageSource.includes('type: "custom"'));
-  assert.ok(pageSource.includes("context: request.context"));
-  assert.ok(pageSource.includes('setCareerError("Describe the topic or context you want to prepare for.")'));
-  assert.ok(pageSource.includes('setCareerError("Choose an available notebook or use your own context.")'));
-  assert.ok(pageSource.includes("placementHistorySourceLabel(note)"));
-  assert.ok(pageSource.includes("From notebook:"));
-  assert.ok(pageSource.includes("Context:"));
+test("generates placement from role and topics or a saved notebook without a context input", () => {
+  assert.ok(pageSource.includes('<PlacementCreateDialog open={newPlacementOpen}'));
+  assert.ok(placementDialogSource.includes('Preparation source'));
+  assert.ok(placementDialogSource.includes('Saved notebooks'));
+  assert.ok(placementDialogSource.includes('Target role'));
+  assert.ok(placementDialogSource.includes('Topics to analyze'));
+  assert.ok(placementDialogSource.includes('Quick add'));
+  assert.doesNotMatch(pageSource, /setCareerContext|Your context/u);
+  const requestStart = pageSource.indexOf('const runCareerAnalysis =');
+  const requestEnd = pageSource.indexOf('const analyzeCareerTopics =', requestStart);
+  const requestSource = pageSource.slice(requestStart, requestEnd);
+  assert.ok(requestSource.includes('"/api/learning-notebooks/career-analyze"'));
+  assert.ok(requestSource.includes('`/api/learning-notebooks/${encodeURIComponent(request.notebookId)}/career-analyze`'));
+  assert.ok(requestSource.includes('targetRole: request.targetRole'));
+  assert.ok(requestSource.includes('topics: request.topics'));
+  assert.equal(requestSource.includes('{ context: request.context }'), false);
+  assert.ok(pageSource.includes('buildPlacementScope(role, requestedTopics)'));
   assert.ok(pageSource.includes('"/api/learning-notebooks?includePlacementWorkspace=true"'));
-  assert.ok(pageSource.includes("A placement context you type is saved with its"));
-  assert.ok(pageSource.includes("isLearningWorkspaceNotebook"));
-  assert.ok(pageSource.includes(") : !activeNotebook || isLearningWorkspaceNotebook(activeNotebook) ? ("));
-  assert.ok(pageSource.includes("isLearningWorkspaceNotebook(activeNotebook) ? [] : learningNodes(activeNotebook)"));
-  assert.ok(stylesheet.includes(".learning-field .learning-placement-context"));
-  assert.ok(stylesheet.includes(".learning-placement-source-options"));
 });
 
-test("keeps the placement source, role, topics, and quick-add controls in their requested layout", () => {
-  const placementStart = pageSource.indexOf('intakeMode === "placement" ? (');
-  const placementEnd = pageSource.indexOf(") : null}", placementStart);
-  const placementSource = pageSource.slice(placementStart, placementEnd);
-
-  assert.ok(placementStart >= 0 && placementEnd > placementStart, "expected the placement intake");
-  assert.match(
-    placementSource,
-    /className="learning-placement-source-role-row"[\s\S]*?<fieldset className="learning-placement-source">[\s\S]*?<legend>Preparation source<\/legend>[\s\S]*?<\/fieldset>[\s\S]*?className="learning-field learning-placement-role"[\s\S]*?<span>Target role<\/span>/u,
-  );
-  assert.match(
-    placementSource,
-    /className="learning-field learning-placement-topics"[\s\S]*?<span>Topics to analyze<\/span>[\s\S]*?<textarea/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-placement-source-role-row\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*max-content minmax\(220px, 1fr\);/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-placement-topics\s*\{[\s\S]*?width:\s*100%;/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-placement-suggestions > div\s*\{[\s\S]*?display:\s*flex;[\s\S]*?flex-wrap:\s*nowrap;/u,
-  );
-});
-
-test("prefills placement topics from a selected notebook and supports Tab role completion", () => {
-  assert.ok(pageSource.includes("getNotebookPlacementTopics(normalized).join(\"\\n\")"));
-  assert.ok(pageSource.includes("getNotebookPlacementRoleSuggestion("));
-  assert.ok(pageSource.includes("canCompletePlacementRole(careerRole, careerRoleSuggestion)"));
-  assert.ok(pageSource.includes('event.key !== "Tab"'));
-  assert.ok(pageSource.includes("event.preventDefault()"));
-  assert.ok(pageSource.includes("setCareerRole(careerRoleSuggestion)"));
-  assert.ok(pageSource.includes(": `Suggested: ${careerRoleSuggestion}`"));
-  assert.ok(pageSource.includes("onChange={(event) => setCareerTopics(event.target.value)}"));
+test("role suggestions and Tab prefilling are connected to the new topic dialog", () => {
+  assert.ok(pageSource.includes('getPlacementTopicSuggestion(careerRole,'));
+  assert.ok(pageSource.includes('getPlacementQuickTopics(careerRole,'));
+  assert.ok(pageSource.includes('getNotebookPlacementTopics(normalized).join("\\n")'));
+  assert.ok(pageSource.includes('rolePlaceholder={careerRoleSuggestion}'));
+  assert.ok(pageSource.includes('topicsPlaceholder={careerTopicSuggestion}'));
+  assert.ok(placementDialogSource.includes('acceptPlacementPlaceholder(event, role, rolePlaceholder)'));
+  assert.ok(placementDialogSource.includes('acceptPlacementPlaceholder(event, topics, topicsPlaceholder)'));
+  assert.ok(pageSource.includes('placementLibraryShortcut(event,'));
 });
 
 test("uses an independent Medical training workspace and persistence contract", () => {
@@ -153,22 +89,16 @@ test("uses an independent Medical training workspace and persistence contract", 
   assert.ok(medicalListSource.includes('deletePreparationHistoryItem(note, "medical")'));
 });
 
-test("keeps legacy placement guides visible and gives every history row a confirmed delete", () => {
-  const placementListStart = pageSource.indexOf("savedPlacementNotes.map((note)");
-  const placementListEnd = pageSource.indexOf("</section>", placementListStart);
-  const placementListSource = pageSource.slice(placementListStart, placementListEnd);
-
-  assert.ok(placementListStart >= 0, "expected a saved placement-note list");
-  assert.equal(placementListSource.includes("deleteNotebook"), false);
-  assert.ok(placementListSource.includes("Trash2"));
-  assert.ok(placementListSource.includes("learning-notebook-delete"));
-  assert.ok(placementListSource.includes('deletePreparationHistoryItem(note, "placement")'));
-  assert.ok(placementListSource.includes("Confirm deleting"));
-  assert.ok(
-    pageSource.includes(
-      "getSavedPlacementNotes(activeNotebook ? [activeNotebook] : []).length > 0",
-    ),
-  );
+test("deletes a preparation history entry without deleting its source notebook", () => {
+  assert.ok(pageSource.includes('onDelete={(note) => deletePreparationHistoryItem(note, "placement")}'));
+  const start = pageSource.indexOf('const deletePreparationHistoryItem =');
+  const end = pageSource.indexOf('const clearCurrentHistory =', start);
+  const handler = pageSource.slice(start, end);
+  assert.ok(handler.includes('deletePlacementHistoryEntry(notebook, note.historyId'));
+  assert.equal(handler.includes('api.delete'), false);
+  assert.ok(handler.includes('return Boolean(normalized)'));
+  assert.ok(placementLibrarySource.includes('Confirm ${label}'));
+  assert.ok(placementLibrarySource.includes('Cancel ${label}'));
 });
 
 test("centers the available workspace cards and omits history from the chooser", () => {
@@ -198,7 +128,7 @@ test("centers the available workspace cards and omits history from the chooser",
   assert.ok(pageSource.includes('is-${workspaceView}${intakeMode === null ? " is-choice-home" : ""}'));
   assert.ok(pageSource.includes("const workspaceChoiceCount = 1"));
   assert.ok(pageSource.includes('learning-intake-choice is-count-${workspaceChoiceCount}'));
-  assert.ok(pageSource.includes("{activeArtifactKind && ("));
+  assert.ok(pageSource.includes('{activeArtifactKind && activeArtifactKind !== "placement" && ('));
   assert.equal(pageSource.includes("learning-saved-kind-grid"), false);
   assert.equal(pageSource.includes('"Learning history"'), false);
   assert.equal(pageSource.includes("What do you want to prepare?"), false);

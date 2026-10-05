@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bold, Italic, Link2, Underline } from "lucide-react";
 import WarmTooltip, { WarmTooltipGroup } from "./WarmTooltip";
 import { sanitizeNoteLink } from "../utils/noteRichText";
@@ -12,10 +12,24 @@ const FORMAT_ACTIONS = [
 ];
 
 export default function NoteFormattingToolbar({ editorRef }) {
+  const [formatting, setFormatting] = useState({ bold: false, italic: false, underline: false, link: false });
   const [isLinkOpen, setIsLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkError, setLinkError] = useState("");
   const linkInputRef = useRef(null);
+
+  const syncFormatting = useCallback(() => {
+    const current = editorRef.current?.getFormattingState();
+    if (!current) return;
+    setFormatting((previous) => Object.keys(current).every((key) => current[key] === previous[key]) ? previous : current);
+  }, [editorRef]);
+
+  useEffect(() => {
+    syncFormatting();
+    const events = ["selectionchange", "input", "keyup", "mouseup"];
+    events.forEach((event) => document.addEventListener(event, syncFormatting));
+    return () => events.forEach((event) => document.removeEventListener(event, syncFormatting));
+  }, [syncFormatting]);
 
   const openLinkInput = () => {
     setIsLinkOpen(true);
@@ -31,6 +45,7 @@ export default function NoteFormattingToolbar({ editorRef }) {
       return;
     }
     editorRef.current?.format("link", href);
+    syncFormatting();
     setIsLinkOpen(false);
     setLinkUrl("");
     setLinkError("");
@@ -44,8 +59,12 @@ export default function NoteFormattingToolbar({ editorRef }) {
             <WarmTooltip content={action.label} inkColor="var(--text)" key={action.command} shortcut={action.shortcut} size="sm" surfaceColor="var(--surface-strong)">
               <button
                 aria-label={action.label}
+                aria-pressed={formatting[action.command]}
                 className="note-format-action"
-                onClick={() => editorRef.current?.format(action.command)}
+                onClick={() => {
+                  editorRef.current?.format(action.command);
+                  syncFormatting();
+                }}
                 onMouseDown={(event) => {
                   editorRef.current?.captureSelection();
                   event.preventDefault();
@@ -60,6 +79,7 @@ export default function NoteFormattingToolbar({ editorRef }) {
             <button
               aria-expanded={isLinkOpen}
               aria-label="Add link"
+              aria-pressed={isLinkOpen || formatting.link}
               className="note-format-action"
               onClick={() => isLinkOpen ? setIsLinkOpen(false) : openLinkInput()}
               onMouseDown={(event) => {

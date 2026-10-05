@@ -18,6 +18,7 @@ import {
   MAX_LEARNING_REVIEW_COMPLETION_TOKENS,
   MAX_GROQ_LEARNING_COMPLETION_TOKENS,
   MAX_LEARNING_CAREER_CONTEXT_CHARS,
+  LEARNING_GENERATION_DEADLINE_MS,
   MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND,
   PLACEMENT_WORKSPACE_ARTIFACT_KIND,
   buildLearningNotebookDepthTargets,
@@ -38,7 +39,7 @@ import {
   requestLearningVisionText,
   registerLearningNotebookRoutes,
 } from "./learningNotebookRoutes.js";
-import { MEDICAL_TRAINING_EDUCATIONAL_NOTICE } from "../src/utils/learningNotebook.js";
+import { MEDICAL_TRAINING_EDUCATIONAL_NOTICE, normalizeLearningCareerTopicAnalysis } from "../src/utils/learningNotebook.js";
 import {
   LEARNING_PRIVACY_CONSENT_VERSION,
   MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
@@ -4168,21 +4169,32 @@ function validCareerTopicAnalysis(topics = ["Arrays", "Graphs"]) {
     topics: topics.map((title, index) => ({
       id: `career-topic-${index + 1}`,
       title,
-      explanation: `${title} explained with intuition, examples, and common mistakes.`,
+      explanation: [
+        `- ${title} provides a way to represent a problem using a defined model, explicit assumptions, and a sequence of operations whose effects can be traced.`,
+        "- Begin with the input representation and the result required, then choose an operation that preserves the model's invariants instead of relying on memorized names.",
+        "- For example, when a service receives the values [2, 2, 5], distinguish three observations from two unique values; the distinction determines the correct result.",
+        "- Work through the example: create an empty set, add 2, ignore the repeated 2, and add 5. The final set contains two distinct values, so the result is 2.",
+        "- Key takeaways are to state the invariant, trace one concrete input, and account for duplicates and empty inputs. These checks make the reasoning reproducible.",
+        "- A common mistake is confusing the representation with the result: counting all observations answers a different question from counting distinct values.",
+      ].join("\n"),
       whyItMatters: `${title} is frequently used to test applied reasoning.`,
       interviewQuestions: [{
         id: `career-topic-${index + 1}-question-1`,
         question: `How would you apply ${title} in a constrained problem?`,
-        guidance: "Clarify constraints, compare approaches, and explain complexity.",
+        guidance: "- The representation should support the required operations while preserving its invariant. For distinct-value counting, a set makes membership explicit.\n- Processing [2, 2, 5] produces {2, 5}; repeated input does not increase the result. The empty input produces zero.",
+      }, {
+        id: `career-topic-${index + 1}-question-2`,
+        question: `Implement a representative ${title} operation and trace its result.`,
+        guidance: "- This Python example counts distinct observations using a set.\n```python\ndef distinct_count(values):\n    return len(set(values))\n\nprint(distinct_count([2, 2, 5]))\n```\n- The output is 2 because the repeated value is stored once. Expected time is O(n), and space is O(n); empty input returns 0.",
       }],
-      practiceSteps: ["Review the core model.", "Solve a representative problem."],
+      practiceSteps: ["Trace the core model on a small example.", "Solve a representative problem independently.", "Test empty and repeated inputs against the invariant.", "Explain the result and compare the trade-offs."],
     })),
-    preparationPlan: [{
-      id: "preparation-phase-1",
-      title: "Foundations",
-      description: "Build accurate explanations before timed practice.",
-      actions: ["Review both requested topics.", "Complete a recall check."],
-    }],
+    preparationPlan: ["Foundations", "Worked applications", "Interview practice"].map((title, index) => ({
+      id: `preparation-phase-${index + 1}`,
+      title,
+      description: "Build accurate explanations and tested applications before timed practice.",
+      actions: ["Review the requested topics.", "Complete a recall check and explain the result."],
+    })),
   };
 }
 
@@ -4278,6 +4290,7 @@ function createCareerRouteHarness({
   fetchImpl,
   geminiConfig = { available: true, apiKey: "gemini-key" },
   groqConfig = { available: true, apiKey: "groq-key" },
+  groqLearningModel = "llama-3.3-70b-versatile",
   user = {},
   aiQuota = createTestAiQuota(),
 } = {}) {
@@ -4386,7 +4399,7 @@ function createCareerRouteHarness({
     },
     getGeminiConfigStatus: () => geminiConfig,
     getGroqConfigStatus: () => groqConfig,
-    groqLearningModel: "llama-3.3-70b-versatile",
+    groqLearningModel,
     groqModel: "llama-3.1-8b-instant",
     groqVisionModel: "qwen/qwen3.6-27b",
     now: () => new Date("2026-07-26T12:00:00.000Z"),
@@ -4805,7 +4818,7 @@ test("career analysis requires current privacy consent before database or provid
   assert.equal(fetchCalls, 0);
 });
 
-test("custom career analysis requires a meaningful bounded preparation context before AI work", async () => {
+test("custom career analysis requires topics and still bounds legacy context before AI work", async () => {
   let fetchCalls = 0;
   const harness = createCareerRouteHarness({
     fetchImpl: async () => {
@@ -4814,18 +4827,32 @@ test("custom career analysis requires a meaningful bounded preparation context b
     },
   });
 
-  const missing = await harness.analyzeCustom({ context: " - " });
+  const missing = await harness.analyzeCustom({ context: undefined, topics: [] });
   const oversized = await harness.analyzeCustom({
     context: "x".repeat(MAX_LEARNING_CAREER_CONTEXT_CHARS + 1),
   });
 
   assert.equal(missing.statusCode, 400);
-  assert.equal(missing.body.code, "LEARNING_CAREER_CONTEXT_REQUIRED");
+  assert.equal(missing.body.code, "LEARNING_CAREER_TOPICS_REQUIRED");
   assert.equal(oversized.statusCode, 413);
   assert.equal(oversized.body.code, "LEARNING_CAREER_CONTEXT_TOO_LARGE");
   assert.equal(harness.dbCalls, 0);
   assert.equal(fetchCalls, 0);
   assert.equal(harness.aiQuota.calls.lookup.length, 0);
+  assert.equal(harness.aiQuota.calls.reserve.length, 0);
+});
+
+test("placement rejects excessive or oversized topic scope before reserving credits", async () => {
+  const harness = createCareerRouteHarness({
+    fetchImpl: async () => { throw new Error("Must not request an AI provider."); },
+  });
+  const excessive = await harness.analyzeCustom({ context: undefined, topics: Array.from({ length: 13 }, (_, index) => `Topic ${index + 1}`) });
+  const oversized = await harness.analyze({ topics: ["x".repeat(141)] });
+  assert.equal(excessive.statusCode, 413);
+  assert.equal(excessive.body.code, "LEARNING_TOPIC_LIMIT");
+  assert.equal(oversized.statusCode, 400);
+  assert.equal(oversized.body.code, "LEARNING_TOPIC_NAME_TOO_LONG");
+  assert.equal(harness.dbCalls, 0);
   assert.equal(harness.aiQuota.calls.reserve.length, 0);
 });
 
@@ -4874,6 +4901,226 @@ test("custom career analysis uses freeform context and reuses one marked placeme
     harness.aiQuota.calls.commit[0].resultRef.id,
     first.body.notebook.id,
   );
+});
+
+test("compact custom preparation derives scope from role and topics without a context input", async () => {
+  const requests = [];
+  const harness = createCareerRouteHarness({
+    user: { degree: "B.Com", department: "Commerce", academicTrack: "Commerce & Business" },
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      return geminiNotebookResponse(validCareerTopicAnalysis(["Python loops", "SQL joins"]));
+    },
+  });
+
+  const res = await harness.analyzeCustom({
+    context: undefined,
+    targetRole: "Data analyst intern using Python and SQL",
+    topics: ["Python loops", "SQL joins"],
+  });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(requests.length, 1);
+  const prompt = requests[0].contents[0].parts[0].text;
+  assert.ok(prompt.includes("Preparation for Data analyst intern using Python and SQL.\\nTopics:"));
+  assert.match(prompt, /Topics: Python loops, SQL joins/u);
+  assert.match(prompt, /require at least one runnable coding example per topic: \["Python loops","SQL joins"\]/u);
+  assert.match(prompt, /even if the academic field is non-computing/u);
+  assert.match(prompt, /Use the programming language or technical stack named in the topic, target role, or preparation source/u);
+  assert.match(prompt, /realistic worked example with inputs or scenario, reasoning and outcome, key takeaways/u);
+  const schema = requests[0].generationConfig.responseJsonSchema;
+  assert.equal(schema.properties.topics.minItems, 2);
+  assert.equal(schema.properties.topics.maxItems, 2);
+  assert.deepEqual(schema.properties.topics.items.properties.title.enum, ["Python loops", "SQL joins"]);
+  assert.equal(schema.properties.topics.items.properties.explanation.minLength, 600);
+  assert.equal(res.body.topicAnalysis.targetRole, "Data analyst intern using Python and SQL");
+  assert.deepEqual(res.body.topicAnalysis.topics.map((topic) => topic.title), ["Python loops", "SQL joins"]);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("compact non-coding preparation uses the role and topic scope without forcing code", async () => {
+  let request;
+  const output = validCareerTopicAnalysis(["User research", "Portfolio walkthrough"]);
+  output.topics.forEach((topic) => {
+    topic.interviewQuestions[1].guidance = topic.interviewQuestions[0].guidance;
+  });
+  const harness = createCareerRouteHarness({
+    user: { degree: "Bachelor of Design", department: "Design", academicTrack: "Arts & Humanities" },
+    fetchImpl: async (_url, options) => {
+      request = JSON.parse(options.body);
+      return geminiNotebookResponse(output);
+    },
+  });
+
+  const res = await harness.analyzeCustom({
+    context: undefined, targetRole: "UI/UX designer", topics: ["User research", "Portfolio walkthrough"],
+  });
+
+  assert.equal(res.statusCode, 200);
+  assert.match(request.contents[0].parts[0].text, /Use domain examples, cases, or portfolio practice for non-coding topics/u);
+  assert.doesNotMatch(request.contents[0].parts[0].text, /These requested topics require at least one runnable coding example/u);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+});
+
+test("both placement providers assign stable IDs before saved-data normalization can collide", async () => {
+  for (const provider of ["gemini", "groq"]) {
+    const output = validCareerTopicAnalysis();
+    output.topics[0].id = "topic one";
+    output.topics[1].id = "topic-one";
+    output.topics[0].interviewQuestions[0].id = "question one";
+    output.topics[0].interviewQuestions[1].id = "question-one";
+    output.topics[1].interviewQuestions[0].id = `${"q".repeat(80)}first`;
+    output.topics[1].interviewQuestions[1].id = `${"q".repeat(80)}second`;
+    output.preparationPlan[0].id = "phase one";
+    output.preparationPlan[1].id = "phase-one";
+    output.preparationPlan[2].id = "第三阶段";
+    const harness = createCareerRouteHarness({
+      geminiConfig: { available: provider === "gemini", apiKey: "gemini-key" },
+      groqConfig: { available: provider === "groq", apiKey: "groq-key" },
+      fetchImpl: async () => provider === "gemini"
+        ? geminiNotebookResponse(output) : groqNotebookResponse(output),
+    });
+
+    const res = await harness.analyzeCustom({ context: undefined });
+
+    assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+    const analysis = res.body.topicAnalysis;
+    const normalizedAgain = normalizeLearningCareerTopicAnalysis(analysis);
+    assert.deepEqual(normalizedAgain, analysis);
+    assert.deepEqual(analysis.topics.map((topic) => topic.id), ["career-topic-1", "career-topic-2"]);
+    assert.deepEqual(analysis.topics.flatMap((topic) => topic.interviewQuestions.map((question) => question.id)), [
+      "career-topic-1-question-1", "career-topic-1-question-2", "career-topic-2-question-1", "career-topic-2-question-2",
+    ]);
+    assert.deepEqual(analysis.preparationPlan.map((phase) => phase.id), ["preparation-phase-1", "preparation-phase-2", "preparation-phase-3"]);
+    assert.deepEqual(analysis.topics.map((topic) => topic.explanation), output.topics.map((topic) => topic.explanation));
+    assert.equal(harness.aiQuota.calls.commit.length, 1);
+    assert.equal(harness.aiQuota.calls.refund.length, 0);
+  }
+});
+
+test("placement fallback retries mismatched, shallow, and code-free answers before committing", async () => {
+  const malformedOutputs = [
+    (() => { const value = validCareerTopicAnalysis(); value.topics[1].title = "Queues"; return value; })(),
+    (() => { const value = validCareerTopicAnalysis(); value.topics[1].explanation = "A short generic overview."; return value; })(),
+    (() => { const value = validCareerTopicAnalysis(); value.topics[1].interviewQuestions[1].guidance = value.topics[1].interviewQuestions[0].guidance; return value; })(),
+  ];
+
+  for (const malformed of malformedOutputs) {
+    const providers = [];
+    const harness = createCareerRouteHarness({
+      fetchImpl: async (url) => {
+        const gemini = url.includes("generativelanguage.googleapis.com");
+        providers.push(gemini ? "gemini" : "groq");
+        return gemini ? geminiNotebookResponse(malformed) : groqNotebookResponse(validCareerTopicAnalysis());
+      },
+    });
+
+    const res = await harness.analyzeCustom({ context: undefined });
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(providers, ["gemini", "groq"]);
+    assert.deepEqual(res.body.topicAnalysis.topics.map((topic) => topic.title), ["Arrays", "Graphs"]);
+    assert.equal(harness.aiQuota.calls.reserve.length, 1);
+    assert.equal(harness.aiQuota.calls.commit.length, 1);
+    assert.equal(harness.aiQuota.calls.refund.length, 0);
+  }
+});
+
+test("placement rejects incomplete code on both providers and refunds without creating history", async () => {
+  const output = validCareerTopicAnalysis();
+  output.topics[1].interviewQuestions[1].guidance = output.topics[1].interviewQuestions[1].guidance.replace("\n```\n", "\n");
+  const providers = [];
+  const harness = createCareerRouteHarness({
+    fetchImpl: async (url) => {
+      const gemini = url.includes("generativelanguage.googleapis.com");
+      providers.push(gemini ? "gemini" : "groq");
+      return gemini ? geminiNotebookResponse(output) : groqNotebookResponse(output);
+    },
+  });
+
+  const res = await harness.analyzeCustom({ context: undefined });
+
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.body.code, "LEARNING_OUTPUT_INVALID");
+  assert.equal(res.body.creditsRefunded, true);
+  assert.deepEqual(providers, ["gemini", "groq", "groq"]);
+  assert.equal(harness.inserts.length, 0);
+  assert.equal(harness.updates.length, 0);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("twelve placement topics fit bounded Groq parts with ordered coverage and one credit reservation", async () => {
+  const topics = Array.from({ length: 12 }, (_, index) => `Java coding topic ${index + 1}`);
+  const requests = [];
+  const harness = createCareerRouteHarness({
+    geminiConfig: { available: false },
+    groqLearningModel: DEFAULT_GROQ_LEARNING_MODEL,
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requests.push(request);
+      const schema = request.response_format.json_schema.schema;
+      assert.equal(request.response_format.type, "json_schema");
+      assert.equal(request.response_format.json_schema.strict, true);
+      assert.equal(schema.properties.topics.maxItems, 2);
+      assert.equal(schema.properties.topics.minItems, 2);
+      assert.ok(request.max_completion_tokens >= 3000);
+      assert.ok(request.max_completion_tokens <= MAX_GROQ_LEARNING_COMPLETION_TOKENS);
+      return groqNotebookResponse(validCareerTopicAnalysis(schema.properties.topics.items.properties.title.enum));
+    },
+  });
+
+  const res = await harness.analyzeCustom({ context: undefined, topics });
+
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(requests.length, 6);
+  assert.deepEqual(res.body.topicAnalysis.topics.map((topic) => topic.title), topics);
+  assert.equal(new Set(res.body.topicAnalysis.topics.map((topic) => topic.id)).size, 12);
+  assert.equal(new Set(res.body.topicAnalysis.topics.flatMap((topic) => topic.interviewQuestions.map((question) => question.id))).size, 24);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+  assert.equal(harness.inserts.length, 1);
+});
+
+test("placement provider fallback and parts share one deadline and refund incomplete work", async () => {
+  const originalNow = Date.now;
+  let clock = originalNow();
+  Date.now = () => clock;
+  const topics = ["Arrays", "Graphs", "Pointers", "Java loops"];
+  const providers = [];
+  try {
+    const harness = createCareerRouteHarness({
+      groqLearningModel: DEFAULT_GROQ_LEARNING_MODEL,
+      fetchImpl: async (url, options) => {
+        const gemini = url.includes("generativelanguage.googleapis.com");
+        providers.push(gemini ? "gemini" : "groq");
+        if (gemini) {
+          clock += 60_000;
+          throw new TypeError("Gemini unavailable");
+        }
+        const request = JSON.parse(options.body);
+        const batchTopics = request.response_format.json_schema.schema.properties.topics.items.properties.title.enum;
+        clock += providers.length === 2 ? 60_000 : LEARNING_GENERATION_DEADLINE_MS;
+        return groqNotebookResponse(validCareerTopicAnalysis(batchTopics));
+      },
+    });
+
+    const res = await harness.analyzeCustom({ context: undefined, topics });
+
+    assert.equal(res.statusCode, 504, JSON.stringify(res.body));
+    assert.equal(res.body.code, "LEARNING_GENERATION_TIMEOUT");
+    assert.equal(res.body.creditsRefunded, true);
+    assert.deepEqual(providers, ["gemini", "groq", "groq"]);
+    assert.equal(harness.inserts.length, 0);
+    assert.equal(harness.updates.length, 0);
+    assert.equal(harness.aiQuota.calls.reserve.length, 1);
+    assert.equal(harness.aiQuota.calls.commit.length, 0);
+    assert.equal(harness.aiQuota.calls.refund.length, 1);
+  } finally { Date.now = originalNow; }
 });
 
 test("applies placement history operations to the latest hidden workspace snapshot", async () => {
@@ -5025,13 +5272,13 @@ test("uses Gemini structured output for career topics and returns a normalized t
   assert.equal(res.body.transient, true);
   assert.equal(res.body.notebook.careerPreparation.topicAnalysis.topics.length, 0);
   const careerPrompt = requests[0].body.contents[0].parts[0].text;
-  assert.match(careerPrompt, /explanation as 4-7 concise bullet points/u);
+  assert.match(careerPrompt, /explanation as 5-8 teaching bullet points/u);
   assert.match(careerPrompt, /guidance field must contain a complete model answer to that exact question/u);
   assert.match(careerPrompt, /a computing topic alone does not make a conceptual question a coding task/u);
   assert.equal(res.body.topicAnalysis.targetRole, "Backend engineering intern");
   assert.deepEqual(res.body.topicAnalysis.topics.map((topic) => topic.title), ["Arrays", "Graphs"]);
   assert.ok(res.body.topicAnalysis.topics[0].explanation.length > 20);
-  assert.equal(res.body.topicAnalysis.preparationPlan.length, 1);
+  assert.equal(res.body.topicAnalysis.preparationPlan.length, 3);
   assert.equal(res.body.providerModel, DEFAULT_GEMINI_LEARNING_MODEL);
   assert.equal(harness.aiQuota.calls.reserve.length, 1);
   assert.equal(harness.aiQuota.calls.reserve[0].feature, "career_analysis");
@@ -5091,7 +5338,8 @@ test("falls back to Groq for career analysis after a Gemini transport failure", 
   assert.equal(res.statusCode, 200);
   assert.deepEqual(providers, ["gemini", "groq"]);
   assert.equal(groqRequests[0].model, "llama-3.3-70b-versatile");
-  assert.equal(groqRequests[0].max_tokens, MAX_LEARNING_COMPLETION_TOKENS);
+  assert.ok(groqRequests[0].max_tokens >= 3000);
+  assert.ok(groqRequests[0].max_tokens <= MAX_LEARNING_COMPLETION_TOKENS);
   assert.equal(res.body.providerModel, "llama-3.3-70b-versatile");
   assert.equal(harness.updates.length, 0);
 });
