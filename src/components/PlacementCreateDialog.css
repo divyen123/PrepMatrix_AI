@@ -13,6 +13,7 @@ body .placement-create-dialog {
   width: min(100%, 560px);
   max-height: 90dvh;
   overflow-y: auto;
+  scrollbar-width: none;
   padding: 24px;
   border: 1px solid var(--border);
   border-radius: 22px;
@@ -20,6 +21,7 @@ body .placement-create-dialog {
   color: var(--text);
   box-shadow: 0 20px 70px rgba(0, 0, 0, .28);
 }
+body .placement-create-dialog::-webkit-scrollbar { display: none; width: 0; height: 0; }
 body.has-bg-image .placement-create-dialog { background: rgb(var(--bg-surface-rgb, 18, 27, 45)) !important; }
 .placement-create-dialog > header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.15rem; }
 .placement-create-dialog h2 { margin: 0; color: var(--text); font-size: 1.3rem; line-height: 1.3; }
