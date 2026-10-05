@@ -111,9 +111,31 @@ body .notebook-library .notebook-library-card-open { display: flex; flex-directi
 .notebook-library-card.is-completed .notebook-library-progress-label { color: color-mix(in srgb, #22c55e 64%, var(--text)); }
 .notebook-library-card footer { min-height: 3.1rem; display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .35rem 1.1rem .65rem; }
 .notebook-library-card time { font-size: .78rem; color: var(--text-muted); }
-body .notebook-library .notebook-library-card footer .notebook-library-icon { width: 2.05rem; height: 2.05rem; background: transparent; border-color: transparent; }
-body .notebook-library .notebook-library-card footer .notebook-library-icon:hover { background: color-mix(in srgb, #ef4444 9%, var(--surface-muted)); border-color: color-mix(in srgb, #ef4444 25%, var(--border)); }
-body .notebook-library .notebook-library-card footer .is-confirm { color: color-mix(in srgb, #22c55e 68%, var(--text)); background: color-mix(in srgb, #22c55e 10%, var(--surface-strong)); }
+body .notebook-library .notebook-library-card footer .notebook-library-icon {
+  width: 2.05rem;
+  height: 2.05rem;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body .notebook-library .notebook-library-card footer .notebook-library-icon::before,
+body .notebook-library .notebook-library-card footer .notebook-library-icon::after { content: none !important; display: none !important; }
+body .notebook-library .notebook-library-card footer .is-delete { color: color-mix(in srgb, #ef4444 65%, var(--text)) !important; }
+body .notebook-library .notebook-library-card footer .is-delete:hover { color: #ef4444 !important; }
+body .notebook-library .notebook-library-card footer .is-confirm {
+  color: color-mix(in srgb, #22c55e 68%, var(--text)) !important;
+  background: color-mix(in srgb, #22c55e 10%, var(--surface-strong)) !important;
+  border-color: color-mix(in srgb, #22c55e 30%, var(--border)) !important;
+}
+body .notebook-library .notebook-library-card footer .is-confirm:hover { background: color-mix(in srgb, #22c55e 16%, var(--surface-strong)) !important; }
+body .notebook-library .notebook-library-card footer .is-cancel {
+  color: color-mix(in srgb, #ef4444 65%, var(--text)) !important;
+  background: color-mix(in srgb, #ef4444 8%, var(--surface-strong)) !important;
+  border-color: color-mix(in srgb, #ef4444 25%, var(--border)) !important;
+}
+body .notebook-library .notebook-library-card footer .is-cancel:hover { background: color-mix(in srgb, #ef4444 14%, var(--surface-strong)) !important; }
 .notebook-library-empty { min-height: max(16rem, calc(100dvh - 16rem)); display: flex; justify-content: center; align-items: center; gap: .7rem; padding: 2rem 1rem; color: var(--text-muted); font-size: 1.05rem; text-align: center; background: transparent; border: 0; }
 .notebook-library-empty--filtered { flex-direction: column; min-height: 16rem; }
 body .notebook-library .notebook-library-empty button { color: var(--accent); border: 0; background: transparent; font-size: .9rem; text-decoration: underline; text-underline-offset: .2rem; }
