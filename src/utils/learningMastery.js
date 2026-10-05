@@ -337,6 +337,11 @@ function normalizeNodeRecord(value, context, now) {
     lastStudiedAt: normalizedIso(source.lastStudiedAt ?? source.updatedAt ?? lastAttempt?.answeredAt),
     learnedAt: normalizedIso(source.learnedAt ?? source.completedAt),
     masteredAt: normalizedIso(source.masteredAt),
+    ...(typeof source.contentCompleted === "boolean" ? {
+      contentCompleted: source.contentCompleted,
+      contentCompletedAt: normalizedIso(source.contentCompletedAt),
+      contentCompletionUpdatedAt: normalizedIso(source.contentCompletionUpdatedAt, source.contentCompletedAt),
+    } : {}),
     attempts,
     misconceptions,
     review: normalizeReview(source.review ?? {
@@ -480,7 +485,7 @@ function mergeCatalogEvidence(current, incoming) {
       && hasLearningNodeAchievement(secondary)) ? secondary : primary;
   const attempts = [...new Map([...secondary.attempts, ...primary.attempts].map((attempt) => [attempt.id, attempt])).values()]
     .sort((left, right) => left.answeredAt.localeCompare(right.answeredAt)).slice(-MAX_LEARNING_ATTEMPTS_PER_NODE);
-  return {
+  return mergeLearningContentCompletion({
     ...secondary,
     ...primary,
     learnedAt: primary.learnedAt || secondary.learnedAt,
@@ -492,7 +497,7 @@ function mergeCatalogEvidence(current, incoming) {
     attempts,
     misconceptions: [...new Map([...secondary.misconceptions, ...primary.misconceptions].map((item) => [item.id, item])).values()]
       .slice(-MAX_LEARNING_MISCONCEPTIONS_PER_NODE),
-  };
+  }, current, incoming);
 }
 
 function completeLearningNode(node, now) {
@@ -515,6 +520,124 @@ function completeLearningNode(node, now) {
 export function getLearningTopicNodes(state, notebook) {
   const ids = new Set(buildLearningNodeCatalog(notebook).filter((node) => node.nodeType === "topic").map((node) => node.nodeId));
   return Object.values(asObject(state).nodes || {}).filter((node) => ids.has(node.nodeId));
+}
+
+/** One completion denominator for notebook cards, the map, and Analytics. */
+export function getNotebookCompletionSummary(notebook = {}, options = {}) {
+  const state = normalizeLearningState(notebook.learningState, { notebook, now: options.now });
+  const topics = getLearningTopicNodes(state, notebook);
+  const completedTopics = topics.filter(hasLearningNodeAchievement).length;
+  const totalTopics = topics.length;
+  return {
+    percent: totalTopics ? Math.round(completedTopics / totalTopics * 100) : 0,
+    completedTopics,
+    totalTopics,
+    isCompleted: totalTopics > 0 && completedTopics === totalTopics,
+    completionByTopic: Object.fromEntries(topics.map((topic) => [topic.nodeId, hasLearningNodeAchievement(topic)])),
+  };
+}
+
+function hasAssessedAchievement(node = {}) {
+  return Boolean(node.masteredAt)
+    || node.status === "mastered"
+    || outlineList(node.attempts).some((attempt) => attempt.correct === true || Number(attempt.score) >= LEARNED_SCORE);
+}
+
+/** Manual completion is a separate revision from assessment evidence, including when it is undone. */
+export function mergeLearningContentCompletion(projection = {}, current = {}, incoming = {}, options = {}) {
+  const changeTime = (node) => normalizedIso(node.contentCompletionUpdatedAt, node.contentCompletedAt);
+  const candidates = [current, incoming].filter((node) => (
+    typeof node.contentCompleted === "boolean" && changeTime(node)
+  ));
+  if (!candidates.length) return projection;
+  const completion = candidates.reduce((latest, node) => (
+    changeTime(node) > changeTime(latest)
+      || (options.preferIncomingTie && changeTime(node) === changeTime(latest)) ? node : latest
+  ));
+  const changedAt = changeTime(completion);
+  const merged = {
+    ...projection,
+    contentCompleted: completion.contentCompleted,
+    contentCompletedAt: completion.contentCompleted ? normalizedIso(completion.contentCompletedAt, changedAt) : "",
+    contentCompletionUpdatedAt: changedAt,
+  };
+  if (completion.contentCompleted) return completeLearningNode({
+    ...merged,
+    masteryScore: finiteNumber(merged.masteryScore),
+    attempts: outlineList(merged.attempts),
+    review: normalizeReview(merged.review),
+  }, merged.contentCompletedAt);
+
+  const assessmentSources = [merged, current, incoming];
+  if (assessmentSources.some(hasAssessedAchievement)) {
+    const mastered = assessmentSources.find((node) => node.masteredAt || node.status === "mastered");
+    const passed = outlineList(merged.attempts).find((attempt) => (
+      attempt.correct === true || Number(attempt.score) >= LEARNED_SCORE
+    ));
+    return {
+      ...merged,
+      learnedAt: merged.learnedAt || normalizedIso(passed?.answeredAt)
+        || assessmentSources.find((node) => hasAssessedAchievement(node))?.learnedAt || "",
+      masteredAt: merged.masteredAt || mastered?.masteredAt || "",
+      status: ["new", "ready"].includes(merged.status) ? mastered ? "mastered" : "learned" : merged.status,
+    };
+  }
+  const assessedAttempts = outlineList(merged.attempts).filter((attempt) => attempt.score != null);
+  const hasLaterAssessment = assessedAttempts.some((attempt) => normalizedIso(attempt.answeredAt) > changedAt);
+  return {
+    ...merged,
+    status: outlineList(merged.attempts).length ? "learning" : "ready",
+    learnedAt: "",
+    masteredAt: "",
+    masteryScore: assessedAttempts.length ? merged.masteryScore : 0,
+    review: hasLaterAssessment ? merged.review : normalizeReview(),
+  };
+}
+
+/** Update content completion without discarding evidence from a successful recall. */
+export function setNotebookTopicCompleted(notebook = {}, topicId, completed, now = new Date().toISOString()) {
+  const current = asObject(notebook);
+  const state = normalizeLearningState(current.learningState, { notebook: current, now });
+  const id = resolveLearningCatalogNodeId(topicId, {}, current);
+  const topic = state.nodes[id];
+  if (!topic || topic.nodeType !== "topic") return notebook;
+  const changedAt = actionTime(now, state.updatedAt);
+  const hasRecallAchievement = hasAssessedAchievement(topic);
+  const nextTopic = completed ? {
+    ...completeLearningNode(topic, changedAt),
+    contentCompleted: true,
+    contentCompletedAt: changedAt,
+    contentCompletionUpdatedAt: changedAt,
+  } : {
+    ...topic,
+    contentCompleted: false,
+    contentCompletedAt: "",
+    contentCompletionUpdatedAt: changedAt,
+    ...(!hasRecallAchievement ? {
+      status: topic.attempts.length ? "learning" : "ready",
+      learnedAt: "",
+      masteredAt: "",
+      masteryScore: topic.attempts.length ? topic.masteryScore : 0,
+      review: normalizeReview(),
+    } : {}),
+  };
+  const nodes = { ...state.nodes, [id]: nextTopic };
+  const revisedNotes = outlineList(current.revisedNotes).map((section) => {
+    const references = getRevisedNoteTopicIds(section, current);
+    if (!references.includes(id)) return section;
+    const sectionCompleted = completed && references.every((nodeId) => hasLearningNodeAchievement(nodes[nodeId]));
+    return { ...section, completed: sectionCompleted, completedAt: sectionCompleted ? changedAt : "" };
+  });
+  const nextNotebook = {
+    ...current,
+    revisedNotes,
+    learningState: { ...state, nodes, updatedAt: changedAt },
+    updatedAt: changedAt,
+  };
+  return {
+    ...nextNotebook,
+    learningState: normalizeLearningState(nextNotebook.learningState, { notebook: nextNotebook, now: changedAt }),
+  };
 }
 
 /**
@@ -569,7 +692,9 @@ export function normalizeLearningState(value = {}, options = {}) {
   outlineList(notebook.revisedNotes).filter((section) => section?.completed === true).forEach((section) => {
     const completedAt = normalizedIso(section.completedAt, notebook.updatedAt || notebook.createdAt) || now;
     getRevisedNoteTopicIds(section, notebook).forEach((nodeId) => {
-      if (nodes[nodeId]) nodes[nodeId] = completeLearningNode(nodes[nodeId], completedAt);
+      if (nodes[nodeId] && nodes[nodeId].contentCompleted !== false) {
+        nodes[nodeId] = completeLearningNode(nodes[nodeId], completedAt);
+      }
     });
   });
 
@@ -1000,9 +1125,11 @@ export function getLearningInsights(notebooks = [], options = {}) {
   let confidenceCount = 0;
   let misconceptionCount = 0;
   let unresolvedMisconceptionCount = 0;
+  let completedNotebookCount = 0;
 
   rows.forEach((notebook) => {
     const safeNotebook = asObject(notebook);
+    if (getNotebookCompletionSummary(safeNotebook, { now }).isCompleted) completedNotebookCount += 1;
     const state = normalizeLearningState(safeNotebook.learningState, { notebook: safeNotebook, now });
     const topicIds = new Set(getLearningTopicNodes(state, safeNotebook).map((node) => node.nodeId));
     const fallbackSubject = cleanText(safeNotebook.subjectName ?? safeNotebook.title, 160) || "General study";
@@ -1091,6 +1218,10 @@ export function getLearningInsights(notebooks = [], options = {}) {
     subjectCount: subjectNames.size,
     topicCount,
     learnedTopicCount,
+    completedTopicCount: learnedTopicCount,
+    completionRate: topicCount ? Math.round((learnedTopicCount / topicCount) * 100) : 0,
+    completedNotebookCount,
+    remainingTopicCount: Math.max(0, topicCount - learnedTopicCount),
     masteredTopicCount,
     reviewDueCount,
     sessionCount,

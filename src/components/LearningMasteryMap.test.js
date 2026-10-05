@@ -4,6 +4,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
+import { setNotebookTopicCompleted } from "../utils/learningMastery.js";
 
 test("renders a fully locked, accessible mastery map with fullscreen access", async () => {
   const vite = await createServer({
@@ -224,4 +225,53 @@ test("uses six restrained status tones and a dark glass notebook node", async ()
     css,
     /\.mastery-flow-node\.has-coverage-only \.mastery-flow-node__coverage\s*\{[\s\S]*?color:\s*var\(--mastery-node-tone\);/u,
   );
+});
+
+test("completed notebook topics turn green and roll up completion to their chapter and notebook", async () => {
+  const vite = await createServer({ appType: "custom", logLevel: "silent", server: { middlewareMode: true } });
+  try {
+    const { default: LearningMasteryMap } = await vite.ssrLoadModule("/src/components/LearningMasteryMap.jsx");
+    const notebook = {
+      id: "physics-notebook", subjectName: "Physics", chapters: [{
+        id: "electrostatics", title: "Electrostatics", topics: [
+          { id: "force", title: "Force direction", subtopics: [] },
+          { id: "field", title: "Electric field", subtopics: [] },
+        ],
+      }],
+      revisedNotes: [
+        { id: "force-notes", title: "Force direction", topicIds: ["force"], completed: true },
+        { id: "field-notes", title: "Electric field", topicIds: ["field"], completed: true },
+      ],
+      learningState: { nodes: { force: { masteryScore: 0 }, field: { masteryScore: 0 } } },
+    };
+    const markup = renderToStaticMarkup(React.createElement(LearningMasteryMap, {
+      notebook,
+      // A stale zero-score view must not override saved content completion.
+      progressByNodeId: { force: { status: "learning", learnedAt: "", masteryScore: 0 } },
+    }));
+    const articles = Array.from(markup.matchAll(/<article class="[^"]*mastery-flow-node[^"]*"[\s\S]*?<\/article>/gu)).map((match) => match[0]);
+    for (const title of ["Physics", "Electrostatics", "Force direction", "Electric field"]) {
+      const article = articles.find((value) => value.includes(`<strong title="${title}">`));
+      assert.ok(article, `${title} should be present`);
+      assert.match(article, /has-visual-status-learned/u);
+      assert.match(article, /aria-label="100% completed">100%/u);
+      assert.match(article, /style="width:100%"/u);
+    }
+    const reopened = setNotebookTopicCompleted(notebook, "force", false, "2026-10-05T12:00:00.000Z");
+    const reopenedMarkup = renderToStaticMarkup(React.createElement(LearningMasteryMap, {
+      notebook: reopened,
+      progressByNodeId: { force: {
+        status: "learned", learnedAt: "2026-10-04T12:00:00.000Z", contentCompleted: true,
+        contentCompletedAt: "2026-10-04T12:00:00.000Z", contentCompletionUpdatedAt: "2026-10-04T12:00:00.000Z",
+      } },
+    }));
+    const reopenedArticles = Array.from(reopenedMarkup.matchAll(/<article class="[^"]*mastery-flow-node[^"]*"[\s\S]*?<\/article>/gu)).map((match) => match[0]);
+    const forceArticle = reopenedArticles.find((value) => value.includes('<strong title="Force direction">'));
+    assert.doesNotMatch(forceArticle, /has-visual-status-learned/u, "stale map props cannot restore canceled completion");
+    assert.match(forceArticle, /aria-label="0% completed">0%/u);
+    const rootArticle = reopenedArticles.find((value) => value.includes('<strong title="Physics">'));
+    assert.match(rootArticle, /aria-label="50% completed">50%/u);
+  } finally {
+    await vite.close();
+  }
 });

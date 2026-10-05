@@ -4,17 +4,19 @@ import test from "node:test";
 import {
   getLearningNodeStatus,
   hasLearningNodeAchievement,
-  normalizeLearningState,
 } from "../utils/learningMastery.js";
-import { buildRevisedNoteActionNode } from "../utils/learningRevisedNoteActions.js";
 
 const pageSource = readFileSync(new URL("./StartLearningPage.jsx", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("./StartLearningPage.css", import.meta.url), "utf8");
+const librarySource = readFileSync(new URL("../components/NotebookLibrary.jsx", import.meta.url), "utf8");
+const contentSource = readFileSync(new URL("../components/NotebookContent.jsx", import.meta.url), "utf8");
+const dialogSource = readFileSync(new URL("../components/NotebookCreateDialog.jsx", import.meta.url), "utf8");
 
 test("keeps notebook and placement preparation in separate workspace views", () => {
   assert.ok(pageSource.includes('className="learning-intake-choice-card is-notebook"'));
   assert.ok(pageSource.includes('className="learning-intake-choice-card is-placement"'));
-  assert.ok(pageSource.includes('intakeMode === "notebook" ? ('));
+  assert.ok(pageSource.includes('intakeMode === "notebook" && workspaceView === "intake" ? ('));
+  assert.ok(pageSource.includes("<NotebookLibrary"));
   assert.ok(pageSource.includes(') : intakeMode === "placement" ? ('));
   assert.ok(pageSource.includes('activeArtifactKind === "notebook" && ('));
   assert.ok(pageSource.includes('activeArtifactKind === "placement" && ('));
@@ -221,75 +223,36 @@ test("keeps enabled Start Learning workspace cards color-toned outside hover", (
   );
 });
 
-test("keeps notebook uploads and prompts together with plural chapter and topic fields", () => {
-  const intakeStart = pageSource.indexOf('{intakeMode === "notebook" ? (');
-  const intakeEnd = pageSource.indexOf("{!analyzing && analysisError", intakeStart);
+test("opens notebook preparation as a library and creates notebooks in a compact combined-scope dialog", () => {
+  const intakeStart = pageSource.indexOf('<NotebookCreateDialog open={newNotebookOpen}');
+  const intakeEnd = pageSource.indexOf("</NotebookCreateDialog>", intakeStart);
   const intakeSource = pageSource.slice(intakeStart, intakeEnd);
-
-  assert.ok(intakeStart >= 0 && intakeEnd > intakeStart, "expected the notebook intake");
-  assert.match(
-    intakeSource,
-    /className="learning-notebook-source-row"[\s\S]*?className="learning-notebook-upload-column"[\s\S]*?className="learning-dropzone"[\s\S]*?className="learning-notebook-source-divider"[\s\S]*?className="learning-notebook-prompt-column"[\s\S]*?className="learning-field learning-prompt-field"/u,
-  );
-  assert.doesNotMatch(
-    intakeSource,
-    /Use a prompt by itself, or combine it with a subject, chapter, topic, or upload\./u,
-  );
-  assert.doesNotMatch(intakeSource, /learning-scope-builder|Notebook scope/u);
-  assert.match(
-    intakeSource,
-    /className="learning-notebook-detail-fields"[\s\S]*?<span>Chapter\(s\)<\/span>[\s\S]*?setManualChapters[\s\S]*?<span>Topic\(s\)<\/span>[\s\S]*?setManualTopics/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-notebook-source-row\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*minmax\(0, 30fr\) 1px minmax\(0, 70fr\);/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-notebook-upload-column\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-notebook-upload-column \.learning-dropzone\s*\{[\s\S]*?flex:\s*0 0 calc\(var\(--learning-notebook-source-control-height\) \+ 16px\);[\s\S]*?height:\s*var\(--learning-notebook-source-control-height\);/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-prompt-field textarea\s*\{[\s\S]*?height:\s*var\(--learning-notebook-source-control-height\);/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-notebook-source-divider\s*\{[\s\S]*?width:\s*1px;[\s\S]*?background:\s*var\(--border\);/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-notebook-detail-fields\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);/u,
-  );
-  assert.match(pageSource, /const topicNames = parseChapterNames\(manualTopics\);/u);
-  assert.match(pageSource, /topics: topicNames,/u);
+  assert.ok(intakeStart >= 0 && intakeEnd > intakeStart);
+  assert.equal((intakeSource.match(/<textarea/gu) || []).length, 1);
+  assert.match(intakeSource, /id="learning-notebook-scope"/u);
+  assert.match(intakeSource, /Topics or chapters/u);
+  assert.match(intakeSource, /Optional reference files/u);
+  assert.match(intakeSource, /handleFiles\(event\.dataTransfer\.files\)/u);
+  assert.doesNotMatch(intakeSource, /learning-requirements|manualChapters|manualTopics/u);
+  assert.ok(intakeSource.indexOf('htmlFor="learning-subject-input"') < intakeSource.indexOf('id="learning-notebook-scope"'));
+  assert.match(dialogSource, /role="dialog"/u);
+  assert.match(dialogSource, /AnimatePresence/u);
+  assert.match(dialogSource, /initial=\{[\s\S]*?exit=\{/u);
+  assert.match(pageSource, /completionForNotebook=\{getNotebookCompletionSummary\}/u);
+  assert.match(librarySource, /No generated notebooks exist\./u);
+  assert.match(librarySource, /New notebook/u);
+  assert.match(librarySource, /hasNotebooks &&/u);
+  const requestStart = pageSource.indexOf("const runNotebookAnalysis =");
+  const requestEnd = pageSource.indexOf("const analyzeNotebook =", requestStart);
+  assert.doesNotMatch(pageSource.slice(requestStart, requestEnd), /chapterNames|requestedOutline/u);
+  assert.match(pageSource.slice(requestStart, requestEnd), /learningPrompt: requestedPrompt/u);
+  assert.match(pageSource.slice(requestStart, requestEnd), /topicNames/u);
 });
 
-test("prefills editable notebook details from a selected saved subject and keeps its menu opaque", () => {
-  const chooserStart = pageSource.indexOf("const chooseSavedSubject = (name) => {");
-  const chooserEnd = pageSource.indexOf("const handleSubjectPickerKeyDown", chooserStart);
-  const chooserSource = pageSource.slice(chooserStart, chooserEnd);
-
-  assert.ok(chooserStart >= 0 && chooserEnd > chooserStart, "expected saved-subject chooser");
-  assert.match(
-    chooserSource,
-    /getSubjectNotebookPrefill\(subjects, name\)[\s\S]*?setManualChapters\(prefill\.chapterNames\.join\("\\n"\)\)[\s\S]*?setManualTopics\(prefill\.topics\.join\("\\n"\)\)/u,
-  );
-  assert.match(
-    pageSource,
-    /const nextSubjectName = event\.target\.value;[\s\S]*?getSubjectNotebookPrefill\(subjects, nextSubjectName\)[\s\S]*?setManualChapters\(prefill\.chapterNames\.join\("\\n"\)\)[\s\S]*?setManualTopics\(prefill\.topics\.join\("\\n"\)\)/u,
-  );
-  assert.match(
-    stylesheet,
-    /\.learning-subject-options\s*\{[\s\S]*?background:\s*linear-gradient\(var\(--surface-strong\), var\(--surface-strong\)\), var\(--bg\);[\s\S]*?backdrop-filter:\s*none;/u,
-  );
-  assert.match(
-    stylesheet,
-    /body\.has-bg-image \.learning-page \.learning-subject-options\s*\{[\s\S]*?background:\s*linear-gradient\(var\(--surface-strong\), var\(--surface-strong\)\), var\(--bg\) !important;/u,
-  );
+test("preserves edited and cleared scope per subject and keeps its menu opaque", () => {
+  assert.match(pageSource, /Object.hasOwn\(scopeDrafts, scopeKey\)/u);
+  assert.match(pageSource, /getNotebookScopeSuggestion\(subjects, subjectName\)/u);
+  assert.match(stylesheet, /\.learning-subject-options\s*\{[\s\S]*?background:\s*linear-gradient\(var\(--surface-strong\), var\(--surface-strong\)\), var\(--bg\);[\s\S]*?backdrop-filter:\s*none;/u);
 });
 
 test("opens generated notebooks on a real topic and keeps focused sessions topic-scoped", () => {
@@ -411,11 +374,16 @@ test("places Subject Mastery beside Back in Notebook preparation", () => {
 
 test("shows the simplified notebook views and section actions", () => {
   assert.doesNotMatch(pageSource, /Study studio|LearningStudyStudio|Misconception radar|AI Coach/u);
-  assert.match(pageSource, /\["notes", "Revised notes"/u);
-  assert.match(pageSource, /\["outline", "Topic outline"/u);
+  assert.match(pageSource, /\["notes", "Notebook content"/u);
+  assert.doesNotMatch(pageSource, /\["outline",|learningTabPanelProps\(activeTab, "outline"|Topic outline/u);
   assert.match(pageSource, /\["map", "Mastery map"/u);
   assert.match(pageSource, /\["recall", "Recall session"/u);
-  assert.match(pageSource, /className="learning-note-actions"[\s\S]*?Add to planner[\s\S]*?Mark completed[\s\S]*?Ask AI[\s\S]*?Save to Notes/u);
+  assert.match(pageSource, /<NotebookContent[\s\S]*?onComplete=\{setTopicCompletion\}/u);
+  assert.match(contentSource, /Mark completed/u);
+  assert.match(contentSource, /Add to planner/u);
+  assert.match(contentSource, /Save to Notes/u);
+  assert.match(contentSource, /Explained examples/u);
+  assert.match(contentSource, /Key points/u);
 });
 
 test("mastery-map chapter and notebook coverage follows all actual topics", () => {
@@ -462,62 +430,17 @@ test("mastery-map chapter and notebook coverage follows all actual topics", () =
   assert.equal(progress.root.masteryScore, 100);
 });
 
-test("revised-note completion saves note and topic progress together using the latest notebook", () => {
-  const handlerStart = pageSource.indexOf("const toggleRevisedNoteCompletion =");
+test("notebook content completion saves the latest notebook through the canonical topic setter", () => {
+  const handlerStart = pageSource.indexOf("const setTopicCompletion =");
   const handlerEnd = pageSource.indexOf("const closePlannerDialog =", handlerStart);
-  const notebook = {
-    id: "notebook",
-    title: "Data analytics",
-    subjectName: "Data analytics",
-    chapters: [{
-      id: "chapter",
-      title: "Introduction",
-      topics: [{ id: "last-topic", title: "Data Visualization Basics", subtopics: [] }],
-    }],
-    revisedNotes: [{ id: "last-note", title: "Data Visualization Basics", completed: false }],
-  };
-  let current = notebook;
-  let saveCount = 0;
-  const toggleCompletion = new Function(
-    "activeNotebook",
-    "buildRevisedNoteActionNode",
-    "updateNotebook",
-    "normalizeLearningState",
-    "getLearningPlannerCompletionState",
-    "schedule",
-    "completed",
-    "activeLearningProject",
-    "setLearningPlannerNodeCompletion",
-    "setCompleted",
-    "setNotification",
-    `${pageSource.slice(handlerStart, handlerEnd)}; return toggleRevisedNoteCompletion;`,
-  )(
-    notebook,
-    buildRevisedNoteActionNode,
-    (updater) => { current = updater(current); saveCount += 1; },
-    normalizeLearningState,
-    () => ({ isScheduled: false }),
-    [],
-    [],
-    {},
-    () => { throw new Error("an unscheduled revised note must not change planner completion"); },
-    () => {},
-    () => {},
-  );
-  toggleCompletion(notebook.revisedNotes[0]);
-  assert.equal(saveCount, 1);
-  assert.equal(current.revisedNotes[0].completed, true);
-  assert.ok(current.revisedNotes[0].completedAt);
-  assert.ok(hasLearningNodeAchievement(current.learningState.nodes["last-topic"]));
-  assert.ok(current.learningState.nodes["last-topic"].masteryScore > 0);
-
-  toggleCompletion(notebook.revisedNotes[0]);
-  assert.equal(saveCount, 2);
-  assert.equal(current.revisedNotes[0].completed, false, "a rapid repeat click uses the latest notebook");
-  assert.equal(current.revisedNotes[0].completedAt, "");
+  assert.ok(handlerStart >= 0 && handlerEnd > handlerStart);
+  const handlerSource = pageSource.slice(handlerStart, handlerEnd);
+  assert.match(handlerSource, /updateNotebook\(\(current\) => setNotebookTopicCompleted\(current, topic\.id, complete\)\)/u);
+  assert.match(pageSource, /completionByTopic=\{getNotebookCompletionSummary\(activeNotebook\)\.completionByTopic\}/u);
+  assert.doesNotMatch(pageSource, /toggleRevisedNoteCompletion/u);
 });
 
-test("keeps the Start Learning return control inside opened notebook and placement workspaces", () => {
+test("returns opened notebooks to their library and placement guides to Start Learning", () => {
   const notebookHeaderStart = pageSource.indexOf('className="card learning-notebook-header"');
   const notebookHeaderEnd = pageSource.indexOf("</section>", notebookHeaderStart);
   const notebookHeaderSource = pageSource.slice(notebookHeaderStart, notebookHeaderEnd);
@@ -528,6 +451,7 @@ test("keeps the Start Learning return control inside opened notebook and placeme
   assert.ok(notebookHeaderStart >= 0, "expected the opened notebook header card");
   assert.ok(resultsActionsStart >= 0, "expected the opened placement results actions");
   assert.ok(notebookHeaderSource.includes('className="learning-workspace-return-button is-inside-card"'));
+  assert.ok(notebookHeaderSource.includes("Back to notebooks"));
   assert.ok(resultsActionsSource.includes('className="learning-workspace-return-button"'));
   assert.ok(resultsActionsSource.includes("Back to Start Learning"));
 });
@@ -541,7 +465,7 @@ test("keeps notebook tab panels mounted and transitions only the active view", (
   const panelsSource = pageSource.slice(panelsStart, panelsEnd);
 
   assert.ok(panelsStart >= 0 && panelsEnd > panelsStart, "expected a persistent tab-panel region");
-  ["notes", "outline", "map", "recall"].forEach((tabId) => {
+  ["notes", "map", "recall"].forEach((tabId) => {
     assert.ok(
       panelsSource.includes(`learningTabPanelProps(activeTab, "${tabId}",`),
       `expected the ${tabId} panel to remain mounted`,
@@ -567,9 +491,9 @@ test("keeps notebook tab panels mounted and transitions only the active view", (
   assert.match(reducedMotionStyles, /\.learning-tab-panel\s*\{\s*transform:\s*none\s*!important;/u);
 });
 
-test("uses the completion state to tint only the completed mastery-map action green", () => {
-  const actionStart = pageSource.indexOf("const renderCompletionAction =");
-  const actionEnd = pageSource.indexOf("const addToPlanner =", actionStart);
+test("uses canonical completion state for the green mastery-map action", () => {
+  const actionStart = pageSource.indexOf('className="learning-map-smart-actions"');
+  const actionEnd = pageSource.indexOf("</div>", pageSource.indexOf("Mark completed", actionStart));
   const actionSource = pageSource.slice(actionStart, actionEnd);
   const completedSelector = 'body .learning-map-smart-actions .learning-completion-action.is-complete[aria-pressed="true"]';
   const completedStylesStart = stylesheet.indexOf(`${completedSelector} {`);
@@ -579,9 +503,9 @@ test("uses the completion state to tint only the completed mastery-map action gr
   const defaultActionsStyles = stylesheet.slice(defaultActionsStart, completedStylesStart);
 
   assert.ok(actionStart >= 0 && actionEnd > actionStart);
-  assert.ok(actionSource.includes('state.isCompleted ? "Completed" : "Mark as completed"'));
-  assert.ok(actionSource.includes("aria-pressed={state.isScheduled ? state.isCompleted : undefined}"));
-  assert.ok(actionSource.includes('state.isCompleted ? " is-complete" : ""'));
+  assert.match(actionSource, /aria-pressed=\{getNotebookCompletionSummary\(activeNotebook\)\.completionByTopic\[selectedNode\.id\] === true\}/u);
+  assert.match(actionSource, /setTopicCompletion\(selectedNode,/u);
+  assert.match(actionSource, /"Completed" : "Mark completed"/u);
   assert.ok(completedStylesStart >= 0 && completedStylesEnd > completedStylesStart);
   assert.match(completedStyles, /#22c55e/u);
   assert.doesNotMatch(defaultActionsStyles, /#22c55e/u);

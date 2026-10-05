@@ -8,11 +8,13 @@ import {
   getLearningNodeState,
   getLearningNodeStatus,
   getLearningReviewQueue,
+  getNotebookCompletionSummary,
   hasLearningNodeAchievement,
   markLearningNodeLearned,
   normalizeLearningState,
   recordLearningAttempt,
   setLearningNodeStatus,
+  setNotebookTopicCompleted,
   startLearningSession,
   updateLearningSession,
 } from "./learningMastery.js";
@@ -35,6 +37,103 @@ const notebook = {
     ],
   }],
 };
+
+test("notebook completion counts current topics once and excludes subtopics and retired evidence", () => {
+  const original = {
+    ...structuredClone(notebook),
+    revisedNotes: [{ id: "sorting-notes", title: "Array sorting", topicIds: ["topic-sorting"], completed: true }],
+    learningState: { nodes: {
+      "topic-traversal": { status: "learned", learnedAt: NOW },
+      "subtopic-loops": { status: "new" },
+      "retired-topic": { title: "Old topic", nodeType: "topic", status: "new" },
+    } },
+  };
+  const before = structuredClone(original);
+  assert.deepEqual(getNotebookCompletionSummary(original, { now: NOW }), {
+    percent: 100, completedTopics: 2, totalTopics: 2, isCompleted: true,
+    completionByTopic: { "topic-traversal": true, "topic-sorting": true },
+  });
+  assert.deepEqual(original, before);
+  const insights = getLearningInsights([original], { now: NOW });
+  assert.equal(insights.completedNotebookCount, 1);
+  assert.equal(insights.completedTopicCount, 2);
+  assert.equal(insights.completionRate, 100);
+  assert.equal(insights.remainingTopicCount, 0);
+});
+
+test("topic completion keeps linked notes, cards, map evidence, and persisted state in sync", () => {
+  const original = {
+    ...structuredClone(notebook),
+    revisedNotes: [{ id: "arrays-note", title: "Arrays", topicIds: ["topic-traversal", "topic-sorting"], completed: false }],
+  };
+  const first = setNotebookTopicCompleted(original, "topic-traversal", true, NOW);
+  assert.equal(getNotebookCompletionSummary(first).percent, 50);
+  assert.equal(first.revisedNotes[0].completed, false);
+  assert.equal(first.learningState.nodes["topic-traversal"].contentCompleted, true);
+  assert.equal(first.learningState.nodes["topic-traversal"].contentCompletionUpdatedAt, NOW);
+  assert.ok(hasLearningNodeAchievement(first.learningState.nodes["topic-traversal"]));
+  const all = setNotebookTopicCompleted(first, "topic-sorting", true, NOW);
+  assert.equal(all.revisedNotes[0].completed, true);
+  assert.equal(getNotebookCompletionSummary(all).percent, 100);
+  const unchecked = setNotebookTopicCompleted(all, "topic-sorting", false, NOW);
+  assert.equal(unchecked.revisedNotes[0].completed, false);
+  assert.equal(getNotebookCompletionSummary(unchecked).percent, 50);
+  assert.equal(unchecked.learningState.nodes["topic-sorting"].learnedAt, "");
+  const reloaded = { ...unchecked, learningState: normalizeLearningState(unchecked.learningState, { notebook: unchecked, now: NOW }) };
+  assert.equal(getNotebookCompletionSummary(reloaded).percent, 50);
+  assert.equal(reloaded.learningState.nodes["topic-sorting"].contentCompleted, false);
+  assert.equal(reloaded.learningState.nodes["topic-sorting"].contentCompletionUpdatedAt, NOW);
+  assert.equal(original.learningState, undefined);
+  assert.equal(original.revisedNotes[0].completed, false);
+});
+
+test("an explicit reopened topic takes precedence over stale completed notes and legacy node aliases", () => {
+  const completed = setNotebookTopicCompleted({
+    ...structuredClone(notebook),
+    revisedNotes: [{ id: "sorting-notes", topicIds: ["topic-sorting"], completed: false }],
+  }, "topic-sorting", true, NOW);
+  const reopened = setNotebookTopicCompleted(completed, "topic-sorting", false, "2026-08-01T10:10:00.000Z");
+  const staleSnapshot = {
+    ...reopened,
+    revisedNotes: completed.revisedNotes,
+    learningState: {
+      ...reopened.learningState,
+      nodes: {
+        ...reopened.learningState.nodes,
+        "chapter-arrays-topic-sorting": {
+          ...completed.learningState.nodes["topic-sorting"],
+          nodeId: "chapter-arrays-topic-sorting",
+        },
+      },
+    },
+  };
+  const normalized = normalizeLearningState(staleSnapshot.learningState, { notebook: staleSnapshot, now: NOW });
+  assert.equal(normalized.nodes["topic-sorting"].contentCompleted, false);
+  assert.equal(normalized.nodes["topic-sorting"].contentCompletionUpdatedAt, "2026-08-01T10:10:00.000Z");
+  assert.equal(hasLearningNodeAchievement(normalized.nodes["topic-sorting"]), false);
+  assert.equal(getNotebookCompletionSummary({ ...staleSnapshot, learningState: normalized }).percent, 0);
+});
+
+test("unchecking content completion preserves assessed recall and mastery evidence", () => {
+  const original = {
+    ...structuredClone(notebook),
+    revisedNotes: [{ id: "traversal-notes", title: "Array traversal", completed: true }],
+    learningState: { nodes: {
+      "topic-traversal": {
+        status: "mastered", masteryScore: 96, learnedAt: NOW, masteredAt: NOW,
+        attempts: [{ score: 96, correct: true, answeredAt: NOW }],
+      },
+    } },
+  };
+  const unchecked = setNotebookTopicCompleted(original, "topic-traversal", false, NOW);
+  assert.equal(unchecked.revisedNotes[0].completed, false);
+  assert.equal(unchecked.learningState.nodes["topic-traversal"].contentCompleted, false);
+  assert.equal(unchecked.learningState.nodes["topic-traversal"].masteryScore, 96);
+  assert.equal(unchecked.learningState.nodes["topic-traversal"].masteredAt, NOW);
+  assert.equal(unchecked.learningState.nodes["topic-traversal"].attempts.length, 1);
+  assert.equal(getNotebookCompletionSummary(unchecked).completedTopics, 1);
+  assert.equal(setNotebookTopicCompleted(original, "unknown", true, NOW), original);
+});
 
 test("builds stable worktree nodes and gives a legacy notebook a safe learning state", () => {
   const original = structuredClone(notebook);

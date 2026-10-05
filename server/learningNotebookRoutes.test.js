@@ -3,8 +3,11 @@ import test from "node:test";
 import {
   DEFAULT_GEMINI_LEARNING_FALLBACK_MODELS,
   DEFAULT_GEMINI_LEARNING_MODEL,
+  DEFAULT_GEMINI_LEARNING_REVIEW_MODEL,
   DEFAULT_GROQ_LEARNING_FALLBACK_MODELS,
   DEFAULT_GROQ_LEARNING_MODEL,
+  DEFAULT_GROQ_LEARNING_REVIEW_MODEL,
+  DEFAULT_GROQ_VISION_MODEL,
   MAX_GEMINI_LEARNING_OUTPUT_TOKENS,
   LEARNING_RETRY_COMPLETION_TOKENS,
   MAX_GROQ_LEARNING_CHAPTERS,
@@ -12,11 +15,13 @@ import {
   MAX_LEARNING_AI_SOURCE_TOKENS,
   MAX_LEARNING_PROMPT_CHARS,
   MAX_LEARNING_COMPLETION_TOKENS,
+  MAX_LEARNING_REVIEW_COMPLETION_TOKENS,
   MAX_GROQ_LEARNING_COMPLETION_TOKENS,
   MAX_LEARNING_CAREER_CONTEXT_CHARS,
   MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND,
   PLACEMENT_WORKSPACE_ARTIFACT_KIND,
   buildLearningNotebookDepthTargets,
+  buildRequestedTopicDepthTargets,
   compactLearningSourceMaterial,
   MAX_LEARNING_VISION_TEXT_CHARS,
   MAX_LEARNING_TEXT_SOURCE_CHARS,
@@ -26,6 +31,7 @@ import {
   normalizeLearningCareerContext,
   normalizeLearningMedicalTrainingContext,
   normalizeLearningRequestedOutline,
+  normalizeLearningTopicNames,
   providerRetryDelayMs,
   requestGeminiLearningNotebookJson,
   requestLearningNotebookJson,
@@ -46,6 +52,17 @@ test("normalizes optional kids lesson generation sizes", () => {
   assert.equal(normalizeLearningGenerationSize("HIGH"), "high");
   assert.equal(normalizeLearningGenerationSize("medium"), null);
   assert.equal(normalizeLearningGenerationSize(undefined), null);
+});
+
+test("normalizes exact topic labels without padding or silently dropping scope", () => {
+  assert.deepEqual(normalizeLearningTopicNames("Coulomb's law\nRay optics,  Ray   optics "), ["Coulomb's law", "Ray optics"]);
+  assert.throws(() => normalizeLearningTopicNames([{ title: "Optics" }]), (error) => error.code === "LEARNING_TOPICS_INVALID");
+  assert.throws(() => normalizeLearningTopicNames(["x".repeat(141)]), (error) => error.code === "LEARNING_TOPIC_NAME_TOO_LONG");
+  assert.throws(() => normalizeLearningTopicNames(Array.from({ length: 13 }, (_, index) => `Topic ${index}`)), (error) => error.code === "LEARNING_TOPIC_LIMIT");
+  const depth = buildRequestedTopicDepthTargets("Physics", ["Coulomb's law", "Ray optics"]);
+  assert.equal(depth.totalTopics, 2);
+  assert.equal(depth.minimumNoteSections, 2);
+  assert.equal(depth.minimumExamplesPerTopic, 2);
 });
 
 test("honors provider reset hints instead of truncating them to a short retry", () => {
@@ -661,6 +678,24 @@ test("uses Qwen only for bounded OCR text before structured notebook generation"
   assert.match(text, /^UNIT I/u);
 });
 
+test("uses the current vision default when omitted and preserves explicit model overrides", async () => {
+  const requests = [];
+  const options = {
+    apiKey: "test-key", subjectName: "Physics",
+    visionImages: [{ name: "page.png", dataUrl: "data:image/png;base64,AAAA" }],
+    fetchImpl: async (_url, request) => {
+      requests.push(JSON.parse(request.body));
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: "Coulomb's law" } }] }) };
+    },
+  };
+  await requestLearningVisionText(options);
+  await requestLearningVisionText({ ...options, model: "custom/vision-model" });
+  assert.equal(requests[0].model, DEFAULT_GROQ_VISION_MODEL);
+  assert.equal(requests[0].model, "qwen/qwen3.8-27b");
+  assert.equal(requests[0].reasoning_effort, "none");
+  assert.equal(requests[1].model, "custom/vision-model");
+});
+
 test("routes scanned inputs through Qwen OCR and Llama structured generation", async () => {
   const routes = new Map();
   const app = {};
@@ -1145,8 +1180,9 @@ function scopedGroqNotebookResponse(options) {
     .join("\n");
   const chapterMatch = prompt.match(/Generate only the chapter ("[^\n]*?");/u);
   const topicMatch = prompt.match(/Cover topics (\d+) through (\d+) of (\d+) for this chapter/u);
-  const countMatch = prompt.match(/exactly (\d+) subtopic objects per topic, exactly (\d+) important question objects, exactly (\d+) revised note objects/u);
-  assert.ok(chapterMatch && topicMatch && countMatch, "The provider request must declare a bounded chapter part.");
+  const subtopicMatch = prompt.match(/exactly (\d+) meaningful subtopics for every topic/u);
+  const sectionMatch = prompt.match(/Return exactly (\d+) importantQuestions and exactly (\d+) revisedNotes/u);
+  assert.ok(chapterMatch && topicMatch && subtopicMatch && sectionMatch, "The provider request must declare a bounded chapter part.");
   const chapterTitle = JSON.parse(chapterMatch[1]);
   const topicOffset = Number(topicMatch[1]) - 1;
   const topicCount = Number(topicMatch[2]) - topicOffset;
@@ -1159,21 +1195,24 @@ function scopedGroqNotebookResponse(options) {
   return groqNotebookResponse(generatedNotebookPart(chapterTitle, {
     topicOffset,
     topicCount,
-    subtopicCount: Number(countMatch[1]),
-    questionCount: Number(countMatch[2]),
-    noteCount: Number(countMatch[3]),
+    subtopicCount: Number(subtopicMatch[1]),
+    questionCount: Number(sectionMatch[1]),
+    noteCount: Number(sectionMatch[2]),
   }));
 }
 
 function createLearningRouteHarness({
   fetchImpl,
+  reviewFetchImpl,
   generationDeadlineMs,
   geminiConfig = { available: true, apiKey: "gemini-key" },
   geminiLearningModel = DEFAULT_GEMINI_LEARNING_MODEL,
   geminiLearningModels,
+  geminiLearningReviewModel,
   groqConfig = { available: true, apiKey: "groq-key" },
   groqLearningModel = DEFAULT_GROQ_LEARNING_MODEL,
   groqLearningModels,
+  groqLearningReviewModel,
   logger = { warn() {} },
   prepareAttachmentContext,
   providerAdvertisedWaitBudgetMs,
@@ -1208,9 +1247,19 @@ function createLearningRouteHarness({
     aiQuota,
     assertProfileWritable: async () => ({}),
     withProfileWriteFence: async (_db, _req, write) => write(),
-    fetchImpl,
+    fetchImpl: async (url, options) => {
+      const request = JSON.parse(options.body);
+      const system = request.systemInstruction?.parts?.[0]?.text || request.messages?.[0]?.content || "";
+      if (system.startsWith("Teaching text review:")) {
+        if (reviewFetchImpl) return reviewFetchImpl(url, options);
+        const review = { status: "verified", corrections: [] };
+        return url.includes("generativelanguage") ? geminiNotebookResponse(review) : groqNotebookResponse(review);
+      }
+      return fetchImpl(url, options);
+    },
     geminiLearningModel,
     geminiLearningModels,
+    geminiLearningReviewModel,
     generationDeadlineMs,
     getDb: async () => {
       dbCalls += 1;
@@ -1221,6 +1270,7 @@ function createLearningRouteHarness({
     getGroqConfigStatus: () => groqConfig,
     groqLearningModel,
     groqLearningModels,
+    groqLearningReviewModel,
     groqModel: "llama-3.1-8b-instant",
     groqVisionModel: "qwen/qwen3.6-27b",
     logger,
@@ -1284,6 +1334,423 @@ function createLearningRouteHarness({
     },
   };
 }
+
+function requestedTopicNotebookPart(schema) {
+  const chapter = schema.properties.chapters.items.properties;
+  const topicName = chapter.topics.items.properties.title.enum[0];
+  const generated = generatedNotebookPart(chapter.title.enum[0], {
+    topicCount: 1,
+    subtopicCount: chapter.topics.items.properties.subtopics.minItems,
+    questionCount: schema.properties.importantQuestions.minItems,
+    noteCount: 1,
+  });
+  const topic = generated.chapters[0].topics[0];
+  topic.title = topicName;
+  topic.explanation = `${topicName}: ${topic.explanation}`.repeat(3);
+  topic.examples = [
+    "A worked situation: substitute the stated quantities into the relationship, calculate carefully with their units, and check that the result matches the assumptions.",
+    "A practical example: explain why the governing principle predicts this real-world outcome, then compare the prediction with the observable result.",
+  ];
+  generated.importantQuestions.forEach((question) => { question.question = `${topicName}: ${question.question}`; });
+  generated.revisedNotes[0].title = topicName;
+  generated.revisedNotes[0].content = topic.explanation;
+  generated.revisedNotes[0].chapterTitle = chapter.title.enum[0];
+  generated.revisedNotes[0].topicIds = [topic.id];
+  return generated;
+}
+
+test("preserves requested topic titles, detailed lessons and map links through either provider", async () => {
+  for (const provider of ["gemini", "groq"]) {
+    const requests = [];
+    const harness = createLearningRouteHarness({
+      geminiConfig: { available: provider === "gemini", apiKey: "gemini-key" },
+      groqConfig: { available: provider === "groq", apiKey: "groq-key" },
+      fetchImpl: async (_url, options) => {
+        const request = JSON.parse(options.body);
+        requests.push(request);
+        const schema = provider === "gemini"
+          ? request.generationConfig.responseJsonSchema
+          : request.response_format.json_schema.schema;
+        assert.equal(schema.properties.chapters.items.properties.topics.minItems, 1);
+        assert.equal(schema.properties.chapters.items.properties.topics.items.properties.explanation.minLength, 600);
+        assert.equal(schema.properties.revisedNotes.items.properties.topicIds.minItems, 1);
+        const systemPrompt = provider === "gemini"
+          ? request.systemInstruction.parts[0].text
+          : request.messages[0].content;
+        assert.match(systemPrompt, /Recompute numbers from SI inputs, powers of ten and final units/u);
+        assert.match(systemPrompt, /affected object and coordinate\/unit-vector convention/u);
+        assert.match(systemPrompt, /Validate geometry, model assumptions and boundary conditions/u);
+        const value = requestedTopicNotebookPart(schema);
+        return provider === "gemini" ? geminiNotebookResponse(value) : groqNotebookResponse(value);
+      },
+    });
+    const response = await harness.analyze({
+      subjectName: "Physics",
+      chapterNames: [],
+      topicNames: ["Coulomb's law", "Ray optics"],
+      learningPrompt: "Explain each concept with practical examples and worked reasoning.",
+    });
+    assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+    assert.equal(requests.length, 2, "No extra planning or topic-padding requests are needed.");
+    assert.deepEqual(response.body.notebook.chapters[0].topics.map((topic) => topic.title), ["Coulomb's law", "Ray optics"]);
+    assert.deepEqual(response.body.notebook.revisedNotes.map((note) => note.topicIds), [["chapter-1-topic-1"], ["chapter-1-topic-2"]]);
+    assert.deepEqual(response.body.notebook.mindMap.nodes.filter((node) => node.kind === "topic").map((node) => node.label), ["Coulomb's law", "Ray optics"]);
+    assert.match(response.body.notebook.title, /Coulomb's law.*Ray optics/u);
+    assert.equal(harness.aiQuota.calls.reserve.length, 1);
+    assert.equal(harness.aiQuota.calls.commit.length, 1);
+    assert.equal(harness.aiQuota.calls.refund.length, 0);
+  }
+});
+
+test("falls back from wrong-topic Gemini output to exact-topic Groq output without double charging", async () => {
+  const providers = [];
+  const harness = createLearningRouteHarness({
+    geminiLearningModels: [DEFAULT_GEMINI_LEARNING_MODEL],
+    fetchImpl: async (url, options) => {
+      const request = JSON.parse(options.body);
+      const gemini = url.includes("generativelanguage");
+      providers.push(gemini ? "gemini" : "groq");
+      const value = requestedTopicNotebookPart(gemini
+        ? request.generationConfig.responseJsonSchema
+        : request.response_format.json_schema.schema);
+      if (gemini) value.chapters[0].topics[0].title = "Unrequested topic";
+      return gemini ? geminiNotebookResponse(value) : groqNotebookResponse(value);
+    },
+  });
+  const response = await harness.analyze({ chapterNames: [], topicNames: ["CPU scheduling"] });
+  assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+  assert.ok(providers.includes("gemini") && providers.includes("groq"));
+  assert.equal(response.body.notebook.chapters[0].topics[0].title, "CPU scheduling");
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("rejects oversized explicit topic scope before provider calls and credit reservation", async () => {
+  const harness = createLearningRouteHarness({ fetchImpl: async () => { throw new Error("Must not call AI"); } });
+  const response = await harness.analyze({ topicNames: Array.from({ length: 13 }, (_, index) => `Topic ${index}`) });
+  assert.equal(response.statusCode, 413);
+  assert.equal(response.body.code, "LEARNING_TOPIC_LIMIT");
+  assert.equal(harness.aiQuota.calls.reserve.length, 0);
+});
+
+test("generates all twelve requested topics within bounded Groq JSON requests", async () => {
+  const names = Array.from({ length: 12 }, (_, index) => `Requested learning topic ${index + 1}`);
+  const requests = [];
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requests.push(request);
+      const schema = request.response_format.json_schema.schema;
+      assert.equal(schema.properties.chapters.items.properties.topics.maxItems, 1);
+      return groqNotebookResponse(requestedTopicNotebookPart(schema));
+    },
+  });
+  const response = await harness.analyze({ chapterNames: [], topicNames: names });
+  assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+  assert.equal(requests.length, 12);
+  assert.deepEqual(response.body.notebook.chapters[0].topics.map((topic) => topic.title), names);
+  assert.equal(response.body.notebook.revisedNotes.length, 12);
+  assert.equal(response.body.notebook.importantQuestions.length, 20);
+});
+
+test("falls back when individually valid Gemini topics cannot merge into a complete notebook", async () => {
+  const harness = createLearningRouteHarness({
+    geminiLearningModels: [DEFAULT_GEMINI_LEARNING_MODEL],
+    fetchImpl: async (url, options) => {
+      const request = JSON.parse(options.body);
+      const gemini = url.includes("generativelanguage");
+      const value = requestedTopicNotebookPart(gemini
+        ? request.generationConfig.responseJsonSchema
+        : request.response_format.json_schema.schema);
+      if (gemini) value.importantQuestions.forEach((question, index) => { question.question = `Duplicate question ${index + 1}`; });
+      return gemini ? geminiNotebookResponse(value) : groqNotebookResponse(value);
+    },
+  });
+  const response = await harness.analyze({ chapterNames: [], topicNames: ["CPU scheduling", "Memory allocation"] });
+  assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+  assert.equal(response.body.notebook.revisedNotes.length, 2);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("rejects schema-failure recovery with missing teaching arrays or fake examples", async (t) => {
+  for (const invalidPart of ["missing applications", "unexplained examples", "non-string examples"]) {
+    await t.test(invalidPart, async () => {
+      let requestCount = 0;
+      const harness = createLearningRouteHarness({
+        geminiConfig: { available: false },
+        fetchImpl: async (_url, options) => {
+          requestCount += 1;
+          const request = JSON.parse(options.body);
+          const schema = request.response_format?.json_schema?.schema;
+          if (!schema) return groqNotebookResponse({ chapters: [] });
+          const value = requestedTopicNotebookPart(schema);
+          if (requestCount === 1) {
+            const topic = value.chapters[0].topics[0];
+            if (invalidPart === "missing applications") topic.applications = [];
+            if (invalidPart === "unexplained examples") topic.examples = ["Compute the force.", "Find the direction."];
+            if (invalidPart === "non-string examples") topic.examples = [12345, 67890];
+            return {
+              ok: false, status: 400,
+              json: async () => ({ error: { code: "json_validate_failed", failed_generation: JSON.stringify(value) } }),
+            };
+          }
+          return groqNotebookResponse(value);
+        },
+      });
+      const response = await harness.analyze({ chapterNames: [], topicNames: ["Coulomb's law"] });
+      assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+      assert.ok(requestCount > 1, "Invalid teaching content must not be accepted from failed_generation.");
+      assert.equal(response.body.notebook.topics[0].applications.length, 2);
+      assert.equal(harness.aiQuota.calls.commit.length, 1);
+    });
+  }
+});
+
+test("independent review corrects displayed teaching text before persistence without another credit charge", async () => {
+  let generationCalls = 0;
+  let reviewCalls = 0;
+  const corrected = "For +5 µC and −1 µC separated by 0.04 m in vacuum, F = 8.99 × 10⁹ × 5 × 10⁻¹² / 0.0016 = 28.1 N. Opposite charges attract along the line joining them.";
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async (_url, options) => {
+      generationCalls += 1;
+      const value = requestedTopicNotebookPart(JSON.parse(options.body).response_format.json_schema.schema);
+      value.chapters[0].topics[0].examples[0] = corrected.replace("28.1 N", "2.8 N");
+      return groqNotebookResponse(value);
+    },
+    reviewFetchImpl: async (_url, options) => {
+      reviewCalls += 1;
+      const request = JSON.parse(options.body);
+      assert.equal(request.model, DEFAULT_GROQ_LEARNING_REVIEW_MODEL);
+      assert.equal(request.response_format.type, "json_object");
+      assert.equal(request.reasoning_effort, "low");
+      assert.equal(request.reasoning_format, "hidden");
+      const input = JSON.parse(request.messages[1].content);
+      assert.equal(input.subjectName, "Physics");
+      assert.ok(input.fields.some(({ path, text }) => path === "chapters.0.topics.0.examples.0" && text.includes("2.8 N")));
+      return groqNotebookResponse({ status: "verified", corrections: [{ path: "chapters.0.topics.0.examples.0", text: corrected }] });
+    },
+  });
+  const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: ["Coulomb's law"] });
+  assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+  assert.equal(generationCalls, 1);
+  assert.equal(reviewCalls, 1);
+  assert.equal(response.body.notebook.topics[0].examples[0], corrected);
+  assert.equal(harness.stored[0].chapters[0].topics[0].examples[0], corrected);
+  assert.equal(response.body.notebook.topics[0].title, "Coulomb's law");
+  assert.deepEqual(response.body.notebook.revisedNotes[0].topicIds, ["chapter-1-topic-1"]);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("failed, malformed, unresolved or structural reviews refund rather than saving unchecked STEM content", async (t) => {
+  const cases = [
+    { name: "malformed JSON", response: () => ({ ok: true, json: async () => ({ choices: [{ message: { content: "{invalid" } }] }) }) },
+    { name: "unresolved claim", response: () => groqNotebookResponse({ status: "unresolved", corrections: [] }) },
+    { name: "truncated failed_generation", response: () => ({ ok: false, status: 400, json: async () => ({ error: { code: "json_validate_failed", failed_generation: "{\"status\":\"verified\",\"corrections\":[" } }) }) },
+    { name: "unresolved failed_generation", response: () => ({ ok: false, status: 400, json: async () => ({ error: { code: "json_validate_failed", failed_generation: JSON.stringify({ status: "unresolved", corrections: [] }) } }) }) },
+    { name: "structural failed_generation", response: () => ({ ok: false, status: 400, json: async () => ({ error: { code: "json_validate_failed", failed_generation: JSON.stringify({ status: "verified", corrections: [{ path: "chapters.0.topics.0.id", text: "replacement-id" }] }) } }) }) },
+    { name: "forbidden title change", response: () => groqNotebookResponse({ status: "verified", corrections: [{ path: "chapters.0.topics.0.title", text: "Unrequested topic" }] }) },
+    { name: "destroyed teaching depth", response: () => groqNotebookResponse({ status: "verified", corrections: [{ path: "chapters.0.topics.0.explanation", text: "Too short." }] }) },
+    { name: "unavailable reviewer", response: () => ({ ok: false, status: 503, json: async () => ({ error: { message: "Unavailable." } }) }) },
+    { name: "throttled reviewer", status: 429, response: () => ({ ok: false, status: 429, json: async () => ({ error: { code: "rate_limit_exceeded", message: "Too many requests." } }) }) },
+  ];
+  for (const row of cases) await t.test(row.name, async () => {
+    let generationCalls = 0;
+    let reviewCalls = 0;
+    const harness = createLearningRouteHarness({
+      geminiConfig: { available: false },
+      fetchImpl: async (_url, options) => {
+        generationCalls += 1;
+        return groqNotebookResponse(requestedTopicNotebookPart(JSON.parse(options.body).response_format.json_schema.schema));
+      },
+      reviewFetchImpl: async () => { reviewCalls += 1; return row.response(); },
+    });
+    const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: ["Coulomb's law"] });
+    assert.equal(response.statusCode, row.status || 502, JSON.stringify(response.body));
+    assert.equal(generationCalls, 1, "A failed review must not start another generation chain.");
+    assert.equal(reviewCalls, 1, "Review must not retry or recover unchecked output.");
+    assert.equal(harness.stored.length, 0);
+    assert.equal(harness.aiQuota.calls.commit.length, 0);
+    assert.equal(harness.aiQuota.calls.refund.length, 1);
+  });
+});
+
+test("recovers a complete JSON-mode review failure only after applying and validating its protected corrections", async () => {
+  let reviewCalls = 0;
+  const correction = "Opposite point charges attract; apply Coulomb's law using charge magnitudes in coulombs and distance in metres.";
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async (_url, options) => groqNotebookResponse(requestedTopicNotebookPart(JSON.parse(options.body).response_format.json_schema.schema)),
+    reviewFetchImpl: async () => {
+      reviewCalls += 1;
+      return {
+        ok: false, status: 400,
+        json: async () => ({ error: {
+          code: "json_validate_failed",
+          failed_generation: JSON.stringify({ status: "verified", corrections: [{ path: "chapters.0.topics.0.examples.0", text: correction }] }),
+        } }),
+      };
+    },
+  });
+  const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: ["Coulomb's law"] });
+  assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+  assert.equal(reviewCalls, 1);
+  assert.equal(response.body.notebook.topics[0].examples[0], correction);
+  assert.equal(harness.stored[0].chapters[0].topics[0].examples[0], correction);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("Gemini-only notebooks use a distinct Gemini review model and preserve corrected teaching", async () => {
+  const calls = [];
+  const harness = createLearningRouteHarness({
+    groqConfig: { available: false },
+    fetchImpl: async (url, options) => {
+      calls.push(url);
+      return geminiNotebookResponse(requestedTopicNotebookPart(JSON.parse(options.body).generationConfig.responseJsonSchema));
+    },
+    reviewFetchImpl: async (url, options) => {
+      calls.push(url);
+      assert.ok(url.endsWith(`/${DEFAULT_GEMINI_LEARNING_REVIEW_MODEL}:generateContent`));
+      const request = JSON.parse(options.body);
+      assert.deepEqual(request.generationConfig.responseJsonSchema.properties.status.enum, ["verified", "unresolved"]);
+      return geminiNotebookResponse({ status: "verified", corrections: [{ path: "chapters.0.topics.0.keyPoints.0", text: "Use SI units before evaluating Coulomb's law." }] });
+    },
+  });
+  const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: ["Coulomb's law"] });
+  assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+  assert.equal(calls.length, 2);
+  assert.notEqual(calls[0], calls[1]);
+  assert.equal(response.body.notebook.topics[0].keyPoints[0], "Use SI units before evaluating Coulomb's law.");
+});
+
+test("same-family review configuration cannot verify its own STEM generation", async () => {
+  let reviewCalls = 0;
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    groqLearningReviewModel: DEFAULT_GROQ_LEARNING_MODEL,
+    groqLearningModels: [DEFAULT_GROQ_LEARNING_MODEL, "openai/gpt-oss-20b"],
+    fetchImpl: async (_url, options) => groqNotebookResponse(requestedTopicNotebookPart(JSON.parse(options.body).response_format.json_schema.schema)),
+    reviewFetchImpl: async () => { reviewCalls += 1; return groqNotebookResponse({ status: "verified", corrections: [] }); },
+  });
+  const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: ["Coulomb's law"] });
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.body.code, "LEARNING_REVIEW_UNAVAILABLE");
+  assert.equal(reviewCalls, 0);
+  assert.equal(harness.stored.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("all twelve STEM topics fit bounded review input/output budgets and the shared deadline", async () => {
+  const originalNow = Date.now;
+  let clock = originalNow();
+  Date.now = () => clock;
+  const names = Array.from({ length: 12 }, (_, index) => `Physics concept ${index + 1}`);
+  const calls = [];
+  try {
+    const harness = createLearningRouteHarness({
+      geminiConfig: { available: false },
+      fetchImpl: async (_url, options) => {
+        calls.push("generation");
+        clock += 7_000;
+        return groqNotebookResponse(requestedTopicNotebookPart(JSON.parse(options.body).response_format.json_schema.schema));
+      },
+      reviewFetchImpl: async (_url, options) => {
+        calls.push("review");
+        const request = JSON.parse(options.body);
+        const inputTokens = request.messages.reduce((sum, item) => sum + Math.ceil(Buffer.byteLength(item.content, "utf8") / 3), 32);
+        assert.equal(request.max_completion_tokens, MAX_LEARNING_REVIEW_COMPLETION_TOKENS);
+        assert.ok(inputTokens + request.max_completion_tokens + 750 <= 8_000);
+        clock += 5_000;
+        return groqNotebookResponse({ status: "verified", corrections: [] });
+      },
+    });
+    const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: names });
+    assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+    assert.equal(calls.length, 24);
+    assert.deepEqual(calls, Array.from({ length: 12 }, () => ["generation", "review"]).flat());
+    assert.deepEqual(response.body.notebook.topics.map((topic) => topic.title), names);
+    assert.equal(harness.aiQuota.calls.commit.length, 1);
+  } finally { Date.now = originalNow; }
+});
+
+test("a review cannot extend the shared 180-second deadline or save a partially reviewed notebook", async () => {
+  const originalNow = Date.now;
+  let clock = originalNow();
+  Date.now = () => clock;
+  let reviewCalls = 0;
+  try {
+    const harness = createLearningRouteHarness({
+      geminiConfig: { available: false },
+      fetchImpl: async (_url, options) => {
+        clock += 7_000;
+        return groqNotebookResponse(requestedTopicNotebookPart(JSON.parse(options.body).response_format.json_schema.schema));
+      },
+      reviewFetchImpl: async () => {
+        reviewCalls += 1;
+        clock += 9_000;
+        return groqNotebookResponse({ status: "verified", corrections: [] });
+      },
+    });
+    const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: Array.from({ length: 12 }, (_, index) => `Physics concept ${index + 1}`) });
+    assert.equal(response.statusCode, 504, JSON.stringify(response.body));
+    assert.equal(response.body.code, "LEARNING_GENERATION_TIMEOUT");
+    assert.ok(reviewCalls > 0 && reviewCalls <= 12);
+    assert.equal(harness.stored.length, 0);
+    assert.equal(harness.aiQuota.calls.commit.length, 0);
+    assert.equal(harness.aiQuota.calls.refund.length, 1);
+  } finally { Date.now = originalNow; }
+});
+
+test("oversized teaching text is not truncated or sent for an incomplete review", async () => {
+  let reviewCalls = 0;
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async (_url, options) => {
+      const value = requestedTopicNotebookPart(JSON.parse(options.body).response_format.json_schema.schema);
+      value.chapters[0].topics[0].explanation += "Detailed physical assumptions and worked reasoning. ".repeat(600);
+      return groqNotebookResponse(value);
+    },
+    reviewFetchImpl: async () => { reviewCalls += 1; return groqNotebookResponse({ status: "verified", corrections: [] }); },
+  });
+  const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: ["Coulomb's law"] });
+  assert.equal(response.statusCode, 502, JSON.stringify(response.body));
+  assert.equal(response.body.code, "LEARNING_REVIEW_FAILED");
+  assert.equal(reviewCalls, 0);
+  assert.equal(harness.stored.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("compact review adapts its correction allowance without truncating the full teaching draft", async () => {
+  let reviewCalls = 0;
+  const extraReasoning = "Check dimensional assumptions and show the complete worked calculation. ".repeat(80);
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async (_url, options) => {
+      const value = requestedTopicNotebookPart(JSON.parse(options.body).response_format.json_schema.schema);
+      value.chapters[0].topics[0].explanation += extraReasoning;
+      return groqNotebookResponse(value);
+    },
+    reviewFetchImpl: async (_url, options) => {
+      reviewCalls += 1;
+      const request = JSON.parse(options.body);
+      const field = JSON.parse(request.messages[1].content).fields.find(({ path }) => path === "chapters.0.topics.0.explanation");
+      assert.ok(field.text.endsWith(extraReasoning), "All teaching text must reach the reviewer.");
+      assert.ok(request.max_completion_tokens >= 1_200 && request.max_completion_tokens < MAX_LEARNING_REVIEW_COMPLETION_TOKENS);
+      const inputTokens = request.messages.reduce((sum, item) => sum + Math.ceil(Buffer.byteLength(item.content, "utf8") / 3), 32);
+      assert.ok(inputTokens + request.max_completion_tokens + 750 <= 8_000);
+      return groqNotebookResponse({ status: "verified", corrections: [] });
+    },
+  });
+  const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: ["Coulomb's law"] });
+  assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+  assert.equal(reviewCalls, 1);
+});
 
 test("recovers a second distinct lesson after the provider reset without refunding it", async () => {
   let providerCalls = 0;
@@ -1361,7 +1828,7 @@ test("keeps optional generation sizes on the existing standard notebook contract
   const standardHighPrompt = await requestedGroqPrompt("High");
   assert.match(standardLowPrompt, /70-110 words/u);
   assert.match(standardHighPrompt, /180-320 words/u);
-  assert.match(standardLowPrompt, /model answers that show the reasoning and why each answer matters/u);
+  assert.match(standardLowPrompt, /reasoned answers and why each matters/u);
   assert.match(standardHighPrompt, /complete model answers that explain each reasoning step, the final answer, and why it matters/u);
   assert.match(
     standardHighPrompt,
@@ -1747,16 +2214,18 @@ test("rejects oversized and underspecified learning prompts before AI work", asy
 });
 
 test("accepts descriptive prompt-only Gemini scope without persisting the raw request", async () => {
-  const generated = validGeneratedNotebook();
-  generated.revisedNotes.push(...Array.from({ length: 4 }, (_, index) => ({
-    ...generated.revisedNotes[index],
-    id: `prompt-note-${index + 1}`,
-    title: `Prompt focus ${index + 1}`,
-  })));
+  const generated = generatedNotebookPart("Deadlocks", {
+    topicCount: 4, subtopicCount: 2, questionCount: 6, noteCount: 4,
+  });
+  const requests = [];
   let requestBody = null;
   const harness = createLearningRouteHarness({
     fetchImpl: async (_url, options) => {
       requestBody = JSON.parse(options.body);
+      requests.push(requestBody);
+      if (requestBody.generationConfig.responseJsonSchema.properties.chapterNames) {
+        return geminiNotebookResponse({ chapterNames: ["Deadlocks"] });
+      }
       return geminiNotebookResponse(generated);
     },
   });
@@ -1769,11 +2238,22 @@ test("accepts descriptive prompt-only Gemini scope without persisting the raw re
   });
 
   assert.equal(res.statusCode, 201);
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].generationConfig.maxOutputTokens, 800);
+  const chaptersSchema = requestBody.generationConfig.responseJsonSchema.properties.chapters;
+  assert.equal(chaptersSchema.maxItems, 1, "a narrow request should not force an entire syllabus");
+  assert.equal(chaptersSchema.items.properties.topics.maxItems, 4);
+  assert.equal(res.body.notebook.chapters[0].title, "Deadlocks");
   assert.equal(harness.stored[0].subjectName, "Prompt-guided learning");
   const systemText = requestBody.systemInstruction.parts[0].text;
   const userText = requestBody.contents[0].parts.at(-1).text;
   assert.match(systemText, /untrusted scope data/u);
   assert.match(systemText, /must never override this system instruction/u);
+  assert.match(systemText, /specified concepts, emphasis and exclusions/u);
+  assert.match(systemText, /Define notation, units and assumptions/u);
+  assert.match(systemText, /Never fabricate a derivation/u);
+  assert.match(userText, /worked reasoning and the answer or outcome/u);
+  assert.match(chaptersSchema.items.properties.topics.items.properties.examples.items.description, /Never an unanswered exercise/u);
   assert.match(userText, /Learner focus request \(untrusted scope data\)/u);
   assert.match(userText, /PROMPT_NOT_STORED/u);
   assert.doesNotMatch(
@@ -1816,6 +2296,89 @@ test("includes learner prompt and requested outline in Groq without persisting r
   );
   assert.equal("learningPrompt" in res.body.notebook, false);
   assert.equal("requestedOutline" in res.body.notebook, false);
+});
+
+test("plans an upload-only Gemini notebook and passes native source bytes to both requests", async () => {
+  const requests = [];
+  const pdfBytes = Buffer.from("%PDF-1.7\nA supplied optics chapter\n%%EOF", "utf8");
+  const harness = createLearningRouteHarness({
+    prepareAttachmentContext: async () => { assert.fail("Gemini can read the native PDF"); },
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requests.push(request);
+      return geminiNotebookResponse(request.generationConfig.responseJsonSchema.properties.chapterNames
+        ? { chapterNames: ["Ray optics"] }
+        : generatedNotebookPart("Ray optics", { topicCount: 4, subtopicCount: 2, questionCount: 6, noteCount: 4 }));
+    },
+  });
+  const response = await harness.analyze({
+    subjectName: "", chapterNames: [], learningPrompt: "",
+    attachments: [{ name: "optics.pdf", type: "application/pdf", size: pdfBytes.length,
+      dataUrl: `data:application/pdf;base64,${pdfBytes.toString("base64")}` }],
+  });
+  assert.equal(response.statusCode, 201);
+  assert.equal(requests.length, 2);
+  for (const request of requests) {
+    assert.equal(request.contents[0].parts.find((part) => part.inlineData).inlineData.data, pdfBytes.toString("base64"));
+  }
+  assert.match(requests[0].systemInstruction.parts[0].text, /focus is empty.*most important concepts/u);
+  assert.equal(response.body.notebook.sources[0].name, "optics.pdf");
+  assert.equal(harness.stored.length, 1);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+});
+
+test("a malformed Gemini plan falls back without saving partial notes or charging twice", async () => {
+  const providers = [];
+  const harness = createLearningRouteHarness({
+    fetchImpl: async (url, options) => {
+      const request = JSON.parse(options.body);
+      const gemini = url.includes("generativelanguage.googleapis.com");
+      providers.push(gemini ? "gemini" : "groq");
+      if (gemini) return geminiNotebookResponse({ chapterNames: [] });
+      return request.response_format?.json_schema?.name === "learning_notebook_chapter_plan"
+        ? groqNotebookResponse({ chapterNames: ["Charge and force"] })
+        : scopedGroqNotebookResponse(options);
+    },
+  });
+  const response = await harness.analyze({
+    chapterNames: [], subjectName: "Physics", learningPrompt: "Explain electric charge and Coulomb's law with calculations.",
+  });
+  assert.equal(response.statusCode, 201);
+  assert.ok(providers.includes("gemini") && providers.includes("groq"));
+  assert.equal(harness.stored.length, 1);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("fits maximum-length requirements and optional sources into bounded Groq notebook requests", async () => {
+  const requests = [];
+  const focus = "Explain electricity step by step with worked examples. ".repeat(60).slice(0, MAX_LEARNING_PROMPT_CHARS);
+  const harness = createLearningRouteHarness({
+    geminiConfig: { available: false },
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requests.push(request);
+      return request.response_format?.json_schema?.name === "learning_notebook_chapter_plan"
+        ? groqNotebookResponse({ chapterNames: ["Electricity"] })
+        : scopedGroqNotebookResponse(options);
+    },
+  });
+  const response = await harness.analyze({
+    chapterNames: [], subjectName: "Physics", learningPrompt: focus,
+    textSources: [
+      { name: "first.txt", type: "text/plain", text: "Charge and current. ".repeat(600) },
+      { name: "second.txt", type: "text/plain", text: "Resistance and voltage. ".repeat(600) },
+      { name: "third.txt", type: "text/plain", text: "Energy and power. ".repeat(600) },
+    ],
+  });
+  assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+  assert.equal(requests.length, 3);
+  assert.ok(requests.every((request) => request.messages[1].content.includes(JSON.stringify(focus.trim()))));
+  assert.ok(response.body.notebook.coverageWarnings.some((warning) => /sampled/u.test(warning)));
+  assert.equal(harness.stored.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
 });
 
 test("uses Gemini structured output with native PDF and image bytes without local extraction", async () => {
@@ -2138,7 +2701,7 @@ test("crosses directly to Groq after one Gemini transport failure and lazily ext
   assert.equal(groqRequests[0].reasoning_effort, "low");
   assert.equal(groqRequests[0].include_reasoning, false);
   assert.match(groqRequests[0].messages[1].content, /Generate exactly 2 distinct.*exactly 2 meaningful subtopics/u);
-  assert.match(groqRequests[0].messages[1].content, /4-5 specific key points/u);
+  assert.match(groqRequests[0].messages[1].content, /4-5 key points/u);
   assert.match(groqRequests[0].messages[1].content, /isolated address spaces/u);
   assert.equal(harness.stored[0].model, DEFAULT_GROQ_LEARNING_MODEL);
   assert.equal(res.body.notebook.model, DEFAULT_GROQ_LEARNING_MODEL);
@@ -2547,6 +3110,7 @@ test("discards earlier notebook parts and refunds once when a later chapter fail
 
   assert.equal(res.statusCode, 503);
   assert.equal(requests.length, 5);
+  assert.match(requests[2].messages[0].content, /Never paraphrase or reuse these problems or their answers/u);
   assert.equal(res.body.creditsRefunded, true);
   assert.equal(harness.stored.length, 0);
   assert.equal(harness.aiQuota.calls.reserve.length, 1);
@@ -3290,6 +3854,214 @@ test("rolls back a persisted notebook and refunds when quota commit fails", asyn
   assert.equal(aiQuota.calls.commit[0].reservationToken, "reservation-1");
   assert.equal(aiQuota.calls.refund.length, 1);
   assert.equal(aiQuota.calls.refund[0].reservationToken, "reservation-1");
+});
+
+test("review fallback verifies the original Gemini draft after an unresolved or unavailable Groq review", async (t) => {
+  for (const firstFailure of ["unresolved", "unavailable"]) await t.test(firstFailure, async () => {
+    let generationCalls = 0;
+    const reviewProviders = [];
+    const originalExample = "For +5 µC and −1 µC at a separation of 0.04 m, the force is incorrectly stated as 2.8 N; charges of opposite sign attract.";
+    const correctedExample = "For +5 µC and −1 µC separated by 0.04 m in vacuum, F = 8.99 × 10⁹ × 5 × 10⁻¹² / 0.0016 = 28.1 N. Opposite charges attract along the line joining them.";
+    const harness = createLearningRouteHarness({
+      geminiLearningModels: [DEFAULT_GEMINI_LEARNING_MODEL, DEFAULT_GEMINI_LEARNING_REVIEW_MODEL],
+      fetchImpl: async (url, options) => {
+        generationCalls += 1;
+        assert.ok(url.includes("generativelanguage.googleapis.com"));
+        const value = requestedTopicNotebookPart(JSON.parse(options.body).generationConfig.responseJsonSchema);
+        value.chapters[0].topics[0].examples[0] = originalExample;
+        return geminiNotebookResponse(value);
+      },
+      reviewFetchImpl: async (url, options) => {
+        const request = JSON.parse(options.body);
+        const isGemini = url.includes("generativelanguage.googleapis.com");
+        reviewProviders.push(isGemini ? "gemini" : "groq");
+        if (!isGemini) {
+          assert.equal(request.model, DEFAULT_GROQ_LEARNING_REVIEW_MODEL);
+          return firstFailure === "unavailable"
+            ? { ok: false, status: 503, json: async () => ({ error: { message: "Reviewer unavailable." } }) }
+            : groqNotebookResponse({ status: "unresolved", corrections: [{ path: "chapters.0.topics.0.examples.0", text: "An unresolved reviewer must not alter the next draft." }] });
+        }
+        assert.ok(url.endsWith(`/${DEFAULT_GEMINI_LEARNING_REVIEW_MODEL}:generateContent`));
+        const fields = JSON.parse(request.contents[0].parts[0].text).fields;
+        assert.equal(fields.find(({ path }) => path === "chapters.0.topics.0.examples.0").text, originalExample);
+        return geminiNotebookResponse({ status: "verified", corrections: [{ path: "chapters.0.topics.0.examples.0", text: correctedExample }] });
+      },
+    });
+    const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: ["Coulomb's law"] });
+    assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+    assert.equal(generationCalls, 1, "Review fallback must reuse the draft without regenerating it.");
+    assert.deepEqual(reviewProviders, ["groq", "gemini"]);
+    assert.equal(response.body.notebook.topics[0].examples[0], correctedExample);
+    assert.equal(harness.stored.length, 1);
+    assert.equal(harness.aiQuota.calls.reserve.length, 1);
+    assert.equal(harness.aiQuota.calls.commit.length, 1);
+    assert.equal(harness.aiQuota.calls.refund.length, 0);
+  });
+});
+
+test("review fallback stops after two invalid independent reviewers and refunds without regenerating", async () => {
+  let generationCalls = 0;
+  const reviewProviders = [];
+  const harness = createLearningRouteHarness({
+    geminiLearningModels: [DEFAULT_GEMINI_LEARNING_MODEL, DEFAULT_GEMINI_LEARNING_REVIEW_MODEL],
+    fetchImpl: async (_url, options) => {
+      generationCalls += 1;
+      return geminiNotebookResponse(requestedTopicNotebookPart(JSON.parse(options.body).generationConfig.responseJsonSchema));
+    },
+    reviewFetchImpl: async (url) => {
+      const isGemini = url.includes("generativelanguage.googleapis.com");
+      reviewProviders.push(isGemini ? "gemini" : "groq");
+      const review = isGemini
+        ? { status: "verified", corrections: [{ path: "chapters.0.topics.0.id", text: "replacement-id" }] }
+        : { status: "unresolved", corrections: [] };
+      return isGemini ? geminiNotebookResponse(review) : groqNotebookResponse(review);
+    },
+  });
+  const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: ["Coulomb's law"] });
+  assert.equal(response.statusCode, 502, JSON.stringify(response.body));
+  assert.equal(response.body.code, "LEARNING_REVIEW_FAILED");
+  assert.equal(generationCalls, 1);
+  assert.deepEqual(reviewProviders, ["groq", "gemini"]);
+  assert.equal(harness.stored.length, 0);
+  assert.equal(harness.aiQuota.calls.reserve.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("review fallback skips the generating Groq family and uses an independent Gemini reviewer", async () => {
+  const generations = [];
+  const reviewUrls = [];
+  const harness = createLearningRouteHarness({
+    geminiLearningModels: [DEFAULT_GEMINI_LEARNING_MODEL, DEFAULT_GEMINI_LEARNING_REVIEW_MODEL],
+    groqLearningReviewModel: "openai/gpt-oss-20b",
+    groqLearningModels: [DEFAULT_GROQ_LEARNING_MODEL, "openai/gpt-oss-20b"],
+    fetchImpl: async (url, options) => {
+      const request = JSON.parse(options.body);
+      if (url.includes("generativelanguage.googleapis.com")) {
+        generations.push("gemini");
+        return {
+          ok: false, status: 400,
+          json: async () => ({ error: { code: 400, status: "INVALID_ARGUMENT", message: "API key not valid." } }),
+        };
+      }
+      generations.push("groq");
+      assert.equal(request.model, DEFAULT_GROQ_LEARNING_MODEL);
+      return groqNotebookResponse(requestedTopicNotebookPart(request.response_format.json_schema.schema));
+    },
+    reviewFetchImpl: async (url) => {
+      reviewUrls.push(url);
+      assert.ok(url.includes("generativelanguage.googleapis.com"), "A second GPT-OSS model must not review GPT-OSS generation.");
+      assert.ok(url.endsWith(`/${DEFAULT_GEMINI_LEARNING_REVIEW_MODEL}:generateContent`));
+      return geminiNotebookResponse({ status: "verified", corrections: [] });
+    },
+  });
+  const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: ["Coulomb's law"] });
+  assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+  assert.deepEqual(generations, ["gemini", "groq"]);
+  assert.equal(reviewUrls.length, 1);
+  assert.equal(harness.aiQuota.calls.commit.length, 1);
+  assert.equal(harness.aiQuota.calls.refund.length, 0);
+});
+
+test("review fallback stops immediately on throttling even when Gemini is available", async () => {
+  let generationCalls = 0;
+  const reviewProviders = [];
+  const harness = createLearningRouteHarness({
+    geminiLearningModels: [DEFAULT_GEMINI_LEARNING_MODEL, DEFAULT_GEMINI_LEARNING_REVIEW_MODEL],
+    fetchImpl: async (_url, options) => {
+      generationCalls += 1;
+      return geminiNotebookResponse(requestedTopicNotebookPart(JSON.parse(options.body).generationConfig.responseJsonSchema));
+    },
+    reviewFetchImpl: async (url) => {
+      reviewProviders.push(url.includes("generativelanguage.googleapis.com") ? "gemini" : "groq");
+      return { ok: false, status: 429, json: async () => ({ error: { code: "rate_limit_exceeded", message: "Too many requests." } }) };
+    },
+  });
+  const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: ["Coulomb's law"] });
+  assert.equal(response.statusCode, 429, JSON.stringify(response.body));
+  assert.equal(response.body.code, "AI_PROVIDER_RATE_LIMITED");
+  assert.equal(generationCalls, 1);
+  assert.deepEqual(reviewProviders, ["groq"]);
+  assert.equal(harness.stored.length, 0);
+  assert.equal(harness.aiQuota.calls.refund.length, 1);
+});
+
+test("review fallback cannot extend the shared deadline after the first invalid reviewer", async () => {
+  const originalNow = Date.now;
+  let clock = originalNow();
+  Date.now = () => clock;
+  let generationCalls = 0;
+  const reviewProviders = [];
+  try {
+    const harness = createLearningRouteHarness({
+      geminiLearningModels: [DEFAULT_GEMINI_LEARNING_MODEL, DEFAULT_GEMINI_LEARNING_REVIEW_MODEL],
+      fetchImpl: async (_url, options) => {
+        generationCalls += 1;
+        clock += 7_000;
+        return geminiNotebookResponse(requestedTopicNotebookPart(JSON.parse(options.body).generationConfig.responseJsonSchema));
+      },
+      reviewFetchImpl: async (url) => {
+        reviewProviders.push(url.includes("generativelanguage.googleapis.com") ? "gemini" : "groq");
+        clock += 173_000;
+        return groqNotebookResponse({ status: "unresolved", corrections: [] });
+      },
+    });
+    const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: ["Coulomb's law"] });
+    assert.equal(response.statusCode, 504, JSON.stringify(response.body));
+    assert.equal(response.body.code, "LEARNING_GENERATION_TIMEOUT");
+    assert.equal(generationCalls, 1);
+    assert.deepEqual(reviewProviders, ["groq"]);
+    assert.equal(harness.stored.length, 0);
+    assert.equal(harness.aiQuota.calls.commit.length, 0);
+    assert.equal(harness.aiQuota.calls.refund.length, 1);
+  } finally { Date.now = originalNow; }
+});
+
+test("review fallback keeps twelve topics within thirty-six bounded calls and the shared deadline", async () => {
+  const originalNow = Date.now;
+  let clock = originalNow();
+  Date.now = () => clock;
+  const names = Array.from({ length: 12 }, (_, index) => `Physics concept ${index + 1}`);
+  const calls = [];
+  const assertReviewBudget = (request, isGemini) => {
+    const system = isGemini
+      ? `${request.systemInstruction.parts[0].text}\n${JSON.stringify(request.generationConfig.responseJsonSchema)}`
+      : request.messages[0].content;
+    const user = isGemini ? request.contents[0].parts[0].text : request.messages[1].content;
+    const inputTokens = Math.ceil(Buffer.byteLength(system, "utf8") / 3) + Math.ceil(Buffer.byteLength(user, "utf8") / 3) + 32;
+    const outputTokens = isGemini ? request.generationConfig.maxOutputTokens : request.max_completion_tokens;
+    assert.ok(outputTokens >= 1_200 && outputTokens <= MAX_LEARNING_REVIEW_COMPLETION_TOKENS);
+    assert.ok(inputTokens + outputTokens + 750 <= 8_000);
+  };
+  try {
+    const harness = createLearningRouteHarness({
+      geminiLearningModels: [DEFAULT_GEMINI_LEARNING_MODEL, DEFAULT_GEMINI_LEARNING_REVIEW_MODEL],
+      fetchImpl: async (url, options) => {
+        assert.ok(url.includes("generativelanguage.googleapis.com"));
+        calls.push("generation");
+        clock += 4_000;
+        return geminiNotebookResponse(requestedTopicNotebookPart(JSON.parse(options.body).generationConfig.responseJsonSchema));
+      },
+      reviewFetchImpl: async (url, options) => {
+        const isGemini = url.includes("generativelanguage.googleapis.com");
+        const request = JSON.parse(options.body);
+        assertReviewBudget(request, isGemini);
+        calls.push(isGemini ? "gemini-review" : "groq-review");
+        clock += isGemini ? 4_000 : 3_000;
+        const review = { status: isGemini ? "verified" : "unresolved", corrections: [] };
+        return isGemini ? geminiNotebookResponse(review) : groqNotebookResponse(review);
+      },
+    });
+    const response = await harness.analyze({ subjectName: "Physics", chapterNames: [], topicNames: names });
+    assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+    assert.equal(calls.length, 36);
+    assert.deepEqual(calls, Array.from({ length: 12 }, () => ["generation", "groq-review", "gemini-review"]).flat());
+    assert.deepEqual(response.body.notebook.topics.map((topic) => topic.title), names);
+    assert.equal(harness.stored.length, 1);
+    assert.equal(harness.aiQuota.calls.reserve.length, 1);
+    assert.equal(harness.aiQuota.calls.commit.length, 1);
+    assert.equal(harness.aiQuota.calls.refund.length, 0);
+  } finally { Date.now = originalNow; }
 });
 
 test("supports Gemini-first, Gemini-only, Groq-only, and unavailable provider configurations", async (t) => {

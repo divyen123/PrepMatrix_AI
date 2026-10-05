@@ -1,3 +1,5 @@
+import { mergeLearningContentCompletion } from "../src/utils/learningMastery.js";
+
 const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 function asObject(value) {
@@ -140,7 +142,7 @@ function mergeNodes(currentValue, incomingValue, stateContext) {
       nodeEvidenceTime(incomingNode),
       stateContext.incomingIsNewer,
     );
-    return [id, {
+    return [id, mergeLearningContentCompletion({
       ...secondary,
       ...primary,
       nodeId: id,
@@ -153,7 +155,7 @@ function mergeNodes(currentValue, incomingValue, stateContext) {
         currentNode.misconceptions,
         incomingNode.misconceptions,
       ),
-    }];
+    }, currentNode, incomingNode, { preferIncomingTie: stateContext.incomingIsNewer })];
   }));
 }
 

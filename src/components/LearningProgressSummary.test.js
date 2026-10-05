@@ -126,7 +126,7 @@ test("notebook progress summary reflects current preparation and preserves older
       }),
     ));
 
-    await t.test("shows notebook coverage, durable progress, reviews, and completed study time", () => {
+    await t.test("shows notebook and topic completion using current notebook content", () => {
       const insights = getLearningInsights([notebookWithCurrentProgress()], { now: NOW });
       assert.equal(insights.unresolvedMisconceptionCount, 1);
       assert.equal(insights.accuracy, 100);
@@ -134,11 +134,9 @@ test("notebook progress summary reflects current preparation and preserves older
 
       assert.deepEqual(metricValues(markup), {
         Notebooks: "1",
-        "Topics learned": "3/4",
-        "Learning coverage": "75%",
-        "Topics mastered": "1",
-        "Review due": "1",
-        "Study time": "1h 21m",
+        "Completed notebooks": "0",
+        "Topics completed": "3/4",
+        Completion: "75%",
       });
       assert.match(markup, /Notebook preparation progress/u);
       assert.doesNotMatch(markup, /Practice accuracy|Open misconceptions|Guided learning|verified mastery/iu);
@@ -151,11 +149,9 @@ test("notebook progress summary reflects current preparation and preserves older
       const insights = getLearningInsights([{ id: "notebook-empty", title: "New notebook", chapters: [] }], { now: NOW });
       assert.deepEqual(metricValues(render({ insights })), {
         Notebooks: "1",
-        "Topics learned": "0/0",
-        "Learning coverage": "0%",
-        "Topics mastered": "0",
-        "Review due": "0",
-        "Study time": "0m",
+        "Completed notebooks": "0",
+        "Topics completed": "0/0",
+        Completion: "0%",
       });
     });
 
@@ -174,22 +170,20 @@ test("notebook progress summary reflects current preparation and preserves older
       });
       assert.deepEqual(metricValues(markup), {
         Notebooks: "2",
-        "Topics learned": "3",
-        "Learning coverage": "—",
-        "Topics mastered": "1",
-        "Review due": "1",
-        "Study time": "1h",
+        "Completed notebooks": "—",
+        "Topics completed": "3",
+        Completion: "—",
       });
       assert.equal(links(markup).length, 0);
       assert.doesNotMatch(markup, /Practice accuracy|Open misconceptions/u);
     });
 
-    await t.test("loading describes notebook and recall progress instead of showing stale metrics", () => {
+    await t.test("loading describes notebooks and completion instead of showing stale metrics", () => {
       const markup = render({ loading: true, insights: { notebookCount: 2, learnedTopicCount: 8 } });
       assert.match(markup, /role="status"/u);
       assert.match(markup, /aria-live="polite"/u);
       assert.match(textContent(parseFragment(markup)), /notebook/iu);
-      assert.match(textContent(parseFragment(markup)), /recall/iu);
+      assert.match(textContent(parseFragment(markup)), /completion/iu);
       assert.deepEqual(metricValues(markup), {});
       assert.doesNotMatch(markup, /mastery checks|guided topic/iu);
     });

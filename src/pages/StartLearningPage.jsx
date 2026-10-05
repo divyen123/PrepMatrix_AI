@@ -10,11 +10,9 @@ import {
   Code2,
   Download,
   FileText,
-  Image as ImageIcon,
   Layers3,
   LoaderCircle,
 
-  MessageSquareText,
   Pin,
   Plus,
   Save,
@@ -32,6 +30,10 @@ import { createPortal } from "react-dom";
 import { jsPDF } from "jspdf";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "../utils/toast";
+import NotebookLibrary from "../components/NotebookLibrary";
+import NotebookCreateDialog from "../components/NotebookCreateDialog";
+import NotebookContent from "../components/NotebookContent";
+import { notebookLibraryShortcut } from "../components/notebookLibraryModel.js";
 import LearningMasteryMap from "../components/LearningMasteryMap";
 import PlacementPrepTopicCard from "../components/PlacementPrepTopicCard";
 import LearningSubjectMasteryDialog from "../components/LearningSubjectMasteryDialog";
@@ -69,10 +71,11 @@ import {
 } from "../utils/learningPlanner";
 import {
   completeLearningSession,
+  getNotebookCompletionSummary,
+  setNotebookTopicCompleted,
   getLearningNodeStatus,
   getLearningReviewQueue,
   hasLearningNodeAchievement,
-  markLearningNodeLearned,
   normalizeLearningState,
   recordLearningAttempt,
   setLearningNodeStatus,
@@ -80,7 +83,7 @@ import {
   updateLearningSession,
 } from "../utils/learningMastery";
 import { buildLearningTopicNote } from "../utils/learningNoteIntegration";
-import { buildRevisedNoteActionNode } from "../utils/learningRevisedNoteActions";
+import { getRevisedNoteTopicIds } from "../utils/learningRevisedNoteActions.js";
 import { notifyLearningNotebookSaved } from "../utils/learningNotebookEvents.js";
 import {
   buildPlacementActionTarget,
@@ -124,6 +127,7 @@ import {
   getLearningPreparationMode,
 } from "../utils/learningNotebook";
 import { LEARNING_NOTEBOOK_REQUEST_TIMEOUT_MS } from "../utils/learningNotebookRequest";
+import { MAX_NOTEBOOK_SCOPE_CHARS, MAX_NOTEBOOK_TOPICS, notebookRequirementsKey, getNotebookScopeSuggestion, parseNotebookScope, buildNotebookFocus } from "../utils/notebookCreation";
 import {
   LEARNING_PRIVACY_CONSENT_VERSION,
   MEDICAL_TRAINING_PRIVACY_CONSENT_KIND,
@@ -131,17 +135,14 @@ import {
   acceptLearningPrivacyConsent,
   hasLearningPrivacyConsent,
 } from "../utils/learningPrivacyConsent";
-import {
-  getSubjectNotebookPrefill,
-  normalizeSubjectNames,
-} from "../utils/subjectPlanning";
+import { normalizeSubjectNames } from "../utils/subjectPlanning";
 import "./StartLearningPage.css";
 
 const TEXT_SOURCE_ACCEPT = ".txt,.md,text/plain,text/markdown";
 const LEARNING_SOURCE_ACCEPT = `${LEARNING_ATTACHMENT_ACCEPT},${TEXT_SOURCE_ACCEPT}`;
 const MAX_TEXT_SOURCE_BYTES = 30_000;
 const MAX_TEXT_TOTAL_CHARS = 60_000;
-const MAX_LEARNING_PROMPT_CHARS = 3_000;
+const MAX_LEARNING_PROMPT_CHARS = MAX_NOTEBOOK_SCOPE_CHARS;
 const PLANNER_REQUIRED_NOTICE_ID = "learning-planner-required";
 const MAX_PLACEMENT_CONTEXT_CHARS = 3_000;
 const CUSTOM_PLACEMENT_SOURCE_VALUE = "__custom_context__";
@@ -398,20 +399,6 @@ function normalizeNotebook(value = {}) {
         : null,
     updatedAt: source.updatedAt || source.createdAt || new Date().toISOString(),
   };
-}
-
-function parseChapterNames(value) {
-  const seen = new Set();
-  return String(value || "")
-    .split(/[\n,]+/)
-    .map((chapter) => cleanText(chapter, 180))
-    .filter((chapter) => {
-      const key = chapter.toLocaleLowerCase();
-      if (!chapter || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 30);
 }
 
 function parseCareerTopics(value) {
@@ -681,7 +668,6 @@ function StartLearningPage({
   setSchedule,
   setCompleted,
   scheduleStartDate,
-  setSubjects,
   setNotification,
 }) {
   const { hasInsufficientCredits } = useAiQuota();
@@ -689,6 +675,8 @@ function StartLearningPage({
   const location = useLocation();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const requirementsInputRef = useRef(null);
+  const sourcePreparationRef = useRef(false);
   const subjectInputRef = useRef(null);
   const subjectOptionsRef = useRef(null);
   const analysisTimerRef = useRef(null);
@@ -696,8 +684,7 @@ function StartLearningPage({
   const pendingAnalysisRef = useRef(null);
   const privacyConsentCancelRef = useRef(null);
   const privacyConsentDialogRef = useRef(null);
-  const masteryAutosaveTimerRef = useRef(null);
-  const masterySaveSequenceRef = useRef(0);
+  const pendingNotebookSavesRef = useRef(new Map());
   const notebookSaveChainRef = useRef(Promise.resolve());
   const activeNotebookRef = useRef(null);
   const careerAnalysisRequestRef = useRef({ context: "", notebookId: "", pending: false, sequence: 0 });
@@ -730,14 +717,12 @@ function StartLearningPage({
   const [subjectName, setSubjectName] = useState("");
   const [subjectPickerOpen, setSubjectPickerOpen] = useState(false);
   const [subjectOptionIndex, setSubjectOptionIndex] = useState(0);
-  const [manualChapters, setManualChapters] = useState("");
-  const [manualTopics, setManualTopics] = useState("");
-  const [learningPrompt, setLearningPrompt] = useState("");
+  const [scopeDrafts, setScopeDrafts] = useState({});
+  const [newNotebookOpen, setNewNotebookOpen] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
   const [analysisError, setAnalysisError] = useState("");
   const [activeTab, setActiveTab] = useState("notes");
-  const [expandedChapters, setExpandedChapters] = useState(() => new Set());
   const [selectedNodeId, setSelectedNodeId] = useState("");
 
   const [dirty, setDirty] = useState(false);
@@ -747,10 +732,6 @@ function StartLearningPage({
   const [historyMutationKey, setHistoryMutationKey] = useState("");
   const [clearHistoryCandidate, setClearHistoryCandidate] = useState("");
   const [clearingHistory, setClearingHistory] = useState(false);
-  const [chapterComposerOpen, setChapterComposerOpen] = useState(false);
-  const [chapterDraft, setChapterDraft] = useState("");
-  const [topicComposer, setTopicComposer] = useState({ chapterId: "", value: "" });
-  const [subtopicComposer, setSubtopicComposer] = useState({ chapterId: "", topicId: "", value: "" });
   const [plannerDialogOpen, setPlannerDialogOpen] = useState(false);
   const [plannerNodeId, setPlannerNodeId] = useState("");
   const [plannerCustomNode, setPlannerCustomNode] = useState(null);
@@ -797,6 +778,13 @@ function StartLearningPage({
     () => getAcademicProfileExamples(preparationProfile),
     [preparationProfile],
   );
+  const scopeKey = notebookRequirementsKey(subjectName);
+  const suggestedScope = useMemo(
+    () => getNotebookScopeSuggestion(subjects, subjectName), [subjects, subjectName],
+  );
+  const scopeText = Object.hasOwn(scopeDrafts, scopeKey)
+    ? scopeDrafts[scopeKey] : suggestedScope;
+  const setScopeText = (value) => setScopeDrafts((current) => ({ ...current, [scopeKey]: value }));
   const careerEligibility = useMemo(
     () => getLearningCareerEligibility(preparationProfile),
     [preparationProfile],
@@ -1103,10 +1091,10 @@ function StartLearningPage({
     const normalized = normalizeNotebook(value);
     setActiveNotebook(normalized);
     setWorkspaceView("notebook");
+    setIntakeMode("notebook");
     setCareerError("");
     setDirty(false);
     setActiveTab("notes");
-    setExpandedChapters(new Set(normalized.chapters.slice(0, 1).map((chapter) => chapter.id)));
     const firstTopic = normalized.chapters.find((chapter) => chapter.topics.length)?.topics[0];
     setSelectedNodeId(firstTopic?.id || "");
 
@@ -1209,6 +1197,34 @@ function StartLearningPage({
     setIntakeMode("notebook");
     setWorkspaceView("intake");
   };
+
+  const notebookSearchRequestedRef = useRef(false);
+  useEffect(() => {
+    if (intakeMode !== "notebook" || workspaceView !== "notebook") return undefined;
+    const handleKey = (event) => {
+      const shortcut = notebookLibraryShortcut(event, {
+        enabled: !newNotebookOpen && !privacyConsentOpen && !analyzing && !saving,
+        hasNotebooks: notebookHistory.length > 0,
+        modalOpen: Boolean(document.querySelector('[role="dialog"][aria-modal="true"]')),
+      });
+      if (!shortcut) return;
+      event.preventDefault();
+      if (shortcut === "new") setNewNotebookOpen(true);
+      else {
+        notebookSearchRequestedRef.current = true;
+        setWorkspaceView("intake");
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [intakeMode, workspaceView, newNotebookOpen, privacyConsentOpen, analyzing, saving, notebookHistory.length]);
+
+  useEffect(() => {
+    if (intakeMode !== "notebook" || workspaceView !== "intake" || !notebookSearchRequestedRef.current) return undefined;
+    notebookSearchRequestedRef.current = false;
+    const frame = requestAnimationFrame(() => document.querySelector('.notebook-library-search input')?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [intakeMode, workspaceView]);
 
   const openPlacementIntake = () => {
     if (!placementEligible || careerAnalyzing || medicalAnalyzing || saving) return;
@@ -1397,6 +1413,7 @@ function StartLearningPage({
   }, [privacyConsentOpen]);
 
   const handleFiles = async (fileList) => {
+    if (analyzing || sourcePreparationRef.current) return;
     const selected = Array.from(fileList || []);
     if (!selected.length) return;
     if (sources.length + selected.length > MAX_CHAT_ATTACHMENTS) {
@@ -1416,6 +1433,7 @@ function StartLearningPage({
       return;
     }
 
+    sourcePreparationRef.current = true;
     setPreparingSources(true);
     setSourceError("");
     try {
@@ -1436,6 +1454,7 @@ function StartLearningPage({
         setSourceError(error instanceof Error ? error.message : "A selected source could not be prepared.");
       }
     } finally {
+      sourcePreparationRef.current = false;
       if (mountedRef.current) setPreparingSources(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -1447,12 +1466,7 @@ function StartLearningPage({
   };
 
   const chooseSavedSubject = (name) => {
-    const prefill = getSubjectNotebookPrefill(subjects, name);
     setSubjectName(name);
-    if (prefill) {
-      setManualChapters(prefill.chapterNames.join("\n"));
-      setManualTopics(prefill.topics.join("\n"));
-    }
     setSubjectPickerOpen(false);
     setSubjectOptionIndex(0);
     setAnalysisError("");
@@ -1502,38 +1516,18 @@ function StartLearningPage({
   }, []);
 
   const getAnalysisRequest = () => {
-    const chapterNames = parseChapterNames(manualChapters);
-    const topicNames = parseChapterNames(manualTopics);
+    if (analyzing || preparingSources || sourcePreparationRef.current) return null;
     const cleanSubject = cleanText(subjectName, 160);
-    const cleanPrompt = cleanText(learningPrompt, MAX_LEARNING_PROMPT_CHARS);
-    const requestedPrompt = cleanPrompt;
-    const requestedOutline = chapterNames.length && topicNames.length
-      ? [{
-          chapterName: chapterNames[0],
-          topics: topicNames,
-        }]
-      : [];
-    const hasManualScope = Boolean(cleanSubject && chapterNames.length);
-    const hasOutlineScope = requestedOutline.some((item) => (
-      item.chapterName && item.topics.length
-    ));
-    if (
-      !sources.length
-      && !requestedPrompt
-      && !hasOutlineScope
-      && !hasManualScope
-    ) {
-      setAnalysisError(
-        "Describe your notebook requirements, upload a source, or enter a subject and chapter.",
-      );
+    const topicNames = parseNotebookScope(scopeText);
+    if (!cleanSubject || !topicNames.length) {
+      setAnalysisError("Choose a subject and enter the topics or chapters you want explained.");
       return null;
     }
-    return {
-      chapterNames,
-      cleanSubject,
-      learningPrompt: requestedPrompt,
-      requestedOutline,
-    };
+    if (topicNames.length > MAX_NOTEBOOK_TOPICS || topicNames.some((name) => name.length > 140)) {
+      setAnalysisError("Use up to 12 topics or chapters, with each name under 140 characters.");
+      return null;
+    }
+    return { cleanSubject, topicNames, learningPrompt: buildNotebookFocus(cleanSubject, topicNames), scopeText };
   };
 
   const presentNotebookAnalysis = useCallback((payload, { notify = true } = {}) => {
@@ -1549,13 +1543,13 @@ function StartLearningPage({
     selectNotebook(normalized);
     setSources([]);
     setSubjectName("");
-    setManualChapters("");
-    setManualTopics("");
-    setLearningPrompt("");
+    setScopeDrafts({});
     setAnalyzing(false);
+    setNewNotebookOpen(false);
     if (notify) setNotification?.("Your learning notebook is ready.");
+    notifyLearningNotebookSaved({ academicProfileId: academicProfileDataId, notebookId: normalized.id });
     return true;
-  }, [selectNotebook, setNotification]);
+  }, [academicProfileDataId, selectNotebook, setNotification]);
 
   const presentCareerAnalysis = useCallback((payload, request = {}, { notify = true } = {}) => {
     const requestNotebookId = cleanText(
@@ -1731,10 +1725,10 @@ function StartLearningPage({
   }, [academicProfileDataId, setNotification]);
 
   const runNotebookAnalysis = async ({
-    chapterNames,
+    topicNames,
+    scopeText: requestedScope,
     cleanSubject,
     learningPrompt: requestedPrompt,
-    requestedOutline,
   }) => {
     if (hasInsufficientCredits(AI_FEATURES.LEARNING_NOTEBOOK)) {
       setAnalysisError(getAiRequestErrorMessage({ code: "AI_USER_QUOTA_EXHAUSTED" }));
@@ -1754,9 +1748,8 @@ function StartLearningPage({
         .map(({ name, type, size, text }) => ({ name, type, size, text }));
       const requestBody = {
         subjectName: cleanSubject,
-        chapterNames,
+        topicNames,
         learningPrompt: requestedPrompt,
-        requestedOutline,
         attachments,
         textSources,
         academicLevel,
@@ -1788,7 +1781,10 @@ function StartLearningPage({
         feature: LEARNING_BACKGROUND_FEATURES.notebook,
         key: notebookTaskKey,
         label: cleanSubject ? `Building ${cleanSubject} notebook` : "Building learning notebook",
-        meta: { kind: "notebook" },
+        meta: {
+          kind: "notebook",
+          request: { subjectName: cleanSubject, learningPrompt: requestedPrompt, scopeText: requestedScope, topicNames, sources },
+        },
         route: "/learn",
       });
     } catch {
@@ -2057,7 +2053,18 @@ function StartLearningPage({
   useEffect(() => {
     const task = notebookBackgroundTask;
     if (!task) return;
+    // Background task metadata is held in memory only; restore the form after navigation.
+    const request = task.meta?.request;
+    if (request && task.status !== "completed") {
+      setSubjectName(request.subjectName);
+      setScopeDrafts((current) => ({
+        ...current,
+        [notebookRequirementsKey(request.subjectName)]: request.scopeText ?? (request.topicNames || []).join("\n"),
+      }));
+      setSources(request.sources || []);
+    }
     if (task.status === "running") {
+      setNewNotebookOpen(true);
       setIntakeMode("notebook");
       setWorkspaceView("intake");
       setAnalyzing(true);
@@ -2077,6 +2084,7 @@ function StartLearningPage({
         setAnalysisError("The generated notebook could not be opened. Refresh notebook history and try again.");
       }
     } else if (task.status === "failed") {
+      setNewNotebookOpen(true);
       if (analysisTimerRef.current) window.clearInterval(analysisTimerRef.current);
       analysisTimerRef.current = null;
       setIntakeMode("notebook");
@@ -2252,12 +2260,12 @@ function StartLearningPage({
     }
   };
 
-  const enqueueNotebookPatch = useCallback((snapshot) => {
+  const enqueueNotebookPatch = useCallback((snapshot, snapshotForSend = () => snapshot) => {
     const request = notebookSaveChainRef.current
       .catch(() => undefined)
       .then(() => api.patch(
         `/api/learning-notebooks/${encodeURIComponent(snapshot.id)}`,
-        { notebook: snapshot },
+        { notebook: snapshotForSend() },
         { academicProfileId: academicProfileDataId, timeoutMs: 30000 },
       ))
       .then((payload) => {
@@ -2270,16 +2278,25 @@ function StartLearningPage({
 
   const queueMasteryAutosave = useCallback((snapshot) => {
     if (!snapshot?.id) return;
-    const sequence = ++masterySaveSequenceRef.current;
-    if (masteryAutosaveTimerRef.current) window.clearTimeout(masteryAutosaveTimerRef.current);
+    const pending = pendingNotebookSavesRef.current;
+    const previous = pending.get(snapshot.id);
+    if (previous?.timer) window.clearTimeout(previous.timer);
+    const entry = { snapshot, timer: null, promise: null, save: null };
+    pending.set(snapshot.id, entry);
     setMasterySaving(true);
-    masteryAutosaveTimerRef.current = window.setTimeout(async () => {
-      const currentSnapshot = activeNotebookRef.current?.id === snapshot.id
-        ? activeNotebookRef.current
-        : snapshot;
+    const save = async () => {
+      entry.timer = null;
+      const currentSnapshot = entry.snapshot;
       try {
-        const payload = await enqueueNotebookPatch(currentSnapshot);
-        if (!mountedRef.current || sequence !== masterySaveSequenceRef.current) return;
+        const payload = await enqueueNotebookPatch(currentSnapshot, () => {
+          // A pin can commit while this save waits behind its request in the chain.
+          const latest = activeNotebookRef.current;
+          if (latest?.id === snapshot.id) {
+            entry.snapshot = { ...entry.snapshot, pinned: latest.pinned === true };
+          }
+          return entry.snapshot;
+        });
+        if (!mountedRef.current || pending.get(snapshot.id) !== entry) return;
         const normalized = normalizeNotebook(payload?.notebook || currentSnapshot);
         const revisionMatches = activeNotebookRef.current?.id === currentSnapshot.id
           && activeNotebookRef.current?.updatedAt === currentSnapshot.updatedAt;
@@ -2294,15 +2311,30 @@ function StartLearningPage({
           setDirty(false);
         }
       } catch (error) {
-        if (mountedRef.current && sequence === masterySaveSequenceRef.current) {
-          setDirty(true);
+        if (mountedRef.current && pending.get(snapshot.id) === entry) {
+          if (activeNotebookRef.current?.id === snapshot.id) setDirty(true);
           setNotification?.(error instanceof Error ? error.message : "Learning progress could not be saved.");
         }
       } finally {
-        if (mountedRef.current && sequence === masterySaveSequenceRef.current) setMasterySaving(false);
+        if (pending.get(snapshot.id) === entry) pending.delete(snapshot.id);
+        if (mountedRef.current) setMasterySaving(pending.size > 0);
       }
-    }, 650);
+    };
+    entry.save = () => {
+      if (!entry.promise) entry.promise = save();
+      return entry.promise;
+    };
+    entry.timer = window.setTimeout(entry.save, 650);
   }, [enqueueNotebookPatch, setNotification]);
+
+  const flushNotebookSave = async (notebookId) => {
+    const pending = pendingNotebookSavesRef.current.get(notebookId);
+    if (pending) {
+      if (pending.timer) window.clearTimeout(pending.timer);
+      await pending.save();
+    }
+    await notebookSaveChainRef.current;
+  };
 
   const updateNotebook = (updater) => {
     const current = activeNotebookRef.current || activeNotebook;
@@ -2522,81 +2554,46 @@ function StartLearningPage({
     }
   };
 
-  const updateChapter = (chapterId, updater) => {
-    updateNotebook((current) => ({
-      ...current,
-      chapters: current.chapters.map((chapter) =>
-        chapter.id === chapterId
-          ? (typeof updater === "function" ? updater(chapter) : { ...chapter, ...updater })
-          : chapter,
-      ),
-    }));
-  };
-
-  const updateTopic = (chapterId, topicId, updater) => {
-    updateChapter(chapterId, (chapter) => ({
-      ...chapter,
-      topics: chapter.topics.map((topic) =>
-        topic.id === topicId
-          ? (typeof updater === "function" ? updater(topic) : { ...topic, ...updater })
-          : topic,
-      ),
-    }));
-  };
-
-  const addChapter = () => {
-    const title = cleanText(chapterDraft, 180);
-    if (!title) return;
-    const chapter = normalizeChapter({ id: makeId("chapter"), title, topics: [] }, activeNotebook.chapters.length, activeNotebook.id);
-    updateNotebook((current) => ({ ...current, chapters: [...current.chapters, chapter] }));
-    setExpandedChapters((current) => new Set(current).add(chapter.id));
-    setSelectedNodeId(chapter.id);
-    setChapterDraft("");
-    setChapterComposerOpen(false);
-  };
-
-  const addTopic = (chapterId) => {
-    const title = cleanText(topicComposer.value, 180);
-    if (!title || topicComposer.chapterId !== chapterId) return;
-    const topic = normalizeTopic({ id: makeId("topic"), title, subtopics: [] }, 0, chapterId);
-    updateChapter(chapterId, (chapter) => ({ ...chapter, topics: [...chapter.topics, topic] }));
-    setSelectedNodeId(topic.id);
-    setTopicComposer({ chapterId: "", value: "" });
-  };
-
-  const addSubtopic = (chapterId, topicId) => {
-    const title = cleanText(subtopicComposer.value, 180);
-    if (!title || subtopicComposer.chapterId !== chapterId || subtopicComposer.topicId !== topicId) return;
-    const subtopic = normalizeSubtopic({ id: makeId("subtopic"), title }, 0, topicId);
-    updateTopic(chapterId, topicId, (topic) => ({ ...topic, subtopics: [...topic.subtopics, subtopic] }));
-    setSelectedNodeId(subtopic.id);
-    setSubtopicComposer({ chapterId: "", topicId: "", value: "" });
-  };
-
-  const removeChapter = (chapterId) => {
-    updateNotebook((current) => ({
-      ...current,
-      chapters: current.chapters.filter((chapter) => chapter.id !== chapterId),
-    }));
-  };
-
   const persistNotebookHistoryMutation = async (snapshot, {
     errorMessage,
     mutationKey,
+    notebookPinned,
     successMessage,
   }) => {
     if (!snapshot?.id || historyBusy) return null;
     setHistoryMutationKey(mutationKey);
     try {
-      const payload = await enqueueNotebookPatch(snapshot);
+      const isNotebookPin = typeof notebookPinned === "boolean";
+      if (isNotebookPin) await flushNotebookSave(snapshot.id);
+      const latest = activeNotebookRef.current?.id === snapshot.id ? activeNotebookRef.current : snapshot;
+      const baseRevision = latest.updatedAt;
+      const submitted = isNotebookPin
+        ? { ...latest, pinned: notebookPinned, updatedAt: new Date().toISOString() }
+        : snapshot;
+      const payload = await enqueueNotebookPatch(submitted);
+      const normalized = normalizeNotebook(payload?.notebook || submitted);
+      if (isNotebookPin) {
+        const pending = pendingNotebookSavesRef.current.get(snapshot.id);
+        if (pending) pending.snapshot = { ...pending.snapshot, pinned: normalized.pinned === true };
+      }
+      const current = activeNotebookRef.current?.id === normalized.id ? activeNotebookRef.current : null;
+      const committed = current
+        ? isNotebookPin && current.updatedAt !== baseRevision
+          ? { ...current, pinned: normalized.pinned === true }
+          : normalized
+        : null;
+      // Retained background saves must receive confirmed metadata even after navigation.
+      if (isNotebookPin && committed) activeNotebookRef.current = committed;
       if (!mountedRef.current) return null;
-      const normalized = normalizeNotebook(payload?.notebook || snapshot);
       setNotebooks((current) => current.map((notebook) => (
-        notebook.id === normalized.id ? normalized : notebook
+        notebook.id !== normalized.id ? notebook
+          : isNotebookPin && notebook.updatedAt !== baseRevision
+            ? { ...notebook, pinned: normalized.pinned === true }
+            : normalized
       )));
-      if (activeNotebookRef.current?.id === normalized.id) {
-        activeNotebookRef.current = normalized;
-        setActiveNotebook(normalized);
+      if (committed) {
+        activeNotebookRef.current = committed;
+        setActiveNotebook(committed);
       }
       setNotification?.(successMessage);
       return normalized;
@@ -2623,6 +2620,7 @@ function StartLearningPage({
     await persistNotebookHistoryMutation(snapshot, {
       errorMessage: "The notebook pin could not be updated.",
       mutationKey: `notebook-pin:${activeNotebook.id}`,
+      notebookPinned: nextPinned,
       successMessage: nextPinned ? "Notebook pinned to the top of history." : "Notebook unpinned.",
     });
   };
@@ -2713,17 +2711,18 @@ function StartLearningPage({
 
   const clearCurrentHistory = async () => {
     const kind = activeArtifactKind;
-    if (!kind || historyBusy) return;
+    if (!kind || historyBusy) return false;
     const targets = kind === "notebook"
       ? notebookHistory
       : kind === "placement"
         ? notebooks.filter((notebook) => getSavedPlacementNotes([notebook]).length > 0)
         : notebooks.filter((notebook) => getSavedMedicalTrainingNotes([notebook]).length > 0);
-    if (!targets.length) return;
+    if (!targets.length) return true;
     setClearingHistory(true);
     const now = new Date().toISOString();
     const results = await Promise.allSettled(targets.map(async (notebook) => {
       if (kind === "notebook") {
+        await flushNotebookSave(notebook.id);
         await api.delete(`/api/learning-notebooks/${encodeURIComponent(notebook.id)}`, {
           academicProfileId: academicProfileDataId,
           timeoutMs: 30000,
@@ -2762,22 +2761,25 @@ function StartLearningPage({
         if (workspaceView === "medical") setWorkspaceView("intake");
       }
       setClearHistoryCandidate("");
+      if (kind === "notebook" && completed.length) notifyLearningNotebookSaved({ academicProfileId: academicProfileDataId });
       setNotification?.(failedCount
         ? `${completed.length} history item source${completed.length === 1 ? "" : "s"} cleared; ${failedCount} could not be cleared.`
         : `${kind === "notebook" ? "Notebook" : kind === "placement" ? "Placement" : "Medical training"} history cleared.`);
       setClearingHistory(false);
     }
+    return results.every((result) => result.status === "fulfilled");
   };
 
   const deleteNotebook = async (notebookId) => {
-    if (careerAnalyzing || historyBusy || medicalAnalyzing || saving) return;
+    if (careerAnalyzing || historyBusy || medicalAnalyzing || saving) return false;
     setDeletingId(notebookId);
     try {
+      await flushNotebookSave(notebookId);
       await api.delete(`/api/learning-notebooks/${encodeURIComponent(notebookId)}`, {
         academicProfileId: academicProfileDataId,
         timeoutMs: 30000,
       });
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) return true;
       setNotebooks((current) => current.filter((notebook) => notebook.id !== notebookId));
       setCareerDraft((current) => (
         current?.notebookId === notebookId ? null : current
@@ -2793,11 +2795,14 @@ function StartLearningPage({
         setWorkspaceView("intake");
       }
       setDeleteCandidateId("");
+      notifyLearningNotebookSaved({ academicProfileId: academicProfileDataId, notebookId });
       setNotification?.("Learning notebook deleted.");
+      return true;
     } catch (error) {
       if (mountedRef.current) {
         setNotification?.(error instanceof Error ? error.message : "The notebook could not be deleted.");
       }
+      return false;
     } finally {
       if (mountedRef.current) setDeletingId("");
     }
@@ -2860,22 +2865,37 @@ function StartLearningPage({
         if (question.answer) addParagraph(question.answer, { indent: 5, muted: true });
       });
 
-      addHeading("Revised notes", 15);
-      activeNotebook.revisedNotes.forEach((section) => {
-        addHeading(section.title, 11.5);
-        addParagraph(section.content);
-        section.bullets.forEach((bullet) => addParagraph(`• ${bullet}`, { indent: 3 }));
-      });
-
-      addHeading("Chapter outline", 15);
-      activeNotebook.chapters.forEach((chapter, chapterIndex) => {
-        addHeading(`${chapterIndex + 1}. ${chapter.title}`, 11.5);
-        addParagraph(chapter.summary, { muted: true });
-        chapter.topics.forEach((topic, topicIndex) => {
-          addParagraph(`${chapterIndex + 1}.${topicIndex + 1} ${topic.title}`, { bold: true, indent: 3 });
-          topic.subtopics.forEach((subtopic) => addParagraph(`• ${subtopic.title}`, { indent: 8 }));
+      addHeading("Notebook content", 15);
+      activeNotebook.chapters.forEach((chapter) => chapter.topics.forEach((topic) => {
+        addHeading(topic.title, 11.5);
+        addParagraph(topic.explanation || topic.summary);
+        topic.keyPoints.forEach((point) => addParagraph(`• ${point}`, { indent: 3 }));
+        topic.examples.forEach((example) => addParagraph(example, { indent: 3 }));
+        topic.subtopics.forEach((subtopic) => {
+          addHeading(subtopic.title, 10.5);
+          addParagraph(subtopic.explanation || subtopic.summary);
+          subtopic.keyPoints.forEach((point) => addParagraph(`• ${point}`, { indent: 3 }));
+          subtopic.examples.forEach((example) => addParagraph(example, { indent: 3 }));
         });
+        [topic.applications, topic.commonMistakes, topic.revisionTips].forEach((points) => {
+          points.forEach((point) => addParagraph(`• ${point}`, { indent: 3 }));
+        });
+      }));
+
+      const legacyTopicIds = new Set(activeNotebook.chapters.flatMap((chapter) => chapter.topics)
+        .filter((topic) => !topic.explanation?.trim()).map((topic) => topic.id));
+      const savedNotes = activeNotebook.revisedNotes.filter((note) => {
+        const references = getRevisedNoteTopicIds(note, activeNotebook);
+        return references.length !== 1 || references.some((id) => legacyTopicIds.has(id));
       });
+      if (savedNotes.length) {
+        addHeading("Saved notes", 15);
+        savedNotes.forEach((note) => {
+          addHeading(note.title, 11.5);
+          addParagraph(note.content);
+          [...note.keyPoints, ...note.revisionTips].forEach((point) => addParagraph(`• ${point}`, { indent: 3 }));
+        });
+      }
 
       const chapterGroups = [];
       const chaptersPerMapPage = 4;
@@ -2996,61 +3016,10 @@ function StartLearningPage({
     }
   };
 
-  const askRevisedNoteAI = (section) => {
-    if (!activeNotebook || !section) return;
-    window.dispatchEvent(new CustomEvent("openPrepMatrixAIChat", {
-      detail: {
-        autoSend: true,
-        createNewChat: true,
-        message: [
-          `Help me understand the revised note "${section.title}" from my ${activeNotebook.subjectName} notebook "${activeNotebook.title}".`,
-          section.content ? `Note: ${cleanText(section.content, 2200)}` : "",
-          section.keyPoints?.length ? `Key ideas: ${section.keyPoints.join("; ")}` : "",
-          "Explain the ideas clearly with examples, then ask me one short recall question.",
-        ].filter(Boolean).join("\n"),
-      },
-    }));
-  };
-
-  const toggleRevisedNoteCompletion = (section) => {
-    if (!activeNotebook || !section) return;
-    const actionNode = buildRevisedNoteActionNode(section, activeNotebook);
-    if (!actionNode) return;
-    const now = new Date().toISOString();
-    let nextCompleted = !section.completed;
-    updateNotebook((current) => {
-      const currentSection = current.revisedNotes.find((item) => item.id === section.id);
-      nextCompleted = !currentSection?.completed;
-      const nextNotebook = {
-        ...current,
-        revisedNotes: current.revisedNotes.map((item) => (
-          item.id === section.id ? {
-            ...item,
-            completed: nextCompleted,
-            completedAt: nextCompleted ? now : "",
-          } : item
-        )),
-      };
-      return {
-        ...nextNotebook,
-        learningState: normalizeLearningState(nextNotebook.learningState, {
-          notebook: nextNotebook,
-          now,
-        }),
-      };
-    });
-
-    const plannerState = getLearningPlannerCompletionState(
-      schedule, completed, activeLearningProject, actionNode,
-    );
-    if (plannerState.isScheduled) {
-      const plannerCompletion = setLearningPlannerNodeCompletion(
-        schedule, completed, activeLearningProject, actionNode, nextCompleted,
-      );
-      if (plannerCompletion) setCompleted?.(plannerCompletion.completed);
-    }
-
-    setNotification?.(`${section.title} marked ${nextCompleted ? "complete" : "incomplete"}.`);
+  const setTopicCompletion = (topic, complete) => {
+    updateNotebook((current) => setNotebookTopicCompleted(current, topic.id, complete));
+    const plannerCompletion = setLearningPlannerNodeCompletion(schedule, completed, activeLearningProject, topic, complete);
+    if (plannerCompletion) setCompleted?.(plannerCompletion.completed);
   };
 
   const closePlannerDialog = () => {
@@ -3201,72 +3170,6 @@ function StartLearningPage({
       },
     }));
   };
-  const toggleLearningNodeCompletion = (node) => {
-    const state = completionStateByNodeId.get(node?.id);
-    if (!node || !state?.isScheduled) {
-      if (openPlannerForNode(node)) {
-        setNotification?.(
-          `${node.title} is not scheduled yet. Choose a planner date first.`,
-        );
-      }
-      return;
-    }
-
-    const result = setLearningPlannerNodeCompletion(
-      schedule,
-      completed,
-      activeLearningProject,
-      node,
-      !state.isCompleted,
-    );
-    if (!result) return;
-
-    setCompleted?.(result.completed);
-    if (result.isCompleted) {
-      applyLearningState((learningState, now) => markLearningNodeLearned(
-        learningState,
-        node.id,
-        { notebook: activeNotebook, now },
-      ));
-    }
-    setNotification?.(
-      result.isCompleted
-        ? `${node.title} marked complete in Study schedule.`
-        : `${node.title} marked incomplete in Study schedule.`,
-    );
-  };
-
-  const renderCompletionAction = (node, { iconOnly = false } = {}) => {
-    if (!node || node.type === "notebook") return null;
-    const state = completionStateByNodeId.get(node.id) || {
-      isCompleted: false,
-      isScheduled: false,
-    };
-    const label = state.isScheduled
-      ? state.isCompleted ? "Completed" : "Mark as completed"
-      : "Add to planner";
-    const Icon = state.isScheduled ? Check : CalendarPlus;
-    const title = state.isScheduled && state.isCompleted
-      ? `Mark ${node.title} incomplete`
-      : state.isScheduled
-        ? `Mark ${node.title} as completed`
-        : `Add ${node.title} to the planner before completing it`;
-
-    return (
-      <button
-        aria-label={title}
-        aria-pressed={state.isScheduled ? state.isCompleted : undefined}
-        className={`learning-completion-action${state.isCompleted ? " is-complete" : ""}${state.isScheduled ? "" : " is-unscheduled"}`}
-        onClick={() => toggleLearningNodeCompletion(node)}
-        title={title}
-        type="button"
-      >
-        <Icon size={iconOnly ? 15 : 14} />
-        {!iconOnly && <span>{label}</span>}
-      </button>
-    );
-  };
-
   const addToPlanner = () => {
     if (!requirePlannerDates().length) return;
     const node = plannerCustomNode?.id === plannerNodeId
@@ -3306,44 +3209,6 @@ function StartLearningPage({
     );
   };
 
-  const addNotebookSubject = () => {
-    if (!activeNotebook || !setSubjects) return;
-    const name = activeNotebook.subjectName || activeNotebook.title;
-    const chapterNames = activeNotebook.chapters.map((chapter) => cleanText(chapter.title, 180)).filter(Boolean);
-    const existingIndex = subjects.findIndex(
-      (subject) => cleanText(subject?.name, 160).toLowerCase() === name.toLowerCase(),
-    );
-    const existingSubject = existingIndex >= 0 ? subjects[existingIndex] : null;
-    const nextSubject = {
-      ...(existingSubject || {}),
-      name,
-      chapters: chapterNames.length,
-      chapterNames,
-      topics: existingSubject?.topics || [],
-      difficulty: existingSubject?.difficulty || "medium",
-      studyPreferences: existingSubject?.studyPreferences || {
-        sessionsPerWeek: 3,
-        sessionMinutes: 45,
-        preferredTime: "any",
-        studyGoal: "coverage",
-      },
-    };
-    const nextSubjects = existingIndex >= 0
-      ? subjects.map((subject, index) => (index === existingIndex ? nextSubject : subject))
-      : [...subjects, nextSubject];
-    setSubjects(nextSubjects, { preserveSchedule: true });
-    setNotification?.(`${name} chapter names synced with Subjects.`);
-  };
-
-  const toggleChapter = (chapterId) => {
-    setExpandedChapters((current) => {
-      const next = new Set(current);
-      if (next.has(chapterId)) next.delete(chapterId);
-      else next.add(chapterId);
-      return next;
-    });
-  };
-
   const noSavedNotebooks = !notebooksLoading && !notebooksError && notebookHistory.length === 0;
   const noSavedPlacementNotes = !notebooksLoading
     && !notebooksError
@@ -3375,6 +3240,12 @@ function StartLearningPage({
         </nav>
       )}
 
+      {intakeMode === "notebook" && workspaceView === "intake" ? (
+        <NotebookLibrary notebooks={notebookHistory} loading={notebooksLoading} error={notebooksError} onRetry={loadNotebooks}
+          onOpen={selectNotebook} onNew={() => setNewNotebookOpen(true)} onBack={returnToPreparationChoice}
+          onDelete={(notebook) => deleteNotebook(notebook.id)} onDeleteAll={clearCurrentHistory} busy={historyBusy || Boolean(deletingId) || analyzing}
+          completionForNotebook={getNotebookCompletionSummary} shortcutsEnabled={!newNotebookOpen && !privacyConsentOpen} />
+      ) : (
       <div className={`learning-workspace is-${workspaceView}${intakeMode === null ? " is-choice-home" : ""}`}>
         <aside
           aria-label={activeArtifactKind ? "Sources and learning history" : "Learning workspace choices"}
@@ -3482,249 +3353,7 @@ function StartLearningPage({
               </div>
             </div>
           )}
-          {intakeMode === "notebook" ? (
-          <>
-          <div className="learning-panel-heading">
-            <div>
-              <h3>Notebook requirements</h3>
-              <p>Describe what you need covered. Add a subject, outline, or source files for more context.</p>
-            </div>
-          </div>
-
-          <input
-            accept={LEARNING_SOURCE_ACCEPT}
-            className="learning-file-input"
-            multiple
-            onChange={(event) => handleFiles(event.target.files)}
-            ref={fileInputRef}
-            type="file"
-          />
-          <div className="learning-notebook-source-row">
-            <div className="learning-notebook-upload-column">
-              <button
-                className="learning-dropzone"
-                disabled={preparingSources || sources.length >= MAX_CHAT_ATTACHMENTS}
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  handleFiles(event.dataTransfer.files);
-                }}
-                type="button"
-              >
-                {preparingSources ? <LoaderCircle className="spinner" size={25} /> : <UploadCloud size={25} />}
-                <strong>{preparingSources ? "Preparing sources…" : "Upload files"}</strong>
-                <span>PDF, image, TXT or Markdown · up to 3</span>
-              </button>
-            </div>
-            <span aria-hidden="true" className="learning-notebook-source-divider" />
-            <div className="learning-notebook-prompt-column">
-              <label className="learning-field learning-prompt-field">
-                <span>Requirements</span>
-                <textarea
-                  disabled={analyzing}
-                  maxLength={MAX_LEARNING_PROMPT_CHARS}
-                  onChange={(event) => {
-                    setLearningPrompt(event.target.value);
-                    setAnalysisError("");
-                  }}
-                  placeholder={curriculumExamples.learningPromptPlaceholder}
-                  rows={5}
-                  value={learningPrompt}
-                />
-                <small className="learning-prompt-meta">
-                  <span>
-                    {learningPrompt.length.toLocaleString()}/{MAX_LEARNING_PROMPT_CHARS.toLocaleString()}
-                  </span>
-                </small>
-              </label>
-            </div>
-          </div>
-
-          {sourceError && <p className="learning-inline-error" role="alert">{sourceError}</p>}
-          {sources.length > 0 && (
-            <div aria-label="Selected learning sources" className="learning-source-list">
-              {sources.map((source) => (
-                <div className="learning-source-chip" key={source.id}>
-                  <span className="learning-source-icon">
-                    {source.type?.startsWith("image/") ? <ImageIcon size={15} /> : <FileText size={15} />}
-                  </span>
-                  <span>
-                    <strong title={source.name}>{source.name}</strong>
-                    <small>{formatChatFileSize(source.size)}</small>
-                  </span>
-                  <button
-                    aria-label={`Remove ${source.name}`}
-                    onClick={() => removeSource(source.id)}
-                    type="button"
-                  >
-                    <X size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div
-            className={subjectPickerOpen
-              ? "learning-field learning-subject-field is-open"
-              : "learning-field learning-subject-field"}
-          >
-            <label htmlFor="learning-subject-input">Subject</label>
-            <div
-              className={`learning-subject-picker${subjectPickerOpen ? " is-open" : ""}`}
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) setSubjectPickerOpen(false);
-              }}
-            >
-              <input
-                aria-activedescendant={
-                  subjectPickerOpen && visibleSavedSubjectNames.length
-                    ? `learning-subject-option-${activeSubjectOptionIndex}`
-                    : undefined
-                }
-                aria-autocomplete="list"
-                aria-controls={
-                  subjectPickerOpen ? "learning-saved-subject-options" : undefined
-                }
-                aria-describedby="learning-subject-help"
-                aria-expanded={subjectPickerOpen && savedSubjectNames.length > 0}
-                autoComplete="off"
-                disabled={analyzing}
-                id="learning-subject-input"
-                onChange={(event) => {
-                  const nextSubjectName = event.target.value;
-                  const prefill = getSubjectNotebookPrefill(subjects, nextSubjectName);
-                  setSubjectName(nextSubjectName);
-                  if (prefill) {
-                    setManualChapters(prefill.chapterNames.join("\n"));
-                    setManualTopics(prefill.topics.join("\n"));
-                  }
-                  setSubjectOptionIndex(0);
-                  setSubjectPickerOpen(savedSubjectNames.length > 0);
-                }}
-                onClick={() => setSubjectPickerOpen(savedSubjectNames.length > 0)}
-                onFocus={() => setSubjectPickerOpen(savedSubjectNames.length > 0)}
-                onKeyDown={handleSubjectPickerKeyDown}
-                placeholder={savedSubjectNames.length ? "Choose or type a subject" : curriculumExamples.subjectPlaceholder}
-                ref={subjectInputRef}
-                role="combobox"
-                type="text"
-                value={subjectName}
-              />
-              {savedSubjectNames.length > 0 && (
-                <button
-                  aria-label={subjectPickerOpen ? "Close saved subjects" : "Show saved subjects"}
-                  aria-controls={
-                    subjectPickerOpen ? "learning-saved-subject-options" : undefined
-                  }
-                  aria-expanded={subjectPickerOpen}
-                  aria-haspopup="listbox"
-                  className="learning-subject-picker-toggle"
-                  disabled={analyzing}
-                  onClick={() => {
-                    setSubjectPickerOpen((current) => !current);
-                    subjectInputRef.current?.focus();
-                  }}
-                  onMouseDown={(event) => event.preventDefault()}
-                  type="button"
-                >
-                  <ChevronDown size={15} />
-                </button>
-              )}
-              {subjectPickerOpen && savedSubjectNames.length > 0 && (
-                <div
-                  aria-label="Saved subjects"
-                  className="learning-subject-options"
-                  id="learning-saved-subject-options"
-                  ref={subjectOptionsRef}
-                  role="listbox"
-                >
-                  {visibleSavedSubjectNames.length > 0 ? visibleSavedSubjectNames.map((name, index) => {
-                    const selected = name.toLocaleLowerCase() === subjectName.trim().toLocaleLowerCase();
-                    return (
-                      <button
-                        aria-selected={selected}
-                        className={`learning-subject-option${index === activeSubjectOptionIndex ? " is-active" : ""}${selected ? " is-selected" : ""}`}
-                        id={`learning-subject-option-${index}`}
-                        key={name}
-                        onClick={() => chooseSavedSubject(name)}
-                        onMouseDown={(event) => event.preventDefault()}
-                        onMouseEnter={() => setSubjectOptionIndex(index)}
-                        role="option"
-                        tabIndex={-1}
-                        type="button"
-                      >
-                        <span>{name}</span>
-                        {selected && <Check size={14} />}
-                      </button>
-                    );
-                  }) : (
-                    <div aria-live="polite" className="learning-subject-options-empty" role="status">
-                      <strong>No saved subject matches.</strong>
-                      <span>Keep typing to use this as a new subject.</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            <small id="learning-subject-help">
-              {savedSubjectNames.length
-                ? `Choose from ${savedSubjectNames.length} saved subject${savedSubjectNames.length === 1 ? "" : "s"}, or type another.`
-                : "No saved subjects yet. Type a subject here or add one from the Subjects page."}
-            </small>
-          </div>
-          <div className="learning-notebook-detail-fields">
-            <label className="learning-field">
-              <span>Chapter(s)</span>
-              <textarea
-                autoComplete="off"
-                disabled={analyzing}
-                onChange={(event) => {
-                  setManualChapters(event.target.value);
-                  setAnalysisError("");
-                }}
-                placeholder={curriculumExamples.moreChaptersPlaceholder}
-                rows={4}
-                value={manualChapters}
-              />
-              <small>Add one or more chapters with commas or new lines.</small>
-            </label>
-            <label className="learning-field">
-              <span>Topic(s)</span>
-              <textarea
-                autoComplete="off"
-                disabled={analyzing}
-                onChange={(event) => {
-                  setManualTopics(event.target.value);
-                  setAnalysisError("");
-                }}
-                placeholder={curriculumExamples.topicPlaceholder}
-                rows={4}
-                value={manualTopics}
-              />
-              <small>Add one or more topics with commas or new lines.</small>
-            </label>
-          </div>
-          {!analyzing && analysisError && (
-            <p className="learning-inline-error" role="alert">{analysisError}</p>
-          )}
-          {analyzing ? (
-            <LatticeLoader className="generation-lattice-loader" label="Building notebook" />
-          ) : (
-            <button
-              className="learning-analyze-btn"
-              disabled={preparingSources || hasInsufficientCredits(AI_FEATURES.LEARNING_NOTEBOOK)}
-              onClick={analyzeNotebook}
-              type="button"
-            >
-              <BrainCircuit size={17} />
-              Generate notebook
-              <AiCreditCost feature={AI_FEATURES.LEARNING_NOTEBOOK} />
-            </button>
-          )}
-          </>
-          ) : intakeMode === "medical" ? (
+          {intakeMode === "medical" ? (
           <MedicalTrainingLabIntake
             analyzing={medicalAnalyzing}
             canAnalyze={Boolean(
@@ -4131,11 +3760,10 @@ function StartLearningPage({
               <h3>Build a focused revision notebook</h3>
               <p>
                 Enter your requirements or add a source. PrepMatrix will create revised notes,
-                a topic outline, and a mastery map you can use for recall practice.
+                and a mastery map you can use for recall practice.
               </p>
               <div className="learning-empty-features">
                 <span><FileText size={15} /> Revised notes</span>
-                <span><BookOpenCheck size={15} /> Topic outline</span>
                 <span><BrainCircuit size={15} /> Mastery map</span>
               </div>
             </div>
@@ -4147,21 +3775,21 @@ function StartLearningPage({
                   <p>{activeNotebook.summary || `${activeNotebook.subjectName} organized into a focused revision notebook.`}</p>
                   <div className="learning-notebook-meta">
                     <span>{activeNotebook.subjectName}</span>
-                    <span>{activeNotebook.chapters.length} chapters</span>
-                    <span>{nodes.length} concepts</span>
+                    <span>{getNotebookCompletionSummary(activeNotebook).totalTopics} topics</span>
+                    <span>{getNotebookCompletionSummary(activeNotebook).percent}% completed</span>
                     {dirty && <span className="is-unsaved">Changes pending</span>}
                     {masterySaving && <span className="is-saving">Saving changes...</span>}
                   </div>
                 </div>
                 <button
-                  aria-label="Back to Start Learning home"
+                  aria-label="Back to notebooks home"
                   className="learning-workspace-return-button is-inside-card"
-                  onClick={returnToPreparationChoice}
-                  title="Back to Start Learning home"
+                  onClick={openNotebookIntake}
+                  title="Back to notebooks home"
                   type="button"
                 >
                   <ArrowLeft aria-hidden="true" size={16} />
-                  <span>Back to Start Learning</span>
+                  <span>Back to notebooks</span>
                 </button>
                 <div className="learning-header-actions" aria-label="Notebook actions">
                   <button
@@ -4189,8 +3817,7 @@ function StartLearningPage({
               <section className="card learning-content-card">
                 <div className="learning-tablist" role="tablist" aria-label="Notebook views">
                   {[
-                    ["notes", "Revised notes", <FileText aria-hidden="true" key="notes-icon" size={15} />],
-                    ["outline", "Topic outline", <BookOpenCheck aria-hidden="true" key="outline-icon" size={15} />],
+                    ["notes", "Notebook content", <FileText aria-hidden="true" key="notes-icon" size={15} />],
                     ["map", "Mastery map", <BrainCircuit aria-hidden="true" key="map-icon" size={15} />],
                     ["recall", "Recall session", <Target aria-hidden="true" key="recall-icon" size={15} />],
                   ].map(([tabId, label, icon]) => (
@@ -4227,332 +3854,9 @@ function StartLearningPage({
                     />
                   </div>
                   <div {...learningTabPanelProps(activeTab, "notes", "learning-notes-view")}>
-                    {activeNotebook.revisedNotes.length ? activeNotebook.revisedNotes.map((section, index) => {
-                      const noteNode = buildRevisedNoteActionNode(section, activeNotebook);
-                      const plannerState = getLearningPlannerCompletionState(
-                        schedule, completed, activeLearningProject, noteNode,
-                      );
-                      const noteOptions = { title: section.title };
-                      return (
-                      <article className="learning-note-section" key={section.id} style={{ "--reveal-index": index }}>
-                        <span>{String(index + 1).padStart(2, "0")}</span>
-                        <div>
-                          <h3>{section.title}</h3>
-                          {section.content.split(/\n{2,}/).filter(Boolean).map((paragraph, paragraphIndex) => (
-                            <p key={`${section.id}-paragraph-${paragraphIndex}`}>{paragraph}</p>
-                          ))}
-                          {(section.keyPoints.length > 0 || section.revisionTips.length > 0) && (
-                            <div className="learning-note-details">
-                              {section.keyPoints.length > 0 && (
-                                <section>
-                                  <h4>Key ideas</h4>
-                                  <ul>
-                                    {section.keyPoints.map((point) => <li key={point}>{point}</li>)}
-                                  </ul>
-                                </section>
-                              )}
-                              {section.revisionTips.length > 0 && (
-                                <section className="is-revision">
-                                  <h4>Revision cues</h4>
-                                  <ul>
-                                    {section.revisionTips.map((tip) => <li key={tip}>{tip}</li>)}
-                                  </ul>
-                                </section>
-                              )}
-                            </div>
-                          )}
-                          <div className="learning-note-actions" aria-label={`Actions for ${section.title}`}>
-                            <button onClick={() => openPlannerForNode(noteNode)} type="button">
-                              <CalendarPlus aria-hidden="true" size={15} />
-                              {plannerState.isScheduled ? "Change planner date" : "Add to planner"}
-                            </button>
-                            <button
-                              aria-pressed={section.completed === true}
-                              className={section.completed ? "is-complete" : ""}
-                              onClick={() => toggleRevisedNoteCompletion(section)}
-                              type="button"
-                            >
-                              <Check aria-hidden="true" size={15} />
-                              {section.completed ? "Completed" : "Mark completed"}
-                            </button>
-                            <button onClick={() => askRevisedNoteAI(section)} type="button">
-                              <MessageSquareText aria-hidden="true" size={15} /> Ask AI
-                            </button>
-                            <button
-                              disabled={isLearningNoteSaving(noteNode, noteOptions)}
-                              onClick={() => saveLearningTopicToNotes(noteNode, noteOptions)}
-                              type="button"
-                            >
-                              <Save aria-hidden="true" size={15} />
-                              {isLearningNoteSaving(noteNode, noteOptions) ? "Saving…" : "Save to Notes"}
-                            </button>
-                          </div>
-                        </div>
-                      </article>
-                    );}) : (
-                      <div className="learning-section-empty">No revised note sections were returned.</div>
-                    )}
-                  </div>
-
-                  <div {...learningTabPanelProps(activeTab, "outline", "learning-outline-view")}>
-                    <div className="learning-outline-toolbar">
-                      <div>
-                        <h3>Editable learning path</h3>
-                      </div>
-                      <div>
-                        <button aria-label="Add chapter" onClick={() => setChapterComposerOpen(true)} title="Add chapter" type="button">
-                          <Plus size={15} /> Add chapter
-                        </button>
-                        <button aria-label="Sync notebook with subjects" onClick={addNotebookSubject} title="Sync with subjects" type="button">
-                          <BookOpenCheck size={15} /> Sync subjects
-                        </button>
-                      </div>
-                    </div>
-                    {chapterComposerOpen && (
-                      <div className="learning-inline-composer">
-                        <label>
-                          <span>New chapter name</span>
-                          <input
-                            autoFocus
-                            onChange={(event) => setChapterDraft(event.target.value)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") addChapter();
-                              if (event.key === "Escape") setChapterComposerOpen(false);
-                            }}
-                            placeholder="Chapter name"
-                            value={chapterDraft}
-                          />
-                        </label>
-                        <button disabled={!chapterDraft.trim()} onClick={addChapter} type="button"><Check size={15} /> Add</button>
-                        <button aria-label="Cancel adding chapter" onClick={() => setChapterComposerOpen(false)} type="button"><X size={15} /></button>
-                      </div>
-                    )}
-                    <div className="learning-outline-tree" role="tree">
-                      {activeNotebook.chapters.map((chapter, chapterIndex) => {
-                        const expanded = expandedChapters.has(chapter.id);
-                        return (
-                          <article
-                            className="learning-outline-chapter"
-                            key={chapter.id}
-                            role="treeitem"
-                            aria-expanded={expanded}
-                            style={{ "--reveal-index": chapterIndex }}
-                          >
-                            <div className="learning-outline-chapter-row">
-                              <button
-                                aria-label={`${expanded ? "Collapse" : "Expand"} ${chapter.title}`}
-                                onClick={() => toggleChapter(chapter.id)}
-                                type="button"
-                              >
-                                {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                              </button>
-                              <span>{String(chapterIndex + 1).padStart(2, "0")}</span>
-                              <label>
-                                <span className="sr-only">Chapter name</span>
-                                <input
-                                  onChange={(event) => updateChapter(chapter.id, { title: event.target.value })}
-                                  onFocus={() => setSelectedNodeId(chapter.id)}
-                                  value={chapter.title}
-                                />
-                              </label>
-                              <button
-                                aria-label={`Add topic to ${chapter.title}`}
-                                onClick={() => setTopicComposer({ chapterId: chapter.id, value: "" })}
-                                title="Add topic"
-                                type="button"
-                              >
-                                <Plus size={14} />
-                              </button>
-                              <button
-                                aria-label={`Remove ${chapter.title}`}
-                                onClick={() => removeChapter(chapter.id)}
-                                type="button"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                            {expanded && (
-                              <div className="learning-outline-topic-list" role="group">
-                                {chapter.summary && <p className="learning-outline-summary">{chapter.summary}</p>}
-                                <div className="learning-unit-completion-row is-chapter">
-                                  {renderCompletionAction(nodes.find((node) => node.id === chapter.id))}
-                                </div>
-                                {chapter.topics.map((topic) => (
-                                  <div className="learning-outline-topic" key={topic.id} role="treeitem">
-                                    <label>
-                                      <span className="sr-only">Topic name</span>
-                                      <input
-                                        onChange={(event) => updateTopic(chapter.id, topic.id, { title: event.target.value })}
-                                        onFocus={() => setSelectedNodeId(topic.id)}
-                                        value={topic.title}
-                                      />
-                                    </label>
-                                    <button
-                                      aria-label={`Add subtopic to ${topic.title}`}
-                                      onClick={() => setSubtopicComposer({ chapterId: chapter.id, topicId: topic.id, value: "" })}
-                                      title="Add subtopic"
-                                      type="button"
-                                    >
-                                      <Plus size={13} />
-                                    </button>
-                                    <button
-                                      aria-label={`Remove ${topic.title}`}
-                                      onClick={() => updateChapter(chapter.id, (current) => ({
-                                        ...current,
-                                        topics: current.topics.filter((item) => item.id !== topic.id),
-                                      }))}
-                                      type="button"
-                                    >
-                                      <X size={13} />
-                                    </button>
-                                    {topic.summary && <p>{topic.summary}</p>}
-                                    {(
-                                      topic.explanation
-                                      || topic.learningObjectives.length > 0
-                                      || topic.keyPoints.length > 0
-                                      || topic.examples.length > 0
-                                      || topic.applications.length > 0
-                                      || topic.commonMistakes.length > 0
-                                      || topic.revisionTips.length > 0
-                                    ) && (
-                                      <div className="learning-topic-details">
-                                        {topic.explanation && topic.explanation !== topic.summary && (
-                                          <div className="learning-topic-explanation">
-                                            <strong>Detailed explanation</strong>
-                                            {topic.explanation.split(/\n{2,}/).filter(Boolean).map((paragraph, paragraphIndex) => (
-                                              <p key={`${topic.id}-explanation-${paragraphIndex}`}>{paragraph}</p>
-                                            ))}
-                                          </div>
-                                        )}
-                                        {topic.learningObjectives.length > 0 && (
-                                          <div>
-                                            <strong>Learning objectives</strong>
-                                            <ul>{topic.learningObjectives.map((objective) => <li key={objective}>{objective}</li>)}</ul>
-                                          </div>
-                                        )}
-                                        {topic.keyPoints.length > 0 && (
-                                          <div>
-                                            <strong>Key points</strong>
-                                            <ul>{topic.keyPoints.map((point) => <li key={point}>{point}</li>)}</ul>
-                                          </div>
-                                        )}
-                                        {topic.examples.length > 0 && (
-                                          <div className="is-examples">
-                                            <strong>Worked examples</strong>
-                                            <ol>{topic.examples.map((example, exampleIndex) => <li key={`${topic.id}-example-${exampleIndex}`}>{example}</li>)}</ol>
-                                          </div>
-                                        )}
-                                        {topic.applications.length > 0 && (
-                                          <div>
-                                            <strong>Applications</strong>
-                                            <ul>{topic.applications.map((application) => <li key={application}>{application}</li>)}</ul>
-                                          </div>
-                                        )}
-                                        {topic.commonMistakes.length > 0 && (
-                                          <div className="is-mistakes">
-                                            <strong>Common mistakes</strong>
-                                            <ul>{topic.commonMistakes.map((mistake) => <li key={mistake}>{mistake}</li>)}</ul>
-                                          </div>
-                                        )}
-                                        {topic.revisionTips.length > 0 && (
-                                          <div className="is-revision">
-                                            <strong>Revision cues</strong>
-                                            <ul>{topic.revisionTips.map((tip) => <li key={tip}>{tip}</li>)}</ul>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                    <div className="learning-unit-completion-row">
-                                      {renderCompletionAction(nodes.find((node) => node.id === topic.id))}
-                                    </div>
-                                    <div className="learning-subtopic-list" role="group">
-                                      {topic.subtopics.map((subtopic) => (
-                                        <div className="learning-subtopic-row" key={subtopic.id} role="treeitem">
-                                          <span aria-hidden="true">↳</span>
-                                          <input
-                                            aria-label="Subtopic name"
-                                            onChange={(event) => updateTopic(chapter.id, topic.id, (current) => ({
-                                              ...current,
-                                              subtopics: current.subtopics.map((item) =>
-                                                item.id === subtopic.id ? { ...item, title: event.target.value } : item,
-                                              ),
-                                            }))}
-                                            onFocus={() => setSelectedNodeId(subtopic.id)}
-                                            value={subtopic.title}
-                                          />
-                                          <button
-                                            aria-label={`Remove ${subtopic.title}`}
-                                            onClick={() => updateTopic(chapter.id, topic.id, (current) => ({
-                                              ...current,
-                                              subtopics: current.subtopics.filter((item) => item.id !== subtopic.id),
-                                            }))}
-                                            type="button"
-                                          >
-                                            <X size={12} />
-                                          </button>
-                                          {subtopic.summary && (
-                                            <p className="learning-subtopic-summary">{subtopic.summary}</p>
-                                          )}
-                                          {subtopic.explanation && subtopic.explanation !== subtopic.summary && (
-                                            <div className="learning-subtopic-explanation">
-                                              <strong>Explanation</strong>
-                                              {subtopic.explanation.split(/\n{2,}/).filter(Boolean).map((paragraph, paragraphIndex) => (
-                                                <p key={`${subtopic.id}-explanation-${paragraphIndex}`}>{paragraph}</p>
-                                              ))}
-                                            </div>
-                                          )}
-                                          {subtopic.examples.length > 0 && (
-                                            <div className="learning-subtopic-examples">
-                                              <strong>Example</strong>
-                                              <ul>{subtopic.examples.map((example, exampleIndex) => <li key={`${subtopic.id}-example-${exampleIndex}`}>{example}</li>)}</ul>
-                                            </div>
-                                          )}
-                                          {subtopic.keyPoints.length > 0 && (
-                                            <ul className="learning-subtopic-points">
-                                              {subtopic.keyPoints.map((point) => <li key={point}>{point}</li>)}
-                                            </ul>
-                                          )}
-                                        </div>
-                                      ))}
-                                    </div>
-                                    {subtopicComposer.chapterId === chapter.id && subtopicComposer.topicId === topic.id && (
-                                      <div className="learning-mini-composer">
-                                        <input
-                                          autoFocus
-                                          onChange={(event) => setSubtopicComposer((current) => ({ ...current, value: event.target.value }))}
-                                          onKeyDown={(event) => {
-                                            if (event.key === "Enter") addSubtopic(chapter.id, topic.id);
-                                            if (event.key === "Escape") setSubtopicComposer({ chapterId: "", topicId: "", value: "" });
-                                          }}
-                                          placeholder="New subtopic"
-                                          value={subtopicComposer.value}
-                                        />
-                                        <button onClick={() => addSubtopic(chapter.id, topic.id)} type="button"><Check size={13} /></button>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                                {topicComposer.chapterId === chapter.id && (
-                                  <div className="learning-mini-composer">
-                                    <input
-                                      autoFocus
-                                      onChange={(event) => setTopicComposer((current) => ({ ...current, value: event.target.value }))}
-                                      onKeyDown={(event) => {
-                                        if (event.key === "Enter") addTopic(chapter.id);
-                                        if (event.key === "Escape") setTopicComposer({ chapterId: "", value: "" });
-                                      }}
-                                      placeholder="New topic"
-                                      value={topicComposer.value}
-                                    />
-                                    <button onClick={() => addTopic(chapter.id)} type="button"><Check size={13} /></button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </article>
-                        );
-                      })}
-                    </div>
+                    <NotebookContent notebook={activeNotebook} completionByTopic={getNotebookCompletionSummary(activeNotebook).completionByTopic}
+                      onComplete={setTopicCompletion} onPlanner={openPlannerForNode} onSave={saveLearningTopicToNotes} isSaving={isLearningNoteSaving}
+                      onRecall={(topic) => { setActiveTab("recall"); startStudySession(topic.id); }} />
                   </div>
 
                   <div {...learningTabPanelProps(activeTab, "map", "learning-map-view")}>
@@ -4582,7 +3886,11 @@ function StartLearningPage({
                         <button disabled={isLearningNoteSaving(selectedNode)} onClick={() => saveLearningTopicToNotes(selectedNode)} type="button">
                           <Save size={14} /> {isLearningNoteSaving(selectedNode) ? "Saving..." : "Save to notes"}
                         </button>
-                        {renderCompletionAction(selectedNode)}
+                        <button aria-pressed={getNotebookCompletionSummary(activeNotebook).completionByTopic[selectedNode.id] === true}
+                          className={`learning-completion-action${getNotebookCompletionSummary(activeNotebook).completionByTopic[selectedNode.id] ? " is-complete" : ""}`}
+                          onClick={() => setTopicCompletion(selectedNode, !getNotebookCompletionSummary(activeNotebook).completionByTopic[selectedNode.id])} type="button">
+                          <Check size={14} />{getNotebookCompletionSummary(activeNotebook).completionByTopic[selectedNode.id] ? "Completed" : "Mark completed"}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -4761,6 +4069,134 @@ function StartLearningPage({
           </section>
         )}
       </div>
+
+      )}
+
+      <NotebookCreateDialog open={newNotebookOpen} onClose={() => { setNewNotebookOpen(false); setSubjectPickerOpen(false); }} suspended={privacyConsentOpen}>
+        <div className="learning-page notebook-create-fields">
+          <div
+            className={subjectPickerOpen
+              ? "learning-field learning-subject-field is-open"
+              : "learning-field learning-subject-field"}
+          >
+            <label htmlFor="learning-subject-input">Subject</label>
+            <div
+              className={`learning-subject-picker${subjectPickerOpen ? " is-open" : ""}`}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setSubjectPickerOpen(false);
+              }}
+            >
+              <input
+                aria-activedescendant={
+                  subjectPickerOpen && visibleSavedSubjectNames.length
+                    ? `learning-subject-option-${activeSubjectOptionIndex}`
+                    : undefined
+                }
+                aria-autocomplete="list"
+                aria-controls={
+                  subjectPickerOpen ? "learning-saved-subject-options" : undefined
+                }
+                aria-describedby="learning-subject-help"
+                aria-expanded={subjectPickerOpen && savedSubjectNames.length > 0}
+                autoComplete="off"
+                disabled={analyzing}
+                id="learning-subject-input"
+                onChange={(event) => {
+                  const nextSubjectName = event.target.value;
+                  setSubjectName(nextSubjectName);
+                  setAnalysisError("");
+                  setSubjectOptionIndex(0);
+                  setSubjectPickerOpen(savedSubjectNames.length > 0);
+                }}
+                onClick={() => setSubjectPickerOpen(savedSubjectNames.length > 0)}
+                onFocus={() => setSubjectPickerOpen(savedSubjectNames.length > 0)}
+                onKeyDown={handleSubjectPickerKeyDown}
+                placeholder={savedSubjectNames.length ? "Choose or type a subject" : curriculumExamples.subjectPlaceholder}
+                ref={subjectInputRef}
+                role="combobox"
+                type="text"
+                value={subjectName}
+              />
+              {savedSubjectNames.length > 0 && (
+                <button
+                  aria-label={subjectPickerOpen ? "Close saved subjects" : "Show saved subjects"}
+                  aria-controls={
+                    subjectPickerOpen ? "learning-saved-subject-options" : undefined
+                  }
+                  aria-expanded={subjectPickerOpen}
+                  aria-haspopup="listbox"
+                  className="learning-subject-picker-toggle"
+                  disabled={analyzing}
+                  onClick={() => {
+                    setSubjectPickerOpen((current) => !current);
+                    subjectInputRef.current?.focus();
+                  }}
+                  onMouseDown={(event) => event.preventDefault()}
+                  type="button"
+                >
+                  <ChevronDown size={15} />
+                </button>
+              )}
+              {subjectPickerOpen && savedSubjectNames.length > 0 && (
+                <div
+                  aria-label="Saved subjects"
+                  className="learning-subject-options"
+                  id="learning-saved-subject-options"
+                  ref={subjectOptionsRef}
+                  role="listbox"
+                >
+                  {visibleSavedSubjectNames.length > 0 ? visibleSavedSubjectNames.map((name, index) => {
+                    const selected = name.toLocaleLowerCase() === subjectName.trim().toLocaleLowerCase();
+                    return (
+                      <button
+                        aria-selected={selected}
+                        className={`learning-subject-option${index === activeSubjectOptionIndex ? " is-active" : ""}${selected ? " is-selected" : ""}`}
+                        id={`learning-subject-option-${index}`}
+                        key={name}
+                        onClick={() => chooseSavedSubject(name)}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onMouseEnter={() => setSubjectOptionIndex(index)}
+                        role="option"
+                        tabIndex={-1}
+                        type="button"
+                      >
+                        <span>{name}</span>
+                        {selected && <Check size={14} />}
+                      </button>
+                    );
+                  }) : (
+                    <div aria-live="polite" className="learning-subject-options-empty" role="status">
+                      <strong>No saved subject matches.</strong>
+                      <span>Keep typing to use this as a new subject.</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <small id="learning-subject-help">
+              {savedSubjectNames.length
+                ? `Choose from ${savedSubjectNames.length} saved subject${savedSubjectNames.length === 1 ? "" : "s"}, or type another.`
+                : "No saved subjects yet. Type a subject here or add one from the Subjects page."}
+            </small>
+          </div>
+
+          <label className="learning-field notebook-scope-field" htmlFor="learning-notebook-scope">
+            <span>Topics or chapters</span>
+            <textarea id="learning-notebook-scope" disabled={analyzing} ref={requirementsInputRef} maxLength={MAX_LEARNING_PROMPT_CHARS} rows={4} value={scopeText}
+              placeholder={subjectName ? `Topics or chapters to explain in ${subjectName}` : "e.g. Coulomb’s law, electric fields"}
+              onChange={(event) => { setScopeText(event.target.value); setAnalysisError(""); }} aria-describedby="notebook-scope-help" />
+            <small id="notebook-scope-help">Add up to 12 names, separated by commas or new lines. Each gets detailed notes, examples and key points.</small>
+          </label>
+          <input accept={LEARNING_SOURCE_ACCEPT} className="learning-file-input" disabled={analyzing || preparingSources} multiple onChange={(event) => handleFiles(event.target.files)} ref={fileInputRef} type="file" />
+          <button className="notebook-attach" disabled={analyzing || preparingSources || sources.length >= MAX_CHAT_ATTACHMENTS} type="button" onClick={() => fileInputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); handleFiles(event.dataTransfer.files); }}>
+            {preparingSources ? <LoaderCircle size={17} className="spinner" /> : <UploadCloud size={17} />}Optional reference files · drop or upload
+          </button>
+          {sources.length > 0 && <div className="learning-source-list">{sources.map((source) => <div className="learning-source-chip" key={source.id}><FileText size={14} /><strong>{source.name}</strong><button aria-label={`Remove ${source.name}`} disabled={analyzing} onClick={() => removeSource(source.id)} type="button"><X size={13} /></button></div>)}</div>}
+          {sourceError && <p className="learning-inline-error" role="alert">{sourceError}</p>}
+          {analysisError && <p className="learning-inline-error" role="alert">{analysisError}</p>}
+          {analyzing ? <LatticeLoader className="generation-lattice-loader" label="Building notebook" /> : <button className="learning-analyze-btn" disabled={preparingSources || hasInsufficientCredits(AI_FEATURES.LEARNING_NOTEBOOK)} onClick={analyzeNotebook} type="button"><BrainCircuit size={17} />Generate notebook<AiCreditCost feature={AI_FEATURES.LEARNING_NOTEBOOK} /></button>}
+        </div>
+      </NotebookCreateDialog>
 
       <LearningSubjectMasteryDialog
         error={notebooksError}

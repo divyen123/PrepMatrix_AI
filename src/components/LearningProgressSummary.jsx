@@ -1,8 +1,7 @@
 import {
   ArrowUpRight,
   BookOpenCheck,
-  BrainCircuit,
-  Clock3,
+  CheckCircle2,
   Layers3,
   LoaderCircle,
   RefreshCw,
@@ -12,14 +11,6 @@ import {
 import { Link } from "react-router-dom";
 import "../pages/LearningInsights.css";
 
-function formatLearningTime(minutes) {
-  const safeMinutes = Math.max(0, Math.round(Number(minutes) || 0));
-  if (safeMinutes < 60) return `${safeMinutes}m`;
-  const hours = Math.floor(safeMinutes / 60);
-  const remainder = safeMinutes % 60;
-  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
-}
-
 function LearningState({ error, loading, onRetry }) {
   if (loading) {
     return (
@@ -28,7 +19,7 @@ function LearningState({ error, loading, onRetry }) {
           <LoaderCircle className="learning-insights-spinner" size={24} />
         </span>
         <h4>Reading your notebook progress</h4>
-        <p>Bringing together saved notebooks, completed topics, and recall sessions.</p>
+        <p>Loading saved notebooks and topic completion.</p>
       </div>
     );
   }
@@ -51,7 +42,7 @@ function EmptyLearningState({ historical = false }) {
       <span className="learning-insights-state-icon"><Sparkles size={24} /></span>
       <h4>{historical ? "No notebook progress was saved" : "Your notebook progress will appear here"}</h4>
       <p>
-        {historical ? "There were no saved notebooks at the time of this schedule." : "Prepare a notebook, mark topics as completed, or finish a recall session to track your progress."}
+        {historical ? "There were no saved notebooks at the time of this schedule." : "Create a notebook and mark its topics completed to track your progress."}
       </p>
       {!historical && <Link className="learning-insights-link" to="/learn#notebook-preparation">
         Prepare a notebook <ArrowUpRight size={16} />
@@ -79,16 +70,15 @@ function LearningProgressSummary({
   historical = false,
 }) {
   const hasNotebooks = Number(insights?.notebookCount || 0) > 0;
-  const learnedTopics = Number(insights?.learnedTopicCount || 0);
+  const completedTopics = Number(insights?.completedTopicCount ?? insights?.learnedTopicCount ?? 0);
   const totalTopics = Number(insights?.topicCount || 0);
   const hasTopicTotal = insights?.topicCount != null;
-  const coverage = totalTopics ? Math.min(100, Math.round((learnedTopics / totalTopics) * 100)) : 0;
+  const coverage = totalTopics ? Math.min(100, Math.round((completedTopics / totalTopics) * 100)) : 0;
 
   return (
     <section className="card learning-insights-card">
       <div className="learning-insights-heading">
         <div>
-          <span className="section-tag">Notebook progress</span>
           <h3>{title}</h3>
         </div>
         {!historical && <Link className="learning-insights-link" to="/learn#notebook-preparation">
@@ -108,29 +98,19 @@ function LearningProgressSummary({
             value={Number(insights?.notebookCount || 0)}
           />
           <Metric
+            icon={<CheckCircle2 size={18} />}
+            label="Completed notebooks"
+            value={insights?.completedNotebookCount ?? "—"}
+          />
+          <Metric
             icon={<BookOpenCheck size={18} />}
-            label="Topics learned"
-            value={hasTopicTotal ? `${learnedTopics}/${totalTopics}` : learnedTopics}
+            label="Topics completed"
+            value={hasTopicTotal ? `${completedTopics}/${totalTopics}` : completedTopics}
           />
           <Metric
             icon={<Target size={18} />}
-            label="Learning coverage"
+            label="Completion"
             value={hasTopicTotal ? `${coverage}%` : "—"}
-          />
-          <Metric
-            icon={<BrainCircuit size={18} />}
-            label="Topics mastered"
-            value={Number(insights?.masteredTopicCount || 0)}
-          />
-          <Metric
-            icon={<RefreshCw size={18} />}
-            label="Review due"
-            value={Number(insights?.reviewDueCount || 0)}
-          />
-          <Metric
-            icon={<Clock3 size={18} />}
-            label="Study time"
-            value={formatLearningTime(insights?.studyMinutes)}
           />
         </div>
       )}

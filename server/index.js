@@ -71,8 +71,11 @@ import {
 } from "./resumeBuilderRoutes.js";
 import {
   DEFAULT_GEMINI_LEARNING_FALLBACK_MODELS,
+  DEFAULT_GEMINI_LEARNING_REVIEW_MODEL,
   DEFAULT_GROQ_LEARNING_FALLBACK_MODELS,
   DEFAULT_GROQ_LEARNING_MODEL,
+  DEFAULT_GROQ_LEARNING_REVIEW_MODEL,
+  DEFAULT_GROQ_VISION_MODEL,
   LEARNING_NOTEBOOKS_COLLECTION,
   MEDICAL_TRAINING_WORKSPACE_ARTIFACT_KIND,
   PLACEMENT_WORKSPACE_ARTIFACT_KIND,
@@ -256,6 +259,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 8787);
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_LEARNING_MODEL = process.env.GEMINI_LEARNING_MODEL || "gemini-3.5-flash-lite";
+const GEMINI_LEARNING_REVIEW_MODEL = process.env.GEMINI_LEARNING_REVIEW_MODEL || DEFAULT_GEMINI_LEARNING_REVIEW_MODEL;
 const GEMINI_LEARNING_MODELS = buildLearningModelCandidates(
   GEMINI_LEARNING_MODEL,
   process.env.GEMINI_LEARNING_MODELS,
@@ -264,8 +268,9 @@ const GEMINI_LEARNING_MODELS = buildLearningModelCandidates(
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const LEGACY_OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || process.env.OPENAI_CHAT_MODEL || "openai/gpt-oss-20b";
-const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || "qwen/qwen3.6-27b";
+const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || DEFAULT_GROQ_VISION_MODEL;
 const GROQ_LEARNING_MODEL = process.env.GROQ_LEARNING_MODEL || DEFAULT_GROQ_LEARNING_MODEL;
+const GROQ_LEARNING_REVIEW_MODEL = process.env.GROQ_LEARNING_REVIEW_MODEL || DEFAULT_GROQ_LEARNING_REVIEW_MODEL;
 const GROQ_LEARNING_MODELS = buildLearningModelCandidates(
   GROQ_LEARNING_MODEL,
   process.env.GROQ_LEARNING_MODELS,
@@ -1922,11 +1927,13 @@ registerLearningNotebookRoutes(app, {
   aiQuota,
   geminiLearningModel: GEMINI_LEARNING_MODEL,
   geminiLearningModels: GEMINI_LEARNING_MODELS,
+  geminiLearningReviewModel: GEMINI_LEARNING_REVIEW_MODEL,
   getDb,
   getGeminiConfigStatus,
   getGroqConfigStatus,
   groqLearningModel: GROQ_LEARNING_MODEL,
   groqLearningModels: GROQ_LEARNING_MODELS,
+  groqLearningReviewModel: GROQ_LEARNING_REVIEW_MODEL,
   groqModel: GROQ_CHAT_MODEL,
   groqVisionModel: GROQ_VISION_MODEL,
   requireAuth,

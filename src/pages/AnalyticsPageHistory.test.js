@@ -79,9 +79,9 @@ test('analytics renders one isolated previous schedule with plan and subject det
     assert.match(markup, /aria-label="Study momentum XP"[^>]*aria-valuetext="70 XP"/u);
     assert.match(markup, /aria-label="Global momentum XP"[^>]*aria-valuetext="170 GLOBAL XP"/u);
     assert.match(markup, /Notebook progress at the time of this schedule/u);
-    assert.match(markup, /<strong>7<\/strong><span>Topics learned<\/span>/u);
-    assert.match(markup, /<strong>1h 30m<\/strong><span>Study time<\/span>/u);
-    assert.match(markup, /<strong>—<\/strong><span>Learning coverage<\/span>/u);
+    assert.match(markup, /<strong>7<\/strong><span>Topics completed<\/span>/u);
+    assert.match(markup, /<strong>—<\/strong><span>Completed notebooks<\/span>/u);
+    assert.match(markup, /<strong>—<\/strong><span>Completion<\/span>/u);
     assert.doesNotMatch(markup, /Physics|999|Attend Exam|Attend quiz|Create schedule|Suggested material|Open notebook preparation|Start learning|href="\/(?:exam|quiz|planner)/u);
 
     history.setView({ historical: true, phase: 'idle', snapshot: { ...snapshot, learningInsights: null }, momentum: savedMomentum, error: '' });
@@ -96,7 +96,7 @@ test('analytics renders one isolated previous schedule with plan and subject det
     assert.match(restored, /Attend Exam/u);
     assert.match(restored, /Attend quiz/u);
     assert.match(restored, /Notebook preparation progress/u);
-    assert.match(restored, /<strong>999<\/strong><span>Topics learned<\/span>/u);
+    assert.match(restored, /<strong>999<\/strong><span>Topics completed<\/span>/u);
     assert.doesNotMatch(restored, /Open Networks progress details|Previous schedule · saved XP/u);
 
     for (const plannerHistory of [[], [{ id: 'invalid-history', archivedAt: '2026-10-01', tasks: [] }]]) {

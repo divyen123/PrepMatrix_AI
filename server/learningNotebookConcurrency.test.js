@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { ObjectId } from "mongodb";
 import { registerLearningNotebookRoutes } from "./learningNotebookRoutes.js";
+import { getNotebookCompletionSummary, setNotebookTopicCompleted } from "../src/utils/learningMastery.js";
 
 const NOTEBOOK_ID = new ObjectId("507f1f77bcf86cd799439011");
 
@@ -79,6 +80,52 @@ function response() {
     },
   };
 }
+
+test("PATCH persists manual completion reopening through database and response normalization", async () => {
+  const initial = {
+    ...notebookDocument(new Date("2026-07-05T09:00:00.000Z"), {
+      updatedAt: "2026-07-05T09:00:00.000Z",
+      nodes: { algebra: { nodeId: "algebra", status: "learning", lastStudiedAt: "2026-07-05T09:00:00.000Z" } },
+    }),
+    id: String(NOTEBOOK_ID),
+    revisedNotes: [{ id: "algebra-notes", title: "algebra", topicIds: ["algebra"], completed: false }],
+  };
+  const completed = setNotebookTopicCompleted(initial, "algebra", true, "2026-07-05T10:00:00.000Z");
+  const reopened = setNotebookTopicCompleted(completed, "algebra", false, "2026-07-05T10:10:00.000Z");
+  let stored = { ...completed, _id: NOTEBOOK_ID, updatedAt: new Date(completed.updatedAt) };
+  const routes = new Map();
+  const app = {};
+  ["get", "post", "patch", "delete"].forEach((method) => {
+    app[method] = (path, handler) => routes.set(`${method.toUpperCase()} ${path}`, handler);
+  });
+  registerLearningNotebookRoutes(app, {
+    getDb: async () => ({ collection: () => ({
+      findOne: async () => stored,
+      updateOne: async (_filter, update) => {
+        stored = { ...stored, ...update.$set };
+        return { matchedCount: 1, modifiedCount: 1 };
+      },
+    }) }),
+    now: () => new Date("2026-07-05T10:11:00.000Z"),
+    withProfileWriteFence: async (_db, _req, write) => write(),
+    requireAuth: (handler) => async (req, res) => {
+      req.academicProfileId ||= "legacy:user-1:profile-a";
+      return handler(req, res);
+    },
+  });
+  const res = response();
+  await routes.get("PATCH /api/learning-notebooks/:id")({
+    body: { notebook: reopened }, params: { id: String(NOTEBOOK_ID) }, user: { _id: "user-1" },
+  }, res);
+  assert.equal(res.statusCode, 200);
+  const algebraId = res.body.notebook.chapters[0].topics.find((topic) => topic.title === "algebra").id;
+  for (const saved of [stored, res.body.notebook]) {
+    assert.equal(saved.learningState.nodes[algebraId].contentCompleted, false);
+    assert.equal(saved.learningState.nodes[algebraId].contentCompletionUpdatedAt, "2026-07-05T10:10:00.000Z");
+    assert.equal(saved.learningState.nodes[algebraId].learnedAt, "");
+    assert.equal(getNotebookCompletionSummary(saved).completedTopics, 0);
+  }
+});
 
 test("PATCH retries a revision race and merges both writers' progress", async () => {
   const algebraOld = attempt("algebra-old", 70, "2026-07-05T10:00:00.000Z");

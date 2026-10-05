@@ -68,7 +68,9 @@ export function buildLearningNotebookBatches(chapterNames, depthTargets, { compa
     fail("The notebook chapter plan does not match its required depth.");
   }
 
-  const topicsPerRequest = compact ? 2 : chapters.length <= 2 ? 1 : chapters.length <= 6 ? 2 : 3;
+  const requestedTopicNames = Array.isArray(depthTargets.requestedTopicNames)
+    ? depthTargets.requestedTopicNames : [];
+  const topicsPerRequest = requestedTopicNames.length ? 1 : compact ? 2 : chapters.length <= 2 ? 1 : chapters.length <= 6 ? 2 : 3;
   const batches = chapters.flatMap((chapterName, chapterIndex) => {
     const groups = [];
     for (let topicOffset = 0; topicOffset < topicsPerChapter; topicOffset += topicsPerRequest) {
@@ -77,6 +79,9 @@ export function buildLearningNotebookBatches(chapterNames, depthTargets, { compa
         chapterName,
         topicOffset,
         topicCount: Math.min(topicsPerRequest, topicsPerChapter - topicOffset),
+        ...(requestedTopicNames.length
+          ? { topicNames: requestedTopicNames.slice(topicOffset, topicOffset + topicsPerRequest) }
+          : {}),
       });
     }
     return groups;
@@ -108,6 +113,22 @@ export function validateLearningNotebookBatch(value, batch) {
   const chapter = source.chapters[0];
   if (!titleKey(batch.chapterName) || titleKey(chapter?.title) !== titleKey(batch.chapterName)) return false;
   if (!Array.isArray(chapter.topics) || chapter.topics.length !== batch.topicCount) return false;
+  if (batch.topicNames?.length && !chapter.topics.every((topic, index) => (
+    titleKey(topic.title) === titleKey(batch.topicNames[index])
+  ))) return false;
+  if (batch.topicNames?.length && !chapter.topics.every((topic) => {
+    const hasTextItems = (key, minimumLength = 1) => Array.isArray(topic[key])
+      && topic[key].every((item) => typeof item === "string" && item.trim().length >= minimumLength);
+    return typeof topic.explanation === "string"
+      && ["learningObjectives", "keyPoints", "applications", "commonMistakes", "revisionTips"].every((key) => hasTextItems(key))
+      && hasTextItems("examples", batch.depthTargets.youngKidsLesson ? 10 : 40)
+      && Array.isArray(topic.subtopics)
+      && topic.subtopics.every((subtopic) => (
+        subtopic && typeof subtopic.explanation === "string"
+        && Array.isArray(subtopic.keyPoints) && subtopic.keyPoints.every((item) => typeof item === "string" && item.trim())
+        && Array.isArray(subtopic.examples) && subtopic.examples.every((item) => typeof item === "string" && item.trim())
+      ));
+  })) return false;
   const subtopicCount = positiveInteger(batch.depthTargets.exactSubtopicsPerTopic,
     positiveInteger(batch.depthTargets.subtopicsPerTopic, positiveInteger(batch.depthTargets.minimumSubtopicsPerTopic)));
   if (!chapter.topics.every((topic) => (
@@ -123,6 +144,10 @@ export function validateLearningNotebookBatch(value, batch) {
   if (!source.revisedNotes.every((note) => (
     note && typeof note === "object" && titleKey(note.title) && titleKey(note.content)
   ))) return false;
+  if (batch.topicNames?.length && !source.revisedNotes.every((note, index) => (
+    titleKey(note.title) === titleKey(batch.topicNames[index])
+    && note.content.trim().length >= (batch.depthTargets.youngKidsLesson ? 80 : 600)
+  ))) return false;
   const topicReferences = new Map();
   chapter.topics.forEach((topic, index) => {
     rememberTopicReference(topicReferences, topic.id, `batch-topic-${index + 1}`);
@@ -131,7 +156,7 @@ export function validateLearningNotebookBatch(value, batch) {
     const references = Array.isArray(note.topicIds) ? note.topicIds : note.topicId ? [note.topicId] : [];
     // Dropping an explicit invalid reference would enable title-based matching
     // to unrelated topics from a later group after the chapter is merged.
-    return references.every((reference) => (
+    return (!batch.topicNames?.length || references.length > 0) && references.every((reference) => (
       typeof reference === "string" && topicReferences.get(reference.trim())
     ));
   })) return false;
@@ -293,7 +318,9 @@ export function mergeLearningNotebookBatches(results, { subjectName, depthTarget
   chapters.forEach((chapter, index) => { chapter.summary = uniqueStrings(chapterSummaries[index]).join("\n\n"); });
   const careers = chapterCareers.flat();
   const merged = {
-    title: subjectName || "Learning notebook",
+    title: depthTargets.requestedTopicNames?.length
+      ? depthTargets.requestedTopicNames.join(" · ")
+      : subjectName || "Learning notebook",
     overview: uniqueStrings(overviews).join("\n\n"),
     chapters,
     importantQuestions: interleave(chapterQuestions).slice(0, MAX_LEARNING_IMPORTANT_QUESTIONS)

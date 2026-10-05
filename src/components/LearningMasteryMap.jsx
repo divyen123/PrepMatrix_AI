@@ -23,7 +23,7 @@ import {
   getMasteryMapInteractionProps,
   MASTERY_STATUS_META,
 } from "./LearningMasteryMap.config";
-import { hasLearningNodeAchievement } from "../utils/learningMastery";
+import { hasLearningNodeAchievement, mergeLearningContentCompletion, normalizeLearningState } from "../utils/learningMastery";
 
 function progressFrom(source, nodeId) {
   if (source instanceof globalThis.Map) return source.get(nodeId) || {};
@@ -87,7 +87,7 @@ function MasteryNode({ data, selected }) {
       <div className="mastery-flow-node__status">
         <span><StatusIcon aria-hidden="true" size={13} /> {status.label}</span>
         {data.showScore ? (
-          <b>{Math.round(data.score || 0)}%</b>
+          <b aria-label={data.completionPercent ? `${Math.round(data.score || 0)}% completed` : undefined}>{Math.round(data.score || 0)}%</b>
         ) : (
           <b
             aria-label={data.coverageDescription}
@@ -112,6 +112,23 @@ const nodeTypes = { mastery: memo(MasteryNode) };
 
 function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) {
   if (!notebook) return { nodes: [], edges: [] };
+  const savedProgress = normalizeLearningState(notebook.learningState, { notebook });
+  const progressFor = (id) => {
+    const saved = savedProgress.nodes[id] || {};
+    const supplied = progressFrom(progressByNodeId, id);
+    const merged = mergeLearningContentCompletion({ ...saved, ...supplied }, saved, supplied);
+    if (typeof merged.contentCompleted !== "boolean" && hasLearningNodeAchievement(saved) && !hasLearningNodeAchievement(merged)) {
+      return { ...merged, status: saved.status, learnedAt: saved.learnedAt, masteredAt: saved.masteredAt };
+    }
+    return merged;
+  };
+  const topicCompleted = (topic) => hasLearningNodeAchievement(progressFor(topic.id))
+    || plannerFrom(plannerByNodeId, topic.id).isCompleted;
+  const topicCompletion = (topics) => {
+    const total = topics.length;
+    const count = topics.filter(topicCompleted).length;
+    return { total, count, percent: total ? Math.round(count / total * 100) : 0 };
+  };
   const flowNodes = [];
   const edges = [];
   const chapterCenters = [];
@@ -125,9 +142,12 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
     subtitle = "",
     context = {},
   ) => {
-    const progress = progressFrom(progressByNodeId, source.id);
+    const progress = progressFor(source.id);
     const planner = plannerFrom(plannerByNodeId, source.id);
-    const status = masteryStatus(progress, planner, type);
+    const aggregate = context.completion;
+    const status = aggregate?.total
+      ? aggregate.count === aggregate.total ? "learned" : aggregate.count ? "learning" : "ready"
+      : masteryStatus(progress, planner, type);
     const assessedScore = type === "subtopic" ? directAssessmentScore(progress) : null;
     const showScore = type !== "subtopic" || assessedScore != null;
     const isCompletedWithoutScore = type === "subtopic"
@@ -154,12 +174,13 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
         type,
         status,
         visualStatus,
-        score: assessedScore
+        score: aggregate?.percent ?? (type === "topic" ? (topicCompleted(source) ? 100 : 0) : null) ?? assessedScore
           ?? finiteScore(progress.masteryScore)
           ?? finiteScore(progress.score)
           ?? finiteScore(progress.percentage)
           ?? (status === "mastered" ? 100 : status === "learned" ? 70 : 0),
         showScore,
+        completionPercent: type !== "subtopic",
         coverageLabel,
         coverageState: isCovered ? "covered" : "ready",
         coverageDescription,
@@ -192,7 +213,7 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
     (chapter.topics || []).forEach((topic) => {
       const topicY = cursorY;
       topicCenters.push(topicY);
-      const topicProgress = progressFrom(progressByNodeId, topic.id);
+      const topicProgress = progressFor(topic.id);
       const topicPlanner = plannerFrom(plannerByNodeId, topic.id);
       const topicStatus = pushNode(
         topic,
@@ -233,6 +254,7 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
       { x: 300, y: chapterY },
       Boolean(chapter.topics?.length),
       `${chapter.topics?.length || 0} topics`,
+      { completion: topicCompletion(chapter.topics || []) },
     );
     connect("root", chapter.id, chapterStatus);
     if (cursorY === chapterStart) cursorY += 118;
@@ -248,6 +270,7 @@ function buildFlow(notebook, progressByNodeId, plannerByNodeId, selectedNodeId) 
     { x: 0, y: rootY },
     Boolean(notebook.chapters?.length),
     `${notebook.chapters?.length || 0} chapters`,
+    { completion: topicCompletion((notebook.chapters || []).flatMap((chapter) => chapter.topics || [])) },
   );
 
   return { nodes: flowNodes, edges };
