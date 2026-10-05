@@ -1,18 +1,14 @@
-import { createElement, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
   CheckCircle2,
   ChevronDown,
   CircleUserRound,
   Layers3,
-  Lightbulb,
   LockKeyhole,
   Repeat2,
-  ShieldCheck,
-  Sparkles,
   Trash2,
   UserRoundPlus,
 } from "lucide-react";
@@ -25,18 +21,10 @@ import {
 } from "../utils/academicProfileSlots";
 import { getAcademicProfileDisplayName } from "../utils/academicProfileNames";
 import {
-  ACADEMIC_PROFILE_GUIDE_STEPS,
   ACADEMIC_PROFILE_SEPARATE_ITEMS,
   ACADEMIC_PROFILE_SHARED_ITEMS,
 } from "../utils/academicProfileGuide";
 import "../components/AcademicProfilesGuide.css";
-
-const STEP_ICONS = Object.freeze({
-  welcome: Sparkles,
-  "profile-a-safe": ShieldCheck,
-  "separate-workspaces": Layers3,
-  switching: Repeat2,
-});
 
 const PROFILE_DELETE_EXIT_MS = 180;
 
@@ -56,22 +44,6 @@ const PROFILE_COPY = Object.freeze({
 
 function profileKind(profile) {
   return String(profile?.id || "").trim() === "profile-b" ? "b" : "a";
-}
-
-function personalizeProfileCopy(value, profileNames) {
-  return String(value || "").replace(/Profile A|Profile B/gu, (match) => (
-    match === "Profile A" ? profileNames.a : profileNames.b
-  ));
-}
-
-function personalizeGuideSteps(profileNames) {
-  return ACADEMIC_PROFILE_GUIDE_STEPS.map((step) => ({
-    ...step,
-    label: personalizeProfileCopy(step.label, profileNames),
-    title: personalizeProfileCopy(step.title, profileNames),
-    points: step.points.map((point) => personalizeProfileCopy(point, profileNames)),
-    tip: personalizeProfileCopy(step.tip, profileNames),
-  }));
 }
 
 function ProfileGuideFaqItem({ question, children }) {
@@ -112,8 +84,6 @@ export default function AcademicProfilesGuidePage({
   const navigate = useNavigate();
   const slots = useMemo(() => getAcademicProfileSlots(userProfile), [userProfile]);
   const [selectedKind, setSelectedKind] = useState(() => profileKind(slots.activeProfile));
-  const [activeStep, setActiveStep] = useState(0);
-  const [guideFinished, setGuideFinished] = useState(false);
   const [createProfileDialogOpen, setCreateProfileDialogOpen] = useState(false);
   const [switchingProfile, setSwitchingProfile] = useState(false);
   const [deletingProfile, setDeletingProfile] = useState(false);
@@ -136,12 +106,9 @@ export default function AcademicProfilesGuidePage({
     a: getAcademicProfileDisplayName(profileA || { id: "profile-a", label: "Profile A" }),
     b: getAcademicProfileDisplayName(profileB || { id: "profile-b", label: "Profile B" }, 1),
   };
-  const personalizedGuideSteps = personalizeGuideSteps(profileNames);
   const selectedCopy = PROFILE_COPY[selectedKind];
   const selectedProfile = slots.profiles.find((profile) => profileKind(profile) === selectedKind);
   const selectedProfileName = profileNames[selectedKind];
-  const step = personalizedGuideSteps[activeStep];
-  const StepIcon = STEP_ICONS[step.id] || Sparkles;
   const pendingDeletionProfile = slots.profiles.find((profile) => profile.deletionPending)
     || slots.profiles.find((profile) => (
       profile.id === academicProfileDeletionRetryTarget?.id
@@ -192,11 +159,6 @@ export default function AcademicProfilesGuidePage({
     pendingDeletionProfile,
     slots.hasTwoProfiles,
   ]);
-
-  const chooseStep = (index) => {
-    setGuideFinished(false);
-    setActiveStep(index);
-  };
 
   const handleProfileTabKeyDown = (event, kind) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -517,74 +479,6 @@ export default function AcademicProfilesGuidePage({
           <header><LockKeyhole aria-hidden="true" size={21} /><div><h2>What stays shared</h2></div></header>
           <ul>{ACADEMIC_PROFILE_SHARED_ITEMS.map((item) => <li key={item}><CheckCircle2 aria-hidden="true" size={15} />{item}</li>)}</ul>
         </article>
-      </section>
-
-      <section className="academic-profiles-walkthrough academic-profile-guide-surface">
-        <header className="academic-profile-guide-section-heading">
-          <div>
-            <h2>Learn the workflow one step at a time</h2>
-          </div>
-        </header>
-
-        <nav aria-label="Academic profile guide steps" className="academic-profiles-walkthrough-nav">
-          {personalizedGuideSteps.map((guideStep, index) => (
-            <button
-              aria-current={activeStep === index ? "step" : undefined}
-              className={activeStep === index ? "is-active" : ""}
-              key={guideStep.id}
-              onClick={() => chooseStep(index)}
-              type="button"
-            >
-              <span>{activeStep > index ? <Check aria-hidden="true" size={14} /> : index + 1}</span>
-              {guideStep.label}
-            </button>
-          ))}
-        </nav>
-
-        {guideFinished ? (
-          <article aria-live="polite" className="academic-profiles-finished">
-            <div><CheckCircle2 aria-hidden="true" size={30} /></div>
-            <h3>You’re ready to use both profiles.</h3>
-            <p>Check the Current label before studying, and switch from Settings whenever your learning context changes.</p>
-            <div>
-              <button className="academic-profile-guide-button is-secondary" onClick={() => chooseStep(0)} type="button">Review again</button>
-              <button className="academic-profile-guide-button is-primary" onClick={() => navigate("/settings")} type="button">Return to Settings</button>
-            </div>
-          </article>
-        ) : (
-          <article aria-live="polite" className={`academic-profiles-walkthrough-step tone-${step.tone}`} key={step.id}>
-            <div className="academic-profiles-walkthrough-icon">
-              {createElement(StepIcon, { "aria-hidden": true, size: 27 })}
-            </div>
-            <div>
-              <h3>{step.title}</h3>
-              <ul>{step.points.map((point) => <li key={point}><CheckCircle2 aria-hidden="true" size={15} />{point}</li>)}</ul>
-              <aside><Lightbulb aria-hidden="true" size={16} /><span>{step.tip}</span></aside>
-            </div>
-          </article>
-        )}
-
-        {!guideFinished ? (
-          <footer className="academic-profiles-walkthrough-actions">
-            <button
-              className="academic-profile-guide-button is-secondary"
-              disabled={activeStep === 0}
-              onClick={() => chooseStep(Math.max(0, activeStep - 1))}
-              type="button"
-            >
-              <ArrowLeft aria-hidden="true" size={15} /> Previous
-            </button>
-            {activeStep < personalizedGuideSteps.length - 1 ? (
-              <button className="academic-profile-guide-button is-primary" onClick={() => chooseStep(activeStep + 1)} type="button">
-                Next step <ArrowRight aria-hidden="true" size={15} />
-              </button>
-            ) : (
-              <button className="academic-profile-guide-button is-primary" onClick={() => setGuideFinished(true)} type="button">
-                Finish guide <CheckCircle2 aria-hidden="true" size={16} />
-              </button>
-            )}
-          </footer>
-        ) : null}
       </section>
 
       <section className="academic-profiles-faq academic-profile-guide-surface">

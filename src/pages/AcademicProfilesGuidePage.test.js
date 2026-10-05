@@ -68,7 +68,8 @@ test("renders an understandable two-profile catalogue with shared and separate b
     assert.match(markup, /What stays shared/u);
     assert.match(markup, /Subjects, planner schedule, and completed tasks/u);
     assert.match(markup, /Account name, photo, and sign-in/u);
-    assert.match(markup, /You are now in Medical Studies/u);
+    assert.doesNotMatch(markup, /Learn the workflow one step at a time/u);
+    assert.doesNotMatch(markup, /academic-profiles-walkthrough/u);
     assert.match(markup, /Engineering and Medical Studies are separate workspaces/u);
     assert.match(markup, /Can I create more than two profiles\?/u);
     assert.match(
@@ -140,7 +141,6 @@ test("registers the permanent guide and the once-only animated Profile B intro",
   assert.match(appSource, /activeProfileLabel: getAcademicProfileDisplayName\(activeProfile, 1\)/u);
   assert.match(appSource, /otherProfileLabel: getAcademicProfileDisplayName\(otherProfile/u);
   assert.match(pageSource, /role="tablist"[\s\S]*?role="tabpanel"/u);
-  assert.match(pageSource, /Finish guide/u);
   assert.match(pageSource, /openCreateProfileDialog\(event\)/u);
   assert.match(pageSource, /<AcademicProfileCreateDialog[\s\S]*?onCreateAcademicProfile=\{onCreateAcademicProfile\}/u);
   assert.match(pageSource, /<SettingsAcademicProfileDeleteDialog[\s\S]*?onConfirm=\{handleDeleteAcademicProfile\}/u);
