@@ -7,12 +7,12 @@ const VOICE_COMPANIONS = {
   female: {
     image: femaleSticker,
     label: "Female",
-    greeting: "Hello! I'm your study buddy. Ready to learn together?",
+    greeting: "Hello, I'm Microsoft Heera",
   },
   male: {
     image: maleSticker,
     label: "Male",
-    greeting: "Hello! I'm here to help you focus. Let's get started!",
+    greeting: "Hello, I'm Microsoft Ravi",
   },
 };
 
