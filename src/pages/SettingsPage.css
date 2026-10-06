@@ -1175,31 +1175,40 @@ body.has-bg-image .settings-page .settings-slosh-control {
 }
 
 /* Browser voice assistant preferences. */
-.settings-page .assistant-voice-settings {
+.settings-page .assistant-voice-row {
   display: grid;
-  gap: 11px;
-  padding: 12px;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+}
+
+.settings-page .assistant-voice-settings {
+  container: assistant-voice-controls / inline-size;
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  padding: 10px;
   background: var(--surface-muted);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 12px;
 }
 
 .settings-page .assistant-voice-heading {
   display: flex;
   align-items: flex-start;
-  gap: 9px;
+  gap: 7px;
 }
 
 .settings-page .assistant-voice-icon {
   display: grid;
   place-items: center;
-  flex: 0 0 31px;
-  width: 31px;
-  height: 31px;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
   color: var(--accent);
   background: rgba(var(--accent-rgb), 0.1);
   border: 1px solid rgba(var(--accent-rgb), 0.2);
-  border-radius: 9px;
+  border-radius: 8px;
 }
 
 .settings-page .assistant-voice-heading > div {
@@ -1208,34 +1217,34 @@ body.has-bg-image .settings-page .settings-slosh-control {
 
 .settings-page .assistant-voice-heading strong {
   color: var(--text);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   line-height: 1.3;
 }
 
 .settings-page .assistant-voice-heading p {
   margin: 2px 0 0;
   color: var(--text-muted);
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   line-height: 1.4;
 }
 
 .settings-page .assistant-voice-style {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  gap: 6px;
 }
 
 .settings-page .assistant-voice-style button {
   width: 100%;
-  height: 32px !important;
-  min-height: 32px !important;
-  padding: 5px 9px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 4px 8px !important;
   color: var(--text-muted);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 9px !important;
+  border-radius: 8px !important;
   box-shadow: none;
-  font-size: 0.7rem !important;
+  font-size: 0.66rem !important;
   font-weight: 800;
   transform: none;
 }
@@ -1252,28 +1261,32 @@ body.has-bg-image .settings-page .settings-slosh-control {
   color: #fff;
   background: var(--accent);
   border-color: var(--accent);
-  box-shadow: 0 7px 16px rgba(var(--accent-rgb), 0.2);
+  box-shadow: none;
 }
 
 .settings-page .assistant-voice-modifiers {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 7px;
 }
 
 .settings-page .assistant-voice-range {
   min-width: 0;
-  padding: 8px;
+  padding: 6px 7px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
+}
+
+.settings-page .assistant-voice-range .wake-slider__track {
+  min-height: 28px;
 }
 
 .settings-page .assistant-voice-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   padding-top: 2px;
 }
 
@@ -1294,7 +1307,7 @@ body.has-bg-image .settings-page .settings-slosh-control {
 .settings-page .assistant-voice-footer p strong {
   overflow-wrap: anywhere;
   color: var(--text);
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   line-height: 1.35;
 }
 
@@ -1305,14 +1318,15 @@ body.has-bg-image .settings-page .settings-slosh-control {
   gap: 5px;
   flex: 0 0 auto;
   width: auto !important;
-  min-height: 30px !important;
-  padding: 4px 9px !important;
-  border-radius: 9px !important;
-  font-size: 0.66rem !important;
+  min-height: 28px !important;
+  padding: 4px 8px !important;
+  border-radius: 8px !important;
+  font-size: 0.62rem !important;
   white-space: nowrap;
 }
 
-@media (max-width: 700px) {
+/* Respond to the panel's width while keeping the sticker alongside it. */
+@container assistant-voice-controls (max-width: 420px) {
   .settings-page .assistant-voice-modifiers {
     grid-template-columns: 1fr;
   }
@@ -1324,6 +1338,131 @@ body.has-bg-image .settings-page .settings-slosh-control {
 
   .settings-page .assistant-voice-preview-btn {
     width: 100% !important;
+  }
+}
+
+.settings-page .assistant-voice-companion {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding-top: 54px;
+}
+
+body .settings-page button.assistant-voice-sticker,
+body .settings-page button.assistant-voice-sticker:hover,
+body .settings-page button.assistant-voice-sticker:focus-visible {
+  display: block;
+  flex: 0 1 112px;
+  width: min(100%, 112px) !important;
+  max-width: 112px;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+body .settings-page button.assistant-voice-sticker::before,
+body .settings-page button.assistant-voice-sticker::after {
+  content: none !important;
+}
+
+body .settings-page button.assistant-voice-sticker:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 4px !important;
+}
+
+.settings-page .assistant-voice-sticker img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  user-select: none;
+  transition: transform 180ms ease;
+}
+
+.settings-page .assistant-voice-sticker:hover img,
+.settings-page .assistant-voice-sticker:focus-visible img {
+  transform: translateY(-3px) rotate(-2deg);
+}
+
+.settings-page .assistant-voice-greeting {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+  box-sizing: border-box;
+  width: 180px;
+  max-width: min(220%, 180px);
+  padding: 8px 10px;
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
+  border-radius: 10px 10px 3px 10px;
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  font-size: 0.66rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  animation: assistant-voice-hello 180ms ease-out;
+}
+
+.settings-page .assistant-voice-greeting[hidden] {
+  display: none;
+}
+
+@keyframes assistant-voice-hello {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 480px) {
+  .settings-page .assistant-voice-row {
+    gap: 8px;
+  }
+
+  .settings-page .assistant-voice-settings {
+    padding: 8px;
+  }
+
+  .settings-page .assistant-voice-companion {
+    align-items: flex-start;
+    padding-top: 76px;
+  }
+}
+
+@media (pointer: coarse) {
+  .settings-page .assistant-voice-style button,
+  .settings-page .assistant-voice-preview-btn {
+    min-height: 36px !important;
+  }
+
+  .settings-page .assistant-voice-range .wake-slider__track {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-page .assistant-voice-sticker img,
+  .settings-page .assistant-voice-sticker:hover img,
+  .settings-page .assistant-voice-sticker:focus-visible img {
+    transition: none;
+    transform: none;
+  }
+
+  .settings-page .assistant-voice-greeting {
+    animation: none;
   }
 }
 
