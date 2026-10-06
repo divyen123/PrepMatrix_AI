@@ -1397,6 +1397,10 @@ body .settings-page button.assistant-voice-sticker:focus-visible {
   transition: transform 180ms ease;
 }
 
+body.dark .settings-page .assistant-voice-sticker img {
+  filter: brightness(0.88);
+}
+
 .settings-page .assistant-voice-sticker:hover img,
 .settings-page .assistant-voice-sticker:focus-visible img {
   transform: translateY(-3px) rotate(8deg);
