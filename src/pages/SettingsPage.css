@@ -1357,10 +1357,10 @@ body .settings-page button.assistant-voice-sticker:focus-visible {
   place-items: center;
   box-sizing: border-box;
   overflow: visible;
-  flex: 0 1 112px;
-  width: min(100%, 112px) !important;
+  flex: 0 1 144px;
+  width: min(100%, 144px) !important;
   min-width: 0;
-  max-width: 112px;
+  max-width: 144px;
   height: auto !important;
   min-height: 0 !important;
   margin: 0;
@@ -1393,12 +1393,13 @@ body .settings-page button.assistant-voice-sticker:focus-visible {
   height: auto;
   object-fit: contain;
   user-select: none;
+  transform: rotate(8deg);
   transition: transform 180ms ease;
 }
 
 .settings-page .assistant-voice-sticker:hover img,
 .settings-page .assistant-voice-sticker:focus-visible img {
-  transform: translateY(-3px) rotate(-2deg);
+  transform: translateY(-3px) rotate(8deg);
 }
 
 .settings-page .assistant-voice-greeting {
@@ -1462,7 +1463,7 @@ body .settings-page button.assistant-voice-sticker:focus-visible {
   .settings-page .assistant-voice-sticker:hover img,
   .settings-page .assistant-voice-sticker:focus-visible img {
     transition: none;
-    transform: none;
+    transform: rotate(8deg);
   }
 
   .settings-page .assistant-voice-greeting {
