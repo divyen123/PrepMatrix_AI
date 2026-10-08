@@ -6,12 +6,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   width: 100%;
   min-width: 0;
   min-height: calc(var(--app-scaled-dynamic-viewport-height, 100dvh) - 116px);
   gap: 20px !important;
   box-sizing: border-box;
+}
+
+.settings-page.settings-page--home {
+  display: grid;
+  grid-template-rows: auto minmax(min-content, 1fr);
+  justify-items: center;
+  align-items: start;
+  align-content: start;
 }
 
 /* Forms stay still while destination cards provide the hover feedback. */
@@ -47,6 +55,8 @@ body .settings-page .settings-card:not(.is-arrival-highlighted):hover {
 
 .settings-home {
   display: grid;
+  grid-template-rows: auto minmax(120px, 1fr);
+  align-self: stretch;
   width: min(100%, 860px);
   min-width: 0;
   gap: clamp(24px, 4vh, 34px);
@@ -56,6 +66,7 @@ body .settings-page .settings-card:not(.is-arrival-highlighted):hover {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: stretch;
+  align-self: center;
   width: 100%;
   min-width: 0;
   gap: clamp(8px, 1.4vw, 16px);

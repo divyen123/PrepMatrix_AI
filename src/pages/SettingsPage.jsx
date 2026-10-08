@@ -2281,10 +2281,15 @@ function SettingsPage({
   })();
 
   return (
-    <section className="settings-page route-stage">
-      <div className="compact-intro">
-        <h2 ref={settingsTitleRef} tabIndex={-1}>{settingsTitle}</h2>
-      </div>
+    <section
+      aria-label={settingsTitle}
+      className={`settings-page route-stage${settingsSection === "home" ? " settings-page--home" : ""}`}
+    >
+      {settingsSection === "home" && (
+        <div className="compact-intro">
+          <h2 ref={settingsTitleRef} tabIndex={-1}>Settings</h2>
+        </div>
+      )}
 
       {settingsSection === "home" ? (
         <div className="settings-home">
@@ -2355,7 +2360,7 @@ function SettingsPage({
                 <div className="settings-account-header">
                   <div className="settings-account-copy">
                     <div className="settings-account-title-row">
-                      <h3>
+                      <h3 ref={settingsTitleRef} tabIndex={-1}>
                         <User size={20} className="status-success" /> Profile & Information
                       </h3>
                       <SettingsProfileInfo />
@@ -2588,7 +2593,7 @@ function SettingsPage({
                 style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
               >
                 <div>
-                  <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                  <h3 ref={settingsTitleRef} tabIndex={-1} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
                     <Settings2 size={20} className="status-success" /> System Preferences & Toggles
                   </h3>
                 </div>
@@ -2776,8 +2781,8 @@ function SettingsPage({
             {settingsSection === "appearance" && (
               <div className="card dashboard-full-span settings-card settings-appearance-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-                    <Palette size={20} className="status-success" /> Custom Color Palette & Layout
+                  <h3 ref={settingsTitleRef} tabIndex={-1} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                    <Palette size={20} className="status-success" /> Appearance & Layout
                   </h3>
                 </div>
 
@@ -3189,7 +3194,7 @@ function SettingsPage({
                 {/* Security Credentials */}
                 <section className="settings-security-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
-                    <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                    <h3 ref={settingsTitleRef} tabIndex={-1} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
                       <Shield size={20} className="status-warning" /> Credentials & Security
                     </h3>
                   </div>
