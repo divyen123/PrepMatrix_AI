@@ -610,7 +610,7 @@ export default function CodeMatrixPage({
         <section className="cmx-setup cmx-eligibility">
           <Code2 size={36} /><h2>A workspace for your coding subjects</h2>
           <p>{eligibility.reason} Add a relevant subject, or update your academic profile to match your course.</p>
-          <div className="cmx-actions"><Link className="cmx-button cmx-primary" to={codeMatrixSetupNavigation("subjects")}>Add subject<ArrowRight size={16} /></Link><Link className="cmx-button" to="/settings">Academic profile</Link></div>
+          <div className="cmx-actions"><Link className="cmx-button cmx-primary" to={codeMatrixSetupNavigation("subjects")}>Add subject<ArrowRight size={16} /></Link><Link className="cmx-button" to="/settings?section=profile">Academic profile</Link></div>
         </section>
       ) : setupVisible ? (
         <section className="cmx-setup" aria-labelledby="cmx-setup-title">

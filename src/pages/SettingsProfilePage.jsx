@@ -809,7 +809,7 @@ export default function SettingsProfilePage({
         <article className="settings-profile-detail-card settings-profile-surface">
           <header><UserRound aria-hidden="true" size={19} /><div><h2>Personal details</h2></div></header>
           <DetailList rows={accountRows} />
-          <button className="settings-profile-inline-action" onClick={() => navigate("/settings")} type="button">
+          <button className="settings-profile-inline-action" onClick={() => navigate("/settings?section=profile")} type="button">
             <Pencil aria-hidden="true" size={15} /> Edit in Settings
           </button>
         </article>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowRight, Pencil, BellRing, X, RefreshCw } from "lucide-react";
+import { Save, Shield, Palette, User, Check, Settings2, Download, Upload, Trash2, Volume2, Mic, Image as ImageIcon, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, Pencil, BellRing, X, RefreshCw } from "lucide-react";
 import api from "../utils/apiClient";
 import KidsPerformanceSettings from "../components/kids/KidsPerformanceSettings";
 import SettingsDataInfo from "../components/SettingsDataInfo";
@@ -105,6 +105,13 @@ import {
 } from "../utils/autoLock";
 import { toast } from "../utils/toast";
 import "./SettingsPage.css";
+
+const SETTINGS_SECTIONS = [
+  { id: "profile", title: "Profile & Information" },
+  { id: "system", title: "System" },
+  { id: "appearance", title: "Appearance" },
+  { id: "data-security", title: "Data & Security" },
+];
 
 const COLOR_PRESETS = [
   { name: "Teal (Default)", light: "7, 143, 120", dark: "36, 199, 177" },
@@ -529,6 +536,21 @@ function SettingsPage({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const profileCardHighlightRequested = location.state?.highlightProfileInstitution === true;
+  const requestedSettingsSection = new URLSearchParams(location.search).get("section");
+  const selectedSettingsSection = SETTINGS_SECTIONS.find(({ id }) => id === requestedSettingsSection);
+  const settingsSection = profileCardHighlightRequested ? "profile" : selectedSettingsSection?.id || "home";
+  const settingsTitle = SETTINGS_SECTIONS.find(({ id }) => id === settingsSection)?.title || "Settings";
+  const settingsTitleRef = useRef(null);
+  const previousSettingsSectionRef = useRef(settingsSection);
+
+  useEffect(() => {
+    if (previousSettingsSectionRef.current === settingsSection) return;
+    previousSettingsSectionRef.current = settingsSection;
+    window.scrollTo({ top: 0, behavior: "instant" });
+    settingsTitleRef.current?.focus({ preventScroll: true });
+  }, [settingsSection]);
+
   const { isKnown: creditsKnown, loading: creditsLoading, quota: creditsQuota } = useAiQuota();
   const creditsRemaining = creditsKnown ? Math.max(0, creditsQuota.remaining) : 0;
   const creditsLimit = creditsKnown ? Math.max(1, creditsQuota.limit || 100) : 100;
@@ -609,8 +631,6 @@ function SettingsPage({
     }
   }, []);
 
-  const profileCardHighlightRequested = location.state?.highlightProfileInstitution === true;
-
   useEffect(() => {
     if (!profileCardHighlightRequested) return;
 
@@ -623,7 +643,9 @@ function SettingsPage({
       setProfileCardHighlighted(false);
       profileCardHighlightTimerRef.current = null;
     }, 2000);
-    navigate(`${location.pathname}${location.search}${location.hash}`, {
+    const search = new URLSearchParams(location.search);
+    search.set("section", "profile");
+    navigate(`${location.pathname}?${search}${location.hash}`, {
       replace: true,
       state: null,
     });
@@ -1145,13 +1167,13 @@ function SettingsPage({
 
     document.documentElement.style.setProperty("--font-weight-normal", normal);
     document.body.style.setProperty("--font-weight-normal", normal);
-    
+
     document.documentElement.style.setProperty("--font-weight-medium", medium);
     document.body.style.setProperty("--font-weight-medium", medium);
-    
+
     document.documentElement.style.setProperty("--font-weight-bold", bold);
     document.body.style.setProperty("--font-weight-bold", bold);
-    
+
     document.documentElement.style.setProperty("--font-weight-title", title);
     document.body.style.setProperty("--font-weight-title", title);
   };
@@ -1198,7 +1220,7 @@ function SettingsPage({
 
     document.documentElement.style.setProperty("--accent-opacity", transparency.toString());
     document.body.style.setProperty("--accent-opacity", transparency.toString());
-    
+
     document.documentElement.style.setProperty("--border-opacity", contrast.toString());
     document.body.style.setProperty("--border-opacity", contrast.toString());
 
@@ -1219,7 +1241,7 @@ function SettingsPage({
       "--card-padding",
       cardSize === "compact" ? "18px" : cardSize === "spacious" ? "40px" : "30px"
     );
-    
+
     document.documentElement.style.setProperty(
       "--radius-lg",
       cardSize === "compact" ? "16px" : cardSize === "spacious" ? "32px" : "24px"
@@ -1233,7 +1255,7 @@ function SettingsPage({
     const activeBg = isDark ? bgDark : bgLight;
     document.documentElement.style.setProperty("--bg", activeBg);
     document.body.style.setProperty("--bg", activeBg);
-    
+
     document.documentElement.style.setProperty("--bg-secondary", activeBg);
     document.body.style.setProperty("--bg-secondary", activeBg);
 
@@ -1316,7 +1338,7 @@ function SettingsPage({
           "--card-padding",
           init.cardSize === "compact" ? "18px" : init.cardSize === "spacious" ? "40px" : "30px"
         );
-        
+
         document.documentElement.style.setProperty(
           "--radius-lg",
           init.cardSize === "compact" ? "16px" : init.cardSize === "spacious" ? "32px" : "24px"
@@ -1325,17 +1347,17 @@ function SettingsPage({
           "--radius-lg",
           init.cardSize === "compact" ? "16px" : init.cardSize === "spacious" ? "32px" : "24px"
         );
-        
+
         const activeRgb = isDark ? init.accentRgbDark : init.accentRgbLight;
         document.documentElement.style.setProperty("--accent-rgb", activeRgb);
         document.body.style.setProperty("--accent-rgb", activeRgb);
-        
+
         document.documentElement.style.setProperty("--accent", `rgb(${activeRgb})`);
         document.body.style.setProperty("--accent", `rgb(${activeRgb})`);
 
         document.documentElement.style.setProperty("--accent-opacity", init.transparency);
         document.body.style.setProperty("--accent-opacity", init.transparency);
-        
+
         document.documentElement.style.setProperty("--border-opacity", init.contrast);
         document.body.style.setProperty("--border-opacity", init.contrast);
 
@@ -1942,7 +1964,7 @@ function SettingsPage({
 
     document.body.classList.toggle("dark", isDark);
     document.documentElement.classList.toggle("dark", isDark);
-    
+
     // 2. Font Size
     localStorage.setItem("prepmatrix_font_size", font);
     document.documentElement.style.setProperty(
@@ -1979,7 +2001,7 @@ function SettingsPage({
     const activeRgb = isDark ? rgbDark : rgbLight;
     document.documentElement.style.setProperty("--accent-rgb", activeRgb);
     document.body.style.setProperty("--accent-rgb", activeRgb);
-    
+
     document.documentElement.style.setProperty("--accent", `rgb(${activeRgb})`);
     document.body.style.setProperty("--accent", `rgb(${activeRgb})`);
 
@@ -2261,256 +2283,11 @@ function SettingsPage({
   return (
     <section className="settings-page route-stage">
       <div className="compact-intro">
-        <h2>Settings</h2>
+        <h2 ref={settingsTitleRef} tabIndex={-1}>{settingsTitle}</h2>
       </div>
 
-      <div className="dashboard-feature-grid settings-grid" style={{ marginTop: "24px" }}>
-        {youngKidsMode && kidsParentAccess?.unlocked ? (
-          <KidsPerformanceSettings
-            onLocked={onKidsParentLocked}
-            onParentAccessChange={onKidsParentAccessChange}
-            userProfile={userProfile}
-          />
-        ) : null}
-        
-        {/* Profile Card */}
-        <div
-          className={`card settings-card settings-account-card${profileCardHighlighted ? " is-arrival-highlighted" : ""}`}
-          ref={profileCardRef}
-          style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
-        >
-          <div className="settings-account-header">
-            <div className="settings-account-copy">
-              <div className="settings-account-title-row">
-                <h3>
-                  <User size={20} className="status-success" /> Profile & Information
-                </h3>
-                <SettingsProfileInfo />
-              </div>
-            </div>
-
-            <div className="profile-photo-control">
-              <input
-                accept="image/*"
-                aria-label="Upload profile picture"
-                className="profile-photo-input"
-                onChange={handleProfileImageChange}
-                ref={profileImageInputRef}
-                type="file"
-              />
-              <button
-                aria-label={profileImage ? "Change profile picture" : "Upload profile picture"}
-                className={`profile-photo-circle${profileImage ? " has-image" : ""}`}
-                onClick={() => profileImageInputRef.current?.click()}
-                title={profileImage ? "Change profile picture" : "Upload profile picture"}
-                type="button"
-              >
-                {profileImage ? (
-                  <img alt="Profile" src={profileImage} />
-                ) : (
-                  <User size={22} aria-hidden="true" />
-                )}
-              </button>
-              <button
-                aria-label={profileImage ? "Remove profile picture" : "Upload profile picture"}
-                className={`profile-photo-mini-action${profileImage ? " delete" : " edit"}`}
-                onClick={profileImage ? handleRemoveProfileImage : () => profileImageInputRef.current?.click()}
-                title={profileImage ? "Remove profile picture" : "Upload profile picture"}
-                type="button"
-              >
-                {profileImage ? <Trash2 size={10} strokeWidth={2.4} /> : <Pencil size={10} strokeWidth={2.4} />}
-              </button>
-            </div>
-          </div>
-
-          <div className="settings-profile-slot-bar">
-            <div className="settings-profile-slot-heading">
-              <div aria-live="polite" className="settings-profile-current-status">
-                <span>Current:</span>
-                {editingProfileName ? (
-                  <div className="settings-profile-name-editor">
-                    <input
-                      aria-label="Profile name"
-                      disabled={savingProfileName}
-                      maxLength={ACADEMIC_PROFILE_DISPLAY_NAME_MAX_LENGTH}
-                      onChange={(event) => setProfileNameDraft(event.target.value)}
-                      onKeyDown={handleProfileNameKeyDown}
-                      ref={profileNameInputRef}
-                      value={profileNameDraft}
-                    />
-                    <button aria-label="Save profile name" className="settings-profile-name-action is-save" disabled={savingProfileName} onClick={saveProfileDisplayName} title="Save profile name" type="button">
-                      <Check aria-hidden="true" size={13} />
-                    </button>
-                    <button aria-label="Cancel profile name edit" className="settings-profile-name-action" disabled={savingProfileName} onClick={cancelProfileNameEdit} title="Cancel" type="button">
-                      <X aria-hidden="true" size={13} />
-                    </button>
-                  </div>
-                ) : (
-                  <span className="settings-profile-current-name">
-                    <strong>{activeProfileDisplayName}</strong>
-                    <button
-                      aria-label={`Rename ${activeProfileDisplayName}`}
-                      className="settings-profile-name-action is-edit"
-                      disabled={profileMutationBusy}
-                      onClick={beginProfileNameEdit}
-                      title="Rename profile"
-                      type="button"
-                    >
-                      <Pencil aria-hidden="true" size={14} strokeWidth={2.4} />
-                    </button>
-                  </span>
-                )}
-              </div>
-              {!editingProfileName ? (
-                <Link
-                  aria-label="Learn how academic profiles work"
-                  className="settings-profile-know-more"
-                  to={ACADEMIC_PROFILE_GUIDE_ROUTE}
-                >
-                  Know more <ArrowRight aria-hidden="true" size={12} />
-                </Link>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="form-grid">
-            <label className="field-stack">
-              <span>Full Name</span>
-              <input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="User name"
-              />
-            </label>
-            <label className="field-stack">
-              <span>Age</span>
-              <input
-                type="number"
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-                placeholder="Age"
-              />
-            </label>
-          </div>
-
-          <div className="form-grid">
-            <label className="field-stack">
-              <span>Academic Stage</span>
-              <select
-                disabled={!academicFieldsEditable}
-                value={educationStage}
-                onChange={(e) => handleEducationStageChange(e.target.value)}
-              >
-                {[...new Set([educationStage, ...ACADEMIC_LEVEL_OPTIONS].filter(Boolean))].map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </label>
-            <label className="field-stack">
-              <span>Institution Name</span>
-              <input
-                value={institutionName}
-                onChange={(e) => setInstitutionName(e.target.value)}
-                placeholder="e.g. Stanford University"
-              />
-            </label>
-          </div>
-
-          <div className="form-grid">
-            {isSchoolAcademicLevel(educationStage) ? (
-              <label className="field-stack">
-                <span>Grade / Class</span>
-                <select
-                  disabled={!academicFieldsEditable}
-                  value={grade}
-                  onChange={(e) => updateAcademicDraft({ grade: e.target.value })}
-                >
-                  <option value="">Select class</option>
-                  {[...new Set([grade, ...SCHOOL_CLASS_OPTIONS].filter(Boolean))].map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <label className="field-stack">
-                <span>Degree / Major</span>
-                <input
-                  disabled={!academicFieldsEditable}
-                  value={degree}
-                  onChange={(e) => updateAcademicDraft({ degree: e.target.value })}
-                  placeholder="e.g. B.Tech IT, MBBS, LLB, M.Sc"
-                />
-              </label>
-            )}
-            <label className="field-stack">
-              <span>{isSchoolAcademicLevel(educationStage) ? "Board / Curriculum" : "Field / Stream"}</span>
-              <select disabled={!academicFieldsEditable} value={profileTrack} onChange={(e) => updateAcademicDraft({ academicTrack: e.target.value })}>
-                {[...new Set([profileTrack, ...TRACK_OPTIONS].filter(Boolean))].map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {isSchoolAcademicLevel(educationStage) && isSeniorSecondaryClass(grade) ? (
-            <label className="field-stack">
-              <span>Stream / Subject Group</span>
-              <input
-                disabled={!academicFieldsEditable}
-                list="settings-senior-stream-options"
-                value={schoolStream}
-                onChange={(e) => updateAcademicDraft({ schoolStream: e.target.value })}
-                placeholder="Choose or type a stream"
-              />
-              <datalist id="settings-senior-stream-options">
-                {SENIOR_SECONDARY_STREAM_OPTIONS.map((option) => (
-                  <option key={option} value={option} />
-                ))}
-              </datalist>
-            </label>
-          ) : null}
-
-          {youngKidsMode && !hasTwoProfiles ? (
-            <div className="academic-profile-note settings-academic-profile-note" role="note">
-              <p>
-                {!academicProfileEditable
-                  ? "Open Parent Corner before changing this account's academic profile."
-                  : "Parent Corner is open. You can correct this account's registered stage, class, and curriculum here."}
-              </p>
-            </div>
-          ) : null}
-
-          {!isSchoolAcademicLevel(educationStage) && (
-            <label className="field-stack">
-              <span>Specialization / Department</span>
-              <input
-                disabled={!academicFieldsEditable}
-                list="settings-department-options"
-                value={department}
-                onChange={(e) => updateAcademicDraft({ department: e.target.value })}
-                placeholder="e.g. Information Technology, Cardiology, Constitutional Law"
-              />
-              <datalist id="settings-department-options">
-                {DEPARTMENT_OPTIONS.map((option) => <option key={option} value={option} />)}
-              </datalist>
-            </label>
-          )}
-
-          <div className="settings-account-actions">
-            <button
-              ref={profileSaveButtonRef}
-              onClick={handleSaveAccount}
-              disabled={profileMutationBusy}
-              style={{ display: "flex", alignItems: "center", gap: "8px", opacity: savingProfile ? 0.6 : 1 }}
-              type="button"
-            >
-              <Save size={16} /> {savingProfile ? "Saving..." : "Save Profile"}
-            </button>
-          </div>
-        </div>
-
-        {/* Credit balance and security share the height beside the profile card. */}
-        <div className="settings-security-stack">
+      {settingsSection === "home" ? (
+        <div className="settings-home">
           <section
             aria-label="Monthly AI credits"
             className={`settings-credit-summary${creditsLow ? " is-low" : ""}`}
@@ -2551,1005 +2328,1269 @@ function SettingsPage({
               </div>
             </div>
           </section>
-
-        {/* Security Credentials */}
-        <div className="card settings-card settings-security-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-              <Shield size={20} className="status-warning" /> Credentials & Security
-            </h3>
-          </div>
-
-          <label className="field-stack">
-            <span>Email Address</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-            />
-          </label>
-
-          <div className="form-grid">
-            {showOtpInput ? (
-              <label className="field-stack" style={{ position: "relative" }}>
-                <span>Enter OTP code</span>
-                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                  <input
-                    type="text"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
-                    placeholder="e.g. 123456"
-                    maxLength={6}
-                    disabled={isOtpVerified}
-                    style={{
-                      width: "100%",
-                      boxSizing: "border-box",
-                      paddingRight: "40px",
-                      borderColor: isOtpVerified ? "var(--success)" : undefined,
-                      background: isOtpVerified ? "rgba(34, 197, 94, 0.05)" : undefined
-                    }}
-                  />
-                  {!isOtpVerified && (
-                    <button
-                      className="otp-arrow-btn"
-                      type="button"
-                      onClick={handleVerifyOtp}
-                      style={{
-                        position: "absolute",
-                        right: "6px",
-                        top: "50%",
-                        transform: "translateY(-50%)"
-                      }}
-                    >
-                      <ArrowRight size={16} />
-                    </button>
-                  )}
-                  {isOtpVerified && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        right: "12px",
-                        color: "var(--success)",
-                        fontSize: "0.8rem",
-                        fontWeight: 700
-                      }}
-                    >
-                      ✓ Verified
-                    </span>
-                  )}
-                </div>
-                {!isOtpVerified && (
-                  <div style={{ marginTop: "4px", fontSize: "0.78rem" }}>
-                    {otpCountdown > 0 ? (
-                      <span style={{ color: "var(--text-muted)" }}>
-                        OTP expires in <strong style={{ color: "var(--accent)" }}>{formatCountdown(otpCountdown)}</strong>
-                      </span>
-                    ) : (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        <span style={{ color: "var(--danger)", fontWeight: 600 }}>
-                          {isOtpLimitReached ? "OTP limit reached (5 requests/24 hours limit)." : "OTP has expired."}
-                        </span>
-                        <button
-                          type="button"
-                          className="secondary-btn"
-                          onClick={handleSendOtp}
-                          disabled={isOtpLimitReached}
-                          style={{
-                            fontSize: "0.76rem",
-                            padding: "4px 8px",
-                            width: "fit-content",
-                            borderRadius: "8px",
-                            height: "26px",
-                            minHeight: "26px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            opacity: isOtpLimitReached ? 0.4 : 1,
-                            cursor: isOtpLimitReached ? "not-allowed" : "pointer"
-                          }}
-                        >
-                          Resend OTP
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </label>
-            ) : (
-              <label className="field-stack">
-                <span>Current Password</span>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                />
-              </label>
-            )}
-            <label className="field-stack">
-              <span>New Password</span>
-              <input
-                type="password"
-                value={password}
-                disabled={!isCurrentPasswordCorrect && !isOtpVerified}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="new-password"
-                style={{ opacity: (isCurrentPasswordCorrect || isOtpVerified) ? 1 : 0.5, cursor: (isCurrentPasswordCorrect || isOtpVerified) ? 'text' : 'not-allowed' }}
-              />
-            </label>
-            <label className="field-stack">
-              <span>Confirm Password</span>
-              <input
-                type="password"
-                value={confirmPassword}
-                disabled={!isCurrentPasswordCorrect && !isOtpVerified}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="new-password"
-                style={{ opacity: (isCurrentPasswordCorrect || isOtpVerified) ? 1 : 0.5, cursor: (isCurrentPasswordCorrect || isOtpVerified) ? 'text' : 'not-allowed' }}
-              />
-            </label>
-          </div>
-
-          <div className="security-action-row">
-            {!showOtpInput && (
-              <button 
-                type="button" 
-                className="secondary-btn forgot-pw-btn"
-                onClick={handleSendOtp}
+          <nav className="settings-home-cards" aria-label="Settings sections">
+            {SETTINGS_SECTIONS.map(({ id, title }) => (
+              <Link
+                className={`settings-home-card settings-home-card--${id}`}
+                key={id}
+                to={`/settings?section=${id}`}
               >
-                Forgot password?
-              </button>
-            )}
-            <button
-              className="update-cred-btn"
-              onClick={handleSaveSecurity}
-              disabled={isButtonDisabled}
-              style={{ 
-                opacity: isButtonDisabled ? 0.55 : 1,
-                cursor: isButtonDisabled ? "not-allowed" : "pointer"
-              }}
-            >
-              <Save size={14} /> Update Credentials
-            </button>
-          </div>
+                {title}
+              </Link>
+            ))}
+          </nav>
         </div>
-        </div>
-
-        {/* System Preferences & Toggles */}
-        <div
-          className="card dashboard-full-span settings-card settings-system-card"
-          style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
-        >
-          <div>
-            <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-              <Settings2 size={20} className="status-success" /> System Preferences & Toggles
-            </h3>
-          </div>
-
-          <div className="settings-auto-hide-topbar">
-            <ToggleSwitch
-              checked={autoHideTopBar}
-              onChange={(next) => onAutoHideTopBarChange?.(next)}
-              label="Auto-hide Top Bar"
-              subtitle="Hide the top bar until you move the cursor to the top edge of the screen."
-            />
-          </div>
-
-          <div className="settings-auto-lock">
-            <ToggleSwitch
-              checked={autoLockEnabled}
-              onChange={(next) => onAutoLockEnabledChange?.(next)}
-              label="Auto-lock app"
-              subtitle="Lock PrepMatrix after the selected period of inactivity. Keyboard, mouse, or touch activity restarts the countdown."
-              trailingControl={autoLockEnabled ? (
-                <label className="settings-auto-lock-minute-control">
-                  <input
-                    aria-label="Auto-lock duration in minutes"
-                    id="settings-auto-lock-minutes"
-                    inputMode="numeric"
-                    max={AUTO_LOCK_MAX_MINUTES}
-                    min={AUTO_LOCK_MIN_MINUTES}
-                    onBlur={commitAutoLockMinutes}
-                    onChange={(event) => setAutoLockMinutesDraft(event.target.value)}
-                    onKeyDown={handleAutoLockMinutesKeyDown}
-                    step="1"
-                    type="number"
-                    value={autoLockMinutesDraft}
-                  />
-                  <span aria-hidden="true">mins</span>
-                </label>
-              ) : null}
-            />
-          </div>
-
-          <ToggleSwitch
-            checked={soundEnabled}
-            onChange={setSoundEnabled}
-            label="Completion Sound Effects"
-            subtitle="Play audio chimes when clearing scheduled days or unlocking streaks"
-          />
-
-
-          <ToggleSwitch
-            checked={wakeMode}
-            onChange={toggleWakeMode}
-            label="Wake Mode (Hands-Free)"
-            subtitle='Keep wake mode on while the app is open. Say Hey Prep, Prep Matrix, or Hey PrepMatrix followed by a command or question.'
-          />
-
-          <div className="assistant-voice-row">
-            <section aria-labelledby="assistant-voice-title" className="assistant-voice-settings">
-              <div className="assistant-voice-heading">
-                <span className="assistant-voice-icon">
-                  <Mic aria-hidden="true" size={16} />
-                </span>
-                <div>
-                  <strong id="assistant-voice-title">Assistant voice</strong>
-                  <p>Choose your voice and fine-tune how it sounds.</p>
-                </div>
-              </div>
-
-              <div aria-label="Preferred assistant voice" className="assistant-voice-style" role="group">
-                {["female", "male"].map((voiceStyle) => (
-                  <button
-                    aria-pressed={assistantVoicePreferences.voiceStyle === voiceStyle}
-                    className={assistantVoicePreferences.voiceStyle === voiceStyle ? "is-active" : ""}
-                    key={voiceStyle}
-                    onClick={() => updateVoicePreference("voiceStyle", voiceStyle)}
-                    type="button"
-                  >
-                    {voiceStyle === "female" ? "Female" : "Male"}
-                  </button>
-                ))}
-              </div>
-
-              <div className="assistant-voice-modifiers">
-                <SettingsWakeControl
-                  className="assistant-voice-range"
-                  gap={2}
-                  height={28}
-                  restHeight={6}
-                  displayValue={`${assistantVoicePreferences.rate.toFixed(2)}x`}
-                  formatValue={(value) => `${value.toFixed(2)} times speed`}
-                  label="Speed"
-                  max={VOICE_RATE_MAX}
-                  min={VOICE_RATE_MIN}
-                  onChange={(value) => updateVoicePreference("rate", value)}
-                  onInteractionEnd={(value) => handleVoicePreview({ rate: value })}
-                  step={0.1}
-                  value={assistantVoicePreferences.rate}
-                />
-
-                <SettingsWakeControl
-                  className="assistant-voice-range"
-                  gap={2}
-                  height={28}
-                  restHeight={6}
-                  displayValue={`${Math.round(assistantVoicePreferences.pitch * 100)}%`}
-                  formatValue={(value) => `${Math.round(value * 100)} percent pitch`}
-                  label="Pitch"
-                  max={VOICE_PITCH_MAX}
-                  min={VOICE_PITCH_MIN}
-                  onChange={(value) => updateVoicePreference("pitch", value)}
-                  onInteractionEnd={(value) => handleVoicePreview({ pitch: value })}
-                  step={0.1}
-                  value={assistantVoicePreferences.pitch}
-                />
-
-                <SettingsWakeControl
-                  className="assistant-voice-range"
-                  gap={2}
-                  height={28}
-                  restHeight={6}
-                  displayValue={`${Math.round(assistantVoicePreferences.volume * 100)}%`}
-                  formatValue={(value) => `${Math.round(value * 100)} percent volume`}
-                  label="Volume"
-                  max={VOICE_VOLUME_MAX}
-                  min={VOICE_VOLUME_MIN}
-                  onChange={(value) => updateVoicePreference("volume", value)}
-                  onInteractionEnd={(value) => handleVoicePreview({ volume: value })}
-                  step={0.05}
-                  value={assistantVoicePreferences.volume}
-                />
-              </div>
-
-              <div className="assistant-voice-footer">
-                <p aria-live="polite">
-                  <span>Active browser voice</span>
-                  <strong>{activeVoiceName || "Browser default voice"}</strong>
-                </p>
-                <button
-                  className="secondary-btn assistant-voice-preview-btn"
-                  disabled={!onPreviewVoice}
-                  onClick={() => handleVoicePreview()}
-                  type="button"
-                >
-                  <Volume2 aria-hidden="true" size={14} />
-                  Preview voice
-                </button>
-              </div>
-            </section>
-            <AssistantVoiceSticker voiceStyle={assistantVoicePreferences.voiceStyle} />
-          </div>
-
-          <div aria-live="polite" className="notification-setting">
-            <ToggleSwitch
-              checked={notificationToggleChecked}
-              onChange={toggleNotifications}
-              disabled={notificationToggleDisabled}
-              label="Action Alerts (Push Notifications)"
-              labelAccessory={notificationsEnabled && notificationStatus === "connected" ? <SettingsActionAlertsInfo /> : null}
-              subtitle={notificationSubtitle}
-              trailingControl={notificationsEnabled && notificationStatus === "connected" ? (
-                <button
-                  aria-label={notificationTestBusy ? "Sending test notification" : "Send test notification"}
-                  aria-busy={notificationTestBusy}
-                  className="secondary-btn notification-test-btn"
-                  disabled={notificationTestBusy || notificationsBusy}
-                  onClick={sendTestNotification}
-                  title="Verify system notification delivery"
-                  type="button"
-                >
-                  <BellRing aria-hidden="true" size={12} />
-                  {notificationTestBusy ? "Sending..." : "Test notification"}
-                </button>
-              ) : null}
-            />
-          </div>
-        </div>
-
-        {/* Appearance Configuration */}
-        <div className="card dashboard-full-span settings-card settings-appearance-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-              <Palette size={20} className="status-success" /> Custom Color Palette & Layout
-            </h3>
-          </div>
-
-          {/* Background Image Picker */}
-          <div className="settings-appearance-section" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "18px" }}>
-            <div className="background-theme-heading-row">
-              <span className="card-subtext background-theme-heading">
-                <ImageIcon aria-hidden="true" size={14} /> Background Theme
-              </span>
-              <div className="background-theme-actions">
-                {kidsBackgroundsEligible && (
-                  <button
-                    aria-pressed={kidsGalleryActive}
-                    className="background-theme-action-btn"
-                    onClick={() => setShowKidsBackgrounds((current) => !current)}
-                    type="button"
-                  >
-                    {kidsGalleryActive ? "Default themes" : "Suggest for kids"}
-                  </button>
-                )}
-              </div>
-            </div>
-            <input
-              accept="image/jpeg,image/png,image/webp"
-              aria-label="Choose a custom background image"
-              className="custom-background-input"
-              onChange={handleCustomBackgroundChange}
-              ref={customBackgroundInputRef}
-              type="file"
-            />
-            {kidsGalleryActive && (
-              <p className="card-subtext" style={{ marginBottom: "12px", fontSize: "0.82rem" }}>
-                Pick a playful background chosen for younger learners, or upload your own image.
-              </p>
-            )}
-            {customBackgroundStatus && (
-              <p aria-live="polite" className="custom-background-status" id="custom-background-status">
-                {customBackgroundStatus}
-              </p>
-            )}
-            <div
-              className={`settings-bg-presets-grid ${kidsGalleryActive ? "is-kids-gallery" : "is-default-gallery"}`}
-              key={kidsGalleryActive ? "kids-backgrounds" : "default-backgrounds"}
-              style={{ display: "grid", overflowX: "hidden", padding: "0 2px 6px", minWidth: 0 }}
-            >
-              {/* None / Color Palette option */}
-              {!kidsGalleryActive && <button
-                aria-label="Use the color palette background"
-                aria-pressed={bgImageId === ""}
-                onClick={() => selectBackgroundTheme("")}
-                type="button"
-                className="bg-palette-thumbnail-btn"
-                style={{
-                  aspectRatio: "16 / 10",
-                  border: bgImageId === "" ? "2.5px solid var(--accent)" : "1.5px solid var(--border)",
-                  borderRadius: "12px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  position: "relative",
-                  overflow: "hidden",
-                  fontSize: "0.78rem",
-                  color: "var(--text)",
-                  fontWeight: 600,
-                  gap: "5px",
-                  transition: "all 0.2s ease",
-                }}
+      ) : (
+        <div className={`settings-subpage settings-subpage--${settingsSection}`}>
+          <Link className="settings-back-link" to="/settings">
+            <ArrowLeft aria-hidden="true" size={16} /> Back to Settings
+          </Link>
+          <div className="settings-subpage-content">
+            {settingsSection === "profile" && (
+              <div
+                className={`card settings-card settings-account-card${profileCardHighlighted ? " is-arrival-highlighted" : ""}`}
+                ref={profileCardRef}
+                style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
               >
-                <Palette size={15} /> Color Palette
-                {bgImageId === "" && <Check size={12} style={{ position: "absolute", top: "5px", right: "5px", color: "var(--accent)" }} />}
-              </button>}
-
-              {/* Image thumbnails */}
-              {displayedBackgroundPresets.map((preset) => {
-                const isActive = bgImageId === preset.id;
-                return (
-                  <button
-                    aria-label={`Use ${preset.name} background`}
-                    aria-pressed={isActive}
-                    key={preset.id}
-                    onClick={() => selectBackgroundTheme(preset.id, preset)}
-                    type="button"
-                    className={`bg-preset-thumbnail-btn bg-preset-${preset.id}`}
-                    style={{
-                      "--background-thumbnail-image": `url("${preset.file}")`,
-                      ...getBackgroundThumbnailPresentationVariables(preset),
-                      aspectRatio: "16 / 10",
-                      border: isActive ? `2.5px solid rgb(${preset.accentRgb})` : "1.5px solid var(--border)",
-                      borderRadius: "12px",
-                      cursor: "pointer",
-                      position: "relative",
-                      overflow: "hidden",
-                      padding: 0,
-                      transition: "all 0.2s ease",
-                      boxShadow: isActive ? `0 0 0 1px rgb(${preset.accentRgb}), 0 4px 12px rgba(${preset.accentRgb}, 0.25)` : "none",
-                    }}
-                  >
-                    <span style={{
-                      position: "absolute",
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      padding: "16px 8px 5px",
-                      background: "transparent",
-                      color: "#fff",
-                      fontSize: "0.72rem",
-                      fontWeight: 600,
-                      textAlign: "left",
-                      letterSpacing: "0.02em",
-                    }}>
-                      {preset.name}
-                    </span>
-                    {isActive && <Check size={13} style={{ position: "absolute", top: "5px", right: "5px", color: "#fff", filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.6))" }} />}
-                  </button>
-                );
-              })}
-
-              <button
-                aria-describedby={customBackgroundStatus ? "custom-background-status" : undefined}
-                aria-label={customBackgroundPreset ? "Change custom background image" : "Choose a custom background image"}
-                aria-pressed={bgImageId === CUSTOM_BACKGROUND_ID}
-                className={`${customBackgroundPreset ? "bg-preset-thumbnail-btn" : "bg-palette-thumbnail-btn is-empty"} bg-custom-background-card`}
-                disabled={customBackgroundBusy}
-                onClick={() => customBackgroundInputRef.current?.click()}
-                style={{
-                  ...(customBackgroundPreset ? {
-                    "--background-thumbnail-image": `url("${customBackgroundPreset.file}")`,
-                    ...getBackgroundThumbnailPresentationVariables(customBackgroundPreset),
-                  } : {}),
-                  aspectRatio: "16 / 10",
-                  border: bgImageId === CUSTOM_BACKGROUND_ID
-                    ? `2.5px solid rgb(${customBackgroundPreset?.accentRgb || accentRgbDark})`
-                    : "1.5px solid var(--border)",
-                  borderRadius: "12px",
-                  cursor: customBackgroundBusy ? "wait" : "pointer",
-                  position: "relative",
-                  overflow: "hidden",
-                  padding: 0,
-                  transition: "all 0.2s ease",
-                  boxShadow: bgImageId === CUSTOM_BACKGROUND_ID
-                    ? `0 0 0 1px rgb(${customBackgroundPreset?.accentRgb || accentRgbDark}), 0 4px 12px rgba(${customBackgroundPreset?.accentRgb || accentRgbDark}, 0.25)`
-                    : "none",
-                }}
-                title={customBackgroundPreset ? "Choose a different custom background" : "Upload a custom background"}
-                type="button"
-              >
-                {!customBackgroundPreset && <Upload aria-hidden="true" size={15} />}
-                <span>
-                  {customBackgroundBusy
-                    ? "Preparing..."
-                    : customBackgroundPreset
-                      ? "My Background"
-                      : "Custom"}
-                </span>
-                {bgImageId === CUSTOM_BACKGROUND_ID && (
-                  <Check
-                    aria-hidden="true"
-                    size={13}
-                    style={{
-                      position: "absolute",
-                      top: "5px",
-                      right: "5px",
-                      color: "#fff",
-                      filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.6))",
-                    }}
-                  />
-                )}
-              </button>
-            </div>
-
-          </div>
-
-          <div className="workspace-grid settings-appearance-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
-            
-            {/* Left Column: Layout & Typography */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div className="form-grid">
-                <label className="field-stack">
-                  <span>Font Scale</span>
-                  <select
-                    value={fontSize}
-                    onChange={(e) => setFontSize(e.target.value)}
-                  >
-                    <option value="small">Small</option>
-                    <option value="medium">Medium (Default)</option>
-                    <option value="large">Large</option>
-                  </select>
-                </label>
-
-                <label className="field-stack">
-                  <span>Card Scale</span>
-                  <select
-                    value={cardSize}
-                    onChange={(e) => setCardSize(e.target.value)}
-                  >
-                    <option value="compact">Compact</option>
-                    <option value="cozy">Cozy (Default)</option>
-                    <option value="spacious">Spacious</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="form-grid">
-                <label className="field-stack">
-                  <span>Font Style (Family)</span>
-                  <select
-                    value={fontFamilyStyle}
-                    onChange={(e) => setFontFamilyStyle(e.target.value)}
-                  >
-                    <option value="sans">Modern Sans (Manrope / Space Grotesk)</option>
-                    <option value="clean">Sleek Clean (Inter / Outfit)</option>
-                    <option value="rounded">Rounded Friendly (Nunito / Quicksand)</option>
-                    <option value="geometric">Geometric Modern (Poppins / Raleway)</option>
-                    <option value="humanist">Humanist Neutral (Source Sans 3 / DM Sans)</option>
-                    <option value="editorial">Editorial Sharp (Plus Jakarta Sans / Raleway)</option>
-                    <option value="serif">Elegant Serif (Lora / Playfair Display)</option>
-                    <option value="classic">Classic Serif (Merriweather / Crimson Text)</option>
-                    <option value="mono">Tech Mono (Fira Code / Space Mono)</option>
-                  </select>
-                </label>
-
-                <label className="field-stack">
-                  <span>Font Weight Modifier</span>
-                  <select
-                    value={fontWeightStyle}
-                    onChange={(e) => setFontWeightStyle(e.target.value)}
-                  >
-                    <option value="light">Light</option>
-                    <option value="regular">Regular (Default)</option>
-                    <option value="medium">Medium</option>
-                    <option value="bold">Bold</option>
-                  </select>
-                </label>
-              </div>
-
-              {/* Glassmorphism Customization Section */}
-              <div className="settings-glass-section" style={{ marginTop: "18px", borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
-                <span className="card-subtext" style={{ fontSize: "0.8rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>Glassmorphism Customization</span>
-                <ToggleSwitch
-                  checked={glassyCards}
-                  onChange={setGlassyCards}
-                  label="Glassy Cards & Panels"
-                  subtitle="Apply glass blur and transparency to containers"
-                />
-              </div>
-
-            </div>
-
-            {/* Right Column: Customization Presets & Mouse Settings */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-
-              {/* Cursor Style Selector — hidden on mobile via CSS */}
-              <div className="settings-cursor-selector" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "14px" }}>
-                <span className="field-stack"><span>Mouse Cursor Style</span></span>
-                <div className="cursor-style-cards">
-                  {/* Default OS Cursor */}
-                  <button
-                    type="button"
-                    className={`cursor-style-card ${(parentCursorStyle === "default" || !parentCursorStyle) ? "active" : ""}`}
-                    onClick={() => {
-                      if (setParentCursorStyle) setParentCursorStyle("default");
-                    }}
-                  >
-                    <div className="cursor-card-preview cursor-preview-default">
-                      <svg width="18" height="22" viewBox="0 0 18 22" fill="none">
-                        <path d="M1 1L1 17L5.5 13L8 20L10 19L7.5 12H13L1 1Z" fill="white" stroke="rgba(255,255,255,0.3)" strokeWidth="1"/>
-                      </svg>
-                    </div>
-                    <span className="cursor-card-label">Default</span>
-                    <span className="cursor-card-sub">OS Pointer</span>
-                  </button>
-
-                  {/* App Cursor */}
-                  <button
-                    type="button"
-                    className={`cursor-style-card ${parentCursorStyle === "app-cursor" ? "active" : ""}`}
-                    onClick={() => {
-                      if (setParentCursorStyle) setParentCursorStyle("app-cursor");
-                    }}
-                  >
-                    <div className="cursor-card-preview cursor-preview-app">
-                      <div className="ccp-app-ring" />
-                      <div className="ccp-app-dot" />
-                    </div>
-                    <span className="cursor-card-label">App</span>
-                    <span className="cursor-card-sub">Purple dot + ring</span>
-                  </button>
-
-                  {/* Blob Cursor */}
-                  <button
-                    type="button"
-                    className={`cursor-style-card ${parentCursorStyle === "blob-cursor" ? "active" : ""}`}
-                    onClick={() => {
-                      if (setParentCursorStyle) setParentCursorStyle("blob-cursor");
-                    }}
-                  >
-                    <div className="cursor-card-preview cursor-preview-blob">
-                      <div className="ccp-blob-body" />
-                      <div className="ccp-blob-dot" />
-                    </div>
-                    <span className="cursor-card-label">Blob</span>
-                    <span className="cursor-card-sub">Morphing fluid</span>
-                  </button>
-                </div>
-              </div>
-
-
-              <div className="field-stack">
-                <span>Preset Accent Color Palette</span>
-                <div className="preset-palette-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px", marginTop: "8px" }}>
-                  {COLOR_PRESETS.map((preset) => {
-                    const isActive = accentRgbLight === preset.light;
-                    return (
-                      <button
-                        key={preset.name}
-                        onClick={() => handleSelectPreset(preset)}
-                        className="preset-color-btn"
-                        type="button"
-                        style={{
-                          minHeight: "40px",
-                          padding: "6px 12px",
-                          fontSize: "0.82rem",
-                          border: isActive ? "2px solid var(--accent)" : "1px solid var(--border)",
-                          background: `rgba(${preset.light}, 0.1)`,
-                          color: `rgb(${preset.light})`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "6px",
-                          borderRadius: "8px"
-                        }}
-                        title={preset.name}
-                      >
-                        <span
-                          className="preset-color-dot"
-                          style={{
-                            width: "12px",
-                            height: "12px",
-                            borderRadius: "50%",
-                            backgroundColor: `rgb(${preset.light})`,
-                            display: "inline-block",
-                            flexShrink: 0
-                          }}
-                        />
-                        <span className="preset-name-text">{preset.name}</span>
-                        {isActive && <Check size={12} style={{ flexShrink: 0 }} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* The gauges use both appearance columns below the accent palette. */}
-            <div className="settings-glass-controls settings-glass-controls--full">
-              <SettingsSloshControl
-                displayValue={`${Math.round(glassOpacity * 100)}%`}
-                disabled={!glassyCards}
-                formatValue={(value) => `${Math.round(value * 100)} percent opacity`}
-                label="Glass Panel Opacity"
-                max={0.9}
-                min={0.1}
-                onChange={setGlassOpacity}
-                step={0.05}
-                value={glassOpacity}
-              />
-
-              <div className="settings-background-image-controls">
-                <div title={!hasSelectedBackgroundImage ? "Select an image background to adjust blur." : undefined}>
-                  <SettingsSloshControl
-                    displayValue={`${Math.round(backgroundImageBlur)}px`}
-                    disabled={!hasSelectedBackgroundImage}
-                    formatValue={(value) => `${Math.round(value)} pixels of blur`}
-                    label="Background Image Blur"
-                    max={BACKGROUND_IMAGE_BLUR_MAX_PX}
-                    min={0}
-                    onChange={(value) => setBackgroundImageBlur(normalizeBackgroundImageBlurPx(value))}
-                    step={1}
-                    value={backgroundImageBlur}
-                  />
-                </div>
-                {hasSelectedBackgroundImage && (
-                  <SettingsSloshControl
-                    displayValue={`${Math.round((1 - bgOverlayOpacity) * 100)}%`}
-                    formatValue={(value) => `${Math.round(value * 100)} percent brightness`}
-                    label="Background Brightness"
-                    max={1}
-                    min={0.02}
-                    onChange={(value) => setBgOverlayOpacity(1 - value)}
-                    step={0.02}
-                    value={1 - bgOverlayOpacity}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={handleSaveAppearance}
-            style={{ alignSelf: "flex-end", display: "flex", alignItems: "center", gap: "8px" }}
-          >
-            <Save size={16} /> Save Appearance Settings
-          </button>
-        </div>
-
-        {/* Data Management & Danger Zone */}
-        <div className="card dashboard-full-span settings-card settings-data-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <header className="settings-data-card-header">
-            <div className="settings-data-card-title-row">
-              <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-                <Download size={20} className="status-warning" /> Data Management & Danger Zone
-              </h3>
-              <SettingsDataInfo />
-            </div>
-          </header>
-
-          <div className="form-grid">
-            <div className="field-stack">
-              <span>Export Backup</span>
-              <button
-                onClick={handleExportBackup}
-                style={{ display: "flex", alignItems: "center", gap: "8px", width: "fit-content" }}
-              >
-                <Download size={16} /> Download Backup (.json)
-              </button>
-            </div>
-
-            <div className="field-stack">
-              <span>Import Backup</span>
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", padding: "8px 16px", border: "1px solid var(--border)", borderRadius: "8px", width: "fit-content", fontSize: "0.9rem" }}>
-                <Upload size={16} /> Upload Backup File
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleImportBackup}
-                  style={{ display: "none" }}
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className="settings-data-action-grid">
-            <div className="settings-data-action-row">
-              <div className="settings-data-action-copy">
-                <span>Clear Cache</span>
-                <p className="card-subtext">Remove cached PrepMatrix app files. Your account, subjects, plans, and progress stay untouched.</p>
-              </div>
-              <button
-                className="secondary-btn settings-data-action-btn"
-                disabled={clearingCache}
-                onClick={handleClearCache}
-                type="button"
-              >
-                <RefreshCw aria-hidden="true" className={clearingCache ? "spin" : ""} size={16} />
-                {clearingCache ? "Clearing..." : "Clear Cache"}
-              </button>
-            </div>
-
-            <div className="settings-data-action-row is-danger">
-              <div className="settings-data-action-copy">
-                <span>Clear Workspace Data</span>
-                <p className="card-subtext">Clear subjects, schedules, progress, bookmarks, goals, and to-do tasks from the active academic profile. Your account and appearance stay intact.</p>
-              </div>
-              <button
-                className="settings-data-action-btn"
-                onClick={() => setConfirmReset(true)}
-                ref={clearDataButtonRef}
-                style={{
-                  display: "flex", alignItems: "center", gap: "8px", width: "fit-content",
-                  background: "rgba(239, 68, 68, 0.1)", color: "#ef4444",
-                  border: "1px solid rgba(239, 68, 68, 0.3)"
-                }}
-                type="button"
-              >
-                <Trash2 aria-hidden="true" size={16} /> Clear Data
-              </button>
-            </div>
-          </div>
-
-          <div style={{ borderTop: "1px solid rgba(239, 68, 68, 0.24)", paddingTop: "16px" }}>
-            <div className="field-stack" style={{ position: "relative" }}>
-              <span style={{ color: "var(--danger)", fontWeight: 800 }}>Delete Account</span>
-              <p className="card-subtext" style={{ marginBottom: "8px" }}>
-                Permanently remove your account and all PrepMatrix data from the database.
-              </p>
-              <button
-                className="confirm-danger-btn delete-account-trigger-btn"
-                onClick={() => { setConfirmDeleteAccount(true); setShowPasswordStep(false); setDeletePassword(""); setDeletePasswordError(""); setShowDeletePassword(false); }}
-                style={{ display: "flex", alignItems: "center", gap: "8px", width: "fit-content" }}
-                type="button"
-              >
-                <Trash2 size={16} /> Delete Account
-              </button>
-
-              {/* Step 1: Confirmation popup */}
-              {confirmDeleteAccount && !showPasswordStep && (
-                <div
-                  className="delete-confirm-popover"
-                  ref={deleteConfirmRef}
-                  style={{
-                    position: "absolute",
-                    bottom: "55px",
-                    left: "0",
-                    width: "340px",
-                    padding: "18px",
-                    borderRadius: "12px",
-                    zIndex: 10,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "12px",
-                    animation: "fadeSlideUp 0.2s ease"
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
-                    <Trash2 size={18} style={{ color: "#ef4444", marginTop: "2px", flexShrink: 0 }} />
-                    <div>
-                      <strong style={{ fontSize: "0.95rem", color: "var(--text-strong)", display: "block", marginBottom: "4px" }}>Delete Account?</strong>
-                      <p className="card-subtext" style={{ margin: 0, fontSize: "0.82rem", lineHeight: "1.4" }}>
-                        This permanently removes all your workspace data, profile, mind maps, and active sessions. This action <strong>cannot be undone</strong>.
-                      </p>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "4px" }}>
-                    <button
-                      className="secondary-btn"
-                      onClick={() => setConfirmDeleteAccount(false)}
-                      style={{ padding: "6px 14px", fontSize: "0.82rem" }}
-                      type="button"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      className="confirm-danger-btn"
-                      onClick={() => setShowPasswordStep(true)}
-                      style={{
-                        padding: "6px 14px", fontSize: "0.82rem",
-                        background: "rgba(239, 68, 68, 0.15)", color: "#ef4444",
-                        border: "1px solid rgba(239, 68, 68, 0.4)", fontWeight: 600
-                      }}
-                      type="button"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2: Password verification popup */}
-              {showPasswordStep && (
-                <div
-                  className="delete-confirm-popover"
-                  ref={deleteConfirmRef}
-                  style={{
-                    position: "absolute",
-                    bottom: "55px",
-                    left: "0",
-                    width: "340px",
-                    padding: "18px",
-                    borderRadius: "12px",
-                    zIndex: 10,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "14px",
-                    animation: "fadeSlideUp 0.2s ease"
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
-                    <Lock size={18} style={{ color: "#ef4444", marginTop: "2px", flexShrink: 0 }} />
-                    <div>
-                      <strong style={{ fontSize: "0.95rem", color: "var(--text-strong)", display: "block", marginBottom: "4px" }}>Confirm Your Password</strong>
-                      <p className="card-subtext" style={{ margin: 0, fontSize: "0.82rem", lineHeight: "1.4" }}>
-                        Enter your login password to permanently delete your account.
-                      </p>
+                <div className="settings-account-header">
+                  <div className="settings-account-copy">
+                    <div className="settings-account-title-row">
+                      <h3>
+                        <User size={20} className="status-success" /> Profile & Information
+                      </h3>
+                      <SettingsProfileInfo />
                     </div>
                   </div>
 
-                  <div style={{ position: "relative" }}>
+                  <div className="profile-photo-control">
                     <input
-                      autoFocus
-                      type={showDeletePassword ? "text" : "password"}
-                      className="text-input"
-                      value={deletePassword}
-                      onChange={(e) => { setDeletePassword(e.target.value); setDeletePasswordError(""); }}
-                      onKeyDown={(e) => e.key === "Enter" && handleDeleteAccount()}
-                      placeholder="Enter your password..."
-                      style={{
-                        width: "100%",
-                        boxSizing: "border-box",
-                        paddingRight: "38px",
-                        border: deletePasswordError ? "1px solid #ef4444" : undefined
-                      }}
+                      accept="image/*"
+                      aria-label="Upload profile picture"
+                      className="profile-photo-input"
+                      onChange={handleProfileImageChange}
+                      ref={profileImageInputRef}
+                      type="file"
                     />
                     <button
-                      type="button"
-                      className="eye-toggle-btn"
-                      onClick={() => setShowDeletePassword(!showDeletePassword)}
-                      tabIndex={-1}
-                    >
-                      {showDeletePassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-
-                  {deletePasswordError && (
-                    <p style={{ margin: 0, fontSize: "0.78rem", color: "#ef4444", lineHeight: "1.3" }}>
-                      {deletePasswordError}
-                    </p>
-                  )}
-
-                  <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-                    <button
-                      className="secondary-btn"
-                      disabled={deletingAccount}
-                      onClick={() => { setShowPasswordStep(false); setConfirmDeleteAccount(false); setDeletePassword(""); setDeletePasswordError(""); setShowDeletePassword(false); }}
-                      style={{ padding: "6px 14px", fontSize: "0.82rem" }}
+                      aria-label={profileImage ? "Change profile picture" : "Upload profile picture"}
+                      className={`profile-photo-circle${profileImage ? " has-image" : ""}`}
+                      onClick={() => profileImageInputRef.current?.click()}
+                      title={profileImage ? "Change profile picture" : "Upload profile picture"}
                       type="button"
                     >
-                      Cancel
+                      {profileImage ? (
+                        <img alt="Profile" src={profileImage} />
+                      ) : (
+                        <User size={22} aria-hidden="true" />
+                      )}
                     </button>
                     <button
-                      className="confirm-danger-btn"
-                      disabled={deletingAccount || !deletePassword.trim()}
-                      onClick={handleDeleteAccount}
-                      style={{
-                        padding: "6px 14px", fontSize: "0.82rem",
-                        background: deletePassword.trim() ? "rgba(239, 68, 68, 0.2)" : "rgba(239, 68, 68, 0.08)",
-                        color: deletePassword.trim() ? "#ef4444" : "rgba(239, 68, 68, 0.4)",
-                        border: "1px solid rgba(239, 68, 68, 0.4)", fontWeight: 600,
-                        transition: "all 0.2s ease"
-                      }}
+                      aria-label={profileImage ? "Remove profile picture" : "Upload profile picture"}
+                      className={`profile-photo-mini-action${profileImage ? " delete" : " edit"}`}
+                      onClick={profileImage ? handleRemoveProfileImage : () => profileImageInputRef.current?.click()}
+                      title={profileImage ? "Remove profile picture" : "Upload profile picture"}
                       type="button"
                     >
-                      {deletingAccount ? "Deleting..." : "Confirm Delete"}
+                      {profileImage ? <Trash2 size={10} strokeWidth={2.4} /> : <Pencil size={10} strokeWidth={2.4} />}
                     </button>
                   </div>
                 </div>
-              )}
-            </div>
+
+                <div className="settings-profile-slot-bar">
+                  <div className="settings-profile-slot-heading">
+                    <div aria-live="polite" className="settings-profile-current-status">
+                      <span>Current:</span>
+                      {editingProfileName ? (
+                        <div className="settings-profile-name-editor">
+                          <input
+                            aria-label="Profile name"
+                            disabled={savingProfileName}
+                            maxLength={ACADEMIC_PROFILE_DISPLAY_NAME_MAX_LENGTH}
+                            onChange={(event) => setProfileNameDraft(event.target.value)}
+                            onKeyDown={handleProfileNameKeyDown}
+                            ref={profileNameInputRef}
+                            value={profileNameDraft}
+                          />
+                          <button aria-label="Save profile name" className="settings-profile-name-action is-save" disabled={savingProfileName} onClick={saveProfileDisplayName} title="Save profile name" type="button">
+                            <Check aria-hidden="true" size={13} />
+                          </button>
+                          <button aria-label="Cancel profile name edit" className="settings-profile-name-action" disabled={savingProfileName} onClick={cancelProfileNameEdit} title="Cancel" type="button">
+                            <X aria-hidden="true" size={13} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="settings-profile-current-name">
+                          <strong>{activeProfileDisplayName}</strong>
+                          <button
+                            aria-label={`Rename ${activeProfileDisplayName}`}
+                            className="settings-profile-name-action is-edit"
+                            disabled={profileMutationBusy}
+                            onClick={beginProfileNameEdit}
+                            title="Rename profile"
+                            type="button"
+                          >
+                            <Pencil aria-hidden="true" size={14} strokeWidth={2.4} />
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                    {!editingProfileName ? (
+                      <Link
+                        aria-label="Learn how academic profiles work"
+                        className="settings-profile-know-more"
+                        to={ACADEMIC_PROFILE_GUIDE_ROUTE}
+                      >
+                        Know more <ArrowRight aria-hidden="true" size={12} />
+                      </Link>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="form-grid">
+                  <label className="field-stack">
+                    <span>Full Name</span>
+                    <input
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="User name"
+                    />
+                  </label>
+                  <label className="field-stack">
+                    <span>Age</span>
+                    <input
+                      type="number"
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      placeholder="Age"
+                    />
+                  </label>
+                </div>
+
+                <div className="form-grid">
+                  <label className="field-stack">
+                    <span>Academic Stage</span>
+                    <select
+                      disabled={!academicFieldsEditable}
+                      value={educationStage}
+                      onChange={(e) => handleEducationStageChange(e.target.value)}
+                    >
+                      {[...new Set([educationStage, ...ACADEMIC_LEVEL_OPTIONS].filter(Boolean))].map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field-stack">
+                    <span>Institution Name</span>
+                    <input
+                      value={institutionName}
+                      onChange={(e) => setInstitutionName(e.target.value)}
+                      placeholder="e.g. Stanford University"
+                    />
+                  </label>
+                </div>
+
+                <div className="form-grid">
+                  {isSchoolAcademicLevel(educationStage) ? (
+                    <label className="field-stack">
+                      <span>Grade / Class</span>
+                      <select
+                        disabled={!academicFieldsEditable}
+                        value={grade}
+                        onChange={(e) => updateAcademicDraft({ grade: e.target.value })}
+                      >
+                        <option value="">Select class</option>
+                        {[...new Set([grade, ...SCHOOL_CLASS_OPTIONS].filter(Boolean))].map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : (
+                    <label className="field-stack">
+                      <span>Degree / Major</span>
+                      <input
+                        disabled={!academicFieldsEditable}
+                        value={degree}
+                        onChange={(e) => updateAcademicDraft({ degree: e.target.value })}
+                        placeholder="e.g. B.Tech IT, MBBS, LLB, M.Sc"
+                      />
+                    </label>
+                  )}
+                  <label className="field-stack">
+                    <span>{isSchoolAcademicLevel(educationStage) ? "Board / Curriculum" : "Field / Stream"}</span>
+                    <select disabled={!academicFieldsEditable} value={profileTrack} onChange={(e) => updateAcademicDraft({ academicTrack: e.target.value })}>
+                      {[...new Set([profileTrack, ...TRACK_OPTIONS].filter(Boolean))].map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                {isSchoolAcademicLevel(educationStage) && isSeniorSecondaryClass(grade) ? (
+                  <label className="field-stack">
+                    <span>Stream / Subject Group</span>
+                    <input
+                      disabled={!academicFieldsEditable}
+                      list="settings-senior-stream-options"
+                      value={schoolStream}
+                      onChange={(e) => updateAcademicDraft({ schoolStream: e.target.value })}
+                      placeholder="Choose or type a stream"
+                    />
+                    <datalist id="settings-senior-stream-options">
+                      {SENIOR_SECONDARY_STREAM_OPTIONS.map((option) => (
+                        <option key={option} value={option} />
+                      ))}
+                    </datalist>
+                  </label>
+                ) : null}
+
+                {youngKidsMode && !hasTwoProfiles ? (
+                  <div className="academic-profile-note settings-academic-profile-note" role="note">
+                    <p>
+                      {!academicProfileEditable
+                        ? "Open Parent Corner before changing this account's academic profile."
+                        : "Parent Corner is open. You can correct this account's registered stage, class, and curriculum here."}
+                    </p>
+                  </div>
+                ) : null}
+
+                {!isSchoolAcademicLevel(educationStage) && (
+                  <label className="field-stack">
+                    <span>Specialization / Department</span>
+                    <input
+                      disabled={!academicFieldsEditable}
+                      list="settings-department-options"
+                      value={department}
+                      onChange={(e) => updateAcademicDraft({ department: e.target.value })}
+                      placeholder="e.g. Information Technology, Cardiology, Constitutional Law"
+                    />
+                    <datalist id="settings-department-options">
+                      {DEPARTMENT_OPTIONS.map((option) => <option key={option} value={option} />)}
+                    </datalist>
+                  </label>
+                )}
+
+                <div className="settings-account-actions">
+                  <button
+                    ref={profileSaveButtonRef}
+                    onClick={handleSaveAccount}
+                    disabled={profileMutationBusy}
+                    style={{ display: "flex", alignItems: "center", gap: "8px", opacity: savingProfile ? 0.6 : 1 }}
+                    type="button"
+                  >
+                    <Save size={16} /> {savingProfile ? "Saving..." : "Save Profile"}
+                  </button>
+                </div>
+              </div>
+            )}
+            {settingsSection === "system" && (
+              <div
+                className="card dashboard-full-span settings-card settings-system-card"
+                style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+              >
+                <div>
+                  <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                    <Settings2 size={20} className="status-success" /> System Preferences & Toggles
+                  </h3>
+                </div>
+
+                {youngKidsMode && kidsParentAccess?.unlocked ? (
+                  <KidsPerformanceSettings
+                    onLocked={onKidsParentLocked}
+                    onParentAccessChange={onKidsParentAccessChange}
+                    userProfile={userProfile}
+                  />
+                ) : null}
+
+                <div className="settings-auto-hide-topbar">
+                  <ToggleSwitch
+                    checked={autoHideTopBar}
+                    onChange={(next) => onAutoHideTopBarChange?.(next)}
+                    label="Auto-hide Top Bar"
+                    subtitle="Hide the top bar until you move the cursor to the top edge of the screen."
+                  />
+                </div>
+
+                <div className="settings-auto-lock">
+                  <ToggleSwitch
+                    checked={autoLockEnabled}
+                    onChange={(next) => onAutoLockEnabledChange?.(next)}
+                    label="Auto-lock app"
+                    subtitle="Lock PrepMatrix after the selected period of inactivity. Keyboard, mouse, or touch activity restarts the countdown."
+                    trailingControl={autoLockEnabled ? (
+                      <label className="settings-auto-lock-minute-control">
+                        <input
+                          aria-label="Auto-lock duration in minutes"
+                          id="settings-auto-lock-minutes"
+                          inputMode="numeric"
+                          max={AUTO_LOCK_MAX_MINUTES}
+                          min={AUTO_LOCK_MIN_MINUTES}
+                          onBlur={commitAutoLockMinutes}
+                          onChange={(event) => setAutoLockMinutesDraft(event.target.value)}
+                          onKeyDown={handleAutoLockMinutesKeyDown}
+                          step="1"
+                          type="number"
+                          value={autoLockMinutesDraft}
+                        />
+                        <span aria-hidden="true">mins</span>
+                      </label>
+                    ) : null}
+                  />
+                </div>
+
+                <ToggleSwitch
+                  checked={soundEnabled}
+                  onChange={setSoundEnabled}
+                  label="Completion Sound Effects"
+                  subtitle="Play audio chimes when clearing scheduled days or unlocking streaks"
+                />
+
+
+                <ToggleSwitch
+                  checked={wakeMode}
+                  onChange={toggleWakeMode}
+                  label="Wake Mode (Hands-Free)"
+                  subtitle='Keep wake mode on while the app is open. Say Hey Prep, Prep Matrix, or Hey PrepMatrix followed by a command or question.'
+                />
+
+                <div className="assistant-voice-row">
+                  <section aria-labelledby="assistant-voice-title" className="assistant-voice-settings">
+                    <div className="assistant-voice-heading">
+                      <span className="assistant-voice-icon">
+                        <Mic aria-hidden="true" size={16} />
+                      </span>
+                      <div>
+                        <strong id="assistant-voice-title">Assistant voice</strong>
+                        <p>Choose your voice and fine-tune how it sounds.</p>
+                      </div>
+                    </div>
+
+                    <div aria-label="Preferred assistant voice" className="assistant-voice-style" role="group">
+                      {["female", "male"].map((voiceStyle) => (
+                        <button
+                          aria-pressed={assistantVoicePreferences.voiceStyle === voiceStyle}
+                          className={assistantVoicePreferences.voiceStyle === voiceStyle ? "is-active" : ""}
+                          key={voiceStyle}
+                          onClick={() => updateVoicePreference("voiceStyle", voiceStyle)}
+                          type="button"
+                        >
+                          {voiceStyle === "female" ? "Female" : "Male"}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="assistant-voice-modifiers">
+                      <SettingsWakeControl
+                        className="assistant-voice-range"
+                        gap={2}
+                        height={28}
+                        restHeight={6}
+                        displayValue={`${assistantVoicePreferences.rate.toFixed(2)}x`}
+                        formatValue={(value) => `${value.toFixed(2)} times speed`}
+                        label="Speed"
+                        max={VOICE_RATE_MAX}
+                        min={VOICE_RATE_MIN}
+                        onChange={(value) => updateVoicePreference("rate", value)}
+                        onInteractionEnd={(value) => handleVoicePreview({ rate: value })}
+                        step={0.1}
+                        value={assistantVoicePreferences.rate}
+                      />
+
+                      <SettingsWakeControl
+                        className="assistant-voice-range"
+                        gap={2}
+                        height={28}
+                        restHeight={6}
+                        displayValue={`${Math.round(assistantVoicePreferences.pitch * 100)}%`}
+                        formatValue={(value) => `${Math.round(value * 100)} percent pitch`}
+                        label="Pitch"
+                        max={VOICE_PITCH_MAX}
+                        min={VOICE_PITCH_MIN}
+                        onChange={(value) => updateVoicePreference("pitch", value)}
+                        onInteractionEnd={(value) => handleVoicePreview({ pitch: value })}
+                        step={0.1}
+                        value={assistantVoicePreferences.pitch}
+                      />
+
+                      <SettingsWakeControl
+                        className="assistant-voice-range"
+                        gap={2}
+                        height={28}
+                        restHeight={6}
+                        displayValue={`${Math.round(assistantVoicePreferences.volume * 100)}%`}
+                        formatValue={(value) => `${Math.round(value * 100)} percent volume`}
+                        label="Volume"
+                        max={VOICE_VOLUME_MAX}
+                        min={VOICE_VOLUME_MIN}
+                        onChange={(value) => updateVoicePreference("volume", value)}
+                        onInteractionEnd={(value) => handleVoicePreview({ volume: value })}
+                        step={0.05}
+                        value={assistantVoicePreferences.volume}
+                      />
+                    </div>
+
+                    <div className="assistant-voice-footer">
+                      <p aria-live="polite">
+                        <span>Active browser voice</span>
+                        <strong>{activeVoiceName || "Browser default voice"}</strong>
+                      </p>
+                      <button
+                        className="secondary-btn assistant-voice-preview-btn"
+                        disabled={!onPreviewVoice}
+                        onClick={() => handleVoicePreview()}
+                        type="button"
+                      >
+                        <Volume2 aria-hidden="true" size={14} />
+                        Preview voice
+                      </button>
+                    </div>
+                  </section>
+                  <AssistantVoiceSticker voiceStyle={assistantVoicePreferences.voiceStyle} />
+                </div>
+
+                <div aria-live="polite" className="notification-setting">
+                  <ToggleSwitch
+                    checked={notificationToggleChecked}
+                    onChange={toggleNotifications}
+                    disabled={notificationToggleDisabled}
+                    label="Action Alerts (Push Notifications)"
+                    labelAccessory={notificationsEnabled && notificationStatus === "connected" ? <SettingsActionAlertsInfo /> : null}
+                    subtitle={notificationSubtitle}
+                    trailingControl={notificationsEnabled && notificationStatus === "connected" ? (
+                      <button
+                        aria-label={notificationTestBusy ? "Sending test notification" : "Send test notification"}
+                        aria-busy={notificationTestBusy}
+                        className="secondary-btn notification-test-btn"
+                        disabled={notificationTestBusy || notificationsBusy}
+                        onClick={sendTestNotification}
+                        title="Verify system notification delivery"
+                        type="button"
+                      >
+                        <BellRing aria-hidden="true" size={12} />
+                        {notificationTestBusy ? "Sending..." : "Test notification"}
+                      </button>
+                    ) : null}
+                  />
+                </div>
+              </div>
+            )}
+            {settingsSection === "appearance" && (
+              <div className="card dashboard-full-span settings-card settings-appearance-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                    <Palette size={20} className="status-success" /> Custom Color Palette & Layout
+                  </h3>
+                </div>
+
+                {/* Background Image Picker */}
+                <div className="settings-appearance-section" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "18px" }}>
+                  <div className="background-theme-heading-row">
+                    <span className="card-subtext background-theme-heading">
+                      <ImageIcon aria-hidden="true" size={14} /> Background Theme
+                    </span>
+                    <div className="background-theme-actions">
+                      {kidsBackgroundsEligible && (
+                        <button
+                          aria-pressed={kidsGalleryActive}
+                          className="background-theme-action-btn"
+                          onClick={() => setShowKidsBackgrounds((current) => !current)}
+                          type="button"
+                        >
+                          {kidsGalleryActive ? "Default themes" : "Suggest for kids"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <input
+                    accept="image/jpeg,image/png,image/webp"
+                    aria-label="Choose a custom background image"
+                    className="custom-background-input"
+                    onChange={handleCustomBackgroundChange}
+                    ref={customBackgroundInputRef}
+                    type="file"
+                  />
+                  {kidsGalleryActive && (
+                    <p className="card-subtext" style={{ marginBottom: "12px", fontSize: "0.82rem" }}>
+                      Pick a playful background chosen for younger learners, or upload your own image.
+                    </p>
+                  )}
+                  {customBackgroundStatus && (
+                    <p aria-live="polite" className="custom-background-status" id="custom-background-status">
+                      {customBackgroundStatus}
+                    </p>
+                  )}
+                  <div
+                    className={`settings-bg-presets-grid ${kidsGalleryActive ? "is-kids-gallery" : "is-default-gallery"}`}
+                    key={kidsGalleryActive ? "kids-backgrounds" : "default-backgrounds"}
+                    style={{ display: "grid", overflowX: "hidden", padding: "0 2px 6px", minWidth: 0 }}
+                  >
+                    {/* None / Color Palette option */}
+                    {!kidsGalleryActive && <button
+                      aria-label="Use the color palette background"
+                      aria-pressed={bgImageId === ""}
+                      onClick={() => selectBackgroundTheme("")}
+                      type="button"
+                      className="bg-palette-thumbnail-btn"
+                      style={{
+                        aspectRatio: "16 / 10",
+                        border: bgImageId === "" ? "2.5px solid var(--accent)" : "1.5px solid var(--border)",
+                        borderRadius: "12px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        position: "relative",
+                        overflow: "hidden",
+                        fontSize: "0.78rem",
+                        color: "var(--text)",
+                        fontWeight: 600,
+                        gap: "5px",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      <Palette size={15} /> Color Palette
+                      {bgImageId === "" && <Check size={12} style={{ position: "absolute", top: "5px", right: "5px", color: "var(--accent)" }} />}
+                    </button>}
+
+                    {/* Image thumbnails */}
+                    {displayedBackgroundPresets.map((preset) => {
+                      const isActive = bgImageId === preset.id;
+                      return (
+                        <button
+                          aria-label={`Use ${preset.name} background`}
+                          aria-pressed={isActive}
+                          key={preset.id}
+                          onClick={() => selectBackgroundTheme(preset.id, preset)}
+                          type="button"
+                          className={`bg-preset-thumbnail-btn bg-preset-${preset.id}`}
+                          style={{
+                            "--background-thumbnail-image": `url("${preset.file}")`,
+                            ...getBackgroundThumbnailPresentationVariables(preset),
+                            aspectRatio: "16 / 10",
+                            border: isActive ? `2.5px solid rgb(${preset.accentRgb})` : "1.5px solid var(--border)",
+                            borderRadius: "12px",
+                            cursor: "pointer",
+                            position: "relative",
+                            overflow: "hidden",
+                            padding: 0,
+                            transition: "all 0.2s ease",
+                            boxShadow: isActive ? `0 0 0 1px rgb(${preset.accentRgb}), 0 4px 12px rgba(${preset.accentRgb}, 0.25)` : "none",
+                          }}
+                        >
+                          <span style={{
+                            position: "absolute",
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            padding: "16px 8px 5px",
+                            background: "transparent",
+                            color: "#fff",
+                            fontSize: "0.72rem",
+                            fontWeight: 600,
+                            textAlign: "left",
+                            letterSpacing: "0.02em",
+                          }}>
+                            {preset.name}
+                          </span>
+                          {isActive && <Check size={13} style={{ position: "absolute", top: "5px", right: "5px", color: "#fff", filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.6))" }} />}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      aria-describedby={customBackgroundStatus ? "custom-background-status" : undefined}
+                      aria-label={customBackgroundPreset ? "Change custom background image" : "Choose a custom background image"}
+                      aria-pressed={bgImageId === CUSTOM_BACKGROUND_ID}
+                      className={`${customBackgroundPreset ? "bg-preset-thumbnail-btn" : "bg-palette-thumbnail-btn is-empty"} bg-custom-background-card`}
+                      disabled={customBackgroundBusy}
+                      onClick={() => customBackgroundInputRef.current?.click()}
+                      style={{
+                        ...(customBackgroundPreset ? {
+                          "--background-thumbnail-image": `url("${customBackgroundPreset.file}")`,
+                          ...getBackgroundThumbnailPresentationVariables(customBackgroundPreset),
+                        } : {}),
+                        aspectRatio: "16 / 10",
+                        border: bgImageId === CUSTOM_BACKGROUND_ID
+                          ? `2.5px solid rgb(${customBackgroundPreset?.accentRgb || accentRgbDark})`
+                          : "1.5px solid var(--border)",
+                        borderRadius: "12px",
+                        cursor: customBackgroundBusy ? "wait" : "pointer",
+                        position: "relative",
+                        overflow: "hidden",
+                        padding: 0,
+                        transition: "all 0.2s ease",
+                        boxShadow: bgImageId === CUSTOM_BACKGROUND_ID
+                          ? `0 0 0 1px rgb(${customBackgroundPreset?.accentRgb || accentRgbDark}), 0 4px 12px rgba(${customBackgroundPreset?.accentRgb || accentRgbDark}, 0.25)`
+                          : "none",
+                      }}
+                      title={customBackgroundPreset ? "Choose a different custom background" : "Upload a custom background"}
+                      type="button"
+                    >
+                      {!customBackgroundPreset && <Upload aria-hidden="true" size={15} />}
+                      <span>
+                        {customBackgroundBusy
+                          ? "Preparing..."
+                          : customBackgroundPreset
+                            ? "My Background"
+                            : "Custom"}
+                      </span>
+                      {bgImageId === CUSTOM_BACKGROUND_ID && (
+                        <Check
+                          aria-hidden="true"
+                          size={13}
+                          style={{
+                            position: "absolute",
+                            top: "5px",
+                            right: "5px",
+                            color: "#fff",
+                            filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.6))",
+                          }}
+                        />
+                      )}
+                    </button>
+                  </div>
+
+                </div>
+
+                <div className="workspace-grid settings-appearance-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+
+                  {/* Left Column: Layout & Typography */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    <div className="form-grid">
+                      <label className="field-stack">
+                        <span>Font Scale</span>
+                        <select
+                          value={fontSize}
+                          onChange={(e) => setFontSize(e.target.value)}
+                        >
+                          <option value="small">Small</option>
+                          <option value="medium">Medium (Default)</option>
+                          <option value="large">Large</option>
+                        </select>
+                      </label>
+
+                      <label className="field-stack">
+                        <span>Card Scale</span>
+                        <select
+                          value={cardSize}
+                          onChange={(e) => setCardSize(e.target.value)}
+                        >
+                          <option value="compact">Compact</option>
+                          <option value="cozy">Cozy (Default)</option>
+                          <option value="spacious">Spacious</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <div className="form-grid">
+                      <label className="field-stack">
+                        <span>Font Style (Family)</span>
+                        <select
+                          value={fontFamilyStyle}
+                          onChange={(e) => setFontFamilyStyle(e.target.value)}
+                        >
+                          <option value="sans">Modern Sans (Manrope / Space Grotesk)</option>
+                          <option value="clean">Sleek Clean (Inter / Outfit)</option>
+                          <option value="rounded">Rounded Friendly (Nunito / Quicksand)</option>
+                          <option value="geometric">Geometric Modern (Poppins / Raleway)</option>
+                          <option value="humanist">Humanist Neutral (Source Sans 3 / DM Sans)</option>
+                          <option value="editorial">Editorial Sharp (Plus Jakarta Sans / Raleway)</option>
+                          <option value="serif">Elegant Serif (Lora / Playfair Display)</option>
+                          <option value="classic">Classic Serif (Merriweather / Crimson Text)</option>
+                          <option value="mono">Tech Mono (Fira Code / Space Mono)</option>
+                        </select>
+                      </label>
+
+                      <label className="field-stack">
+                        <span>Font Weight Modifier</span>
+                        <select
+                          value={fontWeightStyle}
+                          onChange={(e) => setFontWeightStyle(e.target.value)}
+                        >
+                          <option value="light">Light</option>
+                          <option value="regular">Regular (Default)</option>
+                          <option value="medium">Medium</option>
+                          <option value="bold">Bold</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    {/* Glassmorphism Customization Section */}
+                    <div className="settings-glass-section" style={{ marginTop: "18px", borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
+                      <span className="card-subtext" style={{ fontSize: "0.8rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>Glassmorphism Customization</span>
+                      <ToggleSwitch
+                        checked={glassyCards}
+                        onChange={setGlassyCards}
+                        label="Glassy Cards & Panels"
+                        subtitle="Apply glass blur and transparency to containers"
+                      />
+                    </div>
+
+                  </div>
+
+                  {/* Right Column: Customization Presets & Mouse Settings */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+
+                    {/* Cursor Style Selector — hidden on mobile via CSS */}
+                    <div className="settings-cursor-selector" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "14px" }}>
+                      <span className="field-stack"><span>Mouse Cursor Style</span></span>
+                      <div className="cursor-style-cards">
+                        {/* Default OS Cursor */}
+                        <button
+                          type="button"
+                          className={`cursor-style-card ${(parentCursorStyle === "default" || !parentCursorStyle) ? "active" : ""}`}
+                          onClick={() => {
+                            if (setParentCursorStyle) setParentCursorStyle("default");
+                          }}
+                        >
+                          <div className="cursor-card-preview cursor-preview-default">
+                            <svg width="18" height="22" viewBox="0 0 18 22" fill="none">
+                              <path d="M1 1L1 17L5.5 13L8 20L10 19L7.5 12H13L1 1Z" fill="white" stroke="rgba(255,255,255,0.3)" strokeWidth="1"/>
+                            </svg>
+                          </div>
+                          <span className="cursor-card-label">Default</span>
+                          <span className="cursor-card-sub">OS Pointer</span>
+                        </button>
+
+                        {/* App Cursor */}
+                        <button
+                          type="button"
+                          className={`cursor-style-card ${parentCursorStyle === "app-cursor" ? "active" : ""}`}
+                          onClick={() => {
+                            if (setParentCursorStyle) setParentCursorStyle("app-cursor");
+                          }}
+                        >
+                          <div className="cursor-card-preview cursor-preview-app">
+                            <div className="ccp-app-ring" />
+                            <div className="ccp-app-dot" />
+                          </div>
+                          <span className="cursor-card-label">App</span>
+                          <span className="cursor-card-sub">Purple dot + ring</span>
+                        </button>
+
+                        {/* Blob Cursor */}
+                        <button
+                          type="button"
+                          className={`cursor-style-card ${parentCursorStyle === "blob-cursor" ? "active" : ""}`}
+                          onClick={() => {
+                            if (setParentCursorStyle) setParentCursorStyle("blob-cursor");
+                          }}
+                        >
+                          <div className="cursor-card-preview cursor-preview-blob">
+                            <div className="ccp-blob-body" />
+                            <div className="ccp-blob-dot" />
+                          </div>
+                          <span className="cursor-card-label">Blob</span>
+                          <span className="cursor-card-sub">Morphing fluid</span>
+                        </button>
+                      </div>
+                    </div>
+
+
+                    <div className="field-stack">
+                      <span>Preset Accent Color Palette</span>
+                      <div className="preset-palette-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px", marginTop: "8px" }}>
+                        {COLOR_PRESETS.map((preset) => {
+                          const isActive = accentRgbLight === preset.light;
+                          return (
+                            <button
+                              key={preset.name}
+                              onClick={() => handleSelectPreset(preset)}
+                              className="preset-color-btn"
+                              type="button"
+                              style={{
+                                minHeight: "40px",
+                                padding: "6px 12px",
+                                fontSize: "0.82rem",
+                                border: isActive ? "2px solid var(--accent)" : "1px solid var(--border)",
+                                background: `rgba(${preset.light}, 0.1)`,
+                                color: `rgb(${preset.light})`,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: "6px",
+                                borderRadius: "8px"
+                              }}
+                              title={preset.name}
+                            >
+                              <span
+                                className="preset-color-dot"
+                                style={{
+                                  width: "12px",
+                                  height: "12px",
+                                  borderRadius: "50%",
+                                  backgroundColor: `rgb(${preset.light})`,
+                                  display: "inline-block",
+                                  flexShrink: 0
+                                }}
+                              />
+                              <span className="preset-name-text">{preset.name}</span>
+                              {isActive && <Check size={12} style={{ flexShrink: 0 }} />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* The gauges use both appearance columns below the accent palette. */}
+                  <div className="settings-glass-controls settings-glass-controls--full">
+                    <SettingsSloshControl
+                      displayValue={`${Math.round(glassOpacity * 100)}%`}
+                      disabled={!glassyCards}
+                      formatValue={(value) => `${Math.round(value * 100)} percent opacity`}
+                      label="Glass Panel Opacity"
+                      max={0.9}
+                      min={0.1}
+                      onChange={setGlassOpacity}
+                      step={0.05}
+                      value={glassOpacity}
+                    />
+
+                    <div className="settings-background-image-controls">
+                      <div title={!hasSelectedBackgroundImage ? "Select an image background to adjust blur." : undefined}>
+                        <SettingsSloshControl
+                          displayValue={`${Math.round(backgroundImageBlur)}px`}
+                          disabled={!hasSelectedBackgroundImage}
+                          formatValue={(value) => `${Math.round(value)} pixels of blur`}
+                          label="Background Image Blur"
+                          max={BACKGROUND_IMAGE_BLUR_MAX_PX}
+                          min={0}
+                          onChange={(value) => setBackgroundImageBlur(normalizeBackgroundImageBlurPx(value))}
+                          step={1}
+                          value={backgroundImageBlur}
+                        />
+                      </div>
+                      {hasSelectedBackgroundImage && (
+                        <SettingsSloshControl
+                          displayValue={`${Math.round((1 - bgOverlayOpacity) * 100)}%`}
+                          formatValue={(value) => `${Math.round(value * 100)} percent brightness`}
+                          label="Background Brightness"
+                          max={1}
+                          min={0.02}
+                          onChange={(value) => setBgOverlayOpacity(1 - value)}
+                          step={0.02}
+                          value={1 - bgOverlayOpacity}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSaveAppearance}
+                  style={{ alignSelf: "flex-end", display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <Save size={16} /> Save Appearance Settings
+                </button>
+              </div>
+            )}
+            {settingsSection === "data-security" && (
+              <div className="card settings-card settings-data-security-card">
+                {/* Security Credentials */}
+                <section className="settings-security-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                      <Shield size={20} className="status-warning" /> Credentials & Security
+                    </h3>
+                  </div>
+
+                  <label className="field-stack">
+                    <span>Email Address</span>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@example.com"
+                    />
+                  </label>
+
+                  <div className="form-grid">
+                    {showOtpInput ? (
+                      <label className="field-stack" style={{ position: "relative" }}>
+                        <span>Enter OTP code</span>
+                        <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                          <input
+                            type="text"
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
+                            placeholder="e.g. 123456"
+                            maxLength={6}
+                            disabled={isOtpVerified}
+                            style={{
+                              width: "100%",
+                              boxSizing: "border-box",
+                              paddingRight: "40px",
+                              borderColor: isOtpVerified ? "var(--success)" : undefined,
+                              background: isOtpVerified ? "rgba(34, 197, 94, 0.05)" : undefined
+                            }}
+                          />
+                          {!isOtpVerified && (
+                            <button
+                              className="otp-arrow-btn"
+                              type="button"
+                              onClick={handleVerifyOtp}
+                              style={{
+                                position: "absolute",
+                                right: "6px",
+                                top: "50%",
+                                transform: "translateY(-50%)"
+                              }}
+                            >
+                              <ArrowRight size={16} />
+                            </button>
+                          )}
+                          {isOtpVerified && (
+                            <span
+                              style={{
+                                position: "absolute",
+                                right: "12px",
+                                color: "var(--success)",
+                                fontSize: "0.8rem",
+                                fontWeight: 700
+                              }}
+                            >
+                              ✓ Verified
+                            </span>
+                          )}
+                        </div>
+                        {!isOtpVerified && (
+                          <div style={{ marginTop: "4px", fontSize: "0.78rem" }}>
+                            {otpCountdown > 0 ? (
+                              <span style={{ color: "var(--text-muted)" }}>
+                                OTP expires in <strong style={{ color: "var(--accent)" }}>{formatCountdown(otpCountdown)}</strong>
+                              </span>
+                            ) : (
+                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                <span style={{ color: "var(--danger)", fontWeight: 600 }}>
+                                  {isOtpLimitReached ? "OTP limit reached (5 requests/24 hours limit)." : "OTP has expired."}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="secondary-btn"
+                                  onClick={handleSendOtp}
+                                  disabled={isOtpLimitReached}
+                                  style={{
+                                    fontSize: "0.76rem",
+                                    padding: "4px 8px",
+                                    width: "fit-content",
+                                    borderRadius: "8px",
+                                    height: "26px",
+                                    minHeight: "26px",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    opacity: isOtpLimitReached ? 0.4 : 1,
+                                    cursor: isOtpLimitReached ? "not-allowed" : "pointer"
+                                  }}
+                                >
+                                  Resend OTP
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </label>
+                    ) : (
+                      <label className="field-stack">
+                        <span>Current Password</span>
+                        <input
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="••••••••"
+                          autoComplete="new-password"
+                        />
+                      </label>
+                    )}
+                    <label className="field-stack">
+                      <span>New Password</span>
+                      <input
+                        type="password"
+                        value={password}
+                        disabled={!isCurrentPasswordCorrect && !isOtpVerified}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        style={{ opacity: (isCurrentPasswordCorrect || isOtpVerified) ? 1 : 0.5, cursor: (isCurrentPasswordCorrect || isOtpVerified) ? 'text' : 'not-allowed' }}
+                      />
+                    </label>
+                    <label className="field-stack">
+                      <span>Confirm Password</span>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        disabled={!isCurrentPasswordCorrect && !isOtpVerified}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        style={{ opacity: (isCurrentPasswordCorrect || isOtpVerified) ? 1 : 0.5, cursor: (isCurrentPasswordCorrect || isOtpVerified) ? 'text' : 'not-allowed' }}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="security-action-row">
+                    {!showOtpInput && (
+                      <button
+                        type="button"
+                        className="secondary-btn forgot-pw-btn"
+                        onClick={handleSendOtp}
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                    <button
+                      className="update-cred-btn"
+                      onClick={handleSaveSecurity}
+                      disabled={isButtonDisabled}
+                      style={{
+                        opacity: isButtonDisabled ? 0.55 : 1,
+                        cursor: isButtonDisabled ? "not-allowed" : "pointer"
+                      }}
+                    >
+                      <Save size={14} /> Update Credentials
+                    </button>
+                  </div>
+                </section>
+                {/* Data Management & Danger Zone */}
+                <section className="settings-data-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <header className="settings-data-card-header">
+                    <div className="settings-data-card-title-row">
+                      <h3 style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                        <Download size={20} className="status-warning" /> Data Management & Danger Zone
+                      </h3>
+                      <SettingsDataInfo />
+                    </div>
+                  </header>
+
+                  <div className="form-grid">
+                    <div className="field-stack">
+                      <span>Export Backup</span>
+                      <button
+                        onClick={handleExportBackup}
+                        style={{ display: "flex", alignItems: "center", gap: "8px", width: "fit-content" }}
+                      >
+                        <Download size={16} /> Download Backup (.json)
+                      </button>
+                    </div>
+
+                    <div className="field-stack">
+                      <span>Import Backup</span>
+                      <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", padding: "8px 16px", border: "1px solid var(--border)", borderRadius: "8px", width: "fit-content", fontSize: "0.9rem" }}>
+                        <Upload size={16} /> Upload Backup File
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={handleImportBackup}
+                          style={{ display: "none" }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="settings-data-action-grid">
+                    <div className="settings-data-action-row">
+                      <div className="settings-data-action-copy">
+                        <span>Clear Cache</span>
+                        <p className="card-subtext">Remove cached PrepMatrix app files. Your account, subjects, plans, and progress stay untouched.</p>
+                      </div>
+                      <button
+                        className="secondary-btn settings-data-action-btn"
+                        disabled={clearingCache}
+                        onClick={handleClearCache}
+                        type="button"
+                      >
+                        <RefreshCw aria-hidden="true" className={clearingCache ? "spin" : ""} size={16} />
+                        {clearingCache ? "Clearing..." : "Clear Cache"}
+                      </button>
+                    </div>
+
+                    <div className="settings-data-action-row is-danger">
+                      <div className="settings-data-action-copy">
+                        <span>Clear Workspace Data</span>
+                        <p className="card-subtext">Clear subjects, schedules, progress, bookmarks, goals, and to-do tasks from the active academic profile. Your account and appearance stay intact.</p>
+                      </div>
+                      <button
+                        className="settings-data-action-btn"
+                        onClick={() => setConfirmReset(true)}
+                        ref={clearDataButtonRef}
+                        style={{
+                          display: "flex", alignItems: "center", gap: "8px", width: "fit-content",
+                          background: "rgba(239, 68, 68, 0.1)", color: "#ef4444",
+                          border: "1px solid rgba(239, 68, 68, 0.3)"
+                        }}
+                        type="button"
+                      >
+                        <Trash2 aria-hidden="true" size={16} /> Clear Data
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: "1px solid rgba(239, 68, 68, 0.24)", paddingTop: "16px" }}>
+                    <div className="field-stack" style={{ position: "relative" }}>
+                      <span style={{ color: "var(--danger)", fontWeight: 800 }}>Delete Account</span>
+                      <p className="card-subtext" style={{ marginBottom: "8px" }}>
+                        Permanently remove your account and all PrepMatrix data from the database.
+                      </p>
+                      <button
+                        className="confirm-danger-btn delete-account-trigger-btn"
+                        onClick={() => { setConfirmDeleteAccount(true); setShowPasswordStep(false); setDeletePassword(""); setDeletePasswordError(""); setShowDeletePassword(false); }}
+                        style={{ display: "flex", alignItems: "center", gap: "8px", width: "fit-content" }}
+                        type="button"
+                      >
+                        <Trash2 size={16} /> Delete Account
+                      </button>
+
+                      {/* Step 1: Confirmation popup */}
+                      {confirmDeleteAccount && !showPasswordStep && (
+                        <div
+                          className="delete-confirm-popover"
+                          ref={deleteConfirmRef}
+                          style={{
+                            position: "absolute",
+                            bottom: "55px",
+                            left: "0",
+                            width: "340px",
+                            padding: "18px",
+                            borderRadius: "12px",
+                            zIndex: 10,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "12px",
+                            animation: "fadeSlideUp 0.2s ease"
+                          }}
+                        >
+                          <div style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                            <Trash2 size={18} style={{ color: "#ef4444", marginTop: "2px", flexShrink: 0 }} />
+                            <div>
+                              <strong style={{ fontSize: "0.95rem", color: "var(--text-strong)", display: "block", marginBottom: "4px" }}>Delete Account?</strong>
+                              <p className="card-subtext" style={{ margin: 0, fontSize: "0.82rem", lineHeight: "1.4" }}>
+                                This permanently removes all your workspace data, profile, mind maps, and active sessions. This action <strong>cannot be undone</strong>.
+                              </p>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "4px" }}>
+                            <button
+                              className="secondary-btn"
+                              onClick={() => setConfirmDeleteAccount(false)}
+                              style={{ padding: "6px 14px", fontSize: "0.82rem" }}
+                              type="button"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              className="confirm-danger-btn"
+                              onClick={() => setShowPasswordStep(true)}
+                              style={{
+                                padding: "6px 14px", fontSize: "0.82rem",
+                                background: "rgba(239, 68, 68, 0.15)", color: "#ef4444",
+                                border: "1px solid rgba(239, 68, 68, 0.4)", fontWeight: 600
+                              }}
+                              type="button"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step 2: Password verification popup */}
+                      {showPasswordStep && (
+                        <div
+                          className="delete-confirm-popover"
+                          ref={deleteConfirmRef}
+                          style={{
+                            position: "absolute",
+                            bottom: "55px",
+                            left: "0",
+                            width: "340px",
+                            padding: "18px",
+                            borderRadius: "12px",
+                            zIndex: 10,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "14px",
+                            animation: "fadeSlideUp 0.2s ease"
+                          }}
+                        >
+                          <div style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                            <Lock size={18} style={{ color: "#ef4444", marginTop: "2px", flexShrink: 0 }} />
+                            <div>
+                              <strong style={{ fontSize: "0.95rem", color: "var(--text-strong)", display: "block", marginBottom: "4px" }}>Confirm Your Password</strong>
+                              <p className="card-subtext" style={{ margin: 0, fontSize: "0.82rem", lineHeight: "1.4" }}>
+                                Enter your login password to permanently delete your account.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div style={{ position: "relative" }}>
+                            <input
+                              autoFocus
+                              type={showDeletePassword ? "text" : "password"}
+                              className="text-input"
+                              value={deletePassword}
+                              onChange={(e) => { setDeletePassword(e.target.value); setDeletePasswordError(""); }}
+                              onKeyDown={(e) => e.key === "Enter" && handleDeleteAccount()}
+                              placeholder="Enter your password..."
+                              style={{
+                                width: "100%",
+                                boxSizing: "border-box",
+                                paddingRight: "38px",
+                                border: deletePasswordError ? "1px solid #ef4444" : undefined
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="eye-toggle-btn"
+                              onClick={() => setShowDeletePassword(!showDeletePassword)}
+                              tabIndex={-1}
+                            >
+                              {showDeletePassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+
+                          {deletePasswordError && (
+                            <p style={{ margin: 0, fontSize: "0.78rem", color: "#ef4444", lineHeight: "1.3" }}>
+                              {deletePasswordError}
+                            </p>
+                          )}
+
+                          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                            <button
+                              className="secondary-btn"
+                              disabled={deletingAccount}
+                              onClick={() => { setShowPasswordStep(false); setConfirmDeleteAccount(false); setDeletePassword(""); setDeletePasswordError(""); setShowDeletePassword(false); }}
+                              style={{ padding: "6px 14px", fontSize: "0.82rem" }}
+                              type="button"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              className="confirm-danger-btn"
+                              disabled={deletingAccount || !deletePassword.trim()}
+                              onClick={handleDeleteAccount}
+                              style={{
+                                padding: "6px 14px", fontSize: "0.82rem",
+                                background: deletePassword.trim() ? "rgba(239, 68, 68, 0.2)" : "rgba(239, 68, 68, 0.08)",
+                                color: deletePassword.trim() ? "#ef4444" : "rgba(239, 68, 68, 0.4)",
+                                border: "1px solid rgba(239, 68, 68, 0.4)", fontWeight: 600,
+                                transition: "all 0.2s ease"
+                              }}
+                              type="button"
+                            >
+                              {deletingAccount ? "Deleting..." : "Confirm Delete"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              </div>
+            )}
           </div>
         </div>
-
-      </div>
+      )}
 
       <SettingsClearDataDialog
         busy={clearingWorkspaceData}
