@@ -319,7 +319,7 @@ function PlannerPage({
         </>
       ) : (
         <>
-          <header className="planner-subpage-header">
+          <header className={`planner-subpage-header${plannerView === "schedule" && schedule.length === 0 ? " is-unplanned" : ""}`}>
             <div className="section-intro">
               <div className="planner-subpage-title-row">
                 <Link

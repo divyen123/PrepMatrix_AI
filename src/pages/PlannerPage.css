@@ -271,6 +271,11 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
   margin: 0;
 }
 
+.planner-subpage-header.is-unplanned .planner-subpage-title-row {
+  justify-content: center;
+  text-align: center;
+}
+
 #planner-recall-badge-target {
   display: inline-flex;
   align-items: center;
