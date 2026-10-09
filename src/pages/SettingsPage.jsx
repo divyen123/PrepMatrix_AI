@@ -545,10 +545,11 @@ function SettingsPage({
   const previousSettingsSectionRef = useRef(settingsSection);
 
   useEffect(() => {
-    if (previousSettingsSectionRef.current === settingsSection) return;
+    const sectionChanged = previousSettingsSectionRef.current !== settingsSection;
+    if (!sectionChanged && settingsSection !== "home") return;
     previousSettingsSectionRef.current = settingsSection;
     window.scrollTo({ top: 0, behavior: "instant" });
-    settingsTitleRef.current?.focus({ preventScroll: true });
+    if (sectionChanged) settingsTitleRef.current?.focus({ preventScroll: true });
   }, [settingsSection]);
 
   const { isKnown: creditsKnown, loading: creditsLoading, quota: creditsQuota } = useAiQuota();

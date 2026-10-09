@@ -14,10 +14,16 @@
   box-sizing: border-box;
 }
 
-/* Hide the home page's viewport scrollbar while keeping scrolling available. */
+/* Keep Settings home fixed in the viewport; subpages retain normal scrolling. */
 html:has(.settings-page--home),
 body:has(.settings-page--home) {
+  overflow: hidden;
+  overscroll-behavior: none;
   scrollbar-width: none;
+}
+
+body:has(.settings-page--home) {
+  height: var(--app-scaled-dynamic-viewport-height, 100dvh);
 }
 
 html:has(.settings-page--home)::-webkit-scrollbar,
