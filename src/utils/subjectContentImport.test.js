@@ -1,16 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as XLSX from "xlsx";
 import {
   parseSubjectContentCsv, parseSubjectContentFile, parseSubjectContentText,
   prepareSubjectContentImport, SUBJECT_IMPORT_MAX_FILE_BYTES,
 } from "./subjectContentImport.js";
-
-function workbookFile(sheets, bookType = "xlsx") {
-  const workbook = XLSX.utils.book_new();
-  sheets.forEach(([name, rows]) => XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), name));
-  return new File([XLSX.write(workbook, { bookType, type: "array" })], `content.${bookType}`);
-}
 
 test("bulk paste reads bullets, numeric lists, chapter headings and Roman units without changing names", () => {
   const input = "\uFEFF  1. Number basics\r\n• Arrays\r\nChapter 3: Memory management\nUnit IV — Scheduling\n5) தமிழ் பெயர்\n\n* 3.14 and derivatives";
@@ -68,45 +61,35 @@ test("malformed CSV rejects rather than discarding or merging malformed entries"
   assert.equal(prepareSubjectContentImport(invalid.items, { chapterCount: 3 }).canApply, false);
 });
 
-test("real XLSX and legacy XLS files import with target-aware sheet selection", async () => {
-  const sheets = [
-    ["Chapters", [["Chapter number", "Chapter name"], [1, "Arrays"], [2, "தமிழ் பெயர்"]]],
-    ["Topics", [["Topic name"], ["Pointers"], ["Locks"]]],
-  ];
-  for (const type of ["xlsx", "xls"]) {
-    const file = workbookFile(sheets, type);
-    const chapters = await parseSubjectContentFile(file);
-    assert.deepEqual(chapters.items, [{ number: 1, title: "Arrays" }, { number: 2, title: "தமிழ் பெயர்" }]);
-    assert.match(chapters.warnings.join(" "), /Other sheets were not included/u);
-    assert.deepEqual((await parseSubjectContentFile(file, { target: "topics" })).items, [
-      { number: null, title: "Pointers" }, { number: null, title: "Locks" },
-    ]);
-  }
-});
-
-test("Excel combines meaningful sheets and reports unrelated or missing target columns", async () => {
-  const combined = workbookFile([
-    ["Semester 1", [["Number", "Name"], [1, "Basics"]]],
-    ["Semester 2", [["Number", "Name"], [2, "Advanced"]]],
-    ["Empty", []],
-    ["Other", [["Topic name"], ["Pointers"]]],
+test("CSV file import reads chapter and topic columns and supports the arrayBuffer fallback", async () => {
+  const contents = "Chapter number,Chapter name,Topic name\n1,தமிழ் பெயர்,Pointers\n2,Arrays,Locks";
+  const file = new File([contents], "names.csv");
+  assert.deepEqual((await parseSubjectContentFile(file)).items, [
+    { number: 1, title: "தமிழ் பெயர்" }, { number: 2, title: "Arrays" },
   ]);
-  const result = await parseSubjectContentFile(combined);
-  assert.deepEqual(result.items, [{ number: 1, title: "Basics" }, { number: 2, title: "Advanced" }]);
-  assert.match(result.warnings.join(" "), /Sheet not included/u);
-  assert.match(result.warnings.join(" "), /Combined 3 populated sheets/u);
-  await assert.rejects(() => parseSubjectContentFile(workbookFile([["Sheet1", [["Topic name"], ["Pointers"]]]])), /No chapter name column/u);
-  assert.equal((await parseSubjectContentFile(workbookFile([["Sheet1", []]]))).items.length, 0);
+  assert.deepEqual((await parseSubjectContentFile(file, { target: "topics" })).items, [
+    { number: null, title: "Pointers" }, { number: null, title: "Locks" },
+  ]);
+  const tabFile = {
+    name: "names.tsv", size: 34,
+    arrayBuffer: async () => new TextEncoder().encode("Number\tName\n1\tBasics\n2\tAdvanced").buffer,
+  };
+  assert.deepEqual((await parseSubjectContentFile(tabFile)).items, [
+    { number: 1, title: "Basics" }, { number: 2, title: "Advanced" },
+  ]);
 });
 
-test("file import rejects invalid, oversized, unsupported and excessive workbook data", async () => {
+test("file import rejects invalid, oversized, unsupported and excessive CSV data", async () => {
   assert.deepEqual((await parseSubjectContentFile(new File(["Name\nIntro"], "names.csv"))).items, [{ number: null, title: "Intro" }]);
-  await assert.rejects(() => parseSubjectContentFile(new File(["wrong data"], "names.xlsx")), /not a valid Excel/u);
+  for (const extension of ["xlsx", "xls", "txt"]) {
+    await assert.rejects(() => parseSubjectContentFile(new File(["Name\nIntro"], `names.${extension}`)), /Unsupported file type\. Choose a CSV file\./u);
+  }
   await assert.rejects(() => parseSubjectContentFile(new File([new Uint8Array(SUBJECT_IMPORT_MAX_FILE_BYTES + 1)], "names.csv")), /too large/u);
-  await assert.rejects(() => parseSubjectContentFile(new File(["Intro"], "names.txt")), /Unsupported/u);
   await assert.rejects(() => parseSubjectContentFile(null), /Choose a CSV/u);
-  const oversizedWorkbook = workbookFile([["Sheet1", [["Name"], ...Array.from({ length: 1001 }, (_, index) => [`Task ${index}`])]]]);
-  await assert.rejects(() => parseSubjectContentFile(oversizedWorkbook), /more than 1,000/u);
+  const oversizedCsv = new File([`Name\n${Array.from({ length: 1001 }, (_, index) => `Task ${index}`).join("\n")}`], "names.csv");
+  await assert.rejects(() => parseSubjectContentFile(oversizedCsv), /more than 1,000/u);
+  const wideCsv = new File([Array.from({ length: 51 }, (_, index) => `Column ${index}`).join(",")], "names.csv");
+  await assert.rejects(() => parseSubjectContentFile(wideCsv), /more than 50 columns/u);
 });
 
 test("preview maps unnumbered names consistently and preserves untouched chapter names", () => {

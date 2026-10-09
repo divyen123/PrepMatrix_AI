@@ -503,9 +503,6 @@ function SubjectPlanDialog({
                     <div className="subject-content-page-heading">
                       <div>
                         <h3>{activeTab === "chapters" ? "Chapter names" : "Focus topics"}</h3>
-                        <p>{activeTab === "chapters"
-                          ? `Name your ${chapterCount} chapters, individually or together.`
-                          : "Add the specific concepts you want to focus on."}</p>
                       </div>
                       <span className="subject-plan-count">
                         {activeTab === "chapters" ? `${namedChapters.length} / ${chapterCount}` : `${topics.length} / 60`}
@@ -515,14 +512,13 @@ function SubjectPlanDialog({
                       <button disabled={activeTab === "chapters" && chapterCount === 0} onClick={() => openImport("bulk")} type="button">
                         <ClipboardList aria-hidden="true" size={14} />Bulk add
                       </button>
-                      <button disabled={activeTab === "chapters" && chapterCount === 0} onClick={() => openImport("syllabus")} type="button">
-                        <FileText aria-hidden="true" size={14} />Syllabus
-                      </button>
+                      {activeTab === "chapters" && (
+                        <button disabled={chapterCount === 0} onClick={() => openImport("syllabus")} type="button">
+                          <FileText aria-hidden="true" size={14} />Syllabus
+                        </button>
+                      )}
                       <button disabled={activeTab === "chapters" && chapterCount === 0} onClick={() => openImport("csv")} type="button">
                         <FileSpreadsheet aria-hidden="true" size={14} />CSV
-                      </button>
-                      <button disabled={activeTab === "chapters" && chapterCount === 0} onClick={() => openImport("excel")} type="button">
-                        <FileSpreadsheet aria-hidden="true" size={14} />Excel
                       </button>
                     </div>
                     {importNotice && <p className="subject-import-notice" role="status"><CheckCircle2 aria-hidden="true" size={14} />{importNotice}</p>}

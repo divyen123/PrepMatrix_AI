@@ -19,16 +19,14 @@ import {
 import "./SubjectContentImport.css";
 
 const METHODS = {
-  bulk: { title: "Bulk add", description: "Paste one name per line. Numbered lists work too." },
-  syllabus: { title: "Import syllabus", description: "Choose a syllabus, then review the names before adding them." },
-  csv: { title: "Import CSV", description: "Use a name column, with an optional chapter number column." },
-  excel: { title: "Import Excel", description: "Choose a workbook with chapter or topic names in a column." },
+  bulk: { title: "Bulk add" },
+  syllabus: { title: "Import syllabus" },
+  csv: { title: "Import CSV" },
 };
 
 const FILE_TYPES = {
   syllabus: ".pdf,.png,.jpg,.jpeg,.webp,.txt,.docx",
   csv: ".csv,text/csv",
-  excel: ".xlsx,.xls",
 };
 
 function SubjectContentImport({
@@ -194,7 +192,6 @@ function SubjectContentImport({
         </button>
         <div>
           <h4>{methodDetails.title}</h4>
-          <p>{method === "csv" && !isChapters ? "Use a topic name column, with one topic per row." : methodDetails.description}</p>
         </div>
       </div>
 
@@ -238,7 +235,7 @@ function SubjectContentImport({
             {method === "syllabus" ? <FileText aria-hidden="true" size={22} /> : <FileSpreadsheet aria-hidden="true" size={22} />}
             <div>
               <strong title={sourceName}>{sourceName || "Choose a file to import"}</strong>
-              <span>{method === "syllabus" ? "PDF, image, Word or text · Up to 10 MB" : `${method === "csv" ? "CSV" : "XLSX or XLS"} · Up to ${fileSizeLimit / 1024 / 1024} MB`}</span>
+              <span>{method === "syllabus" ? "PDF, image, Word or text · Up to 10 MB" : `CSV · Up to ${fileSizeLimit / 1024 / 1024} MB`}</span>
             </div>
           </div>
           <button className="subject-import-button" onClick={() => fileInputRef.current?.click()} ref={chooseFileRef} type="button">

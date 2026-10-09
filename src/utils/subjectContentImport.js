@@ -133,7 +133,7 @@ function parseNumberCell(value) {
   return roman ?? Number.NaN;
 }
 
-/** Shared by CSV and Excel; headers choose the requested chapter/topic column. */
+/** CSV headers choose the requested chapter/topic column. */
 export function parseSubjectContentRows(value, { target = "chapters" } = {}) {
   const rows = Array.isArray(value) ? value.filter((row) => Array.isArray(row) && row.some((cell) => cleanTitle(cell))) : [];
   if (rows.length > SUBJECT_IMPORT_MAX_ITEMS + 1) fail("This file has more than 1,000 rows. Split it into smaller imports.");
@@ -191,20 +191,16 @@ export function parseSubjectContentCsv(text, options = {}) {
   return parseSubjectContentRows(parseDelimitedRows(text), options);
 }
 
-/** Browser File/Blob input; Excel stays in a lazy chunk until requested. */
+/** Browser File/Blob input for CSV and tab-separated lists. */
 export async function parseSubjectContentFile(file, options = {}) {
-  if (!file || typeof file.arrayBuffer !== "function") fail("Choose a CSV or Excel file to import.");
+  if (!file || typeof file.arrayBuffer !== "function") fail("Choose a CSV file to import.");
   if (file.size > SUBJECT_IMPORT_MAX_FILE_BYTES) fail("This file is too large. Choose a file smaller than 5 MB.");
   const extension = String(file.name || "").toLowerCase().split(".").at(-1);
   if (extension === "csv" || extension === "tsv") {
     const text = typeof file.text === "function" ? await file.text() : new TextDecoder().decode(await file.arrayBuffer());
     return parseSubjectContentCsv(text, options);
   }
-  if (extension === "xlsx" || extension === "xls") {
-    const { readSubjectContentWorkbook } = await import("./subjectContentExcel.js");
-    return readSubjectContentWorkbook(await file.arrayBuffer(), options);
-  }
-  fail("Unsupported file type. Choose CSV, XLSX or XLS.");
+  fail("Unsupported file type. Choose a CSV file.");
 }
 
 function integerNumber(value) {

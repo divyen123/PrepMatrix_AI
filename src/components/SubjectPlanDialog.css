@@ -786,16 +786,9 @@ body .subject-plan-tabs > button:hover {
 }
 
 .subject-content-page-heading h3 {
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 0.95rem;
   letter-spacing: -0.02em;
-}
-
-.subject-content-page-heading p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  line-height: 1.45;
 }
 
 .subject-content-tools {

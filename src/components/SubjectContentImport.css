@@ -7,7 +7,7 @@
 
 .subject-import-heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
 }
 
@@ -25,7 +25,6 @@
   line-height: 1.35;
 }
 
-.subject-import-heading p,
 .subject-import-preview-heading p {
   margin: 3px 0 0;
   color: var(--text-muted);
