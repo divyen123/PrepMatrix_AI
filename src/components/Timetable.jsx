@@ -909,7 +909,7 @@ function Timetable({
     <section className={`card schedule-card${schedule.length === 0 ? " is-unplanned" : ""}`}>
       <div className="schedule-card-header">
         <div className="schedule-card-copy">
-          <h2>Study schedule</h2>
+          {schedule.length > 0 && <h2>Study schedule</h2>}
           <p className="card-subtext">
             Generate a focused timetable, export it, and recover backlog when the week changes.
           </p>

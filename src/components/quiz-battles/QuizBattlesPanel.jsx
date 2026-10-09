@@ -26,6 +26,7 @@ import {
   getSubjectQuizEligibility,
 } from "../../utils/plannerMetrics";
 import { getAcademicProfileExamples } from "../../utils/academicProfileExamples";
+import { getQuizSubjectContent, syncQuizSubjectTopic } from "../../utils/quizSubjectContent";
 import {
   createQuizBattleIntroState,
   getQuizBattleIntroDurations,
@@ -168,7 +169,9 @@ export default function QuizBattlesPanel({
   const showJoin = battleView === "join";
   const showHistory = battleView === "history";
   const [createSubject, setCreateSubject] = useState(subjects[0]?.name || "");
-  const [createTopic, setCreateTopic] = useState("");
+  const [createTopic, setCreateTopic] = useState(() => (
+    getQuizSubjectContent(subjects, subjects[0]?.name).topicText
+  ));
   const [createDifficulty, setCreateDifficulty] = useState("standard");
   const [joinCode, setJoinCode] = useState(() => normalizeQuizBattleInviteCode(initialInviteCode));
   const [invitePreview, setInvitePreview] = useState(null);
@@ -206,6 +209,33 @@ export default function QuizBattlesPanel({
   const detailHeadingRef = useRef(null);
   const returnBattleIdRef = useRef("");
   const routeChangeRef = useRef(onBattleRouteChange);
+  const createSubjectInitializedRef = useRef(Boolean(subjects[0]?.name));
+  const createTopicPrefillRef = useRef(null);
+  const createSubjectContent = useMemo(
+    () => getQuizSubjectContent(subjects, createSubject),
+    [createSubject, subjects],
+  );
+
+  useEffect(() => {
+    if (createSubjectInitializedRef.current || !subjects[0]?.name) return;
+    createSubjectInitializedRef.current = true;
+    setCreateSubject(subjects[0].name);
+  }, [subjects]);
+
+  useEffect(() => {
+    const prefill = createSubjectContent.topicText;
+    const previous = createTopicPrefillRef.current || { subjectName: createSubject, prefill };
+    createTopicPrefillRef.current = { subjectName: createSubject, prefill };
+    if (busyAction === "create") return;
+
+    setCreateTopic((currentTopic) => syncQuizSubjectTopic({
+      currentTopic,
+      previousSubjectName: previous.subjectName,
+      previousPrefill: previous.prefill,
+      subjectName: createSubject,
+      prefill,
+    }));
+  }, [busyAction, createSubject, createSubjectContent.topicText]);
 
   useEffect(() => {
     routeChangeRef.current = onBattleRouteChange;
@@ -534,7 +564,7 @@ export default function QuizBattlesPanel({
       returnBattleIdRef.current = payload.battle?.id || "";
       hydrateAnswers(payload.battle);
       setBattleView("history");
-      setCreateTopic("");
+      setCreateTopic(createTopicPrefillRef.current?.prefill ?? createSubjectContent.topicText);
       routeChangeRef.current?.(payload.battle?.id);
       await refreshList({ silent: true });
       toast.success("Quiz Battle created. Share the private code with one friend.");
@@ -1166,8 +1196,12 @@ export default function QuizBattlesPanel({
               Subject
               <input
                 className="text-input"
+                disabled={busyAction === "create"}
                 list="quiz-battle-subjects"
-                onChange={(event) => setCreateSubject(event.target.value)}
+                onChange={(event) => {
+                  createSubjectInitializedRef.current = true;
+                  setCreateSubject(event.target.value);
+                }}
                 required
                 value={createSubject}
               />
@@ -1181,11 +1215,13 @@ export default function QuizBattlesPanel({
               Exact topic
               <input
                 className="text-input"
-                maxLength={160}
+                disabled={busyAction === "create"}
+                maxLength={70000}
                 minLength={3}
                 onChange={(event) => setCreateTopic(event.target.value)}
                 placeholder={curriculumExamples.battleTopicPlaceholder}
                 required
+                title={createTopic || undefined}
                 value={createTopic}
               />
             </label>
@@ -1193,6 +1229,7 @@ export default function QuizBattlesPanel({
               Difficulty
               <select
                 className="text-input"
+                disabled={busyAction === "create"}
                 onChange={(event) => setCreateDifficulty(event.target.value)}
                 value={createDifficulty}
               >

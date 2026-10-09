@@ -178,3 +178,29 @@ test("validates bounded create fields", () => {
     code: "QUIZ_BATTLE_TOPIC_REQUIRED",
   });
 });
+
+test("preserves a full saved topic list and retains field bounds and text cleanup", () => {
+  const savedTopics = Array.from({ length: 325 }, (_, index) => (
+    `Chapter ${index + 1}: ${"Topic content ".repeat(14).trim()}`
+  )).join("; ");
+  assert.ok(savedTopics.length > 65_000 && savedTopics.length < 70_000);
+  assert.equal(normalizeBattleCreateInput({
+    subjectName: "Biology",
+    topic: savedTopics,
+  }).topic, savedTopics);
+
+  const bounded = normalizeBattleCreateInput({
+    subjectName: "S".repeat(81),
+    topic: `  Cells\u0000\trespiration\n${"t".repeat(70_000)}\u007f  `,
+    difficulty: "unknown",
+  });
+  assert.equal(bounded.subjectName.length, 80);
+  assert.equal(bounded.topic, `Cells respiration ${"t".repeat(70_000)}`.slice(0, 70_000));
+  assert.equal(bounded.difficulty, "standard");
+  assert.throws(() => normalizeBattleCreateInput({ subjectName: "Biology", topic: "\u0000\n xy \u007f" }), {
+    code: "QUIZ_BATTLE_TOPIC_REQUIRED",
+  });
+  assert.throws(() => normalizeBattleCreateInput({ subjectName: "x", topic: savedTopics }), {
+    code: "QUIZ_BATTLE_SUBJECT_REQUIRED",
+  });
+});

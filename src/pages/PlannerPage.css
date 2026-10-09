@@ -336,8 +336,80 @@ body .planner-route-page .planner-subpage-title-row .planner-subpage-back.page-b
   align-content: start;
 }
 
-.planner-subpage-content.is-schedule .schedule-card.is-unplanned {
-  margin-top: 16px;
+body .planner-route-page .planner-subpage-content.is-schedule .schedule-card.is-unplanned {
+  justify-self: center;
+  width: min(100%, 760px);
+  margin-top: clamp(32px, 5vh, 64px);
+  padding: clamp(20px, 2vw, 28px);
+  gap: 20px;
+}
+
+body .planner-route-page .schedule-card.is-unplanned .card-subtext {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+body .planner-route-page .schedule-card.is-unplanned .timetable-topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+}
+
+body .planner-route-page .schedule-card.is-unplanned .planner-target-grid {
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+body .planner-route-page .schedule-card.is-unplanned .compact-field :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.65rem 0.8rem;
+}
+
+body .planner-route-page .schedule-card.is-unplanned .timetable-actions {
+  justify-self: end;
+  flex-direction: row !important;
+  width: auto !important;
+  margin-top: 0 !important;
+}
+
+body .planner-route-page .schedule-card.is-unplanned .timetable-actions .action-btn {
+  width: auto !important;
+  min-width: 144px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0.65rem 0.9rem !important;
+}
+
+body .planner-route-page .schedule-card.is-unplanned .planner-parent-lock {
+  grid-column: 1 / -1;
+}
+
+body .planner-route-page .schedule-card.is-unplanned .timetable {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body .planner-route-page .schedule-card.is-unplanned .empty-state {
+  font-size: 0.86rem;
+}
+
+@media (max-width: 700px) {
+  body .planner-route-page .planner-subpage-content.is-schedule .schedule-card.is-unplanned {
+    margin-top: 24px;
+  }
+
+  body .planner-route-page .schedule-card.is-unplanned .timetable-topbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 500px) {
+  body .planner-route-page .schedule-card.is-unplanned .planner-target-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .planner-route-page.has-no-subjects {

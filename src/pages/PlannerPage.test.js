@@ -70,8 +70,15 @@ test("renders the Planner hub and isolates each workspace on its own subpage", a
     const configuredScheduleMarkup = renderRoute("/planner/schedule", {
       subjects: [{ name: "Maths", chapters: 4, difficulty: "easy" }],
     });
-    assert.match(configuredScheduleMarkup, /<h2>Study schedule<\/h2>/u);
+    assert.doesNotMatch(configuredScheduleMarkup, /<h2>Study schedule<\/h2>/u);
     assert.match(configuredScheduleMarkup, /No timetable generated yet/u);
+
+    const generatedScheduleMarkup = renderRoute("/planner/schedule", {
+      subjects: [{ name: "Maths", chapters: 4, difficulty: "easy" }],
+      schedule: [{ day: 1, tasks: [{ task: "Maths: Chapter 1", time: "Morning" }] }],
+    });
+    assert.match(generatedScheduleMarkup, /<h2>Study schedule<\/h2>/u);
+    assert.doesNotMatch(generatedScheduleMarkup, /is-unplanned|No timetable generated yet/u);
 
     const worktreeMarkup = renderRoute("/planner/worktree");
     assert.match(worktreeMarkup, /aria-label="Back to Planner workspaces"[^>]*href="\/planner"/u);

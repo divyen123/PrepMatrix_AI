@@ -36,7 +36,7 @@ export function publicBattleId(value) {
 
 export function normalizeBattleCreateInput(body = {}) {
   const subjectName = cleanText(body.subjectName, 80, "General study");
-  const topic = cleanText(body.topic, 160);
+  const topic = cleanText(body.topic, 70_000);
   const rawDifficulty = cleanText(body.difficulty, 20, "standard").toLowerCase();
   const difficulty = DIFFICULTIES.has(rawDifficulty) ? rawDifficulty : "standard";
 
