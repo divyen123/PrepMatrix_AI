@@ -304,6 +304,40 @@ const api = {
   }),
   saveWorkspace: (body, options = {}) => request("/api/workspace", { ...options, method: "PUT", body: JSON.stringify(body) }),
   importWorkspace: (body, options = {}) => request("/api/workspace/import", { ...options, method: "POST", body: JSON.stringify(body) }),
+  importSubjectSyllabus: async (file, { target, subjectName, chapterCount } = {}, options = {}) => {
+    const extension = String(file?.name || "").toLowerCase().split(".").pop();
+    const types = {
+      pdf: "application/pdf", txt: "text/plain",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+    };
+    const type = types[extension];
+    if (!type || !file || typeof file.arrayBuffer !== "function") throw new Error("Choose a PDF, JPG, PNG, WebP, TXT, or DOCX syllabus.");
+    if (!file.size) throw new Error("The syllabus file is empty.");
+    if (file.size > 10 * 1024 * 1024) throw new Error("The syllabus must be 10 MB or smaller.");
+    options.signal?.throwIfAborted();
+    let attachment;
+    if (type.startsWith("image/")) {
+      const { prepareChatAttachment } = await import("./chatAttachments.js");
+      const typedFile = file.type === type ? file : Object.assign(file.slice(0, file.size, type), { name: file.name });
+      attachment = await prepareChatAttachment(typedFile);
+    } else {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = "";
+      for (let offset = 0; offset < bytes.length; offset += 32768) binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
+      attachment = { name: file.name, type, dataUrl: `data:${type};base64,${btoa(binary)}` };
+    }
+    options.signal?.throwIfAborted();
+    const timeoutMs = options.timeoutMs || 110_000;
+    return request("/api/subjects/import-syllabus", {
+      ...options,
+      method: "POST",
+      timeoutMs,
+      ...(options.signal ? { signal: AbortSignal.any([options.signal, AbortSignal.timeout(timeoutMs)]) } : {}),
+      headers: { "Idempotency-Key": globalThis.crypto.randomUUID(), ...options.headers },
+      body: JSON.stringify({ file: { name: attachment.name, type: attachment.type, dataUrl: attachment.dataUrl }, target, subjectName, chapterCount }),
+    });
+  },
   syncAppUsage: (body, options = {}) => request("/api/app-usage/sync", {
     ...options,
     academicProfileId: null,

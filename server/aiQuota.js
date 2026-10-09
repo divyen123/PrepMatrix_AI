@@ -13,6 +13,7 @@ export const AI_QUOTA_FEATURES = Object.freeze({
   secure_exam: 15,
   question_paper: 15,
   answer_coach: 8,
+  subject_syllabus: 1,
 });
 
 const RESERVATION_TTL_MS = 30 * 60 * 1000;
@@ -33,6 +34,7 @@ const FEATURE_ENV_KEYS = Object.freeze({
   secure_exam: "AI_CREDIT_COST_SECURE_EXAM",
   question_paper: "AI_CREDIT_COST_QUESTION_PAPER",
   answer_coach: "AI_CREDIT_COST_ANSWER_COACH",
+  subject_syllabus: "AI_CREDIT_COST_SUBJECT_SYLLABUS",
 });
 
 function positiveInteger(value, fallback, { minimum = 1 } = {}) {

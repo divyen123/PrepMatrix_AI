@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import registerExamRoutes, { isGroqJsonGenerationFailure } from "./examRoutes.js";
 import registerAnswerCoachRoutes from "./answerCoachRoutes.js";
+import registerSubjectSyllabusRoutes from "./subjectSyllabusRoutes.js";
 import { getStudentOnboardingState, validateStudentDetails } from "../src/utils/studentOnboarding.js";
 import { normalizeMemoryReviewData, separatePlannerRecall } from "../src/utils/plannerLifecycle.js";
 import { normalizePlannerHistory } from "../src/utils/plannerHistory.js";
@@ -3236,6 +3237,15 @@ registerExamRoutes(app, {
   groqModel: GROQ_CHAT_MODEL,
 });
 registerAnswerCoachRoutes(app, {
+  aiQuota,
+  getDb,
+  requireAuth,
+  getGroqConfigStatus,
+  visionModel: GROQ_VISION_MODEL,
+  textModel: GROQ_CHAT_MODEL,
+  withProfileWriteFence: withAcademicProfileWriteFence,
+});
+registerSubjectSyllabusRoutes(app, {
   aiQuota,
   getDb,
   requireAuth,

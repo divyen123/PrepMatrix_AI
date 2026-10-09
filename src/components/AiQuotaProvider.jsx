@@ -28,6 +28,7 @@ const AI_FEATURES = Object.freeze({
   SECURE_EXAM: "secure_exam",
   QUESTION_PAPER: "question_paper",
   ANSWER_COACH: "answer_coach",
+  SUBJECT_SYLLABUS: "subject_syllabus",
 });
 
 const DEFAULT_COSTS = Object.freeze({
@@ -39,6 +40,7 @@ const DEFAULT_COSTS = Object.freeze({
   [AI_FEATURES.SECURE_EXAM]: 15,
   [AI_FEATURES.QUESTION_PAPER]: 15,
   [AI_FEATURES.ANSWER_COACH]: 8,
+  [AI_FEATURES.SUBJECT_SYLLABUS]: 1,
 });
 
 const FEATURE_ALIASES = Object.freeze({
@@ -63,6 +65,7 @@ const FEATURE_ALIASES = Object.freeze({
   questionPaperGeneration: AI_FEATURES.QUESTION_PAPER,
   answer_coach: AI_FEATURES.ANSWER_COACH,
   answerCoach: AI_FEATURES.ANSWER_COACH,
+  subject_syllabus: AI_FEATURES.SUBJECT_SYLLABUS,
 });
 
 const FEATURE_LABELS = Object.freeze({
@@ -74,6 +77,7 @@ const FEATURE_LABELS = Object.freeze({
   [AI_FEATURES.SECURE_EXAM]: "Secure exam preparation",
   [AI_FEATURES.QUESTION_PAPER]: "Question paper",
   [AI_FEATURES.ANSWER_COACH]: "Answer coach review",
+  [AI_FEATURES.SUBJECT_SYLLABUS]: "Syllabus extraction",
 });
 
 
