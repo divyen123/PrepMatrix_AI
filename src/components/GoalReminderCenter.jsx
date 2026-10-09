@@ -5,6 +5,7 @@ import {
   Check,
   Flag,
   EllipsisVertical,
+  FileDown,
   Plus,
   RotateCcw,
   Target,
@@ -114,6 +115,7 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
   const [goalDraft, setGoalDraft] = useState(createGoalDraft);
   const [goalComposerOpen, setGoalComposerOpen] = useState(false);
   const [todoDraft, setTodoDraft] = useState("");
+  const [exportingTodos, setExportingTodos] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState("");
   const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const [confirmBulkClear, setConfirmBulkClear] = useState("");
@@ -351,6 +353,23 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
     };
     persistData({ ...plannerData, todos: [nextTodo, ...plannerData.todos] });
     setTodoDraft("");
+  };
+
+  const exportTodosAsPdf = async () => {
+    if (exportingTodos || plannerData.todos.length === 0) return;
+    const generatedAt = new Date();
+    const todos = plannerData.todos;
+    setExportingTodos(true);
+    try {
+      const { createTodoPdf } = await import("../utils/todoPdf.js");
+      const pdf = createTodoPdf({ todos, generatedAt });
+      pdf.save(`PrepMatrix_To_Do_${getLocalDateKey(generatedAt)}.pdf`);
+      toast.success("To-do PDF exported.");
+    } catch {
+      toast.error("Could not export your to-do list. Please try again.");
+    } finally {
+      setExportingTodos(false);
+    }
   };
 
   const toggleGoal = (goalId) => persistData({
@@ -592,6 +611,14 @@ function GoalReminderCenter({ academicProfile = {}, data, onDataChange, onOpen, 
             <form className="planner-todo-composer" onSubmit={createTodo}>
               <input aria-label="New to-do task" maxLength="160" onChange={(event) => setTodoDraft(event.target.value)} placeholder="Add a small next task" ref={todoInputRef} value={todoDraft} />
               <button aria-label="Add to-do task" disabled={!todoDraft.trim()} title="Add task" type="submit"><Plus size={15} /></button>
+              <button
+                aria-busy={exportingTodos}
+                aria-label="Export to-do as PDF"
+                disabled={exportingTodos || plannerData.todos.length === 0}
+                onClick={exportTodosAsPdf}
+                title={plannerData.todos.length === 0 ? "Add a task to export your to-do list" : "Export all to-do tasks as PDF"}
+                type="button"
+              ><FileDown aria-hidden="true" size={15} /></button>
             </form>
             <div className="planner-todo-list">
               {visibleTodos.length === 0 ? <span className="planner-todo-empty">No to-do tasks yet.</span> : visibleTodos.map((todo) => {

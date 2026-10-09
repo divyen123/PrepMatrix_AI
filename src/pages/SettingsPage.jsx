@@ -540,17 +540,20 @@ function SettingsPage({
   const requestedSettingsSection = new URLSearchParams(location.search).get("section");
   const selectedSettingsSection = SETTINGS_SECTIONS.find(({ id }) => id === requestedSettingsSection);
   const settingsSection = profileCardHighlightRequested ? "profile" : selectedSettingsSection?.id || "home";
+  const settingsPageFixed = ["home", "profile", "system", "appearance"].includes(settingsSection);
   const settingsTitle = SETTINGS_SECTIONS.find(({ id }) => id === settingsSection)?.title || "Settings";
   const settingsTitleRef = useRef(null);
+  const settingsContentRef = useRef(null);
   const previousSettingsSectionRef = useRef(settingsSection);
 
   useEffect(() => {
     const sectionChanged = previousSettingsSectionRef.current !== settingsSection;
-    if (!sectionChanged && settingsSection !== "home") return;
+    if (!sectionChanged && !settingsPageFixed) return;
     previousSettingsSectionRef.current = settingsSection;
     window.scrollTo({ top: 0, behavior: "instant" });
+    settingsContentRef.current?.scrollTo({ top: 0, behavior: "instant" });
     if (sectionChanged) settingsTitleRef.current?.focus({ preventScroll: true });
-  }, [settingsSection]);
+  }, [settingsSection, settingsPageFixed]);
 
   const { isKnown: creditsKnown, loading: creditsLoading, quota: creditsQuota } = useAiQuota();
   const creditsRemaining = creditsKnown ? Math.max(0, creditsQuota.remaining) : 0;
@@ -2284,7 +2287,7 @@ function SettingsPage({
   return (
     <section
       aria-label={settingsTitle}
-      className={`settings-page route-stage${settingsSection === "home" ? " settings-page--home" : ""}`}
+      className={`settings-page route-stage${settingsSection === "home" ? " settings-page--home" : ""}${settingsPageFixed ? " settings-page--fixed" : ""}`}
     >
       {settingsSection === "home" && (
         <div className="compact-intro">
@@ -2351,7 +2354,7 @@ function SettingsPage({
           <Link className="settings-back-link" to="/settings">
             <ArrowLeft aria-hidden="true" size={16} /> Back to Settings
           </Link>
-          <div className="settings-subpage-content">
+          <div className="settings-subpage-content" ref={settingsContentRef}>
             {settingsSection === "profile" && (
               <div
                 className={`card settings-card settings-account-card${profileCardHighlighted ? " is-arrival-highlighted" : ""}`}

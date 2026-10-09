@@ -617,12 +617,6 @@ body .notes-page .notes-list-grid {
   border-color: rgba(var(--accent-rgb), 0.2) !important;
 }
 
-.notes-page .note-card-actions .note-plan-action.is-completed {
-  color: var(--text) !important;
-  background: var(--surface-muted) !important;
-}
-
-
 .notes-page .note-card-actions .note-complete-icon-btn {
   display: inline-grid !important;
   grid-column: 2;
@@ -653,10 +647,9 @@ body .notes-page .notes-list-grid {
   outline-offset: 2px;
 }
 
-.notes-page .note-card-actions .note-complete-icon-btn.is-completed,
-.notes-page .note-card-actions .note-complete-icon-btn:disabled {
+.notes-page .note-card-actions .note-complete-icon-btn.is-completed {
   opacity: 1 !important;
-  cursor: default !important;
+  cursor: pointer !important;
   color: #23825a !important;
   background: rgba(35, 130, 90, 0.18) !important;
   border-color: rgba(35, 130, 90, 0.34) !important;

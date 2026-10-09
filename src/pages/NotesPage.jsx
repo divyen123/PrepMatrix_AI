@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, Check, Copy, Pencil, Search, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, Copy, Pencil, Redo2, Search, Trash2, X } from "lucide-react";
 import PaperCrumple from "../components/PaperCrumple";
 import NoteRichTextEditor, { NoteFormattedText } from "../components/NoteRichTextEditor";
 import NoteFormattingToolbar from "../components/NoteFormattingToolbar";
@@ -394,6 +394,11 @@ function NotesPage({
   };
 
   const planNoteForDate = (note, dateKey) => {
+    const currentNote = notes.find((item) => item.id === note.id);
+    if (!currentNote || currentNote.status === "Resolved" || plannerStates.get(note.id)?.state === "completed") {
+      setPlannerMenuNoteId(null);
+      return;
+    }
     if (!canManageSchedule) {
       requestParentPlannerAccess();
       return;
@@ -480,17 +485,24 @@ function NotesPage({
       setCompleted?.((current) => current.filter((task) => task !== plannerState.taskName));
     }
 
+    const updatedAt = new Date().toISOString();
     saveNotes(notes.map((item) => (
       item.id === note.id
-        ? { ...item, planned: Boolean(plannerState.link), status: "Open" }
+        ? {
+            ...item,
+            planned: Boolean(plannerState.link),
+            status: "Open",
+            resolvedAt: "",
+            updatedAt,
+          }
         : item
     )));
 
-    if (!plannerState.link) setPlannerMenuNoteId(note.id);
+    setPlannerMenuNoteId(null);
     setNotification?.(
       plannerState.link
-        ? "Planner task reopened. You can also move it to another date."
-        : "Choose a schedule date to reopen this note in the planner.",
+        ? "Note and planner task reopened."
+        : "Note reopened.",
     );
   };
 
@@ -849,11 +861,9 @@ function NotesPage({
               const notePriority = ["Low", "Medium", "High"].includes(note.priority) ? note.priority : "Medium";
               const isNoteCompleted = noteStatus === "Resolved";
               const isConfirmingDelete = pendingDeleteNoteId === note.id;
-              const isPlannerMenuOpen = plannerMenuNoteId === note.id;
+              const isPlannerMenuOpen = !isNoteCompleted && plannerMenuNoteId === note.id;
               const legacyTopics = Array.isArray(note.leftTopics) ? note.leftTopics.filter(Boolean) : [];
-              const plannerActionLabel = plannerState.state === "completed"
-                ? "Reopen"
-                : plannerState.state === "added" ? "Added to planner" : "Add to planner";
+              const plannerActionLabel = plannerState.state === "added" ? "Added to planner" : "Add to planner";
               const hasUpcomingDates = scheduleDateOptions.some((option) => !option.isPast);
 
               return (
@@ -945,34 +955,32 @@ function NotesPage({
                       </div>
                     ) : (
                       <>
+                        {!isNoteCompleted ? (
+                          <button
+                            aria-controls={`note-planner-dates-${note.id}`}
+                            aria-expanded={isPlannerMenuOpen}
+                            className={`note-action-btn note-plan-action is-${plannerState.state}`}
+                            onClick={() => {
+                              if (!canManageSchedule) {
+                                requestParentPlannerAccess();
+                              } else {
+                                setPlannerMenuNoteId((current) => current === note.id ? null : note.id);
+                              }
+                            }}
+                            type="button"
+                          >
+                            <CalendarDays aria-hidden="true" size={13} />
+                            <span>{plannerActionLabel}</span>
+                          </button>
+                        ) : null}
                         <button
-                          aria-controls={plannerState.state === "completed" ? undefined : `note-planner-dates-${note.id}`}
-                          aria-expanded={plannerState.state === "completed" ? undefined : isPlannerMenuOpen}
-                          className={`note-action-btn note-plan-action is-${plannerState.state}`}
-                          onClick={() => {
-                            if (plannerState.state === "completed") {
-                              reopenNote(note, plannerState);
-                            } else if (!canManageSchedule) {
-                              requestParentPlannerAccess();
-                            } else {
-                              setPlannerMenuNoteId((current) => current === note.id ? null : note.id);
-                            }
-                          }}
-                          type="button"
-                        >
-                          {plannerState.state !== "completed" ? <CalendarDays aria-hidden="true" size={13} /> : null}
-                          <span>{plannerActionLabel}</span>
-                        </button>
-                        <button
-                          aria-label={isNoteCompleted ? `${note.topic} is completed` : `Mark ${note.topic} as completed`}
-                          aria-pressed={isNoteCompleted}
+                          aria-label={isNoteCompleted ? `Reopen ${note.topic}` : `Mark ${note.topic} as completed`}
                           className={`note-complete-icon-btn${isNoteCompleted ? " is-completed" : ""}`}
-                          disabled={isNoteCompleted}
-                          onClick={() => completeNote(note, plannerState)}
-                          title={isNoteCompleted ? "Note completed" : "Mark as completed"}
+                          onClick={() => isNoteCompleted ? reopenNote(note, plannerState) : completeNote(note, plannerState)}
+                          title={isNoteCompleted ? "Reopen note" : "Mark as completed"}
                           type="button"
                         >
-                          <Check aria-hidden="true" size={13} />
+                          {isNoteCompleted ? <Redo2 aria-hidden="true" size={13} /> : <Check aria-hidden="true" size={13} />}
                         </button>
                         <button
                           aria-label={`Delete ${note.topic}`}
