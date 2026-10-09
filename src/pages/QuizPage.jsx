@@ -28,6 +28,7 @@ import {
 import { getAcademicProfileExamples } from "../utils/academicProfileExamples";
 import { getSubjectQuizEligibility, QUIZ_ELIGIBILITY_THRESHOLD } from "../utils/plannerMetrics";
 import { getRankedQuizSubjects } from "../utils/quizSubjectOptions";
+import { getQuizSubjectContent, syncQuizSubjectTopic } from "../utils/quizSubjectContent";
 import { getLearnerRoutePolicy } from "../utils/learnerRouting";
 import { quizBattleInviteCodeFromHash } from "../utils/quizBattleUi";
 import { resolveQuizPageView } from "../utils/quizPageView";
@@ -96,6 +97,8 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     () => searchParams.get("join") || quizBattleInviteCodeFromHash(window.location.hash),
   );
   const hasInitializedSubject = useRef(false);
+  const subjectsRef = useRef(subjects);
+  const topicPrefillRef = useRef({ subjectName: "", prefill: "" });
   const quizSessionRef = useRef(null);
   const isYoungKidsLearner = getLearnerRoutePolicy({
     ...userProfile,
@@ -149,6 +152,10 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   }, [location.hash, location.pathname, navigate, searchParams]);
 
   useEffect(() => {
+    subjectsRef.current = subjects;
+  }, [subjects]);
+
+  useEffect(() => {
     hasInitializedSubject.current = false;
     setSoloView("create");
     const stored = readQuizSession(window.localStorage, academicProfileDataId);
@@ -161,6 +168,9 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
 
     const entry = getQuizSessionEntry(requestedSubject, pausedSession);
     const restoredSession = entry.session;
+    const initialSubjectName = restoredSession?.subjectName || entry.subjectName;
+    const initialPrefill = getQuizSubjectContent(subjectsRef.current, initialSubjectName).topicText;
+    topicPrefillRef.current = { subjectName: initialSubjectName, prefill: initialPrefill };
     quizSessionRef.current = restoredSession;
     setQuizSession(restoredSession);
     setDeferredQuizSession(entry.deferredSession);
@@ -181,7 +191,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
     }
 
     hasInitializedSubject.current = Boolean(entry.subjectName);
-    setTopic("");
+    setTopic(initialPrefill);
     setSubjectName(entry.subjectName);
     setSearchQuery(entry.subjectName);
     setQuestionLimit(5);
@@ -213,6 +223,7 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       ? `Schedule ${selectedSubject} and complete at least ${QUIZ_ELIGIBILITY_THRESHOLD}% to unlock its quiz.`
       : `${quizEligibility.completedTasks}/${quizEligibility.totalTasks} scheduled tasks complete. Complete ${quizEligibility.tasksToEligibility} more scheduled ${quizEligibility.tasksToEligibility === 1 ? "task" : "tasks"} to reach ${QUIZ_ELIGIBILITY_THRESHOLD}%.`;
   const cleanTopic = topic.trim();
+  const subjectContent = getQuizSubjectContent(subjects, subjectName);
   const learnerContext = buildLearnerAcademicContext({
     ...userProfile,
     academicLevel,
@@ -229,6 +240,21 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
   const soloQuizActive = hasUnfinishedSoloQuiz
     && quizSession.status === QUIZ_SESSION_STATUSES.ACTIVE;
   const multiplayerQuizActive = Boolean(multiplayerAttempt?.active);
+
+  useEffect(() => {
+    const previous = topicPrefillRef.current;
+    const prefill = subjectContent.topicText;
+    topicPrefillRef.current = { subjectName, prefill };
+    if (hasUnfinishedSoloQuiz || quizSessionRef.current || isGenerating) return;
+
+    setTopic((currentTopic) => syncQuizSubjectTopic({
+      currentTopic,
+      previousSubjectName: previous.subjectName,
+      previousPrefill: previous.prefill,
+      subjectName,
+      prefill,
+    }));
+  }, [academicProfileDataId, hasUnfinishedSoloQuiz, isGenerating, requestedSubject, subjectContent.topicText, subjectName]);
 
   const persistCurrentQuizSession = useCallback((status) => {
     if (questions.length === 0 || result) return null;
@@ -491,6 +517,10 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
       const payload = await api.generateQuiz({
         ...academicProfilePayload(learnerContext),
         subjectName: selectedSubject,
+        subjectContent: {
+          chapterNames: subjectContent.chapterNames,
+          topics: subjectContent.topics,
+        },
         topic: cleanTopic,
         limit: questionLimit,
       }, {
@@ -963,11 +993,13 @@ function QuizPage({ academicProfileDataId = "", academicLevel, academicTrack, us
             Topic or doubt
             <input
               disabled={isGenerating || hasUnfinishedSoloQuiz}
+              maxLength={70000}
               onChange={(event) => {
                 resetGeneratedQuiz();
                 setTopic(event.target.value);
               }}
               placeholder={curriculumExamples.quizTopicPlaceholder}
+              title={topic || undefined}
               value={topic}
             />
           </label>

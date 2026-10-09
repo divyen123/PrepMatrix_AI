@@ -73,6 +73,42 @@ test("normalizes answers and clears a completed or aborted local session", () =>
   assert.equal(readQuizSession(storage, "profile-data-c"), null);
 });
 
+test("preserves a full saved curriculum scope while pausing and resuming a quiz", () => {
+  const storage = memoryStorage();
+  const chapters = Array.from({ length: 500 }, (_, index) => `Chapter ${index + 1}`.padEnd(120, "c"));
+  const topics = Array.from({ length: 60 }, (_, index) => `Topic ${index + 1}`.padEnd(120, "t"));
+  const topic = `Chapters: ${chapters.join(", ")}\nTopics: ${topics.join(", ")}`;
+  const session = createQuizSession({
+    questions,
+    sessionId: "full-curriculum-quiz",
+    subjectName: "Math",
+    topic,
+    quizMeta: { model: "quiz-model", limit: 1, subjectName: "Math", topic },
+  });
+
+  assert.ok(topic.length > 240);
+  writeQuizSession(storage, "profile-full-curriculum", {
+    ...session,
+    status: QUIZ_SESSION_STATUSES.PAUSED,
+    answers: { "q-1": 1 },
+  });
+  const paused = readQuizSession(storage, "profile-full-curriculum");
+  assert.equal(paused.status, QUIZ_SESSION_STATUSES.PAUSED);
+  assert.equal(paused.topic, topic);
+  assert.equal(paused.quizMeta.topic, topic);
+  assert.deepEqual(paused.answers, { "q-1": 1 });
+
+  writeQuizSession(storage, "profile-full-curriculum", {
+    ...paused,
+    status: QUIZ_SESSION_STATUSES.ACTIVE,
+  });
+  const resumed = readQuizSession(storage, "profile-full-curriculum");
+  assert.equal(resumed.status, QUIZ_SESSION_STATUSES.ACTIVE);
+  assert.equal(resumed.topic, topic);
+  assert.equal(resumed.quizMeta.topic, topic);
+  assert.deepEqual(resumed.answers, { "q-1": 1 });
+});
+
 test("removes corrupt or incompatible persisted quiz data", () => {
   const storage = memoryStorage();
   const key = getQuizSessionStorageKey("profile-data-d");

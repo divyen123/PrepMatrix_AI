@@ -7,6 +7,7 @@ export const QUIZ_SESSION_STATUSES = Object.freeze({
 });
 
 const VALID_STATUSES = new Set(Object.values(QUIZ_SESSION_STATUSES));
+const QUIZ_TOPIC_MAXIMUM = 70_000;
 
 function cleanText(value, maximum = 240) {
   return String(value ?? "").trim().slice(0, maximum);
@@ -91,7 +92,7 @@ export function normalizeQuizSession(value) {
     ? value.status
     : QUIZ_SESSION_STATUSES.PAUSED;
   const sessionId = cleanText(value.sessionId, 160);
-  const topic = cleanText(value.topic, 240);
+  const topic = cleanText(value.topic, QUIZ_TOPIC_MAXIMUM);
   const subjectName = cleanText(value.subjectName, 160) || "General study";
 
   if (
@@ -118,7 +119,7 @@ export function normalizeQuizSession(value) {
         model: cleanText(value.quizMeta.model, 160),
         limit: Math.max(1, Math.min(50, Number(value.quizMeta.limit) || questions.length)),
         subjectName: cleanText(value.quizMeta.subjectName, 160) || subjectName,
-        topic: cleanText(value.quizMeta.topic, 240) || topic,
+        topic: cleanText(value.quizMeta.topic, QUIZ_TOPIC_MAXIMUM) || topic,
       }
       : null,
     createdAt,

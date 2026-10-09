@@ -58,6 +58,36 @@ test("builds an aborted history record with an abort timestamp", () => {
   assert.equal(document.completedAt, undefined);
 });
 
+test("preserves a full saved curriculum scope in completed and aborted history records", () => {
+  const chapters = Array.from({ length: 500 }, (_, index) => `Chapter ${index + 1}`.padEnd(120, "c"));
+  const topics = Array.from({ length: 60 }, (_, index) => `Topic ${index + 1}`.padEnd(120, "t"));
+  const topic = `Chapters: ${chapters.join(", ")}\nTopics: ${topics.join(", ")}`;
+
+  assert.ok(topic.length > 240);
+  for (const status of ["completed", "aborted"]) {
+    const document = buildQuizAttemptDocument({
+      userId: "user-full-curriculum",
+      academicProfileId: "profile-full-curriculum",
+      body: {
+        status,
+        sessionId: `full-curriculum-${status}`,
+        subjectName: "Math",
+        topic,
+        total: 1,
+        score: 1,
+        answers: { q1: 1 },
+      },
+    });
+    const savedDocument = JSON.parse(JSON.stringify(document));
+    const attempt = publicQuizAttempt({ _id: `attempt-${status}`, ...savedDocument });
+
+    assert.equal(attempt.status, status);
+    assert.equal(attempt.sessionId, `full-curriculum-${status}`);
+    assert.equal(attempt.topic, topic);
+    assert.equal(attempt.answeredCount, 1);
+  }
+});
+
 test("legacy history records are exposed as completed attempts", () => {
   const legacy = publicQuizAttempt({
     _id: { toString: () => "legacy-id" },

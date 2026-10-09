@@ -5,6 +5,7 @@ export const QUIZ_ATTEMPT_STATUSES = Object.freeze({
 
 const QUIZ_ATTEMPT_STATUS_SET = new Set(Object.values(QUIZ_ATTEMPT_STATUSES));
 const QUIZ_SESSION_ID_PATTERN = /^[a-z0-9][a-z0-9._:-]{0,159}$/i;
+const QUIZ_TOPIC_MAXIMUM = 70_000;
 
 export const QUIZ_ATTEMPT_SESSION_INDEX = Object.freeze({
   key: Object.freeze({ userId: 1, academicProfileId: 1, sessionId: 1 }),
@@ -69,7 +70,7 @@ export function normalizeQuizAttemptSubmission(value) {
     status: normalizeQuizAttemptStatus(payload.status),
     sessionId: normalizeSessionId(payload.sessionId),
     subjectName: cleanText(payload.subjectName, "General study", 160),
-    topic: cleanText(payload.topic, "General revision", 240),
+    topic: cleanText(payload.topic, "General revision", QUIZ_TOPIC_MAXIMUM),
     total,
     score,
     answeredCount,
