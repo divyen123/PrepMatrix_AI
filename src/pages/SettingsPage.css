@@ -14,6 +14,19 @@
   box-sizing: border-box;
 }
 
+/* Hide the home page's viewport scrollbar while keeping scrolling available. */
+html:has(.settings-page--home),
+body:has(.settings-page--home) {
+  scrollbar-width: none;
+}
+
+html:has(.settings-page--home)::-webkit-scrollbar,
+body:has(.settings-page--home)::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Forms stay still while destination cards provide the hover feedback. */
 body .settings-page :is(.card, .overview-card, .utility-card)::before {
   display: none !important;
