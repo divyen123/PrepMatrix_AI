@@ -85,6 +85,8 @@ body .quiz-page.quiz-page--solo .quiz-builder-card {
   margin-top: 12px;
   gap: 18px;
   padding: clamp(20px, 3vw, 28px);
+  overflow: visible;
+  z-index: 2;
 }
 
 body .quiz-page.quiz-page--solo .quiz-builder-grid {
