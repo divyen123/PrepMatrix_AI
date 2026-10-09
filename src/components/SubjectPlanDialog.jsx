@@ -6,8 +6,6 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardList,
-  FileSpreadsheet,
-  FileText,
   ListChecks,
   Plus,
   RotateCcw,
@@ -86,6 +84,7 @@ function SubjectPlanDialog({
       .filter((chapter) => chapter.name.trim()),
     [chapterNames],
   );
+  const hasEmptyChapterSlot = namedChapters.length < chapterCount;
 
   const requestClose = useCallback((afterClose) => {
     if (closingRef.current) return;
@@ -103,7 +102,7 @@ function SubjectPlanDialog({
     document.body.classList.add("modal-open");
     document.body.style.overflow = "hidden";
     const focusFrame = window.requestAnimationFrame(() => {
-      (chapterCount ? chapterInputRef : chapterTabRef).current?.focus({ preventScroll: true });
+      (chapterInputRef.current || chapterTabRef.current)?.focus({ preventScroll: true });
     });
 
     const handleKeyDown = (event) => {
@@ -199,6 +198,7 @@ function SubjectPlanDialog({
       (_, index) => index,
     ).find((index) => !String(result.chapterNames[index] || "").trim());
     if (nextBlankIndex !== undefined) setChapterNumber(nextBlankIndex + 1);
+    else window.requestAnimationFrame(() => chapterTabRef.current?.focus({ preventScroll: true }));
   };
 
   const updateChapterName = (chapterIndex, nextValue) => {
@@ -508,59 +508,49 @@ function SubjectPlanDialog({
                         {activeTab === "chapters" ? `${namedChapters.length} / ${chapterCount}` : `${topics.length} / 60`}
                       </span>
                     </div>
-                    {(activeTab === "topics" || namedChapters.length < chapterCount) && (
-                      <div className="subject-content-tools" aria-label={`Add ${activeTab} from a list or file`}>
-                        <button disabled={activeTab === "chapters" && chapterCount === 0} onClick={() => openImport("bulk")} type="button">
-                          <ClipboardList aria-hidden="true" size={14} />Bulk add
-                        </button>
-                        {activeTab === "chapters" && (
-                          <button disabled={chapterCount === 0} onClick={() => openImport("syllabus")} type="button">
-                            <FileText aria-hidden="true" size={14} />Syllabus
-                          </button>
-                        )}
-                        <button disabled={activeTab === "chapters" && chapterCount === 0} onClick={() => openImport("csv")} type="button">
-                          <FileSpreadsheet aria-hidden="true" size={14} />CSV
-                        </button>
-                      </div>
-                    )}
                     {importNotice && <p className="subject-import-notice" role="status"><CheckCircle2 aria-hidden="true" size={14} />{importNotice}</p>}
                     {activeTab === "chapters" ? (
                       <div className="subject-unit-group subject-chapter-group">
-                        <div className="subject-chapter-composer">
-                          <select
-                            aria-label="Chapter number"
-                            disabled={chapterCount === 0}
-                            onChange={(event) => setChapterNumber(Number(event.target.value))}
-                            value={chapterNumber}
-                          >
-                            {Array.from({ length: chapterCount }, (_, index) => (
-                              <option key={index + 1} value={index + 1}>Chapter {index + 1}</option>
-                            ))}
-                          </select>
-                          <input
-                            aria-describedby={chapterError ? "subject-chapter-error" : undefined}
-                            aria-invalid={Boolean(chapterError)}
-                            aria-label="Chapter name"
-                            disabled={chapterCount === 0}
-                            maxLength="120"
-                            onChange={(event) => {
-                              setChapterNameInput(event.target.value);
-                              if (chapterError) setChapterError("");
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                event.preventDefault();
-                                addChapterName();
-                              }
-                            }}
-                            placeholder={curriculumExamples.subjectPlanChapterPlaceholder}
-                            ref={chapterInputRef}
-                            value={chapterNameInput}
-                          />
-                          <button aria-label="Add chapter name" disabled={chapterCount === 0 || !chapterNameInput.trim()} onClick={addChapterName} type="button">
-                            <Plus aria-hidden="true" size={15} />Add
-                          </button>
-                        </div>
+                        {hasEmptyChapterSlot && (
+                          <div className="subject-chapter-composer">
+                            <select
+                              aria-label="Chapter number"
+                              disabled={chapterCount === 0}
+                              onChange={(event) => setChapterNumber(Number(event.target.value))}
+                              value={chapterNumber}
+                            >
+                              {Array.from({ length: chapterCount }, (_, index) => (
+                                <option key={index + 1} value={index + 1}>Ch {index + 1}</option>
+                              ))}
+                            </select>
+                            <input
+                              aria-describedby={chapterError ? "subject-chapter-error" : undefined}
+                              aria-invalid={Boolean(chapterError)}
+                              aria-label="Chapter name"
+                              disabled={chapterCount === 0}
+                              maxLength="120"
+                              onChange={(event) => {
+                                setChapterNameInput(event.target.value);
+                                if (chapterError) setChapterError("");
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  addChapterName();
+                                }
+                              }}
+                              placeholder={curriculumExamples.subjectPlanChapterPlaceholder}
+                              ref={chapterInputRef}
+                              value={chapterNameInput}
+                            />
+                            <button aria-label="Add chapter name" disabled={chapterCount === 0 || !chapterNameInput.trim()} onClick={addChapterName} type="button">
+                              <Plus aria-hidden="true" size={15} />Add
+                            </button>
+                            <button aria-label="Bulk add chapter names" className="subject-composer-bulk" onClick={() => openImport("bulk")} type="button">
+                              <ClipboardList aria-hidden="true" size={14} />Bulk add
+                            </button>
+                          </div>
+                        )}
                         {chapterError && <p className="subject-topic-error" id="subject-chapter-error" role="alert">{chapterError}</p>}
                         <div className="subject-chapter-list">
                           {namedChapters.length === 0 ? (
@@ -616,6 +606,9 @@ function SubjectPlanDialog({
                           />
                           <button aria-label="Add topic" disabled={topics.length >= 60 || !topicInput.trim()} onClick={() => addTopic()} type="button">
                             <Plus aria-hidden="true" size={15} />Add
+                          </button>
+                          <button aria-label="Bulk add topics" className="subject-composer-bulk" onClick={() => openImport("bulk")} type="button">
+                            <ClipboardList aria-hidden="true" size={14} />Bulk add
                           </button>
                         </div>
                         {topicError && <p className="subject-topic-error" id="subject-topic-error" role="alert">{topicError}</p>}
