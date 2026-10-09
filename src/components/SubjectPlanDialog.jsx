@@ -508,19 +508,21 @@ function SubjectPlanDialog({
                         {activeTab === "chapters" ? `${namedChapters.length} / ${chapterCount}` : `${topics.length} / 60`}
                       </span>
                     </div>
-                    <div className="subject-content-tools" aria-label={`Add ${activeTab} from a list or file`}>
-                      <button disabled={activeTab === "chapters" && chapterCount === 0} onClick={() => openImport("bulk")} type="button">
-                        <ClipboardList aria-hidden="true" size={14} />Bulk add
-                      </button>
-                      {activeTab === "chapters" && (
-                        <button disabled={chapterCount === 0} onClick={() => openImport("syllabus")} type="button">
-                          <FileText aria-hidden="true" size={14} />Syllabus
+                    {(activeTab === "topics" || namedChapters.length < chapterCount) && (
+                      <div className="subject-content-tools" aria-label={`Add ${activeTab} from a list or file`}>
+                        <button disabled={activeTab === "chapters" && chapterCount === 0} onClick={() => openImport("bulk")} type="button">
+                          <ClipboardList aria-hidden="true" size={14} />Bulk add
                         </button>
-                      )}
-                      <button disabled={activeTab === "chapters" && chapterCount === 0} onClick={() => openImport("csv")} type="button">
-                        <FileSpreadsheet aria-hidden="true" size={14} />CSV
-                      </button>
-                    </div>
+                        {activeTab === "chapters" && (
+                          <button disabled={chapterCount === 0} onClick={() => openImport("syllabus")} type="button">
+                            <FileText aria-hidden="true" size={14} />Syllabus
+                          </button>
+                        )}
+                        <button disabled={activeTab === "chapters" && chapterCount === 0} onClick={() => openImport("csv")} type="button">
+                          <FileSpreadsheet aria-hidden="true" size={14} />CSV
+                        </button>
+                      </div>
+                    )}
                     {importNotice && <p className="subject-import-notice" role="status"><CheckCircle2 aria-hidden="true" size={14} />{importNotice}</p>}
                     {activeTab === "chapters" ? (
                       <div className="subject-unit-group subject-chapter-group">
