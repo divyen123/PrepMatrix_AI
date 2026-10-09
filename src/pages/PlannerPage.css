@@ -273,8 +273,12 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
 
 .planner-subpage-header.is-unplanned .planner-subpage-title-row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  grid-template-columns: minmax(34px, 1fr) minmax(0, max-content) minmax(34px, 1fr);
   text-align: center;
+}
+
+.planner-subpage-header.is-unplanned .planner-subpage-back {
+  justify-self: end;
 }
 
 #planner-recall-badge-target {
