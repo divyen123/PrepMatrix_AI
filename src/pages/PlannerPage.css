@@ -272,7 +272,8 @@ body.has-bg-image.no-glass-cards .planner-hub-card {
 }
 
 .planner-subpage-header.is-unplanned .planner-subpage-title-row {
-  justify-content: center;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
   text-align: center;
 }
 
