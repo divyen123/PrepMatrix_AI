@@ -1,6 +1,7 @@
 import { parse } from 'acorn';
 import { parse as parseHtml, serialize as serializeHtml } from 'parse5';
 import { buildCodeMatrixCompiledPracticeWorkerSource } from './codeMatrixCompiledPracticeWorker.js';
+import { CODE_MATRIX_PYTHON_PACKAGE_FILES } from './codeMatrixPythonPackages.js';
 import {
   CODE_MATRIX_LIMITS,
   CODE_MATRIX_RUNTIMES,
@@ -156,7 +157,8 @@ export function buildCodeMatrixRuntimeCsp(language, assets = '') {
   let scripts = language === 'python' ? `${pyodide}pyodide.js ${pyodide}pyodide.asm.js`
     : language === 'sql' ? `${sql}sql-wasm.js` : '';
   let connections = language === 'python'
-    ? `${pyodide}pyodide.asm.wasm ${pyodide}python_stdlib.zip ${pyodide}pyodide-lock.json`
+    ? ['pyodide.asm.wasm', 'python_stdlib.zip', 'pyodide-lock.json', ...CODE_MATRIX_PYTHON_PACKAGE_FILES]
+      .map((name) => pyodide + name).join(' ')
     : language === 'sql' ? `${sql}sql-wasm.js ${sql}sql-wasm.wasm` : "'none'";
   if (['c', 'cpp'].includes(language)) connections = ['clang', 'lld', 'memfs', 'sysroot.tar', 'shared.js'].map((name) => `${assets}clang/${name}`).join(' ');
   if (language === 'java') {
@@ -264,8 +266,8 @@ function buildFrameSource(language, token, assets, compiledPractice = false) {
 /**
  * Browser-only, one fresh opaque-origin iframe + worker per call. No app code,
  * cookies, storage, DOM, APIs, or arbitrary network are exposed to user code.
- * Only the exact pinned core runtime assets are allowed by the inherited CSP;
- * extra Python packages, external JS imports and SQL extensions are unsupported.
+ * Only exact pinned runtime and bundled Python package assets are allowed by
+ * the inherited CSP; external packages, JS imports and SQL extensions are unsupported.
  *
  * @param {{language: 'javascript'|'js'|'python'|'py'|'sql'|'sqlite'|'c'|'cpp'|'java', code: string,
  *   input?: string, interactive?: boolean, debug?: boolean,

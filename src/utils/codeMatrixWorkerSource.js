@@ -1,5 +1,6 @@
 import { prepareCodeMatrixCompiler } from './codeMatrixCompilers.js';
 import { prepareCodeMatrixJavaScript } from './codeMatrixJavaScript.js';
+import { CODE_MATRIX_PYTHON_PACKAGE_IMPORTS } from './codeMatrixPythonPackages.js';
 // Only serialize this module's worker entry point; never invoke it in the app.
 export const CODE_MATRIX_LIMITS = Object.freeze({
   bootMs: 120_000,
@@ -94,7 +95,7 @@ export function normalizeCodeMatrixResult(raw, limits = CODE_MATRIX_LIMITS, boun
 
 // Executed only by the opaque-origin iframe's blob Worker. Keep dependencies
 // explicit so bundlers cannot accidentally move execution into the app realm.
-function codeMatrixWorkerMain(limits, runtimes, readLines, bound, normalize, prepareCompiler, prepareJavaScript) {
+function codeMatrixWorkerMain(limits, runtimes, readLines, bound, normalize, prepareCompiler, prepareJavaScript, bundledPythonImports) {
   const scope = globalThis;
   const now = performance.now.bind(performance);
   let connected = false;
@@ -219,6 +220,9 @@ function codeMatrixWorkerMain(limits, runtimes, readLines, bound, normalize, pre
         scope.importScripts(runtimes.pyodide + 'pyodide.js');
         python = await scope.loadPyodide({
           indexURL: runtimes.pyodide,
+          // The worker has no DOM for Pyodide's interactive plotting backend.
+          // Agg supports creating/saving figures in this console workspace.
+          env: { MPLBACKEND: 'Agg' },
           stdin: recordedLine,
           stdout: (line) => append('stdout', line + '\n'),
           stderr: (line) => append('stderr', line + '\n'),
@@ -228,6 +232,60 @@ function codeMatrixWorkerMain(limits, runtimes, readLines, bound, normalize, pre
         const errDecoder = new TextDecoder();
         python.setStdout({ write: (bytes) => { append('stdout', outDecoder.decode(bytes, { stream: true })); return bytes.length; } });
         python.setStderr({ write: (bytes) => { append('stderr', errDecoder.decode(bytes, { stream: true })); return bytes.length; } });
+        // Resolve imports and their bundled dependencies during preparation,
+        // before ready starts the student's execution budget. Keep installer
+        // messages out of stdout so they cannot change practice results.
+        const packageErrors = [];
+        await python.loadPackagesFromImports(job.code, {
+          checkIntegrity: true,
+          messageCallback: () => {},
+          errorCallback: (message) => {
+            if (packageErrors.length < 20) packageErrors.push(bound(String(message), limits.cellChars));
+          },
+        });
+        // Pyodide reports some download failures via callbacks without rejecting.
+        if (packageErrors.length) {
+          throw new Error('Could not load Python packages. Please retry.\n' + packageErrors.join('\n'));
+        }
+        // First imports can initialize large native libraries. Prepare the
+        // initial bundled imports before starting the run clock or debugger.
+        // Stop before source configuration/other statements; import failures
+        // still belong to the actual execution below.
+        python.globals.set('_cm_prepare_source', job.code);
+        python.globals.set('_cm_package_imports_json', JSON.stringify(bundledPythonImports));
+        await python.runPythonAsync(`
+def _cm_prepare_imports(source, bundled_json):
+    import ast, importlib, json
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return
+    bundled = set(json.loads(bundled_json))
+    modules = []
+    for index, node in enumerate(tree.body):
+        if index == 0 and isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            continue
+        if isinstance(node, ast.Import):
+            modules.extend((alias.name, ()) for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            modules.append((node.module, tuple(alias.name for alias in node.names)))
+        else:
+            break
+    for module, members in dict.fromkeys(modules):
+        if module.split('.')[0] not in bundled:
+            continue
+        try:
+            package = importlib.import_module(module)
+            if hasattr(package, '__path__'):
+                for member in members:
+                    if member != '*' and not hasattr(package, member):
+                        importlib.import_module(module + '.' + member)
+        except Exception:
+            # Preserve student output and source locations for failed imports.
+            pass
+_cm_prepare_imports(_cm_prepare_source, _cm_package_imports_json)
+del _cm_prepare_imports, _cm_prepare_source, _cm_package_imports_json
+`);
         if (job.interactive) {
           python.registerJsModule('code_matrix_terminal', { readLine });
           await python.runPythonAsync(`
@@ -418,5 +476,5 @@ await _cm_execute(_cm_source, _cm_debug, _cm_capture, _cm_trace_limit, _cm_local
 }
 
 export function buildCodeMatrixWorkerSource() {
-  return `(${codeMatrixWorkerMain.toString()})(${JSON.stringify(CODE_MATRIX_LIMITS)},${JSON.stringify(CODE_MATRIX_RUNTIMES)},${createCodeMatrixLineReader.toString()},${boundCodeMatrixText.toString()},${normalizeCodeMatrixResult.toString()},${prepareCodeMatrixCompiler.toString()},${prepareCodeMatrixJavaScript.toString()});`;
+  return `(${codeMatrixWorkerMain.toString()})(${JSON.stringify(CODE_MATRIX_LIMITS)},${JSON.stringify(CODE_MATRIX_RUNTIMES)},${createCodeMatrixLineReader.toString()},${boundCodeMatrixText.toString()},${normalizeCodeMatrixResult.toString()},${prepareCodeMatrixCompiler.toString()},${prepareCodeMatrixJavaScript.toString()},${JSON.stringify(CODE_MATRIX_PYTHON_PACKAGE_IMPORTS)});`;
 }

@@ -79,7 +79,7 @@ The workspace offers writing, running, and debugging without a lessons submodule
 
 | Language | Execution and debugging |
 | --- | --- |
-| Python | Pyodide 0.27.7, with live terminal input, exceptions and up to 200 recorded line/variable steps. Variables are captured before each line. |
+| Python | Pyodide 0.27.7, with automatic loading of imported bundled packages (including pandas, NumPy and Matplotlib), live terminal input, exceptions and up to 200 recorded line/variable steps. Variables are captured before each line. |
 | JavaScript | QuickJS 0.32.0 adapter with console output, runtime errors, synchronous `readLine()` / `prompt()` input, and awaited code/timers. |
 | SQL | sql.js 1.13.0 (SQLite dialect). Each run gets a fresh `students(id, name, age, grade, marks)` practice database; results are bounded tables. |
 | HTML / CSS / JavaScript | Combined isolated webpage preview. JavaScript in `script.js`, inline HTML scripts, and inline event handlers run with cooperative loop and recursion guards. External resources remain blocked. |
@@ -97,11 +97,13 @@ npm ci
 npm run dev
 ```
 
-Run the existing application backend as usual for login and draft synchronization. Student programs execute in a fresh browser worker inside an opaque-origin iframe; they do not run as processes on the app server. Programs get no access to account storage or arbitrary network resources. The compiler supports console exercises and standard libraries, with no external packages, operating-system integration, Java GUI, or multi-file project tooling. C/C++ file-system operations beyond stdin/stdout are unsupported. Java's temporary files disappear after every run.
+Run the existing application backend as usual for login and draft synchronization. Student programs execute in a fresh browser worker inside an opaque-origin iframe; they do not run as processes on the app server. Programs get no access to account storage or arbitrary network resources. The compiler supports console exercises, standard libraries and Python packages bundled with the pinned Pyodide release. Imports and their dependencies load before the execution timer starts, and bundled imports in the initial import block initialize during preparation. Installer messages do not appear in program output. Installing packages from PyPI or arbitrary URLs, operating-system integration, Java GUI, and multi-file project tooling are unsupported. Matplotlib uses the Agg backend for figure creation/saving; the terminal does not display plots or download generated files. C/C++ file-system operations beyond stdin/stdout are unsupported. Java's temporary files disappear after every run.
 
 Runtime loading/compilation has a two-minute deadline. Execution has a cumulative 10-second deadline, excluding time waiting for terminal input (up to five minutes per prompt). Input and output are bounded. Debug shows compiler/runtime errors and source locations; Python additionally supports stepping through a recorded trace. Full live breakpoint debugging is not provided.
 
 `npm run build` verifies the bundled runtime checksums before building. To restore or rebuild compiler assets, run `npm run codematrix:assets` (requires internet, `tar`, and installed npm dependencies). Sources and hashes are pinned in `scripts/code-matrix/sources.json`; bundled assets and license notices live under `public/code-matrix/runtime`. Include this directory when publishing the frontend. Vite, Vite preview, Express, and Vercel configurations allow the isolated runtime to fetch these public files with CORS; other hosts need `Access-Control-Allow-Origin: *` on this directory and must serve its files before the SPA fallback.
+
+Python's sandbox permits only exact package filenames from the pinned release's lock file. After changing the Pyodide runtime version, regenerate this allowlist with `node scripts/code-matrix/python-packages.mjs --build`; use `--check` to compare it with the published lock file (both commands require internet).
 
 The existing authenticated Judge0 API endpoints remain available for older clients, but the CodeMatrix page does not call them. `JUDGE0_CE_*` variables are optional and can stay blank for this browser compiler.
 
@@ -113,7 +115,7 @@ Incomplete or invalid hints receive one automatic corrective attempt within the 
 
 Run focused regression checks with `node --test src/utils/codeMatrix*.test.js server/codeMatrix*.test.js`. Coverage includes profile eligibility, setup progress, drafts, authentication/scope boundaries, compiler adapter failures, cancellation, output limits, and preview guards.
 
-For real browser runtime checks, start Vite and open `/scripts/code-matrix/browser-smoke.html`, then select **Run smoke tests**. The page checks C/C++ standard input, Java Scanner/EOF, JavaScript input after `await`, Python blank input/EOF, SQLite tables, error line numbers, cancellation, and the execution deadline. Append `?language=javascript` to check one language. This development fixture is not included in the application build.
+For real browser runtime checks, start Vite and open `/scripts/code-matrix/browser-smoke.html`, then select **Run smoke tests**. The page checks C/C++ standard input, Java Scanner/EOF, JavaScript input after `await`, Python blank input/EOF, scientific package imports, figure creation and missing-package errors, SQLite tables, error line numbers, cancellation, and the execution deadline. Append `?language=javascript` to check one language. This development fixture is not included in the application build.
 
 ## 📄 License
 

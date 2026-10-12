@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
+import { CODE_MATRIX_PYTHON_PACKAGE_FILES, CODE_MATRIX_PYTHON_PACKAGE_VERSION } from './codeMatrixPythonPackages.js';
 import {
   createCodeMatrixBrowserRun,
   createCodeMatrixCompiledPracticeRun,
@@ -43,8 +44,20 @@ test('CSP allows only exact pinned assets and denies app/network sources', () =>
     assert.deepEqual(directives['form-action'], ["'none'"]);
     assert.doesNotMatch(csp, /'self'|\*|\/api|allow-same-origin/);
     const urls = [...directives['script-src'], ...directives['connect-src']].filter((value) => value.startsWith('https:'));
+    const packageUrls = new Set(CODE_MATRIX_PYTHON_PACKAGE_FILES.map((file) => `https://cdn.jsdelivr.net/pyodide/v${CODE_MATRIX_PYTHON_PACKAGE_VERSION}/full/${file}`));
     for (const url of urls) {
-      assert.match(url, /^https:\/\/cdn\.jsdelivr\.net\/(pyodide\/v0\.27\.7\/full\/(pyodide\.(js|asm\.js|asm\.wasm)|python_stdlib\.zip|pyodide-lock\.json)|npm\/sql\.js@1\.13\.0\/dist\/sql-wasm\.(js|wasm))$/);
+      if (!packageUrls.has(url)) {
+        assert.match(url, /^https:\/\/cdn\.jsdelivr\.net\/(pyodide\/v0\.27\.7\/full\/(pyodide\.(js|asm\.js|asm\.wasm)|python_stdlib\.zip|pyodide-lock\.json)|npm\/sql\.js@1\.13\.0\/dist\/sql-wasm\.(js|wasm))$/);
+      }
+    }
+    if (language === 'python') {
+      assert.equal(directives['connect-src'].length, packageUrls.size + 3);
+      assert.ok([...packageUrls].every((url) => directives['connect-src'].includes(url)));
+      assert.ok(directives['script-src'].every((url) => !packageUrls.has(url)));
+      for (const name of ['pandas', 'numpy', 'matplotlib', 'python_dateutil', 'pytz', 'pillow', 'matplotlib_pyodide']) {
+        assert.ok(CODE_MATRIX_PYTHON_PACKAGE_FILES.some((file) => file.startsWith(name + '-') && file.endsWith('.whl')), name);
+      }
+      assert.ok(CODE_MATRIX_PYTHON_PACKAGE_FILES.every((file) => /^[A-Za-z0-9_.+-]+\.(whl|zip|tar)$/.test(file)));
     }
     if (language === 'javascript') assert.deepEqual(directives['connect-src'], ["'none'"]);
   }
@@ -167,6 +180,81 @@ test('worker runtime download failure is an error before execution', async () =>
   assert.equal(result.durationMs, 0);
   assert.match(result.stderr, /CDN unavailable/);
   assert.ok(!messages.some((message) => message.type === 'ready'));
+});
+
+test('Python awaits imported packages before terminal setup and execution without spending the run budget or changing stdout', async () => {
+  const code = 'import pandas as pd\nfrom numpy import array\nimport matplotlib.pyplot as plt\nprint("ready")';
+  for (const interactive of [false, true]) {
+    const calls = [];
+    const globals = new Map();
+    let clock = 1;
+    const { result, messages } = await runWorker({ language: 'python', code, interactive, debug: true }, {
+      performance: { now: () => clock },
+      WebAssembly: { Suspending() {}, promising() {} },
+      importScripts() {},
+      async loadPyodide(options) {
+        assert.equal(options.env.MPLBACKEND, 'Agg');
+        return {
+          globals,
+          setStdout() {}, setStderr() {},
+          async loadPackagesFromImports(source, options) {
+            calls.push('packages:start');
+            assert.equal(source, code);
+            assert.equal(options.checkIntegrity, true);
+            options.messageCallback('Loading numpy, pandas, matplotlib');
+            await Promise.resolve();
+            clock += 109_000;
+            calls.push('packages:complete');
+          },
+          registerJsModule() { calls.push('terminal:register'); },
+          async runPythonAsync(source) {
+            if (source.includes('def _cm_prepare_imports(')) {
+              calls.push('packages:initialize');
+              assert.equal(globals.get('_cm_prepare_source'), code);
+              const imports = JSON.parse(globals.get('_cm_package_imports_json'));
+              assert.ok(['numpy', 'pandas', 'matplotlib'].every((name) => imports.includes(name)));
+              clock += 10_000;
+            } else if (source.includes('sys.stdin = _CodeMatrixInput()')) {
+              calls.push('terminal:setup');
+            } else {
+              calls.push('execute');
+              assert.equal(globals.get('_cm_source'), code);
+              assert.equal(globals.get('_cm_debug'), true);
+              clock += 50;
+            }
+          },
+        };
+      },
+    });
+    assert.deepEqual(calls, ['packages:start', 'packages:complete', 'packages:initialize', ...(interactive ? ['terminal:register', 'terminal:setup'] : []), 'execute']);
+    assert.equal(result.status, 'success');
+    assert.equal(result.durationMs, 50);
+    assert.equal(result.stdout, '');
+    assert.equal(result.stderr, '');
+    assert.equal(messages.filter((message) => message.type === 'ready').length, 1);
+  }
+});
+
+test('Python package failures stop preparation before executing student code, including failures reported only by callback', async () => {
+  for (const reportedByCallback of [false, true]) {
+    const { result, messages } = await runWorker({ language: 'python', code: 'import pandas' }, {
+      importScripts() {},
+      async loadPyodide() {
+        return {
+          setStdout() {}, setStderr() {},
+          async loadPackagesFromImports(_source, options) {
+            if (reportedByCallback) options.errorCallback('pandas download failed');
+            else throw new Error('pandas download failed');
+          },
+          runPythonAsync() { assert.fail('student code must not execute after package loading fails'); },
+        };
+      },
+    });
+    assert.equal(result.status, 'error');
+    assert.equal(result.durationMs, 0);
+    assert.match(result.stderr, /pandas download failed/);
+    assert.ok(!messages.some((message) => message.type === 'ready'));
+  }
 });
 
 function mockBrowser(t) {
