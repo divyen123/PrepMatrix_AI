@@ -79,6 +79,8 @@ export default function ResumeAnalyzerDialog({
   const [uploadedText, setUploadedText] = useState("");
   const [uploadedName, setUploadedName] = useState("");
   const [jobDescription, setJobDescription] = useState(builderHeadline);
+  const [targetInputEdited, setTargetInputEdited] = useState(false);
+  const [isDraggingResume, setIsDraggingResume] = useState(false);
   const [fileLoading, setFileLoading] = useState(false);
   const [error, setError] = useState(() => !initialResults && autoAnalyze && builderHasContent && !builderHeadline
     ? "Add a professional headline to your draft or enter a job role below."
@@ -96,10 +98,14 @@ export default function ResumeAnalyzerDialog({
   const [saveStatus, setSaveStatus] = useState("idle");
   const findings = results?.findings?.slice().sort((a, b) => (FINDING_PRIORITY[a.priority] ?? 3) - (FINDING_PRIORITY[b.priority] ?? 3)) || [];
   const eligibility = results?.eligibilityReview || analyzeResumeEligibility();
+  const isRoleProfileEligibility = eligibility.basis === "role-profile";
+  const isHybridEligibility = eligibility.basis === "hybrid";
+  const eligibilityTargetRole = eligibility.targetRole || results?.targetRole || results?.roleNames?.[0] || "this role";
   const [isClosing, setIsClosing] = useState(false);
   const [eligibilityHelpOpen, setEligibilityHelpOpen] = useState(false);
   const [showAllFindings, setShowAllFindings] = useState(false);
   const uploadSequence = useRef(0);
+  const resumeDropDepth = useRef(0);
   const exitTimer = useRef(null);
 
   const requestClose = useCallback((afterClose = onClose) => {
@@ -121,10 +127,13 @@ export default function ResumeAnalyzerDialog({
           draft: analysisRequest.draft,
           resumeText: analysisRequest.resumeText,
           jobDescription: analysisRequest.jobDescription,
+          roleAnalysis: nextResults,
         });
-        setResults(analysisRequest.automatic
-          ? { ...nextResults, targetRole: analysisRequest.jobDescription, eligibilityReview }
-          : { ...nextResults, eligibilityReview });
+        setResults({
+          ...nextResults,
+          targetRole: eligibilityReview.targetRole || nextResults.targetRole || analysisRequest.jobDescription,
+          eligibilityReview,
+        });
         setResultSource(analysisRequest.source);
         setSaveStatus("idle");
         setEligibilityHelpOpen(false);
@@ -187,7 +196,15 @@ export default function ResumeAnalyzerDialog({
 
   const chooseSource = (nextSource) => {
     uploadSequence.current += 1;
+    resumeDropDepth.current = 0;
+    setIsDraggingResume(false);
     setSource(nextSource);
+    if (!targetInputEdited && nextSource !== "builder" && jobDescription.trim() === builderHeadline) {
+      setJobDescription("");
+    }
+    if (!targetInputEdited && nextSource === "builder" && !jobDescription.trim()) {
+      setJobDescription(builderHeadline);
+    }
     setFileLoading(false);
     setError("");
   };
@@ -207,8 +224,7 @@ export default function ResumeAnalyzerDialog({
     setView("results");
   };
 
-  const handleUpload = async (event) => {
-    const file = event.target.files?.[0];
+  const readResumeFile = async (file) => {
     const sequence = ++uploadSequence.current;
     setUploadedText("");
     setUploadedName("");
@@ -218,7 +234,6 @@ export default function ResumeAnalyzerDialog({
     const accepted = /\.(pdf|txt)$/i.test(file.name);
     if (!accepted || file.size === 0 || file.size > MAX_RESUME_FILE_BYTES) {
       setError("Choose a PDF or .txt resume smaller than 5 MB.");
-      event.target.value = "";
       return;
     }
 
@@ -233,10 +248,34 @@ export default function ResumeAnalyzerDialog({
     } catch (uploadError) {
       if (sequence !== uploadSequence.current) return;
       setError(uploadError instanceof Error ? uploadError.message : "The resume could not be read.");
-      event.target.value = "";
     } finally {
       if (sequence === uploadSequence.current) setFileLoading(false);
     }
+  };
+
+  const handleUpload = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    void readResumeFile(file);
+  };
+
+  const handleResumeDragEnter = (event) => {
+    event.preventDefault();
+    resumeDropDepth.current += 1;
+    setIsDraggingResume(true);
+  };
+
+  const handleResumeDragLeave = (event) => {
+    event.preventDefault();
+    resumeDropDepth.current = Math.max(0, resumeDropDepth.current - 1);
+    if (resumeDropDepth.current === 0) setIsDraggingResume(false);
+  };
+
+  const handleResumeDrop = (event) => {
+    event.preventDefault();
+    resumeDropDepth.current = 0;
+    setIsDraggingResume(false);
+    void readResumeFile(event.dataTransfer?.files?.[0]);
   };
 
   const handleAnalyze = () => {
@@ -400,10 +439,16 @@ export default function ResumeAnalyzerDialog({
             </div>
           )}
           {source === "upload" && (
-            <label className="resume-analyzer-upload">
+            <label
+              className={`resume-analyzer-upload${isDraggingResume ? " is-dragging" : ""}`}
+              onDragEnter={handleResumeDragEnter}
+              onDragLeave={handleResumeDragLeave}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={handleResumeDrop}
+            >
               <UploadCloud size={25} aria-hidden="true" />
-              <strong>{fileLoading ? "Reading resume…" : uploadedName || "Choose a resume file"}</strong>
-              <span>{uploadedName ? "Choose another PDF or .txt file" : "PDF or .txt · maximum 5 MB"}</span>
+              <strong>{fileLoading ? "Reading resume…" : uploadedName || (isDraggingResume ? "Drop your resume here" : "Drop a resume here or choose a file")}</strong>
+              <span>{uploadedName ? "Drop or choose another PDF or .txt file" : "PDF or .txt · maximum 5 MB"}</span>
               <input accept=".pdf,.txt,application/pdf,text/plain" aria-label="Upload resume" disabled={fileLoading} onChange={handleUpload} type="file" />
             </label>
           )}
@@ -430,11 +475,12 @@ export default function ResumeAnalyzerDialog({
             <textarea
               aria-label="Job role or description"
               maxLength={MAX_JOB_DESCRIPTION_LENGTH}
-              onChange={(event) => { setJobDescription(event.target.value); setError(""); }}
+              onChange={(event) => { setTargetInputEdited(true); setJobDescription(event.target.value); setError(""); }}
               placeholder="e.g. Software developer, or paste a job description…"
               rows={1}
               value={jobDescription}
             />
+            <p className="resume-analyzer-job-hint">A job title compares common role skills. A full job description also checks its named qualifications, experience, credentials, and skills.</p>
           </div>
           <div className="resume-analyzer-actions">
             <button disabled={fileLoading} onClick={handleAnalyze} type="button"><FileSearch size={16} aria-hidden="true" /> Review</button>
@@ -486,7 +532,7 @@ export default function ResumeAnalyzerDialog({
               <div className="resume-analyzer-eligibility__title">
                 <span className="resume-analyzer-eligibility__icon"><ShieldCheck size={19} aria-hidden="true" /></span>
                 <div>
-                  <span className="resume-analyzer-eligibility__eyebrow">Job requirements</span>
+                  <span className="resume-analyzer-eligibility__eyebrow">{isRoleProfileEligibility ? "Role profile" : isHybridEligibility ? "Role + job requirements" : "Job requirements"}</span>
                   <h3 id="resume-analyzer-eligibility-title">Eligibility check</h3>
                 </div>
               </div>
@@ -508,11 +554,15 @@ export default function ResumeAnalyzerDialog({
                   className="resume-analyzer-eligibility-dial"
                   figureSize="29px"
                   ink="color-mix(in srgb, var(--text, #eef3fb) 45%, transparent)"
-                  label="Eligibility requirements with evidence in the resume"
+                  label={isRoleProfileEligibility
+                    ? `${eligibilityTargetRole} role match based on resume evidence`
+                    : isHybridEligibility
+                      ? `${eligibilityTargetRole} role and job requirements with resume evidence`
+                      : "Job requirements with evidence in the resume"}
                   readOnly
                   size={146}
                   speed={48}
-                  sublabel="evidence found"
+                  sublabel={eligibility.scoreLabel || "evidence found"}
                   thickness={5}
                   unit="%"
                   value={eligibility.score}
@@ -521,30 +571,43 @@ export default function ResumeAnalyzerDialog({
                 <div className="resume-analyzer-eligibility-unassessed">
                   <span><ShieldCheck size={23} aria-hidden="true" /></span>
                   <strong>{eligibility.criteria.length ? "Manual review" : "Not assessed"}</strong>
-                  <small>{eligibility.criteria.length ? "No criteria can be scored automatically" : "Paste a job description to check requirements"}</small>
+                  <small>{eligibility.criteria.length ? "No criteria can be scored automatically" : "Enter a recognized role or paste a job description"}</small>
                 </div>
               )}
               <div className="resume-analyzer-eligibility__copy">
-                {eligibility.score !== null ? (
+                {eligibility.score !== null ? isRoleProfileEligibility ? (
                   <>
-                    <strong>{eligibility.metCount} of {eligibility.checkableCount} requirement{eligibility.checkableCount === 1 ? " has" : "s have"} resume evidence</strong>
-                    <p>{eligibility.reviewCount > 0
-                      ? `${eligibility.reviewCount} item${eligibility.reviewCount === 1 ? " needs" : "s need"} a manual check. Review the details below before applying.`
-                      : "Review the requirement details below to confirm each item."}</p>
+                    <strong>{eligibility.evidenceCount} of {eligibility.roleSkillCount} common {eligibilityTargetRole} skill{eligibility.roleSkillCount === 1 ? " has" : "s have"} a concrete example</strong>
+                    <p>{eligibility.mentionedCount > 0
+                      ? `${eligibility.mentionedCount} skill${eligibility.mentionedCount === 1 ? " is" : "s are"} mentioned but need a clearer project or experience example. Review the details below.`
+                      : "The score uses concrete project and experience evidence from the resume."}</p>
                   </>
                 ) : (
                   <>
-                    <strong>{eligibility.criteria.length ? "Some requirements need your review" : "Add a job description for an eligibility check"}</strong>
+                    <strong>{eligibility.evidenceCount} of {eligibility.checkableCount} {isHybridEligibility ? "role and job criteria" : "requirement"}{isHybridEligibility ? " have" : eligibility.checkableCount === 1 ? " has" : "s have"} resume evidence</strong>
+                    <p>{eligibility.reviewCount > 0
+                      ? `${eligibility.reviewCount} item${eligibility.reviewCount === 1 ? " needs" : "s need"} a manual check. Review the details below before applying.`
+                      : isHybridEligibility
+                        ? "The score combines the role profile with the requirements named in the posting."
+                        : "Review the requirement details below to confirm each item."}</p>
+                  </>
+                ) : (
+                  <>
+                    <strong>{eligibility.criteria.length ? "Some requirements need your review" : "Add a clearer role or job description"}</strong>
                     <p>{eligibility.criteria.length
                       ? `${eligibility.reviewCount} requirement${eligibility.reviewCount === 1 ? " needs" : "s need"} a manual check. This tool does not decide eligibility.`
-                      : "A role title gives us common skills to compare, but not the must-have criteria needed for an eligibility check."}</p>
+                      : "A recognized role title compares common role skills. A full job description gives a more precise requirement check."}</p>
                   </>
                 )}
-                <p className="resume-analyzer-eligibility__note">“Not shown” means the resume doesn’t mention it; it does not mean you are ineligible.</p>
+                <p className="resume-analyzer-eligibility__note">“Not shown” means the resume does not mention it; it does not mean you are ineligible.</p>
               </div>
             </div>
             <div className="resume-analyzer-eligibility-help" hidden={!eligibilityHelpOpen} id="resume-analyzer-eligibility-help">
-              The dial counts explicit, checkable requirements from the job description that have matching resume evidence. Location and work authorization require your own confirmation. Missing information is flagged for review, never treated as an automatic rejection.
+              {isRoleProfileEligibility
+                ? `For a role title, the dial compares your resume with common ${eligibilityTargetRole} skills. Concrete project or experience examples carry the most weight; a skill listed without an example receives partial credit.`
+                : isHybridEligibility
+                  ? `The dial combines common ${eligibilityTargetRole} skills with the explicit requirements in the job description. A skill named in the posting is counted once. Location and work authorization still need your confirmation.`
+                  : "For a job description, the dial compares named skills and explicit, checkable requirements with resume evidence. Location and work authorization require your own confirmation. Missing information is flagged for review, never treated as an automatic rejection."}
             </div>
             {eligibility.criteria.length > 0 ? (
               <div className="resume-analyzer-eligibility-list" aria-label="Eligibility requirement details">
@@ -556,7 +619,7 @@ export default function ResumeAnalyzerDialog({
                       <ChevronDown className="resume-analyzer-eligibility-chevron" size={17} aria-hidden="true" />
                     </summary>
                     <div className="resume-analyzer-eligibility-item__detail">
-                      <p><strong>Job asks:</strong> {criterion.requirement}</p>
+                      <p><strong>{criterion.source === "role-profile" ? "Role profile looks for:" : criterion.type === "skill" ? "Job mentions:" : "Job asks:"}</strong> {criterion.requirement}</p>
                       {criterion.evidence && <p><strong>Resume evidence:</strong> {criterion.evidence}</p>}
                       <p>{criterion.note}</p>
                     </div>
@@ -564,7 +627,7 @@ export default function ResumeAnalyzerDialog({
                 ))}
               </div>
             ) : (
-              <p className="resume-analyzer-eligibility-empty">No explicit must-have eligibility criteria were detected. Paste the full job description to check qualifications, experience, or required credentials.</p>
+              <p className="resume-analyzer-eligibility-empty">No role profile or explicit job requirements could be identified. Enter a clearer role title or paste the full job description.</p>
             )}
           </section>
           {findings.length ? (

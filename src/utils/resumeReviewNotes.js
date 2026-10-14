@@ -44,7 +44,11 @@ export function formatResumeReviewNote(results, findings = []) {
   if (eligibility?.criteria?.length) {
     const summary = eligibility.score === null
       ? "Manual review needed; eligibility was not scored."
-      : `Resume evidence found for ${eligibility.metCount} of ${eligibility.checkableCount} comparable requirements (${eligibility.score}%).`;
+      : eligibility.basis === "role-profile"
+        ? `Role-profile match for ${eligibility.targetRole || targetRole}: ${eligibility.evidenceCount ?? eligibility.metCount} of ${eligibility.roleSkillCount ?? eligibility.checkableCount} common skills have concrete resume evidence (${eligibility.score}%).`
+        : eligibility.basis === "hybrid"
+          ? `Role and job match for ${eligibility.targetRole || targetRole}: ${eligibility.evidenceCount ?? eligibility.metCount} of ${eligibility.checkableCount} criteria have resume evidence (${eligibility.score}%).`
+        : `Resume evidence found for ${eligibility.evidenceCount ?? eligibility.metCount} of ${eligibility.checkableCount} comparable requirements (${eligibility.score}%).`;
     const statusLabels = { evidence: "Evidence found", "not-shown": "Not shown", review: "Review manually", manual: "Check manually" };
     const criteria = eligibility.criteria.map((item) => {
       const requirement = String(item.requirement || "").slice(0, 220);

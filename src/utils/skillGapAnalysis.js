@@ -130,8 +130,18 @@ const ROLE_PROFILES = [
   },
   {
     name: "UI/UX designer",
-    pattern: /\b(?:ui(?:\s*\/\s*ux)?|ux|user\s+(?:interface|experience))\s+design(?:er)?\b/i,
+    pattern: /\b(?:ui\s*(?:\/|&|\s)\s*ux|ux\s*(?:\/|&|\s)\s*ui|ui|ux|user\s+(?:interface|experience))\s+design(?:er)?\b/i,
     skills: ["Figma", "Wireframing", "Prototyping", "User research", "Design systems", "Accessibility", "Communication"],
+  },
+  {
+    name: "Product designer",
+    pattern: /\bproduct\s+design(?:er)?\b/i,
+    skills: ["Figma", "Wireframing", "Prototyping", "User research", "Design systems", "Accessibility", "Communication"],
+  },
+  {
+    name: "UX researcher",
+    pattern: /\b(?:ux|user\s+experience)\s+research(?:er)?\b/i,
+    skills: ["User research", "Prototyping", "Figma", "Data analysis", "Accessibility", "Communication"],
   },
   {
     name: "Data analyst",
@@ -206,6 +216,12 @@ const ROLE_PROFILES = [
 ];
 
 const cleanLine = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+const normalizeRoleInput = (value) => cleanLine(value)
+  .replace(/\bfront[\s-]?ned\b/giu, "frontend")
+  .replace(/\bback[\s-]?ned\b/giu, "backend")
+  .replace(/\bfull[\s-]?stak\b/giu, "full stack")
+  .replace(/\bui\s*(?:and|&|\/|\s)\s*ux\b/giu, "ui/ux")
+  .replace(/\bux\s*(?:and|&|\/|\s)\s*ui\b/giu, "ui/ux");
 const linesOf = (value) => String(value ?? "").split(/\r?\n/).map(cleanLine).filter(Boolean);
 const clip = (value) => value.length > 240 ? `${value.slice(0, 237).trimEnd()}...` : value;
 
@@ -283,7 +299,7 @@ function requestedSkillsFromJob(jobDescription) {
 }
 
 function requestedSkillsFromRole(input) {
-  const title = cleanLine(input);
+  const title = normalizeRoleInput(input);
   const words = title.match(/\b[\p{L}\p{N}]+\b/gu) || [];
   // Long or instruction-like input is a job description, even if it names a
   // role. In that case only skills actually stated in the description count.
@@ -478,11 +494,11 @@ export function detectTargetRole(input = "", role = null) {
   if (role?.roleNames?.length) {
     return role.roleNames[0];
   }
-  const text = cleanLine(input);
+  const text = normalizeRoleInput(input);
   if (!text) return "Target role";
 
   const lines = linesOf(input);
-  const firstLine = cleanLine(lines[0] || "");
+  const firstLine = normalizeRoleInput(lines[0] || "");
 
   if (lines.length === 1 && text.length <= 50 && !/[:;.!?]/u.test(text)) {
     const match = ROLE_PROFILES.find((p) => p.pattern.test(text));
