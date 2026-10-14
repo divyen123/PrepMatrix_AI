@@ -4,14 +4,15 @@ const PREFERENCE_LANGUAGE = /\b(?:preferred|preferably|nice\s+to\s+have|optional
 const NOT_REQUIRED_LANGUAGE = /\b(?:not\s+(?:required|mandatory|essential)|no\s+.{0,40}\brequired|must\s+not)\b/i;
 
 function contentOfDraft(draft = {}) {
-  const personal = draft.personal || {};
+  const safeDraft = draft && typeof draft === "object" ? draft : {};
+  const personal = safeDraft.personal && typeof safeDraft.personal === "object" ? safeDraft.personal : {};
   const groups = [
-    personal.headline, personal.location, draft.summary, draft.skills, draft.tools,
-    draft.experience?.flatMap((item) => [item?.role, item?.organization, item?.startDate, item?.endDate, item?.highlights]),
-    draft.projects?.flatMap((item) => [item?.name, item?.technologies, item?.highlights]),
-    draft.education?.flatMap((item) => [item?.degree, item?.field, item?.institution, item?.startDate, item?.endDate]),
-    draft.certifications?.flatMap((item) => [item?.name, item?.issuer]),
-    draft.achievements?.flatMap((item) => [item?.title, item?.description]),
+    personal.headline, personal.location, safeDraft.summary, safeDraft.skills, safeDraft.tools,
+    safeDraft.experience?.flatMap((item) => [item?.role, item?.organization, item?.startDate, item?.endDate, item?.highlights]),
+    safeDraft.projects?.flatMap((item) => [item?.name, item?.technologies, item?.highlights]),
+    safeDraft.education?.flatMap((item) => [item?.degree, item?.field, item?.institution, item?.startDate, item?.endDate]),
+    safeDraft.certifications?.flatMap((item) => [item?.name, item?.issuer]),
+    safeDraft.achievements?.flatMap((item) => [item?.title, item?.description]),
   ];
   return groups.flat(3).filter(Boolean).map(cleanLine).filter(Boolean).join("\n");
 }
