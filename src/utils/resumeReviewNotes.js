@@ -40,6 +40,20 @@ export function formatResumeReviewNote(results, findings = []) {
     sections.push(`Matched skills:\n${list}`);
   }
 
+  const eligibility = results?.eligibilityReview;
+  if (eligibility?.criteria?.length) {
+    const summary = eligibility.score === null
+      ? "Manual review needed; eligibility was not scored."
+      : `Resume evidence found for ${eligibility.metCount} of ${eligibility.checkableCount} comparable requirements (${eligibility.score}%).`;
+    const statusLabels = { evidence: "Evidence found", "not-shown": "Not shown", review: "Review manually", manual: "Check manually" };
+    const criteria = eligibility.criteria.map((item) => {
+      const requirement = String(item.requirement || "").slice(0, 220);
+      const evidence = item.evidence ? `; resume evidence: ${String(item.evidence).slice(0, 220)}` : "";
+      return `• [${statusLabels[item.status] || "Review"}] ${item.title}: ${requirement}${evidence}`;
+    }).join("\n");
+    sections.push(`Eligibility check:\n${summary}\n${criteria}\nNot shown means the resume omits this detail; it does not prove ineligibility.`);
+  }
+
   sections.push("Saved from Resume Analyzer.");
   return sections.join("\n\n");
 }

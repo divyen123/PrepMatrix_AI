@@ -3,12 +3,15 @@ import { createPortal } from "react-dom";
 import {
   Check,
   CheckCircle2,
+  ChevronDown,
   ClipboardPaste,
+  CircleHelp,
   FileSearch,
   FileText,
   LoaderCircle,
   Plus,
   Save,
+  ShieldCheck,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -16,14 +19,22 @@ import api from "../utils/apiClient";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 import { normalizeResumeDraft } from "../utils/resumeBuilder";
 import { analyzeSkillGap } from "../utils/skillGapAnalysis";
+import { analyzeResumeEligibility } from "../utils/resumeEligibilityAnalysis";
 import { formatResumeReviewNote, getResumeReviewPriority } from "../utils/resumeReviewNotes";
+import CometDial from "./CometDial";
 import "./ResumeAnalyzerDialog.css";
 
 const MAX_RESUME_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_RESUME_TEXT_LENGTH = 50000;
 const MAX_JOB_DESCRIPTION_LENGTH = 12000;
-const DIALOG_EXIT_MS = 220;
+const DIALOG_EXIT_MS = 260;
 const FINDING_PRIORITY = { high: 0, medium: 1, low: 2 };
+const ELIGIBILITY_STATUS_LABELS = {
+  evidence: "Evidence found",
+  "not-shown": "Not shown",
+  review: "Review manually",
+  manual: "Check manually",
+};
 
 function hasResumeContent(draft) {
   return Boolean(
@@ -84,7 +95,10 @@ export default function ResumeAnalyzerDialog({
   } : null);
   const [saveStatus, setSaveStatus] = useState("idle");
   const findings = results?.findings?.slice().sort((a, b) => (FINDING_PRIORITY[a.priority] ?? 3) - (FINDING_PRIORITY[b.priority] ?? 3)) || [];
+  const eligibility = results?.eligibilityReview || analyzeResumeEligibility();
   const [isClosing, setIsClosing] = useState(false);
+  const [eligibilityHelpOpen, setEligibilityHelpOpen] = useState(false);
+  const [showAllFindings, setShowAllFindings] = useState(false);
   const uploadSequence = useRef(0);
   const exitTimer = useRef(null);
 
@@ -103,11 +117,18 @@ export default function ResumeAnalyzerDialog({
     const timer = window.setTimeout(() => {
       try {
         const nextResults = analyzeSkillGap(analysisRequest);
+        const eligibilityReview = analyzeResumeEligibility({
+          draft: analysisRequest.draft,
+          resumeText: analysisRequest.resumeText,
+          jobDescription: analysisRequest.jobDescription,
+        });
         setResults(analysisRequest.automatic
-          ? { ...nextResults, targetRole: analysisRequest.jobDescription }
-          : nextResults);
+          ? { ...nextResults, targetRole: analysisRequest.jobDescription, eligibilityReview }
+          : { ...nextResults, eligibilityReview });
         setResultSource(analysisRequest.source);
         setSaveStatus("idle");
+        setEligibilityHelpOpen(false);
+        setShowAllFindings(false);
         setView("results");
       } catch (analysisError) {
         setError(analysisError instanceof Error ? analysisError.message : "The resume could not be analyzed. Please try again.");
@@ -429,7 +450,7 @@ export default function ResumeAnalyzerDialog({
           <div className="resume-analyzer-results-heading">
             <div>
               <span className="resume-analyzer-eyebrow">{results.targetRole || (results.roleNames?.[0] || "Target role")}</span>
-              <h2>Where your resume can improve</h2>
+                  <h2>Your role review</h2>
             </div>
             <div className="resume-analyzer-results-actions">
               <button
@@ -460,9 +481,103 @@ export default function ResumeAnalyzerDialog({
               )}
             </div>
           </div>
+          <section className="resume-analyzer-eligibility" aria-labelledby="resume-analyzer-eligibility-title">
+            <div className="resume-analyzer-eligibility__header">
+              <div className="resume-analyzer-eligibility__title">
+                <span className="resume-analyzer-eligibility__icon"><ShieldCheck size={19} aria-hidden="true" /></span>
+                <div>
+                  <span className="resume-analyzer-eligibility__eyebrow">Job requirements</span>
+                  <h3 id="resume-analyzer-eligibility-title">Eligibility check</h3>
+                </div>
+              </div>
+              <button
+                aria-expanded={eligibilityHelpOpen}
+                aria-controls="resume-analyzer-eligibility-help"
+                className="resume-analyzer-help-toggle"
+                onClick={() => setEligibilityHelpOpen((open) => !open)}
+                type="button"
+              >
+                <CircleHelp size={16} aria-hidden="true" />
+                <span>{eligibilityHelpOpen ? "Hide details" : "How this works"}</span>
+              </button>
+            </div>
+            <div className="resume-analyzer-eligibility__summary">
+              {eligibility.score !== null ? (
+                <CometDial
+                  accent="var(--ra-accent)"
+                  className="resume-analyzer-eligibility-dial"
+                  figureSize="29px"
+                  ink="color-mix(in srgb, var(--text, #eef3fb) 45%, transparent)"
+                  label="Eligibility requirements with evidence in the resume"
+                  readOnly
+                  size={146}
+                  speed={48}
+                  sublabel="evidence found"
+                  thickness={5}
+                  unit="%"
+                  value={eligibility.score}
+                />
+              ) : (
+                <div className="resume-analyzer-eligibility-unassessed">
+                  <span><ShieldCheck size={23} aria-hidden="true" /></span>
+                  <strong>{eligibility.criteria.length ? "Manual review" : "Not assessed"}</strong>
+                  <small>{eligibility.criteria.length ? "No criteria can be scored automatically" : "Paste a job description to check requirements"}</small>
+                </div>
+              )}
+              <div className="resume-analyzer-eligibility__copy">
+                {eligibility.score !== null ? (
+                  <>
+                    <strong>{eligibility.metCount} of {eligibility.checkableCount} requirement{eligibility.checkableCount === 1 ? " has" : "s have"} resume evidence</strong>
+                    <p>{eligibility.reviewCount > 0
+                      ? `${eligibility.reviewCount} item${eligibility.reviewCount === 1 ? " needs" : "s need"} a manual check. Review the details below before applying.`
+                      : "Review the requirement details below to confirm each item."}</p>
+                  </>
+                ) : (
+                  <>
+                    <strong>{eligibility.criteria.length ? "Some requirements need your review" : "Add a job description for an eligibility check"}</strong>
+                    <p>{eligibility.criteria.length
+                      ? `${eligibility.reviewCount} requirement${eligibility.reviewCount === 1 ? " needs" : "s need"} a manual check. This tool does not decide eligibility.`
+                      : "A role title gives us common skills to compare, but not the must-have criteria needed for an eligibility check."}</p>
+                  </>
+                )}
+                <p className="resume-analyzer-eligibility__note">“Not shown” means the resume doesn’t mention it; it does not mean you are ineligible.</p>
+              </div>
+            </div>
+            <div className="resume-analyzer-eligibility-help" hidden={!eligibilityHelpOpen} id="resume-analyzer-eligibility-help">
+              The dial counts explicit, checkable requirements from the job description that have matching resume evidence. Location and work authorization require your own confirmation. Missing information is flagged for review, never treated as an automatic rejection.
+            </div>
+            {eligibility.criteria.length > 0 ? (
+              <div className="resume-analyzer-eligibility-list" aria-label="Eligibility requirement details">
+                {eligibility.criteria.map((criterion) => (
+                  <details className={`resume-analyzer-eligibility-item is-${criterion.status}`} key={criterion.id}>
+                    <summary>
+                      <span className={`resume-analyzer-eligibility-status is-${criterion.status}`}>{ELIGIBILITY_STATUS_LABELS[criterion.status]}</span>
+                      <span className="resume-analyzer-eligibility-item__title">{criterion.title}</span>
+                      <ChevronDown className="resume-analyzer-eligibility-chevron" size={17} aria-hidden="true" />
+                    </summary>
+                    <div className="resume-analyzer-eligibility-item__detail">
+                      <p><strong>Job asks:</strong> {criterion.requirement}</p>
+                      {criterion.evidence && <p><strong>Resume evidence:</strong> {criterion.evidence}</p>}
+                      <p>{criterion.note}</p>
+                    </div>
+                  </details>
+                ))}
+              </div>
+            ) : (
+              <p className="resume-analyzer-eligibility-empty">No explicit must-have eligibility criteria were detected. Paste the full job description to check qualifications, experience, or required credentials.</p>
+            )}
+          </section>
           {findings.length ? (
-            <ol className="resume-analyzer-findings">
-              {findings.map((finding) => (
+            <>
+              <div className="resume-analyzer-findings-heading">
+                <div>
+                  <span className="resume-analyzer-eligibility__eyebrow">Resume feedback</span>
+                  <h3>Where your resume can improve</h3>
+                </div>
+                <span>{findings.length} item{findings.length === 1 ? "" : "s"}</span>
+              </div>
+              <ol className="resume-analyzer-findings">
+              {(showAllFindings ? findings : findings.slice(0, 3)).map((finding) => (
                 <li className={`resume-analyzer-finding resume-analyzer-finding--${finding.priority}`} key={finding.id}>
                   <div className="resume-analyzer-finding__top">
                     <span className="resume-analyzer-finding__category">{finding.category}</span>
@@ -474,7 +589,13 @@ export default function ResumeAnalyzerDialog({
                   {finding.example && <p className="resume-analyzer-finding__example"><strong>Example structure:</strong> {finding.example}</p>}
                 </li>
               ))}
-            </ol>
+              </ol>
+              {findings.length > 3 && (
+                <button className="resume-analyzer-show-findings" onClick={() => setShowAllFindings((show) => !show)} type="button">
+                  {showAllFindings ? "Show top 3" : `Show all ${findings.length} suggestions`}
+                </button>
+              )}
+            </>
           ) : <p className="resume-analyzer-result-empty">No clear issues were found in the text provided. Review the role requirements below and check your resume manually before applying.</p>}
           {results.requestedSkills.length > 0 ? (
             <div className="resume-analyzer-result-panel resume-analyzer-role-panel">
