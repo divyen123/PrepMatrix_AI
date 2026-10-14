@@ -393,7 +393,7 @@ body .resume-analyzer-page .resume-analyzer-show-findings:focus-visible { border
 body .resume-analyzer-page .resume-analyzer-help-toggle:focus-visible,
 body .resume-analyzer-page .resume-analyzer-show-findings:focus-visible { outline-color: var(--ra-accent); }
 .resume-analyzer-eligibility__summary { align-items: center; display: grid; gap: 18px; grid-template-columns: 154px minmax(0, 1fr); min-width: 0; }
-.resume-analyzer-eligibility-dial { flex: none; margin: -5px 0; }
+.resume-analyzer-eligibility-dial { filter: drop-shadow(0 0 9px color-mix(in srgb, var(--cd-accent) 18%, transparent)); flex: none; margin: -5px 0; }
 .resume-analyzer-eligibility__copy { min-width: 0; }
 .resume-analyzer-eligibility__copy > strong { color: var(--text, #eef3fb); display: block; font-size: clamp(1rem, 2vw, 1.25rem); letter-spacing: -.025em; line-height: 1.35; }
 .resume-analyzer-eligibility__copy p { color: var(--text-muted, #9aa8c0); font-size: .88rem; line-height: 1.55; margin: 7px 0 0; }
@@ -404,20 +404,22 @@ body .resume-analyzer-page .resume-analyzer-show-findings:focus-visible { outlin
 .resume-analyzer-eligibility-unassessed small { color: var(--text-muted, #9aa8c0); font-size: .72rem; line-height: 1.35; max-width: 24ch; }
 .resume-analyzer-eligibility-help { background: color-mix(in srgb, var(--ra-accent) 7%, var(--ra-soft)); border: 1px solid color-mix(in srgb, var(--ra-accent) 25%, var(--ra-border)); border-radius: 11px; color: var(--text-muted, #9aa8c0); font-size: .81rem; line-height: 1.55; padding: 11px 13px; }
 .resume-analyzer-eligibility-list { display: grid; gap: 7px; }
-.resume-analyzer-eligibility-item { background: color-mix(in srgb, var(--ra-soft) 85%, transparent); border: 1px solid var(--ra-border); border-radius: 12px; min-width: 0; overflow: hidden; transition: border-color .18s ease, background-color .18s ease; }
-.resume-analyzer-eligibility-item[open] { background: var(--ra-soft); border-color: color-mix(in srgb, var(--ra-accent) 32%, var(--ra-border)); }
-.resume-analyzer-eligibility-item > summary { align-items: center; cursor: pointer; display: flex; gap: 10px; list-style: none; min-height: 45px; padding: 7px 11px; }
-.resume-analyzer-eligibility-item > summary::-webkit-details-marker { display: none; }
-.resume-analyzer-eligibility-item > summary:focus-visible { outline: 2px solid var(--ra-accent); outline-offset: -3px; }
+.resume-analyzer-eligibility-item { background: color-mix(in srgb, var(--ra-soft) 85%, transparent); border: 1px solid var(--ra-border); border-radius: 12px; display: grid; grid-template-rows: auto 0fr; min-width: 0; overflow: hidden; transition: background-color .22s ease, border-color .22s ease, grid-template-rows .28s cubic-bezier(.2, .8, .2, 1); }
+.resume-analyzer-eligibility-item.is-open { background: var(--ra-soft); border-color: color-mix(in srgb, var(--ra-accent) 32%, var(--ra-border)); grid-template-rows: auto 1fr; }
+.resume-analyzer-eligibility-item__trigger { align-items: center; appearance: none; background: transparent; border: 0; color: inherit; cursor: pointer; display: flex; font: inherit; gap: 10px; min-height: 45px; padding: 7px 11px; text-align: left; width: 100%; }
+.resume-analyzer-eligibility-item__trigger:focus-visible { outline: 2px solid var(--ra-accent); outline-offset: -3px; }
 .resume-analyzer-eligibility-status { border-radius: 999px; flex: none; font-size: .68rem; font-weight: 800; line-height: 1; padding: 6px 8px; white-space: nowrap; }
 .resume-analyzer-eligibility-status.is-evidence { background: color-mix(in srgb, #20a57a 13%, var(--ra-soft)); color: color-mix(in srgb, #20a57a 82%, var(--text, #eef3fb)); }
 .resume-analyzer-eligibility-status.is-not-shown { background: color-mix(in srgb, #d78b35 13%, var(--ra-soft)); color: #d99b4f; }
 .resume-analyzer-eligibility-status.is-review,
 .resume-analyzer-eligibility-status.is-manual { background: color-mix(in srgb, #7485ac 15%, var(--ra-soft)); color: color-mix(in srgb, #91a5d5 88%, var(--text, #eef3fb)); }
 .resume-analyzer-eligibility-item__title { color: var(--text, #eef3fb); flex: 1; font-size: .84rem; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
-.resume-analyzer-eligibility-chevron { color: var(--text-muted, #9aa8c0); flex: none; transition: transform .18s ease; }
-.resume-analyzer-eligibility-item[open] .resume-analyzer-eligibility-chevron { transform: rotate(180deg); }
-.resume-analyzer-eligibility-item__detail { border-top: 1px solid var(--ra-border); color: var(--text-muted, #9aa8c0); font-size: .81rem; line-height: 1.5; padding: 10px 13px 12px; }
+.resume-analyzer-eligibility-chevron { color: var(--text-muted, #9aa8c0); flex: none; transition: transform .28s cubic-bezier(.2, .8, .2, 1); }
+.resume-analyzer-eligibility-item.is-open .resume-analyzer-eligibility-chevron { transform: rotate(180deg); }
+.resume-analyzer-eligibility-item__detail-wrap { min-height: 0; opacity: 0; overflow: hidden; transition: opacity .18s ease; }
+.resume-analyzer-eligibility-item.is-open .resume-analyzer-eligibility-item__detail-wrap { opacity: 1; transition-delay: .06s; }
+.resume-analyzer-eligibility-item__detail { border-top: 1px solid var(--ra-border); color: var(--text-muted, #9aa8c0); font-size: .81rem; line-height: 1.5; padding: 10px 13px 12px; transform: translateY(-7px); transition: transform .28s cubic-bezier(.2, .8, .2, 1); }
+.resume-analyzer-eligibility-item.is-open .resume-analyzer-eligibility-item__detail { transform: translateY(0); }
 .resume-analyzer-eligibility-item__detail p { margin: 4px 0; overflow-wrap: anywhere; }
 .resume-analyzer-eligibility-item__detail strong { color: var(--text, #eef3fb); }
 .resume-analyzer-eligibility-empty { color: var(--text-muted, #9aa8c0); font-size: .8rem; line-height: 1.5; margin: 0; }
@@ -432,7 +434,7 @@ body .resume-analyzer-page .resume-analyzer-show-findings { justify-self: start;
   .resume-analyzer-eligibility-dial { margin: -8px 0; }
   .resume-analyzer-eligibility__copy { max-width: 52ch; }
   .resume-analyzer-eligibility__copy .resume-analyzer-eligibility__note { text-align: left; }
-  .resume-analyzer-eligibility-item > summary { align-items: flex-start; flex-wrap: wrap; }
+  .resume-analyzer-eligibility-item__trigger { align-items: flex-start; flex-wrap: wrap; }
   .resume-analyzer-eligibility-item__title { align-self: center; flex-basis: calc(100% - 30px); order: 3; }
   .resume-analyzer-eligibility-chevron { margin-left: auto; }
   .resume-analyzer-findings-heading { align-items: flex-end; }
@@ -448,6 +450,8 @@ body .resume-analyzer-page .resume-analyzer-show-findings { justify-self: start;
   .resume-analyzer-findings { animation-duration: .01ms !important; }
   .resume-analyzer-eligibility-item,
   .resume-analyzer-eligibility-chevron,
+  .resume-analyzer-eligibility-item__detail-wrap,
+  .resume-analyzer-eligibility-item__detail,
   body .resume-analyzer-page .resume-analyzer-help-toggle,
   body .resume-analyzer-page .resume-analyzer-show-findings { transition: none !important; }
 }

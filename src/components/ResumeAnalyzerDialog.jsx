@@ -36,6 +36,29 @@ const ELIGIBILITY_STATUS_LABELS = {
   manual: "Check manually",
 };
 
+function getEligibilityDialColors(score) {
+  const numericScore = Number(score);
+  if (!Number.isFinite(numericScore)) {
+    return {
+      accent: "var(--ra-accent)",
+      ink: "color-mix(in srgb, var(--text, #eef3fb) 45%, transparent)",
+    };
+  }
+
+  const accent = numericScore <= 25
+    ? "#ef4444"
+    : numericScore <= 50
+      ? "#f97316"
+      : numericScore <= 75
+        ? "#eab308"
+        : "#22c55e";
+
+  return {
+    accent,
+    ink: `color-mix(in srgb, ${accent} 48%, var(--text, #eef3fb))`,
+  };
+}
+
 function hasResumeContent(draft) {
   return Boolean(
     draft.summary.trim()
@@ -101,8 +124,10 @@ export default function ResumeAnalyzerDialog({
   const isRoleProfileEligibility = eligibility.basis === "role-profile";
   const isHybridEligibility = eligibility.basis === "hybrid";
   const eligibilityTargetRole = eligibility.targetRole || results?.targetRole || results?.roleNames?.[0] || "this role";
+  const eligibilityDialColors = getEligibilityDialColors(eligibility.score);
   const [isClosing, setIsClosing] = useState(false);
   const [eligibilityHelpOpen, setEligibilityHelpOpen] = useState(false);
+  const [openEligibilityIds, setOpenEligibilityIds] = useState(() => new Set());
   const [showAllFindings, setShowAllFindings] = useState(false);
   const uploadSequence = useRef(0);
   const resumeDropDepth = useRef(0);
@@ -137,6 +162,7 @@ export default function ResumeAnalyzerDialog({
         setResultSource(analysisRequest.source);
         setSaveStatus("idle");
         setEligibilityHelpOpen(false);
+        setOpenEligibilityIds(new Set());
         setShowAllFindings(false);
         setView("results");
       } catch (analysisError) {
@@ -222,6 +248,18 @@ export default function ResumeAnalyzerDialog({
     setFileLoading(false);
     setError("");
     setView("results");
+  };
+
+  const toggleEligibilityCriterion = (criterionId) => {
+    setOpenEligibilityIds((openIds) => {
+      const nextOpenIds = new Set(openIds);
+      if (nextOpenIds.has(criterionId)) {
+        nextOpenIds.delete(criterionId);
+      } else {
+        nextOpenIds.add(criterionId);
+      }
+      return nextOpenIds;
+    });
   };
 
   const readResumeFile = async (file) => {
@@ -532,7 +570,7 @@ export default function ResumeAnalyzerDialog({
               <div className="resume-analyzer-eligibility__title">
                 <span className="resume-analyzer-eligibility__icon"><ShieldCheck size={19} aria-hidden="true" /></span>
                 <div>
-                  <span className="resume-analyzer-eligibility__eyebrow">{isRoleProfileEligibility ? "Role profile" : isHybridEligibility ? "Role + job requirements" : "Job requirements"}</span>
+                  {!isRoleProfileEligibility && <span className="resume-analyzer-eligibility__eyebrow">{isHybridEligibility ? "Role + job requirements" : "Job requirements"}</span>}
                   <h3 id="resume-analyzer-eligibility-title">Eligibility check</h3>
                 </div>
               </div>
@@ -550,10 +588,10 @@ export default function ResumeAnalyzerDialog({
             <div className="resume-analyzer-eligibility__summary">
               {eligibility.score !== null ? (
                 <CometDial
-                  accent="var(--ra-accent)"
+                  accent={eligibilityDialColors.accent}
                   className="resume-analyzer-eligibility-dial"
                   figureSize="29px"
-                  ink="color-mix(in srgb, var(--text, #eef3fb) 45%, transparent)"
+                  ink={eligibilityDialColors.ink}
                   label={isRoleProfileEligibility
                     ? `${eligibilityTargetRole} role match based on resume evidence`
                     : isHybridEligibility
@@ -611,20 +649,33 @@ export default function ResumeAnalyzerDialog({
             </div>
             {eligibility.criteria.length > 0 ? (
               <div className="resume-analyzer-eligibility-list" aria-label="Eligibility requirement details">
-                {eligibility.criteria.map((criterion) => (
-                  <details className={`resume-analyzer-eligibility-item is-${criterion.status}`} key={criterion.id}>
-                    <summary>
-                      <span className={`resume-analyzer-eligibility-status is-${criterion.status}`}>{ELIGIBILITY_STATUS_LABELS[criterion.status]}</span>
-                      <span className="resume-analyzer-eligibility-item__title">{criterion.title}</span>
-                      <ChevronDown className="resume-analyzer-eligibility-chevron" size={17} aria-hidden="true" />
-                    </summary>
-                    <div className="resume-analyzer-eligibility-item__detail">
-                      <p><strong>{criterion.source === "role-profile" ? "Role profile looks for:" : criterion.type === "skill" ? "Job mentions:" : "Job asks:"}</strong> {criterion.requirement}</p>
-                      {criterion.evidence && <p><strong>Resume evidence:</strong> {criterion.evidence}</p>}
-                      <p>{criterion.note}</p>
-                    </div>
-                  </details>
-                ))}
+                {eligibility.criteria.map((criterion) => {
+                  const isOpen = openEligibilityIds.has(criterion.id);
+                  const detailId = `resume-analyzer-eligibility-detail-${criterion.id}`;
+
+                  return (
+                    <article className={`resume-analyzer-eligibility-item is-${criterion.status}${isOpen ? " is-open" : ""}`} key={criterion.id}>
+                      <button
+                        aria-controls={detailId}
+                        aria-expanded={isOpen}
+                        className="resume-analyzer-eligibility-item__trigger"
+                        onClick={() => toggleEligibilityCriterion(criterion.id)}
+                        type="button"
+                      >
+                        <span className={`resume-analyzer-eligibility-status is-${criterion.status}`}>{ELIGIBILITY_STATUS_LABELS[criterion.status]}</span>
+                        <span className="resume-analyzer-eligibility-item__title">{criterion.title}</span>
+                        <ChevronDown className="resume-analyzer-eligibility-chevron" size={17} aria-hidden="true" />
+                      </button>
+                      <div className="resume-analyzer-eligibility-item__detail-wrap" id={detailId}>
+                        <div className="resume-analyzer-eligibility-item__detail">
+                          <p><strong>{criterion.source === "role-profile" ? "Role profile looks for:" : criterion.type === "skill" ? "Job mentions:" : "Job asks:"}</strong> {criterion.requirement}</p>
+                          {criterion.evidence && <p><strong>Resume evidence:</strong> {criterion.evidence}</p>}
+                          <p>{criterion.note}</p>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             ) : (
               <p className="resume-analyzer-eligibility-empty">No role profile or explicit job requirements could be identified. Enter a clearer role title or paste the full job description.</p>
