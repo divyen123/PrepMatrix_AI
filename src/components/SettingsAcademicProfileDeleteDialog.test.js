@@ -147,3 +147,33 @@ test("marks an incomplete server deletion as retryable", async () => {
     await vite.close();
   }
 });
+
+test("keeps the closing password step safe after its selected profile is deleted", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { default: Dialog } = await vite.ssrLoadModule(
+      "/src/components/SettingsAcademicProfileDeleteDialog.jsx",
+    );
+    const markup = renderToStaticMarkup(React.createElement(Dialog, {
+      activeProfileId: "profile-a",
+      confirmationStep: "password",
+      onBack() {},
+      onCancel() {},
+      onConfirm() {},
+      onPasswordChange() {},
+      onPasswordVisibilityChange() {},
+      open: false,
+      profiles: [profiles[0]],
+      selectedProfileId: "profile-b",
+    }));
+
+    assert.match(markup, /Selected profile[\s\S]*?Academic profile/u);
+  } finally {
+    await vite.close();
+  }
+});

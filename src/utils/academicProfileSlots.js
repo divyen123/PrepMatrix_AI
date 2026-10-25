@@ -50,10 +50,11 @@ export function getAcademicProfileSlots(userProfile = {}) {
 }
 
 export function describeAcademicProfileSlot(profile = {}) {
-  const qualification = profile.schoolType === "school"
-    ? profile.grade
-    : profile.degree;
-  return [profile.academicLevel, qualification, profile.academicTrack, profile.schoolStream]
+  const slot = profile && typeof profile === "object" ? profile : {};
+  const qualification = slot.schoolType === "school"
+    ? slot.grade
+    : slot.degree;
+  return [slot.academicLevel, qualification, slot.academicTrack, slot.schoolStream]
     .map((value) => String(value || "").trim())
     .filter(Boolean)
     .join(" | ");

@@ -116,6 +116,7 @@ test("builds a compact profile summary", () => {
     }),
     "Senior / Higher Secondary School | Class 12 | CBSE | Commerce",
   );
+  assert.equal(describeAcademicProfileSlot(null), "");
 });
 
 test("binds deletion to both the fixed slot and immutable data ID", () => {
