@@ -1,9 +1,76 @@
-.planner-reorder-backdrop.is-closed {
-  display: none;
+.confirm-modal-backdrop.planner-reorder-backdrop {
+  z-index: 3250;
+  background: rgba(0, 0, 0, 0.68) !important;
+  backdrop-filter: blur(16px) saturate(80%) brightness(72%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(80%) brightness(72%) !important;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  animation: none !important;
+  transition:
+    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 220ms;
 }
 
-.planner-reorder-dialog {
+.confirm-modal-backdrop.planner-reorder-backdrop.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
+.confirm-modal-backdrop.planner-reorder-backdrop.is-closed {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.confirm-modal.planner-reorder-dialog {
+  --planner-reorder-surface: color-mix(in srgb, var(--bg) 94%, var(--accent) 6%);
   width: min(500px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  color: var(--text);
+  background-color: var(--bg) !important;
+  background:
+    linear-gradient(var(--planner-reorder-surface), var(--planner-reorder-surface)) padding-box,
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.48), rgba(var(--accent-rgb), 0.14)) border-box !important;
+  box-shadow: 0 30px 96px rgba(0, 0, 0, 0.54), 0 12px 34px rgba(0, 0, 0, 0.28) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 0;
+  transform: translateY(12px) scale(0.985);
+  transition:
+    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.planner-reorder-backdrop.is-open .planner-reorder-dialog {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+body.dark .confirm-modal-backdrop.planner-reorder-backdrop {
+  background: rgba(0, 0, 0, 0.76) !important;
+}
+
+body.has-bg-image .confirm-modal-backdrop.planner-reorder-backdrop {
+  background: rgba(0, 0, 0, 0.8) !important;
+}
+
+body.has-bg-image:not(.no-glass-cards) .confirm-modal.planner-reorder-dialog,
+body.has-bg-image.no-glass-cards .confirm-modal.planner-reorder-dialog {
+  --planner-reorder-surface: color-mix(
+    in srgb,
+    rgb(var(--bg-surface-rgb, 16, 21, 26)) 20%,
+    #101010 80%
+  );
+  background-color: rgb(var(--bg-surface-rgb, 16, 21, 26)) !important;
+  background:
+    linear-gradient(var(--planner-reorder-surface), var(--planner-reorder-surface)) padding-box,
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.5), rgba(var(--accent-rgb), 0.18)) border-box !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .planner-reorder-heading {
@@ -39,6 +106,7 @@
   padding: 13px;
   border: 1px solid var(--border);
   border-radius: 14px;
+  background: color-mix(in srgb, var(--planner-reorder-surface) 94%, var(--text) 6%);
   cursor: pointer;
   transition: border-color 160ms ease, background 160ms ease;
 }
@@ -46,7 +114,7 @@
 .planner-reorder-option:hover,
 .planner-reorder-option.is-selected {
   border-color: rgba(var(--accent-rgb), 0.5);
-  background: rgba(var(--accent-rgb), 0.08);
+  background: color-mix(in srgb, var(--planner-reorder-surface) 90%, var(--accent) 10%);
 }
 
 .planner-reorder-option input {
@@ -95,8 +163,20 @@ body .planner-reorder-apply-btn {
 }
 
 @media (max-width: 520px) {
+  .confirm-modal-backdrop.planner-reorder-backdrop {
+    padding: 12px;
+  }
+
   .planner-reorder-dialog {
-    max-height: calc(100dvh - 28px);
+    max-height: calc(100dvh - 24px);
     overflow-y: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirm-modal-backdrop.planner-reorder-backdrop,
+  .planner-reorder-dialog,
+  .planner-reorder-option {
+    transition: none;
   }
 }
