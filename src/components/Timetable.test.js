@@ -305,6 +305,44 @@ test("renders active planner time badges without duration text", async () => {
   }
 });
 
+test("offers a protected reorder action for an active schedule", async () => {
+  const vite = await createServer({
+    appType: "custom",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const { default: Timetable } = await vite.ssrLoadModule(
+      "/src/components/Timetable.jsx",
+    );
+    const markup = renderToStaticMarkup(React.createElement(Timetable, {
+      ...baseProps,
+      schedule: [{
+        day: 1,
+        tasks: [{
+          source: "subject",
+          subjectName: "Maths",
+          task: "Maths - Numbers",
+          topic: "Numbers",
+          unitKey: "chapter:1",
+          unitType: "chapter",
+        }],
+      }],
+      subjects: [{ name: "Maths", chapters: 1, difficulty: "medium" }],
+    }));
+
+    assert.match(
+      markup,
+      /aria-controls="planner-reorder-dialog"[^>]*aria-haspopup="dialog"[^>]*>[\s\S]*?Reorder/u,
+    );
+    assert.match(markup, /id="planner-reorder-dialog"/u);
+    assert.match(markup, /Order-wise[\s\S]*?Priority-wise/u);
+  } finally {
+    await vite.close();
+  }
+});
+
 test("exports the in-place clear schedule confirmation markup", async () => {
   const vite = await createServer({
     appType: "custom",

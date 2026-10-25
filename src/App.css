@@ -14597,10 +14597,10 @@ body button.delete-history-btn:focus-visible {
   }
 }
 
-/* Ensure all 5 timetable action buttons sit in the same row on desktop UI */
+/* Keep planner actions compact on desktop while allowing new controls to wrap safely. */
 @media (min-width: 992px) {
   .timetable-actions {
-    flex-wrap: nowrap !important;
+    flex-wrap: wrap !important;
     gap: 8px !important;
   }
   .timetable-actions .action-btn {

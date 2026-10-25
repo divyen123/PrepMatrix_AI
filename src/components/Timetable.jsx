@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { ArrowRight, Download, LockOpen, RotateCcw, Trash2 } from "lucide-react";
+import {
+  ArrowDownUp,
+  ArrowRight,
+  Download,
+  LockOpen,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import { toast } from "../utils/toast";
 import successSound from "../assets/success.mp3";
 import PlannerUnlockQuizDialog from "./PlannerUnlockQuizDialog";
+import PlannerScheduleReorderDialog from "./PlannerScheduleReorderDialog";
 import api from "../utils/apiClient";
 import { createAiIdempotencyKey, getAiRequestErrorMessage } from "../utils/aiQuota";
 import { generateSchedule } from "../utils/scheduleGenerator";
+import {
+  PLANNER_SCHEDULE_REORDER_MODES,
+  reorderPlannerSchedule,
+} from "../utils/plannerScheduleReorder";
 import {
   formatScheduleDate,
   formatScheduleDayHeading,
@@ -242,9 +254,10 @@ function Timetable({
   const [planMode, setPlanMode] = useState("balanced");
   const [loading, setLoading] = useState(false);
   const [previousSchedule, setPreviousSchedule] = useState(null);
-  const [lastAction, setLastAction] = useState(null); // "rebalance" | "backlog"
+  const [lastAction, setLastAction] = useState(null); // "rebalance" | "backlog" | "reorder"
   const [showGenerateForm, setShowGenerateForm] = useState(schedule.length === 0);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
+  const [showReorderDialog, setShowReorderDialog] = useState(false);
   const scheduleComplete = getScheduleCompletion(schedule, completed).complete;
   const [today, setToday] = useState(() => new Date());
   const [unlockQuizTarget, setUnlockQuizTarget] = useState(null);
@@ -254,6 +267,7 @@ function Timetable({
   const scheduleStartDateRef = useRef(scheduleStartDate);
   const todayRef = useRef(today);
   const timetableTopbarRef = useRef(null);
+  const reorderButtonRef = useRef(null);
 
   academicProfileIdRef.current = academicProfileDataId;
   completedRef.current = completed;
@@ -272,6 +286,7 @@ function Timetable({
     if (schedule.length === 0) {
       setShowGenerateForm(true);
       setShowClearConfirmation(false);
+      setShowReorderDialog(false);
     }
   }, [schedule.length]);
 
@@ -610,6 +625,7 @@ function Timetable({
         || isEditableShortcutTarget(event.target)
         || unlockQuizTarget
         || showClearConfirmation
+        || showReorderDialog
       ) return;
 
       const key = event.key.toLowerCase();
@@ -667,6 +683,7 @@ function Timetable({
     canManageSchedule,
     requestParentAccess,
     showClearConfirmation,
+    showReorderDialog,
     today,
     toggleComplete,
     unlockQuizTarget,
@@ -874,12 +891,67 @@ function Timetable({
     });
   };
 
+  const requestReorderSchedule = () => {
+    if (!canManageSchedule) {
+      requestParentAccess();
+      return;
+    }
+    if (scheduleComplete) return;
+    setShowClearConfirmation(false);
+    setShowReorderDialog(true);
+  };
+
+  const applyScheduleReorder = (mode) => {
+    if (!canManageSchedule) {
+      requestParentAccess();
+      return;
+    }
+
+    try {
+      const currentSchedule = scheduleRef.current;
+      const result = reorderPlannerSchedule(
+        currentSchedule,
+        completedRef.current,
+        subjects,
+        {
+          mode,
+          scheduleStartDate: scheduleStartDateRef.current,
+        },
+      );
+      setShowReorderDialog(false);
+
+      if (!result.changed) {
+        toast.info("Your unfinished subject tasks are already in that order.", {
+          toastId: "planner-reorder-unchanged",
+        });
+        return;
+      }
+
+      setUnlockQuizTarget(null);
+      setPreviousSchedule(structuredClone(currentSchedule));
+      setLastAction("reorder");
+      scheduleRef.current = result.schedule;
+      setSchedule(result.schedule);
+      toast.success(
+        mode === PLANNER_SCHEDULE_REORDER_MODES.PRIORITY
+          ? "Unfinished tasks reordered by difficulty."
+          : "Unfinished tasks reordered by saved syllabus order.",
+        { toastId: "planner-reordered" },
+      );
+    } catch {
+      toast.error("Could not reorder the schedule. Your existing plan was not changed.", {
+        toastId: "planner-reorder-failed",
+      });
+    }
+  };
+
   const handleUndo = () => {
     if (!canManageSchedule) {
       requestParentAccess();
       return;
     }
     if (previousSchedule) {
+      scheduleRef.current = previousSchedule;
       setSchedule(previousSchedule);
       setPreviousSchedule(null);
       setLastAction(null);
@@ -998,6 +1070,24 @@ function Timetable({
               <Download size={14} />
               <span>Export</span>
             </button>
+            <button
+              aria-controls="planner-reorder-dialog"
+              aria-expanded={showReorderDialog}
+              aria-haspopup="dialog"
+              className="secondary-btn action-btn"
+              disabled={scheduleComplete}
+              onClick={requestReorderSchedule}
+              ref={reorderButtonRef}
+              type="button"
+            >
+              <ArrowDownUp aria-hidden="true" size={14} />
+              Reorder
+            </button>
+            {previousSchedule && lastAction === "reorder" && (
+              <button className="secondary-btn action-btn undo-btn" onClick={handleUndo} type="button" title="Undo reorder">
+                ↩ Undo
+              </button>
+            )}
             <button className="secondary-btn action-btn" disabled={scheduleComplete} onClick={rebalanceSchedule} type="button">
               Rebalance
             </button>
@@ -1061,6 +1151,14 @@ function Timetable({
           ))
         )}
       </div>
+
+      <PlannerScheduleReorderDialog
+        busy={false}
+        onApply={applyScheduleReorder}
+        onClose={() => setShowReorderDialog(false)}
+        open={showReorderDialog}
+        returnFocusRef={reorderButtonRef}
+      />
 
       {unlockQuizTarget && activeUnlockProgression && (
         <PlannerUnlockQuizDialog
