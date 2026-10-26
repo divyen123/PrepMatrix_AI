@@ -8,6 +8,7 @@
     "server": "node server/index.js",
     "test": "node --test",
     "test:resume-export": "node scripts/resume-export-check.mjs",
+    "test:chat-subject-outline": "node scripts/chat-subject-outline-check.mjs",
     "build": "npm run codematrix:check && vite build",
     "codematrix:assets": "node scripts/code-matrix/assets.mjs --build",
     "codematrix:check": "node scripts/code-matrix/assets.mjs --check",

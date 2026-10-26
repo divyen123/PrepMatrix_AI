@@ -42,7 +42,20 @@ function SubjectList({
   const confirmRef = useRef(null);
   const goalPopupCloseTimerRef = useRef(null);
   const trackGoalsButtonRef = useRef(null);
+  const openedSubjectRequestRef = useRef(null);
   const location = useLocation();
+
+  useEffect(() => {
+    const requestedName = location.state?.subjectName;
+    if (typeof requestedName !== "string" || openedSubjectRequestRef.current === location.key) return;
+    const normalizeName = (name) => String(name || "").normalize("NFKC").replace(/\s+/gu, " ").trim().toLowerCase();
+    const matches = subjects.flatMap((subject, index) => (
+      normalizeName(subject?.name) === normalizeName(requestedName) ? [index] : []
+    ));
+    if (matches.length !== 1) return;
+    openedSubjectRequestRef.current = location.key;
+    setConfigureIndex(matches[0]);
+  }, [location.key, location.state, subjects]);
 
   const openGoalPopup = useCallback(() => {
     if (goalPopupCloseTimerRef.current) {
@@ -134,13 +147,16 @@ function SubjectList({
   };
 
   const saveEdit = () => {
-    if (!editData.name.trim() || Number(editData.chapters) < 1) return;
+    const chapterCount = Number(editData.chapters);
+    const hasTopics = normalizeSubjectTopics(editData.topics).length > 0;
+    if (!editData.name.trim() || !Number.isInteger(chapterCount)
+      || chapterCount < (hasTopics ? 0 : 1) || chapterCount > 500) return;
 
     const updated = [...subjects];
     updated[editIndex] = {
       ...editData,
       name: editData.name.trim(),
-      chapters: Number(editData.chapters),
+      chapters: chapterCount,
     };
 
     setSubjects(updated);
@@ -255,7 +271,8 @@ function SubjectList({
 
                     <input
                       aria-label="Total chapters"
-                      min="1"
+                      min={normalizeSubjectTopics(editData.topics).length ? "0" : "1"}
+                      max="500"
                       onChange={(event) =>
                         setEditData({ ...editData, chapters: event.target.value })
                       }

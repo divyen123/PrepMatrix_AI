@@ -29,7 +29,6 @@ export default function PlannerScheduleReorderDialog({
   const cancelButtonRef = useRef(null);
   const previousFocusRef = useRef(null);
   const titleId = useId();
-  const descriptionId = useId();
 
   useEffect(() => {
     if (open) setMode(PLANNER_SCHEDULE_REORDER_MODES.SEQUENCE);
@@ -97,7 +96,6 @@ export default function PlannerScheduleReorderDialog({
     >
       <section
         aria-busy={busy}
-        aria-describedby={descriptionId}
         aria-labelledby={titleId}
         aria-modal="true"
         className="confirm-modal planner-reorder-dialog"
@@ -111,9 +109,6 @@ export default function PlannerScheduleReorderDialog({
           </span>
           <div className="confirm-modal-copy">
             <h2 id={titleId}>Reorder unfinished tasks</h2>
-            <p id={descriptionId}>
-              Completed tasks, recall sessions, notes, learning tasks, dates, and time slots stay unchanged.
-            </p>
           </div>
         </div>
 
@@ -144,7 +139,7 @@ export default function PlannerScheduleReorderDialog({
         </fieldset>
 
         <p className="planner-reorder-note" role="note">
-          You can undo this once after it is applied.
+          You can undo while the confirmation toast is visible.
         </p>
 
         <div className="confirm-modal-actions">

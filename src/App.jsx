@@ -123,6 +123,8 @@ import {
   SUBJECT_SCHEDULE_MUTATION_MODES,
   getSubjectScheduleMutationMode,
 } from "./utils/subjectWorkspace";
+import { mergeChatSubjectOutline, resolveChatSubjectTarget, undoChatSubjectOutline } from "./utils/chatSubjectOutline.js";
+import { persistChatSubjectMutation } from "./utils/chatSubjectPersistence.js";
 import {
   getLearningCareerEligibility,
   getLearningMedicalTrainingEligibility,
@@ -532,6 +534,9 @@ function App() {
   const workspaceSavePromiseRef = useRef(Promise.resolve());
   const workspaceScopeEpochRef = useRef(0);
   const workspaceMutationInFlightRef = useRef(false);
+  const chatSubjectContextRef = useRef(null);
+  const chatSubjectUndoRef = useRef(null);
+  const [subjectImportSaveRevision, setSubjectImportSaveRevision] = useState(0);
   const academicProfileDeletionRetryRef = useRef(null);
   const academicProfileEventRevisionRef = useRef(0);
   const currentUserProfileRef = useRef(null);
@@ -788,6 +793,40 @@ function App() {
   useAppUsageTracker(userProfile, Boolean(userIdentity));
   const kidsGamepadIcon = resolveKidsGamepadIcon(activeBackgroundImageId);
   const activeAcademicProfileDataId = profileContext?.dataId || "";
+  chatSubjectContextRef.current = {
+    profileId: activeAcademicProfileDataId,
+    ready: Boolean(userProfile && workspaceLoaded && !workspaceTransitioning && !isKidsLearner && !appLocked),
+    subjects,
+    schedule,
+    completed,
+    scheduleStartDate,
+  };
+
+  useEffect(() => {
+    const pending = chatSubjectUndoRef.current;
+    if (!pending) return;
+    let invalid = pending.profileId !== activeAcademicProfileDataId
+      || pending.epoch !== workspaceScopeEpochRef.current
+      || pending.schedule !== schedule
+      || pending.completed !== completed
+      || pending.scheduleStartDate !== scheduleStartDate
+      || !workspaceLoaded || workspaceTransitioning || isKidsLearner || appLocked;
+    if (!invalid) {
+      try { undoChatSubjectOutline(subjects, pending.receipt); }
+      catch { invalid = true; }
+    }
+    if (invalid) {
+      chatSubjectUndoRef.current = null;
+      toast.dismiss(pending.toastId);
+    }
+  }, [activeAcademicProfileDataId, appLocked, completed, isKidsLearner, schedule, scheduleStartDate, subjects, workspaceLoaded, workspaceTransitioning]);
+
+  useEffect(() => () => {
+    const pending = chatSubjectUndoRef.current;
+    chatSubjectUndoRef.current = null;
+    if (pending) toast.dismiss(pending.toastId);
+    if (chatSubjectContextRef.current) chatSubjectContextRef.current.ready = false;
+  }, []);
   const plannerCompletion = useMemo(() => getScheduleCompletion(schedule, completed), [schedule, completed]);
   useEffect(() => {
     if (!workspaceLoaded || workspaceTransitioning || authLoading || !userProfile || !activeAcademicProfileDataId
@@ -2113,6 +2152,122 @@ function App() {
     setScheduleStartDate(null);
   };
 
+  const saveChatSubjectChange = async (prepare, requestedProfileId) => {
+    const current = chatSubjectContextRef.current;
+    if (!current?.ready || current.profileId !== requestedProfileId) {
+      throw new Error("Your academic profile changed or is still loading. Open the chat again and retry.");
+    }
+    if (workspaceMutationInFlightRef.current) {
+      throw new Error("Another workspace update is in progress. Please try again.");
+    }
+    workspaceMutationInFlightRef.current = true;
+    if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = null;
+    try {
+      return await persistChatSubjectMutation({
+        readCurrent: () => ({
+          ...chatSubjectContextRef.current,
+          ready: chatSubjectContextRef.current?.ready
+            && chatSubjectContextRef.current.profileId === getApiAcademicProfileScope(),
+          epoch: workspaceScopeEpochRef.current,
+        }),
+        prepare,
+        waitForPendingSave: () => workspaceSavePromiseRef.current,
+        saveSubjects: async (nextSubjects, scope) => {
+          const request = api.saveWorkspace({ subjects: nextSubjects }, { academicProfileId: scope });
+          workspaceSavePromiseRef.current = request.catch(() => undefined);
+          await request;
+        },
+        commitSubjects: (nextSubjects) => {
+          chatSubjectContextRef.current = { ...chatSubjectContextRef.current, subjects: nextSubjects };
+          setSubjects(nextSubjects);
+        },
+      });
+    } finally {
+      workspaceMutationInFlightRef.current = false;
+      // Resume any autosave cancelled while the subject-only write was running.
+      setSubjectImportSaveRevision((revision) => revision + 1);
+    }
+  };
+
+  const addChatSubjectOutline = async (outline, options = {}) => {
+    const profileId = options.academicProfileDataId;
+    const match = resolveChatSubjectTarget(chatSubjectContextRef.current?.subjects, outline?.subjectName);
+    const targetIndex = options.targetIndex === undefined && match.status === "existing"
+      ? match.index : options.targetIndex;
+    const expectedTargetName = options.targetSubjectName
+      ?? (Number.isInteger(targetIndex) ? chatSubjectContextRef.current?.subjects[targetIndex]?.name : undefined);
+    const originalTarget = Number.isInteger(targetIndex) ? chatSubjectContextRef.current?.subjects[targetIndex] : null;
+    if (options.targetSubject && options.targetSubject !== originalTarget) {
+      throw new Error("The selected subject changed. Choose the destination again.");
+    }
+    const result = await saveChatSubjectChange((latestSubjects) => {
+      if (originalTarget && latestSubjects[targetIndex] !== originalTarget) {
+        throw new Error("The selected subject changed while saving. Review the outline and try again.");
+      }
+      return mergeChatSubjectOutline(latestSubjects, outline, {
+        targetIndex,
+        expectedTargetName,
+      });
+    }, profileId);
+    if (result.changed) {
+      const previous = chatSubjectUndoRef.current;
+      chatSubjectUndoRef.current = null;
+      if (previous) toast.dismiss(previous.toastId);
+      const token = Symbol("chat-subject-import");
+      const savedContext = chatSubjectContextRef.current;
+      const pending = {
+        token,
+        profileId,
+        epoch: workspaceScopeEpochRef.current,
+        receipt: result.undoReceipt,
+        schedule: savedContext.schedule,
+        completed: savedContext.completed,
+        scheduleStartDate: savedContext.scheduleStartDate,
+      };
+      pending.toastId = toast.success(
+        `${result.created ? "Created" : "Updated"} ${result.subject.name}: ${result.addedChapters} chapters and ${result.addedTopics} topics added.`,
+        {
+          actionLabel: "Undo",
+          autoClose: 7000,
+          onAction: () => {
+            if (chatSubjectUndoRef.current?.token !== token) return;
+            chatSubjectUndoRef.current = null;
+            void saveChatSubjectChange((latestSubjects) => {
+              const current = chatSubjectContextRef.current;
+              if (workspaceScopeEpochRef.current !== pending.epoch
+                || current.schedule !== pending.schedule
+                || current.completed !== pending.completed
+                || current.scheduleStartDate !== pending.scheduleStartDate) {
+                throw new Error("The study plan changed after this import, so it can no longer be undone.");
+              }
+              return { subjects: undoChatSubjectOutline(latestSubjects, pending.receipt), changed: true };
+            }, profileId).then(() => {
+              toast.success("Subject import undone.");
+            }).catch((error) => {
+              if (profileId === getApiAcademicProfileScope()) {
+                toast.error(error instanceof Error ? error.message : "Could not undo the subject import.");
+              }
+            });
+          },
+          onClose: () => {
+            if (chatSubjectUndoRef.current?.token === token) chatSubjectUndoRef.current = null;
+          },
+        },
+      );
+      chatSubjectUndoRef.current = pending;
+    }
+    return {
+      subjectName: result.subject.name,
+      subject: result.subject,
+      created: result.created,
+      changed: result.changed,
+      addedChapters: result.addedChapters,
+      addedTopics: result.addedTopics,
+      skippedCount: result.skippedCount,
+    };
+  };
+
   const handleLogin = (profile, workspace, requestedContext = null, options = {}) => {
     localStorage.removeItem(APP_LOCK_STORAGE_KEY);
     setAppLocked(false);
@@ -2807,6 +2962,7 @@ function App() {
     userProfile,
     workspaceLoaded,
     workspaceTransitioning,
+    subjectImportSaveRevision,
   ]);
 
   useEffect(() => {
@@ -3417,6 +3573,7 @@ function App() {
               onOpenCodeMatrix={openCodeMatrixWindow}
               onReset={resetPlanner}
               onSaveBookmark={saveMaterialBookmark}
+              onAddSubjectOutline={addChatSubjectOutline}
               schedule={schedule}
               setDarkMode={setDarkMode}
               subjects={subjects}

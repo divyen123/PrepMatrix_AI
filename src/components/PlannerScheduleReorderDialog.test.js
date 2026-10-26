@@ -25,7 +25,7 @@ test("renders safe order-wise and priority-wise reorder choices", async () => {
     assert.match(markup, /role="dialog"/u);
     assert.match(markup, /aria-modal="true"/u);
     assert.match(markup, /Reorder unfinished tasks/u);
-    assert.match(markup, /Completed tasks, recall sessions, notes, learning tasks, dates, and time slots stay unchanged./u);
+    assert.doesNotMatch(markup, /Completed tasks, recall sessions, notes, learning tasks, dates, and time slots stay unchanged./u);
     assert.match(markup, /Order-wise/u);
     assert.match(markup, /Priority-wise/u);
     assert.match(markup, /name="planner-reorder-mode"/u);

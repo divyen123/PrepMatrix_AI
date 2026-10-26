@@ -20,6 +20,7 @@ import {
 } from "../utils/chatMessageBridge";
 import { getChatExperienceCopy, getNewChatPrompt } from "../utils/chatExperience";
 import { normalizeChatAssistantContext } from "../utils/chatAssistantContext";
+import { formatChatSubjectOutline, isChatSubjectOutlineRequest, normalizeChatSubjectOutline } from "../utils/chatSubjectOutline";
 import { acquireDocumentScrollLock } from "../utils/documentScrollLock";
 import { readStoredWakeMode } from "../utils/voicePreferences";
 import api, { API_BASE } from "../utils/apiClient";
@@ -42,6 +43,7 @@ import {
   useAiQuota,
 } from "../utils/aiQuota";
 import ChatMessageText from "./ChatMessageText";
+import ChatSubjectOutlineCard from "./ChatSubjectOutlineCard";
 import ThoughtLine from "./ThoughtLine";
 import VoicePill from "./VoicePill";
 import {
@@ -165,6 +167,7 @@ function Chatbot({
   materialBookmarks = [],
   onOpenCodeMatrix,
   onSaveBookmark,
+  onAddSubjectOutline,
   setDarkMode,
   subjects = [],
   onReset,
@@ -173,6 +176,7 @@ function Chatbot({
   const navigate = useNavigate();
   const { hasInsufficientCredits } = useAiQuota();
   const chatExperience = getChatExperienceCopy(childMode);
+  const acceptsSubjectOutlines = typeof onAddSubjectOutline === "function" && !childMode;
   const [newChatPrompt, setNewChatPrompt] = useState(() => getNewChatPrompt(subjects));
   const shuffleNewChatPrompt = useCallback(() => {
     setNewChatPrompt((current) => getNewChatPrompt(subjects, Math.random, current));
@@ -225,12 +229,14 @@ function Chatbot({
       weakSubject: metrics.weakSubject,
       firstPendingTask: metrics.firstPendingTask,
       todayTasks: metrics.todayTasks.map((task) => task.task),
+      subjectNames: subjects.filter((subject) => typeof subject?.name === "string")
+        .slice(0, 100).map((subject) => subject.name.slice(0, 160)),
       subjectBreakdown: Object.entries(metrics.subjectStats).map(
         ([subject, values]) =>
           `${subject}: ${values.done}/${values.total} complete, ${values.pending} pending`
       ),
     }),
-    [academicLevel, academicProfile.degree, academicProfile.department, academicTrack, metrics]
+    [academicLevel, academicProfile.degree, academicProfile.department, academicTrack, metrics, subjects]
   );
 
   const [open, setOpen] = useState(false);
@@ -1075,7 +1081,8 @@ function Chatbot({
       setAttachmentError("");
       options.onAccepted?.(acceptance);
 
-      const localCommand = childMode || assistantContext || selectedAttachments.length
+      const outlineRequested = isChatSubjectOutlineRequest(finalMessage);
+      const localCommand = childMode || assistantContext || selectedAttachments.length || outlineRequested
         ? null
         : resolveLocalAssistantCommand(finalMessage, {
             academicProfileId: academicProfileDataId,
@@ -1126,6 +1133,7 @@ function Chatbot({
           sessionId: originSessionId,
           plannerContext,
           assistantContext,
+          supportsSubjectOutlines: acceptsSubjectOutlines && !assistantContext,
           materials: materialSuggestions,
           attachments: selectedAttachments.map(({ name, type, size, dataUrl }) => ({
             name,
@@ -1134,7 +1142,7 @@ function Chatbot({
             dataUrl,
           })),
         }, {
-          timeoutMs: selectedAttachments.length ? 105000 : 30000,
+          timeoutMs: selectedAttachments.length ? 105000 : 70000,
           headers: { "Idempotency-Key": createAiIdempotencyKey() },
         });
         if (!isCurrentRequest()) return acceptance;
@@ -1144,14 +1152,18 @@ function Chatbot({
         const reply = payload.reply?.trim() || "I couldn't generate a response for that request.";
         const returnedMaterials = normalizeChatMaterialSuggestions(payload.materials);
         const replyMaterials = returnedMaterials.length ? returnedMaterials : materialSuggestions;
+        const subjectOutline = !childMode && !assistantContext
+          ? normalizeChatSubjectOutline(payload.subjectOutline)
+          : null;
 
         setMessages((current) => [
           ...current,
           {
-            id: `${Date.now()}-assistant`,
+            id: payload.assistantMessageId || `${Date.now()}-assistant`,
             role: "assistant",
             text: reply,
             ...(replyMaterials.length ? { materials: replyMaterials } : {}),
+            ...(subjectOutline ? { subjectOutline } : {}),
           },
         ]);
 
@@ -1202,6 +1214,8 @@ function Chatbot({
             ? "Medical training chat is temporarily unavailable. Keep this as a fictional, de-identified conceptual exercise and retry shortly."
           : selectedAttachments.length
             ? "I couldn't reach the assistant to analyze that file. Your files are still attached below so you can retry."
+          : outlineRequested
+            ? "I couldn't generate the subject outline. Please try again shortly."
             : buildFallbackReply(finalMessage, metrics);
 
         setMessages((current) => [
@@ -1223,6 +1237,7 @@ function Chatbot({
       return acceptance;
     },
     [
+      acceptsSubjectOutlines,
       activeSessionId,
       academicProfile,
       academicLevel,
@@ -1984,6 +1999,19 @@ function Chatbot({
                         && message.role === "assistant"
                         && /\byou\s*tube\b|\byoutube\b/iu.test(message.text)}
                     />
+                    {!childMode && !assistantContext && message.role === "assistant" && onAddSubjectOutline ? (
+                      <ChatSubjectOutlineCard
+                        academicProfileDataId={academicProfileDataId}
+                        key={`${academicProfileDataId}:${message.id}`}
+                        onAdd={onAddSubjectOutline}
+                        onOpenSubject={(subjectName) => {
+                          closeChat();
+                          navigate("/subjects#subject-library", { state: { subjectName } });
+                        }}
+                        outline={message.subjectOutline}
+                        subjects={subjects}
+                      />
+                    ) : null}
                     {!childMode && !assistantContext ? (
                       <ChatMaterialSuggestions
                         academicLevel={academicLevel}
@@ -2000,7 +2028,10 @@ function Chatbot({
                     <button
                       aria-label="Copy chat message"
                       className="chat-message-copy-btn"
-                      onClick={() => handleCopyMessage(message.text)}
+                      onClick={() => handleCopyMessage([
+                        message.text,
+                        message.role === "assistant" ? formatChatSubjectOutline(message.subjectOutline) : "",
+                      ].filter(Boolean).join("\n\n"))}
                       title="Copy"
                       type="button"
                     >

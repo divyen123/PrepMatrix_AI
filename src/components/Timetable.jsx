@@ -254,7 +254,7 @@ function Timetable({
   const [planMode, setPlanMode] = useState("balanced");
   const [loading, setLoading] = useState(false);
   const [previousSchedule, setPreviousSchedule] = useState(null);
-  const [lastAction, setLastAction] = useState(null); // "rebalance" | "backlog" | "reorder"
+  const [lastAction, setLastAction] = useState(null); // "rebalance" | "backlog"
   const [showGenerateForm, setShowGenerateForm] = useState(schedule.length === 0);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [showReorderDialog, setShowReorderDialog] = useState(false);
@@ -265,15 +265,20 @@ function Timetable({
   const completedRef = useRef(completed);
   const scheduleRef = useRef(schedule);
   const scheduleStartDateRef = useRef(scheduleStartDate);
+  const subjectsRef = useRef(subjects);
   const todayRef = useRef(today);
   const timetableTopbarRef = useRef(null);
   const reorderButtonRef = useRef(null);
+  const reorderUndoRef = useRef(null);
+  const canManageScheduleRef = useRef(canManageSchedule);
 
   academicProfileIdRef.current = academicProfileDataId;
   completedRef.current = completed;
   scheduleRef.current = schedule;
   scheduleStartDateRef.current = scheduleStartDate;
+  subjectsRef.current = subjects;
   todayRef.current = today;
+  canManageScheduleRef.current = canManageSchedule;
 
   const requestParentAccess = useCallback(() => {
     onRequestParentAccess?.();
@@ -289,6 +294,30 @@ function Timetable({
       setShowReorderDialog(false);
     }
   }, [schedule.length]);
+
+  useEffect(() => {
+    const pendingUndo = reorderUndoRef.current;
+    if (
+      pendingUndo
+      && (
+        schedule !== pendingUndo.appliedSchedule
+        || completed !== pendingUndo.completed
+        || subjects !== pendingUndo.subjects
+        || scheduleStartDate !== pendingUndo.scheduleStartDate
+        || academicProfileDataId !== pendingUndo.profileId
+        || !canManageSchedule
+      )
+    ) {
+      reorderUndoRef.current = null;
+      toast.dismiss(pendingUndo.toastId);
+    }
+  }, [academicProfileDataId, canManageSchedule, completed, schedule, scheduleStartDate, subjects]);
+
+  useEffect(() => () => {
+    const pendingUndo = reorderUndoRef.current;
+    reorderUndoRef.current = null;
+    if (pendingUndo) toast.dismiss(pendingUndo.toastId);
+  }, []);
 
   useEffect(() => subscribeToLocalDateChanges(setToday), []);
 
@@ -907,9 +936,11 @@ function Timetable({
       return;
     }
 
+    const currentSchedule = scheduleRef.current;
+    let result;
+    let previousScheduleSnapshot;
     try {
-      const currentSchedule = scheduleRef.current;
-      const result = reorderPlannerSchedule(
+      result = reorderPlannerSchedule(
         currentSchedule,
         completedRef.current,
         subjects,
@@ -918,31 +949,75 @@ function Timetable({
           scheduleStartDate: scheduleStartDateRef.current,
         },
       );
-      setShowReorderDialog(false);
-
-      if (!result.changed) {
-        toast.info("Your unfinished subject tasks are already in that order.", {
-          toastId: "planner-reorder-unchanged",
-        });
-        return;
-      }
-
-      setUnlockQuizTarget(null);
-      setPreviousSchedule(structuredClone(currentSchedule));
-      setLastAction("reorder");
-      scheduleRef.current = result.schedule;
-      setSchedule(result.schedule);
-      toast.success(
-        mode === PLANNER_SCHEDULE_REORDER_MODES.PRIORITY
-          ? "Unfinished tasks reordered by difficulty."
-          : "Unfinished tasks reordered by saved syllabus order.",
-        { toastId: "planner-reordered" },
-      );
+      if (result.changed) previousScheduleSnapshot = structuredClone(currentSchedule);
     } catch {
       toast.error("Could not reorder the schedule. Your existing plan was not changed.", {
         toastId: "planner-reorder-failed",
       });
+      return;
     }
+
+    setShowReorderDialog(false);
+    if (!result.changed) {
+      toast.info("Your unfinished subject tasks are already in that order.", {
+        toastId: "planner-reorder-unchanged",
+      });
+      return;
+    }
+
+    const previousUndo = reorderUndoRef.current;
+    reorderUndoRef.current = null;
+    if (previousUndo) toast.dismiss(previousUndo.toastId);
+
+    setUnlockQuizTarget(null);
+    setPreviousSchedule(null);
+    setLastAction(null);
+    scheduleRef.current = result.schedule;
+    setSchedule(result.schedule);
+
+    const profileId = academicProfileIdRef.current;
+    const completedAtApply = completedRef.current;
+    const subjectsAtApply = subjectsRef.current;
+    const startDateAtApply = scheduleStartDateRef.current;
+    const undoToken = Symbol("planner-reorder-undo");
+    const toastId = toast.success(
+      mode === PLANNER_SCHEDULE_REORDER_MODES.PRIORITY
+        ? "Unfinished tasks reordered by difficulty."
+        : "Unfinished tasks reordered by saved syllabus order.",
+      {
+        actionLabel: "Undo",
+        autoClose: 7000,
+        onAction: () => {
+          const pendingUndo = reorderUndoRef.current;
+          if (
+            pendingUndo?.token !== undoToken
+            || scheduleRef.current !== result.schedule
+            || completedRef.current !== completedAtApply
+            || subjectsRef.current !== subjectsAtApply
+            || scheduleStartDateRef.current !== startDateAtApply
+            || academicProfileIdRef.current !== profileId
+            || !canManageScheduleRef.current
+          ) return;
+
+          reorderUndoRef.current = null;
+          scheduleRef.current = previousScheduleSnapshot;
+          setSchedule(previousScheduleSnapshot);
+          toast.success("Reorder undone.", { toastId: "planner-reorder-undone" });
+        },
+        onClose: () => {
+          if (reorderUndoRef.current?.token === undoToken) reorderUndoRef.current = null;
+        },
+      },
+    );
+    reorderUndoRef.current = {
+      appliedSchedule: result.schedule,
+      completed: completedAtApply,
+      profileId,
+      scheduleStartDate: startDateAtApply,
+      subjects: subjectsAtApply,
+      toastId,
+      token: undoToken,
+    };
   };
 
   const handleUndo = () => {
@@ -1083,11 +1158,6 @@ function Timetable({
               <ArrowDownUp aria-hidden="true" size={14} />
               Reorder
             </button>
-            {previousSchedule && lastAction === "reorder" && (
-              <button className="secondary-btn action-btn undo-btn" onClick={handleUndo} type="button" title="Undo reorder">
-                ↩ Undo
-              </button>
-            )}
             <button className="secondary-btn action-btn" disabled={scheduleComplete} onClick={rebalanceSchedule} type="button">
               Rebalance
             </button>
